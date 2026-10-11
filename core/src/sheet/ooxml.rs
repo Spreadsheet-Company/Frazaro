@@ -22,15 +22,30 @@
 //! compute holds none. The host still computes every formula when it opens
 //! the file.
 //!
+//! A filled formula is written as one shared formula, as Excel writes one,
+//! unless it holds what a shared formula may not (`PORT.13`, 2026-10-10): a
+//! reference to another sheet or another workbook, an array constant, a
+//! union, an intersection, a range built by the range operator, a `#REF!`, a
+//! table's column, a spill, a newer function. Excel writes such a fill one
+//! formula a cell, and refuses a file that shares one (the owner's run of
+//! `KERNEL.20`'s sixth slice: "Unable to get the Open property of the
+//! Workbooks class" for a Life whose rule reads another sheet), so each of
+//! its cells here holds its own formula, the master's with its references
+//! moved. The model is unchanged: it still holds the fill as one formula, and
+//! what a reader prints of the file is what it printed before.
+//!
 //! Every name here is fixed and every order is fixed, so that the same model
 //! gives the same bytes: the parts in the order [`parts`] lists them, a
 //! sheet's rows and cells in row-then-column order (the model's map), the
 //! fills and formats in the order the style table holds them.
 
+use std::collections::HashSet;
+
 use super::xml;
 use super::zip;
-use super::{cell_ref, column_width_attr, number_text, Content, Sheet, Workbook};
+use super::{cell_ref, column_width_attr, number_text, shared_masters, Content, Sheet, Workbook};
 use crate::calc::{Computed, Value, Values};
+use crate::refers::{self, Kind};
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -411,6 +426,51 @@ pub fn sheet_xml_valued(
     sheet_text(sheet, selected, render, Some((values, index)))
 }
 
+/// Whether Excel can hold a filled formula, its first cell's text `text`, as
+/// one shared formula (`PORT.13`). A shared formula holds none of what
+/// [MS-XLS] `SharedParsedFormula`, the formula of a `ShrFmla` record
+/// (2.4.260), forbids: a reference to another
+/// sheet or a span of sheets (`PtgRef3d`, `PtgArea3d`), to another workbook
+/// or its names (`PtgNameX`), a broken one (`PtgRefErr`), an array constant
+/// (`PtgArray`), a union, an intersection or a range built by the range
+/// operator (`PtgUnion`, `PtgIsect`, `PtgRange`). Read on the safe side, since
+/// a formula a cell holds alone is never refused and a shared one may be: a
+/// table's column or a spill, which the specification predates; a newer
+/// function, which Excel's binary formats hold as an external name; and any
+/// text the evaluator's parser does not read, which is how a union, an
+/// intersection and a range operator over anything but two corners arrive.
+fn shares(text: &str) -> bool {
+    if text.contains("_xlfn.") || has_array_constant(text) {
+        return false;
+    }
+    let refs = refers::scan(text);
+    if refs.iter().any(|r| {
+        !r.sheet_name.is_empty()
+            || !r.book.is_empty()
+            || matches!(
+                r.kind,
+                Kind::ThreeD | Kind::External | Kind::Broken | Kind::Structured | Kind::Spill
+            )
+    }) {
+        return false;
+    }
+    crate::calc::parse(text).is_ok()
+}
+
+/// Whether a formula's text holds an array constant: a `{` outside its
+/// quoted texts.
+fn has_array_constant(text: &str) -> bool {
+    let mut quoted = false;
+    for ch in text.chars() {
+        match ch {
+            '"' => quoted = !quoted,
+            '{' if !quoted => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
 /// A formula cell's value as a host's save holds one: the `t` attribute its
 /// kind takes and its `<v>` element, a number in the writer's spelling (zero
 /// as `0`, since no cell holds a negative zero) and one no cell can hold as
@@ -480,6 +540,26 @@ fn sheet_text(
         s.push_str("</cols>\n");
     }
     s.push_str("<sheetData>\n");
+    // The fills Excel cannot hold as one shared formula, by index, each of
+    // whose cells is written with its own formula (PORT.13).
+    let masters = shared_masters(sheet);
+    let unshared: HashSet<u32> = masters
+        .iter()
+        .filter(|(_, (text, _, _))| !shares(text))
+        .map(|(si, _)| *si)
+        .collect();
+    // The fills still shared numbered from 0 in their order, as Excel numbers
+    // its own, so that a fill written cell by cell leaves no gap: the model's
+    // numbers whenever none is.
+    let mut kept: Vec<u32> = masters
+        .keys()
+        .filter(|si| !unshared.contains(*si))
+        .copied()
+        .collect();
+    kept.sort_unstable();
+    let file_si: std::collections::HashMap<u32, u32> =
+        kept.iter().zip(0u32..).map(|(si, k)| (*si, k)).collect();
+    let numbered = |si: &u32| file_si.get(si).copied().unwrap_or(*si);
     let mut current_row: Option<u32> = None;
     for (&(row, col), cell) in &sheet.cells {
         if current_row != Some(row) {
@@ -519,12 +599,31 @@ fn sheet_text(
                 "<c r=\"{r}\" s=\"{st}\"{kind}><f>{}</f>{held}</c>",
                 xml::text(f)
             )),
+            Content::SharedMaster { text, si, .. } if unshared.contains(si) => s.push_str(
+                &format!("<c r=\"{r}\" s=\"{st}\"{kind}><f>{}</f>{held}</c>", xml::text(text)),
+            ),
+            Content::SharedChild { si } if unshared.contains(si) => {
+                // The master's text moved by the cell's distance from it, its
+                // newer functions' prefixes kept, as the file spells them.
+                let (text, m_row, m_col) = masters[si];
+                let moved = refers::shift_a1_references(
+                    text,
+                    i64::from(row) - i64::from(m_row),
+                    i64::from(col) - i64::from(m_col),
+                );
+                s.push_str(&format!(
+                    "<c r=\"{r}\" s=\"{st}\"{kind}><f>{}</f>{held}</c>",
+                    xml::text(&moved)
+                ));
+            }
             Content::SharedMaster { text, range, si } => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" ref=\"{range}\" si=\"{si}\">{}</f>{held}</c>",
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" ref=\"{range}\" si=\"{}\">{}</f>{held}</c>",
+                numbered(si),
                 xml::text(text)
             )),
             Content::SharedChild { si } => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" si=\"{si}\"/>{held}</c>"
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" si=\"{}\"/>{held}</c>",
+                numbered(si)
             )),
             Content::DynamicFormula(f) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\"{kind} cm=\"{}\"><f t=\"array\" ref=\"{r}\">{}</f>{held}</c>",
@@ -827,6 +926,102 @@ mod tests {
         // Another sheet's values are its own.
         let other = sheet_xml_valued(&wb.sheets[0], 1, true, &Render::FRESH, &held);
         assert_eq!(other, bare);
+    }
+
+    #[test]
+    fn a_fill_excel_cannot_share_is_written_one_formula_a_cell() {
+        // PORT.13: what a shared formula may not hold, each alone...
+        for text in [
+            "Data!A1*2",
+            "Output!A1+B1",
+            "'My Data'!A1",
+            "Jan:Dec!A1",
+            "[1]Sheet1!A1",
+            "SUM({1,2})+A1",
+            "#REF!+1",
+            "SUM((A1,B1))",
+            "A1:B2 B1:C2",
+            "SUM(A1:INDEX(B1:B9,2))",
+            "Table1[Amount]",
+            "A1#",
+            "_xlfn.XOR(A1>1,B1>1)",
+        ] {
+            assert!(!shares(text), "{text} must be written one formula a cell");
+        }
+        // ...and what it may, as Excel writes it.
+        for text in [
+            "B1*2",
+            "$A$1+B1",
+            "SUM(A1:A3)",
+            "Rate*B1",
+            "\"{x}\"&B1",
+            "IF(B1>1,\"big\",B1)",
+            "SUM(A:A)",
+            "ROW()*COLUMN()",
+        ] {
+            assert!(shares(text), "{text} shares");
+        }
+        // Rendered: a fill reading another sheet one formula a cell, each
+        // the first cell's text with its references moved, the value folded
+        // into each as before, and no shared index for it; the fill on its
+        // own sheet shared as before, its index the first.
+        let mut wb = Workbook::new();
+        let mut sh = Sheet::new("Output");
+        sh.set_formula(
+            crate::sheet::parse_a1_range("b1:c2").unwrap(),
+            "Data!A1*2+$D$1",
+            0,
+        );
+        sh.set_formula(crate::sheet::parse_a1_range("e1:e2").unwrap(), "B1+1", 0);
+        sh.set_formula(
+            crate::sheet::parse_a1_range("f1:f2").unwrap(),
+            "_xlfn.XOR(A1>1,B1>1)",
+            0,
+        );
+        wb.sheets.push(sh);
+        let held = Held(
+            [
+                ((0, 2, 3), Computed::Value(Value::Number(8.0))),
+                ((0, 1, 5), Computed::Value(Value::Number(3.0))),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let sx = sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &held);
+        for (cell, formula) in [
+            ("B1", "Data!A1*2+$D$1"),
+            ("C1", "Data!B1*2+$D$1"),
+            ("B2", "Data!A2*2+$D$1"),
+        ] {
+            assert!(
+                sx.contains(&format!("<c r=\"{cell}\" s=\"0\"><f>{formula}</f></c>")),
+                "{cell} in {sx}"
+            );
+        }
+        assert!(sx.contains("<c r=\"C2\" s=\"0\"><f>Data!B2*2+$D$1</f><v>8</v></c>"));
+        assert!(sx.contains(
+            "<c r=\"E1\" s=\"0\"><f t=\"shared\" ref=\"E1:E2\" si=\"0\">B1+1</f><v>3</v></c>"
+        ));
+        assert!(sx.contains("<c r=\"E2\" s=\"0\"><f t=\"shared\" si=\"0\"/></c>"));
+        assert!(!sx.contains("si=\"1\""), "{sx}");
+        assert!(!sx.contains("si=\"2\""), "{sx}");
+        // A newer function's cells keep its prefix, as the file spells it.
+        assert!(
+            sx.contains("<c r=\"F2\" s=\"0\"><f>_xlfn.XOR(A2&gt;1,B2&gt;1)</f></c>"),
+            "{sx}"
+        );
+        // What a reader prints of the file is each cell's formula, as it
+        // printed the shared one's.
+        let bytes = workbook_bytes(&wb).unwrap();
+        let rows = crate::api::reflect_relations(&bytes, "port13.xlsx").unwrap();
+        assert!(
+            rows.contains("(formula \"Output\" \"C2\" \"=Data!B2*2+$D$1\")"),
+            "{rows}"
+        );
+        assert!(
+            rows.contains("(formula \"Output\" \"E2\" \"=B2+1\")"),
+            "{rows}"
+        );
     }
 
     #[test]

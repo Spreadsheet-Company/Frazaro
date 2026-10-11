@@ -1325,3 +1325,28 @@ differs in six rows, where the build without values differed in 107: the
 stamp, a formula Excel respelled (`1E307` as `1E+307`, both `#NUM!`), and
 the four formulas this version does not compute. Every one of the 102
 values the build holds is the value Excel saved, spelled as Excel saved it.
+
+## Amendment of 2026-10-10: a fill Excel cannot share, written one formula a cell (`PORT.13`)
+
+The writer held every formula filled into a range as one shared formula,
+and Excel refused to open a build whose fill read another sheet: [MS-XLS]
+`SharedParsedFormula` forbids a shared formula a reference to another sheet
+or workbook, an array constant, a union, an intersection, a range operator
+and a `#REF!`, and Excel writes such a fill one formula a cell. Now, so
+does the writer: each cell of a fill holding any of these, or a table's
+column, a spill, a newer function, or a text the evaluator's parser does
+not read, holds its own formula, the first cell's with its references
+moved. A fill that holds none of them is one shared formula as before, the
+shared formulas left in a sheet numbered from 0 in their order.
+
+- **Oracle 7 gains a row.** `scripts/build/sheets.txt`, built with the
+  prelude and `english.vla`, is `scripts/build/sheets_golden.xlsx` byte for
+  byte: two fills that read the sheet `data`, each cell its own formula,
+  beside a fill that reads only its own sheet and stays shared, blessed as
+  the build goldens are, by the owner opening it in Excel. The two goldens
+  before it are the same bytes, neither holding a fill Excel cannot share;
+  `rebuild` says yes to all three, and the runner's fakes answer the new row
+  as the first, by its golden.
+- **Oracles 8 to 12 are unchanged.** A reader prints each cell of a fill as
+  its formula, whether the file shares it or not, so no relation, change,
+  finding, view or recalculation row moves.

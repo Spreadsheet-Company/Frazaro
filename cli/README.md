@@ -298,10 +298,13 @@ beside each non-blank line in column C, in the add-in's own layout and
 colours, so the file is a live workspace the moment the add-in is loaded.
 The other sheets hold what a sheet holds with nothing running: a value or a
 formula into a cell, a range, or rows of a column, on the sheet the program
-names (`Work on sheet Data.`, `... of sheet Output`); a filled formula is
-stored shared, a newer function under its file prefix (`_xlfn.`), a formula
-whose function can return an array (`IFS`, `FILTER`, `INDEX` and their kin)
-as Excel stores one typed into a cell, so no `@` appears. Each formula the
+names (`Work on sheet Data.`, `... of sheet Output`). A filled formula is
+stored shared, as Excel stores one, unless it reads another sheet or holds
+anything else a shared formula cannot, when each cell holds its own
+formula, as Excel writes it; a newer function is stored under its file
+prefix (`_xlfn.`); and a formula whose function can return an array (`IFS`,
+`FILTER`, `INDEX` and their kin) is stored as Excel stores one typed into a
+cell, so no `@` appears. Each formula the
 declared subset computes holds its value, as a file a host saved holds the
 values the host computed, so that a viewer or a script that calculates
 nothing reads them; a formula outside the subset holds none, and the host

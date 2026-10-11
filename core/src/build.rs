@@ -1890,23 +1890,65 @@ mod tests {
     fn the_build_golden_is_reproduced() {
         let got = crate::api::english_build_xlsx(FIXTURE, PRELUDE, &[ENGLISH])
             .unwrap_or_else(|r| panic!("the fixture did not build: {}", r.refusal));
-        if got != GOLDEN {
+        same_bytes(&got, GOLDEN, "scripts/build/fixture_golden.xlsx");
+    }
+
+    /// A build and its golden byte for byte, the first difference named by
+    /// its part and its offset.
+    fn same_bytes(got: &[u8], golden: &[u8], path: &str) {
+        if got != golden {
             let at = got
                 .iter()
-                .zip(GOLDEN.iter())
+                .zip(golden.iter())
                 .position(|(a, b)| a != b)
-                .unwrap_or(got.len().min(GOLDEN.len()));
-            let part = zip::entries(GOLDEN)
+                .unwrap_or(got.len().min(golden.len()));
+            let part = zip::entries(golden)
                 .unwrap_or_default()
                 .into_iter()
                 .find(|e| at >= e.data_offset && at < e.data_offset + e.size as usize)
                 .map(|e| format!("{} at offset {}", e.name, at - e.data_offset))
                 .unwrap_or_else(|| "a header".to_string());
             panic!(
-                "the build differs from scripts/build/fixture_golden.xlsx at byte {at} of {} ({part}); got {} bytes",
-                GOLDEN.len(),
+                "the build differs from {path} at byte {at} of {} ({part}); got {} bytes",
+                golden.len(),
                 got.len()
             );
         }
+    }
+
+    const SHEETS: &str = include_str!("../../scripts/build/sheets.txt");
+    const SHEETS_GOLDEN: &[u8] = include_bytes!("../../scripts/build/sheets_golden.xlsx");
+
+    /// PORT.13: fills that read another sheet are written one formula a cell,
+    /// as Excel writes them, and the fill on its own sheet stays shared; the
+    /// golden is regenerated as the fixture's is, with sheets.txt and
+    /// sheets_golden.xlsx, and opened in Excel.
+    #[test]
+    fn the_sheets_golden_is_reproduced() {
+        let got = crate::api::english_build_xlsx(SHEETS, PRELUDE, &[ENGLISH])
+            .unwrap_or_else(|r| panic!("sheets.txt did not build: {}", r.refusal));
+        same_bytes(&got, SHEETS_GOLDEN, "scripts/build/sheets_golden.xlsx");
+        let entries = zip::entries(&got).unwrap();
+        let output = entries
+            .iter()
+            .find(|e| e.name == "xl/worksheets/frazaro_3.xml")
+            .unwrap();
+        let part = String::from_utf8(zip::stored_data(&got, output).unwrap().to_vec()).unwrap();
+        assert!(
+            part.contains("<c r=\"B2\" s=\"0\"><f>Data!A2*10</f><v>30</v></c>"),
+            "{part}"
+        );
+        assert!(
+            part.contains("<f>SUM(Data!$A$1:$A$3)+C3</f><v>61</v>"),
+            "{part}"
+        );
+        assert!(
+            part.contains("<f t=\"shared\" ref=\"C1:C3\" si=\"0\">B1+1</f>"),
+            "{part}"
+        );
+        assert_eq!(part.matches("t=\"shared\"").count(), 3, "{part}");
+        let r = crate::api::english_rebuild_xlsx(&got, PRELUDE, &[ENGLISH])
+            .unwrap_or_else(|r| panic!("the golden did not read back: {}", r.refusal));
+        assert!(r.matches, "{}", r.why);
     }
 }

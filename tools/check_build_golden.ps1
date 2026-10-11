@@ -9,7 +9,9 @@ and the treaty's seventh oracle (conformance/README.md, the amendments of
 built with scripts/prelude.vla and scripts/polyglotta/english.vla, is
 scripts/build/fixture_golden.xlsx byte for byte; and scripts/build/into.txt,
 built into scripts/build/model.xlsx (tools/build_model_fixture.ps1 writes
-it), is scripts/build/into_golden.xlsx. The VBA reference writes no workbook
+it), is scripts/build/into_golden.xlsx; and (PORT.13) scripts/build/sheets.txt,
+whose fills read another sheet, is scripts/build/sheets_golden.xlsx, those
+fills one formula a cell as Excel writes them. The VBA reference writes no workbook
 file, so these goldens are not the reference's: they are the core's own
 output, blessed by the owner opening them in Excel, and what this check
 holds is that the writer never drifts from what was blessed without a
@@ -35,8 +37,8 @@ since CI always has it; the floors and the stamps are checked either way.
 
 -Control proves the check on fakes written to a scratch directory: one that
 copies the right golden to --out and answers rebuild by comparing to the
-goldens (must pass both rows); one that changes a byte inside the first
-Frazaro worksheet part of whatever it copies (must fail both rows, naming
+goldens (must pass every row); one that changes a byte inside the first
+Frazaro worksheet part of whatever it copies (must fail every row, naming
 the part and the offset); and a copy of the first golden with one entry's
 stamp moved off the epoch (the determinism pin must fail it, and pass the
 golden as it is).
@@ -77,9 +79,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-10, KERNEL.20's fifth slice: fixture 11443 - each of the Output
 # sheet's five formulas holds the value the build computed, as Excel's save
 # of the golden holds its own; the into golden folds nothing and is as it was.
+# 2026-10-10, PORT.13: sheets 11854 - a new golden, two fills that read another
+# sheet written one formula a cell beside one that stays shared.
 $goldens = @(
     @{ Name = 'fixture'; Fixture = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'; Into = '';                        Floor = 11443 },
-    @{ Name = 'into';    Fixture = 'scripts/build/into.txt';    Golden = 'scripts/build/into_golden.xlsx';    Into = 'scripts/build/model.xlsx'; Floor = 13697 }
+    @{ Name = 'into';    Fixture = 'scripts/build/into.txt';    Golden = 'scripts/build/into_golden.xlsx';    Into = 'scripts/build/model.xlsx'; Floor = 13697 },
+    @{ Name = 'sheets';  Fixture = 'scripts/build/sheets.txt';  Golden = 'scripts/build/sheets_golden.xlsx';  Into = '';                        Floor = 11854 }
 )
 $prelude = Join-Path $repoRoot 'scripts/prelude.vla'
 $english = Join-Path $repoRoot 'scripts/polyglotta/english.vla'
@@ -261,15 +266,17 @@ if ($Control) {
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('frazaro_build_golden_' + [System.IO.Path]::GetRandomFileName())
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
-        $g1 = ($goldens[0].Golden -replace '/', '\') ; $g2 = ($goldens[1].Golden -replace '/', '\')
+        $g1 = ($goldens[0].Golden -replace '/', '\') ; $g2 = ($goldens[1].Golden -replace '/', '\') ; $g3 = ($goldens[2].Golden -replace '/', '\')
         $p1 = (Join-Path $repoRoot $g1) -replace "'", "''"
         $p2 = (Join-Path $repoRoot $g2) -replace "'", "''"
-        # Both fakes: the golden chosen by --into; rebuild compares the file to either golden.
+        $p3 = (Join-Path $repoRoot $g3) -replace "'", "''"
+        # Both fakes: the golden chosen by --into or by the program (sheets.txt,
+        # PORT.13); rebuild compares the file to every golden.
         $common = "param([Parameter(ValueFromRemainingArguments=`$true)][string[]]`$a)`n" +
                   "function Read-Shared([string]`$p) { `$fs = New-Object System.IO.FileStream(`$p, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite); `$b = New-Object byte[] `$fs.Length; [void]`$fs.Read(`$b, 0, `$b.Length); `$fs.Dispose(); return ,`$b }`n" +
                   "function Same([byte[]]`$x, [byte[]]`$y) { if (`$x.Length -ne `$y.Length) { return `$false }; for (`$i = 0; `$i -lt `$x.Length; `$i++) { if (`$x[`$i] -ne `$y[`$i]) { return `$false } }; return `$true }`n" +
-                  "if (`$a[0] -eq 'rebuild') { `$f = [System.IO.File]::ReadAllBytes(`$a[1]); if ((Same `$f (Read-Shared '$p1')) -or (Same `$f (Read-Shared '$p2'))) { Write-Output 'yes'; exit 0 } else { Write-Output 'no'; exit 1 } }`n" +
-                  "`$b = if (`$a -contains '--into') { Read-Shared '$p2' } else { Read-Shared '$p1' }`n" +
+                  "if (`$a[0] -eq 'rebuild') { `$f = [System.IO.File]::ReadAllBytes(`$a[1]); if ((Same `$f (Read-Shared '$p1')) -or (Same `$f (Read-Shared '$p2')) -or (Same `$f (Read-Shared '$p3'))) { Write-Output 'yes'; exit 0 } else { Write-Output 'no'; exit 1 } }`n" +
+                  "`$b = if (`$a -contains '--into') { Read-Shared '$p2' } elseif (`$a[1] -like '*sheets.txt') { Read-Shared '$p3' } else { Read-Shared '$p1' }`n" +
                   "`$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]`n"
         $fake = Join-Path $tmp 'fake.ps1'
         [System.IO.File]::WriteAllText($fake, $common + "[System.IO.File]::WriteAllBytes(`$dst, `$b)`nexit 0`n")
@@ -297,7 +304,7 @@ if ($Control) {
         $r3 = Test-NoClock $clocked $null
         Write-Output ("control: the first golden's stamps {0} problem(s); the clocked copy {1}: {2}" -f $r0.Count, $r3.Count, ($r3 -join '; '))
         if ($fakeProblems -eq 0 -and $named -and $mutantProblems -eq $goldens.Count -and $r0.Count -eq 0 -and $r3.Count -eq 1) {
-            Write-Output 'OK: the check passes both goldens, fails the mutant on each naming its part and offset, and catches a clock'
+            Write-Output 'OK: the check passes every golden, fails the mutant on each naming its part and offset, and catches a clock'
             exit 0
         }
         Write-Output 'FAIL: the control did not behave as the header says'
@@ -337,7 +344,7 @@ if ($Impl -eq '' -or -not (Test-Path $Impl)) {
 
 Write-Output ''
 if ($failed.Count -eq 0) {
-    Write-Output '=== CHECK: clean - both build goldens are reproduced, at or above their floors, with no clock ==='
+    Write-Output '=== CHECK: clean - every build golden is reproduced, at or above their floors, with no clock ==='
     exit 0
 }
 Write-Output "=== CHECK: $($failed.Count) problem(s) ==="

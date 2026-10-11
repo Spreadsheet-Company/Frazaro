@@ -101,7 +101,7 @@ output:
 | LX | LX.12 | LX.13 |
 | PF | PF.6 | PF.7 |
 | PI | PI.7 | PI.8 |
-| PORT | PORT.12 | PORT.13 |
+| PORT | PORT.13 | PORT.14 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
@@ -193,7 +193,10 @@ kept as arrays, filed as one item to be adjudicated together. `KERNEL.27`
 was minted 2026-10-10 at the owner's word, for the two further gains
 `KERNEL.26`'s profile of its own frame named, the twins' cells made only
 when read and a part repeated in one formula computed once, filed as one
-item. `KERNEL.28` is next free.
+item. `KERNEL.28` is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
+writer's fills Excel cannot hold as one shared formula, found when Excel
+refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
+free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

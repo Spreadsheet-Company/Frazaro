@@ -1,0 +1,16 @@
+# The build golden of fills that read another sheet (PORT.13). Excel holds a filled
+# formula as one shared formula only when nothing in it reads another sheet, and
+# refuses a file that shares one, so such a fill is written one formula a cell, each
+# the first's with its references moved, as Excel writes it. Column B of Output
+# reads Data's column A and column D its total, each cell its own formula; column C
+# reads only Output's column B and stays one shared formula. The sheet is named
+# data and the formulas say Data, as Excel compares a sheet's name without case.
+
+Work on sheet Data.
+Put 2 into cell A1.
+Put 3 into cell A2.
+Put 5 into cell A3.
+Work on sheet Output.
+Put formula "=Data!A1*10" into range B1:B3.
+Put formula "=B1+1" into range C1:C3.
+Put formula "=SUM(Data!$A$1:$A$3)+C1" into range D1:D3.

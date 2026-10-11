@@ -284,6 +284,11 @@ function Get-Oracles([string]$root) {
                  Input = 'scripts/build/into.txt'; Golden = 'scripts/build/into_golden.xlsx'
                  Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'
                  Into = 'scripts/build/model.xlsx' })
+    # 2026-10-10 (PORT.13): fills that read another sheet, written one formula
+    # a cell as Excel writes them, beside one that stays shared.
+    $list.Add(@{ Kind = 'build'; Label = 'build/sheets.txt -> build/sheets_golden.xlsx'
+                 Input = 'scripts/build/sheets.txt'; Golden = 'scripts/build/sheets_golden.xlsx'
+                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'; Into = '' })
     # 2026-10-03 (PORT.8, slice 8a): the reflect kind, a workbook to its
     # relations as text; the fixture's golden, the two build goldens read
     # back, and the model the into golden was built into.
@@ -649,7 +654,7 @@ switch (`$kind) {
         # The golden copied to --out (the second golden when --into is given,
         # 2026-10-03 slice 7d); the mutant with one byte changed.
         `$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]
-        `$which = if (`$a -contains '--into') { 'scripts/build/into_golden.xlsx' } else { 'scripts/build/fixture_golden.xlsx' }
+        `$which = if (`$a -contains '--into') { 'scripts/build/into_golden.xlsx' } elseif (`$a[1] -like '*sheets.txt') { 'scripts/build/sheets_golden.xlsx' } else { 'scripts/build/fixture_golden.xlsx' }
         `$fs = New-Object System.IO.FileStream((Join-Path `$root `$which), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
         `$b = New-Object byte[] `$fs.Length
         [void]`$fs.Read(`$b, 0, `$b.Length)
@@ -662,7 +667,7 @@ switch (`$kind) {
         # Yes when the file is one of the goldens byte for byte, no otherwise (2026-10-03, slice 7c).
         `$f = [System.IO.File]::ReadAllBytes(`$a[1])
         `$same = `$false
-        foreach (`$which in @('scripts/build/fixture_golden.xlsx', 'scripts/build/into_golden.xlsx')) {
+        foreach (`$which in @('scripts/build/fixture_golden.xlsx', 'scripts/build/into_golden.xlsx', 'scripts/build/sheets_golden.xlsx')) {
             `$p = Join-Path `$root `$which
             if (-not (Test-Path `$p)) { continue }
             `$fs = New-Object System.IO.FileStream(`$p, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)

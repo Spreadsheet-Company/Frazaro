@@ -57,6 +57,13 @@
   workbook's cells, which the build does not read. A build takes about 3
   to 5% longer and its file is about 2% larger (KERNEL.20, its fifth
   slice).
+- **For everyone whose program fills a range with a formula that reads
+  another sheet: the workbook opens in Excel.** `Put formula "=Data!A1*2"
+  into range B1:B10.` built a file Excel refused to open, since the file
+  held the filled formula as one shared formula, which Excel never does for
+  a formula that reads another sheet. Such a fill is now written as Excel
+  writes it, each cell with its own formula; one that reads only its own
+  sheet is still held as one shared formula (PORT.13).
 - **For everyone: text a stranger wrote is refused by name, never a crash.**
   A program, a phrasebook or a cartridge holding lists nested more than 64
   deep is refused by name (`vla-form-too-deep`). Before, the reader

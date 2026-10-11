@@ -8912,6 +8912,107 @@ written against.
   its own: the expansion golden (decision 6), the handle and the four calls
   (decision 7), `SD-38`'s register line at the owner's blessing, and the first
   publish of `vla-lang` by hand at the release that carries the cut.
+- ✅ **PORT.13 — a filled formula Excel cannot hold as one shared formula,
+  written one formula a cell.** *Minted 2026-10-10 at the owner's word*,
+  "Fix the writer first", over working around it inside `KERNEL.20`'s
+  sixth slice or measuring that slice without Life.
+- *Found*: the owner's run of the sixth slice's Excel half stopped at
+  `life.xlsx` with "Unable to get the Open property of the Workbooks class",
+  Excel's answer, alerts off, to a file it will not open as it stands; the
+  three single-sheet fixtures and the flag's three files opened. Life alone
+  holds a fill that reads other sheets: its rule, filled over 62,964 cells,
+  reads `Clock!$B$1` and `Screen.last!A1:C3`, and the writer stored every
+  fill as one shared formula ("as Excel writes a filled formula", the
+  build's header). [MS-XLS] `SharedParsedFormula`, the formula a `ShrFmla`
+  record (2.4.260) holds, "MUST NOT contain" `PtgRef3d`, `PtgArea3d` and
+  their error forms, `PtgNameX`, `PtgArray`, `PtgUnion`, `PtgIsect`,
+  `PtgRange`, `PtgRefErr`, `PtgAreaErr` and more; Excel writes such a fill
+  one formula a cell, and LibreOffice's exporter met the same (its bug
+  74345: "Excel doesn't use shared formulas for those references"). No file
+  the owner had opened held one: the into golden's formulas that read the
+  model are single cells, and the reflect fixture's shared formula reads its
+  own sheet. So since `PORT.7` a program filling a range with a formula that
+  reads another sheet, `Put formula "=Data!A1*2" into range B1:B10.`, built
+  a file Excel would not open cleanly.
+- *The decisions*, built at the owner's word of the day, open to the
+  owner's veto before the commit:
+  1. **The renderer decides, not the build** (`core/src/sheet/ooxml.rs`,
+     `shares`): the model keeps the fill as one formula, which the
+     evaluator, the view record, the machine and `rebuild` read as before,
+     and the file holds what Excel would write; what a reader prints of the
+     file is what it printed before. *Alternative:* the build writing the
+     cells one by one, a change to the model every door reads.
+  2. **What is written cell by cell**: everything the specification forbids
+     that a text can hold (another sheet or a span of sheets, another
+     workbook, `#REF!`, an array constant; a union, an intersection and a
+     range operator over anything but two corners, which the evaluator's
+     parser does not read); and, read on the safe side, since a formula a
+     cell holds alone is never refused, a table's column, a spill, a newer
+     function (an external name in Excel's binary forms) and any text the
+     parser does not read. *Alternative:* references to other sheets alone,
+     which mends Life and leaves the rest to luck.
+  3. **The shared formulas left numbered from 0 in their order**, so that a
+     fill written cell by cell leaves no gap in indices Excel numbers
+     without one; the model's own numbers whenever no fill is written cell
+     by cell, so that no existing golden moves.
+  4. **A new build golden**, `scripts/build/sheets.txt` to
+     `scripts/build/sheets_golden.xlsx`: two fills that read another sheet
+     beside one that stays shared, held byte for byte by
+     `check_build_golden.ps1`, the core's `the_sheets_golden_is_reproduced`
+     and the treaty's oracle 7 (`prove.ps1`'s new row); the sheet is named
+     `data` and the formulas say `Data`, as Life's say `Clock` of `clock`.
+     The owner opens it in Excel.
+- *Built 2026-10-10*, in a worktree at `754354f`: the renderer's `shares`
+  and `has_array_constant`; its sheet walk writing such a fill's cells, each
+  the first cell's text moved by `refers::shift_a1_references` with its
+  newer functions' prefixes kept (the formula bar's `formula_text` drops
+  them), and numbering the shared formulas left; its test over thirteen
+  forbidden texts and eight allowed, a fill two by two moved, a value folded
+  into a cell written alone, a newer function's prefix kept and a reader's
+  rows; the golden, its program, its test in `build.rs` with `rebuild`;
+  `check_build_golden.ps1`'s row (floor 11,854) and its control's fakes;
+  `prove.ps1`'s row and its fake; the treaty's amendment; `cli/README.md`'s
+  build section; the release note.
+- *Measured*: the existing goldens byte for byte, the build golden and the
+  into golden alike, since neither holds a fill Excel cannot share; the new
+  golden 11,854 bytes, its nine formulas' values those `calc` computes over
+  it, every row `agree`. The Life fixture of `KERNEL.20`'s sixth slice,
+  built with this writer, holds its 62,964 formulas a cell each, 33,140,886
+  bytes where it was 3,315,190, its values the same.
+- *Oracle, met* in the worktree: `cargo test --workspace` 356 passed and 5
+  ignored, the renderer's test and the golden's new; fmt clean; clippy
+  clean, with `c-abi` too; `check_build_golden.ps1` the three goldens byte
+  for byte and `rebuild` yes to each, its control failing the mutant on
+  every row; `prove.ps1` 47 passed, 0 failed, 2 not attempted, 1 library,
+  the new row among them, its control's mutant failing all 48;
+  `run_checks.ps1` 55 of 55. Mutants of the renderer, each required to fail
+  the writer's tests: every fill shared, as before; a reference to another
+  sheet not seen; a newer function not seen; the shared formulas left
+  numbered as the model numbers them; a cell written alone given the
+  formula bar's text, its prefix dropped; a cell written alone given the
+  first cell's text unmoved. All six were caught, and the clean run after
+  them passed. A seventh, an array constant not seen, is equivalent today:
+  the parser does not read an array constant, so such a text goes cell by
+  cell all the same, and the check stays as the rule's own statement for the
+  day it does.
+- *The owner's step, met* 2026-10-11: `scripts/build/sheets_golden.xlsx`
+  opened in Excel 365 with no repair prompt ("No repair prompt displays upon
+  opening ... sheets_golden.xlsx"), `output` showing B1:B3 20, 30 and 50,
+  C1:C3 21, 31 and 51, D1:D3 31, 41 and 61; and the sixth slice's Life
+  fixture, built with this writer and 33,140,886 bytes long, opened in that
+  slice's Excel half, which had refused it.
+- *Committed 2026-10-11 at the owner's word*, "Commit PORT.13", on its own
+  and before the sixth slice, over the release commit `2eb54b7` and the
+  peer's `KERNEL.27` (`dc07e67`), onto which the item was carried with no
+  conflict. The golden was built again with the 0.9.0 door, as the release
+  built the two before it again: ten bytes differ, the stamp's version and
+  the two checksums of `xl/workbook.xml`, and the length is 11,854 as
+  before. Its note is under 0.9.0 in `RELEASES.md`, the release not yet
+  tagged. The tree was checked first in the worktree: `cargo test
+  --workspace` 361 passed and 5 ignored, fmt and clippy clean,
+  `run_checks.ps1` 55 of 55, `prove.ps1` 47 passed, 0 failed, 2 not
+  attempted, 1 library. `PORT.13` closes, ✅, its line moved to the closed
+  ledger.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -35070,6 +35171,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.7 — the writer.** Slice 3 of `HORIZON.md` §12, new ground with no VBA to port (`core/src/sheet/`, `core/src/build.rs`, `core/src/sha256.rs`): `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla --out program.xlsx` writes a workbook from sentences with nothing installed, deterministic to the byte (stored entries stamped 1980-01-01, a fixed part order, no author and no date): the `Frazaro` sheet in the room's own layout, the other sheets holding what a sheet holds with nothing running (values and formulas, a fill shared as Excel shares it, newer functions under `_xlfn.`, a formula that can return an array stored as `Formula2` stores it), every sentence that needs Run refused by name with its line; the stamp `Frazaro.Build` and `frazaro rebuild` (yes, or no with why; a host's save refused as not a build); `--into model.xlsx` with the model's parts copied as they were and four edited at one place each (RFC 1951's decoder from nothing, the zip reader generalised); the C-ABI's `frazaro_build_xlsx` and the page's *Download as .xlsx* with the digest beside it. Oracle 7: two goldens held byte for byte by `check_build_golden.ps1` and the core's tests, each opened by the owner; the page's download the first golden's bytes and digest, opened in Excel, `rebuild` yes. Scoped 2026-10-02 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; generic first, the Controls sheet to `AXM.2`); built, owner-verified and closed 2026-10-03 in five slices and five commits of its own; 171 Rust tests, 41 checks, ten catalogue ids under `VLA-Build`, the treaty amended four times that day; two predictions of step 0 corrected by the live passes and one defect of a slice found on the owner's Excel-saved copy and refused by name. *(more: the full entry, earlier in this file)* `~weeks` as filed; a day as built.
 - ✅ **PORT.8 — the reader: `REFLECT` over a file.** Slice 4 of `HORIZON.md` §12, new ground with no VBA to port but `VLA_Refers.bas`, which `AXM.7` wrote first as the golden to port against (`core/src/reflect/`, `core/src/refers.rs`): `frazaro reflect model.xlsx` prints a workbook's sheets, names, Tables, cells, formulas and what each formula refers to as relations in a fixed order, read from the file with nothing installed, an `.xlsx` package or an `.ods` OpenDocument spreadsheet, a formula from either spelled as the formula bar shows it; `--counts` the counts and times alone, `AXM.1`'s second number, and `--cone <Sheet!A1>` a cell's cone sized through names and Tables and across sheets; `frazaro diff old new` what changed between two files, the sheets in one alone, the names and Tables, then the cells old and new side by side; `frazaro audit model.xlsx` Stage 2.3's audit list as six named walks, each defined in words in the treaty before its code; the C-ABI's `frazaro_reflect`, `frazaro_audit` and `frazaro_diff`, and the page's Reflect pane, a workbook picked from disk and read in the browser, sent nowhere. Oracles 8, 9 and 10: eight relations goldens, five diff pairs and five audit goldens held whole by `check_reflect_golden.ps1`, `check_diff_golden.ps1` and `check_audit_golden.ps1` (the 42nd, 44th and 45th checks), by the core's tests and by `prove.ps1`, each fixture opened by the owner in Excel, two of them Excel's own saves kept as written. Scoped 2026-10-03 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; three forks decided as recommended: `AXM.7` in the VBA first with a golden, `reflect`/`diff`/`audit` with `ask` waiting, ODF its own slice); built, owner-verified and closed 2026-10-05 in six slices and six commits of its own (8a to 8f), `AXM.7` closing between 8a and 8b; 212 Rust tests, the treaty amended slice by slice; Excel's reader of `.ods` taught the fixture four things on the way (a stored mimetype, no ODF 1.3 attribute, no sheet-local name, an absolute link). Deferred at the close, the owner's call: the door `ask` to `AXM.9` and `PORT.9`, the real-model counts to `AXM.13`, every other piece of work to later items. *(more: the full entry, earlier in this file)* `~weeks` as filed; three days as built.
 - ✅ **PORT.12 — the cut: `vla-lang`, the language as a crate of its own.** *Minted 2026-10-08, out of number order because it precedes `PORT.9` and `PORT.10` on this road and `KERNEL.6` and `KERNEL.7` on the KERNEL line; the boundary was decided the same day in Alonzo's sessions (`Alonzo/CHARTER.md` §4 rule 1, `AD-1`; the sitting as seen from here is in `BETA_REARVIEW.md` under the KERNEL line, and the scoping under this part).* Three crates in one dependency order. `vla-lang` is the language and nothing else: the reader, the expander, the forms and the head table, the catalogue's mechanism with the language's own refusals, the grid with its A1 coordinates and the references read out of a formula's text, the view record as the grid's projection; no English, no Excel, no clock, an empty import section. `frazaro-core` consumes it and keeps the bridges: the phrasebooks and the matcher with their proofs, the VBA and formula emitters, the OOXML and OpenDocument writer and readers, the stamp, the ABI and the treaty's oracles. Alonzo's engine consumes `vla-lang` and never `frazaro-core`. A pure move, about 5,500 of the core's 30,559 lines by the day's census with the reference reader (4,300 without it), moved and re-exported so that every path a door uses resolves as before: no behaviour changes, no refusal is added, no golden is regenerated. *Oracle:* every existing test and golden green with none regenerated; `cargo test --workspace`; `run_checks.ps1` at 52 of 52 with `check_crate_package`'s member pin at 3; `prove.ps1 -Impl` unchanged; `frazaro_core.wasm` still at zero imports and `vla_lang.wasm` at zero; `cargo tree -p frazaro-core` showing `vla-lang`. *Pays into:* `KERNEL.7` and `KERNEL.20` (the evaluator lands in `vla-lang`), `PORT.9` and `PORT.10` (Excel's functions and the engines register through its seam), the item that lands the handle and the four calls of `Alonzo/SPEC.md` §4 (a candidate, not minted), and `KERNEL.5` laid in Alonzo. *Scoped:* 2026-10-08, `BETA_REARVIEW.md` (the census re-run, the move list, nine decisions with a recommendation each, the catch, the oracle); nothing moves before the owner approves the decisions. `~days` **Built 2026-10-08, awaiting the owner's test:** `vla-lang/` is the third member, the language's files moved whole with their tests and the core re-exporting every path, so nothing a door calls moves; the catalogue in two halves from the one VBA source; 236 tests passed and 4 ignored across the two crates, 52 of 52 checks with the member pin at 3 and the include floor at 7, `prove.ps1 -Impl` unchanged, both modules at zero imports, `cargo tree -p frazaro-core` showing `vla-lang` alone; nothing under `scripts/` touched. The record is in `BETA_REARVIEW.md` under this part. *(more: the full entry, earlier in this file)* `~days` as filed; one day as built.
+- ✅ **PORT.13 — a filled formula Excel cannot hold as one shared formula, written one formula a cell.** Minted, built, owner-tested and committed 2026-10-10 to 2026-10-11 at the owner's word, from `KERNEL.20`'s sixth slice, whose Life fixture Excel refused to open. The writer (`PORT.7`) held every fill as one shared formula, and [MS-XLS] `SharedParsedFormula` forbids a shared formula a reference to another sheet or workbook, an array constant, a union, an intersection, a range operator and a `#REF!`, so since `PORT.7` a program filling a range with a formula that reads another sheet built a file Excel would not open cleanly. The renderer (`core/src/sheet/ooxml.rs`, `shares`) writes such a fill one formula a cell, each the first cell's with its references moved, the model and every reader's rows unchanged; on the safe side a table's column, a spill, a newer function and any text the parser does not read go the same way, and the shared formulas left are numbered from 0. Oracle: a new build golden, `scripts/build/sheets.txt` to `sheets_golden.xlsx`, in `check_build_golden`, the core's tests and the treaty's oracle 7, opened by the owner in Excel with no repair; the goldens before it byte for byte; six of seven mutants caught, the seventh equivalent. *(more: the full entry, Part B)*
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT
