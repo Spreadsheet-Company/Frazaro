@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.28 | KERNEL.29 |
+| KERNEL | KERNEL.29 | KERNEL.30 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -196,7 +196,13 @@ when read and a part repeated in one formula computed once, filed as one
 item. `KERNEL.28` was minted 2026-10-11 at the owner's word, for the
 language's remaining functions computed by a run, `ROW`, `COLUMN`, `MOD`,
 `INT`, `ABS`, `SIN` and `CHOOSE`, the ask of Alonzo's `CART.2` (its decision
-14), and scoped the same day; `KERNEL.29` is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
+14), and scoped the same day. `KERNEL.29` was minted 2026-10-12 at the
+owner's word, for `LET` and `LAMBDA`, the slice of their own `KERNEL.8`
+names, with a parity floor, a named function as fast as the formula it
+stands for, and three decisions for its scoping, recursion, functions as
+values and visibility, from the owner's requirement, given in an Alonzo
+session, that a function written in formulas be first-class; `KERNEL.30`
+is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
 free.
