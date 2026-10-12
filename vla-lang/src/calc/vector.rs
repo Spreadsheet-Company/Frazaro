@@ -26,7 +26,18 @@
 //! no effect but its answer. A constant, and a reference every `$` holds, is
 //! computed once for the run. What is not computed here is computed at each
 //! cell by [`Ctx`] itself: a defined name, a form other than the language's
-//! `IF`, a range where one value is wanted, and a call with such an operand.
+//! `IF` and `CHOOSE`, a range where one value is wanted, and a call with such
+//! an operand.
+//!
+//! The language's other functions are computed here by the library's own
+//! meaning of each (KERNEL.28): `ABS`, `INT`, `SIN` and `MOD` at the cells
+//! where every operand is a number, computed or read where it stands, by the
+//! library's function of numbers, and at any other cell by the library's
+//! strict function there, so that no coercion, nor the order in which a call
+//! meets its operands' reasons and errors, is written here; `ROW` and
+//! `COLUMN` from the run's own cells, or from a reference's first cell moved
+//! to each; and `CHOOSE` as `IF` is, its index at every cell and each value
+//! at the cells that choose it and at no other.
 //!
 //! A lane holds each cell's answer as a value, or, while every answer is
 //! one, as a number or a truth value (KERNEL.26): what a read of numbers,
@@ -67,7 +78,7 @@ use super::eval::{
 };
 use super::formula::{BinOp, Expr, RefExpr};
 use super::graph::{Area, CellId};
-use super::library::{self, Fold, Ranged, Rule};
+use super::library::{self, Axis, Fold, Ranged, Rule};
 use super::value::{ErrorKind, Value};
 
 /// The most cells evaluated at once: a lane of them is a few kilobytes, so
@@ -221,7 +232,24 @@ pub(crate) fn holds(lib: &Library, e: &Expr) -> (usize, usize) {
         }
         Expr::Call(name, args) => {
             if lib.form(name).is_some() {
-                if lib.known(name) != Some(Known::If) || !(2..=3).contains(&args.len()) {
+                let known = lib.known(name);
+                if known == Some(Known::Choose) && args.len() >= 2 {
+                    // The index's lane, and the answers' beside it while the
+                    // cells are labelled by the value each chooses and
+                    // gathered by value, three lists of positions (KERNEL.28);
+                    // then each value beside the answers, two of the lists
+                    // and the positions its cells stand at.
+                    let (mut values, mut positions) = holds(lib, &args[0]);
+                    values = values.max(2);
+                    positions = positions.max(3);
+                    for a in &args[1..] {
+                        let (v, p) = holds(lib, a);
+                        values = values.max(1 + v);
+                        positions = positions.max(3 + p);
+                    }
+                    return (values, positions);
+                }
+                if known != Some(Known::If) || !(2..=3).contains(&args.len()) {
                     return (1, 0);
                 }
                 // The condition's lane, and the answers' beside it while the
@@ -277,13 +305,15 @@ fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr> {
 }
 
 /// Whether [`Ctx::eval`] of an expression is a value at every cell: anything
-/// but a reference, a name, or a form whose answer may be one.
+/// but a reference, a name, or a form whose answer may be one; the
+/// language's `IF` and `CHOOSE` answer one of their own arguments, and are a
+/// value when every one they may answer is (KERNEL.28).
 fn yields_value(lib: &Library, e: &Expr) -> bool {
     match e {
         Expr::Ref(_) | Expr::Name { .. } => false,
         Expr::Pos(x) => yields_value(lib, x),
         Expr::Call(name, args) => match lib.known(name) {
-            Some(Known::If) => args.iter().skip(1).all(|a| yields_value(lib, a)),
+            Some(Known::If | Known::Choose) => args.iter().skip(1).all(|a| yields_value(lib, a)),
             _ => lib.form(name).is_none(),
         },
         _ => true,
@@ -675,6 +705,19 @@ enum Parted {
     Answer(Lane),
     /// Each cell's own: the answers' lane, a place held for each, and the
     /// cells that take each branch, by place in the selection.
+    Cells(Lane, Vec<u32>, Vec<u32>),
+}
+
+/// How `CHOOSE`'s index at every cell parts the cells of a selection
+/// (KERNEL.28), as [`Parted`] has `IF`'s conditions.
+enum Picked {
+    /// Every cell chooses the one value.
+    All(usize),
+    /// The answer at every cell, the index a reason or an error.
+    Answer(Lane),
+    /// Each cell's own: the answers' lane, a place held for each cell that
+    /// chooses a value; the cells' places in the selection by the value they
+    /// choose; and where each value's places begin among them.
     Cells(Lane, Vec<u32>, Vec<u32>),
 }
 
@@ -1255,15 +1298,16 @@ impl<'a> Many<'a> {
         }
     }
 
-    /// A call at every cell: the language's `IF` here, another form at
-    /// each cell, one of the language's aggregates or `NOT` here by the
-    /// library's own rule and fold, any other strict function over its
-    /// operands, a function the library does not hold named, in the order
-    /// `Ctx` looks them up.
+    /// A call at every cell: the language's `IF` and `CHOOSE` here, another
+    /// form at each cell, one of the language's functions here by the
+    /// library's own meaning, any other strict function over its operands, a
+    /// function the library does not hold named, in the order `Ctx` looks
+    /// them up.
     fn call(&self, e: &Expr, name: &str, args: &[Expr], sel: Sel) -> Lane {
         if self.lib.form(name).is_some() {
             return match self.lib.known(name) {
                 Some(Known::If) => self.if_(args, sel),
+                Some(Known::Choose) => self.choose(args, sel),
                 _ => self.each_cell(e, sel),
             };
         }
@@ -1300,10 +1344,23 @@ impl<'a> Many<'a> {
     }
 
     /// One of the language's own functions the run knows, over its operands
-    /// computed (KERNEL.26), by the run itself when its operands are ones it
-    /// walks.
-    fn known_call(&self, name: &str, ops: &mut [Operand<'_>], sel: Sel) -> Option<Lane> {
-        self.known(self.lib.known(name)?, ops, sel)
+    /// computed, by the run itself: an aggregate or `NOT` when its operands
+    /// are ones it walks (KERNEL.26), a function of numbers or of a cell's
+    /// place as the paths below take it (KERNEL.28); `None` for a call left to
+    /// the library's function `f` at each cell.
+    fn known_call(&self, f: Strict, name: &str, ops: &mut [Operand<'_>], sel: Sel) -> Option<Lane> {
+        match self.lib.known(name)? {
+            // Each function of numbers its own instance of the path, so that
+            // the library's function is compiled into it (as `aggregate` is
+            // compiled for each fold).
+            Known::Abs => self.of_numbers(f, 1, ops, sel, |a, _| library::abs_of(a)),
+            Known::Int => self.of_numbers(f, 1, ops, sel, |a, _| library::int_of(a)),
+            Known::Sin => self.of_numbers(f, 1, ops, sel, |a, _| library::sin_of(a)),
+            Known::Mod => self.of_numbers(f, 2, ops, sel, library::mod_of),
+            Known::Row => self.placed(Axis::Row, ops, sel),
+            Known::Column => self.placed(Axis::Column, ops, sel),
+            known => self.known(known, ops, sel),
+        }
     }
 
     /// An operand at every cell, [`is_operand`] having said it can be one.
@@ -1363,9 +1420,257 @@ impl<'a> Many<'a> {
             Known::Max => self.aggregate::<library::Most>(ops, kept, sel, numbers()),
             Known::And => self.aggregate::<library::All>(ops, kept, sel, truths()),
             Known::Or => self.aggregate::<library::Some_>(ops, kept, sel, truths()),
-            // A form, and `NOT` above.
-            Known::If | Known::Not => return None,
+            // The forms, `NOT` above, and the functions `known_call` takes
+            // to their own paths (KERNEL.28).
+            Known::If
+            | Known::Choose
+            | Known::Not
+            | Known::Abs
+            | Known::Int
+            | Known::Sin
+            | Known::Mod
+            | Known::Row
+            | Known::Column => return None,
         })
+    }
+
+    /// `ROW` and `COLUMN` at every cell (KERNEL.28), as `library::placed`
+    /// answers at one: of no operand, the cell itself, which the run knows
+    /// as the cell `Env::enter` would tell the environment, a lane of numbers
+    /// made with no call; of a reference written as one whose sheets the
+    /// shape found as it was placed, or that names none, its first cell moved
+    /// to the cell, `#VALUE!` where the move leaves the sheet; `None`, the
+    /// library's function at each cell, for any other operand or count, and
+    /// for a reference whose sheet is found by name at each evaluation.
+    #[inline(never)]
+    fn placed(&self, axis: Axis, ops: &mut [Operand<'_>], sel: Sel) -> Option<Lane> {
+        match ops {
+            [] => {
+                let mut numbers = self.take_numbers();
+                numbers.extend((0..sel.len()).map(|k| {
+                    let (_, row, column) = self.cells[sel.at(k)];
+                    axis.of(row, column)
+                }));
+                Some(Lane::Numbers(numbers))
+            }
+            [Operand::Ref(r)]
+                if r.found.is_some() || (r.sheet.is_none() && r.last_sheet.is_none()) =>
+            {
+                let mut out = Lane::Numbers(self.take_numbers());
+                for k in 0..sel.len() {
+                    let (d_row, d_col) = self.offset(sel.at(k));
+                    let cell = r.moved(d_row, d_col).map(|(top, left, _, _)| (top, left));
+                    self.push(&mut out, Ok(library::placed(axis, cell)));
+                }
+                Some(out)
+            }
+            _ => None,
+        }
+    }
+
+    /// `ABS`, `INT`, `SIN` and `MOD` at every cell (KERNEL.28): at a cell
+    /// where each of its `count` operands is a number, computed, the same at
+    /// every cell, or read where it stands from a reference written as one
+    /// cell, the library's function of numbers `g`, a function of one number
+    /// reading no second; at any other cell the library's function `f` there,
+    /// its operands taken as alone, so that the coercions and the order in
+    /// which a call meets its operands' reasons and errors stay the library's
+    /// and `Ctx`'s. `None`, the library's function at each cell, for another
+    /// count of operands, and for a reference to more than one cell or
+    /// across sheets. The references are read, and the cells computed, each
+    /// in a frame of its own, so that neither stands beneath the other.
+    #[inline(never)]
+    fn of_numbers<G: Fn(f64, f64) -> Value>(
+        &self,
+        f: Strict,
+        count: usize,
+        ops: &mut [Operand<'_>],
+        sel: Sel,
+        g: G,
+    ) -> Option<Lane> {
+        if ops.len() != count {
+            return None;
+        }
+        let one_cell = |r: &RefExpr| matches!(r.shape, Part::Cell) && r.last_sheet.is_none();
+        if ops
+            .iter()
+            .any(|x| matches!(x, Operand::Ref(r) if !one_cell(r)))
+        {
+            return None;
+        }
+        let read = self.read_refs(ops, sel);
+        Some(self.numbers_by(f, count, ops, read, sel, g))
+    }
+
+    /// Each reference written as one among a call's operands read where it
+    /// stands, as the run reads one (KERNEL.28).
+    #[inline(never)]
+    fn read_refs(&self, ops: &[Operand<'_>], sel: Sel) -> [Option<Lane>; 2] {
+        let mut read: [Option<Lane>; 2] = [None, None];
+        for (j, x) in ops.iter().enumerate().take(2) {
+            if let Operand::Ref(r) = x {
+                read[j] = Some(self.reads(r, sel));
+            }
+        }
+        read
+    }
+
+    /// [`Many::of_numbers`] at each cell, the references read.
+    #[inline(never)]
+    fn numbers_by<G: Fn(f64, f64) -> Value>(
+        &self,
+        f: Strict,
+        count: usize,
+        ops: &mut [Operand<'_>],
+        read: [Option<Lane>; 2],
+        sel: Sel,
+        g: G,
+    ) -> Lane {
+        let n = sel.len();
+        let mut out = Lane::Numbers(self.take_numbers());
+        for k in 0..n {
+            let a = number_at(operand_lane(&read[0], &ops[0]), k);
+            let b = match count {
+                2 => number_at(operand_lane(&read[1], &ops[1]), k),
+                _ => Some(0.0),
+            };
+            let got = match (a, b) {
+                (Some(a), Some(b)) => Ok(g(a, b)),
+                _ => self.alone(f, ops, k, k + 1 == n, sel),
+            };
+            self.push(&mut out, got);
+        }
+        for lane in read.into_iter().flatten() {
+            self.give_lane(lane);
+        }
+        out
+    }
+
+    /// A strict function at the selection's `k`th cell alone, its operands
+    /// taken there as the run's other calls take them (KERNEL.28).
+    fn alone(&self, f: Strict, ops: &mut [Operand<'_>], k: usize, last: bool, sel: Sel) -> Got {
+        let ctx = self.ctx(sel.at(k));
+        match ops {
+            [x] => match take_arg(x, k, last, &ctx) {
+                Ok(a) => f(&ctx, std::slice::from_ref(&a)),
+                Err(r) => Err(r),
+            },
+            [x, y] => match take_arg(x, k, last, &ctx) {
+                Err(r) => Err(r),
+                Ok(a) => match take_arg(y, k, last, &ctx) {
+                    Err(r) => Err(r),
+                    Ok(b) => f(&ctx, &[a, b]),
+                },
+            },
+            _ => {
+                let mut args = Vec::with_capacity(ops.len());
+                for x in ops.iter_mut() {
+                    args.push(take_arg(x, k, last, &ctx)?);
+                }
+                f(&ctx, &args)
+            }
+        }
+    }
+
+    /// `CHOOSE` at every cell (KERNEL.28), as `library::choose` computes it
+    /// at one: the index at each, then each value at the cells that choose
+    /// it and at no other, its answers placed among the others as `IF`'s
+    /// branches' are.
+    fn choose(&self, args: &[Expr], sel: Sel) -> Lane {
+        if args.len() < 2 {
+            return Lane::Same(Ok(Value::Error(ErrorKind::Value)));
+        }
+        let index = self.scalars(&args[0], sel);
+        let (mut out, order, starts) = match self.picked(index, args.len() - 1, sel) {
+            Picked::All(j) => return self.scalars(&args[j], sel),
+            Picked::Answer(lane) => return lane,
+            Picked::Cells(out, order, starts) => (out, order, starts),
+        };
+        for j in 1..args.len() {
+            let (from, to) = (starts[j] as usize, starts[j + 1] as usize);
+            if from < to {
+                self.fill_value(&mut out, &args[j], sel, &order[from..to]);
+            }
+        }
+        self.give_positions(order);
+        self.give_positions(starts);
+        out
+    }
+
+    /// How `CHOOSE`'s index at every cell of the selection parts its cells
+    /// (KERNEL.28), in a frame of its own, as [`Many::parted`] is: each cell
+    /// labelled by the value it chooses, `library::chosen`, or answered by its
+    /// index's reason or error; then the cells by value, a count of the
+    /// labels, `order` the places of each value's cells, value `j`'s from
+    /// `starts[j]` to `starts[j + 1]`, so that every value's cells are found
+    /// in one pass over them whatever the count of values.
+    #[inline(never)]
+    fn picked(&self, index: Lane, count: usize, sel: Sel) -> Picked {
+        if let Lane::Same(got) = &index {
+            return match got {
+                Err(r) => Picked::Answer(Lane::Same(Err(r.clone()))),
+                Ok(v) => match library::chosen(v, count) {
+                    Ok(j) => Picked::All(j),
+                    Err(e) => Picked::Answer(Lane::Same(Ok(Value::Error(e)))),
+                },
+            };
+        }
+        let n = sel.len();
+        let mut labels = self.positions();
+        let mut out = Lane::Numbers(self.take_numbers());
+        for k in 0..n {
+            let chose = index.with(k, |g| match g {
+                Err(r) => Err(Err(r.clone())),
+                Ok(v) => library::chosen(v, count).map_err(|e| Ok(Value::Error(e))),
+            });
+            match chose {
+                // A place held for the value's answer.
+                Ok(j) => {
+                    labels.push(j as u32);
+                    self.push(&mut out, Ok(Value::Number(0.0)));
+                }
+                Err(answer) => {
+                    labels.push(0);
+                    self.push(&mut out, answer);
+                }
+            }
+        }
+        self.give_lane(index);
+        // A count of the labels, each a value's last place and one more, then
+        // the places from the last back, each value's taking its places in
+        // the selection's order and its count down to its first.
+        let mut starts = self.positions();
+        starts.resize(count + 2, 0);
+        for &j in labels.iter() {
+            starts[j as usize] += 1;
+        }
+        for j in 1..starts.len() {
+            starts[j] += starts[j - 1];
+        }
+        let mut order = self.positions();
+        order.resize(n, 0);
+        for k in (0..n).rev() {
+            let j = labels[k] as usize;
+            starts[j] -= 1;
+            order[starts[j] as usize] = k as u32;
+        }
+        self.give_positions(labels);
+        Picked::Cells(out, order, starts)
+    }
+
+    /// One of `CHOOSE`'s values at the cells that choose it (KERNEL.28), `ks`
+    /// their places in the selection, its answers placed in `out`.
+    fn fill_value(&self, out: &mut Lane, value: &Expr, sel: Sel, ks: &[u32]) {
+        let lane = if ks.len() == sel.len() {
+            self.scalars(value, sel)
+        } else {
+            let mut at = self.positions();
+            at.extend(ks.iter().map(|&k| sel.at(k as usize) as u32));
+            let lane = self.scalars(value, Sel::Some(&at));
+            self.give_positions(at);
+            lane
+        };
+        self.place(out, lane, sel, ks);
     }
 
     /// `NOT` at every cell, over the value its operand is there, as
@@ -1494,7 +1799,7 @@ impl<'a> Many<'a> {
     /// cell, its answers a lane of numbers while each is one.
     #[inline(never)]
     fn apply_one(&self, f: Strict, name: &str, x: &mut Operand<'_>, sel: Sel) -> Lane {
-        if let Some(lane) = self.known_call(name, std::slice::from_mut(x), sel) {
+        if let Some(lane) = self.known_call(f, name, std::slice::from_mut(x), sel) {
             return lane;
         }
         let (mut out, n) = (Lane::Numbers(self.take_numbers()), sel.len());
@@ -1523,7 +1828,7 @@ impl<'a> Many<'a> {
     ) -> Lane {
         let held = || Operand::Value(Lane::Same(Ok(Value::Empty)));
         let mut pair = [std::mem::replace(x, held()), std::mem::replace(y, held())];
-        let known = self.known_call(name, &mut pair, sel);
+        let known = self.known_call(f, name, &mut pair, sel);
         let [a, b] = pair;
         (*x, *y) = (a, b);
         if let Some(lane) = known {
@@ -1547,7 +1852,7 @@ impl<'a> Many<'a> {
     /// Any other count, in a vector made once for the run.
     #[inline(never)]
     fn apply_many(&self, f: Strict, name: &str, ops: &mut [Operand<'_>], sel: Sel) -> Lane {
-        if let Some(lane) = self.known_call(name, ops, sel) {
+        if let Some(lane) = self.known_call(f, name, ops, sel) {
             return lane;
         }
         let (mut out, n) = (Lane::Numbers(self.take_numbers()), sel.len());
@@ -1752,5 +2057,29 @@ fn take_arg<'e>(
     match x {
         Operand::Ref(r) => ctx.reference(r),
         Operand::Value(lane) => lane.take_at(k, last).map(Arg::Scalar),
+    }
+}
+
+/// An operand's lane for a function of numbers (KERNEL.28): a reference's,
+/// read where it stands, or a value's own.
+fn operand_lane<'l>(read: &'l Option<Lane>, op: &'l Operand<'_>) -> Option<&'l Lane> {
+    match (read, op) {
+        (Some(lane), _) => Some(lane),
+        (None, Operand::Value(lane)) => Some(lane),
+        (None, Operand::Ref(_)) => None,
+    }
+}
+
+/// The number an operand's lane holds at the selection's `k`th cell, when it
+/// holds one there (KERNEL.28).
+fn number_at(lane: Option<&Lane>, k: usize) -> Option<f64> {
+    match lane? {
+        Lane::Numbers(ns) => Some(ns[k]),
+        Lane::Same(Ok(Value::Number(n))) => Some(*n),
+        Lane::Each(each) => match &each[k] {
+            Ok(Value::Number(n)) => Some(*n),
+            _ => None,
+        },
+        Lane::Same(_) | Lane::Truths(_) => None,
     }
 }

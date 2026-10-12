@@ -3022,9 +3022,13 @@ mod tests {
 
     /// A formula of the language's functions over every kind of node the
     /// evaluation of a run computes, and of those it leaves to each cell: a
-    /// name, `CHOOSE`, a range where one value is wanted, a call whose
-    /// operand may be an area; and a part written more than once, which a run
-    /// computes once where its places stand in one branch (KERNEL.27).
+    /// name, a range where one value is wanted, a call whose operand may be
+    /// an area; a part written more than once, which a run computes once
+    /// where its places stand in one branch (KERNEL.27); and the edges of the
+    /// functions a run computes by their meanings (KERNEL.28): `CHOOSE`'s
+    /// index at each end of its count, `MOD` by 0 and of each sign, `ROW` and
+    /// `COLUMN` of a reference across sheets or off the sheet, `CHOOSE`
+    /// beside and inside the run's other calls.
     fn expr(d: &mut Dice, at: &Band, depth: u32) -> String {
         if depth >= 3 || d.below(4) == 0 {
             return leaf(d, at);
@@ -3042,7 +3046,7 @@ mod tests {
                 .collect();
             parts.join(",")
         };
-        match d.below(20) {
+        match d.below(24) {
             0 => format!("-({})", e(d)),
             1 => format!("({})%", e(d)),
             2 => format!("+{}", reference(d, at)),
@@ -3103,6 +3107,77 @@ mod tests {
                 let p = format!("({q})-({q})*2");
                 format!("({p})+({p})")
             }
+            // CHOOSE of two to six values, its index at each end of its count,
+            // of each kind, or the row's, whose cells choose every value and
+            // one past the last (KERNEL.28).
+            20 => {
+                let n = 2 + d.below(5);
+                let index = match d.below(4) {
+                    0 => d
+                        .pick(&["0.5", "1", "-1", "\"2\"", "TRUE", "1E+300"])
+                        .to_string(),
+                    1 => format!("{n}{}", d.pick(&["", ".9", "+1"])),
+                    2 => format!("MOD(ROW(),{})+1", n + 1),
+                    _ => e(d),
+                };
+                let values: Vec<String> = (0..n).map(|_| e(d)).collect();
+                format!("CHOOSE({index},{})", values.join(","))
+            }
+            // MOD by 0, and of each sign.
+            21 => match d.below(3) {
+                0 => format!("MOD({},0)", e(d)),
+                1 => format!("MOD(-({}),{})", e(d), e(d)),
+                _ => format!(
+                    "MOD(ROW()-{},{})",
+                    1 + d.below(5),
+                    d.pick(&["-3", "2", "-0.5", "ROW()-3"])
+                ),
+            },
+            // ROW and COLUMN of a reference to another sheet, a twin, a span,
+            // a sheet the grid does not hold, or moved off the sheet.
+            22 => {
+                let r = match d.below(3) {
+                    0 => reference(d, at),
+                    1 => range(d, at),
+                    _ => d
+                        .pick(&[
+                            "A1048576",
+                            "XFD1",
+                            "A:B!$A3",
+                            "Gone!A1",
+                            "$A:$B",
+                            "A.last!3:3",
+                        ])
+                        .to_string(),
+                };
+                format!("{}({r})", d.pick(&["ROW", "COLUMN"]))
+            }
+            // CHOOSE an operand of the calls the run computes, inside IF, and
+            // around IF.
+            23 => match d.below(3) {
+                0 => format!(
+                    "{}(CHOOSE(MOD(ROW(),2)+1,{},{}),{})",
+                    d.pick(&["MOD", "SUM", "MAX", "ABS"]),
+                    e(d),
+                    e(d),
+                    e(d)
+                ),
+                1 => format!(
+                    "IF({},CHOOSE(MOD(ROW(),3)+1,{},{},{}),{})",
+                    e(d),
+                    e(d),
+                    e(d),
+                    e(d),
+                    e(d)
+                ),
+                _ => format!(
+                    "CHOOSE(MOD(ROW(),2)+1,IF({},{},{}),{})",
+                    e(d),
+                    e(d),
+                    e(d),
+                    e(d)
+                ),
+            },
             _ => format!("{}*{}", reference(d, at), reference(d, at)),
         }
     }
@@ -3510,8 +3585,13 @@ mod tests {
         // KERNEL.26: a run computes the language's aggregates and `NOT` by
         // their rule and fold only while the library holds the language's
         // own; a crate that registers a meaning of its own under the name has
-        // its meaning computed, at every cell of the run.
-        for name in ["SUM", "MIN", "MAX", "AND", "OR", "NOT"] {
+        // its meaning computed, at every cell of the run. KERNEL.28: so for
+        // the language's other functions, `CHOOSE` among them, a form the
+        // registration replaces with a strict function.
+        for name in [
+            "SUM", "MIN", "MAX", "AND", "OR", "NOT", "ABS", "INT", "SIN", "MOD", "ROW", "COLUMN",
+            "CHOOSE",
+        ] {
             let mut lib = library::language();
             lib.register(name, forty_two);
             let rows = format!(
@@ -3524,6 +3604,328 @@ mod tests {
                 assert_eq!(number(&m, "S", &format!("B{row}")), 42.0, "{name}");
             }
         }
+    }
+
+    /// The value cells the tests of the language's other functions read
+    /// (KERNEL.28): numbers of each sign and zero, a text that reads as a
+    /// number and one that does not, truth values, an error and empty cells
+    /// down columns A and B; another sheet's number; and down column C a
+    /// reason at each row, a range where one value is wanted, its label moved
+    /// with the row.
+    const EVERY_KIND: &str = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(cell \"S\" \"A2\" -2.5)\n",
+        "(cell \"S\" \"A3\" \"5\")\n",
+        "(cell \"S\" \"A4\" \"x\")\n",
+        "(cell \"S\" \"A5\" true)\n",
+        "(cell \"S\" \"A6\" (error \"#N/A\"))\n",
+        "(cell \"S\" \"A8\" 0)\n",
+        "(cell \"S\" \"B1\" 0)\n",
+        "(cell \"S\" \"B2\" false)\n",
+        "(cell \"S\" \"B3\" 3)\n",
+        "(cell \"S\" \"B4\" -2)\n",
+        "(cell \"S\" \"B5\" \"TRUE\")\n",
+        "(cell \"S\" \"B8\" 7.5)\n",
+        "(cell \"Far\" \"C3\" 2)\n",
+        "(formula \"S\" \"C1:C8\" \"=XX1:XX2\")\n",
+    );
+
+    /// The value a formula of a grid `columns` wrote computes at a row.
+    fn formula_at(m: &Machine, formulas: &[String], text: &str, row: u32) -> Option<Computed> {
+        let k = formulas
+            .iter()
+            .position(|f| f == text)
+            .unwrap_or_else(|| panic!("no formula {text}"));
+        at(m, "S", &crate::sheet::cell_ref(row, 4 + k as u32))
+    }
+
+    #[test]
+    fn the_language_s_other_functions_a_run_computes_are_the_library_s_at_every_cell() {
+        // KERNEL.28: ABS, INT, SIN and MOD computed by the run at the cells
+        // whose operands are all numbers and by the library at any other, and
+        // ROW and COLUMN from the run's own cells, against the same grid with
+        // every cell evaluated alone: operands of every kind, given directly,
+        // computed, read from the rows' sheet, its twin and another sheet's,
+        // the same at every cell and each cell's own; a reason the same at
+        // every cell and each cell's own; a range where one value is wanted; a
+        // sheet the grid does not hold; a reference moved off the sheet; every
+        // count of operands.
+        let operands = [
+            "S.last!A1",
+            "A1",
+            "B1",
+            "S.last!A1+0",
+            "$B$3",
+            "$A$4",
+            "-2.5",
+            "\"7\"",
+            "TRUE",
+            "C1",
+            "$C$1",
+            "C1+1",
+            "A1:A2",
+            "S.last!A1>0",
+            "ROW()*0.5-2",
+            "Far.last!C3",
+            "Nope!A1",
+            "S.last!A1048576",
+        ];
+        let mut formulas = Vec::new();
+        for f in ["ABS", "INT", "SIN"] {
+            for o in operands {
+                formulas.push(format!("{f}({o})"));
+            }
+            formulas.push(format!("{f}()"));
+            formulas.push(format!("{f}(1,2)"));
+        }
+        for (x, y) in [
+            ("S.last!A1", "S.last!B1"),
+            ("A1", "B1"),
+            ("S.last!A1", "S.last!B1+2"),
+            ("ROW()*3-13", "ROW()-4"),
+            ("-7", "S.last!B1+2"),
+            ("S.last!B8", "-2"),
+            ("$A$1", "3"),
+            ("1E+300", "7"),
+            ("S.last!A1", "$C$1"),
+            ("C1", "2"),
+            ("2", "C1"),
+            ("A1:A2", "2"),
+            ("\"9\"", "S.last!B3"),
+            ("S.last!A1>0", "2"),
+            ("Nope!A1", "2"),
+        ] {
+            formulas.push(format!("MOD({x},{y})"));
+        }
+        formulas.push("MOD(1)".to_string());
+        formulas.push("MOD(1,2,3)".to_string());
+        // The functions over references read at the cells a branch selects,
+        // some of a run's cells and not the first of them.
+        for f in [
+            "IF(MOD(ROW(),2)=0,MOD(S.last!A1,3),ABS(S.last!B1))",
+            "CHOOSE(MOD(ROW(),3)+1,INT(S.last!A1),SIN(A1),MOD(B1,4))",
+            "IF(ROW()>2,ROW(S.last!A1)+COLUMN(),0)",
+        ] {
+            formulas.push(f.to_string());
+        }
+        for f in ["ROW", "COLUMN"] {
+            for o in [
+                "",
+                "A1",
+                "B3",
+                "$A$2",
+                "S.last!A1",
+                "Far!C3",
+                "Far.last!B2:C9",
+                "Nope!A1",
+                "A1048576",
+                "A1048570:B1048576",
+                "B:B",
+                "S.last!3:3",
+                "C1",
+                "5",
+                "A1+0",
+                "A1,B1",
+            ] {
+                formulas.push(format!("{f}({o})"));
+            }
+        }
+        let grid = columns(EVERY_KIND, 8, &formulas);
+        let m = by_runs_and_alone(
+            &grid,
+            &[
+                "(cell \"S\" \"A1\" -4)",
+                "(cell \"S\" \"B1\" \"y\")",
+                "(cell \"S\" \"A7\" 9)",
+            ],
+        );
+        // The meanings themselves, the library's: MOD takes its divisor's sign
+        // and is #DIV/0! by 0; a row a cell's own, or a reference's moved; a
+        // reference moved off the sheet, or to a sheet the grid does not hold,
+        // places no cell.
+        let value = |text: &str, row: u32| formula_at(&m, &formulas, text, row);
+        let number = |n: f64| Some(Computed::Value(Value::Number(n)));
+        let error = |k: ErrorKind| Some(Computed::Value(Value::Error(k)));
+        assert_eq!(value("MOD(ROW()*3-13,ROW()-4)", 1), number(-1.0));
+        assert_eq!(value("MOD(ROW()*3-13,ROW()-4)", 4), error(ErrorKind::Div0));
+        assert_eq!(value("MOD(ROW()*3-13,ROW()-4)", 8), number(3.0));
+        // Operands of opposite signs: MOD(-7,5) is 3 and MOD(7.5,-2) is -0.5,
+        // the divisor's sign, where a quotient cut toward 0 would give -2 and
+        // 1.5.
+        assert_eq!(value("MOD(-7,S.last!B1+2)", 3), number(3.0));
+        assert_eq!(value("MOD(S.last!B8,-2)", 1), number(-0.5));
+        assert_eq!(value("INT(ROW()*0.5-2)", 1), number(-2.0));
+        assert_eq!(value("ABS(ROW()*0.5-2)", 1), number(1.5));
+        assert_eq!(value("ROW()", 5), number(5.0));
+        let column = 4 + formulas
+            .iter()
+            .position(|f| f == "COLUMN()")
+            .expect("COLUMN()");
+        assert_eq!(value("COLUMN()", 5), number(column as f64));
+        assert_eq!(value("ROW(B3)", 5), number(7.0));
+        assert_eq!(value("ROW(A1048576)", 1), number(1_048_576.0));
+        assert_eq!(value("ROW(A1048576)", 2), error(ErrorKind::Value));
+        assert_eq!(value("ROW(Nope!A1)", 2), error(ErrorKind::Value));
+        assert_eq!(value("COLUMN(Far.last!B2:C9)", 3), number(2.0));
+        assert_eq!(value("ROW(C1)", 6), number(6.0));
+    }
+
+    #[test]
+    fn a_call_of_two_operands_meets_their_reasons_and_errors_in_the_library_s_order() {
+        // KERNEL.28: the order a run keeps by leaving to the library every
+        // cell whose operands are not all numbers. Every operand is evaluated
+        // first, left to right, a reason the answer; a reference written as
+        // one is not read until the function reads it, after the operands
+        // before it are values. So in MOD(A1,C1+1) the reason of C1+1 comes
+        // before the error A1 holds, and in MOD(A1+1,C1) the error of A1+1
+        // before the reason C1 holds; with both written as references, the
+        // first read first.
+        let rows = concat!(
+            "(cell \"S\" \"A1:A8\" (error \"#N/A\"))\n",
+            "(formula \"S\" \"C1:C8\" \"=XX1:XX2\")\n",
+        );
+        let formulas: Vec<String> = ["MOD(A1,C1+1)", "MOD(A1+1,C1)", "MOD(C1,A1)", "MOD(A1,C1)"]
+            .iter()
+            .map(|f| f.to_string())
+            .collect();
+        let m = by_runs_and_alone(&columns(rows, 8, &formulas), &[]);
+        let reason = Some(Computed::NotComputed(Reason::Construct(
+            "XX3:XX4".to_string(),
+        )));
+        let na = Some(Computed::Value(Value::Error(ErrorKind::NA)));
+        assert_eq!(formula_at(&m, &formulas, "MOD(A1,C1+1)", 3), reason);
+        assert_eq!(formula_at(&m, &formulas, "MOD(A1+1,C1)", 3), na);
+        assert_eq!(formula_at(&m, &formulas, "MOD(C1,A1)", 3), reason);
+        assert_eq!(formula_at(&m, &formulas, "MOD(A1,C1)", 3), na);
+    }
+
+    #[test]
+    fn choose_in_a_run_is_the_library_s_at_every_cell() {
+        // KERNEL.28: CHOOSE computed by the run as IF is, its index at every
+        // cell and each value at the cells that choose it, against the same
+        // grid with every cell evaluated alone: an index at each edge of its
+        // count and of every kind, the same at every cell and each cell's own,
+        // a reason among them; values of every kind, a reference read as one
+        // value and a range where one value is wanted among them; a value left
+        // out; many values; CHOOSE inside IF and IF inside CHOOSE; CHOOSE an
+        // operand of the calls the run computes, and of one it leaves to the
+        // library at each cell, a value of it a range; CHOOSE written twice,
+        // one part.
+        let mut formulas: Vec<String> = [
+            "0.5",
+            "1",
+            "2.9",
+            "3",
+            "3.9",
+            "4",
+            "-1",
+            "\"2\"",
+            "TRUE",
+            "S.last!A7",
+            "#N/A",
+            "C1",
+            "$C$1",
+            "ROW()",
+            "MOD(ROW(),3)+1",
+            "ROW()-4",
+            "S.last!A1:A2",
+            "1E+300",
+            "S.last!A1+1",
+        ]
+        .iter()
+        .map(|i| format!("CHOOSE({i},10,20,30)"))
+        .collect();
+        formulas.extend(
+            [
+                "CHOOSE(MOD(ROW(),4)+1,S.last!A1,A1:A2,\"t\",C1)",
+                "CHOOSE(MOD(ROW(),3)+1,,5,S.last!B1)",
+                "CHOOSE(1)",
+                "CHOOSE(ROW(),1,2,3,4,5,6,7,8,9)",
+                "CHOOSE(MOD(ROW(),2)+1,IF(S.last!A1>0,1,2),CHOOSE(MOD(ROW(),3)+1,7,8,9))",
+                "IF(S.last!B1>0,CHOOSE(MOD(ROW(),2)+1,S.last!A1,2),0)",
+                "MOD(CHOOSE(MOD(ROW(),2)+1,5,7),3)",
+                "SUM(CHOOSE(MOD(ROW(),2)+1,1,S.last!A1),3)",
+                "ABS(CHOOSE(MOD(ROW(),2)+1,-1,\"x\"))",
+                "SUM(CHOOSE(MOD(ROW(),2)+1,S.last!A1:A2,3))",
+                "CHOOSE(MOD(ROW(),2)+1,S.last!A1,1)*CHOOSE(MOD(ROW(),2)+1,S.last!A1,1)",
+            ]
+            .iter()
+            .map(|f| f.to_string()),
+        );
+        let m = by_runs_and_alone(
+            &columns(EVERY_KIND, 8, &formulas),
+            &[
+                "(cell \"S\" \"A1\" -4)",
+                "(cell \"S\" \"B1\" \"y\")",
+                "(cell \"S\" \"A7\" 2)",
+            ],
+        );
+        // The index's rule, the library's: read down to a whole number, of a
+        // text that reads as one or a truth value, and #VALUE! outside 1 to
+        // the count; a value chosen at each row.
+        let value = |text: &str, row: u32| formula_at(&m, &formulas, text, row);
+        let number = |n: f64| Some(Computed::Value(Value::Number(n)));
+        let error = |k: ErrorKind| Some(Computed::Value(Value::Error(k)));
+        assert_eq!(value("CHOOSE(2.9,10,20,30)", 1), number(20.0));
+        assert_eq!(value("CHOOSE(3.9,10,20,30)", 1), number(30.0));
+        assert_eq!(value("CHOOSE(4,10,20,30)", 1), error(ErrorKind::Value));
+        assert_eq!(value("CHOOSE(0.5,10,20,30)", 1), error(ErrorKind::Value));
+        assert_eq!(value("CHOOSE(\"2\",10,20,30)", 1), number(20.0));
+        assert_eq!(value("CHOOSE(TRUE,10,20,30)", 1), number(10.0));
+        assert_eq!(value("CHOOSE(#N/A,10,20,30)", 1), error(ErrorKind::NA));
+        assert_eq!(value("CHOOSE(ROW(),10,20,30)", 3), number(30.0));
+        assert_eq!(value("CHOOSE(ROW(),10,20,30)", 4), error(ErrorKind::Value));
+        assert_eq!(value("CHOOSE(ROW(),1,2,3,4,5,6,7,8,9)", 8), number(8.0));
+        assert_eq!(value("CHOOSE(MOD(ROW(),3)+1,,5,S.last!B1)", 3), number(0.0));
+        assert_eq!(value("MOD(CHOOSE(MOD(ROW(),2)+1,5,7),3)", 1), number(1.0));
+    }
+
+    #[test]
+    fn a_run_makes_the_buffers_choose_holds_in_its_first_frame() {
+        // KERNEL.28: a shape whose first frame takes a branch with nothing in
+        // it and whose later frames choose among values with calls of their
+        // own: the buffers its later frames hold, the lists that gather each
+        // value's cells among them, are all made in the first.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"B1:B300\" 2)\n",
+            "(formula \"S\" \"C1:C300\" \"=IF(S.last!$A$1=1,0,CHOOSE(MOD(ROW()+S.last!$A$1,3)+1,",
+            "S.last!B1*2,IF(S.last!B1>0,MOD(S.last!B1,7),1),ABS(S.last!B1-ROW())))\")\n",
+        ));
+        assert_eq!(m.shapes.cells_in_runs(), 300);
+        m.step(0);
+        let made = m.lanes.made();
+        assert_eq!(m.write("(cell \"S\" \"A1\" 2)"), Ok(1));
+        for frame in 2..=4 {
+            m.step(0);
+            assert_eq!(m.lanes.made(), made, "frame {frame}");
+        }
+        // Row 2 in the frames after: MOD(2+2,3)+1 is 2, MOD(2,7).
+        assert_eq!(number(&m, "S", "C2"), 2.0);
+        assert!(
+            made.3 >= 3,
+            "the lists that gather a value's cells: {made:?}"
+        );
+        // Alone in its grid, so that no other shape's bound covers it: a
+        // CHOOSE whose index is the same at every cell in the first frame,
+        // which so computes one value and gathers nothing, and differs by
+        // cell after, when the cells choosing an IF need the lists of both
+        // beside each other.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"B1:B300\" 2)\n",
+            "(formula \"S\" \"D1:D300\" \"=CHOOSE(IF(S.last!$A$1=1,1,MOD(ROW(),3)+1),",
+            "S.last!B1*2,IF(MOD(ROW(),2)=0,MOD(S.last!B1,7),1),5)\")\n",
+        ));
+        m.step(0);
+        let made = m.lanes.made();
+        assert_eq!(m.write("(cell \"S\" \"A1\" 2)"), Ok(1));
+        for frame in 2..=4 {
+            m.step(0);
+            assert_eq!(m.lanes.made(), made, "alone, frame {frame}");
+        }
+        // Row 4 in the frames after: MOD(4,3)+1 is 2, an even row, MOD(2,7).
+        assert_eq!(number(&m, "S", "D4"), 2.0);
     }
 
     #[test]

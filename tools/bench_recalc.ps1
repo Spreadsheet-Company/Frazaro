@@ -35,8 +35,15 @@ WHAT IT DOES:
   3. prints the block: the date, the environment, the four rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
-     down to three figures, to paste over the check's history whole; and
-     writes the same block to target/bench_recalc.txt, to copy from.
+     down to three figures, or the entry before it where that stands
+     higher, to paste over the check's history whole; and writes the same
+     block to target/bench_recalc.txt, to copy from.
+     The entry before is kept where it stands higher (KERNEL.28, its eighth
+     decision) because a row a change does not move comes out of one run at
+     that run's number, which the noise between runs can put under the
+     committed entry, and the check refuses a lower floor with no reason
+     written: the history never goes down by noise, and a run slower than a
+     floor shows as a row under it, a finding to record.
 It is an instrument and not a check: it measures, the owner pastes, and the
 check holds what was pasted. No job runs it.
 
@@ -204,16 +211,30 @@ if ($m.Success) { $version = $m.Groups[1].Value }
 $coreLine = if ($cores.Mask -ne 0) { ('on the performance cores, {0} of {1} logical processors (efficiency class {2}): the runner {3}' -f $cores.Fast, $cores.All, $cores.Class, $(if ($pinned) { 'yes' } else { 'no' })) } else { 'one kind of core' }
 $environment = ('{0}, {1} logical processors | {2} | {3} | frazaro-core {4} | power throttling opted out: the runner {5} | high priority: the runner {6} | {7}' -f $cpu, $logical, $os, $rustc, $version, $(if ($optedOut) { 'yes' } else { 'no' }), $(if ($high) { 'yes' } else { 'no' }), $coreLine)
 
-# The floor history with this run's entry added last.
+# The floor history with this run's entry added last, each floor the run's
+# number less the margin or the entry before it, whichever stands higher.
 $today = Get-Date -Format 'yyyy-MM-dd'
+$committed = @(Get-HistoryEntries (Join-Path $repoRoot 'tools/check_recalc_floors.ps1'))
+$before = @{}
+if ($committed.Count -gt 0) {
+    foreach ($m in [regex]::Matches($committed[$committed.Count - 1], "'([^']+)' = (\d+)")) { $before[$m.Groups[1].Value] = [long]$m.Groups[2].Value }
+}
+$kept = New-Object System.Collections.Generic.List[string]
+function Get-KeptFloor([string]$key, [long]$floor) {
+    if ($before.ContainsKey($key) -and $before[$key] -gt $floor) {
+        $kept.Add(("'{0}' {1}, this run's {2}" -f $key, $before[$key], $floor))
+        return $before[$key]
+    }
+    return $floor
+}
 $floors = New-Object System.Collections.Generic.List[string]
 foreach ($r in $rows) {
     $f = Get-Field $r 'Fixture'
-    $floors.Add(("'{0} whole' = {1}" -f $f, (Get-Floor ([double](Get-Field $r 'WholePerSecond')))))
-    $floors.Add(("'{0} edit' = {1}" -f $f, (Get-Floor ([double](Get-Field $r 'EditsPerSecond')))))
+    $floors.Add(("'{0} whole' = {1}" -f $f, (Get-KeptFloor "$f whole" (Get-Floor ([double](Get-Field $r 'WholePerSecond'))))))
+    $floors.Add(("'{0} edit' = {1}" -f $f, (Get-KeptFloor "$f edit" (Get-Floor ([double](Get-Field $r 'EditsPerSecond'))))))
 }
 $entry = ("@{{ Date = '{0}'; Reason = ''; Floors = @{{ {1} }} }}" -f $today, ($floors -join '; '))
-$history = @(Get-HistoryEntries (Join-Path $repoRoot 'tools/check_recalc_floors.ps1')) + @($entry)
+$history = $committed + @($entry)
 
 $block = New-Object System.Collections.Generic.List[string]
 $block.Add(("`$baselineDate = '{0}'" -f $today))
@@ -229,6 +250,7 @@ try { [System.IO.File]::WriteAllText((Join-Path $repoRoot 'target/bench_recalc.t
 Write-Output ''
 Write-Output ($text.TrimEnd())
 Write-Output ''
+if ($kept.Count -gt 0) { Write-Output ('  floors kept from the entry before, this run under them: ' + ($kept -join '; ')) }
 Write-Output 'Paste this block, and Excel''s half''s, into the reply (also in target\bench_recalc.txt):'
 Write-Output $out
 exit 0

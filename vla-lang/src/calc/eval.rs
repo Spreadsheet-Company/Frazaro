@@ -153,11 +153,12 @@ pub type Form = for<'e> fn(&Ctx<'_>, &'e [Expr]) -> Result<Arg<'e>, Reason>;
 
 /// One of the language's own functions that an evaluation of many cells at
 /// once computes by itself (`super::vector`), known by the name the
-/// language's library registers it under: `IF` (KERNEL.20), and the
-/// aggregates and `NOT`, which it computes by the library's own rule and
-/// fold (KERNEL.26, `super::library::Fold`). Any other registration of the
-/// name replaces it, so that a crate above that registers a meaning of its
-/// own has that meaning computed, cell by cell.
+/// language's library registers it under: `IF` (KERNEL.20); the aggregates
+/// and `NOT`, which it computes by the library's own rule and fold
+/// (KERNEL.26, `super::library::Fold`); and the language's other functions,
+/// which it computes by the library's own meaning of each (KERNEL.28). Any
+/// other registration of the name replaces it, so that a crate above that
+/// registers a meaning of its own has that meaning computed, cell by cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Known {
     /// `library::if_`.
@@ -171,6 +172,17 @@ pub(crate) enum Known {
     Or,
     /// `NOT`: `library::negated`.
     Not,
+    /// `ABS`, `INT` and `SIN`: `library::abs_of`, `int_of` and `sin_of`.
+    Abs,
+    Int,
+    Sin,
+    /// `MOD`: `library::mod_of`.
+    Mod,
+    /// `ROW` and `COLUMN`: `library::placed`.
+    Row,
+    Column,
+    /// `CHOOSE`: `library::chosen`.
+    Choose,
 }
 
 /// The functions a formula may call, by upper-case name: the seam. Every

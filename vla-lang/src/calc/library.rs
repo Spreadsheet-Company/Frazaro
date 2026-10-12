@@ -27,15 +27,25 @@
 //! arguments here, and an evaluation of many cells at once drives the same
 //! rule and the same fold over its own (`super::vector`, KERNEL.26), so that
 //! no meaning of the library is written twice.
+//!
+//! So is the meaning of each of the others (KERNEL.28): `ABS`, `INT`, `SIN`
+//! and `MOD` over the numbers their arguments read as ([`abs_of`],
+//! [`int_of`], [`sin_of`], [`mod_of`]), `ROW` and `COLUMN` over the cell or
+//! the reference they place ([`placed`]), and `CHOOSE`'s index ([`chosen`]).
+//! The functions below call them after their own coercions, and an
+//! evaluation of many cells at once calls them over its lanes, a function of
+//! numbers where every operand at a cell is a number and the function below
+//! at any other cell, so that a coercion is written here alone.
 
 use super::eval::{finite, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::value::{ErrorKind, Value};
 
-/// The language's library, every function above registered; `IF` as the
-/// form an evaluation of many cells at once computes by itself, as `if_`
-/// computes it at one (KERNEL.20), and the aggregates and `NOT` as the
-/// functions it computes by the same rule and fold (KERNEL.26).
+/// The language's library, every function above registered, each as one an
+/// evaluation of many cells at once computes by itself: `IF` as the form it
+/// computes as `if_` computes it at one (KERNEL.20), the aggregates and `NOT`
+/// by the same rule and fold (KERNEL.26), and the others, `CHOOSE` among
+/// them as a form, by the same meanings (KERNEL.28).
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -45,13 +55,13 @@ pub fn language() -> Library {
     lib.register_known_strict("SUM", sum, Known::Sum);
     lib.register_known_strict("MIN", min, Known::Min);
     lib.register_known_strict("MAX", max, Known::Max);
-    lib.register("ABS", abs);
-    lib.register("INT", int);
-    lib.register("MOD", modulo);
-    lib.register("ROW", row);
-    lib.register("COLUMN", column);
-    lib.register_form("CHOOSE", choose);
-    lib.register("SIN", sin);
+    lib.register_known_strict("ABS", abs, Known::Abs);
+    lib.register_known_strict("INT", int, Known::Int);
+    lib.register_known_strict("MOD", modulo, Known::Mod);
+    lib.register_known_strict("ROW", row, Known::Row);
+    lib.register_known_strict("COLUMN", column, Known::Column);
+    lib.register_known("CHOOSE", choose, Known::Choose);
+    lib.register_known_strict("SIN", sin, Known::Sin);
     lib
 }
 
@@ -348,6 +358,70 @@ pub(crate) fn negated(v: &Value) -> Value {
     }
 }
 
+/// `ABS`'s answer over the number its argument reads as (KERNEL.28).
+pub(crate) fn abs_of(n: f64) -> Value {
+    Value::Number(n.abs())
+}
+
+/// `INT`'s, rounding down to the nearest integer, so that `INT(-1.5)` is -2.
+pub(crate) fn int_of(n: f64) -> Value {
+    Value::Number(n.floor())
+}
+
+/// `SIN`'s, of an angle in radians.
+pub(crate) fn sin_of(n: f64) -> Value {
+    finite(n.sin())
+}
+
+/// `MOD(n, d)`'s: `n - d * INT(n / d)`, so that the result takes the
+/// divisor's sign; a divisor of 0 is `#DIV/0!`.
+pub(crate) fn mod_of(n: f64, d: f64) -> Value {
+    if d == 0.0 {
+        return Value::Error(ErrorKind::Div0);
+    }
+    finite(n - d * (n / d).floor())
+}
+
+/// Which of a cell's coordinates `ROW` and `COLUMN` answer (KERNEL.28).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Axis {
+    Row,
+    Column,
+}
+
+impl Axis {
+    /// A cell's row or column, as a number.
+    pub(crate) fn of(self, row: u32, column: u32) -> f64 {
+        f64::from(match self {
+            Axis::Row => row,
+            Axis::Column => column,
+        })
+    }
+}
+
+/// `ROW`'s and `COLUMN`'s answer (KERNEL.28): the row or the column of the
+/// cell its argument places, the cell being computed or a reference's first
+/// cell; `#VALUE!` for an argument that places none, a value or a reference
+/// to no cell (a sheet the grid does not hold, a cell moved off the sheet),
+/// which reaches it as the value `#REF!`.
+pub(crate) fn placed(axis: Axis, cell: Option<(u32, u32)>) -> Value {
+    match cell {
+        Some((row, column)) => Value::Number(axis.of(row, column)),
+        None => Value::Error(ErrorKind::Value),
+    }
+}
+
+/// `CHOOSE`'s index (KERNEL.28): which of its `count` values it picks, the
+/// index read down to a whole number; an error the index's own, and
+/// `#VALUE!` outside 1 to the count.
+pub(crate) fn chosen(index: &Value, count: usize) -> Result<usize, ErrorKind> {
+    let k = index.number()?.floor();
+    if k < 1.0 || k > count as f64 {
+        return Err(ErrorKind::Value);
+    }
+    Ok(k as usize)
+}
+
 /// The numbers of the arguments by the aggregate rule above, collected.
 pub fn numbers(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Numbers, Reason> {
     let mut out = Vec::new();
@@ -424,29 +498,29 @@ fn max(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     folded::<Most>(ctx, args)
 }
 
+/// `ABS` ([`abs_of`]).
 fn abs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
     }
     Ok(match number_arg(ctx, args, 0)? {
-        Ok(n) => Value::Number(n.abs()),
+        Ok(n) => abs_of(n),
         Err(k) => Value::Error(k),
     })
 }
 
-/// `INT` rounds down to the nearest integer, so `INT(-1.5)` is -2.
+/// `INT` ([`int_of`]).
 fn int(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
     }
     Ok(match number_arg(ctx, args, 0)? {
-        Ok(n) => Value::Number(n.floor()),
+        Ok(n) => int_of(n),
         Err(k) => Value::Error(k),
     })
 }
 
-/// `MOD(n, d)` is `n - d * INT(n / d)`, so the result takes the divisor's
-/// sign; a divisor of 0 is `#DIV/0!`.
+/// `MOD` ([`mod_of`]), the first argument's error before the second's.
 fn modulo(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 2 {
         return Ok(Value::Error(ErrorKind::Value));
@@ -459,67 +533,55 @@ fn modulo(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         Ok(d) => d,
         Err(k) => return Ok(Value::Error(k)),
     };
-    if d == 0.0 {
-        return Ok(Value::Error(ErrorKind::Div0));
-    }
-    Ok(finite(n - d * (n / d).floor()))
+    Ok(mod_of(n, d))
 }
 
 /// The row of the first cell of a reference, or of the cell being computed.
 fn row(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    position(ctx, args, |here, area| match area {
-        Some(a) => a.top,
-        None => here.1,
-    })
+    position(ctx, args, Axis::Row)
 }
 
 /// The column of the first cell of a reference, or of the cell being computed.
 fn column(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    position(ctx, args, |here, area| match area {
-        Some(a) => a.left,
-        None => here.2,
+    position(ctx, args, Axis::Column)
+}
+
+/// [`placed`] over a call's arguments: none, the cell being computed; a
+/// reference, its first area's first cell; anything else, no cell.
+fn position(ctx: &Ctx<'_>, args: &[Arg], axis: Axis) -> Result<Value, Reason> {
+    let (_, row, column) = ctx.env.here();
+    Ok(match args {
+        [] => placed(axis, Some((row, column))),
+        [Arg::Area { areas, .. }] => match areas.first() {
+            Some(a) => placed(axis, Some((a.top, a.left))),
+            None => Value::Error(ErrorKind::Ref),
+        },
+        _ => placed(axis, None),
     })
 }
 
-fn position(
-    ctx: &Ctx<'_>,
-    args: &[Arg],
-    pick: fn((usize, u32, u32), Option<&super::graph::Area>) -> u32,
-) -> Result<Value, Reason> {
-    let here = ctx.env.here();
-    match args {
-        [] => Ok(Value::Number(f64::from(pick(here, None)))),
-        [Arg::Area { areas, .. }] => match areas.first() {
-            Some(a) => Ok(Value::Number(f64::from(pick(here, Some(a))))),
-            None => Ok(Value::Error(ErrorKind::Ref)),
-        },
-        _ => Ok(Value::Error(ErrorKind::Value)),
-    }
-}
-
-/// `CHOOSE(k, v1, v2, ...)`: the k-th value, k read down to a whole
-/// number; outside 1 to the count, `#VALUE!`. Only the value chosen is
-/// computed, and a reference chosen stays a reference.
+/// `CHOOSE(k, v1, v2, ...)`: the k-th value ([`chosen`]). Only the value
+/// chosen is computed, and a reference chosen stays a reference. An
+/// evaluation of many cells at once computes each value at the cells that
+/// choose it (`super::vector`, its `choose`, KERNEL.28): a change here is a
+/// change there, and the machine's tests hold the two to each other.
 fn choose<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
     }
-    let k = match ctx.scalar(&args[0])?.number() {
-        Ok(n) => n.floor(),
-        Err(e) => return Ok(Arg::Scalar(Value::Error(e))),
-    };
-    if k < 1.0 || k > (args.len() - 1) as f64 {
-        return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+    match chosen(&ctx.scalar(&args[0])?, args.len() - 1) {
+        Ok(k) => ctx.eval(&args[k]),
+        Err(e) => Ok(Arg::Scalar(Value::Error(e))),
     }
-    ctx.eval(&args[k as usize])
 }
 
+/// `SIN` ([`sin_of`]).
 fn sin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
     }
     Ok(match number_arg(ctx, args, 0)? {
-        Ok(n) => finite(n.sin()),
+        Ok(n) => sin_of(n),
         Err(k) => Value::Error(k),
     })
 }

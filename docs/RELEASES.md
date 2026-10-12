@@ -2,6 +2,32 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.9.1
+
+### What changed
+
+- **For engines: the language's other functions computed across a filled
+  formula's cells at once.** `ROW`, `COLUMN`, `MOD`, `INT`, `ABS` and `SIN`
+  are now computed for all of a filled formula's cells together wherever
+  every value they are given is a number, and `ROW()` and `COLUMN()` from
+  the cells themselves; `CHOOSE` computes each of its values only at the
+  cells that choose it, as `IF` computes each branch only at the cells that
+  take it. Any other cell, where a value given is a text, a truth value, an
+  empty cell, an error or a range, is computed exactly as before. A grid
+  that calls them in every cell steps faster: a running balance whose
+  entries are `=MOD(ROW()*7,13)` about a quarter faster to compute whole,
+  twelve months of `=MOD(ROW()*31+COLUMN()*17,97)+$P$1` about a quarter
+  faster whole and after an edit, and Life's first frame, a soup computed
+  from `ROW()` and `COLUMN()`, twice as fast. A rule may compute its cell's
+  place, `MOD(ROW(),2)`, or choose a value with `CHOOSE`, at no cost beyond
+  a column computed once and read through its twin. Every value is computed
+  exactly as before (KERNEL.28).
+
+### Known open security items
+
+**Closed this release:** none yet. Standing advice unchanged. The full list
+of open items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.9.0
 
 ### What changed

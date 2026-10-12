@@ -101,15 +101,15 @@ $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::W
 # file's history with the run's entry added last. A later run slower than a
 # floor is a finding to record in docs/BETA_REARVIEW.md, never a number to
 # paste over a faster one.
-$baselineDate = '2026-10-11'
+$baselineDate = '2026-10-12'
 $baselineNative = 'Intel(R) Core(TM) Ultra 7 265KF, 20 logical processors | Microsoft Windows 11 Home 10.0.26200.0 | rustc 1.99.0 (b940084d7 2026-09-28) | frazaro-core 0.9.0 | power throttling opted out: the runner yes | high priority: the runner yes | on the performance cores, 8 of 20 logical processors (efficiency class 1): the runner yes'
 $baselineExcel = 'Excel''s half, 2026-10-11: Intel(R) Core(TM) Ultra 7 265KF | Microsoft Windows 11 Home 10.0.26200.0 | Excel 16.0 build 20430 | all threads 20; one thread on the performance cores, mask 0xC03C3 | power throttling opted out: yes'
 $baseline = @(
     # the native rows:
-    @{ Half = 'native'; Fixture = 'column'; Formulas = 60000; Sha256 = '8B7227B6E503734CD71447F76F47881AF22C2550B78F47585F7C83D2BC2F5114'; Rounds = 3; Load = 226.9; First = 6.90; Whole = 1.068; Edit = 2.405; Calc = 209.8; WholePerSecond = 56200824; EditsPerSecond = 415.8; SumBuilt = 1100080000; SumEdited = 1425100000; ClockMs = 0.173; ClockSpread = 6.2; ClockDrift = -4.0 }
-    @{ Half = 'native'; Fixture = 'chain'; Formulas = 39999; Sha256 = 'EDCCFD24751E7A65B5805C69F0083A7E34A3286BB694CC8BFCF921A31D5C6F35'; Rounds = 3; Load = 128.7; First = 6.42; Whole = 3.202; Edit = 2.670; Calc = 115.6; WholePerSecond = 12491880; EditsPerSecond = 374.6; SumBuilt = 1200039974; SumEdited = 1200059975; ClockMs = 0.171; ClockSpread = 6.4; ClockDrift = -5.2 }
-    @{ Half = 'native'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'CE98D19A63B99F4DC5EB13D70F9E3192DD1528D323C7CAD70BFC42B7A4AFEF76'; Rounds = 3; Load = 108.4; First = 6.52; Whole = 4.281; Edit = 4.814; Calc = 138.9; WholePerSecond = 6543798; EditsPerSecond = 207.7; SumBuilt = 14800794; SumEdited = 14900794; ClockMs = 0.178; ClockSpread = 5.8; ClockDrift = -1.5 }
-    @{ Half = 'native'; Fixture = 'life'; Formulas = 62964; Sha256 = '64C269AB08BBEA3DEB3B45B1B4F889481CBEBFE4ED90F33454E6936E64466677'; Rounds = 3; Load = 1352.7; First = 20.85; Whole = 3.454; Edit = 2.706; Calc = 3303.0; WholePerSecond = 18229827; EditsPerSecond = 369.5; SumBuilt = 23683; SumEdited = 9603; ClockMs = 0.173; ClockSpread = 6.1; ClockDrift = -3.9 }
+    @{ Half = 'native'; Fixture = 'column'; Formulas = 60000; Sha256 = '8B7227B6E503734CD71447F76F47881AF22C2550B78F47585F7C83D2BC2F5114'; Rounds = 3; Load = 248.2; First = 8.26; Whole = 0.971; Edit = 3.118; Calc = 220.2; WholePerSecond = 61811064; EditsPerSecond = 320.7; SumBuilt = 1100080000; SumEdited = 1425100000; ClockMs = 0.180; ClockSpread = 0.7; ClockDrift = 0.1 }
+    @{ Half = 'native'; Fixture = 'chain'; Formulas = 39999; Sha256 = 'EDCCFD24751E7A65B5805C69F0083A7E34A3286BB694CC8BFCF921A31D5C6F35'; Rounds = 3; Load = 143.7; First = 8.03; Whole = 2.844; Edit = 3.634; Calc = 122.3; WholePerSecond = 14064841; EditsPerSecond = 275.2; SumBuilt = 1200039974; SumEdited = 1200059975; ClockMs = 0.180; ClockSpread = 0.8; ClockDrift = 0.1 }
+    @{ Half = 'native'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'CE98D19A63B99F4DC5EB13D70F9E3192DD1528D323C7CAD70BFC42B7A4AFEF76'; Rounds = 3; Load = 118.5; First = 5.78; Whole = 3.379; Edit = 3.800; Calc = 147.1; WholePerSecond = 8290373; EditsPerSecond = 263.2; SumBuilt = 14800794; SumEdited = 14900794; ClockMs = 0.180; ClockSpread = 0.6; ClockDrift = 0.3 }
+    @{ Half = 'native'; Fixture = 'life'; Formulas = 62964; Sha256 = '64C269AB08BBEA3DEB3B45B1B4F889481CBEBFE4ED90F33454E6936E64466677'; Rounds = 3; Load = 1419.1; First = 10.24; Whole = 3.546; Edit = 3.038; Calc = 2889.7; WholePerSecond = 17757347; EditsPerSecond = 329.2; SumBuilt = 23683; SumEdited = 9603; ClockMs = 0.179; ClockSpread = 0.7; ClockDrift = -0.0 }
     # Excel's half, its flag first:
     @{ Half = 'excel-flag'; File = 'calcpr_built'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
     @{ Half = 'excel-flag'; File = 'calcpr_calcid'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
@@ -131,7 +131,8 @@ $baseline = @(
 # second and edits a second. An entry lower than the one before it in any
 # floor needs its Reason.
 $floorHistory = @(
-    @{ Date = '2026-10-11'; Reason = ''; Floors = @{ 'column whole' = 47700000; 'column edit' = 353; 'chain whole' = 10600000; 'chain edit' = 318; 'sums whole' = 5560000; 'sums edit' = 176; 'life whole' = 15400000; 'life edit' = 314 } }
+    @{ Date = '2026-10-11'; Reason = ''; Floors = @{ 'column whole' = 47700000; 'column edit' = 353; 'chain whole' = 10600000; 'chain edit' = 318; 'sums whole' = 5560000; 'sums edit' = 176; 'life whole' = 15400000; 'life edit' = 314 } },
+    @{ Date = '2026-10-12'; Reason = 'KERNEL.28, at the owner''s ruling: column edit and chain edit, rows the item does not move, lowered to this run less the margin; the unchanged code (5607910) took 2.83 to 3.23 and 2.92 to 3.58 ms an edit in nine runs on 2026-10-12, against the 2.41 and 2.67 of the run of 2026-10-11 the floors were set from (docs/BETA_REARVIEW.md, KERNEL.28)'; Floors = @{ 'column whole' = 52500000; 'column edit' = 272; 'chain whole' = 11900000; 'chain edit' = 233; 'sums whole' = 7040000; 'sums edit' = 223; 'life whole' = 15400000; 'life edit' = 314 } }
 )
 
 # --- the programs measured, each one's SHA-256 over LF bytes ---
