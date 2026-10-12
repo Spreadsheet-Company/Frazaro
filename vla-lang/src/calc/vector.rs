@@ -63,6 +63,11 @@
 //! 1 MiB. Bit for bit with the cell by cell evaluation, which the machine's
 //! tests hold it to over generated grids of every kind of node, and with
 //! `Calc`, which plans and parses on its own.
+//!
+//! The paths it takes are read off a parse without computing it, for a
+//! plan's census (KERNEL.30, [`paths`]): each read's cost class, by a walk
+//! that asks what the dispatch asks, held to it by a test that notes the
+//! paths runs take ([`taken`]).
 
 use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
@@ -1086,6 +1091,14 @@ impl<'a> Many<'a> {
             },
         };
         let dense = self.env.dense(sheet);
+        #[cfg(test)]
+        taken::note(if r.corners.row_abs1 && r.corners.col_abs1 {
+            taken::Path::Once
+        } else if dense.is_some() {
+            taken::Path::Slot
+        } else {
+            taken::Path::Lookup
+        });
         // A number read where it stands, or the answer of any other kind.
         let at = |k: usize| -> Result<f64, Got> {
             let (d_row, d_col) = self.offset(sel.at(k));
@@ -1411,6 +1424,15 @@ impl<'a> Many<'a> {
             }
         }
         let kept = &kept[..ops.len()];
+        #[cfg(test)]
+        if matches!(
+            known,
+            Known::Sum | Known::Min | Known::Max | Known::And | Known::Or
+        ) {
+            for _ in kept.iter().flatten() {
+                taken::note(taken::Path::Array);
+            }
+        }
         // The answers a lane of numbers, or of truth values, while each is.
         let numbers = || Lane::Numbers(self.take_numbers());
         let truths = || Lane::Truths(self.take_truths());
@@ -1802,6 +1824,8 @@ impl<'a> Many<'a> {
         if let Some(lane) = self.known_call(f, name, std::slice::from_mut(x), sel) {
             return lane;
         }
+        #[cfg(test)]
+        self.noted_call(name, &[&*x]);
         let (mut out, n) = (Lane::Numbers(self.take_numbers()), sel.len());
         for k in 0..n {
             let ctx = self.ctx(sel.at(k));
@@ -1834,6 +1858,8 @@ impl<'a> Many<'a> {
         if let Some(lane) = known {
             return lane;
         }
+        #[cfg(test)]
+        self.noted_call(name, &[&*x, &*y]);
         let (mut out, n) = (Lane::Numbers(self.take_numbers()), sel.len());
         for k in 0..n {
             let ctx = self.ctx(sel.at(k));
@@ -1855,6 +1881,8 @@ impl<'a> Many<'a> {
         if let Some(lane) = self.known_call(f, name, ops, sel) {
             return lane;
         }
+        #[cfg(test)]
+        self.noted_call(name, &ops.iter().collect::<Vec<_>>());
         let (mut out, n) = (Lane::Numbers(self.take_numbers()), sel.len());
         let mut args = Vec::with_capacity(ops.len());
         for k in 0..n {
@@ -2033,9 +2061,42 @@ impl<'a> Many<'a> {
         }
     }
 
+    /// The library's function called at each cell over operands the run
+    /// computed, and the references it reads there, noted against the run's
+    /// shape in a test (KERNEL.30's oracle).
+    #[cfg(test)]
+    fn noted_call(&self, name: &str, ops: &[&Operand<'_>]) {
+        taken::note(taken::Path::Call(name.to_ascii_uppercase()));
+        for x in ops {
+            let Operand::Ref(r) = x else {
+                continue;
+            };
+            let one = matches!(r.shape, Part::Cell);
+            let array = match (r.found, &r.sheet) {
+                _ if r.last_sheet.is_some() => Some(false),
+                (Some((first, _)), _) => Some(self.env.dense(usize::from(first)).is_some()),
+                (None, None) => Some(self.env.dense(self.cells[0].0).is_some()),
+                (None, Some(name)) => self
+                    .env
+                    .model()
+                    .find_sheet(name)
+                    .map(|s| self.env.dense(s).is_some()),
+            };
+            taken::note(match (one, array) {
+                (_, None) => continue,
+                (true, Some(true)) => taken::Path::Slot,
+                (false, Some(true)) => taken::Path::Array,
+                (true, Some(false)) => taken::Path::Lookup,
+                (false, Some(false)) => taken::Path::Cells,
+            });
+        }
+    }
+
     /// An expression evaluated at each cell by [`Ctx`] itself.
     #[inline(never)]
     fn each_cell(&self, e: &Expr, sel: Sel) -> Lane {
+        #[cfg(test)]
+        taken::note(taken::Path::Each);
         let mut out = self.take();
         for k in 0..sel.len() {
             out.push(self.ctx(sel.at(k)).scalar(e));
@@ -2081,5 +2142,282 @@ fn number_at(lane: Option<&Lane>, k: usize) -> Option<f64> {
             _ => None,
         },
         Lane::Same(_) | Lane::Truths(_) => None,
+    }
+}
+
+// ---- the paths a run takes, read off a parse (KERNEL.30) -------------------
+
+/// The paths a run of a shape takes through its parse, read off the parse
+/// without computing it, as [`Many::scalars`] and the calls below it choose
+/// each node's (KERNEL.30's census): each the cost class of a kind of read.
+/// The walk stands beside the dispatch and asks what it asks, by the same
+/// predicates ([`is_operand`], [`ref_operand`], [`COUNTED`], the library's
+/// known functions), and a test notes the paths runs take ([`taken`]) and
+/// holds each to a kind this names.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Paths {
+    /// One cell of a sheet kept as an array, read by its index.
+    pub(crate) slot: bool,
+    /// A range of a sheet kept as an array, walked by index.
+    pub(crate) array: bool,
+    /// One cell through the environment's lookups.
+    pub(crate) lookup: bool,
+    /// A range walked through its cells, at each cell.
+    pub(crate) cells: bool,
+    /// A cell every `$` holds, read once a run.
+    pub(crate) once: bool,
+    /// A node [`Ctx`] computes at each cell, everything under it with it.
+    pub(crate) each: bool,
+    /// The functions called at each cell, by the library over operands the
+    /// run computed or by [`Ctx`], in upper case, sorted, each once.
+    pub(crate) calls: Vec<String>,
+}
+
+/// The paths of a shape's parse, `arrays` saying which sheets the
+/// environment keeps as arrays (a machine's twins, as its last frame's end
+/// left them). The walk keeps its own stack, as every walk of a parse does,
+/// so that a chain as long as Excel holds costs it no depth.
+pub(crate) fn paths(
+    lib: &Library,
+    model: &crate::sheet::Workbook,
+    e: &Expr,
+    arrays: &dyn Fn(usize) -> bool,
+) -> Paths {
+    let mut walk = Walk {
+        lib,
+        model,
+        arrays,
+        paths: Paths::default(),
+    };
+    let mut stack: Vec<&Expr> = vec![e];
+    while let Some(e) = stack.pop() {
+        walk.node(e, &mut stack);
+    }
+    let mut paths = walk.paths;
+    paths.calls.sort_unstable();
+    paths.calls.dedup();
+    paths
+}
+
+/// One parse's walk.
+struct Walk<'a> {
+    lib: &'a Library,
+    model: &'a crate::sheet::Workbook,
+    arrays: &'a dyn Fn(usize) -> bool,
+    paths: Paths,
+}
+
+impl Walk<'_> {
+    /// A node as [`Many::scalars`] takes it, its operands onto the stack.
+    fn node<'e>(&mut self, e: &'e Expr, stack: &mut Vec<&'e Expr>) {
+        match e {
+            Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => {}
+            Expr::Ref(r) if matches!(r.shape, Part::Cell) && r.last_sheet.is_none() => self.one(r),
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),
+            Expr::Binary(_, a, b) => {
+                stack.push(b);
+                stack.push(a);
+            }
+            Expr::Call(name, args) => self.call(e, name, args, stack),
+            Expr::Ref(_) | Expr::Name { .. } => self.each(e),
+        }
+    }
+
+    /// The sheet a reference to one sheet reads, as the run finds it:
+    /// `Some(Some(sheet))`, `Some(None)` for the formula's own, a frame's
+    /// sheet, never an array; `None` for a sheet the grid does not hold.
+    fn sheet_of(&self, r: &RefExpr) -> Option<Option<usize>> {
+        match (r.found, &r.sheet) {
+            (Some((first, _)), _) => Some(Some(usize::from(first))),
+            (None, None) => Some(None),
+            (None, Some(name)) => self.model.find_sheet(name).map(Some),
+        }
+    }
+
+    /// Whether a reference's sheet is kept as an array.
+    fn kept(&self, sheet: Option<usize>) -> bool {
+        sheet.is_some_and(|s| (self.arrays)(s))
+    }
+
+    /// One cell as [`Many::reads`] reads it.
+    fn one(&mut self, r: &RefExpr) {
+        match self.sheet_of(r) {
+            None => {}
+            Some(_) if r.corners.row_abs1 && r.corners.col_abs1 => self.paths.once = true,
+            Some(sheet) if self.kept(sheet) => self.paths.slot = true,
+            Some(_) => self.paths.lookup = true,
+        }
+    }
+
+    /// A reference read at each cell, by the library or by [`Ctx`]: an
+    /// array walked by index where its sheet is kept as one, its cells
+    /// through lookups where it is not; a span of sheets through its cells.
+    fn at_each(&mut self, r: &RefExpr) {
+        let array = match self.sheet_of(r) {
+            _ if r.last_sheet.is_some() => false,
+            None => return,
+            Some(sheet) => self.kept(sheet),
+        };
+        match (matches!(r.shape, Part::Cell), array) {
+            (true, true) => self.paths.slot = true,
+            (false, true) => self.paths.array = true,
+            (true, false) => self.paths.lookup = true,
+            (false, false) => self.paths.cells = true,
+        }
+    }
+
+    /// A node [`Ctx`] computes at each cell: everything under it at each
+    /// cell with it, every function it calls a call at each cell.
+    fn each(&mut self, e: &Expr) {
+        self.paths.each = true;
+        let mut stack = vec![e];
+        while let Some(x) = stack.pop() {
+            match x {
+                Expr::Ref(r) => self.at_each(r),
+                Expr::Call(name, args) => {
+                    self.paths.calls.push(name.to_ascii_uppercase());
+                    stack.extend(args.iter());
+                }
+                Expr::Neg(y) | Expr::Pos(y) | Expr::Percent(y) => stack.push(y),
+                Expr::Binary(_, a, b) => {
+                    stack.push(a);
+                    stack.push(b);
+                }
+                Expr::Name { .. }
+                | Expr::Number(_)
+                | Expr::Text(_)
+                | Expr::Bool(_)
+                | Expr::Error(_)
+                | Expr::Empty => {}
+            }
+        }
+    }
+
+    /// A call as [`Many::call`] and the paths below it take it.
+    fn call<'e>(&mut self, e: &'e Expr, name: &str, args: &'e [Expr], stack: &mut Vec<&'e Expr>) {
+        if self.lib.form(name).is_some() {
+            match self.lib.known(name) {
+                Some(Known::If) if (2..=3).contains(&args.len()) => stack.extend(args.iter()),
+                Some(Known::Choose) if args.len() >= 2 => stack.extend(args.iter()),
+                Some(Known::If | Known::Choose) => {}
+                _ => self.each(e),
+            }
+            return;
+        }
+        // A function the library does not hold: its operands are never
+        // computed, and the shape's own list names it.
+        if self.lib.strict(name).is_none() {
+            return;
+        }
+        if !args.iter().all(|a| is_operand(self.lib, a)) {
+            self.each(e);
+            return;
+        }
+        let mut refs: Vec<&RefExpr> = Vec::new();
+        for a in args {
+            match ref_operand(self.lib, a) {
+                Some(r) => refs.push(r),
+                None => stack.push(a),
+            }
+        }
+        let one_cell = |r: &RefExpr| matches!(r.shape, Part::Cell) && r.last_sheet.is_none();
+        let known = self.lib.known(name);
+        // Whether the run computes the call itself, as `Many::known_call`
+        // answers; and the reads it makes when it does.
+        let by_run = match known {
+            Some(Known::Abs | Known::Int | Known::Sin) => {
+                args.len() == 1 && refs.iter().all(|r| one_cell(r))
+            }
+            Some(Known::Mod) => args.len() == 2 && refs.iter().all(|r| one_cell(r)),
+            Some(Known::Row | Known::Column) => match (args.len(), refs.as_slice()) {
+                (0, _) => true,
+                (1, [r]) => r.found.is_some() || (r.sheet.is_none() && r.last_sheet.is_none()),
+                _ => false,
+            },
+            Some(Known::Not) => args.len() == 1 && refs.is_empty(),
+            Some(Known::Sum | Known::Min | Known::Max | Known::And | Known::Or) => {
+                args.len() <= COUNTED
+                    && refs.iter().all(|r| {
+                        r.last_sheet.is_none()
+                            && match self.sheet_of(r) {
+                                None => true,
+                                Some(sheet) => self.kept(sheet),
+                            }
+                    })
+            }
+            _ => false,
+        };
+        if !by_run {
+            self.paths.calls.push(name.to_ascii_uppercase());
+            for r in refs {
+                self.at_each(r);
+            }
+            return;
+        }
+        match known {
+            Some(Known::Sum | Known::Min | Known::Max | Known::And | Known::Or) => {
+                if refs.iter().any(|r| self.sheet_of(r).is_some()) {
+                    self.paths.array = true;
+                }
+            }
+            Some(Known::Abs | Known::Int | Known::Sin | Known::Mod) => {
+                for r in refs {
+                    self.one(r);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The paths runs took, noted in a test against the shape each run is of
+/// (KERNEL.30's oracle: the census names every one of them). Noting is on
+/// only between [`taken::begin`] and [`taken::end`], on the thread that
+/// asked, and only in a test build.
+#[cfg(test)]
+pub(crate) mod taken {
+    use std::cell::{Cell, RefCell};
+    use std::collections::BTreeSet;
+
+    /// A path a run took.
+    #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    pub(crate) enum Path {
+        Slot,
+        Array,
+        Lookup,
+        Cells,
+        Once,
+        Each,
+        /// The library's function, called at each cell.
+        Call(String),
+    }
+
+    thread_local! {
+        static SHAPE: Cell<usize> = const { Cell::new(usize::MAX) };
+        static NOTED: RefCell<Option<BTreeSet<(usize, Path)>>> = const { RefCell::new(None) };
+    }
+
+    /// Noting begins on this thread.
+    pub(crate) fn begin() {
+        NOTED.with(|n| *n.borrow_mut() = Some(BTreeSet::new()));
+    }
+
+    /// Every path noted since [`begin`], by shape; noting ends.
+    pub(crate) fn end() -> BTreeSet<(usize, Path)> {
+        NOTED.with(|n| n.borrow_mut().take().unwrap_or_default())
+    }
+
+    /// The shape of the run whose paths are noted next.
+    pub(crate) fn shape(s: usize) {
+        SHAPE.with(|c| c.set(s));
+    }
+
+    /// A path taken by the run being evaluated.
+    pub(crate) fn note(p: Path) {
+        NOTED.with(|n| {
+            if let Some(set) = n.borrow_mut().as_mut() {
+                set.insert((SHAPE.with(Cell::get), p));
+            }
+        });
     }
 }

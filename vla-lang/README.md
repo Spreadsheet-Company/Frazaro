@@ -96,7 +96,11 @@ refused in the same words.
   read the previous frame from (`=Screen.last!B2+1`); `view` answers the
   record with each formula's value, or the plane, a byte a cell. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
-  text is the same) and evaluated at each cell's offset. `machine::Handles`
+  text is the same) and evaluated at each cell's offset. `census` prints
+  the plan as rows before a frame runs: each shape's cells, the levels of
+  the order it spans, the runs it is computed in and the path each of its
+  reads takes, so that a grid's cost is read ahead (`calc::Shapes::census`
+  prints a plan a door made of a workbook the same way). `machine::Handles`
   keeps grids under handles from 1, never reused, sixteen at once. The C
   surface over the four calls, `vla_load`, `vla_write`, `vla_step`,
   `vla_view` and their companions, is compiled always and exported only

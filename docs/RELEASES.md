@@ -2,6 +2,32 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.9.2
+
+### What changed
+
+- **A grid's plan, printed before anything computes it.** `frazaro calc
+  <file> --shapes` computes nothing and prints how an engine's machine
+  plans the workbook: a row of totals; a row for each sheet saying how many
+  readers a changed cell of it is checked against; and a row for each
+  formula shape, a formula filled or repeated over many cells, with its
+  cells, the levels of the dependency order it spans, the cells of a level
+  computed together and those computed one at a time, and the path each of
+  its reads takes, an index into an array, a lookup, a range walked through
+  its cells at each cell, a part computed once. What a model or a game
+  costs is read before a frame runs: a rule written one fill a row instead
+  of one fill a formula shows its formulas as hundreds of shapes of a few
+  texts, and a sum over a range of its own sheet shows the range walked at
+  each cell. For engines, `Machine::census` prints a machine's own plan,
+  its twins read as it keeps them, and `Shapes::census` a plan a door made
+  of a workbook. Nothing computes differently, and a plan keeps for this
+  only where each level of its order ends, four bytes a level (KERNEL.30).
+
+### Known open security items
+
+**Closed this release:** none yet. Standing advice unchanged. The full list
+of open items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.9.1
 
 ### What changed

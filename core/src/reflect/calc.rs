@@ -30,12 +30,19 @@
 //! refuse nothing here: a workbook is read as it is, which is what an
 //! auditor needs; the engine's `load` is where they refuse
 //! (`vla_lang::calc::Calc::first_refusal`).
+//!
+//! With `--shapes` the door computes nothing and prints the plan an
+//! engine's machine makes of the same grid, its census (KERNEL.30,
+//! [`census_of`]): a `(plan ...)` row of totals, a `(readers ...)` row a
+//! sheet and a `(shape ...)` row a shape, each read named by the path the
+//! machine takes for it, so that a model's cost is read before anything
+//! computes it.
 
 use std::collections::BTreeMap;
 
-use vla_lang::calc::{agrees, Calc, CellId, Computed, Library, Reason};
+use vla_lang::calc::{agrees, Calc, CellId, Computed, Extent, Library, Names, Reason, Shapes};
 use vla_lang::rows::{datum, quoted, Row, Sink, Value};
-use vla_lang::sheet::{cell_ref, parse_a1_range, Cell, Content, Workbook};
+use vla_lang::sheet::{cell_ref, parse_a1_range, Cell, Content, Sheet, Workbook};
 
 use super::{open, Discard};
 use crate::messages::Refusal;
@@ -146,6 +153,26 @@ pub fn collect(bytes: &[u8], label: &str) -> Result<Collected, Refusal> {
     }
     let _ = Discard;
     Ok(collected)
+}
+
+/// A collected workbook's census (KERNEL.30, `frazaro calc --shapes`): the
+/// grid planned as an engine's machine plans one, by `Shapes::of` under the
+/// library with the grid's names and extents, every sheet read as the
+/// frame's own, a workbook holding no `.last` twin, and nothing computed. A
+/// cycle, a function the library does not hold and a construct not read
+/// are printed as facts of the plan, where a machine's load would refuse
+/// the grid. The rows end in a newline each.
+pub fn census_of(collected: &Collected, library: &Library) -> String {
+    let model = &collected.model;
+    let extents: Vec<Extent> = model.sheets.iter().map(Sheet::extent).collect();
+    let plan = Shapes::of(
+        model,
+        model.sheets.len(),
+        library,
+        &Names::of(model),
+        &extents,
+    );
+    plan.census(model, library)
 }
 
 /// The rows and the counts of one recalculation of a collected workbook.

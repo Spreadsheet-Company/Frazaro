@@ -515,6 +515,14 @@ impl Reach {
     pub(crate) fn part_count(&self) -> usize {
         self.parts.len()
     }
+
+    /// How many readers a changed cell of a sheet is checked against, at a
+    /// frame's start and at each cell the frame changes (KERNEL.30's census
+    /// prints it): each shape's references to the sheet that reach other
+    /// cells than another of its own does.
+    pub(crate) fn readers_on(&self, sheet: usize) -> usize {
+        self.readers.get(sheet).map_or(0, Vec::len)
+    }
 }
 
 /// One shape's parse being read.

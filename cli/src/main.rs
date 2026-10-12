@@ -105,7 +105,7 @@ usage:
                          line in a fixed order, nothing when there is
                          nothing to report; with --counts, the six counts
                          and the times alone
-  frazaro calc <file.xlsx|.ods> [--counts]
+  frazaro calc <file.xlsx|.ods> [--counts | --shapes]
                          recalculation (KERNEL.7): the workbook read as
                          reflect reads it into the grid, every formula
                          computed in dependency order under the declared
@@ -117,7 +117,13 @@ usage:
                          version does not compute shows not computed here
                          with its name, and a cell that reads it inherits
                          the label; with --counts, the counts and times
-                         alone; exit 0 whenever the calculation ran
+                         alone; with --shapes, nothing computed and the
+                         plan an engine's machine makes of the grid printed,
+                         its census (KERNEL.30): a plan row of totals, a
+                         readers row a sheet and a shape row a formula
+                         shape - its cells, the levels it spans, its runs
+                         and the path each of its reads takes; exit 0
+                         whenever the calculation or the plan ran
                          the view record (KERNEL.4): the program translated
                          and built as build builds it, into the sheet model
                          alone with nothing written, and one window of one
@@ -1236,21 +1242,26 @@ fn audit(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// `frazaro calc <file.xlsx|.ods> [--counts]` (KERNEL.7): the file read as
-/// `reflect` reads it into the grid, every formula computed by the
-/// language's evaluator under Excel's library (`frazaro_core::excel`), and
-/// one `calc` row per formula cell in the fixed order, the computed value
-/// against the host's cached one with the verdict, every cycle named first;
-/// with `--counts`, one line of counts and times. Exit 0 whenever the
-/// calculation ran, agree or differ; a refusal exits 1; a usage error or an
-/// unreadable file exits 2.
+/// `frazaro calc <file.xlsx|.ods> [--counts | --shapes]` (KERNEL.7): the
+/// file read as `reflect` reads it into the grid, every formula computed by
+/// the language's evaluator under Excel's library (`frazaro_core::excel`),
+/// and one `calc` row per formula cell in the fixed order, the computed
+/// value against the host's cached one with the verdict, every cycle named
+/// first; with `--counts`, one line of counts and times; with `--shapes`,
+/// nothing computed and the grid's census printed, the plan an engine's
+/// machine makes of it (KERNEL.30). Exit 0 whenever the calculation or the
+/// plan ran, agree or differ; a refusal exits 1; a usage error, the two
+/// flags together among them, or an unreadable file exits 2.
 fn calc(args: &[String]) -> ExitCode {
-    const USAGE_LINE: &str = "usage: frazaro calc <file.xlsx|.ods> [--counts]";
+    const USAGE_LINE: &str = "usage: frazaro calc <file.xlsx|.ods> [--counts | --shapes]";
     let mut file: Option<&str> = None;
     let mut counts = false;
+    let mut shapes = false;
     for a in args {
         if a == "--counts" {
             counts = true;
+        } else if a == "--shapes" {
+            shapes = true;
         } else if a.starts_with("--") || file.is_some() {
             eprintln!("{USAGE_LINE}");
             return ExitCode::from(2);
@@ -1258,7 +1269,7 @@ fn calc(args: &[String]) -> ExitCode {
             file = Some(a);
         }
     }
-    let Some(file) = file else {
+    let Some(file) = file.filter(|_| !(counts && shapes)) else {
         eprintln!("{USAGE_LINE}");
         return ExitCode::from(2);
     };
@@ -1282,6 +1293,13 @@ fn calc(args: &[String]) -> ExitCode {
     };
     let read_ms = ms_since(opened);
     let library = frazaro_core::excel::library();
+    if shapes {
+        print!(
+            "{}",
+            frazaro_core::reflect::calc::census_of(&collected, &library)
+        );
+        return ExitCode::SUCCESS;
+    }
     let started = std::time::Instant::now();
     let (rows, tally) = frazaro_core::reflect::calc::rows_of(&collected, &library);
     if counts {

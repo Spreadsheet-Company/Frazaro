@@ -33,6 +33,12 @@
 //! shape reads is found with the order, so that an engine follows a changed
 //! cell to the cells of the order that read it and computes those alone
 //! (`super::reach`, KERNEL.20).
+//!
+//! The plan is printed as rows on request ([`Shapes::census`], KERNEL.30,
+//! `super::census`): each shape's cells, the levels of the order it spans,
+//! its runs and the paths its reads take, so that a grid's cost is read
+//! before a frame runs. Of all that, the plan keeps for it only where each
+//! level of the order ends, the array its counting sort already makes.
 
 use std::collections::HashMap;
 
@@ -84,6 +90,12 @@ impl Shape {
         self.holds
     }
 
+    /// The functions the parse calls that the library does not hold, sorted,
+    /// each once (KERNEL.30's census prints them).
+    pub(crate) fn missing(&self) -> &[String] {
+        &self.missing
+    }
+
     /// The construct a cell at this offset stands for that the shape's
     /// first cell does not, as the moved text's parse names it; `None` when
     /// the moved text reads as the shape does, which for a shape that is not
@@ -129,6 +141,11 @@ pub struct Shapes {
     runs: Vec<Run>,
     /// What each shape reads, found with the order (KERNEL.20).
     reach: Reach,
+    /// Where each level of the order ends, by level (KERNEL.30): the
+    /// position after its last cell, the order's own counting sort kept
+    /// rather than dropped, so that the census finds each cell's level
+    /// without planning again.
+    level_ends: Vec<u32>,
 }
 
 /// A run of the order: its cells are `order[start..end]`, of one shape.
@@ -150,7 +167,11 @@ impl Shapes {
     }
 
     /// Every formula cell of the sheets `0..sheets` placed, the shapes
-    /// parsed, and the order found.
+    /// parsed, and the order found. The plan is made in a box: every formula
+    /// is parsed beneath this frame, the deepest a load reaches, which
+    /// `VLA.1`'s limits pin on a stack of 1 MiB, and the plan held here by
+    /// value would stand on it, 480 bytes since it kept its level ends
+    /// (KERNEL.30).
     pub fn of(
         model: &Workbook,
         sheets: usize,
@@ -158,7 +179,7 @@ impl Shapes {
         names: &Names,
         extents: &[Extent],
     ) -> Shapes {
-        let mut s = Shapes::new();
+        let mut s: Box<Shapes> = Box::default();
         for (si, sheet) in model.sheets.iter().enumerate().take(sheets) {
             let masters = shared_masters(sheet);
             for (&(row, col), cell) in &sheet.cells {
@@ -166,7 +187,7 @@ impl Shapes {
             }
         }
         s.plan(model, names, extents);
-        s
+        *s
     }
 
     /// Place one cell after a write: its old place forgotten, and a new one
@@ -429,11 +450,13 @@ impl Shapes {
         }
         self.cycles.sort();
         // By shape and then by level, each pass keeping the order before it,
-        // so by level, shape and cell, a cell's sheet first among its own.
+        // so by level, shape and cell, a cell's sheet first among its own;
+        // the second pass's counts are where each level ends (KERNEL.30).
         let cells: Vec<usize> = (0..ids.len()).filter(|&v| alone[v]).collect();
-        let cells = by_key(&cells, self.shapes.len(), |v| shape_of[v]);
+        let (cells, _) = by_key(&cells, self.shapes.len(), |v| shape_of[v]);
         let levels = level.iter().max().map_or(0, |deepest| deepest + 1);
-        let order = by_key(&cells, levels, |v| level[v]);
+        let (order, ends) = by_key(&cells, levels, |v| level[v]);
+        self.level_ends = ends;
         // The run each cell of the order joined, by the run's first position:
         // a cell joins the run before it when it is of the run's shape and
         // sheet and reads no cell of the run, so that the run's cells may be
@@ -510,6 +533,10 @@ impl Shapes {
         out: &mut Vec<Computed>,
     ) {
         let s = &self.shapes[shape];
+        // The paths the run takes are noted against its shape, in a test
+        // (KERNEL.30's oracle: the census names each of them).
+        #[cfg(test)]
+        vector::taken::shape(shape);
         match &s.expr {
             Ok(e) => {
                 let held = s.holds;
@@ -565,6 +592,41 @@ impl Shapes {
     /// A shape, by its index.
     pub fn shape(&self, index: usize) -> Option<&Shape> {
         self.shapes.get(index)
+    }
+
+    /// The plan printed as rows, the census (KERNEL.30): a `(plan ...)` row
+    /// of totals, a `(readers ...)` row for each sheet whose changed cells
+    /// are checked against readers, then a `(shape ...)` row for each shape
+    /// a cell holds, each read named by the path an engine's machine takes
+    /// for it (`super::census`). Every sheet is read as a frame's own, as a
+    /// workbook's are: this is the census of a plan [`Shapes::of`] made over
+    /// a grid with no `.last` twin. A machine's, its twins read as it keeps
+    /// them, is `Machine::census`. Computed when asked from the plan as it
+    /// stands, which keeps nothing for it but where each level ends.
+    pub fn census(&self, model: &Workbook, library: &Library) -> String {
+        super::census::rows(self, model, library, &|_| false)
+    }
+
+    /// Where each level of the order ends, by level (KERNEL.30).
+    pub(crate) fn level_ends(&self) -> &[u32] {
+        &self.level_ends
+    }
+
+    /// Each run of the order as its first position, the position after its
+    /// last cell and its shape, by first position (KERNEL.30).
+    pub(crate) fn run_spans(&self) -> impl Iterator<Item = (usize, usize, usize)> + '_ {
+        self.runs.iter().map(|r| (r.start, r.end, r.shape))
+    }
+
+    /// Every formula cell and its place, in no order (KERNEL.30).
+    pub(crate) fn places(&self) -> impl Iterator<Item = (CellId, Place)> + '_ {
+        self.places.iter().map(|(&id, &p)| (id, p))
+    }
+
+    /// Every shape the plan holds, a shape whose cells a write has since
+    /// replaced among them (KERNEL.30).
+    pub(crate) fn every_shape(&self) -> &[Shape] {
+        &self.shapes
     }
 
     /// One formula cell evaluated against the grid as `env` shows it, the
@@ -659,9 +721,12 @@ impl Shapes {
 
 /// Cells ordered by a key below `keys`, cells of one key in the order they
 /// came in: a counting sort, a pass over the cells and one over the keys,
-/// for the order of a plan (KERNEL.20).
-fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> Vec<usize> {
-    let mut start = vec![0; keys + 1];
+/// for the order of a plan (KERNEL.20); and, by key, where its cells end in
+/// that order, which the sort's own counts hold once it is done (KERNEL.30).
+/// A plan's cells are positions of an order a `u32` holds, as its reach's
+/// are.
+fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> (Vec<usize>, Vec<u32>) {
+    let mut start = vec![0u32; keys + 1];
     for &v in cells {
         start[key(v) + 1] += 1;
     }
@@ -671,10 +736,11 @@ fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> Vec<usi
     let mut out = vec![0; cells.len()];
     for &v in cells {
         let k = key(v);
-        out[start[k]] = v;
+        out[start[k] as usize] = v;
         start[k] += 1;
     }
-    out
+    start.truncate(keys);
+    (out, start)
 }
 
 /// Every reference of a parse that names its sheets, those sheets found once

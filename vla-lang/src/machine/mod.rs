@@ -592,6 +592,19 @@ impl Machine {
         (self.shapes.formulas(), self.shapes.shapes())
     }
 
+    /// The machine's plan printed as rows, its census (KERNEL.30): what each
+    /// shape costs a frame, read before a frame runs, as
+    /// [`crate::calc::Shapes::census`] prints a plan, but each read of a
+    /// twin named by how the machine keeps that twin as its last frame's end
+    /// left it, an array read by index or cells read through lookups.
+    /// Computed when asked: a load, a step and a write keep nothing for it
+    /// but where each level of the order ends.
+    pub fn census(&self) -> String {
+        crate::calc::census::rows(&self.shapes, &self.book, &self.library, &|s| {
+            Env::dense(self, s).is_some()
+        })
+    }
+
     fn during_step(&self, done: usize) -> Refusal {
         raise(
             "grid-write-during-step",
@@ -3314,6 +3327,325 @@ mod tests {
         assert!(
             in_runs * 2 > by_cell,
             "{in_runs} of {by_cell} cells were in runs: too few for the law to hold over"
+        );
+    }
+
+    // ---- KERNEL.30: the census held to the plan walked again, and to the
+    // paths runs take ----
+
+    /// A machine's census, its twins' arrays as it keeps them.
+    fn census_of(m: &Machine) -> crate::calc::census::Census {
+        crate::calc::census::of(&m.shapes, &m.book, &m.library, &|s| {
+            Env::dense(m, s).is_some()
+        })
+    }
+
+    /// Each formula cell's reads and level found again as `Calc` would find
+    /// them, none of the plan's code used: its text read off the grid (a
+    /// shared formula's child as its master's text moved), its reads by
+    /// `graph::dependencies`, the order by `graph::plan`; a cell's level 0
+    /// when it reads no formula cell, else one past the deepest it reads.
+    fn walked_again(m: &Machine) -> (BTreeMap<CellId, usize>, HashMap<CellId, Vec<CellId>>) {
+        let book = &m.book;
+        let names = Names::of(book);
+        let extents: Vec<Extent> = book.sheets.iter().map(Sheet::extent).collect();
+        let mut texts = HashMap::new();
+        for (si, sheet) in book.sheets.iter().enumerate() {
+            let masters = shared_masters(sheet);
+            for (&(row, col), cell) in &sheet.cells {
+                if let Some(text) = formula_text(&cell.content, row, col, &masters) {
+                    texts.insert((si, row, col), text);
+                }
+            }
+        }
+        let plan = crate::calc::graph::plan(book, &names, &extents, &texts);
+        assert!(plan.cycles.is_empty(), "a grid that loaded holds no cycle");
+        let (mut level, mut reads) = (BTreeMap::new(), HashMap::new());
+        for id in &plan.order {
+            let mut deps = Vec::new();
+            crate::calc::graph::dependencies(book, &names, &extents, id.0, &texts[id], &mut deps);
+            let deepest = deps.iter().filter_map(|d| level.get(d)).max();
+            level.insert(*id, deepest.map_or(0, |l: &usize| l + 1));
+            reads.insert(*id, deps);
+        }
+        (level, reads)
+    }
+
+    /// Each shape's runs found again by the rule restated over the plan's
+    /// order: a stretch of one shape on one sheet, none of whose cells reads
+    /// another of it by the reads found again, as long as the next cell of
+    /// the order can join it, kept when at least `RUN` long and its shape
+    /// parsed and not risky; as its count, its cells, the fewest and the
+    /// most in one.
+    fn runs_again(
+        m: &Machine,
+        reads: &HashMap<CellId, Vec<CellId>>,
+    ) -> BTreeMap<usize, (usize, usize, usize, usize)> {
+        let order = m.shapes.order();
+        let shape_of = |id: CellId| m.shapes.place(id).expect("placed").shape;
+        let mut out = BTreeMap::new();
+        let mut i = 0;
+        while i < order.len() {
+            let (first, s) = (order[i], shape_of(order[i]));
+            let mut stretch = std::collections::HashSet::from([first]);
+            let mut j = i + 1;
+            while j < order.len()
+                && shape_of(order[j]) == s
+                && order[j].0 == first.0
+                && !reads[&order[j]].iter().any(|r| stretch.contains(r))
+            {
+                stretch.insert(order[j]);
+                j += 1;
+            }
+            let shape = m.shapes.shape(s).expect("a shape");
+            if j - i >= RUN && shape.expr.is_ok() && !shape.risky {
+                let r = out.entry(s).or_insert((0, 0, usize::MAX, 0));
+                (r.0, r.1, r.2, r.3) = (r.0 + 1, r.1 + j - i, r.2.min(j - i), r.3.max(j - i));
+            }
+            i = j;
+        }
+        out
+    }
+
+    #[test]
+    fn the_census_is_the_plan_walked_again() {
+        // KERNEL.30: over the generated grids, at the load and after writes
+        // that plan the order again, every count the census prints found
+        // again by a walk of its own: each shape's cells from the cells, the
+        // levels from the reads `Calc` reads, the runs by the rule restated;
+        // and every count summed back to the plan's.
+        for seed in 1..=80u64 {
+            let mut d = Dice(seed);
+            let rows = generated_grid(&mut d);
+            let mut m = load(&rows);
+            for round in 0..3 {
+                let when = format!("seed {seed}, round {round}");
+                let census = census_of(&m);
+                let (level, reads) = walked_again(&m);
+                let runs = runs_again(&m, &reads);
+                let mut cells: BTreeMap<usize, usize> = BTreeMap::new();
+                let mut at: BTreeMap<usize, BTreeMap<usize, usize>> = BTreeMap::new();
+                for (si, sheet) in m.book.sheets.iter().enumerate() {
+                    for (&(row, col), cell) in &sheet.cells {
+                        if !is_formula(&cell.content) {
+                            continue;
+                        }
+                        let id = (si, row, col);
+                        let s = m.shapes.place(id).expect("placed").shape;
+                        *cells.entry(s).or_default() += 1;
+                        *at.entry(s).or_default().entry(level[&id]).or_default() += 1;
+                    }
+                }
+                assert_eq!(census.formulas, cells.values().sum(), "{when}: the cells");
+                assert_eq!(census.cycles, 0, "{when}");
+                let held: BTreeSet<usize> = level.values().copied().collect();
+                assert_eq!(census.levels, held.len(), "{when}: the levels");
+                assert_eq!(census.shapes.len(), cells.len(), "{when}: the shapes");
+                for f in &census.shapes {
+                    let s = f.shape;
+                    assert_eq!(f.cells, cells[&s], "{when}: shape {s}'s cells");
+                    let by = &at[&s];
+                    let first = *by.keys().next().expect("a level");
+                    let last = *by.keys().last().expect("a level");
+                    let widest = *by.values().max().expect("a level");
+                    assert_eq!(
+                        f.levels,
+                        Some((first, last, by.len(), widest)),
+                        "{when}: shape {s}'s levels"
+                    );
+                    assert_eq!(f.in_order, f.cells, "{when}: shape {s}, no cycle");
+                    let want = runs.get(&s).copied().unwrap_or((0, 0, 0, 0));
+                    assert_eq!(
+                        (f.runs, f.lanes, f.narrowest, f.widest),
+                        want,
+                        "{when}: shape {s}'s runs"
+                    );
+                    assert_eq!(f.alone() + f.lanes, f.cells, "{when}: shape {s}");
+                }
+                // A write, as the law writes, or a fill planting a formula
+                // over cells of the bands, so that the order is planned again.
+                let write = match d.below(3) {
+                    0 => format!("(cell \"A\" \"A{}\" 7)", 1 + d.below(20)),
+                    1 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    _ => "(formula \"B\" \"C1:H2\" \"=$A1+1\")".to_string(),
+                };
+                assert!(m.write(&write).is_ok(), "{when}: {write}");
+                while !m.step(0).done {}
+            }
+        }
+    }
+
+    /// Whether the census names a path a run took.
+    fn named(f: &crate::calc::census::Facts, path: &vector::taken::Path) -> bool {
+        use crate::calc::census::Kind;
+        use vector::taken::Path;
+        match path {
+            Path::Slot => f.reads.contains(&Kind::Slot),
+            Path::Array => f.reads.contains(&Kind::Array),
+            Path::Lookup => f.reads.contains(&Kind::Lookup),
+            Path::Cells => f.reads.contains(&Kind::Cells),
+            Path::Once => f.reads.contains(&Kind::Once),
+            Path::Each => f.reads.contains(&Kind::Each),
+            Path::Call(name) => f.calls.contains(name),
+        }
+    }
+
+    #[test]
+    fn the_census_names_every_path_a_run_takes() {
+        // KERNEL.30: over the generated grids, stepped in slices of any
+        // budget with writes between frames, every path a run takes, noted
+        // as it takes it, is a kind of read or a call the census names for
+        // the run's shape, the census taken at the frame's start, when the
+        // twins' arrays are the ones the run reads; and every kind of path is
+        // taken somewhere, so that the law holds over each.
+        let mut kinds: BTreeSet<&str> = BTreeSet::new();
+        for seed in 1..=80u64 {
+            let mut d = Dice(seed);
+            let rows = generated_grid(&mut d);
+            let mut m = load(&rows);
+            for frame in 1..=4 {
+                let census = census_of(&m);
+                let facts: BTreeMap<usize, &crate::calc::census::Facts> =
+                    census.shapes.iter().map(|f| (f.shape, f)).collect();
+                vector::taken::begin();
+                while !m.step(1 + d.below(300)).done {}
+                for (s, path) in vector::taken::end() {
+                    let Some(f) = facts.get(&s) else {
+                        panic!(
+                            "seed {seed}, frame {frame}: a run of shape {s}, which no row names"
+                        );
+                    };
+                    assert!(
+                        named(f, &path),
+                        "seed {seed}, frame {frame}: shape {s} took {path:?}; its facts {f:?}\n{rows}"
+                    );
+                    kinds.insert(match path {
+                        vector::taken::Path::Slot => "slot",
+                        vector::taken::Path::Array => "array",
+                        vector::taken::Path::Lookup => "lookup",
+                        vector::taken::Path::Cells => "cells",
+                        vector::taken::Path::Once => "once",
+                        vector::taken::Path::Each => "each",
+                        vector::taken::Path::Call(_) => "call",
+                    });
+                }
+                let write = match d.below(4) {
+                    0 => format!("(cell \"A\" \"A{}\" 7)", 1 + d.below(20)),
+                    1 => format!("(cell \"B\" \"B{}\" \"y\")", 1 + d.below(20)),
+                    2 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    _ => continue,
+                };
+                assert!(m.write(&write).is_ok(), "seed {seed}: {write}");
+            }
+        }
+        assert_eq!(
+            kinds.into_iter().collect::<Vec<_>>(),
+            ["array", "call", "cells", "each", "lookup", "once", "slot"],
+            "every kind of path taken somewhere"
+        );
+    }
+
+    #[test]
+    fn each_kind_is_named_by_its_own_formula() {
+        // KERNEL.30: a formula for each kind of read, each filling eight
+        // cells, a run, whose census names that kind and no other; and the
+        // paths its run takes are the kinds named, but the parts compared at
+        // the frame's start, which no run takes, and the reads under a node
+        // the evaluator computes at each cell, which are its own.
+        let mut m = load(concat!(
+            "(sheet \"V\" visible)\n",
+            "(cell \"V\" \"A1\" 1)\n",
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:B8\" 1)\n",
+            "(name \"Rate\" \"S!$A$1\")\n",
+            "(formula \"S\" \"C1:C8\" \"=S.last!A1\")\n",
+            "(formula \"S\" \"D1:D8\" \"=SUM(S.last!A1:B2)\")\n",
+            "(formula \"S\" \"E1:E8\" \"=A1\")\n",
+            "(formula \"S\" \"F1:F8\" \"=SUM(A1:B1)\")\n",
+            "(formula \"S\" \"G1:G8\" \"=$A$1+1\")\n",
+            "(formula \"S\" \"H1:H8\" \"=IF(V!$A$1=1,1,0)\")\n",
+            "(formula \"S\" \"I1:I8\" \"=Rate+1\")\n",
+            "(formula \"S\" \"J1:J8\" \"=MOD(S.last!A1,2)\")\n",
+            "(formula \"S\" \"K1:K8\" \"=ROW()\")\n",
+            "(formula \"S\" \"L1:L8\" \"=SUM(IF(A1>0,A1:A2,B1:B2))\")\n",
+            "(formula \"S\" \"M1:M8\" \"=ABS(S.last!A1:A2)\")\n",
+        ));
+        let want: [(&str, &str, &[&str]); 11] = [
+            ("C1", "slot", &[]),
+            ("D1", "array", &[]),
+            ("E1", "lookup", &[]),
+            ("F1", "cells", &["SUM"]),
+            ("G1", "once start", &[]),
+            ("H1", "once start", &[]),
+            ("I1", "each", &[]),
+            ("J1", "slot", &[]),
+            ("K1", "", &[]),
+            ("L1", "lookup cells each", &["IF", "SUM"]),
+            // A function of numbers given a range is the library's at each
+            // cell, and the range its walk of the array.
+            ("M1", "array", &["ABS"]),
+        ];
+        let census = census_of(&m);
+        vector::taken::begin();
+        assert!(m.step(0).done);
+        let taken = vector::taken::end();
+        assert_eq!(census.shapes.len(), want.len());
+        for (f, (first, reads, calls)) in census.shapes.iter().zip(want) {
+            let words: Vec<&str> = f.reads.iter().map(|k| k.word()).collect();
+            assert_eq!(
+                (f.first.as_str(), words.join(" "), f.calls.clone()),
+                (
+                    first,
+                    reads.to_string(),
+                    calls.iter().map(|c| c.to_string()).collect()
+                ),
+                "{f:?}"
+            );
+            let paths: BTreeSet<&vector::taken::Path> = taken
+                .iter()
+                .filter(|(s, _)| *s == f.shape)
+                .map(|(_, p)| p)
+                .collect();
+            let words_taken: Vec<String> = paths
+                .iter()
+                .map(|p| match p {
+                    vector::taken::Path::Call(name) => format!("call {name}"),
+                    other => format!("{other:?}").to_ascii_lowercase(),
+                })
+                .collect();
+            let each = f.reads.contains(&crate::calc::census::Kind::Each);
+            let expected: Vec<String> = if each {
+                vec!["each".to_string()]
+            } else {
+                let mut w: Vec<String> = f
+                    .reads
+                    .iter()
+                    .filter(|k| **k != crate::calc::census::Kind::Start)
+                    .map(|k| k.word().to_string())
+                    .collect();
+                w.extend(f.calls.iter().map(|c| format!("call {c}")));
+                w
+            };
+            assert_eq!(words_taken, expected, "{first}: the paths taken");
+        }
+        let every: Vec<&str> = census
+            .shapes
+            .iter()
+            .filter(|f| f.every_frame.is_some())
+            .map(|f| f.first.as_str())
+            .collect();
+        assert_eq!(
+            every,
+            ["I1"],
+            "the shape reading a name computed every frame"
         );
     }
 

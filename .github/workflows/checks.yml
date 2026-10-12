@@ -104,6 +104,11 @@ jobs:
       - name: the core reproduces the recalc goldens, whole, every saved value agreeing (KERNEL.7, oracle 12)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_recalc_golden.ps1 -Impl target/debug/frazaro
+      - name: the door's census of the recalc fixtures and the bench programs, whole (KERNEL.30)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Impl target/debug/frazaro
+          pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Control
       - name: the machine's values held on the fixtures the recalculation floors were measured on (KERNEL.20)
         shell: pwsh
         run: |

@@ -1,0 +1,5 @@
+(plan (shapes 3) (texts 3) (formulas 39999) (levels 20000) (runs 1) (lanes 19999) (alone 20000) (every-frame 0) (cycles 0))
+(readers "Output" 3)
+(shape 0 "Output" "B1" "=RC[-1]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))
+(shape 1 "Output" "A2" "=MOD(ROW()*7,13)" (cells 19999) (levels 0 0 1 19999) (runs 1 19999 19999 19999) (alone 0) (reads))
+(shape 2 "Output" "B2" "=R[-1]C+RC[-1]" (cells 19999) (levels 1 19999 19999 1) (runs 0 0 0 0) (alone 19999) (reads lookup))

@@ -97,18 +97,24 @@ fn the_formula_parser_reads_to_excel_s_limits_and_refuses_past_them() {
 fn a_machine_loads_steps_and_drops_formulas_at_excel_s_limits() {
     on_one_mib(|| {
         // The deepest formulas Excel holds and its longest, each loaded,
-        // stepped to the end of a frame and dropped: evaluation recurses
-        // once a level of nesting and goes round a loop along a chain, and
-        // the chain's tree of 4,095 links is freed recursively.
+        // stepped to the end of a frame, its census printed and dropped:
+        // evaluation recurses once a level of nesting and goes round a loop
+        // along a chain, the census's walk of a parse keeps its own stack
+        // (KERNEL.30), and the chain's tree of 4,095 links is freed
+        // recursively.
         for f in [
             nest(NESTING_LIMIT, "(", "1", ")"),
             nest(NESTING_LIMIT, "ABS(", "1", ")"),
             nest(NESTING_LIMIT, "-", "1", ""),
+            nest(NESTING_LIMIT, "IF(TRUE,", "1", ",0)"),
             format!("{}11", "1+".repeat(4095)),
         ] {
             let mut m = Machine::load(&cell(&f), library::language()).expect("loads");
             let step = m.step(usize::MAX);
             assert!(step.done && step.evaluated == 1, "{step:?}");
+            assert!(m
+                .census()
+                .starts_with("(plan (shapes 1) (texts 1) (formulas 1) "));
             drop(m);
         }
         // One past each limit is refused at its line by the limit's own id.

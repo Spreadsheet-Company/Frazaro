@@ -26,7 +26,10 @@
 //! read it, so that a frame computes those and keeps every other cell's
 //! value (`reach`, KERNEL.20). [`Calc`] keeps its plan of texts and its
 //! parse at evaluation, since it evaluates each formula once and an engine
-//! every formula every frame.
+//! every formula every frame. The plan of shapes prints itself on request,
+//! its census (`census`, KERNEL.30): each shape's cells, levels and runs,
+//! and the path each of its reads takes, so that a grid's cost is read
+//! before a frame runs.
 //!
 //! What is not here, by name, each a slice of its own: dates, text
 //! functions, lookups, dynamic arrays and spills, implicit intersection
@@ -37,6 +40,7 @@
 //! construct ([`Reason`]), which is the honest static label of `HORIZON.md`
 //! section 12.6; a cell that reads such a cell inherits the reason.
 
+pub(crate) mod census;
 pub mod dense;
 pub mod eval;
 pub mod formula;

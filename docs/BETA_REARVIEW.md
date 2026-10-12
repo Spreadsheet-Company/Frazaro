@@ -23140,6 +23140,567 @@ gaps left, a sum over a range against Excel's threads and an edit that
 reaches most cells, are unfiled. `KERNEL.20` closes, ✅, its line moved to
 the closed ledger.
 
+**`KERNEL.30`, the shapes printed: the scoping, 2026-10-12.** Begun at the
+owner's word, "Scope KERNEL.30, the shapes printed, then stop and give me the
+decisions. Build it only after I approve": each decision below is a
+recommendation for the owner's approval, and nothing is built in the tree
+before it. Measured in a scratch worktree at `0357cf1` holding a prototype
+written to be measured and not to be kept (453 lines added and 4 removed in
+`calc/shape.rs`, `calc/vector.rs`, `calc/reach.rs` and `machine/mod.rs`, and a
+harness in `core/examples/` that builds the four bench programs as the recalc
+runner builds them), and in a scratch copy of Alonzo's HEAD, `5aee496`, its
+pin set to 0.9.1 and its `vla-lang` patched to the worktree by path. Nothing
+in `Delta/Alonzo` was written: its tree holds `CART.2`'s session's move to
+0.9.1. The pre-flight: the shared tree clean at `0357cf1`, two ahead of
+`origin/main`, CI's run on `189070b` green, `run_checks.ps1` 56 of 56; no
+build of another session running while anything was timed.
+
+*What exists*, read in the code at `0357cf1`:
+- The plan (`calc/shape.rs`) holds every fact the item prints and shows none:
+  each formula cell's place, its shape and its offset (`places`); each
+  shape's text, parse and first cell (`Shape`); the order by level, then
+  shape, then cell (`order_and_runs`, two counting sorts, `by_key`), each
+  cell's level found there and dropped with the second sort's counts; the
+  runs, by their first position, each at least `RUN` (four) cells of one
+  shape on one sheet, consecutive in the order, none reading another; and the
+  reach (`calc/reach.rs`): each shape's references as patterns, the readers
+  each sheet lists, the parts compared at a frame's start, the shapes no
+  change is followed to (`unfollowed`), and the shape at each position of the
+  order (`shape_at`).
+- A shape is one formula placed at many cells: a shared formula by its sheet
+  and index (`by_shared`), a plain one by its R1C1 text (`by_r1c1`). The
+  machine's load writes a range row as one shared formula
+  (`machine/load.rs`), so two fills of one formula are two shapes, which is
+  `CART.2`'s 398; a door's reader gives each cell its own text
+  (`reflect::calc::collect`), so a file's fill is one shape by its R1C1.
+- The paths a run takes are `vector.rs`'s dispatch (`Many::scalars`, `call`,
+  `known_call`, `known`). A cell read is an index into a twin's array or the
+  machine's lookups (`Env::read`); a range in `SUM`, `MIN`, `MAX`, `AND` or
+  `OR` is walked by the run's fold when its sheet is kept as an array, and
+  otherwise by the library at each cell, through its cells; a cell every `$`
+  holds is read once a run; `ROW`, `COLUMN`, `MOD`, `INT`, `ABS`, `SIN`, `IF`
+  and `CHOOSE` are the run's own; any other function is called at each cell
+  over operands the run computed; and `Ctx` computes at each cell a defined
+  name, a form other than `IF` and `CHOOSE`, a range where one value is
+  wanted, and a call with such an operand.
+- `machine/mod.rs` keeps the plan private and answers `formulas()`, the
+  formula cells and the shapes the plan holds; `Env::dense` says which twins
+  the last walk kept as arrays.
+- Alonzo's `describe` (`engine/src/cartridge.rs`, read at `5aee496`): the
+  manifest's directives, a `device` row for each device sheet, then
+  `(budget <rate> <formula-cells> <a-second> <line>)`; two of its tests hold
+  its text, and `SPEC.md` §4.6 names its rows.
+- The door's `calc` collects a file into the grid and computes it with
+  `Calc`, which plans by texts (`graph::plan`) and never makes `Shapes`.
+- The language's C surface is the ten names `check_wasm_exports.ps1` holds.
+
+*Measured*, the prototype's census of each fixture, on the owner's machine;
+its rows are spelled as decision 1 has them. Alonzo's six cartridges, loaded
+by the engine's own `Cartridge::load`:
+
+| cartridge | formula cells | shapes, texts | levels | runs | cells alone |
+|---|---|---|---|---|---|
+| Life | 62,964 | 1, 1 | 1 | 1 | 0 |
+| the gun | 62,964 | 1, 1 | 1 | 1 | 0 |
+| Sand | 126,449 | 13, 13 | 201 | 402 | 5 |
+| the test card | 393 | 16, 16 | 1 | 15 | 1 |
+| the input card | 1,411 | 22, 21 | 4 | 12 | 20 |
+| the sound card | 1,592 | 23, 23 | 4 | 4 | 27 |
+
+- Life, as the item's figures have it: one shape over 62,964 cells at one
+  level, one run of 62,964, `(reads slot array once start)`: its twin read by
+  index (`Screen.last!B2`), its twin's range walked by the run's fold over the
+  array (`SUM(Screen.last!A1:C3)`), the Clock's seed read once a run
+  (`Clock!$B$3`), and `Clock!$B$1=1` compared once at the frame's start.
+- Sand: 13 shapes over 126,449 cells and 201 levels, 0 to 200. The board's two
+  fills of 62,568 cells, `Stay` at levels 2 to 199 and `Screen` at 3 to 200,
+  are each a run of 316 cells at each of 198 levels, `(levels 3 200 198 316)
+  (runs 198 62568 316 316)`; its five cells alone are the four `Brush` cells
+  and `State!B1`, each a shape of its own.
+- The input card writes one formula,
+  `=Tally.last!RC+IF(AND(Input!RC=1,Input.last!RC=0),1,0)`, as two fills, so
+  its 22 shapes are 21 texts, the census's `(same 12)`.
+
+The four bench programs, built as the recalc runner builds them and loaded as
+it loads them. `column` whole:
+
+```
+(plan (shapes 3) (texts 3) (formulas 60000) (levels 3) (runs 3) (lanes 60000) (alone 0) (every-frame 0) (cycles 0))
+(readers "Output" 3)
+(shape 0 "Output" "A1" "=ROW()" (cells 20000) (levels 0 0 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads))
+(shape 1 "Output" "B1" "=RC[-1]*R1C5+1" (cells 20000) (levels 1 1 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads lookup once))
+(shape 2 "Output" "C1" "=IF(RC[-1]>30000,RC[-1]-30000,RC[-1])" (cells 20000) (levels 2 2 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads lookup))
+```
+
+`chain`'s balance, one cell a level, 19,999 deep, of a plan of 20,000 levels:
+
+```
+(shape 2 "Output" "B2" "=R[-1]C+RC[-1]" (cells 19999) (levels 1 19999 19999 1) (runs 0 0 0 0) (alone 19999) (reads lookup))
+```
+
+`sums`' three last shapes, the row totals walking a range of the frame's own
+sheet at each cell, `KERNEL.31`'s ground, and the column totals at three
+levels, a run of twelve and two cells alone:
+
+```
+(shape 1 "Output" "N2" "=SUM(RC[-12]:RC[-1])" (cells 2000) (levels 1 1 1 2000) (runs 1 2000 2000 2000) (alone 0) (reads cells) (calls "SUM"))
+(shape 2 "Output" "O2" "=ROUND(RC[-1]/12,0)" (cells 2000) (levels 2 2 1 2000) (runs 1 2000 2000 2000) (alone 0) (reads lookup) (calls "ROUND"))
+(shape 3 "Output" "B2002" "=SUM(R[-2000]C:R[-1]C)" (cells 14) (levels 1 3 3 12) (runs 1 12 12 12) (alone 2) (reads cells) (calls "SUM"))
+```
+
+`life` is the cartridge's one shape. The door's route, the file collected and
+planned by `Shapes::of` under Excel's library with no twin, printed the
+machine's rows byte for byte for `column`, `chain` and `sums`; for Life's file,
+where `Screen.last` is a sheet of the file and not a twin, `(reads lookup cells
+once start) (calls "SUM")`.
+
+What it costs, three runs on the performance cores at high priority, not
+opted out of power throttling; the census the median of 21 calls a run, the
+plan made again the median of seven:
+
+| fixture | the census, when asked | the plan made again | the load |
+|---|---|---|---|
+| Life | 0.37 to 0.39 ms | 36.2 to 37.4 ms | 64.4 to 64.6 ms |
+| the gun | 0.35 to 0.38 | 37.8 to 38.2 | 55.4 to 55.7 |
+| Sand | 0.80 to 0.91 | 211.7 to 218.6 | 266.6 to 286.6 |
+| the three cards | 0.03 to 0.07 | 0.09 to 0.54 | 0.8 to 1.7 |
+| `column` | 0.40 | 28.1 to 31.6 | |
+| `chain` | 0.24 to 0.25 | 15.0 to 17.1 | |
+| `sums` | 0.13 | 11.8 to 12.4 | |
+
+- The door's plan of each file, `Shapes::of` over what `collect` read:
+  `column` 106 to 110 ms, `chain` 58 to 61, `sums` 55 to 56, Life's 965 to
+  976; its census then costs what the machine's does. A census's first call
+  is colder, Sand's 2.5 to 2.7 ms.
+- Sand written one fill a row, as `CART.2` measured an earlier rule (the
+  board's two fills each split into 198 row fills, each row's formula moved
+  by the language's own mover): `(plan (shapes 407) (texts 13) ...)`, and
+  `(readers "Screen.last" 2179)` and `(readers "Stay" 1980)` where Sand's
+  own are 12 and 10. The census said so before a frame ran, in 11.0 to 13.1
+  ms; its frames 2 to 11 then took 368.1 to 368.5 ms against 12.1 to 12.6,
+  where `CART.2` measured an earlier rule's 398 shapes at 387 ms a frame.
+- A cell written at `XFA1` of Life's sheet: the row's reads from `slot array
+  once start` to `lookup cells once start` and `(calls "SUM")`, the twin's
+  array dropped, which `KERNEL.20`'s sixth slice found only by its time.
+- Bytes: Alonzo's module 645,038 with the census unreached and 656,996 with
+  `describe` printing it, +11,958 (+1.85%); Sand's `describe` from 576 bytes
+  to 4,243.
+- Nothing else moved: `cargo test -p vla-lang` passed over the prototype, its
+  laws, limits and strangers among them; Alonzo's engine tests by path, 29
+  of 29; its runner's check mode, every frame equal and the second frame's
+  allocations 80, 80 and 509, as at 0.9.1.
+- From the measurements (*derived*): the plan made again costs 3 to 260
+  times the census; a level kept for each cell would hold 4 bytes a formula
+  cell, Life 252 KB and Sand 506 KB; the level ends, 4 bytes a level, Life 4
+  bytes, Sand 804 and `chain` 80 KB.
+
+*The decisions*, for the owner's approval:
+
+1. **The rows, in the record's own notation, the totals first.** One
+   `(plan ...)` row, then one `(readers "<sheet>" <n>)` row for each sheet
+   whose changed cells the reach checks against its readers, by sheet, then
+   one `(shape ...)` row for each shape a cell holds, by the plan's own
+   number (the order its cells were placed in: the sheets in order, each
+   sheet's cells row by row), so that the `k` of a `(same k)` is a row's. A
+   shape row opens on its number, its first cell's sheet and address, and
+   its formula in R1C1 at that cell, then its facts, each a keyed sub-form:
+   `(cells n)`; `(levels first last count widest)`; `(runs count lanes
+   narrowest widest)`; `(alone n)`; `(reads kind ...)`, decision 2's kinds in
+   its table's order, each once; and only where they hold, `(calls "NAME"
+   ...)`, the functions called at each cell, sorted; `(missing "NAME" ...)`,
+   functions the library does not hold, which only a door's plan can meet,
+   a load refusing them; `(sheets n)` for a shape standing on more than one
+   sheet; `(same k)`, the first shape of the same R1C1 text; and
+   `(every-frame name|span|broken|unread)`, a shape no change is followed
+   to, and why. The plan's row: the shapes a cell holds, their distinct
+   texts, the formula cells, the order's levels, the runs and their lanes,
+   the cells alone, the cells computed every frame, and the cells on cycles.
+   Strings by the record's own printer (`rows::quoted`), as `calc` and `view`
+   spell theirs. A readers row says how many readers a changed cell of the
+   sheet is checked against, at the frame's start for the last frame's
+   changes and the writes, and during the frame for each cell it changes.
+   Alonzo's frames runner spells its check rows the same way,
+   `(frames-check "life" (frames 4) (equal 4) ...)`. *Alternatives:*
+   positional rows, as `budget` is, unreadable at fifteen fields; one row
+   kind a fact, keyed by the shape's number, as the view record keys its
+   rows by cell; the totals last, the order of the line's words.
+2. **The kinds of read, each a cost class, named by the path the machine
+   takes and not by what is written:**
+
+   | kind | the path | example |
+   |---|---|---|
+   | `slot` | one cell of a sheet kept as an array, a twin dense enough, read by its index (`Many::reads`; alone, `Env::read`) | Life's `Screen.last!B2` |
+   | `array` | a range of a sheet kept as an array, walked by index: by the run's fold, or by the library's walk at each cell (`Ctx::each`) | Life's `SUM(Screen.last!A1:C3)` |
+   | `lookup` | one cell through the machine's lookups: a formula's value this frame by its position, a value cell or a twin too sparse for an array by its cells | `chain`'s balance |
+   | `cells` | a range walked through its cells at each cell, by the library: a range of this frame's sheet, or of a twin too sparse for an array | `sums`' `SUM(B2:M2)` |
+   | `once` | a cell every `$` holds, read once a run; a change to it reaches every cell of the shape | `column`'s `$E$1` |
+   | `start` | a part the same at every cell, reading only value cells and twins, computed once at the frame's start, reaching the shape only when its bits change | Life's `Clock!$B$1=1` |
+   | `each` | a node `Ctx` computes at each cell, everything under it with it: a defined name, a form other than `IF` and `CHOOSE`, a range where one value is wanted, a call one of whose operands may answer a reference | none in the fixtures |
+
+   Three facts of the row are cost classes of their own: `(calls ...)`, a
+   function the library computes at each cell over operands the run
+   computed (`sums`' `ROUND`, and `SUM` over `cells`); `(alone n)`, cells
+   that take the evaluator's path for every node; and `(every-frame ...)`.
+   A shape's kinds are the paths its run takes. `CHOOSE` has no kind: since
+   `KERNEL.28` a run partitions it as it partitions `IF` (Sand's direction
+   through it 12.0 ms against 11.8, `KERNEL.28`'s measurement), and a
+   `CHOOSE` that may answer a reference inside a call is `each`. A defined
+   name is `each` and `(every-frame name)`, the reach following no change
+   through it; a span of sheets is `(every-frame span)` with every cell
+   alone, such a shape never running. A kind is printed once, whatever the
+   number of references that take it. *Alternatives:* kinds by what is
+   written, the line's list (a twin's array, a cell, a range of this frame's
+   sheet, a range of a twin, `CHOOSE`, a name), which would print `CHOOSE`
+   as dear after `KERNEL.28` made it cheap and a twin's range as an array
+   where the twin is too sparse to keep one; counts of each kind's
+   references, which `KERNEL.27`'s repeated parts make ambiguous.
+3. **Levels, runs and the cells alone, summarized, never listed.** `(levels
+   first last count widest)`, so that `chain`'s balance is `(levels 1 19999
+   19999 1)` in one line; `(runs count lanes narrowest widest)`; `(alone
+   n)`; the plan's `(levels n)`. *Alternatives:* each level's width, 19,999
+   numbers for one shape of `chain`; a row a level of the plan; the narrowest
+   level beside the widest.
+4. **Where the facts come from: the level ends kept, every other fact
+   computed when asked.** `order_and_runs` already counts each level's cells
+   in its second counting sort; the array of where each level ends is kept
+   as `u32` instead of dropped, no operation added to the plan. Everything
+   else is computed from the plan when asked: the cells by a pass over the
+   places, the levels by a pass over the order beside the ends, the runs from
+   the plan's own, the kinds by a walk of each shape's parse, the R1C1 by
+   `refers::r1c1` at the shape's first cell, the readers and the shapes not
+   followed from the reach. A load, a step and a write pay nothing. *Measured*
+   above: the census 0.03 to 0.91 ms when asked; planning again, which a
+   level found on request would need, 0.09 to 218.6 ms. *Alternatives:* the
+   levels found on request by planning again; a level kept for each cell;
+   the census computed at every plan, paid by every load and every formula's
+   write.
+5. **What the language offers: two calls, both new, no signature changed.**
+   `Machine::census(&self) -> String`, the machine's plan with its twins as
+   it keeps them; and `Shapes::census(&self, model: &Workbook, library:
+   &Library) -> String`, a plan `Shapes::of` made over a grid with no twin,
+   every sheet read as this frame's, as a workbook's are. Text and not a
+   type: the record is the contract, and a public type of facts would be a
+   promise a field at a time, against the owner's rule that the crate's
+   interface break rarely. The release that carries it is 0.9.2, with
+   `VLA.2` and `KERNEL.31`, the owner's plan; adding a call is a patch.
+   *Alternatives:* a public type of facts; one call over a plan and a
+   predicate of arrays; `census` taking a limit on its shape rows.
+6. **The door: `frazaro calc <file.xlsx|.ods> --shapes`.** The file collected
+   as `calc` collects it, planned by `Shapes::of` under Excel's library with
+   the grid's names and extents, the census printed, nothing computed;
+   `calc`'s exits and refusals, `--counts` with it a usage error. That is how
+   a workbook reaches the machine's shapes: by the machine's own planning
+   function over the collected grid, meeting no twin and no load's refusal,
+   so that a model with a cycle, a function outside the subset or a construct
+   not read is planned and printed (`cycles`, `missing`, `unread`) where the
+   machine would refuse to load it. Its rows are the machine's for `column`,
+   `chain` and `sums` (*measured*). *Alternatives:* `reflect --shapes`, beside
+   `--functions`, though `reflect` never plans; a command of its own,
+   `frazaro plan`; the door through `Machine::new`, which would refuse most
+   real models (a function outside the subset, a cycle) and any of more than
+   1,048,576 cells.
+7. **Who else prints it: Alonzo's `describe`, every shape, laid there; no C
+   function.** `describe` prints the census whole after its budget row: a
+   cartridge's shapes are few by its own rule (`SPEC.md` §2, rule 2), and
+   many shapes are what a reader must see; in the plan's order and not the
+   largest first, so that a shape keeps its number from one print to the
+   next. No `vla_census` in the language's C surface, since no door embeds
+   the bare machine today: `check_wasm_exports.ps1`'s baseline stays at ten,
+   and frazaro-core's module is untouched. Its price, *measured*: +11,958
+   bytes to Alonzo's module. *Alternatives:* `describe` printing the totals
+   and the readers alone, the shapes through a thirteenth export, moving
+   `check_host_exports.ps1`; a cap on the shape rows; the largest shapes
+   first; `vla_census` now, the baseline at eleven.
+8. **Facts alone: no flag, no threshold.** The two candidates are printed as
+   facts: `(texts n)` beside `(shapes n)` and `(same k)` on a shape whose
+   text an earlier shape holds (Sand written a fill a row, `(shapes 407)
+   (texts 13)`; the input card's `(same 12)`); a range of the frame's own
+   sheet read in a run is the kind `cells`. A flag carries a judgment that
+   the machine's next item changes (`KERNEL.31` would retire the second) and
+   a threshold someone must set; the judgment is `SPEC.md` §2's, whose rules
+   are each read off the row: rule 1, the row beneath, in `(levels ...)` and
+   `(alone n)`; rule 2, one fill a formula, in `(shapes n)`, `(texts n)`,
+   `(same k)` and the readers rows; rule 3, no term that changes every
+   frame, in `once` on such a cell; rule 4, a rare test behind a part
+   compared at the frame's start, in `start`; rule 5, as `KERNEL.28`
+   corrected it, in `(calls ...)`; rule 7, a fact carried in a value already
+   read, in the readers rows. *Alternatives:* flags as sub-forms of the row,
+   `(split k)` and `(walked)`; a `(warn ...)` row.
+9. **The oracle.**
+   - The language's tests, the census held to the plan by a walk of its own:
+     each cell's level found again in `Calc`'s own order (`graph::plan`) from
+     its reads as `graph::dependencies` reads the cell's moved text, which
+     the plan's code does not use; each run held to the rule restated, one
+     shape, one sheet, consecutive in the order, none reading another, at
+     least four, and no cell beside it that could have joined; every count
+     summed back, the shapes' cells to the plan's formula cells, each shape's
+     cells to its lanes, its cells alone and its cells on cycles, the levels'
+     widths to the order. Over the generated grids of `KERNEL.20`'s laws, 80
+     seeds, and four grids written in the tests, Life's rule, a running
+     balance, `sums` and a column, whose rows are stated whole.
+   - The kinds held to the run: a recorder under `cfg(test)` in the run's
+     dispatch notes each path it takes; over the generated grids every path
+     a run takes is a kind the census names for its shape, and a formula
+     written for each kind names it and no other.
+   - `VLA.1`'s: the census of the deepest formula a load accepts and of a
+     chain of 4,095 links on the stack of 1 MiB (`tests/limits.rs`), and of
+     the strangers' mutated grids (`tests/strangers.rs`).
+   - The door's goldens, `scripts/recalc/shapes/<name>.vla`, the door's own
+     output saved CRLF, over oracle 12's seven fixtures (a cycle, names,
+     functions outside the subset, forms) and the four bench programs built
+     by the door; held by a new check, `tools/check_shapes_golden.ps1`, the
+     57th (each golden whole, its line count a floor, the fixed order and
+     the totals read off the golden itself; `-Control` over a fake door and
+     mutant goldens); `run_checks.ps1`'s floor from 56 to 57; a step of CI's
+     core job.
+   - Goldens of the door and the crate, not an oracle of the treaty: the
+     census is one implementation's plan and changes on purpose whenever the
+     plan does (`KERNEL.31` will turn `sums`' `cells` into `array`), which an
+     oracle every implementation is held to must not.
+   - Bit for bit: `cargo test --workspace`; Alonzo's engine tests and its
+     runner's check mode over the slice by path; `check_recalc_floors.ps1` in
+     its check mode alone, nothing timed; `run_checks.ps1`; `prove.ps1`. No
+     Excel step: no VBA is touched.
+   - *Alternatives:* the door's goldens held by `check_recalc_golden.ps1`,
+     the `calc` door's own check, with no new check; the bench programs'
+     goldens through the recalc runner's check mode, the machine's route,
+     which builds them already; oracle 13 in the treaty.
+10. **Nothing on the step's path, nothing deeper on the stack.** The step's
+    code is unchanged, and the plan only keeps an array it makes; the
+    census's walk of a parse keeps its own stack, as `each_read` and
+    `find_sheets` do (the prototype recursed on calls and right operands;
+    the build will not), painted at the build against `VLA.1`'s limits.
+    *Alternative:* the walk recursing as the run does, bounded by the
+    nesting limit of 64.
+11. **The Alonzo half: a slice of its own, in an Alonzo session, after
+    0.9.2.** The language's half and the door are built and closed here;
+    `describe` printing the census is laid in Alonzo (`AD-2`), the ID
+    Frazaro's, at its pin's move to `=0.9.2`: the census after the budget
+    row, `SPEC.md` §4.6's `describe` corrected and dated, each cartridge's
+    census held to a golden by its tests, `check_host_exports.ps1`
+    unchanged; the prompt given in chat at this item's close. This line
+    closes, ✅, with Frazaro's half, its ledger line naming Alonzo's as laid
+    there. *Alternatives:* the line held open until Alonzo's half lands, as
+    `KERNEL.5`'s is; a git rev pinned in Alonzo before the release, which the
+    owner's route left behind at 0.8.1 and `REPO.4` refuses under a tag.
+
+**Named, not asked**, recorded and nothing minted:
+- The input card's one formula written as two fills, `Tally!B1` and
+  `Tally!B13` (`(same 12)`), three cells alone a frame: Alonzo's to merge or
+  keep.
+- A shape whose every cell a write replaced stays in the plan: after a fill
+  of eight cells was written over with another formula, `Machine::formulas()`
+  answered `(8, 2)` (*measured*, a scratch test). The census counts the
+  shapes a cell holds and numbers them as the plan does.
+- Sand's plan is 212 to 219 ms of a load of 267 to 287 (*measured*), and a
+  formula's write plans the order again, so `ENGINE.7`'s edit and continue
+  would pay it for each rebuilt formula.
+- The door's plan of Life's file takes 0.96 to 0.98 s and the recalc
+  runner's load of its rows 1.37 to 1.45 s, where the cartridge's one range
+  row loads in 64 ms (*measured*): a grid read from a file is planned from
+  each cell's own text, which `KERNEL.32` meets first.
+- Life's twin array dropped by a cell at `XFA1`, with whole frames forced as
+  the recalc runner forces them (a scratch line printing each frame's start
+  confirmed both): whole frames of 3.0 to 3.8 ms without the array against
+  3.6 to 5.6 with it, three runs (*measured*), where `KERNEL.20`'s sixth
+  slice measured 9.9 to 49 ms over `590304a`. Over today's machine the array
+  no longer leads on Life's reads of three cells by three, so `KERNEL.31`'s
+  prediction for `sums`, derived from the cost of a range read cell by cell,
+  is for its scoping to measure before anything else.
+
+*Size* (*prediction*): the language, `calc/shape.rs` about 200 lines,
+`calc/vector.rs` about 250 (the walk and its recorder), `calc/reach.rs` about
+10, `machine/mod.rs` about 20 and its tests about 450; the core's `api.rs`
+about 25, the door's `main.rs` about 30 and `cli/README.md` about 40;
+`tools/check_shapes_golden.ps1` about 300; eleven goldens; `run_checks.ps1`,
+`checks.yml`, `RELEASES.md`'s `## 0.9.2`, the roadmap and this file. Two
+slices: the language's (decisions 1 to 5, 8 and 10, with its tests), then the
+door's (decisions 6 and 9's goldens and check). `~days`, as filed.
+
+*Scoped 2026-10-12; the eleven decisions await the owner. The prototype, the
+copy of Alonzo and their scripts are in this session's scratchpad, never in
+the tree.*
+
+*Approved 2026-10-12, the same day, all eleven, in the owner's words:
+"Recommendations approved; proceed with implementing KERNEL.30 as scoped."
+The roadmap's line went to 🟡 the same hour, and the build began in a
+worktree at `0357cf1`, from the tree and not from the prototype.*
+
+*Size*: predicted above, `calc/shape.rs` about 200 lines, `calc/vector.rs`
+about 250, `calc/reach.rs` about 10, `machine/mod.rs` about 20 and its tests
+about 450, the door about 95, the check about 300. Measured after the build:
+the census in a module of its own, `calc/census.rs`, 760 lines, 332 of them
+its tests; `calc/vector.rs` +338; `calc/shape.rs` +77 and -11;
+`calc/reach.rs` +8; `machine/mod.rs` +332, three laws and their helpers;
+`tests/limits.rs` and `tests/strangers.rs` +37 and -8; the door's
+`calc.rs`, `main.rs` and `README.md` +101 and -15;
+`tools/check_shapes_golden.ps1` 410 lines; eleven goldens.
+
+*Built 2026-10-12*, in a worktree at `0357cf1`, then moved into the shared
+tree. The language:
+- `vla-lang/src/calc/census.rs`, new: the census as decision 1 spells it.
+  `Kind`, the seven kinds in their order, and `Why`, the reason a shape is
+  computed every frame; `Facts`, one shape's row; `Census`; `of`, the facts
+  computed from the plan when asked (each shape's cells by a pass over the
+  places; its levels by a pass over the order beside the level ends, a
+  stretch of one level and one shape at a time; its runs from the plan's
+  own; its kinds by the walk; `start` from the reach's parts; the readers
+  from the reach's lists; the shapes not followed, and why); `spell`, the
+  rows; `rows`. A shape no cell holds is left out, the others keeping their
+  numbers.
+- `vla-lang/src/calc/vector.rs`: `Paths` and `paths`, the walk beside the
+  run's dispatch, asking what it asks by the same predicates (`is_operand`,
+  `ref_operand`, `COUNTED`, the library's known functions) and keeping its
+  own stack (decision 10); `taken`, a recorder compiled into a test build
+  alone, told each path the run takes at the dispatch's own points
+  (`reads`, `known`, `apply_one`, `apply_two`, `apply_many`, `each_cell`),
+  against the shape `Shapes::evaluate_run` names.
+- `vla-lang/src/calc/shape.rs`: `level_ends`, the second counting sort's
+  counts kept as `u32` (`by_key` answering where each key's cells end);
+  `Shapes::of` making the plan in a box (below, the stack);
+  `Shapes::census`, public; `level_ends`, `run_spans`, `places`,
+  `every_shape` and `Shape::missing`, the crate's own.
+- `vla-lang/src/calc/reach.rs`: `readers_on`.
+- `vla-lang/src/machine/mod.rs`: `Machine::census`, public, its twins read
+  as `Env::dense` answers.
+- `vla-lang/src/calc/mod.rs`: the module and the header.
+- `vla-lang/tests/limits.rs`: the census of every formula at Excel's
+  limits, 64 nested `IF`s added, on the stack of 1 MiB.
+- `vla-lang/tests/strangers.rs`: the census of every grid a stranger's load
+  or write leaves, and of every grid the machine refuses, planned as a door
+  plans a workbook.
+- `vla-lang/README.md`: the census beside the machine's calls.
+
+The door: `core/src/reflect/calc.rs`, `census_of`, the grid `collect` reads
+planned by `Shapes::of` under the library; `cli/src/main.rs`, `calc
+--shapes`, its usage, and the two flags together a usage error;
+`cli/README.md`, its paragraph, with `saved.xlsx`'s census. The oracle's
+files: `scripts/recalc/shapes/`, eleven goldens, the door's own output saved
+CRLF; `tools/check_shapes_golden.ps1`, the 57th check, with its control;
+`tools/run_checks.ps1`, the floor at 57 and the control among the extras;
+`.github/workflows/checks.yml`, the core job's step. `docs/RELEASES.md`'s
+`## 0.9.2`, the roadmap's line and this file.
+
+*Found while it was built*:
+- A plain formula's shape is found by its R1C1 text alone, on any sheet:
+  `=B1+1` at `Model!C1` and `=A1+1` at `Jan!B1` are one shape, as the
+  machine's own test of Jan's and Feb's `B1` has it, which a test written for
+  two fills of one formula met first; the census prints such a shape's
+  sheets, `(sheets n)`, and the subset fixture's `=TRUE` stands on three.
+- The door's census of oracle 12's fixtures shows what the bench programs
+  could not: Excel's `IFS`, a form, computed at each cell (`each`); `NOT` of
+  a reference called at each cell, the run knowing `NOT` of a value alone; a
+  whole column's `SUM` walked through its cells; a structured reference and
+  a link into another workbook `(every-frame unread)`; a defined name
+  `(every-frame name)`; a span of sheets `(every-frame span)`; and the
+  OpenDocument twin differing only where its format does, its structured
+  reference read as a range of `Data`.
+- The debug door reads Life's 33 MB file in 16.5 s and builds it in 25.5 s,
+  the reader's cost and not the census's, which is why the check keeps the
+  bench programs' workbooks and their census by the door's and the
+  program's SHA-256: a first run with a fresh door about a minute (59.5 s in
+  the worktree, 57.6 in the shared tree), every later run half a second.
+- The plan kept its level ends in a `Vec`, 24 bytes more of `Shapes` (456
+  to 480) and of `Machine` (1,320 to 1,344), which every frame holding one by
+  value beneath the deepest parse paid: painted, every load 0.1 to 0.2 KiB
+  deeper. Decision 10 said nothing deeper, so `Shapes::of` makes its plan in
+  a box. `Box::new(Shapes::new())` changed nothing, a debug build making the
+  value in the frame before moving it; `Box::default()` makes it in a frame
+  of its own, gone before the first parse, and every load now stands 0.3 KiB
+  shallower than at `0357cf1`.
+- Two holes in the oracle as first written, found by reading it before the
+  mutants: no test met a level that holds no cell of the order, which only a
+  door's plan with a cycle has, and nothing held `--counts` with `--shapes`
+  refused. Each has its test; the mutant counting every level was caught by
+  the first alone. Two more the mutants found (below).
+- Alonzo's HEAD moved during the build, to `7c95ca3`: its pin at 0.9.1 and
+  Sand with water, 189,017 formula cells, 30 engine tests; the item was run
+  there.
+
+*The stack*, by painting (the KERNEL.28 session's method: each case on a
+fresh thread, the stack painted below the probe's frame, the deepest byte
+changed read back), in the debug build `VLA.1`'s limits run in, two probes
+of the same program over `0357cf1` and over the item:
+- every load 0.3 KiB shallower: 64 nested `SUM`s of a reference, the
+  deepest, 961.6 KiB where it used 961.9; 64 nested `IF`s 947.0 where 947.3;
+  63 nested additions 857.4 where 857.7; a formula of one cell 25.6 where
+  25.9;
+- every deep step as it was: 64 nested `SUM`s 137.3 KiB, `IF`s 230.9,
+  `CHOOSE`s 214.3, `ABS` 137.0, `MOD` 137.8, 63 signs 62.8, 63 additions
+  108.1; a shallow step, a chain of 64 to 4,095 additions, 9.6 to 10.5 KiB
+  in either build from one run of the probe to the next, its deepest byte in
+  the allocator's paths;
+- the census of each grid, its walk keeping its own stack, 10.4 to 12.2 KiB,
+  the 4,095 links' 10.4.
+
+*Measured*, the item against `0357cf1`:
+- the modules: the language's with `c-abi` 547,022 bytes to 547,182 (+160),
+  the core's 1,157,470 unchanged, Alonzo's engine over each by path 644,791
+  to 645,009 (+218): the census reaches no module until something prints
+  it, `describe` at Alonzo's slice (+11,958, the scoping's measurement);
+- Alonzo's runner's check mode at `7c95ca3`: every frame of Life, the gun
+  and Sand equal, the second frame's allocations 80, 80 and 516, as over the
+  released 0.9.1;
+- the census of every fixture and the scoping's figures as the scoping
+  measured them, now the goldens; the census's cost not timed again, the
+  prototype's measurement standing (0.03 to 0.91 ms).
+
+*Oracle, met*. `cargo test --workspace`: 377 passed and 5 ignored, the
+twelve new tests over 365: the four grids stated whole (a column, a running
+balance, the sums with a function no run knows, Life on a small board), a
+twin dropped from its array, a shape written over, a door's plan of what a
+load refuses, a level only a cycle stands at, a door reading another sheet
+as a machine does; the plan walked again over the 80 generated grids at the
+load and after writes (each cell's level from `Calc`'s own edges and order,
+the runs by the rule restated, every count summed back); every path a run
+takes over the same grids named, every kind of path taken somewhere; a
+formula for each kind naming it and its run taking it. `VLA.1`'s limits and
+strangers on their stack of 1 MiB, the long run of strangers too; the
+language's package, 61 files, tested outside the repository as CI tests it.
+fmt clean; clippy clean, with `c-abi` too. Alonzo's engine tests over the
+item by path, 30 of 30. `check_recalc_floors.ps1` in its check mode alone,
+every value held and the sums the measured ones. `run_checks.ps1` 57 of 57,
+in the worktree and in the shared tree; `check_shapes_golden.ps1 -Control`;
+`prove.ps1` 47 passed, 0 failed, 2 not attempted, 1 library. No Excel step:
+no VBA is touched.
+
+Mutants, 25, each applied by its exact text and the file written back:
+- the census: the widest level the first met; the levels counted once; the
+  first level always 0; the narrowest run the widest; the lanes the last
+  run's; the texts the shapes; the levels every level; a readers row for
+  every sheet; no text remembered; a span called broken; no shape computed
+  every frame; no part compared at the start; no function missing;
+- the walk: a held cell read at each cell; an array walked as cells; an
+  aggregate taken by the run over any sheet; a call left unnamed; `IF`'s
+  branches never walked; `ABS` of a range taken by the run;
+- the plan and the two calls: the level ends a level on; a workbook's every
+  sheet an array; the machine's arrays turned round;
+- the door: `--shapes` computing; the plan missing the last sheet; the two
+  flags together taken, each caught by `check_shapes_golden.ps1`.
+
+Two passed the tests as first written: `ABS` of a range taken by the run,
+since no generated grid and no stated formula gives a function of numbers a
+range; and a workbook's every sheet an array, since no door's plan in the
+tests read another sheet (its own is never one), the door's goldens alone
+catching it. Each has its test now, `ABS` over a twin's range among the
+formulas a kind and a door's plan reading another sheet held equal to the
+machine's; the two failed them, and the run after them passed.
+
+*The owner's test, 2026-10-12*: the door's census of `saved.xlsx`, the five
+rows the door's page prints; `--counts` with `--shapes`, the usage line;
+`check_shapes_golden.ps1`, OK, every golden whole, the bench programs from
+its cache; `cargo test --workspace`, every suite passing, 377 in all;
+`run_checks.ps1`, 57 of 57. No Excel step: the item touches no VBA.
+
+*Committed 2026-10-12* on the owner's report that the test came back clean,
+the house's word for a commit: the commit holds `0357cf1` and this item's
+files alone, staged by path, nothing else being in the tree. The item closed
+with it; its line left the roadmap for the closed ledger. Not pushed. The
+release note is under `RELEASES.md`'s `## 0.9.2`, the release the owner's,
+with `VLA.2` and `KERNEL.31` to join it; Alonzo's half, `describe` printing
+the census at its pin's move to `=0.9.2`, is a slice of its own there, its
+prompt given in chat.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -36363,6 +36924,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.27 — the 4.8 ms frame's two further gains: the twins' cells made only when read, and a part repeated in one formula computed once.** Filed from `KERNEL.26`'s profile of its own frame, and both built over it: a changed formula cell of a twin kept as an array written into the array alone, its twin cell made from the array when a reader of the twin as a sheet asks, the walk and `Machine::workbook` making them and a view reading through the array, `workbook` borrowing the machine mutably for it, the change of the crate's interface that makes the release 0.9.0; and a part a formula writes more than once in one branch of every `IF` around it computed once a run, its places found once a shape by their paths from the parse's root. Every frame equal to the hand-written Life and every golden unchanged; five tests, the generator writing parts twice, 26 mutants caught; a run's step at most 0.8 KiB deeper on the stack at 64 levels, every load shallower. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 4.86 to 2.89 ms natively and from 6.7 to 4.3 in headless Chrome, 235 frames a second, about 35 times 0.8.1's; the gun's from 20 to 15 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. `~days` each, taken in hours.
 - ✅ **KERNEL.28 — the language's remaining functions computed by a run: `ROW`, `COLUMN`, `MOD`, `INT`, `ABS` and `SIN` over lanes, and `CHOOSE` partitioned as `IF` is.** Minted at the owner's word as the ask of Alonzo's `CART.2`, whose Sand paid for its direction's strict calls at each cell and more for `CHOOSE`, and built as scoped: each meaning written once in the library and driven by the run, the functions of numbers computed where every operand at a cell is a number and the library's function at any other, so that no coercion nor the order of a call's reasons and errors is written twice; `ROW` and `COLUMN` from the run's own cells, or a reference's corner moved to each; `CHOOSE` computing each value only at the cells that choose it, gathered by a count of its labels; and the floors' instrument keeping each floor at least where the entry before it stood. Every value equal to the library's at every cell and every frame to the hand-written Life and Sand; four tests and four arms of the generator, 18 of 19 mutants caught, the 19th a change of speed alone; every load as deep as before, a run's step 16 bytes deeper a level and a function of numbers 1.6 KiB more once at its innermost call, past decision 5's 1.2 KiB at 64 levels, recorded. Measured over `5607910`, three pairs alternated: the running balance whole from 3.68 to 2.71 ms, the twelve months whole and edited from 4.64 and 5.03 to 3.19 and 3.66, Life's soup from 21.9 to 10.0; Sand's direction computed at each cell from 13.5 to 11.8 and through `CHOOSE` from 29.6 to 12.0, against 11.7 through its twin column; the allocations unchanged. The owner's run of the native half is the floors' new entry, four raised, two kept, and two lowered for a reason written, rows the item does not move having measured slower that day on the unchanged code. Scoped 2026-10-11, built and committed 2026-10-12 at the owner's word; the entry above carries the record. `~days`, taken in hours.
 - ✅ **KERNEL.20 — speed, measured.** Six slices, each committed at the owner's word 2026-10-10 to 2026-10-11 and released in 0.9.0, the item closed 2026-10-12 at the owner's word: the previous frame's values kept as an array, the cheaper frame's overheads, the vectorized shape, incremental maintenance, the values folded at build time, and the measurement against Excel on four built workbooks with its floors (`check_recalc_floors.ps1`, the 56th check), with `KERNEL.26`, `KERNEL.27` and `KERNEL.28` filed from its profiles. Life's frame natively from 101 ms at 0.8.1 to 2.7 ms. Against Excel on the same files at the baseline: the column whole 2.6 times as fast, Life 1.3 times as fast as Excel's twenty threads and 6.8 times its one; the running balance 1.1 times slower, the twelve months 2.9 times slower, the edits but Life's slower. Ruled out at the close: identical shapes computed once by content address (a purity property every function would declare, little to find on the fixtures, its cheap forms built) and the view's window and its cone (about 5% of a view; the doors computing through the machine filed as `KERNEL.32`). `fullCalcOnLoad` kept, the owner's ruling. *(more: the six slices' entries and the close, under the KERNEL line)*
+- ✅ **KERNEL.30 — the shapes printed: each formula shape of a plan as rows, its cells, its width at each level and the reads it makes, so that a model's or a cartridge's cost is read before a frame runs.** Minted 2026-10-12 at the owner's word from an Alonzo session's audit of the architecture, and scoped, approved, built and closed the same day: the census, the plan an engine's machine makes printed as rows when asked, the plan keeping for it only where each level of its order ends. One `(plan ...)` row of totals; a `(readers ...)` row a sheet, the readers a changed cell of it is checked against; and a `(shape ...)` row a shape, its first cell and its formula in R1C1, its cells, its levels summarized as the first, the last, how many and the widest, its runs, its cells alone, and its reads named by the path the machine takes, `slot`, `array`, `lookup`, `cells`, `once`, `start` and `each`, with the functions called at each cell, those not held, the earlier shape a formula already is, and a shape computed every frame and why: facts alone, no flag. `Machine::census` and `Shapes::census` in `vla-lang`, new calls and no signature changed; `frazaro calc <file> --shapes` at the door; eleven goldens over oracle 12's seven fixtures and the four bench programs, held by `check_shapes_golden.ps1`, the 57th check, goldens of the door and the crate and not an oracle of the treaty. Every count held to the plan walked again by `Calc`'s own edges, every path a run takes held to a kind the census names, 25 mutants caught; nothing computes differently, every load 0.3 KiB shallower on the stack, the plan made in a box, the language's module 160 bytes larger. Before a frame runs it shows Sand written a fill a row as 407 shapes of 13 texts, and the twelve months' totals walking their own sheet at each cell, `KERNEL.31`'s ground. Built and committed 2026-10-12 at the owner's word, to be released in 0.9.2; Alonzo's `describe` prints it after its pin moves there, a slice of its own. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

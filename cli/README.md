@@ -682,7 +682,7 @@ missing `--sheet` is a usage error, exit 2.
 ### `frazaro calc`
 
 ```text
-frazaro calc <file.xlsx|.ods> [--counts]
+frazaro calc <file.xlsx|.ods> [--counts | --shapes]
 ```
 
 Recalculation (KERNEL.7): the workbook is read as `reflect` reads it into
@@ -730,6 +730,47 @@ With `--counts`, one line of counts and times alone: formulas, computed,
 not computed, cycles, agree, differ, unchecked, so that a model whose
 contents must not leave the machine can still say how far the subset
 reaches into it. Refusals, exit 1: the reader's, as in `reflect`.
+
+With `--shapes`, nothing is computed: the workbook is planned as an
+engine's machine plans a grid, and the plan is printed, its census
+(KERNEL.30), so that what a model costs is read before anything computes
+it. One `plan` row of totals comes first; then a `readers` row for each
+sheet a change to which is followed, how many readers a changed cell of it
+is checked against; then a `shape` row for each formula shape, a formula
+filled or repeated over many cells: its first cell, its formula in R1C1,
+its cells, the levels of the dependency order it spans (the first, the
+last, how many, the most cells at one), its runs, the cells of one level
+computed together (how many, their cells, the fewest and the most in one),
+its cells computed one at a time, and the path each of its reads takes:
+
+```text
+frazaro calc scripts\reflect\saved.xlsx --shapes
+```
+
+prints
+
+```text
+(plan (shapes 3) (texts 3) (formulas 5) (levels 2) (runs 0) (lanes 0) (alone 5) (every-frame 0) (cycles 0))
+(readers "Output" 4)
+(shape 0 "Output" "C2" "=RC[-1]+R[1]C[-1]" (cells 3) (levels 0 1 2 2) (runs 0 0 0 0) (alone 3) (reads lookup))
+(shape 1 "Output" "D2" "=IFS(RC[-2]>3,\"big\",TRUE,\"small\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup each) (calls "IFS"))
+(shape 2 "Output" "B3" "=R[-1]C*2" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))
+```
+
+The reads, each named by what it costs: `slot`, one cell of a sheet kept
+as an array, read by its index (an engine's previous frame); `array`, a
+range of such a sheet walked by index; `lookup`, one cell found by its
+place; `cells`, a range walked through its cells at each cell; `once`, a
+cell every `$` holds, read once for many cells; `start`, a part the same at
+every cell, compared once before the rest; `each`, a part computed at each
+cell on its own, a defined name or a function such as `IFS`. `(calls ...)`
+names the functions called at each cell, `(missing ...)` those not
+computed, `(same k)` a shape whose formula an earlier shape already is, and
+`(every-frame ...)` a shape computed whenever anything is, since no change
+is followed to it, and why. A workbook is read as it is: a cycle, a
+function outside the subset and a reference this version does not read are
+facts of the plan, never refusals. Exit 0 whenever the plan ran; `--counts`
+and `--shapes` together are a usage error, exit 2.
 
 ### `frazaro load`
 

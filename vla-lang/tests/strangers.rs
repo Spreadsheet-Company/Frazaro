@@ -3,7 +3,10 @@
 //! stack or hangs. A cartridge, a program, a phrasebook or a workbook's
 //! formulas may come from anyone; an engine reads them at its door. The
 //! doors: the reader, the formula parser, the reference scanner, a
-//! machine's load, a machine's write, and the expander.
+//! machine's load, a machine's write, and the expander. A grid a load or a
+//! write leaves is printed by its census as well, and a grid the machine
+//! refuses is planned as a door plans a workbook and its census printed
+//! (KERNEL.30).
 //!
 //! The inputs are generated and mutated from the crate's own fixtures by a
 //! seeded generator, the same on every run, and every case runs on a thread
@@ -23,11 +26,12 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::time::{Duration, Instant};
 
-use vla_lang::calc::{formula, library};
+use vla_lang::calc::{formula, library, Extent, Names, Shapes};
 use vla_lang::expand::expand_text;
-use vla_lang::machine::Machine;
+use vla_lang::machine::{read_rows, Machine};
 use vla_lang::reader::read_forms;
 use vla_lang::refers;
+use vla_lang::sheet::Sheet;
 
 const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");
@@ -108,8 +112,22 @@ fn named(id: &str, text: &str) -> Result<(), String> {
     }
 }
 
+/// A grid's rows planned as a door plans a workbook, with no twin made, and
+/// its census printed (KERNEL.30): what a load refuses, a cycle, a function
+/// the library does not hold, a construct not read, a door still prints.
+fn door_census(text: &str) {
+    let Ok(forms) = read_forms(text) else { return };
+    let Ok(draft) = read_rows(&forms) else { return };
+    let wb = &draft.workbook;
+    let lib = library::language();
+    let extents: Vec<Extent> = wb.sheets.iter().map(Sheet::extent).collect();
+    let plan = Shapes::of(wb, wb.sheets.len(), &lib, &Names::of(wb), &extents);
+    let _ = plan.census(wb, &lib);
+}
+
 /// One knock at a door: its answer, or why it is no answer. A machine that
-/// loads or takes a write is stepped through a frame as well.
+/// loads or takes a write is stepped through a frame and its census printed
+/// as well; a grid its load refuses is planned and printed as a door would.
 fn knock(door: Door, text: &str) -> Result<(), String> {
     match door {
         Door::Read => match read_forms(text) {
@@ -125,9 +143,13 @@ fn knock(door: Door, text: &str) -> Result<(), String> {
         Door::Load => match Machine::load(text, library::language()) {
             Ok(mut m) => {
                 m.step(0);
+                let _ = m.census();
                 Ok(())
             }
-            Err(e) => named(&e.refusal.id, &e.refusal.text),
+            Err(e) => {
+                door_census(text);
+                named(&e.refusal.id, &e.refusal.text)
+            }
         },
         Door::Write => {
             let mut m = Machine::load(BASE, library::language()).expect("the base grid loads");
@@ -135,6 +157,7 @@ fn knock(door: Door, text: &str) -> Result<(), String> {
             match m.write(text) {
                 Ok(_) => {
                     m.step(0);
+                    let _ = m.census();
                     Ok(())
                 }
                 Err(e) => named(&e.refusal.id, &e.refusal.text),
