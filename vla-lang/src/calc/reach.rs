@@ -522,6 +522,16 @@ impl Reach {
         self.parts.len()
     }
 
+    /// The reach spelled but for the positions, which the order makes
+    /// (KERNEL.34's oracle, through `Shapes::spelled`).
+    #[cfg(test)]
+    pub(crate) fn spelled(&self) -> String {
+        format!(
+            "stands {:?}\nreaders {:?}\nunfollowed {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
+            self.stands, self.readers, self.unfollowed, self.parts, self.firsts, self.shape_at
+        )
+    }
+
     /// How many readers a changed cell of a sheet is checked against, at a
     /// frame's start and at each cell the frame changes (KERNEL.30's census
     /// prints it): each shape's references to the sheet that reach other

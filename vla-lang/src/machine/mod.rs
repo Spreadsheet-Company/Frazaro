@@ -55,7 +55,10 @@
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
-//! value that lands only in a value cell, never over a formula.
+//! value that lands only in a value cell, never over a formula. A write
+//! costs what its cells cost, a fill rewritten whole in a frame's time
+//! rather than the square of its cells, and leaves the plan a load of the
+//! same grid makes, numbered and anchored as a load's (KERNEL.34).
 //!
 //! **The refusals** are the language's catalogue's: the `grid` family for
 //! the machine's own, `view-*` for the view, `calc-*` for what stops a grid
@@ -66,7 +69,7 @@ pub mod load;
 pub mod plane;
 
 use std::cell::Cell as Slot;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap};
 
 use crate::calc::graph::{is_formula, Extent, Names};
 use crate::calc::reach::Reached;
@@ -80,7 +83,8 @@ use crate::reader::read_forms;
 use crate::refers::shift_a1_references;
 use crate::rows::Visibility;
 use crate::sheet::{
-    formula_text, parse_a1_range, shared_masters, A1Range, Cell, Content, Sheet, Workbook,
+    filled, formula_text, parse_a1_range, shared_masters, strip_future_prefixes, A1Range, Cell,
+    Content, Sheet, Workbook,
 };
 use crate::view::{view_text_valued, window_of};
 
@@ -387,6 +391,10 @@ struct Log {
     /// The cells whose content changed, each with the line of the row that
     /// changed it first.
     changed: BTreeMap<CellId, u32>,
+    /// The cells of a fill a release gave their own text, whose formulas
+    /// read as before: placed again when the write settles, their values
+    /// kept (KERNEL.34).
+    released: BTreeSet<CellId>,
     written: usize,
     added: usize,
     sheets: BTreeSet<usize>,
@@ -1275,48 +1283,114 @@ impl Machine {
     }
 
     /// Before a range is written over: every shared formula whose first cell
-    /// the range holds gives its other cells outside the range their own
-    /// text, since the model reads a child through its master.
+    /// the range holds gives that cell up, since the model reads a child
+    /// through its master. Its first cell outside the range, by rows and then
+    /// columns, becomes its master, holding the text moved there once, and
+    /// its other cells stay its children: a release costs one move whatever
+    /// the fill's size, where it gave every cell its own moved text, 62,963
+    /// of them for a cell written over Life's rule (KERNEL.34). One walk of
+    /// the sheet finds every released fill's first cell. A text moved twice
+    /// is the text moved once only where the first move keeps it whole
+    /// ([`crate::refers::moves_whole`]); a fill whose text the move would not
+    /// keep whole gives each of its cells its own text, as every release
+    /// did, and its cells are placed again when the write settles.
     fn release_masters(&mut self, si: usize, range: A1Range, log: &mut Log) {
-        let masters: Vec<(u32, u32, u32, String)> = self.book.sheets[si]
+        let inside = |row: u32, col: u32| {
+            row >= range.top && row <= range.bottom && col >= range.left && col <= range.right
+        };
+        let masters: Vec<(u32, u32, u32, String, String)> = self.book.sheets[si]
             .cells
             .range((range.top, 0)..=(range.bottom, u32::MAX))
             .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
             .filter_map(|(&(row, col), c)| match &c.content {
                 Content::SharedMaster {
-                    text, si: index, ..
-                } => Some((row, col, *index, text.clone())),
+                    text,
+                    range: fill,
+                    si: index,
+                } => Some((row, col, *index, text.clone(), fill.clone())),
                 _ => None,
             })
             .collect();
-        for (m_row, m_col, index, text) in masters {
-            let children: Vec<((u32, u32), u32)> = self.book.sheets[si]
-                .cells
-                .iter()
-                .filter(|((row, col), c)| {
-                    matches!(c.content, Content::SharedChild { si } if si == index)
-                        && !(*row >= range.top
-                            && *row <= range.bottom
-                            && *col >= range.left
-                            && *col <= range.right)
-                })
-                .map(|(&k, c)| (k, c.style))
-                .collect();
-            for ((row, col), style) in children {
-                let moved = shift_a1_references(
-                    &text,
-                    i64::from(row) - i64::from(m_row),
-                    i64::from(col) - i64::from(m_col),
-                );
+        if masters.is_empty() {
+            return;
+        }
+        let released: BTreeSet<u32> = masters.iter().map(|m| m.2).collect();
+        let sheet = &self.book.sheets[si];
+        #[cfg(test)]
+        crate::sheet::work::walked(sheet.cells.len());
+        let mut firsts: HashMap<u32, ((u32, u32), u32)> = HashMap::new();
+        for (&(row, col), c) in &sheet.cells {
+            if let Content::SharedChild { si: index } = c.content {
+                if !inside(row, col) && released.contains(&index) {
+                    firsts.entry(index).or_insert(((row, col), c.style));
+                }
+            }
+        }
+        let mut each_own: HashMap<u32, (u32, u32, String)> = HashMap::new();
+        for (m_row, m_col, index, text, fill) in masters {
+            let Some(&((row, col), style)) = firsts.get(&index) else {
+                // No cell of the fill outside the range: nothing to give up.
+                continue;
+            };
+            let at = (
+                i64::from(row) - i64::from(m_row),
+                i64::from(col) - i64::from(m_col),
+            );
+            let whole = crate::refers::moves_whole(&text, at, at);
+            #[cfg(test)]
+            crate::sheet::work::released(whole);
+            if whole {
+                let moved = shift_a1_references(&text, at.0, at.1);
                 self.set_cell(
                     (si, row, col),
                     Some(Cell {
-                        content: Content::Formula(moved),
+                        content: Content::SharedMaster {
+                            text: moved,
+                            range: fill,
+                            si: index,
+                        },
                         style,
                     }),
                     log,
                 );
+            } else {
+                each_own.insert(index, (m_row, m_col, text));
             }
+        }
+        if each_own.is_empty() {
+            return;
+        }
+        let sheet = &self.book.sheets[si];
+        #[cfg(test)]
+        crate::sheet::work::walked(sheet.cells.len());
+        let children: Vec<((u32, u32), u32, u32)> = sheet
+            .cells
+            .iter()
+            .filter_map(|(&(row, col), c)| match c.content {
+                Content::SharedChild { si: index }
+                    if !inside(row, col) && each_own.contains_key(&index) =>
+                {
+                    Some(((row, col), c.style, index))
+                }
+                _ => None,
+            })
+            .collect();
+        for ((row, col), style, index) in children {
+            let (m_row, m_col, text) = &each_own[&index];
+            let moved = shift_a1_references(
+                text,
+                i64::from(row) - i64::from(*m_row),
+                i64::from(col) - i64::from(*m_col),
+            );
+            self.set_cell(
+                (si, row, col),
+                Some(Cell {
+                    content: Content::Formula(moved),
+                    style,
+                }),
+                log,
+            );
+            log.released.insert((si, row, col));
         }
     }
 
@@ -1365,14 +1439,180 @@ impl Machine {
         log: &mut Log,
     ) -> Result<(), LineRefusal> {
         // A cell whose formula would read the same is not written.
-        let masters_text: HashMap<u32, (String, u32, u32)> = shared_masters(&self.book.sheets[si])
-            .into_iter()
-            .map(|(k, (t, r, c))| (k, (t.to_string(), r, c)))
-            .collect();
-        let masters: HashMap<u32, (&str, u32, u32)> = masters_text
-            .iter()
-            .map(|(k, (t, r, c))| (*k, (t.as_str(), *r, *c)))
-            .collect();
+        let differs = self.differing(si, range, text, log).len();
+        if differs == 0 {
+            return Ok(());
+        }
+        self.release_masters(si, range, log);
+        // Each cell of the range looked up once: what it held kept for the
+        // undo, the fill's content put in its place, its format kept
+        // (KERNEL.34; the cells were looked up four times).
+        let sheet = &mut self.book.sheets[si];
+        let index = sheet.next_shared(range);
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                let content = filled(range, text, index, row, col);
+                let old = match sheet.cells.entry((row, col)) {
+                    Entry::Occupied(mut held) => {
+                        let cell = held.get_mut();
+                        Some(Cell {
+                            content: std::mem::replace(&mut cell.content, content),
+                            style: cell.style,
+                        })
+                    }
+                    Entry::Vacant(empty) => {
+                        empty.insert(Cell { content, style: 0 });
+                        log.added += 1;
+                        None
+                    }
+                };
+                log.undo.push(((si, row, col), old));
+                log.changed.entry((si, row, col)).or_insert(line);
+            }
+        }
+        log.sheets.insert(si);
+        log.written += differs;
+        Ok(())
+    }
+
+    /// The cells of a range whose formula would read otherwise with `text`
+    /// written over the range: each cell's formula as the formula bar shows
+    /// it, against the written text moved to the cell, as
+    /// [`Machine::differing_by_cell`] compares them, found once for each
+    /// formula the range covers (KERNEL.34). Comparing every cell moved two
+    /// texts a cell, 1.8 s for Life's rule written again with its own text.
+    ///
+    /// A cell holding no formula differs. A fill's cells are read through
+    /// its master: one whose master is the range's first cell and holds the
+    /// written text is the same at every cell, nothing moved. Otherwise, so
+    /// long as moving either text over the fill's cells keeps it whole
+    /// ([`crate::refers::moves_whole`]) and neither holds a future prefix,
+    /// two texts moved to a cell read alike there exactly when they make the
+    /// same references from it with the same text between, which does not
+    /// depend on the cell: one cell where both texts stand moved is compared
+    /// and stands for all of them, and the one or two where a text stands as
+    /// written, the master and the range's first cell, perhaps spelled
+    /// otherwise, are compared alone. A plain formula's cells each stand as
+    /// written: where the written text moved over them keeps whole, a shape
+    /// whose R1C1 text is not the written text's differs at every cell, as
+    /// a cell reads its shape's R1C1 text and the written text moved reads
+    /// its own. Every other cell is compared alone: a fill whose texts a
+    /// move might not keep whole, a plain formula of the written text's R1C1
+    /// text, and a plain formula an earlier row of the same write placed
+    /// where the plan has not seen it.
+    fn differing(&self, si: usize, range: A1Range, text: &str, log: &Log) -> Vec<(u32, u32)> {
+        let sheet = &self.book.sheets[si];
+        let masters = shared_masters(sheet);
+        let start = (range.top, range.left);
+        let same_at = |row: u32, col: u32| {
+            let moved = shift_a1_references(
+                text,
+                i64::from(row) - i64::from(range.top),
+                i64::from(col) - i64::from(range.left),
+            );
+            sheet
+                .cells
+                .get(&(row, col))
+                .and_then(|c| formula_text(&c.content, row, col, &masters))
+                .is_some_and(|old| old == strip_future_prefixes(&moved))
+        };
+        // The offsets of some cells from a cell, nearest and farthest.
+        let span = |cells: &[(u32, u32)], (row, col): (u32, u32)| {
+            let mut low = (i64::MAX, i64::MAX);
+            let mut high = (i64::MIN, i64::MIN);
+            for &(r, c) in cells {
+                let at = (i64::from(r) - i64::from(row), i64::from(c) - i64::from(col));
+                low = (low.0.min(at.0), low.1.min(at.1));
+                high = (high.0.max(at.0), high.1.max(at.1));
+            }
+            (low, high)
+        };
+        let unprefixed = |t: &str| {
+            !t.as_bytes()
+                .windows(3)
+                .any(|w| w.eq_ignore_ascii_case(b"_xl"))
+        };
+        let mut differs = Vec::new();
+        let mut fills: BTreeMap<u32, Vec<(u32, u32)>> = BTreeMap::new();
+        let mut plains: BTreeMap<usize, Vec<(u32, u32)>> = BTreeMap::new();
+        let mut alone: Vec<(u32, u32)> = Vec::new();
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                match sheet.cells.get(&(row, col)).map(|c| &c.content) {
+                    Some(
+                        Content::SharedMaster { si: index, .. }
+                        | Content::SharedChild { si: index },
+                    ) => {
+                        fills.entry(*index).or_default().push((row, col));
+                    }
+                    Some(Content::Formula(_) | Content::DynamicFormula(_)) => {
+                        let id = (si, row, col);
+                        let fresh = !log.changed.contains_key(&id) && !log.released.contains(&id);
+                        match self.shapes.place(id).filter(|_| fresh) {
+                            Some(p) => plains.entry(p.shape).or_default().push((row, col)),
+                            None => alone.push((row, col)),
+                        }
+                    }
+                    _ => differs.push((row, col)),
+                }
+            }
+        }
+        for (index, cells) in &fills {
+            let Some(&(own, m_row, m_col)) = masters.get(index) else {
+                // A child whose master is gone reads no formula.
+                differs.extend(cells);
+                continue;
+            };
+            let master = (m_row, m_col);
+            if master == start && own == text {
+                continue;
+            }
+            let (low, high) = span(cells, master);
+            let (w_low, w_high) = span(cells, start);
+            let whole = unprefixed(own)
+                && unprefixed(text)
+                && crate::refers::moves_whole(own, low, high)
+                && crate::refers::moves_whole(text, w_low, w_high);
+            let mut moved_alike: Option<bool> = None;
+            for &(row, col) in cells {
+                let alike = if !whole || (row, col) == master || (row, col) == start {
+                    same_at(row, col)
+                } else {
+                    *moved_alike.get_or_insert_with(|| same_at(row, col))
+                };
+                if !alike {
+                    differs.push((row, col));
+                }
+            }
+        }
+        let mut written_r1c1: Option<String> = None;
+        for (shape, cells) in &plains {
+            let (w_low, w_high) = span(cells, start);
+            let whole = unprefixed(text) && crate::refers::moves_whole(text, w_low, w_high);
+            if whole {
+                let theirs = self
+                    .shapes
+                    .shape(*shape)
+                    .map(|s| crate::refers::r1c1(&s.text, s.anchor.1, s.anchor.2));
+                let ours = written_r1c1
+                    .get_or_insert_with(|| crate::refers::r1c1(text, range.top, range.left));
+                if theirs.as_ref() != Some(ours) {
+                    differs.extend(cells);
+                    continue;
+                }
+            }
+            alone.extend(cells);
+        }
+        differs.extend(alone.into_iter().filter(|&(row, col)| !same_at(row, col)));
+        differs
+    }
+
+    /// The same-text test as every write made it before KERNEL.34, every
+    /// cell's text and the written text moved to it and compared: the
+    /// reference [`Machine::differing`] is held to.
+    #[cfg(test)]
+    fn differing_by_cell(&self, si: usize, range: A1Range, text: &str) -> Vec<(u32, u32)> {
+        let masters = shared_masters(&self.book.sheets[si]);
         let mut differs: Vec<(u32, u32)> = Vec::new();
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
@@ -1385,45 +1625,12 @@ impl Machine {
                     .cells
                     .get(&(row, col))
                     .and_then(|c| formula_text(&c.content, row, col, &masters));
-                if old_text.as_deref() != Some(crate::sheet::strip_future_prefixes(&moved).as_str())
-                {
+                if old_text.as_deref() != Some(strip_future_prefixes(&moved).as_str()) {
                     differs.push((row, col));
                 }
             }
         }
-        if differs.is_empty() {
-            return Ok(());
-        }
-        self.release_masters(si, range, log);
-        let mut olds: Vec<((u32, u32), Option<Cell>)> = Vec::with_capacity(range.cells() as usize);
-        for row in range.top..=range.bottom {
-            for col in range.left..=range.right {
-                olds.push((
-                    (row, col),
-                    self.book.sheets[si].cells.get(&(row, col)).cloned(),
-                ));
-            }
-        }
-        let style_of: HashMap<(u32, u32), u32> = olds
-            .iter()
-            .filter_map(|(k, c)| c.as_ref().map(|c| (*k, c.style)))
-            .collect();
-        self.book.sheets[si].set_formula(range, text, 0);
-        for (k, old) in olds {
-            if old.is_none() {
-                log.added += 1;
-            }
-            if let Some(style) = style_of.get(&k) {
-                if let Some(c) = self.book.sheets[si].cells.get_mut(&k) {
-                    c.style = *style;
-                }
-            }
-            log.undo.push(((si, k.0, k.1), old));
-            log.changed.entry((si, k.0, k.1)).or_insert(line);
-        }
-        log.sheets.insert(si);
-        log.written += differs.len();
-        Ok(())
+        differs
     }
 
     /// Every cell a write set put back as it was, latest first.
@@ -1463,9 +1670,12 @@ impl Machine {
         });
         if formula_changed {
             let saved = self.shapes.clone();
-            for id in log.changed.keys() {
-                self.shapes.replace(&self.book, *id, &self.library);
-            }
+            // Every cell the write changed or a release gave its own text,
+            // placed again at once, and the plan made a load's (KERNEL.34).
+            let again: BTreeSet<CellId> =
+                log.changed.keys().chain(&log.released).copied().collect();
+            let again: Vec<CellId> = again.into_iter().collect();
+            self.shapes.replace_many(&self.book, &again, &self.library);
             self.shapes.plan(&self.book, &self.names, &self.extents);
             let placed: Vec<CellId> = log
                 .changed
@@ -4476,7 +4686,7 @@ mod tests {
     /// A write a generated grid takes between two frames, or none: value
     /// cells changed, two at once to one of two values, a cell of the other
     /// sheet, a value over a formula, a cell added beside (KERNEL.20, slice
-    /// 4).
+    /// 4); a formula over a part of the first bands (KERNEL.34).
     fn write_between(d: &mut Dice, frame: u32) -> Option<String> {
         Some(match d.below(9) {
             0..=2 => format!(
@@ -4508,6 +4718,18 @@ mod tests {
             ),
             // A cell added beside, where references may point.
             5 if frame % 4 == 0 => format!("(cell \"A\" \"J{}\" 4)", 1 + d.below(20)),
+            // A formula over a part of the first bands, a fill's first cell
+            // among it at times, which plans the grid again and may give the
+            // fill's first cell up (KERNEL.34).
+            8 if frame % 2 == 1 => {
+                let top = 1 + d.below(4);
+                format!(
+                    "(formula \"A\" \"{}{top}:{}{}\" \"=A.last!C1*2+$A$1\")",
+                    d.pick(&LETTERS[2..5]),
+                    d.pick(&LETTERS[5..8]),
+                    top + d.below(3)
+                )
+            }
             _ => return None,
         })
     }
@@ -5646,5 +5868,674 @@ mod tests {
             "A2 before what reads it"
         );
         assert!(s.cycles().is_empty());
+    }
+
+    // ---- KERNEL.34: a formula's write in time with its cells, and the grid
+    // a write leaves the grid a load of it makes ----
+
+    /// The plan a load of `m`'s grid makes, spelled whole.
+    fn plan_of_a_load(m: &Machine) -> String {
+        Shapes::of(&m.book, m.sheets, &m.library, &m.names, &m.extents).spelled()
+    }
+
+    /// A machine loaded from the grid `m` holds, its rows' sheets copied
+    /// whole, fills and all, and made by `Machine::new`, as a load of the
+    /// same rows makes one.
+    fn loaded_again(m: &Machine) -> Machine {
+        let mut workbook = m.book.clone();
+        workbook.sheets.truncate(m.sheets);
+        let draft = Draft {
+            workbook,
+            values: HashMap::new(),
+            lines: HashMap::new(),
+            cells: m.cells,
+        };
+        Machine::new(draft, library::language())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text))
+    }
+
+    /// Every formula cell of the rows' sheets with its text as the formula
+    /// bar shows it, a fill's cells through their master.
+    fn formula_texts(m: &Machine) -> BTreeMap<CellId, String> {
+        let mut out = BTreeMap::new();
+        for (s, sheet) in m.book.sheets[..m.sheets].iter().enumerate() {
+            let masters = shared_masters(sheet);
+            for (&(row, col), cell) in &sheet.cells {
+                if let Some(text) = formula_text(&cell.content, row, col, &masters) {
+                    out.insert((s, row, col), text);
+                }
+            }
+        }
+        out
+    }
+
+    /// Every cell of the rows' sheets with its format.
+    fn styles(m: &Machine) -> BTreeMap<CellId, u32> {
+        let mut out = BTreeMap::new();
+        for (s, sheet) in m.book.sheets[..m.sheets].iter().enumerate() {
+            for (&(row, col), cell) in &sheet.cells {
+                out.insert((s, row, col), cell.style);
+            }
+        }
+        out
+    }
+
+    /// The cells a write's rows name.
+    fn named_cells(m: &Machine, write: &str) -> BTreeSet<CellId> {
+        let mut out = BTreeSet::new();
+        for form in read_forms(write).unwrap_or_default() {
+            let Some((_, [Form::Str(sheet), Form::Str(addr), _], _)) = load::row_parts(&form)
+            else {
+                continue;
+            };
+            let (Some(s), Some(r)) = (m.find_sheet(sheet), parse_a1_range(addr)) else {
+                continue;
+            };
+            for row in r.top..=r.bottom {
+                for col in r.left..=r.right {
+                    out.insert((s, row, col));
+                }
+            }
+        }
+        out
+    }
+
+    /// One write held to a load (KERNEL.34's oracle): every cell it does not
+    /// name reads as it did, and every cell keeps its format; the plan it
+    /// leaves is the plan a load of its grid makes, part for part; the frame
+    /// after it is `Calc`'s over the grid as the frame began; and its census
+    /// is the census of the same grid loaded and stepped. `Calc` reads a twin as a
+    /// sheet and sees no reason a cell not computed left beside its twin's
+    /// cell, which a formula reading that cell inherits, so the frame is held
+    /// to it only when no twin holds one, which the second answer says. A
+    /// refused write leaves the record, the plan and the census as they
+    /// were, and steps no frame. The write's answer.
+    fn as_a_load(m: &mut Machine, write: &str, when: &str) -> (Result<usize, LineRefusal>, bool) {
+        let before = (save(m), m.shapes.spelled(), m.census());
+        let (texts, styles) = (formula_texts(m), styles(m));
+        let answer = m.write(write);
+        if answer.is_err() {
+            let after = (save(m), m.shapes.spelled(), m.census());
+            assert_eq!(after, before, "{when}: {write}: a refused write");
+            return (answer, false);
+        }
+        // Every cell the write does not name reads as it did, and every cell
+        // that was keeps its format.
+        let named = named_cells(m, write);
+        let others = |t: BTreeMap<CellId, String>| -> BTreeMap<CellId, String> {
+            t.into_iter()
+                .filter(|(id, _)| !named.contains(id))
+                .collect()
+        };
+        assert_eq!(
+            others(formula_texts(m)),
+            others(texts),
+            "{when}: {write}: every other cell's formula"
+        );
+        let now = self::styles(m);
+        for (id, style) in &styles {
+            assert_eq!(now.get(id), Some(style), "{when}: {write}: {id:?}'s format");
+        }
+        assert_eq!(
+            m.shapes.spelled(),
+            plan_of_a_load(m),
+            "{when}: {write}: the plan"
+        );
+        let book = m.workbook().clone();
+        let held = m.twin_reasons.is_empty();
+        assert!(m.step(0).done);
+        if held {
+            let calc = crate::calc::Calc::run(&book, &m.library);
+            let by_calc: BTreeMap<CellId, String> = m
+                .shapes
+                .order()
+                .iter()
+                .map(|id| (*id, format!("{:?}", calc.computed(*id).expect("computed"))))
+                .collect();
+            assert_eq!(values(m), by_calc, "{when}: {write}: the values");
+        }
+        let mut again = loaded_again(m);
+        assert!(again.step(0).done);
+        assert_eq!(m.census(), again.census(), "{when}: {write}: the census");
+        (answer, held)
+    }
+
+    #[test]
+    fn a_write_leaves_the_grid_a_load_of_it_makes() {
+        // KERNEL.34: each kind of write held to a load of the grid it leaves
+        // (`as_a_load`), with the cells it counts: a row inside a fill; the
+        // fill's first row, then its first column, which give its first cell
+        // up twice; a cell inside it; a value over its first cell; a fill's
+        // own text again, which writes nothing, and another; plain formulas
+        // of one R1C1 text written as a fill, a shape's first cell spelled
+        // otherwise, then the fill in both spellings over plain cells and over
+        // a fill; a fill whose text a release would move off the sheet; the
+        // second sheet's fill, which reads the first; a plain cell an earlier
+        // row of the same write placed; a write refused for a cycle, one
+        // refused after giving a fill's first cell up, and one refused at its
+        // second row. A cell of the fill keeps its format.
+        let mut m = load(concat!(
+            "(format 1 \"F7F4FC\" text nowrap)\n",
+            "(cell \"S\" \"A1:A12\" 2)\n",
+            "(formula \"S\" \"B1:D8\" \"=A1*10+S.last!B1\")\n",
+            "(style \"S\" \"C1\" 1)\n",
+            "(formula \"S\" \"E1:E8\" \"=SUM(B1:D1)\")\n",
+            "(formula \"S\" \"F1\" \"=A1+1\")\n",
+            "(formula \"S\" \"F2\" \"=A2+1\")\n",
+            "(formula \"S\" \"H1:I3\" \"=XFD1\")\n",
+            "(cell \"T\" \"A1:B4\" 3)\n",
+            "(formula \"T\" \"C1:D4\" \"=S!B1+A1\")\n",
+        ));
+        assert!(m.step(0).done);
+        assert!(m.step(0).done);
+        let writes: [(&str, Result<usize, &str>); 19] = [
+            ("(formula \"S\" \"B3:D3\" \"=A3*10+S.last!B3+1\")", Ok(3)),
+            ("(formula \"S\" \"B1:D1\" \"=A1*20\")", Ok(3)),
+            ("(formula \"S\" \"B1:B8\" \"=A1*30\")", Ok(8)),
+            ("(formula \"S\" \"C4\" \"=1\")", Ok(1)),
+            ("(cell \"S\" \"C2\" 5)", Ok(1)),
+            ("(formula \"S\" \"E1:E8\" \"=SUM(B1:D1)\")", Ok(0)),
+            ("(formula \"S\" \"E1:E8\" \"=SUM(B1:D1)+0\")", Ok(8)),
+            ("(formula \"S\" \"F1:F2\" \"=A1+1\")", Ok(0)),
+            ("(formula \"S\" \"F1\" \"=a1+1\")", Ok(1)),
+            ("(formula \"S\" \"F1:F2\" \"=a1+1\")", Ok(0)),
+            ("(formula \"S\" \"F1:F2\" \"=A1+1\")", Ok(1)),
+            ("(formula \"S\" \"F1:F2\" \"=a1+1\")", Ok(1)),
+            ("(cell \"S\" \"H1\" 0)", Ok(1)),
+            ("(formula \"T\" \"C1:C4\" \"=S!B1*2\")", Ok(4)),
+            (
+                "(formula \"S\" \"K1\" \"=A1\")\n(formula \"S\" \"K1:K2\" \"=A1\")",
+                Ok(2),
+            ),
+            ("(formula \"S\" \"A1\" \"=B1\")", Err("calc-cycle")),
+            ("(formula \"T\" \"D1\" \"=D1\")", Err("calc-cycle")),
+            (
+                "(formula \"S\" \"J1\" \"=1\")\n(cell \"Nowhere\" \"A1\" 1)",
+                Err("grid-sheet-unknown"),
+            ),
+            ("(formula \"T\" \"D2:D4\" \"=S!C2+B2\")", Ok(0)),
+        ];
+        for (write, wants) in writes {
+            let (got, held) = as_a_load(&mut m, write, "S and T");
+            assert!(held || got.is_err(), "{write}: the frame held to Calc's");
+            assert_eq!(
+                got.map_err(|e| e.refusal.id),
+                wants.map_err(str::to_string),
+                "{write}"
+            );
+        }
+        assert_eq!(
+            m.book.sheets[0].cells[&(1, 3)].style,
+            1,
+            "C1 keeps its format"
+        );
+    }
+
+    #[test]
+    fn the_same_text_test_compares_each_cell_where_a_moved_text_leaves_the_sheet() {
+        // KERNEL.34: a reference that moves off the sheet is `#REF!` at every
+        // cell past the edge, whatever it was, so two texts whose references
+        // differ by a column read alike from the second cell past the edge
+        // on and differently before: one cell cannot stand for the rest, and
+        // the test compares each. A plain formula `#REF!` reads as the written
+        // text moved off the sheet reads, though its R1C1 text is not the
+        // written text's. Spelled otherwise, a fill's first cell differs where
+        // its other cells do not.
+        let m = load(concat!(
+            "(formula \"S\" \"C1:H1\" \"=XFD1\")\n",
+            "(formula \"S\" \"C2:E2\" \"=A2+1\")\n",
+            "(formula \"S\" \"C3\" \"=XFD3\")\n",
+            "(formula \"S\" \"D3\" \"=#REF!\")\n",
+        ));
+        let range = |a: &str| parse_a1_range(a).expect("a range");
+        assert_eq!(same_text(&m, "S", range("C1:H1"), "=XFC1", "the edge"), 2);
+        assert_eq!(same_text(&m, "S", range("C1:H1"), "=XFD1", "the edge"), 0);
+        assert_eq!(same_text(&m, "S", range("D1:H1"), "=#REF!", "the edge"), 0);
+        assert_eq!(same_text(&m, "S", range("C3:D3"), "=XFD3", "plain"), 0);
+        assert_eq!(same_text(&m, "S", range("C2:E2"), "=a2+1", "spelled"), 1);
+        assert_eq!(same_text(&m, "S", range("D2:E2"), "=b2+1", "spelled"), 1);
+    }
+
+    /// A generated grid's formula rows: each one's sheet, range and text,
+    /// its `=` kept.
+    fn formula_rows_of(rows: &str) -> Vec<(String, A1Range, String)> {
+        read_forms(rows)
+            .expect("the rows read")
+            .iter()
+            .filter_map(|form| match load::row_parts(form)? {
+                ("formula", [Form::Str(sheet), Form::Str(addr), Form::Str(text)], _) => {
+                    Some((sheet.clone(), parse_a1_range(addr)?, text.clone()))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The cells the same-text test finds before one write, held to the cells
+    /// comparing every cell finds (KERNEL.34): how many.
+    fn same_text(m: &Machine, sheet: &str, range: A1Range, text: &str, when: &str) -> usize {
+        let si = m.find_sheet(sheet).expect("the sheet");
+        let body = text.strip_prefix('=').expect("a formula");
+        let mut found = m.differing(si, range, body, &Log::default());
+        let mut every = m.differing_by_cell(si, range, body);
+        found.sort_unstable();
+        every.sort_unstable();
+        assert_eq!(found, every, "{when}: {sheet}!{} {text}", range.text());
+        found.len()
+    }
+
+    #[test]
+    fn the_same_text_test_finds_the_cells_comparing_every_cell_finds() {
+        // KERNEL.34: the test reading each formula once, against every cell's
+        // text and the written text moved to it and compared, over generated
+        // grids: each formula row's own text over its range (the same), over
+        // its range from a cell inside, moved there (the same but where a text
+        // stands as written), with `+0`, in lower case, with a prefix, from
+        // the value columns, over the next row's range and over both; the
+        // plain formulas beside the bands among them. Between frames a value
+        // over a band's first cell gives the band up, so that fills whose
+        // master is not the range's first cell are met. Writes alike at every
+        // cell, differing at every cell, and some of each.
+        let (mut alike, mut differ, mut some) = (0, 0, 0);
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x34E5);
+            let rows = generated_grid(&mut d);
+            let bands = formula_rows_of(&rows);
+            let mut m = load(&rows);
+            for frame in 1..=3 {
+                assert!(m.step(0).done);
+                let when = format!("seed {seed}, frame {frame}\n{rows}");
+                for (k, (sheet, range, text)) in bands.iter().enumerate() {
+                    let mut tries: Vec<(A1Range, String)> = vec![
+                        (*range, text.clone()),
+                        (*range, format!("{text}+0")),
+                        (*range, text.to_lowercase()),
+                        (*range, text.replace("SUM(", "_xlfn.SUM(")),
+                        (A1Range { left: 1, ..*range }, text.clone()),
+                    ];
+                    if range.top < range.bottom && range.left < range.right {
+                        let inside = A1Range {
+                            top: range.top + 1,
+                            left: range.left + 1,
+                            ..*range
+                        };
+                        let moved = shift_a1_references(&text[1..], 1, 1);
+                        tries.push((inside, format!("={moved}")));
+                    }
+                    if let Some((_, next, other)) = bands.get(k + 1).filter(|b| b.0 == *sheet) {
+                        tries.push((*next, text.clone()));
+                        let both = A1Range {
+                            bottom: next.bottom.max(range.bottom),
+                            right: next.right.max(range.right),
+                            ..*range
+                        };
+                        tries.push((both, other.clone()));
+                    }
+                    for (r, t) in tries {
+                        match same_text(&m, sheet, r, &t, &when) {
+                            0 => alike += 1,
+                            n if n as u64 == r.cells() => differ += 1,
+                            _ => some += 1,
+                        }
+                    }
+                }
+                let (sheet, range, _) = &bands[d.below(bands.len())];
+                let cell = crate::sheet::cell_ref(range.top, range.left);
+                let w = format!("(cell \"{sheet}\" \"{cell}\" 1)");
+                assert!(m.write(&w).is_ok(), "{when}: {w}");
+            }
+        }
+        assert!(
+            alike > 200 && differ > 200 && some > 200,
+            "{alike} writes alike at every cell, {differ} differing at every cell and {some} \
+             of each: too few for the law to hold over"
+        );
+    }
+
+    #[test]
+    fn the_rows_of_one_write_count_what_they_count_written_one_by_one() {
+        // KERNEL.34: in one write a later row meets cells an earlier row wrote
+        // or a release gave their own text, whose places the plan has not yet
+        // seen; each row counts the cells comparing every cell counts, as the
+        // same rows written one write each count them. A plain cell written
+        // with another formula and then within a fill of it; a fill's cells
+        // given their own text, one of them `#REF!`, then written with that.
+        let rows = concat!(
+            "(cell \"S\" \"A1:A8\" 1)\n",
+            "(formula \"S\" \"B1:C4\" \"=A1+1\")\n",
+            "(formula \"S\" \"D1\" \"=A1*2\")\n",
+            "(formula \"S\" \"D2\" \"=A2*2\")\n",
+            "(formula \"S\" \"E1:F2\" \"=XFD1\")\n",
+        );
+        for write in [
+            "(formula \"S\" \"D1\" \"=A1*3\")\n(formula \"S\" \"D1:D2\" \"=A1*3\")",
+            "(formula \"S\" \"G1\" \"=A1\")\n(formula \"S\" \"G1:G2\" \"=A1\")",
+            "(cell \"S\" \"E1\" 0)\n(formula \"S\" \"F1:F2\" \"=#REF!\")",
+            "(cell \"S\" \"E1\" 0)\n(formula \"S\" \"E2:F2\" \"=XFD2\")",
+            "(cell \"S\" \"B1\" 7)\n(formula \"S\" \"B2:C4\" \"=A2+1\")",
+            "(formula \"S\" \"B1:C2\" \"=A1-1\")\n(formula \"S\" \"B1:C4\" \"=A1-1\")",
+        ] {
+            let mut together = load(rows);
+            let mut apart = load(rows);
+            assert!(together.step(0).done && apart.step(0).done);
+            let all = together.write(write).expect("written");
+            assert_eq!(
+                together.shapes.spelled(),
+                plan_of_a_load(&together),
+                "{write}"
+            );
+            let mut counted = 0;
+            for row in write.lines() {
+                let one = formula_rows_of(row);
+                let want = one
+                    .first()
+                    .map(|(sheet, range, text)| same_text(&apart, sheet, *range, text, write));
+                let got = apart.write(row).expect("written");
+                if let Some(want) = want {
+                    assert_eq!(got, want, "{write}: {row}");
+                }
+                counted += got;
+            }
+            assert_eq!(all, counted, "{write}");
+            assert_eq!(save(&together), save(&apart), "{write}: the records");
+        }
+    }
+
+    #[test]
+    fn a_release_makes_the_fill_s_first_cell_left_its_master_and_moves_one_text() {
+        // KERNEL.34: a cell written over a fill's first cell leaves the rest
+        // of the fill one shared formula, its master the first cell left by
+        // rows and then columns, holding the text moved there, and every other
+        // cell its child, unchanged: one text moved, where every cell was
+        // given its own, and every cell reads as it did.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1:A3\" 2)\n",
+            "(formula \"S\" \"B1:C3\" \"=A1*10+S.last!B1\")\n",
+        ));
+        assert!(m.step(0).done);
+        let others = |m: &Machine| -> Vec<String> {
+            formula_rows(m)
+                .into_iter()
+                .filter(|r| !r.contains("\"B1\""))
+                .collect()
+        };
+        let before = others(&m);
+        crate::sheet::work::begin();
+        assert_eq!(m.write("(cell \"S\" \"B1\" 5)"), Ok(1));
+        let work = crate::sheet::work::end();
+        assert_eq!((work.moved, work.whole, work.split), (1, 1, 0));
+        assert_eq!(
+            content(&m, "S", "C1"),
+            Some(Content::SharedMaster {
+                text: "B1*10+S.last!C1".to_string(),
+                range: "B1:C3".to_string(),
+                si: 0,
+            })
+        );
+        for cell in ["B2", "C2", "B3", "C3"] {
+            assert_eq!(
+                content(&m, "S", cell),
+                Some(Content::SharedChild { si: 0 }),
+                "{cell}"
+            );
+        }
+        assert_eq!(others(&m), before, "every other cell's formula as it was");
+        assert_eq!(m.shapes.spelled(), plan_of_a_load(&m));
+        // The new master given up in turn, by a range over it and a cell
+        // below it: the first cell left is the next row's first.
+        assert_eq!(
+            as_a_load(
+                &mut m,
+                "(formula \"S\" \"B1:C1\" \"=7\")",
+                "the master given up again"
+            ),
+            (Ok(2), true)
+        );
+        assert_eq!(
+            content(&m, "S", "B2"),
+            Some(Content::SharedMaster {
+                text: "A2*10+S.last!B2".to_string(),
+                range: "B1:C3".to_string(),
+                si: 0,
+            })
+        );
+        assert_eq!(others(&m)[1..], before[1..], "the rows below as they were");
+    }
+
+    #[test]
+    fn a_fill_whose_text_a_release_would_move_off_the_sheet_gives_each_cell_its_own() {
+        // KERNEL.34: a reference to the sheet's last column moved one column
+        // right is `#REF!` and stays so, so the text moved to the first cell
+        // left of a fill and moved again to the cell below and left of that
+        // would not be the text moved there at once: the release gives each
+        // cell its own text, as every release did, and the grid is a load's.
+        let mut m = load("(formula \"S\" \"A1:B3\" \"=XFD1\")\n");
+        assert!(m.step(0).done);
+        let before: Vec<String> = formula_rows(&m)
+            .into_iter()
+            .filter(|r| !r.contains("\"A1\""))
+            .collect();
+        crate::sheet::work::begin();
+        assert_eq!(
+            as_a_load(&mut m, "(cell \"S\" \"A1\" 0)", "the edge"),
+            (Ok(1), true)
+        );
+        let work = crate::sheet::work::end();
+        assert_eq!((work.whole, work.split), (0, 1));
+        assert_eq!(
+            content(&m, "S", "B1"),
+            Some(Content::Formula("#REF!".to_string()))
+        );
+        assert_eq!(
+            content(&m, "S", "A2"),
+            Some(Content::Formula("XFD2".to_string()))
+        );
+        let after: Vec<String> = formula_rows(&m)
+            .into_iter()
+            .filter(|r| !r.contains("\"A1\""))
+            .collect();
+        assert_eq!(after, before, "every other cell's formula as it was");
+    }
+
+    /// What one write did, counted (KERNEL.34).
+    fn work_of(m: &mut Machine, write: &str) -> crate::sheet::work::Work {
+        crate::sheet::work::begin();
+        let answer = m.write(write);
+        let work = crate::sheet::work::end();
+        assert!(answer.is_ok(), "{write}: {answer:?}");
+        work
+    }
+
+    #[test]
+    fn a_fill_written_into_a_running_grid_costs_its_cells() {
+        // KERNEL.34: the cells a write walks and the texts it moves, counted
+        // and not timed, for a fill of 20 rows and of 40, eight cells a row:
+        // a fill twice the size costs at most about twice the work, where
+        // every cell placed walked the sheet, a fill's text written whole
+        // moves two texts whatever its size, and a cell written over a fill's
+        // first cell moves one. Each kind of write: the fill whole, a row
+        // inside it, a column inside it, a value over its first cell, and a
+        // column over its first cell.
+        let grid = |rows: u32| {
+            format!(
+                "(cell \"S\" \"A1:A{rows}\" 1)\n(formula \"S\" \"B1:H{rows}\" \"=A1+S.last!B1\")\n"
+            )
+        };
+        let writes = |rows: u32| {
+            [
+                format!("(formula \"S\" \"B1:H{rows}\" \"=A1+S.last!B1+0\")"),
+                "(formula \"S\" \"B3:H3\" \"=A3*2\")".to_string(),
+                format!("(formula \"S\" \"C1:C{rows}\" \"=A1*3\")"),
+                "(cell \"S\" \"B1\" 5)".to_string(),
+                format!("(formula \"S\" \"B1:B{rows}\" \"=A1*4\")"),
+            ]
+        };
+        let cost = |rows: u32| -> Vec<crate::sheet::work::Work> {
+            writes(rows)
+                .iter()
+                .map(|w| {
+                    let mut m = load(&grid(rows));
+                    assert!(m.step(0).done);
+                    work_of(&mut m, w)
+                })
+                .collect()
+        };
+        let (small, large) = (cost(20), cost(40));
+        for (k, (s, l)) in small.iter().zip(&large).enumerate() {
+            assert!(
+                l.walked <= 2 * s.walked + 64,
+                "write {k}: {} cells walked for 20 rows, {} for 40",
+                s.walked,
+                l.walked
+            );
+            assert!(
+                l.moved == s.moved && s.moved <= 3,
+                "write {k}: {} texts moved for 20 rows, {} for 40",
+                s.moved,
+                l.moved
+            );
+        }
+        assert_eq!(large[0].moved, 2, "a fill written whole: two texts");
+        assert_eq!(large[3].moved, 1, "a cell over the fill's first: one text");
+    }
+
+    /// A formula write a generated grid takes between two frames, over one
+    /// of its bands (KERNEL.34): another text over the band whole, over a
+    /// row, a column or a cell of it, from its first cell or inside; its
+    /// own text again; its own text moved to a cell inside; a value over its
+    /// first cell; another text from the value columns, or over the band and
+    /// the rows below; two rows, the second the band's own; or a cell that
+    /// reads itself, which is refused.
+    fn formula_between(d: &mut Dice, bands: &[(String, A1Range, String)]) -> String {
+        let (sheet, range, text) = &bands[d.below(bands.len())];
+        let texts = [
+            "=A.last!C1*2+$A$1",
+            "=ROW()+COLUMN()",
+            "=SUM(B.last!C1:D2)",
+            "=$B$1&\"x\"",
+            "=IF(A.last!D1>1,1,0)",
+        ];
+        let other = d.pick(&texts).to_string();
+        let row = range.top + d.below((range.bottom - range.top + 1) as usize) as u32;
+        let col = range.left + d.below((range.right - range.left + 1) as usize) as u32;
+        let (row, col) = if d.below(3) == 0 {
+            (range.top, range.left)
+        } else {
+            (row, col)
+        };
+        let part = match d.below(4) {
+            0 => *range,
+            1 => A1Range {
+                top: row,
+                bottom: row,
+                ..*range
+            },
+            2 => A1Range {
+                left: col,
+                right: col,
+                ..*range
+            },
+            _ => A1Range {
+                top: row,
+                bottom: row,
+                left: col,
+                right: col,
+            },
+        };
+        let over = |r: A1Range, t: &str| {
+            format!(
+                "(formula \"{sheet}\" \"{}\" {})",
+                r.text(),
+                crate::rows::quoted(t)
+            )
+        };
+        match d.below(10) {
+            0..=2 => over(part, &other),
+            3 => over(*range, text),
+            4 => {
+                let at = (
+                    i64::from(part.top) - i64::from(range.top),
+                    i64::from(part.left) - i64::from(range.left),
+                );
+                let moved = shift_a1_references(&text[1..], at.0, at.1);
+                over(part, &format!("={moved}"))
+            }
+            5 => format!(
+                "(cell \"{sheet}\" \"{}\" 1)",
+                crate::sheet::cell_ref(range.top, range.left)
+            ),
+            6 => over(A1Range { left: 1, ..part }, &other),
+            7 => over(
+                A1Range {
+                    bottom: range.bottom + 2,
+                    ..*range
+                },
+                &other,
+            ),
+            8 => format!("{}\n{}", over(part, &other), over(*range, text)),
+            _ => {
+                let cell = crate::sheet::cell_ref(row, col);
+                over(
+                    A1Range {
+                        top: row,
+                        bottom: row,
+                        left: col,
+                        right: col,
+                    },
+                    &format!("={cell}+1"),
+                )
+            }
+        }
+    }
+
+    #[test]
+    fn a_write_between_frames_is_a_load_of_the_grid_it_leaves() {
+        // KERNEL.34: grids of generated formulas, each frame preceded by a
+        // formula write over one of their bands (`formula_between`), each held
+        // to a load of the grid it leaves (`as_a_load`), and a write of one
+        // formula row counting the cells comparing every cell counts. Writes
+        // that gave a fill up whole and cell by cell, wrote nothing and were
+        // refused, and frames held to `Calc`'s.
+        let (mut nothing, mut refused, mut held) = (0, 0, 0);
+        crate::sheet::work::begin();
+        for seed in 1..=40u64 {
+            let mut d = Dice(seed ^ 0x3400);
+            let rows = generated_grid(&mut d);
+            let bands = formula_rows_of(&rows);
+            let mut m = load(&rows);
+            assert!(m.step(0).done);
+            for frame in 1..=6 {
+                let when = format!("seed {seed}, frame {frame}\n{rows}");
+                let write = formula_between(&mut d, &bands);
+                let one = formula_rows_of(&write);
+                let want = match one.as_slice() {
+                    [(sheet, range, text)] => Some(same_text(&m, sheet, *range, text, &when)),
+                    _ => None,
+                };
+                let (answer, by_calc) = as_a_load(&mut m, &write, &when);
+                held += usize::from(by_calc);
+                match answer {
+                    Ok(n) => {
+                        if let Some(want) = want {
+                            assert_eq!(n, want, "{when}: {write}: the cells counted");
+                        }
+                        nothing += usize::from(n == 0);
+                    }
+                    Err(_) => {
+                        refused += 1;
+                        assert!(m.step(0).done);
+                    }
+                }
+            }
+        }
+        let work = crate::sheet::work::end();
+        assert!(
+            work.whole > 20 && work.split > 2 && nothing > 10 && refused > 5 && held > 60,
+            "{} fills given up whole, {} cell by cell, {nothing} writes of nothing, \
+             {refused} refused and {held} frames held to Calc's: too few for the law to \
+             hold over",
+            work.whole,
+            work.split
+        );
     }
 }

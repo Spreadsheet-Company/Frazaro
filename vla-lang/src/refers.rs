@@ -819,7 +819,49 @@ pub fn shift_a1_references(formula: &str, d_row: i64, d_col: i64) -> String {
     if d_row == 0 && d_col == 0 {
         return formula.to_string();
     }
+    #[cfg(test)]
+    crate::sheet::work::moved();
     rewrite(formula, |r| shifted_part(r, d_row, d_col))
+}
+
+/// Whether moving the text changes its references alone, each by the
+/// offset, for every offset from `low` to `high`, rows then columns: every
+/// part with numbers stays on the sheet at both ends, by the mover's own
+/// rule, and the text holds no span of sheets nor a broken reference with a
+/// cell after it, which the mover writes as a construct (KERNEL.34). Where
+/// it does, the text moved twice is the text moved once by the sum, and a
+/// moved text holds the same references at the same places, each moved,
+/// with the same text between; where it does not, a part moved off the
+/// sheet is `#REF!` and stays so.
+pub(crate) fn moves_whole(formula: &str, low: (i64, i64), high: (i64, i64)) -> bool {
+    let on = |n: u32, is_abs: bool, (lo, hi): (i64, i64), max: u32| {
+        shifted(n, is_abs, lo, max).is_some() && shifted(n, is_abs, hi, max).is_some()
+    };
+    let rows = (low.0, high.0);
+    let cols = (low.1, high.1);
+    scan(formula).iter().all(|r| {
+        if r.kind == Kind::ThreeD || (r.kind == Kind::Broken && r.shape != Shape::None) {
+            return false;
+        }
+        match r.shape {
+            Shape::None => true,
+            Shape::Cell => {
+                on(r.row1, r.row_abs1, rows, MAX_ROW) && on(r.col1, r.col_abs1, cols, MAX_COLUMN)
+            }
+            Shape::Range => {
+                on(r.row1, r.row_abs1, rows, MAX_ROW)
+                    && on(r.col1, r.col_abs1, cols, MAX_COLUMN)
+                    && on(r.row2, r.row_abs2, rows, MAX_ROW)
+                    && on(r.col2, r.col_abs2, cols, MAX_COLUMN)
+            }
+            Shape::Column => {
+                on(r.col1, r.col_abs1, cols, MAX_COLUMN) && on(r.col2, r.col_abs2, cols, MAX_COLUMN)
+            }
+            Shape::Row => {
+                on(r.row1, r.row_abs1, rows, MAX_ROW) && on(r.row2, r.row_abs2, rows, MAX_ROW)
+            }
+        }
+    })
 }
 
 fn shifted(n: u32, is_abs: bool, d: i64, max: u32) -> Option<u32> {

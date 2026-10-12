@@ -622,21 +622,22 @@ mod tests {
 
     #[test]
     fn the_census_counts_the_shapes_a_cell_holds() {
-        // A fill written over with another formula leaves its shape in the
-        // plan, holding no cell; the census counts and numbers the shapes a
-        // cell holds, as the plan numbers them.
+        // A fill written over with another formula leaves no shape in the
+        // plan that holds no cell, and the census numbers the shapes as a
+        // load of the same grid would (KERNEL.34; a write kept the old shape
+        // and numbered the new one after it).
         let mut m = machine(
             "(sheet \"S\" visible)\n(formula \"S\" \"A1:A8\" \"=ROW()+1\")\n",
             library::language(),
         );
         m.write("(formula \"S\" \"A1:A8\" \"=ROW()*2\")")
             .expect("writes");
-        assert_eq!(m.formulas(), (8, 2));
+        assert_eq!(m.formulas(), (8, 1));
         assert_eq!(
             m.census(),
             concat!(
                 "(plan (shapes 1) (texts 1) (formulas 8) (levels 1) (runs 1) (lanes 8) (alone 0) (every-frame 0) (cycles 0))\n",
-                "(shape 1 \"S\" \"A1\" \"=ROW()*2\" (cells 8) (levels 0 0 1 8) (runs 1 8 8 8) (alone 0) (reads))\n",
+                "(shape 0 \"S\" \"A1\" \"=ROW()*2\" (cells 8) (levels 0 0 1 8) (runs 1 8 8 8) (alone 0) (reads))\n",
             )
         );
     }

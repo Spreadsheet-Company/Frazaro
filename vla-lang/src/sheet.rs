@@ -348,33 +348,22 @@ impl Sheet {
     }
 
     pub fn set_formula(&mut self, range: A1Range, text: &str, style: u32) {
-        if range.cells() == 1 {
-            self.set(
-                range.top,
-                range.left,
-                Cell {
-                    content: Content::Formula(text.to_string()),
-                    style,
-                },
-            );
-            return;
-        }
-        let si = self.shared_formulas;
-        self.shared_formulas += 1;
+        let si = self.next_shared(range);
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
-                let content = if row == range.top && col == range.left {
-                    Content::SharedMaster {
-                        text: text.to_string(),
-                        range: range.text(),
-                        si,
-                    }
-                } else {
-                    Content::SharedChild { si }
-                };
+                let content = filled(range, text, si, row, col);
                 self.set(row, col, Cell { content, style });
             }
         }
+    }
+
+    /// The index of the shared formula a formula written over `range` makes,
+    /// taken; `None` for a range of one cell, which holds a plain formula.
+    pub(crate) fn next_shared(&mut self, range: A1Range) -> Option<u32> {
+        (range.cells() > 1).then(|| {
+            self.shared_formulas += 1;
+            self.shared_formulas - 1
+        })
     }
 
     /// The used range as ((first row, first column), (last row, last
@@ -398,6 +387,8 @@ impl Sheet {
 /// references moved. The view record and the evaluator both read a child
 /// through this (KERNEL.4; KERNEL.7).
 pub fn shared_masters(sheet: &Sheet) -> HashMap<u32, (&str, u32, u32)> {
+    #[cfg(test)]
+    work::walked(sheet.cells.len());
     let mut masters = HashMap::new();
     for ((row, col), cell) in &sheet.cells {
         if let Content::SharedMaster { text, si, .. } = &cell.content {
@@ -434,6 +425,99 @@ pub fn formula_text(
         }
     };
     Some(strip_future_prefixes(&raw))
+}
+
+/// What a formula written over `range` puts in one of its cells, the rule
+/// [`Sheet::set_formula`] and a machine's write share (KERNEL.34): the text
+/// for a range of one cell (`si` `None`); else the shared formula `si`, its
+/// text and its range at the range's first cell and its index at every
+/// other.
+pub(crate) fn filled(range: A1Range, text: &str, si: Option<u32>, row: u32, col: u32) -> Content {
+    match si {
+        None => Content::Formula(text.to_string()),
+        Some(si) if row == range.top && col == range.left => Content::SharedMaster {
+            text: text.to_string(),
+            range: range.text(),
+            si,
+        },
+        Some(si) => Content::SharedChild { si },
+    }
+}
+
+/// The work a machine's write does, counted in a test (KERNEL.34's oracle,
+/// as `crate::calc::vector::taken` notes a run's paths): the cells walked
+/// to find a sheet's shared formulas or a released fill's cells, the texts
+/// the mover moved, and the fills a write released, each whole or cell by
+/// cell. A write's cost is pinned by these counts and not by its time; an
+/// allocation count would miss the walks, which allocate once a master and
+/// not once a cell. Counted on the thread that asked, between
+/// [`work::begin`] and [`work::end`], and only in a test build.
+#[cfg(test)]
+pub(crate) mod work {
+    use std::cell::Cell;
+
+    /// What the writes since [`begin`] did.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    pub(crate) struct Work {
+        /// The cells walked.
+        pub(crate) walked: u64,
+        /// The texts moved.
+        pub(crate) moved: u64,
+        /// The fills released whole, their first cell left made their master.
+        pub(crate) whole: u64,
+        /// The fills released cell by cell, each cell given its own text.
+        pub(crate) split: u64,
+    }
+
+    thread_local! {
+        static ON: Cell<bool> = const { Cell::new(false) };
+        static DONE: Cell<Work> = const {
+            Cell::new(Work { walked: 0, moved: 0, whole: 0, split: 0 })
+        };
+    }
+
+    /// Counting begins on this thread, from nothing.
+    pub(crate) fn begin() {
+        ON.with(|on| on.set(true));
+        DONE.with(|done| done.set(Work::default()));
+    }
+
+    /// What was counted since [`begin`]; counting ends.
+    pub(crate) fn end() -> Work {
+        ON.with(|on| on.set(false));
+        DONE.with(Cell::get)
+    }
+
+    fn add(f: impl FnOnce(&mut Work)) {
+        if ON.with(Cell::get) {
+            DONE.with(|done| {
+                let mut work = done.get();
+                f(&mut work);
+                done.set(work);
+            });
+        }
+    }
+
+    /// A walk over a sheet of `cells` cells.
+    pub(crate) fn walked(cells: usize) {
+        add(|w| w.walked += cells as u64);
+    }
+
+    /// One text moved.
+    pub(crate) fn moved() {
+        add(|w| w.moved += 1);
+    }
+
+    /// One fill released, whole or cell by cell.
+    pub(crate) fn released(whole: bool) {
+        add(|w| {
+            if whole {
+                w.whole += 1;
+            } else {
+                w.split += 1;
+            }
+        });
+    }
 }
 
 /// The workbook: its sheets in tab order, their formats, and which tab is

@@ -23967,6 +23967,478 @@ item's files. The item closed with it; its line left the roadmap for the
 closed ledger. Not pushed. Alonzo takes it at its pin's move to `=0.9.2`,
 the owner's run there the frame floors' next baseline.
 
+- ✅ **`KERNEL.34` — a formula written into a running grid costs what its
+  cells cost, so that a rule rebuilt and written whole is applied in a
+  frame's time and not in fifteen seconds.**
+  *Minted 2026-10-12 at the owner's word (the roadmap's line, after
+  `KERNEL.32`), from the measurement asked with 0.9.2's preparation of what
+  costs every one of Alonzo's cartridges; scoped the same day at the owner's
+  word, the entry below; its five decisions approved as recommended and
+  built the same day, the build's record after it; owner-tested, committed
+  and closed the same day.*
+
+**`KERNEL.34`, a formula's write in time with its cells: the scoping,
+2026-10-12.** Begun at the owner's word, relayed from the session that
+minted the item: scope first, build only after the owner approves. HEAD
+`e738cbb`, the release 0.9.2, level with origin, its CI green;
+`run_checks.ps1` 57 of 57.
+
+*The instrument.* Alonzo's HEAD `57cfdaf` taken by `git archive` into the
+session's scratchpad, its pin a path to `vla-lang` as `e738cbb` holds it, and
+an example of the engine's own, `edit`: each case loads its cartridge, steps
+ten frames, times five steady ones, then times the write, the frame after it
+and the one after that; then five more frames, and every sheet's grid record
+and the census are digested, the witness two builds of the write compare. On
+the performance cores, opted out of power throttling, three rounds. A second
+copy of the language counts what the write does: the cells the masters' walk
+(`shared_masters`) visits, the texts the mover (`shift_a1_references`)
+moves, and the time of each stage.
+
+*Measured over HEAD,* three rounds:
+
+| the write | cells written | HEAD |
+|---|---:|---:|
+| Life's rule whole, `Screen!B2:LG199`, its text ending `+0` | 62,964 | 15.3 to 15.5 s |
+| Life's rule again, its own text | 0 | 1.82 to 1.85 s |
+| a formula over the fill's first cell, `B2` | 1 | 0.82 to 0.83 s |
+| a formula inside the fill, `C3` | 1 | 12.4 to 15.8 ms |
+| a row inside the fill, `B100:LG100` | 318 | 90 to 96 ms |
+| the fill's first row, `B2:LG2` | 318 | 0.90 to 0.95 s |
+| the fill's first column, `B2:B199` | 198 | 0.87 s |
+| Sand's `Stay!C2:LF199`, `+0` | 62,568 | 16.3 to 16.4 s |
+| Sand's `Tally!A2`, over its fill's first cell | 1 | 82 to 86 ms |
+| Sand's `Tally!A2:A199`, `+0` | 198 | 82 to 86 ms |
+
+The frame after a formula's write computes every cell: 8.5 to 8.9 ms for
+Life, 15.8 to 18.1 for Sand; the loads take 37 to 43 ms and 157 to 175. The
+numbers the item was minted on stand reproduced.
+
+*Counted.* Life's rule written whole walks the masters 62,965 times,
+3,964,528,260 cells visited, and moves 125,926 texts, 59 million characters:
+placing the cells again 13.3 s, the same-text test 1.83 s, the plan 7.8 ms.
+Sand's `Stay` walks 3,984,644,196 cells and moves 125,134 texts: placing 13.8
+s, the test 2.26 s, the plan 76 ms. Life's rule written again with its own
+text writes nothing and still moves 125,926 texts, 1.81 s. The formula over
+`B2` moves 62,963 texts in the release, 0.79 s. The row inside the fill walks
+20,085,516 cells for its 318 placings, 71 ms of 93. Sand's two `Tally` writes
+are their plan, 69 to 76 ms. The three causes, each where the item puts it:
+1. `Machine::settle` places each changed cell by `Shapes::replace`, and each
+   call finds the sheet's masters by walking every cell of the sheet
+   (`shared_masters`): a fill's cells times its sheet's.
+2. `put_formula`'s same-text test moves the written text to every cell of
+   the range, and a shared child's text from its master, and compares them:
+   two moves a cell.
+3. `release_masters`, when a write covers a fill's first cell, gives each of
+   the fill's other cells its own moved text, and walks the whole sheet again
+   for each master it releases.
+
+*Found: a write is not a load today.* The grid a write leaves is planned
+otherwise than a load of the same grid plans it, as the census prints it.
+Over the machine's own Life fixture, each write followed by a frame, against
+`Machine::new` over a copy of the written grid followed by a frame, three
+writes of four differ. Life's fill rewritten whole prints `(shape 1 ...)`
+where the load prints `(shape 0 ...)`, the old shape kept in the plan with no
+cell (`formulas()` `(2418, 2)` against `(2418, 1)`). A formula over `B2`
+leaves the rest of the fill on the old shape, whose first cell is still
+`B2`, and numbers the new formula after it, where the load anchors the fill
+at `C2` and numbers the new formula first. A value over `B2` does the same,
+`B2` against `C2`. A formula written inside the fill, at `C3`, is the load's.
+The values are right in all four, since a cell left on the old shape is
+evaluated at its offset from the old first cell, which reads as its own text
+does. What differs is the plan's numbering and anchoring, which the census
+prints and Alonzo's `describe` shows. So the oracle the item names, a census
+equal to a load's, asks for something today's write does not do; decision 4
+is for it.
+
+*A prototype, measured.* In a scratch copy, not the build: the cells placed
+with each sheet's masters found once (`replace_many`), the same-text test
+once a formula (decision 1, its guards left out), and a release that moves
+the master (decision 2, its guard left out). Every case's digest equal to
+HEAD's, three rounds:
+
+| the write | HEAD | the prototype |
+|---|---:|---:|
+| Life's rule whole | 15.3 to 15.5 s | 43.8 to 45.6 ms |
+| Life's rule again, its own text | 1.82 to 1.85 s | 4.3 to 4.4 ms |
+| a formula over `B2` | 0.82 to 0.83 s | 13.9 to 16.2 ms |
+| a formula inside, `C3` | 12.4 to 15.8 ms | 12.2 to 14.7 ms |
+| a row inside, `B100:LG100` | 90 to 96 ms | 12.9 to 14.9 ms |
+| the first row, `B2:LG2` | 0.90 to 0.95 s | 13.5 to 13.9 ms |
+| the first column, `B2:B199` | 0.87 s | 12.7 to 15.9 ms |
+| Sand's `Stay` whole | 16.3 to 16.4 s | 119 to 130 ms |
+| Sand's `Tally!A2` | 82 to 86 ms | 79 to 85 ms |
+| Sand's `Tally` whole | 82 to 86 ms | 78 to 86 ms |
+
+Of Life's 45 ms: the write's own bookkeeping 18 (each cell's old content kept
+for the undo, the new contents set, the log), placing 7, the plan 6 to 8, the
+test 4, the refusal's check 3, the values moved to the new order 3, the
+plan's copy kept for the undo 2. Of Sand's 120 to 130: the plan 73 to 82,
+the bookkeeping 20, placing 8 to 9, the values moved 7, the plan's copy 5,
+the refusal's check 5, the test 4. Every stage is linear now, and the plan is
+the load's own cost.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The same-text test reads each formula the range covers once.*
+   Recommended. The range's cells are grouped by where their formula comes
+   from: a cell holding none differs; a shared formula's cells are one
+   group, found through its master; a plain formula's cells are grouped by
+   their shape. A fill whose master is the range's first cell and holds the
+   written text is the same at every cell, nothing moved. Otherwise one
+   comparison decides a shared formula's cells. Two texts moved to a cell
+   read alike there exactly when they make the same references from it with
+   the same text between them, which does not depend on the cell so long as
+   every reference stays on the sheet; so one cell where both texts stand
+   moved is compared as today and stands for all of them. This is what the
+   plan already rests on: a cell at an offset is evaluated as its moved text
+   would parse (`RefExpr::moved`), and a save of Life loads back to one
+   shape.
+   The one or two cells where a text stands as written, the formula's master
+   and the range's first cell, may be spelled otherwise and are compared as
+   today. A plain formula's cells each stand as written: its shape's R1C1
+   against the written text's R1C1 decides that every cell differs when the
+   two differ, and the cells are compared one by one as today when they
+   agree. Where either text could leave the sheet when moved over the
+   group's cells, or holds a span of sheets or a broken reference with a
+   cell after it (what the plan calls risky), or a future prefix (`_xlfn.`),
+   the group is compared cell by cell as today. Exact: `(written n)` counts
+   the cells it counts today, held by a law that runs this test and today's,
+   kept in the tests as the reference, side by side. Measured in the
+   prototype at 3.5 to 3.9 ms for Life's 62,964 cells. *Declined:* the moved
+   text kept at every cell but drawn from one scan of each text into a
+   reused buffer, exact by construction and linear in the cells times the
+   text, Life's 469 characters twice a cell (*prediction:* tens of ms for
+   Life's fill); today's test, 1.8 s for Life and 2.3 for Sand.
+
+2. *A master's release leaves one shared formula.* Recommended. When a write
+   covers a fill's first cell, the fill's first cell outside the range, by
+   rows and then columns, becomes its master, the text moved there once, and
+   every other cell stays the master's child, unchanged; one walk of the
+   sheet finds every released master's cells. Moving a text twice equals
+   moving it once only when the first move keeps every reference on the
+   sheet, since a reference moved off it is `#REF!` and stays so; a text the
+   one move would take off the sheet is released as today, each cell its own
+   text. The new master keeps the range the fill was written over: nothing
+   in the language reads a master's range, and no door writes a machine's
+   grid to a file. Measured in the prototype: Life's `B2` 0.79 s to 1.5 ms of
+   release. *Declined:* each cell its own text, as today, or drawn from one
+   scan (*prediction:* tens of ms, and 30 MB of texts held for Life's fill
+   where the shared formula holds one); each remaining rectangle a fill of
+   its own (two for Life's `B2`, every child given a new index, and more
+   shapes with each later write).
+
+3. *The plan read again whole after a formula's write, as today.*
+   Recommended. Life's plan takes 6 to 8 ms and Sand's 70 to 82, the load's
+   own cost since `KERNEL.33`; the order's levels, its runs and the reach are
+   found over the whole grid, and planning only the shapes a write touched
+   would be a second planner to hold to the first. *Declined:* planning the
+   touched shapes alone, until a measurement asks for it.
+
+4. *(New.) The plan a write leaves is the plan a load of the same grid
+   makes.* Recommended. After a write's cells are placed, its shapes are
+   numbered by their first cell in the grid's order, a fill's shape anchored
+   at its master and a plain formula's at its first cell, and a shape left
+   with no cell dropped, as `Shapes::of` makes them. The census after a write
+   is then a load's to the byte, and an edit-and-continue session keeps no
+   dead shape: each is a parse, 8.9 KB for Life's rule, copied with the plan
+   at every formula's write. One pass over the places, O(formulas) like the
+   plan after it (*prediction:* 1 to 4 ms for Life's 62,964). It changes the
+   pinned numbers of one test, `the_census_counts_the_shapes_a_cell_holds`
+   (`(8, 2)` to `(8, 1)`, `(shape 1 ...)` to `(shape 0 ...)`), and
+   `Machine::formulas()`'s second number after such a write; no frame, value
+   or record. *Declined:* the plan as the writes' history leaves it, the
+   oracle comparing censuses with their shape numbers and first cells set
+   aside.
+
+5. *(New.) The write's own bookkeeping in one pass.* Recommended. Each cell
+   of the range is looked up once, its old content kept for the undo and the
+   new one set in place, where `put_formula` looks each up four times (the
+   old contents gathered, their formats mapped, the fill set, each format put
+   back); and the refusal's check sorts the placed cells only when one is
+   refused. (*Prediction:* 10 to 15 ms off Life's fill and Sand's `Stay`.)
+   *Declined:* leaving both, linear as they are.
+
+6. *The oracle.*
+   - *A write is a load.* After each write and the next frame, the census
+     equal to that of `Machine::new` over a copy of the written grid, stepped
+     once, and every value equal to `Calc`'s over the same grid: row fills,
+     column fills, single cells, a write over a fill's first cell, a write
+     partly over a fill with its first cell and without it, a value over a
+     master, the same text again, a fill reading near the sheet's edge
+     (decision 2's guard), and a refused write undone exactly (the record,
+     the census and the values as before it). Over the generated grids,
+     `write_between` gains formula writes of each kind and `KERNEL.20`'s laws
+     run them; `tests/laws.rs` gains the law over the public calls.
+   - *The test's count is today's.* This test and today's, kept as the
+     reference, compared cell by cell at every formula write of the laws, and
+     over texts written in other spellings (lower case, `$` placed
+     otherwise), with a prefix, reaching the sheet's edges, and a name
+     spelled like an R1C1 reference.
+   - *Counted, not timed.* Test-only recorders of the cells the masters' and
+     the release's walks visit and of the texts the mover moves, as
+     `vector::taken` records a run's paths: a fill of 2n cells costs at most
+     about twice the work of n, for a row fill, a column fill, a fill's first
+     cell written over and a row inside one; a fill rewritten whole moves at
+     most two texts.
+   - *The mutants,* each alone in a scratch copy after a control that
+     passes, each failing a named test: masters found for another sheet; the
+     same-text test skipped, every cell differing; one cell standing for a
+     group where a text could leave the sheet; a group's verdict given to
+     the cells where a text stands as written; a release leaving a child
+     without its master; the moved master's text not moved; decision 2's
+     guard skipped; decision 4's pass skipped.
+   - *Today's pins, unchanged:*
+     `a_write_over_a_shared_formula_s_first_cell_keeps_the_rest`,
+     `a_formula_write_is_planned_again_and_refused_when_it_cannot_be_stepped`,
+     `a_value_follows_its_cell_when_a_formula_s_write_plans_the_order_again`,
+     `a_twins_array_is_its_cells_after_every_step_and_every_write`,
+     `a_kept_plane_is_the_walk_after_every_step_and_every_write`.
+   - *Alonzo*, over a copy of its HEAD with the slice by a path: `cargo
+     test`, every committed replay played to its golden; `frames --
+     --check`, every frame equal and the allocations 80 and 5, 80 and 5, 509
+     and 5.
+   - *The after,* by this instrument, for every case above.
+   - *All green*: `cargo fmt --check`, clippy `-D warnings`, `cargo test
+     --workspace --no-fail-fast`, both wasm builds, `run_checks.ps1`;
+     `check_recalc_floors` and `check_shapes_golden` unmoved, since their
+     whole frames write `Frazaro!E1` untimed and a load plans as before.
+
+7. *The release.* No public signature changes: `replace_many` is the
+   crate's own, and `Shapes::replace` stays as it is. A patch, 0.9.3, under a
+   new `## 0.9.3` in `RELEASES.md`, its number the owner's.
+
+*Predictions,* with the five as recommended: Life's rule whole 35 to 50 ms,
+written again with its own text 4 to 6, a formula over `B2` 15 to 22
+(decision 4 anchors 62,963 places again), `C3` 12 to 15, a row inside 13 to
+16, the first row and the first column 14 to 22; Sand's `Stay` 110 to 135 ms,
+its two `Tally` writes 75 to 90. The frame after any formula's write stays
+whole, 8.5 ms for Life and 16 for Sand. Against the item's expectation, tens
+of ms for Life is met; Sand's is its plan, 70 to 82 ms, and about 40 ms of
+linear work beside it.
+
+**What it touches.** `vla-lang/src/calc/shape.rs` (`replace_many`, decision
+4's pass), `machine/mod.rs` (`put_formula`'s test and its one pass,
+`release_masters`, `settle`; the tests and the generator's writes),
+`refers.rs` (whether a move keeps a text on the sheet, the mover's own rule
+as a predicate), `sheet.rs` (a test-only count of the cells the masters' walk
+visits), `tests/laws.rs`; the roadmap's line, this entry, `RELEASES.md`. No
+VBA: the machine has no reference.
+
+**Beside it.** `KERNEL.35` and `KERNEL.36` share no code with it: the frame
+after a formula's write is whole, as the first frame after a load is, so it
+marks nothing, and its end is the walk `KERNEL.36` is about. For Alonzo's
+`ENGINE.7`: a write plans once, at its end, so a rebuilt source's changed rows
+written in one `write` plan once, and in n writes n times.
+
+**Built 2026-10-12**, at the owner's word, "Decision recommendations
+approved; commit the KERNEL filings and proceed with implementing KERNEL.34
+as scoped": the filing committed first, `05099a3`, by path; then the five
+decisions as recommended, in a worktree over `05099a3`, the shared tree
+touched only by this entry, the roadmap's line and `RELEASES.md`. What
+landed:
+- *The placing* (cause 1). `Shapes::replace_many`, the crate's own, beside
+  `Shapes::replace`, which stays as it was: the cells a write changed and
+  the cells a release gave their own text placed again at once, each
+  sheet's shared formulas found once. `Machine::settle` calls it where it
+  called `replace` a cell at a time.
+- *The plan a load's* (decision 4). `Shapes::as_loaded`, which
+  `replace_many` ends with: the places sorted, each shape numbered by its
+  first cell in the grid's order, a fill's shape anchored at its master and
+  a plain formula's at its first cell, read again from that cell's text
+  where a write moved the anchor or spelled the text otherwise, a shape no
+  cell holds dropped, and the two maps a cell finds its shape by kept to
+  the shapes left. A shape knows the shared formula it is (`Shape::fill`,
+  private), so that its master is found again.
+- *The same-text test* (decision 1, cause 2). `Machine::differing`: the
+  range's cells grouped by where their formula comes from, a fill through
+  its master and a plain formula by its shape; a fill whose master is the
+  range's first cell holding the written text the same everywhere, nothing
+  moved; else, where moving either text over the group keeps it whole and
+  neither holds a prefix, one cell where both stand moved compared for all,
+  and the one or two where a text stands as written compared alone; a plain
+  formula's shape whose R1C1 text is not the written text's differing at
+  every cell; every other cell compared alone, as today. `refers::moves_whole`
+  is the mover's own rule as a predicate over a span of offsets: every part
+  with numbers on the sheet at both ends, and no span of sheets nor broken
+  reference with a cell after it. Today's test is kept, test-only, as
+  `Machine::differing_by_cell`, the reference.
+- *The release* (decision 2, cause 3). `release_masters` makes a released
+  fill's first cell left, by rows and then columns, its master, the text
+  moved there once, one walk of the sheet finding every released fill's
+  first cell where each master walked the sheet; a text the one move would
+  not keep whole gives each of its fill's cells its own text, as every
+  release did, and those cells are placed again when the write settles
+  (`Log::released`), their values kept.
+- *The one pass* (decision 5). `put_formula` looks each cell up once
+  (`btree_map::Entry`), its content from `sheet::filled`, the rule
+  `Sheet::set_formula` now shares, and the fill's index from
+  `Sheet::next_shared`; `Shapes::first_refusal` sorts the cells it checks
+  only when one of them is refused.
+- *The recorders.* `sheet::work`, test-only, as `vector::taken` is: the
+  cells the masters' and the release's walks visit, the texts the mover
+  moves, the fills a write released whole and cell by cell.
+- *The tests,* in `machine/mod.rs`: `as_a_load`, one write held to a load of
+  the grid it leaves (every cell it does not name reading as it did and
+  every cell keeping its format; the plan, spelled whole by
+  `Shapes::spelled`, test-only, equal part for part to `Shapes::of`'s over
+  the same grid; the next frame `Calc`'s; the census that of the grid loaded
+  again and stepped; a refused write leaving the record, the plan and the
+  census as they were); `a_write_leaves_the_grid_a_load_of_it_makes`,
+  nineteen writes of every kind over two sheets, the cells each counts
+  stated; `the_same_text_test_finds_the_cells_comparing_every_cell_finds`,
+  over sixty generated grids; `the_same_text_test_compares_each_cell_where_a_moved_text_leaves_the_sheet`;
+  `the_rows_of_one_write_count_what_they_count_written_one_by_one`;
+  `a_release_makes_the_fill_s_first_cell_left_its_master_and_moves_one_text`;
+  `a_fill_whose_text_a_release_would_move_off_the_sheet_gives_each_cell_its_own`;
+  `a_fill_written_into_a_running_grid_costs_its_cells`;
+  `a_write_between_frames_is_a_load_of_the_grid_it_leaves`, over forty
+  generated grids, a formula write before each of six frames. The
+  generator's `write_between` writes a formula over a part of the first
+  bands, and `KERNEL.20`'s two laws over it take those too. In
+  `tests/laws.rs`, the seventh law, a grid written between frames planned as
+  a load of it, through the public calls. `the_census_counts_the_shapes_a_cell_holds`
+  pins `(8, 1)` and `(shape 0 ...)` where it pinned `(8, 2)` and
+  `(shape 1 ...)`, decision 4's one change of a pin.
+
+**Measured** by the scoping's instrument, on the performance cores, opted
+out of power throttling: HEAD three rounds, the build's final code three
+rounds, the cheap writes alternated with HEAD three rounds more.
+
+| the write | HEAD | the build |
+|---|---:|---:|
+| Life's rule whole, 62,964 cells | 15.3 to 15.5 s | 37 to 44 ms |
+| Life's rule again, its own text | 1.82 to 1.85 s | 4.1 to 4.4 ms |
+| a formula over the fill's first cell, `B2` | 0.82 to 0.83 s | 14.1 to 14.6 ms |
+| a formula inside the fill, `C3` | 12.2 to 15.8 ms | 13.4 to 17.5 ms |
+| a row inside the fill, `B100:LG100` | 89 to 98 ms | 13.1 to 14.6 ms |
+| the fill's first row, `B2:LG2` | 0.90 to 0.95 s | 14.3 to 15.2 ms |
+| the fill's first column, `B2:B199` | 0.87 s | 14.3 to 17.6 ms |
+| Sand's `Stay` whole, 62,568 cells | 16.3 to 16.4 s | 113 to 131 ms |
+| Sand's `Tally!A2`, over its fill's first cell | 76 to 86 ms | 84 to 95 ms |
+| Sand's `Tally` whole, 198 cells | 82 to 86 ms | 86 to 92 ms |
+
+The frame after a formula's write computes every cell, as before: 8.4 to
+9.7 ms for Life, 16 to 18 for Sand. Every case's records, every sheet's
+grid five frames after the write, are HEAD's byte for byte; the census
+moved where decision 4 numbers and anchors the plan as a load does, Life's
+rule whole, `B2`, the first row and column, and Sand's three. Against the
+scoping's predictions: Life's rule, `B2`, its own text, the row inside and
+Sand's `Stay` inside them; `C3` and Sand's two `Tally` writes a few ms
+over, the pass of decision 4 (below, under *Found*). Each write's own
+time, apart from its plan, is now in proportion to its cells: Life's rule
+whole is its bookkeeping, its placing and its plan, about 40 ms where the
+cartridge loads in 36 to 40.
+
+**The oracle, met.**
+- *A write is a load.* `as_a_load` over nineteen writes of every kind, the
+  release's two outcomes and forty generated grids of six formula writes
+  each: 59 fills released whole and 9 cell by cell, 42 writes of nothing,
+  21 refused, and 85 frames held to `Calc`'s, the rest having a twin that
+  holds a reason; `KERNEL.20`'s two laws over `write_between`'s formula
+  writes; the public law over fifty grids, which fails over 0.9.2's code.
+- *The same-text test's count is today's.* Over sixty generated grids,
+  12,430 writes alike at every cell, 23,863 differing at every cell and
+  4,645 of each, each finding the reference's cells; the rows of one write
+  counted as the same rows written apart, six cases; the moves off the
+  sheet, the plain `#REF!` and the spellings.
+- *Counted, not timed.* A fill of forty rows walks twice the cells of one of
+  twenty and moves the same texts: a fill written whole two, a row or a
+  column inside it three, a cell over its first one, a column over its
+  first three.
+- *The mutants,* each alone in a fresh copy of the crate after a control
+  that passed, each failing named tests: masters found for another sheet
+  (3); the same-text test skipped (5, the pinned
+  `a_formula_write_is_planned_again_and_refused_when_it_cannot_be_stepped`
+  among them); one cell standing for a group whose text leaves the sheet
+  (2); the cells where a text stands as written given the group's verdict
+  (4); a release leaving a child without its master (7, the pinned
+  `a_write_over_a_shared_formula_s_first_cell_keeps_the_rest` and the
+  public law among them); the master's text not moved (4); the release's
+  guard skipped (3); decision 4's pass skipped (7); a plain cell's place
+  taken stale within a write (1); the released cells not placed again (5);
+  the refusal's check missing a function the library lacks (2); a first
+  cell respelled not read again (1); a format lost (1); the plain formulas'
+  guard skipped (3); the shortcut taken whatever the text (7); the guard
+  checking one end of the offsets (2); and, over the change the owner's
+  test asked for, a shape's first cell taken as its greatest cell (5) and
+  the shapes left unordered by their first cells (5).
+- *Today's pins,* unchanged:
+  `a_write_over_a_shared_formula_s_first_cell_keeps_the_rest`,
+  `a_formula_write_is_planned_again_and_refused_when_it_cannot_be_stepped`,
+  `a_value_follows_its_cell_when_a_formula_s_write_plans_the_order_again`,
+  `a_twins_array_is_its_cells_after_every_step_and_every_write` and
+  `a_kept_plane_is_the_walk_after_every_step_and_every_write`; one pin
+  moved by decision 4, `the_census_counts_the_shapes_a_cell_holds`.
+- *Alonzo,* over a copy of its HEAD `57cfdaf` with the build by a path:
+  `cargo test` 31 passed, every committed replay played to its golden;
+  `frames -- --check` every frame equal, the allocations 80 and 5, 80 and
+  5, 509 and 5.
+- *All green* in the worktree, by the CI core job's own steps: the build,
+  `cargo fmt --check`, clippy `-D warnings` and again with `c-abi`, the
+  workspace's tests (the core's 183, the language's 199, its laws and the
+  rest), the published package's own tests, both wasm builds and the recalc
+  runner; `run_checks.ps1` 57 of 57, `check_recalc_floors` holding every
+  value and the measured sums through the runner and `check_shapes_golden`
+  every golden whole from the door, neither moved.
+
+**Found.**
+- *A write was not a load* (the scoping), now decision 4.
+- *After the first frame `Calc` is no reference where a twin holds a
+  reason.* A cell not computed leaves its reason beside its twin's cell, and
+  a formula reading that cell inherits it, where `Calc`, reading the twin as
+  a sheet, finds an empty cell; `KERNEL.20`'s law holds the first frame
+  alone to `Calc` for this reason. `as_a_load` holds a frame to `Calc` only
+  when no twin holds one and counts those frames; the plan is held to a
+  load's whatever the twins hold.
+- *A formula lost from the grid passes the plan, the census and `Calc`
+  together,* a child left without its master reading no formula to any of
+  them; found while choosing the mutants. `as_a_load` holds every cell a
+  write does not name to its formula as before, and every cell to its
+  format.
+- *The release walked the sheet once for each master it gave up;* now once
+  for all of them.
+- *Decision 4's pass sorted every placed cell,* 189,215 in Sand, to find
+  each shape's first cell, which made a small write into a large grid
+  dearer than before: found by the owner's test (below). The first cells
+  are found in one pass now; what such a write pays for the pass is one
+  pass over the placed cells, and another where it drops or re-anchors a
+  shape.
+- *A defect older than this item, measured over 0.9.2:* the plan keys a
+  plain formula's shape by its R1C1 text (`KERNEL.22`), and a name spelled
+  like an R1C1 reference renders as one, so that `=R1C1`, an undefined
+  name, and `=$A$1` at any cell share a key and a shape. A grid of `=$A$1`
+  at `B1` and `=R1C1` at `B2` plans one shape, `(2, 1)`, and `B2` computes
+  5 where `Calc` computes `#NAME?`; written the other way round, `=$A$1`
+  computes `#NAME?` where `Calc` computes 5. The same-text test rests on
+  that key only to say that a cell differs, which the collision cannot
+  make wrong; the key is not this item's to change, and the defect is the
+  owner's to mint.
+
+*The owner's test, 2026-10-12*: the instrument over HEAD's language and
+over the build, one round each, every records digest equal; Life's rule
+15,479 ms to 39.8, its own text 1,841.5 to 4.3, `B2` 862.7 to 15.9, the
+row inside 88.9 to 15.0, the first row 885.6 to 17.5, the first column
+875.9 to 17.4, Sand's `Stay` 16,296.0 to 129.9; and Sand's `Tally!A2` 81.0
+to 97.9, its `Tally` 87.6 to 100.9 and `C3` 13.4 to 16.6, slower. An A/B of
+those three, alternated, three rounds, confirmed it, Sand's two 13 to 15 ms
+dearer and `C3` 3 to 4: decision 4's pass, sorting every placed cell. With
+the first cells found in one pass, alternated again: `C3` 12.3 to 12.9 ms
+against 13.4 to 13.7, Sand's `Tally!A2` 76 to 86 against 84 to 88, its
+`Tally` 82.5 to 84 against 86 to 91; the row inside 90 to 96 against 13 to
+14. The tests, the mutants of the pass and Alonzo's tests run again over
+the change. The owner ran the build again over it: Life's rule 41.7 ms,
+its own text 4.7, `B2` 14.2, `C3` 13.4, the row inside 14.3, the first row
+14.5 and the first column 14.0, Sand's `Stay` 118.4, its `Tally!A2` 86.6
+and its `Tally` 80.5, every records digest equal.
+
+*Committed 2026-10-12* at the owner's word, "Commit", after the owner's two
+runs: this item's ten files alone, staged by path, the code moved whole
+from the worktree, each file's change the worktree's line for line, nothing
+else being in the tree; the worktree verified first by the CI core job's own
+steps and `run_checks.ps1`, 57 of 57. The item closed with it; its line
+left the roadmap for the closed ledger. Not pushed. Alonzo takes it at its
+pin's move to the release, its prompt given in chat.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -37431,6 +37903,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.20 — speed, measured.** Six slices, each committed at the owner's word 2026-10-10 to 2026-10-11 and released in 0.9.0, the item closed 2026-10-12 at the owner's word: the previous frame's values kept as an array, the cheaper frame's overheads, the vectorized shape, incremental maintenance, the values folded at build time, and the measurement against Excel on four built workbooks with its floors (`check_recalc_floors.ps1`, the 56th check), with `KERNEL.26`, `KERNEL.27` and `KERNEL.28` filed from its profiles. Life's frame natively from 101 ms at 0.8.1 to 2.7 ms. Against Excel on the same files at the baseline: the column whole 2.6 times as fast, Life 1.3 times as fast as Excel's twenty threads and 6.8 times its one; the running balance 1.1 times slower, the twelve months 2.9 times slower, the edits but Life's slower. Ruled out at the close: identical shapes computed once by content address (a purity property every function would declare, little to find on the fixtures, its cheap forms built) and the view's window and its cone (about 5% of a view; the doors computing through the machine filed as `KERNEL.32`). `fullCalcOnLoad` kept, the owner's ruling. *(more: the six slices' entries and the close, under the KERNEL line)*
 - ✅ **KERNEL.30 — the shapes printed: each formula shape of a plan as rows, its cells, its width at each level and the reads it makes, so that a model's or a cartridge's cost is read before a frame runs.** Minted 2026-10-12 at the owner's word from an Alonzo session's audit of the architecture, and scoped, approved, built and closed the same day: the census, the plan an engine's machine makes printed as rows when asked, the plan keeping for it only where each level of its order ends. One `(plan ...)` row of totals; a `(readers ...)` row a sheet, the readers a changed cell of it is checked against; and a `(shape ...)` row a shape, its first cell and its formula in R1C1, its cells, its levels summarized as the first, the last, how many and the widest, its runs, its cells alone, and its reads named by the path the machine takes, `slot`, `array`, `lookup`, `cells`, `once`, `start` and `each`, with the functions called at each cell, those not held, the earlier shape a formula already is, and a shape computed every frame and why: facts alone, no flag. `Machine::census` and `Shapes::census` in `vla-lang`, new calls and no signature changed; `frazaro calc <file> --shapes` at the door; eleven goldens over oracle 12's seven fixtures and the four bench programs, held by `check_shapes_golden.ps1`, the 57th check, goldens of the door and the crate and not an oracle of the treaty. Every count held to the plan walked again by `Calc`'s own edges, every path a run takes held to a kind the census names, 25 mutants caught; nothing computes differently, every load 0.3 KiB shallower on the stack, the plan made in a box, the language's module 160 bytes larger. Before a frame runs it shows Sand written a fill a row as 407 shapes of 13 texts, and the twelve months' totals walking their own sheet at each cell, `KERNEL.31`'s ground. Built and committed 2026-10-12 at the owner's word, to be released in 0.9.2; Alonzo's `describe` prints it after its pin moves there, a slice of its own. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.33 — the plan's edges found once a shape, a column a reference holds read once a row, and a row of single cells reached as one: what Alonzo's playtest pass of Sand asked of the language.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, the three changes as one item. A grid's plan reads each shape's references once, one every `$` holds found once for the shape, a cell's vertex through the reach's array of positions, the edges one flat array, and one Tarjan now serves both plans; in a run, a reference holding its column, read across one row, is read once; and a shape's single cells side by side in a row are one span to the reach, wherever the span stays on the sheet. Every value, the order, its runs and its cycles are as they were, and no public call changed. By both houses' instruments alternated with HEAD: Sand's load 507 ms to about 163 natively and 597 to about 163 in Chrome, its steady frame 15.6 to 10.5 ms, Alonzo's 1,100-frame playtest session 1,857 to 1,256 ms with every frame held; Life's and the gun's loads nearly halved, their frames unchanged. A first mutant round caught ten of fifteen and found two of the plan's paths no generated grid reached, a range of a sheet holding formulas and a name over formula cells; the generator writes both now, four pins were added, and the second round caught all fifteen. The owner's test: the session 1,844 ms to 1,250, every frame held, and Sand's load 511 ms to 158. To be released in 0.9.2. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.34 — a formula written into a running grid costs what its cells cost, so that a rule rebuilt and written whole is applied in a frame's time and not in fifteen seconds.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its five decisions as recommended. A write places its cells with each sheet's shared formulas found once, where each cell walked its sheet; tests whether a cell would read the same once for each formula the range covers, where every cell moved two texts; gives a fill's first cell up by making the fill's first cell left its master, one text moved, where every cell was given its own; and looks each cell up once. The plan a write leaves is now the plan a load of the same grid makes, numbered and anchored as a load's, which it was not. Natively, Life's rule written whole 15.4 s to about 40 ms, Sand's largest fill 16.4 s to about 120, a cell over a fill's first 0.82 s to 15 ms, a fill's own text again 1.8 s to 4 ms; every record is the one it was, a write counts the cells it counted, and no public call changed. Eighteen mutants, each failing named tests. The owner's test caught a pass that sorted every placed cell, which made a small write into Sand 14 ms dearer; the pass now finds each shape's first cell in one walk. Found and left for the owner to mint: a name spelled like an R1C1 reference shares a plain formula's shape key, so `=R1C1` beside `=$A$1` computes the other's value. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

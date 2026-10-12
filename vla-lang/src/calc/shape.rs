@@ -83,6 +83,10 @@ pub struct Shape {
     /// The parts the parse writes more than once that a run computes once
     /// (KERNEL.27, `vector::Repeats`).
     repeats: Repeats,
+    /// The index of the shared formula the shape is, on its first cell's
+    /// sheet, whose master is its first cell; `None` for the shape of plain
+    /// formulas of one R1C1 text (KERNEL.34).
+    fill: Option<u32>,
 }
 
 impl Shape {
@@ -210,6 +214,143 @@ impl Shapes {
         self.place_with(model, id, &cell.content, &masters, library);
     }
 
+    /// Many cells placed after a write, as [`Shapes::replace`] places one,
+    /// each sheet's shared formulas found once for all its cells, where
+    /// `replace` walks the sheet for each (KERNEL.34: Life's rule written
+    /// whole walked its sheet 62,964 times, 3.96 billion cells visited, in
+    /// 13.3 s); then the plan made the one a load of the same grid makes
+    /// ([`Shapes::as_loaded`]). The order waits for [`Shapes::plan`].
+    pub(crate) fn replace_many(&mut self, model: &Workbook, ids: &[CellId], library: &Library) {
+        for id in ids {
+            self.places.remove(id);
+            self.unread.remove(id);
+        }
+        let mut sheets: Vec<usize> = ids.iter().map(|id| id.0).collect();
+        sheets.sort_unstable();
+        sheets.dedup();
+        for s in sheets {
+            let Some(sheet) = model.sheets.get(s) else {
+                continue;
+            };
+            let masters = shared_masters(sheet);
+            for &id in ids.iter().filter(|id| id.0 == s) {
+                let Some(cell) = sheet.cells.get(&(id.1, id.2)) else {
+                    continue;
+                };
+                if is_formula(&cell.content) {
+                    self.place_with(model, id, &cell.content, &masters, library);
+                }
+            }
+        }
+        self.as_loaded(model, library);
+    }
+
+    /// The plan made the one [`Shapes::of`] makes over the same grid, once a
+    /// write has placed some of its cells again (KERNEL.34): the shapes in
+    /// the order of their first cells in the grid's order, sheet, row and
+    /// column; a fill's shape anchored at its master and a plain formula's
+    /// at its first cell, read again from that cell's text where the write
+    /// moved or respelled it; a shape no cell holds dropped. Every cell's
+    /// place and every construct a cell leaves unread are then a load's, and
+    /// so, once planned, are the order, its runs and the reach, and the
+    /// census prints a load's. A write left a fill's other cells on the
+    /// shape of its first cell even when that cell had been written over,
+    /// and kept a shape no cell held, so that the census after a write was
+    /// numbered and anchored otherwise than a load's.
+    fn as_loaded(&mut self, model: &Workbook, library: &Library) {
+        // Each shape's first cell, the least of its places, found in one pass:
+        // sorting the places to find them took a write into Sand 14 ms.
+        let mut first: Vec<Option<CellId>> = vec![None; self.shapes.len()];
+        for (&id, p) in &self.places {
+            match first[p.shape] {
+                Some(f) if f <= id => {}
+                _ => first[p.shape] = Some(id),
+            }
+        }
+        let mut order: Vec<usize> = (0..self.shapes.len())
+            .filter(|&s| first[s].is_some())
+            .collect();
+        order.sort_unstable_by_key(|&s| first[s]);
+        // Each shape's first cell as a load anchors it, with its text there.
+        let mut masters: HashMap<usize, HashMap<u32, (&str, u32, u32)>> = HashMap::new();
+        let mut again: Vec<(usize, CellId, String)> = Vec::new();
+        for &s in &order {
+            let f = first[s].expect("a shape in the order has a first cell");
+            let shape = &self.shapes[s];
+            let (anchor, raw) = match shape.fill {
+                Some(index) => {
+                    let sheet = shape.anchor.0;
+                    let found = masters
+                        .entry(sheet)
+                        .or_insert_with(|| shared_masters(&model.sheets[sheet]))
+                        .get(&index);
+                    match found {
+                        Some(&(text, row, col)) => ((sheet, row, col), text),
+                        None => continue,
+                    }
+                }
+                None => match model.sheets[f.0].cells.get(&(f.1, f.2)).map(|c| &c.content) {
+                    Some(Content::Formula(t) | Content::DynamicFormula(t)) => (f, t.as_str()),
+                    _ => continue,
+                },
+            };
+            if anchor != shape.anchor
+                || (raw != shape.text && strip_future_prefixes(raw) != shape.text)
+            {
+                again.push((s, anchor, strip_future_prefixes(raw)));
+            }
+        }
+        let numbered = order.iter().enumerate().all(|(k, &s)| k == s);
+        if again.is_empty() && numbered && order.len() == self.shapes.len() {
+            return;
+        }
+        // The shapes read again from their first cells, then every shape in
+        // the order of its first cell, each place renumbered and, for a shape
+        // read again, moved from its new first cell.
+        let mut renewed: HashMap<usize, Shape> = HashMap::new();
+        for (s, anchor, text) in again {
+            let fill = self.shapes[s].fill;
+            self.add(model, text, anchor, library);
+            let mut shape = self.shapes.pop().expect("the shape just made");
+            shape.fill = fill;
+            renewed.insert(s, shape);
+        }
+        let mut number: Vec<Option<usize>> = vec![None; self.shapes.len()];
+        let mut moved: Vec<bool> = Vec::with_capacity(order.len());
+        let mut old: Vec<Option<Shape>> = std::mem::take(&mut self.shapes)
+            .into_iter()
+            .map(Some)
+            .collect();
+        for (k, &s) in order.iter().enumerate() {
+            number[s] = Some(k);
+            moved.push(renewed.contains_key(&s));
+            let shape = renewed
+                .remove(&s)
+                .or_else(|| old[s].take())
+                .expect("each shape once");
+            self.shapes.push(shape);
+        }
+        let shapes = &self.shapes;
+        for (id, p) in self.places.iter_mut() {
+            p.shape = number[p.shape].expect("a placed cell's shape is kept");
+            if !moved[p.shape] {
+                continue;
+            }
+            let shape = &shapes[p.shape];
+            p.d_row = i64::from(id.1) - i64::from(shape.anchor.1);
+            p.d_col = i64::from(id.2) - i64::from(shape.anchor.2);
+            match shape.unread_at(p.d_row, p.d_col) {
+                Some(construct) => self.unread.insert(*id, construct),
+                None => self.unread.remove(id),
+            };
+        }
+        self.by_shared.retain(|_, s| number[*s].is_some());
+        self.by_r1c1.retain(|_, s| number[*s].is_some());
+        for s in self.by_shared.values_mut().chain(self.by_r1c1.values_mut()) {
+            *s = number[*s].expect("kept");
+        }
+    }
+
     fn place_with(
         &mut self,
         model: &Workbook,
@@ -223,8 +364,9 @@ impl Shapes {
             Content::SharedMaster { si: index, .. } | Content::SharedChild { si: index } => {
                 let Some(&(text, m_row, m_col)) = masters.get(index) else {
                     // A child whose master is gone has no text; the machine
-                    // never leaves one (a write over a master gives its
-                    // other cells their own text first).
+                    // never leaves one (a write over a master makes the
+                    // fill's first cell left its master, or gives each of its
+                    // cells its own text, first).
                     return;
                 };
                 let anchor = (si, m_row, m_col);
@@ -233,6 +375,7 @@ impl Shapes {
                     Some(&s) => s,
                     None => {
                         let s = self.add(model, strip_future_prefixes(text), anchor, library);
+                        self.shapes[s].fill = Some(*index);
                         self.by_shared.insert(key, s);
                         s
                     }
@@ -322,6 +465,7 @@ impl Shapes {
             risky,
             holds,
             repeats,
+            fill: None,
         });
         self.shapes.len() - 1
     }
@@ -544,6 +688,41 @@ impl Shapes {
         self.runs.iter().map(|r| r.end - r.start).sum()
     }
 
+    /// The plan spelled whole, each map in order: every shape with its first
+    /// cell, its fill, its text and its parse; every cell's place and the
+    /// construct it leaves unread; the two maps a cell finds its shape by;
+    /// the order, its cycles, runs and levels; the reach. KERNEL.34's oracle,
+    /// a write leaving the plan a load of its grid makes, part for part.
+    #[cfg(test)]
+    pub(crate) fn spelled(&self) -> String {
+        use std::fmt::Write;
+        let mut out = String::new();
+        for (k, s) in self.shapes.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "shape {k} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+                s.anchor, s.fill, s.text, s.expr, s.missing, s.risky, s.holds, s.repeats
+            );
+        }
+        let mut places: Vec<(&CellId, &Place)> = self.places.iter().collect();
+        places.sort_by_key(|(id, _)| **id);
+        let mut unread: Vec<(&CellId, &String)> = self.unread.iter().collect();
+        unread.sort();
+        let mut shared: Vec<(&(usize, u32), &usize)> = self.by_shared.iter().collect();
+        shared.sort();
+        let mut r1c1: Vec<(&String, &usize)> = self.by_r1c1.iter().collect();
+        r1c1.sort();
+        let _ = writeln!(out, "places {places:?}\nunread {unread:?}");
+        let _ = writeln!(out, "by shared {shared:?}\nby r1c1 {r1c1:?}");
+        let _ = writeln!(
+            out,
+            "order {:?}\ncycles {:?}\nruns {:?}\nlevels {:?}",
+            self.order, self.cycles, self.runs, self.level_ends
+        );
+        out.push_str(&self.reach.spelled());
+        out
+    }
+
     /// The run a position of the order is in, as its shape and the position
     /// after its last cell; `None` for a cell evaluated alone.
     pub(crate) fn run_at(&self, pos: usize) -> Option<(usize, usize)> {
@@ -711,6 +890,15 @@ impl Shapes {
                 .collect(),
             None => self.places.keys().copied().collect(),
         };
+        // A grid is refused nowhere far more often than somewhere: its cells
+        // are sorted, to find the first refused, only when one is (KERNEL.34).
+        let refused = |id: &CellId| {
+            let shape = &self.shapes[self.places[id].shape];
+            !shape.missing.is_empty() || shape.expr.is_err() || self.unread.contains_key(id)
+        };
+        if !ids.iter().any(refused) {
+            return None;
+        }
         ids.sort_unstable();
         for id in &ids {
             let shape = &self.shapes[self.places[id].shape];

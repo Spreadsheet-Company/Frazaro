@@ -16,11 +16,16 @@
 //! 6. Two machines given the same rows show the same grid and the same
 //!    plane, byte for byte, frame after frame, which a hash order leaking
 //!    into a frame would break.
+//! 7. A grid written between frames is planned as a load of the grid it
+//!    leaves plans it: the census after a write and a frame is the census of
+//!    a machine made from the same grid (KERNEL.34).
+
+use std::collections::HashMap;
 
 use vla_lang::calc::library;
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
-use vla_lang::machine::{Machine, Viewed};
+use vla_lang::machine::{Draft, Machine, Viewed};
 use vla_lang::printer::write_datum;
 use vla_lang::reader::read_forms;
 
@@ -370,4 +375,64 @@ fn two_machines_given_the_same_rows_show_the_same_frames() {
             assert_eq!(plane(&a), plane(&b), "seed {seed}, frame {frame}\n{rows}");
         }
     }
+}
+
+/// A write between two frames: a formula over a rectangle of the grid,
+/// reading the last frame and a number from its first cell, which becomes
+/// one fill; the last such write again, which writes nothing where its
+/// cells are as it left them; or a number over a cell, perhaps a fill's
+/// first, which gives it up.
+fn write_between(r: &mut Rng, last: &mut Option<String>) -> String {
+    let (top, left) = (1 + r.below(ROWS), r.below(COLUMNS.len()));
+    let bottom = top + r.below(ROWS - top + 1);
+    let right = left + r.below(COLUMNS.len() - left);
+    let first = format!("{}{top}", COLUMNS[left]);
+    match r.below(4) {
+        0 => format!("(cell \"{SHEET}\" \"{first}\" {})", r.below(10)),
+        1 if last.is_some() => last.clone().unwrap_or_default(),
+        _ => {
+            let write = format!(
+                "(formula \"{SHEET}\" \"{first}:{}{bottom}\" \"={SHEET}.last!{first}*2+{}\")",
+                COLUMNS[right],
+                r.below(10)
+            );
+            *last = Some(write.clone());
+            write
+        }
+    }
+}
+
+#[test]
+fn a_grid_written_between_frames_is_planned_as_a_load_of_it() {
+    let mut written = 0;
+    for seed in 1..=50u64 {
+        let mut r = Rng::new(seed);
+        let rows = grid_rows(&mut r);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let mut last = None;
+        for frame in 1..=4 {
+            assert!(m.step(0).done);
+            let write = write_between(&mut r, &mut last);
+            let when = format!("seed {seed}, frame {frame}: {write}\n{rows}");
+            m.write(&write)
+                .unwrap_or_else(|e| panic!("{when}: {}", e.refusal.text));
+            written += 1;
+            assert!(m.step(0).done);
+            let sheets = m.sheets();
+            let mut workbook = m.workbook().clone();
+            workbook.sheets.truncate(sheets);
+            let cells = workbook.sheets.iter().map(|s| s.cells.len()).sum();
+            let draft = Draft {
+                workbook,
+                values: HashMap::new(),
+                lines: HashMap::new(),
+                cells,
+            };
+            let mut again = Machine::new(draft, library::language())
+                .unwrap_or_else(|e| panic!("{when}: line {}: {}", e.line, e.refusal.text));
+            assert!(again.step(0).done);
+            assert_eq!(m.census(), again.census(), "{when}");
+        }
+    }
+    assert_eq!(written, 200);
 }
