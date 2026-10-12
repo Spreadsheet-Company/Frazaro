@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.33 | KERNEL.34 |
+| KERNEL | KERNEL.36 | KERNEL.37 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -217,8 +217,18 @@ and its cone, which the close ruled out. `KERNEL.33` was minted 2026-10-12
 at the owner's word, the three changes Alonzo's playtest pass of Sand asked
 of the language filed as one item: the plan's edges found once a shape, a
 column a reference holds read once a row, and a row of single cells reached
-as one; scoped, built, owner-tested and committed the same day. `KERNEL.34`
-is next free.
+as one; scoped, built, owner-tested and committed the same day. `KERNEL.34`,
+`KERNEL.35` and `KERNEL.36` were minted 2026-10-12 at the owner's word,
+from the measurement asked with 0.9.2's preparation of what costs every one
+of Alonzo's cartridges and which items move it: `KERNEL.34` for a formula's
+write in time with its cells, a fill's write being quadratic today;
+`KERNEL.35` for a sheet's readers found by the rows a changed cell stands
+on, so that a grid written one fill a row is marked as cheaply as one fill;
+`KERNEL.36` for a frame's end copying its changed cells however many they
+are. The fourth cost the measurement named, the evaluator's own, 80 to 83%
+of a steady frame with a Life written by hand twelve times faster than the
+engine's, is the VLA-to-WebAssembly emitter of Alonzo's `CHARTER.md` §4,
+left unminted. `KERNEL.37` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
