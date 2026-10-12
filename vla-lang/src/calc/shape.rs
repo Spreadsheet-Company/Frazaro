@@ -49,8 +49,10 @@ use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Wor
 
 use super::eval::{Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
-use super::graph::{self, areas_at, cells_in, dependencies, is_formula, CellId, Extent, Names};
-use super::reach::Reach;
+use super::graph::{
+    self, areas_at, cells_in, dependencies, is_formula, Area, CellId, Extent, Names,
+};
+use super::reach::{Positions, Reach};
 use super::vector::{self, Lanes, Repeats};
 
 /// One formula, parsed once, and the cell it was read at.
@@ -328,57 +330,83 @@ impl Shapes {
     /// read off its shape's parse at its offset (a defined name's text read
     /// as `graph::dependencies` reads it), then Tarjan's components, as
     /// `graph::plan` finds them for a plan of texts.
+    ///
+    /// Each shape's references are read off its parse once (KERNEL.33,
+    /// asked by Alonzo's playtest pass of Sand, whose load spent 341 ms of
+    /// 491 finding 2.37 million edges a cell at a time): each reference once,
+    /// one to a sheet holding no formula left out, one every `$` holds found
+    /// once for the whole shape; each cell then moves only the rest. A cell's
+    /// vertex is found as reach finds a position, by an array over a sheet
+    /// whose formulas stand close together, and the edges are one flat array.
+    /// Every cell's edges are the ones a walk of its parse at its offset
+    /// finds, sorted and each once, so the order, its runs and its cycles
+    /// are the same.
     pub fn plan(&mut self, model: &Workbook, names: &Names, extents: &[Extent]) {
         let mut ids: Vec<CellId> = self.places.keys().copied().collect();
         ids.sort_unstable();
-        let index: HashMap<CellId, usize> =
-            ids.iter().enumerate().map(|(i, id)| (*id, i)).collect();
+        let index = Positions::of(&ids, model.sheets.len());
         let mut holds = vec![false; model.sheets.len()];
         for id in &ids {
             holds[id.0] = true;
         }
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); ids.len()];
-        let mut shape_of: Vec<usize> = Vec::with_capacity(ids.len());
+        let vertices = Vertices {
+            model,
+            extents,
+            index: &index,
+            holds: &holds,
+        };
+        let reads: Vec<ShapeReads> = self
+            .shapes
+            .iter()
+            .map(|shape| vertices.reads_of(shape))
+            .collect();
+        // Every cell's edges in one array, cell `v`'s at
+        // `targets[offsets[v]..offsets[v + 1]]`, where a vector of edges was
+        // made for each cell.
+        let n = ids.len();
+        let mut offsets: Vec<usize> = Vec::with_capacity(n + 1);
+        let mut targets: Vec<u32> = Vec::with_capacity(n * 8);
+        offsets.push(0);
+        let mut shape_of: Vec<usize> = Vec::with_capacity(n);
         let mut deps: Vec<CellId> = Vec::new();
-        for (vi, id) in ids.iter().enumerate() {
+        let mut edges: Vec<u32> = Vec::new();
+        for id in &ids {
+            edges.clear();
             deps.clear();
             let p = self.places[id];
             shape_of.push(p.shape);
             let shape = &self.shapes[p.shape];
             let read = !self.unread.contains_key(id);
             match &shape.expr {
-                Ok(e) if read => e.each_read(&mut |r| match r {
-                    Read::Ref(re) => {
+                Ok(e) if read => {
+                    let r = &reads[p.shape];
+                    edges.extend_from_slice(&r.fixed);
+                    for re in &r.moving {
                         let Ok(areas) = areas_at(model, id.0, re, p.d_row, p.d_col) else {
-                            return;
+                            continue;
                         };
                         for a in &areas {
-                            if !holds.get(a.sheet).copied().unwrap_or(false) {
-                                continue;
-                            }
-                            let sheet = &model.sheets[a.sheet];
-                            let extent = extents.get(a.sheet).copied().flatten();
-                            for ((row, col), cell) in cells_in(sheet, extent, a) {
-                                if is_formula(&cell.content) {
-                                    deps.push((a.sheet, row, col));
+                            vertices.formulas_in(a, &mut edges);
+                        }
+                    }
+                    if r.named {
+                        e.each_read(&mut |r| {
+                            if let Read::Name { name, sheet } = r {
+                                let scope = sheet.and_then(|s| model.find_sheet(s));
+                                if let Some(t) = names.resolve(name, scope, id.0) {
+                                    dependencies(
+                                        model,
+                                        names,
+                                        extents,
+                                        scope.unwrap_or(id.0),
+                                        t,
+                                        &mut deps,
+                                    );
                                 }
                             }
-                        }
+                        });
                     }
-                    Read::Name { name, sheet } => {
-                        let scope = sheet.and_then(|s| model.find_sheet(s));
-                        if let Some(t) = names.resolve(name, scope, id.0) {
-                            dependencies(
-                                model,
-                                names,
-                                extents,
-                                scope.unwrap_or(id.0),
-                                t,
-                                &mut deps,
-                            );
-                        }
-                    }
-                }),
+                }
                 // A text this version does not parse, here or at this
                 // offset: its edges as the text scan reads them, so that a
                 // cycle through it is still found.
@@ -387,25 +415,28 @@ impl Shapes {
                     dependencies(model, names, extents, id.0, &moved, &mut deps);
                 }
             }
-            let edges = &mut adj[vi];
             for d in &deps {
-                if let Some(&di) = index.get(d) {
-                    edges.push(di);
+                if let Some(v) = index.get(d.0, d.1, d.2) {
+                    edges.push(vertex(v));
                 }
             }
             edges.sort_unstable();
             edges.dedup();
+            targets.extend_from_slice(&edges);
+            offsets.push(targets.len());
         }
-        let components = graph::tarjan(&adj);
-        let shape_at = self.order_and_runs(&ids, &adj, &shape_of, &components);
+        let (members, starts) = graph::tarjan_flat(&offsets, &targets);
+        let shape_at =
+            self.order_and_runs(&ids, (&offsets, &targets), &shape_of, (&members, &starts));
         let places = &self.places;
         let formula = |id: CellId| places.contains_key(&id);
         self.reach = Reach::of(model, &self.shapes, &self.order, shape_at, &formula);
     }
 
     /// The order, the cycles and the runs, from the cells, each one's edges
-    /// and shape, and the components, which come each after everything it
-    /// reads; the shape of each cell of the order answered.
+    /// (one flat array, as [`graph::tarjan_flat`] reads them) and shape, and
+    /// the components, which come each after everything it reads; the shape
+    /// of each cell of the order answered.
     ///
     /// Each cell's level is 0 when it reads no formula of the plan, else one
     /// past the deepest it reads, its component's. The order is by level,
@@ -416,34 +447,36 @@ impl Shapes {
     fn order_and_runs(
         &mut self,
         ids: &[CellId],
-        adj: &[Vec<usize>],
+        (offsets, targets): (&[usize], &[u32]),
         shape_of: &[usize],
-        components: &[Vec<usize>],
+        (members, starts): (&[u32], &[usize]),
     ) -> Vec<u32> {
         self.order.clear();
         self.cycles.clear();
         self.runs.clear();
+        let adj = |v: usize| &targets[offsets[v]..offsets[v + 1]];
         let mut component = vec![0; ids.len()];
         let mut level = vec![0; ids.len()];
         let mut alone = vec![false; ids.len()];
-        for (c, comp) in components.iter().enumerate() {
+        for (c, ends) in starts.windows(2).enumerate() {
+            let comp = &members[ends[0]..ends[1]];
             for &v in comp {
-                component[v] = c;
+                component[v as usize] = c;
             }
             let deepest = comp
                 .iter()
-                .flat_map(|&v| &adj[v])
-                .filter(|&&u| component[u] != c)
-                .map(|&u| level[u] + 1)
+                .flat_map(|&v| adj(v as usize))
+                .filter(|&&u| component[u as usize] != c)
+                .map(|&u| level[u as usize] + 1)
                 .max()
                 .unwrap_or(0);
             for &v in comp {
-                level[v] = deepest;
+                level[v as usize] = deepest;
             }
-            if comp.len() == 1 && !adj[comp[0]].contains(&comp[0]) {
-                alone[comp[0]] = true;
+            if comp.len() == 1 && !adj(comp[0] as usize).contains(&comp[0]) {
+                alone[comp[0] as usize] = true;
             } else {
-                let mut cells: Vec<CellId> = comp.iter().map(|&i| ids[i]).collect();
+                let mut cells: Vec<CellId> = comp.iter().map(|&i| ids[i as usize]).collect();
                 cells.sort_unstable();
                 self.cycles.push(cells);
             }
@@ -473,7 +506,7 @@ impl Shapes {
             let pos = self.order.len();
             let joins = shape == run.shape
                 && id.0 == self.order[run.start].0
-                && adj[v].iter().all(|&u| joined[u] != run.start);
+                && adj(v).iter().all(|&u| joined[u as usize] != run.start);
             if !joins {
                 self.keep(run);
                 run = Run {
@@ -743,6 +776,124 @@ fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> (Vec<us
     (out, start)
 }
 
+/// A formula cell's vertex, its position among a plan's sorted cells, as an
+/// edge holds it: a plan's cells are positions a `u32` holds, as its
+/// order's are.
+fn vertex(position: usize) -> u32 {
+    position as u32
+}
+
+/// A plan's formula cells as the vertices of its edges (KERNEL.33): each
+/// cell's position among the plan's sorted cells, and whether each sheet
+/// holds any formula.
+struct Vertices<'a> {
+    model: &'a Workbook,
+    extents: &'a [Extent],
+    index: &'a Positions,
+    holds: &'a [bool],
+}
+
+/// A shape's references as its plan reads them, once a shape (KERNEL.33):
+/// the vertices those every `$` holds name, the same at every cell, sorted
+/// and each once; the references each cell moves, each once; and whether
+/// the parse reads a name, which each cell resolves from its own sheet.
+struct ShapeReads<'e> {
+    fixed: Vec<u32>,
+    moving: Vec<&'e RefExpr>,
+    named: bool,
+}
+
+impl Vertices<'_> {
+    /// The formula cells inside an area, each by its vertex, to `out`: by
+    /// the array where the sheet's formulas stand close enough together to
+    /// be held as one, else by the sheet's tree; none on a sheet holding no
+    /// formula, from which no edge comes.
+    fn formulas_in(&self, a: &Area, out: &mut Vec<u32>) {
+        if !self.holds.get(a.sheet).copied().unwrap_or(false) {
+            return;
+        }
+        let rect = (a.top, a.left, a.bottom, a.right);
+        if self
+            .index
+            .each_in(a.sheet, rect, &mut |v| out.push(vertex(v)))
+        {
+            return;
+        }
+        let sheet = &self.model.sheets[a.sheet];
+        let extent = self.extents.get(a.sheet).copied().flatten();
+        for ((row, col), cell) in cells_in(sheet, extent, a) {
+            if is_formula(&cell.content) {
+                if let Some(v) = self.index.get(a.sheet, row, col) {
+                    out.push(vertex(v));
+                }
+            }
+        }
+    }
+
+    /// A shape's references read off its parse once: each once, however
+    /// often the parse repeats it; one to the single sheet its placement
+    /// found, when that sheet holds no formula, left out; one every `$`
+    /// holds there, found now, since it names the same cells at every
+    /// offset and `graph::areas_at` reads a found sheet and not the cell's;
+    /// every other kept for each cell to move.
+    fn reads_of<'e>(&self, shape: &'e Shape) -> ShapeReads<'e> {
+        let mut reads = ShapeReads {
+            fixed: Vec::new(),
+            moving: Vec::new(),
+            named: false,
+        };
+        let Ok(e) = &shape.expr else {
+            return reads;
+        };
+        let mut each: Vec<&RefExpr> = Vec::new();
+        e.each_read(&mut |r| match r {
+            Read::Ref(re) => {
+                if !each.contains(&re) {
+                    each.push(re);
+                }
+            }
+            Read::Name { .. } => reads.named = true,
+        });
+        for re in each {
+            let found_once = match (re.found, &re.last_sheet) {
+                (Some((first, last)), None) if first == last => Some(usize::from(first)),
+                _ => None,
+            };
+            if let Some(sheet) = found_once {
+                if !self.holds.get(sheet).copied().unwrap_or(false) {
+                    continue;
+                }
+                if every_dollar(re) {
+                    if let Ok(areas) = areas_at(self.model, sheet, re, 0, 0) {
+                        for a in &areas {
+                            self.formulas_in(a, &mut reads.fixed);
+                        }
+                    }
+                    continue;
+                }
+            }
+            reads.moving.push(re);
+        }
+        reads.fixed.sort_unstable();
+        reads.fixed.dedup();
+        reads
+    }
+}
+
+/// Whether every `$` holds a reference, so that it names the same cells at
+/// every offset (KERNEL.33): a cell's two, a range's four, a whole column's
+/// columns, a whole row's rows.
+fn every_dollar(r: &RefExpr) -> bool {
+    let c = &r.corners;
+    match r.shape {
+        refers::Shape::Cell => c.row_abs1 && c.col_abs1,
+        refers::Shape::Range => c.row_abs1 && c.col_abs1 && c.row_abs2 && c.col_abs2,
+        refers::Shape::Column => c.col_abs1 && c.col_abs2,
+        refers::Shape::Row => c.row_abs1 && c.row_abs2,
+        refers::Shape::None => false,
+    }
+}
+
 /// Every reference of a parse that names its sheets, those sheets found once
 /// against the grid it is placed in (KERNEL.20): a machine's sheets, its
 /// twins among them, are fixed for its life, so the index a name finds at
@@ -792,4 +943,41 @@ pub fn spell_cell(model: &Workbook, id: CellId) -> String {
         .map(|s| s.name.as_str())
         .unwrap_or("");
     format!("{}!{}", quote_sheet(sheet), cell_ref(id.1, id.2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_dollar_holds_a_reference_whose_every_number_is_held() {
+        // KERNEL.33: a plan finds a reference once for its whole shape only
+        // when every `$` holds it, so that it names the same cells at every
+        // offset: a cell's two numbers, a range's four, a whole column's
+        // columns, a whole row's rows. One unheld number moves it.
+        for (text, held) in [
+            ("$C$2", true),
+            ("$C2", false),
+            ("C$2", false),
+            ("C2", false),
+            ("$C$2:$D$4", true),
+            ("$C$2:D4", false),
+            ("$C$2:$D4", false),
+            ("$C$2:D$4", false),
+            ("C2:$D$4", false),
+            ("$C:$D", true),
+            ("$C:D", false),
+            ("C:D", false),
+            ("$2:$4", true),
+            ("$2:4", false),
+            ("2:4", false),
+            ("S!$C$2:$D$4", true),
+            ("S!C2:$D$4", false),
+        ] {
+            let Ok(Expr::Ref(r)) = formula::parse(text) else {
+                panic!("{text} reads as one reference")
+            };
+            assert_eq!(every_dollar(&r), held, "{text}");
+        }
+    }
 }

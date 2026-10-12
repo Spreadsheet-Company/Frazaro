@@ -369,6 +369,12 @@ impl Reach {
                     k += 1;
                 }
             }
+            // Single cells the shape reads side by side in one row, each
+            // moving in both dimensions, read as one rectangle of that row,
+            // which reaches the cells they reach (KERNEL.33): a changed cell
+            // tries it once where it tried each, Sand's five neighbours of
+            // `Screen.last` one pattern where they were five.
+            merge_rows(&mut found, stand);
             // A moving reference another of the shape's holds at every offset
             // its cells stand at reaches no cell the other does not: Life's
             // `Screen.last!B2` inside its `Screen.last!A1:C3`.
@@ -671,6 +677,100 @@ impl At<'_, '_> {
     }
 }
 
+/// A shape's references to single cells of one sheet that move in both
+/// dimensions and stand side by side in one row, two or more, merged into
+/// one reference of the row's span (KERNEL.33). A changed cell reaches the
+/// offsets at which some single holds it, and the span holds it at those
+/// offsets and no other, so long as the span stays on the sheet: moved
+/// partly off it, the span is `#REF!` where a single need not be. So the
+/// merge is made only where every offset the shape's cells stand at keeps
+/// the span's corners on the sheet, and [`Reach::each`] keeps to those
+/// offsets.
+fn merge_rows(found: &mut Vec<(On, Kind)>, stand: &Stand) {
+    let key = |on: On| match on {
+        On::Sheet(s) => s,
+        On::Own => usize::MAX,
+    };
+    let mut singles: Vec<(usize, u32, u32, usize)> = Vec::new();
+    for (i, &(on, kind)) in found.iter().enumerate() {
+        if let Kind::Moving {
+            rows:
+                Dim::Span {
+                    n1: r1,
+                    abs1: false,
+                    n2: r2,
+                    abs2: false,
+                    ..
+                },
+            cols:
+                Dim::Span {
+                    n1: c1,
+                    abs1: false,
+                    n2: c2,
+                    abs2: false,
+                    ..
+                },
+        } = kind
+        {
+            if r1 == r2 && c1 == c2 {
+                singles.push((key(on), r1, c1, i));
+            }
+        }
+    }
+    singles.sort_unstable();
+    let mut drop = vec![false; found.len()];
+    let mut merged = Vec::new();
+    let mut a = 0;
+    while a < singles.len() {
+        let mut b = a + 1;
+        while b < singles.len()
+            && singles[b].0 == singles[a].0
+            && singles[b].1 == singles[a].1
+            && singles[b].2 == singles[b - 1].2 + 1
+        {
+            b += 1;
+        }
+        let (row, lo, hi) = (singles[a].1, singles[a].2, singles[b - 1].2);
+        let on_sheet = i64::from(lo) + stand.cols.0 >= 1
+            && i64::from(hi) + stand.cols.1 <= i64::from(MAX_COLUMN)
+            && i64::from(row) + stand.rows.0 >= 1
+            && i64::from(row) + stand.rows.1 <= i64::from(MAX_ROW);
+        if b - a >= 2 && on_sheet {
+            for s in &singles[a..b] {
+                drop[s.3] = true;
+            }
+            let on = found[singles[a].3].0;
+            merged.push((
+                on,
+                Kind::Moving {
+                    rows: Dim::Span {
+                        n1: row,
+                        abs1: false,
+                        n2: row,
+                        abs2: false,
+                        max: MAX_ROW,
+                    },
+                    cols: Dim::Span {
+                        n1: lo,
+                        abs1: false,
+                        n2: hi,
+                        abs2: false,
+                        max: MAX_COLUMN,
+                    },
+                },
+            ));
+        }
+        a = b;
+    }
+    let mut k = 0;
+    found.retain(|_| {
+        let keep = !drop[k];
+        k += 1;
+        keep
+    });
+    found.extend(merged);
+}
+
 /// Whether a reference reads one cell every `$` holds, which a run reads
 /// once (`super::vector`).
 fn held(r: &RefExpr) -> bool {
@@ -686,7 +786,7 @@ const NONE: u32 = u32::MAX;
 /// Each formula cell's position in the order: an array over a sheet's
 /// formulas where they stand close enough together, the rest by hash.
 #[derive(Clone, Debug, Default)]
-struct Positions {
+pub(crate) struct Positions {
     grids: Vec<Option<Grid>>,
     rest: FxHashMap<CellId, u32>,
 }
@@ -706,7 +806,7 @@ struct Grid {
 type Bounds = (u32, u32, u32, u32, u64);
 
 impl Positions {
-    fn of(order: &[CellId], sheets: usize) -> Positions {
+    pub(crate) fn of(order: &[CellId], sheets: usize) -> Positions {
         let mut bounds: Vec<Option<Bounds>> = vec![None; sheets];
         for &(s, row, col) in order {
             if let Some(b) = bounds.get_mut(s) {
@@ -753,7 +853,7 @@ impl Positions {
         p
     }
 
-    fn get(&self, sheet: usize, row: u32, col: u32) -> Option<usize> {
+    pub(crate) fn get(&self, sheet: usize, row: u32, col: u32) -> Option<usize> {
         match self.grids.get(sheet) {
             Some(Some(g)) => {
                 let (r, c) = (row.checked_sub(g.top)?, col.checked_sub(g.left)?);
@@ -765,6 +865,39 @@ impl Positions {
             }
             _ => self.rest.get(&(sheet, row, col)).map(|&p| p as usize),
         }
+    }
+
+    /// Each position whose cell stands inside a rectangle of a sheet held as
+    /// an array, to `f`, row by row; `false` for a sheet whose formulas are
+    /// held by hash, which the caller walks instead (KERNEL.33: a plan finds
+    /// the formula cells an area reads with it).
+    pub(crate) fn each_in(
+        &self,
+        sheet: usize,
+        (top, left, bottom, right): (u32, u32, u32, u32),
+        f: &mut impl FnMut(usize),
+    ) -> bool {
+        let Some(Some(g)) = self.grids.get(sheet) else {
+            return false;
+        };
+        let (t, l) = (top.max(g.top), left.max(g.left));
+        let (b, r) = (
+            bottom.min(g.top + g.height - 1),
+            right.min(g.left + g.width - 1),
+        );
+        if t > b || l > r {
+            return true;
+        }
+        for row in t..=b {
+            let base = (row - g.top) as usize * g.width as usize;
+            for col in l..=r {
+                let at = g.at[base + (col - g.left) as usize];
+                if at != NONE {
+                    f(at as usize);
+                }
+            }
+        }
+        true
     }
 }
 

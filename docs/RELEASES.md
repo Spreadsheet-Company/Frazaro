@@ -31,6 +31,18 @@
   about a quarter less time. Every expansion is the text it was, the
   reference in Excel already worked this way, and nothing in the crate's
   interface changed for an engine (VLA.2).
+- **For engines: a grid loads in a third of the time, and three kinds of
+  frame are quicker.** A machine planned its grid by walking every formula
+  cell's references one cell at a time; it now reads each formula shape's
+  references once. Alonzo's Sand, 189,000 formulas, loads in 160 ms where it
+  took 507, natively and in Chrome alike, where the page froze for 600 ms;
+  Life and the gun load in about half the time. In a frame, a reference that
+  holds its column, read across one row, is read once rather than at every
+  cell, and a row of neighbouring cells a formula reads is checked as one
+  range when a cell changes: Sand's steady frame went from 15.6 to 10.5 ms,
+  and a person's session of 1,100 frames from 1.86 s of stepping to 1.26.
+  Every value is the one it was, and no call of the crate changed
+  (KERNEL.33).
 
 ### Known open security items
 

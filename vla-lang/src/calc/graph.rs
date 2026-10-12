@@ -467,41 +467,65 @@ pub fn plan(
 /// Tarjan's strongly connected components, iteratively, in the order the
 /// algorithm emits them: a component after every component it has an edge
 /// into, which is the evaluation order when an edge runs from a reader to
-/// what it reads. The machine's plan of shapes orders its cells with it too
-/// (KERNEL.22).
+/// what it reads. A plan of texts asks it of a vector of edges a cell; it is
+/// [`tarjan_flat`]'s answer, so that one walk serves both plans (KERNEL.33).
 pub(crate) fn tarjan(adj: &[Vec<usize>]) -> Vec<Vec<usize>> {
-    let n = adj.len();
-    let mut index: Vec<Option<usize>> = vec![None; n];
-    let mut low: Vec<usize> = vec![0; n];
-    let mut on_stack: Vec<bool> = vec![false; n];
-    let mut stack: Vec<usize> = Vec::new();
-    let mut components: Vec<Vec<usize>> = Vec::new();
-    let mut counter = 0usize;
+    let mut offsets = Vec::with_capacity(adj.len() + 1);
+    let mut targets = Vec::new();
+    offsets.push(0);
+    for edges in adj {
+        targets.extend(edges.iter().map(|&w| w as u32));
+        offsets.push(targets.len());
+    }
+    let (members, starts) = tarjan_flat(&offsets, &targets);
+    starts
+        .windows(2)
+        .map(|c| members[c[0]..c[1]].iter().map(|&v| v as usize).collect())
+        .collect()
+}
+
+/// [`tarjan`] over one flat array of edges (KERNEL.33), the machine's plan
+/// of shapes ordering its cells with it (KERNEL.22): vertex `v`'s edges are
+/// `targets[offsets[v]..offsets[v + 1]]`, and the components come back flat
+/// in the order the walk emits them, component `c` the vertices
+/// `members[starts[c]..starts[c + 1]]`, each sorted, with no vector made for
+/// each. A vertex is a position a `u32` holds, as a plan's cells are.
+pub(crate) fn tarjan_flat(offsets: &[usize], targets: &[u32]) -> (Vec<u32>, Vec<usize>) {
+    const NONE: u32 = u32::MAX;
+    let n = offsets.len().saturating_sub(1);
+    let mut index = vec![NONE; n];
+    let mut low = vec![0u32; n];
+    let mut on_stack = vec![false; n];
+    let mut stack: Vec<u32> = Vec::new();
+    let mut members: Vec<u32> = Vec::with_capacity(n);
+    let mut starts: Vec<usize> = Vec::with_capacity(n + 1);
+    starts.push(0);
+    let mut counter = 0u32;
+    // Each vertex being visited, with the position of its next edge.
+    let mut calls: Vec<(usize, usize)> = Vec::new();
     for root in 0..n {
-        if index[root].is_some() {
+        if index[root] != NONE {
             continue;
         }
-        let mut calls: Vec<(usize, usize)> = vec![(root, 0)];
-        index[root] = Some(counter);
+        calls.push((root, offsets[root]));
+        index[root] = counter;
         low[root] = counter;
         counter += 1;
-        stack.push(root);
+        stack.push(root as u32);
         on_stack[root] = true;
         while let Some(&mut (v, ref mut next)) = calls.last_mut() {
-            if *next < adj[v].len() {
-                let w = adj[v][*next];
+            if *next < offsets[v + 1] {
+                let w = targets[*next] as usize;
                 *next += 1;
-                match index[w] {
-                    None => {
-                        index[w] = Some(counter);
-                        low[w] = counter;
-                        counter += 1;
-                        stack.push(w);
-                        on_stack[w] = true;
-                        calls.push((w, 0));
-                    }
-                    Some(iw) if on_stack[w] => low[v] = low[v].min(iw),
-                    Some(_) => {}
+                if index[w] == NONE {
+                    index[w] = counter;
+                    low[w] = counter;
+                    counter += 1;
+                    stack.push(w as u32);
+                    on_stack[w] = true;
+                    calls.push((w, offsets[w]));
+                } else if on_stack[w] {
+                    low[v] = low[v].min(index[w]);
                 }
                 continue;
             }
@@ -509,21 +533,21 @@ pub(crate) fn tarjan(adj: &[Vec<usize>]) -> Vec<Vec<usize>> {
             if let Some(&(u, _)) = calls.last() {
                 low[u] = low[u].min(low[v]);
             }
-            if low[v] == index[v].unwrap_or(0) {
-                let mut comp = Vec::new();
+            if low[v] == index[v] {
+                let from = members.len();
                 while let Some(w) = stack.pop() {
-                    on_stack[w] = false;
-                    comp.push(w);
-                    if w == v {
+                    on_stack[w as usize] = false;
+                    members.push(w);
+                    if w as usize == v {
                         break;
                     }
                 }
-                comp.sort_unstable();
-                components.push(comp);
+                members[from..].sort_unstable();
+                starts.push(members.len());
             }
         }
     }
-    components
+    (members, starts)
 }
 
 #[cfg(test)]
@@ -540,6 +564,68 @@ mod tests {
         assert!(comps.contains(&vec![3, 4]));
         assert!(comps.contains(&vec![5]));
         assert_eq!(comps.len(), 5);
+    }
+
+    #[test]
+    fn the_flat_walk_finds_every_component_after_all_it_reads() {
+        // KERNEL.33: both plans order their cells by the one walk now, so it
+        // is held to the components found by brute force, two vertices of
+        // one component when each reaches the other, over seeded graphs of
+        // every density, cycles and self-reads among them; each component
+        // sorted, and emitted after every component it has an edge into.
+        let mut seed: u64 = 0x5EED_0033;
+        let mut below = |n: usize| {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 33) % n as u64) as usize
+        };
+        for case in 0..400 {
+            let n = 1 + below(14);
+            let density = 1 + below(5);
+            let adj: Vec<Vec<usize>> = (0..n)
+                .map(|_| {
+                    let mut edges: Vec<usize> = (0..below(density * 2)).map(|_| below(n)).collect();
+                    edges.sort_unstable();
+                    edges.dedup();
+                    edges
+                })
+                .collect();
+            let mut reach = vec![vec![false; n]; n];
+            for (v, row) in reach.iter_mut().enumerate() {
+                let mut stack = vec![v];
+                while let Some(u) = stack.pop() {
+                    for &w in &adj[u] {
+                        if !row[w] {
+                            row[w] = true;
+                            stack.push(w);
+                        }
+                    }
+                }
+            }
+            let mut want: Vec<Vec<usize>> = Vec::new();
+            for (v, from_v) in reach.iter().enumerate() {
+                if want.iter().any(|c| c.contains(&v)) {
+                    continue;
+                }
+                want.push(
+                    (0..n)
+                        .filter(|&u| u == v || (from_v[u] && reach[u][v]))
+                        .collect(),
+                );
+            }
+            let comps = tarjan(&adj);
+            let mut got = comps.clone();
+            got.sort();
+            want.sort();
+            assert_eq!(got, want, "case {case}: {adj:?}");
+            let at = |v: usize| comps.iter().position(|c| c.contains(&v)).unwrap();
+            for (v, edges) in adj.iter().enumerate() {
+                for &w in edges {
+                    assert!(at(w) <= at(v), "case {case}: {v} reads {w}: {adj:?}");
+                }
+            }
+        }
     }
 
     #[test]

@@ -1123,6 +1123,15 @@ impl<'a> Many<'a> {
         if r.corners.row_abs1 && r.corners.col_abs1 {
             return Lane::Same(got(0));
         }
+        // A reference that holds its column, read by cells of one row, reads
+        // one cell at every one of them (KERNEL.33): Sand's gate,
+        // `Gate!$B2`, before a branch most cells skip. A run's cells stand in
+        // the order by row and then by column, and a selection keeps their
+        // order, so its first and last cells share a row only when every one
+        // does.
+        if r.corners.col_abs1 && self.cells[sel.at(0)].1 == self.cells[sel.at(sel.len() - 1)].1 {
+            return Lane::Same(got(0));
+        }
         let mut numbers = self.take_numbers();
         for k in 0..sel.len() {
             match at(k) {

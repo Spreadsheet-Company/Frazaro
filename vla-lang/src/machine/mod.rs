@@ -3000,16 +3000,23 @@ mod tests {
         }
     }
 
-    /// A range the band may read: a twin's, the value columns, or formula
-    /// cells above the band.
+    /// A range the band may read: a twin's, the value columns, formula cells
+    /// above the band, or the sheet before's cells, its formulas among them,
+    /// each corner held any way (KERNEL.33: a plan finds a range every `$`
+    /// holds once for the shape, and one held only in part at each cell).
     fn range(d: &mut Dice, at: &Band) -> String {
         let (r1, c1) = (1 + d.below(at.rows as usize) as u32, d.below(9));
         let (h, w) = (d.below(3) as u32, d.below(3));
-        match d.below(3) {
+        match d.below(4) {
             0 => format!("$A{r1}:$B{}", r1 + h),
             1 if at.top > 2 => {
                 let r = 1 + d.below(at.top as usize - 2) as u32;
                 format!("C{r}:{}{}", LETTERS[2 + w], (r + h).min(at.top - 1))
+            }
+            3 if at.before.is_some() => {
+                let first = marked(d, LETTERS[c1], r1);
+                let last = marked(d, LETTERS[c1 + w], r1 + h);
+                format!("{}!{first}:{last}", at.before.unwrap_or("A"))
             }
             _ => {
                 let twin = d.pick(&["A", "B"]);
@@ -3028,6 +3035,9 @@ mod tests {
                 .pick(&["\"x\"", "\"5\"", "\"TRUE\"", "\"\"", "\" 2 \""])
                 .to_string(),
             2 => d.pick(&["TRUE", "FALSE", "#DIV/0!", "#N/A"]).to_string(),
+            // A name over formula cells is read from the sheet after theirs
+            // alone, so that no grid holds a cycle (KERNEL.33).
+            3 if at.before.is_some() => d.pick(&["Rate", "Box", "Prev", "Band"]).to_string(),
             3 => d.pick(&["Rate", "Box", "Prev"]).to_string(),
             _ => reference(d, at),
         }
@@ -3214,7 +3224,8 @@ mod tests {
     /// A grid of two sheets, each with value cells in A1:B20 and formulas
     /// over C1:H`rows` in bands, each band one shape; in some grids a column
     /// of single formulas beside, which interleaves the order and leaves each
-    /// run a row of a band; and three defined names.
+    /// run a row of a band; and four defined names, one over the first
+    /// sheet's formulas (KERNEL.33).
     fn generated_grid(d: &mut Dice) -> String {
         let rows = 4 + d.below(60) as u32;
         let singles = d.below(3) == 0;
@@ -3255,6 +3266,7 @@ mod tests {
         out.push_str("(name \"Rate\" \"A!$A$2\")\n");
         out.push_str("(name \"Box\" \"A!$A$1:$B$3\")\n");
         out.push_str("(name \"Prev\" \"A.last!$C$1\")\n");
+        out.push_str("(name \"Band\" \"A!$C$1:$D$2\")\n");
         out
     }
 
@@ -4805,6 +4817,154 @@ mod tests {
             "D1 a frame late, and the name's: an equal write writes nothing"
         );
         assert_eq!(ticked(&mut m), 1);
+    }
+
+    /// The formula cells whose references, moved to where each cell stands,
+    /// read a cell: what a change to it must reach, found by moving every
+    /// reference of every cell's parse (`graph::areas_at`) and none of the
+    /// reach's code.
+    fn readers_of(m: &Machine, changed: CellId) -> BTreeSet<CellId> {
+        let (sheet, row, col) = changed;
+        let mut out = BTreeSet::new();
+        for &id in m.shapes.order() {
+            let p = m.shapes.place(id).expect("placed");
+            let Ok(e) = &m.shapes.shape(p.shape).expect("a shape").expr else {
+                continue;
+            };
+            e.each_read(&mut |r| {
+                let crate::calc::formula::Read::Ref(re) = r else {
+                    return;
+                };
+                let Ok(areas) = crate::calc::graph::areas_at(&m.book, id.0, re, p.d_row, p.d_col)
+                else {
+                    return;
+                };
+                if areas.iter().any(|a| {
+                    a.sheet == sheet
+                        && a.top <= row
+                        && row <= a.bottom
+                        && a.left <= col
+                        && col <= a.right
+                }) {
+                    out.insert(id);
+                }
+            });
+        }
+        out
+    }
+
+    /// The formula cells the plan's reach reaches from a changed cell.
+    fn reached(m: &Machine, changed: CellId) -> BTreeSet<CellId> {
+        use crate::calc::reach::Reached;
+        let order = m.shapes.order();
+        let mut out = BTreeSet::new();
+        m.shapes.reach().each(changed, &mut |r| match r {
+            Reached::Cell(pos) => {
+                out.insert(order[pos]);
+            }
+            Reached::Shape(s) | Reached::Parts(s) => {
+                out.extend(
+                    order
+                        .iter()
+                        .filter(|&&id| m.shapes.place(id).map(|p| p.shape) == Some(s)),
+                );
+            }
+        });
+        out
+    }
+
+    #[test]
+    fn a_row_of_single_cells_reaches_what_each_single_reached() {
+        // KERNEL.33: a shape's single cells side by side in one row are read
+        // as one span of the row where every cell of the shape keeps the span
+        // on the sheet: Sand's five neighbours; the row from the sheet's first
+        // column; the row at its last column, where a cell to the right moves
+        // one single off the sheet and a span would move off it whole, so
+        // that no span is made; a row with a gap, whose sides are spans apart;
+        // and single cells down a diagonal, of no row. The value sheet's
+        // readers are the patterns a changed cell of it tries, the spans made
+        // counted there; and every cell of the sheet's window, changed,
+        // reaches exactly the formula cells whose moved references read it.
+        for (rows, readers, (r0, r1, c0, c1)) in [
+            (
+                "(formula \"S\" \"C3:H9\" \"=T!B2+T!C2+T!D2+T!E2+T!F2\")",
+                1,
+                (1, 12, 1, 12),
+            ),
+            (
+                "(formula \"S\" \"A3:E6\" \"=T!A2*T!B2-T!C2\")",
+                1,
+                (1, 8, 1, 9),
+            ),
+            (
+                "(formula \"S\" \"A3:C4\" \"=T!XFB2+T!XFC2+T!XFD2\")",
+                3,
+                (1, 5, 16_378, 16_384),
+            ),
+            (
+                "(formula \"S\" \"B4:F7\" \"=T!B2+T!D2+T!E2-T!G2\")",
+                3,
+                (1, 10, 1, 14),
+            ),
+            (
+                "(formula \"S\" \"B4:E6\" \"=T!C2+T!D3+T!E4\")",
+                3,
+                (1, 10, 1, 10),
+            ),
+        ] {
+            let m = load(&format!("(cell \"T\" \"A1\" 1)\n{rows}\n"));
+            let t = m.book.find_sheet("T").expect("the value sheet");
+            assert_eq!(m.shapes.reach().readers_on(t), readers, "{rows}");
+            for row in r0..=r1 {
+                for col in c0..=c1 {
+                    let changed = (t, row, col);
+                    assert_eq!(
+                        reached(&m, changed),
+                        readers_of(&m, changed),
+                        "{rows}: {changed:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_range_held_at_one_corner_moves_its_other_at_each_cell() {
+        // KERNEL.33: a plan finds a reference every `$` holds once for its
+        // whole shape, and moves one held at a corner alone at each cell. A
+        // running sum of a chain whose cells stand at rising levels reads a
+        // range held at its first corner: each of its cells is put after the
+        // last cell its own range reads, so the first frame sums each prefix.
+        let mut m = load(concat!(
+            "(sheet \"A\" visible)\n",
+            "(sheet \"B\" visible)\n",
+            "(formula \"A\" \"A1\" \"=1\")\n",
+            "(formula \"A\" \"A2:A6\" \"=A1+1\")\n",
+            "(formula \"B\" \"A1:A5\" \"=SUM(A!$A$1:A1)\")\n",
+        ));
+        while !m.step(usize::MAX).done {}
+        for (row, sum) in [(1, 1.0), (2, 3.0), (3, 6.0), (4, 10.0), (5, 15.0)] {
+            assert_eq!(number(&m, "B", &format!("A{row}")), sum, "B!A{row}");
+        }
+    }
+
+    #[test]
+    fn a_range_over_formulas_that_stand_apart_reads_them_all() {
+        // KERNEL.33: a plan finds the formula cells an area holds through an
+        // array where a sheet's formulas stand close together, and through
+        // the sheet's cells where they stand apart, as here, at its corners
+        // and between. The cell of the first sheet that sums them is put
+        // after them in the order, so its first frame reads all three.
+        let mut m = load(concat!(
+            "(sheet \"A\" visible)\n",
+            "(sheet \"B\" visible)\n",
+            "(formula \"A\" \"A1\" \"=SUM(B!A1:XFD1048576)\")\n",
+            "(formula \"B\" \"A1\" \"=1\")\n",
+            "(formula \"B\" \"M500\" \"=4\")\n",
+            "(formula \"B\" \"XFD1048576\" \"=2\")\n",
+        ));
+        while !m.step(usize::MAX).done {}
+        assert_eq!(number(&m, "A", "A1"), 7.0);
     }
 
     #[test]

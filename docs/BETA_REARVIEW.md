@@ -23705,6 +23705,268 @@ with `VLA.2` and `KERNEL.31` to join it; Alonzo's half, `describe` printing
 the census at its pin's move to `=0.9.2`, is a slice of its own there, its
 prompt given in chat.
 
+- ✅ **`KERNEL.33` — the plan's edges found once a shape, a column a
+  reference holds read once a row, and a row of single cells reached as one:
+  what Alonzo's playtest pass of Sand asked of the language.**
+  *Minted 2026-10-12 at the owner's word, the three changes as one item,
+  from the ask of Alonzo's playtest pass of `CART.2`, Sand (Alonzo's
+  `REARVIEW.md`, `CART.2`'s entry, "The playtest pass", commit `47a8f12`),
+  relayed by the owner; scoped and built the same day at the owner's word,
+  "Scope and build", the entry below, each decision built as recommended and
+  open until the owner's review and the commit.*
+
+  **The ask.** Three changes to `vla-lang`, each built and measured by the
+  Alonzo session in a scratch copy of 0.9.1 with Alonzo's engine over it by a
+  path, every frame held to Alonzo's hand-written references, the language's
+  tests and Alonzo's engine's 30 passing over each:
+  1. *The load.* `Shapes::plan` walked every formula cell's parse, every
+     reference and its repeats, found each area's cells in the sheet's tree
+     and each cell's vertex in a hash map: Sand's 2,370,747 dependencies took
+     341 ms of a 491 ms load natively, and the whole load in Chrome 548 to
+     555 ms with the page frozen. The change reads each shape's references
+     once and finds a vertex through the array of positions the reach keeps.
+     Sand 490 to 506 ms to 156 to 167 natively, 548 to 555 to 153 to 163 in
+     Chrome; Life 67 to 74 to 37 to 40; the gun 60 to 63 to 36 to 41.
+  2. *A held column read once a row.* A reference that holds its column
+     (`Gate!$B2`) was read lane by lane, and an `IF` on it split the lanes
+     one by one, though in a run of one row every lane reads one cell.
+     Sand's session of 1,100 frames: strokes 21 to 25% quicker, the session
+     9 to 10%.
+  3. *A row of single cells reached as one.* A changed cell tries every
+     pattern its sheet's readers keep, and Sand's `Stay` reads
+     `Screen.last!A2` to `E2` as five single cells: twelve patterns tried for
+     each changed cell, the frame's start 3.4 ms of a 12.6 ms frame. The
+     change merges a shape's singles side by side in a row into one span:
+     Sand's floors 12.5 to 12.9 ms to 10.7 to 10.9 natively.
+  Together, with Alonzo's row gate: the session's stepping 1,781 to 1,824 ms
+  to 1,354 to 1,423, and no frame of a stroke, a settle or a key over 3 ms.
+  Not asked, prototyped and measured there: reach by branch, each `IF`'s
+  branch recorded at each cell, 80,494 cells computed in a rain frame where
+  110,347 were, but 4 to 5% of the time, and the gun 4% dearer for the
+  recording.
+
+  *Oracle, as asked:* the language's tests; Frazaro's recalculation floors,
+  the load at every load and the frame's two changes in every frame; Alonzo's
+  engine tests and runners over the result by a path, `frames -- --check` and
+  the playtest session's 1,100 frames each held; Alonzo's floors at its pin's
+  move. `~days`
+
+**`KERNEL.33`, the plan's edges once a shape, a held column once a row, a
+row of single cells as one: the scoping, 2026-10-12.** Begun at the owner's
+word, "Scope and build". Alonzo's three patches, cut against 0.9.1, were read
+in full against the code they change and applied over HEAD `0ac6a18`, which
+`KERNEL.30` and `VLA.2` had moved since: patches 2 and 3 as they stood, patch
+1 but for one hunk, the helper it placed beside the order's counting sort,
+which `KERNEL.30` had since given the order's level counts; the order itself
+merged with them as written.
+
+*Measured over HEAD first*, by each house's own instrument, alternated with
+the change on the performance cores at high priority and opted out of power
+throttling (the table under the build). Alonzo's frame floors' instrument,
+over a copy of its HEAD `f8dda50` whose Sand carries the row gate the same
+pass found: Sand's load 507 to 508 ms natively and 596 to 599 in Chrome, its
+steady frame 15.5 to 15.8 ms and 22.1 to 22.2; its playtest session 1,854 to
+1,860 ms of stepping. Frazaro's recalc floors' native runner: loads of 242
+to 244 ms (`column`), 138 to 145 (`chain`), 114 to 117 (`sums`) and 1,394
+to 1,415 (Life, whose 33 MB of rows the reader takes most of).
+
+**The decisions**, each with the recommendation built:
+
+1. *One item, the owner's filing.* The three share Sand's evidence and one
+   oracle, and two of them change `reach.rs`; scoped once, built and
+   measured together. *Declined, by the owner's choice:* three items; the
+   load's edges alone first.
+
+2. *The plan's edges as asked, and one Tarjan.* Each shape's references
+   are read off its parse once, each once however often the parse repeats
+   it (`Vertices::reads_of`): one to the single sheet its placement found is
+   left out when that sheet holds no formula, since no edge comes of it; one
+   every `$` holds there is found once for the whole shape, since
+   `graph::areas_at` reads a found sheet and not the cell's own, and such a
+   reference names the same cells at every offset (`every_dollar`); every
+   other is moved at each cell as before. A cell's vertex is found through
+   the array of positions the reach keeps (`reach::Positions`, made the
+   crate's, with `each_in`) where a sheet's formulas stand close enough
+   together, else by hash as before; every cell's edges are one flat array,
+   and Tarjan's components come back flat (`graph::tarjan_flat`). Each
+   cell's edges are those a walk of its parse at its offset finds, sorted
+   and each once, so the order, its levels, its runs and its cycles are the
+   same. Beyond the patch, four choices of the port, none moving a number:
+   the Tarjan a plan of texts asks (`graph::tarjan`, `Calc`'s) answers from
+   the flat one, so that one walk serves both plans; the offsets into the
+   edges are `usize` where the patch had `u32`, since an offset past four
+   billion edges would wrap silently where the vectors before ran out of
+   memory loudly; each cell's edges are gathered in one reused vector and
+   made each once by the standard `dedup`, where the patch deduplicated in
+   place by hand; and the reading of a shape and of an area are functions
+   of their own. *Declined:* two Tarjans side by side; the `u32` offsets.
+
+3. *A held column read once a row, as asked; the census's names as they
+   stand.* In a run, a reference to one cell that holds its column, read by
+   cells of one row, reads one cell (`Many::reads`): a run's cells stand by
+   row and then by column, and a selection keeps their order, so its first
+   and last cells share a row only when every one does (both selections
+   checked in the code before this was relied on: an `IF`'s branches push
+   their places in order, and `CHOOSE`'s counting sort keeps each choice's
+   in order). The census (`KERNEL.30`) names a read's path by its reference,
+   `slot` or `lookup` here, and goes on doing so: whether a selection lies in
+   one row depends on the grid's layout and on how an `IF` splits the lanes
+   in each frame, which no rule of the census predicts, and `KERNEL.30`'s
+   oracle that every path a run takes is named holds as it did, the
+   recorder noting the path by the reference as the census names it.
+   *Declined:* a census path of its own for a held column read once a row.
+
+4. *A row of single cells reached as one span, as asked, where the span
+   stays on the sheet.* After the reach drops a shape's repeated references,
+   its references to single cells of one sheet that move in both dimensions
+   and stand side by side in one row, two or more, become one span of the
+   row (`merge_rows`): a changed cell tries one pattern where it tried each.
+   The span reaches a cell at exactly the offsets at which some single
+   does, so long as it stays on the sheet; moved partly off it, a span is
+   `#REF!` where a single need not be. So the span is made only where every
+   offset the shape's cells stand at keeps its corners on the sheet, and the
+   reach keeps to those offsets. The census's `(readers ...)` count falls by
+   the singles merged, which is what it counts, the patterns a changed cell
+   tries; no golden moved. *Declined:* rectangles over several rows (not
+   asked; Life's three by three is already one range).
+
+5. *Reach by branch not built,* on Alonzo's own measurement of its
+   prototype: 27% fewer cells computed in the rain, 4 to 5% of the time,
+   the cells skipped being the cheap ones, and the gun 4% dearer for the
+   recording.
+
+6. *The oracle.* The language's tests, among them the differential oracles
+   `KERNEL.20` and `KERNEL.30` left over 80 generated grids each: a run
+   evaluated at once against its cells one by one, a frame computing what
+   changed against the frame computed whole, the census against the plan
+   walked again by `Calc`'s own reads. New pins where the mutants showed a
+   path no test reached (under the build). A mutant round. Alonzo's tests and
+   runners over the change by a path: `cargo test`, `frames -- --check`, the
+   pass over its six cartridges, the playtest session's 1,100 frames each
+   held to `sand.rs`. The numbers by both houses' instruments alternated with
+   HEAD. *Declined:* new floors: the recalc floors time frames, which nothing
+   here moves on their four programs, and print the load without flooring
+   it; Alonzo's floors take the change at its pin's move, the owner's run
+   their next baseline.
+
+7. *The release.* No public signature changed (`Positions` is the crate's
+   own): a patch, for 0.9.2, with `KERNEL.30`, `VLA.2` and `KERNEL.31`, the
+   owner's plan.
+
+**What it touches.** `vla-lang/src/calc/shape.rs` (the plan's edges and the
+helpers they are read with; `every_dollar`'s test), `graph.rs` (the flat
+Tarjan, the nested one answered from it; its brute-force pin), `reach.rs`
+(`Positions` the crate's, with `each_in`; `merge_rows`), `vector.rs` (the
+held column), `machine/mod.rs` (the generator's two new reads and three pins);
+the roadmap's line, this entry, the registry, `RELEASES.md`'s 0.9.2.
+
+**Built 2026-10-12.** What landed:
+- *The load.* `Shapes::plan` over `Vertices` (the model, the extents, the
+  positions, which sheets hold formulas) and `ShapeReads` (a shape's fixed
+  vertices, its moving references, whether it reads a name); `every_dollar`;
+  the edges one flat array with `usize` offsets; `order_and_runs` over them
+  and the flat components; `graph::tarjan_flat`, and `graph::tarjan` a few
+  lines over it; `reach::Positions` and its `of` and `get` the crate's, and
+  `each_in`.
+- *The frame.* `Many::reads`'s held column; `merge_rows` in `Reach::of`.
+- *The pins.* In `machine/mod.rs`: the generated grids read two things they
+  never read, a range of the sheet before, its corners held any way, and a
+  name, `Band`, over that sheet's formula cells, from the sheet after
+  theirs alone so that no grid holds a cycle; a row of single cells reaches
+  what each single reached, over five grids (Sand's five neighbours, the row
+  from the first column, the row at the last, where the span is refused, a
+  row with a gap, a diagonal), every cell of a window changed and held to a
+  brute-force walk of every formula's moved references, with the patterns
+  each grid's value sheet keeps counted; a range held at one corner moves
+  its other at each cell (a running sum over a chain of rising levels, its
+  first frame); a range over formulas that stand apart reads them all. In
+  `graph.rs`: the flat walk against components found by brute force, over
+  400 seeded graphs, cycles and self-reads among them, each component after
+  all it reads. In `shape.rs`: `every_dollar`'s truth table over seventeen
+  references.
+
+**Measured over HEAD `0ac6a18`,** each instrument alternated with the change,
+on the performance cores, at high priority, opted out of power throttling;
+Alonzo's frame floors' instrument two runs each, its playtest session two,
+the recalc floors' runner four:
+
+| | HEAD | the change |
+|---|---:|---:|
+| Sand, the load, natively | 507 to 508 ms | 159 to 167 ms |
+| Sand, the load, in Chrome | 596 to 599 | 159 to 168 |
+| Life, the load, natively / in Chrome | 73 to 75 / 87 to 91 | 39 / 57 to 61 |
+| the gun, the load, natively / in Chrome | 61 to 62 / 51 to 53 | 38 to 40 / 37 to 38 |
+| Sand, a steady frame, natively / in Chrome | 15.5 to 15.8 / 22.1 to 22.2 | 10.5 / 15.9 |
+| Sand, the first frame, natively / in Chrome | 43.6 to 43.9 / 45.7 to 46.4 | 38.6 to 38.8 / 35.0 to 35.2 |
+| the playtest session, its stepping | 1,854 to 1,860 | 1,256 to 1,257 |
+| the recalc loads: `column`, `chain`, `sums`, Life | 242–244, 138–145, 114–117, 1,394–1,415 | 220–224, 130–133, 105–108, 1,380–1,402 |
+
+Life's and the gun's frames are unchanged (2.7 to 2.9 ms and 42 µs natively,
+4.0 to 4.2 ms and 61 µs in Chrome). The session's phases, medians: a stroke
+of sand 1.45 ms a frame to 1.00, of water 1.37 to 0.96, erasing 2.10 to 1.46,
+the rain 3.77 to 2.51 and its 95th percentile 16.1 to 10.6. The recalc
+runner's frames, which no change reaches on its four programs, are the same
+within its noise: each fixture's edit within 2% of HEAD's by the medians of
+four runs, the whole frames within 3% for `column`, `sums` and Life and 11%
+under for `chain`, where that runner's frames are known to move 15 to 30%
+between processes (`KERNEL.20`'s sixth slice, `KERNEL.28`'s runs). A first
+single run of each, not alternated, had read the change's frames 5 to 30%
+slower; the alternation showed it was the runs.
+
+**The oracle, met.**
+- *The language's tests*: `cargo test --workspace`, 388 passed and 5
+  ignored, the five new pins among them; fmt and clippy clean; the census
+  goldens unmoved.
+- *Alonzo*: over a copy of its HEAD with the change by a path, its 30 tests;
+  `frames -- --check`, every frame of Life, the gun and Sand equal to the
+  hand-written ones, the allocation ceilings unmoved (80 and 516 a frame); the
+  pass over its six cartridges, every one the same bytes; the playtest
+  session, every one of 1,100 frames held to `sand.rs`, four runs.
+- *The mutants*, each alone in a scratch copy of the crate after a control
+  that passed. The first round of fifteen caught ten and left five, each a
+  path no test reached: a range held at its first corner read as held
+  throughout, a name's edges dropped, a name's cells looked up row for
+  column, Tarjan's least low taken as an assignment, a sheet whose formulas
+  stand apart read as holding none. The generator's two new reads and the
+  four new pins were written for them, and the round run again over them
+  caught all fifteen: the range by `every_dollar`'s table and by the running
+  sum, the names' two by the census against the plan walked again, Tarjan's
+  by the brute force, the scattered formulas by their own pin.
+- *The checks*: `run_checks.ps1`, 56 of 57, `check_version_twin` failing on a
+  peer's staged `VLA_RELEASE_VERSION` of 0.9.2 against the workspace's
+  0.9.1, nothing of this item's.
+
+**Found.**
+- *Two of the plan's paths no generated grid reached.* Every name the
+  generator wrote pointed at value cells, and no range it wrote read a sheet
+  holding formulas, so a name's edges and a range found once for its shape
+  could have been wrong with every differential oracle passing; the
+  generator writes both now.
+- *An inherited gap in Tarjan's pins.* The one test the walk had told its
+  least low from an assignment on no graph it held; the line was the old
+  walk's too. Since both plans now order their cells by the one walk, it is
+  held to brute force.
+- *The patch's `u32` offsets* would have wrapped past four billion edges
+  (decision 2).
+- *The ask's numbers reproduced on today's code*, over Sand as it now
+  stands, with the row gate: its load over the change within a few percent
+  of the ask's (159 to 168 ms against 153 to 167), and a steady frame of
+  10.5 ms where the ask, before the gate, measured 10.7 to 10.9.
+
+*The owner's test, 2026-10-12*: Alonzo's playtest session over the copy of
+its HEAD with HEAD's language and over the copy with this item's, 1,844 ms
+of stepping and 1,250, every frame held to the sand by hand in both; its
+native frames runner, Sand's load 511.2 ms and 158.0, its steady frame 15.4
+ms and 9.8. No Excel step: the item touches no VBA.
+
+*Committed 2026-10-12* on the owner's report that the test came back clean,
+the house's word for a commit: this item's eight files alone, staged by path,
+with a peer's staged `VLA_RELEASE_VERSION` of 0.9.2 in `src/VLA.bas` left
+out and still staged; the tree verified in isolation first, HEAD and this
+item's files. The item closed with it; its line left the roadmap for the
+closed ledger. Not pushed. Alonzo takes it at its pin's move to `=0.9.2`,
+the owner's run there the frame floors' next baseline.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -37168,6 +37430,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.28 — the language's remaining functions computed by a run: `ROW`, `COLUMN`, `MOD`, `INT`, `ABS` and `SIN` over lanes, and `CHOOSE` partitioned as `IF` is.** Minted at the owner's word as the ask of Alonzo's `CART.2`, whose Sand paid for its direction's strict calls at each cell and more for `CHOOSE`, and built as scoped: each meaning written once in the library and driven by the run, the functions of numbers computed where every operand at a cell is a number and the library's function at any other, so that no coercion nor the order of a call's reasons and errors is written twice; `ROW` and `COLUMN` from the run's own cells, or a reference's corner moved to each; `CHOOSE` computing each value only at the cells that choose it, gathered by a count of its labels; and the floors' instrument keeping each floor at least where the entry before it stood. Every value equal to the library's at every cell and every frame to the hand-written Life and Sand; four tests and four arms of the generator, 18 of 19 mutants caught, the 19th a change of speed alone; every load as deep as before, a run's step 16 bytes deeper a level and a function of numbers 1.6 KiB more once at its innermost call, past decision 5's 1.2 KiB at 64 levels, recorded. Measured over `5607910`, three pairs alternated: the running balance whole from 3.68 to 2.71 ms, the twelve months whole and edited from 4.64 and 5.03 to 3.19 and 3.66, Life's soup from 21.9 to 10.0; Sand's direction computed at each cell from 13.5 to 11.8 and through `CHOOSE` from 29.6 to 12.0, against 11.7 through its twin column; the allocations unchanged. The owner's run of the native half is the floors' new entry, four raised, two kept, and two lowered for a reason written, rows the item does not move having measured slower that day on the unchanged code. Scoped 2026-10-11, built and committed 2026-10-12 at the owner's word; the entry above carries the record. `~days`, taken in hours.
 - ✅ **KERNEL.20 — speed, measured.** Six slices, each committed at the owner's word 2026-10-10 to 2026-10-11 and released in 0.9.0, the item closed 2026-10-12 at the owner's word: the previous frame's values kept as an array, the cheaper frame's overheads, the vectorized shape, incremental maintenance, the values folded at build time, and the measurement against Excel on four built workbooks with its floors (`check_recalc_floors.ps1`, the 56th check), with `KERNEL.26`, `KERNEL.27` and `KERNEL.28` filed from its profiles. Life's frame natively from 101 ms at 0.8.1 to 2.7 ms. Against Excel on the same files at the baseline: the column whole 2.6 times as fast, Life 1.3 times as fast as Excel's twenty threads and 6.8 times its one; the running balance 1.1 times slower, the twelve months 2.9 times slower, the edits but Life's slower. Ruled out at the close: identical shapes computed once by content address (a purity property every function would declare, little to find on the fixtures, its cheap forms built) and the view's window and its cone (about 5% of a view; the doors computing through the machine filed as `KERNEL.32`). `fullCalcOnLoad` kept, the owner's ruling. *(more: the six slices' entries and the close, under the KERNEL line)*
 - ✅ **KERNEL.30 — the shapes printed: each formula shape of a plan as rows, its cells, its width at each level and the reads it makes, so that a model's or a cartridge's cost is read before a frame runs.** Minted 2026-10-12 at the owner's word from an Alonzo session's audit of the architecture, and scoped, approved, built and closed the same day: the census, the plan an engine's machine makes printed as rows when asked, the plan keeping for it only where each level of its order ends. One `(plan ...)` row of totals; a `(readers ...)` row a sheet, the readers a changed cell of it is checked against; and a `(shape ...)` row a shape, its first cell and its formula in R1C1, its cells, its levels summarized as the first, the last, how many and the widest, its runs, its cells alone, and its reads named by the path the machine takes, `slot`, `array`, `lookup`, `cells`, `once`, `start` and `each`, with the functions called at each cell, those not held, the earlier shape a formula already is, and a shape computed every frame and why: facts alone, no flag. `Machine::census` and `Shapes::census` in `vla-lang`, new calls and no signature changed; `frazaro calc <file> --shapes` at the door; eleven goldens over oracle 12's seven fixtures and the four bench programs, held by `check_shapes_golden.ps1`, the 57th check, goldens of the door and the crate and not an oracle of the treaty. Every count held to the plan walked again by `Calc`'s own edges, every path a run takes held to a kind the census names, 25 mutants caught; nothing computes differently, every load 0.3 KiB shallower on the stack, the plan made in a box, the language's module 160 bytes larger. Before a frame runs it shows Sand written a fill a row as 407 shapes of 13 texts, and the twelve months' totals walking their own sheet at each cell, `KERNEL.31`'s ground. Built and committed 2026-10-12 at the owner's word, to be released in 0.9.2; Alonzo's `describe` prints it after its pin moves there, a slice of its own. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.33 — the plan's edges found once a shape, a column a reference holds read once a row, and a row of single cells reached as one: what Alonzo's playtest pass of Sand asked of the language.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, the three changes as one item. A grid's plan reads each shape's references once, one every `$` holds found once for the shape, a cell's vertex through the reach's array of positions, the edges one flat array, and one Tarjan now serves both plans; in a run, a reference holding its column, read across one row, is read once; and a shape's single cells side by side in a row are one span to the reach, wherever the span stays on the sheet. Every value, the order, its runs and its cycles are as they were, and no public call changed. By both houses' instruments alternated with HEAD: Sand's load 507 ms to about 163 natively and 597 to about 163 in Chrome, its steady frame 15.6 to 10.5 ms, Alonzo's 1,100-frame playtest session 1,857 to 1,256 ms with every frame held; Life's and the gun's loads nearly halved, their frames unchanged. A first mutant round caught ten of fifteen and found two of the plan's paths no generated grid reached, a range of a sheet holding formulas and a name over formula cells; the generator writes both now, four pins were added, and the second round caught all fifteen. The owner's test: the session 1,844 ms to 1,250, every frame held, and Sand's load 511 ms to 158. To be released in 0.9.2. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

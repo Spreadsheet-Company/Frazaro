@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.32 | KERNEL.33 |
+| KERNEL | KERNEL.33 | KERNEL.34 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -213,7 +213,12 @@ left unminted, `KERNEL.28` having brought the running balance level with
 Excel's twenty threads. `KERNEL.32` was minted 2026-10-12 at the owner's
 word, from `KERNEL.20`'s close, for the doors computing through the
 machine, the larger step behind the line's last clause, the view's window
-and its cone, which the close ruled out; `KERNEL.33` is next free.
+and its cone, which the close ruled out. `KERNEL.33` was minted 2026-10-12
+at the owner's word, the three changes Alonzo's playtest pass of Sand asked
+of the language filed as one item: the plan's edges found once a shape, a
+column a reference holds read once a row, and a row of single cells reached
+as one; scoped, built, owner-tested and committed the same day. `KERNEL.34`
+is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
