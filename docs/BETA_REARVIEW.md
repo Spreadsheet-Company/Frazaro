@@ -10361,7 +10361,11 @@ re-derive the connection.
   - The size limit is one application's result, not the program's sum. A
     walk keeps that to its list's length; the table generator at the chain
     limit's 5,000 rows writes about 540,000 forms in its first application
-    (9 references to its spec, 12 forms a row).
+    (9 references to its spec, 12 forms a row). *(Corrected 2026-10-12 by
+    `VLA.2`: the result holds the spec's rest once, 60,053 forms at 5,000
+    rows, and nine references are what the copies cost; the chain counts
+    two links a row and stops the generator at 2,499 rows, where its first
+    application holds 30,041.)*
   - The reference's weighing (`WeighExpansion`, `mExpandProduced`) is
     withdrawn. The reference shares arguments by reference and its `cdr`
     is an O(1) `VlaSlice`, so the weighing counted shared structure as
@@ -24028,12 +24032,14 @@ all this version.
   this stays exploratory and P-NTH's own flat-view scope was the right call,
   not a nerve-loss compromise. `~hours`
 
-- ⬜ **VLA.2 — the port's expander shares what the reference shares, so a
+- ✅ **VLA.2 — the port's expander shares what the reference shares, so a
   macro that walks a list costs its length, not its length squared.**
   *Minted 2026-10-10 at the owner's word, the day `VLA.1` closed, from that
   item's A/B (its build record, under MACHINE · ASSURANCE): the port's
-  `P-NTH`. Nothing is scoped or built; every figure below was measured
-  that day.*
+  `P-NTH`. The figures from here to the proposed oracle are the mint's,
+  measured that day. Scoped and built 2026-10-12 at the owner's word,
+  "Scope and implement VLA.2": the eight decisions after them were built
+  as recommended, each open until the owner's review and the commit.*
 
   **The defect.** `vla-lang`'s expander copies where `VLA.bas` shares.
   `Form` is an owned tree (`List { items: Vec<Form>, line }`, a symbol a
@@ -24128,6 +24134,241 @@ all this version.
   ordinary, in the port as in the reference; Alonzo's cartridge pass
   (`SPEC.3`); any list-walking macro a phrasebook or a cartridge writes.
   `~days`
+
+  **Scoped 2026-10-12.** Measured again first, at `b14d053`: a scratch
+  crate over HEAD's `vla-lang` by path, natively, in the workspace's
+  release profile (optimized for size, one codegen unit, link-time
+  optimization), which the door and Alonzo both build with. The generator
+  took 139 ms at 250 rows, 564 at 500, 2,732 at 1,000 and 10,607 at 2,000,
+  where it made 290,637,042 allocations of 10.0 GB in all; `walk-rows`
+  took 323 ms at 2,000. Three walks of the prelude the mint did not time
+  are quadratic too: `length` 281 ms at 2,000 rows, `reverse` 574, and
+  `quote-map` 5,372, which conses onto an accumulator and then reverses
+  it. Every caller reaches the expander through four public calls: the
+  core's emitter and build (`collect`, `expand`), its phrasebook loader
+  (`expand_text`, `define_macro`), and Alonzo's pass (`define_macro`,
+  `expand`). `get_macro`, `macro_doc` and `Macro`'s fields have no caller
+  outside the crate's tests.
+
+  **The decisions**, each with the recommendation built:
+
+  1. *Sharing inside the expander; `Form` and every public signature as
+  they stand.* The owner's plan puts this item in 0.9.2, a patch release,
+  beside `KERNEL.30` and `KERNEL.31`, and the owner's rule is that the
+  crate's interface breaks rarely. The reader, the emitter, the build and
+  the machine's load each walk a form once, so a `Form` that shared would
+  buy them nothing measured. *Declined:* `Form` with shared items
+  (`Rc<[Form]>`), a breaking change to every construction site in three
+  crates.
+
+  2. *The expander's own datum, the reference's model.* A `Node` is a
+  symbol or a string (`Arc<str>`), or a list (`Seq`): the items of a
+  shared run from a start, under a line of its own. At start 0 it is the
+  reference's `Collection`; past it, its `VlaSlice`. Cloning a node clones
+  a reference. A top-level form is read into nodes once, the walk writes
+  its output as `Form`s, and each macro's template is read into nodes once,
+  when it is defined, beside its public `Macro`. *Declined:* the walk
+  generic over `Form` and `Node` (two copies of every function in each
+  module built on the crate, and a template's atoms made again at every
+  application); a chain of cons cells (`cons` free, but `nth` and a count
+  walk, and the reference's shape is the flat view).
+
+  3. *Shared what the reference shares, copied what it copies.* Shared: a
+  parameter's value at every use (`Set Substitute = v`), a quoted
+  argument's content, `car`, `cdr` and `cddr` (a view of the same items,
+  `ListTail`'s `VlaSlice`), a call's arguments bound to its parameters,
+  and the elements the trampoline sets aside. Copied, as references to the
+  same items: `cons` (the reference's `EvalCons`, a new list on purpose
+  since P-NTH), `list`, the rest parameter's items and `unquote-splicing`'s.
+  So a walk that conses onto an accumulator still copies its references at
+  every step. *Declined:* `cons` at no cost, which needs the cons cells
+  above, for a cost the reference pays too and no caller feels (`reverse`
+  at 2,000 rows, below).
+
+  4. *A list keeps its weight.* Each `Seq` holds the forms of its tree,
+  itself counted and a shared list counted wherever it stands, as the
+  printer would write them (saturating), and its depth, both made with the
+  list from its items' weights. A view's forms are its list's less the
+  items it passes; its depth is read from its run's table of the deepest
+  list from each place on, made once a run, at the run's first view.
+  `weigh` (VLA.1) reads the result's two numbers, and only past a limit
+  walks it, in the order the copies were walked, so the refusal and the
+  list it names are the walk's. *Declined:* walking the shared result (the
+  quadratic term again, since every result of a walk holds the rest of its
+  list); a depth a view inherits as a bound (a list with one deep item at
+  its front would be walked at every step).
+
+  5. *The interface's auto traits kept.* The templates held as nodes live
+  in the `Expander`, so a node counts its references atomically (`Arc`)
+  and a run keeps its table in a `OnceLock`: the `Expander` stays `Send`,
+  `Sync` and unwind-safe, since a published type's auto traits are part of
+  its interface, and a test holds them. In the browser's wasm, which has
+  no threads, an atomic count compiles to a plain one. *Declined:* `Rc`,
+  cheaper natively, which would take `Send` and `Sync` from a published
+  type, a breaking change.
+
+  6. *The oracle: the same outputs, and a count.* Every golden, and
+  `VLA.1`'s laws, strangers and limits, unchanged. A differential run, not
+  kept: every case expanded to its fixpoint and in one pass, every list
+  printed with its line, old against new. Alonzo's tests, and its pass
+  over its six cartridges byte for byte. The pin is a new test file,
+  `tests/walks.rs`, which counts and does not time, so that it cannot
+  flake: a counting allocator counts this thread's allocations, and the
+  bytes they ask for, while the expander defines and expands the generator
+  and `walk-rows` at 0, 1,000 and 2,000 rows. The second thousand rows are
+  held to the first thousand's within 5% in both, the bytes catching a step
+  that copies the rest's references into one new array, one allocation of
+  a size that grows; and every row's allocations are held to a ceiling half
+  as much again as measured. *Declined:* a timed floor with an instrument
+  and a baseline, as `KERNEL.20`'s, for a cost now of a few milliseconds.
+
+  7. *The chain's cap and the size limit unchanged.* `VLA.3` left both to
+  this item. The cap is the reference's too, a guard against a macro with
+  no base case. It counts links, each application and each `begin` the
+  trampoline unwraps, so the pins' two walkers meet it at 2,500 rows, not
+  5,000: every row is an application and the `begin` it writes. Raising it
+  changes both implementations, and no caller has asked. The size limit
+  stays a bound on what one application writes as a tree, since an
+  expansion is printed as one; `dup` and `deeper` are refused by the same
+  ids at the same applications.
+
+  8. *The reference untouched (`SD-18`).* `VLA.bas` already shares. Its
+  scale pins' comments still say that `cdr` copies the whole tail, written
+  before P-NTH; they are left for the next item that opens those pins,
+  since a comment's edit is a module reloaded in Excel. No VBA pass.
+
+  **What it touches.** `vla-lang/src/expand.rs` (the datum, the walk and
+  the primitives over it, five unit tests); `vla-lang/tests/walks.rs`, new;
+  `tools/check_crate_package.ps1` (the test includes' floor, 25 to 26);
+  the roadmap's line; this entry, and a dated correction to `VLA.1`'s;
+  `RELEASES.md`'s 0.9.2.
+
+  **Built 2026-10-12.** What landed:
+  - *The datum.* `Node`, `Seq` and `Run`, private to `expand.rs`.
+    `Node::of` reads a form and `Node::form` writes one; `Seq::tail` is
+    `ListTail`'s view with its weight; `Run::deepest_from` reads the table
+    made once; `nth` and `nth_list` refuse as `List`'s do.
+  - *The expander over it.* Every function keeps its VBA name and its order
+    of checks. `expand_at` and `expand_one_pass_at` walk nodes and write
+    forms; `expand_one` binds the call's own arguments; `substitute`
+    returns a binding itself; the twenty-seven primitives take the call's
+    items; `weigh` reads two numbers. A private map of `Rule`s (the
+    parameters folded, the template as nodes) sits beside the public
+    `Macro`s, so an application clones no template and folds no parameter's
+    name. `EXPANSION_SIZE_LIMIT`'s comment corrected (below).
+  - *The pins.* Five unit tests: a list's weight is its tree's, for every
+    view from every start, a view of a view, and a list holding views; a
+    parameter's value is the argument itself at every use, and `cdr` a view
+    of its items at start 1 under line 0; a result past a limit is refused
+    as the walk refused it (a value doubled at its nineteenth doubling, a
+    list past 64 at its line, a count past a `u32` saturated in every
+    view); a quoted list, and a user's argument inside one pass's result,
+    keep their lines; the auto traits. `tests/walks.rs`, the count.
+
+  **Measured over `b14d053`,** HEAD's `vla-lang` and the change in the
+  same scratch crate, natively, in the release profile. Each row is
+  `expand_text`, reading and printing included, the median of three to
+  twenty-one runs:
+
+  | Walk | Rows | Before | After | Allocations before | After |
+  |---|---:|---:|---:|---:|---:|
+  | the generator | 250 | 139 ms | 3.8 ms | 4,833,274 | 76,075 |
+  | the generator | 2,000 | 10,607 ms | 28.4 ms | 290,637,042 | 572,093 |
+  | the generator | 2,499 | | 40.4 ms | | 713,314 |
+  | `walk-rows` | 2,000 | 323 ms | 4.4 ms | 12,203,647 | 104,662 |
+  | `length` | 2,000 | 281 ms | 3.7 ms | 8,163,782 | 86,755 |
+  | `reverse` | 2,000 | 574 ms | 22.9 ms | 16,166,619 | 80,582 |
+  | `quote-map` | 2,000 | 5,372 ms | 48.1 ms | 140,463,853 | 160,629 |
+  | the corpus golden | | 14.4 to 14.8 ms | 12.9 to 13.3 ms | 311,994 | 230,998 |
+
+  The oracle's time: the generator 0.0151 ms a row at 250 and 0.0142 at
+  2,000, where it was 0.56 and 5.30. At 2,499 rows, the most its chain
+  allows, 40 ms. The walks that cons still grow faster than their rows,
+  `reverse` 0.0042 ms a row at 250 and 0.0114 at 2,000, since each step
+  copies the accumulator's references: 83 MB allocated in all at 2,000
+  rows, where the copies allocated 632 MB. The corpus, six rounds
+  alternated on one performance core at high priority: its expansion 5.9
+  to 6.1 ms before and 4.3 to 4.4 after, the whole pass 14.4 to 14.8 and
+  12.9 to 13.3, so the everyday program is faster too. The modules, built
+  at paths of one length: the core's wasm 1,157,470 to 1,169,184 bytes
+  (+11,714, 1.0%); the language's own, whose exports reach no macro,
+  547,182 to 547,190; Alonzo's, over a copy of its HEAD `47a8f12` with
+  this language patched in, 643,503 to 654,622 (+11,119, 1.7%).
+
+  **The oracle, met.**
+  - *The same outputs.* The differential (a scratch harness, not kept) ran
+    146,213 cases: 6,000 calls of the laws' generator over the prelude's
+    macros; 34 programs as written, the strangers' six and 28 aimed at what
+    this item shares (a view at the trampoline's head, a view that is a
+    `begin`, a view landing on a `quote`, a splice of a view, views
+    compared, rest parameters walked, the doubling, the deepening); 80,000
+    of their text mutations by the strangers' mutator and 60,000
+    structural ones (subtrees swapped, wrapped in `cdr`, `car` or `quote`,
+    heads renamed); the expand fixture's cases; the corpus; the generator
+    at 1 to 100 rows; and `walk-rows` at 4,999 to 5,001 rows, past the
+    chain's cap. 85,612 reached the expander, 43,765 expanding and 41,847
+    refused by name. Every case's output, every list's line, the
+    applications counted and every refusal's id and text, to the fixpoint
+    and in one pass, were equal before and after. The run took 2 min 31 s
+    before and 17.9 s after.
+  - *Unchanged.* The golden of 135 cases, the laws, the limits on a 1 MiB
+    stack, the strangers and their long run (55,000 cases, 9.2 s);
+    `cargo test --workspace`, 383 passed and 5 ignored; fmt and clippy
+    clean.
+  - *The count.* `tests/walks.rs` passes: the generator's first thousand
+    rows 203,038 allocations of 7,936,337 bytes and its second 203,002 of
+    7,936,456, `walk-rows`' 42,020 of 1,351,193 and 42,002 of 1,351,456,
+    the same in a debug build and a release build. Over HEAD's expander it
+    fails in its own words: the second thousand rows 217,236,002
+    allocations against the first's 73,236,060, of 7.5 GB against 2.5.
+  - *The mutants.* Nineteen faults, each alone in a scratch copy of
+    `expand.rs` with the language's tests run after a control that passed:
+    a view's forms or depth miscounted three ways, a list's own form or
+    level left out of its weight, the fast path letting one level too deep
+    through, every result past a limit called too large, every result
+    walked, a binding, a quoted argument's content and a bound argument
+    each copied, `cdr` copying its references, the depth table made at
+    every view, a form read or written without its lines, a view keeping
+    its list's line or counting the whole run, a saturated count
+    subtracted, a count that wraps. Every one is caught. Two, every result
+    walked and the table made at every view, only by the count's bytes,
+    since each is one allocation a step of a size that grows; one, a form
+    written without its lines, only after the test it found missing was
+    written: the walk rebuilds most lists itself, so only a quoted list and
+    one pass's result show it.
+  - *Alonzo.* Its 30 tests over the change, and its pass over its six
+    cartridges, every one "same".
+  - *The checks.* `run_checks.ps1`, 56 of 57: `check_version_twin` fails on
+    a peer's staged `VLA_RELEASE_VERSION` of 0.9.2 against the workspace's
+    0.9.1, nothing of this item's.
+
+  **Found.**
+  - *`VLA.1`'s size figure.* `EXPANSION_SIZE_LIMIT`'s comment and `VLA.1`'s
+    record put the generator's first application at the chain limit's
+    5,000 rows at about 540,000 forms: nine references to its spec, twelve
+    forms a row. Nine is what the template names and what the copies cost,
+    but the primitives consume those references while they substitute,
+    and the result holds the spec's rest once: 60,053 forms measured at
+    5,000 rows, and 30,041 at 2,499, the most the chain allows. The comment
+    is corrected here, and the record with a dated note. Its other figure,
+    the corpus's largest expanded form, measured the same: 20,144.
+  - *The chain's cap is 2,500 rows for a walker,* two links a row (decision
+    7). Its refusal says "5000 applications", though it counts the `begin`s
+    too: the reference's words, left.
+
+  **The owner's test, 2026-10-12.** The door at HEAD and the door over the
+  change compiled the same program, a price list of 2,000 rows walked by a
+  macro, in 2,514 ms and 85 ms, the same VBA by SHA-256; `cargo test -p
+  vla-lang --test walks` passed. After it and before the commit, the pins
+  only grew stronger, the code unchanged: the count took the bytes beside
+  the allocations, and the mutants above were run, which wrote the fifth
+  unit test. *Committed 2026-10-12* on the owner's
+  report that the test came back clean, the house's word for a commit: this
+  item's files alone, staged by path, with a peer's staged
+  `VLA_RELEASE_VERSION` of 0.9.2 in `src/VLA.bas` left out and still
+  staged; the tree verified in isolation, HEAD and this item's files, 57 of
+  57 checks. The item closed with it; its line left the roadmap for the
+  closed ledger. Not pushed.
 
 - ✅ **P-TOK** — single-scan tokenizer buffer. Named for the TRANSLATE
   side originally (`TokAt`, `VLA_SentenceEngine.bas` - positional
@@ -36779,6 +37020,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **P-TOK** — single-scan tokenizer buffer. Three positionally-indexed `Collection`s (`TokAt` translate-side, `TokRawLine`/`ParseForm` compile-side, and `TokLine`, found during scoping) are now materialized once into 1-based arrays for O(1) access. Built and owner-verified live (2026-09-03). *(more: the full entry, earlier in this file)*
 
 - ✅ **P-PROBE** — batched/cached load-time probes. `RegisterVocabMacro` re-transpiled every previously accumulated macro on each new registration — O(macros²), a registration-count cost independent of LISTOPS-BUDGET's depth finding. Built and owner-verified: probes are context-pushed (`VLA.VlaProbeMacroForm`) and one full Pass-1 compile per load replaces one per macro. *(more: the full entry, earlier in this file)*
+
+- ✅ **VLA.2 — the port's expander shares what the reference shares, so a macro that walks a list costs its length, not its length squared.** Minted 2026-10-10 from `VLA.1`'s A/B; scoped, built, owner-tested and committed 2026-10-12 at the owner's word. The expander holds its forms as nodes of its own, as `VLA.bas` has held them since P-NTH: a list shared by reference, `cdr` a view of its items, a parameter's value the argument itself at every use. Each list keeps its forms and its depth, so `VLA.1`'s weighing reads two numbers and walks only a result past a limit, refusing it as before. No public signature changed, the `Expander` still `Send` and `Sync`, no VBA touched. The TABLESPEC generator at 2,000 rows went from 10.6 s to 28 ms, flat a row, and the corpus expands 26% quicker; every output was equal, lines included, over 146,213 programs, and Alonzo's six cartridges byte for byte. `tests/walks.rs` pins it by counting allocations and their bytes, the second thousand rows held to the first's. Found: `VLA.1`'s figure of 540,000 forms was 60,053, and the chain's cap is 2,499 rows for a walker. The owner's test: the door compiled a 2,000-row price list in 2,514 ms before and 85 ms after, the same VBA. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🔧 MACHINE · QUERY AND LOGIC
 

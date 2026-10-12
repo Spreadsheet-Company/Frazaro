@@ -231,7 +231,8 @@ and text a stranger wrote refused by name, never a crash; scoped, built,
 owner-tested and committed the same day. `VLA.2` was minted 2026-10-10 at
 the owner's word, the day `VLA.1` closed, from that item's A/B: the port's
 expander sharing what the reference shares, so that a macro walking a list
-costs its length, not its length squared; open. `VLA.3` was minted
+costs its length, not its length squared; scoped, built, owner-tested and
+committed 2026-10-12. `VLA.3` was minted
 2026-10-10 at the owner's word, on Alonzo's request after its `SPEC.3`,
 whose §12 named it the cartridge pass's next step: the expand-time object
 model, a template macro reaching a column, an address and a text's

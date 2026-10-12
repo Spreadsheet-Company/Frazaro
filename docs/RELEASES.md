@@ -22,6 +22,15 @@
   its twins read as it keeps them, and `Shapes::census` a plan a door made
   of a workbook. Nothing computes differently, and a plan keeps for this
   only where each level of its order ends, four bytes a level (KERNEL.30).
+- **A macro that walks a long list, in time with its length.** A macro
+  that loops over a list by `cdr`, as a phrasebook's `tablespec` walks a
+  table of rows or a cartridge's source walks its notes, took time that
+  grew with the square of the list wherever the language expands it: the
+  command line, the page and an engine's pass. A table of 2,000 rows took
+  10.6 s to expand; it now takes 28 ms, and an ordinary program expands in
+  about a quarter less time. Every expansion is the text it was, the
+  reference in Excel already worked this way, and nothing in the crate's
+  interface changed for an engine (VLA.2).
 
 ### Known open security items
 

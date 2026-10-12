@@ -16,11 +16,24 @@
 //! chain length never becomes stack depth; the forms it set aside are
 //! combined back into one `begin` at the end. Everything the macro system
 //! makes carries line 0 (S3.1's explicit zero); a user's argument forms
-//! keep their lines as they are copied in.
+//! keep their lines as they are carried in.
+//!
+//! The forms are the VBA's too (VLA.2). A [`Form`] is an owned tree, so a
+//! copy of a list copies everything under it; VLA.bas passes a list by
+//! reference and makes `cdr` a view (`VlaSlice`, since P-NTH), so a macro
+//! that walks a list of N rows pays for N rows, not N squared. The expander
+//! holds the forms it works on as nodes of its own, which share as the
+//! reference shares: a parameter's value at each use, a quoted argument's
+//! content, `car`, `cdr` and `cddr`, a call's arguments and the elements a
+//! trampoline sets aside. What the reference copies, the items of `cons`,
+//! `list`, the rest parameter and `unquote-splicing`, are copied here too,
+//! as references to the same items. A text is read into nodes once and the
+//! expansion written out as forms once.
 //!
 //! The refusals are the catalogue's, by id, in the same situations.
 
 use std::collections::HashMap;
+use std::sync::{Arc, OnceLock};
 
 use crate::form::{sym_text, Form, List};
 use crate::intrinsics::{fold, is_numeric_literal_text, str_, val};
@@ -122,14 +135,212 @@ fn is_listops(head_fold: &str) -> bool {
     LISTOPS.contains(&head_fold)
 }
 
+/// A form as the expander holds it (VLA.2): VLA.bas's own model, where an
+/// atom is a text and a list a `Collection` passed by reference. Cloning a
+/// node clones a reference, never the tree under it.
+#[derive(Clone, Debug)]
+enum Node {
+    Sym(Arc<str>),
+    Str(Arc<str>),
+    List(Seq),
+}
+
+/// A list: the items of a shared [`Run`] from `start` on, under a line of
+/// its own. At `start` 0 it is the reference's `Collection`; past it, its
+/// `VlaSlice`, the view `cdr` makes. Its weight is kept beside it, made
+/// when it is made: `forms`, the forms in its tree as the printer would
+/// write them, itself among them (a list shared twice is counted twice,
+/// saturating), and `depth`, its nesting, itself 1.
+#[derive(Clone, Debug)]
+struct Seq {
+    run: Arc<Run>,
+    start: usize,
+    line: u32,
+    forms: u32,
+    depth: u32,
+}
+
+/// The items a list was made with, shared by every view of them.
+#[derive(Debug)]
+struct Run {
+    items: Vec<Node>,
+    /// For each `k`, the deepest list among `items[k..]` (0 for none),
+    /// made the first time a view of this run is made, so that a view's
+    /// depth is read and not walked.
+    deepest: OnceLock<Vec<u32>>,
+}
+
+impl Run {
+    fn deepest_from(&self, k: usize) -> u32 {
+        let deepest = self.deepest.get_or_init(|| {
+            let mut v = vec![0; self.items.len() + 1];
+            for i in (0..self.items.len()).rev() {
+                v[i] = v[i + 1].max(self.items[i].weight().1);
+            }
+            v
+        });
+        deepest[k]
+    }
+}
+
+impl Seq {
+    fn new(items: Vec<Node>, line: u32) -> Seq {
+        let (mut forms, mut deepest) = (1u32, 0u32);
+        for item in &items {
+            let (f, d) = item.weight();
+            forms = forms.saturating_add(f);
+            deepest = deepest.max(d);
+        }
+        Seq {
+            run: Arc::new(Run {
+                items,
+                deepest: OnceLock::new(),
+            }),
+            start: 0,
+            line,
+            forms,
+            depth: deepest.saturating_add(1),
+        }
+    }
+
+    fn items(&self) -> &[Node] {
+        &self.run.items[self.start..]
+    }
+
+    fn count(&self) -> usize {
+        self.run.items.len() - self.start
+    }
+
+    /// VBA `ListTail`'s view: the items from position `n + 1` on, the same
+    /// items, untagged. Its forms are this list's less the `n` it passes;
+    /// a count that saturated says only "at least", so it stays saturated
+    /// and the walk in [`Expander::weigh`] decides.
+    fn tail(&self, n: usize) -> Seq {
+        let passed = self.items()[..n]
+            .iter()
+            .fold(0u32, |sum, item| sum.saturating_add(item.weight().0));
+        let start = self.start + n;
+        Seq {
+            run: Arc::clone(&self.run),
+            start,
+            line: 0,
+            forms: if self.forms == u32::MAX {
+                u32::MAX
+            } else {
+                self.forms - passed
+            },
+            depth: self.run.deepest_from(start).saturating_add(1),
+        }
+    }
+}
+
+impl Node {
+    fn sym(text: &str) -> Node {
+        Node::Sym(Arc::from(text))
+    }
+
+    /// A list with no line, as every list the macro system makes has none.
+    fn list(items: Vec<Node>) -> Node {
+        Node::List(Seq::new(items, 0))
+    }
+
+    /// A form read into nodes, every list keeping its line.
+    fn of(f: &Form) -> Node {
+        match f {
+            Form::Sym(s) => Node::Sym(Arc::from(s.as_str())),
+            Form::Str(s) => Node::Str(Arc::from(s.as_str())),
+            Form::List(l) => Node::List(Seq::new(l.items.iter().map(Node::of).collect(), l.line)),
+        }
+    }
+
+    /// The node written out as a form: a list shared in two places is two
+    /// lists of the form, as the reference's printer writes it twice.
+    fn form(&self) -> Form {
+        match self {
+            Node::Sym(s) => Form::Sym(s.to_string()),
+            Node::Str(s) => Form::Str(s.to_string()),
+            Node::List(l) => Form::List(List::new(
+                l.items().iter().map(Node::form).collect(),
+                l.line,
+            )),
+        }
+    }
+
+    /// The forms in the node's tree and its nesting: an atom is one form
+    /// and no list.
+    fn weight(&self) -> (u32, u32) {
+        match self {
+            Node::List(l) => (l.forms, l.depth),
+            _ => (1, 0),
+        }
+    }
+
+    fn is_list(&self) -> bool {
+        matches!(self, Node::List(_))
+    }
+
+    /// [`Form::atom_text`]: a symbol's text, or a string literal's content
+    /// behind its quote marker. `None` for a list.
+    fn atom_text(&self) -> Option<String> {
+        match self {
+            Node::Sym(s) => Some(s.to_string()),
+            Node::Str(s) => Some(format!("\"{s}")),
+            Node::List(_) => None,
+        }
+    }
+
+    /// VBA `ListHeadIs`: a list whose first element is a symbol folding
+    /// equal to `name`.
+    fn head_is(&self, name: &str) -> bool {
+        match self {
+            Node::List(l) => {
+                matches!(l.items().first(), Some(Node::Sym(s)) if fold(s) == fold(name))
+            }
+            _ => false,
+        }
+    }
+}
+
+/// VBA `Nth` over a list's items: element `i`, 1-based, refusing past the
+/// end ([`List::nth`]'s refusal).
+fn nth(items: &[Node], i: usize) -> Result<&Node, Refusal> {
+    if i == 0 || i > items.len() {
+        return Err(raise("vla-form-missing-element", &[("n", &i.to_string())]));
+    }
+    Ok(&items[i - 1])
+}
+
+/// VBA `NthList`: element `i` as a list, refusing an atom there
+/// ([`List::nth_list`]'s refusal).
+fn nth_list(items: &[Node], i: usize) -> Result<&Seq, Refusal> {
+    match nth(items, i)? {
+        Node::List(l) => Ok(l),
+        other => Err(raise(
+            "vla-expected-list-at-position",
+            &[
+                ("n", &i.to_string()),
+                ("value", &other.atom_text().unwrap_or_default()),
+            ],
+        )),
+    }
+}
+
 /// The substitution environment of one macro application: `Substitute`'s
 /// `bindings`, `restName` (folded) and `restItems`. Empty for a primitive
 /// met outside any template.
 #[derive(Default)]
-struct Env {
-    bindings: HashMap<String, Form>,
+struct Env<'r> {
+    bindings: HashMap<&'r str, Node>,
+    rest_name: &'r str,
+    rest_items: Vec<Node>,
+}
+
+/// A macro as the expander applies it (VLA.2): its parameters folded and
+/// its template read into nodes once, when it is defined.
+struct Rule {
+    params: Vec<String>,
     rest_name: String,
-    rest_items: Vec<Form>,
+    template: Node,
 }
 
 /// The macro table and the application counters: `mMacros`, `mBudgetOn`,
@@ -137,6 +348,8 @@ struct Env {
 #[derive(Default)]
 pub struct Expander {
     macros: HashMap<String, Macro>,
+    /// Each macro of `macros` as it is applied, under the same name.
+    rules: HashMap<String, Rule>,
     /// L15: when on, applications beyond the budget do not fire.
     pub budget_on: bool,
     pub expand_budget: u64,
@@ -144,16 +357,16 @@ pub struct Expander {
     pub expand_fired: u64,
 }
 
-/// The most forms one macro application's result may hold (VLA.1). The
-/// port copies a macro's arguments into its template, so a macro that
-/// doubles its argument on every application would run the memory out long
-/// before the chain's 5,000 applications. The reference shares them by
-/// reference, builds no copies, and meets the chain limit instead. One
-/// application's result, not the program's sum: a walk over a long list
-/// writes the rest of the list into every result, so a sum grows as the
-/// square of the list. The largest real expanded form is 20,144 forms; the
-/// table generator at the chain limit's 5,000 rows writes about 540,000 in
-/// its first application.
+/// The most forms one macro application's result may hold (VLA.1), counted
+/// as the printer would write them, so a value its template uses twice
+/// counts twice. A macro that doubles its argument at every application is
+/// refused at its nineteenth, long before the chain's 5,000: its value is
+/// shared and cheap to hold (VLA.2), but its expansion is written out as a
+/// tree. One application's result, not the program's sum: a walk over a
+/// long list holds the rest of the list in every result, so a sum grows as
+/// the square of the list. The largest form the corpus expands to is 20,144
+/// forms; the table generator's first application holds 30,041 at 2,499
+/// rows, the most its chain allows at two links a row.
 pub const EXPANSION_SIZE_LIMIT: usize = 1_000_000;
 
 impl Expander {
@@ -233,6 +446,14 @@ impl Expander {
         };
 
         // A redefinition overwrites, as the Dictionary's keyed assignment does.
+        self.rules.insert(
+            mfold.clone(),
+            Rule {
+                params: params.iter().map(|p| fold(p)).collect(),
+                rest_name: fold(&rest_name),
+                template: Node::of(&template),
+            },
+        );
         self.macros.insert(
             mfold,
             Macro {
@@ -248,16 +469,16 @@ impl Expander {
 
     /// VBA `ExpandMacros`: a form to its fixpoint.
     pub fn expand(&mut self, d: &Form, depth: u32) -> Result<Form, Refusal> {
-        self.expand_at(d, depth, 1)
+        self.expand_at(&Node::of(d), depth, 1)
     }
 
     /// [`Expander::expand`] at `walk`, the depth of the list `d` would be
     /// within its top-level form (VLA.1): a list deeper than the reader's
     /// limit is refused, whether a text or a macro nested it so.
-    fn expand_at(&mut self, d: &Form, depth: u32, walk: u32) -> Result<Form, Refusal> {
-        if let Form::List(lst) = d {
+    fn expand_at(&mut self, d: &Node, depth: u32, walk: u32) -> Result<Form, Refusal> {
+        if let Node::List(lst) = d {
             if walk > FORM_DEPTH_LIMIT {
-                return Err(too_deep(lst));
+                return Err(too_deep(lst.line));
             }
         }
         if depth > 200 {
@@ -265,25 +486,23 @@ impl Expander {
         }
         let mut cur = d.clone();
         let mut chain_len: u32 = 0;
-        let mut pending_head: Vec<Form> = Vec::new();
+        let mut pending_head: Vec<Node> = Vec::new();
         loop {
-            let Form::List(lst) = &cur else {
-                return Ok(cur);
+            let Node::List(lst) = &cur else {
+                return Ok(cur.form());
             };
-            if lst.items.is_empty() {
-                break;
-            }
-            let Form::Sym(head) = &lst.items[0] else {
+            let items = lst.items();
+            let Some(Node::Sym(head)) = items.first() else {
                 break;
             };
             let head_fold = fold(head);
             // P.L5: quote is a data context; expansion never enters.
             if head_fold == "quote" {
-                return Ok(cur);
+                return Ok(cur.form());
             }
             // QUASIQUOTE: (symbol ...) needs no ambient bindings.
             if head_fold == "symbol" {
-                return fuse_symbol(lst, &Env::default());
+                return Ok(fuse_symbol(items, &Env::default())?.form());
             }
             if matches!(
                 head_fold.as_str(),
@@ -296,23 +515,23 @@ impl Expander {
             }
             // LISTOPS: the twenty-seven primitives, standalone.
             if is_listops(&head_fold) {
-                return eval_listops_prim(&head_fold, lst, &Env::default());
+                return Ok(eval_listops_prim(&head_fold, items, &Env::default())?.form());
             }
-            if head_fold == "begin" && lst.count() > 1 && lst.line == 0 {
+            if head_fold == "begin" && items.len() > 1 && lst.line == 0 {
                 // TABLESPEC-SCALE: a begin a macro made is a tail-position
                 // wrapper; its other elements wait, its last is looked at
                 // again.
-                pending_head.extend(lst.items[1..lst.count() - 1].iter().cloned());
+                pending_head.extend(items[1..items.len() - 1].iter().cloned());
                 chain_len += 1;
                 if chain_len > 5000 {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
-                let last = lst.items[lst.count() - 1].clone();
+                let last = items[items.len() - 1].clone();
                 cur = last;
             } else if head_fold == "begin" {
                 break;
             } else {
-                let Some(rec) = self.get_macro(head).cloned() else {
+                let Some(rule) = self.rules.get(&head_fold) else {
                     break;
                 };
                 if self.budget_on && self.expand_fired >= self.expand_budget {
@@ -322,7 +541,7 @@ impl Expander {
                 if chain_len > 5000 {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
-                let r = expand_one(lst, &rec)?;
+                let r = expand_one(items, rule)?;
                 self.weigh(&r)?;
                 self.expand_fired += 1; // L1: one per application
                 cur = r;
@@ -330,11 +549,11 @@ impl Expander {
         }
         // No macro at the head: rebuild with expanded elements, keeping the
         // list's own line (C2).
-        let Form::List(cur_list) = cur else {
+        let Node::List(cur_list) = &cur else {
             unreachable!("the loop leaves only on a list");
         };
         let mut out = Vec::with_capacity(cur_list.count());
-        for e in &cur_list.items {
+        for e in cur_list.items() {
             out.push(self.expand_at(e, depth, walk + 1)?);
         }
         let out = Form::List(List::new(out, cur_list.line));
@@ -352,33 +571,35 @@ impl Expander {
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
     /// replaced by its substitution and not walked further.
     pub fn expand_one_pass(&mut self, d: &Form) -> Result<Form, Refusal> {
-        self.expand_one_pass_at(d, 1)
+        self.expand_one_pass_at(&Node::of(d), 1)
     }
 
     /// [`Expander::expand_one_pass`] at `walk`, held to the reader's limit
     /// as [`Expander::expand`]'s walk is (VLA.1).
-    fn expand_one_pass_at(&mut self, d: &Form, walk: u32) -> Result<Form, Refusal> {
-        let Form::List(lst) = d else {
-            return Ok(d.clone());
+    fn expand_one_pass_at(&mut self, d: &Node, walk: u32) -> Result<Form, Refusal> {
+        let Node::List(lst) = d else {
+            return Ok(d.form());
         };
         if walk > FORM_DEPTH_LIMIT {
-            return Err(too_deep(lst));
+            return Err(too_deep(lst.line));
         }
-        if let Some(Form::Sym(head)) = lst.items.first() {
-            if fold(head) == "quote" {
-                return Ok(d.clone());
+        let items = lst.items();
+        if let Some(Node::Sym(head)) = items.first() {
+            let head_fold = fold(head);
+            if head_fold == "quote" {
+                return Ok(d.form());
             }
-            if let Some(rec) = self.get_macro(head).cloned() {
+            if let Some(rule) = self.rules.get(&head_fold) {
                 if !(self.budget_on && self.expand_fired >= self.expand_budget) {
-                    let r = expand_one(lst, &rec)?;
+                    let r = expand_one(items, rule)?;
                     self.weigh(&r)?;
                     self.expand_fired += 1;
-                    return Ok(r);
+                    return Ok(r.form());
                 }
             }
         }
-        let mut out = Vec::with_capacity(lst.count());
-        for e in &lst.items {
+        let mut out = Vec::with_capacity(items.len());
+        for e in items {
             out.push(self.expand_one_pass_at(e, walk + 1)?);
         }
         Ok(Form::List(List::new(out, lst.line)))
@@ -388,11 +609,18 @@ impl Expander {
     /// in it nested past the reader's limit, and no more than
     /// [`EXPANSION_SIZE_LIMIT`] forms in it. So a macro that deepens its
     /// argument on every application is refused at the depth the walk would
-    /// refuse it, before copying a form thousands deep runs the stack out,
-    /// and one that doubles it is refused within twenty applications. The
-    /// walk costs what the copy that built the result cost. A stack of its
-    /// own, since the form is what may be deep.
-    fn weigh(&self, r: &Form) -> Result<(), Refusal> {
+    /// refuse it, before a form thousands deep runs the stack out, and one
+    /// that doubles it is refused within twenty applications. The result's
+    /// weight was made with it (VLA.2), so a walk that holds the rest of
+    /// its list in every result does not walk that rest at every step; only
+    /// a result past a limit is walked, a stack of its own since the form
+    /// is what may be deep, and in the order the copies were walked, so
+    /// the refusal and the list it names are the same.
+    fn weigh(&self, r: &Node) -> Result<(), Refusal> {
+        let (forms, depth) = r.weight();
+        if forms as usize <= EXPANSION_SIZE_LIMIT && depth <= FORM_DEPTH_LIMIT {
+            return Ok(());
+        }
         let mut forms = 0usize;
         let mut stack = vec![(r, 1u32)];
         while let Some((f, depth)) = stack.pop() {
@@ -403,11 +631,11 @@ impl Expander {
                     &[("limit", "1,000,000")],
                 ));
             }
-            if let Form::List(l) = f {
+            if let Node::List(l) = f {
                 if depth > FORM_DEPTH_LIMIT {
-                    return Err(too_deep(l));
+                    return Err(too_deep(l.line));
                 }
-                stack.extend(l.items.iter().map(|item| (item, depth + 1)));
+                stack.extend(l.items().iter().map(|item| (item, depth + 1)));
             }
         }
         Ok(())
@@ -459,101 +687,104 @@ pub fn expand_text(
 
 /// The walk's refusal of a list past the reader's limit, at the list's own
 /// line, or at none for a list a macro made (VLA.1).
-fn too_deep(lst: &List) -> Refusal {
+fn too_deep(line: u32) -> Refusal {
     raise(
         "vla-form-too-deep",
         &[
             ("limit", &FORM_DEPTH_LIMIT.to_string()),
-            ("loc", &src_line_tag(lst.line, 0)),
+            ("loc", &src_line_tag(line, 0)),
         ],
     )
 }
 
-/// VBA `ExpandOne`: one application of a macro to a call form.
-fn expand_one(call: &List, rec: &Macro) -> Result<Form, Refusal> {
-    let argc = call.count() - 1;
-    let name = call.items[0].atom_text().unwrap_or_default();
-    if rec.rest_name.is_empty() {
-        if argc != rec.params.len() {
+/// VBA `ExpandOne`: one application of a macro to a call form's items. A
+/// parameter is bound to its argument itself, not a copy of it.
+fn expand_one(call: &[Node], rule: &Rule) -> Result<Node, Refusal> {
+    let argc = call.len() - 1;
+    let name = call[0].atom_text().unwrap_or_default();
+    if rule.rest_name.is_empty() {
+        if argc != rule.params.len() {
             return Err(raise(
                 "vla-macro-arity",
                 &[
                     ("name", &name),
-                    ("n", &rec.params.len().to_string()),
+                    ("n", &rule.params.len().to_string()),
                     ("given", &argc.to_string()),
                 ],
             ));
         }
-    } else if argc < rec.params.len() {
+    } else if argc < rule.params.len() {
         return Err(raise(
             "vla-macro-arity-min",
             &[
                 ("name", &name),
-                ("n", &rec.params.len().to_string()),
+                ("n", &rule.params.len().to_string()),
                 ("given", &argc.to_string()),
             ],
         ));
     }
     let mut env = Env {
         bindings: HashMap::new(),
-        rest_name: fold(&rec.rest_name),
+        rest_name: &rule.rest_name,
         rest_items: Vec::new(),
     };
-    for (j, p) in rec.params.iter().enumerate() {
-        env.bindings.insert(fold(p), call.items[j + 1].clone());
+    for (j, p) in rule.params.iter().enumerate() {
+        env.bindings.insert(p, call[j + 1].clone());
     }
     env.rest_items
-        .extend(call.items[rec.params.len() + 1..].iter().cloned());
-    substitute(&rec.template, &env, false)
+        .extend(call[rule.params.len() + 1..].iter().cloned());
+    substitute(&rule.template, &env, false)
 }
 
-/// VBA `Substitute`: a template with its parameters replaced. Inside a
-/// quasiquote shield (`in_quasi`) a bare symbol is data, and only an
-/// explicit `unquote` or `unquote-splicing` reaches the bindings.
-fn substitute(t: &Form, env: &Env, in_quasi: bool) -> Result<Form, Refusal> {
+/// VBA `Substitute`: a template with its parameters replaced, each by its
+/// value itself (`Set Substitute = v`). Inside a quasiquote shield
+/// (`in_quasi`) a bare symbol is data, and only an explicit `unquote` or
+/// `unquote-splicing` reaches the bindings.
+fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
     let lst = match t {
-        Form::List(l) => l,
-        Form::Sym(s) if !in_quasi => {
+        Node::List(l) => l,
+        Node::Sym(s) if !in_quasi => {
             let key = fold(s);
             if !env.rest_name.is_empty() && key == env.rest_name {
                 // The rest parameter standalone: the whole list.
-                return Ok(Form::list(env.rest_items.clone()));
+                return Ok(Node::list(env.rest_items.clone()));
             }
-            if let Some(v) = env.bindings.get(&key) {
+            if let Some(v) = env.bindings.get(key.as_str()) {
                 return Ok(v.clone());
             }
             return Ok(t.clone());
         }
         _ => return Ok(t.clone()),
     };
+    let items = lst.items();
 
-    if let Some(Form::Sym(head)) = lst.items.first() {
+    if let Some(Node::Sym(head)) = items.first() {
         let h = fold(head);
         match h.as_str() {
-            "symbol" => return fuse_symbol(lst, env),
+            "symbol" => return fuse_symbol(items, env),
             "quasiquote" => {
                 if in_quasi {
                     return Err(raise("vla-quasiquote-nested", &[]));
                 }
-                if lst.count() != 2 {
+                if items.len() != 2 {
                     return Err(raise(
                         "vla-quasiquote-arity",
-                        &[("n", &(lst.count() - 1).to_string())],
+                        &[("n", &(items.len() - 1).to_string())],
                     ));
                 }
-                return substitute(lst.nth(2)?, env, true);
+                return substitute(nth(items, 2)?, env, true);
             }
             "unquote" => {
                 if !in_quasi {
                     return Err(raise("vla-unquote-outside-quasiquote", &[]));
                 }
-                if lst.count() != 2 {
+                if items.len() != 2 {
                     return Err(raise(
                         "vla-unquote-arity",
-                        &[("n", &(lst.count() - 1).to_string())],
+                        &[("n", &(items.len() - 1).to_string())],
                     ));
                 }
-                return substitute(lst.nth(2)?, env, false);
+                return substitute(nth(items, 2)?, env, false);
             }
             "unquote-splicing" => {
                 // A splice in its place is taken by the element walk below;
@@ -564,31 +795,32 @@ fn substitute(t: &Form, env: &Env, in_quasi: bool) -> Result<Form, Refusal> {
                 return Err(raise("vla-unquote-splicing-not-element", &[]));
             }
             _ if is_listops(&h) && !in_quasi => {
-                return eval_listops_prim(&h, lst, env);
+                return eval_listops_prim(&h, items, env);
             }
             _ => {}
         }
     }
 
-    let mut out = Vec::with_capacity(lst.count());
-    for e in &lst.items {
+    let mut out = Vec::with_capacity(items.len());
+    for e in items {
         let mut spliced = false;
         if in_quasi && e.head_is("unquote-splicing") {
-            let Form::List(spl) = e else { unreachable!() };
-            if spl.count() != 2 {
+            let Node::List(spl) = e else { unreachable!() };
+            let spl = spl.items();
+            if spl.len() != 2 {
                 return Err(raise(
                     "vla-unquote-splicing-arity",
-                    &[("n", &(spl.count() - 1).to_string())],
+                    &[("n", &(spl.len() - 1).to_string())],
                 ));
             }
-            let val = substitute(spl.nth(2)?, env, false)?;
-            let Form::List(val) = val else {
+            let val = substitute(nth(spl, 2)?, env, false)?;
+            let Node::List(val) = val else {
                 return Err(raise("vla-unquote-splicing-not-list", &[]));
             };
-            out.extend(val.items.iter().cloned());
+            out.extend(val.items().iter().cloned());
             spliced = true;
         } else if !in_quasi {
-            if let Form::Sym(s) = e {
+            if let Node::Sym(s) = e {
                 if !env.rest_name.is_empty() && fold(s) == env.rest_name {
                     // The rest parameter as an element: its forms spliced in.
                     out.extend(env.rest_items.iter().cloned());
@@ -602,38 +834,38 @@ fn substitute(t: &Form, env: &Env, in_quasi: bool) -> Result<Form, Refusal> {
     }
     // S3.1: a template copy is explicitly untagged; the user's own forms
     // spliced in above keep their lines.
-    Ok(Form::list(out))
+    Ok(Node::list(out))
 }
 
 /// VBA `FuseSymbol`: `(symbol a b ...)` fuses each argument's resolved
 /// text into one new atom. A fused text that begins with a quote mark is
 /// a string literal, as the VBA's leading-quote marker makes it.
-fn fuse_symbol(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() < 2 {
+fn fuse_symbol(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() < 2 {
         return Err(raise("vla-symbol-arity", &[]));
     }
     let mut fused = String::new();
-    for k in 2..=lst.count() {
-        let piece = substitute(lst.nth(k)?, env, false)?;
+    for k in 2..=lst.len() {
+        let piece = substitute(nth(lst, k)?, env, false)?;
         match piece {
-            Form::List(_) => {
+            Node::List(_) => {
                 return Err(raise(
                     "vla-symbol-arg-is-list",
                     &[("n", &(k - 1).to_string())],
                 ));
             }
-            Form::Str(s) => fused.push_str(&s),
-            Form::Sym(s) => fused.push_str(&s),
+            Node::Str(s) | Node::Sym(s) => fused.push_str(&s),
         }
     }
     Ok(match fused.strip_prefix('"') {
-        Some(rest) => Form::Str(rest.to_string()),
-        None => Form::Sym(fused),
+        Some(rest) => Node::Str(Arc::from(rest)),
+        None => Node::Sym(Arc::from(fused.as_str())),
     })
 }
 
-/// VBA `EvalListopsPrim`: the dispatcher the two recognition sites share.
-fn eval_listops_prim(head_fold: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
+/// VBA `EvalListopsPrim`: the dispatcher the two recognition sites share,
+/// over the primitive's call form.
+fn eval_listops_prim(head_fold: &str, lst: &[Node], env: &Env) -> Result<Node, Refusal> {
     match head_fold {
         "car" => eval_car(lst, env),
         "cdr" => eval_cdr(lst, env),
@@ -655,42 +887,44 @@ fn eval_listops_prim(head_fold: &str, lst: &List, env: &Env) -> Result<Form, Ref
 }
 
 /// VBA `ResolveListopsArg`: the argument through `Substitute`, then one
-/// top-level `(quote X)` unwrapped to its data.
-fn resolve_listops_arg(arg: &Form, env: &Env) -> Result<Form, Refusal> {
+/// top-level `(quote X)` unwrapped to its data, X itself.
+fn resolve_listops_arg(arg: &Node, env: &Env) -> Result<Node, Refusal> {
     let v = substitute(arg, env, false)?;
     if v.head_is("quote") {
-        let Form::List(qc) = &v else { unreachable!() };
-        if qc.count() != 2 {
+        let Node::List(qc) = &v else { unreachable!() };
+        let qc = qc.items();
+        if qc.len() != 2 {
             return Err(raise("vla-quote-arity", &[]));
         }
-        return Ok(qc.items[1].clone());
+        return Ok(qc[1].clone());
     }
     Ok(v)
 }
 
-fn arity_n(lst: &List) -> String {
-    (lst.count() - 1).to_string()
+fn arity_n(lst: &[Node]) -> String {
+    (lst.len() - 1).to_string()
 }
 
-fn eval_car(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_car(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(raise("vla-car-arity", &[("n", &arity_n(lst))]));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
-    let Form::List(c) = &v else {
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let Node::List(c) = &v else {
         return Err(raise(
             "vla-car-expected-list",
             &[("value", &v.atom_text().unwrap_or_default())],
         ));
     };
-    if c.items.is_empty() {
+    let Some(first) = c.items().first() else {
         return Err(raise("vla-car-empty-list", &[]));
-    }
-    Ok(c.items[0].clone())
+    };
+    Ok(first.clone())
 }
 
-/// VBA `ListTail`: the items from position `n + 1` on, untagged.
-fn list_tail(c: &List, n: usize, caller: &str) -> Result<Form, Refusal> {
+/// VBA `ListTail`: the items from position `n + 1` on, untagged, a view
+/// of the same items (`VlaSlice`).
+fn list_tail(c: &Seq, n: usize, caller: &str) -> Result<Node, Refusal> {
     if c.count() < n {
         return Err(raise(
             "vla-list-too-short",
@@ -701,15 +935,15 @@ fn list_tail(c: &List, n: usize, caller: &str) -> Result<Form, Refusal> {
             ],
         ));
     }
-    Ok(Form::list(c.items[n..].to_vec()))
+    Ok(Node::List(c.tail(n)))
 }
 
-fn eval_cdr(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_cdr(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(raise("vla-cdr-arity", &[("n", &arity_n(lst))]));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
-    let Form::List(c) = &v else {
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let Node::List(c) = &v else {
         return Err(raise(
             "vla-cdr-expected-list",
             &[("value", &v.atom_text().unwrap_or_default())],
@@ -718,12 +952,12 @@ fn eval_cdr(lst: &List, env: &Env) -> Result<Form, Refusal> {
     list_tail(c, 1, "cdr")
 }
 
-fn eval_cddr(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_cddr(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(raise("vla-cddr-arity", &[("n", &arity_n(lst))]));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
-    let Form::List(c) = &v else {
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let Node::List(c) = &v else {
         return Err(raise(
             "vla-cddr-expected-list",
             &[("value", &v.atom_text().unwrap_or_default())],
@@ -732,13 +966,17 @@ fn eval_cddr(lst: &List, env: &Env) -> Result<Form, Refusal> {
     list_tail(c, 2, "cddr")
 }
 
-fn eval_cons(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 3 {
+/// `(cons item lst)`: a new list of the item and the tail's items, as
+/// VBA's `EvalCons` makes it, which shares no tail (P-NTH: a flat view
+/// cannot hold one element ahead of a shared tail). The items themselves
+/// are shared.
+fn eval_cons(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 3 {
         return Err(raise("vla-cons-arity", &[("n", &arity_n(lst))]));
     }
-    let item = resolve_listops_arg(lst.nth(2)?, env)?;
-    let tail = resolve_listops_arg(lst.nth(3)?, env)?;
-    let Form::List(tail) = &tail else {
+    let item = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let tail = resolve_listops_arg(nth(lst, 3)?, env)?;
+    let Node::List(tail) = &tail else {
         return Err(raise(
             "vla-cons-second-not-list",
             &[("value", &tail.atom_text().unwrap_or_default())],
@@ -746,93 +984,97 @@ fn eval_cons(lst: &List, env: &Env) -> Result<Form, Refusal> {
     };
     let mut out = Vec::with_capacity(tail.count() + 1);
     out.push(item);
-    out.extend(tail.items.iter().cloned());
-    Ok(Form::list(out))
+    out.extend(tail.items().iter().cloned());
+    Ok(Node::list(out))
 }
 
-fn eval_list(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    let mut out = Vec::with_capacity(lst.count());
-    for k in 2..=lst.count() {
-        out.push(resolve_listops_arg(lst.nth(k)?, env)?);
+fn eval_list(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    let mut out = Vec::with_capacity(lst.len());
+    for k in 2..=lst.len() {
+        out.push(resolve_listops_arg(nth(lst, k)?, env)?);
     }
-    Ok(Form::list(out))
+    Ok(Node::list(out))
 }
 
-fn bool_sym(b: bool) -> Form {
-    Form::sym(if b { "true" } else { "false" })
+fn bool_sym(b: bool) -> Node {
+    Node::sym(if b { "true" } else { "false" })
 }
 
 /// VBA `AtomEqual`: symbols folded, strings exact, never across the kinds.
-fn atom_equal(a: &Form, b: &Form) -> bool {
+fn atom_equal(a: &Node, b: &Node) -> bool {
     match (a, b) {
-        (Form::Sym(x), Form::Sym(y)) => fold(x) == fold(y),
-        (Form::Str(x), Form::Str(y)) => x == y,
+        (Node::Sym(x), Node::Sym(y)) => fold(x) == fold(y),
+        (Node::Str(x), Node::Str(y)) => x == y,
         _ => false,
     }
 }
 
 /// VBA `DeepEqual`.
-fn deep_equal(a: &Form, b: &Form) -> bool {
+fn deep_equal(a: &Node, b: &Node) -> bool {
     match (a, b) {
-        (Form::List(x), Form::List(y)) => {
-            x.count() == y.count() && x.items.iter().zip(&y.items).all(|(p, q)| deep_equal(p, q))
+        (Node::List(x), Node::List(y)) => {
+            x.count() == y.count()
+                && x.items()
+                    .iter()
+                    .zip(y.items())
+                    .all(|(p, q)| deep_equal(p, q))
         }
-        (Form::List(_), _) | (_, Form::List(_)) => false,
+        (Node::List(_), _) | (_, Node::List(_)) => false,
         _ => atom_equal(a, b),
     }
 }
 
-fn eval_nullq(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_nullq(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(raise("vla-nullq-arity", &[("n", &arity_n(lst))]));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
     Ok(match &v {
-        Form::List(c) => bool_sym(c.items.is_empty()),
+        Node::List(c) => bool_sym(c.count() == 0),
         _ => bool_sym(false),
     })
 }
 
-fn eval_eq(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 3 {
+fn eval_eq(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 3 {
         return Err(raise("vla-eq-arity", &[("n", &arity_n(lst))]));
     }
-    let a = resolve_listops_arg(lst.nth(2)?, env)?;
-    let b = resolve_listops_arg(lst.nth(3)?, env)?;
+    let a = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let b = resolve_listops_arg(nth(lst, 3)?, env)?;
     if a.is_list() || b.is_list() {
         return Err(raise("vla-eq-expected-atom", &[]));
     }
     Ok(bool_sym(atom_equal(&a, &b)))
 }
 
-fn eval_equal(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 3 {
+fn eval_equal(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 3 {
         return Err(raise("vla-equal-arity", &[("n", &arity_n(lst))]));
     }
-    let a = resolve_listops_arg(lst.nth(2)?, env)?;
-    let b = resolve_listops_arg(lst.nth(3)?, env)?;
+    let a = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let b = resolve_listops_arg(nth(lst, 3)?, env)?;
     Ok(bool_sym(deep_equal(&a, &b)))
 }
 
 /// `(quote-if test then else)`: only the selected branch is ever resolved.
-fn eval_quote_if(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 4 {
+fn eval_quote_if(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 4 {
         return Err(raise("vla-quote-if-arity", &[("n", &arity_n(lst))]));
     }
-    let t = resolve_listops_arg(lst.nth(2)?, env)?;
+    let t = resolve_listops_arg(nth(lst, 2)?, env)?;
     let tf = match &t {
-        Form::List(_) => return Err(raise("vla-quote-if-test-is-list", &[])),
-        Form::Str(_) => {
+        Node::List(_) => return Err(raise("vla-quote-if-test-is-list", &[])),
+        Node::Str(_) => {
             return Err(raise(
                 "vla-quote-if-test-invalid",
                 &[("value", &t.atom_text().unwrap_or_default())],
             ))
         }
-        Form::Sym(s) => fold(s),
+        Node::Sym(s) => fold(s),
     };
     let branch = match tf.as_str() {
-        "true" => lst.nth(3)?,
-        "false" => lst.nth(4)?,
+        "true" => nth(lst, 3)?,
+        "false" => nth(lst, 4)?,
         _ => {
             return Err(raise(
                 "vla-quote-if-test-invalid",
@@ -849,19 +1091,19 @@ fn eval_quote_if(lst: &List, env: &Env) -> Result<Form, Refusal> {
 /// `QUOTIENT` (truncated toward zero) and `MOD` (the divisor's sign,
 /// `a - b * floor(a / b)`), over whole numbers only, a zero divisor
 /// refused.
-fn eval_arith_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 3 {
+fn eval_arith_expand(op: &str, lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 3 {
         return Err(raise(
             "vla-arith-expand-arity",
             &[("op", op), ("n", &arity_n(lst))],
         ));
     }
-    let a = resolve_listops_arg(lst.nth(2)?, env)?;
-    let b = resolve_listops_arg(lst.nth(3)?, env)?;
+    let a = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let b = resolve_listops_arg(nth(lst, 3)?, env)?;
     let [ta, tb] = number_texts(op, [&a, &b])?;
     let na = val(&ta);
     let nb = val(&tb);
-    let number = |x: f64| Form::Sym(str_(x).trim().to_string());
+    let number = |x: f64| Node::sym(str_(x).trim());
     Ok(match op {
         "+expand" => number(na + nb),
         "=expand" => bool_sym(na == nb),
@@ -895,7 +1137,7 @@ fn eval_arith_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
 
 /// The seven's gate over two operands, in the reference's order: both
 /// checked as lists, then both as numeric literals. Their texts.
-fn number_texts(op: &str, operands: [&Form; 2]) -> Result<[String; 2], Refusal> {
+fn number_texts(op: &str, operands: [&Node; 2]) -> Result<[String; 2], Refusal> {
     let mut texts = [String::new(), String::new()];
     for (k, v) in operands.iter().enumerate() {
         let Some(text) = v.atom_text() else {
@@ -915,7 +1157,7 @@ fn number_texts(op: &str, operands: [&Form; 2]) -> Result<[String; 2], Refusal> 
 }
 
 /// The same gate over one operand.
-fn number_text(op: &str, v: &Form) -> Result<String, Refusal> {
+fn number_text(op: &str, v: &Node) -> Result<String, Refusal> {
     let Some(text) = v.atom_text() else {
         return Err(raise("vla-arith-expand-not-number-list", &[("op", op)]));
     };
@@ -929,7 +1171,7 @@ fn number_text(op: &str, v: &Form) -> Result<String, Refusal> {
 }
 
 /// VLA.3's arity refusal for a primitive taking `want` arguments.
-fn expand_arity(op: &str, want: usize, lst: &List) -> Refusal {
+fn expand_arity(op: &str, want: usize, lst: &[Node]) -> Refusal {
     raise(
         "vla-expand-arity",
         &[
@@ -942,10 +1184,10 @@ fn expand_arity(op: &str, want: usize, lst: &List) -> Refusal {
 
 /// VLA.3: an atom's text as the object model's primitives read it, a
 /// string literal's content or a symbol's (a number's) own text.
-fn atom_text_expand(v: &Form) -> String {
+fn atom_text_expand(v: &Node) -> String {
     match v {
-        Form::Str(s) | Form::Sym(s) => s.clone(),
-        Form::List(_) => String::new(),
+        Node::Str(s) | Node::Sym(s) => s.to_string(),
+        Node::List(_) => String::new(),
     }
 }
 
@@ -954,13 +1196,13 @@ fn atom_text_expand(v: &Form) -> String {
 /// symbol, so a macro writes an address or a formula's text with no
 /// leading-quote trick; `symbol` keeps that trick for identifiers. At
 /// least one argument, as `symbol` takes.
-fn eval_concat_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() < 2 {
+fn eval_concat_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() < 2 {
         return Err(raise("vla-concat-expand-arity", &[]));
     }
     let mut joined = String::new();
-    for k in 2..=lst.count() {
-        let piece = resolve_listops_arg(lst.nth(k)?, env)?;
+    for k in 2..=lst.len() {
+        let piece = resolve_listops_arg(nth(lst, k)?, env)?;
         if piece.is_list() {
             return Err(raise(
                 "vla-expand-arg-is-list",
@@ -969,18 +1211,18 @@ fn eval_concat_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
         }
         joined.push_str(&atom_text_expand(&piece));
     }
-    Ok(Form::Str(joined))
+    Ok(Node::Str(Arc::from(joined.as_str())))
 }
 
 /// VLA.3: `(characters-expand text)`, the text split into one-character
 /// string literals in order. A character is a Unicode scalar value, as
 /// the reference counts one by joining a UTF-16 surrogate pair. The empty
 /// text gives the empty list.
-fn eval_characters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_characters_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(expand_arity("characters-expand", 1, lst));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
     if v.is_list() {
         return Err(raise(
             "vla-expand-arg-is-list",
@@ -989,22 +1231,22 @@ fn eval_characters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
     }
     let items = atom_text_expand(&v)
         .chars()
-        .map(|c| Form::Str(c.to_string()))
+        .map(|c| Node::Str(Arc::from(c.to_string().as_str())))
         .collect();
-    Ok(Form::list(items))
+    Ok(Node::list(items))
 }
 
 /// VLA.3: `(address-expand row column)`, a cell's address, relative, as
 /// Excel's `ADDRESS(row, column, 4)` writes it: `B3`. Each argument a
 /// number literal under the seven's gate, then a whole number within
 /// Excel's bounds. A string literal.
-fn eval_address_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+fn eval_address_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
     const OP: &str = "address-expand";
-    if lst.count() != 3 {
+    if lst.len() != 3 {
         return Err(expand_arity(OP, 2, lst));
     }
-    let a = resolve_listops_arg(lst.nth(2)?, env)?;
-    let b = resolve_listops_arg(lst.nth(3)?, env)?;
+    let a = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let b = resolve_listops_arg(nth(lst, 3)?, env)?;
     let [ta, tb] = number_texts(OP, [&a, &b])?;
     let (row, col) = (val(&ta), val(&tb));
     if row.fract() != 0.0 || !(1.0..=f64::from(MAX_ROW)).contains(&row) {
@@ -1019,22 +1261,19 @@ fn eval_address_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
             &[("op", OP), ("value", &tb)],
         ));
     }
-    Ok(Form::Str(format!(
-        "{}{}",
-        column_letters(col as u32),
-        str_(row).trim()
-    )))
+    let address = format!("{}{}", column_letters(col as u32), str_(row).trim());
+    Ok(Node::Str(Arc::from(address.as_str())))
 }
 
 /// VLA.3: `(row-expand address)` and `(column-expand address)`, an
 /// address's row and column numbers, as Excel's `ROW` and `COLUMN` of the
 /// reference; and `(column-expand letters)`, a column's letters alone, the
 /// reverse of `column-letters-expand`.
-fn eval_address_part_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
-    if lst.count() != 2 {
+fn eval_address_part_expand(op: &str, lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
         return Err(expand_arity(op, 1, lst));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
     if v.is_list() {
         return Err(raise("vla-expand-arg-is-list", &[("op", op), ("n", "1")]));
     }
@@ -1046,7 +1285,7 @@ fn eval_address_part_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Ref
         ));
     };
     let n = if op == "row-expand" { row } else { col };
-    Ok(Form::Sym(str_(f64::from(n)).trim().to_string()))
+    Ok(Node::sym(str_(f64::from(n)).trim()))
 }
 
 /// VLA.3: one grammar for an address, the reference's `ParseAddressText`
@@ -1092,12 +1331,12 @@ fn parse_address_text(s: &str, letters_alone: bool) -> Option<(u32, u32)> {
 
 /// VLA.3: `(column-letters-expand column)`, a column's letters as a string
 /// literal, 1 = A ... 16384 = XFD; the reverse of `column-expand`.
-fn eval_column_letters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+fn eval_column_letters_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
     const OP: &str = "column-letters-expand";
-    if lst.count() != 2 {
+    if lst.len() != 2 {
         return Err(expand_arity(OP, 1, lst));
     }
-    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
     let text = number_text(OP, &v)?;
     let col = val(&text);
     if col.fract() != 0.0 || !(1.0..=f64::from(MAX_COLUMN)).contains(&col) {
@@ -1106,49 +1345,49 @@ fn eval_column_letters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
             &[("op", OP), ("value", &text)],
         ));
     }
-    Ok(Form::Str(column_letters(col as u32)))
+    Ok(Node::Str(Arc::from(column_letters(col as u32).as_str())))
 }
 
 /// VBA `EvalCondFrom`: `(cond (test form) ... (else form))`, one clause at
 /// a time from `start_idx`; a test that folds to true or false is taken or
 /// skipped at expand time, any other test defers to a native `if`.
-fn eval_cond_from(lst: &List, start_idx: usize, env: &Env) -> Result<Form, Refusal> {
-    if start_idx > lst.count() {
-        return Ok(Form::list(vec![Form::sym("begin")]));
+fn eval_cond_from(lst: &[Node], start_idx: usize, env: &Env) -> Result<Node, Refusal> {
+    if start_idx > lst.len() {
+        return Ok(Node::list(vec![Node::sym("begin")]));
     }
-    let cl = lst.nth_list(start_idx)?;
-    if cl.count() != 2 {
+    let cl = nth_list(lst, start_idx)?.items();
+    if cl.len() != 2 {
         return Err(raise(
             "vla-cond-clause-shape",
-            &[("n", &cl.count().to_string())],
+            &[("n", &cl.len().to_string())],
         ));
     }
-    if let Form::Sym(s) = cl.nth(1)? {
+    if let Node::Sym(s) = nth(cl, 1)? {
         if fold(s) == "else" {
-            if start_idx != lst.count() {
+            if start_idx != lst.len() {
                 return Err(raise("vla-cond-else-not-last", &[]));
             }
-            return substitute(cl.nth(2)?, env, false);
+            return substitute(nth(cl, 2)?, env, false);
         }
     }
-    let t = resolve_listops_arg(cl.nth(1)?, env)?;
+    let t = resolve_listops_arg(nth(cl, 1)?, env)?;
     let tf = match &t {
-        Form::Sym(s) => fold(s),
+        Node::Sym(s) => fold(s),
         _ => String::new(),
     };
     if tf == "true" {
-        return substitute(cl.nth(2)?, env, false);
+        return substitute(nth(cl, 2)?, env, false);
     }
     if tf == "false" {
         return eval_cond_from(lst, start_idx + 1, env);
     }
-    let raw_form = substitute(cl.nth(2)?, env, false)?;
+    let raw_form = substitute(nth(cl, 2)?, env, false)?;
     let rest_form = eval_cond_from(lst, start_idx + 1, env)?;
-    Ok(Form::list(vec![
-        Form::sym("if"),
+    Ok(Node::list(vec![
+        Node::sym("if"),
         t,
-        Form::list(vec![Form::sym("then"), raw_form]),
-        Form::list(vec![Form::sym("else"), rest_form]),
+        Node::list(vec![Node::sym("then"), raw_form]),
+        Node::list(vec![Node::sym("else"), rest_form]),
     ]))
 }
 
@@ -1753,10 +1992,12 @@ mod tests {
         // VLA.1: each application's result is weighed, so a macro that
         // deepens its argument every time is refused once it nests past 64,
         // and one that doubles it once one application writes a million
-        // forms. In the port, which copies arguments, the first ran the
-        // stack out and the second the memory, before the 5000 chain limit
-        // could stop either; the reference shares arguments, builds no
-        // copies, and meets the chain limit (TestFormTooDeep's last pair).
+        // forms. In the port, which copied arguments until VLA.2, the first
+        // ran the stack out and the second the memory, before the 5000
+        // chain limit could stop either; the reference shares arguments,
+        // builds no copies, and meets the chain limit (TestFormTooDeep's
+        // last pair). The port shares them now too, and still writes its
+        // expansion out as a tree, so both stay refused here by name.
         let deeper = expand_text("(defmacro (deeper x) (deeper (x))) (deeper 1)", "", true);
         assert_eq!(deeper.unwrap_err().id, "vla-form-too-deep");
         let dup = expand_text("(defmacro (dup x) (dup (x x))) (dup 1)", "", true).unwrap_err();
@@ -1794,5 +2035,175 @@ mod tests {
         let (text, fired) = expand_text(&program, "", true).unwrap();
         assert_eq!(fired, 2001, "one application a row, and the empty end");
         assert!(text.contains("(debug-print 2000)"));
+    }
+
+    /// A node's weight found by walking its tree, as `weigh` walked it.
+    fn walked(n: &Node) -> (u32, u32) {
+        match n {
+            Node::List(l) => {
+                let (mut forms, mut deepest) = (1, 0);
+                for item in l.items() {
+                    let (f, d) = walked(item);
+                    forms += f;
+                    deepest = deepest.max(d);
+                }
+                (forms, deepest + 1)
+            }
+            _ => (1, 0),
+        }
+    }
+
+    #[test]
+    fn a_list_keeps_the_weight_its_tree_has_and_a_view_its_own() {
+        // VLA.2: the forms and the depth a list keeps are what a walk of
+        // its tree finds, for a list as read, every view `cdr` and `cddr`
+        // make of it from every start, a view of a view, and a list that
+        // holds views beside the list itself. Every view is of the one run.
+        for text in [
+            "(a (b (c (d))) \"s\" (e f) ((g)) h)",
+            "((((1))) 2 (3 (4 (5 (6)))) () 7)",
+            "(1 2 3)",
+            "()",
+            "(quote (a quote b))",
+        ] {
+            let node = Node::of(&read_forms(text).unwrap()[0]);
+            let Node::List(seq) = &node else { panic!() };
+            assert_eq!(node.weight(), walked(&node), "{text}");
+            for n in 1..=seq.count() {
+                let Node::List(view) = list_tail(seq, n, "cdr").unwrap() else {
+                    panic!()
+                };
+                assert!(Arc::ptr_eq(&view.run, &seq.run), "{text} from {n}");
+                let once = Node::List(view.clone());
+                assert_eq!(once.weight(), walked(&once), "{text} from {n}");
+                for m in 1..=view.count() {
+                    let twice = Node::List(view.tail(m));
+                    assert_eq!(twice.weight(), walked(&twice), "{text} from {n}, {m}");
+                }
+                let holder = Node::list(vec![once.clone(), node.clone(), once]);
+                assert_eq!(holder.weight(), walked(&holder), "{text} held from {n}");
+            }
+            assert_eq!(
+                list_tail(seq, seq.count() + 1, "cddr").unwrap_err().id,
+                "vla-list-too-short"
+            );
+        }
+    }
+
+    #[test]
+    fn a_parameter_s_value_is_the_argument_itself_at_every_use() {
+        // VLA.2, the reference's `Set Substitute = v`: a value used twice is
+        // the argument's own list twice, a quoted argument's content is that
+        // content, and `cdr` of it a view of its items. A list the template
+        // writes is made anew, untagged.
+        let mut ex = Expander::new();
+        ex.collect(read_forms("(defmacro (m x y) (f x x (cdr y) (car y)))").unwrap())
+            .unwrap();
+        let call = Node::of(&read_forms("(m (g 1) (quote ((h 2) 3)))").unwrap()[0]);
+        let Node::List(call) = &call else { panic!() };
+        let r = expand_one(call.items(), &ex.rules["m"]).unwrap();
+        let Node::List(r) = &r else { panic!() };
+        let shared = |n: &Node, with: &Node| match (n, with) {
+            (Node::List(a), Node::List(b)) => Arc::ptr_eq(&a.run, &b.run),
+            _ => false,
+        };
+        let [_, x, y] = call.items() else { panic!() };
+        let Node::List(quoted) = y else { panic!() };
+        let content = &quoted.items()[1];
+        let Node::List(rows) = content else { panic!() };
+        let [_, x1, x2, tail, head] = r.items() else {
+            panic!()
+        };
+        assert!(shared(x1, x) && shared(x2, x));
+        assert!(shared(tail, content));
+        let Node::List(tail) = tail else { panic!() };
+        assert_eq!((tail.start, tail.line), (1, 0));
+        assert!(shared(head, &rows.items()[0]));
+        assert_eq!(r.line, 0);
+        assert_eq!(
+            Node::List(r.clone()).form(),
+            read_forms("(f (g 1) (g 1) (3) (h 2))").unwrap()[0]
+        );
+    }
+
+    #[test]
+    fn a_result_past_a_limit_is_refused_as_the_walk_refused_it() {
+        // VLA.1's weighing reads a result's two numbers (VLA.2) and walks it
+        // only past a limit, in the copies' order, so the refusal is the
+        // walk's: a value doubled refused at its nineteenth doubling, past a
+        // million forms, a list nested past 64 named at its line, none for a
+        // list a macro made.
+        let small = Node::of(&read_forms("(a (b) c)").unwrap()[0]);
+        assert_eq!(small.weight(), (5, 2));
+        let ex = Expander::new();
+        let mut doubled = Node::sym("1");
+        for k in 1..=19 {
+            doubled = Node::list(vec![doubled.clone(), doubled.clone()]);
+            let refused = ex.weigh(&doubled);
+            assert_eq!(refused.is_err(), k == 19, "{k} doublings");
+        }
+        assert_eq!(doubled.weight().0, (1 << 20) - 1);
+        assert_eq!(
+            ex.weigh(&doubled).unwrap_err().id,
+            "vla-macro-expansion-too-large"
+        );
+        let mut deep = Node::sym("1");
+        for k in 1..=65 {
+            deep = Node::list(vec![deep]);
+            assert_eq!(ex.weigh(&deep).is_err(), k == 65, "{k} deep");
+        }
+        let r = ex.weigh(&deep).unwrap_err();
+        assert_eq!(r.id, "vla-form-too-deep");
+        assert_eq!(r.text, too_deep(0).text);
+        // A count past what a u32 holds saturates and stays saturated in
+        // every view, so the walk decides.
+        let mut huge = Node::sym("1");
+        for _ in 0..40 {
+            huge = Node::list(vec![huge.clone(), huge.clone(), huge]);
+        }
+        let Node::List(seq) = &huge else { panic!() };
+        assert_eq!(seq.forms, u32::MAX);
+        assert_eq!(seq.tail(1).forms, u32::MAX);
+        assert_eq!(
+            ex.weigh(&huge).unwrap_err().id,
+            "vla-macro-expansion-too-large"
+        );
+    }
+
+    #[test]
+    fn a_quoted_list_and_a_pass_s_arguments_keep_their_lines() {
+        // VLA.2: a form read into nodes and written out again keeps every
+        // list's line where the walk does not rebuild it: a quoted list,
+        // returned as it stands, and a user's argument inside the result of
+        // one pass. Found by a mutant that wrote every list at line 0.
+        let mut ex = Expander::new();
+        ex.collect(read_forms("(defmacro (wrap2 x) (begin (g 0) x))").unwrap())
+            .unwrap();
+        let quoted = read_forms("\n\n(quote (a\n(b)))").unwrap().remove(0);
+        let out = ex.expand(&quoted, 0).unwrap();
+        let Form::List(q) = &out else { panic!() };
+        let Form::List(data) = &q.items[1] else {
+            panic!()
+        };
+        let Form::List(b) = &data.items[1] else {
+            panic!()
+        };
+        assert_eq!((q.line, data.line, b.line), (3, 3, 4));
+        let call = read_forms("\n\n(wrap2\n(f 1))").unwrap().remove(0);
+        let out = ex.expand_one_pass(&call).unwrap();
+        let Form::List(r) = &out else { panic!() };
+        assert_eq!(r.line, 0);
+        assert_eq!(r.items[2].as_list().unwrap().line, 4);
+    }
+
+    #[test]
+    fn the_expander_crosses_threads_as_it_did() {
+        // VLA.2 keeps a macro's template as nodes in the expander; a
+        // published type's auto traits are part of its interface, so the
+        // nodes count their references atomically and the expander stays
+        // Send, Sync and unwind-safe, as `Macro` does.
+        fn interface<T: Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe>() {}
+        interface::<Expander>();
+        interface::<Macro>();
     }
 }
