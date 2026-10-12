@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.31 | KERNEL.32 |
+| KERNEL | KERNEL.32 | KERNEL.33 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -210,7 +210,11 @@ reads it makes; `KERNEL.31` for a sheet a range reads this frame kept as
 an array, as a `.last` twin is, so that a reduction over the frame's own
 cells walks an array. The one-cell-wide chain the same audit named was
 left unminted, `KERNEL.28` having brought the running balance level with
-Excel's twenty threads; `KERNEL.32` is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
+Excel's twenty threads. `KERNEL.32` was minted 2026-10-12 at the owner's
+word, from `KERNEL.20`'s close, for the doors computing through the
+machine, the larger step behind the line's last clause, the view's window
+and its cone, which the close ruled out; `KERNEL.33` is next free.
+`PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
 free.

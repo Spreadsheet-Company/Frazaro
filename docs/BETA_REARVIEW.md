@@ -23090,6 +23090,56 @@ through a temporary index, 56 of 56 checks. The item closed with the
 commit; its line is in the closed ledger. The release note is under
 `RELEASES.md`'s `## 0.9.1`, the release the owner's.
 
+**`KERNEL.20`, speed, measured: the close, 2026-10-12.** At the owner's
+word, "Recommendations approved; close out KERNEL.20", the answer to the
+owner's question of what remained. The line's work is six slices, each
+committed at the owner's word and released in 0.9.0: the previous frame's
+values kept as an array (`00a9ee1`), the cheaper frame's overheads
+(`ee4210b`), the vectorized shape (`71f90f7`), incremental maintenance
+(`e128d3c`), the values folded at build time (`590304a`) and the
+measurement against Excel with its floors (`5607910`); and beside it
+`KERNEL.26`, `KERNEL.27` and `KERNEL.28`, filed from its profiles and built
+over it. A steady frame of Life natively went from 101 ms at `KERNEL.25`,
+0.8.1's source, to 2.7 ms at the baseline.
+
+The line's two clauses left, each ruled out at the owner's word for its
+measured reason:
+- *Identical formula shapes computed once by content address.* Every
+  function would have to declare that its answer is its arguments' alone,
+  which `ROW()`, `COLUMN()`, `NOW()` and `OFFSET` are not, a principle the
+  owner's. On the four fixtures it would find little: no two cells of one
+  shape read the same cells, so identity by address never fires, and
+  identity by input values, which Life's repeating neighbourhoods would
+  meet, costs reading every input, most of what these formulas cost. Its
+  cheap forms are built: a constant and a reference every `$` holds read
+  once for a run (the third slice), and a part one formula writes twice
+  computed once (`KERNEL.27`). Not filed; if it is ever wanted, an item of
+  its own, measured first on a fixture where it would pay, repeated lookups.
+- *The view evaluating only its window and its cone.* About 5% of a view,
+  measured by the fifth slice: the release door views a 20-row window of the
+  10,000-line program in about 270 ms, of which the recalculation is 15. It
+  would count on a sheet heavy with formulas, where the doors' evaluator,
+  `Calc`, takes 3.3 s over Life's 62,964 against the machine's 3.5 ms; there
+  the larger step is the doors computing through the machine, filed as
+  `KERNEL.32` for the day a real workload asks for it.
+
+The line's oracle, `check_recalc_floors.ps1`, the 56th check, stands: the
+baseline the owner's run of 2026-10-11 over `4791290`, the floors 15%
+under, and `KERNEL.28`'s entry of 2026-10-12 after it. "The fastest
+spreadsheet on the planet" is a number now, and a mixed one. At the
+baseline the machine computed the column whole 2.6 times as fast as Excel,
+Life's whole frame 1.3 times as fast as Excel's twenty threads and 6.8
+times as fast as its one, and Life's frame 1.4 and 9.1 times; Excel
+computed the running balance 1.1 to 1.3 times faster, the twelve months 2.9
+times faster on its twenty threads and 1.2 times on one, and every edit but
+Life's 1.1 to 3.2 times faster. `KERNEL.28` has since taken the running
+balance about a quarter faster and the twelve months about a third faster,
+by its own measure, the balance level with Excel's twenty threads.
+`fullCalcOnLoad` stays in a build, the owner's ruling of 2026-10-11. The
+gaps left, a sum over a range against Excel's threads and an edit that
+reaches most cells, are unfiled. `KERNEL.20` closes, ✅, its line moved to
+the closed ledger.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -36312,6 +36362,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.26 — the frame's two decisions: the language's own functions computed by a run, by their meaning written once, and the frame's values kept at each cell's place in the order.** Filed from `KERNEL.20`'s third slice for the owner to adjudicate together, and both built over its fourth: each aggregate's meaning written once in the library, a rule for each kind of item it counts and a fold for each of `SUM`, `MIN`, `MAX`, `AND` and `OR`, with `NOT`'s answer, which a cell's evaluation and a run both drive, a range of a twin walked where it stands; lanes of numbers and of truth values carrying a formula's steps by `binary`'s own rules over numbers, named so that `binary` calls them too; and the frame's values kept at each formula cell's position in the order, which the plan already held, where a map held them. Every frame equal to the hand-written Life and every golden unchanged; four tests, and 27 mutants caught, the three in a rule both drive by the library's own tests; no level of the evaluation deeper on the stack. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 12.0 to 4.8 ms natively and from 16.3 to 6.6 in headless Chrome, 153 frames a second, about twenty times 0.8.1's; the gun's from 42 to 20 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. The two further gains its profile named are `KERNEL.27`. `~days` each, taken in hours.
 - ✅ **KERNEL.27 — the 4.8 ms frame's two further gains: the twins' cells made only when read, and a part repeated in one formula computed once.** Filed from `KERNEL.26`'s profile of its own frame, and both built over it: a changed formula cell of a twin kept as an array written into the array alone, its twin cell made from the array when a reader of the twin as a sheet asks, the walk and `Machine::workbook` making them and a view reading through the array, `workbook` borrowing the machine mutably for it, the change of the crate's interface that makes the release 0.9.0; and a part a formula writes more than once in one branch of every `IF` around it computed once a run, its places found once a shape by their paths from the parse's root. Every frame equal to the hand-written Life and every golden unchanged; five tests, the generator writing parts twice, 26 mutants caught; a run's step at most 0.8 KiB deeper on the stack at 64 levels, every load shallower. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 4.86 to 2.89 ms natively and from 6.7 to 4.3 in headless Chrome, 235 frames a second, about 35 times 0.8.1's; the gun's from 20 to 15 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. `~days` each, taken in hours.
 - ✅ **KERNEL.28 — the language's remaining functions computed by a run: `ROW`, `COLUMN`, `MOD`, `INT`, `ABS` and `SIN` over lanes, and `CHOOSE` partitioned as `IF` is.** Minted at the owner's word as the ask of Alonzo's `CART.2`, whose Sand paid for its direction's strict calls at each cell and more for `CHOOSE`, and built as scoped: each meaning written once in the library and driven by the run, the functions of numbers computed where every operand at a cell is a number and the library's function at any other, so that no coercion nor the order of a call's reasons and errors is written twice; `ROW` and `COLUMN` from the run's own cells, or a reference's corner moved to each; `CHOOSE` computing each value only at the cells that choose it, gathered by a count of its labels; and the floors' instrument keeping each floor at least where the entry before it stood. Every value equal to the library's at every cell and every frame to the hand-written Life and Sand; four tests and four arms of the generator, 18 of 19 mutants caught, the 19th a change of speed alone; every load as deep as before, a run's step 16 bytes deeper a level and a function of numbers 1.6 KiB more once at its innermost call, past decision 5's 1.2 KiB at 64 levels, recorded. Measured over `5607910`, three pairs alternated: the running balance whole from 3.68 to 2.71 ms, the twelve months whole and edited from 4.64 and 5.03 to 3.19 and 3.66, Life's soup from 21.9 to 10.0; Sand's direction computed at each cell from 13.5 to 11.8 and through `CHOOSE` from 29.6 to 12.0, against 11.7 through its twin column; the allocations unchanged. The owner's run of the native half is the floors' new entry, four raised, two kept, and two lowered for a reason written, rows the item does not move having measured slower that day on the unchanged code. Scoped 2026-10-11, built and committed 2026-10-12 at the owner's word; the entry above carries the record. `~days`, taken in hours.
+- ✅ **KERNEL.20 — speed, measured.** Six slices, each committed at the owner's word 2026-10-10 to 2026-10-11 and released in 0.9.0, the item closed 2026-10-12 at the owner's word: the previous frame's values kept as an array, the cheaper frame's overheads, the vectorized shape, incremental maintenance, the values folded at build time, and the measurement against Excel on four built workbooks with its floors (`check_recalc_floors.ps1`, the 56th check), with `KERNEL.26`, `KERNEL.27` and `KERNEL.28` filed from its profiles. Life's frame natively from 101 ms at 0.8.1 to 2.7 ms. Against Excel on the same files at the baseline: the column whole 2.6 times as fast, Life 1.3 times as fast as Excel's twenty threads and 6.8 times its one; the running balance 1.1 times slower, the twelve months 2.9 times slower, the edits but Life's slower. Ruled out at the close: identical shapes computed once by content address (a purity property every function would declare, little to find on the fixtures, its cheap forms built) and the view's window and its cone (about 5% of a view; the doors computing through the machine filed as `KERNEL.32`). `fullCalcOnLoad` kept, the owner's ruling. *(more: the six slices' entries and the close, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 
