@@ -42,6 +42,22 @@
 //! A shape is not followed when its formula reads a defined name, whose
 //! text may read its cell, or a span of sheets. Its cells are computed
 //! every frame, as every cell was.
+//!
+//! A changed cell is checked against the readers of its sheet, each shape's
+//! references to it, and a sheet of [`INDEX_FROM`] readers or more keeps
+//! them by where a changed cell must stand to reach them, wherever that at
+//! least halves what a changed cell is checked against (KERNEL.35,
+//! 2026-10-12): written one fill a row, Life's 198 shapes had every frame's
+//! start check 2.5 million readers. A reader's footprint is the rows and the
+//! columns of the read sheet it can reach from: a held rectangle's, a part's
+//! cell, a moving reference's numbers moved over the offsets its shape's
+//! cells stand at, each `$`-held number staying where it is. A sheet's
+//! readers are filed by the rows or by the columns of their footprints,
+//! whichever leaves a changed cell fewer to check, in bands one row or one
+//! column wide, and a band that still holds [`INDEX_FROM`] or more is filed
+//! again by the other axis. A changed cell is checked against the readers
+//! too wide to file and against its band's, each exactly as the scan checks
+//! it, so the index leaves out only readers that reach nothing from it.
 
 use crate::fx::FxHashMap;
 use crate::refers::Shape as Part;
@@ -151,6 +167,36 @@ impl Dim {
         };
         let (lo, hi) = (lo.max(a), hi.min(b));
         (lo <= hi).then_some((lo, hi))
+    }
+
+    /// The numbers the dimension holds at some offset from `d0` to `d1`, on
+    /// the sheet (KERNEL.35); `None` where it holds none. A number its `$`
+    /// holds stays where it is and one it does not moves with the offset,
+    /// and the dimension holds what lies between its two, so the least and
+    /// the most either takes over the offsets bound everything it holds at
+    /// any of them.
+    fn reach(self, (d0, d1): (i64, i64)) -> Option<Span> {
+        let (n1, abs1, n2, abs2, max) = match self {
+            Dim::Whole { max } => return Some((1, max)),
+            Dim::Span {
+                n1,
+                abs1,
+                n2,
+                abs2,
+                max,
+            } => (n1, abs1, n2, abs2, max),
+        };
+        let ends = |n: u32, abs: bool| {
+            let n = i64::from(n);
+            if abs {
+                (n, n)
+            } else {
+                (n + d0, n + d1)
+            }
+        };
+        let ((a0, a1), (b0, b1)) = (ends(n1, abs1), ends(n2, abs2));
+        let (lo, hi) = (a0.min(b0).max(1), a1.max(b1).min(i64::from(max)));
+        (lo <= hi).then_some((lo as u32, hi as u32))
     }
 }
 
@@ -275,6 +321,410 @@ pub(crate) enum Reached {
     Parts(usize),
 }
 
+/// The readers a sheet holds from which a changed cell of it is checked
+/// against an index of them, and a band's from which its readers are filed
+/// again by the other axis (KERNEL.35). Alonzo's cartridges hold at most 15
+/// readers a sheet, so none of theirs is indexed.
+const INDEX_FROM: usize = 16;
+
+/// The most bands a reader is filed under: one whose footprint is wider is
+/// checked against every changed cell of its sheet, as the scan checks it.
+const WIDE: u32 = 64;
+
+/// The least and the most rows, or columns, a footprint holds.
+type Span = (u32, u32);
+
+/// The rows and the columns of the sheet a reader reads from which a changed
+/// cell reaches a cell of its shape, or more (KERNEL.35); `None` where it
+/// holds none. The scan checks a reader at any changed cell and finds what
+/// it reaches; outside this, it finds nothing.
+fn footprint(reader: &Reader, stand: &Stand) -> Option<(Span, Span)> {
+    match reader.kind {
+        Kind::Held {
+            top,
+            left,
+            bottom,
+            right,
+        } => Some(((top, bottom), (left, right))),
+        Kind::Parts { row, col } => Some(((row, row), (col, col))),
+        Kind::Moving { rows, cols } => Some((rows.reach(stand.rows)?, cols.reach(stand.cols)?)),
+    }
+}
+
+/// One axis's readers by band, a band one row or one column wide (KERNEL.35):
+/// each reader's number filed under every band its footprint holds on the
+/// axis, a band's together, in one array with its offsets, as a plan keeps
+/// its edges (KERNEL.33); a reader whose footprint spans more than [`WIDE`]
+/// bands, or none, checked against every changed cell.
+#[derive(Clone, Debug)]
+struct Bands {
+    /// The readers checked against every changed cell, by number.
+    wide: Vec<u32>,
+    /// Every band's readers, a band's together, by number: slot `k`'s are
+    /// `entries[starts[k]..starts[k + 1]]`.
+    entries: Vec<u32>,
+    starts: Vec<u32>,
+    slots: Slots,
+}
+
+/// Which slot each band's readers are at.
+#[derive(Clone, Debug)]
+enum Slots {
+    /// Every band from the least a reader holds to the most, band
+    /// `first + k` at slot `k`.
+    Flat { first: u32, len: u32 },
+    /// The bands readers hold, where they stand too far apart for an array
+    /// over every band between them, each at its slot by hash, as
+    /// [`Positions`] keeps a sheet's formulas that stand apart: a narrow
+    /// reader at row 1,048,576 beside readers at the top would ask the array
+    /// for a million slots.
+    Hash(FxHashMap<u32, u32>),
+}
+
+impl Bands {
+    /// The readers `ids` filed by their spans on the axis, `span` giving
+    /// each one's.
+    fn of(ids: impl Iterator<Item = u32>, span: impl Fn(u32) -> Option<Span>) -> Bands {
+        let mut wide = Vec::new();
+        let mut filed: Vec<(u32, Span)> = Vec::new();
+        let (mut least, mut most, mut held) = (u32::MAX, 0, 0u64);
+        for i in ids {
+            match span(i) {
+                Some((lo, hi)) if hi - lo < WIDE => {
+                    filed.push((i, (lo, hi)));
+                    least = least.min(lo);
+                    most = most.max(hi);
+                    held += u64::from(hi - lo + 1);
+                }
+                _ => wide.push(i),
+            }
+        }
+        // As a sheet's formulas' positions are kept: an array no more than
+        // four times what it holds, so that two bands far apart are two
+        // slots and not a million.
+        let slots = if filed.is_empty() {
+            Slots::Flat { first: 0, len: 0 }
+        } else if u64::from(most - least) < 4 * held + 64 {
+            Slots::Flat {
+                first: least,
+                len: most - least + 1,
+            }
+        } else {
+            let mut bands: Vec<u32> = filed.iter().flat_map(|&(_, (lo, hi))| lo..=hi).collect();
+            bands.sort_unstable();
+            bands.dedup();
+            Slots::Hash(
+                bands
+                    .into_iter()
+                    .enumerate()
+                    .map(|(k, n)| (n, k as u32))
+                    .collect(),
+            )
+        };
+        let count = match &slots {
+            Slots::Flat { len, .. } => *len as usize,
+            Slots::Hash(map) => map.len(),
+        };
+        let mut b = Bands {
+            wide,
+            entries: Vec::new(),
+            starts: vec![0; count + 1],
+            slots,
+        };
+        for &(_, (lo, hi)) in &filed {
+            for n in lo..=hi {
+                let k = b.slot(n).expect("a band filed has a slot");
+                b.starts[k + 1] += 1;
+            }
+        }
+        for k in 0..count {
+            b.starts[k + 1] += b.starts[k];
+        }
+        let mut at: Vec<u32> = b.starts[..count].to_vec();
+        b.entries = vec![0; b.starts[count] as usize];
+        for &(i, (lo, hi)) in &filed {
+            for n in lo..=hi {
+                let k = b.slot(n).expect("a band filed has a slot");
+                b.entries[at[k] as usize] = i;
+                at[k] += 1;
+            }
+        }
+        b
+    }
+
+    /// The slot of the band holding the number `n`, if a reader holds it.
+    fn slot(&self, n: u32) -> Option<usize> {
+        match &self.slots {
+            Slots::Flat { first, len } => {
+                let k = n.checked_sub(*first)?;
+                (k < *len).then_some(k as usize)
+            }
+            Slots::Hash(map) => map.get(&n).map(|&k| k as usize),
+        }
+    }
+
+    /// The readers of the band at slot `k`.
+    fn list(&self, k: usize) -> &[u32] {
+        &self.entries[self.starts[k] as usize..self.starts[k + 1] as usize]
+    }
+
+    /// How many slots there are.
+    fn slots(&self) -> usize {
+        self.starts.len() - 1
+    }
+
+    /// The readers a changed cell is checked against, on average over the
+    /// bands that hold one: what the bands are chosen by.
+    fn mean(&self) -> f64 {
+        let held = (0..self.slots())
+            .filter(|&k| !self.list(k).is_empty())
+            .count();
+        self.wide.len() as f64 + self.entries.len() as f64 / held.max(1) as f64
+    }
+
+    /// Each band's number and readers, by number, and the readers checked
+    /// always: the index spelled (KERNEL.34's oracle, through `spelled`).
+    #[cfg(test)]
+    fn spelled(&self) -> String {
+        let mut bands: Vec<(u32, usize)> = match &self.slots {
+            Slots::Flat { first, len } => (0..*len).map(|k| (first + k, k as usize)).collect(),
+            Slots::Hash(map) => map.iter().map(|(&n, &k)| (n, k as usize)).collect(),
+        };
+        bands.sort_unstable();
+        let listed: Vec<(u32, &[u32])> = bands
+            .into_iter()
+            .map(|(n, k)| (n, self.list(k)))
+            .filter(|(_, l)| !l.is_empty())
+            .collect();
+        format!("wide {:?} bands {listed:?}", self.wide)
+    }
+}
+
+/// Whether an index whose changed cell meets `mean` readers on average at
+/// least halves the `n` the scan checks: an index that does not costs more
+/// than it saves, each reader one step further away.
+fn halves(mean: f64, n: usize) -> bool {
+    mean * 2.0 <= n as f64
+}
+
+/// A sheet's readers by where a changed cell stands (KERNEL.35): filed by
+/// the axis that leaves a changed cell fewer to check, each band of it that
+/// still holds [`INDEX_FROM`] or more filed again by the other.
+#[derive(Clone, Debug)]
+struct Index {
+    /// Whether the first axis is the rows.
+    by_rows: bool,
+    /// The readers by band of the first axis.
+    first: Bands,
+    /// For each slot of the first axis, the place in `again` of its readers
+    /// filed by the other axis, or [`NONE`]; empty when no band is.
+    filed: Vec<u32>,
+    again: Vec<Bands>,
+}
+
+impl Index {
+    /// A sheet's readers indexed, or `None` where they are fewer than
+    /// [`INDEX_FROM`] or no index at least halves what a changed cell is
+    /// checked against.
+    fn of(readers: &[Reader], stands: &[Stand]) -> Option<Index> {
+        let force = forced();
+        if readers.is_empty() || (force.is_none() && readers.len() < INDEX_FROM) {
+            return None;
+        }
+        let spans: Vec<Option<(Span, Span)>> = readers
+            .iter()
+            .map(|r| footprint(r, &stands[r.shape]))
+            .collect();
+        let all = 0..readers.len() as u32;
+        let rows = Bands::of(all.clone(), |i| spans[i as usize].map(|s| s.0));
+        let cols = Bands::of(all, |i| spans[i as usize].map(|s| s.1));
+        let by_rows = match force {
+            Some(Some(rows)) => rows,
+            _ => rows.mean() <= cols.mean(),
+        };
+        let first = if by_rows { rows } else { cols };
+        if force.is_none() && !halves(first.mean(), readers.len()) {
+            return None;
+        }
+        let other = |i: u32| spans[i as usize].map(|s| if by_rows { s.1 } else { s.0 });
+        let (mut filed, mut again) = (Vec::new(), Vec::new());
+        for k in 0..first.slots() {
+            let list = first.list(k);
+            let many = match force {
+                Some(_) => list.len() >= 2,
+                None => list.len() >= INDEX_FROM,
+            };
+            if !many {
+                continue;
+            }
+            let by_other = Bands::of(list.iter().copied(), other);
+            if force.is_some() || halves(by_other.mean(), list.len()) {
+                if filed.is_empty() {
+                    filed = vec![NONE; first.slots()];
+                }
+                filed[k] = again.len() as u32;
+                again.push(by_other);
+            }
+        }
+        Some(Index {
+            by_rows,
+            first,
+            filed,
+            again,
+        })
+    }
+
+    /// The readers of the first axis's band at slot `k` filed by the other
+    /// axis, if they are.
+    fn again(&self, k: usize) -> Option<&Bands> {
+        match self.filed.get(k) {
+            Some(&j) if j != NONE => Some(&self.again[j as usize]),
+            _ => None,
+        }
+    }
+
+    /// Each reader a cell changed at `row` and `col` is checked against, by
+    /// its number among the sheet's readers, to `f`, each once.
+    fn each(&self, row: u32, col: u32, f: &mut impl FnMut(u32)) {
+        let (at, other) = if self.by_rows { (row, col) } else { (col, row) };
+        for &i in &self.first.wide {
+            f(i);
+        }
+        let Some(k) = self.first.slot(at) else {
+            return;
+        };
+        match self.again(k) {
+            Some(by_other) => {
+                for &i in &by_other.wide {
+                    f(i);
+                }
+                if let Some(m) = by_other.slot(other) {
+                    for &i in by_other.list(m) {
+                        f(i);
+                    }
+                }
+            }
+            None => {
+                for &i in self.first.list(k) {
+                    f(i);
+                }
+            }
+        }
+    }
+
+    /// The most readers any one changed cell is checked against.
+    fn most(&self) -> usize {
+        let band = |k: usize| match self.again(k) {
+            Some(b) => b.wide.len() + (0..b.slots()).map(|m| b.list(m).len()).max().unwrap_or(0),
+            None => self.first.list(k).len(),
+        };
+        self.first.wide.len() + (0..self.first.slots()).map(band).max().unwrap_or(0)
+    }
+
+    /// The index spelled, each band's readers by number (KERNEL.34's oracle).
+    #[cfg(test)]
+    fn spelled(&self) -> String {
+        let mut out = format!(
+            "by {} {}",
+            if self.by_rows { "rows" } else { "columns" },
+            self.first.spelled()
+        );
+        let mut again: Vec<(u32, String)> = (0..self.first.slots())
+            .filter_map(|k| {
+                let n = match &self.first.slots {
+                    Slots::Flat { first, .. } => first + k as u32,
+                    Slots::Hash(map) => *map.iter().find(|&(_, &s)| s as usize == k)?.0,
+                };
+                Some((n, self.again(k)?.spelled()))
+            })
+            .collect();
+        again.sort();
+        for (n, b) in again {
+            out.push_str(&format!(" again {n} {b}"));
+        }
+        out
+    }
+}
+
+/// Whether a test asks every sheet indexed: `Some` with the first axis it
+/// asks, `None` for the one an index finds; `None` outside a test.
+#[cfg(not(test))]
+fn forced() -> Option<Option<bool>> {
+    None
+}
+
+#[cfg(test)]
+fn forced() -> Option<Option<bool>> {
+    every::asked()
+}
+
+/// Every sheet indexed in a test, whatever its readers' count and whether
+/// its index halves them, every band of two readers or more filed again,
+/// and the first axis the rows, the columns or the one an index finds:
+/// the index held to the scan over grids whose sheets hold few readers
+/// (KERNEL.35's oracle). On the thread that asked, until the guard drops.
+#[cfg(test)]
+pub(crate) mod every {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ASKED: Cell<Option<Option<bool>>> = const { Cell::new(None) };
+    }
+
+    /// Asked until dropped, then as before.
+    pub(crate) struct Guard(Option<Option<bool>>);
+
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            ASKED.with(|a| a.set(self.0));
+        }
+    }
+
+    /// Every sheet indexed, its first axis the rows (`Some(true)`), the
+    /// columns (`Some(false)`) or the one an index finds (`None`).
+    pub(crate) fn sheet_indexed(by_rows: Option<bool>) -> Guard {
+        Guard(ASKED.with(|a| a.replace(Some(by_rows))))
+    }
+
+    pub(super) fn asked() -> Option<Option<bool>> {
+        ASKED.with(Cell::get)
+    }
+}
+
+/// The readers checked against changed cells, counted in a test
+/// (KERNEL.35's oracle), as `crate::sheet::work` counts a write's work: each
+/// reader of a changed cell's sheet checked, through the index or the scan.
+/// Counted on the thread that asked, between [`checked::begin`] and
+/// [`checked::end`], and only in a test build.
+#[cfg(test)]
+pub(crate) mod checked {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ON: Cell<bool> = const { Cell::new(false) };
+        static COUNT: Cell<u64> = const { Cell::new(0) };
+    }
+
+    /// Counting begins on this thread, from nothing.
+    pub(crate) fn begin() {
+        ON.with(|on| on.set(true));
+        COUNT.with(|c| c.set(0));
+    }
+
+    /// The readers checked since [`begin`]; counting ends.
+    pub(crate) fn end() -> u64 {
+        ON.with(|on| on.set(false));
+        COUNT.with(Cell::get)
+    }
+
+    /// One reader checked.
+    pub(super) fn one() {
+        if ON.with(Cell::get) {
+            COUNT.with(|c| c.set(c.get() + 1));
+        }
+    }
+}
+
 /// What each shape of a plan reads and where its cells stand, found when
 /// the plan is: the cells a changed cell reaches. See the module's comment.
 #[derive(Clone, Debug, Default)]
@@ -282,6 +732,9 @@ pub(crate) struct Reach {
     stands: Vec<Stand>,
     /// By sheet, the shapes that read it and how.
     readers: Vec<Vec<Reader>>,
+    /// By sheet, its readers by where a changed cell stands, where they are
+    /// many (KERNEL.35).
+    index: Vec<Option<Index>>,
     /// The shapes no change is followed to, computed every frame.
     unfollowed: Vec<usize>,
     /// Every shape's parts the same at every cell that are computed at a
@@ -416,9 +869,14 @@ impl Reach {
             }
         }
         firsts.push(parts.len());
+        let index = readers
+            .iter()
+            .map(|list| Index::of(list, &stands))
+            .collect();
         Reach {
             stands,
             readers,
+            index,
             unfollowed,
             parts,
             firsts,
@@ -428,57 +886,89 @@ impl Reach {
     }
 
     /// Everything a changed cell reaches, to `f`; a cell of the order may
-    /// come more than once.
+    /// come more than once. The readers it is checked against are its
+    /// sheet's index's, where the sheet has one, and every reader of the
+    /// sheet where it has none (KERNEL.35), each in no order that matters:
+    /// what is reached marks a set.
     pub(crate) fn each(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
         let (sheet, row, col) = changed;
         let Some(readers) = self.readers.get(sheet) else {
             return;
         };
-        for reader in readers {
-            let s = reader.shape;
-            match reader.kind {
-                Kind::Held {
-                    top,
-                    left,
-                    bottom,
-                    right,
-                } => {
-                    if top <= row && row <= bottom && left <= col && col <= right {
-                        f(Reached::Shape(s));
-                    }
+        match self.index.get(sheet).and_then(Option::as_ref) {
+            Some(index) => {
+                index.each(row, col, &mut |i| {
+                    self.check(&readers[i as usize], changed, f);
+                });
+            }
+            None => {
+                for reader in readers {
+                    self.check(reader, changed, f);
                 }
-                Kind::Parts { row: r, col: c } => {
-                    if (r, c) == (row, col) {
-                        f(Reached::Parts(s));
-                    }
+            }
+        }
+    }
+
+    /// Everything a changed cell reaches, every reader of its sheet checked
+    /// against it: the reach before KERNEL.35, kept as the index's reference.
+    #[cfg(test)]
+    pub(crate) fn each_by_scan(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
+        if let Some(readers) = self.readers.get(changed.0) {
+            for reader in readers {
+                self.check(reader, changed, f);
+            }
+        }
+    }
+
+    /// One reader of a changed cell's sheet checked against it: what it
+    /// reaches, to `f`.
+    fn check(&self, reader: &Reader, changed: CellId, f: &mut impl FnMut(Reached)) {
+        #[cfg(test)]
+        checked::one();
+        let (sheet, row, col) = changed;
+        let s = reader.shape;
+        match reader.kind {
+            Kind::Held {
+                top,
+                left,
+                bottom,
+                right,
+            } => {
+                if top <= row && row <= bottom && left <= col && col <= right {
+                    f(Reached::Shape(s));
                 }
-                Kind::Moving { rows, cols } => {
-                    let stand = &self.stands[s];
-                    let (Some((r0, r1)), Some((c0, c1))) = (rows.offsets(row), cols.offsets(col))
-                    else {
-                        continue;
-                    };
-                    let (r0, r1) = (r0.max(stand.rows.0), r1.min(stand.rows.1));
-                    let (c0, c1) = (c0.max(stand.cols.0), c1.min(stand.cols.1));
-                    if r0 > r1 || c0 > c1 {
-                        continue;
-                    }
-                    let on = if reader.own {
-                        std::slice::from_ref(&sheet)
-                    } else {
-                        stand.sheets.as_slice()
-                    };
-                    for &y in on {
-                        for d_row in r0..=r1 {
-                            // An offset the shape's cells stand at is a row and
-                            // a column on the sheet.
-                            let r = (i64::from(stand.anchor.0) + d_row) as u32;
-                            for d_col in c0..=c1 {
-                                let c = (i64::from(stand.anchor.1) + d_col) as u32;
-                                if let Some(p) = self.positions.get(y, r, c) {
-                                    if self.shape_at[p] as usize == s {
-                                        f(Reached::Cell(p));
-                                    }
+            }
+            Kind::Parts { row: r, col: c } => {
+                if (r, c) == (row, col) {
+                    f(Reached::Parts(s));
+                }
+            }
+            Kind::Moving { rows, cols } => {
+                let stand = &self.stands[s];
+                let (Some((r0, r1)), Some((c0, c1))) = (rows.offsets(row), cols.offsets(col))
+                else {
+                    return;
+                };
+                let (r0, r1) = (r0.max(stand.rows.0), r1.min(stand.rows.1));
+                let (c0, c1) = (c0.max(stand.cols.0), c1.min(stand.cols.1));
+                if r0 > r1 || c0 > c1 {
+                    return;
+                }
+                let on = if reader.own {
+                    std::slice::from_ref(&sheet)
+                } else {
+                    stand.sheets.as_slice()
+                };
+                for &y in on {
+                    for d_row in r0..=r1 {
+                        // An offset the shape's cells stand at is a row and
+                        // a column on the sheet.
+                        let r = (i64::from(stand.anchor.0) + d_row) as u32;
+                        for d_col in c0..=c1 {
+                            let c = (i64::from(stand.anchor.1) + d_col) as u32;
+                            if let Some(p) = self.positions.get(y, r, c) {
+                                if self.shape_at[p] as usize == s {
+                                    f(Reached::Cell(p));
                                 }
                             }
                         }
@@ -523,21 +1013,35 @@ impl Reach {
     }
 
     /// The reach spelled but for the positions, which the order makes
-    /// (KERNEL.34's oracle, through `Shapes::spelled`).
+    /// (KERNEL.34's oracle, through `Shapes::spelled`), each sheet's index
+    /// with it (KERNEL.35).
     #[cfg(test)]
     pub(crate) fn spelled(&self) -> String {
+        let index: Vec<String> = self
+            .index
+            .iter()
+            .enumerate()
+            .filter_map(|(s, x)| Some(format!("{s} {}", x.as_ref()?.spelled())))
+            .collect();
         format!(
-            "stands {:?}\nreaders {:?}\nunfollowed {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
+            "stands {:?}\nreaders {:?}\nindex {index:?}\nunfollowed {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
             self.stands, self.readers, self.unfollowed, self.parts, self.firsts, self.shape_at
         )
     }
 
-    /// How many readers a changed cell of a sheet is checked against, at a
-    /// frame's start and at each cell the frame changes (KERNEL.30's census
-    /// prints it): each shape's references to the sheet that reach other
-    /// cells than another of its own does.
+    /// The readers of a sheet, each shape's references to it that reach
+    /// other cells than another of its own does (KERNEL.30's census prints
+    /// how many): what a changed cell of a sheet without an index is checked
+    /// against, at a frame's start and at each cell the frame changes.
     pub(crate) fn readers_on(&self, sheet: usize) -> usize {
         self.readers.get(sheet).map_or(0, Vec::len)
+    }
+
+    /// The most readers one changed cell of a sheet is checked against,
+    /// where the sheet's readers are indexed (KERNEL.35, the census's
+    /// figure); `None` for a sheet whose every reader is checked.
+    pub(crate) fn most_on(&self, sheet: usize) -> Option<usize> {
+        self.index.get(sheet)?.as_ref().map(Index::most)
     }
 }
 
@@ -790,7 +1294,7 @@ fn held(r: &RefExpr) -> bool {
         && r.corners.col_abs1
 }
 
-/// No position.
+/// No position, and no band filed again.
 const NONE: u32 = u32::MAX;
 
 /// Each formula cell's position in the order: an array over a sheet's
@@ -1003,6 +1507,128 @@ mod tests {
             ..board.clone()
         };
         assert!(!covers(moving("A1:C3"), moving("B2"), &higher));
+    }
+
+    #[test]
+    fn a_dimension_reaches_every_number_its_moves_hold() {
+        // KERNEL.35: each kind of reference and each `$` mark, over spans of
+        // offsets around the sheet's first rows and columns, where a move
+        // leaves it: every row and column `RefExpr::moved` gives at an offset
+        // of the span lies within what `Dim::reach` names for the span; and
+        // where no offset of the span moves it off the sheet, the least and
+        // the most it names are held at some offset.
+        let texts = [
+            "C3",
+            "$C3",
+            "C$3",
+            "$C$3",
+            "B2:D4",
+            "$B2:D$4",
+            "B$2:$D4",
+            "$B$2:$D$4",
+            "D4:B2",
+            "$D4:B2",
+            "D$4:B$2",
+            "A1:B2",
+            "C:D",
+            "$C:D",
+            "C:$D",
+            "3:4",
+            "$3:4",
+            "3:$4",
+            "A$1:A3",
+            "A1:A$3",
+        ];
+        for text in texts {
+            let r = reference(text);
+            let (rows, cols) = (Dim::rows(&r).unwrap(), Dim::cols(&r).unwrap());
+            for d0 in -6i64..=3 {
+                for d1 in d0..=d0 + 5 {
+                    for (dim, by_rows) in [(rows, true), (cols, false)] {
+                        let held: Vec<Option<(u32, u32)>> = (d0..=d1)
+                            .map(|d| match by_rows {
+                                true => r.moved(d, 0).map(|(t, _, b, _)| (t, b)),
+                                false => r.moved(0, d).map(|(_, l, _, rt)| (l, rt)),
+                            })
+                            .collect();
+                        let named = dim.reach((d0, d1));
+                        for &(lo, hi) in held.iter().flatten() {
+                            assert!(
+                                named.is_some_and(|(a, b)| a <= lo && hi <= b),
+                                "{text} over {d0} to {d1}, {}: {lo} to {hi} outside {named:?}",
+                                if by_rows { "rows" } else { "columns" }
+                            );
+                        }
+                        if held.iter().all(Option::is_some) {
+                            let least = held.iter().flatten().map(|h| h.0).min();
+                            let most = held.iter().flatten().map(|h| h.1).max();
+                            assert_eq!(
+                                named,
+                                least.zip(most),
+                                "{text} over {d0} to {d1}, {}",
+                                if by_rows { "rows" } else { "columns" }
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bands_list_each_reader_whose_span_holds_a_number_lying_close_or_apart() {
+        // KERNEL.35: readers of spans of every width, some none and some too
+        // wide to file, filed by band: each number's band lists exactly the
+        // readers whose span holds it and is narrow enough, in order, each
+        // once, and the rest are the ones checked always. Spans lying close
+        // are kept in an array over their bands, and spans one of which
+        // stands at the sheet's last row in a hash, which lists the same.
+        let mut seed = 0x35u64;
+        let mut next = |n: u32| {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 33) % u64::from(n)) as u32
+        };
+        let mut hashed = 0;
+        for case in 0..60 {
+            let far = case % 3 == 0;
+            let spans: Vec<Option<Span>> = (0..40)
+                .map(|i| match next(10) {
+                    0 => None,
+                    1 => Some((1 + next(30), 200 + next(50))),
+                    _ if far && i == 7 => Some((MAX_ROW - 1, MAX_ROW)),
+                    _ => {
+                        let lo = 1 + next(40);
+                        Some((lo, lo + next(6)))
+                    }
+                })
+                .collect();
+            let filed = |i: usize| spans[i].filter(|&(lo, hi)| hi - lo < WIDE);
+            let apart = (0..40).any(|i| filed(i).is_some_and(|(lo, _)| lo > 1_000));
+            let bands = Bands::of(0..40, |i| spans[i as usize]);
+            assert_eq!(
+                matches!(bands.slots, Slots::Hash(_)),
+                apart,
+                "case {case}: {spans:?}"
+            );
+            hashed += usize::from(apart);
+            let wide: Vec<u32> = (0..40)
+                .filter(|&i| filed(i).is_none())
+                .map(|i| i as u32)
+                .collect();
+            assert_eq!(bands.wide, wide, "case {case}");
+            let probes = (1..=100).chain([MAX_ROW - 2, MAX_ROW - 1, MAX_ROW]);
+            for n in probes {
+                let want: Vec<u32> = (0..40)
+                    .filter(|&i| filed(i).is_some_and(|(lo, hi)| lo <= n && n <= hi))
+                    .map(|i| i as u32)
+                    .collect();
+                let got = bands.slot(n).map_or(&[][..], |k| bands.list(k));
+                assert_eq!(got, want.as_slice(), "case {case}, band {n}");
+            }
+        }
+        assert!(hashed > 5, "{hashed} cases kept their bands by hash");
     }
 
     #[test]

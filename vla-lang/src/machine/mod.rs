@@ -4933,8 +4933,29 @@ mod tests {
         // frames changing value cells, adding cells and changing formulas.
         // Frames that followed what changed and computed some cells and not
         // others, and the cells such frames computed of those they passed.
+        computes_what_changed(1..=60);
+    }
+
+    #[test]
+    fn a_frame_that_computes_what_changed_is_the_frame_computed_whole_every_sheet_indexed() {
+        // KERNEL.35: the law above with every sheet's readers indexed, by
+        // rows, by columns and by the axis an index finds, whatever their
+        // count, so that every change is followed through an index.
+        for (by_rows, seeds) in [
+            (None, 61..=80),
+            (Some(true), 81..=100),
+            (Some(false), 101..=120),
+        ] {
+            let _every = crate::calc::reach::every::sheet_indexed(by_rows);
+            computes_what_changed(seeds);
+        }
+    }
+
+    /// `a_frame_that_computes_what_changed_is_the_frame_computed_whole` over
+    /// the grids of some seeds.
+    fn computes_what_changed(seeds: std::ops::RangeInclusive<u64>) {
         let (mut followed, mut frames, mut part, mut computed, mut passed) = (0, 0, 0, 0, 0);
-        for seed in 1..=60u64 {
+        for seed in seeds {
             let mut d = Dice(seed ^ 0x5EED);
             let rows = generated_grid(&mut d);
             let mut inc = load(&rows);
@@ -6496,9 +6517,29 @@ mod tests {
         // formula row counting the cells comparing every cell counts. Writes
         // that gave a fill up whole and cell by cell, wrote nothing and were
         // refused, and frames held to `Calc`'s.
+        writes_as_loads(1..=40, (21, 3, 11, 6, 61));
+    }
+
+    #[test]
+    fn a_write_between_frames_is_a_load_of_the_grid_it_leaves_every_sheet_indexed() {
+        // KERNEL.35: the law above with every sheet's readers indexed, by the
+        // axis an index finds, so that the plan a write leaves is held to a
+        // load's index and all (`Shapes::spelled` spells it).
+        let _every = crate::calc::reach::every::sheet_indexed(None);
+        writes_as_loads(41..=60, (6, 0, 4, 3, 21));
+    }
+
+    /// `a_write_between_frames_is_a_load_of_the_grid_it_leaves` over the
+    /// grids of some seeds, and the fewest of each kind of write and frame
+    /// they must hold: fills given up whole and cell by cell, writes of
+    /// nothing, refusals, frames held to `Calc`'s.
+    fn writes_as_loads(
+        seeds: std::ops::RangeInclusive<u64>,
+        least: (u64, u64, usize, usize, usize),
+    ) {
         let (mut nothing, mut refused, mut held) = (0, 0, 0);
         crate::sheet::work::begin();
-        for seed in 1..=40u64 {
+        for seed in seeds {
             let mut d = Dice(seed ^ 0x3400);
             let rows = generated_grid(&mut d);
             let bands = formula_rows_of(&rows);
@@ -6529,13 +6570,363 @@ mod tests {
             }
         }
         let work = crate::sheet::work::end();
+        let (whole, split, nothings, refusals, helds) = least;
         assert!(
-            work.whole > 20 && work.split > 2 && nothing > 10 && refused > 5 && held > 60,
+            work.whole >= whole
+                && work.split >= split
+                && nothing >= nothings
+                && refused >= refusals
+                && held >= helds,
             "{} fills given up whole, {} cell by cell, {nothing} writes of nothing, \
              {refused} refused and {held} frames held to Calc's: too few for the law to \
              hold over",
             work.whole,
             work.split
         );
+    }
+
+    // ---- KERNEL.35: a sheet's readers by where a changed cell stands ----
+
+    /// How a grid's formulas over more than one cell are written: as one
+    /// fill each, one fill a row, one fill a column, or their first rows one
+    /// formula a cell and the rest one fill.
+    #[derive(Clone, Copy, Debug)]
+    enum Spelling {
+        One,
+        Rows,
+        Cols,
+        Cells(u32),
+    }
+
+    /// A grid's rows with each formula over more than one cell written as
+    /// `how` says (KERNEL.35), each part's text the fill's moved to the
+    /// part's first cell, so that each cell reads as the fill read there; a
+    /// formula a cell is given a text of its own that computes the same
+    /// value, `(...)+0*n`. Every other row as it was.
+    fn spelled(rows: &str, how: Spelling) -> String {
+        if let Spelling::One = how {
+            return rows.to_string();
+        }
+        let mut out = String::new();
+        let mut n = 0;
+        for line in rows.lines() {
+            let fill =
+                read_forms(line)
+                    .ok()
+                    .and_then(|forms| match load::row_parts(forms.first()?)? {
+                        ("formula", [Form::Str(sheet), Form::Str(addr), Form::Str(text)], _) => {
+                            Some((sheet.clone(), parse_a1_range(addr)?, text.clone()))
+                        }
+                        _ => None,
+                    });
+            let Some((sheet, r, text)) = fill.filter(|f| f.1.cells() > 1) else {
+                out.push_str(line);
+                out.push('\n');
+                continue;
+            };
+            let moved = |row: u32, col: u32| {
+                let d = (i64::from(row - r.top), i64::from(col - r.left));
+                shift_a1_references(&text[1..], d.0, d.1)
+            };
+            let mut put = |range: A1Range, text: String| {
+                out.push_str(&format!(
+                    "(formula {} {} {})\n",
+                    crate::rows::quoted(&sheet),
+                    crate::rows::quoted(&range.text()),
+                    crate::rows::quoted(&text)
+                ));
+            };
+            match how {
+                Spelling::Rows => {
+                    for row in r.top..=r.bottom {
+                        let part = A1Range {
+                            top: row,
+                            bottom: row,
+                            ..r
+                        };
+                        put(part, format!("={}", moved(row, r.left)));
+                    }
+                }
+                Spelling::Cols => {
+                    for col in r.left..=r.right {
+                        let part = A1Range {
+                            left: col,
+                            right: col,
+                            ..r
+                        };
+                        put(part, format!("={}", moved(r.top, col)));
+                    }
+                }
+                Spelling::Cells(k) => {
+                    let last = r.bottom.min(r.top + k.max(1) - 1);
+                    for row in r.top..=last {
+                        for col in r.left..=r.right {
+                            n += 1;
+                            let cell = A1Range {
+                                top: row,
+                                left: col,
+                                bottom: row,
+                                right: col,
+                            };
+                            put(cell, format!("=({})+0*{n}", moved(row, col)));
+                        }
+                    }
+                    if last < r.bottom {
+                        let rest = A1Range { top: last + 1, ..r };
+                        put(rest, format!("={}", moved(last + 1, r.left)));
+                    }
+                }
+                Spelling::One => {}
+            }
+        }
+        out
+    }
+
+    /// A grid of the readers the generated grids hold few of (KERNEL.35): a
+    /// value sheet `V` read by fills of rows and of columns and by single
+    /// cells of `S`, through moving windows, held rectangles and a part
+    /// computed at a frame's start; held rectangles too wide to file by
+    /// both axes, by rows alone and by columns alone, which an index checks
+    /// against every changed cell, or every one of a band's; a fill reading
+    /// its own sheet; one shape standing on `S` and on `T`; fills at the
+    /// sheet's last columns, whose references move off it; and `n` single
+    /// cells of `T` reading the sheet `W`, which holds `n` readers.
+    fn index_grid(n: u32) -> String {
+        let mut out = String::from(concat!(
+            "(cell \"V\" \"A1:G30\" 1)\n",
+            "(cell \"V\" \"H1:L30\" 2)\n",
+            "(cell \"V\" \"XFA1:XFD6\" 3)\n",
+            "(cell \"W\" \"A1:A20\" 4)\n",
+        ));
+        for r in 1..=8 {
+            out.push_str(&format!(
+                "(formula \"S\" \"A{r}:F{r}\" \"=SUM(V!A{r}:B{}){}\")\n",
+                r + 1,
+                "+IF(V!$H$1=2,ROW(),0)+SUM(V!$J$2:$K$3)"
+            ));
+        }
+        for col in ["H", "I", "J", "K", "L", "M"] {
+            out.push_str(&format!(
+                "(formula \"S\" \"{col}1:{col}8\" \"=V!{col}1*2+V!$A1\")\n"
+            ));
+        }
+        out.push_str(concat!(
+            "(formula \"S\" \"A10\" \"=V!C5+V!$D$6\")\n",
+            "(formula \"S\" \"B10\" \"=V!C6*3\")\n",
+            "(formula \"S\" \"A16\" \"=SUM(V!$A$1:$CZ$200)\")\n",
+            "(formula \"S\" \"B16\" \"=SUM(V!$E$1:$E$150)\")\n",
+            "(formula \"S\" \"C16\" \"=SUM(V!$A$5:$CV$5)\")\n",
+            "(formula \"S\" \"A12:F14\" \"=A11+V!A1\")\n",
+            "(formula \"S\" \"P1\" \"=A1+V!B2\")\n",
+            "(formula \"T\" \"P1\" \"=A1+V!B2\")\n",
+            "(formula \"S\" \"XFB1:XFD2\" \"=V!XFC1\")\n",
+            "(formula \"T\" \"XFB5:XFD5\" \"=XFD1\")\n",
+        ));
+        for k in 1..=n {
+            out.push_str(&format!("(formula \"T\" \"H{k}\" \"=W!A{k}+{k}\")\n"));
+        }
+        out
+    }
+
+    /// The last row any row of a grid names, for the window its cells are
+    /// changed over: the grid's own rows, and one more.
+    fn last_row(rows: &str) -> u32 {
+        read_forms(rows)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|form| match load::row_parts(form)? {
+                (_, [Form::Str(_), Form::Str(addr), _], _) => Some(parse_a1_range(addr)?.bottom),
+                _ => None,
+            })
+            .filter(|&row| row < 1_000)
+            .max()
+            .unwrap_or(1)
+            + 1
+    }
+
+    /// Every cell of every sheet, the twins' among them, over the first
+    /// `rows` rows and `cols` columns and at the sheet's far edges, changed,
+    /// reaching through its sheet's index exactly what every reader checked
+    /// reaches, and checking no more readers than the sheet holds
+    /// (KERNEL.35); how many sheets were indexed.
+    fn reaches_as_the_scan_does(m: &Machine, (rows, cols): (u32, u32), when: &str) -> usize {
+        use crate::calc::reach::{checked, Reached};
+        use crate::sheet::{MAX_COLUMN, MAX_ROW};
+        let reach = m.shapes.reach();
+        let key = |r: Reached| match r {
+            Reached::Cell(p) => (0, p),
+            Reached::Shape(s) => (1, s),
+            Reached::Parts(s) => (2, s),
+        };
+        let edges = (1..=6)
+            .flat_map(|row| (MAX_COLUMN - 4..=MAX_COLUMN).map(move |col| (row, col)))
+            .chain([(MAX_ROW, 1), (MAX_ROW - 2, 3), (MAX_ROW, MAX_COLUMN)]);
+        let mut indexed = 0;
+        for sheet in 0..m.book.sheets.len() {
+            indexed += usize::from(reach.most_on(sheet).is_some());
+            let readers = reach.readers_on(sheet) as u64;
+            let name = &m.book.sheets[sheet].name;
+            let window = (1..=rows).flat_map(|row| (1..=cols).map(move |col| (row, col)));
+            for (row, col) in window.chain(edges.clone()) {
+                let id = (sheet, row, col);
+                let (mut by_index, mut by_scan) = (Vec::new(), Vec::new());
+                checked::begin();
+                reach.each(id, &mut |r| by_index.push(key(r)));
+                let checks = checked::end();
+                reach.each_by_scan(id, &mut |r| by_scan.push(key(r)));
+                let at = format!("{when}: {name}!{}", crate::sheet::cell_ref(row, col));
+                assert!(
+                    checks <= readers,
+                    "{at}: {checks} of {readers} readers checked"
+                );
+                by_index.sort_unstable();
+                by_index.dedup();
+                by_scan.sort_unstable();
+                by_scan.dedup();
+                assert_eq!(by_index, by_scan, "{at}");
+            }
+        }
+        indexed
+    }
+
+    #[test]
+    fn the_index_reaches_what_the_scan_reaches() {
+        // KERNEL.35: generated grids, and grids of the readers they hold few
+        // of with a sheet of 15, 16 and 17 readers, each written one fill, one
+        // fill a row, one fill a column and its first rows a cell each;
+        // loaded as a load indexes them, and with every sheet indexed, first
+        // by rows, by columns and by the axis an index finds. At the load,
+        // after a frame and a formula's write, which plans the grid again, and
+        // after a value over a fill's first cell, which gives it up: every
+        // cell around the grid's and at the sheet's far edges, changed,
+        // reaches through the index what every reader checked reaches.
+        let mut grids: Vec<(String, String, Vec<String>)> = Vec::new();
+        for seed in 1..=8u64 {
+            let mut d = Dice(seed ^ 0x3535);
+            let rows = generated_grid(&mut d);
+            let bands = formula_rows_of(&rows);
+            let writes = (0..2).map(|_| formula_between(&mut d, &bands)).collect();
+            grids.push((format!("seed {seed}"), rows, writes));
+        }
+        for n in [15, 16, 17] {
+            let writes = vec![
+                "(formula \"S\" \"A3:F4\" \"=V!A1*7\")".to_string(),
+                "(cell \"S\" \"H1\" 5)".to_string(),
+            ];
+            grids.push((format!("{n} readers of W"), index_grid(n), writes));
+        }
+        let (mut indexed, mut cases) = (0, 0);
+        for (name, rows, writes) in &grids {
+            let around = (last_row(rows) + 1, 18);
+            for how in [
+                Spelling::One,
+                Spelling::Rows,
+                Spelling::Cols,
+                Spelling::Cells(2),
+            ] {
+                let text = spelled(rows, how);
+                for way in [None, Some(None), Some(Some(true)), Some(Some(false))] {
+                    let _every = way.map(crate::calc::reach::every::sheet_indexed);
+                    let when = format!("{name}, {how:?}, every sheet indexed {way:?}");
+                    let mut m = load(&text);
+                    indexed += reaches_as_the_scan_does(&m, around, &when);
+                    for write in writes {
+                        assert!(m.step(0).done);
+                        if m.write(write).is_ok() {
+                            let when = format!("{when}, after {write}");
+                            indexed += reaches_as_the_scan_does(&m, around, &when);
+                        }
+                    }
+                    cases += 1;
+                }
+            }
+        }
+        assert!(
+            cases == grids.len() * 16 && indexed > cases * 2,
+            "{indexed} sheets indexed over {cases} cases: too few for the law to hold over"
+        );
+    }
+
+    #[test]
+    fn a_sheet_is_indexed_from_sixteen_readers_and_its_census_says_the_most_it_checks() {
+        // KERNEL.35: a sheet of 15 readers is checked reader by reader and its
+        // census row is as it was; one of 16 or 17, each reading one cell of
+        // its own, is indexed, and a changed cell of it meets one reader, as
+        // its row says, `(most 1)`; the value sheet that fills of rows, of
+        // columns and single cells read is indexed too.
+        for (n, row) in [
+            (15, "(readers \"W\" 15)\n"),
+            (16, "(readers \"W\" 16 (most 1))\n"),
+            (17, "(readers \"W\" 17 (most 1))\n"),
+        ] {
+            let m = load(&index_grid(n));
+            let census = m.census();
+            assert!(census.contains(row), "{n}: {census}");
+            let w = m.find_sheet("W").expect("W");
+            assert_eq!(m.shapes.reach().most_on(w).is_some(), n >= 16, "{n}");
+            let v = m.find_sheet("V").expect("V");
+            let most = m.shapes.reach().most_on(v).expect("V indexed");
+            assert!(
+                most < m.shapes.reach().readers_on(v),
+                "{n}: V's most, {most}"
+            );
+        }
+    }
+
+    /// A board of `n` rows and columns of value cells from `V!A1`, read by a
+    /// formula at each of `n` by `n` cells from `F!B2`, each summing the
+    /// three by three value cells around its own, written as `how` says
+    /// (KERNEL.35).
+    fn board(n: u32, how: Spelling) -> String {
+        let (v, f) = (
+            crate::sheet::cell_ref(n + 2, n + 2),
+            crate::sheet::cell_ref(n + 1, n + 1),
+        );
+        spelled(
+            &format!("(cell \"V\" \"A1:{v}\" 1)\n(formula \"F\" \"B2:{f}\" \"=SUM(V!A1:C3)\")\n"),
+            how,
+        )
+    }
+
+    #[test]
+    fn a_board_written_any_way_checks_the_readers_around_a_changed_cell() {
+        // KERNEL.35, counted and not timed: the readers a frame checks after
+        // three value cells are written. Written one fill a row or a column, a
+        // changed cell meets the three rows or columns of formulas around it,
+        // three times one fill's one reader, and written a cell each the nine
+        // formulas around it, at 16 rows and at 32 alike; every reader checked,
+        // as before the index, a changed cell meets every row, column or
+        // cell of the board.
+        use crate::calc::reach::checked;
+        let writes = [(5, 5), (9, 8), (12, 10)];
+        for n in [16u32, 32] {
+            for (how, per, all) in [
+                (Spelling::One, 1, 1),
+                (Spelling::Rows, 3, n),
+                (Spelling::Cols, 3, n),
+                (Spelling::Cells(n), 9, n * n),
+            ] {
+                let mut m = load(&board(n, how));
+                assert!(m.step(0).done && m.step(0).done);
+                let v = m.find_sheet("V").expect("V");
+                for &(row, col) in &writes {
+                    let cell = crate::sheet::cell_ref(row, col);
+                    assert_eq!(m.write(&format!("(cell \"V\" \"{cell}\" 2)")), Ok(1));
+                }
+                checked::begin();
+                assert!(m.step(0).done);
+                let frame = checked::end();
+                checked::begin();
+                for &(row, col) in &writes {
+                    m.shapes.reach().each_by_scan((v, row, col), &mut |_| {});
+                }
+                let scan = checked::end();
+                assert_eq!(
+                    (frame, scan),
+                    (3 * per, 3 * u64::from(all)),
+                    "{how:?} at {n} rows: the readers checked, through the index and by the scan"
+                );
+            }
+        }
     }
 }

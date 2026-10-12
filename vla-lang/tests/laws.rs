@@ -19,6 +19,11 @@
 //! 7. A grid written between frames is planned as a load of the grid it
 //!    leaves plans it: the census after a write and a frame is the census of
 //!    a machine made from the same grid (KERNEL.34).
+//! 8. A grid's frames are the same however its formulas are written, one
+//!    fill each, one fill a row, one fill a column or a formula a cell: the
+//!    record cell for cell, frame after frame, the values where a formula a
+//!    cell is written with a text of its own; a grid written by rows past
+//!    sixteen of them is one whose readers the machine indexes (KERNEL.35).
 
 use std::collections::HashMap;
 
@@ -28,6 +33,9 @@ use vla_lang::form::Form;
 use vla_lang::machine::{Draft, Machine, Viewed};
 use vla_lang::printer::write_datum;
 use vla_lang::reader::read_forms;
+use vla_lang::refers::shift_a1_references;
+use vla_lang::rows::quoted;
+use vla_lang::sheet::{parse_a1_range, A1Range};
 
 const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");
@@ -435,4 +443,189 @@ fn a_grid_written_between_frames_is_planned_as_a_load_of_it() {
         }
     }
     assert_eq!(written, 200);
+}
+
+// ---- 8. the ways a grid's formulas are written ---------------------------
+
+/// The columns a value sheet holds, and the columns a fill covers.
+const VALUES: &[&str] = &["A", "B", "C", "D", "E", "F", "G", "H"];
+
+/// A fill's formula at its first cell, in row `top`: the value sheet's cells
+/// around its own, a column held, a cell held, a range and a part every `$`
+/// holds, the last frame's cells, and the cell above its own once it is
+/// not the first row, under the language library's functions.
+fn fill_expr(r: &mut Rng, top: usize, depth: u32) -> String {
+    if depth >= 2 || r.below(3) == 0 {
+        return match r.below(6) {
+            0 => format!("V!{}{top}", r.pick(&["A", "B", "C"])),
+            1 => format!("V!${}{}", r.pick(&["A", "B"]), top + r.below(2)),
+            2 => format!("V!$A${}", 1 + r.below(5)),
+            3 => format!("F.last!{}{top}", r.pick(&["C", "D", "E"])),
+            4 if top > 1 => format!("C{}", top - 1),
+            _ => r.below(10).to_string(),
+        };
+    }
+    let e = |r: &mut Rng| fill_expr(r, top, depth + 1);
+    match r.below(6) {
+        0 => format!("{}+{}", e(r), e(r)),
+        1 => format!("{}*{}", e(r), e(r)),
+        2 => format!("SUM(V!A{top}:B{})", top + 1),
+        3 => format!("IF(V!$A$1>{},{},{})", r.below(5), e(r), e(r)),
+        4 => format!("MOD({},7)", e(r)),
+        _ => format!("MAX({},SUM(V!$A$1:$B$2))", e(r)),
+    }
+}
+
+/// A grid of a value sheet `V` and a sheet `F` of fills over `C1:H{rows}`,
+/// each a band of up to six rows written as one fill.
+fn fill_rows(r: &mut Rng, rows: usize) -> String {
+    let mut out = String::from("(sheet \"F\" visible)\n(sheet \"V\" visible)\n");
+    for row in 1..=rows + 2 {
+        for col in VALUES {
+            if r.below(4) != 0 {
+                out.push_str(&format!("(cell \"V\" \"{col}{row}\" {})\n", r.below(10)));
+            }
+        }
+    }
+    let mut top = 1;
+    while top <= rows {
+        let bottom = (top + r.below(6)).min(rows);
+        let f = fill_expr(r, top, 0);
+        out.push_str(&format!("(formula \"F\" \"C{top}:H{bottom}\" \"={f}\")\n"));
+        top = bottom + 1;
+    }
+    out
+}
+
+/// A grid's rows with each fill written `"rows"` one fill a row, `"cols"`
+/// one fill a column, or `"cells"` one formula a cell, each with a text of
+/// its own that computes the same value; each part's text the fill's moved
+/// to the part's first cell, as the fill reads there.
+fn written(rows: &str, how: &str) -> String {
+    let mut out = String::new();
+    let mut n = 0;
+    for line in rows.lines() {
+        let fill = read_forms(line).ok().and_then(|forms| match forms.first() {
+            Some(Form::List(l)) => match l.items.as_slice() {
+                [Form::Sym(head), Form::Str(sheet), Form::Str(addr), Form::Str(text)]
+                    if head == "formula" =>
+                {
+                    Some((sheet.clone(), parse_a1_range(addr)?, text.clone()))
+                }
+                _ => None,
+            },
+            _ => None,
+        });
+        let Some((sheet, r, text)) = fill.filter(|f| f.1.cells() > 1) else {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        };
+        let moved = |row: u32, col: u32| {
+            let (d_row, d_col) = (i64::from(row - r.top), i64::from(col - r.left));
+            shift_a1_references(&text[1..], d_row, d_col)
+        };
+        let mut put = |part: A1Range, text: String| {
+            out.push_str(&format!(
+                "(formula {} {} {})\n",
+                quoted(&sheet),
+                quoted(&part.text()),
+                quoted(&text)
+            ));
+        };
+        for row in r.top..=r.bottom {
+            for col in r.left..=r.right {
+                let (first_row, first_col) = (row == r.top, col == r.left);
+                match how {
+                    "rows" if first_col => put(
+                        A1Range {
+                            top: row,
+                            bottom: row,
+                            ..r
+                        },
+                        format!("={}", moved(row, col)),
+                    ),
+                    "cols" if first_row => put(
+                        A1Range {
+                            left: col,
+                            right: col,
+                            ..r
+                        },
+                        format!("={}", moved(row, col)),
+                    ),
+                    "cells" => {
+                        n += 1;
+                        let cell = A1Range {
+                            top: row,
+                            left: col,
+                            bottom: row,
+                            right: col,
+                        };
+                        put(cell, format!("=({})+0*{n}", moved(row, col)));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A machine's value rows, every sheet a program sees: what a formula a
+/// cell with a text of its own computes alike.
+fn values(m: &Machine) -> Vec<String> {
+    save(m)
+        .lines()
+        .filter(|l| l.starts_with("(value "))
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn a_grid_s_frames_are_the_same_however_its_formulas_are_written() {
+    let mut indexed = 0;
+    for seed in 1..=30u64 {
+        let mut r = Rng::new(seed);
+        let rows = 8 + r.below(17);
+        let grid = fill_rows(&mut r, rows);
+        let ways = ["one", "rows", "cols", "cells"];
+        let mut machines: Vec<Machine> = ways
+            .iter()
+            .map(|&how| {
+                let text = if how == "one" {
+                    grid.clone()
+                } else {
+                    written(&grid, how)
+                };
+                load(&text, &format!("seed {seed}, {how}"))
+            })
+            .collect();
+        for frame in 1..=4 {
+            for m in &mut machines {
+                assert!(m.step(0).done);
+            }
+            let when = format!("seed {seed}, frame {frame}");
+            let one = save(&machines[0]);
+            assert_eq!(save(&machines[1]), one, "{when}, by rows\n{grid}");
+            assert_eq!(save(&machines[2]), one, "{when}, by columns\n{grid}");
+            assert_eq!(
+                values(&machines[3]),
+                values(&machines[0]),
+                "{when}, a cell each\n{grid}"
+            );
+            let cell = format!("{}{}", r.pick(VALUES), 1 + r.below(rows + 2));
+            let write = format!("(cell \"V\" \"{cell}\" {})", r.below(10));
+            for m in &mut machines {
+                m.write(&write)
+                    .unwrap_or_else(|e| panic!("{when}: {write}: {}", e.refusal.text));
+            }
+        }
+        if rows >= 16 && machines[1].census().contains(" (most ") {
+            indexed += 1;
+        }
+    }
+    assert!(
+        indexed >= 8,
+        "{indexed} grids written by rows were indexed: too few for the law to hold over"
+    );
 }

@@ -32,7 +32,9 @@ minute with a debug door, most of it the 33 MB of Life's formulas.
 ALSO HELD, read off each golden itself: its line count, as a floor; the
 order, one plan row first with its nine counts in their order, then the
 readers rows, then the shape rows by ascending number, every row's forms in
-their order and its reads among the seven kinds in theirs; the totals the
+their order and its reads among the seven kinds in theirs; a readers row's
+(most k), printed for a sheet whose readers are indexed (KERNEL.35), one
+reader at least and the row's readers at most; the totals the
 plan row states, summed from the shape rows (the shapes, their distinct
 texts, the formula cells, the runs and their lanes, the cells alone, the
 cells of the shapes computed every frame, and the cells on cycles, each
@@ -56,7 +58,8 @@ written and then reused); one that adds a cell to the first shape row it
 prints (every golden must fail, naming its first shape row); and copies of a
 golden broken one way each - a total, the order of two shape rows, a readers
 row after a shape row, a (same k) pointing at a later row, the kinds out of
-their order, and a run under four cells - each of which the golden's own
+their order, and a run under four cells - and a copy of the subset golden
+whose most is above its readers (KERNEL.35), each of which the golden's own
 checks must fail, the golden as it is passing.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no
@@ -112,7 +115,7 @@ function Get-Lines([string]$text) {
 # A quoted string of the record, its escapes as WriteDatum writes them.
 $q = '"((?:[^"\\]|\\.)*)"'
 $planRow = '^\(plan \(shapes (\d+)\) \(texts (\d+)\) \(formulas (\d+)\) \(levels (\d+)\) \(runs (\d+)\) \(lanes (\d+)\) \(alone (\d+)\) \(every-frame (\d+)\) \(cycles (\d+)\)\)$'
-$readersRow = '^\(readers ' + $q + ' (\d+)\)$'
+$readersRow = '^\(readers ' + $q + ' (\d+)(?: \(most (\d+)\))?\)$'
 $shapeRow = '^\(shape (\d+) ' + $q + ' ' + $q + ' ' + $q + ' \(cells (\d+)\) \(levels(?: (\d+) (\d+) (\d+) (\d+))?\) \(runs (\d+) (\d+) (\d+) (\d+)\) \(alone (\d+)\) \(reads((?: [a-z]+)*)\)' +
     '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread)\))?\)$'
 
@@ -130,8 +133,15 @@ function Test-Census($lines) {
     for ($i = 1; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
         $n = $i + 1
-        if ([regex]::IsMatch($line, $readersRow)) {
+        $readers = [regex]::Match($line, $readersRow)
+        if ($readers.Success) {
             if ($seenShape) { $problems.Add("line ${n}: a readers row after the shape rows began: $line") }
+            # KERNEL.35: an indexed sheet's most a changed cell meets is one
+            # reader at least and its readers at most.
+            if ($readers.Groups[3].Success) {
+                $most = [int]$readers.Groups[3].Value
+                if ($most -lt 1 -or $most -gt [int]$readers.Groups[2].Value) { $problems.Add("line ${n}: a most that is not between one and its readers: $line") }
+            }
             continue
         }
         $m = [regex]::Match($line, $shapeRow)
@@ -354,6 +364,22 @@ if ($Control) {
             $t = Test-Census $edited
             if ($t.Problems.Count -eq 0) { $failures.Add("broken copy '$($b.Name)': passed the golden's own checks") }
         }
+        # KERNEL.35: a copy of the subset golden, whose sheets of 20 readers
+        # and more are indexed, with a most above its sheet's readers.
+        $subsetLines = Get-Lines ([System.IO.File]::ReadAllText((Join-Path $goldenDir 'subset.vla')))
+        $copy = New-Object System.Collections.Generic.List[string]
+        foreach ($l in $subsetLines) { $copy.Add($l) }
+        $at = -1
+        for ($i = 0; $i -lt $copy.Count; $i++) {
+            if ($copy[$i] -match '^\(readers .* \(most \d+\)\)$') { $at = $i; break }
+        }
+        if ($at -lt 0) {
+            $failures.Add('the subset golden holds no readers row with a most')
+        } else {
+            $copy[$at] = $copy[$at] -replace '\(most \d+\)\)$', '(most 9999))'
+            $t = Test-Census $copy
+            if ($t.Problems.Count -eq 0) { $failures.Add("broken copy 'a most above its readers': passed the golden's own checks") }
+        }
     } finally {
         Remove-Item -Recurse -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
     }
@@ -362,7 +388,7 @@ if ($Control) {
         $failures | ForEach-Object { Write-Output "  $_" }
         exit 1
     }
-    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; six broken copies each fail the golden's own checks"
+    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; six broken copies of the column golden and one of the subset golden each fail the golden's own checks"
     exit 0
 }
 

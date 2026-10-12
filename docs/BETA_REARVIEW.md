@@ -24439,6 +24439,547 @@ steps and `run_checks.ps1`, 57 of 57. The item closed with it; its line
 left the roadmap for the closed ledger. Not pushed. Alonzo takes it at its
 pin's move to the release, its prompt given in chat.
 
+- ✅ **`KERNEL.35` — a sheet's readers found by the rows a changed cell
+  stands on, so that a grid written one fill a row is marked as cheaply as
+  one written one fill.**
+  *Minted 2026-10-12 at the owner's word (the roadmap's line, after
+  `KERNEL.34`), from the same measurement; scoped the same day at the
+  owner's word, the entry below; its seven decisions approved as
+  recommended and its findings minted the same day, `KERNEL.38` and
+  `KERNEL.39`; built the same day, the build's record after the scoping;
+  owner-tested, committed and closed the same day.*
+
+**`KERNEL.35`, a sheet's readers by where a changed cell stands: the
+scoping, 2026-10-12.** Begun at the owner's word, relayed from the session
+that closed `KERNEL.34`: scope first, build only after the owner approves.
+HEAD `d352774`, two ahead of origin (the filing `05099a3` and `KERNEL.34`),
+CI green on `e738cbb`; `run_checks.ps1` 57 of 57; the tree clean.
+
+*The instrument.* Alonzo's HEAD `e66614d` taken by `git archive` into the
+session's scratchpad twice, each pinning a copy of `vla-lang` at `d352774`
+by a path: one as it stands, for HEAD's times; one with the designs below
+chosen by an environment variable, counters of the readers each frame
+checks, timers in the load's stages, and a mode that reaches every changed
+cell both ways and stops at the first difference. An example of the
+engine's own, `kprof`: each case loads a cartridge in one spelling, steps
+31 frames, each a step timed; then a second instance with each steady
+frame split into a step of one cell (the Clock's write, the frame's start
+and one cell) and the rest, the readers counted over frames 3 to 31; the
+Screen's plane digested, every design and spelling leaving it equal. The
+spellings, written from the cartridge's own rows with the language's mover:
+*one fill*, as committed; *by rows*, each formula fill over more than one
+row written one fill a row, its text moved to each; *by columns*, one fill
+a column; *a cell each*, the first rows of each fill one formula a cell,
+each with a text of its own (`+0*n`, the same value), the rest one fill. A
+fill one column wide written by rows becomes single cells of one R1C1
+text, which the plan already makes one shape, so Sand by rows is 606
+shapes and not 1,790. On the performance cores, opted out of power
+throttling; three rounds a case, medians of frames 3 to 31.
+
+*Measured over HEAD*, the scan:
+
+| the grid | shapes | load | a steady frame | its start | readers checked a frame |
+|---|---:|---:|---:|---:|---:|
+| Life, one fill | 1 | 34.6 ms | 2.67 ms | 0.31 ms | 12,542 |
+| Life by rows | 198 | 62.1 | 16.77 | 13.47 | 2,483,261 |
+| Life by columns | 318 | 80.3 | 25.60 | 21.36 | 3,988,268 |
+| the gun, one fill | 1 | 36.2 | 0.012 | 0.003 | 40 |
+| the gun by rows | 198 | 44.8 | 0.084 | 0.059 | 7,859 |
+| the gun by columns | 318 | 51.3 | 0.132 | 0.093 | 12,621 |
+| Sand, one fill | 15 | 149.9 | 3.74 | 0.61 | 45,848 |
+| Sand by rows | 606 | 274.1 | 43.88 | 40.07 | 6,819,693 |
+| Sand by columns | 960 | 338.6 | 95.88 | 63.82 | 10,877,123 |
+| Life, its first 20 rows a cell each | 6,361 | 909.9 | 439.7 | 428.1 | 79,777,907 |
+
+The item's counts stand reproduced to the reader, 2,483,261 and 6,819,693;
+its frames were measured with timers on over 0.9.2, so these are lower.
+The start is the cliff: the rest of Life's frame by rows is 3.4 ms against
+2.4. Columns are the worse cliff, since Life's board is wider than tall.
+
+*Where a shape's load goes,* timed in the load's stages: placing a new
+shape (`Shapes::add`) is 86 µs for Life's rule and 128 for Sand's rules,
+of which the parse is 40 to 61, the text's two further scans (the calls
+the library must hold, and the risky test) 33 to 50, and the run's buffers
+(`Repeats`, `holds`) 13 to 16. The plan's own stages grow about 12 µs a
+shape, the reach 8 of it. At 19,081 single cells (Life's first 60 rows a
+cell each) the load is 2.7 s, 140 µs a shape.
+
+*The designs, prototyped in the copy.* `Reach::each`'s loop body moved
+whole into a method that checks one reader exactly as before; a sheet's
+readers then indexed by each reader's *footprint*, the rows and the
+columns of the read sheet it can reach from: a held rectangle's, a part's
+cell, a moving reference's numbers moved over the offsets its shape's cells
+stand at with a `$`-held number fixed, a whole column every row. A reader
+reaches nothing from a cell outside its footprint, so an index that
+checks only the readers whose footprint holds the changed cell reaches what
+the scan reaches. Five shapes of index:
+- *bands of rows,* the minting's prototype: a sheet of 16 readers or more
+  keeps them by band of rows one row wide, a reader spanning more than 64
+  bands checked always;
+- *one axis:* bands of rows or of columns, whichever leaves a changed cell
+  fewer readers on average;
+- *two axes:* one axis, then each band still holding 16 or more readers
+  indexed again by the other axis;
+- *tiles,* fixed, four rows by sixteen columns or two by two, a reader
+  filed under every tile its footprint touches;
+- *an interval tree* over the axis one axis would pick, every reader filed
+  once however wide.
+
+Every design held to the scan at every changed cell with every sheet
+indexed, over the three cartridges' spellings, with bands of columns alone
+and tiles of one cell besides: 78 runs, the reached sets equal and the
+planes' digests equal throughout. Alonzo's own runner,
+`frames -- --frames 61`, over the six variants by rows and by columns with
+every sheet indexed and the scan checked beside: every frame equal to the
+hand-written Life, gun and Sand. `frames -- --check` with every sheet
+indexed: the allocations 80 and 5, 80 and 5, 509 and 5, the index being
+made with the plan and never in a frame.
+
+A steady frame, its start in brackets, medians of three or six rounds:
+
+| the grid | HEAD | bands of rows | one axis | two axes | tiles 4×16 | tiles 2×2 | tree |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Life by rows | 16.77 (13.47) | 3.23 (0.61) | 3.22 (0.60) | 3.26 (0.60) | 3.55 (0.89) | 3.51 (0.75) | 3.37 (0.66) |
+| Life by columns | 25.60 (21.36) | 29.69 (25.78) | 3.55 (0.67) | 3.58 (0.66) | 4.82 (1.99) | 3.90 (0.81) | 3.67 (0.73) |
+| the gun by rows | 0.084 | 0.038 | 0.038 | 0.038 | 0.040 | 0.039 | 0.038 |
+| the gun by columns | 0.132 | 0.147 | 0.059 | 0.059 | 0.065 | 0.060 | 0.060 |
+| Sand by rows | 43.88 (40.07) | 4.20 (0.75) | 3.97 (0.75) | 4.06 (0.75) | 4.79 (1.53) | 4.73 (1.06) | 4.18 (0.83) |
+| Sand by columns | 95.88 (63.82) | 107.98 (77.24) | 32.24 (1.68) | 31.95 (1.68) | 35.95 (5.53) | 32.62 (1.93) | 31.03 (1.94) |
+| Life's first 20 rows a cell each, 6,361 shapes | 439.7 (428.1) | 23.8 (10.2) | 20.5 (7.6) | 15.5 (2.6) | 17.2 (3.5) | 17.0 (2.7) | 21.2 (8.2) |
+| its first 60, 19,081 shapes, one round | 1,419.7 (1,306.7) | 66.4 (30.2) | 59.4 (25.4) | 41.2 (7.5) | 45.4 (9.8) | 42.7 (7.4) | 58.8 (25.6) |
+
+The readers checked a frame, HEAD's in the first table:
+
+| the grid | bands of rows | one axis | two axes | tiles 4×16 | tiles 2×2 | tree |
+|---|---:|---:|---:|---:|---:|---:|
+| Life by rows | 37,765 | 37,765 | 37,765 | 75,136 | 50,253 | 37,765 |
+| Life by columns | 3,987,950 | 37,901 | 37,901 | 224,039 | 50,404 | 37,901 |
+| Sand by rows | 46,044 | 46,044 | 46,044 | 149,332 | 80,419 | 46,044 |
+| Sand by columns | 10,876,807 | 137,436 | 137,436 | 643,801 | 171,697 | 137,436 |
+| Life's first 20 rows a cell each | 1,237,696 | 770,552 | 30,389 | 158,924 | 39,240 | 770,552 |
+| its first 60 | 3,723,864 | 2,286,576 | 66,423 | 458,746 | 93,390 | 2,286,576 |
+
+Sand by rows checks 46,044 readers a frame, against one fill's 45,848.
+What the tables say:
+- Bands of rows do nothing for columns, and do it worse than the scan:
+  every reader is checked always, each one step further away (Life by
+  columns 25.6 ms to 29.7).
+- One axis and two axes are the same on rows and on columns; only two axes
+  narrow a cell each or a block.
+- Tiles of 4×16 check two to six times the readers of two axes on rows and
+  columns. Tiles of 2×2 come near two axes on a cell each, but on rows and
+  columns check a third more, start 25 to 40% slower, and hold 50 to 70
+  times the memory (Sand by columns 3.9 MB against 52 KB). A tile's size
+  has to be chosen, and no one size suits rows, columns and cells.
+- The tree checks what one axis checks, with its log on every change, its
+  starts 10 to 17% slower, and one axis only.
+
+The index is made in at most 0.1 ms of a plan (0.9 for tiles on Sand by
+columns), against plans of 6 to 95 ms; Sand's `Stay` written whole takes
+112 to 117 ms with it and without. Its memory, entries and offsets at four
+bytes each, in two axes: Life by rows 4.8 KB, by columns 7.7, Sand by rows
+21, by columns 52; a cell each 387 KB at 6,361 shapes and 1.15 MB at
+19,081.
+
+*What a grid by rows still costs, with two axes.* Life by rows 3.26 ms
+against one fill's 2.67, Sand by rows 4.06 against 3.74; the minting's
+"within 8% and 4%" was measured with timers on. In Life the start is 0.60
+ms against 0.31, since each changed cell meets three row shapes where one
+fill is one reader (37,765 checks against 12,542), and the rest 2.65
+against 2.44, each row's run gathering its own changed cells. What a
+cell each still costs: of its 2.6 ms start at 6,361 shapes, 1.7 to 1.8 is
+each shape computing its own copy of the parts the same at every cell
+(`Clock!$B$1=1` and the soup's seed) at every frame's start; its rest is
+12.6 ms against one fill's 2.4, each single cell evaluated alone; its load
+0.9 s. The gun by rows' 38 µs against 12 is mostly its 198 copies of
+`Clock!$B$1=1`.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The index's shape: two axes.* Recommended. A sheet's readers are filed
+   by the rows or by the columns of their footprints, whichever leaves a
+   changed cell fewer to check on average; a band that still holds 16 or
+   more is filed again by the other axis. A changed cell is checked against
+   the readers too wide to file, then its band's list, or the band's own
+   too-wide readers and its band's list on the other axis. Each reader is
+   checked exactly as the scan checks it, so the index can only leave out
+   readers that reach nothing. A sheet, or a band, is indexed only where its
+   index at least halves what a changed cell meets on average, and scanned
+   as today where it would not (bands of rows lost 16% to the scan on a
+   column spelling). LibreOffice Calc registers a range's listener in every
+   slot of a grid over the sheet that the range touches (its broadcast area
+   slots): tiles, which the measurement argues against here. *Declined:*
+   bands of rows alone (nothing for a column spelling, `KIT.3`'s tile map
+   spelled one fill a column among them, and worse than the scan there);
+   one axis (a cell each or a block left at 770,552 checks a frame where two
+   axes make 30,389); tiles (at 4×16, two to six times the checks of two
+   axes on rows and columns; at 2×2, near them on a cell each but slower and
+   fifty times larger on rows and columns; and a size to choose); an
+   interval tree (one axis, and its log on every change).
+
+2. *Its width and layout: bands one row or one column wide, in one flat
+   array.* Recommended. Each index is one array of reader numbers with
+   offsets by band, as `KERNEL.33` keeps the plan's edges, over the bands
+   from the least to the most any of its readers holds; a reader spanning
+   more than 64 bands is checked always. Two allocations an index, where the
+   prototype's list a band made one a band, about 200 for Life by rows, each
+   copied with the plan at every formula's write. One row checked fewest:
+   the minting's prototype measured Life by rows at 3.29 ms with bands of
+   one row, 3.48 with two and 4.55 with sixteen, and tiles above are a
+   coarser band's cost. Where an index's bands from the least to the most
+   would outnumber four times its entries, plus 64, as a narrow reader at
+   row 1,048,576 beside readers at the top would make them, its offsets are
+   kept by hash, as `Positions` keeps a sheet's formulas that stand apart:
+   kept flat, that case is 4 MB of offsets an index (the prototype's lists
+   from band 0, 24 MB of empty lists; arithmetic, not measured).
+   *Declined:* a list a band; flat with no hash; by hash everywhere (a
+   lookup on every change of an indexed sheet, about 25,000 a frame in Life
+   by rows).
+
+3. *The count below which a sheet is scanned: 16.* Recommended. Alonzo's
+   six cartridges hold 1 to 15 readers a sheet, so none is indexed: their
+   frames, loads and census rows are unmoved by construction. Indexing
+   every sheet of Life, the gun and Sand moved nothing beyond the copy's own
+   spread (Life 2.75 to 2.88 ms, with nothing indexed 2.67 to 2.83; Sand
+   3.75 to 3.78, with nothing indexed 3.76 to 3.83). Frazaro's subset
+   fixtures index three sheets of 20, 26 and 30 readers, the most a changed
+   cell meets there 9, 20 and 10. The same count decides when a band is
+   indexed again. *Declined:* 8 (up to seven of Alonzo's sheets, of 8 to 15
+   readers in four cartridges, indexed where it halves them, no gain
+   measured, and their describe goldens moved by decision 5); 32 (a sheet of
+   16 to 31 readers keeps checking each, a Mind of twenty rows for one).
+
+4. *The plan's cost a shape: not with this item.* Recommended. It is the
+   placing's cost and not the plan's: of a shape's 86 to 128 µs, the parse
+   is 40 to 61, the text's two further scans 33 to 50, the run's buffers 13
+   to 16; the plan grows about 12 µs a shape, and the index nothing
+   measurable. A shape a row costs its load 0.14 to 0.21 ms (Life's rule,
+   Sand's), and with the index its frame comes within 9 to 22% of one
+   fill's. A shape a cell, indexed, still pays its load (Life's whole board
+   about 9 s, *prediction*), each cell evaluated alone and each shape's own
+   parts (above), so `KIT.3`'s spelling a cell each needs more than the
+   plan's cost, and is better spelled with cells that share a text.
+   *Declined,* each an item of its
+   own for the owner to mint: the calls and the risky test read off the
+   parse rather than off the text again (*prediction:* a shape 35 to 40%
+   cheaper to place); fills of one R1C1 text placed on one shape (under
+   *Found*).
+
+5. *The census prints the most a changed cell meets:*
+   `(readers "<sheet>" n (most k))` *on an indexed sheet.* Recommended. `n`
+   is the readers a changed cell of the sheet is checked against, and on an
+   indexed sheet that overstates it by hundreds: Sand by rows prints
+   `(readers "Screen.last" 595)` and meets at most 4, Life by rows
+   `(readers "Screen.last" 198)` and meets at most 3. `k` is the most
+   readers any one changed cell of the sheet is checked against, read off
+   the index when the census is asked; a scanned sheet's row is as it is.
+   It moves two goldens of `check_shapes_golden`, the subset fixtures',
+   three rows each (`(most 10)`, `(most 9)`, `(most 20)`), and the check's
+   pattern for the row; no golden of Alonzo's, all under 16. Where `k` stays
+   near `n`, every reader is reached and the cost is the output's own: Sand
+   by columns' `(readers "Gate" 2844 (most 948))`, each a cell of a column
+   shape. *Declined:* no figure (the census overstates exactly where the
+   index works); `n` redefined as the most (one number, losing the readers
+   the plan holds); the figure on every row (every golden, Alonzo's too,
+   moved).
+
+6. *The oracle.*
+   - *Bit for bit.* The scan kept, test-only, as the reference, as
+     `KERNEL.34` kept `differing_by_cell`; a test that reaches every cell of
+     a window past each sheet's used rows and columns, and the sheet's last
+     row and column, both ways and holds the sets equal, over generated
+     grids spelled one fill, by rows, by columns and a cell each, holding
+     row fills, column fills, single cells, held rectangles, parts computed
+     at a frame's start, references to the reading cell's own sheet, a
+     shape standing on two sheets, references moved off the sheet, and
+     sheets of 15, 16 and 17 readers; and `KERNEL.20`'s two laws over
+     `write_between` run again with every sheet indexed, by a test-only
+     threshold of 0. In `tests/laws.rs`, an eighth law through the public
+     calls: a generated grid's frames are the same, value for value,
+     whichever way its fills are spelled, a grid of 16 rows or more spelled
+     by rows being indexed.
+   - *A write is a load.* `Reach::spelled` spells the index too, so
+     `as_a_load` holds the plan a formula's write leaves to a load's, index
+     and all, and a grid spelled by rows joins its law.
+   - *Counted, not timed.* A test-only recorder of the readers checked, as
+     `sheet::work` counts a write's: a board read through a three-by-three
+     window, written one fill, by rows, by columns and a cell each, at 16
+     rows and at 32; its frame's checks at most three times one fill's by
+     rows and by columns and nine times a cell each, the same at both sizes,
+     where the scan's, kept, grows with the shapes.
+   - *The mutants,* each alone in a fresh copy after a control that passes,
+     each failing a named test: a band's last row dropped; a moving
+     reference's footprint taken at its shape's anchor alone, the offsets
+     its cells stand at ignored; an own-sheet reader filed for its shape's
+     first sheet alone; a too-wide reader dropped where it is checked always;
+     a `$`-held end read as relative and a relative one as held; the second
+     axis's last band dropped; the hash's band off by one; the halving rule
+     reversed; the threshold off by one.
+   - *Determinism.* The order readers are visited in changes, and marks are
+     sets: every caller of `Reach::each` sets bits and flags (`marked`,
+     `whole`, `recheck`) and the parts are computed after the marking, in
+     the shapes' order; the test helper collects into a set. Read again at
+     the build.
+   - *Alonzo,* over a copy of its HEAD with the slice by a path: `cargo
+     test`, 31, every committed replay played to its golden; `frames --
+     --check`, every frame equal, the allocations 80 and 5, 80 and 5, 509
+     and 5; the variants by rows and by columns of Life, the gun and Sand
+     through 61 frames, each frame equal to its hand-written reference; the
+     describe goldens unchanged.
+   - *Measured,* alternated with HEAD, three rounds: the committed
+     fixtures' frames and loads unmoved; every spelling above; Sand's load
+     and its `Stay` written whole; and the smallest write into the largest
+     grid (`KERNEL.34`'s lesson), a cell written into Sand by rows and into
+     Life's first 20 rows a cell each.
+   - *All green*: `cargo fmt --check`, clippy `-D warnings` and with
+     `c-abi`, `cargo test --workspace --no-fail-fast`, both wasm builds,
+     `run_checks.ps1`; `check_recalc_floors` unmoved, its four programs
+     holding at most 4 readers a sheet; `check_shapes_golden` moved by
+     decision 5 alone, its goldens regenerated with the door.
+
+7. *The release.* No public signature changes: `Reach` is the crate's own,
+   and the census's row gains a form only on an indexed sheet. A patch,
+   0.9.3, its note beside `KERNEL.34`'s.
+
+*Predictions,* with the decisions as recommended, frames 3 to 31: Life by
+rows 16.8 ms to 3.0 to 3.5 (its start 13.5 to about 0.6), by columns 25.6
+to 3.3 to 3.9; the gun by rows 0.084 to about 0.038, by columns 0.132 to
+about 0.059; Sand by rows 43.9 to 3.9 to 4.3, by columns 95.9 to about 32,
+its start 1.7 and the rest its cells evaluated alone (under *Found*); Life's
+first 20 rows a cell each 440 to 14 to 17 (its start 428 to about 2.6).
+Life, the gun and Sand as committed unmoved. A plan made 0.1 ms dearer at
+most, a write unmoved.
+
+**What it touches.** `vla-lang/src/calc/reach.rs` (the footprint, the
+index, `check`, `spelled`, the most), `calc/census.rs` (the row's form),
+`machine/mod.rs` (the tests), `tests/laws.rs` (the eighth law);
+`scripts/recalc/shapes/subset.vla` and `subset_saved.vla`,
+`tools/check_shapes_golden.ps1` (decision 5); the roadmap's line, this
+entry, `RELEASES.md`. No VBA: the machine has no reference.
+
+**Beside it.** `KERNEL.36` shares no code with it: the index is read at a
+frame's start and at each cell the frame changes, and the frame's end is
+untouched. `KERNEL.31` neither.
+
+**Found,** measured, the owner's to mint, and minted with the approval
+(below, under *Built*):
+- *A fill's shape is keyed by its shared formula, a plain formula's by its
+  R1C1 text.* Every spelling by rows or by columns measured here keeps the
+  texts of its one fill (Sand by columns: 960 shapes of 15 texts), so a
+  fill keyed by its R1C1 text would make it one fill again: loaded, marked
+  and run as one. Texts that differ, the kit's cases (`KIT.4`'s Mind a
+  shape a row, `CART.7`'s rows each its own path), would not move; the
+  index is for those.
+- *A grid whose rows stand at many levels runs nothing together when it is
+  spelled by columns.* The order is by level, then shape; Sand's rows stand
+  at 400 levels, each reading the row below through `Side`, so a column
+  fill puts one cell at each level. Its census prints `(runs 7) (lanes
+  1506) (alone 187709)`; its whole frame 201 ms against 37.5, and, with the
+  index, its steady frame 32 ms against 3.7. Life by columns, at one level,
+  runs as one fill does.
+- *Each shape computes its own parts:* 198 row shapes compute 198 copies of
+  `Clock!$B$1=1` at each frame's start, 6,361 single cells 6,361, 1.7 ms of
+  their 2.6 ms start.
+
+**Built 2026-10-12**, at the owner's word, "Recommendations and mintings
+approved; proceed with implementing KERNEL.35 as scoped". The findings
+minted first, in the shared tree: two items and not three, since the
+second finding has one remedy, the first's key (a column fill of one text
+found by that key is one shape, and each of Sand's 400 levels holds 318 of
+its cells, a run again; cells of different texts never share a run).
+`KERNEL.38`, a fill's shape found by its formula's R1C1 text, so that one
+formula written as many fills loads, marks and runs as one fill;
+`KERNEL.39`, a part the same at every cell computed once a frame for every
+shape that holds it. `KERNEL.37` was left free: Alonzo's `ENGINE.8`, whose
+first slice it committed the same day (`a4ad3b6`), names it for the
+`values` projection its second slice waits on, the registry's next free
+number when it was asked; the registry says it is held. Then the seven
+decisions as recommended, in a worktree over `d352774`, the shared tree
+touched only by this entry, the roadmap's lines, the registry and
+`RELEASES.md`. What landed:
+- *The footprint* (`vla-lang/src/calc/reach.rs`). `Dim::reach`, the
+  numbers a dimension holds at some offset of a span, each `$`-held number
+  where it is, the least and the most of them clamped to the sheet;
+  `footprint`, a reader's rows and columns: a held rectangle's, a part's
+  cell, a moving reference's two dimensions over its shape's offsets.
+- *The bands* (decision 2). `Bands`, one axis's readers by band one row or
+  one column wide: the readers' numbers in one array with its offsets, over
+  the bands from the least to the most any of them holds (`Slots::Flat`),
+  or by hash where those bands would outnumber four times its entries plus
+  64 (`Slots::Hash`); a reader spanning more than 64 bands (`WIDE`), or
+  none, in the list checked always.
+- *The index* (decisions 1 and 3). `Index`, made with the reach for each
+  sheet of 16 readers or more (`INDEX_FROM`): by rows or by columns,
+  whichever's bands a changed cell meets fewer of on average, and kept only
+  where that halves the sheet's readers (`halves`); each band of 16 or more
+  filed again by the other axis where that halves the band. `Reach::each`
+  checks the index's readers where a sheet has one, each by `check`, the
+  scan's own loop body moved whole, and every reader where it has none; the
+  scan is kept, test-only, as `Reach::each_by_scan`, the index's reference.
+- *The census* (decision 5). `Reach::most_on` and `Index::most`, the most
+  readers one changed cell of an indexed sheet meets, read off the index
+  when the census is asked; the row `(readers "<sheet>" n (most k))` on
+  such a sheet (`calc/census.rs`), every other row as it was. The subset
+  fixtures' goldens regenerated with the door, three rows each, `(most 10)`,
+  `(most 9)` and `(most 20)`, nothing else moved;
+  `tools/check_shapes_golden.ps1` reading the form, holding `k` between one
+  and the row's readers, and a copy of the subset golden with a most above
+  its readers among its control's broken copies.
+- *The tests' own switches,* test-only: `reach::every::sheet_indexed`,
+  every sheet indexed whatever its readers' count and whether its index
+  halves them, every band of two readers or more filed again, the first
+  axis the rows, the columns or the one an index finds; `reach::checked`,
+  the readers checked, counted as `sheet::work` counts a write's work.
+- *The tests.* In `reach.rs`, `a_dimension_reaches_every_number_its_moves_hold`
+  (every row and column `RefExpr::moved` gives over a span of offsets within
+  what `Dim::reach` names, and the least and the most attained where no
+  move leaves the sheet, twenty references) and
+  `bands_list_each_reader_whose_span_holds_a_number_lying_close_or_apart`
+  (sixty sets of spans, those with a span at the sheet's last row kept by
+  hash: each band lists exactly its readers, in order, each once). In
+  `machine/mod.rs`,
+  `the_index_reaches_what_the_scan_reaches`: eight generated grids and
+  three of the readers they hold few of (row and column fills and single
+  cells reading a value sheet through moving windows, held rectangles and a
+  part computed at a frame's start; held rectangles too wide to file by
+  both axes, by rows alone and by columns alone; a fill reading its own
+  sheet; one shape standing on two sheets; fills at the sheet's last
+  columns, whose references move off it; a sheet of 15, 16 and 17
+  readers), each written
+  one fill, by rows, by columns and its first two rows a cell each, loaded
+  as a load indexes it and with every sheet indexed by rows, by columns and
+  by the axis an index finds, at the load and after a frame and each of two
+  writes, a formula's that plans the grid again and a value over a fill's
+  first cell that gives it up: every cell of every sheet, twins included,
+  over the grid's rows and eighteen columns and at the sheet's far edges,
+  reaches through the index exactly what every reader checked reaches, and
+  checks no more readers than its sheet holds.
+  `a_board_written_any_way_checks_the_readers_around_a_changed_cell`,
+  counted and not timed: after three value cells are written, a board
+  written one fill checks 3 readers a frame, by rows and by columns 9, a
+  cell each 27, at 16 rows and at 32 alike, where every reader checked
+  meets 48 and 96 by rows and by columns and 768 and 3,072 a cell each.
+  `a_sheet_is_indexed_from_sixteen_readers_and_its_census_says_the_most_it_checks`:
+  15 readers scanned, their row as it was; 16 and 17 indexed, `(most 1)`.
+  `KERNEL.20`'s law that a frame computing what changed is the frame
+  computed whole, and `KERNEL.34`'s that a write between frames is a load
+  of the grid it leaves, again with every sheet indexed
+  (`..._every_sheet_indexed`, sixty and twenty further grids, their bodies
+  now `computes_what_changed` and `writes_as_loads`), so that the plan a
+  write leaves is held to a load's, index and all. In `tests/laws.rs`, the
+  eighth law, `a_grid_s_frames_are_the_same_however_its_formulas_are_written`:
+  thirty grids of fills over a value sheet, written one fill, by rows, by
+  columns and a cell each, the records equal cell for cell for four frames
+  and value writes between them, the values a cell each; fifteen of the
+  sixteen grids of sixteen rows or more written by rows indexed.
+
+**Measured** by the scoping's instrument, Alonzo's engine at its HEAD
+`a4ad3b6` (ENGINE.8's first slice, committed during the build) with the
+language by a path: HEAD's language and the build's, alternated case by
+case, three rounds, on the performance cores opted out of power
+throttling; medians of frames 3 to 31, a steady frame with its start in
+brackets, then the load; every case's plane after its frames the same on
+both sides in every round.
+
+| the grid | shapes | HEAD | the build |
+|---|---:|---:|---:|
+| Life, one fill | 1 | 2.76 (0.32), 36.1 ms | 2.67 (0.32), 35.5 ms |
+| the gun, one fill | 1 | 0.012 (0.003), 36.6 | 0.012 (0.003), 34.6 |
+| Sand, one fill | 15 | 3.69 (0.62), 155.3 | 3.76 (0.63), 157.8 |
+| Life by rows | 198 | 16.78 (13.05), 61.0 | 3.02 (0.59), 61.3 |
+| Life by columns | 318 | 25.93 (21.44), 79.0 | 3.58 (0.65), 75.9 |
+| the gun by rows | 198 | 0.084 (0.060), 43.0 | 0.038 (0.016), 44.7 |
+| the gun by columns | 318 | 0.133 (0.095), 50.0 | 0.059 (0.023), 53.9 |
+| Sand by rows | 606 | 43.68 (40.06), 273.1 | 4.10 (0.76), 277.8 |
+| Sand by columns | 960 | 96.45 (64.27), 340.6 | 31.02 (1.66), 331.1 |
+| Life's first 20 rows a cell each | 6,361 | 443.8 (419.6), 911.9 | 14.4 (2.6), 913.6 |
+
+The writes, each the write and then its frame: Life's rule written whole
+37.4 ms against 34.2, its frame 8.9 against 8.6; Sand's `Stay` whole 111.8
+against 107.1; one cell written into Sand by rows 111.1 against 106.3; one
+cell into Life's first 20 rows a cell each 209.2 against 210.8. Sand as
+committed read 3.76 ms against 3.69 there, its rounds' ranges apart, though
+no sheet of it is indexed; followed by six rounds more, alternated with HEAD
+and with `check` forced inline, the medians were 3.75 for HEAD, 3.75 for the
+build and 3.74 forced: level, the first difference drift between rounds, so
+`check` stays as written. Against the predictions, every one met: Life by
+rows 3.02 within 3.0 to 3.5, by columns 3.58 within 3.3 to 3.9, the gun's
+38 and 59 µs, Sand by rows 4.10 within 3.9 to 4.3, by columns 31.0 against
+about 32, a cell each 14.4 within 14 to 17, the committed fixtures
+unmoved, the plans and the writes unmoved. The language's module with its
+C surface 604,692 bytes to 619,440, the core's 1,166,323 to 1,166,335.
+
+**The oracle, met.**
+- *Bit for bit.* `the_index_reaches_what_the_scan_reaches`, 176 cases,
+  eleven grids each written four ways and indexed four ways, each held at
+  its load and after two writes; `KERNEL.20`'s law and `KERNEL.34`'s again
+  with every sheet indexed; the eighth law over thirty grids; and, at the
+  scoping, the designs held to the scan over Alonzo's three cartridges in
+  every spelling and through Alonzo's own runner.
+- *A write is a load,* index and all: `KERNEL.34`'s law with every sheet
+  indexed, the plan a write leaves spelled whole by `Shapes::spelled`, the
+  index with it, and held to a load's.
+- *Counted, not timed:* the board's checks exact, 3, 9, 9 and 27 a frame at
+  16 rows and at 32, where the scan's grow with the shapes.
+- *The mutants,* each alone in a fresh copy of the language after a
+  control that passed, each failing named tests: a band's last row dropped
+  (11, the differential, the counted board, the bands' own test,
+  `KERNEL.20`'s laws and the eighth law among them); a moving reference's
+  footprint taken at its shape's anchor alone (5); an own-sheet reader
+  filed for its shape's first sheet alone (1, the differential's shape on
+  two sheets); a too-wide reader dropped where it is checked always (1); a
+  `$`-held end read as relative and a relative one as held (6, the
+  footprint's own test among them); the second axis's last band dropped
+  (3); the hash's band off by one (14); the halving rule reversed (3); the
+  threshold off by one (2, the census's pin of 16 readers and the counted
+  board); the second axis's too-wide readers dropped (1); the first axis
+  chosen the other way (2); a held rectangle's footprint its first row
+  alone (1). The fourth survived the first round: no grid held a reader too
+  wide to file that reaches a cell, so the index grid gained three, a held
+  rectangle too wide by both axes, by rows alone and by columns alone, and
+  every mutant was run again over the tests as they stand.
+- *Determinism.* The four callers of `Reach::each` read again: a frame's
+  start and each cell a frame changes set bits and flags (`marked`,
+  `whole`, `recheck`), the parts computed after the marking in the shapes'
+  order; the two tests collect into a set. Nothing reads the order.
+- *Alonzo,* over a copy of its HEAD `a4ad3b6` with the build by a path:
+  `cargo test`, 33 (31 at `e66614d` and ENGINE.8's two), every committed
+  replay played to its golden and the describe goldens unchanged; `frames
+  -- --check`, every frame equal, the allocations 80 and 5, 80 and 5, 509
+  and 5; the six variants by rows and by columns of Life, the gun and Sand
+  through 61 frames, every frame equal to its hand-written reference.
+- *All green* in the worktree, by the CI core job's own steps: the build,
+  `cargo fmt --check`, clippy `-D warnings` and with `c-abi`, `cargo test
+  --workspace`, 405 (the core's 183, the language's 206, its eight laws and
+  the rest), the published package's own tests outside the repository, 222,
+  both wasm builds, the recalc runner and `check_recalc_floors` through it,
+  every value held, `check_shapes_golden` and its control; `run_checks.ps1`
+  57 of 57. The language's unit tests take 37 s in a debug build, where
+  they took 27, the differential and the laws run again with every sheet
+  indexed.
+
+*The owner's test, 2026-10-12*: the instrument over HEAD's language and
+over the build, one round each, every case's plane the same on both sides.
+Life by rows 16.62 ms to 3.28, by columns 25.62 to 3.41; the gun by rows
+0.08 to 0.04; Sand by rows 43.76 to 3.92, by columns 95.06 to 30.04; Life's
+first 20 rows a cell each 432.07 to 15.46; Life, the gun and Sand as
+committed 2.75 against 2.67, 0.01 and 0.01, 3.69 against 3.74; Sand's
+`Stay` written whole 111.5 against 98.2 ms, a cell into Sand by rows 94.8
+against 100.3. Alonzo's runner over the build: every frame equal, the
+allocations 80 and 5, 80 and 5, 509 and 5, and the six variants through 61
+frames, every frame equal to its hand-written reference.
+
+*Committed 2026-10-12* at the owner's word, "Commit", after the owner's
+run: the filing of `KERNEL.38` and `KERNEL.39` first, its two files alone,
+then this item's ten, each staged by path, the code moved whole from the
+worktree, nothing of it being in the shared tree, and the shared documents
+staged as `HEAD` and this item's lines, a peer's `KERNEL.37` beside them in
+the roadmap, the registry, this file and `RELEASES.md` left for its own
+commit; the tree verified in isolation first, `HEAD` and this item's
+files. The item closed with it; its line left the roadmap for the closed
+ledger. Not pushed. Alonzo takes it at its pin's move to the release, its
+prompt given in chat.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -37904,6 +38445,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.30 — the shapes printed: each formula shape of a plan as rows, its cells, its width at each level and the reads it makes, so that a model's or a cartridge's cost is read before a frame runs.** Minted 2026-10-12 at the owner's word from an Alonzo session's audit of the architecture, and scoped, approved, built and closed the same day: the census, the plan an engine's machine makes printed as rows when asked, the plan keeping for it only where each level of its order ends. One `(plan ...)` row of totals; a `(readers ...)` row a sheet, the readers a changed cell of it is checked against; and a `(shape ...)` row a shape, its first cell and its formula in R1C1, its cells, its levels summarized as the first, the last, how many and the widest, its runs, its cells alone, and its reads named by the path the machine takes, `slot`, `array`, `lookup`, `cells`, `once`, `start` and `each`, with the functions called at each cell, those not held, the earlier shape a formula already is, and a shape computed every frame and why: facts alone, no flag. `Machine::census` and `Shapes::census` in `vla-lang`, new calls and no signature changed; `frazaro calc <file> --shapes` at the door; eleven goldens over oracle 12's seven fixtures and the four bench programs, held by `check_shapes_golden.ps1`, the 57th check, goldens of the door and the crate and not an oracle of the treaty. Every count held to the plan walked again by `Calc`'s own edges, every path a run takes held to a kind the census names, 25 mutants caught; nothing computes differently, every load 0.3 KiB shallower on the stack, the plan made in a box, the language's module 160 bytes larger. Before a frame runs it shows Sand written a fill a row as 407 shapes of 13 texts, and the twelve months' totals walking their own sheet at each cell, `KERNEL.31`'s ground. Built and committed 2026-10-12 at the owner's word, to be released in 0.9.2; Alonzo's `describe` prints it after its pin moves there, a slice of its own. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.33 — the plan's edges found once a shape, a column a reference holds read once a row, and a row of single cells reached as one: what Alonzo's playtest pass of Sand asked of the language.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, the three changes as one item. A grid's plan reads each shape's references once, one every `$` holds found once for the shape, a cell's vertex through the reach's array of positions, the edges one flat array, and one Tarjan now serves both plans; in a run, a reference holding its column, read across one row, is read once; and a shape's single cells side by side in a row are one span to the reach, wherever the span stays on the sheet. Every value, the order, its runs and its cycles are as they were, and no public call changed. By both houses' instruments alternated with HEAD: Sand's load 507 ms to about 163 natively and 597 to about 163 in Chrome, its steady frame 15.6 to 10.5 ms, Alonzo's 1,100-frame playtest session 1,857 to 1,256 ms with every frame held; Life's and the gun's loads nearly halved, their frames unchanged. A first mutant round caught ten of fifteen and found two of the plan's paths no generated grid reached, a range of a sheet holding formulas and a name over formula cells; the generator writes both now, four pins were added, and the second round caught all fifteen. The owner's test: the session 1,844 ms to 1,250, every frame held, and Sand's load 511 ms to 158. To be released in 0.9.2. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.34 — a formula written into a running grid costs what its cells cost, so that a rule rebuilt and written whole is applied in a frame's time and not in fifteen seconds.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its five decisions as recommended. A write places its cells with each sheet's shared formulas found once, where each cell walked its sheet; tests whether a cell would read the same once for each formula the range covers, where every cell moved two texts; gives a fill's first cell up by making the fill's first cell left its master, one text moved, where every cell was given its own; and looks each cell up once. The plan a write leaves is now the plan a load of the same grid makes, numbered and anchored as a load's, which it was not. Natively, Life's rule written whole 15.4 s to about 40 ms, Sand's largest fill 16.4 s to about 120, a cell over a fill's first 0.82 s to 15 ms, a fill's own text again 1.8 s to 4 ms; every record is the one it was, a write counts the cells it counted, and no public call changed. Eighteen mutants, each failing named tests. The owner's test caught a pass that sorted every placed cell, which made a small write into Sand 14 ms dearer; the pass now finds each shape's first cell in one walk. Found and left for the owner to mint: a name spelled like an R1C1 reference shares a plain formula's shape key, so `=R1C1` beside `=$A$1` computes the other's value. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.35 — a sheet's readers found by the rows a changed cell stands on, so that a grid written one fill a row is marked as cheaply as one written one fill.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its seven decisions as recommended. A changed cell was checked against every reader of its sheet, every formula shape's reference to it, so a grid written a fill a row, a fill a column or a formula a cell paid a check a shape at every change. A sheet of 16 readers or more now keeps them by the rows or by the columns a changed cell must stand on to reach them, whichever leaves fewer, in bands one row or one column wide, a band still long filed again by the other, and only where that halves the checks; each reader is checked exactly as before. Natively, alternated with HEAD: Life written one fill a row 16.8 ms a frame to 3.0, one fill a column 25.9 to 3.6, Sand by rows 43.7 to 4.1, Life's first 20 rows a formula a cell 444 to 14; the cartridges as committed, their loads and a formula's write unmoved, and no public call changed. The census prints `(readers "<sheet>" n (most k))` on an indexed sheet, which moved the subset fixtures' two goldens alone. Held to the scan at every changed cell of 176 cases, by a count of the readers checked and by an eighth law; twelve mutants, each failing named tests, one of which found a gap the tests now fill. Its findings minted as `KERNEL.38` and `KERNEL.39`. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

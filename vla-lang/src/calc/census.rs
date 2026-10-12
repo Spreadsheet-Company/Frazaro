@@ -18,8 +18,11 @@
 //!   a time, the cells of the shapes computed every frame, and the cells on
 //!   cycles, which only a plan a load would refuse holds;
 //! - `(readers "<sheet>" n)`, for each sheet a change to which is followed:
-//!   the readers a changed cell of it is checked against, at a frame's start
-//!   and at each cell a frame changes (`super::reach`);
+//!   its readers, each shape's references to it, which a changed cell of it
+//!   is checked against at a frame's start and at each cell a frame changes
+//!   (`super::reach`); `(readers "<sheet>" n (most k))` where the sheet's
+//!   readers are indexed by where a changed cell stands (KERNEL.35), `k` the
+//!   most of them any one changed cell of it is checked against;
 //! - `(shape k "<sheet>" "<first cell>" "=<R1C1>" (cells n) (levels first
 //!   last count widest) (runs count lanes narrowest widest) (alone n)
 //!   (reads ...))`, for each shape a cell holds, by the plan's own number,
@@ -161,12 +164,13 @@ impl Facts {
     }
 }
 
-/// A plan's census: its shapes' facts, the readers a changed cell of each
-/// sheet is checked against, and what the plan alone knows.
+/// A plan's census: its shapes' facts, the readers of each sheet and, where
+/// they are indexed, the most a changed cell of it is checked against, and
+/// what the plan alone knows.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Census {
     pub(crate) shapes: Vec<Facts>,
-    pub(crate) readers: Vec<(String, usize)>,
+    pub(crate) readers: Vec<(String, usize, Option<usize>)>,
     pub(crate) formulas: usize,
     /// The levels of the order that hold a cell.
     pub(crate) levels: usize,
@@ -302,7 +306,7 @@ pub(crate) fn of(
         .enumerate()
         .filter_map(|(si, sheet)| {
             let n = reach.readers_on(si);
-            (n > 0).then(|| (sheet.name.clone(), n))
+            (n > 0).then(|| (sheet.name.clone(), n, reach.most_on(si)))
         })
         .collect();
     Census {
@@ -360,8 +364,11 @@ pub(crate) fn spell(c: &Census) -> String {
         c.levels,
         c.cycles
     );
-    for (sheet, n) in &c.readers {
-        out.push_str(&format!("(readers {} {n})\n", quoted(sheet)));
+    for (sheet, n, most) in &c.readers {
+        match most {
+            Some(k) => out.push_str(&format!("(readers {} {n} (most {k}))\n", quoted(sheet))),
+            None => out.push_str(&format!("(readers {} {n})\n", quoted(sheet))),
+        }
     }
     for x in &c.shapes {
         out.push_str(&format!(

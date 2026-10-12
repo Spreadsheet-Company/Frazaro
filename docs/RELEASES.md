@@ -25,6 +25,22 @@
   write kept the shape of a fill it replaced. Every value, every record and
   every count a write answers are what they were, and no call of the crate
   changed (KERNEL.34).
+- **For engines: a frame's start in time with the cells a change can
+  reach.** A machine followed each changed cell to the cells that read it
+  by checking every reader of the cell's sheet, every formula shape's
+  reference to it, so a grid written one fill a row or a column, or a
+  formula a cell, paid a check for each of its shapes at every change.
+  Alonzo's Life written one fill a row took 16.8 ms a frame against one
+  fill's 2.7, written one fill a column 25.9, and Sand written by rows 43.7
+  against 3.7. A sheet with 16 readers or more now keeps them by the rows
+  or by the columns a changed cell must stand on to reach them, a band of
+  them still long kept again by the other, so that a changed cell is
+  checked against the few around it: those frames now take about 3.0, 3.6
+  and 4.1 ms natively, and Life's first 20 rows written a formula a cell
+  440 ms to about 14. The census prints the most readers one changed cell
+  of such a sheet meets, `(readers "<sheet>" n (most k))`; a sheet of fewer
+  readers is checked as before, and its row is as it was. Every value is
+  what it was, and no call of the crate changed (KERNEL.35).
 
 ### Known open security items
 
