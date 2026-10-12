@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.29 | KERNEL.30 |
+| KERNEL | KERNEL.31 | KERNEL.32 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -201,11 +201,38 @@ owner's word, for `LET` and `LAMBDA`, the slice of their own `KERNEL.8`
 names, with a parity floor, a named function as fast as the formula it
 stands for, and three decisions for its scoping, recursion, functions as
 values and visibility, from the owner's requirement, given in an Alonzo
-session, that a function written in formulas be first-class; `KERNEL.30`
-is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
+session, that a function written in formulas be first-class. `KERNEL.30`
+and `KERNEL.31` were minted 2026-10-12 at the owner's word, from the speed
+half of an Alonzo session's audit of the architecture, after `KERNEL.28`
+had closed: `KERNEL.30` for the shapes printed, each formula shape of a
+plan as rows, its cells, its width at each level of the order and the
+reads it makes; `KERNEL.31` for a sheet a range reads this frame kept as
+an array, as a `.last` twin is, so that a reduction over the frame's own
+cells walks an array. The one-cell-wide chain the same audit named was
+left unminted, `KERNEL.28` having brought the running balance level with
+Excel's twenty threads; `KERNEL.32` is next free. `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
 free.
+
+The `VLA` family had its row in the inventory above and no sentence here
+until 2026-10-12, when the owner asked where `VLA.3` was minted. Its items
+are the language's own, in both its implementations (`vla-lang` and the
+VBA reference) and the treaty between them, and a closed one leaves
+`BETA_ROADMAP.md` for the closed ledger as every item does. `VLA.1` was
+minted 2026-10-10 at the owner's word, the day `vla-lang` 0.8.1 went to
+crates.io, as the family's first item: the language tests itself, its
+fixtures travelling with the crate, its laws holding on generated programs
+and text a stranger wrote refused by name, never a crash; scoped, built,
+owner-tested and committed the same day. `VLA.2` was minted 2026-10-10 at
+the owner's word, the day `VLA.1` closed, from that item's A/B: the port's
+expander sharing what the reference shares, so that a macro walking a list
+costs its length, not its length squared; open. `VLA.3` was minted
+2026-10-10 at the owner's word, on Alonzo's request after its `SPEC.3`,
+whose §12 named it the cartridge pass's next step: the expand-time object
+model, a template macro reaching a column, an address and a text's
+characters as it reaches a row; scoped, built, owner-tested and committed
+the same day (`494100a`), and released in 0.9.0. `VLA.4` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a
