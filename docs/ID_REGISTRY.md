@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.36 | KERNEL.37 |
+| KERNEL | KERNEL.39 | KERNEL.40 (`KERNEL.37` held) |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -228,7 +228,17 @@ on, so that a grid written one fill a row is marked as cheaply as one fill;
 are. The fourth cost the measurement named, the evaluator's own, 80 to 83%
 of a steady frame with a Life written by hand twelve times faster than the
 engine's, is the VLA-to-WebAssembly emitter of Alonzo's `CHARTER.md` §4,
-left unminted. `KERNEL.37` is next free.
+left unminted. `KERNEL.38` and `KERNEL.39` were minted 2026-10-12 at the
+owner's word, from the findings of `KERNEL.35`'s scoping: `KERNEL.38` for a
+fill's shape found by its formula's R1C1 text, as a plain formula's is, so
+that one formula written as many fills loads, marks and runs as one fill,
+which also answers the scoping's finding that a grid spelled by columns
+runs nothing together; `KERNEL.39` for a part the same at every cell
+computed once a frame for every shape that holds it. `KERNEL.37` is held
+for the `values` projection Alonzo's `ENGINE.8` asks of the language for
+its second slice, the view record less its formula rows, named by that
+number in Alonzo's roadmap when it was this registry's next free, its
+prompt with the owner to relay. `KERNEL.40` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
