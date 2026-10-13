@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.39 | KERNEL.40 |
+| KERNEL | KERNEL.41 | KERNEL.42 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -242,7 +242,14 @@ prompt with the owner to relay. `KERNEL.40` is next free. `KERNEL.37` was
 minted 2026-10-12 at the owner's word, the prompt relayed, for that
 projection, `values`, a window's grid record less its formula rows, so
 that an engine's host draws a grid every frame without moving every
-formula's text; `KERNEL.40` stays next free.
+formula's text; `KERNEL.40` stays next free. `KERNEL.40` and `KERNEL.41`
+were minted 2026-10-12 at the owner's word, from the findings of
+`KERNEL.36`'s scoping: `KERNEL.40` for a twin cell a formula's first value
+gains, kept in its array and made a cell only when a reader asks, so that a
+grid's first frame ends without making every twin again; `KERNEL.41` for a
+copy into a twin read through its cells that walks the changed cells in the
+twin's order, so that a frame's end copies at any share on every sheet.
+`KERNEL.42` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
