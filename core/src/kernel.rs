@@ -18,7 +18,8 @@
 //! two traits: [`Engine`], whose first implementations `PORT.9` lands, and
 //! [`Projection`], the language's (`vla_lang::projection`, re-exported here
 //! with its [`Window`]), whose first implementation is the grid of
-//! `crate::view` (`KERNEL.4`).
+//! `crate::view` (`KERNEL.4`) and whose second the values, the grid less its
+//! formula rows (`KERNEL.37`).
 
 use crate::messages::Refusal;
 
@@ -75,7 +76,10 @@ pub const SEAMS: [Seam; 6] = [
         name: "projections",
         entrance: "an implementation of vla_lang::projection::Projection",
         oracle: "a view golden per projection",
-        implementations: &["grid, the view record of one window (view::Grid)"],
+        implementations: &[
+            "grid, the view record of one window (view::Grid)",
+            "values, the view record less its formula rows (view::ValueGrid)",
+        ],
         deferred_to: "",
     },
     Seam {
@@ -214,15 +218,17 @@ mod tests {
     }
 
     #[test]
-    fn the_engines_seam_is_empty_today_and_the_projections_seam_has_its_grid() {
+    fn the_engines_seam_is_empty_today_and_the_projections_seam_has_its_grid_and_values() {
         let engines = seams().iter().find(|s| s.name == "engines").unwrap();
         assert!(engines.implementations.is_empty());
         assert_eq!(engines.deferred_to, "PORT.9");
         let projections = seams().iter().find(|s| s.name == "projections").unwrap();
-        assert_eq!(projections.implementations.len(), 1);
+        assert_eq!(projections.implementations.len(), 2);
         assert_eq!(projections.deferred_to, "");
         assert_eq!(crate::view::Grid::default().name(), "grid");
         assert!(projections.implementations[0].starts_with("grid"));
+        assert_eq!(crate::view::ValueGrid::default().name(), "values");
+        assert!(projections.implementations[1].starts_with("values"));
         let paragraphs = seams().iter().find(|s| s.name == "paragraphs").unwrap();
         assert_eq!(paragraphs.deferred_to, "G-USE");
     }

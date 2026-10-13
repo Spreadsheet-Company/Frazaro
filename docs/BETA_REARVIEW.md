@@ -24980,6 +24980,407 @@ files. The item closed with it; its line left the roadmap for the closed
 ledger. Not pushed. Alonzo takes it at its pin's move to the release, its
 prompt given in chat.
 
+**`KERNEL.37`, the values of a window: the scoping, 2026-10-12.** Begun at
+the owner's word, the prompt relayed from Alonzo's `ENGINE.8` scoping
+(Alonzo's `REARVIEW.md`, its last entry, its decision 3): mint the item,
+scope it, and build only after the owner approves. HEAD `d352774`, two
+ahead of origin, CI green on `e738cbb`; `run_checks.ps1` 57 of 57. In the
+tree, a peer's work uncommitted: `KERNEL.35`'s entry above, `KERNEL.38` and
+`KERNEL.39` minted, and `KERNEL.37` held by the registry for this item, the
+number the prompt names.
+
+*The instrument.* Alonzo's HEAD `a4ad3b6` taken by `git archive` into the
+session's scratchpad, once for each copy of the language, its pin patched
+to that copy by a path. Each copy is `vla-lang` at `d352774` by `git
+archive`: as it stands; the prototype below; the prototype never asking
+whether a fill's cell has its master, as the prompt's did not; the
+prototype always asking; the prototype with decision 4; and the prototype
+over `e738cbb`, the release. An example of the engine's own, `kview`, after
+`ENGINE.8`'s `gridview`: each cartridge loaded and its window viewed as
+`grid` and as `values` before any step; then 30 frames, each stepped and
+its window viewed as `grid`, `values` and `plane`, each timed; and at every
+frame the values record held to the grid record less its `formula` lines.
+Seven windows: `ENGINE.8`'s four scratch fixtures, copied byte for byte,
+`gridnum` (one fill of numbers under ten looks, every cell changing every
+frame), `gridtext` (one fill of texts), `gridsheet` (rate zero, 3,920
+values and a row of 80 sums, an edit a frame) and `gridcam` (a Screen of
+320 by 200 formulas seen at `K1:CL50`); Life's Screen at `A1:CB50`, a
+formula of about 470 characters; and Alonzo's committed grid card at
+`A1:CB50` and at `K1:CL50`. On the performance cores, opted out of power
+throttling, three rounds with the copies interleaved. In the browser,
+`ENGINE.8`'s own bench page over Alonzo's module built over each copy,
+headless Chrome 154, the view alone, three passes.
+
+*Measured,* natively, p50s of frames 2 to 31, ranges over the rounds:
+
+| window | `grid` | `values` | `values`, decision 4 | grid record | values record |
+|---|---:|---:|---:|---:|---:|
+| `gridnum` | 10.3 to 10.8 ms | 1.64 to 1.70 | 1.69 to 1.95 | 368,831 bytes | 102,851 |
+| `gridtext` | 10.9 to 11.4 | 1.84 to 1.91 | 1.87 to 1.89 | 428,393 | 110,413 |
+| `gridsheet` | 1.97 to 2.03 | 1.76 to 1.89 | 1.82 to 1.86 | 121,815 | 118,453 |
+| `gridcam` | 11.0 to 11.9 | 1.99 to 2.50 | 1.69 to 1.83 | 369,444 | 102,964 |
+| Life's window | 63.2 to 67.3 | 2.52 to 2.64 | 1.78 to 1.94 | 2,070,132 | 99,165 |
+| the grid card | 7.42 to 7.66 | 1.32 to 1.42 | 1.35 to 1.36 | 298,252 | 80,950 |
+| the card at `K1:CL50` | 7.49 to 7.61 | 1.29 to 1.34 | 1.31 to 1.33 | 295,309 | 78,007 |
+
+The steps take 0.06 to 0.3 ms, Life's and `gridcam`'s 2.7 to 3.7. Frame 0,
+before any value, `gridnum`'s grid 9.2 to 10.0 ms and its values 0.38 to
+0.46. In Chrome, p50s over the passes:
+
+| window | `grid` | `values` | `values`, decision 4 |
+|---|---:|---:|---:|
+| `gridnum` | 8.5 to 9.1 ms | 1.5 | 1.4 |
+| `gridtext` | 9.1 to 9.9 | 1.5 | 1.4 |
+| `gridsheet` | 1.6 | 1.5 to 1.6 | 1.5 |
+| `gridcam` | 9.3 to 10.1 | 2.0 | 1.5 |
+| Life's window | 58.9 to 64.3 | 1.9 to 2.0 | 1.3 to 1.4 |
+
+The prompt's numbers stand reproduced: the grid views within the rounds'
+spread, and its prototype's values in a steady frame. The prototype over
+`e738cbb` and over `d352774` views alike, so `KERNEL.34` moved no view. A
+sheet of values, `gridsheet`, is its grid less 80 formula rows, and its
+values cost what its grid does. Alonzo's module, 732,328 bytes over
+`d352774`, grows by 703 bytes with the prototype and 887 with decision 4;
+at Alonzo's pin, 0.9.2, it is 682,679, so `KERNEL.34` adds 49,649 of its
+own, which Alonzo meets at the pin's move whatever this item does.
+
+*Where the values' time goes,* by stage timers in a further copy. Life's
+2.4 ms: the `extent` row's walk of the Screen's 64,000 cells, 0.70 to 0.75;
+the window's cells gathered from its rows across the sheet's width, 0.14 to
+0.17; their rows printed, 1.5, about 0.38 µs a cell. `gridcam`'s 2.0: 0.28
+to 0.33, 0.07 and 1.6 to 1.7. On the sheets of 4,000 cells the walk takes
+0.01 to 0.02 ms. Every view walks its sheet for the `extent` row, the
+grid's as much as the values', with the window placed or not; decision 4 is
+for it. The rows printed are the cost that stays: each cell's address, its
+value spelled and its row's text, made anew at every view.
+
+*Found: the core's build can leave a fill's other cells without their
+master.* `Sheet::set` replaces a cell as it is told, and the build's
+`write_value` calls it, as `Sheet::set_formula` does for a formula, so a
+later sentence written over a fill's first cell leaves the fill's other
+cells children of a shared formula whose text no cell of the sheet holds.
+Through the door built at `d352774`, the program `Put 5 into cell B2.`,
+`Put formula "=B2+1" into rows 2 to 4 of column C.`, `Put 9 into cell C2.`:
+`frazaro view --sheet Output` prints `B2` and `C2` and nothing of `C3` and
+`C4`, neither their formulas nor the rows of the sentence that wrote them;
+`frazaro build` writes `C3` and `C4` as `<f t="shared" si="0"/>` with no
+master; and `frazaro reflect` of that file refuses it, "cell C3 continues a
+shared formula whose first cell has not been read". The machine never
+leaves such a cell, since a write over a fill's first cell makes the fill's
+first cell left its master (`KERNEL.34`), and the reader refuses one; the
+build makes one. Excel's reading of the file was not tried. Unminted, the
+owner's: the writer's (`PORT.7`'s family), the machine's release applied to
+the sheet model's own writes, with a build golden for it. For this item it
+means that a record leaving out formula rows must still leave out such a
+cell whole, as the grid does: decision 3.
+
+*A prototype,* in a scratch copy, not the build: `view.rs`'s rows in one
+private function with the formula rows behind a flag, `Grid` calling it as
+it stands, its signature unchanged; a second projection, `ValueGrid`, named
+`values`, calling it without them; `view_text_values` beside
+`view_text_valued`; `Machine::view`'s third arm. About a hundred lines with
+their comments. Over it, vla-lang's tests, 214 at `d352774`, pass with three
+scratch checks: the values held to the grid less its formula lines at every
+save the laws make, twins included, and before and after every write of the
+seventh law; the five view goldens less their formula lines, the values of
+the drafts loaded from them; and a cell whose master is lost absent from
+both records. Two mutants, each in a scratch copy with a target of its own
+(a shared target kept one mutant's build when the next mutant's sources
+were older than it): the master never asked for fails the lost master's
+test alone, since the machine never leaves one; the value rows dropped fail
+five laws and the goldens' test. Alonzo's 33 engine tests pass over the
+prototype and over it with decision 4, and `frames --check` holds every
+frame, its allocations 80 and 5, 80 and 5, 509 and 5.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The name: `values`.* Recommended, the prompt's. The projection's name,
+   as `Machine::view` takes it and the trait's `name` answers it, beside
+   `grid` and `plane`: the window's values, a value cell's `cell` row and a
+   formula's `value` row. Its type `view::ValueGrid`, since `Values` is
+   already the trait a record's values come through (`calc::Values`); its
+   text `view::view_text_values`, the twin of `view_text_valued`, which
+   prints the grid with its value rows, the two names a letter apart.
+   *Declined:* `grid-values`; `computed`, which the record already spells
+   for a value not computed (`not-computed`); `values_text`, off the
+   pattern of its twins.
+
+2. *A formula with no value prints no row, its `style` and `sentence` rows
+   kept.* Recommended, the prompt's. Before its first frame, or written
+   since the last, a formula has no value: the grid prints its `formula`
+   row and no `value` row, so the values print neither, and the rows after
+   them stay, which keeps the oracle the grid less its formula lines. A
+   viewport reads a `style` row with no value as an empty cell styled.
+   *Declined:* a placeholder row, `(value "S" "A1" none)`, a new spelling in
+   the record that the free oracle would have to except; the cell's `style`
+   and `sentence` rows left out too, which loses a styled empty cell's fill.
+
+3. *(New.) A fill's cell whose master is lost shows in neither record, and
+   the values learn it without a walk where the cell has a value.*
+   Recommended. The grid prints nothing for such a cell, having no text to
+   print (`sheet::formula_text`), not even its `style` and `sentence` rows.
+   A value is only ever computed for a formula with a text, by the machine
+   (a cell without one is never placed) and by `Calc` alike, so a fill's
+   cell with a value has its master; a cell without one, before the first
+   frame or written since the last, asks the sheet, whose masters are
+   walked once a view, at the first such cell. Exact for every model and
+   every values over it. A steady frame walks nothing and frame 0 walks
+   once: Life's window at frame 0 in 1.6 to 2.7 ms against 1.35 to 1.6
+   without the walk. Measured in steady frames: Life's window 2.52 to 2.64
+   ms against 2.40 to 2.61 never asking and 3.28 to 3.42 always asking;
+   `gridcam` 1.99 to 2.10, 1.86 to 2.78 and 2.30 to 3.13. *Declined:*
+   always walking, 0.8 ms a view of Life's window natively; never asking,
+   the prompt's, exact for every grid a machine holds and not for the
+   core's builds, so that a door's values of the program above would print
+   `C3`'s and `C4`'s `sentence` rows, which its grid does not.
+
+4. *(New.) The `extent` row read from the extent the values keep.*
+   Recommended. A provided method on `calc::Values`, `kept_extent(sheet)`,
+   `None` by default, so that a view walks as today: the machine answers
+   from the extents it keeps for every sheet, its twins' included, made at
+   its load and kept at every write and frame's end for the evaluator
+   (`Env::extent`), and `Calc` from those it finds at its making. `grid`
+   and `values` both read it, and `Machine::view` with no window takes the
+   sheet's whole extent the same way. In the prototype the kept extent was
+   asserted against the walk at every view of every test, 3,100 of them in
+   the laws. Measured: Life's window from 2.52 to 2.64 ms to 1.78 to 1.94
+   natively, and from 1.9 to 2.0 to 1.3 to 1.4 in Chrome; `gridcam` from
+   1.99 to 2.50 to 1.69 to 1.83, and from 2.0 to 1.5; the sheets of 4,000
+   cells unmoved. Named apart from `Env::extent`, which the machine and
+   `Calc` also implement, so that no call of either becomes ambiguous. An
+   addition to a public trait, provided, as `KERNEL.27`'s `lags` and
+   `content` were: no implementation outside the crate changes.
+   *Declined:* leaving it, 0.3 to 0.75 ms a view of a sheet of 64,000
+   cells, a third of Life's values; the extent found row by row in
+   `Sheet::extent()`, three descents a row, no trait, but slower than the
+   walk for a tall narrow sheet, a column of a million values.
+
+5. *It implements the projections seam.* Recommended, as the prompt asks.
+   `ValueGrid` implements `projection::Projection`, the language's second
+   projection and the first since `KERNEL.4`, the addition `KERNEL.12`
+   asks the seam to take; `kernel::SEAMS`' projections row lists it, and
+   the test pinning that row's one implementation pins two;
+   `CONTRIBUTING.md`'s table, `vla-lang/README.md` and `core/README.md` say
+   so. *Declined:* a function and the machine's arm alone, the record no
+   projection of the seam.
+
+6. *Oracle 11 names it in words; the door does not print it yet.*
+   Recommended. An amendment of the treaty's oracle 11, as `KERNEL.22`'s
+   was, moving no golden: the values record defined as the view record less
+   its `formula` rows, the language's, which an engine prints and no door
+   does yet, its goldens the view goldens less those rows. The treaty is
+   where the record's shape is fixed in words before a viewport reads it,
+   and Alonzo's will. No golden file is added: each view golden less its
+   formula lines is held by the language's test, a golden per projection
+   without a second copy. *Declined:* `frazaro view --values` now, with
+   `check_view_golden.ps1` deriving each golden's twin (the door, its usage
+   and README, the check, the treaty), for no reader yet, a door's choice of
+   projection being `KERNEL.12`'s for every projection at once; no words in
+   the treaty, which would leave Alonzo's SPEC pointing at a record the
+   treaty does not describe.
+
+7. *The oracle.*
+   - *The free law.* `tests/laws.rs` gains a law, the eighth, or the ninth
+     after `KERNEL.35`'s: every sheet's values, twins included, is its grid
+     less its formula lines, before a frame, after each and after each
+     write between frames, over the generated grids, some of their cells
+     given a `style` and a `sentence` row so that the rows the values keep
+     are exercised; and the `extent` row is the sheet's walked extent.
+   - *The goldens.* The five view goldens less their formula lines are the
+     values of the drafts loaded from them, in the machine's test of the
+     goldens, beside its grid half.
+   - *The cases.* In `view.rs`: a cell whose master is lost absent from
+     both records, with values and without; a formula before its first
+     value, its `style` and `sentence` rows kept; a lagging twin read
+     through `Values::content`; a window holding no formula, the two records
+     equal. The machine's refusal test with `values` among the names; a
+     values view through the C ABI (`abi.rs`).
+   - *Counted, not timed.* By `sheet::work`'s counter (`KERNEL.34`): a
+     steady frame's values of a window over a fill walk no sheet for its
+     masters, and frame 0's walk once; with decision 4, the extent's walk
+     counted the same way, none.
+   - *The mutants,* each alone in a scratch copy with a target of its own,
+     after a control that passes, each failing a named test: the master
+     never asked for; the master always asked for (the count); the value
+     rows dropped; a formula row kept; a formula's `style` row dropped; the
+     kept extent a row short (decision 4).
+   - *Alonzo*, over a copy of its HEAD with the slice by a path: `cargo
+     test`, and `frames -- --check` at its ceilings.
+   - *The after*, by this instrument, natively and in Chrome.
+   - *All green*: `cargo fmt --check`, clippy `-D warnings`, `cargo test
+     --workspace --no-fail-fast`, both wasm builds, `run_checks.ps1`; no
+     export is added, so `check_wasm_exports` stands, and no golden moves.
+
+8. *The release.* No public signature changes: a type, a function, a
+   provided trait method and a projection's name, all additions. A patch,
+   beside `KERNEL.34` and `KERNEL.35` under `RELEASES.md`'s `## 0.9.3`, its
+   number the owner's.
+
+*Predictions,* with the eight as recommended, natively over `d352774`:
+`gridnum` 1.6 to 1.9 ms, `gridtext` 1.8 to 2.0, `gridsheet` 1.8 to 1.9,
+`gridcam` 1.7 to 1.9, Life's window 1.8 to 2.0, the grid card 1.3 to 1.4;
+in Chrome 1.3 to 1.6, `gridsheet` about 1.5. Frame 0 a steady frame's cost
+and one walk of the sheet for its masters. The grid views 0.01 to 0.75 ms
+faster by decision 4, otherwise unmoved.
+
+**What it touches.** `vla-lang/src/view.rs` (the rows in one function,
+`ValueGrid`, `view_text_values`, the extent read; its tests),
+`machine/mod.rs` (the arm, the kept extent, the whole window; the goldens'
+and the refusal tests), `calc/mod.rs` (`Values::kept_extent`, `Calc`'s
+answer), `abi.rs` (its test), `tests/laws.rs`, `vla-lang/README.md`;
+`core/src/kernel.rs` (`SEAMS`), `core/README.md`, `CONTRIBUTING.md`,
+`conformance/README.md` (oracle 11's amendment); the roadmap's line, this
+entry, `RELEASES.md`. No VBA: the machine has no reference. No check, no
+golden and no export moves.
+
+**Beside it.** `KERNEL.35`, in progress, adds a law to `tests/laws.rs` too,
+so this item builds after it lands, or beside it in a worktree with its law
+numbered after. `KERNEL.38` and `KERNEL.39` move shapes and parts, not the
+record. Found and left: the core's orphaned fill, above.
+
+**For Alonzo,** `ENGINE.8`'s second slice; nothing here changes Alonzo's
+tree. `Cartridge::view` hands the projection's name to the machine, so the
+host asks for `values` at the pin's move with no engine change. The
+viewport at `a4ad3b6` draws none of a values record's 1,200 texts, taking a
+`value` row only after a `formula` row it has read, so its arm for a
+`value` row alone is the slice's. The module grows by 887 bytes, beside the
+49,649 `KERNEL.34` adds.
+
+*Approved 2026-10-12* at the owner's word, "Recommendations approved;
+proceed with implementing KERNEL.37 as scoped without committing the
+minting": the eight decisions as recommended, the minting and this entry
+left uncommitted, to go with the item.
+
+**Built 2026-10-12**, in a worktree over `d352774` (the session's
+scratchpad, `wt37`), beside `KERNEL.35`'s, which is in a worktree of its
+own; the shared tree touched only by this entry, the roadmap's line and
+`RELEASES.md`, so that `KERNEL.35`'s files, moved into the tree whole,
+meet none of this item's. What landed:
+- *The values* (decisions 1, 2 and 5). `view::ValueGrid`, named `values`,
+  with `valued` as `Grid` has it; the record's rows `Grid::rows`, private,
+  behind a flag, `Grid::project` calling it with the `formula` rows and
+  `ValueGrid::project` without them; `view::view_text_values`;
+  `Machine::view`'s third arm. `Grid` and every public signature as they
+  were.
+- *The master* (decision 3). In the values, a shared formula's cell with no
+  value asks the sheet's masters, found by one walk at the first such cell;
+  a cell with a value never asks. The grid's walk for its masters now waits
+  for the window's first formula cell too, which moves no record.
+- *The extent* (decision 4). `calc::Values::kept_extent`, provided, `None`
+  by default; the machine answers from its `extents`, `Calc` from its own.
+  `view::window_over`, crate-private, is `window_of` with a whole sheet's
+  window read the same way, the window `Machine::view` takes; `window_of`
+  as it was.
+- *The refusal's words.* Found at the build, missed by the scoping's "No
+  VBA": `view-projection-unknown` named the projections, "grid, the rows of
+  a window, and plane, a byte a cell", and its source is
+  `src/VLA_Messages.bas`. Reworded there, "... the projections are grid, the
+  rows of a window, values, those rows without the formulas' texts, and
+  plane, a byte a cell.", `VLA_MESSAGES_VERSION` `KERNEL.37`, and exported
+  with `tools/export_messages.ps1`: one line of the language's half moved,
+  none of the core's.
+- *The seam* (decision 5). `kernel::SEAMS`' projections row two, its test
+  `..._has_its_grid_and_values`; `CONTRIBUTING.md`'s table,
+  `vla-lang/README.md`, `core/README.md` and `kernel.rs`'s header.
+- *The treaty* (decision 6). Oracle 11's amendment of 2026-10-12, the
+  values record in words, no golden moved or added.
+- *The oracle* (decision 7).
+  - `tests/laws.rs`'s eighth law,
+    `a_window_s_values_are_its_grid_less_its_formula_rows`: fifty generated
+    grids dressed with a format and, on some written cells, a `style` or a
+    `sentence` row; five frames each, before and after a write between
+    frames (fills, a fill's first cell written over, values); every sheet,
+    twins included, whole and through `B2:D4`, 2,000 records held; each
+    whole record's window and extent, read from the kept extents, the rows a
+    walk of a copy of the workbook gives.
+  - `view.rs`: `the_values_are_the_grid_less_its_formula_rows` (five windows
+    of the hand-made model, computed and not, a styled formula's rows
+    kept), `a_fill_s_cell_whose_master_is_lost_shows_in_neither_record` (the
+    core's orphan, computed and not, one walk) and
+    `the_values_of_a_computed_fill_walk_nothing` (counted: the values of a
+    computed fill walk nothing, its grid the masters once, either without
+    values the extent once).
+  - `machine/mod.rs`: `a_steady_frame_s_values_walk_no_sheet` (Life's,
+    frames 0 to 3, a window and the whole sheet, counted: frame 0 one walk
+    for the masters, a steady frame none, the grid one at every view, no
+    extent walked); the view goldens' test with its values half; the
+    refusal test, `values` named and taken; `KERNEL.27`'s `twin_views`
+    holding each twin's values to its record at every frame of that law,
+    while a step yields and with cells left behind their slots.
+  - `abi.rs`: the values through the C surface. The core's
+    `the_view_goldens_are_reproduced`: the values of all six windows,
+    through the door's own recalculation.
+  - `sheet::work` counts a walk for an extent in a field of its own, so
+    that `KERNEL.34`'s counts do not move.
+- *The mutants,* each alone in a copy of the worktree's `vla-lang` with a
+  target of its own, after a control that passed: the master never asked
+  for failed the lost master's test and both counted tests; always asked
+  for, both counted tests; the value rows dropped, five tests, the law among
+  them; a formula row kept, six; a formula's `style` and `sentence` rows
+  dropped, three, the law and both goldens' tests; the kept extent a row
+  short, six, the third, fifth and eighth laws among them.
+- *All green*, in the worktree: `cargo fmt --check`; clippy `-D warnings`,
+  again into a fresh target; `cargo test --workspace --no-fail-fast`,
+  vla-lang's 219 and the core's 183; both wasm builds, the exports as they
+  were; `run_checks.ps1` 57 of 57, `check_recalc_floors` with its runner.
+- *Alonzo*, its HEAD `a4ad3b6` over the worktree's `vla-lang` by a path:
+  `cargo test` 33 of 33; `frames --check` every frame equal, the
+  allocations 80 and 5, 80 and 5, 509 and 5; the module 733,274 bytes, 946
+  more than over `d352774`.
+
+*The after*, by the scoping's instrument, natively, three rounds, the
+oracle held at every frame:
+
+| window | `grid` at `d352774` | `values` | values record |
+|---|---:|---:|---:|
+| `gridnum` | 10.3 to 10.8 ms | 1.62 to 1.69 | 102,851 bytes |
+| `gridtext` | 11.1 to 11.3 | 1.82 to 1.90 | 110,413 |
+| `gridsheet` | 2.00 to 2.02 | 1.80 to 1.85 | 118,453 |
+| `gridcam` | 11.0 to 11.4 | 1.71 to 2.01 | 102,964 |
+| Life's window | 63.8 to 67.3 | 1.69 to 1.77 | 99,165 |
+| the grid card | 7.60 to 7.67 | 1.27 to 1.35 | 80,950 |
+| the card at `K1:CL50` | 7.58 to 7.66 | 1.30 | 78,007 |
+
+The build's grid views are `d352774`'s. In Chrome, three passes, the grid
+at `d352774` and the build's values: `gridnum` 8.4 to 8.8 ms and 1.4,
+`gridtext` 9.2 to 9.5 and 1.4 to 1.5, `gridsheet` 1.6 and 1.4 to 1.5,
+`gridcam` 9.5 to 9.7 and 1.4 to 1.5, Life's window 60.7 to 63.3 and 1.3.
+The predictions held, Life's native values, 1.69 to 1.77 against 1.8 to
+2.0, better than predicted.
+
+*Not built, as scoped:* the door's flag and any new golden (decision 6);
+the core's orphaned fill, unminted.
+
+*Owner-tested 2026-10-12:* the VBA pass over the worktree's modules,
+`VlaSelfTests` pure 1,997 of 1,997 and host 333 of 333.
+
+*Carried onto `KERNEL.35`,* which its session committed the same day as
+`b02ed93`, after `8677885`: the worktree's change as a patch applied with
+three-way merges to a second worktree over `b02ed93` (`wt37b`), every file
+clean but `tests/laws.rs`, where both items had added a law; that file
+rebuilt as `b02ed93`'s with this item's law after `KERNEL.35`'s, the ninth,
+its doc line renumbered and a local renamed apart from `KERNEL.35`'s helper
+`values`. Over it, all green again: `cargo fmt --check`, clippy `-D
+warnings`, `cargo test --workspace --no-fail-fast` (vla-lang's library 210,
+its nine laws, the core's 183), both wasm builds, `run_checks.ps1` 57 of 57
+with nothing skipped; Alonzo over it by a path, `cargo test` 33 of 33 and
+`frames --check` every frame equal at its ceilings, the module 749,157
+bytes, 930 more than over `b02ed93` alone. The values over `b02ed93`,
+natively, two rounds: `gridnum` 1.68 to 1.75 ms, `gridtext` 1.87 to 1.90,
+`gridsheet` 1.84 to 1.87, `gridcam` 1.85 to 1.86, Life's window 1.86 to
+1.90, the grid card 1.30 to 1.36, the grid views as they were.
+
+*Committed 2026-10-12* at the owner's word, "Commit", after the owner's
+VBA pass: the fourteen files moved whole from `wt37b`, each the worktree's
+byte for byte, and this item's lines of three documents staged as `HEAD`
+and those lines, beside a peer's uncommitted `KERNEL.36` scoping and the
+two items it minted, left for its own commit; the minting and this entry
+with it. The staged tree verified on its own by
+`run_checks.ps1`, the worktree first by the CI core job's own steps. The
+item closed with it; its line left the roadmap for the closed ledger. Not
+pushed. Alonzo takes it at its pin's move to the release that carries it,
+its prompt given in chat.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -38446,6 +38847,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.33 — the plan's edges found once a shape, a column a reference holds read once a row, and a row of single cells reached as one: what Alonzo's playtest pass of Sand asked of the language.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, the three changes as one item. A grid's plan reads each shape's references once, one every `$` holds found once for the shape, a cell's vertex through the reach's array of positions, the edges one flat array, and one Tarjan now serves both plans; in a run, a reference holding its column, read across one row, is read once; and a shape's single cells side by side in a row are one span to the reach, wherever the span stays on the sheet. Every value, the order, its runs and its cycles are as they were, and no public call changed. By both houses' instruments alternated with HEAD: Sand's load 507 ms to about 163 natively and 597 to about 163 in Chrome, its steady frame 15.6 to 10.5 ms, Alonzo's 1,100-frame playtest session 1,857 to 1,256 ms with every frame held; Life's and the gun's loads nearly halved, their frames unchanged. A first mutant round caught ten of fifteen and found two of the plan's paths no generated grid reached, a range of a sheet holding formulas and a name over formula cells; the generator writes both now, four pins were added, and the second round caught all fifteen. The owner's test: the session 1,844 ms to 1,250, every frame held, and Sand's load 511 ms to 158. To be released in 0.9.2. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.34 — a formula written into a running grid costs what its cells cost, so that a rule rebuilt and written whole is applied in a frame's time and not in fifteen seconds.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its five decisions as recommended. A write places its cells with each sheet's shared formulas found once, where each cell walked its sheet; tests whether a cell would read the same once for each formula the range covers, where every cell moved two texts; gives a fill's first cell up by making the fill's first cell left its master, one text moved, where every cell was given its own; and looks each cell up once. The plan a write leaves is now the plan a load of the same grid makes, numbered and anchored as a load's, which it was not. Natively, Life's rule written whole 15.4 s to about 40 ms, Sand's largest fill 16.4 s to about 120, a cell over a fill's first 0.82 s to 15 ms, a fill's own text again 1.8 s to 4 ms; every record is the one it was, a write counts the cells it counted, and no public call changed. Eighteen mutants, each failing named tests. The owner's test caught a pass that sorted every placed cell, which made a small write into Sand 14 ms dearer; the pass now finds each shape's first cell in one walk. Found and left for the owner to mint: a name spelled like an R1C1 reference shares a plain formula's shape key, so `=R1C1` beside `=$A$1` computes the other's value. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.35 — a sheet's readers found by the rows a changed cell stands on, so that a grid written one fill a row is marked as cheaply as one written one fill.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its seven decisions as recommended. A changed cell was checked against every reader of its sheet, every formula shape's reference to it, so a grid written a fill a row, a fill a column or a formula a cell paid a check a shape at every change. A sheet of 16 readers or more now keeps them by the rows or by the columns a changed cell must stand on to reach them, whichever leaves fewer, in bands one row or one column wide, a band still long filed again by the other, and only where that halves the checks; each reader is checked exactly as before. Natively, alternated with HEAD: Life written one fill a row 16.8 ms a frame to 3.0, one fill a column 25.9 to 3.6, Sand by rows 43.7 to 4.1, Life's first 20 rows a formula a cell 444 to 14; the cartridges as committed, their loads and a formula's write unmoved, and no public call changed. The census prints `(readers "<sheet>" n (most k))` on an indexed sheet, which moved the subset fixtures' two goldens alone. Held to the scan at every changed cell of 176 cases, by a count of the readers checked and by an eighth law; twelve mutants, each failing named tests, one of which found a gap the tests now fill. Its findings minted as `KERNEL.38` and `KERNEL.39`. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.37 — the values of a window: the grid record less its formula rows, so that an engine's host draws a grid every frame without moving every formula's text.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its eight decisions as recommended. A host drawing a grid-mode cartridge from the view record every frame paid for every formula's text, each shared formula's cell given its master's text moved to it at every view: an 80 by 50 window of one fill viewed in 10.3 ms natively where its frame took 0.2, the same window of Life's formulas in 64. The machine now answers a third projection, `values` (`view::ValueGrid`, `view_text_values`), the record less its `formula` rows, every other row the grid's, so that for any window it is the grid record with its formula lines removed, byte for byte; a fill's cell with a value never asks for its master, and one whose master the sheet has lost shows in neither record. Both records read a sheet's extent from what a machine or a recalculation keeps (`Values::kept_extent`, provided), where every view walked the sheet for it. Natively those windows in 1.6 to 1.9 ms, in Chrome 1.3 to 1.5; the records 368,831 bytes to 102,851 and 2,070,132 to 99,165; Alonzo's module 930 bytes larger; no public call changed. The refusal of an unknown projection names the third, reworded in the VBA catalogue, where the scoping had said no VBA. Held by a ninth law, by the view goldens less their formula rows, by counted walks and by six mutants, each failing named tests; oracle 11 amended in words, no golden moved. Found and left for the owner to mint: the core's build leaves a fill's other cells without their master when a later sentence writes over its first cell, and writes a file its own reader refuses. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

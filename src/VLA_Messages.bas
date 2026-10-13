@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.3"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.37"
+' KERNEL.37: view-projection-unknown names the third projection, values,
+' the rows of a window without the formulas' texts, beside grid and plane.
+'
 ' VLA.3: the expand-time object model, eight refusals under VLA.
 ' vla-arith-expand-not-whole and vla-arith-expand-divide-by-zero - the
 ' integer quotient and remainder take whole numbers and no zero divisor;
@@ -1599,7 +1602,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The grid holds no sheet named {name}; it holds {sheets}."
     AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window of a sheet. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
     ' KERNEL.22 - an engine's view: a projection this version does not have, and a plane too large to hold.
-    AddMsg m, "view-projection-unknown", 5, "VLA-View", "{name} is not a projection of the grid; the projections are grid, the rows of a window, and plane, a byte a cell."
+    AddMsg m, "view-projection-unknown", 5, "VLA-View", "{name} is not a projection of the grid; the projections are grid, the rows of a window, values, those rows without the formulas' texts, and plane, a byte a cell."
     AddMsg m, "view-window-too-large", 5, "VLA-View", "The window {window} holds {cells} cells, past the {limit} one plane holds; view it in parts."
 
     ' KERNEL.2: the distro folder's refusals. An edition is a folder,

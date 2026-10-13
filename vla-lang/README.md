@@ -68,7 +68,10 @@ refused in the same words.
   each cell's value or formula, its format and the row of the sentence that
   wrote it. It is the first implementation of `projection::Projection`, the
   seam a second projection enters by. `view::view_text_valued` prints the
-  same record with each formula's computed value after it.
+  same record with each formula's computed value after it. The second,
+  `view::ValueGrid`, is the same record less its formula rows, the values a
+  host draws every frame without moving every formula's text:
+  `view::view_text_values` prints it.
 - **Computes the grid.** `calc::Calc::new` reads every formula off a
   `Workbook`, builds the dependency graph from the references and finds the
   order, naming every cycle; `Calc::step` evaluates the next cells of that
@@ -94,7 +97,8 @@ refused in the same words.
   yields and resumes, and at the end of each frame copies every sheet's
   values into its twin, `X.last`, a hidden sheet the next frame's formulas
   read the previous frame from (`=Screen.last!B2+1`); `view` answers the
-  record with each formula's value, or the plane, a byte a cell. Each
+  record with each formula's value, the values (the record less its formula
+  rows, what a host draws), or the plane, a byte a cell. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
   text is the same) and evaluated at each cell's offset. `census` prints
   the plan as rows before a frame runs: each shape's cells, the levels of

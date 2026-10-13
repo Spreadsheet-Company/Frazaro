@@ -69,7 +69,7 @@ rule over both source trees.
 | paragraphs | a library of sentences with named slots (`G-USE`) | the build golden; the stamp hashing every file used |
 | engines | an implementation of `kernel::Engine` under a head-table symbol (`PORT.9`) | a proof file of its kind, clingo beside it where it applies |
 | formats and hosts | a `reflect::Source` to read, a writer beside it, a `kernel::HostProfile` per door | the reflect, diff and audit goldens; the build golden |
-| projections | an implementation of `kernel::Projection`; the grid, `view::Grid`, is the first (`KERNEL.4`) | a view golden under `scripts/view/` (`check_view_golden.ps1`); the free one: the view of a built model's sheet, whole, is `reflect` of its file |
+| projections | an implementation of `kernel::Projection`; the grid, `view::Grid`, is the first (`KERNEL.4`), the values, `view::ValueGrid`, the second (`KERNEL.37`) | a view golden under `scripts/view/` (`check_view_golden.ps1`); the free one: the view of a built model's sheet, whole, is `reflect` of its file; the values: each view golden less its formula rows |
 | functions | a function registered into `vla_lang::calc::Library` with the fixture a host saved that shows it; the language's fourteen day-one functions and Excel's library, `excel::SUBSET`, each function with its evidence (`KERNEL.7`) | the recalc golden under `scripts/recalc/` (`check_recalc_golden.ps1`): the fixture's cached values agree, and a function enters with its fixture and its measured frequency, never by taste (`KERNEL.6`) |
 
 A feature that fits no seam is a seam to design first, on the roadmap, not

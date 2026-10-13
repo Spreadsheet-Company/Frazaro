@@ -1350,3 +1350,39 @@ shared formulas left in a sheet numbered from 0 in their order.
 - **Oracles 8 to 12 are unchanged.** A reader prints each cell of a fill as
   its formula, whether the file shares it or not, so no relation, change,
   finding, view or recalculation row moves.
+
+## Amendment of 2026-10-12: oracle 11's values, the record less its formula rows (`KERNEL.37`)
+
+An engine draws a running grid from the view record every frame, and the
+record spells every formula's text at every view, each shared formula's
+cell its master's text moved to it: an 80 by 50 window of one short fill is
+viewed in about 10 ms where the frame computing it takes 0.2. A host draws
+values; a formula's text is the bar's, one cell at a time. So the language
+prints a second projection of the same window, the values: the view record
+with its `formula` rows left out.
+
+- **The values record.** Every row of the view record of the same window
+  over the same values, in the record's order and spelling, but the
+  `(formula ...)` rows: the `sheet`, `window`, `extent`, `gridlines`,
+  `column`, `row`, `format` and `look` rows, then each cell's `cell` row, or
+  its formula's `value` row once it has one, then the cell's `style` and
+  `sentence` rows. A formula with no value prints no row of its own, its
+  `style` and `sentence` rows kept; a shared formula's cell whose master the
+  sheet no longer holds has no text, and prints nothing in either record. So
+  for any window the values record is the view record with its lines that
+  open `(formula ` removed, byte for byte, which is the oracle and the
+  record's whole definition.
+- **No golden moves and none is added.** No door prints the values yet: an
+  engine asks for them by name (`values`, beside `grid` and `plane`), and a
+  door's choice among projections waits for the projections seam
+  (`KERNEL.12`). The six view goldens, each less its `formula` lines, are
+  the values of their windows, held by the core's test through the door's
+  own recalculation and by the language's over the drafts loaded from five
+  of them, and a law holds the oracle over generated grids before a frame,
+  after each and after each write between frames.
+- **The extent where the values keep it.** Both records read a sheet's
+  `extent` row, and the window of a sheet asked for without a range, from
+  the extent their values keep, where they keep one: an engine's machine
+  keeps every sheet's for its evaluator, and a recalculation those of the
+  model it was made over. The rows are the ones a walk of the sheet gives,
+  which the same law holds.

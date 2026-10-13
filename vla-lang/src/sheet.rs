@@ -369,6 +369,8 @@ impl Sheet {
     /// The used range as ((first row, first column), (last row, last
     /// column)), or `None` for a sheet with no cell.
     pub fn extent(&self) -> Option<((u32, u32), (u32, u32))> {
+        #[cfg(test)]
+        work::extents(self.cells.len());
         let mut it = self.cells.keys();
         let &(r0, c0) = it.next()?;
         let (mut top, mut left, mut bottom, mut right) = (r0, c0, r0, c0);
@@ -450,13 +452,15 @@ pub(crate) fn filled(range: A1Range, text: &str, si: Option<u32>, row: u32, col:
 /// the mover moved, and the fills a write released, each whole or cell by
 /// cell. A write's cost is pinned by these counts and not by its time; an
 /// allocation count would miss the walks, which allocate once a master and
-/// not once a cell. Counted on the thread that asked, between
-/// [`work::begin`] and [`work::end`], and only in a test build.
+/// not once a cell. Since KERNEL.37 a view's walks are counted too: the
+/// masters' and the extent's (`Sheet::extent`). Counted on the thread that
+/// asked, between [`work::begin`] and [`work::end`], and only in a test
+/// build.
 #[cfg(test)]
 pub(crate) mod work {
     use std::cell::Cell;
 
-    /// What the writes since [`begin`] did.
+    /// What the writes and views since [`begin`] did.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Work {
         /// The cells walked.
@@ -467,12 +471,14 @@ pub(crate) mod work {
         pub(crate) whole: u64,
         /// The fills released cell by cell, each cell given its own text.
         pub(crate) split: u64,
+        /// The cells walked to find a sheet's extent.
+        pub(crate) extents: u64,
     }
 
     thread_local! {
         static ON: Cell<bool> = const { Cell::new(false) };
         static DONE: Cell<Work> = const {
-            Cell::new(Work { walked: 0, moved: 0, whole: 0, split: 0 })
+            Cell::new(Work { walked: 0, moved: 0, whole: 0, split: 0, extents: 0 })
         };
     }
 
@@ -501,6 +507,11 @@ pub(crate) mod work {
     /// A walk over a sheet of `cells` cells.
     pub(crate) fn walked(cells: usize) {
         add(|w| w.walked += cells as u64);
+    }
+
+    /// A walk over a sheet of `cells` cells for its extent.
+    pub(crate) fn extents(cells: usize) {
+        add(|w| w.extents += cells as u64);
     }
 
     /// One text moved.

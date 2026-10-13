@@ -24,6 +24,10 @@
 //!    record cell for cell, frame after frame, the values where a formula a
 //!    cell is written with a text of its own; a grid written by rows past
 //!    sixteen of them is one whose readers the machine indexes (KERNEL.35).
+//! 9. A window's values are its grid record less its formula rows, every
+//!    sheet's, twins included, before a frame, after each and after each
+//!    write between frames; and a record's window and extent, as the machine
+//!    keeps them, are the sheet's walked (KERNEL.37).
 
 use std::collections::HashMap;
 
@@ -36,6 +40,7 @@ use vla_lang::reader::read_forms;
 use vla_lang::refers::shift_a1_references;
 use vla_lang::rows::quoted;
 use vla_lang::sheet::{parse_a1_range, A1Range};
+use vla_lang::view::{view_text, window_of};
 
 const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");
@@ -628,4 +633,122 @@ fn a_grid_s_frames_are_the_same_however_its_formulas_are_written() {
         indexed >= 8,
         "{indexed} grids written by rows were indexed: too few for the law to hold over"
     );
+}
+
+// ---- 9. a window's values ------------------------------------------------
+
+/// A grid's rows dressed: a format, and a `style` or a `sentence` row after
+/// some of its written cells, so that the rows the values keep beside a
+/// formula's stand in the records (KERNEL.37).
+fn dressed(r: &mut Rng, rows: &str) -> String {
+    let cell = format!("(cell \"{SHEET}\" \"");
+    let formula = format!("(formula \"{SHEET}\" \"");
+    let mut out = String::new();
+    for line in rows.lines() {
+        out.push_str(line);
+        out.push('\n');
+        if line.starts_with("(sheet ") {
+            out.push_str("(format 1 \"F7F4FC\" general nowrap)\n");
+        }
+        let Some(addr) = line
+            .strip_prefix(&cell)
+            .or_else(|| line.strip_prefix(&formula))
+            .and_then(|rest| rest.split('"').next())
+        else {
+            continue;
+        };
+        if r.below(3) == 0 {
+            out.push_str(&format!("(style \"{SHEET}\" \"{addr}\" 1)\n"));
+        }
+        if r.below(3) == 0 {
+            let row = 1 + r.below(9);
+            out.push_str(&format!("(sentence \"{SHEET}\" \"{addr}\" {row})\n"));
+        }
+    }
+    out
+}
+
+/// A window of a sheet, as a projection prints it.
+fn record(m: &Machine, projection: &str, sheet: &str, window: Option<&str>) -> String {
+    match m.view(projection, sheet, window) {
+        Ok(Viewed::Text(t)) => t,
+        other => panic!("{projection} {sheet} {window:?}: {other:?}"),
+    }
+}
+
+/// A record's lines less its `formula` lines.
+fn less_formulas(record: &str) -> String {
+    record
+        .lines()
+        .filter(|l| !l.starts_with("(formula "))
+        .map(|l| format!("{l}\n"))
+        .collect()
+}
+
+/// A record's window and extent rows.
+fn header(record: &str) -> Vec<&str> {
+    record
+        .lines()
+        .filter(|l| l.starts_with("(window ") || l.starts_with("(extent "))
+        .collect()
+}
+
+/// Every sheet's values, twins included, held to its grid record less its
+/// formula lines, whole and through a window; and each whole record's window
+/// and extent, read from the extents the machine keeps, held to the sheet's
+/// walked in a copy of the workbook. The records held, counted.
+fn values_held(m: &mut Machine, when: &str) -> usize {
+    let names: Vec<String> = (0..)
+        .map_while(|i| m.sheet_name(i).map(str::to_string))
+        .collect();
+    let mut held = 0;
+    let mut wholes = Vec::new();
+    for name in &names {
+        for window in [None, Some("B2:D4")] {
+            let grid = record(m, "grid", name, window);
+            let shown = record(m, "values", name, window);
+            assert_eq!(shown, less_formulas(&grid), "{when}: {name} {window:?}");
+            held += 1;
+            if window.is_none() {
+                wholes.push(grid);
+            }
+        }
+    }
+    let book = m.workbook().clone();
+    for (name, grid) in names.iter().zip(&wholes) {
+        let w = window_of(&book, name, None).expect("a sheet the machine holds");
+        let walked = view_text(&book, &w);
+        assert_eq!(
+            header(grid),
+            header(&walked),
+            "{when}: {name}'s window and extent"
+        );
+    }
+    held
+}
+
+#[test]
+fn a_window_s_values_are_its_grid_less_its_formula_rows() {
+    let mut held = 0;
+    for seed in 1..=50u64 {
+        let mut r = Rng::new(seed);
+        let rows = grid_rows(&mut r);
+        let rows = dressed(&mut r, &rows);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let mut last = None;
+        for frame in 0..=4 {
+            if frame > 0 {
+                assert!(m.step(0).done);
+            }
+            held += values_held(&mut m, &format!("seed {seed}, frame {frame}\n{rows}"));
+            let write = write_between(&mut r, &mut last);
+            let when = format!("seed {seed}, frame {frame}: {write}\n{rows}");
+            m.write(&write)
+                .unwrap_or_else(|e| panic!("{when}: {}", e.refusal.text));
+            held += values_held(&mut m, &when);
+        }
+    }
+    // Fifty grids, five frames, before and after a write, two sheets (the
+    // grid's and its twin), each whole and through a window.
+    assert_eq!(held, 50 * 5 * 2 * 2 * 2);
 }

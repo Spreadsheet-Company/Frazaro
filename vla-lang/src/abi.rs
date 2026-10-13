@@ -405,6 +405,19 @@ mod tests {
             "{}",
             g.text()
         );
+        // The values (KERNEL.37): the record less its formula row.
+        let v = view(h, b"values", "S", "");
+        assert_eq!(v.status, 0);
+        assert_eq!(
+            v.text(),
+            g.text()
+                .replace("(formula \"S\" \"B1\" \"=S.last!B1+A1\")\n", "")
+        );
+        assert!(
+            v.text().contains("(value \"S\" \"B1\" 4)\n"),
+            "{}",
+            v.text()
+        );
         let p = view(h, b"plane", "S", "A1:C1");
         assert_eq!((p.status, p.text.as_slice()), (0, &[2u8, 4, 0][..]));
 

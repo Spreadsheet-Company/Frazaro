@@ -47,10 +47,22 @@
 //! naming the function or the construct, `(not-computed cycle)` for one in
 //! a cycle. The bare [`view_text`] prints no value row, which is what a
 //! grid shows before its first step.
+//!
+//! The second projection, the values ([`ValueGrid`], `values`; KERNEL.37,
+//! 2026-10-12), is the same record with its `formula` rows left out: every
+//! other row the grid's, in the grid's order, so that for any window it is
+//! the grid record with its `(formula ` lines removed, byte for byte. It is
+//! what an engine's host draws every frame ([`view_text_values`]), a
+//! formula's text being the bar's, one cell at a time, where the grid moves
+//! every shared child's text from its master at every view. A formula with
+//! no value yet prints no row of its own, its `style` and `sentence` rows
+//! kept; a shared formula's cell whose master the sheet has lost prints
+//! nothing in either record. Both read a sheet's `extent` row from the
+//! extent their values keep ([`Values::kept_extent`]), where they keep one.
 
 use std::collections::BTreeSet;
 
-use crate::calc::Values;
+use crate::calc::{Extent, Values};
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted};
@@ -84,6 +96,47 @@ impl Projection for Grid<'_> {
     }
 
     fn project(&self, model: &Workbook, window: &Window, out: &mut dyn FnMut(&str)) {
+        self.rows(model, window, true, out);
+    }
+}
+
+/// The values: the view record of one window with its `formula` rows left
+/// out, the second projection (KERNEL.37). With the values of a
+/// recalculation or an engine's machine, each formula's `value` row stands
+/// where the grid prints it, after the row the grid prints before it; the
+/// record of a window holding no formula is the grid's.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ValueGrid<'v> {
+    pub values: Option<&'v dyn Values>,
+}
+
+impl<'v> ValueGrid<'v> {
+    /// The values of a computed model.
+    pub fn valued(values: &'v dyn Values) -> ValueGrid<'v> {
+        ValueGrid {
+            values: Some(values),
+        }
+    }
+}
+
+impl Projection for ValueGrid<'_> {
+    fn name(&self) -> &str {
+        "values"
+    }
+
+    fn project(&self, model: &Workbook, window: &Window, out: &mut dyn FnMut(&str)) {
+        Grid {
+            values: self.values,
+        }
+        .rows(model, window, false, out);
+    }
+}
+
+impl Grid<'_> {
+    /// The record's rows of one window: every row the grid prints, or with
+    /// `formulas` false every row but the `formula` rows, which is the values
+    /// (KERNEL.37).
+    fn rows(&self, model: &Workbook, window: &Window, formulas: bool, out: &mut dyn FnMut(&str)) {
         for s in &model.sheets {
             out(&relation(&Row::Sheet {
                 name: &s.name,
@@ -108,7 +161,7 @@ impl Projection for Grid<'_> {
             quoted(name),
             quoted(&range.text())
         ));
-        match extent_of(sheet) {
+        match extent_in(sheet, i, self.values) {
             Some(e) => out(&format!("(extent {} {})", quoted(name), quoted(&e.text()))),
             None => out(&format!("(extent {} none)", quoted(name))),
         }
@@ -180,7 +233,11 @@ impl Projection for Grid<'_> {
         for (value, index) in &sheet.looks {
             out(&format!("(look {} {} {})", quoted(name), value, index));
         }
-        let masters = shared_masters(sheet);
+        // The sheet's shared formulas' masters, found by one walk of the
+        // sheet at the first cell that needs them (KERNEL.37): the grid moves
+        // a child's text from its master; the values ask only whether a
+        // child with no value has one.
+        let mut masters = None;
         // A sheet whose cells are newer where its values say (KERNEL.27): an
         // engine's twin, read through its values' own content.
         let lags = self.values.filter(|v| v.lags(i));
@@ -229,28 +286,46 @@ impl Projection for Grid<'_> {
                     }));
                     true
                 }
-                other => match formula_text(other, *row, *col, &masters) {
-                    Some(text) => {
-                        let text = format!("={text}");
-                        out(&relation(&Row::Formula {
-                            sheet: name,
-                            addr: &addr,
-                            text: &text,
-                        }));
-                        if let Some(computed) =
-                            self.values.and_then(|calc| calc.computed((i, *row, *col)))
-                        {
-                            out(&format!(
-                                "(value {} {} {})",
-                                quoted(name),
-                                quoted(&addr),
-                                computed.spell()
-                            ));
+                other => {
+                    let computed = self.values.and_then(|calc| calc.computed((i, *row, *col)));
+                    // A formula with a text: every one but a shared formula's
+                    // cell whose master the sheet has lost, which shows
+                    // nothing in either record.
+                    let held = if formulas {
+                        let walked = masters.get_or_insert_with(|| shared_masters(sheet));
+                        match formula_text(other, *row, *col, walked) {
+                            Some(text) => {
+                                let text = format!("={text}");
+                                out(&relation(&Row::Formula {
+                                    sheet: name,
+                                    addr: &addr,
+                                    text: &text,
+                                }));
+                                true
+                            }
+                            None => false,
                         }
-                        true
+                    } else {
+                        match other {
+                            // A value is only ever computed for a formula with
+                            // a text, so a child with one has its master; a
+                            // child without one asks the sheet.
+                            Content::SharedChild { si } if computed.is_none() => masters
+                                .get_or_insert_with(|| shared_masters(sheet))
+                                .contains_key(si),
+                            _ => true,
+                        }
+                    };
+                    if let Some(computed) = computed.filter(|_| held) {
+                        out(&format!(
+                            "(value {} {} {})",
+                            quoted(name),
+                            quoted(&addr),
+                            computed.spell()
+                        ));
                     }
-                    None => false,
-                },
+                    held
+                }
             };
             if !printed {
                 continue;
@@ -297,20 +372,37 @@ fn format_row(index: u32, style: Option<&Style>) -> String {
 
 /// The sheet's used rectangle, or `None` for a sheet with no cell.
 fn extent_of(sheet: &Sheet) -> Option<A1Range> {
-    sheet
-        .extent()
-        .map(|((top, left), (bottom, right))| A1Range {
-            top,
-            left,
-            bottom,
-            right,
-        })
+    rectangle(sheet.extent())
+}
+
+/// The used rectangle of sheet `i`, read from the extent `values` keep
+/// where they keep one, else walked (KERNEL.37).
+fn extent_in(sheet: &Sheet, i: usize, values: Option<&dyn Values>) -> Option<A1Range> {
+    match values.and_then(|v| v.kept_extent(i)) {
+        Some(kept) => rectangle(kept),
+        None => extent_of(sheet),
+    }
+}
+
+/// An extent as a rectangle of cells.
+fn rectangle(extent: Extent) -> Option<A1Range> {
+    extent.map(|((top, left), (bottom, right))| A1Range {
+        top,
+        left,
+        bottom,
+        right,
+    })
 }
 
 /// The window over a whole sheet: its extent, or `A1` alone for a sheet
 /// with no cell.
 pub fn whole(sheet: &Sheet) -> A1Range {
-    extent_of(sheet).unwrap_or(A1Range {
+    or_a1(extent_of(sheet))
+}
+
+/// A rectangle, or `A1` alone for none.
+fn or_a1(range: Option<A1Range>) -> A1Range {
+    range.unwrap_or(A1Range {
         top: 1,
         left: 1,
         bottom: 1,
@@ -326,6 +418,17 @@ pub fn whole(sheet: &Sheet) -> A1Range {
 /// text that is not a rectangle of cells, a whole column or row included,
 /// is refused as written (`view-window-not-a-range`).
 pub fn window_of(model: &Workbook, sheet: &str, range: Option<&str>) -> Result<Window, Refusal> {
+    window_over(model, sheet, range, None)
+}
+
+/// [`window_of`], a whole sheet's extent read from the extent `values` keep
+/// where they keep one (KERNEL.37): the window an engine's machine views.
+pub(crate) fn window_over(
+    model: &Workbook,
+    sheet: &str,
+    range: Option<&str>,
+    values: Option<&dyn Values>,
+) -> Result<Window, Refusal> {
     let Some(i) = model.find_sheet(sheet) else {
         let sheets = model
             .sheets
@@ -342,7 +445,7 @@ pub fn window_of(model: &Workbook, sheet: &str, range: Option<&str>) -> Result<W
     let range = match range {
         Some(text) => parse_a1_range(text)
             .ok_or_else(|| raise("view-window-not-a-range", &[("text", text)]))?,
-        None => whole(s),
+        None => or_a1(extent_in(s, i, values)),
     };
     Ok(Window {
         sheet: s.name.clone(),
@@ -368,6 +471,18 @@ pub fn view_text(model: &Workbook, window: &Window) -> String {
 pub fn view_text_valued(model: &Workbook, window: &Window, values: &dyn Values) -> String {
     let mut out = String::new();
     Grid::valued(values).project(model, window, &mut |line| {
+        out.push_str(line);
+        out.push('\n');
+    });
+    out
+}
+
+/// The values record of one window (KERNEL.37): [`view_text_valued`]'s
+/// record with its `formula` lines left out, what an engine's host draws
+/// every frame. `values` must be over `model`.
+pub fn view_text_values(model: &Workbook, window: &Window, values: &dyn Values) -> String {
+    let mut out = String::new();
+    ValueGrid::valued(values).project(model, window, &mut |line| {
         out.push_str(line);
         out.push('\n');
     });
@@ -665,5 +780,181 @@ mod tests {
             assert!(r.text.contains(text), "{}", r.text);
         }
         assert_eq!(Grid::default().name(), "grid");
+    }
+
+    /// A record less its `formula` lines: what the values must be (KERNEL.37).
+    fn less_formulas(record: &str) -> String {
+        record
+            .lines()
+            .filter(|l| !l.starts_with("(formula "))
+            .map(|l| format!("{l}\n"))
+            .collect()
+    }
+
+    /// The values record of a window, over the values given or none.
+    fn values_text(wb: &Workbook, window: &Window, values: Option<&dyn Values>) -> String {
+        let mut out = String::new();
+        ValueGrid { values }.project(wb, window, &mut |line| {
+            out.push_str(line);
+            out.push('\n');
+        });
+        out
+    }
+
+    /// What `f` walked, counted (`sheet::work`).
+    fn walks(f: impl FnOnce()) -> crate::sheet::work::Work {
+        crate::sheet::work::begin();
+        f();
+        crate::sheet::work::end()
+    }
+
+    #[test]
+    fn the_values_are_the_grid_less_its_formula_rows() {
+        // KERNEL.37: every window of the model, computed and not, its values
+        // its grid record with the formula lines left out, a formula's style
+        // and sentence rows kept whether it has a value or not.
+        let mut wb = a_model();
+        wb.sheets[0].cells.get_mut(&(3, 3)).unwrap().style = 2;
+        let library = crate::calc::library::language();
+        let calc = crate::calc::Calc::run(&wb, &library);
+        for (sheet, window) in [
+            ("Model", "A1:F20"),
+            ("Model", "C3:D4"),
+            ("Model", "B1:B4"),
+            ("Model", "H10:J12"),
+            ("Empty", "A1"),
+        ] {
+            let w = Window {
+                sheet: sheet.to_string(),
+                range: range(window),
+            };
+            let bare = values_text(&wb, &w, None);
+            assert_eq!(bare, less_formulas(&view_text(&wb, &w)), "{window}");
+            let valued = view_text_values(&wb, &w, &calc);
+            assert_eq!(
+                valued,
+                less_formulas(&view_text_valued(&wb, &w, &calc)),
+                "{window}"
+            );
+            assert!(!valued.contains("(formula "), "{valued}");
+        }
+        let w = Window {
+            sheet: "Model".to_string(),
+            range: range("A1:F20"),
+        };
+        let bare = values_text(&wb, &w, None);
+        assert!(bare.contains("(style \"Model\" \"C3\" 2)\n(sentence \"Model\" \"C3\" 3)\n"));
+        assert!(!bare.contains("(value "), "{bare}");
+        let valued = view_text_values(&wb, &w, &calc);
+        assert!(
+            valued.contains("(value \"Model\" \"C2\" 2401)\n(sentence \"Model\" \"C2\" 3)\n"),
+            "{valued}"
+        );
+        // A window of values alone is the grid's own record.
+        let w = Window {
+            sheet: "Model".to_string(),
+            range: range("B1:B4"),
+        };
+        assert_eq!(values_text(&wb, &w, None), view_text(&wb, &w));
+        assert_eq!(ValueGrid::default().name(), "values");
+    }
+
+    #[test]
+    fn a_fill_s_cell_whose_master_is_lost_shows_in_neither_record() {
+        // KERNEL.37: a value over a fill's first cell, as the core's build
+        // writes one, leaves the fill's other cells children of a master the
+        // sheet no longer holds. Neither record shows them, not even their
+        // style and sentence rows, and with no value to vouch for them the
+        // values find that out by one walk of the sheet.
+        let mut wb = Workbook::new();
+        let mut sheet = Sheet::new("S");
+        sheet.set(
+            2,
+            2,
+            Cell {
+                content: Content::Number(5.0),
+                style: 0,
+            },
+        );
+        sheet.set_formula(range("C2:C4"), "B2+1", 1);
+        sheet.wrote(range("C2:C4"), 2);
+        sheet.set(
+            2,
+            3,
+            Cell {
+                content: Content::Number(9.0),
+                style: 0,
+            },
+        );
+        sheet.wrote(range("C2"), 3);
+        wb.sheets.push(sheet);
+        let w = Window {
+            sheet: "S".to_string(),
+            range: range("A1:D5"),
+        };
+        let library = crate::calc::library::language();
+        let calc = crate::calc::Calc::run(&wb, &library);
+        let grid = view_text(&wb, &w);
+        let valued = view_text_valued(&wb, &w, &calc);
+        let mut bare = String::new();
+        let work = walks(|| bare = values_text(&wb, &w, None));
+        assert_eq!(bare, less_formulas(&grid));
+        assert_eq!(work.walked, 4, "the sheet's four cells walked once");
+        let mut values = String::new();
+        let work = walks(|| values = view_text_values(&wb, &w, &calc));
+        assert_eq!(values, less_formulas(&valued));
+        assert_eq!(work.walked, 4, "no value vouches for C3, so one walk");
+        assert_eq!(work.extents, 0, "the extent the calculation keeps");
+        for record in [&grid, &valued, &bare, &values] {
+            assert!(
+                !record.contains("\"C3\"") && !record.contains("\"C4\""),
+                "{record}"
+            );
+            assert!(record.contains("(cell \"S\" \"C2\" 9)\n(sentence \"S\" \"C2\" 3)\n"));
+        }
+    }
+
+    #[test]
+    fn the_values_of_a_computed_fill_walk_nothing() {
+        // KERNEL.37: where every cell of a fill has a value, the values walk
+        // the sheet neither for its masters nor for its extent; the grid
+        // walks it once for its masters, to move their texts; with no
+        // values, both walk it for the extent.
+        let mut wb = Workbook::new();
+        let mut sheet = Sheet::new("S");
+        for row in 1..=4 {
+            sheet.set(
+                row,
+                1,
+                Cell {
+                    content: Content::Number(f64::from(row)),
+                    style: 0,
+                },
+            );
+        }
+        sheet.set_formula(range("B1:C4"), "A1*2", 0);
+        wb.sheets.push(sheet);
+        let w = Window {
+            sheet: "S".to_string(),
+            range: range("B2:C3"),
+        };
+        let library = crate::calc::library::language();
+        let calc = crate::calc::Calc::run(&wb, &library);
+        let work = walks(|| {
+            view_text_values(&wb, &w, &calc);
+        });
+        assert_eq!((work.walked, work.extents), (0, 0));
+        let work = walks(|| {
+            view_text_valued(&wb, &w, &calc);
+        });
+        assert_eq!((work.walked, work.extents), (12, 0));
+        let work = walks(|| {
+            values_text(&wb, &w, None);
+        });
+        assert_eq!((work.walked, work.extents), (12, 12));
+        let work = walks(|| {
+            view_text(&wb, &w);
+        });
+        assert_eq!((work.walked, work.extents), (12, 12));
     }
 }

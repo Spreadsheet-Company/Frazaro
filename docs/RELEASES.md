@@ -41,6 +41,24 @@
   of such a sheet meets, `(readers "<sheet>" n (most k))`; a sheet of fewer
   readers is checked as before, and its row is as it was. Every value is
   what it was, and no call of the crate changed (KERNEL.35).
+- **For engines: a window's values, what a host draws, without its
+  formulas' texts.** A machine viewed a window as its record, every
+  formula's text in it at every view, each cell of a filled formula given
+  its first cell's text moved to it, or as a plane, a byte a cell. A host
+  that draws a grid from the record every frame paid for every text: an 80
+  by 50 window of one short formula took 10.3 ms natively where the frame
+  computing it took 0.2, and the same window of Alonzo's Life 63 ms.
+  `Machine::view` now answers a third projection, `values`, the record less
+  its `formula` rows, every other row as the record prints it: those
+  windows in about 1.7 to 1.9 ms natively, and 1.3 to 1.4 in the browser.
+  `view::ValueGrid` is the projection and `view::view_text_values` its
+  text, beside `view::Grid` and `view::view_text_valued`. A view also reads
+  a sheet's extent from what a machine or a recalculation keeps, where it
+  walked every cell of the sheet for it, so a window of a sheet of 64,000
+  cells is 0.3 to 0.75 ms faster, its record as it was
+  (`calc::Values::kept_extent`, provided, so that no implementation outside
+  the crate changes). The refusal of a projection the grid does not have
+  names the third. No call of the crate changed (KERNEL.37).
 
 ### Known open security items
 

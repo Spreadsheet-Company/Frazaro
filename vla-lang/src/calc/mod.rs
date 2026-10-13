@@ -308,11 +308,25 @@ pub trait Values: std::fmt::Debug {
     fn content(&self, _id: CellId) -> Option<Content> {
         None
     }
+
+    /// A sheet's extent where the values keep it (KERNEL.37), so that a view
+    /// reads its `extent` row without walking every cell of the sheet: the
+    /// extent itself, `Some(None)` for a sheet with no cell, or `None` to
+    /// have the view walk the sheet. [`Calc`] keeps every sheet's from its
+    /// making, and an engine's machine from its load and every write and
+    /// frame's end, for the evaluator ([`Env::extent`]).
+    fn kept_extent(&self, _sheet: usize) -> Option<Extent> {
+        None
+    }
 }
 
 impl Values for Calc<'_> {
     fn computed(&self, id: CellId) -> Option<&Computed> {
         Calc::computed(self, id)
+    }
+
+    fn kept_extent(&self, sheet: usize) -> Option<Extent> {
+        self.extents.get(sheet).copied()
     }
 }
 

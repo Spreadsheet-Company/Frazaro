@@ -41,7 +41,9 @@ it, and a web page runs it as WebAssembly.
   sheet, the window and the sheet's extent, its columns and formats, then
   each cell's value or formula as the reader spells it, its format and the
   row of the sentence that wrote it. The first projection through the
-  kernel's projections seam (`kernel::Projection`, `view::Grid`).
+  kernel's projections seam (`kernel::Projection`, `view::Grid`); the
+  second, the values (`view::ValueGrid`), is the same record less its
+  formula rows, what an engine's host draws.
 - **The same surface with C linkage.** `abi` exports the translation, the
   build, the reader (the relations, the audit, the difference), the view,
   the phrasebook gate and the version as `extern "C"` functions, for a wasm

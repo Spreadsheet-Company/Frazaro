@@ -516,6 +516,22 @@ mod tests {
                     want.lines().nth(at - 1)
                 );
             }
+            // The values of the same window (KERNEL.37), as the door would
+            // compute them: the golden less its formula lines.
+            let vla = english_translate_text_to_vla(program, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{path}: {}", r.refusal));
+            let model = crate::build::build_workbook(program, &vla, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{path}: {r}"));
+            let w = crate::view::window_of(&model, sheet, window).unwrap();
+            let library = crate::excel::library();
+            let calc = vla_lang::calc::Calc::run(&model, &library);
+            let values = crate::view::view_text_values(&model, &w, &calc);
+            let less: String = want
+                .lines()
+                .filter(|l| !l.starts_with("(formula "))
+                .map(|l| format!("{l}\n"))
+                .collect();
+            assert_eq!(values, less, "{path}: the values");
         }
     }
 

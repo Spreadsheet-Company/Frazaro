@@ -86,7 +86,7 @@ use crate::sheet::{
     filled, formula_text, parse_a1_range, shared_masters, strip_future_prefixes, A1Range, Cell,
     Content, Sheet, Workbook,
 };
-use crate::view::{view_text_valued, window_of};
+use crate::view::{view_text_valued, view_text_values, window_over};
 
 pub use load::{read_rows, sheet_name_ok, thousands, twin_base, Draft};
 
@@ -1122,21 +1122,28 @@ impl Machine {
     // ---- the view -------------------------------------------------------
 
     /// A window of a sheet, a twin's included, through a projection: `grid`
-    /// for the record, its `value` rows from the last complete frame, or
-    /// `plane` for a byte a cell. `window` `None` is the sheet's extent.
+    /// for the record, its `value` rows from the last complete frame;
+    /// `values` for the record less its `formula` rows, what a host draws
+    /// (KERNEL.37); or `plane` for a byte a cell. `window` `None` is the
+    /// sheet's extent, as the machine keeps it.
     pub fn view(
         &self,
         projection: &str,
         sheet: &str,
         window: Option<&str>,
     ) -> Result<Viewed, Refusal> {
+        let kept = Some(self as &dyn Values);
         match projection {
             "grid" => {
-                let w = window_of(&self.book, sheet, window)?;
+                let w = window_over(&self.book, sheet, window, kept)?;
                 Ok(Viewed::Text(view_text_valued(&self.book, &w, self)))
             }
+            "values" => {
+                let w = window_over(&self.book, sheet, window, kept)?;
+                Ok(Viewed::Text(view_text_values(&self.book, &w, self)))
+            }
             "plane" => {
-                let w = window_of(&self.book, sheet, window)?;
+                let w = window_over(&self.book, sheet, window, kept)?;
                 let cells = w.range.cells();
                 if cells > CELLS as u64 {
                     return Err(raise(
@@ -1767,6 +1774,13 @@ impl Values for Machine {
         let bit = self.behind.get(s)?.get(i / 64)? >> (i % 64) & 1;
         (bit == 1).then(|| value_content(k.at(i).0))
     }
+
+    /// Every sheet's extent, its twins' included, as the machine keeps it
+    /// for the evaluator (KERNEL.37): made at the load, and kept at every
+    /// write, every undone write and every frame's end.
+    fn kept_extent(&self, sheet: usize) -> Option<Extent> {
+        self.extents.get(sheet).copied()
+    }
 }
 
 impl Env for Machine {
@@ -2126,7 +2140,7 @@ mod tests {
     use crate::calc::shape::Shapes;
     use crate::projection::Window;
     use crate::reader::read_forms;
-    use crate::view::{view_text_valued, whole};
+    use crate::view::{view_text_valued, view_text_values, whole, window_of};
 
     fn load(text: &str) -> Machine {
         Machine::load(text, library::language())
@@ -2145,6 +2159,23 @@ mod tests {
             Ok(Viewed::Text(t)) => t,
             other => panic!("{other:?}"),
         }
+    }
+
+    /// The values of a window (KERNEL.37).
+    fn values_view(m: &Machine, sheet: &str, window: Option<&str>) -> String {
+        match m.view("values", sheet, window) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// A record less its `formula` lines: what the values must be.
+    fn less_formulas(record: &str) -> String {
+        record
+            .lines()
+            .filter(|l| !l.starts_with("(formula "))
+            .map(|l| format!("{l}\n"))
+            .collect()
     }
 
     fn plane(m: &Machine, sheet: &str, window: &str) -> Vec<u8> {
@@ -4675,10 +4706,11 @@ mod tests {
         (m.sheets..m.book.sheets.len())
             .map(|t| {
                 let name = m.sheet_name(t).expect("a twin");
-                (
-                    grid(m, name, None),
-                    plane(m, name, &whole(&m.book.sheets[t]).text()),
-                )
+                let record = grid(m, name, None);
+                // A twin holds no formula, so its values are its record,
+                // its cells left behind their slots read alike (KERNEL.37).
+                assert_eq!(values_view(m, name, None), record, "{name}'s values");
+                (record, plane(m, name, &whole(&m.book.sheets[t]).text()))
             })
             .collect()
     }
@@ -5580,6 +5612,12 @@ mod tests {
             "{}",
             e.text
         );
+        assert!(
+            e.text
+                .contains(" values, those rows without the formulas' texts, "),
+            "{}",
+            e.text
+        );
         let e = m.view("grid", "Nowhere", None).unwrap_err();
         assert_eq!(e.id, "view-sheet-unknown");
         assert_eq!(
@@ -5587,7 +5625,15 @@ mod tests {
             "The grid holds no sheet named Nowhere; it holds Board, Board.last."
         );
         assert_eq!(
+            m.view("values", "Nowhere", None).unwrap_err().id,
+            "view-sheet-unknown"
+        );
+        assert_eq!(
             m.view("plane", "Board", Some("A:A")).unwrap_err().id,
+            "view-window-not-a-range"
+        );
+        assert_eq!(
+            m.view("values", "Board", Some("A:A")).unwrap_err().id,
             "view-window-not-a-range"
         );
         let e = m.view("plane", "Board", Some("A1:XFD1048576")).unwrap_err();
@@ -5597,6 +5643,45 @@ mod tests {
         let twin = grid(&m, "board.LAST", None);
         assert!(twin.contains("(window \"Board.last\" \"D1\")"), "{twin}");
         assert!(twin.contains("(cell \"Board.last\" \"D1\" 5)"), "{twin}");
+        assert_eq!(values_view(&m, "board.LAST", None), twin);
+    }
+
+    #[test]
+    fn a_steady_frame_s_values_walk_no_sheet() {
+        // KERNEL.37: a running grid's values read a fill's cell through its
+        // value, and the sheet's extent as the machine keeps it, so a steady
+        // frame's view walks no sheet. Before the first frame, no cell having
+        // a value yet, the masters are walked once; the grid walks them at
+        // every view, to move their texts. The values are the grid less its
+        // formula lines throughout, over a window of the fill's cells and
+        // over the whole sheet.
+        let mut m = load(LIFE);
+        let screen = m.find_sheet("Screen").expect("the Screen");
+        let cells = m.book.sheets[screen].cells.len() as u64;
+        let counted = |m: &Machine, projection: &str, window: Option<&str>| {
+            crate::sheet::work::begin();
+            let text = match m.view(projection, "Screen", window) {
+                Ok(Viewed::Text(t)) => t,
+                other => panic!("{other:?}"),
+            };
+            (text, crate::sheet::work::end())
+        };
+        for frame in 0..=3u32 {
+            if frame > 0 {
+                m.write(&format!("(cell \"Clock\" \"B1\" {frame})"))
+                    .expect("the Clock");
+                assert!(m.step(0).done);
+            }
+            for window in [Some("C3:J10"), None] {
+                let (values, v) = counted(&m, "values", window);
+                let (grid, g) = counted(&m, "grid", window);
+                let when = format!("frame {frame}, {window:?}");
+                assert_eq!(values, less_formulas(&grid), "{when}");
+                let walked = if frame == 0 { cells } else { 0 };
+                assert_eq!((v.walked, v.extents), (walked, 0), "{when}: the values");
+                assert_eq!((g.walked, g.extents), (cells, 0), "{when}: the grid");
+            }
+        }
     }
 
     #[test]
@@ -5645,7 +5730,9 @@ mod tests {
     fn load_is_the_inverse_of_view_on_the_view_goldens() {
         // The goldens of oracle 11 whose window holds the sheet's extent;
         // the sixth, a window clipped inside its sheet, holds the window's
-        // cells alone, so its extent row is not the loaded cells'.
+        // cells alone, so its extent row is not the loaded cells'. Each
+        // golden less its formula lines is the values of the same window
+        // (KERNEL.37), the values' goldens without a copy of their own.
         let goldens: &[(&str, &str, &str)] = &[
             (
                 include_str!("../../testdata/view/fixture_frazaro.vla"),
@@ -5683,6 +5770,13 @@ mod tests {
             };
             let again = view_text_valued(&draft.workbook, &w, &Held(draft.values.clone()));
             assert_eq!(again, golden, "{sheet} {window}");
+            let values = view_text_values(&draft.workbook, &w, &Held(draft.values.clone()));
+            assert_eq!(
+                values,
+                less_formulas(&golden),
+                "{sheet} {window}: the values"
+            );
+            assert!(!values.contains("(formula "), "{sheet} {window}");
         }
     }
 
