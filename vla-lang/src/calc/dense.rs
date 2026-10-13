@@ -46,10 +46,8 @@ impl Dense {
         if width as u64 * height as u64 > limit {
             return None;
         }
-        if let Some(d) = old.as_ref() {
-            if (d.top, d.left, d.width, d.height) == (top, left, width, height) {
-                return old;
-            }
+        if old.as_ref().is_some_and(|d| d.stands_over(extent)) {
+            return old;
         }
         let mut values = old.map(|d| d.values).unwrap_or_default();
         values.clear();
@@ -63,8 +61,22 @@ impl Dense {
         })
     }
 
+    /// Whether the store stands over an extent, as [`Dense::over`] keeps it
+    /// whole when it does (KERNEL.36: the walk reads a slot before it
+    /// overwrites it only in a store kept so).
+    pub(crate) fn stands_over(&self, extent: Extent) -> bool {
+        extent.is_some_and(|((top, left), (bottom, right))| {
+            let width = (right - left + 1) as usize;
+            let height = (bottom - top + 1) as usize;
+            (self.top, self.left, self.width, self.height) == (top, left, width, height)
+        })
+    }
+
     /// One cell's slot, to overwrite; `None` for a cell outside the extent,
-    /// which a store made over its sheet's own extent never meets.
+    /// which a store made over its sheet's own extent never meets. The
+    /// tests'; the walk finds a slot's index first, to read the bit of a
+    /// twin's cell behind it (KERNEL.36).
+    #[cfg(test)]
     pub(crate) fn slot(&mut self, row: u32, col: u32) -> Option<&mut Value> {
         let i = self.index(row, col)?;
         Some(&mut self.values[i])

@@ -25381,6 +25381,477 @@ item closed with it; its line left the roadmap for the closed ledger. Not
 pushed. Alonzo takes it at its pin's move to the release that carries it,
 its prompt given in chat.
 
+- ✅ **`KERNEL.36` — a frame's end copies the cells it changed however
+  many they are, so that a frame that changes most of its grid ends in a
+  third of the time.**
+  *Minted 2026-10-12 at the owner's word (the roadmap's line, after
+  `KERNEL.35`), from the measurement that minted `KERNEL.34`; scoped the
+  same day at the owner's word, the entry below; its seven decisions
+  approved as recommended and its findings minted the same day, `KERNEL.40`
+  and `KERNEL.41`; built the same day, the build's record after the
+  scoping; owner-tested and committed 2026-10-13 and closed with it.*
+
+**`KERNEL.36`, a frame's end at any share: the scoping, 2026-10-12.** Begun
+at the owner's word: scope first, build only after the owner approves. HEAD
+`b02ed93`, four ahead of origin (`05099a3`, `d352774`, `8677885`,
+`b02ed93`), CI green on `e738cbb`. `run_checks.ps1` 56 of 57 in the shared
+tree, `check_shapes_golden` failing only against a door built before
+`KERNEL.35`'s `(most k)`; 57 of 57 in a worktree at HEAD with the door built
+again. In the tree, a peer's `KERNEL.37` uncommitted (its entry above, the
+roadmap, the registry, `RELEASES.md`), its code in a worktree of its own.
+
+*The instrument.* `vla-lang` at `b02ed93` taken by `git archive` into the
+session's scratchpad, with a timer around `Machine::snapshot` and three
+switches each machine reads once at its load from an environment variable:
+the copy at every share (the changed list given room for every formula
+cell, the half held true), the walk at every frame's end, and the walk's
+merged pass (decision 5). A scratch crate over it drives the machine
+directly: one write before each frame (the Clock's `B1`, as Alonzo's engine
+writes it, or the edit), four frames, then 31 timed, the frame and its end;
+medians unless said; on the performance cores, opted out of power
+throttling; the modes alternated in one process, three rounds. Every case
+digested over twelve frames in every mode, each sheet's grid record and
+plane, the twins' included: equal throughout. Alonzo's HEAD `b50473a` taken
+twice by `git archive`, pinned by a path to the worktree and to the timed
+copy, for its tests and for where its cartridges' frames end.
+
+*Measured over HEAD,* the frame's end as HEAD takes it, the walk past half,
+and the copy forced:
+
+| the grid | formula cells | changed a frame | frame | its end, the walk | its end, the copy | frame, the copy |
+|---|---:|---:|---:|---:|---:|---:|
+| a Mind of 1,250 rows, its reductions over the twin | 15,002 | 13,777 | 0.55 ms | 0.208 to 0.212 | 0.144 | 0.48 |
+| a Mind of 20,000 rows, over the twin | 240,002 | 220,413 | 13.0 to 15.3 | 7.1 to 9.0 | 2.58 to 2.65 | 8.4 to 8.8 |
+| a Mind of 20,000 rows, over the frame | 240,002 | 220,413 | 20.2 to 21.1 | 7.8 to 8.0 | 2.68 to 2.72 | 14.4 to 16.2 |
+| a Screen of 320 by 200, every cell changing, its plane kept | 64,000 | 64,000 | 2.4 to 3.1 | 1.54 to 2.20 | 0.76 | 1.61 |
+| a Screen of 1,000 by 1,000 | 1,000,000 | 1,000,000 | 49 to 56 | 34 to 40 | 10.8 | 26 |
+| `column`'s edit, read by 40,000 | 60,000 | 40,000 | 1.87 to 2.24 | 0.88 to 1.22 | 0.43 | 1.44 |
+| 50,000 formulas of a text | 50,000 | 50,000 | 25.7 to 26.1 | 3.3 to 3.5 | 1.74 to 1.81 | 24.5 to 24.7 |
+| 40,000 formulas beside 200,000 value cells | 40,000 | 40,000 | 6.8 to 7.9 | 6.0 to 7.1 | 1.47 to 1.62 | 2.2 to 2.4 |
+| one cell of 1,000,000 changing | 1,000,000 | 1 | 0.004 | 0.001 | 0.001 | 0.004 |
+
+The Mind is the minting's: ten heuristic columns a candidate, each a
+different number every frame, a total a row written out, the best total and
+the least row holding it. The item's numbers stand reproduced: the end 7.1
+to 9.0 ms against 2.6, the frame over the twin 13 to 15 against 8.6.
+
+*At and around half,* 100,000 formulas in one column of a sheet kept as an
+array, the first `k` changing every frame and the rest computed again to the
+same value, the end in ms:
+
+| changed | 45% | 49.99% | 50.00% | 50.01% | 55% | 92% | 100% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| HEAD | 0.48 to 0.49 | 0.54 | 2.6 to 3.5 | 2.1 to 3.3 | 2.8 to 3.6 | 3.3 to 3.7 | 3.6 to 3.8 |
+| the copy | 0.49 | 0.54 | 0.54 | 0.54 | 0.59 | 0.97 | 1.05 |
+
+The half counts every cell, the Clock's included, against the changed
+formula cells and the cells written: at 50,000 changed and the Clock written
+the end walks. One cell more, and the end is five to six times dearer. Per
+cell, the copy into an array is 10 to 11 ns a changed cell; the walk 25 to
+37 ns a cell of the grid, changed or not (3.7 ms over 100,001 cells, 7 to 9
+over the Mind's 240,003, 34 to 40 over 1,000,001).
+
+*A sheet too sparse for an array* (`KERNEL.20`: an extent of more than four
+slots a cell, its twin read through its B-tree): the formulas in one column
+and one value cell at `Z1000000`, the first `k` changing, the copy forced
+against the walk forced, the end in ms:
+
+| the sheet | 20% | 30% | 40% | 45% | 49% | 75% | 100% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 100,000 formulas, the copy | 0.64 | 0.95 to 0.97 | 1.31 to 1.39 | 1.46 to 1.52 | 1.50 to 1.74 | 2.45 to 2.48 | 3.4 to 3.9 |
+| 100,000 formulas, the walk | 2.1 to 2.7 | 2.1 to 2.2 | 1.7 to 2.2 | 1.8 to 2.3 | 1.7 to 2.7 | 1.9 to 2.7 | 2.3 |
+| 50,000 formulas, the copy | | | | | 0.78 | 1.21 to 1.23 | 1.60 to 1.62 |
+| 50,000 formulas, the walk | | | | | 0.62 to 0.64 | 0.60 to 0.64 | 0.64 to 0.67 |
+
+Here the copy looks each changed cell up in the twin's B-tree
+(`Twins::put`), 32 to 39 ns a cell, and the walk overwrites the twin in
+place in one pass, 12 to 27 ns a cell, the dearer the larger the sheet. The
+costs cross at about 40% changed at 50,000 cells and at 65 to 75% at
+100,000. HEAD's half lies between the two.
+
+*A walk after copied frames.* Since `KERNEL.27` a frame's end that copies
+leaves a changed formula cell's twin cell behind its slot, to be made when a
+reader of the twin as a sheet asks, and the walk makes every such cell
+first (`make_twins`), a lookup in the twin's B-tree each. HEAD walks every
+frame past half, so a mostly changed grid never lags; with the copy, the
+walk after copied frames makes them all. A Mind of 20,000 rows beside a
+Screen kept as a plane, a value written into the Screen every second frame
+(which drops its plane, so that frame's end walks), the means of 31 frames:
+
+| | the frame | its end |
+|---|---:|---:|
+| HEAD, every end a walk | 13.2 to 14.9 ms | 7.3 to 8.7 |
+| the copy | 15.2 to 17.6 | 9.3 to 11.0 |
+| the copy, and the walk's merged pass (decision 5) | 11.7 to 12.1 | 5.7 to 5.9 |
+
+The copy alone makes this grid dearer than HEAD: its walks cost 16 to 17 ms
+each. No prediction of the minting saw it. When a frame's end walks over a
+grid that copied: a write into a sheet viewed as a plane (Life's board
+edited by a person's mouse, a painting cartridge), a twin cell gaining or
+losing a value, `Machine::workbook`.
+
+*Alonzo.* Over HEAD by a path, `cargo test` 33 of 33 (`KIT.2` added three
+since the minting's 30). Each of its seven cartridges walks at its first
+frame alone, the copy forced or not; their steady ends, the copy forced or
+not, Life 0.15 to 0.17 ms of a 2.4 ms frame, Sand 0.15 to 0.16 of 3.7, the
+gun 0.0007 of 0.012, the cards 0.0001 to 0.026. Its first frame's end Life
+5.8 to 6.5 ms of 8.5 to 9.2, Sand 22.9 to 24.3 of 35.7 to 37.3, the gun 6.3
+to 6.4 of 7.5: of which the twin's cells made again from the sheet, every
+formula's twin cell gaining its first value, 4.4 of Life's, 4.9 of the
+gun's and 17.3 of Sand's. The Mind of 20,000 rows ends its first frame in
+30 to 36 ms, the Screen of 1,000,000 cells in 117 to 145.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The copy at every share into a twin kept as an array; through a twin's
+   cells, HEAD's half kept.* Recommended. A frame's end copies unless the
+   cells it would copy through a twin's B-tree, the changed formula cells
+   of the sheets without an array and every cell written, are more than half
+   the cells; a cell copied into an array never counts. Every grid measured
+   above but the sparse sheets keeps its sheets as arrays, and copies at
+   every share; a grid with no array decides as HEAD does, inside the
+   measured crossing of 40% to 75%. The count costs nothing where every
+   sheet holding a formula keeps an array (Alonzo's cartridges, the Mind;
+   Frazaro's four bench programs read at the build); elsewhere one look at
+   each changed cell's sheet, about a nanosecond against the copy's 32. A
+   grid mixing both, its copy decided by the cells through B-trees alone:
+   at worst level with the walk, where nearly all its cells stand on sheets
+   without an array, changed by just under half, and the rest change
+   (arithmetic from the per-cell costs above, *prediction*). *Declined:*
+   the copy at every share (a sparse sheet whose cells all change, 0.64 ms
+   to 1.6 at 50,000 cells and 2.3 to 3.4 or more at 100,000, dearer than
+   HEAD); a crossing computed from per-cell costs (one constant measured on
+   this machine, wrong at one of the two sizes measured); HEAD's half for
+   every cell (the cliff above, 0.54 ms to 2.6 for one cell more).
+
+2. *The list's room: every formula cell, reserved at `fit`.* Recommended.
+   Four bytes a formula cell, 4 MB at the grid's limit of 1,048,576 cells,
+   about 1% of what a formula cell holds already (two B-tree cells of about
+   137 bytes, its value of 32, its slot of 24). A cell enters the list at
+   most once a frame, so the list never overflows; `changed_over` and its
+   walk stay as the guard they are. *Declined:* a bit a formula cell (128
+   KB at the limit, but scanned at every frame's end, a sixty-fourth of
+   the order: about 3 to 5 µs at a million cells, *prediction*, where a
+   frame changing one cell of a million ends in 1 µs today, the small case
+   in the large grid of `KERNEL.34`'s lesson); the list grown when full
+   (an allocation inside a frame, against a frame's allocations held).
+
+3. *The first frame's walk: left.* Recommended. Its cost is the twins made
+   again, every formula's twin cell gaining its first value, 4.4 of Life's
+   5.8 ms and 17.3 of Sand's 24.3; a copy refuses that rightly, the twin's
+   B-tree having to gain the cell. Cheaper would mean twin cells inserted
+   when read, a change to what a twin is to every reader and an item of its
+   own (under *Found*). It is paid once a load, beside loads of 35 ms
+   (Life) to 150 (Sand). *Declined:* a cell for every formula in its twin
+   from the load (a twin would read 0 where it reads empty before the first
+   frame, its record changed); the lazy insertion folded in here.
+
+4. *The walk kept as the reference: a field the tests turn off.*
+   Recommended. `copies`, always true but in the tests that hold the copy to
+   the walk, as `by_runs`, `incremental` and `lazy` are this module's fields
+   for theirs: with it false every frame's end walks, as HEAD's does past
+   half, while the frame still computes only what changed. *Declined:* a
+   thread-local switch as `reach::every::sheet_indexed` (the machine's own
+   switches are fields, one machine of a pair being the reference); none (the
+   walk would stand as a reference only at the first frame and at a
+   refusal).
+
+5. *The walk makes a cell left behind its slot in its own pass.* A finding
+   of the scoping, recommended. A behind cell's slot holds its last value
+   exactly, so the walk can tell from the slot, before overwriting it,
+   whether the cell changed, and write the twin cell where it stands in the
+   same pass: what it notes and leaves is what making the cell first and
+   comparing leaves (a formula's twin content compared by `same_content`
+   answers as its slot compared by `same_slot`; held by the oracle). A
+   sheet whose array the walk will not keep over the same extent, a write
+   having grown it, has its behind cells made first, as today;
+   `Machine::workbook` makes them as it does. The Mind with a walk every
+   second frame, its end 9.3 to 11.0 ms to 5.7 to 5.9, against HEAD's 7.3
+   to 8.7. *Declined:* `make_twins` as it stands (that grid dearer than
+   HEAD by a quarter); the copy writing twin cells as it goes (`KERNEL.27`'s
+   gain given back: a B-tree lookup a cell, the sparse sheet's 32 ns).
+
+6. *The oracle.*
+   - *Bit for bit with the walk.* Two machines of the same rows given the
+     same writes, one with `copies` false; after every frame, each twin's
+     cells as stored and as a reader of the twin reads them, its array, its
+     plane, the twins' reasons, `every_next`, and the twin cells noted as
+     changed, as a set, when the next frame is not whole. Over the machine's
+     generated grids in a new mode whose cells mostly change each frame
+     (every formula reading the Clock or a twin that changes), at just
+     under, at and over half, on sheets with an array and without; with
+     writes between frames (`KERNEL.34`'s written cells feed the copy); with
+     sheets viewed as planes, kept; with a walk after copied frames (a write
+     into a viewed sheet); and with a twin cell gaining and losing a value
+     every other frame (a function of the test's answering a reason on odd
+     frames, as `tick` does), which must walk, and does in both.
+   - *A tenth law* in `tests/laws.rs`, after `KERNEL.37`'s ninth, through
+     the public calls: after every frame each twin's record is its sheet's
+     values as the frame left them, over generated grids most of whose cells
+     change each frame, with writes between and a plane viewed.
+   - *Counted, not timed.* `sheet::work` counts the cells a frame's end
+     visits, copied or walked: a frame changing a fixed number of cells
+     visits as many at two sizes of grid by the copy, where the walk visits
+     every cell.
+   - *Allocations:* the room reserved at `fit`, the list's capacity held
+     across frames by the test; Alonzo's `frames --check`, its ceilings 80
+     and 5, 80 and 5, 509 and 5.
+   - *The mutants,* each alone after a control that passes, each failing a
+     named test: the copy skipping the written cells; the list's room left
+     at half with the copy forced (a copy left incomplete); a plane's byte
+     not written; an array's slot not written; a twin change past its room
+     no longer making the next frame whole; the B-tree count inverted (the
+     walk where it should copy); the count taking an array's cells; the
+     merged pass noting from the twin cell rather than the slot; the merged
+     pass leaving a behind cell unwritten.
+   - *Alonzo,* over a copy of its HEAD with the slice by a path: `cargo
+     test`, 33, every committed replay played to its golden; `frames --
+     --check`, every frame equal, the allocations at the ceilings.
+   - *Measured,* alternated with HEAD, three rounds: the Mind at both sizes,
+     the Screens, the sparse sheets, the Mind with a walk every second
+     frame; one cell changing in the largest grid; Alonzo's fixtures, which
+     should not move; Frazaro's `tools/bench_recalc.ps1`, whose `column`
+     edit rows should fall (a floor raised only by the owner's run, pasted
+     whole, never lowered).
+   - *All green:* `cargo fmt --check`, clippy `-D warnings`, `cargo test
+     --workspace --no-fail-fast`, both wasm builds, `run_checks.ps1`;
+     `check_shapes_golden` unmoved, no plan changing.
+
+7. *The release.* No public signature changes: the changed list, the
+   count, the field and the walk are the machine's own. A patch, 0.9.3, its
+   note beside `KERNEL.34`'s and `KERNEL.35`'s.
+
+*Predictions,* the decisions as recommended, natively: the Mind of 20,000
+rows over the twin 13.0 to 15.3 ms a frame to 8.4 to 8.8 (its end 7.1 to
+9.0 to 2.6 to 2.7), over the frame 20.2 to 21.1 to 14.4 to 16.2; of 1,250
+rows 0.55 to 0.48; the Screen of 320 by 200 2.4 to 3.1 to 1.6, of 1,000
+by 1,000 49 to 56 to 26; `column`'s edit 1.9 to 2.2 to 1.4, and so the
+recalc bench's `column` edit rows by about the walk's 0.5 to 0.8 ms; the
+texts 25.7 to 26.1 to 24.5 to 24.7; the value-heavy grid 6.8 to 7.9 to 2.2
+to 2.4; the sparse sheets as HEAD; the Mind with a walk every second frame
+13.2 to 14.9 to 11.7 to 12.1 on average. Alonzo's frames, first and steady,
+unmoved; one cell of a million unmoved.
+
+**What it touches.** `vla-lang/src/machine/mod.rs` (`fit`, `snapshot`, the
+count, the walk's merged pass, `copies`, the tests and the generator's
+mode), `vla-lang/src/sheet.rs` (`work`'s counter), `vla-lang/tests/laws.rs`
+(the tenth law); the roadmap's line, this entry, `RELEASES.md`. No VBA: the
+machine has no reference.
+
+**Beside it.** `KERNEL.37` adds a counter to `sheet::work` and an arm to
+`Machine::view`, so the build rebases onto it where it lands first; its law
+is the ninth. `KERNEL.31` keeps a frame's own sheet as an array while the
+frame computes; a frame's end would then have that array to copy from, or to
+swap into the twin's, which is its own scoping's (noted, not folded in).
+`KERNEL.38` and `KERNEL.39` change the plan, not the frame's end.
+
+**Found,** measured, and minted with the approval, at the owner's word,
+"Mint the first frame's twin rebuild (decision 3), and a copy through a
+B-tree that walks the twin in order, which would remove decision 1's
+threshold":
+- *The first frame makes every twin again* (decision 3): 4.4 of Life's 5.8
+  ms first end, 4.9 of the gun's 6.4, 17.3 of Sand's 24.3, a twin's B-tree
+  gaining every formula's cell at once; twin cells inserted when read, as
+  `KERNEL.27` makes them when read, would move it out of the first frame.
+  Minted as `KERNEL.40`.
+- *A copy through a twin's B-tree costs more a cell than the walk* (decision
+  1): 32 to 39 ns against 12 to 27, each changed cell looked up alone; a
+  copy walking the changed cells in the twin's order beside its B-tree would
+  remove decision 1's half, *prediction*. Minted as `KERNEL.41`.
+
+**Built 2026-10-12**, at the owner's word, the minting above and
+"Recommendations approved; proceed with implementing KERNEL.36 as scoped".
+The findings minted first, in the shared tree: the roadmap's two lines
+after `KERNEL.39`'s, the registry's row and sentence. Then the seven
+decisions as recommended, in a worktree over `b02ed93`, the shared tree
+touched only by the documents; carried onto `cdbd66a` when the peer's
+`KERNEL.37` landed there mid-build (`git apply --3way` into a second
+worktree, `sheet.rs`'s `Work` holding both items' counters and
+`tests/laws.rs` both laws, this item's the tenth). What landed:
+- *The copy at every share into arrays* (`vla-lang/src/machine/mod.rs`).
+  `fit` reserves room among the changes for every formula cell, four bytes
+  a formula cell, a cell being kept as changed at most once a frame;
+  `snapshot` asks `few`, which holds the cells a copy writes through twins'
+  own cells, the cells written since the last frame and the changed formula
+  cells of the sheets kept with no array, to half the cells. Two bounds
+  decide before the changed list is read: every changed cell fits in the
+  half, or every formula of the sheets with no array does, which the plan
+  counts (`Reach::formulas_on`, `Positions`' `counts`, made with the plan);
+  and every formula one of theirs makes the list's length the count. Only a
+  grid of both kinds reads the list, no further than the half. Read whole,
+  the list made a sparse sheet that walks at every frame dearer than `HEAD`
+  (1.37 ms to 1.49, one round); read to the half, still by 0.02 to 0.37 ms
+  in six of eight alternated rounds, about 0.2 at the median, the frame's
+  end pushing the 25,000 changes `HEAD` stopped at and reading as many;
+  with the bounds, level over eight rounds (1.50 against 1.52 at 100%, 2.68
+  against 2.66 at 45%). The copy itself is as it was.
+- *The walk's merged pass.* `walk` makes a twin cell left behind its slot
+  where it passes it: the slot, read before it is overwritten, tells
+  whether the cell changed (`same_slot`), and the twin cell is written in
+  place. A sheet whose array the walk will not keep over the same extent
+  (`Dense::stands_over`, which `Dense::over` asks too, so that the two
+  cannot part) has its cells behind made first by `make_twin`, one sheet's
+  share of `make_twins`, which `Machine::workbook` still calls. `Dense::slot`
+  is the tests' alone now, the walk finding a slot's index first.
+- *The reference:* `copies`, a field beside `incremental` and `lazy`,
+  always true but in the tests holding the copy to the walk.
+- *Counted:* `sheet::work`'s `copied`, a cell a frame's end copied, and
+  `swept`, a walk's cells, test-only as the rest of `work`.
+- *The oracle* (`machine/mod.rs`'s tests): `same_end`, `same_state` (split
+  so that its arrays may be compared apart, `same_state_but_arrays`) with
+  each twin's array the walk's, or the same answer at every cell where it
+  still stands over the extent of the last walk (under *Found*), every twin
+  cell as its B-tree holds it where no slot stands ahead of it,
+  `every_next`, and the twin cells noted as changed, as a set, where the
+  next frame is not whole; the generator's churning mode (`churning_grid`,
+  the same throws as `generated_grid`, three bands in four and every other
+  single formula adding the Clock's `B1`, written before every frame);
+  `a_frame_s_end_copied_is_the_walk_bit_for_bit` (60 seeds, ten frames,
+  writes between, a plane of either sheet, steps yielding; against the walk
+  and against every cell computed; 94 frames' ends copying past half, 84
+  walks over twin cells behind, the floors 80 and 60);
+  `a_frame_s_end_copies_into_arrays_at_any_share_and_through_cells_to_half`
+  (400 formulas, 198, 200, 202 or all changing, on a sheet with an array
+  and without, the cells copied counted and the copy at exactly half;
+  `share_grid` puts the twin's reader first in the order, so that twin
+  changes past their room are the ones the next frame reads);
+  `a_frame_s_end_counts_only_the_cells_it_copies_through_twins_own_cells`
+  (a sheet with an array, all 400 formulas changing, beside a sparse one of
+  600 with 500 or 501 changing: copied whole at exactly half, walked past;
+  the one grid where the list is read);
+  `a_twin_cell_gaining_or_losing_a_value_ends_its_frame_by_the_walk` (a
+  function of the test's answering a reason at odd frames, `FLIP`);
+  `a_frame_s_end_visits_the_cells_it_changed_and_not_the_grid` (1,000 and
+  4,000 formulas a column, 100 or nine tenths changing: the copy visits the
+  changed and the written at both sizes, the walk every cell; the list's
+  room every formula cell from the load, never grown); and
+  `a_walk_after_copied_frames_makes_each_cell_behind_its_slot_where_it_passes`
+  (a write into the viewed sheet, and a cell added past the extent, whose
+  array is made again); and
+  `a_walk_over_an_array_made_again_makes_its_cells_behind_first` (below,
+  under *Found*). In `tests/laws.rs`, the tenth law,
+  `each_twin_is_its_sheet_s_values_however_many_cells_a_frame_changes`,
+  through the public calls (`churning_rows`, `data`).
+
+*The mutants,* each alone in a copy of the code after a control that passes,
+each failing named tests. The first round, sixteen over the code before the
+bounds: fifteen caught, and one survivor, a sheet whose array is made again
+not made first, caught by the test written for it (under *Found*). The
+second round, eighteen over the final code, its control the machine's 82
+tests and the ten laws, every one caught: the copy skipping the written
+cells (15 tests); the list's room left at half with the copy forced past
+it, a copy left incomplete (13); the room left at half with the walk past
+it (6, the counted test among them); a kept plane's byte not written by the
+copy (9, the tenth law among them); an array's slot not written by the copy
+(19); a twin change past its room not making the next frame whole (9); the
+bound that every changed cell fits inverted (5); the bound that the sparse
+sheets' formulas fit inverted, the walk where every array would copy (5);
+the bound counting an array's formulas (6); the count taking an array's
+cells (the mixed grid's test); the count off by one at the half (the mixed
+grid's and the share test, at exactly half); no formulas by sheet, so that
+a sparse sheet copies past half (the same two); the walk at every frame's
+end (8); the reference's switch ignored, so that it copies too (the counted
+test); the merged pass noting from the twin cell rather than the slot (2);
+the merged pass leaving a cell behind unwritten (6, the tenth law among
+them); the merged pass noting nothing (3); and a sheet whose array is made
+again not made first (the test written for it).
+
+*Found* while building, the owner's to weigh, nothing minted:
+- *An array kept over an extent its sheet has outgrown.* A formula written
+  past a sheet's extent whose value is a reason (`=A1:A2`) grows the
+  extent and gives the twin no cell, so no copy refuses, and the frames'
+  ends go on copying into the array as the last walk made it until the
+  next walk makes it again over the new extent. Every read answers alike,
+  the twin holding no cell outside its array and an array answering
+  nothing outside itself; `HEAD` does the same below half. Kept; the oracle
+  compares such an array with the walk's by what it answers. The walk that
+  ends it must make the cells behind first, from the old array: read
+  through the new array's indices, a cell whose value alternates passes as
+  unchanged two frames on. No test grew an extent without the twin gaining
+  a cell, which makes the whole twin again and hides the fault, until
+  `a_walk_over_an_array_made_again_makes_its_cells_behind_first`.
+
+*Verified* over the final code, carried onto `cdbd66a`: `cargo fmt
+--check`; clippy `-D warnings`, and with `c-abi`; `cargo test --workspace
+--no-fail-fast`, vla-lang's library 217 (seven new), its ten laws, the
+core's 183 and the rest; both wasm builds; the recalc runner and
+`run_checks.ps1`, 57 of 57, `check_shapes_golden` unmoved and
+`check_recalc_floors` holding every value through the runner's check mode;
+`cargo package -p vla-lang` and the package's own tests. Alonzo over it by
+a path: `cargo test` 33 of 33, every committed replay played to its golden;
+`frames -- --check` every frame equal, the allocations 80 and 5, 80 and 5,
+509 and 5; the module 750,487 bytes, 1,378 more than over `cdbd66a`. All
+the builds and the mutants ran on the efficiency cores, so that the
+performance cores were left to the measurements.
+
+*Measured*, natively, alternated with `HEAD` (`cdbd66a`) through the
+scoping's instrument made the owner's (two builds of one source, each
+case's twelve frames digested over every sheet, twin and plane, equal on
+both sides throughout), the median of three rounds' medians, the frame in
+ms; the sparse sheets over eight rounds after the bounds:
+
+| the grid | `HEAD` | the build |
+|---|---:|---:|
+| a Mind of 1,250 rows, over the twin | 0.56 | 0.49 |
+| a Mind of 20,000 rows, over the twin | 15.81 | 8.86 |
+| a Mind of 20,000 rows, over the frame | 19.00 | 16.82 |
+| the Mind of 20,000, a walk every second frame | 15.64 | 9.85 |
+| a Screen of 320 by 200, its plane kept | 2.42 | 1.66 |
+| a Screen of 1,000 by 1,000 | 55.37 | 28.07 |
+| `column`'s edit, as rows | 2.07 | 1.50 |
+| 50,000 texts | 26.54 | 26.03 |
+| 40,000 formulas beside 200,000 values | 7.85 | 2.29 |
+| 100,000 formulas, 49.99% changing | 1.84 | 1.87 |
+| 100,000 formulas, 50.00% changing | 4.56 | 1.93 |
+| 100,000 formulas, all changing | 4.58 | 2.89 |
+| a sparse sheet of 50,000, all changing | 1.50 | 1.52 |
+| a sparse sheet of 100,000, 45% changing | 2.66 | 2.68 |
+| one cell of 1,000,000 changing | 0.004 | 0.004 |
+
+Alonzo's fixtures through its own runner, three rounds alternated: Life
+2.7 to 2.9 ms a frame against 2.8 to 2.9, the gun 41.9 to 43.0 µs against
+42.3 to 43.6, Sand 3.7 to 3.9 ms against 3.7 to 3.8, the loads level.
+Frazaro's recalc bench through `tools/bench_recalc.ps1`, each tree's own
+script, three rounds alternated: `column`'s edit 2.37 to 3.27 ms to 1.54 to
+1.57; `chain`'s 2.86 to 3.31 to 2.92 to 2.99; `sums`' 3.50 to 3.78 to 3.31
+to 3.43; `life`'s 3.04 to 3.25 to 2.93 to 3.06; the whole frames level.
+Against the predictions: the Mind over the twin 8.9 against 8.4 to 8.8,
+over the frame 16.8 a little above 14.4 to 16.2, the Screens, the
+value-heavy grid and `column`'s edit as predicted, the texts' frame 0.5 ms
+lighter where 1.2 to 1.6 was predicted, the evaluation of a text being the
+larger part of it; Alonzo's frames unmoved, as predicted.
+
+*Owner-tested 2026-10-13:* the instrument over `HEAD`'s language and over
+the build, one round, every case's twelve frames equal on both sides, every
+sheet, twin and plane. The Mind of 20,000 rows over the twin 13.98 ms to
+8.37, over the frame 19.09 to 13.73, with a walk every second frame 14.58
+to 9.54; of 1,250 rows 0.55 to 0.48; the Screen of 320 by 200 2.20 to 1.59,
+of 1,000 by 1,000 55.56 to 27.22; `column`'s edit 1.99 to 1.43; the grid of
+40,000 formulas beside 200,000 values 7.78 to 2.24; 100,000 formulas at
+50.00% 3.75 to 1.82 and all changing 4.77 to 2.78, at 49.99% level (1.82
+against 1.81); the texts 26.99 to 25.17; the sparse sheets 1.41 to 1.48 (50,000
+all changing) and 2.66 to 2.55 (100,000, 45%), the first a single round's
+5% and inside the spread of eight alternated rounds here (`HEAD` 1.43 to
+1.59, the build 1.46 to 1.59); one cell of a million 0.004 on both sides.
+Alonzo's runner over the build: every frame equal, the allocations 80 and 5,
+80 and 5, 509 and 5. The owner did not run `tools/bench_recalc.ps1`, so no
+floor of `check_recalc_floors.ps1` moved: `column`'s edit, 2.37 to 3.27 ms
+over `HEAD` and 1.54 to 1.57 over the build in the alternated rounds above,
+raises its floor, and `chain`'s, `sums`' and `life`'s slightly, by the
+owner's next run pasted whole, never by a number of this session's.
+
+*Committed 2026-10-13* at the owner's word, "Commit", after the owner's
+run: the filing of `KERNEL.40` and `KERNEL.41` first, its two files alone,
+the roadmap's two lines and the registry's row and sentence, then this
+item's: the five files of `vla-lang` moved whole from the worktree over
+`cdbd66a` (`calc/dense.rs`, `calc/reach.rs`, `machine/mod.rs`, `sheet.rs`,
+`tests/laws.rs`), and the shared documents staged as `HEAD` and this item's
+lines, nothing of a peer's being left in them; the staged tree verified on
+its own, `HEAD` and this item's files, as the worktree was by the CI core
+job's own steps and `run_checks.ps1`. The item closed with it; its line left
+the roadmap for the closed ledger. Not pushed. Alonzo takes it at its pin's
+move to the release that carries it, 0.9.3, its prompt given in chat.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -38847,6 +39318,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.33 — the plan's edges found once a shape, a column a reference holds read once a row, and a row of single cells reached as one: what Alonzo's playtest pass of Sand asked of the language.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, the three changes as one item. A grid's plan reads each shape's references once, one every `$` holds found once for the shape, a cell's vertex through the reach's array of positions, the edges one flat array, and one Tarjan now serves both plans; in a run, a reference holding its column, read across one row, is read once; and a shape's single cells side by side in a row are one span to the reach, wherever the span stays on the sheet. Every value, the order, its runs and its cycles are as they were, and no public call changed. By both houses' instruments alternated with HEAD: Sand's load 507 ms to about 163 natively and 597 to about 163 in Chrome, its steady frame 15.6 to 10.5 ms, Alonzo's 1,100-frame playtest session 1,857 to 1,256 ms with every frame held; Life's and the gun's loads nearly halved, their frames unchanged. A first mutant round caught ten of fifteen and found two of the plan's paths no generated grid reached, a range of a sheet holding formulas and a name over formula cells; the generator writes both now, four pins were added, and the second round caught all fifteen. The owner's test: the session 1,844 ms to 1,250, every frame held, and Sand's load 511 ms to 158. To be released in 0.9.2. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.34 — a formula written into a running grid costs what its cells cost, so that a rule rebuilt and written whole is applied in a frame's time and not in fifteen seconds.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its five decisions as recommended. A write places its cells with each sheet's shared formulas found once, where each cell walked its sheet; tests whether a cell would read the same once for each formula the range covers, where every cell moved two texts; gives a fill's first cell up by making the fill's first cell left its master, one text moved, where every cell was given its own; and looks each cell up once. The plan a write leaves is now the plan a load of the same grid makes, numbered and anchored as a load's, which it was not. Natively, Life's rule written whole 15.4 s to about 40 ms, Sand's largest fill 16.4 s to about 120, a cell over a fill's first 0.82 s to 15 ms, a fill's own text again 1.8 s to 4 ms; every record is the one it was, a write counts the cells it counted, and no public call changed. Eighteen mutants, each failing named tests. The owner's test caught a pass that sorted every placed cell, which made a small write into Sand 14 ms dearer; the pass now finds each shape's first cell in one walk. Found and left for the owner to mint: a name spelled like an R1C1 reference shares a plain formula's shape key, so `=R1C1` beside `=$A$1` computes the other's value. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.35 — a sheet's readers found by the rows a changed cell stands on, so that a grid written one fill a row is marked as cheaply as one written one fill.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its seven decisions as recommended. A changed cell was checked against every reader of its sheet, every formula shape's reference to it, so a grid written a fill a row, a fill a column or a formula a cell paid a check a shape at every change. A sheet of 16 readers or more now keeps them by the rows or by the columns a changed cell must stand on to reach them, whichever leaves fewer, in bands one row or one column wide, a band still long filed again by the other, and only where that halves the checks; each reader is checked exactly as before. Natively, alternated with HEAD: Life written one fill a row 16.8 ms a frame to 3.0, one fill a column 25.9 to 3.6, Sand by rows 43.7 to 4.1, Life's first 20 rows a formula a cell 444 to 14; the cartridges as committed, their loads and a formula's write unmoved, and no public call changed. The census prints `(readers "<sheet>" n (most k))` on an indexed sheet, which moved the subset fixtures' two goldens alone. Held to the scan at every changed cell of 176 cases, by a count of the readers checked and by an eighth law; twelve mutants, each failing named tests, one of which found a gap the tests now fill. Its findings minted as `KERNEL.38` and `KERNEL.39`. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.36 — a frame's end copies the cells it changed however many they are, so that a frame that changes most of its grid ends in a third of the time.** Minted 2026-10-12 at the owner's word, scoped and built the same day, owner-tested and committed 2026-10-13 at the owner's word, its seven decisions as recommended and its two findings minted as `KERNEL.40` and `KERNEL.41`. A frame's end copied the cells it changed into their twins only while they were no more than half the cells, and past half walked every cell of every sheet, so a frame that changed most of its grid paid for all of it again at its end, and one cell more than half made the end five or six times dearer. It now copies at every share into every twin kept as an array, the changed list holding room for every formula cell; a sheet too sparse for an array, whose twin is copied through its own cells, keeps the half, where the measured costs of the copy and the walk cross; and a walk after copied frames makes a twin cell left behind its slot where it passes it, where it made each such cell first. Natively, alternated with `HEAD`: a Mind of 20,000 rows over the twin 14.0 ms a frame to 8.4, a Screen of 1,000 by 1,000 55.6 to 27.2, one of 320 by 200 2.2 to 1.6, `column`'s edit 2.0 to 1.4, a grid of 40,000 formulas beside 200,000 values 7.8 to 2.2; the sparse sheets, Alonzo's cartridges and one cell of a million level, every value what it was and no public call changed. Held to the walk bit for bit by a test that ends frames both ways over generated grids most of whose cells change, by a count of the cells a frame's end visits and by a tenth law; eighteen mutants, each failing named tests, a first round's survivor caught by a test written for the fault it found. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.37 — the values of a window: the grid record less its formula rows, so that an engine's host draws a grid every frame without moving every formula's text.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its eight decisions as recommended. A host drawing a grid-mode cartridge from the view record every frame paid for every formula's text, each shared formula's cell given its master's text moved to it at every view: an 80 by 50 window of one fill viewed in 10.3 ms natively where its frame took 0.2, the same window of Life's formulas in 64. The machine now answers a third projection, `values` (`view::ValueGrid`, `view_text_values`), the record less its `formula` rows, every other row the grid's, so that for any window it is the grid record with its formula lines removed, byte for byte; a fill's cell with a value never asks for its master, and one whose master the sheet has lost shows in neither record. Both records read a sheet's extent from what a machine or a recalculation keeps (`Values::kept_extent`, provided), where every view walked the sheet for it. Natively those windows in 1.6 to 1.9 ms, in Chrome 1.3 to 1.5; the records 368,831 bytes to 102,851 and 2,070,132 to 99,165; Alonzo's module 930 bytes larger; no public call changed. The refusal of an unknown projection names the third, reworded in the VBA catalogue, where the scoping had said no VBA. Held by a ninth law, by the view goldens less their formula rows, by counted walks and by six mutants, each failing named tests; oracle 11 amended in words, no golden moved. Found and left for the owner to mint: the core's build leaves a fill's other cells without their master when a later sentence writes over its first cell, and writes a file its own reader refuses. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY

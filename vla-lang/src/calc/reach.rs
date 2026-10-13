@@ -984,6 +984,11 @@ impl Reach {
         self.positions.get(id.0, id.1, id.2)
     }
 
+    /// The formulas of the order that stand on a sheet (KERNEL.36).
+    pub(crate) fn formulas_on(&self, sheet: usize) -> usize {
+        self.positions.formulas(sheet)
+    }
+
     /// The shape of the cell at a position of the order.
     pub(crate) fn shape_at(&self, pos: usize) -> usize {
         self.shape_at[pos] as usize
@@ -1303,6 +1308,8 @@ const NONE: u32 = u32::MAX;
 pub(crate) struct Positions {
     grids: Vec<Option<Grid>>,
     rest: FxHashMap<CellId, u32>,
+    /// By sheet, the formulas that stand on it (KERNEL.36).
+    counts: Vec<usize>,
 }
 
 /// The positions of one sheet's formulas over the rectangle they fill.
@@ -1352,6 +1359,10 @@ impl Positions {
         let mut p = Positions {
             grids,
             rest: FxHashMap::default(),
+            counts: bounds
+                .iter()
+                .map(|b| b.map_or(0, |b| b.4 as usize))
+                .collect(),
         };
         for (i, &(s, row, col)) in order.iter().enumerate() {
             match p.grids.get_mut(s).and_then(Option::as_mut) {
@@ -1365,6 +1376,11 @@ impl Positions {
             }
         }
         p
+    }
+
+    /// The formulas that stand on a sheet.
+    pub(crate) fn formulas(&self, sheet: usize) -> usize {
+        self.counts.get(sheet).copied().unwrap_or(0)
     }
 
     pub(crate) fn get(&self, sheet: usize, row: u32, col: u32) -> Option<usize> {

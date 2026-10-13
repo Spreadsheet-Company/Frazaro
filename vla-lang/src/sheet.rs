@@ -453,9 +453,10 @@ pub(crate) fn filled(range: A1Range, text: &str, si: Option<u32>, row: u32, col:
 /// cell. A write's cost is pinned by these counts and not by its time; an
 /// allocation count would miss the walks, which allocate once a master and
 /// not once a cell. Since KERNEL.37 a view's walks are counted too: the
-/// masters' and the extent's (`Sheet::extent`). Counted on the thread that
-/// asked, between [`work::begin`] and [`work::end`], and only in a test
-/// build.
+/// masters' and the extent's (`Sheet::extent`). A frame's end is counted the
+/// same way (KERNEL.36's oracle): the cells it copied into their twins, and
+/// the cells it walked. Counted on the thread that asked, between
+/// [`work::begin`] and [`work::end`], and only in a test build.
 #[cfg(test)]
 pub(crate) mod work {
     use std::cell::Cell;
@@ -473,12 +474,25 @@ pub(crate) mod work {
         pub(crate) split: u64,
         /// The cells walked to find a sheet's extent.
         pub(crate) extents: u64,
+        /// The cells a frame's end copied into their twins (KERNEL.36).
+        pub(crate) copied: u64,
+        /// The cells a frame's end walked, every cell of every sheet
+        /// (KERNEL.36).
+        pub(crate) swept: u64,
     }
 
     thread_local! {
         static ON: Cell<bool> = const { Cell::new(false) };
         static DONE: Cell<Work> = const {
-            Cell::new(Work { walked: 0, moved: 0, whole: 0, split: 0, extents: 0 })
+            Cell::new(Work {
+                walked: 0,
+                moved: 0,
+                whole: 0,
+                split: 0,
+                extents: 0,
+                copied: 0,
+                swept: 0,
+            })
         };
     }
 
@@ -528,6 +542,16 @@ pub(crate) mod work {
                 w.split += 1;
             }
         });
+    }
+
+    /// One cell a frame's end copied into its twin.
+    pub(crate) fn copied() {
+        add(|w| w.copied += 1);
+    }
+
+    /// A frame's end's walk over a sheet of `cells` cells.
+    pub(crate) fn swept(cells: usize) {
+        add(|w| w.swept += cells as u64);
     }
 }
 

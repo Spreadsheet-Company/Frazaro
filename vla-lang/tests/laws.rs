@@ -28,8 +28,14 @@
 //!    sheet's, twins included, before a frame, after each and after each
 //!    write between frames; and a record's window and extent, as the machine
 //!    keeps them, are the sheet's walked (KERNEL.37).
+//! 10. Each twin after a frame is its sheet's values as the frame left
+//!     them, however many of its cells the frame changed: the twin's record
+//!     holds the sheet's value cells and its formulas' values as cells, and
+//!     the plane the machine keeps is a fresh load's, over generated grids
+//!     most of whose cells change at every frame, with writes between
+//!     frames (KERNEL.36).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use vla_lang::calc::library;
 use vla_lang::expand::expand_text;
@@ -751,4 +757,119 @@ fn a_window_s_values_are_its_grid_less_its_formula_rows() {
     // Fifty grids, five frames, before and after a write, two sheets (the
     // grid's and its twin), each whole and through a window.
     assert_eq!(held, 50 * 5 * 2 * 2 * 2);
+}
+
+// ---- 10. a frame's end at any share -------------------------------------
+
+/// A grid most of whose cells change at every frame, and its rows: a sheet
+/// `G` of value cells in column A and formulas over `B1:F{rows}` in bands,
+/// each band one formula, most reading the cell `T!A1` a test writes before
+/// every frame, some reading `G`'s twin, some a text and a number by turns,
+/// some keeping their values; in some grids a value cell far off, so that
+/// `G` is too sparse for an array (KERNEL.36).
+fn churning_rows(r: &mut Rng) -> (String, usize) {
+    let rows = 4 + r.below(40);
+    let mut out =
+        String::from("(sheet \"T\" visible)\n(cell \"T\" \"A1\" 0)\n(sheet \"G\" visible)\n");
+    for row in 1..=rows {
+        if r.below(3) != 0 {
+            out.push_str(&format!("(cell \"G\" \"A{row}\" {})\n", r.below(10)));
+        }
+    }
+    let mut top = 1;
+    while top <= rows {
+        let bottom = (top + r.below(5)).min(rows);
+        let (a, b) = (1 + r.below(9), 1 + r.below(9));
+        let f = match r.below(6) {
+            0 => format!("ROW()*{a}+COLUMN()"),
+            1 => format!("IF(MOD(T!$A$1+ROW(),2)=0,\"t\"&ROW(),ROW()*{a})"),
+            2 => format!("G.last!{}{top}+T!$A$1", r.pick(&["B", "C", "D", "E", "F"])),
+            3 => format!("MOD(T!$A$1*{a}+ROW()*{b}+COLUMN(),97)+$A{top}"),
+            _ => format!("MOD(T!$A$1*{a}+ROW()*{b}+COLUMN(),97)"),
+        };
+        out.push_str(&format!(
+            "(formula \"G\" \"B{top}:F{bottom}\" {})\n",
+            quoted(&format!("={f}"))
+        ));
+        top = bottom + 1;
+    }
+    if r.below(3) == 0 {
+        out.push_str("(cell \"G\" \"AZ999\" 1)\n");
+    }
+    (out, rows)
+}
+
+/// A record's data by cell, each datum printed again: the rows headed by
+/// one of `heads`, a value cell's `cell` row or a formula's `value` row.
+fn data(record: &str, heads: &[&str]) -> BTreeMap<String, String> {
+    read_forms(record)
+        .expect("a record reads")
+        .iter()
+        .filter_map(|f| match f {
+            Form::List(l) => match l.items.as_slice() {
+                [Form::Sym(h), Form::Str(_), Form::Str(addr), datum]
+                    if heads.contains(&h.as_str()) =>
+                {
+                    Some((addr.clone(), write_datum(datum)))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn each_twin_is_its_sheet_s_values_however_many_cells_a_frame_changes() {
+    let mut checked = 0;
+    for seed in 1..=40u64 {
+        let mut r = Rng::new(seed ^ 0x36);
+        let (rows, n) = churning_rows(&mut r);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        for frame in 1..=8 {
+            let when = format!("seed {seed}, frame {frame}\n{rows}");
+            let mut writes = vec![format!("(cell \"T\" \"A1\" {frame})")];
+            match r.below(6) {
+                0 => writes.push(format!(
+                    "(cell \"G\" \"A{}\" {})",
+                    1 + r.below(n),
+                    r.below(10)
+                )),
+                1 => writes.push(format!(
+                    "(cell \"G\" \"{}{}\" 5)",
+                    r.pick(&["B", "C", "D", "E", "F"]),
+                    1 + r.below(n)
+                )),
+                _ => {}
+            }
+            for w in &writes {
+                m.write(w)
+                    .unwrap_or_else(|e| panic!("{when}: {w}: {}", e.refusal.text));
+            }
+            assert!(m.step(0).done);
+            let grid = |name: &str| match m.view("grid", name, None) {
+                Ok(Viewed::Text(t)) => t,
+                other => panic!("{when}: {other:?}"),
+            };
+            for sheet in ["T", "G"] {
+                let values: BTreeMap<String, String> = data(&grid(sheet), &["cell", "value"])
+                    .into_iter()
+                    .filter(|(_, d)| !d.starts_with("(not-computed"))
+                    .collect();
+                let twin = data(&grid(&format!("{sheet}.last")), &["cell"]);
+                assert_eq!(twin, values, "{when}: {sheet}'s twin");
+            }
+            let kept = match m.view("plane", "G", Some("A1:F44")) {
+                Ok(Viewed::Bytes(b)) => b,
+                other => panic!("{when}: {other:?}"),
+            };
+            let again = load(&save(&m), &format!("{when}: its save"));
+            match again.view("plane", "G", Some("A1:F44")) {
+                Ok(Viewed::Bytes(b)) => assert_eq!(kept, b, "{when}: G's plane"),
+                other => panic!("{when}: {other:?}"),
+            }
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 320);
 }

@@ -59,6 +59,28 @@
   (`calc::Values::kept_extent`, provided, so that no implementation outside
   the crate changes). The refusal of a projection the grid does not have
   names the third. No call of the crate changed (KERNEL.37).
+- **For engines: a frame's end copies what changed, however much changed.**
+  When a frame of a running machine finished, the cells it changed were
+  copied into the twins, the sheets that hold the last frame, only while
+  they were no more than half the cells; past half, the machine walked
+  every cell of every sheet instead, so a frame that changed most of its
+  grid paid for all of it again at its end, and one cell more than half
+  made the end five or six times dearer. A synthetic board game's opponent
+  of 20,000 candidate rows, 240,002 formulas of which 220,413 change every
+  frame, spent 7 to 9 ms of a 13 to 16 ms frame there. A frame's end now
+  copies the changed cells at every share into every twin kept as an array,
+  as every twin of Alonzo's cartridges is: natively, that frame takes about
+  8.9 ms, a Screen of 320 by 200 changing every cell 1.7 ms where it took
+  2.4, one of a million cells 28 where it took 55, a grid of 40,000
+  formulas beside 200,000 values 2.3 where it took 7.9, and the recalc
+  bench's `column` edit 1.5 where it took 2.4 to 3.3. A sheet too sparse
+  for an array keeps the old rule, which stands where its two ways cost the
+  same, and its frames cost what they did. A frame's end that walks, after
+  a write into a sheet viewed as a plane, now makes a twin cell left behind
+  its array where it passes it, rather than each such cell first. The
+  machine keeps room for every formula's change, four bytes a formula, made
+  with its plan. Every value is what it was, Alonzo's cartridges' frames
+  are unmoved, and no call of the crate changed (KERNEL.36).
 
 ### Known open security items
 
