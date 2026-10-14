@@ -22,6 +22,14 @@ scripts/ (by the reference, or by the door for the view goldens) now arrives
 here as a failure with a one-line fix, instead of changing the language's
 test inputs silently.
 
+THE LICENCE FILES (2026-10-14, at 0.9.3): the root's LICENSE (Apache-2.0's
+text) and NOTICE sit beside the crates, not in them, so no published package
+before 0.9.3 held either, and whoever redistributes a crate needs both:
+Apache-2.0 section 4 asks them to give the License and the NOTICE's
+attributions on. Each crate's directory carries the two as copies, and the
+door's also the Mozilla Public License's text as LICENSE-MPL, for the
+phrasebook it carries, whose header names MPL-2.0 and nothing more.
+
 ALSO HELD, on a built door (-Impl, or target/debug/frazaro beside the tree,
 as the other -Impl checks find it): the door with no flags translates the
 corpus program exactly as it does with the corpus files named, so that the
@@ -61,9 +69,17 @@ $pairs = @(
     @{ Copy = 'vla-lang/testdata/view/into_checks.vla'; Source = 'scripts/view/into_checks.vla' },
     # VLA.3: the expand fixture and the reference's golden of it
     @{ Copy = 'vla-lang/testdata/expand.txt'; Source = 'scripts/expand.txt' },
-    @{ Copy = 'vla-lang/testdata/expand_golden.txt'; Source = 'scripts/expand_golden.txt' }
+    @{ Copy = 'vla-lang/testdata/expand_golden.txt'; Source = 'scripts/expand_golden.txt' },
+    # 2026-10-14: the licence texts and the NOTICE, in every package
+    @{ Copy = 'vla-lang/LICENSE'; Source = 'LICENSE' },
+    @{ Copy = 'vla-lang/NOTICE'; Source = 'NOTICE' },
+    @{ Copy = 'core/LICENSE'; Source = 'LICENSE' },
+    @{ Copy = 'core/NOTICE'; Source = 'NOTICE' },
+    @{ Copy = 'cli/LICENSE'; Source = 'LICENSE' },
+    @{ Copy = 'cli/NOTICE'; Source = 'NOTICE' },
+    @{ Copy = 'cli/LICENSE-MPL'; Source = 'LICENSES/MPL-2.0.txt' }
 )
-$expectedPairs = 13   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10), 2 for the expand golden (VLA.3)
+$expectedPairs = 20   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10), 2 for the expand golden (VLA.3), 7 for the licence files (2026-10-14)
 
 $failures = New-Object System.Collections.Generic.List[string]
 if ($pairs.Count -ne $expectedPairs) { $failures.Add("the table holds $($pairs.Count) pair(s), not the $expectedPairs pinned here") }
@@ -133,5 +149,5 @@ if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" }
     exit 1
 }
-Write-Host "OK: $($pairs.Count) copies under cli/data/ and vla-lang/testdata/ are their sources byte for byte; $doorNote"
+Write-Host "OK: $($pairs.Count) copies in the crates' directories are their sources byte for byte; $doorNote"
 exit 0

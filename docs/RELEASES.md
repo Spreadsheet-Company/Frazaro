@@ -81,6 +81,16 @@
   machine keeps room for every formula's change, four bytes a formula, made
   with its plan. Every value is what it was, Alonzo's cartridges' frames
   are unmoved, and no call of the crate changed (KERNEL.36).
+- **For packagers: each crate carries its licence and the NOTICE.** A
+  crate's package is its own folder and nothing beside it, so the Apache
+  License's text and the `NOTICE`, kept at the repository's root, never
+  reached crates.io: no package of `vla-lang`, `frazaro-core` or `frazaro`
+  before this release held either. Whoever passes a crate on, vendored,
+  packaged for a distribution or built into a program of their own, owes
+  the next recipient both under the Apache License, and had to fetch them
+  from the repository. Each package now holds them as `LICENSE` and
+  `NOTICE`, and the door's also the Mozilla Public License's text as
+  `LICENSE-MPL`, for the English phrasebook it carries. No code changed.
 
 ### Known open security items
 

@@ -1,0 +1,17 @@
+Frazaro
+Copyright 2026 Spreadsheet Company
+
+This product includes software developed by Spreadsheet Company.
+
+Licensed under the Apache License, Version 2.0 (the engine, prelude,
+tooling and installer). The phrasebooks under scripts/polyglotta/ are
+licensed separately under the Mozilla Public License 2.0, and
+src/VLA_Runtime.bas under the BSD Zero Clause License. Documentation is
+CC-BY-4.0. See LICENSES/ for the full texts and REUSE.toml for the
+per-file map.
+
+Code that Frazaro generates from your own programs, and the runtime
+helper module it copies into your workbook, are yours: see
+OUTPUT-EXCEPTION.md.
+
+"Frazaro" is a trademark of Spreadsheet Company; see TRADEMARK.md.

@@ -59,8 +59,10 @@ SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "0BSD"
 
 # Documentation, including the governance files at the repository root.
+# Since 0.9.3 each crate's package carries the NOTICE as a copy, held byte
+# for byte by tools/check_crate_data.ps1, so the copies read as the root's.
 [[annotations]]
-path = ["docs/**", "*.md", "NOTICE"]
+path = ["docs/**", "*.md", "NOTICE", "vla-lang/NOTICE", "core/NOTICE", "cli/NOTICE"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "CC-BY-4.0"
 
