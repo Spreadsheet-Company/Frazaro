@@ -55,6 +55,16 @@
 //! and never formulas (`AD-7`): the formula cells after a step are the
 //! formula cells before it.
 //!
+//! **The changes** (KERNEL.42). The twin cells a frame's end changed are
+//! kept until the next frame's end, and with them the few whose change a
+//! record spells as before, so that a view of a window's changes answers
+//! from them alone, the cells whose rows in the window's values the last
+//! complete frame changed, at the cost of the changes and not the window;
+//! or answers whole where they cannot say: before the first frame, after a
+//! frame whose end kept more changes than it held room for or made a twin
+//! again, after a write that changed a formula or added a cell, and while a
+//! value written since lies in the window.
+//!
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
@@ -82,6 +92,7 @@ use crate::calc::{CellId, Computed, Ctx, Dense, Env, ErrorKind, Library, Reason,
 use crate::form::Form;
 use crate::fx::FxHashMap;
 use crate::messages::{raise, Refusal};
+use crate::projection::Window;
 use crate::reader::read_forms;
 use crate::refers::shift_a1_references;
 use crate::rows::Visibility;
@@ -89,7 +100,7 @@ use crate::sheet::{
     filled, formula_text, parse_a1_range, shared_masters, strip_future_prefixes, A1Range, Cell,
     Content, Sheet, Workbook,
 };
-use crate::view::{view_text_valued, view_text_values, window_over};
+use crate::view::{changes_text, view_text_valued, view_text_values, window_over};
 
 pub use load::{read_rows, sheet_name_ok, thousands, twin_base, Draft};
 
@@ -115,6 +126,19 @@ const SLOTS_A_CELL: u64 = 4;
 /// (KERNEL.20), so that an engine's write of its Clock at every step makes
 /// nothing; more are kept all the same.
 const WRITTEN: usize = 64;
+
+/// The changes a frame's end keeps of those a record spells as it spelled
+/// them before (KERNEL.42): a formula's value turned from 0 to -0, which
+/// its `value` row spells 0 both times; a number no cell can hold turned to
+/// another, or to the error `#NUM!`, each spelled `#NUM!`; a formula's
+/// reason turned to another, which its twin, holding no cell, never shows.
+/// Rare, so few: past them, the frame's changes are whole.
+const ALIKE: usize = 64;
+
+/// A change the sheet's own record spells as before, and one its twin's
+/// does (KERNEL.42).
+const SHEET_ALIKE: u8 = 1;
+const TWIN_ALIKE: u8 = 2;
 
 /// A refusal and the line of the row it stands on, 0 when none.
 #[derive(Clone, Debug, PartialEq)]
@@ -357,8 +381,24 @@ pub struct Machine {
     /// The value cells written since the last frame completed.
     written: Vec<CellId>,
     /// The twin cells the last frame's end changed, which the next frame
-    /// follows to the cells that read them.
+    /// follows to the cells that read them, kept until its end for a view
+    /// of the changes (KERNEL.42).
     twin_changed: Vec<CellId>,
+    /// Those of them whose change a record spells as before, with the
+    /// records that do ([`SHEET_ALIKE`], [`TWIN_ALIKE`]), at most
+    /// [`ALIKE`]; and whether there were more (KERNEL.42).
+    alike: Vec<(CellId, u8)>,
+    alike_over: bool,
+    /// Whether the last complete frame's changes are more than the lists
+    /// tell (KERNEL.42): before the first frame, or when its end kept more
+    /// changes than it held room for, or more spelled alike than
+    /// [`ALIKE`], or made a twin again, or a write before it changed a
+    /// formula or added a cell, which may change a record's rows where no
+    /// twin cell changes.
+    changes_whole: bool,
+    /// Whether a write since the last frame's end changed a formula or
+    /// added a cell (KERNEL.42).
+    reshaped: bool,
     /// Whether a run of the order is evaluated at once: always, but in the
     /// tests that hold it to the same cells evaluated one by one.
     by_runs: bool,
@@ -513,6 +553,10 @@ impl Machine {
             changed_over: false,
             written: Vec::with_capacity(WRITTEN),
             twin_changed: Vec::new(),
+            alike: Vec::with_capacity(ALIKE),
+            alike_over: false,
+            changes_whole: true,
+            reshaped: false,
             by_runs: true,
             incremental: true,
             lazy: true,
@@ -700,7 +744,9 @@ impl Machine {
     /// A frame's start (KERNEL.20): every cell to compute, or the cells the
     /// last frame's end and the writes since reach, with every shape not
     /// followed, and each shape whose parts the same at every cell read a
-    /// changed cell when those parts compute other bits than they did.
+    /// changed cell when those parts compute other bits than they did. The
+    /// last frame's changes are kept until this frame's end, which a view
+    /// of them during a yield reads (KERNEL.42).
     fn begin(&mut self) {
         self.every = self.every_next || !self.incremental;
         self.every_next = false;
@@ -713,7 +759,6 @@ impl Machine {
             for s in 0..self.shapes.shapes() {
                 self.parts_moved(s);
             }
-            self.twin_changed.clear();
             return;
         }
         let Machine {
@@ -736,7 +781,6 @@ impl Machine {
                 Reached::Parts(s) => recheck[s] = true,
             });
         }
-        twin_changed.clear();
         // Every shape whose parts read a changed cell has them computed, even
         // one computed whole already, so that what is kept is what its cells
         // were computed with: a part kept from an earlier frame would let a
@@ -893,12 +937,15 @@ impl Machine {
     /// are no more than half the cells and every plane an engine views is
     /// kept; else, or when a twin's cell would gain or lose its value, every
     /// sheet walked. Either way the twin cells whose content or reason
-    /// changed are kept for the next frame.
+    /// changed are kept for the next frame, and are the frame's changes
+    /// unless they are more than the lists tell (KERNEL.42).
     fn snapshot(&mut self) {
         self.marked.fill(0);
         self.whole.fill(false);
         self.recheck.fill(false);
         self.twin_changed.clear();
+        self.alike.clear();
+        self.alike_over = false;
         if !(self.copies
             && self.incremental
             && !self.changed_over
@@ -911,6 +958,10 @@ impl Machine {
         self.changed.clear();
         self.changed_over = false;
         self.written.clear();
+        // The frame began with the next frame's flag clear, and no write
+        // lands during a frame, so the flag is the end's own.
+        self.changes_whole = self.every_next || self.alike_over || self.reshaped;
+        self.reshaped = false;
     }
 
     /// Whether the cells a copy writes through their twins' own cells, a
@@ -991,6 +1042,8 @@ impl Machine {
             changed,
             written,
             twin_changed,
+            alike,
+            alike_over,
             every_next,
             ..
         } = self;
@@ -1005,6 +1058,8 @@ impl Machine {
             behind,
             lagging,
             twin_changed,
+            alike,
+            alike_over,
             every_next,
         };
         // A formula cell the frame changed: its value alone makes its twin
@@ -1067,6 +1122,8 @@ impl Machine {
         std::mem::swap(&mut self.twin_reasons, &mut self.reasons_before);
         self.twin_reasons.clear();
         self.twin_changed.clear();
+        self.alike.clear();
+        self.alike_over = false;
         let sheets = self.sheets;
         let (rows, twins) = self.book.sheets.split_at_mut(sheets);
         for (s, (sheet, twin)) in rows.iter().zip(twins.iter_mut()).enumerate() {
@@ -1110,13 +1167,24 @@ impl Machine {
                 if let Some(r) = reason {
                     self.twin_reasons.insert((t, row, col), r.clone());
                 }
-                if self.reasons_before.get(&(t, row, col)) != reason {
+                let was = self.reasons_before.get(&(t, row, col));
+                if was != reason {
                     note(&mut self.twin_changed, &mut self.every_next, (t, row, col));
+                    // A reason turned to another, the formula holding no
+                    // value either side (any other turn makes the twin
+                    // again below).
+                    if was.is_some() && reason.is_some() {
+                        let bits = alike(true, (Spelled::Nothing, was), (Spelled::Nothing, reason));
+                        note_alike(&mut self.alike, &mut self.alike_over, (t, row, col), bits);
+                    }
                 }
                 let content = twin_content(cell, value);
                 // For a twin cell behind its slot, whether the slot, which
                 // holds the cell's last value exactly, holds its new one.
                 let mut same: Option<bool> = None;
+                // The records that spell a changed cell as before (KERNEL.42),
+                // told before its slot or its cell is overwritten.
+                let mut bits = 0;
                 // Every cell of the sheet writes its slot, so a store kept
                 // over the same extent as the last frame's holds nothing
                 // stale: a write only adds cells and changes them, and a cell
@@ -1126,7 +1194,15 @@ impl Machine {
                         Some(i) => {
                             let slot = k.slot_at(i);
                             if lags && behind.get(i / 64).is_some_and(|w| w >> (i % 64) & 1 == 1) {
-                                same = Some(same_slot(slot, content.as_ref()));
+                                let held = same_slot(slot, content.as_ref());
+                                if !held {
+                                    bits = alike(
+                                        value.is_some(),
+                                        (Spelled::slot(slot), None),
+                                        (Spelled::content(content.as_ref()), None),
+                                    );
+                                }
+                                same = Some(held);
                             }
                             refresh(slot, content.as_ref());
                         }
@@ -1146,6 +1222,11 @@ impl Machine {
                                 None => {
                                     let differs = !same_content(&held.content, &content);
                                     if differs {
+                                        bits = alike(
+                                            value.is_some(),
+                                            (Spelled::content(Some(&held.content)), None),
+                                            (Spelled::content(Some(&content)), None),
+                                        );
                                         held.content = content;
                                     }
                                     differs
@@ -1153,6 +1234,12 @@ impl Machine {
                             };
                             if changed {
                                 note(&mut self.twin_changed, &mut self.every_next, (t, row, col));
+                                note_alike(
+                                    &mut self.alike,
+                                    &mut self.alike_over,
+                                    (t, row, col),
+                                    bits,
+                                );
                             }
                         }
                         _ => in_place = false,
@@ -1237,8 +1324,10 @@ impl Machine {
     /// A window of a sheet, a twin's included, through a projection: `grid`
     /// for the record, its `value` rows from the last complete frame;
     /// `values` for the record less its `formula` rows, what a host draws
-    /// (KERNEL.37); or `plane` for a byte a cell. `window` `None` is the
-    /// sheet's extent, as the machine keeps it.
+    /// (KERNEL.37); `changes` for the rows of the values of the cells the
+    /// last complete frame changed, or `whole` where the machine cannot say
+    /// which (KERNEL.42); or `plane` for a byte a cell. `window` `None` is
+    /// the sheet's extent, as the machine keeps it.
     pub fn view(
         &self,
         projection: &str,
@@ -1254,6 +1343,10 @@ impl Machine {
             "values" => {
                 let w = window_over(&self.book, sheet, window, kept)?;
                 Ok(Viewed::Text(view_text_values(&self.book, &w, self)))
+            }
+            "changes" => {
+                let w = window_over(&self.book, sheet, window, kept)?;
+                Ok(Viewed::Text(self.changes(&w)))
             }
             "plane" => {
                 let w = window_over(&self.book, sheet, window, kept)?;
@@ -1282,6 +1375,45 @@ impl Machine {
             }
             other => Err(raise("view-projection-unknown", &[("name", other)])),
         }
+    }
+
+    /// A window's changes (KERNEL.42): the cells whose rows in the window's
+    /// values the last complete frame changed, since the frame before it,
+    /// found among the twin cells its end changed, less those whose change
+    /// the window's record spells as before; or whole, before the first
+    /// frame since the load, a resumed grid's included, after a frame whose
+    /// changes are more than the lists tell, after a write since that
+    /// changed a formula or added a cell, and while a value written since
+    /// lies in the window. A twin is written only at a frame's end, so a
+    /// value written since leaves its window still.
+    fn changes(&self, w: &Window) -> String {
+        let at = self.frame;
+        let since = at.saturating_sub(1);
+        let i = self.book.find_sheet(&w.sheet).unwrap_or(0);
+        let r = w.range;
+        let inside =
+            |id: &CellId| id.1 >= r.top && id.1 <= r.bottom && id.2 >= r.left && id.2 <= r.right;
+        let rows = i < self.sheets;
+        let whole = self.changes_whole
+            || self.reshaped
+            || (rows && self.written.iter().any(|id| id.0 == i && inside(id)));
+        if whole {
+            return changes_text(&self.book, w, self, (since, at), None);
+        }
+        let (t, bit) = match rows {
+            true => (self.sheets + i, SHEET_ALIKE),
+            false => (i, TWIN_ALIKE),
+        };
+        let mut cells: Vec<(u32, u32)> = self
+            .twin_changed
+            .iter()
+            .filter(|id| id.0 == t && inside(id))
+            .filter(|id| !self.alike.iter().any(|(a, b)| a == *id && b & bit != 0))
+            .map(|id| (id.1, id.2))
+            .collect();
+        cells.sort_unstable();
+        cells.dedup();
+        changes_text(&self.book, w, self, (since, at), Some(&cells))
     }
 
     // ---- the write ------------------------------------------------------
@@ -1834,6 +1966,10 @@ impl Machine {
         self.cells += log.added;
         if formula_changed || log.added > 0 {
             self.every_next = true;
+            // A cell's kind or a sheet's extent may have changed, which no
+            // twin cell's change carries: the changes whole until the next
+            // frame's end and at it (KERNEL.42).
+            self.reshaped = true;
             self.fit();
         }
         for id in log.changed.keys() {
@@ -2027,7 +2163,8 @@ fn refresh(slot: &mut Value, content: Option<&Content>) {
 
 /// What a frame's end that copies its changed cells writes (KERNEL.20): the
 /// twins, their reasons, the kept planes and arrays, the twin cells left
-/// behind their slots (KERNEL.27), and the twin cells that changed.
+/// behind their slots (KERNEL.27), and the twin cells that changed, with
+/// those a record spells as before (KERNEL.42).
 struct Twins<'a> {
     sheets: usize,
     twins: &'a mut [Sheet],
@@ -2038,6 +2175,8 @@ struct Twins<'a> {
     behind: &'a mut [Vec<u64>],
     lagging: &'a mut [bool],
     twin_changed: &'a mut Vec<CellId>,
+    alike: &'a mut Vec<(CellId, u8)>,
+    alike_over: &'a mut bool,
     every_next: &'a mut bool,
 }
 
@@ -2061,10 +2200,21 @@ impl Twins<'_> {
                 self.behind[s][i / 64] &= !(1 << (i % 64));
             }
         }
+        // The records that spell the change as before (KERNEL.42): told of a
+        // reason before it is overwritten, and of a cell before it is.
+        let mut bits = match content {
+            None => self.reason_alike(id, value),
+            Some(_) => 0,
+        };
         let mut moved = match (self.twins[s].cells.get_mut(&(row, col)), content) {
             (Some(held), Some(content)) => {
                 let differs = !same_content(&held.content, &content);
                 if differs {
+                    bits = alike(
+                        value.is_some(),
+                        (Spelled::content(Some(&held.content)), None),
+                        (Spelled::content(Some(&content)), None),
+                    );
                     held.content = content;
                 }
                 differs
@@ -2074,11 +2224,9 @@ impl Twins<'_> {
         };
         moved |= self.byte_and_reason(id, value, byte);
         if moved {
-            note(
-                self.twin_changed,
-                self.every_next,
-                (self.sheets + s, row, col),
-            );
+            let t = (self.sheets + s, row, col);
+            note(self.twin_changed, self.every_next, t);
+            note_alike(self.alike, self.alike_over, t, bits);
         }
         true
     }
@@ -2109,20 +2257,43 @@ impl Twins<'_> {
             return false;
         }
         let mut moved = !same_slot(slot, content.as_ref());
+        let mut bits = 0;
         if moved {
+            bits = alike(
+                value.is_some(),
+                (Spelled::slot(slot), None),
+                (Spelled::content(content.as_ref()), None),
+            );
             refresh(slot, content.as_ref());
             self.behind[s][i / 64] |= 1 << (i % 64);
             self.lagging[s] = true;
         }
+        if content.is_none() {
+            bits = self.reason_alike(id, value);
+        }
         moved |= self.byte_and_reason(id, value, byte);
         if moved {
-            note(
-                self.twin_changed,
-                self.every_next,
-                (self.sheets + s, row, col),
-            );
+            let t = (self.sheets + s, row, col);
+            note(self.twin_changed, self.every_next, t);
+            note_alike(self.alike, self.alike_over, t, bits);
         }
         true
+    }
+
+    /// The records that spell a formula's reason turned to another as
+    /// before (KERNEL.42): the twin's always, holding no cell either side,
+    /// and the sheet's when the two are spelled alike; none for a reason
+    /// gained or lost, which comes with a value lost or gained.
+    fn reason_alike(&self, id: CellId, value: Option<&Computed>) -> u8 {
+        let was = self.twin_reasons.get(&(self.sheets + id.0, id.1, id.2));
+        let now = match value {
+            Some(Computed::NotComputed(r)) => Some(r),
+            _ => None,
+        };
+        match (was, now) {
+            (Some(_), Some(_)) => alike(true, (Spelled::Nothing, was), (Spelled::Nothing, now)),
+            _ => 0,
+        }
     }
 
     /// A rows' cell's byte written in its sheet's kept plane, and its reason
@@ -2175,6 +2346,108 @@ fn note(changed: &mut Vec<CellId>, every_next: &mut bool, id: CellId) {
     } else {
         *every_next = true;
     }
+}
+
+/// A changed twin cell kept with the records that spell its change as
+/// before, where any does (KERNEL.42), or, past [`ALIKE`] of them, the
+/// frame's changes made whole.
+fn note_alike(alike: &mut Vec<(CellId, u8)>, over: &mut bool, id: CellId, bits: u8) {
+    if bits == 0 {
+        return;
+    }
+    if alike.len() < ALIKE {
+        alike.push((id, bits));
+    } else {
+        *over = true;
+    }
+}
+
+/// A twin cell's content as a record spells it, told apart from another
+/// without printing either (KERNEL.42): a number a cell can hold by its
+/// bits, its shortest text being one number's alone; a number none can
+/// hold as the error `#NUM!`, which the record prints for it; nothing for
+/// no cell.
+#[derive(Clone, Copy, PartialEq)]
+enum Spelled<'a> {
+    Nothing,
+    Number(u64),
+    Text(&'a str),
+    Bool(bool),
+    Error(&'a str),
+}
+
+impl<'a> Spelled<'a> {
+    fn content(content: Option<&'a Content>) -> Spelled<'a> {
+        match content {
+            Some(Content::Number(n)) => Spelled::number(*n),
+            Some(Content::Text(t)) => Spelled::Text(t),
+            Some(Content::Bool(b)) => Spelled::Bool(*b),
+            Some(Content::Error(e)) => Spelled::Error(e),
+            _ => Spelled::Nothing,
+        }
+    }
+
+    /// A twin's slot, which holds its cell's value exactly.
+    fn slot(slot: &'a Value) -> Spelled<'a> {
+        match slot {
+            Value::Number(n) => Spelled::number(*n),
+            Value::Text(t) => Spelled::Text(t),
+            Value::Bool(b) => Spelled::Bool(*b),
+            Value::Error(k) => Spelled::Error(k.text()),
+            Value::Empty => Spelled::Nothing,
+        }
+    }
+
+    fn number(n: f64) -> Spelled<'a> {
+        match n.is_finite() {
+            true => Spelled::Number(n.to_bits()),
+            false => Spelled::Error(ErrorKind::Num.text()),
+        }
+    }
+
+    /// As a formula's `value` row spells it, which prints 0 for -0.
+    fn valued(self) -> Spelled<'a> {
+        match self {
+            Spelled::Number(bits) if f64::from_bits(bits) == 0.0 => Spelled::Number(0),
+            other => other,
+        }
+    }
+}
+
+/// A reason as a `value` row spells it: by its name, or as a cycle.
+fn reason_spelled(r: Option<&Reason>) -> Option<Option<&str>> {
+    r.map(|r| match r {
+        Reason::Function(name) | Reason::Construct(name) => Some(name.as_str()),
+        Reason::Cycle => None,
+    })
+}
+
+/// Which records spell a twin cell's change, from its content and reason
+/// to others, as before (KERNEL.42): the twin's, a `cell` row of its
+/// content and nothing for none, [`TWIN_ALIKE`]; and its sheet's,
+/// [`SHEET_ALIKE`], a value cell's `cell` row as the twin's and a
+/// formula's `value` row, its value with 0 for -0 or else its reason.
+fn alike(
+    formula: bool,
+    (was, was_reason): (Spelled, Option<&Reason>),
+    (now, now_reason): (Spelled, Option<&Reason>),
+) -> u8 {
+    let twin = was == now;
+    let sheet = match (formula, was, now) {
+        (false, _, _) => twin,
+        (true, Spelled::Nothing, Spelled::Nothing) => {
+            reason_spelled(was_reason) == reason_spelled(now_reason)
+        }
+        (true, was, now) => was.valued() == now.valued(),
+    };
+    let mut bits = 0;
+    if twin {
+        bits |= TWIN_ALIKE;
+    }
+    if sheet {
+        bits |= SHEET_ALIKE;
+    }
+    bits
 }
 
 /// The first position from `from` and before `to` whose bit is set.
@@ -5763,6 +6036,12 @@ mod tests {
             "{}",
             e.text
         );
+        assert!(
+            e.text
+                .contains(" changes, the values' rows of the cells the last frame changed, "),
+            "{}",
+            e.text
+        );
         let e = m.view("grid", "Nowhere", None).unwrap_err();
         assert_eq!(e.id, "view-sheet-unknown");
         assert_eq!(
@@ -5779,6 +6058,15 @@ mod tests {
         );
         assert_eq!(
             m.view("values", "Board", Some("A:A")).unwrap_err().id,
+            "view-window-not-a-range"
+        );
+        // KERNEL.42: the changes refused as the values are.
+        assert_eq!(
+            m.view("changes", "Nowhere", None).unwrap_err().id,
+            "view-sheet-unknown"
+        );
+        assert_eq!(
+            m.view("changes", "Board", Some("A:A")).unwrap_err().id,
             "view-window-not-a-range"
         );
         let e = m.view("plane", "Board", Some("A1:XFD1048576")).unwrap_err();
@@ -7653,5 +7941,477 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ---- KERNEL.42: a window's changes ----
+
+    /// A window's changes, as the machine answers them.
+    fn changes_of(m: &Machine, sheet: &str, window: Option<&str>) -> String {
+        match m.view("changes", sheet, window) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// The cell a record's row belongs to: a `cell`, `value`, `style`,
+    /// `sentence` or `empty` row's.
+    fn cell_of(line: &str) -> Option<(u32, u32)> {
+        let forms = read_forms(line).ok()?;
+        let Some(Form::List(l)) = forms.first() else {
+            return None;
+        };
+        match l.items.as_slice() {
+            [Form::Sym(head), Form::Str(_), Form::Str(addr), ..]
+                if matches!(
+                    head.as_str(),
+                    "cell" | "value" | "style" | "sentence" | "empty"
+                ) =>
+            {
+                let r = parse_a1_range(addr)?;
+                Some((r.top, r.left))
+            }
+            _ => None,
+        }
+    }
+
+    /// A record's rows before its cells', and each cell's rows.
+    fn rows_by_cell(record: &str) -> (String, BTreeMap<(u32, u32), String>) {
+        let mut head = String::new();
+        let mut cells: BTreeMap<(u32, u32), String> = BTreeMap::new();
+        for line in record.lines() {
+            match cell_of(line) {
+                Some(cell) => cells
+                    .entry(cell)
+                    .or_default()
+                    .push_str(&format!("{line}\n")),
+                None => head.push_str(&format!("{line}\n")),
+            }
+        }
+        (head, cells)
+    }
+
+    /// The rows a changes answer gives each cell it names, none for an
+    /// `empty` row's; `None` for changes answered whole.
+    fn given(changes: &str) -> Option<BTreeMap<(u32, u32), String>> {
+        let mut lines = changes.lines();
+        if lines.next()?.ends_with(" whole)") {
+            return None;
+        }
+        let mut given: BTreeMap<(u32, u32), String> = BTreeMap::new();
+        for line in lines {
+            let cell =
+                cell_of(line).unwrap_or_else(|| panic!("a changes row names a cell: {line}"));
+            let rows = given.entry(cell).or_default();
+            if !line.starts_with("(empty ") {
+                rows.push_str(&format!("{line}\n"));
+            }
+        }
+        Some(given)
+    }
+
+    /// A values record patched by a window's changes, as a host patches
+    /// the record it holds: each cell the changes name has its rows
+    /// replaced with theirs, an `empty` row taking them away, every cell in
+    /// the record's order. `None` for changes answered whole.
+    fn patched(record: &str, changes: &str) -> Option<String> {
+        let (head, mut cells) = rows_by_cell(record);
+        for (cell, rows) in given(changes)? {
+            match rows.is_empty() {
+                true => cells.remove(&cell),
+                false => cells.insert(cell, rows),
+            };
+        }
+        Some(head + &cells.into_values().collect::<String>())
+    }
+
+    /// The number of cells a changes answer names, `None` for whole.
+    fn changed_cells(changes: &str) -> Option<usize> {
+        let head = changes.lines().next().expect("a changes row");
+        let last = head.trim_end_matches(')').rsplit(' ').next()?;
+        last.parse().ok()
+    }
+
+    /// The window's values at the last frame patched by its changes at
+    /// this one, against its values now: equal, the changes naming no cell
+    /// exactly when the two records are, or answered whole. Whether whole.
+    fn held_to(m: &Machine, sheet: &str, window: Option<&str>, before: &str, when: &str) -> bool {
+        let now = values_view(m, sheet, window);
+        let changes = changes_of(m, sheet, window);
+        let Some(got) = patched(before, &changes) else {
+            return true;
+        };
+        assert_eq!(got, now, "{when}: {sheet} {window:?} patched by\n{changes}");
+        assert_eq!(
+            changed_cells(&changes) == Some(0),
+            before == now,
+            "{when}: {sheet} {window:?}: no cell named exactly when still\n{changes}"
+        );
+        // And a cell named exactly when its rows changed.
+        let (_, was) = rows_by_cell(before);
+        let (_, is) = rows_by_cell(&now);
+        for cell in given(&changes).expect("not whole").keys() {
+            assert_ne!(
+                was.get(cell),
+                is.get(cell),
+                "{when}: {sheet} {window:?}: {cell:?} named, its rows as they were\n{changes}"
+            );
+        }
+        false
+    }
+
+    /// A still card in small: a day of 30 frames read from the Clock, and a
+    /// Screen of 400 formulas of which the first hundred read the day.
+    const STILL: &str = concat!(
+        "(sheet \"Clock\" visible)\n(cell \"Clock\" \"B1\" 0)\n",
+        "(sheet \"Day\" visible)\n(formula \"Day\" \"B1\" \"=INT(Clock!$B$1/30)\")\n",
+        "(sheet \"Screen\" visible)\n",
+        "(formula \"Screen\" \"A1:J10\" \"=Day!$B$1*10000+ROW()*100+COLUMN()\")\n",
+        "(formula \"Screen\" \"K1:T10\" \"=ROW()*100+COLUMN()\")\n",
+        "(formula \"Screen\" \"A11:T20\" \"=ROW()*100+COLUMN()\")\n",
+        "(cell \"Screen\" \"U1\" 7)\n",
+    );
+
+    /// What `f` did, counted (`sheet::work`).
+    fn counted(f: impl FnOnce()) -> crate::sheet::work::Work {
+        crate::sheet::work::begin();
+        f();
+        crate::sheet::work::end()
+    }
+
+    /// One frame of a card: its Clock written, then stepped whole.
+    fn next_frame(m: &mut Machine) {
+        let next = m.frame() + 1;
+        assert!(m.write(&format!("(cell \"Clock\" \"B1\" {next})")).is_ok());
+        assert!(m.step(0).done);
+    }
+
+    #[test]
+    fn a_still_window_s_changes_visit_none_of_its_cells() {
+        // KERNEL.42: the still card, its Screen still but at the day's turn.
+        // At a still frame the changes name no cell and visit none, where the
+        // values visit every cell of the window; at the turn they name the
+        // hundred cells that read the day, each spelled as the values spell
+        // it, visit those alone, and patch the last frame's values into this
+        // frame's.
+        let mut m = load(STILL);
+        next_frame(&mut m);
+        assert_eq!(
+            changes_of(&m, "Screen", None),
+            "(changes \"Screen\" \"A1:U20\" 0 1 whole)\n",
+            "the first frame: every formula gained its first value"
+        );
+        let mut before = values_view(&m, "Screen", None);
+        for frame in 2..=61u64 {
+            next_frame(&mut m);
+            let when = format!("frame {frame}");
+            let work = counted(|| {
+                changes_of(&m, "Screen", None);
+            });
+            let changes = changes_of(&m, "Screen", None);
+            assert!(
+                !held_to(&m, "Screen", None, &before, &when),
+                "{when}: whole"
+            );
+            if frame % 30 == 0 {
+                let j10 = format!("(value \"Screen\" \"J10\" {})\n", frame / 30 * 10000 + 1010);
+                assert_eq!(changed_cells(&changes), Some(100), "{when}\n{changes}");
+                assert!(changes.contains(&j10), "{when}\n{changes}");
+                assert_eq!(work.viewed, 100, "{when}: the changed cells alone");
+            } else {
+                assert_eq!(
+                    changes,
+                    format!("(changes \"Screen\" \"A1:U20\" {} {frame} 0)\n", frame - 1),
+                    "{when}"
+                );
+                assert_eq!(work.viewed, 0, "{when}: no cell visited");
+            }
+            assert_eq!(
+                (work.walked, work.extents),
+                (0, 0),
+                "{when}: no sheet walked"
+            );
+            let viewed = counted(|| {
+                values_view(&m, "Screen", None);
+            });
+            assert_eq!(viewed.viewed, 401, "{when}: the values visit the window");
+            before = values_view(&m, "Screen", None);
+        }
+    }
+
+    /// A window's changes now, and the window's values now as the record a
+    /// host holds.
+    fn asked(m: &Machine, window: &str) -> (String, String) {
+        (
+            changes_of(m, "Screen", Some(window)),
+            values_view(m, "Screen", Some(window)),
+        )
+    }
+
+    #[test]
+    fn the_changes_answer_whole_where_the_lists_cannot_say() {
+        // KERNEL.42: before the first frame; at the first, every formula
+        // gaining a value; after a write that changes a formula or adds a
+        // cell, until the next frame's end and at it, the frame after it
+        // answering again; while a value written since lies in the window,
+        // and not when it lies outside or on another sheet; and at a frame
+        // that changes more cells than the machine keeps room for.
+        let mut m = load(STILL);
+        let whole =
+            |m: &Machine, w: &str| changed_cells(&changes_of(m, "Screen", Some(w))).is_none();
+        assert_eq!(
+            changes_of(&m, "Screen", Some("A1:T20")),
+            "(changes \"Screen\" \"A1:T20\" 0 0 whole)\n"
+        );
+        // A grid resumed at its saved frame, before its first step.
+        let mut resumed = load(STILL);
+        assert!(resumed.resume_at(41).is_ok());
+        assert_eq!(
+            changes_of(&resumed, "Screen", Some("A1:T20")),
+            "(changes \"Screen\" \"A1:T20\" 40 41 whole)\n"
+        );
+        next_frame(&mut m);
+        assert!(whole(&m, "A1:T20"), "frame 1");
+        next_frame(&mut m);
+        assert!(!whole(&m, "A1:T20"), "frame 2");
+        // A formula written over: its kind and its value may change where no
+        // twin cell does.
+        assert!(m.write("(formula \"Screen\" \"T20\" \"=1+1\")").is_ok());
+        assert!(
+            whole(&m, "A1:T20") && whole(&m, "A1:B2"),
+            "after a formula's write"
+        );
+        next_frame(&mut m);
+        assert!(whole(&m, "A1:T20"), "the frame after a formula's write");
+        let (_, before) = asked(&m, "A1:U20");
+        next_frame(&mut m);
+        assert!(!whole(&m, "A1:T20"), "the frame after that");
+        assert!(!held_to(&m, "Screen", Some("A1:U20"), &before, "frame 4"));
+        // A cell added: the extent may change.
+        assert!(m.write("(cell \"Screen\" \"V30\" 1)").is_ok());
+        assert!(whole(&m, "A1:B2"), "after a cell added");
+        next_frame(&mut m);
+        assert!(whole(&m, "A1:B2"), "the frame after a cell added");
+        next_frame(&mut m);
+        assert!(!whole(&m, "A1:B2"), "the frame after that");
+        // A value written into the window, and outside it.
+        let (changes, before) = asked(&m, "A1:U20");
+        assert!(m.write("(cell \"Screen\" \"U1\" 8)").is_ok());
+        assert!(whole(&m, "A1:U20"), "a value written into the window");
+        assert!(!whole(&m, "A1:T20"), "a value written outside the window");
+        assert!(
+            m.write("(cell \"Clock\" \"B1\" 1000)").is_ok() && !whole(&m, "A1:T20"),
+            "a value written on another sheet"
+        );
+        assert!(!changes.contains("U1"));
+        assert!(m.step(0).done);
+        let at = changes_of(&m, "Screen", Some("A1:U20"));
+        assert!(at.contains("(cell \"Screen\" \"U1\" 8)\n"), "{at}");
+        assert!(!held_to(
+            &m,
+            "Screen",
+            Some("A1:U20"),
+            &before,
+            "the written frame"
+        ));
+        // More changes than the room kept, half the cells and 64: a card
+        // whose every Screen cell reads the day, loaded so that no write has
+        // grown the room, its day turning at frame 30.
+        let mut m = load(&STILL.replace("ROW()*100+COLUMN()\")", "ROW()*100+COLUMN()+Day!$B$1\")"));
+        for frame in 1..=31u64 {
+            next_frame(&mut m);
+            if frame > 1 {
+                let when = format!("frame {frame}");
+                assert_eq!(
+                    m.every_next,
+                    frame == 30,
+                    "{when}: more changed than the room kept"
+                );
+                assert_eq!(whole(&m, "A1:T20"), frame == 30, "{when}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_view_during_a_yield_answers_the_last_frame_s_changes() {
+        // KERNEL.42: a step that yields keeps the last frame's changes for a
+        // view before its frame completes, the values showing that frame
+        // too; a value written into the window before the step makes them
+        // whole until the frame's end.
+        let mut m = load(STILL);
+        for _ in 0..30 {
+            next_frame(&mut m);
+        }
+        let turned = changes_of(&m, "Screen", None);
+        assert_eq!(changed_cells(&turned), Some(100), "{turned}");
+        assert!(m.write("(cell \"Clock\" \"B1\" 31)").is_ok());
+        assert!(!m.step(50).done);
+        assert_eq!(changes_of(&m, "Screen", None), turned, "during the yield");
+        while !m.step(50).done {}
+        assert_eq!(changed_cells(&changes_of(&m, "Screen", None)), Some(0));
+        assert!(m
+            .write("(cell \"Clock\" \"B1\" 32)\n(cell \"Screen\" \"U1\" 9)")
+            .is_ok());
+        assert!(!m.step(50).done);
+        assert!(
+            changed_cells(&changes_of(&m, "Screen", None)).is_none(),
+            "written into"
+        );
+        assert_eq!(
+            changed_cells(&changes_of(&m, "Screen", Some("A1:T20"))),
+            Some(0)
+        );
+        while !m.step(50).done {}
+        let after = changes_of(&m, "Screen", None);
+        assert_eq!(
+            after,
+            "(changes \"Screen\" \"A1:U20\" 31 32 1)\n(cell \"Screen\" \"U1\" 9)\n"
+        );
+    }
+
+    /// A grid whose cells turn at every frame between values a record
+    /// spells alike: `B1` 1 and 0 by turns, `C1:C{n}` 0 and -0 as `B1`
+    /// reads, and `D1` a reason and another. A -0 comes only from a cell
+    /// holding one, arithmetic making it 0. `E1`'s value stretches the
+    /// twin's extent past `D1`, which holds no twin cell, so that a view of
+    /// the twin takes it in.
+    fn alike_rows(n: u32) -> String {
+        format!(
+            concat!(
+                "(sheet \"S\" visible)\n(cell \"S\" \"A1\" 0)\n(cell \"S\" \"A2\" -0)\n",
+                "(cell \"S\" \"E1\" 1)\n",
+                "(formula \"S\" \"B1\" \"=IF(S.last!B1=1,0,1)\")\n",
+                "(formula \"S\" \"D1\" \"=IF(B1=1,X1:X2,Y1:Y2)\")\n",
+                "(formula \"S\" \"C1:C{}\" \"=IF($B$1=1,$A$1,$A$2)\")\n",
+            ),
+            n
+        )
+    }
+
+    #[test]
+    fn a_change_its_record_spells_as_before_is_no_change_of_it() {
+        // KERNEL.42: a formula's value turned from 0 to -0 is a change of the
+        // twin, whose cell row spells -0, and none of the sheet, whose value
+        // row spells 0 both times; a reason turned to another, a change of
+        // the sheet's value row and none of the twin, which holds no cell
+        // for it. Up to 64 such changes a frame are kept; past them the
+        // frame's changes are whole.
+        let mut m = load(&alike_rows(3));
+        assert!(m.step(0).done);
+        let reason = |m: &Machine| match at(m, "S", "D1") {
+            Some(Computed::NotComputed(Reason::Construct(c))) => c,
+            other => panic!("D1: {other:?}"),
+        };
+        let mut before = (values_view(&m, "S", None), values_view(&m, "S.last", None));
+        for frame in 2..=6u64 {
+            let was = reason(&m);
+            assert!(m.step(0).done);
+            let when = format!("frame {frame}");
+            assert_ne!(reason(&m), was, "{when}: D1's reason turned");
+            assert_eq!(
+                content(&m, "S.last", "C1")
+                    .map(|c| matches!(c, Content::Number(n) if n.is_sign_negative())),
+                Some(frame % 2 == 0),
+                "{when}: C1's twin 0 and -0 by turns"
+            );
+            let sheet = changes_of(&m, "S", None);
+            let twin = changes_of(&m, "S.last", None);
+            let names = |text: &str, addr: &str| text.contains(&format!(" \"{addr}\" "));
+            assert!(
+                names(&sheet, "B1") && names(&sheet, "D1") && !names(&sheet, "C1"),
+                "{when}\n{sheet}"
+            );
+            assert!(
+                names(&twin, "B1") && names(&twin, "C1") && !names(&twin, "D1"),
+                "{when}\n{twin}"
+            );
+            assert_eq!(changed_cells(&sheet), Some(2), "{when}\n{sheet}");
+            assert_eq!(changed_cells(&twin), Some(4), "{when}\n{twin}");
+            assert!(!held_to(&m, "S", None, &before.0, &when));
+            assert!(!held_to(&m, "S.last", None, &before.1, &when));
+            before = (values_view(&m, "S", None), values_view(&m, "S.last", None));
+        }
+        // 64 kept a frame: 63 of C and D1's reason; 65, and whole.
+        for (n, whole) in [(63, false), (64, true)] {
+            let mut m = load(&alike_rows(n));
+            for _ in 0..3 {
+                assert!(m.step(0).done);
+            }
+            assert_eq!(
+                changed_cells(&changes_of(&m, "S", None)).is_none(),
+                whole,
+                "{n} cells"
+            );
+        }
+    }
+
+    #[test]
+    fn the_changes_are_alike_copied_walked_and_computed_whole() {
+        // KERNEL.42: the changes of every window, sheet and twin, whole and
+        // through a window, alike from a machine whose frame's end copies
+        // (its formulas' twin cells left behind their slots), one that
+        // copies them at once, one that walks at every frame's end, and one
+        // that computes every cell, over a grid of values written between
+        // frames, a twin read, a day, a value turning between 0 and -0 and a
+        // reason turning, with a plane asked for midway, so that a walk
+        // passes cells left behind their slots.
+        let rows = format!(
+            "{}{}{}",
+            STILL,
+            alike_rows(4),
+            concat!(
+                "(sheet \"G\" visible)\n(cell \"G\" \"A1:A12\" 3)\n",
+                "(formula \"G\" \"B1:D12\" \"=MOD(Clock!$B$1*3+ROW()*7+COLUMN(),5)+G.last!$A1\")\n",
+            ),
+        );
+        let mut machines = [load(&rows), load(&rows), load(&rows), load(&rows)];
+        machines[1].lazy = false;
+        machines[2].copies = false;
+        machines[3].incremental = false;
+        let windows: Vec<(String, Option<&str>)> = ["Screen", "S", "G", "Clock", "Day"]
+            .iter()
+            .flat_map(|s| [s.to_string(), format!("{s}.last")])
+            .flat_map(|s| [(s.clone(), None), (s, Some("B2:C11"))])
+            .collect();
+        let mut before: Vec<String> = Vec::new();
+        for frame in 1..=40u64 {
+            let mut write = format!("(cell \"Clock\" \"B1\" {frame})");
+            if frame % 7 == 3 {
+                write.push_str(&format!(
+                    "\n(cell \"G\" \"A{}\" {})",
+                    1 + frame % 12,
+                    frame % 4
+                ));
+            }
+            for m in &mut machines {
+                assert!(m.write(&write).is_ok());
+                assert!(m.step(0).done);
+                if frame == 20 {
+                    m.view("plane", "S", None).expect("a plane of S");
+                }
+            }
+            let when = format!("frame {frame}");
+            let now: Vec<String> = windows
+                .iter()
+                .map(|(s, w)| changes_of(&machines[0], s, *w))
+                .collect();
+            for m in &machines[1..] {
+                let theirs: Vec<String> =
+                    windows.iter().map(|(s, w)| changes_of(m, s, *w)).collect();
+                assert_eq!(theirs, now, "{when}");
+            }
+            if frame > 1 {
+                for ((s, w), was) in windows.iter().zip(&before) {
+                    held_to(&machines[0], s, *w, was, &when);
+                }
+            }
+            before = windows
+                .iter()
+                .map(|(s, w)| values_view(&machines[0], s, *w))
+                .collect();
+        }
+        assert!(
+            machines[0].lagging.iter().any(|&l| l),
+            "cells left behind their slots"
+        );
     }
 }

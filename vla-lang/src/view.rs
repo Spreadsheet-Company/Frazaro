@@ -59,8 +59,19 @@
 //! kept; a shared formula's cell whose master the sheet has lost prints
 //! nothing in either record. Both read a sheet's `extent` row from the
 //! extent their values keep ([`Values::kept_extent`]), where they keep one.
+//!
+//! The changes of a window (KERNEL.42, 2026-10-15) are an engine's machine's
+//! to answer, since they need two frames, and are printed here: a `changes`
+//! row naming the sheet, the window, the frame they are since and the frame
+//! they are at, and how many cells changed, then each changed cell's rows as
+//! the values print them, by the same code, in the same order; a cell that
+//! now prints no row is `(empty "<sheet>" "<addr>")`. Where the machine
+//! cannot say which cells changed, the row ends `whole` and none follows,
+//! and the host views the window. A host holding the window's values at the
+//! first frame, and replacing each named cell's rows with the rows given it,
+//! holds the window's values at the second, byte for byte.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::calc::{Extent, Values};
 use crate::messages::{raise, Refusal};
@@ -241,112 +252,146 @@ impl Grid<'_> {
         // A sheet whose cells are newer where its values say (KERNEL.27): an
         // engine's twin, read through its values' own content.
         let lags = self.values.filter(|v| v.lags(i));
-        for ((row, col), cell) in cells {
-            let addr = cell_ref(*row, *col);
-            let newer = lags.and_then(|v| v.content((i, *row, *col)));
-            let printed = match newer.as_ref().unwrap_or(&cell.content) {
-                Content::Text(t) => {
-                    let value = Value::Text(t.clone());
-                    out(&relation(&Row::Cell {
-                        sheet: name,
-                        addr: &addr,
-                        value: &value,
-                    }));
-                    true
-                }
-                Content::Number(n) => {
-                    // What the writer puts in the file: the number's text,
-                    // or Excel's #NUM! for one no cell can hold.
-                    let value = match number_text(*n) {
-                        Some(text) => Value::Number(text),
-                        None => Value::Error("#NUM!".to_string()),
-                    };
-                    out(&relation(&Row::Cell {
-                        sheet: name,
-                        addr: &addr,
-                        value: &value,
-                    }));
-                    true
-                }
-                Content::Bool(b) => {
-                    let value = Value::Bool(*b);
-                    out(&relation(&Row::Cell {
-                        sheet: name,
-                        addr: &addr,
-                        value: &value,
-                    }));
-                    true
-                }
-                Content::Error(e) => {
-                    let value = Value::Error(e.clone());
-                    out(&relation(&Row::Cell {
-                        sheet: name,
-                        addr: &addr,
-                        value: &value,
-                    }));
-                    true
-                }
-                other => {
-                    let computed = self.values.and_then(|calc| calc.computed((i, *row, *col)));
-                    // A formula with a text: every one but a shared formula's
-                    // cell whose master the sheet has lost, which shows
-                    // nothing in either record.
-                    let held = if formulas {
-                        let walked = masters.get_or_insert_with(|| shared_masters(sheet));
-                        match formula_text(other, *row, *col, walked) {
-                            Some(text) => {
-                                let text = format!("={text}");
-                                out(&relation(&Row::Formula {
-                                    sheet: name,
-                                    addr: &addr,
-                                    text: &text,
-                                }));
-                                true
-                            }
-                            None => false,
-                        }
-                    } else {
-                        match other {
-                            // A value is only ever computed for a formula with
-                            // a text, so a child with one has its master; a
-                            // child without one asks the sheet.
-                            Content::SharedChild { si } if computed.is_none() => masters
-                                .get_or_insert_with(|| shared_masters(sheet))
-                                .contains_key(si),
-                            _ => true,
-                        }
-                    };
-                    if let Some(computed) = computed.filter(|_| held) {
-                        out(&format!(
-                            "(value {} {} {})",
-                            quoted(name),
-                            quoted(&addr),
-                            computed.spell()
-                        ));
-                    }
-                    held
-                }
-            };
-            if !printed {
-                continue;
-            }
-            if cell.style != 0 {
-                out(&format!(
-                    "(style {} {} {})",
-                    quoted(name),
-                    quoted(&addr),
-                    cell.style
-                ));
-            }
-            if let Some(r) = sheet.sentences.get(&(*row, *col)) {
-                out(&format!(
-                    "(sentence {} {} {})",
-                    quoted(name),
-                    quoted(&addr),
-                    r
-                ));
-            }
+        #[cfg(test)]
+        crate::sheet::work::viewed(cells.len());
+        for (&(row, col), cell) in cells {
+            self.cell_rows(
+                sheet,
+                i,
+                (row, col),
+                cell,
+                lags,
+                formulas,
+                &mut masters,
+                out,
+            );
         }
+    }
+
+    /// One cell's rows, as the record prints them (KERNEL.42: the changes
+    /// print a changed cell's by this code too): its `cell` row, or its
+    /// `formula` row where the record has them and its `value` row once it
+    /// has one, then its `style` and `sentence` rows; whether it printed
+    /// any. `lags` are the values of a sheet whose cells are newer where they
+    /// say, and `masters` the sheet's shared formulas', found once.
+    #[allow(clippy::too_many_arguments)]
+    fn cell_rows<'s>(
+        &self,
+        sheet: &'s Sheet,
+        i: usize,
+        (row, col): (u32, u32),
+        cell: &Cell,
+        lags: Option<&dyn Values>,
+        formulas: bool,
+        masters: &mut Option<HashMap<u32, (&'s str, u32, u32)>>,
+        out: &mut dyn FnMut(&str),
+    ) -> bool {
+        let name = sheet.name.as_str();
+        let addr = cell_ref(row, col);
+        let newer = lags.and_then(|v| v.content((i, row, col)));
+        let printed = match newer.as_ref().unwrap_or(&cell.content) {
+            Content::Text(t) => {
+                let value = Value::Text(t.clone());
+                out(&relation(&Row::Cell {
+                    sheet: name,
+                    addr: &addr,
+                    value: &value,
+                }));
+                true
+            }
+            Content::Number(n) => {
+                // What the writer puts in the file: the number's text,
+                // or Excel's #NUM! for one no cell can hold.
+                let value = match number_text(*n) {
+                    Some(text) => Value::Number(text),
+                    None => Value::Error("#NUM!".to_string()),
+                };
+                out(&relation(&Row::Cell {
+                    sheet: name,
+                    addr: &addr,
+                    value: &value,
+                }));
+                true
+            }
+            Content::Bool(b) => {
+                let value = Value::Bool(*b);
+                out(&relation(&Row::Cell {
+                    sheet: name,
+                    addr: &addr,
+                    value: &value,
+                }));
+                true
+            }
+            Content::Error(e) => {
+                let value = Value::Error(e.clone());
+                out(&relation(&Row::Cell {
+                    sheet: name,
+                    addr: &addr,
+                    value: &value,
+                }));
+                true
+            }
+            other => {
+                let computed = self.values.and_then(|calc| calc.computed((i, row, col)));
+                // A formula with a text: every one but a shared formula's
+                // cell whose master the sheet has lost, which shows
+                // nothing in either record.
+                let held = if formulas {
+                    let walked = masters.get_or_insert_with(|| shared_masters(sheet));
+                    match formula_text(other, row, col, walked) {
+                        Some(text) => {
+                            let text = format!("={text}");
+                            out(&relation(&Row::Formula {
+                                sheet: name,
+                                addr: &addr,
+                                text: &text,
+                            }));
+                            true
+                        }
+                        None => false,
+                    }
+                } else {
+                    match other {
+                        // A value is only ever computed for a formula with
+                        // a text, so a child with one has its master; a
+                        // child without one asks the sheet.
+                        Content::SharedChild { si } if computed.is_none() => masters
+                            .get_or_insert_with(|| shared_masters(sheet))
+                            .contains_key(si),
+                        _ => true,
+                    }
+                };
+                if let Some(computed) = computed.filter(|_| held) {
+                    out(&format!(
+                        "(value {} {} {})",
+                        quoted(name),
+                        quoted(&addr),
+                        computed.spell()
+                    ));
+                }
+                held
+            }
+        };
+        if !printed {
+            return false;
+        }
+        if cell.style != 0 {
+            out(&format!(
+                "(style {} {} {})",
+                quoted(name),
+                quoted(&addr),
+                cell.style
+            ));
+        }
+        if let Some(r) = sheet.sentences.get(&(row, col)) {
+            out(&format!(
+                "(sentence {} {} {})",
+                quoted(name),
+                quoted(&addr),
+                r
+            ));
+        }
+        true
     }
 }
 
@@ -489,6 +534,69 @@ pub fn view_text_values(model: &Workbook, window: &Window, values: &dyn Values) 
     out
 }
 
+/// The changes of one window (KERNEL.42) as text, each line ending in a
+/// line feed: `(changes "<sheet>" "<range>" <since> <at> <n>)`, the window
+/// as its values record names it, then the rows of the `n` cells `cells`
+/// names, row by row, each as the values print it, a cell that prints none
+/// `(empty "<sheet>" "<addr>")`; or, `cells` being `None`, the row ending
+/// `whole` and no other. An engine's machine says which cells changed, and
+/// only it can (`crate::machine::Machine::view`); `values` must be over
+/// `model`, and `cells` inside the window, in row-major order.
+pub(crate) fn changes_text(
+    model: &Workbook,
+    window: &Window,
+    values: &dyn Values,
+    (since, at): (u64, u64),
+    cells: Option<&[(u32, u32)]>,
+) -> String {
+    let Some(i) = model.find_sheet(&window.sheet) else {
+        return String::new();
+    };
+    let sheet = &model.sheets[i];
+    let head = |n: &str| {
+        format!(
+            "(changes {} {} {since} {at} {n})\n",
+            quoted(&sheet.name),
+            quoted(&window.range.text())
+        )
+    };
+    let Some(cells) = cells else {
+        return head("whole");
+    };
+    let mut out = head(&cells.len().to_string());
+    #[cfg(test)]
+    crate::sheet::work::viewed(cells.len());
+    let grid = Grid::valued(values);
+    let lags = Some(values).filter(|v| v.lags(i));
+    let mut masters = None;
+    let mut push = |line: &str| {
+        out.push_str(line);
+        out.push('\n');
+    };
+    for &(row, col) in cells {
+        let printed = sheet.cells.get(&(row, col)).is_some_and(|cell| {
+            grid.cell_rows(
+                sheet,
+                i,
+                (row, col),
+                cell,
+                lags,
+                false,
+                &mut masters,
+                &mut push,
+            )
+        });
+        if !printed {
+            push(&format!(
+                "(empty {} {})",
+                quoted(&sheet.name),
+                quoted(&cell_ref(row, col))
+            ));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -626,6 +734,53 @@ mod tests {
                 "(formula \"Model\" \"C4\" \"=B4*2\")",
                 "(sentence \"Model\" \"C4\" 3)",
             ]
+        );
+    }
+
+    #[test]
+    fn the_changes_print_each_cell_s_rows_as_the_values_print_them() {
+        // KERNEL.42: the changes' text of the cells a machine named, each
+        // cell's rows the values' own, printed by the same code: a value
+        // cell's with its style and sentence rows, a formula's value row and
+        // its sentence row; a cell that prints no row, absent or a shared
+        // formula's cell whose master the sheet has lost, spelled empty; and
+        // the row alone, ending whole, where the machine cannot say.
+        let mut wb = a_model();
+        let library = crate::calc::library::language();
+        let calc = crate::calc::Calc::run(&wb, &library);
+        let w = Window {
+            sheet: "Model".to_string(),
+            range: range("A1:F20"),
+        };
+        let values = view_text_values(&wb, &w, &calc);
+        let rows = |addr: &str| -> String {
+            let at = format!(" \"{addr}\" ");
+            values
+                .lines()
+                .filter(|l| l.contains(&at))
+                .map(|l| format!("{l}\n"))
+                .collect()
+        };
+        let text = changes_text(&wb, &w, &calc, (6, 7), Some(&[(1, 2), (2, 3), (9, 9)]));
+        assert_eq!(
+            text,
+            format!(
+                "(changes \"Model\" \"A1:F20\" 6 7 3)\n{}{}(empty \"Model\" \"I9\")\n",
+                rows("B1"),
+                rows("C2")
+            )
+        );
+        assert_eq!(rows("B1").lines().count(), 3, "{values}");
+        assert_eq!(
+            changes_text(&wb, &w, &calc, (6, 7), None),
+            "(changes \"Model\" \"A1:F20\" 6 7 whole)\n"
+        );
+        wb.sheets[0].cells.remove(&(2, 3));
+        let lost = crate::calc::Calc::run(&wb, &library);
+        assert_eq!(
+            changes_text(&wb, &w, &lost, (0, 1), Some(&[(3, 3)])),
+            "(changes \"Model\" \"A1:F20\" 0 1 1)\n(empty \"Model\" \"C3\")\n",
+            "a fill's cell whose master is lost"
         );
     }
 

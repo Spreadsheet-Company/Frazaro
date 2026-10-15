@@ -25852,6 +25852,221 @@ job's own steps and `run_checks.ps1`. The item closed with it; its line left
 the roadmap for the closed ledger. Not pushed. Alonzo takes it at its pin's
 move to the release that carries it, 0.9.3, its prompt given in chat.
 
+**`KERNEL.42`, a window's changes: the scoping and the build, 2026-10-15.**
+Begun at the owner's word, the prompt relayed from Alonzo's `ENGINE.17`
+session: scope and build, the prompt's recommendations the decisions unless
+the substrate contradicted one. HEAD `d09035d`, one ahead of origin, the
+tree clean. In Alonzo's tree a peer's `ENGINE.18` uncommitted and in
+Buffet's a peer's `MENU.1`, both read and never written. Mid-build the
+owner added: "KERNEL.42 feels like the beginning of a more comprehensive
+'DOM diffing' tool which could eventually reduce overall screen updates to
+only those cells which are changed, so keep composability in mind" (decision
+4).
+
+*The substrate, verified.* `Machine::view` answered `grid`, `values` and
+`plane`. A frame's end (`snapshot`) fills `twin_changed` with the twin cells
+whose content or reason changed, with room for half the cells and 64, at
+least: `fit`'s reserve on a list already allocated doubles it, so a grid a
+write has grown keeps twice that (found, left as it is). A frame's start
+cleared the list. `alonzo_view` passes a projection by name; Alonzo's tests
+pin `view-projection-unknown` by its id and never its words, and its
+module's double, `web/fake.js`, has words of its own. The host views only
+between frames, right after a frame completes, never during one. Four facts
+of the spelling: a formula's `value` row spells -0 as 0 and a value cell's
+`cell` row spells it -0; every number no cell can hold is `#NUM!`; a reason
+stands in the sheet's `value` row and not in its twin, which holds no cell
+for it; and rows refuse a number no cell can hold, arithmetic making -0
+into 0 (`finite`), so a -0 comes only from a cell holding one.
+
+*The instrument.* Alonzo's HEAD `963818f` by `git archive`, twice, each
+pinned by a path to a copy of the language: `HEAD`'s, and a prototype's,
+the build's later. A runner of the engine's, `kchanges`, in scratch: each
+cartridge loaded through `Cartridge`, the host's Input rows written and the
+frame stepped (its Clock written by the step), then at every frame each
+window's `values` view timed, its `changes` view timed, the host's device
+reads (`grid` of Clock, File and Camera) timed, and the record at the frame
+before patched by the changes held to the record. Buffet's cartridge at its
+`HEAD` `bea77bc`, 90 frames, its Market, Stocks, Dice and Day sheets whole
+and its empty Screen; the still card of `ENGINE.17`, written out, its Screen
+`A1:CB50`, Board and Day; Alonzo's grid card and Life at `A1:CB50`, 31
+frames. On the performance cores, opted out of power throttling, three
+rounds alternated, p50s.
+
+*Measured first,* the prototype (`twin_changed` filtered by the window, each
+cell's rows printed by the values' own code), ranges over the rounds:
+
+| window | `values` still | `changes` still | changing: cells, `values`, `changes` |
+|---|---:|---:|---|
+| Buffet's Market | 48.8 to 50.0 µs | 0.60 | 33, 49 to 52, 18.4 to 19.4 |
+| Buffet's Stocks | 25.0 to 25.7 | 0.60 | 4, 25 to 27, 2.4 to 2.6 |
+| Buffet's Dice | 20.1 to 20.6 | 0.60 | 9, 21 to 22, 5.2 to 5.5 |
+| Buffet's Day, a cell every frame | | | 1, 11.0 to 11.3, 1.0 to 1.1 |
+| the still card's Screen | 174.1 to 177.3 | 0.70 | the day's turn: whole wanted |
+| the still card's Board | 15.5 to 15.8 | 0.60 | 1, 15.8 to 16.1, 1.1 to 1.2 |
+| the grid card | | | 689, 1,349 to 1,384, 351 to 360 |
+| Life | | | 695, 1,532 to 1,675, 313 to 339 |
+
+The patch held at every frame but the still card's day turns, where about
+430 of its 500 cells change, past the room the frame's end keeps: the
+prototype answered from a list that had overflowed, which the build answers
+whole. No frame was still by its bits and changed in its record or the
+reverse. The values view over the factored cell rows and over `HEAD` level.
+The residual of a still frame, natively: the Input write 58 to 80 µs, the
+step 2.5 to 3.8, the device reads 15 to 24.
+
+*The prediction,* written before the build: the build's changes as the
+prototype's, 0.6 to 0.8 µs a still window and about half a microsecond a
+changed cell, whole at the still card's day turns and every first frame, the
+values unchanged. *Measured again,* the build against `HEAD`, three rounds
+alternated: Buffet's Market still 0.60 µs against its values' 48.9 to 50.1
+(`HEAD` 49.1 to 49.4), its day's turn 18.0 to 18.4; Stocks 0.60, the turn
+2.6; Dice 0.60, the turn 5.1 to 5.3; Day 1.0 against 11.0; the empty Screen
+0.70 against 4.2; the still card's Screen 0.70 to 0.80 against 171.5 to
+177.8 (`HEAD` 170.9 to 175.3), its turns whole in 0.7 to 0.8; Board 0.60
+against 15.3 to 15.8; the grid card 336 to 352 against 1,308 to 1,421
+(`HEAD` 1,314 to 1,329); Life 305 to 317 against 1,499 to 1,602 (`HEAD`
+1,510 to 1,535). As predicted. The patch held at every frame not answered
+whole: Buffet's 89 of 90 at every window, the first whole; the still card's
+87, the first and the two turns whole; the grid card's and Life's 30.
+
+*The decisions,* the prompt's recommendations, built as they stand:
+
+1. *Measure first,* above, the prediction written, the build measured
+   again. *The residual priced:* natively a still frame of the still card
+   was its Input write about 60 µs, its step 2.5, its device reads 20 and
+   its view 174, about 257 µs; it is about 83, the view 0.7. Buffet with
+   its Market shown, about 127 to 79. What is left is the Input write, 72%
+   of it, and the device reads, 24%, both the host's (decision 9).
+2. *A fourth projection, `changes`,* answered by `Machine::view` from the
+   lists the machine keeps, at the cost of the changes and not of the
+   window, crossing `alonzo_view` by name. `twin_changed` is kept until the
+   next frame's end, no longer cleared at a frame's start, so that a view
+   during a yield answers the last complete frame's changes, as its values
+   show that frame. It is no implementation of `projection::Projection`: it
+   needs two frames, which a door has not, and prints the values' own rows;
+   it stands beside the trait as `plane` does, so `kernel::SEAMS`,
+   `CONTRIBUTING.md`'s table, `core/README.md` and `kernel.rs`'s header,
+   which list the trait's implementations, are as they were.
+3. *Since the frame before the last complete one,* from the lists. Any
+   frame `k`, a frame stamp a cell, is a later slice, for an asker that
+   skips frames, a viewer refreshed every few frames as Alonzo's drawer is.
+4. *The answer, built to compose* (the owner's note).
+   `(changes "<sheet>" "<range>" <since> <at> <n>)`, the window as the
+   values' own `window` row spells it and both frames named, so that the
+   row reads the same when a later slice answers since any frame; then the
+   rows of each changed cell as the values print them, by the same code
+   (`Grid::cell_rows`, factored out of the record) and in the record's
+   order, so the two are byte for byte alike by construction; a cell that
+   prints no row, `(empty "<sheet>" "<addr>")`, which no path of this slice
+   reaches, a write never emptying a cell and a twin's lost cell answering
+   whole, spelled so that the rule is whole; and where the machine cannot
+   say, the row ending `whole` and no other. The host's rule: replace each
+   named cell's rows with the rows given it. So patches compose by cell, the
+   later winning, and whole absorbs; a later slice keys the record's other
+   rows the same way (the extent, a column, a row, a format, a look, a
+   sheet's state), and a viewport's repaint of the named cells alone, the
+   DOM diff the owner names, reads the same rows.
+5. *A change is a change of the rows as the values spell them.* The lists
+   hold changes to the bit; beside each, a frame's end notes the records
+   that spell it as before (`alike`, a bit for the sheet's record and one
+   for its twin's): a formula's 0 turned to -0, alike in the sheet and not
+   in the twin; any number no cell can hold turned to another or to
+   `#NUM!`, alike in both; a reason turned to another, alike in the twin,
+   which holds no cell, and in the sheet only when the two are spelled
+   alike. At most 64 a frame (`ALIKE`), told before the old content is
+   overwritten in every path of a frame's end (the copy, a cell left behind
+   its slot, the walk, a reason); past them, whole. A formula's first value
+   gains its twin a cell, so it answers whole in this slice; an error is a
+   value like any other.
+6. *Whole:* before a grid's first frame, a resumed grid's included; at a
+   frame whose end kept more changes than its room or made a twin again; at
+   and until the frame after a write that changed a formula or added a cell,
+   whose kind or extent no twin cell's change carries; while a value written
+   since the last frame lies in the window, a value written outside it or
+   on another sheet leaving its values as they were; and past 64 alike
+   changes. A row's height, a column's width, a format, a look and a sheet's
+   state cannot change between frames in this version, a write taking
+   `cell`, `formula` and `derived` rows and keeping a cell's style; a window
+   the host moved is the host's to see, the row naming the window.
+7. *The oracle, free:* the eleventh law (`tests/laws.rs`): at any moment a
+   window's values at the frame before the last complete one, patched by
+   its changes, are its values now, byte for byte, the changes naming a
+   cell exactly when its rows changed and so none exactly when the two are
+   equal, or they answer whole; every sheet's
+   and twin's, whole and through three windows, right after a frame, after
+   the writes before the next and while it yields, over law 9's grids
+   written before every second frame, law 10's churning ones (overflowing
+   in some), law 8's fills whole and a formula a cell, and grids of values
+   turning between ones their records spell alike, 1 to 80 of them; each
+   family held patched, changing and still, and answered whole, by a floor
+   of its own. The counted walk: a still window's changes visit none of its
+   cells and the values all of them (`sheet::work::viewed`). Buffet's
+   cartridge natively at every frame, through the instrument.
+8. *Additive:* no public signature changed. `view::changes_text` is the
+   crate's own; the refusal of an unknown projection names the fourth,
+   reworded in `src/VLA_Messages.bas` (`VLA_MESSAGES_VERSION` `KERNEL.42`)
+   and exported, `vla-lang/data/messages.vla`'s one line.
+9. *The language's half alone,* Alonzo's tree never written. Alonzo's, to be
+   minted after the release and the pin's move: the host asking a window's
+   changes before it views and patching the record it holds; its viewport
+   repainting the named cells alone; the device reads, a grid view of each
+   device sheet at every frame, asked as changes; the Input rows written
+   only when one changes, the larger part of a still frame now; and
+   `fake.js`'s refusal naming the fourth projection.
+10. *A plane's twin,* the bytes a frame changed for a plane host's dirty
+    rectangles, is a later slice: the plane a frame's end keeps
+    (`KERNEL.24`) can note its changed cells as the twins do.
+
+*Built.* `vla-lang/src/machine/mod.rs`: the arm and `Machine::changes`;
+`alike`, `alike_over`, `changes_whole` and `reshaped`; the frame's start
+keeping `twin_changed`, its end deciding whole; `Spelled`, `alike`,
+`note_alike` and `Twins::reason_alike`, the bits told in `walk`, `put` and
+`put_behind`; the module's paragraph. `vla-lang/src/view.rs`:
+`Grid::cell_rows` and `changes_text`, the module's paragraph.
+`vla-lang/src/sheet.rs`: `work::viewed`. `vla-lang/tests/laws.rs`: the
+eleventh law. `src/VLA_Messages.bas` and `vla-lang/data/messages.vla`; the
+language's README; oracle 11's amendment in `conformance/README.md`; the
+release note under `0.9.4`.
+
+*Held.* Six unit tests: a still window's changes visiting none of its cells,
+a day's turn naming its hundred cells and visiting those alone; every case
+of whole, a resumed grid's included, and the overflow on a grid loaded so
+that no write has grown the room; a view during a yield; the alike changes
+and the room of 64, 64 kept and 65 whole; the copy, the copy at once, the
+walk and every cell computed answering alike over 40 frames, a plane asked
+for midway so that a walk passes cells left behind their slots; and the
+changes' text with an emptied cell, a fill's cell whose master is lost
+among them. The refusal test pins the fourth projection's words and the
+changes refused as the values are. The law: 1,442, 7,833, 2,282 and 1,060
+windows patched in its four families, 670, 3,240, 1,924 and 135 of them
+still, and 4,262, 4,343, 2,198 and 700 answered whole. `cargo test
+--workspace`: the language's library 223, its eleven laws, the core's 183;
+clippy `-D warnings` clean; `run_checks.ps1` 57 of 57. Alonzo over the build
+by a path: `cargo test` 40 and 1, `frames --check` every frame equal, the
+allocations 80 and 5, 80 and 5, 509 and 5, as they were. Twenty mutants by a
+scratch runner, each applied once to a copy whose build it named, against
+the library's tests and the laws: nineteen failed named tests at the first
+round. The twentieth, the walk telling no alike bit of a reason, survived:
+no twin window of the tests took in the reason's cell, since the twin holds
+no cell there and its extent stopped short of it, and a spurious `empty`
+row passes the patch, removing nothing. A value placed past it in the unit
+tests' grid, and the law holding each named cell's rows changed, catch it
+and its twin in the copy. Run again over the final tests, all twenty fail
+named tests, from one to four each, the control passing before and after.
+
+*Owner-tested 2026-10-15:* the VBA pass over the tree's modules,
+`VlaSelfTests` pure 1,997 of 1,997 and host 333 of 333, `TestDSLs` 2,346
+passed, `VerifyReports` 371 of 371 on both backends.
+
+*Committed 2026-10-15* at the owner's word, "Tests pass; commit, including
+line 22 of VLA.bas, so we can cut and deploy 0.9.4 for Alonzo to use
+downstream": this item's eleven files, its line leaving the roadmap for the
+closed ledger. Line 22 of `src/VLA.bas`, `VLA_RELEASE_VERSION` 0.9.4, which
+the owner set, went in after it with its twins and the goldens that embed
+the version, as `Release 0.9.4`, so that each commit holds
+`check_version_twin`. Alonzo takes the item at its pin's move to 0.9.4,
+its own items after it (decision 9).
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -39320,6 +39535,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.35 — a sheet's readers found by the rows a changed cell stands on, so that a grid written one fill a row is marked as cheaply as one written one fill.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its seven decisions as recommended. A changed cell was checked against every reader of its sheet, every formula shape's reference to it, so a grid written a fill a row, a fill a column or a formula a cell paid a check a shape at every change. A sheet of 16 readers or more now keeps them by the rows or by the columns a changed cell must stand on to reach them, whichever leaves fewer, in bands one row or one column wide, a band still long filed again by the other, and only where that halves the checks; each reader is checked exactly as before. Natively, alternated with HEAD: Life written one fill a row 16.8 ms a frame to 3.0, one fill a column 25.9 to 3.6, Sand by rows 43.7 to 4.1, Life's first 20 rows a formula a cell 444 to 14; the cartridges as committed, their loads and a formula's write unmoved, and no public call changed. The census prints `(readers "<sheet>" n (most k))` on an indexed sheet, which moved the subset fixtures' two goldens alone. Held to the scan at every changed cell of 176 cases, by a count of the readers checked and by an eighth law; twelve mutants, each failing named tests, one of which found a gap the tests now fill. Its findings minted as `KERNEL.38` and `KERNEL.39`. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.36 — a frame's end copies the cells it changed however many they are, so that a frame that changes most of its grid ends in a third of the time.** Minted 2026-10-12 at the owner's word, scoped and built the same day, owner-tested and committed 2026-10-13 at the owner's word, its seven decisions as recommended and its two findings minted as `KERNEL.40` and `KERNEL.41`. A frame's end copied the cells it changed into their twins only while they were no more than half the cells, and past half walked every cell of every sheet, so a frame that changed most of its grid paid for all of it again at its end, and one cell more than half made the end five or six times dearer. It now copies at every share into every twin kept as an array, the changed list holding room for every formula cell; a sheet too sparse for an array, whose twin is copied through its own cells, keeps the half, where the measured costs of the copy and the walk cross; and a walk after copied frames makes a twin cell left behind its slot where it passes it, where it made each such cell first. Natively, alternated with `HEAD`: a Mind of 20,000 rows over the twin 14.0 ms a frame to 8.4, a Screen of 1,000 by 1,000 55.6 to 27.2, one of 320 by 200 2.2 to 1.6, `column`'s edit 2.0 to 1.4, a grid of 40,000 formulas beside 200,000 values 7.8 to 2.2; the sparse sheets, Alonzo's cartridges and one cell of a million level, every value what it was and no public call changed. Held to the walk bit for bit by a test that ends frames both ways over generated grids most of whose cells change, by a count of the cells a frame's end visits and by a tenth law; eighteen mutants, each failing named tests, a first round's survivor caught by a test written for the fault it found. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.37 — the values of a window: the grid record less its formula rows, so that an engine's host draws a grid every frame without moving every formula's text.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its eight decisions as recommended. A host drawing a grid-mode cartridge from the view record every frame paid for every formula's text, each shared formula's cell given its master's text moved to it at every view: an 80 by 50 window of one fill viewed in 10.3 ms natively where its frame took 0.2, the same window of Life's formulas in 64. The machine now answers a third projection, `values` (`view::ValueGrid`, `view_text_values`), the record less its `formula` rows, every other row the grid's, so that for any window it is the grid record with its formula lines removed, byte for byte; a fill's cell with a value never asks for its master, and one whose master the sheet has lost shows in neither record. Both records read a sheet's extent from what a machine or a recalculation keeps (`Values::kept_extent`, provided), where every view walked the sheet for it. Natively those windows in 1.6 to 1.9 ms, in Chrome 1.3 to 1.5; the records 368,831 bytes to 102,851 and 2,070,132 to 99,165; Alonzo's module 930 bytes larger; no public call changed. The refusal of an unknown projection names the third, reworded in the VBA catalogue, where the scoping had said no VBA. Held by a ninth law, by the view goldens less their formula rows, by counted walks and by six mutants, each failing named tests; oracle 11 amended in words, no golden moved. Found and left for the owner to mint: the core's build leaves a fill's other cells without their master when a later sentence writes over its first cell, and writes a file its own reader refuses. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.42 — a window's changes: the cells of a window whose values the last frame changed, in the values' own rows, so that an engine's host repaints only those and skips the view of a still window.** Minted 2026-10-15 at the owner's word from Alonzo's `ENGINE.17`, scoped, built, owner-tested and committed the same day at the owner's word, its ten decisions the prompt's recommendations. A host drawing a running grid's values viewed its whole window at every frame to learn whether anything had changed: the still card's 80 by 50 window of 401 formulas, still 29 frames in 30, cost 0.17 ms natively at every frame. `Machine::view` now answers a fourth projection, `changes`: a row naming the sheet, the window, the frame before the last complete one and that frame, and how many cells changed, then each changed cell's rows as the values print them, by the same code, so that a host holding the window's values at the first frame and replacing those cells' rows holds them at the second, byte for byte; or the row ending `whole`, before the first frame, at a frame that changed more cells than the machine keeps room for, after a write that changed a formula or added a cell, and while a value written since lies in the window. A change is a change of the rows as the values spell them: a formula's 0 turned to -0, spelled 0 both times, is none. Natively a still window answers in 0.6 to 0.8 µs where its values take 4 to 178, a changing one about half a microsecond a changed cell, Life's window 0.31 ms against 1.5; the values as they were; no public call changed. Built to compose, as the owner asked mid-build, toward a viewport repainting the changed cells alone: patches by cell, the later winning, whole absorbing every other, both frames named so that a later slice answers since any frame in the same row. Held by an eleventh law, six tests, a counted walk and twenty mutants, each failing named tests, a first round's survivor caught by the tests written for the blind spot it found; Alonzo over it by a path, every frame equal. To be released in 0.9.4. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

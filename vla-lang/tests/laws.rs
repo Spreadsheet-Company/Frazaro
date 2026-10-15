@@ -34,6 +34,13 @@
 //!     the plane the machine keeps is a fresh load's, over generated grids
 //!     most of whose cells change at every frame, with writes between
 //!     frames (KERNEL.36).
+//! 11. A window's values at the frame before the last complete one, patched
+//!     by its changes, are its values now, byte for byte, the changes
+//!     naming no cell exactly when the two are equal, or the changes answer
+//!     whole: every sheet's and twin's, whole and through windows, right
+//!     after a frame, after the writes before the next and while it yields,
+//!     over the grids of laws 9, 10 and 8, and grids whose values turn
+//!     between ones their records spell alike (KERNEL.42).
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -872,4 +879,306 @@ fn each_twin_is_its_sheet_s_values_however_many_cells_a_frame_changes() {
         }
     }
     assert_eq!(checked, 320);
+}
+
+// ---- 11. a window's changes ---------------------------------------------
+
+/// The cell a record's row belongs to: a `cell`, `value`, `style`,
+/// `sentence` or `empty` row's.
+fn cell_of(line: &str) -> Option<(u32, u32)> {
+    let forms = read_forms(line).ok()?;
+    let Some(Form::List(l)) = forms.first() else {
+        return None;
+    };
+    match l.items.as_slice() {
+        [Form::Sym(head), Form::Str(_), Form::Str(addr), ..]
+            if matches!(
+                head.as_str(),
+                "cell" | "value" | "style" | "sentence" | "empty"
+            ) =>
+        {
+            let r = parse_a1_range(addr)?;
+            Some((r.top, r.left))
+        }
+        _ => None,
+    }
+}
+
+/// A record's rows before its cells', and each cell's rows.
+fn rows_by_cell(record: &str) -> (String, BTreeMap<(u32, u32), String>) {
+    let mut head = String::new();
+    let mut cells: BTreeMap<(u32, u32), String> = BTreeMap::new();
+    for line in record.lines() {
+        match cell_of(line) {
+            Some(cell) => cells
+                .entry(cell)
+                .or_default()
+                .push_str(&format!("{line}\n")),
+            None => head.push_str(&format!("{line}\n")),
+        }
+    }
+    (head, cells)
+}
+
+/// The rows a changes answer gives each cell it names, none for an
+/// `empty` row's; `None` for changes answered whole.
+fn given(changes: &str) -> Option<BTreeMap<(u32, u32), String>> {
+    let mut lines = changes.lines();
+    if lines.next()?.ends_with(" whole)") {
+        return None;
+    }
+    let mut given: BTreeMap<(u32, u32), String> = BTreeMap::new();
+    for line in lines {
+        let cell = cell_of(line).unwrap_or_else(|| panic!("a changes row names a cell: {line}"));
+        let rows = given.entry(cell).or_default();
+        if !line.starts_with("(empty ") {
+            rows.push_str(&format!("{line}\n"));
+        }
+    }
+    Some(given)
+}
+
+/// A values record patched by a window's changes, as a host patches the
+/// record it holds: each cell the changes name has its rows replaced with
+/// theirs, an `empty` row taking them away, every cell in the record's
+/// order; `None` for changes answered whole.
+fn patched(record: &str, changes: &str) -> Option<String> {
+    let (head, mut cells) = rows_by_cell(record);
+    for (cell, rows) in given(changes)? {
+        match rows.is_empty() {
+            true => cells.remove(&cell),
+            false => cells.insert(cell, rows),
+        };
+    }
+    Some(head + &cells.into_values().collect::<String>())
+}
+
+/// The windows the law is held over: every sheet's and twin's, whole and
+/// through three windows, the last one of law 11's own grids' values that
+/// a record spells alike.
+fn change_windows(m: &Machine) -> Vec<(String, Option<&'static str>)> {
+    (0..)
+        .map_while(|i| m.sheet_name(i).map(str::to_string))
+        .flat_map(|s| [None, Some("B2:D4"), Some("A3:F3"), Some("C4:C9")].map(|w| (s.clone(), w)))
+        .collect()
+}
+
+fn values_of(m: &Machine, windows: &[(String, Option<&str>)]) -> Vec<String> {
+    windows
+        .iter()
+        .map(|(s, w)| record(m, "values", s, *w))
+        .collect()
+}
+
+/// The windows held: patched, still among them, and answered whole.
+#[derive(Debug, Default)]
+struct Held {
+    patched: usize,
+    still: usize,
+    whole: usize,
+}
+
+/// The law at one moment: each window's values at `base`, the frame before
+/// the last complete one, patched by its changes, against its values now.
+/// The changes' first row names the window as the values' own `window` row
+/// does, and the two frames.
+fn changes_held(
+    m: &Machine,
+    windows: &[(String, Option<&str>)],
+    base: &[String],
+    held: &mut Held,
+    when: &str,
+) {
+    let at = m.frame();
+    for ((sheet, window), was) in windows.iter().zip(base) {
+        let changes = record(m, "changes", sheet, *window);
+        let now = record(m, "values", sheet, *window);
+        let named = now
+            .lines()
+            .find_map(|l| l.strip_prefix("(window ").and_then(|w| w.strip_suffix(')')))
+            .expect("a window row");
+        let head = changes.lines().next().expect("a changes row");
+        let frames = format!("(changes {named} {} {at} ", at.saturating_sub(1));
+        assert!(
+            head.starts_with(&frames),
+            "{when}: {sheet} {window:?}: {head}"
+        );
+        match patched(was, &changes) {
+            None => held.whole += 1,
+            Some(got) => {
+                assert_eq!(got, now, "{when}: {sheet} {window:?} patched by\n{changes}");
+                let n: usize = head[frames.len()..head.len() - 1].parse().expect("a count");
+                assert_eq!(
+                    n == 0,
+                    *was == now,
+                    "{when}: {sheet} {window:?}: no cell named exactly when still\n{changes}"
+                );
+                // And a cell named exactly when its rows changed.
+                let (_, before) = rows_by_cell(was);
+                let (_, after) = rows_by_cell(&now);
+                let changed = given(&changes).expect("not whole");
+                assert_eq!(
+                    changed.len(),
+                    n,
+                    "{when}: {sheet} {window:?}: the count\n{changes}"
+                );
+                for cell in changed.keys() {
+                    assert_ne!(
+                        before.get(cell),
+                        after.get(cell),
+                        "{when}: {sheet} {window:?}: {cell:?} named, its rows as they were\n{changes}"
+                    );
+                }
+                held.patched += 1;
+                held.still += usize::from(n == 0);
+            }
+        }
+    }
+}
+
+/// One grid's frames under the law: before each, the rows `writes` gives
+/// written; then the frame stepped in slices of `budget` cells, 0 for one
+/// step; the law held after the writes, while the frame yields, and after
+/// it.
+fn changes_over(
+    m: &mut Machine,
+    frames: u64,
+    budget: usize,
+    writes: &mut dyn FnMut(u64) -> Vec<String>,
+    held: &mut Held,
+    what: &str,
+) {
+    let windows = change_windows(m);
+    let mut base: Option<Vec<String>> = None;
+    let mut at = values_of(m, &windows);
+    for frame in 1..=frames {
+        for w in writes(frame) {
+            m.write(&w)
+                .unwrap_or_else(|e| panic!("{what}, frame {frame}: {w}: {}", e.refusal.text));
+        }
+        if let Some(b) = &base {
+            changes_held(
+                m,
+                &windows,
+                b,
+                held,
+                &format!("{what}, before frame {frame}"),
+            );
+        }
+        if !m.step(budget).done {
+            if let Some(b) = &base {
+                changes_held(
+                    m,
+                    &windows,
+                    b,
+                    held,
+                    &format!("{what}, during frame {frame}"),
+                );
+            }
+            while !m.step(budget).done {}
+        }
+        let was = std::mem::replace(&mut at, values_of(m, &windows));
+        changes_held(m, &windows, &was, held, &format!("{what}, frame {frame}"));
+        base = Some(was);
+    }
+}
+
+/// A grid whose formulas turn at every frame between values their records
+/// spell alike: 0 and -0, read from cells holding them, in `C1:C{n}`, more
+/// than the 64 a frame's end keeps in some grids; and reasons, one range
+/// and another where one value is wanted, in `D1:D3`.
+fn spelled_rows(r: &mut Rng) -> String {
+    let n = 1 + r.below(80);
+    let mut out = String::from(concat!(
+        "(sheet \"Z\" visible)\n(cell \"Z\" \"A1\" 0)\n(cell \"Z\" \"A2\" -0)\n",
+        "(formula \"Z\" \"B1\" \"=IF(Z.last!B1=1,0,1)\")\n",
+        "(formula \"Z\" \"D1:D3\" \"=IF($B$1=1,X1:X2,Y1:Y2)\")\n",
+        "(cell \"Z\" \"E1:E5\" 4)\n",
+    ));
+    out.push_str(&format!(
+        "(formula \"Z\" \"C1:C{n}\" \"=IF($B$1=1,$A$1,$A$2)\")\n"
+    ));
+    out
+}
+
+#[test]
+fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
+    // Each family's windows counted apart, so that each is held patched,
+    // changing and still, and answered whole.
+    let mut held: [Held; 4] = Default::default();
+    // Law 9's grids, dressed, written before every second frame as law 7
+    // writes them, some stepped in slices.
+    for seed in 1..=50u64 {
+        let mut r = Rng::new(seed ^ 0x42);
+        let rows = grid_rows(&mut r);
+        let rows = dressed(&mut r, &rows);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let budget = [0, 1, 3, 7][r.below(4)];
+        let mut last = None;
+        let mut writes = |frame: u64| match frame % 2 {
+            0 => vec![write_between(&mut r, &mut last)],
+            _ => Vec::new(),
+        };
+        let what = format!("seed {seed}\n{rows}");
+        changes_over(&mut m, 6, budget, &mut writes, &mut held[0], &what);
+    }
+    // Law 10's, most of whose cells change at every frame, past the room a
+    // frame's end keeps in some.
+    for seed in 1..=40u64 {
+        let mut r = Rng::new(seed ^ 0x4242);
+        let (rows, n) = churning_rows(&mut r);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let budget = [0, 5, 40][r.below(3)];
+        let mut writes = |frame: u64| {
+            let mut w = vec![format!("(cell \"T\" \"A1\" {frame})")];
+            if r.below(3) == 0 {
+                w.push(format!(
+                    "(cell \"G\" \"A{}\" {})",
+                    1 + r.below(n),
+                    r.below(10)
+                ));
+            }
+            w
+        };
+        let what = format!("churning seed {seed}\n{rows}");
+        changes_over(&mut m, 8, budget, &mut writes, &mut held[1], &what);
+    }
+    // Law 8's fills, one written whole and one a cell each.
+    for seed in 1..=20u64 {
+        let mut r = Rng::new(seed ^ 0x8);
+        let rows = 8 + r.below(17);
+        let grid = fill_rows(&mut r, rows);
+        for text in [grid.clone(), written(&grid, "cells")] {
+            let mut m = load(&text, &format!("fills seed {seed}"));
+            let mut writes = |_: u64| {
+                let cell = format!("{}{}", r.pick(VALUES), 1 + r.below(rows + 2));
+                vec![format!("(cell \"V\" \"{cell}\" {})", r.below(10))]
+            };
+            let what = format!("fills seed {seed}");
+            changes_over(&mut m, 4, 0, &mut writes, &mut held[2], &what);
+        }
+    }
+    // Values that turn between ones their records spell alike.
+    for seed in 1..=20u64 {
+        let mut r = Rng::new(seed ^ 0x5A);
+        let rows = spelled_rows(&mut r);
+        let mut m = load(&rows, &format!("spelled seed {seed}"));
+        let mut writes = |frame: u64| match frame % 3 {
+            0 => {
+                let v = r.pick(&["0", "-0", "4", "\"t\""]);
+                vec![format!("(cell \"Z\" \"E{}\" {v})", 1 + r.below(5))]
+            }
+            _ => Vec::new(),
+        };
+        let what = format!("spelled seed {seed}\n{rows}");
+        changes_over(&mut m, 6, 0, &mut writes, &mut held[3], &what);
+    }
+    // Measured 2026-10-15: patched 1,442, 7,833, 2,282 and 1,060, of which
+    // still 670, 3,240, 1,924 and 135; whole 4,262, 4,343, 2,198 and 700.
+    for (family, h) in ["grids", "churning", "fills", "spelled"].iter().zip(&held) {
+        assert!(
+            h.patched - h.still >= 150 && h.still >= 60 && h.whole >= 300,
+            "{family}: too few windows of a kind for the law to hold over: {h:?}"
+        );
+    }
 }

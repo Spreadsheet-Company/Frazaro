@@ -98,7 +98,9 @@ refused in the same words.
   values into its twin, `X.last`, a hidden sheet the next frame's formulas
   read the previous frame from (`=Screen.last!B2+1`); `view` answers the
   record with each formula's value, the values (the record less its formula
-  rows, what a host draws), or the plane, a byte a cell. Each
+  rows, what a host draws), the changes (the values' rows of the cells the
+  last frame changed, so that a host repaints those alone, or `whole` where
+  the machine cannot say), or the plane, a byte a cell. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
   text is the same) and evaluated at each cell's offset. `census` prints
   the plan as rows before a frame runs: each shape's cells, the levels of

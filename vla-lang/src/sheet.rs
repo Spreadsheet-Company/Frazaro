@@ -455,7 +455,9 @@ pub(crate) fn filled(range: A1Range, text: &str, si: Option<u32>, row: u32, col:
 /// not once a cell. Since KERNEL.37 a view's walks are counted too: the
 /// masters' and the extent's (`Sheet::extent`). A frame's end is counted the
 /// same way (KERNEL.36's oracle): the cells it copied into their twins, and
-/// the cells it walked. Counted on the thread that asked, between
+/// the cells it walked; and since KERNEL.42 the cells a view printed or
+/// looked at, a window's every cell for its values and a changed cell
+/// alone for its changes. Counted on the thread that asked, between
 /// [`work::begin`] and [`work::end`], and only in a test build.
 #[cfg(test)]
 pub(crate) mod work {
@@ -479,6 +481,9 @@ pub(crate) mod work {
         /// The cells a frame's end walked, every cell of every sheet
         /// (KERNEL.36).
         pub(crate) swept: u64,
+        /// The cells a view visited: each cell of a window its values print,
+        /// each cell its changes name (KERNEL.42).
+        pub(crate) viewed: u64,
     }
 
     thread_local! {
@@ -492,6 +497,7 @@ pub(crate) mod work {
                 extents: 0,
                 copied: 0,
                 swept: 0,
+                viewed: 0,
             })
         };
     }
@@ -552,6 +558,11 @@ pub(crate) mod work {
     /// A frame's end's walk over a sheet of `cells` cells.
     pub(crate) fn swept(cells: usize) {
         add(|w| w.swept += cells as u64);
+    }
+
+    /// A view visiting `cells` cells (KERNEL.42).
+    pub(crate) fn viewed(cells: usize) {
+        add(|w| w.viewed += cells as u64);
     }
 }
 

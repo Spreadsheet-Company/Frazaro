@@ -2,6 +2,37 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.9.4
+
+### What changed
+
+- **For engines: a window's changes, so that a host repaints only the
+  cells that changed.** A host that draws a grid from a machine's values
+  viewed its whole window at every frame to learn whether anything in it
+  had changed: Alonzo's still card, an 80 by 50 window of 401 formulas
+  that change once in 30 frames, cost 0.17 ms natively at every frame, and
+  Buffet's market sheet 0.05. `Machine::view` now answers a fourth
+  projection, `changes`: a row naming the sheet, the window, the frame
+  before the last complete one and that frame, and how many cells changed,
+  then each changed cell's rows as the values print them, so that a host
+  holding the window's values at the frame before, and replacing those
+  cells' rows with these, holds its values now, byte for byte. A still
+  window answers its first row alone, in under a microsecond natively, and
+  a changing one about half a microsecond a changed cell: Life's window 0.3
+  ms where its values take 1.5. Where the machine cannot say which cells
+  changed, before the first frame, at a frame that changed more cells than
+  it keeps room for, after a write that changed a formula or added a cell,
+  or while a value written since lies in the window, the row ends `whole`
+  and the host views the window as before. A value the values spell as
+  they did, a formula's 0 turned to -0, both spelled 0, is no change. The
+  refusal of a projection the grid does not have names the fourth. No call
+  of the crate changed (KERNEL.42).
+
+### Known open security items
+
+**Closed this release:** none yet. Standing advice unchanged. The full list
+of open items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.9.3
 
 ### What changed

@@ -1386,3 +1386,36 @@ with its `formula` rows left out.
   keeps every sheet's for its evaluator, and a recalculation those of the
   model it was made over. The rows are the ones a walk of the sheet gives,
   which the same law holds.
+
+## Amendment of 2026-10-15: oracle 11's changes, the rows a frame changed (`KERNEL.42`)
+
+A host drawing a running grid's values viewed its whole window at every
+frame to learn whether anything had changed, and most frames of a game's
+sheets change nothing. An engine's machine knows which cells a frame
+changed, so it answers a window's changes: what to replace in the values a
+host holds, and nothing when nothing changed.
+
+- **The changes.** A `(changes "<sheet>" "<range>" <since> <at> <n>)` row,
+  the sheet and the range as the values' own `window` row spells them,
+  `at` the last complete frame and `since` the one before it, `n` the cells
+  changed; then each changed cell's rows as the values of the same window
+  print them, in their order: its `cell` row or its formula's `value` row,
+  then its `style` and `sentence` rows; a cell that prints no row now,
+  `(empty "<sheet>" "<addr>")`. A cell is changed when its rows are, as the
+  values spell them: a formula's 0 turned to -0, its `value` row 0 both
+  times, is not, where a twin's `cell` row, which spells -0, is.
+- **Whole.** Where the machine cannot say which cells changed, the row ends
+  `whole` in place of `n` and no row follows: before the first frame; at a
+  frame that changed more cells than it keeps room for, or gave a twin a
+  cell or took one; after a write that changed a formula or added a cell,
+  until the next frame's end and at it; and while a value written since the
+  last frame lies in the window. The host then views the window's values.
+- **The oracle, free.** A window's values at frame `since`, each cell the
+  changes name given their rows in place of its own, are its values now,
+  byte for byte, and the changes name a cell exactly when its rows
+  changed, so none exactly when the two are equal, or the changes answer
+  whole: held by the language's eleventh law
+  over generated grids, every sheet's and twin's window, right after a
+  frame, after the writes before the next and while it yields, and by the
+  count of the cells a view visits, a still window's changes visiting none.
+  No door prints them, a door having no frames, and no golden moves.

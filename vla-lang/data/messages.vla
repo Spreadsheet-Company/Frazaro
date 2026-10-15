@@ -203,5 +203,5 @@
 (message calc-formula-too-long 5 "VLA-Calc" "The formula in {cell} is longer than {limit} characters, more than Excel itself allows, so the formula cannot be computed.")
 (message view-sheet-unknown 9 "VLA-View" "The grid holds no sheet named {name}; it holds {sheets}.")
 (message view-window-not-a-range 5 "VLA-View" "{text} is not a window of a sheet. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window.")
-(message view-projection-unknown 5 "VLA-View" "{name} is not a projection of the grid; the projections are grid, the rows of a window, values, those rows without the formulas' texts, and plane, a byte a cell.")
+(message view-projection-unknown 5 "VLA-View" "{name} is not a projection of the grid; the projections are grid, the rows of a window, values, those rows without the formulas' texts, changes, the values' rows of the cells the last frame changed, and plane, a byte a cell.")
 (message view-window-too-large 5 "VLA-View" "The window {window} holds {cells} cells, past the {limit} one plane holds; view it in parts.")
