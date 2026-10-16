@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.42 | KERNEL.43 |
+| KERNEL | KERNEL.45 | KERNEL.46 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -253,7 +253,15 @@ twin's order, so that a frame's end copies at any share on every sheet.
 word, from Alonzo's `ENGINE.17`, for a window's changes, the cells of a
 window whose values changed since a frame, so that an engine's host skips
 the view of a still window and repaints only the cells that changed.
-`KERNEL.43` is next free.
+`KERNEL.43` is next free. `KERNEL.43`, `KERNEL.44` and `KERNEL.45` were
+minted 2026-10-16 at the owner's word of 2026-10-15, from the measurement of
+a frame's formulas over 0.9.4 that scoped them: `KERNEL.43` for a run's
+lanes typed end to end, a twin's numbers kept beside its slots and read by
+stride, so that a fill's frame costs a few nanoseconds a cell; `KERNEL.44`
+for a cell alone lowered once to a register program; `KERNEL.45` for a shape
+whose changed reads reach most of it computed whole and its readers not
+marked. The VLA-to-WebAssembly emitter Alonzo's charter recommends was
+measured beside them and not minted. `KERNEL.46` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

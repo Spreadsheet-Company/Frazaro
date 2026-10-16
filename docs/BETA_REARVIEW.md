@@ -26067,6 +26067,364 @@ the version, as `Release 0.9.4`, so that each commit holds
 `check_version_twin`. Alonzo takes the item at its pin's move to 0.9.4,
 its own items after it (decision 9).
 
+**`KERNEL.43` to `KERNEL.45`, the speed of a frame's formulas: the
+measurement and the scoping, 2026-10-15 and 16.** Begun at the owner's word
+of 2026-10-15: mint and scope an item for the evaluator, now nearly all of
+what Alonzo's heavy cartridges cost, measure first, build nothing. HEAD
+`e8911f6` (Release 0.9.4), level with origin, the tree clean; Alonzo's HEAD
+`1ba83c9` (Release 0.1.4), a peer's two files uncommitted there, untouched.
+
+*The instrument.* Both trees at those commits by `git archive` into the
+session's scratchpad, Alonzo pinned to the copies by a path. Two copies of
+`vla-lang`: one untouched, one with a frame's phases timed (`write`,
+`begin`, the evaluation's loop in `step`, `snapshot`) and its work counted
+(cells in runs and alone, runs, cells changed) into a static the runner
+reads and clears; its frames as fast as the untouched copy's, natively and
+in wasm. A scratch runner over Alonzo's `Cartridge`, each fixture's frames
+as the floors take them: Life's and Sand's frames 2 to 31, the gun's 32 to
+671, Kairos's committed replay of 3,469 frames with its rows and the Write
+sheet's derived rows written before each step, Buffet's committed cartridge
+over 900 frames; five rounds, means. Beside it an in-process sampling
+profiler: a thread that suspends the main one each millisecond, unwinds its
+stack by the image's unwind data and resolves every address through dbghelp
+into its inlined frames; the measured frames alone sampled, 9,000 to 13,000
+samples a fixture, at a cost of 6 to 9% of a frame, the shares within a
+point of a sampling every 250 µs. In wasm, the engine's module built as the
+page builds it (`opt-level = "s"`, stripped), stepped under Node 24.21's V8
+with no import through the twelve exports, every plane held to the native
+run's by a digest (no frame of 4,402 differs); the instrumented module
+beside it, its one import a clock, and V8's sampled profile taken through
+the inspector over the measured frames. On the performance cores, opted out
+of power throttling, as `tools/bench_frames.ps1` runs. Against the owner's
+baseline of 0.9.4 (Life 2.9 ms natively and 4.3 in Chrome, the gun 27 and
+37.5 µs, Sand 3.9 and 5.9 ms) the scratch runs read Life 3.0 and 4.19, the
+gun 26.7 and 40.4 µs, Sand 3.9 and 5.74.
+
+*Where a steady frame goes* (the mean frame; `write` the Clock's row and the
+replay's; `begin` the frame's start; `end` its copy into the twins):
+
+| | frame | write | begin | evaluation | end | cells evaluated | a cell evaluated |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Life, native | 3.03 ms | 0.2% | 11.2% | 78.2% | 10.4% | 42,373 of 62,964 | 56 ns |
+| Life, wasm | 4.38 ms | 0.1% | 14.9% | 76.1% | 8.6% | | 79 ns |
+| Sand, native | 4.36 ms | 0.1% | 14.0% | 79.5% | 6.4% | 46,642 of 189,215 | 74 ns |
+| Sand, wasm | 6.35 ms | 0.1% | 16.5% | 78.0% | 5.2% | | 106 ns |
+| the gun, native | 29.3 µs | 5.4% | 10.1% | 76.1% | 7.5% | 372 | 60 ns |
+| the gun, wasm | 41.5 µs | 3.8% | 12.3% | 73.6% | 6.8% | | 82 ns |
+| Kairos, native | 7.9 µs | 15.8% | 3.2% | 74.3% | 2.8% | 28.6, 15.6 alone | 206 ns |
+| Kairos, wasm | 12.5 µs | 11.5% | 3.3% | 72.8% | 2.9% | | 319 ns |
+| Buffet, native | 2.6 µs | 42.2% | 3.8% | 43.0% | 4.7% | 5.2, 4.5 alone | 213 ns |
+
+The evaluation is three quarters of every steady frame, natively and in the
+browser, as at 0.9.2; Kairos's and Buffet's frames are microseconds, and
+Buffet's Clock row, its text read at every frame, costs as much as its
+cells.
+
+*Inside the evaluation* (natively, each sample by the innermost function of
+the language's; the walk's dispatch is a run's own walk of its parse,
+`scalars`, `call`, `chain`, the repeated parts, the lanes' buffers and the
+library's lookups):
+
+| share of the evaluation | Life | Sand | the gun | Life at 1280 by 800 |
+|---|---:|---:|---:|---:|
+| values and lanes: `push`, a lane's kind, the comparisons | 37.6% | 25.3% | 37.6% | 33.6% |
+| an aggregate over a range, folded a cell at a time | 22.2% | 3.3% | 22.7% | 24.7% |
+| a reference read: the cell's offset, the moved reference, the slot or `Env::read` | 13.4% | 41.7% | 14.0% | 12.7% |
+| a value kept and the readers of a changed cell marked | 13.2% | 12.2% | 12.8% | 17.3% |
+| `IF` and `CHOOSE` parted | 5.1% | 7.2% | 4.9% | 4.6% |
+| the walk's dispatch | 4.4% | 5.6% | 4.6% | 4.2% |
+| other | 4.0% | 4.6% | 3.3% | 2.9% |
+
+By name, of Life's frame: `aggregate<Sum>` 19.1% (its `SUM` of nine slots,
+moved and walked at each cell), `aggregate<All>` 11.2% and `aggregate<Some_>`
+11.1% (`AND` and `OR`, each a fold at each cell through `fold_at` and
+`push`); of Sand's: `reads` 34.8% (37.1% in wasm), of which `Env::read`,
+the frame's own sheets read through their positions, 4.8% (14.6% in wasm).
+V8's profile, by physical function, repeats the shape: Life's aggregates
+29% of its samples, Sand's reads 34%, the walk's dispatch 5 to 6% of both.
+So the walk is already paid once a run (`KERNEL.20`'s vectorized shape);
+what a run pays is each cell's work done in general form: a slot matched as
+a `Value`, a reference moved and bounds-checked, an answer pushed through an
+enum, an aggregate's fold begun again. The frame's start is the marking of
+readers: of Life's, `Reach::check` 42.5%, `Positions::get` 34.7% and
+`Dim::offsets` 13.6%, 12,395 changed twin cells each read by nine; the parts
+a shape keeps (`KERNEL.39`'s) 0.1%; Sand's alike. The end is the copy, a
+changed cell's slot and its twin cell (`refresh` 20 to 22%), its plane byte
+and its spelling (`KERNEL.42`).
+
+*A cell alone.* Life's rule over a board of 100 by 100, written as one fill
+and written a cell at a time with absolute references (9,604 shapes, every
+cell evaluated alone): 56 ns a cell evaluated as a fill, 1,890 alone; the
+frame 0.46 ms against 15.9, its start 0.05 against 3.8 (the readers and the
+parts of 9,604 shapes). Alone, the time is the walk: `Ctx::eval` 54% at its
+own lines (the match's entry and its binary arm), `Ctx::chain` 10%, `key`
+6% (a name's case folded at each call), `areas_at` 5%: 25 to 60 ns a node of
+the parse. Kairos's cells, 206 ns each, and Frazaro's `chain` floors fixture,
+whose 20,000 balances stand one a level, about 126 ns each of its whole
+frame of 2.84 ms, are this path.
+
+*The gap to the hand-written references* (Alonzo's `engine/src`: the floors
+runner's Life, `sand.rs`, `kairos.rs`; the same files compiled to wasm at
+the release profile and timed under the same V8):
+
+| | the engine, native | by hand | | the engine, wasm | by hand | |
+|---|---:|---:|---:|---:|---:|---:|
+| Life | 3.03 ms | 0.191 | 15.9x | 4.38 ms | 0.190 | 23x |
+| Life at 1280 by 800 | 60.3 ms | 3.16 | 19x | 73.3 ms | 3.08 | 24x |
+| Sand | 4.36 ms | 0.509 | 8.6x | 6.35 ms | 0.481 | 13x |
+| Kairos | 7.9 µs | 0.30 | 26x | 12.5 µs | 0.30 | 42x |
+| the gun | 29.3 µs | 125, every cell | 0.23x | 41.5 µs | 122 | 0.34x |
+
+Means, but the board of 1280 by 800's, medians. The code by hand runs as
+fast in V8 as natively; the engine runs 1.4 to 1.6 times slower there, so
+the gap widens in the browser. A cell evaluated costs the engine 56 ns
+against the hand's 3.0; a frame computes two thirds of Life's cells, and the
+gun's frame beats a hand that computes them all.
+
+*Life's rule lowered* (a scratch crate: the rule's steady branch over a twin
+of 320 by 200, all 62,964 cells, in runs of 256 consecutive in the order as
+the machine's, every form's answers held to the bit to the fused one's;
+nanoseconds a cell, medians of 200 passes; `s` and `3` the opt-level):
+
+| form | native, s | wasm, s | native, 3 | wasm, 3 | wasm, 3, simd128 |
+|---|---:|---:|---:|---:|---:|
+| the engine's run today, a cell evaluated | 56 | 79 | | | |
+| a register machine, a cell at a time | 37.7 to 40.5 | 42.6 to 42.8 | 34.0 | 43.0 | |
+| closures made once, a cell at a time | 20.9 to 21.0 | 58.9 to 66.1 | 20.8 | 58.0 | |
+| fused: the body an emitter would write, a slot's kind read with it | 6.9 to 7.0 | 9.5 to 9.9 | 6.0 | 7.9 | |
+| fused, the kinds counted a row | 4.9 to 5.0 | 6.8 | 5.0 | 6.7 | 6.9 |
+| lanes over the slots, a cell's index moved at each | 11.2 to 11.7 | 13.4 to 13.7 | 7.9 | 12.9 | |
+| lanes by stride over the slots | 3.6 | 8.9 | | | 4.2 |
+| lanes by stride over a numeric shadow | 4.6 to 5.1 | 5.5 to 5.6 | 1.85 | 4.9 | 2.8 |
+| lanes over two thirds of the cells, gathered | 5.3 to 5.4 | 6.2 | 5.1 | 6.3 | |
+| by hand, a byte a cell | 3.0 | 3.0 | | | |
+
+A form a cell at a time recovers little: its dispatch, per node and per
+cell, is what a run already amortizes, and wasm's indirect calls take most
+of the closures' gain there (59 to 66 against the run's 79). Lanes typed and
+read by stride beat even the fused body an emitter would write, since their
+loops are the same few operations over contiguous numbers; at opt-level 3
+with simd128 they run in the browser at the speed of the hand built as the
+release builds it (2.8 against 3.0). Today's engine itself gains 3% (Life),
+4% (the gun) and 13% (Sand) natively at opt-level 3.
+
+*The filed items, priced on these frames.* `KERNEL.31`: none of the four
+reads a range of its own frame (the census of 0.9.2); widened to the cells a
+frame reads of its own sheets, it would hold Sand's reads of `Side` and
+`Stay` in an array, the 4.8% natively and 14.6% in wasm above, and it is
+what a read by stride needs on any sheet that is not a twin: every read of
+Frazaro's `column` and `chain` fixtures is one. `KERNEL.38`: each of the
+four writes a formula once: nothing. `KERNEL.39`: 0.1% of the four's
+starts; 5% of the frame on the board a shape a cell. `KERNEL.40`: the first
+frame alone (Life's 10.3 ms, Sand's 37). `KERNEL.41`: no sheet of the four
+is too sparse for an array: nothing. None moves a steady frame of the four
+by more than a few percent.
+
+*The options, priced.* (1) A compiled evaluator a cell at a time, closures,
+bytecode or a register form, for every cell: on Life's rule 21 to 40 ns a
+cell natively and 43 to 66 in wasm, against a run's 56 and 79, so a run's
+evaluation 1.4 to 2.7 times cheaper natively and 1.2 to 1.8 in wasm at best,
+the walk it removes being 4 to 6% of a run's time; alone, against the walk's
+1,890 ns, 45 times cheaper. (2) A run's lanes typed end to end: 4.6 to 5.1
+ns a cell natively and 5.5 in wasm (1.85 and 2.8 at opt-level 3 with
+simd128), a run's evaluation 10 to 15 times cheaper for its arithmetic, the
+residual (keep and mark, the dispatch, the parted `IF`s, the reads of a
+sheet that is not an array) priced below. (3) The VLA-to-WebAssembly emitter
+of Alonzo's `CHARTER.md` §4 rule 2: its code is the fused form, 6.8 to 9.9
+ns a cell in wasm, slower there than typed lanes (5.5, and 2.8 with
+simd128); natively nothing, the language holding no runtime for wasm, so
+that native frames would still run the interpreter; and its host side, a
+module made at a load and compiled by the page, the engine's memory and
+table shared with it, a second implementation of every meaning held to the
+first bit for bit, is both repositories' work. Minted from (2) for runs and
+(1) for cells alone; (3) not minted, rule 2's recommendation standing as
+one, with this measurement against it now.
+
+**The items, minted at the owner's word:** `KERNEL.43`, a run's lanes typed
+end to end; `KERNEL.44`, a cell alone lowered once; `KERNEL.45`, a shape
+computed whole where marking its readers costs more. `KERNEL.31` keeps its
+number, with a dated note to widen it to cells (decision 2).
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *A twin's numbers kept beside its slots* (`KERNEL.43`). Recommended:
+   `Dense` gains a numeric shadow, an `f64` and a kind byte a slot, and a
+   count a row of the slots that are not numbers, written wherever a slot
+   is written (a load, the frame's end, the walk); `Dense::get` and
+   `Dense::each` keep their signatures. Nine bytes a slot, 576 KB on Life's
+   twin and 9.4 MB at the grid's limit, 2% over the 460 bytes a formula cell
+   holds. *Declined:* the slots themselves typed, an `f64` and a kind a slot
+   with texts and errors beside, which would halve a slot and spare the
+   frame's end its second write, but `Dense::get` answers `&Value` through
+   the public `Env::dense`, so it breaks a public signature and forces a
+   minor version and Alonzo's pin: the owner's call if wanted, this the
+   non-breaking alternative, measured; the slots read by stride with no
+   shadow (3.6 ns natively but 8.9 in wasm, against the shadow's 5.6).
+
+2. *A reference read by stride over a run's cells in one row* (`KERNEL.43`).
+   Recommended: a chunk of a run cut where its cells leave a row (Life's
+   chunks of 256 straddle its rows of 318; Sand's rows of 316 make chunks
+   of 256 and 60), each reference that moves with the cell read as one
+   slice of an array's shadow at the segment's offset, one every `$` holds
+   as today's `Same`, a segment whose rows hold a slot not a number read as
+   today. The arrays are the twins' today, and a frame's own sheets' once
+   `KERNEL.31` keeps them, which its line's note asks of it widened to the
+   cells a frame reads of its own sheets, scoped after this item.
+   *Declined:* each cell's slot index found once a shape and read a cell at
+   a time (11.2 to 11.7 ns natively, 13.5 in wasm); `KERNEL.31`'s arrays
+   folded in here (an item of weeks made two, its order before `CART.6`
+   unchanged by this one).
+
+3. *An aggregate over a range moved at each cell, folded over shifted
+   slices in the library's order* (`KERNEL.43`). Recommended: `SUM`, `MIN`,
+   `MAX`, `AND` and `OR` over a range that moves with the cell (Life's
+   `SUM(Screen.last!A1:C3)`) computed as one lane operation a cell of the
+   range, row by row and column by column from the fold's start (`-0.0` for
+   `SUM`, `KERNEL.25`), so that each cell's answer is the same additions in
+   the same order as its fold, bit for bit by construction; a slot not a
+   number, or more operands than `COUNTED`, folded a cell at a time as
+   today. *Declined:* a sliding window (fewer additions in another order,
+   other bits but over integers); the fold a cell kept (19% of Life's frame).
+
+4. *The truth functions and `IF` over typed lanes* (`KERNEL.43`).
+   Recommended: `AND`, `OR` and `NOT` over lanes of truth values element by
+   element (each a fold a cell today, 22% of Life's frame), a comparison of
+   numbers a lane of truth values as `KERNEL.26` made it, and an `IF` whose
+   branches are constants or reads chosen by its condition's lane where
+   both are computed over the segment; a branch with more in it parted as
+   today (Sand's). An evaluation has no effect but its answer, so a branch
+   computed and not taken changes nothing. *Declined:* every `IF` parted
+   (Life's `IF(…,1,0)` pays `parted` and `place` at every cell); every
+   branch computed (Sand's nested branches at every cell).
+
+5. *A chunk computed whole where most of it is reached* (`KERNEL.43`).
+   Recommended: a chunk whose reached cells are more than a measured share
+   of it (the prototype's crossing is about three fifths: two thirds
+   gathered cost 5.4 ns a cell of the chunk against 5.1 for all of it)
+   computed whole by stride, its cells not reached computed again to the
+   same values, their inputs unchanged, which `keep` finds unchanged.
+   *Declined:* the reached cells gathered always (the chunk's reads not
+   contiguous); a chunk always whole (the gun's 372 cells of 62,964).
+
+6. *A run's answers kept by lane* (`KERNEL.43`). Recommended: a lane of
+   numbers compared with the values it would overwrite, a `Computed` made
+   only for a cell that changed; the changed list, the marking of this
+   frame's readers and `before` as today. *Declined:* `keep` a cell at a
+   time over `Computed` answers (13% of the evaluation on the four).
+
+7. *The census names the read by stride* (`KERNEL.43`). Recommended: a
+   path of its own in `vector::paths` (`KERNEL.30`), so that a shape's line
+   says which cost class its reads take, the census golden and Alonzo's
+   describe goldens blessed again once, at the pin's move. *Declined:* the
+   census as today (it would name the dearer path).
+
+8. *A cell alone lowered once to a register program* (`KERNEL.44`).
+   Recommended: each shape whose cells are evaluated alone (a shape of one
+   cell, a run's gather shorter than `RUN`) lowered at the plan, at a load
+   and at a write that plans again (`KERNEL.34`), to a program over typed
+   registers: its functions found once by their `Known` or their strict
+   pointer, its sheets found, its references held as a sheet and an offset,
+   its constants folded; each read and each call guarded, a guard that
+   fails (a text, an error, a reason, a form the program holds no op for)
+   evaluating the cell by `Ctx` as today. *Declined:* closures (21 ns
+   natively but 59 to 66 in wasm, the browser being where it matters); the
+   walk made cheaper in place, names cached and `Arg` slimmer (cheaper, but
+   its cost is the walk's own frame at each node, by a factor and not an
+   order); runs lowered the same way (decision 1's lanes are cheaper for
+   them, as measured).
+
+9. *What a program holds* (`KERNEL.44`). Recommended: what a run computes
+   by itself today (the operators, the comparisons, `IF`, `CHOOSE`, the
+   aggregates over arrays, `ROW`, `COLUMN`, `MOD`, `INT`, `ABS`, `SIN`,
+   references to a cell of any sheet), and any other strict function of the
+   library called through its pointer with the values its call would hand
+   it; a form other than `IF` and `CHOOSE`, a defined name, a range where
+   one value is wanted, falling back. *Declined:* the whole language first
+   (the forms beyond the run's are rare in today's grids, measured by the
+   census).
+
+10. *A shape computed whole, its readers not marked, where marking them
+    costs more* (`KERNEL.45`). Recommended: at a frame's start, a shape
+    whose reads of the changed twin cells would mark more readers than a
+    measured share of its cells (an estimate from the changed cells and the
+    shape's reads of each twin, `Reach`'s own per shape) is computed whole
+    and none of its readers marked, nor, by `keep`, any reader of a cell of
+    this frame inside it. Only after `KERNEL.43`: at today's 56 ns a cell
+    the whole of Life costs 1.2 ms more than the marking it would spare
+    (0.34). *Declined:* a frame computed whole whenever most cells change
+    (the incremental frame's gain is the gun's); marking made cheaper
+    instead (Sand's case, under *Found*).
+
+11. *The order and the emitter.* Recommended: `KERNEL.43` first, then
+    `KERNEL.45` and `KERNEL.44` in either order, `KERNEL.31` widened after
+    `KERNEL.43`; the emitter not minted, its gate a measurement after
+    `KERNEL.43` and `KERNEL.44`: minted when an emitted body, simd128 and
+    all, measures at least twice the typed lanes' speed on a cartridge's
+    evaluation in the browser, with Alonzo's host side priced beside it.
+    *Declined:* the emitter minted now (slower than the lanes in wasm as
+    measured, nothing natively); a compiled evaluator for every cell (the
+    measured shape of a run's cost says no).
+
+12. *The release profile and simd128: Alonzo's.* Recommended: noted for
+    Alonzo after `KERNEL.43`, whose lanes gain 2.5 times natively and 1.1 in
+    wasm at opt-level 3 and 2 times in wasm with simd128 on top, against a
+    module 12.7% larger at opt-level 3 (Alonzo's `CART.1`, its decision 10)
+    and simd128 a feature every engine of the page's browsers holds; both
+    the consumer's profile and never the language's.
+
+*Predictions,* the decisions as recommended, natively and in wasm, the
+residual priced (the frame's start and end unmoved by `KERNEL.43`, the
+walk's dispatch, the kept values, the parted branches and the reads of a
+sheet that is not an array kept at their measured cost): after `KERNEL.43`,
+Life's frame 3.03 to 1.1 to 1.5 ms natively and 4.38 to 1.6 to 2.2 in wasm;
+Sand's 4.36 to 2.3 to 2.9 natively and 6.35 to 3.4 to 4.3 in wasm; the gun's
+29 µs to 15 to 22; Kairos and Buffet unmoved; Life at 1280 by 800 60 ms to
+20 to 28; Frazaro's `column` little moved until `KERNEL.31` holds its sheet
+as an array. After `KERNEL.45`, Life's 0.8 to 1.2 natively and 1.0 to 1.6 in
+wasm, its start's 0.34 and 0.65 ms gone. After `KERNEL.44`, a cell alone
+126 to 1,890 ns to 15 to 60 natively and alike in wasm by ratio: Kairos's
+frame 7.9 µs to about 5 (its runs and its Clock row the rest), Frazaro's
+`chain` whole 2.84 ms to 1.0 to 1.5 (the marking of each next balance its
+residual), the board a shape a cell 15.9 ms to 4 to 5, its start then the
+rest. The gap to the hand then about 4 to 6 times for Life and Sand natively
+and 5 to 9 in the browser, from 9 to 23.
+
+*The oracle.* Bit for bit: the machine's laws and its generated grids (a
+run at once equal to its cells one by one, `a_run_evaluated_at_once_is_its_cells_evaluated_one_by_one`
+and its kin), with grids whose rows mix numbers and texts so that a shadow's
+count and a fallback are both taken; `Calc` over the same grids; the
+treaty's oracle 12 and the recalc goldens; `check_recalc_floors.ps1`'s
+floors raised by the owner's run, none lowered; Alonzo over each slice by a
+path, its engine tests, `frames --check` (every frame held, the allocation
+ceilings held or lowered, the heap's high-water bytes within the margin),
+every replay and its digest unchanged, the module's frames equal to the
+native ones frame for frame; mutants that drop a shadow's write, a row's
+count, a slice's offset and a guard, each caught by a named test.
+
+**What it touches.** `vla-lang/src/calc/dense.rs` (the shadow, the row
+counts), `calc/vector.rs` (segments, reads by stride, the window folds, the
+truth lanes, the chosen `IF`), `machine/mod.rs` (`keep` by lane, the
+shape computed whole), a new `calc/program.rs` for `KERNEL.44`'s programs,
+`calc/shape.rs` (the plan's programs), `calc/census.rs`, the laws, the
+roadmap's lines, this entry, `RELEASES.md`. No VBA, the machine having no
+reference; no public signature.
+
+**Beside it.** `KERNEL.31` gives the frame's own sheets the arrays decision
+2 reads; `KERNEL.39` is the start's share on grids of many shapes, which
+`KERNEL.44` leaves; `KERNEL.40` the first frame. Alonzo's `ENGINE.6` (the
+accelerator after the floors) and its profile (decision 12) come after.
+
+**Found,** measured, not minted: *Sand's start is its marking* (0.61 ms
+natively, 1.05 in wasm, 14 to 17% of its frame and about a quarter of it
+after `KERNEL.43`, 46,642 of 189,215 cells reached, too few for
+`KERNEL.45`): a changed cell's readers marked by their shape's position
+arithmetic, a span of positions a row, instead of a check and a lookup a
+reader; for the scoping after `KERNEL.43`'s measurement. *The Clock written
+by text at every frame* (Alonzo's `Cartridge::step`, a row parsed and
+settled, 1.1 µs natively, 42% of Buffet's frame and 16% of Kairos's): a
+number written into a cell without a row's text, a language call added
+beside `write` and Alonzo's to ask.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
