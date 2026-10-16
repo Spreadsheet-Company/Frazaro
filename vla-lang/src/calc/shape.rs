@@ -734,7 +734,10 @@ impl Shapes {
     /// Cells of one run, a part of it or the whole, evaluated at once
     /// against the grid as `env` shows it (KERNEL.20, `super::vector`), each
     /// cell's answer pushed to `out` in order: what [`Shapes::evaluate`]
-    /// answers for each, the environment told each cell as it is computed.
+    /// answers for each, the environment told each cell as it is computed;
+    /// or, where every answer is a number, `out` left empty and the numbers
+    /// in `numbers` (KERNEL.43).
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn evaluate_run(
         &self,
         env: &dyn Env,
@@ -743,6 +746,7 @@ impl Shapes {
         cells: &[CellId],
         lanes: &mut Lanes,
         out: &mut Vec<Computed>,
+        numbers: &mut Vec<f64>,
     ) {
         let s = &self.shapes[shape];
         // The paths the run takes are noted against its shape, in a test
@@ -753,7 +757,7 @@ impl Shapes {
             Ok(e) => {
                 let held = s.holds;
                 vector::evaluate(
-                    env, library, e, held, &s.repeats, s.anchor, cells, lanes, out,
+                    env, library, e, held, &s.repeats, s.anchor, cells, lanes, out, numbers,
                 );
             }
             // A run holds a parsed shape; were it not, each cell alone.

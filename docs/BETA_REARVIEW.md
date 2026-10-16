@@ -26425,6 +26425,235 @@ settled, 1.1 µs natively, 42% of Buffet's frame and 16% of Kairos's): a
 number written into a cell without a row's text, a language call added
 beside `write` and Alonzo's to ask.
 
+**Approved 2026-10-16** at the owner's word, "Recommendations approved.
+KERNEL.* items are getting minted very rapidly lately. If KERNEL.43 is the
+suggested best next step, then proceed with implementing KERNEL.43 as
+scoped."
+
+**Built 2026-10-16**, over `e8911f6`, the tree otherwise clean.
+
+*What landed, by decision.*
+1. `Dense`'s shadow: a number and a kind a slot and a count a row of the
+   slots holding no number, made with the store (`over`, its memory kept
+   as the slots' is) and written by `write_at`, now the one way a slot is
+   written (the walk, `Twins::put` and `put_behind`; `slot_at` reads);
+   `numbers_in_row`, the numbers of a row's span when each slot is a
+   number inside the extent; `inside`, the places of a stretch whose
+   reference stays inside the extent. `get` and `each` as they were. The
+   shadow is kept for a twin a run may read by slices alone (`sliced`: a
+   shape the plan follows reads it, or the plan holds a shape it does not
+   follow, whose reads it cannot tell), made from the slots or dropped by
+   `shade` when a write's new plan changes which, so that a spreadsheet's
+   twins, which no formula reads, keep none and cost what they did.
+2. `Many::reads`: a stretch's reference that moves with the column read as
+   one slice from its first cell's to its last's or the array's edge, the
+   cells past the edge one by one; a stretch whose first cell reads
+   outside the array, one by one, that cell being empty, which a lane of
+   numbers never holds, so that it ends the lane. A column a `$` holds
+   read once a stretch, on any sheet. Each chunk of a run finds its
+   stretches when a read or a fold first asks for one (`Many::ends`), a
+   selection's by its positions, so that a run none of whose references
+   asks, a spreadsheet's column of formulas reading its own sheet, finds
+   none.
+3. and 4. `Many::aggregate` over the stretches: `fold_stretch` folds the
+   places every range of the call keeps inside its array, each operand in
+   `fold_at`'s order, a value by its lane and a range by its rows' slices,
+   one column apart where it moves and the same where it is held at both
+   corners, the cells before and after it alone; its folds made once a
+   call. The rules' items of a number and of a truth value, written in the
+   library beside `given` and `ranged` (`Rule::given_number`, `given_truth`,
+   `ranged_number`) and held to them by
+   `a_rule_s_items_of_numbers_and_truth_values_are_its_given_and_ranged`:
+   the first build folded `AND` and `OR` by making a value an item and
+   asking `Value::truth` of it, 8% of Life's evaluation, opt-level `s` not
+   inlining it. `NOT` turns a lane of truth values or of numbers in place;
+   `IF` between two literals of one kind is answered by its condition's
+   lane (`chosen`), and every other `IF` parted as before.
+5. Built, measured and taken out: a chunk computed whole from shares of
+   one eighth to five eighths of its cells reached, and never, measured
+   alike within the noise (Life 2.0 to 2.2 ms, the gun 19.6 to 20.6 µs,
+   Sand 3.5 to 4.0), every chunk whole ruinous (the gun 0.89 to 0.93 ms,
+   Sand 13.2 to 13.4). The prototype's crossing did not carry over: a
+   frame reaches Life's cells in clumps, so its gathered cells already
+   stand side by side in long stretches.
+6. A run whose answers are all numbers hands them back as numbers
+   (`vector::evaluate`'s `numbers`), and `Machine::keep_number` makes a
+   `Computed` only for a cell whose number changed, compared once
+   (`changed_to`, what `keep` does past its comparison).
+7. `stride` in the census (`Paths::stride`, `Kind::Stride`) for a
+   reference into a sheet kept as an array that moves with the column, in
+   a shape with runs (`paths` now asks); a held reference keeps `slot` or
+   `array`, and so does a cell alone, which no run reads by slices.
+   Frazaro's census goldens do not move, since a door steps no frame and no
+   twin holds an array there; Alonzo's describe goldens move in fourteen
+   shape rows of seven cartridges, by that word alone (blessed in a scratch
+   copy and compared).
+
+*Measured,* natively the scratch Alonzo over the working tree by a path,
+alternated with 0.9.4 over two rounds; in wasm the module built as the page
+builds it, under Node 24.21's V8, alternated:
+
+| | 0.9.4, native | KERNEL.43 | | 0.9.4, wasm | KERNEL.43 | |
+|---|---:|---:|---:|---:|---:|---:|
+| Life, frames 2 to 31 | 2.9 to 3.1 ms | 2.0 to 2.2 | −33% | 4.16 to 4.19 | 2.72 to 2.80 | −34% |
+| the gun, frames 32 to 671 | 26.7 to 28.3 µs | 19.6 to 20.6 | −26% | 40.7 to 41.0 | 30.5 to 30.9 | −25% |
+| Sand, frames 2 to 31 | 3.9 to 4.0 ms | 3.5 to 3.7 | −8% | 5.73 to 5.74 | 5.41 to 5.42 | −6% |
+| Kairos, its replay | | | | 8.9 to 9.1 µs | 9.0 to 9.2 | level |
+
+Medians. With Life's median now about the runner's line of 2 ms, a run of
+the frames runner whose frames 2 to 31 fall under it times frames 32 to 671
+in runs instead, 0.58 to 0.62 ms, the soup settled: its floors row may
+change mode at the owner's next run. Measured again on the build as it
+stands, after the recalc changes below, alternated twice with 0.9.4 on a
+machine 10 to 17% busy (other sessions and a browser): natively Life 3.1 to
+3.4 ms to 2.1, its 1280 by 800 rung 58 to 59 to 42, the gun 27 to 30 µs to
+20, Sand 4.0 to 4.1 to 3.6 to 3.7; in wasm Life 4.2 to 4.5 to 2.8 to 3.0,
+the gun 41 to 42 µs to 31 to 32, Sand 5.9 to 6.0 to 5.4, Kairos level at
+9.6: the table's gains, over a slower 0.9.4.
+
+*Against the prediction,* missed: Life 1.1 to 1.5 ms natively and 1.6 to
+2.2 in wasm predicted, 2.0 and 2.75 measured; Sand 2.3 to 2.9 and 3.4 to
+4.3 predicted, 3.6 and 5.4 measured. The profile after (the sampler of the
+scoping): Life's evaluation 66% of its frame, about 32 ns a cell
+evaluated, from 56, its frame's start and end now a third of it (`KERNEL.45`
+and the end's copy); the rest, in parts of a few percent each, a lane pass
+and its buffers a node of the parse, the kept values compared and the
+changed kept, the gathered cells, the repeated parts' bookkeeping, `SUM`'s
+nine additions a cell, each `IF`'s choice. The prototype's lanes fused the
+rule into a few passes and paid none of these, and the scoping priced the
+residual it measured (the dispatch, the kept values) and not the per-node
+passes, the term the fix leaves. Sand's evaluation is 77% of its frame,
+about 59 ns a cell evaluated, from 74: its reads of its own frame's sheets
+(`Side`, `Stay`, `Gate`), 38% of its evaluation, are read cell by cell
+until `KERNEL.31` keeps those sheets as arrays, and its `IF`s whose
+branches read part a row's cells, breaking the stretches their reads would
+slice.
+
+*The recalc floors.* `tools/bench_recalc.ps1` over the build and over 0.9.4
+exported from `e8911f6` into a scratch folder, alternated: previews, not
+pasted, the floors' baseline being the owner's run. The build as first
+finished was slower in two rows it meant to leave alone, in three
+alternations of three: column's edit frame 1.84 to 1.88 ms to 1.94 to 1.99
+(+6%), sums' 3.47 to 3.55 to 3.58 to 3.63 (+3%). Both frames end in the
+walk of a twin, and the walk wrote every slot's number and kind beside it,
+into twins no formula of a spreadsheet reads. Three changes took it out:
+the shadow kept for a twin a run may read by slices alone (decision 1), a
+changed number compared once (decision 6), and a chunk's stretches found
+when first asked (decision 2). The third was found by a scratch harness
+that rebuilt the column fixture's three columns as rows and timed its edit
+frame alone, 400 edits a run, alternated eight times, since the whole bench
+could not settle 2% on a machine that busy: 0.9.4's medians 1.71 to 1.79 ms,
+the build with the first two changes 1.76 to 1.78 (+1.9%), with the third
+1.70 to 1.73. The lazy stretches showed a fourth, in `frames --check`: Life's
+and the gun's counted second frame reallocated six times, not five, since
+`Lanes::reserve` asked `Vec::reserve` for a chunk's room past the last
+run's length and grew the buffer to two chunks once, which the stretches
+found eagerly had paid in the first frame, where nothing is counted; the
+buffer is emptied before its room is reserved, and
+`a_run_makes_every_buffer_it_holds_in_its_first_frame` counts its room. On
+the build as it stands, alternated twice: column whole 1.03 ms to 0.90 to
+0.92 and its edit 1.88 to 1.78 to 1.82, chain whole 2.66 to 2.68 to 2.37 to
+2.61 and its edit level, sums level to 3% faster, Life's whole 3.69 to 3.72
+to 1.84 to 1.94 (−48%) and its edit 3.20 to 3.28 to 2.24 to 2.34 (−29%), no
+row slower; the harness's column edit 1.74 to 1.82 to 1.72 to 1.78, faster
+in eight rounds of eight.
+
+*Held.* Bit for bit: `vla-lang`'s tests, 229 and the eleven laws, among
+them `a_run_read_by_slices_is_its_cells_evaluated_one_by_one` (40 grids of
+bands 20 to 300 columns wide over twins of numbers with a few rows of
+texts, truth values, errors and empty cells, holes in some bands, six
+frames each with writes between, by runs at random budgets against every
+cell alone and against `Calc`; every new path taken, by test-only counts),
+`a_store_s_numbers_are_its_slots_after_every_write`,
+`the_cells_a_reference_keeps_inside_are_those_it_leaves_nowhere`,
+`cells_that_read_past_their_twin_s_array_read_inside_it_by_a_slice` (an
+array's two edges, against the cells alone),
+`a_twin_no_formula_reads_keeps_no_numbers_beside_its_slots` (a
+spreadsheet's twin keeps none, a write that adds a reader makes them at
+once and the frames after it read by slices, one that leaves none drops
+them, a name's shape keeps every twin's), the buffer tests with the
+stretches' room, and the census tests with the new class and a cell alone;
+`cargo test --workspace`, the core's 183 among them; `run_checks.ps1` 57
+of 57; clippy and rustfmt clean. Alonzo over the build by a path: its
+engine tests 38 of 41, the three that fail its describe goldens and two
+literal rows on the census word alone, every committed replay and its
+digest held; `frames --check` every frame equal and every rung's digest,
+the allocations and reallocations 0.9.4's (80 and 5, 82 and 5, 509 and 5),
+the heap's high-water bytes up by the shadow (Life 29.48 to 30.04 MB, nine
+bytes a slot; the top rung 471.6 to 480.8, +1.9%; Sand's unmoved, its
+load's peak the mark); the wasm module 767,283 to 786,096 bytes, no import,
+every frame of the four and of Life at 1280 by 800 equal to the native
+run's digest.
+
+*Mutants:* twenty-six, each applied alone to a copy of the workspace and
+`vla-lang`'s tests run there, the control passing before and after, all
+twenty-six caught by a named test: in the store, a write leaving the number
+beside its slot as it was, a row's count not lowered when a slot turns a
+number, a slice read past a slot that is not one, a slice a slot past the
+extent, the numbers made from the slots with each row's numbers counted for
+the rest, the numbers kept again made as if every slot were empty, a store
+made again over another extent keeping the old numbers, the inside span a
+cell too wide; in the reads, a slice a column late, the cells after a slice
+read from a cell early, a held column read for a cell fewer; in the folds,
+a moving range's slice a column late, a truth value given turned, a
+stretch's answers pushed in reverse; `IF`'s literals chosen the wrong way
+round; `NOT` of a number not turned; a stretch of any cells of the row, a
+selection's past its row's end, the last run's stretches left before the
+reserve, the buffer of stretches found not handed back (caught once the
+buffer test counted the stretches' room on its own); a number never kept;
+for the shadow, a twin a formula reads keeping none, a twin none reads
+keeping them, a shape the plan cannot follow not counted, a write's new
+plan leaving the arrays as they were; `stride` named for a shape with no
+runs. The first list's one survivor, a slice from the stretch's first cell
+instead of its first cell inside the array, was the same in values and
+showed the generality behind it dead: a cell outside a twin's array is
+empty, which ends a lane of numbers at that cell, so a stretch whose first
+cell read left of the array never reached its slice. `reads` now slices
+from a stretch's first cell alone (decision 2 above), the survivor's place
+gone with it, and
+`cells_that_read_past_their_twin_s_array_read_inside_it_by_a_slice` holds
+both edges. The rig's own fault on the way: a path a script wrote with a
+vertical tab in it made two mutants unread, and the script judged them on
+the text of the mutant before them, unmutated, as survivors; it now
+refuses a mutant whose file it cannot read or write, and tells a test
+binary that aborts from a build that fails. Every frame, digest and
+allocation above was held again on the build as it stands, natively and in
+wasm.
+
+*Left for the owner.* The owner's test; `tools/bench_recalc.ps1`'s run for
+the recalc floors, every row of which the previews above put over its
+floor; the release, a patch, its note under `RELEASES.md`'s `## 0.9.5`.
+Alonzo's pin move, its own item: the describe goldens blessed and two
+literal rows of its describe tests, and the frame floors' next baseline,
+faster and the heap's ceilings up by the shadow.
+
+*Owner-tested 2026-10-16:* Alonzo 0.1.4's page over the build, from a
+scratch copy pinned to it by a path, in the owner's Chrome: the loop oracle
+23 cases of 23 OK at a pixel ratio of 1.5; the frame floors `frames ok`,
+Life 4.3 ms to 2.7, its 1280 by 800 rung 70.3 to 48.8, the gun 37.5 µs to
+28.9, Sand 5.9 to 5.8, against Alonzo's committed baseline of 2026-10-15 in
+the same browser (the gun's ladder line, its idle frame at sixteen times the
+board 1.19 times the window's, was 1.17 there: the window's frame faster,
+the board's part as it was); Life, the gun, Sand and Kairos looking and
+playing as before. The recalc floors' two halves run on the owner's machine
+and taken from the files the instruments write, Excel's half again on the
+same files, since the check holds each file's hash to both halves and the
+files had changed since 2026-10-12: the entry of 2026-10-16, every floor
+raised and none lowered, Life's whole frame 15.4 to 28.5 million formulas a
+second and its edits 314 to 368 a second, column's 52.5 to 55.2 million and
+272 to 478, chain's 11.9 to 14.0 million and 233 to 248, sums' 7.04 to 7.08
+million and 223 to 241.
+
+*Committed 2026-10-16* at the owner's word, "Tests pass; commit, then
+provide a starting prompt for a new session to scope and implement
+KERNEL.44": the filing of `KERNEL.43` to `KERNEL.45` first, as its own
+commit, then this item's ten files, the six of the language, three docs and
+the floors' check, its line leaving the roadmap for the closed ledger.
+`KERNEL.46`, minted beside it in the same working copy by a peer session
+from Alonzo's `ENGINE.7`, left in the tree for that session to commit on
+top. Released with 0.9.5 when the owner cuts it; Alonzo takes it at its
+pin's move.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -39894,6 +40123,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.36 — a frame's end copies the cells it changed however many they are, so that a frame that changes most of its grid ends in a third of the time.** Minted 2026-10-12 at the owner's word, scoped and built the same day, owner-tested and committed 2026-10-13 at the owner's word, its seven decisions as recommended and its two findings minted as `KERNEL.40` and `KERNEL.41`. A frame's end copied the cells it changed into their twins only while they were no more than half the cells, and past half walked every cell of every sheet, so a frame that changed most of its grid paid for all of it again at its end, and one cell more than half made the end five or six times dearer. It now copies at every share into every twin kept as an array, the changed list holding room for every formula cell; a sheet too sparse for an array, whose twin is copied through its own cells, keeps the half, where the measured costs of the copy and the walk cross; and a walk after copied frames makes a twin cell left behind its slot where it passes it, where it made each such cell first. Natively, alternated with `HEAD`: a Mind of 20,000 rows over the twin 14.0 ms a frame to 8.4, a Screen of 1,000 by 1,000 55.6 to 27.2, one of 320 by 200 2.2 to 1.6, `column`'s edit 2.0 to 1.4, a grid of 40,000 formulas beside 200,000 values 7.8 to 2.2; the sparse sheets, Alonzo's cartridges and one cell of a million level, every value what it was and no public call changed. Held to the walk bit for bit by a test that ends frames both ways over generated grids most of whose cells change, by a count of the cells a frame's end visits and by a tenth law; eighteen mutants, each failing named tests, a first round's survivor caught by a test written for the fault it found. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.37 — the values of a window: the grid record less its formula rows, so that an engine's host draws a grid every frame without moving every formula's text.** Minted, scoped, built, owner-tested and committed 2026-10-12 at the owner's word, its eight decisions as recommended. A host drawing a grid-mode cartridge from the view record every frame paid for every formula's text, each shared formula's cell given its master's text moved to it at every view: an 80 by 50 window of one fill viewed in 10.3 ms natively where its frame took 0.2, the same window of Life's formulas in 64. The machine now answers a third projection, `values` (`view::ValueGrid`, `view_text_values`), the record less its `formula` rows, every other row the grid's, so that for any window it is the grid record with its formula lines removed, byte for byte; a fill's cell with a value never asks for its master, and one whose master the sheet has lost shows in neither record. Both records read a sheet's extent from what a machine or a recalculation keeps (`Values::kept_extent`, provided), where every view walked the sheet for it. Natively those windows in 1.6 to 1.9 ms, in Chrome 1.3 to 1.5; the records 368,831 bytes to 102,851 and 2,070,132 to 99,165; Alonzo's module 930 bytes larger; no public call changed. The refusal of an unknown projection names the third, reworded in the VBA catalogue, where the scoping had said no VBA. Held by a ninth law, by the view goldens less their formula rows, by counted walks and by six mutants, each failing named tests; oracle 11 amended in words, no golden moved. Found and left for the owner to mint: the core's build leaves a fill's other cells without their master when a later sentence writes over its first cell, and writes a file its own reader refuses. To be released in 0.9.3. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.42 — a window's changes: the cells of a window whose values the last frame changed, in the values' own rows, so that an engine's host repaints only those and skips the view of a still window.** Minted 2026-10-15 at the owner's word from Alonzo's `ENGINE.17`, scoped, built, owner-tested and committed the same day at the owner's word, its ten decisions the prompt's recommendations. A host drawing a running grid's values viewed its whole window at every frame to learn whether anything had changed: the still card's 80 by 50 window of 401 formulas, still 29 frames in 30, cost 0.17 ms natively at every frame. `Machine::view` now answers a fourth projection, `changes`: a row naming the sheet, the window, the frame before the last complete one and that frame, and how many cells changed, then each changed cell's rows as the values print them, by the same code, so that a host holding the window's values at the first frame and replacing those cells' rows holds them at the second, byte for byte; or the row ending `whole`, before the first frame, at a frame that changed more cells than the machine keeps room for, after a write that changed a formula or added a cell, and while a value written since lies in the window. A change is a change of the rows as the values spell them: a formula's 0 turned to -0, spelled 0 both times, is none. Natively a still window answers in 0.6 to 0.8 µs where its values take 4 to 178, a changing one about half a microsecond a changed cell, Life's window 0.31 ms against 1.5; the values as they were; no public call changed. Built to compose, as the owner asked mid-build, toward a viewport repainting the changed cells alone: patches by cell, the later winning, whole absorbing every other, both frames named so that a later slice answers since any frame in the same row. Held by an eleventh law, six tests, a counted walk and twenty mutants, each failing named tests, a first round's survivor caught by the tests written for the blind spot it found; Alonzo over it by a path, every frame equal. To be released in 0.9.4. `~days`, taken in one. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.43 — a run's lanes typed end to end: a twin's numbers kept beside its slots and read by stride, a moving range's aggregate folded over shifted slices, the truth functions and `IF` over lanes, so that a fill's frame costs a few nanoseconds a cell.** Minted 2026-10-16 at the owner's word of 2026-10-15 from its own measurement, with `KERNEL.44` and `KERNEL.45`; scoped, approved, built, owner-tested and committed 2026-10-16. A twin a formula reads keeps each slot's number and kind beside it and a count a row of the slots holding none; a run reads a reference that moves with the column as one slice of those numbers from a stretch's first cell and a column a `$` holds once a stretch, folds `SUM`, `MIN`, `MAX`, `AND` and `OR` over a moving range slice by slice in the library's order, turns `NOT` in place, answers an `IF` between two literals by its condition's lane, and makes a value only for a number that changed; the census names the path `stride`. Bit for bit natively and in wasm: Life's frame a third faster natively and in the browser, the gun's a quarter, Sand's 6 to 8%, short of the prediction's two to three times, the residual priced in the record. A spreadsheet's twins, which no formula reads, keep no numbers, after the recalc floors caught the first build writing them, and every recalc floor rose, Life's whole frame from 15.4 to 28.5 million formulas a second. Decision 5, a chunk computed whole, built, measured at no gain and taken out. Held by six new tests, a law over generated grids against every cell alone and `Calc` among them, the census and buffer tests widened, and twenty-six mutants, each failing named tests, a first round's survivor showing a slice's left edge dead and taken out; Alonzo over it by a path, every replay and digest unchanged. To be released in 0.9.5. `~weeks`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

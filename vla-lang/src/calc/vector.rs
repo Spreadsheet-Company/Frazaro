@@ -69,7 +69,7 @@
 //! that asks what the dispatch asks, held to it by a test that notes the
 //! paths runs take ([`taken`]).
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::cmp::Ordering;
 use std::convert::Infallible;
 use std::hash::Hasher;
@@ -170,6 +170,9 @@ pub(crate) struct Lanes {
     positions: Vec<Vec<u32>>,
     found: Vec<Key>,
     kept: Vec<Option<Lane>>,
+    /// By a run's cell, where the cells side by side in its row from it end
+    /// (KERNEL.43).
+    ends: Vec<u32>,
 }
 
 impl Lanes {
@@ -189,12 +192,17 @@ impl Lanes {
         while self.positions.len() < positions {
             self.positions.push(Vec::with_capacity(CHUNK));
         }
+        // Room for a chunk's stretches, the last run's emptied first, since
+        // `reserve` counts from the length.
+        self.ends.clear();
+        self.ends.reserve(CHUNK);
     }
 
     /// How many buffers of each kind are made, values, numbers, truth values
-    /// and positions, and the most any holds.
+    /// and positions, the most any holds, and the room of the stretches'
+    /// (KERNEL.43).
     #[cfg(test)]
-    pub(crate) fn made(&self) -> (usize, usize, usize, usize, usize) {
+    pub(crate) fn made(&self) -> (usize, usize, usize, usize, usize, usize) {
         let most = self.values.iter().map(Vec::capacity);
         let most = most
             .chain(self.numbers.iter().map(Vec::capacity))
@@ -207,6 +215,7 @@ impl Lanes {
             self.truths.len(),
             self.positions.len(),
             most.unwrap_or(0),
+            self.ends.capacity(),
         )
     }
 }
@@ -295,6 +304,18 @@ fn is_operand(lib: &Library, a: &Expr) -> bool {
         Expr::Ref(_) => true,
         Expr::Pos(x) => is_operand(lib, x),
         _ => yields_value(lib, a),
+    }
+}
+
+/// Whether a reference to one cell or a range moves with the cell's column
+/// at every corner it has, no `$` before a column (KERNEL.43): so that a
+/// run's cells side by side in a row read it as slices one column apart. A
+/// whole row or column is read as an array walked, never by slices.
+fn moves_with_column(r: &RefExpr) -> bool {
+    match r.shape {
+        Part::Cell => !r.corners.col_abs1,
+        Part::Range => !r.corners.col_abs1 && !r.corners.col_abs2,
+        _ => false,
     }
 }
 
@@ -702,6 +723,19 @@ enum Operand<'e> {
 /// a call of more is left to the library's function at each cell.
 const COUNTED: usize = 8;
 
+/// A range of an aggregate's as [`Many::fold_stretch`] reads it (KERNEL.43):
+/// its array, its rows, its first column at the stretch's first cell, its
+/// width, and whether it moves with the cells or stands still.
+#[derive(Clone, Copy)]
+struct Slices<'d> {
+    array: &'d Dense,
+    top: u32,
+    bottom: u32,
+    left: u32,
+    width: usize,
+    moves: bool,
+}
+
 /// How `IF`'s conditions part the cells of a selection.
 enum Parted {
     /// Every cell takes the one branch.
@@ -732,6 +766,13 @@ struct Many<'a> {
     lib: &'a Library,
     /// The run's cells, in the order of evaluation, all on one sheet.
     cells: &'a [CellId],
+    /// By cell, where the cells side by side in its row from it end, the
+    /// position after the last (KERNEL.43), found when a read or a fold
+    /// first asks: a run none of whose references asks, as a spreadsheet's
+    /// column of formulas reading its own sheet, never finds them.
+    ends: OnceCell<Vec<u32>>,
+    /// The buffer they are found in, until they are.
+    spare: Cell<Vec<u32>>,
     /// The cell the shape was read at, from which each cell's offset is.
     anchor: CellId,
     lanes: RefCell<&'a mut Lanes>,
@@ -753,7 +794,10 @@ struct Many<'a> {
 /// `anchor`'s offset from each, each cell's answer pushed to `out` in the
 /// run's order as the shape's evaluation at the cell alone answers it
 /// (`Shapes::evaluate`); `held` is what [`holds`] says of the parse, with a
-/// lane for each of its repeated parts, `repeats` (KERNEL.27).
+/// lane for each of its repeated parts, `repeats` (KERNEL.27). Where every
+/// answer is a number, the answers are `numbers` instead, `out` left empty,
+/// so that no value is made for a cell whose number is the one it holds
+/// (KERNEL.43).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn evaluate(
     env: &dyn Env,
@@ -765,6 +809,7 @@ pub(crate) fn evaluate(
     cells: &[CellId],
     lanes: &mut Lanes,
     out: &mut Vec<Computed>,
+    numbers: &mut Vec<f64>,
 ) {
     lanes.reserve(held);
     let mut found = std::mem::take(&mut lanes.found);
@@ -776,6 +821,8 @@ pub(crate) fn evaluate(
         env,
         lib,
         cells,
+        ends: OnceCell::new(),
+        spare: Cell::new(std::mem::take(&mut lanes.ends)),
         anchor,
         lanes: RefCell::new(lanes),
         found,
@@ -797,9 +844,9 @@ pub(crate) fn evaluate(
             out.extend(each.drain(..).map(computed));
             many.give(each);
         }
-        Lane::Numbers(numbers) => {
-            out.extend(numbers.iter().map(|&n| Computed::Value(Value::Number(n))));
-            many.give_numbers(numbers);
+        Lane::Numbers(lane) => {
+            numbers.extend_from_slice(&lane);
+            many.give_numbers(lane);
         }
         Lane::Truths(truths) => {
             out.extend(truths.iter().map(|&b| Computed::Value(Value::Bool(b))));
@@ -815,11 +862,17 @@ pub(crate) fn evaluate(
         }
     }
     let Many {
-        lanes, found, kept, ..
+        lanes,
+        found,
+        kept,
+        ends,
+        spare,
+        ..
     } = many;
     let lanes = lanes.into_inner();
     lanes.found = found;
     lanes.kept = kept.into_inner();
+    lanes.ends = ends.into_inner().unwrap_or_else(|| spare.into_inner());
 }
 
 /// A cell's answer as its formula holds it.
@@ -1094,6 +1147,8 @@ impl<'a> Many<'a> {
         #[cfg(test)]
         taken::note(if r.corners.row_abs1 && r.corners.col_abs1 {
             taken::Path::Once
+        } else if dense.is_some() && !r.corners.col_abs1 {
+            taken::Path::Stride
         } else if dense.is_some() {
             taken::Path::Slot
         } else {
@@ -1132,21 +1187,111 @@ impl<'a> Many<'a> {
         if r.corners.col_abs1 && self.cells[sel.at(0)].1 == self.cells[sel.at(sel.len() - 1)].1 {
             return Lane::Same(got(0));
         }
+        // The cells side by side in one row read together (KERNEL.43): a
+        // reference that moves with the column, over a sheet kept as an
+        // array, as one slice of the array's numbers from the first cell's
+        // to the last's or the array's edge, the cells past the edge alone;
+        // one whose column a `$` holds, as one read, the same cell at each.
+        // Any other cell, and the cells of a slice not wholly numbers, one by
+        // one. A cell outside the array is empty, which a lane of numbers
+        // never holds, so a slice starts at the first cell's or not at all.
         let mut numbers = self.take_numbers();
-        for k in 0..sel.len() {
-            match at(k) {
-                Ok(n) => numbers.push(n),
-                Err(other) => {
-                    let mut out = self.take();
-                    out.extend(numbers.iter().map(|&n| Ok(Value::Number(n))));
-                    self.give_numbers(numbers);
-                    out.push(other);
-                    out.extend((k + 1..sel.len()).map(got));
-                    return Lane::Each(out);
+        let n = sel.len();
+        let mut k = 0;
+        let mut odd: Option<(usize, Got)> = None;
+        'cells: while k < n {
+            let m = if dense.is_some() || r.corners.col_abs1 {
+                self.stretch(sel, k)
+            } else {
+                1
+            };
+            // How many of the stretch's cells its slice read.
+            let mut read = 0;
+            if m > 1 {
+                if r.corners.col_abs1 {
+                    if let Ok(x) = at(k) {
+                        #[cfg(test)]
+                        sliced::note(sliced::HELD);
+                        numbers.extend(std::iter::repeat(x).take(m));
+                        k += m;
+                        continue;
+                    }
+                } else if let Some(d) = dense {
+                    let (d_row, d_col) = self.offset(sel.at(k));
+                    let slice = r.moved(d_row, d_col).and_then(|(row, col, _, _)| {
+                        match d.inside((row, row), col, 1, m, true) {
+                            (0, b @ 2..) => d.numbers_in_row(row, col, b),
+                            _ => None,
+                        }
+                    });
+                    if let Some(slice) = slice {
+                        #[cfg(test)]
+                        sliced::note(sliced::READ);
+                        numbers.extend_from_slice(slice);
+                        read = slice.len();
+                    }
                 }
             }
+            for j in k + read..k + m {
+                match at(j) {
+                    Ok(x) => numbers.push(x),
+                    Err(other) => {
+                        odd = Some((j, other));
+                        break 'cells;
+                    }
+                }
+            }
+            k += m;
+        }
+        // At the first cell whose value is not a number, a lane of values,
+        // the rest read one by one.
+        if let Some((j, other)) = odd {
+            let mut out = self.take();
+            out.extend(numbers.iter().map(|&x| Ok(Value::Number(x))));
+            self.give_numbers(numbers);
+            out.push(other);
+            out.extend((j + 1..n).map(got));
+            return Lane::Each(out);
         }
         Lane::Numbers(numbers)
+    }
+
+    /// How many of the selection's cells from its `k`th stand side by side
+    /// in one row, each the cell right of the one before (KERNEL.43): a run's
+    /// cells of one row, or of a row's stretch a branch or a frame's reach
+    /// selects.
+    #[inline]
+    fn stretch(&self, sel: Sel, k: usize) -> usize {
+        let ends = self.ends();
+        match sel {
+            Sel::All(n) => (ends[k] as usize).min(n) - k,
+            Sel::Some(at) => {
+                let p = at[k] as usize;
+                let end = ends[p] as usize;
+                let mut m = 1;
+                while k + m < at.len() && at[k + m] as usize == p + m && p + m < end {
+                    m += 1;
+                }
+                m
+            }
+        }
+    }
+
+    /// Each cell's stretch, found the first time one is asked for, from the
+    /// last cell back (KERNEL.43).
+    fn ends(&self) -> &[u32] {
+        self.ends.get_or_init(|| {
+            let cells = self.cells;
+            let mut ends = self.spare.take();
+            ends.clear();
+            ends.resize(cells.len(), 0);
+            for p in (0..cells.len()).rev() {
+                let (s, row, col) = cells[p];
+                let beside = cells.get(p + 1) == Some(&(s, row, col + 1));
+                ends[p] = if beside { ends[p + 1] } else { (p + 1) as u32 };
+            }
+            ends
+        })
     }
 
     /// A sign or a percent at every cell, over the number each value reads as.
@@ -1407,7 +1552,7 @@ impl<'a> Many<'a> {
                 return None;
             };
             let lane = std::mem::replace(lane, Lane::Same(Ok(Value::Empty)));
-            return Some(self.negated(lane, sel));
+            return Some(self.negated(lane));
         }
         if ops.len() > COUNTED {
             return None;
@@ -1438,8 +1583,14 @@ impl<'a> Many<'a> {
             known,
             Known::Sum | Known::Min | Known::Max | Known::And | Known::Or
         ) {
-            for _ in kept.iter().flatten() {
-                taken::note(taken::Path::Array);
+            for (x, k) in ops.iter().zip(kept) {
+                if let (Operand::Ref(r), Some(_)) = (x, k) {
+                    taken::note(if moves_with_column(r) {
+                        taken::Path::Stride
+                    } else {
+                        taken::Path::Array
+                    });
+                }
             }
         }
         // The answers a lane of numbers, or of truth values, while each is.
@@ -1705,9 +1856,10 @@ impl<'a> Many<'a> {
     }
 
     /// `NOT` at every cell, over the value its operand is there, as
-    /// `library::negated` answers it: in place over a lane of values, a lane
-    /// of truth values made over one of numbers or of truth values.
-    fn negated(&self, lane: Lane, sel: Sel) -> Lane {
+    /// `library::negated` answers it: in place over a lane of values or of
+    /// truth values, a lane of truth values made over one of numbers, each
+    /// number's truth turned (KERNEL.43).
+    fn negated(&self, lane: Lane) -> Lane {
         match lane {
             Lane::Same(got) => Lane::Same(got.map(|v| library::negated(&v))),
             Lane::Each(mut each) => {
@@ -1716,14 +1868,17 @@ impl<'a> Many<'a> {
                 }
                 Lane::Each(each)
             }
-            typed => {
-                let mut out = Lane::Truths(self.take_truths());
-                for k in 0..sel.len() {
-                    let got = typed.with(k, |g| g.map(library::negated).map_err(Reason::clone));
-                    self.push(&mut out, got);
+            Lane::Truths(mut truths) => {
+                for t in truths.iter_mut() {
+                    *t = !*t;
                 }
-                self.give_lane(typed);
-                out
+                Lane::Truths(truths)
+            }
+            Lane::Numbers(numbers) => {
+                let mut truths = self.take_truths();
+                truths.extend(numbers.iter().map(|&n| n == 0.0));
+                self.give_numbers(numbers);
+                Lane::Truths(truths)
             }
         }
     }
@@ -1739,11 +1894,186 @@ impl<'a> Many<'a> {
         sel: Sel,
         mut out: Lane,
     ) -> Lane {
-        for k in 0..sel.len() {
-            let got = self.fold_at::<F>(ops, kept, sel.at(k), k);
-            self.push(&mut out, got);
+        // The cells side by side in one row folded together where every
+        // operand allows it (KERNEL.43), the cells whose ranges leave their
+        // arrays at the row's ends alone, and any other cell alone; the
+        // folds made once, for every stretch.
+        let mut folds: [F; CHUNK] = std::array::from_fn(|_| F::default());
+        let n = sel.len();
+        let mut k = 0;
+        while k < n {
+            let m = self.stretch(sel, k).min(CHUNK);
+            let (a, b) = match m {
+                1 => (1, 1),
+                _ => self.fold_stretch::<F>(ops, kept, sel, k, m, &mut folds),
+            };
+            for j in k..k + a {
+                let got = self.fold_at::<F>(ops, kept, sel.at(j), j);
+                self.push(&mut out, got);
+            }
+            for fold in folds[..b - a].iter_mut() {
+                let answer = std::mem::take(fold).answer();
+                match (&mut out, answer) {
+                    (Lane::Numbers(ns), Value::Number(x)) => ns.push(x),
+                    (Lane::Truths(ts), Value::Bool(b)) => ts.push(b),
+                    (_, v) => self.push(&mut out, Ok(v)),
+                }
+            }
+            for j in k + b..k + m {
+                let got = self.fold_at::<F>(ops, kept, sel.at(j), j);
+                self.push(&mut out, got);
+            }
+            k += m;
         }
         out
+    }
+
+    /// An aggregate at the `m` cells from the selection's `k`th, which stand
+    /// side by side in one row (KERNEL.43): the places `a..b` of the cells
+    /// whose ranges each stay inside its array and hold numbers there, their
+    /// folds the first `b - a` of `folds`, each operand's items added a lane
+    /// at a time, in the order [`Many::fold_at`] adds them at each cell, a
+    /// value given by its lane and a range by its rows' slices of numbers,
+    /// one column apart from cell to cell where its columns move with the
+    /// cell and the same slices where a `$` holds them at both corners; so
+    /// that each cell's answer is its own fold's, the same additions in the
+    /// same order. `(m, m)`, nothing folded, where an operand is not one it
+    /// adds so: a lane of values, a range not wholly numbers inside its
+    /// array, a whole row or column, a range held at one corner and not the
+    /// other.
+    #[inline(never)]
+    fn fold_stretch<F: Fold>(
+        &self,
+        ops: &[Operand<'_>],
+        kept: &[Option<(usize, &Dense)>],
+        sel: Sel,
+        k: usize,
+        m: usize,
+        folds: &mut [F; CHUNK],
+    ) -> (usize, usize) {
+        let none = (m, m);
+        let mut areas: [Option<Slices>; COUNTED] = [None; COUNTED];
+        let (d_row, d_col) = self.offset(sel.at(k));
+        // The places every range keeps inside its array.
+        let (mut a, mut b) = (0, m);
+        for (j, (x, kept)) in ops.iter().zip(kept).enumerate() {
+            match x {
+                Operand::Value(Lane::Numbers(_) | Lane::Truths(_)) => {}
+                Operand::Value(Lane::Same(Ok(Value::Number(_) | Value::Bool(_)))) => {}
+                Operand::Value(_) => return none,
+                Operand::Ref(r) => {
+                    let Some((_, array)) = kept else {
+                        return none;
+                    };
+                    let moves = moves_with_column(r);
+                    let held = match r.shape {
+                        Part::Cell => r.corners.col_abs1,
+                        Part::Range => r.corners.col_abs1 && r.corners.col_abs2,
+                        _ => false,
+                    };
+                    if !moves && !held {
+                        return none;
+                    }
+                    let Some((top, left, bottom, right)) = r.moved(d_row, d_col) else {
+                        return none;
+                    };
+                    let width = (right - left + 1) as usize;
+                    let (x, y) = array.inside((top, bottom), left, width, m, moves);
+                    (a, b) = (a.max(x), b.min(y));
+                    if a + 1 >= b {
+                        return none;
+                    }
+                    areas[j] = Some(Slices {
+                        array,
+                        top,
+                        bottom,
+                        left,
+                        width,
+                        moves,
+                    });
+                }
+            }
+        }
+        // Every range's rows hold numbers over the places.
+        let span = |at: &Slices| {
+            if at.moves {
+                at.width + (b - a) - 1
+            } else {
+                at.width
+            }
+        };
+        let from = |at: &Slices| {
+            if at.moves {
+                at.left + a as u32
+            } else {
+                at.left
+            }
+        };
+        for at in areas.iter().flatten() {
+            for row in at.top..=at.bottom {
+                if at.array.numbers_in_row(row, from(at), span(at)).is_none() {
+                    return none;
+                }
+            }
+        }
+        // A number or a truth value given, and a number read out of a range,
+        // is an item under either rule, never an error nor skipped: the
+        // rule's own items of them (`Rule::given_number` and its kin).
+        let folds = &mut folds[..b - a];
+        for fold in folds.iter_mut() {
+            *fold = F::default();
+        }
+        let (first, last) = (k + a, k + b);
+        for (x, area) in ops.iter().zip(&areas) {
+            match (x, area) {
+                (Operand::Value(Lane::Numbers(ns)), _) => {
+                    for (fold, &x) in folds.iter_mut().zip(&ns[first..last]) {
+                        fold.add(F::Rule::given_number(x));
+                    }
+                }
+                (Operand::Value(Lane::Truths(ts)), _) => {
+                    for (fold, &t) in folds.iter_mut().zip(&ts[first..last]) {
+                        fold.add(F::Rule::given_truth(t));
+                    }
+                }
+                (Operand::Value(Lane::Same(Ok(v))), _) => {
+                    let item = match v {
+                        Value::Number(x) => F::Rule::given_number(*x),
+                        Value::Bool(t) => F::Rule::given_truth(*t),
+                        // Never: each operand was read above.
+                        _ => return none,
+                    };
+                    for fold in folds.iter_mut() {
+                        fold.add(item);
+                    }
+                }
+                (Operand::Ref(_), Some(at)) => {
+                    for row in at.top..=at.bottom {
+                        let Some(slice) = at.array.numbers_in_row(row, from(at), span(at)) else {
+                            debug_assert!(false, "a range's rows were read before");
+                            return none;
+                        };
+                        for c in 0..at.width {
+                            if at.moves {
+                                for (fold, &x) in folds.iter_mut().zip(&slice[c..]) {
+                                    fold.add(F::Rule::ranged_number(x));
+                                }
+                            } else {
+                                let item = F::Rule::ranged_number(slice[c]);
+                                for fold in folds.iter_mut() {
+                                    fold.add(item);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Never: each operand was read above.
+                _ => return none,
+            }
+        }
+        #[cfg(test)]
+        sliced::note(sliced::FOLDED);
+        (a, b)
     }
 
     /// An aggregate at one cell: each operand taken left to right, as
@@ -1924,6 +2254,14 @@ impl<'a> Many<'a> {
             return Lane::Same(Ok(Value::Error(ErrorKind::Value)));
         }
         let conditions = self.scalars(&args[0], sel);
+        if let [_, a, b] = args {
+            if let Some(lane) = self.chosen(&conditions, a, b) {
+                #[cfg(test)]
+                sliced::note(sliced::CHOSEN);
+                self.give_lane(conditions);
+                return lane;
+            }
+        }
         let (mut out, yes, no) = match self.parted(conditions, sel) {
             Parted::All(taken) => return self.branch(args, taken, sel),
             Parted::Answer(lane) => return lane,
@@ -1934,6 +2272,37 @@ impl<'a> Many<'a> {
         self.give_positions(yes);
         self.give_positions(no);
         out
+    }
+
+    /// `IF` between two literals of one kind, a number or a truth value each,
+    /// over conditions of numbers or truth values (KERNEL.43): each cell's
+    /// answer the literal its condition's truth takes, none parted, a lane of
+    /// numbers or of truth values; `None` for any other.
+    #[inline(never)]
+    fn chosen(&self, conditions: &Lane, a: &Expr, b: &Expr) -> Option<Lane> {
+        match (conditions, a, b) {
+            (Lane::Truths(ts), Expr::Number(x), Expr::Number(y)) => {
+                let mut numbers = self.take_numbers();
+                numbers.extend(ts.iter().map(|&t| if t { *x } else { *y }));
+                Some(Lane::Numbers(numbers))
+            }
+            (Lane::Numbers(cs), Expr::Number(x), Expr::Number(y)) => {
+                let mut numbers = self.take_numbers();
+                numbers.extend(cs.iter().map(|&c| if c != 0.0 { *x } else { *y }));
+                Some(Lane::Numbers(numbers))
+            }
+            (Lane::Truths(ts), Expr::Bool(x), Expr::Bool(y)) => {
+                let mut truths = self.take_truths();
+                truths.extend(ts.iter().map(|&t| if t { *x } else { *y }));
+                Some(Lane::Truths(truths))
+            }
+            (Lane::Numbers(cs), Expr::Bool(x), Expr::Bool(y)) => {
+                let mut truths = self.take_truths();
+                truths.extend(cs.iter().map(|&c| if c != 0.0 { *x } else { *y }));
+                Some(Lane::Truths(truths))
+            }
+            _ => None,
+        }
     }
 
     /// How `IF`'s conditions at every cell of the selection part its cells,
@@ -2165,9 +2534,16 @@ fn number_at(lane: Option<&Lane>, k: usize) -> Option<f64> {
 /// holds each to a kind this names.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Paths {
-    /// One cell of a sheet kept as an array, read by its index.
+    /// A reference into a sheet kept as an array whose column moves with
+    /// the cell (KERNEL.43): one cell read for a run's cells side by side in
+    /// a row as one slice of the array's numbers, or a range folded over its
+    /// rows' slices.
+    pub(crate) stride: bool,
+    /// One cell of a sheet kept as an array, read by its index; its column
+    /// held, once for a run's cells of one row.
     pub(crate) slot: bool,
-    /// A range of a sheet kept as an array, walked by index.
+    /// A range of a sheet kept as an array, walked by index; its columns
+    /// held at both corners, the same range at each of a run's cells.
     pub(crate) array: bool,
     /// One cell through the environment's lookups.
     pub(crate) lookup: bool,
@@ -2184,18 +2560,22 @@ pub(crate) struct Paths {
 
 /// The paths of a shape's parse, `arrays` saying which sheets the
 /// environment keeps as arrays (a machine's twins, as its last frame's end
-/// left them). The walk keeps its own stack, as every walk of a parse does,
-/// so that a chain as long as Excel holds costs it no depth.
+/// left them), `runs` whether the shape has runs, whose cells side by side
+/// read a reference that moves with them by slices (KERNEL.43), where a cell
+/// alone reads it by index. The walk keeps its own stack, as every walk of a
+/// parse does, so that a chain as long as Excel holds costs it no depth.
 pub(crate) fn paths(
     lib: &Library,
     model: &crate::sheet::Workbook,
     e: &Expr,
     arrays: &dyn Fn(usize) -> bool,
+    runs: bool,
 ) -> Paths {
     let mut walk = Walk {
         lib,
         model,
         arrays,
+        runs,
         paths: Paths::default(),
     };
     let mut stack: Vec<&Expr> = vec![e];
@@ -2213,6 +2593,7 @@ struct Walk<'a> {
     lib: &'a Library,
     model: &'a crate::sheet::Workbook,
     arrays: &'a dyn Fn(usize) -> bool,
+    runs: bool,
     paths: Paths,
 }
 
@@ -2253,6 +2634,9 @@ impl Walk<'_> {
         match self.sheet_of(r) {
             None => {}
             Some(_) if r.corners.row_abs1 && r.corners.col_abs1 => self.paths.once = true,
+            Some(sheet) if self.kept(sheet) && self.runs && !r.corners.col_abs1 => {
+                self.paths.stride = true
+            }
             Some(sheet) if self.kept(sheet) => self.paths.slot = true,
             Some(_) => self.paths.lookup = true,
         }
@@ -2365,8 +2749,15 @@ impl Walk<'_> {
         }
         match known {
             Some(Known::Sum | Known::Min | Known::Max | Known::And | Known::Or) => {
-                if refs.iter().any(|r| self.sheet_of(r).is_some()) {
-                    self.paths.array = true;
+                for r in refs {
+                    if self.sheet_of(r).is_none() {
+                        continue;
+                    }
+                    if self.runs && moves_with_column(r) {
+                        self.paths.stride = true;
+                    } else {
+                        self.paths.array = true;
+                    }
                 }
             }
             Some(Known::Abs | Known::Int | Known::Sin | Known::Mod) => {
@@ -2376,6 +2767,37 @@ impl Walk<'_> {
             }
             _ => {}
         }
+    }
+}
+
+/// How often a run read a reference by slices or a held column once, folded
+/// an aggregate by slices, and chose `IF`'s literals by its condition's lane
+/// (KERNEL.43), counted in a test on its own thread, so that a law over runs
+/// can say that each was taken.
+#[cfg(test)]
+pub(crate) mod sliced {
+    use std::cell::Cell;
+
+    pub(crate) const READ: usize = 0;
+    pub(crate) const HELD: usize = 1;
+    pub(crate) const FOLDED: usize = 2;
+    pub(crate) const CHOSEN: usize = 3;
+
+    thread_local! {
+        static COUNTS: Cell<[usize; 4]> = const { Cell::new([0; 4]) };
+    }
+
+    pub(crate) fn note(i: usize) {
+        COUNTS.with(|c| {
+            let mut a = c.get();
+            a[i] += 1;
+            c.set(a);
+        });
+    }
+
+    /// The counts since the last time they were taken.
+    pub(crate) fn take() -> [usize; 4] {
+        COUNTS.with(|c| c.replace([0; 4]))
     }
 }
 
@@ -2391,6 +2813,7 @@ pub(crate) mod taken {
     /// A path a run took.
     #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum Path {
+        Stride,
         Slot,
         Array,
         Lookup,

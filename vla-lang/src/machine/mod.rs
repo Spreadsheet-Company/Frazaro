@@ -85,7 +85,7 @@ use std::cell::Cell as Slot;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap};
 
 use crate::calc::graph::{is_formula, Extent, Names};
-use crate::calc::reach::Reached;
+use crate::calc::reach::{Reach, Reached};
 use crate::calc::shape::{spell_cell, Shapes, RUN};
 use crate::calc::vector::{self, Lanes};
 use crate::calc::{CellId, Computed, Ctx, Dense, Env, ErrorKind, Library, Reason, Value, Values};
@@ -116,9 +116,10 @@ pub const HANDLES: usize = 16;
 pub const WRITE_ROWS: &str = "cell, formula and derived";
 
 /// The most slots a twin's array holds for each cell of its sheet
-/// (KERNEL.20): a slot is 24 bytes and a cell of the twin's B-tree about 137
-/// (measured 2026-10-10), so an array within this is smaller than the cells
-/// it shadows, and a sheet sparser than that, two cells far apart, is read
+/// (KERNEL.20): a slot is 24 bytes, its number and kind beside it 9 more
+/// (KERNEL.43), and a cell of the twin's B-tree about 137 (measured
+/// 2026-10-10), so an array within this is smaller than the cells it
+/// shadows, and a sheet sparser than that, two cells far apart, is read
 /// through its cells.
 const SLOTS_A_CELL: u64 = 4;
 
@@ -353,6 +354,9 @@ pub struct Machine {
     /// (KERNEL.20).
     lanes: Lanes,
     answers: Vec<Computed>,
+    /// A run's answers when every one is a number, as its lane holds them
+    /// (KERNEL.43), compared with the values held to the bit.
+    answered: Vec<f64>,
     /// The cells of a run a frame computes, gathered a chunk at a time, and
     /// their positions in the order.
     gathered: Vec<CellId>,
@@ -541,6 +545,7 @@ impl Machine {
             lagging: vec![false; sheets],
             lanes: Lanes::default(),
             answers: Vec::new(),
+            answered: Vec::with_capacity(vector::CHUNK),
             gathered: Vec::with_capacity(vector::CHUNK),
             gathered_at: Vec::with_capacity(vector::CHUNK),
             every_next: true,
@@ -827,6 +832,7 @@ impl Machine {
     fn evaluate_run(&mut self, shape: usize, from: usize, to: usize, keep: bool) {
         let mut lanes = std::mem::take(&mut self.lanes);
         let mut answers = std::mem::take(&mut self.answers);
+        let mut answered = std::mem::take(&mut self.answered);
         let mut gathered = std::mem::take(&mut self.gathered);
         let mut gathered_at = std::mem::take(&mut self.gathered_at);
         let every = self.every || self.whole[shape];
@@ -843,9 +849,17 @@ impl Machine {
                     cells,
                     &mut lanes,
                     &mut answers,
+                    &mut answered,
                 );
-                for (k, computed) in answers.drain(..).enumerate() {
-                    self.keep(i + k, computed, keep);
+                if answers.is_empty() {
+                    for (k, &x) in answered.iter().enumerate() {
+                        self.keep_number(i + k, x, keep);
+                    }
+                    answered.clear();
+                } else {
+                    for (k, computed) in answers.drain(..).enumerate() {
+                        self.keep(i + k, computed, keep);
+                    }
                 }
                 i = j;
                 continue;
@@ -879,34 +893,65 @@ impl Machine {
                 &gathered,
                 &mut lanes,
                 &mut answers,
+                &mut answered,
             );
-            for (&p, computed) in gathered_at.iter().zip(answers.drain(..)) {
-                self.keep(p as usize, computed, keep);
+            if answers.is_empty() {
+                for (&p, &x) in gathered_at.iter().zip(&answered) {
+                    self.keep_number(p as usize, x, keep);
+                }
+                answered.clear();
+            } else {
+                for (&p, computed) in gathered_at.iter().zip(answers.drain(..)) {
+                    self.keep(p as usize, computed, keep);
+                }
             }
         }
         self.lanes = lanes;
         self.answers = answers;
+        self.answered = answered;
         self.gathered = gathered;
         self.gathered_at = gathered_at;
     }
 
+    /// A number a run computed for the cell at a position of the order, its
+    /// cell's answer (KERNEL.43): nothing done where the value held is that
+    /// number to the bit, as [`Machine::keep`] would do nothing, and no
+    /// value made for it; else kept as `keep` keeps one, compared once.
+    #[inline]
+    fn keep_number(&mut self, p: usize, x: f64, keep: bool) {
+        #[cfg(test)]
+        {
+            self.computed += 1;
+        }
+        if let Some(Computed::Value(Value::Number(held))) = &self.values[p] {
+            if held.to_bits() == x.to_bits() {
+                return;
+            }
+        }
+        self.changed_to(p, Computed::Value(Value::Number(x)), keep);
+    }
+
     /// The value the frame computed for the cell at a position of the order,
-    /// kept when its bits differ from the one it holds (KERNEL.20): the old
-    /// one beside while a step yields, the cell counted as changed, and, but
-    /// in a frame that computes every cell, the cells of the frame that read
-    /// it marked.
+    /// kept when its bits differ from the one it holds (KERNEL.20).
     fn keep(&mut self, p: usize, computed: Computed, keep: bool) {
         #[cfg(test)]
         {
             self.computed += 1;
         }
-        let held = &mut self.values[p];
-        if let Some(h) = held {
+        if let Some(h) = &self.values[p] {
             if same_computed(h, &computed) {
                 return;
             }
         }
-        let was = held.replace(computed);
+        self.changed_to(p, computed, keep);
+    }
+
+    /// A value that differs from the one its cell holds kept: the old one
+    /// beside while a step yields, the cell counted as changed, and, but in
+    /// a frame that computes every cell, the cells of the frame that read it
+    /// marked.
+    fn changed_to(&mut self, p: usize, computed: Computed, keep: bool) {
+        let was = self.values[p].replace(computed);
         if keep {
             self.before.entry(p as u32).or_insert(was);
         }
@@ -1125,6 +1170,7 @@ impl Machine {
         self.alike.clear();
         self.alike_over = false;
         let sheets = self.sheets;
+        let reach = self.shapes.reach();
         let (rows, twins) = self.book.sheets.split_at_mut(sheets);
         for (s, (sheet, twin)) in rows.iter().zip(twins.iter_mut()).enumerate() {
             #[cfg(test)]
@@ -1140,6 +1186,7 @@ impl Machine {
                 self.extents[s],
                 slots.min(CELLS as u64),
                 self.dense[s].take(),
+                sliced(reach, t),
             );
             let mut fits = true;
             let mut whole = true;
@@ -1192,8 +1239,8 @@ impl Machine {
                 if let Some(k) = kept.as_mut() {
                     match k.index(row, col) {
                         Some(i) => {
-                            let slot = k.slot_at(i);
                             if lags && behind.get(i / 64).is_some_and(|w| w >> (i % 64) & 1 == 1) {
+                                let slot = k.slot_at(i);
                                 let held = same_slot(slot, content.as_ref());
                                 if !held {
                                     bits = alike(
@@ -1204,7 +1251,7 @@ impl Machine {
                                 }
                                 same = Some(held);
                             }
-                            refresh(slot, content.as_ref());
+                            k.write_at(i, |slot| refresh(slot, content.as_ref()));
                         }
                         None => whole = false,
                     }
@@ -1958,6 +2005,15 @@ impl Machine {
                 }
             }
             self.values = moved;
+            // A twin's array a formula now reads by slices keeps its numbers
+            // beside its slots from the next frame on, made from its slots;
+            // one no formula reads drops them (KERNEL.43).
+            let reach = self.shapes.reach();
+            for (s, kept) in self.dense.iter_mut().enumerate() {
+                if let Some(k) = kept {
+                    k.shade(sliced(reach, self.sheets + s));
+                }
+            }
         }
         // A write never empties a cell: it only adds cells or changes them.
         // A formula changed or a cell added, and the next frame computes
@@ -2161,6 +2217,15 @@ fn refresh(slot: &mut Value, content: Option<&Content>) {
     }
 }
 
+/// Whether a run may read a twin by slices, so that its array keeps its
+/// numbers beside its slots (KERNEL.43): a shape the plan follows reads it,
+/// or the plan holds a shape it does not follow, whose reads it cannot
+/// tell. A spreadsheet's twins, which no formula reads, keep none, and a
+/// frame's end that writes their slots writes nothing beside them.
+fn sliced(reach: &Reach, twin: usize) -> bool {
+    reach.readers_on(twin) > 0 || !reach.unfollowed().is_empty()
+}
+
 /// What a frame's end that copies its changed cells writes (KERNEL.20): the
 /// twins, their reasons, the kept planes and arrays, the twin cells left
 /// behind their slots (KERNEL.27), and the twin cells that changed, with
@@ -2196,7 +2261,7 @@ impl Twins<'_> {
         let (s, row, col) = id;
         if let Some(Some(k)) = self.dense.get_mut(s) {
             if let Some(i) = k.index(row, col) {
-                refresh(k.slot_at(i), content.as_ref());
+                k.write_at(i, |slot| refresh(slot, content.as_ref()));
                 self.behind[s][i / 64] &= !(1 << (i % 64));
             }
         }
@@ -2264,7 +2329,7 @@ impl Twins<'_> {
                 (Spelled::slot(slot), None),
                 (Spelled::content(content.as_ref()), None),
             );
-            refresh(slot, content.as_ref());
+            k.write_at(i, |slot| refresh(slot, content.as_ref()));
             self.behind[s][i / 64] |= 1 << (i % 64);
             self.lagging[s] = true;
         }
@@ -3092,6 +3157,13 @@ mod tests {
     fn dense_kept(m: &Machine, sheet: &str) -> bool {
         let twin = m.find_sheet(&format!("{sheet}.last")).unwrap();
         m.dense(twin).is_some()
+    }
+
+    /// Whether a sheet's twin's array keeps its numbers beside its slots
+    /// (KERNEL.43); `None` for a twin kept as no array.
+    fn numbers_kept(m: &Machine, sheet: &str) -> Option<bool> {
+        let twin = m.find_sheet(&format!("{sheet}.last")).unwrap();
+        m.dense(twin).map(Dense::keeps_numbers)
     }
 
     /// Every twin read and walked by the evaluator held to its cells: each
@@ -3996,6 +4068,340 @@ mod tests {
         );
     }
 
+    // ---- KERNEL.43: a run's lanes typed end to end ----
+
+    /// A cell of one of the typed grids' twins, up to two rows and four
+    /// columns from the formula's own, its column held one time in five and
+    /// its row one in three.
+    fn typed_ref(d: &mut Dice) -> String {
+        let twin = d.pick(&["S.last", "T.last"]);
+        let col = if d.below(5) == 0 { "$" } else { "" };
+        let row = if d.below(3) == 0 { "$" } else { "" };
+        let letter = d.pick(&["A", "B", "C", "D", "E"]);
+        format!("{twin}!{col}{letter}{row}{}", 1 + d.below(5))
+    }
+
+    /// A range of a typed grid's twin, up to three rows by four columns,
+    /// moving with the cell at both corners, held at both, or held at one.
+    fn typed_range(d: &mut Dice) -> String {
+        let twin = d.pick(&["S.last", "T.last"]);
+        let (c1, r1) = (d.below(5), 1 + d.below(5) as u32);
+        let (h, w) = (d.below(3) as u32, d.below(4));
+        let (a, b) = match d.below(6) {
+            0 => ("$", "$"),
+            1 => ("$", ""),
+            2 => ("", "$"),
+            _ => ("", ""),
+        };
+        format!(
+            "{twin}!{a}{}{r1}:{b}{}{}",
+            LETTERS[c1],
+            LETTERS[c1 + w],
+            r1 + h
+        )
+    }
+
+    /// A comparison over the typed grids' nodes: a lane of truth values.
+    fn typed_test(d: &mut Dice, depth: u32) -> String {
+        let op = d.pick(&["=", "<>", "<", ">", "<=", ">="]);
+        format!(
+            "({}){op}({})",
+            typed_expr(d, depth + 1),
+            typed_expr(d, depth + 1)
+        )
+    }
+
+    /// A formula of the nodes a run computes by typed lanes (KERNEL.43): the
+    /// twins' cells and ranges read by slices or, held, once a row; the
+    /// aggregates and the truth functions over values, comparisons and
+    /// ranges; `NOT`; `IF` between literals of one kind or of two, and
+    /// between any branches.
+    fn typed_expr(d: &mut Dice, depth: u32) -> String {
+        if depth >= 3 || d.below(3) == 0 {
+            return match d.below(6) {
+                0 => d.pick(&["0", "1", "2", "3", "0.5", "-1"]).to_string(),
+                _ => typed_ref(d),
+            };
+        }
+        let e = |d: &mut Dice| typed_expr(d, depth + 1);
+        let operands = |d: &mut Dice, n: usize| {
+            let parts: Vec<String> = (0..n)
+                .map(|_| match d.below(3) {
+                    0 => typed_range(d),
+                    1 => typed_test(d, depth + 1),
+                    _ => typed_expr(d, depth + 1),
+                })
+                .collect();
+            parts.join(",")
+        };
+        match d.below(11) {
+            0 => format!("({})+({})", e(d), e(d)),
+            1 => format!("({})-({})*({})", e(d), e(d), e(d)),
+            2 => {
+                let f = d.pick(&["SUM", "MIN", "MAX"]);
+                let n = 1 + d.below(3);
+                format!("{f}({})", operands(d, n))
+            }
+            3 => format!("SUM({})-({})", typed_range(d), typed_ref(d)),
+            4 => {
+                let f = d.pick(&["AND", "OR"]);
+                let n = 1 + d.below(3);
+                format!("{f}({})", operands(d, n))
+            }
+            5 => format!("NOT({})", typed_test(d, depth)),
+            6 => {
+                let (a, b) = match d.below(3) {
+                    0 => ("1", "0"),
+                    1 => ("TRUE", "FALSE"),
+                    _ => ("2.5", "TRUE"),
+                };
+                format!("IF({},{a},{b})", typed_test(d, depth))
+            }
+            7 => format!("IF({},{},{})", typed_test(d, depth), e(d), e(d)),
+            8 => {
+                let (a, b) = (d.pick(&["1", "7"]), d.pick(&["0", "-2"]));
+                format!("IF({},{a},{b})", e(d))
+            }
+            9 => match d.below(2) {
+                0 => typed_test(d, depth),
+                _ => format!("NOT({})", e(d)),
+            },
+            _ => format!("MOD({},5)", e(d)),
+        }
+    }
+
+    /// A grid of KERNEL.43's law: on `S`, value cells in `A1:B<rows>` and
+    /// bands of formulas from `C1` to a column 20 to 300 wide, each band one
+    /// shape, every formula folded into a number by `MOD`, so that its twin
+    /// holds numbers but where a formula answers an error; one band in four
+    /// with a hole, a cell of its own formula, so that its runs stop beside
+    /// it; on `T`, numbers over the same columns, a few texts, truth values,
+    /// errors and empty cells among them. The rows and the last column.
+    fn typed_grid(d: &mut Dice) -> (String, u32, u32) {
+        let rows = 2 + d.below(10) as u32;
+        let last = 3 + 20 + d.below(281) as u32;
+        let right = crate::sheet::column_letters(last);
+        let mut out = String::from("(sheet \"S\" visible)\n(sheet \"T\" visible)\n");
+        for row in 1..=rows {
+            for col in ["A", "B"] {
+                let v = d.pick(&["0", "1", "2", "-3", "0.5", "1", "2"]);
+                out.push_str(&format!("(cell \"S\" \"{col}{row}\" {v})\n"));
+            }
+        }
+        // T's cells, each written once: a number; and in one row of T in
+        // four, now and then another kind, or nothing, so that a lane read
+        // over those rows meets a value that is not a number and a lane over
+        // the others does not.
+        for row in 1..=rows + 2 {
+            let odd = d.below(4) == 0;
+            for col in 1..=last {
+                let v = match d.below(if odd { 10 } else { 1000 }) {
+                    0 => "\"x\"",
+                    1 => "true",
+                    2 => "(error \"#N/A\")",
+                    3 => continue,
+                    _ => d.pick(&["1", "2", "-1", "0.25", "3", "0"]),
+                };
+                let at = crate::sheet::cell_ref(row, col);
+                out.push_str(&format!("(cell \"T\" \"{at}\" {v})\n"));
+            }
+        }
+        let column = crate::sheet::column_letters;
+        let mut top = 1;
+        while top <= rows {
+            let bottom = (top + d.below(rows as usize) as u32).min(rows);
+            let f = crate::rows::quoted(&format!("=MOD({},97)", typed_expr(d, 0)));
+            if d.below(4) == 0 {
+                // A hole in the band's first row, a formula of its own.
+                let hole = 4 + d.below(last as usize - 4) as u32;
+                let (before, after) = (column(hole - 1), column(hole + 1));
+                out.push_str(&format!("(formula \"S\" \"C{top}:{before}{top}\" {f})\n"));
+                out.push_str(&format!(
+                    "(formula \"S\" \"{}{top}\" \"=S.last!A1+1\")\n",
+                    column(hole)
+                ));
+                out.push_str(&format!(
+                    "(formula \"S\" \"{after}{top}:{right}{top}\" {f})\n"
+                ));
+                if bottom > top {
+                    out.push_str(&format!(
+                        "(formula \"S\" \"C{}:{right}{bottom}\" {f})\n",
+                        top + 1
+                    ));
+                }
+            } else {
+                out.push_str(&format!("(formula \"S\" \"C{top}:{right}{bottom}\" {f})\n"));
+            }
+            top = bottom + 1;
+        }
+        out.push_str("(sheet \"Clock\" visible)\n(cell \"Clock\" \"B1\" 0)\n");
+        (out, rows, last)
+    }
+
+    #[test]
+    fn cells_that_read_past_their_twin_s_array_read_inside_it_by_a_slice() {
+        // KERNEL.43: of two fills over a twin's array, columns C to Z, the
+        // one whose last two cells read right of it reads a slice to its
+        // edge and those two one by one; the one whose first two read left
+        // of it reads every cell one by one, a cell outside the array being
+        // empty, which a lane of numbers never holds. Both are the cells
+        // evaluated one by one.
+        let rows = concat!(
+            "(sheet \"U\" visible)\n",
+            "(cell \"U\" \"C1:Z1\" 2)\n",
+            "(formula \"U\" \"C2:Z2\" \"=U.last!A1+COLUMN()\")\n",
+            "(formula \"U\" \"C3:Z3\" \"=U.last!E1+COLUMN()\")\n",
+        );
+        let (mut runs, mut alone) = (load(rows), load(rows));
+        alone.by_runs = false;
+        vector::sliced::take();
+        assert!(runs.step(0).done && alone.step(0).done);
+        assert!(dense_kept(&runs, "U"), "the twin is kept as an array");
+        assert_eq!(values(&runs), values(&alone));
+        assert_eq!(
+            vector::sliced::take()[vector::sliced::READ],
+            1,
+            "the right edge's fill alone reads a slice"
+        );
+    }
+
+    #[test]
+    fn a_twin_no_formula_reads_keeps_no_numbers_beside_its_slots() {
+        // KERNEL.43: a spreadsheet's sheet, whose twin no formula reads,
+        // keeps its twin's array without the numbers beside its slots; a
+        // write that makes a formula read the twin makes them at once, from
+        // the slots, and the frames after it read them by slices; a write
+        // that leaves no formula reading it drops them. Every frame is the
+        // cells evaluated one by one.
+        let rows = concat!(
+            "(sheet \"U\" visible)\n",
+            "(cell \"U\" \"C1:Z1\" 2)\n",
+            "(formula \"U\" \"C2:Z2\" \"=U!C1+COLUMN()\")\n",
+        );
+        let (mut runs, mut alone) = (load(rows), load(rows));
+        alone.by_runs = false;
+        assert!(runs.step(0).done && alone.step(0).done);
+        assert_eq!(
+            numbers_kept(&runs, "U"),
+            Some(false),
+            "no formula reads U.last"
+        );
+        for m in [&mut runs, &mut alone] {
+            assert_eq!(
+                m.write("(formula \"U\" \"C3:Z3\" \"=U.last!C2*2\")"),
+                Ok(24)
+            );
+        }
+        assert_eq!(numbers_kept(&runs, "U"), Some(true), "made at the write");
+        vector::sliced::take();
+        for frame in 2..=3 {
+            assert!(runs.step(0).done && alone.step(0).done);
+            assert_eq!(values(&runs), values(&alone), "frame {frame}");
+            assert_eq!(numbers_kept(&runs, "U"), Some(true), "frame {frame}");
+        }
+        assert!(
+            vector::sliced::take()[vector::sliced::READ] > 0,
+            "the twin read by slices"
+        );
+        for m in [&mut runs, &mut alone] {
+            assert_eq!(m.write("(formula \"U\" \"C3:Z3\" \"=U!C2*2\")"), Ok(24));
+        }
+        assert_eq!(
+            numbers_kept(&runs, "U"),
+            Some(false),
+            "dropped at the write"
+        );
+        assert!(runs.step(0).done && alone.step(0).done);
+        assert_eq!(values(&runs), values(&alone));
+        assert_eq!(numbers_kept(&runs, "U"), Some(false));
+        // A shape whose reads the plan cannot follow, a name's, might read
+        // any twin: while one stands, every twin keeps its numbers.
+        let named = concat!(
+            "(sheet \"U\" visible)\n",
+            "(name \"Rate\" \"U!$C$1\")\n",
+            "(cell \"U\" \"C1:Z1\" 2)\n",
+            "(formula \"U\" \"C2:Z2\" \"=U!C1+COLUMN()\")\n",
+            "(formula \"U\" \"C3\" \"=Rate*2\")\n",
+        );
+        let mut m = load(named);
+        assert!(m.step(0).done);
+        assert_eq!(numbers_kept(&m, "U"), Some(true), "a name's shape stands");
+    }
+
+    #[test]
+    fn a_run_read_by_slices_is_its_cells_evaluated_one_by_one() {
+        // KERNEL.43: grids of wide bands whose formulas read their twins by
+        // slices and fold their ranges by slices, stepped by runs in slices of
+        // any budget, against the same grids with every cell evaluated alone
+        // and against `Calc` at the first frame, frame for frame and bit for
+        // bit; between frames, writes into the twins' sheets change a value,
+        // turn a number into a text and back, and empty a cell, so that a
+        // frame reaches some cells and not others, its stretches broken where
+        // a cell is not reached, and a slice meets a slot that is not a
+        // number. Every path the item adds is taken.
+        let mut taken = [0usize; 4];
+        for seed in 1..=40u64 {
+            let mut d = Dice(seed);
+            let (rows, height, last) = typed_grid(&mut d);
+            let mut runs = load(&rows);
+            let mut alone = load(&rows);
+            alone.by_runs = false;
+            let calc: BTreeMap<CellId, String> = {
+                let calc = crate::calc::Calc::run(&runs.book, &runs.library);
+                let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
+                runs.shapes
+                    .order()
+                    .iter()
+                    .map(|id| (*id, spell(id)))
+                    .collect()
+            };
+            vector::sliced::take();
+            for frame in 1..=6 {
+                while !runs.step(1 + d.below(2000)).done {}
+                assert!(alone.step(0).done);
+                assert_eq!(
+                    values(&runs),
+                    values(&alone),
+                    "seed {seed}, frame {frame}\n{rows}"
+                );
+                if frame == 1 {
+                    assert_eq!(values(&runs), calc, "seed {seed}: Calc\n{rows}");
+                }
+                let at = |d: &mut Dice| {
+                    crate::sheet::cell_ref(
+                        1 + d.below(height as usize + 2) as u32,
+                        1 + d.below(last as usize) as u32,
+                    )
+                };
+                let write = match d.below(5) {
+                    0 => format!(
+                        "(cell \"T\" \"{}\" {})",
+                        at(&mut d),
+                        d.pick(&["4", "-2", "0"])
+                    ),
+                    1 => format!("(cell \"T\" \"{}\" \"y\")", at(&mut d)),
+                    2 => format!(
+                        "(cell \"S\" \"A{}\" {})",
+                        1 + d.below(height as usize),
+                        d.pick(&["3", "\"z\""])
+                    ),
+                    3 => format!("(cell \"Clock\" \"B1\" {frame})"),
+                    _ => continue,
+                };
+                let (a, b) = (runs.write(&write), alone.write(&write));
+                assert!(a.is_ok() && b.is_ok(), "seed {seed}: {write}: {a:?} {b:?}");
+            }
+            let counts = vector::sliced::take();
+            for (t, c) in taken.iter_mut().zip(counts) {
+                *t += c;
+            }
+        }
+        assert!(
+            taken.iter().all(|&c| c > 0),
+            "every path taken somewhere: reads by slices, held columns, folds, choices {taken:?}"
+        );
+    }
+
     // ---- KERNEL.30: the census held to the plan walked again, and to the
     // paths runs take ----
 
@@ -4150,6 +4556,7 @@ mod tests {
         use crate::calc::census::Kind;
         use vector::taken::Path;
         match path {
+            Path::Stride => f.reads.contains(&Kind::Stride),
             Path::Slot => f.reads.contains(&Kind::Slot),
             Path::Array => f.reads.contains(&Kind::Array),
             Path::Lookup => f.reads.contains(&Kind::Lookup),
@@ -4190,6 +4597,7 @@ mod tests {
                         "seed {seed}, frame {frame}: shape {s} took {path:?}; its facts {f:?}\n{rows}"
                     );
                     kinds.insert(match path {
+                        vector::taken::Path::Stride => "stride",
                         vector::taken::Path::Slot => "slot",
                         vector::taken::Path::Array => "array",
                         vector::taken::Path::Lookup => "lookup",
@@ -4214,7 +4622,7 @@ mod tests {
         }
         assert_eq!(
             kinds.into_iter().collect::<Vec<_>>(),
-            ["array", "call", "cells", "each", "lookup", "once", "slot"],
+            ["array", "call", "cells", "each", "lookup", "once", "slot", "stride"],
             "every kind of path taken somewhere"
         );
     }
@@ -4243,21 +4651,30 @@ mod tests {
             "(formula \"S\" \"K1:K8\" \"=ROW()\")\n",
             "(formula \"S\" \"L1:L8\" \"=SUM(IF(A1>0,A1:A2,B1:B2))\")\n",
             "(formula \"S\" \"M1:M8\" \"=ABS(S.last!A1:A2)\")\n",
+            "(formula \"S\" \"N1:N8\" \"=S.last!$A1\")\n",
+            "(formula \"S\" \"O1:O8\" \"=SUM(S.last!$A1:$B2)\")\n",
+            "(formula \"S\" \"P1\" \"=S.last!A1\")\n",
         ));
-        let want: [(&str, &str, &[&str]); 11] = [
-            ("C1", "slot", &[]),
-            ("D1", "array", &[]),
+        let want: [(&str, &str, &[&str]); 14] = [
+            ("C1", "stride", &[]),
+            ("D1", "stride", &[]),
             ("E1", "lookup", &[]),
             ("F1", "cells", &["SUM"]),
             ("G1", "once start", &[]),
             ("H1", "once start", &[]),
             ("I1", "each", &[]),
-            ("J1", "slot", &[]),
+            ("J1", "stride", &[]),
             ("K1", "", &[]),
             ("L1", "lookup cells each", &["IF", "SUM"]),
             // A function of numbers given a range is the library's at each
             // cell, and the range its walk of the array.
             ("M1", "array", &["ABS"]),
+            // A reference whose column a `$` holds, one cell or a range at both
+            // corners, is read by index, never by slices (KERNEL.43); and so
+            // is one a cell alone reads, no run having cells beside it.
+            ("N1", "slot", &[]),
+            ("O1", "array", &[]),
+            ("P1", "slot", &[]),
         ];
         let census = census_of(&m);
         vector::taken::begin();
@@ -4288,7 +4705,10 @@ mod tests {
                 })
                 .collect();
             let each = f.reads.contains(&crate::calc::census::Kind::Each);
-            let expected: Vec<String> = if each {
+            let expected: Vec<String> = if f.runs == 0 {
+                // A cell alone is evaluated by `Ctx`, which notes no path.
+                Vec::new()
+            } else if each {
                 vec!["each".to_string()]
             } else {
                 let mut w: Vec<String> = f
@@ -4368,7 +4788,8 @@ mod tests {
         // Life's and the gun's do: the buffers its later frames hold are all
         // made in the first, and none holds more than a chunk of cells; with
         // them, the lanes a later frame keeps for the parts Life's rule writes
-        // twice (KERNEL.27).
+        // twice (KERNEL.27), and the stretches' buffer, which only the later
+        // frames' reads of the twin's array fill (KERNEL.43).
         let mut m = load(concat!(
             "(cell \"S\" \"A1\" 1)\n",
             "(formula \"S\" \"B1:B300\" \"=IF(S.last!$A$1=1,0,IF(OR(SUM(S.last!B1:B3)=3,",
@@ -4385,7 +4806,10 @@ mod tests {
             assert_eq!(m.lanes.made(), made, "frame {frame}");
         }
         assert_eq!(number(&m, "S", "B2"), 0.0);
-        assert!(made.0 > 3 && made.4 == vector::CHUNK, "{made:?}");
+        assert!(
+            made.0 > 3 && made.4 == vector::CHUNK && made.5 == vector::CHUNK,
+            "{made:?}"
+        );
         assert!(
             made.1 == made.0 && made.2 == made.0,
             "each kind of lane: {made:?}"

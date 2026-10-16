@@ -2,6 +2,28 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.9.5
+
+### What changed
+
+- **For engines: a fill's cells read and folded as slices of numbers.** A
+  run of a fill's cells side by side in a row now reads a reference into
+  the previous frame's sheet as one slice of that sheet's numbers, folds
+  `SUM`, `MIN`, `MAX`, `AND` and `OR` over a range that moves with the cell
+  slice by slice, turns `NOT` over a lane in place, and answers an `IF`
+  between two literals by its condition at each cell, where each did the
+  same work one cell at a time. Every answer is the one a cell computed
+  alone gives, to the bit: the same additions in the same order, and a
+  cell whose reference leaves the array, or meets a value that is not a
+  number, computed as before. Alonzo's Life steps 33% faster natively and
+  34% in the browser, its glider gun 26% and 25%, Sand 8% and 6%; a
+  sheet's cells read in the frame being computed, Sand's own sheets and a
+  spreadsheet's, are read as before. A previous frame's sheet that a
+  formula reads, kept as an array, holds nine bytes more a cell; a
+  spreadsheet's, which no formula reads, holds nothing more, and its
+  recalculation is as fast as before or faster. The census names the new
+  path `stride`. No call of the crate changed (KERNEL.43).
+
 ## 0.9.4
 
 ### What changed

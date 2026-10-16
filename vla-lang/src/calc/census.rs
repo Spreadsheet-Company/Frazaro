@@ -76,6 +76,7 @@ use super::vector;
 /// the order a row prints them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Kind {
+    Stride,
     Slot,
     Array,
     Lookup,
@@ -89,6 +90,7 @@ impl Kind {
     /// The kind as a row spells it.
     pub(crate) fn word(self) -> &'static str {
         match self {
+            Kind::Stride => "stride",
             Kind::Slot => "slot",
             Kind::Array => "array",
             Kind::Lookup => "lookup",
@@ -271,8 +273,9 @@ pub(crate) fn of(
             }
         };
         if let Ok(e) = &shape.expr {
-            let paths = vector::paths(library, model, e, arrays);
+            let paths = vector::paths(library, model, e, arrays, x.runs > 0);
             for (taken, kind) in [
+                (paths.stride, Kind::Stride),
                 (paths.slot, Kind::Slot),
                 (paths.array, Kind::Array),
                 (paths.lookup, Kind::Lookup),
@@ -587,10 +590,11 @@ mod tests {
     }
 
     #[test]
-    fn life_s_census_reads_its_twin_by_index_and_its_range_as_an_array() {
+    fn life_s_census_reads_its_twin_and_its_range_by_slices() {
         // One shape at one level, one run; the Clock's frame compared at the
-        // frame's start and its seed read once a run; the twin's cell read by
-        // its index and its range walked by the run's fold over the array.
+        // frame's start and its seed read once a run; the twin's cell and its
+        // range, which move with the cell's column, read by slices of the
+        // array across a row's cells (KERNEL.43).
         // The Clock's readers are the part and the held seed; the twin's, the
         // range, inside which its cell is.
         let mut m = machine(LIFE, library::language());
@@ -599,7 +603,7 @@ mod tests {
             "(plan (shapes 1) (texts 1) (formulas 15) (levels 1) (runs 1) (lanes 15) (alone 0) (every-frame 0) (cycles 0))\n",
             "(readers \"Clock\" 2)\n",
             "(readers \"Screen.last\" 1)\n",
-            life_row("slot array once start", "")
+            life_row("stride once start", "")
         );
         assert_eq!(m.census(), census);
         // Pure of the frames: the plan and the twins' arrays as they were.

@@ -92,6 +92,13 @@ pub(crate) trait Rule {
     fn given(v: &Value) -> Result<Self::Item, ErrorKind>;
     /// A value read out of a range.
     fn ranged(v: &Value) -> Ranged<Self::Item>;
+    /// [`Rule::given`] of a number and of a truth value, and
+    /// [`Rule::ranged`] of a number, each an item (KERNEL.43): what an
+    /// evaluation of many cells folds a lane of numbers or of truth values
+    /// and an array's slices of numbers by, with no value made for each.
+    fn given_number(n: f64) -> Self::Item;
+    fn given_truth(b: bool) -> Self::Item;
+    fn ranged_number(n: f64) -> Self::Item;
 }
 
 /// The rule for numbers: a value given directly reads as a number or is
@@ -111,6 +118,25 @@ impl Rule for OverNumbers {
             Value::Error(k) => Ranged::Error(*k),
             _ => Ranged::Skipped,
         }
+    }
+
+    #[inline]
+    fn given_number(n: f64) -> f64 {
+        n
+    }
+
+    #[inline]
+    fn given_truth(b: bool) -> f64 {
+        if b {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
+    #[inline]
+    fn ranged_number(n: f64) -> f64 {
+        n
     }
 }
 
@@ -133,6 +159,21 @@ impl Rule for OverTruths {
             Value::Error(k) => Ranged::Error(*k),
             _ => Ranged::Skipped,
         }
+    }
+
+    #[inline]
+    fn given_number(n: f64) -> bool {
+        n != 0.0
+    }
+
+    #[inline]
+    fn given_truth(b: bool) -> bool {
+        b
+    }
+
+    #[inline]
+    fn ranged_number(n: f64) -> bool {
+        n != 0.0
     }
 }
 
@@ -589,6 +630,39 @@ fn sin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A rule's items of a number and of a truth value are its `given` and
+    /// its `ranged` of them, to the bit (KERNEL.43).
+    fn items_agree<R: Rule>(same: impl Fn(R::Item, R::Item) -> bool) {
+        let numbers = [
+            0.0,
+            -0.0,
+            1.0,
+            -1.5,
+            0.25,
+            1e300,
+            -1e-300,
+            f64::MIN_POSITIVE,
+        ];
+        for n in numbers {
+            let given = R::given(&Value::Number(n)).expect("a number is an item");
+            assert!(same(R::given_number(n), given), "given {n}");
+            let Ranged::Counts(ranged) = R::ranged(&Value::Number(n)) else {
+                panic!("a number in a range counts")
+            };
+            assert!(same(R::ranged_number(n), ranged), "ranged {n}");
+        }
+        for b in [true, false] {
+            let given = R::given(&Value::Bool(b)).expect("a truth value is an item");
+            assert!(same(R::given_truth(b), given), "given {b}");
+        }
+    }
+
+    #[test]
+    fn a_rule_s_items_of_numbers_and_truth_values_are_its_given_and_ranged() {
+        items_agree::<OverNumbers>(|a, b| a.to_bits() == b.to_bits());
+        items_agree::<OverTruths>(|a, b| a == b);
+    }
 
     #[test]
     fn the_language_registers_the_day_one_list_exactly() {
