@@ -321,8 +321,9 @@ fn moves_with_column(r: &RefExpr) -> bool {
 
 /// The reference an operand is made from at every cell, when it is one: a
 /// reference written as one, under any unary plus, which returns its operand
-/// as it is.
-fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr> {
+/// as it is. A program's operands are told by the same rule (KERNEL.44,
+/// `super::program`).
+pub(crate) fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr> {
     match a {
         Expr::Ref(r) => Some(r),
         Expr::Pos(x) if !yields_value(lib, a) => ref_operand(lib, x),
@@ -333,8 +334,9 @@ fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr> {
 /// Whether [`Ctx::eval`] of an expression is a value at every cell: anything
 /// but a reference, a name, or a form whose answer may be one; the
 /// language's `IF` and `CHOOSE` answer one of their own arguments, and are a
-/// value when every one they may answer is (KERNEL.28).
-fn yields_value(lib: &Library, e: &Expr) -> bool {
+/// value when every one they may answer is (KERNEL.28). A program's operands
+/// are told by the same rule (KERNEL.44).
+pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
     match e {
         Expr::Ref(_) | Expr::Name { .. } => false,
         Expr::Pos(x) => yields_value(lib, x),

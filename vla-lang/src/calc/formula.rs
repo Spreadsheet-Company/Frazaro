@@ -94,37 +94,60 @@ impl RefExpr {
     /// where the mover writes `#REF!`. At no offset it is the rectangle as
     /// read.
     pub fn moved(&self, d_row: i64, d_col: i64) -> Option<(u32, u32, u32, u32)> {
-        if d_row == 0 && d_col == 0 {
-            return Some((self.top, self.left, self.bottom, self.right));
+        moved_at(
+            self.shape,
+            &self.corners,
+            (self.top, self.left, self.bottom, self.right),
+            d_row,
+            d_col,
+        )
+    }
+}
+
+/// [`RefExpr::moved`]'s rule over a reference's parts: its shape, its
+/// corners as written and its rectangle as read, which is what a program
+/// keeps of a reference (KERNEL.44, `super::program`), so that the rule is
+/// written once. Inlined where it is called, so that `RefExpr::moved` is
+/// compiled as it was before the rule was shared: called out of line, it
+/// cost Sand's frame 3 to 5% in wasm, every read of a run moving a reference
+/// (measured, alternated, KERNEL.44's record).
+#[inline(always)]
+pub(crate) fn moved_at(
+    shape: Shape,
+    c: &Corners,
+    rect: (u32, u32, u32, u32),
+    d_row: i64,
+    d_col: i64,
+) -> Option<(u32, u32, u32, u32)> {
+    if d_row == 0 && d_col == 0 {
+        return Some(rect);
+    }
+    let row = |n: u32, abs: bool| shifted(n, abs, d_row, MAX_ROW);
+    let col = |n: u32, abs: bool| shifted(n, abs, d_col, MAX_COLUMN);
+    match shape {
+        Shape::Cell => {
+            let k = col(c.col1, c.col_abs1)?;
+            let r = row(c.row1, c.row_abs1)?;
+            Some((r, k, r, k))
         }
-        let c = &self.corners;
-        let row = |n: u32, abs: bool| shifted(n, abs, d_row, MAX_ROW);
-        let col = |n: u32, abs: bool| shifted(n, abs, d_col, MAX_COLUMN);
-        match self.shape {
-            Shape::Cell => {
-                let k = col(c.col1, c.col_abs1)?;
-                let r = row(c.row1, c.row_abs1)?;
-                Some((r, k, r, k))
-            }
-            Shape::Range => {
-                let k1 = col(c.col1, c.col_abs1)?;
-                let r1 = row(c.row1, c.row_abs1)?;
-                let k2 = col(c.col2, c.col_abs2)?;
-                let r2 = row(c.row2, c.row_abs2)?;
-                Some((r1.min(r2), k1.min(k2), r1.max(r2), k1.max(k2)))
-            }
-            Shape::Column => {
-                let k1 = col(c.col1, c.col_abs1)?;
-                let k2 = col(c.col2, c.col_abs2)?;
-                Some((1, k1.min(k2), MAX_ROW, k1.max(k2)))
-            }
-            Shape::Row => {
-                let r1 = row(c.row1, c.row_abs1)?;
-                let r2 = row(c.row2, c.row_abs2)?;
-                Some((r1.min(r2), 1, r1.max(r2), MAX_COLUMN))
-            }
-            Shape::None => None,
+        Shape::Range => {
+            let k1 = col(c.col1, c.col_abs1)?;
+            let r1 = row(c.row1, c.row_abs1)?;
+            let k2 = col(c.col2, c.col_abs2)?;
+            let r2 = row(c.row2, c.row_abs2)?;
+            Some((r1.min(r2), k1.min(k2), r1.max(r2), k1.max(k2)))
         }
+        Shape::Column => {
+            let k1 = col(c.col1, c.col_abs1)?;
+            let k2 = col(c.col2, c.col_abs2)?;
+            Some((1, k1.min(k2), MAX_ROW, k1.max(k2)))
+        }
+        Shape::Row => {
+            let r1 = row(c.row1, c.row_abs1)?;
+            let r2 = row(c.row2, c.row_abs2)?;
+            Some((r1.min(r2), 1, r1.max(r2), MAX_COLUMN))
+        }
+        Shape::None => None,
     }
 }
 

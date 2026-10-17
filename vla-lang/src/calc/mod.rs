@@ -46,6 +46,7 @@ pub mod eval;
 pub mod formula;
 pub mod graph;
 pub mod library;
+pub(crate) mod program;
 pub(crate) mod reach;
 pub mod shape;
 pub mod value;

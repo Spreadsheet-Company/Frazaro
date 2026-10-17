@@ -1,5 +1,5 @@
 (plan (shapes 3) (texts 3) (formulas 5) (levels 2) (runs 0) (lanes 0) (alone 5) (every-frame 0) (cycles 0))
 (readers "Output" 4)
 (shape 0 "Output" "C2" "=RC[-1]+R[1]C[-1]" (cells 3) (levels 0 1 2 2) (runs 0 0 0 0) (alone 3) (reads lookup))
-(shape 1 "Output" "D2" "=IFS(RC[-2]>3,\"big\",TRUE,\"small\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup each) (calls "IFS"))
+(shape 1 "Output" "D2" "=IFS(RC[-2]>3,\"big\",TRUE,\"small\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup each) (calls "IFS") (unlowered form))
 (shape 2 "Output" "B3" "=R[-1]C*2" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))

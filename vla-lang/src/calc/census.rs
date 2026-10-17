@@ -30,7 +30,11 @@
 //!   at each cell; `(missing "NAME" ...)`, those the library does not hold;
 //!   `(sheets n)`, a shape on more than one sheet; `(same k)`, the first
 //!   shape of the same text; `(every-frame name|span|broken|unread)`, a shape
-//!   no change is followed to, and why.
+//!   no change is followed to, and why; `(unlowered <why>)`, a shape with
+//!   cells alone whose parse a program does not hold, so that `Ctx` walks it
+//!   at each of them (KERNEL.44, `super::program::Why`'s words: `text`,
+//!   `error`, `name`, `range`, `form`, `kinds`, `span`, `sheet`, `omitted`,
+//!   `deep`).
 //!
 //! The kinds of read, each the cost class of the path a run takes:
 //! - `slot`: one cell of a sheet kept as an array, a `.last` twin dense
@@ -54,8 +58,10 @@
 //!
 //! A shape's kinds are the paths its run takes, read off its parse by a walk
 //! beside the run's own dispatch (`vector::paths`), and held to it by a test
-//! that notes the paths runs take; a cell evaluated alone takes the
-//! evaluator's path for every node, which `(alone n)` counts. The facts are
+//! that notes the paths runs take; a cell evaluated alone, which `(alone n)`
+//! counts, runs its shape's program, its reads of the same classes, or where
+//! `(unlowered <why>)` says the shape has none, the evaluator's path for
+//! every node (KERNEL.44). The facts are
 //! computed when asked, from the plan as it stands, which keeps nothing for
 //! them but where each level of its order ends; they are facts alone, no
 //! flag and no threshold, the judgment being the reader's (Alonzo's
@@ -69,6 +75,7 @@ use crate::sheet::{cell_ref, Workbook};
 
 use super::eval::Library;
 use super::formula::Read;
+use super::program;
 use super::shape::Shapes;
 use super::vector;
 
@@ -157,6 +164,10 @@ pub(crate) struct Facts {
     /// The first shape of the same text, when this is not it.
     pub(crate) same: Option<usize>,
     pub(crate) every_frame: Option<Why>,
+    /// Why its cells alone are left to `Ctx`, where it has cells alone, no
+    /// program, no function the library lacks and no reason to be computed
+    /// every frame, each of which says why already (KERNEL.44).
+    pub(crate) unlowered: Option<program::Why>,
 }
 
 impl Facts {
@@ -300,6 +311,8 @@ pub(crate) fn of(
         x.missing = missing;
         if unfollowed[s] {
             x.every_frame = Some(why(shape));
+        } else if x.alone() > 0 && x.missing.is_empty() {
+            x.unlowered = shape.unlowered();
         }
         shapes.push(x);
     }
@@ -420,6 +433,9 @@ pub(crate) fn spell(c: &Census) -> String {
         }
         if let Some(why) = x.every_frame {
             out.push_str(&format!(" (every-frame {})", why.word()));
+        }
+        if let Some(why) = x.unlowered {
+            out.push_str(&format!(" (unlowered {})", why.word()));
         }
         out.push_str(")\n");
     }

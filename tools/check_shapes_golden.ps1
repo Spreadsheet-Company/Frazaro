@@ -40,7 +40,10 @@ texts, the formula cells, the runs and their lanes, the cells alone, the
 cells of the shapes computed every frame, and the cells on cycles, each
 shape's cells beside its lanes and its cells alone); every (same k) naming
 the first earlier row of the same text, and no other row repeating one; a
-run at least four cells; and a shape's levels holding its cells.
+run at least four cells; a shape's levels holding its cells; and a row's
+(unlowered <why>), the reason a shape's cells alone are left to the
+evaluator with no program (KERNEL.44), only on a shape with cells alone and
+with neither (missing ...) nor (every-frame ...) beside it.
 
 WHAT IT RUNS: `<impl> calc <file> --shapes`, and for a bench program
 `<impl> build <program> --prelude scripts/prelude.vla --phrasebook
@@ -58,7 +61,8 @@ written and then reused); one that adds a cell to the first shape row it
 prints (every golden must fail, naming its first shape row); and copies of a
 golden broken one way each - a total, the order of two shape rows, a readers
 row after a shape row, a (same k) pointing at a later row, the kinds out of
-their order, and a run under four cells - and a copy of the subset golden
+their order, a run under four cells, and an (unlowered ...) on a shape with
+no cell alone - and a copy of the subset golden
 whose most is above its readers (KERNEL.35), each of which the golden's own
 checks must fail, the golden as it is passing.
 
@@ -117,7 +121,8 @@ $q = '"((?:[^"\\]|\\.)*)"'
 $planRow = '^\(plan \(shapes (\d+)\) \(texts (\d+)\) \(formulas (\d+)\) \(levels (\d+)\) \(runs (\d+)\) \(lanes (\d+)\) \(alone (\d+)\) \(every-frame (\d+)\) \(cycles (\d+)\)\)$'
 $readersRow = '^\(readers ' + $q + ' (\d+)(?: \(most (\d+)\))?\)$'
 $shapeRow = '^\(shape (\d+) ' + $q + ' ' + $q + ' ' + $q + ' \(cells (\d+)\) \(levels(?: (\d+) (\d+) (\d+) (\d+))?\) \(runs (\d+) (\d+) (\d+) (\d+)\) \(alone (\d+)\) \(reads((?: [a-z]+)*)\)' +
-    '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread)\))?\)$'
+    '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread)\))?' +
+    '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep)\))?\)$'
 
 # The order, the forms and the totals read off a golden's lines: problems,
 # empty when they hold, and what was counted.
@@ -195,6 +200,13 @@ function Test-Census($lines) {
         $sum.alone += $alone
         $sum.cycles += $cells - $inOrder
         if ($g[20].Success) { $sum.every += $cells }
+        # KERNEL.44: a shape left to the evaluator says why only where it has
+        # cells alone and neither a function the library lacks nor a reason to
+        # be computed every frame says so already.
+        if ($g[21].Success) {
+            if ($alone -eq 0) { $problems.Add("line ${n}: (unlowered ...) on a shape with no cell alone: $line") }
+            if ($g[17].Success -or $g[20].Success) { $problems.Add("line ${n}: (unlowered ...) beside (missing ...) or (every-frame ...): $line") }
+        }
     }
     $p = $plan.Groups
     $stated = [ordered]@{ shapes = [int]$p[1].Value; texts = [int]$p[2].Value; formulas = [int]$p[3].Value; runs = [int]$p[5].Value; lanes = [int]$p[6].Value; alone = [int]$p[7].Value; every = [int]$p[8].Value; cycles = [int]$p[9].Value }
@@ -353,7 +365,8 @@ if ($Control) {
             @{ Name = 'a readers row after a shape row'; Edit = { param($l) $t = $l[1]; $l[1] = $l[2]; $l[2] = $t; $l } },
             @{ Name = 'a (same k) pointing at a later row'; Edit = { param($l) $l[2] = $l[2] -replace '\)$', ' (same 2))'; $l } },
             @{ Name = 'the kinds out of their order'; Edit = { param($l) $l[3] = $l[3] -replace '\(reads lookup once\)', '(reads once lookup)'; $l } },
-            @{ Name = 'a run under four cells'; Edit = { param($l) $l[2] = $l[2] -replace '\(runs 1 20000 20000 20000\)', '(runs 1 20000 3 20000)'; $l } }
+            @{ Name = 'a run under four cells'; Edit = { param($l) $l[2] = $l[2] -replace '\(runs 1 20000 20000 20000\)', '(runs 1 20000 3 20000)'; $l } },
+            @{ Name = 'an (unlowered ...) on a shape with no cell alone'; Edit = { param($l) $l[2] = $l[2] -replace '\)$', ' (unlowered text))'; $l } }
         )
         foreach ($b in $broken) {
             $copy = New-Object System.Collections.Generic.List[string]
@@ -388,7 +401,7 @@ if ($Control) {
         $failures | ForEach-Object { Write-Output "  $_" }
         exit 1
     }
-    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; six broken copies of the column golden and one of the subset golden each fail the golden's own checks"
+    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; seven broken copies of the column golden and one of the subset golden each fail the golden's own checks"
     exit 0
 }
 

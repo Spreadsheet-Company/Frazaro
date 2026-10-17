@@ -21,7 +21,10 @@
 //! write while a frame is in progress is refused, so a frame is a function
 //! of the inputs it began with. A run of the order, cells of one shape that
 //! read none of one another, is evaluated at once, node by node, as each of
-//! its cells alone would be (`crate::calc::vector`, KERNEL.20).
+//! its cells alone would be (`crate::calc::vector`, KERNEL.20); a cell
+//! alone, and a run's few cells, by its shape's parse lowered once to a
+//! program, as `Ctx` would evaluate it, and by `Ctx` where the program's
+//! guards fail (`crate::calc::program`, KERNEL.44).
 //!
 //! A frame computes only the cells whose reads changed, and every other
 //! keeps its value (KERNEL.20). A change is followed from the cell that
@@ -85,8 +88,9 @@ use std::cell::Cell as Slot;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap};
 
 use crate::calc::graph::{is_formula, Extent, Names};
+use crate::calc::program::{Answer, Source};
 use crate::calc::reach::{Reach, Reached};
-use crate::calc::shape::{spell_cell, Shapes, RUN};
+use crate::calc::shape::{spell_cell, Shapes, RUN, SHORT};
 use crate::calc::vector::{self, Lanes};
 use crate::calc::{CellId, Computed, Ctx, Dense, Env, ErrorKind, Library, Reason, Value, Values};
 use crate::form::Form;
@@ -406,6 +410,10 @@ pub struct Machine {
     /// Whether a run of the order is evaluated at once: always, but in the
     /// tests that hold it to the same cells evaluated one by one.
     by_runs: bool,
+    /// Whether a cell evaluated alone, and a run's few cells, run their
+    /// shape's program (KERNEL.44): always, but in the tests that hold the
+    /// programs to `Ctx` and a run's few cells to the run.
+    lowered: bool,
     /// Whether a frame computes only what changed: always, but in the tests
     /// that hold it to every cell computed and every sheet walked.
     incremental: bool,
@@ -420,6 +428,10 @@ pub struct Machine {
     /// The cells the frame in progress computed, for the tests to count.
     #[cfg(test)]
     computed: usize,
+    /// The cells programs answered since the machine was made, for the tests
+    /// to count (KERNEL.44).
+    #[cfg(test)]
+    ran: usize,
 }
 
 impl std::fmt::Debug for Machine {
@@ -563,11 +575,14 @@ impl Machine {
             changes_whole: true,
             reshaped: false,
             by_runs: true,
+            lowered: true,
             incremental: true,
             lazy: true,
             copies: true,
             #[cfg(test)]
             computed: 0,
+            #[cfg(test)]
+            ran: 0,
         };
         m.fit();
         m.walk();
@@ -707,21 +722,32 @@ impl Machine {
         // A step that stops before the frame's end keeps each value it
         // overwrites beside, for a view before the frame completes.
         let keep = end < of;
+        // The runs walked in order beside the positions, the next found once
+        // where a search found the run of each position (KERNEL.44): a grid
+        // of many cells alone between its runs searched them at every one.
         let mut i = start;
+        let mut k = self.shapes.run_after(start);
         while i < end {
-            match self.shapes.run_at(i).filter(|_| self.by_runs) {
-                Some((shape, after)) => {
+            let next = if self.by_runs {
+                self.shapes.run_span(k)
+            } else {
+                None
+            };
+            match next {
+                Some((from, after, shape)) if from <= i => {
                     let to = after.min(end);
                     self.evaluate_run(shape, i, to, keep);
                     i = to;
+                    k += 1;
                 }
-                None => {
-                    if self.wants(i) {
-                        let id = self.shapes.order()[i];
-                        let computed = self.evaluate(id);
-                        self.keep(i, computed, keep);
+                _ => {
+                    let stop = next.map_or(end, |(from, _, _)| from.min(end));
+                    while i < stop {
+                        if self.wants(i) {
+                            self.evaluate_alone(i, keep);
+                        }
+                        i += 1;
                     }
-                    i += 1;
                 }
             }
         }
@@ -826,9 +852,48 @@ impl Machine {
         self.shapes.evaluate(self, &self.library, id)
     }
 
+    /// The cell at a position of the order evaluated alone, and its value
+    /// kept: by its shape's program, at the cell's offset from the shape's
+    /// first cell, where the shape has one and no guard fails (KERNEL.44);
+    /// else by `Ctx`, as every cell alone was before.
+    fn evaluate_alone(&mut self, p: usize, keep: bool) {
+        let id = self.shapes.order()[p];
+        if self.lowered {
+            let s = self.shapes.reach().shape_at(p);
+            if let Some((program, anchor)) = self.shapes.program(s) {
+                self.here.set(id);
+                let off = (
+                    i64::from(id.1) - i64::from(anchor.1),
+                    i64::from(id.2) - i64::from(anchor.2),
+                );
+                // A cell's offset from its shape's first cell is its place's.
+                #[cfg(test)]
+                assert_eq!(
+                    self.shapes.place(id).map(|q| (q.d_row, q.d_col)),
+                    Some(off),
+                    "{id:?}'s offset"
+                );
+                if let Some(answer) = program.run(self, &self.library, id, off) {
+                    #[cfg(test)]
+                    {
+                        self.ran += 1;
+                    }
+                    return match answer {
+                        Answer::Number(x) => self.keep_number(p, x, keep),
+                        Answer::Truth(b) => self.keep(p, Computed::Value(Value::Bool(b)), keep),
+                    };
+                }
+            }
+        }
+        let computed = self.evaluate(id);
+        self.keep(p, computed, keep);
+    }
+
     /// The cells of the order from `from` to `to`, of one run, that the
     /// frame computes, evaluated at once up to a chunk at a time (KERNEL.20),
-    /// fewer than a run's least one by one, and their values kept.
+    /// fewer than a run's least one by one, and their values kept; fewer
+    /// than [`SHORT`] one by one by their shape's program where it has one
+    /// (KERNEL.44).
     fn evaluate_run(&mut self, shape: usize, from: usize, to: usize, keep: bool) {
         let mut lanes = std::mem::take(&mut self.lanes);
         let mut answers = std::mem::take(&mut self.answers);
@@ -836,11 +901,20 @@ impl Machine {
         let mut gathered = std::mem::take(&mut self.gathered);
         let mut gathered_at = std::mem::take(&mut self.gathered_at);
         let every = self.every || self.whole[shape];
+        let lowered = self.lowered && self.shapes.program(shape).is_some();
+        let few = if lowered { SHORT } else { RUN };
         let mut i = from;
         while i < to {
             if every {
                 // Every cell, in chunks of the order as it stands.
                 let j = (i + vector::CHUNK).min(to);
+                if lowered && j - i < SHORT {
+                    for p in i..j {
+                        self.evaluate_alone(p, keep);
+                    }
+                    i = j;
+                    continue;
+                }
                 let cells = &self.shapes.order()[i..j];
                 self.shapes.evaluate_run(
                     self,
@@ -879,10 +953,9 @@ impl Machine {
                     }
                 }
             }
-            if gathered.len() < RUN {
-                for (&id, &p) in gathered.iter().zip(&gathered_at) {
-                    let computed = self.evaluate(id);
-                    self.keep(p as usize, computed, keep);
+            if gathered.len() < few {
+                for &p in &gathered_at {
+                    self.evaluate_alone(p as usize, keep);
                 }
                 continue;
             }
@@ -2159,6 +2232,47 @@ impl Env for Machine {
     }
 }
 
+impl Source for Machine {
+    /// [`Env::read`]'s answer as a program's register holds it (KERNEL.44,
+    /// `calc::program::number_of`), read where `read` reads it and no value
+    /// made: a formula's value of the frame by its position, a twin's slot
+    /// and the reason beside an empty one, a cell's content.
+    #[inline]
+    fn number(&self, id: CellId) -> Option<f64> {
+        let reasonless =
+            |id: &CellId| self.twin_reasons.is_empty() || !self.twin_reasons.contains_key(id);
+        if id.0 < self.sheets {
+            if let Some(p) = self.shapes.reach().position(id) {
+                return match &self.values[p] {
+                    Some(Computed::Value(Value::Number(n))) => Some(*n),
+                    Some(Computed::Value(Value::Empty)) => Some(0.0),
+                    _ => None,
+                };
+            }
+        } else if let Some(kept) = Env::dense(self, id.0) {
+            return match kept.get(id.1, id.2) {
+                Some(Value::Number(n)) => Some(*n),
+                Some(Value::Empty) | None => reasonless(&id).then_some(0.0),
+                Some(_) => None,
+            };
+        }
+        match self
+            .book
+            .sheets
+            .get(id.0)
+            .and_then(|s| s.cells.get(&(id.1, id.2)))
+        {
+            Some(cell) => match &cell.content {
+                Content::Number(n) => Some(*n),
+                Content::Text(_) | Content::Bool(_) | Content::Error(_) => None,
+                // `content_value` reads anything else as nothing.
+                _ => Some(0.0),
+            },
+            None => reasonless(&id).then_some(0.0),
+        }
+    }
+}
+
 /// A formula cell's value in the frame's values, kept at its position in the
 /// order (KERNEL.26); `None` for a cell holding no formula, or a formula with
 /// no value yet.
@@ -2588,6 +2702,7 @@ mod tests {
     //! written here, cell for cell.
     use super::*;
     use crate::calc::library;
+    use crate::calc::program;
     use crate::calc::shape::Shapes;
     use crate::projection::Window;
     use crate::reader::read_forms;
@@ -4676,6 +4791,9 @@ mod tests {
             ("O1", "array", &[]),
             ("P1", "slot", &[]),
         ];
+        // Runs of eight, fewer than `SHORT`, are evaluated cell by cell by
+        // their programs (KERNEL.44): the paths held here are the run's.
+        m.lowered = false;
         let census = census_of(&m);
         vector::taken::begin();
         assert!(m.step(0).done);
@@ -5461,7 +5579,9 @@ mod tests {
         // itself in a chain, as a call's operand and inside a larger part
         // written twice; at each cell alone, once a place; in a condition and
         // the branches of an `IF`, which take other cells, once a place by
-        // either. The values the same.
+        // either. The values the same. Runs of twelve, fewer than `SHORT`,
+        // are evaluated cell by cell by their programs (KERNEL.44), so the
+        // runs counted here are held to the run's own path.
         let rows = concat!(
             "(cell \"S\" \"A1:A12\" 3)\n",
             "(formula \"S\" \"B1:B12\" \"=(TICK()+A1)*2+(TICK()+A1)-MAX(TICK()+A1,0)\")\n",
@@ -5475,6 +5595,7 @@ mod tests {
             let mut m = Machine::load(rows, lib).unwrap_or_else(|e| panic!("{}", e.refusal.text));
             assert_eq!(m.shapes.cells_in_runs(), 36, "every cell in a run");
             m.by_runs = by_runs;
+            m.lowered = false;
             let before = TICKS.with(Slot::get);
             assert!(m.step(0).done);
             (TICKS.with(Slot::get) - before, values(&m))
@@ -8837,5 +8958,667 @@ mod tests {
             machines[0].lagging.iter().any(|&l| l),
             "cells left behind their slots"
         );
+    }
+
+    // ---- KERNEL.44: a cell alone lowered once to a register program ----
+
+    /// Twice a number its operand reads as, as `ABS` reads one: a strict
+    /// function no run knows, which a program calls through its pointer.
+    fn twice(ctx: &crate::calc::Ctx<'_>, args: &[crate::calc::Arg<'_>]) -> Result<Value, Reason> {
+        if args.len() != 1 {
+            return Ok(Value::Error(ErrorKind::Value));
+        }
+        Ok(match library::number_arg(ctx, args, 0)? {
+            Ok(n) => crate::calc::eval::finite(n * 2.0),
+            Err(k) => Value::Error(k),
+        })
+    }
+
+    /// 1 for an operand that is nothing, handed as a value or read from the
+    /// one cell it names, else 0: a function that tells nothing from 0, as
+    /// `ISBLANK` does.
+    fn empties(ctx: &crate::calc::Ctx<'_>, args: &[crate::calc::Arg<'_>]) -> Result<Value, Reason> {
+        Ok(Value::Number(match args {
+            [crate::calc::Arg::Scalar(Value::Empty)] => 1.0,
+            [a @ crate::calc::Arg::Area { .. }] => match ctx.one(a)? {
+                Value::Empty => 1.0,
+                _ => 0.0,
+            },
+            _ => 0.0,
+        }))
+    }
+
+    /// 1 for an operand handed as cells, 0 for one handed as a value.
+    fn area(_: &crate::calc::Ctx<'_>, args: &[crate::calc::Arg<'_>]) -> Result<Value, Reason> {
+        Ok(Value::Number(match args {
+            [crate::calc::Arg::Area { .. }] => 1.0,
+            _ => 0.0,
+        }))
+    }
+
+    /// Its first argument as `Ctx` evaluates it: a form no program holds.
+    fn first<'e>(
+        ctx: &crate::calc::Ctx<'_>,
+        args: &'e [crate::calc::Expr],
+    ) -> Result<crate::calc::Arg<'e>, Reason> {
+        match args.first() {
+            Some(e) => ctx.eval(e),
+            None => Ok(crate::calc::Arg::Scalar(Value::Error(ErrorKind::Value))),
+        }
+    }
+
+    /// The language's library with the functions above.
+    fn program_library() -> Library {
+        let mut lib = library::language();
+        lib.register("TWICE", twice);
+        lib.register("EMPTIES", empties);
+        lib.register("AREA", area);
+        lib.register_form("FIRST", first);
+        lib
+    }
+
+    /// A leaf of `lowered_expr`: a number, a truth value, a reference
+    /// (`reference`'s: a value cell of any kind, a twin, a formula cell above,
+    /// the sheet before, a cell moved off the sheet), and one time in eighty
+    /// a node a program leaves.
+    fn lowered_leaf(d: &mut Dice, at: &Band) -> String {
+        match d.below(16) {
+            0 | 1 => d
+                .pick(&["0", "1", "2", "-3", "0.5", "1E+300", "-0"])
+                .to_string(),
+            2 => d.pick(&["TRUE", "FALSE"]).to_string(),
+            3 if d.below(5) == 0 => d
+                .pick(&["\"x\"", "#N/A", "Rate", "A1:A2", "FIRST(1)"])
+                .to_string(),
+            _ => reference(d, at),
+        }
+    }
+
+    /// A formula over every node a program holds, now and then one it leaves
+    /// (a text, `&`, a comparison of two kinds, an `IF` of one argument, a
+    /// call of an omitted `CHOOSE` value): the operators, a sign, a percent,
+    /// `IF` with branches omitted or missing, `CHOOSE` with an index of every
+    /// kind and omitted values, the aggregates over values and ranges, `NOT`,
+    /// `ABS`, `INT`, `SIN`, `MOD`, `ROW` and `COLUMN` of the cell and of a
+    /// reference, and strict functions through their pointers handed values,
+    /// ranges and references.
+    fn lowered_expr(d: &mut Dice, at: &Band, depth: u32) -> String {
+        if depth >= 4 || d.below(4) == 0 {
+            return lowered_leaf(d, at);
+        }
+        let e = |d: &mut Dice| lowered_expr(d, at, depth + 1);
+        let operands = |d: &mut Dice, n: usize| {
+            let parts: Vec<String> = (0..n)
+                .map(|_| match d.below(3) {
+                    0 => range(d, at),
+                    1 => reference(d, at),
+                    _ => lowered_expr(d, at, depth + 1),
+                })
+                .collect();
+            parts.join(",")
+        };
+        match d.below(22) {
+            0 => format!("-({})", e(d)),
+            1 => format!("({})%", e(d)),
+            2 => format!("+{}", reference(d, at)),
+            3 | 4 => {
+                let op = d.pick(&["+", "-", "*", "/", "^"]);
+                format!("({}){op}({})", e(d), e(d))
+            }
+            5 => {
+                let op = d.pick(&["=", "<>", "<", ">", "<=", ">=", "&"]);
+                format!("({}){op}({})", e(d), e(d))
+            }
+            6 => format!("({})+({})-({})*({})", e(d), e(d), e(d), e(d)),
+            7 => format!("IF({},{},{})", e(d), e(d), e(d)),
+            8 => match d.below(5) {
+                0 => format!("IF({},{})", e(d), e(d)),
+                1 => format!("IF({},,{})", e(d), e(d)),
+                2 => format!("IF({},{},)", e(d), e(d)),
+                3 => format!("IF({})", e(d)),
+                _ => format!("IF(({})>({}),{},{})", e(d), e(d), e(d), e(d)),
+            },
+            9 => {
+                let f = d.pick(&["AND", "OR"]);
+                let n = 1 + d.below(3);
+                format!("{f}({})", operands(d, n))
+            }
+            10 => format!("NOT({})", e(d)),
+            11 => {
+                let f = d.pick(&["SUM", "MIN", "MAX"]);
+                let n = d.below(4);
+                format!("{f}({})", operands(d, n))
+            }
+            12 => format!("{}({})", d.pick(&["ABS", "INT", "SIN"]), e(d)),
+            13 => format!("MOD({},{})", e(d), e(d)),
+            14 => match d.below(4) {
+                0 => d.pick(&["ROW()", "COLUMN()"]).to_string(),
+                1 => format!("ROW({})", reference(d, at)),
+                2 => format!("COLUMN({})", range(d, at)),
+                _ => format!("ROW({})+COLUMN()", d.pick(&["A1048576", "XFD1", "$A$1"])),
+            },
+            15 => {
+                let n = 2 + d.below(4);
+                let index = match d.below(3) {
+                    0 => d
+                        .pick(&["0.5", "1", "-1", "TRUE", "1E+300", "3"])
+                        .to_string(),
+                    1 => format!("MOD(ROW(),{})+1", n + 1),
+                    _ => e(d),
+                };
+                let values: Vec<String> = (0..n)
+                    .map(|_| if d.below(8) == 0 { String::new() } else { e(d) })
+                    .collect();
+                format!("CHOOSE({index},{})", values.join(","))
+            }
+            16 => format!("TWICE({})", e(d)),
+            17 => format!("TWICE({})", operands(d, 1)),
+            18 => match d.below(3) {
+                0 => format!("EMPTIES(CHOOSE({},{},))", e(d), e(d)),
+                1 => format!("EMPTIES({})", reference(d, at)),
+                _ => format!("EMPTIES({})", e(d)),
+            },
+            19 => format!("AREA({})", operands(d, 1)),
+            _ => format!("{}*{}", reference(d, at), reference(d, at)),
+        }
+    }
+
+    /// A grid of two sheets, each with value cells in A1:B20 of every kind,
+    /// formulas over C1:H`rows` in bands of one to three rows, each a shape
+    /// whose runs are fewer cells than `SHORT`, and a column of single
+    /// formulas beside, each its own shape; the names `grid_of` defines.
+    fn program_grid(d: &mut Dice) -> String {
+        let rows = 4 + d.below(24) as u32;
+        let mut out = String::new();
+        for (sheet, before) in [("A", None), ("B", Some("A"))] {
+            out.push_str(&format!("(sheet \"{sheet}\" visible)\n"));
+            for row in 1..=20 {
+                for col in ["A", "B"] {
+                    if let Some(v) = datum(d) {
+                        out.push_str(&format!("(cell \"{sheet}\" \"{col}{row}\" {v})\n"));
+                    }
+                }
+            }
+            let mut top = 1;
+            while top <= rows {
+                let bottom = (top + d.below(3) as u32).min(rows);
+                let at = Band {
+                    before,
+                    top,
+                    rows,
+                    left: "B",
+                };
+                let f = crate::rows::quoted(&format!("={}", lowered_expr(d, &at, 0)));
+                out.push_str(&format!("(formula \"{sheet}\" \"C{top}:H{bottom}\" {f})\n"));
+                top = bottom + 1;
+            }
+            for row in 1..=rows {
+                let at = Band {
+                    before,
+                    top: row,
+                    rows,
+                    left: "J",
+                };
+                let f = crate::rows::quoted(&format!("={}", lowered_expr(d, &at, 0)));
+                out.push_str(&format!("(formula \"{sheet}\" \"K{row}\" {f})\n"));
+            }
+        }
+        out.push_str("(name \"Rate\" \"A!$A$2\")\n");
+        out.push_str("(name \"Box\" \"A!$A$1:$B$3\")\n");
+        out.push_str("(name \"Prev\" \"A.last!$C$1\")\n");
+        out.push_str("(name \"Band\" \"A!$C$1:$D$2\")\n");
+        out
+    }
+
+    /// A machine over rows under `program_library`.
+    fn load_programs(rows: &str, when: &str) -> Machine {
+        Machine::load(rows, program_library())
+            .unwrap_or_else(|e| panic!("{when}: line {}: {}\n{rows}", e.line, e.refusal.text))
+    }
+
+    /// Every formula cell's value as `Calc` computes it, spelled as `values`
+    /// spells a machine's.
+    fn calc_values(m: &Machine) -> BTreeMap<CellId, String> {
+        let calc = crate::calc::Calc::run(&m.book, &m.library);
+        m.shapes
+            .order()
+            .iter()
+            .map(|id| (*id, format!("{:?}", calc.computed(*id).expect("computed"))))
+            .collect()
+    }
+
+    #[test]
+    fn a_cell_alone_by_its_program_is_its_evaluation_by_ctx() {
+        // KERNEL.44: grids of short bands and single formulas over every node
+        // a program holds and now and then one it leaves, reading value cells
+        // of every kind, twins holding reasons, formula cells above and cells
+        // moved off the sheet; stepped as a machine steps them (its cells
+        // alone and its runs' few by their programs, in steps of any budget),
+        // with every cell alone by its program, and with every cell alone by
+        // `Ctx`, frame for frame and bit for bit, and against `Calc` at the
+        // first frame. Writes between frames turn a value cell's number into a
+        // text, a truth value or an error and back, and write a formula, which
+        // plans again and lowers the shape it makes. Every guard fails
+        // somewhere, and programs answer more than a third of the cells
+        // alone, the rest left to `Ctx` by a guard (the grids read texts and
+        // errors on purpose) or by a node a program does not hold.
+        let mut guards = [0usize; program::guarded::GUARDS];
+        let (mut ran, mut alone) = (0, 0);
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x4444);
+            let rows = program_grid(&mut d);
+            let when = format!("seed {seed}");
+            let mut m = load_programs(&rows, &when);
+            let mut programs = load_programs(&rows, &when);
+            programs.by_runs = false;
+            let mut ctx = load_programs(&rows, &when);
+            ctx.by_runs = false;
+            ctx.lowered = false;
+            let calc = calc_values(&m);
+            program::guarded::take();
+            for frame in 1..=6 {
+                while !m.step(1 + d.below(40)).done {}
+                assert!(programs.step(0).done);
+                assert!(ctx.step(0).done);
+                alone += programs.computed;
+                let want = values(&ctx);
+                assert_eq!(
+                    values(&programs),
+                    want,
+                    "{when}, frame {frame}: every cell by its program\n{rows}"
+                );
+                assert_eq!(values(&m), want, "{when}, frame {frame}: by runs\n{rows}");
+                if frame == 1 {
+                    assert_eq!(want, calc, "{when}: Calc\n{rows}");
+                }
+                let write = match d.below(5) {
+                    0 => format!(
+                        "(cell \"A\" \"A{}\" {})",
+                        1 + d.below(20),
+                        d.pick(&["7", "-0.5", "0"])
+                    ),
+                    1 => format!(
+                        "(cell \"B\" \"{}{}\" {})",
+                        d.pick(&["A", "B"]),
+                        1 + d.below(20),
+                        d.pick(&["\"y\"", "\"3\"", "true", "(error \"#DIV/0!\")", "4"])
+                    ),
+                    2 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    3 => {
+                        let row = 1 + d.below(4) as u32;
+                        let at = Band {
+                            before: None,
+                            top: row,
+                            rows: 4,
+                            left: "J",
+                        };
+                        let f = crate::rows::quoted(&format!("={}", lowered_expr(&mut d, &at, 0)));
+                        format!("(formula \"A\" \"K{row}\" {f})")
+                    }
+                    _ => continue,
+                };
+                let got: Vec<bool> = [&mut m, &mut programs, &mut ctx]
+                    .into_iter()
+                    .map(|x| x.write(&write).is_ok())
+                    .collect();
+                assert!(got.iter().all(|&g| g == got[0]), "{when}: {write}: {got:?}");
+            }
+            ran += programs.ran;
+            let counts = program::guarded::take();
+            for (g, c) in guards.iter_mut().zip(counts) {
+                *g += c;
+            }
+        }
+        assert!(
+            guards.iter().all(|&g| g > 0),
+            "every guard failed somewhere: reads, moves, answers, ranges, indices, calls {guards:?}"
+        );
+        assert!(
+            ran * 3 > alone,
+            "{ran} of {alone} cells alone answered by their programs: too few for the law to hold over"
+        );
+    }
+
+    #[test]
+    fn a_shape_left_to_ctx_is_named_by_the_first_node_a_program_does_not_hold() {
+        // KERNEL.44: a single formula of each kind of node a program leaves,
+        // placed in a grid, keeps the reason its lowering met first, one of
+        // each holds a program, and every cell computes what `Ctx` computes.
+        // Deeper than a program nests and within the 64 levels a parse does.
+        let deep = format!("={}1", "-".repeat(52));
+        let wide = format!("=SUM({}1)", "S!A1+0,".repeat(40));
+        let cases: Vec<(String, Option<&str>)> = vec![
+            ("=1+S!A1*2".into(), None),
+            ("=S!A1>2".into(), None),
+            ("=IF(S!A1>1,S!A2,-1)".into(), None),
+            ("=CHOOSE(S!A1,1,,3)".into(), None),
+            ("=TWICE(S!B1)+AREA(S!A1)".into(), None),
+            ("=\"x\"".into(), Some("text")),
+            ("=S!A1&S!A2".into(), Some("text")),
+            ("=#N/A".into(), Some("error")),
+            ("=MOD(S!A1)".into(), Some("error")),
+            ("=IF(S!A1)".into(), Some("error")),
+            ("=ROW(1)".into(), Some("error")),
+            ("=Rate+1".into(), Some("name")),
+            ("=S!A1:A2+1".into(), Some("range")),
+            ("=SUM(IF(S!A1>0,S!A1:A2,S!B1))".into(), Some("range")),
+            ("=FIRST(1)".into(), Some("form")),
+            ("=S!A1=TRUE".into(), Some("kinds")),
+            ("=IF(S!A1,1,TRUE)".into(), Some("kinds")),
+            ("=Gone!A1+1".into(), Some("sheet")),
+            ("=EMPTIES(CHOOSE(1,,2))".into(), Some("omitted")),
+            ("=SUM(1,,2)".into(), Some("omitted")),
+            (deep, Some("deep")),
+            (wide, Some("deep")),
+        ];
+        let mut rows = String::from(
+            "(sheet \"S\" visible)\n(cell \"S\" \"A1\" 2)\n(cell \"S\" \"A2\" 3)\n\
+             (cell \"S\" \"B1\" \"x\")\n(sheet \"T\" visible)\n(name \"Rate\" \"S!$A$1\")\n",
+        );
+        for (k, (text, _)) in cases.iter().enumerate() {
+            rows.push_str(&format!(
+                "(formula \"T\" \"A{}\" {})\n",
+                k + 1,
+                crate::rows::quoted(text)
+            ));
+        }
+        let mut m = load_programs(&rows, "the cases");
+        let mut ctx = load_programs(&rows, "the cases");
+        ctx.lowered = false;
+        for (k, (text, want)) in cases.iter().enumerate() {
+            let id = (1, k as u32 + 1, 1);
+            let s = m.shapes.place(id).expect("placed").shape;
+            let shape = m.shapes.shape(s).expect("a shape");
+            let got = shape.unlowered().map(|why| why.word());
+            assert_eq!(got, *want, "{text}");
+            assert_eq!(m.shapes.program(s).is_some(), want.is_none(), "{text}");
+        }
+        for frame in 1..=2 {
+            assert!(m.step(0).done && ctx.step(0).done);
+            assert_eq!(values(&m), values(&ctx), "frame {frame}");
+        }
+        assert!(m.ran > 0, "the programs answered");
+    }
+
+    #[test]
+    fn each_guard_leaves_its_cell_to_ctx() {
+        // KERNEL.44: a cell whose program meets a value no register holds,
+        // one guard a case, is computed by `Ctx`, its guard counted and no
+        // other, its value `Ctx`'s: a read of a text, a reference moved off
+        // the sheet (the fill's second cell), an operation answering an
+        // error, a fold meeting a text in a range, `CHOOSE`'s index past its
+        // values, a call answering an error.
+        use program::guarded;
+        // Each case's cells, its formula, its guard, and the cells its
+        // program answers (the fill's first, whose reference stays on).
+        let cases = [
+            ("A1", "=S!B1+1", guarded::READ, 0),
+            ("B1:B2", "=S!A1048576*0", guarded::OFF, 1),
+            ("C1", "=1/S!A3", guarded::ANSWER, 0),
+            ("D1", "=SUM(S!A1:B1)", guarded::RANGE, 0),
+            ("E1", "=CHOOSE(S!A1+3,1,2)", guarded::INDEX, 0),
+            ("F1", "=TWICE(S!B1)", guarded::CALL, 0),
+        ];
+        for (cell, text, guard, answered) in cases {
+            let rows = format!(
+                "(sheet \"S\" visible)\n(cell \"S\" \"A1\" 2)\n(cell \"S\" \"A2\" 3)\n\
+                 (cell \"S\" \"B1\" \"x\")\n(sheet \"T\" visible)\n(formula \"T\" \"{cell}\" {})\n",
+                crate::rows::quoted(text)
+            );
+            let mut m = load_programs(&rows, text);
+            let mut ctx = load_programs(&rows, text);
+            ctx.lowered = false;
+            guarded::take();
+            assert!(m.step(0).done && ctx.step(0).done);
+            let counts = guarded::take();
+            assert!(counts[guard] > 0, "{text}: {counts:?}");
+            assert_eq!(
+                counts.iter().sum::<usize>(),
+                counts[guard],
+                "{text}: no other guard {counts:?}"
+            );
+            assert_eq!(values(&m), values(&ctx), "{text}");
+            assert_eq!(m.ran, answered, "{text}: the cells its program answered");
+        }
+    }
+
+    #[test]
+    fn a_run_s_few_cells_are_evaluated_by_its_program() {
+        // KERNEL.44: runs of twenty, ten and sixteen cells of shapes with a
+        // program, and one of twenty of a shape left to `Ctx`. A frame that
+        // computes every cell computes the run of ten by its program at each
+        // cell, fewer than `SHORT`, and the others as runs; one that reaches
+        // one cell of each, the three by their programs and the fourth alone
+        // by `Ctx`; eight of each, the three by their programs and the fourth,
+        // with no program, as a run; sixteen of each, the run of ten by its
+        // program and the others as runs. The values those of `Ctx` and of
+        // the runs alone.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A40\" 1)\n",
+            "(sheet \"T\" visible)\n",
+            "(formula \"T\" \"B1:B20\" \"=S.last!A1*2\")\n",
+            "(formula \"T\" \"C1:C10\" \"=S.last!A1*3\")\n",
+            "(formula \"T\" \"D1:D16\" \"=S.last!A1*5\")\n",
+            "(formula \"T\" \"E1:E20\" \"=S.last!A1&\\\"\\\"\")\n",
+        );
+        let mut m = load(rows);
+        let mut runs = load(rows);
+        runs.lowered = false;
+        let mut ctx = load(rows);
+        ctx.by_runs = false;
+        ctx.lowered = false;
+        assert_eq!(m.shapes.cells_in_runs(), 66, "runs of 20, 10, 16 and 20");
+        let shape = |m: &Machine, col: u32| m.shapes.place((1, 1, col)).expect("placed").shape;
+        let (b, c, d, e) = (shape(&m, 2), shape(&m, 3), shape(&m, 4), shape(&m, 5));
+        assert!(m.shapes.program(e).is_none() && m.shapes.program(b).is_some());
+        let writes = [
+            None,
+            None,
+            Some("(cell \"S\" \"A3\" 5)"),
+            None,
+            Some("(cell \"S\" \"A1:A8\" 7)"),
+            None,
+            Some("(cell \"S\" \"A1:A16\" 9)"),
+            None,
+        ];
+        let mut ran = Vec::new();
+        let mut as_runs = Vec::new();
+        for (frame, write) in writes.iter().enumerate() {
+            for x in [&mut m, &mut runs, &mut ctx] {
+                if let Some(w) = write {
+                    assert!(x.write(w).is_ok(), "{w}");
+                }
+            }
+            let before = m.ran;
+            vector::taken::begin();
+            assert!(m.step(0).done);
+            let shapes: BTreeSet<usize> =
+                vector::taken::end().into_iter().map(|(s, _)| s).collect();
+            assert!(runs.step(0).done && ctx.step(0).done);
+            let want = values(&ctx);
+            assert_eq!(values(&m), want, "frame {}", frame + 1);
+            assert_eq!(values(&runs), want, "frame {}, runs", frame + 1);
+            ran.push(m.ran - before);
+            as_runs.push(shapes);
+        }
+        // The first two frames compute every cell, the twins gaining their
+        // cells at the first's end; a written value reaches its twin at its
+        // frame's end, and the cells that read the twin at the next frame.
+        assert_eq!(
+            ran,
+            [10, 10, 0, 3, 0, 24, 0, 10],
+            "the cells programs answered"
+        );
+        let set = |s: &[usize]| s.iter().copied().collect::<BTreeSet<usize>>();
+        assert_eq!(
+            as_runs[0],
+            set(&[b, d, e]),
+            "every cell: the shapes as runs"
+        );
+        assert_eq!(as_runs[3], set(&[]), "one cell of each: no run");
+        assert_eq!(
+            as_runs[5],
+            set(&[e]),
+            "eight of each: the shape with no program"
+        );
+        assert_eq!(
+            as_runs[7],
+            set(&[b, d, e]),
+            "sixteen of each: all but the ten"
+        );
+        assert!(
+            as_runs.iter().all(|s| !s.contains(&c)),
+            "the run of ten is never a run"
+        );
+        assert_eq!(runs.ran, 0, "no program without them");
+    }
+
+    #[test]
+    fn a_step_walks_the_runs_beside_the_positions() {
+        // KERNEL.44: an order whose runs stand between cells alone at every
+        // level, stepped in steps of every budget from one cell to all of
+        // them, frame after frame with writes between, is the same frames
+        // stepped whole; by runs and every cell alone. In the two frames that
+        // compute every cell in one step, the runs of twenty are computed as
+        // runs and the run of five by its program; the order's runs being
+        // twenty, twenty, five and twenty, a run the walk skipped leaves the
+        // cells of a run of twenty alone.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A30\" 1)\n",
+            "(sheet \"T\" visible)\n",
+            "(formula \"T\" \"A1:A20\" \"=S.last!A1+1\")\n",
+            "(formula \"T\" \"B1\" \"=S.last!A1*7\")\n",
+            "(formula \"T\" \"C1:C20\" \"=S.last!A1-2\")\n",
+            "(formula \"T\" \"D1\" \"=S!A1+S.last!A2\")\n",
+            "(formula \"T\" \"E1:E20\" \"=A1*2\")\n",
+            "(formula \"T\" \"F1\" \"=E1+B1\")\n",
+            "(formula \"T\" \"G1:G5\" \"=S.last!A1*3\")\n",
+        );
+        let of = load(rows).shapes.order().len();
+        let twenties: BTreeSet<usize> = {
+            let m = load(rows);
+            [(1, 1, 1), (1, 1, 3), (1, 1, 5)]
+                .iter()
+                .map(|id| m.shapes.place(*id).expect("placed").shape)
+                .collect()
+        };
+        for by_runs in [true, false] {
+            for budget in 1..=of {
+                let mut stepped = load(rows);
+                stepped.by_runs = by_runs;
+                let mut whole = load(rows);
+                for frame in 1..=3u32 {
+                    vector::taken::begin();
+                    while !stepped.step(budget).done {}
+                    let as_runs: BTreeSet<usize> =
+                        vector::taken::end().into_iter().map(|(s, _)| s).collect();
+                    // A step's piece of a run shorter than `SHORT` is its
+                    // program's, so the runs are whole in a frame of one step.
+                    if frame <= 2 && budget == of {
+                        let want = if by_runs {
+                            twenties.clone()
+                        } else {
+                            BTreeSet::new()
+                        };
+                        assert_eq!(as_runs, want, "by runs {by_runs}, frame {frame}");
+                    }
+                    assert!(whole.step(0).done);
+                    assert_eq!(
+                        values(&stepped),
+                        values(&whole),
+                        "budget {budget}, by runs {by_runs}, frame {frame}"
+                    );
+                    let w = format!("(cell \"S\" \"A1:A30\" {})", frame + 1);
+                    assert!(stepped.write(&w).is_ok() && whole.write(&w).is_ok());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_census_names_a_shape_left_to_ctx() {
+        // KERNEL.44: a shape with cells alone whose parse a program does not
+        // hold says why in its row; a shape lowered, a shape whose cells all
+        // stand in runs, a shape computed every frame and one calling a
+        // function the library lacks, each of which says why already, say
+        // nothing of it.
+        let f = |cell: &str, text: &str| {
+            format!("(formula \"S\" \"{cell}\" {})\n", crate::rows::quoted(text))
+        };
+        let rows = [
+            "(sheet \"S\" visible)\n(cell \"S\" \"A1:A30\" 1)\n(name \"Rate\" \"S!$A$1\")\n"
+                .to_string(),
+            f("B1", "=A1*2"),
+            f("C1", "=A1&\"x\""),
+            f("D1", "=A1:A2+1"),
+            f("E1", "=IF(A1,1,TRUE)"),
+            f("F1", "=Rate+1"),
+            f("G1:G30", "=A1&\"y\""),
+            f("H1", "=EMPTIES(CHOOSE(1,,2))"),
+        ]
+        .concat();
+        let m = load_programs(&rows, "the census");
+        let census = m.census();
+        for (cell, want) in [
+            ("B1", None),
+            ("C1", Some("text")),
+            ("D1", Some("range")),
+            ("E1", Some("kinds")),
+            ("F1", None),
+            ("G1", None),
+            ("H1", Some("omitted")),
+        ] {
+            let row = census
+                .lines()
+                .find(|l| l.starts_with("(shape") && l.contains(&format!("\"S\" \"{cell}\"")))
+                .unwrap_or_else(|| panic!("{cell}'s row in\n{census}"));
+            match want {
+                Some(w) => assert!(row.ends_with(&format!(" (unlowered {w}))")), "{row}"),
+                None => assert!(!row.contains("(unlowered"), "{row}"),
+            }
+        }
+        // The plan's totals unchanged by the item: no row of a census whose
+        // shapes are all lowered moves.
+        assert!(census.starts_with("(plan (shapes 7)"), "{census}");
+    }
+
+    #[test]
+    fn a_program_reads_a_cell_as_the_machine_reads_it() {
+        // KERNEL.44: the machine's read of a cell's number, made without its
+        // value, is `Env::read`'s answer as a register holds it at every cell
+        // of every sheet and twin, past their extents too, after every frame
+        // and every write: a number, 0 for nothing, `None` for anything else.
+        for seed in 1..=20u64 {
+            let mut d = Dice(seed ^ 0x5151);
+            let rows = program_grid(&mut d);
+            let mut m = load_programs(&rows, &format!("seed {seed}"));
+            for frame in 1..=3 {
+                assert!(m.step(0).done);
+                for sheet in 0..m.book.sheets.len() {
+                    for row in 1..=32u32 {
+                        for col in 1..=13u32 {
+                            let id = (sheet, row, col);
+                            assert_eq!(
+                                Source::number(&m, id),
+                                program::number_of(Env::read(&m, id)),
+                                "seed {seed}, frame {frame}, {id:?}"
+                            );
+                        }
+                    }
+                }
+                let w = format!(
+                    "(cell \"A\" \"A{}\" {})",
+                    1 + d.below(20),
+                    d.pick(&["\"t\"", "true", "(error \"#N/A\")", "8"])
+                );
+                assert!(m.write(&w).is_ok(), "{w}");
+            }
+        }
     }
 }

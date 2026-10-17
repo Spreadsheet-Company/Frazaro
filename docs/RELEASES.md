@@ -23,6 +23,23 @@
   spreadsheet's, which no formula reads, holds nothing more, and its
   recalculation is as fast as before or faster. The census names the new
   path `stride`. No call of the crate changed (KERNEL.43).
+- **For engines: a formula cell computed on its own runs its formula
+  compiled once.** A cell no run holds, a game's state cells or a
+  spreadsheet's cells that read one another, was computed by walking its
+  formula's parse, about 250 ns a cell on Alonzo's Kairos and 83 a balance
+  on the recalculation floors' `chain`. Each formula is now compiled once,
+  when the grid is loaded or a write makes it, into a short program over
+  registers of numbers, and a cell computed alone runs it, in about 40 ns
+  and 18. A value the program does not hold, a text, an error or a cell
+  not computed, hands the cell back to the walk, so that every answer is
+  the walk's, to the bit; and a run of fewer than sixteen cells runs its
+  cells' programs too, cheaper than its own start. Alonzo's Kairos steps
+  45% faster natively and 47% in the browser, Buffet 30% and 25%,
+  `chain`'s whole frame 74% faster and its edit 55%; Life, the gun and
+  Sand step as before, within 1%. A load is up to 5% slower and holds half
+  a kilobyte to two more a formula shape. The census marks a shape whose
+  cells computed alone keep the walk, and why: `(unlowered text)`. No call
+  of the crate changed (KERNEL.44).
 
 ## 0.9.4
 

@@ -29,7 +29,9 @@
 //! by shape and cell, which computes the frame any order after what each cell
 //! reads computes; its runs are the cells of a shape that stand together in
 //! it, on one sheet, reading none of one another, and an engine evaluates
-//! each run at once, node by node (`super::vector`, KERNEL.20). What each
+//! each run at once, node by node (`super::vector`, KERNEL.20), and a cell
+//! alone, or a run's few, by its shape's parse lowered once to a program
+//! (`super::program`, KERNEL.44). What each
 //! shape reads is found with the order, so that an engine follows a changed
 //! cell to the cells of the order that read it and computes those alone
 //! (`super::reach`, KERNEL.20).
@@ -52,6 +54,7 @@ use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{
     self, areas_at, cells_in, dependencies, is_formula, Area, CellId, Extent, Names,
 };
+use super::program::{Program, Why};
 use super::reach::{Positions, Reach};
 use super::vector::{self, Lanes, Repeats};
 
@@ -87,6 +90,11 @@ pub struct Shape {
     /// sheet, whose master is its first cell; `None` for the shape of plain
     /// formulas of one R1C1 text (KERNEL.34).
     fill: Option<u32>,
+    /// The parse lowered once, for a cell evaluated alone and a run's few
+    /// cells (KERNEL.44, `super::program`), or why it is left to `Ctx`;
+    /// `None` for a text not read and a risky shape, whose cells `Ctx`
+    /// evaluates as it always has.
+    lowered: Option<Result<Program, Why>>,
 }
 
 impl Shape {
@@ -100,6 +108,15 @@ impl Shape {
     /// each once (KERNEL.30's census prints them).
     pub(crate) fn missing(&self) -> &[String] {
         &self.missing
+    }
+
+    /// Why the parse is left to `Ctx` (KERNEL.44's census prints it); `None`
+    /// for a parse lowered, a text not read and a risky shape.
+    pub(crate) fn unlowered(&self) -> Option<Why> {
+        match &self.lowered {
+            Some(Err(why)) => Some(*why),
+            _ => None,
+        }
     }
 
     /// The construct a cell at this offset stands for that the shape's
@@ -165,6 +182,14 @@ struct Run {
 /// The fewest cells a run is evaluated at once for; fewer are evaluated one
 /// by one, as every cell was before (KERNEL.20).
 pub(crate) const RUN: usize = 4;
+
+/// The fewest cells of a run evaluated at once when its shape has a program
+/// (KERNEL.44): fewer are evaluated one by one by the program, which costs
+/// them less than a run's start costs them. Measured over 4 to 64: Kairos's
+/// runs of about 14 cells a frame selects cost 143 ns a cell against a
+/// program's 40, and Life's rule breaks even near 20 (its program 108 ns a
+/// cell, a run's 32 and a start of about 1.5 µs), 64 costing the gun.
+pub(crate) const SHORT: usize = 16;
 
 impl Shapes {
     /// A plan with nothing in it.
@@ -435,10 +460,12 @@ impl Shapes {
     }
 
     /// A shape kept, with what an evaluation of it at many cells holds found
-    /// once (KERNEL.20, `vector::holds`) and the parts it writes more than
-    /// once (KERNEL.27, `vector::Repeats`), in a frame of its own: `add`'s
-    /// frame stands beneath the parse, the deepest a load reaches, which
-    /// `VLA.1`'s limits pin on a stack of 1 MiB.
+    /// once (KERNEL.20, `vector::holds`), the parts it writes more than once
+    /// (KERNEL.27, `vector::Repeats`) and its parse lowered (KERNEL.44,
+    /// `super::program`; a risky shape keeps none, its cells read as it does
+    /// only in a grid that loads), in a frame of its own: `add`'s frame
+    /// stands beneath the parse, the deepest a load reaches, which `VLA.1`'s
+    /// limits pin on a stack of 1 MiB.
     #[inline(never)]
     fn push(
         &mut self,
@@ -457,6 +484,10 @@ impl Shapes {
             }
             Err(_) => ((0, 0), Repeats::default()),
         };
+        let lowered = match &expr {
+            Ok(e) if !risky => Some(Program::lower(library, e)),
+            _ => None,
+        };
         self.shapes.push(Shape {
             text,
             expr,
@@ -466,6 +497,7 @@ impl Shapes {
             holds,
             repeats,
             fill: None,
+            lowered,
         });
         self.shapes.len() - 1
     }
@@ -700,8 +732,8 @@ impl Shapes {
         for (k, s) in self.shapes.iter().enumerate() {
             let _ = writeln!(
                 out,
-                "shape {k} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-                s.anchor, s.fill, s.text, s.expr, s.missing, s.risky, s.holds, s.repeats
+                "shape {k} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+                s.anchor, s.fill, s.text, s.expr, s.missing, s.risky, s.holds, s.repeats, s.lowered
             );
         }
         let mut places: Vec<(&CellId, &Place)> = self.places.iter().collect();
@@ -723,12 +755,29 @@ impl Shapes {
         out
     }
 
-    /// The run a position of the order is in, as its shape and the position
-    /// after its last cell; `None` for a cell evaluated alone.
-    pub(crate) fn run_at(&self, pos: usize) -> Option<(usize, usize)> {
-        let after = self.runs.partition_point(|r| r.start <= pos);
-        let run = self.runs.get(after.checked_sub(1)?)?;
-        (pos < run.end).then_some((run.shape, run.end))
+    /// The first run of the order that ends after a position, by its index
+    /// among the runs: the one the position is in, or the next (KERNEL.44, a
+    /// step walking the runs beside the positions).
+    pub(crate) fn run_after(&self, pos: usize) -> usize {
+        self.runs.partition_point(|r| r.end <= pos)
+    }
+
+    /// A run by its index among the runs: its first position, the position
+    /// after its last cell, and its shape; `None` past the last.
+    #[inline]
+    pub(crate) fn run_span(&self, k: usize) -> Option<(usize, usize, usize)> {
+        self.runs.get(k).map(|r| (r.start, r.end, r.shape))
+    }
+
+    /// A shape's program and its first cell, from which each of its cells'
+    /// offset is, by its index (KERNEL.44); `None` for a shape left to `Ctx`.
+    #[inline]
+    pub(crate) fn program(&self, index: usize) -> Option<(&Program, CellId)> {
+        let s = self.shapes.get(index)?;
+        match &s.lowered {
+            Some(Ok(p)) => Some((p, s.anchor)),
+            _ => None,
+        }
     }
 
     /// Cells of one run, a part of it or the whole, evaluated at once
