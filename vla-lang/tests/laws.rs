@@ -10,7 +10,8 @@
 //! 2. Expansion reaches its fixpoint in one pass: expanding what it wrote
 //!    fires no macro and changes nothing.
 //! 3. Loading a grid's view and viewing it again gives the same view,
-//!    before a frame and after each one.
+//!    before a frame and after each one, over grids whose formats hold
+//!    codes among them, whose `text` rows the load skips (KERNEL.47).
 //! 4. A frame stepped in slices of any budget is the frame stepped whole.
 //! 5. A save resumed and stepped once is the original stepped once more.
 //! 6. Two machines given the same rows show the same grid and the same
@@ -27,7 +28,9 @@
 //! 9. A window's values are its grid record less its formula rows, every
 //!    sheet's, twins included, before a frame, after each and after each
 //!    write between frames; and a record's window and extent, as the machine
-//!    keeps them, are the sheet's walked (KERNEL.37).
+//!    keeps them, are the sheet's walked (KERNEL.37). Its grids' formats
+//!    hold codes and looks map values to them, so each record's `text` rows
+//!    are held too (KERNEL.47).
 //! 10. Each twin after a frame is its sheet's values as the frame left
 //!     them, however many of its cells the frame changed: the twin's record
 //!     holds the sheet's value cells and its formulas' values as cells, and
@@ -40,7 +43,8 @@
 //!     whole: every sheet's and twin's, whole and through windows, right
 //!     after a frame, after the writes before the next and while it yields,
 //!     over the grids of laws 9, 10 and 8, and grids whose values turn
-//!     between ones their records spell alike (KERNEL.42).
+//!     between ones their records spell alike (KERNEL.42); a cell's `text`
+//!     row among its rows (KERNEL.47).
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -326,17 +330,30 @@ fn plane(m: &Machine) -> Vec<u8> {
 
 #[test]
 fn loading_a_view_and_viewing_it_again_gives_the_same_view() {
+    let mut texts = 0;
     for seed in 1..=50u64 {
         let mut r = Rng::new(seed);
         let rows = grid_rows(&mut r);
+        // Every second grid dressed with formats whose codes print `text`
+        // rows, which the load skips and the view prints again (KERNEL.47).
+        let rows = match seed % 2 {
+            0 => dressed(&mut r, &rows),
+            _ => rows,
+        };
         let mut m = load(&rows, &format!("seed {seed}"));
         for frame in 0..=2 {
             let saved = save(&m);
             let again = load(&saved, &format!("seed {seed}, frame {frame}'s save"));
             assert_eq!(save(&again), saved, "seed {seed}, frame {frame}\n{rows}");
+            texts += saved.lines().filter(|l| l.starts_with("(text ")).count();
             assert!(m.step(0).done);
         }
     }
+    // Measured 2026-10-17 (KERNEL.47): 318 text rows in the saves.
+    assert!(
+        texts >= 150,
+        "too few text rows for the law to hold over: {texts}"
+    );
 }
 
 #[test]
@@ -650,9 +667,11 @@ fn a_grid_s_frames_are_the_same_however_its_formulas_are_written() {
 
 // ---- 9. a window's values ------------------------------------------------
 
-/// A grid's rows dressed: a format, and a `style` or a `sentence` row after
+/// A grid's rows dressed: formats, and a `style` or a `sentence` row after
 /// some of its written cells, so that the rows the values keep beside a
-/// formula's stand in the records (KERNEL.37).
+/// formula's stand in the records (KERNEL.37). Three of the formats hold
+/// codes, a number's, a sign's and a text's, and two looks map a value to
+/// them, so that a cell's `text` row stands in the records too (KERNEL.47).
 fn dressed(r: &mut Rng, rows: &str) -> String {
     let cell = format!("(cell \"{SHEET}\" \"");
     let formula = format!("(formula \"{SHEET}\" \"");
@@ -662,6 +681,12 @@ fn dressed(r: &mut Rng, rows: &str) -> String {
         out.push('\n');
         if line.starts_with("(sheet ") {
             out.push_str("(format 1 \"F7F4FC\" general nowrap)\n");
+            out.push_str("(format 2 none \"0.00\" nowrap)\n");
+            out.push_str("(format 3 none \"#,##0.0;(#,##0.0);\\\"zero\\\"\" nowrap)\n");
+            out.push_str("(format 4 \"E2D8F6\" \"0;-0;0;\\\"<\\\"@\\\">\\\"\" nowrap)\n");
+            out.push_str(&format!(
+                "(look \"{SHEET}\" 0 3)\n(look \"{SHEET}\" \"t1\" 4)\n"
+            ));
         }
         let Some(addr) = line
             .strip_prefix(&cell)
@@ -671,7 +696,8 @@ fn dressed(r: &mut Rng, rows: &str) -> String {
             continue;
         };
         if r.below(3) == 0 {
-            out.push_str(&format!("(style \"{SHEET}\" \"{addr}\" 1)\n"));
+            let style = 1 + r.below(4);
+            out.push_str(&format!("(style \"{SHEET}\" \"{addr}\" {style})\n"));
         }
         if r.below(3) == 0 {
             let row = 1 + r.below(9);
@@ -743,6 +769,13 @@ fn values_held(m: &mut Machine, when: &str) -> usize {
 #[test]
 fn a_window_s_values_are_its_grid_less_its_formula_rows() {
     let mut held = 0;
+    let mut texts = 0;
+    let count = |m: &Machine| {
+        record(m, "values", SHEET, None)
+            .lines()
+            .filter(|l| l.starts_with("(text "))
+            .count()
+    };
     for seed in 1..=50u64 {
         let mut r = Rng::new(seed);
         let rows = grid_rows(&mut r);
@@ -754,16 +787,23 @@ fn a_window_s_values_are_its_grid_less_its_formula_rows() {
                 assert!(m.step(0).done);
             }
             held += values_held(&mut m, &format!("seed {seed}, frame {frame}\n{rows}"));
+            texts += count(&m);
             let write = write_between(&mut r, &mut last);
             let when = format!("seed {seed}, frame {frame}: {write}\n{rows}");
             m.write(&write)
                 .unwrap_or_else(|e| panic!("{when}: {}", e.refusal.text));
             held += values_held(&mut m, &when);
+            texts += count(&m);
         }
     }
     // Fifty grids, five frames, before and after a write, two sheets (the
     // grid's and its twin), each whole and through a window.
     assert_eq!(held, 50 * 5 * 2 * 2 * 2);
+    // Measured 2026-10-17 (KERNEL.47): 2,181 text rows in the values.
+    assert!(
+        texts >= 1000,
+        "too few text rows for the law to hold over: {texts}"
+    );
 }
 
 // ---- 10. a frame's end at any share -------------------------------------
@@ -883,7 +923,7 @@ fn each_twin_is_its_sheet_s_values_however_many_cells_a_frame_changes() {
 
 // ---- 11. a window's changes ---------------------------------------------
 
-/// The cell a record's row belongs to: a `cell`, `value`, `style`,
+/// The cell a record's row belongs to: a `cell`, `value`, `text`, `style`,
 /// `sentence` or `empty` row's.
 fn cell_of(line: &str) -> Option<(u32, u32)> {
     let forms = read_forms(line).ok()?;
@@ -894,7 +934,7 @@ fn cell_of(line: &str) -> Option<(u32, u32)> {
         [Form::Sym(head), Form::Str(_), Form::Str(addr), ..]
             if matches!(
                 head.as_str(),
-                "cell" | "value" | "style" | "sentence" | "empty"
+                "cell" | "value" | "text" | "style" | "sentence" | "empty"
             ) =>
         {
             let r = parse_a1_range(addr)?;
@@ -976,6 +1016,8 @@ struct Held {
     patched: usize,
     still: usize,
     whole: usize,
+    /// The `text` rows the changes of the windows patched gave (KERNEL.47).
+    texts: usize,
 }
 
 /// The law at one moment: each window's values at `base`, the frame before
@@ -1030,6 +1072,7 @@ fn changes_held(
                     );
                 }
                 held.patched += 1;
+                held.texts += changes.lines().filter(|l| l.starts_with("(text ")).count();
                 held.still += usize::from(n == 0);
             }
         }
@@ -1175,10 +1218,19 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
     }
     // Measured 2026-10-15: patched 1,442, 7,833, 2,282 and 1,060, of which
     // still 670, 3,240, 1,924 and 135; whole 4,262, 4,343, 2,198 and 700.
+    // The first family measured again 2026-10-17, its grids dressed with
+    // codes (KERNEL.47): patched 1,851, still 834, whole 3,989.
     for (family, h) in ["grids", "churning", "fills", "spelled"].iter().zip(&held) {
         assert!(
             h.patched - h.still >= 150 && h.still >= 60 && h.whole >= 300,
             "{family}: too few windows of a kind for the law to hold over: {h:?}"
         );
     }
+    // Measured 2026-10-17 (KERNEL.47), the grids' formats holding codes: 254
+    // text rows in the changes of the windows patched.
+    assert!(
+        held[0].texts >= 120,
+        "grids: too few text rows for the law to hold over: {:?}",
+        held[0]
+    );
 }

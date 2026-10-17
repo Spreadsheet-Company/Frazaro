@@ -121,7 +121,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-12, KERNEL.30: 57 - check_shapes_golden.ps1 (the door's census of
 # oracle 12's fixtures and of the four bench programs is each golden whole,
 # its order and its totals holding in the golden itself).
-$expectedAtLeast = 57
+# 2026-10-17, KERNEL.47: 58 - check_formats_golden.ps1 (the formats golden,
+# Excel's text of each value under each code, its shape held to its fixture
+# and every construct the language draws reached).
+$expectedAtLeast = 58
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -141,7 +144,8 @@ $extras = @(
     @{ Script = 'check_crate_package.ps1'; Args = @('-Control');    What = 'VLA.1 package reader: the clean crates pass; a test include leaving vla-lang, an integration test reaching out, a core include leaving its crate and a respelled include each fail' },
     @{ Script = 'check_expand_golden.ps1'; Args = @('-Control');    What = 'VLA.3 expand golden: the real set passes; a misspelt tag, a dropped case, an unknown id, a broken reference Select and a renamed primitive each fail' },
     @{ Script = 'check_recalc_floors.ps1'; Args = @('-Control');    What = 'KERNEL.20 recalculation floors: a clean baseline passes; fifteen mutants, two pasted histories and three fake runners each fail' },
-    @{ Script = 'check_shapes_golden.ps1'; Args = @('-Control');    What = 'KERNEL.30 census goldens: a clean fake door passes, the second pass from its cache; a mutant door and six broken goldens each fail' }
+    @{ Script = 'check_shapes_golden.ps1'; Args = @('-Control');    What = 'KERNEL.30 census goldens: a clean fake door passes, the second pass from its cache; a mutant door and six broken goldens each fail' },
+    @{ Script = 'check_formats_golden.ps1'; Args = @('-Control');   What = 'KERNEL.47 formats golden: the real set passes; a misspelt tag, a dropped case, a value echoed otherwise, an exponent and the backslashes taken out each fail' }
 )
 
 function Invoke-OneScript {

@@ -21,19 +21,27 @@
 //! (row "Board" 3 30 shown)           a row of the window with settings (KERNEL.22):
 //!                                    height or none, shown or hidden
 //! (format 1 "F7F4FC" text nowrap)    format 0 and every format the window uses:
-//!                                    fill or none, general or text, wrap or nowrap
+//!                                    fill or none, general, text or a code of
+//!                                    Excel's in quotes (KERNEL.47), wrap or nowrap
 //! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
 //!                                    holding the value draws with the format
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
 //! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it
 //! (value "Output" "B3" 10)           its computed value, once values exist
+//! (text "Output" "B3" "10.00")       a number's text under its format's code
+//!                                    (KERNEL.47), after its cell or value row
 //! (style "Output" "B2" 1)            the cell's format, when it is not 0
 //! (sentence "Output" "B2" 4)         the row of the sentence that wrote the cell
 //! ```
 //!
 //! The cells come in row-major order, each `cell` or `formula` row followed
-//! by its `value` row (a formula's, once values exist), its `style` row and
-//! its `sentence` row. The `cell` and `formula` rows are the reader's own,
+//! by its `value` row (a formula's, once values exist), its `text` row, its
+//! `style` row and its `sentence` row. A `text` row is the text Excel draws
+//! for the cell's number, or for its text under a code's fourth section,
+//! under the code of the format the cell draws with, its look's where its
+//! value has one (KERNEL.47; `crate::numfmt`): so a viewport draws the text
+//! and never respells a value. A record whose formats hold no code prints
+//! none. The `cell` and `formula` rows are the reader's own,
 //! spelled by `reflect::print`, which is the free oracle: the view of a
 //! built model's sheet, whole, is `reflect`'s reading of the file the
 //! writer writes from that model, row for row. A `cell` row is a value the
@@ -73,14 +81,15 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use crate::calc::{Extent, Values};
+use crate::calc::{self, Extent, Values};
+use crate::machine::load::Datum;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted};
 use crate::rows::{Row, Value};
 use crate::sheet::{
     cell_ref, column_letters, formula_text, number_text, parse_a1_range, shared_masters, A1Range,
-    Cell, Column, Content, NumFmt, Sheet, Style, Workbook,
+    Cell, Column, Content, NumFmt, Sheet, Style, Styles, Workbook,
 };
 
 /// The grid: the view record of one window, the first projection. With the
@@ -252,6 +261,7 @@ impl Grid<'_> {
         // A sheet whose cells are newer where its values say (KERNEL.27): an
         // engine's twin, read through its values' own content.
         let lags = self.values.filter(|v| v.lags(i));
+        let coded = Coded::of(model, sheet);
         #[cfg(test)]
         crate::sheet::work::viewed(cells.len());
         for (&(row, col), cell) in cells {
@@ -263,6 +273,7 @@ impl Grid<'_> {
                 lags,
                 formulas,
                 &mut masters,
+                coded.as_ref(),
                 out,
             );
         }
@@ -271,9 +282,11 @@ impl Grid<'_> {
     /// One cell's rows, as the record prints them (KERNEL.42: the changes
     /// print a changed cell's by this code too): its `cell` row, or its
     /// `formula` row where the record has them and its `value` row once it
-    /// has one, then its `style` and `sentence` rows; whether it printed
+    /// has one, then its `text` row where its value draws under a code
+    /// (KERNEL.47), then its `style` and `sentence` rows; whether it printed
     /// any. `lags` are the values of a sheet whose cells are newer where they
-    /// say, and `masters` the sheet's shared formulas', found once.
+    /// say, `masters` the sheet's shared formulas', found once, and `coded`
+    /// what a `text` row needs, where the style table holds a code.
     #[allow(clippy::too_many_arguments)]
     fn cell_rows<'s>(
         &self,
@@ -284,12 +297,14 @@ impl Grid<'_> {
         lags: Option<&dyn Values>,
         formulas: bool,
         masters: &mut Option<HashMap<u32, (&'s str, u32, u32)>>,
+        coded: Option<&Coded<'_>>,
         out: &mut dyn FnMut(&str),
     ) -> bool {
         let name = sheet.name.as_str();
         let addr = cell_ref(row, col);
         let newer = lags.and_then(|v| v.content((i, row, col)));
-        let printed = match newer.as_ref().unwrap_or(&cell.content) {
+        // Whether the cell printed a row, and the value a code draws.
+        let (printed, shown) = match newer.as_ref().unwrap_or(&cell.content) {
             Content::Text(t) => {
                 let value = Value::Text(t.clone());
                 out(&relation(&Row::Cell {
@@ -297,7 +312,7 @@ impl Grid<'_> {
                     addr: &addr,
                     value: &value,
                 }));
-                true
+                (true, Some(calc::Value::Text(t.clone())))
             }
             Content::Number(n) => {
                 // What the writer puts in the file: the number's text,
@@ -311,7 +326,7 @@ impl Grid<'_> {
                     addr: &addr,
                     value: &value,
                 }));
-                true
+                (true, Some(calc::Value::Number(*n)))
             }
             Content::Bool(b) => {
                 let value = Value::Bool(*b);
@@ -320,7 +335,7 @@ impl Grid<'_> {
                     addr: &addr,
                     value: &value,
                 }));
-                true
+                (true, None)
             }
             Content::Error(e) => {
                 let value = Value::Error(e.clone());
@@ -329,7 +344,7 @@ impl Grid<'_> {
                     addr: &addr,
                     value: &value,
                 }));
-                true
+                (true, None)
             }
             other => {
                 let computed = self.values.and_then(|calc| calc.computed((i, row, col)));
@@ -361,6 +376,7 @@ impl Grid<'_> {
                         _ => true,
                     }
                 };
+                let mut shown = None;
                 if let Some(computed) = computed.filter(|_| held) {
                     out(&format!(
                         "(value {} {} {})",
@@ -368,12 +384,26 @@ impl Grid<'_> {
                         quoted(&addr),
                         computed.spell()
                     ));
+                    // The value as the row spells it: an empty result is 0.
+                    if let calc::Computed::Value(v) = computed {
+                        shown = Some(v.clone().settled());
+                    }
                 }
-                held
+                (held, shown)
             }
         };
         if !printed {
             return false;
+        }
+        if let (Some(coded), Some(v)) = (coded, shown) {
+            if let Some(text) = coded.text(cell.style, &v) {
+                out(&format!(
+                    "(text {} {} {})",
+                    quoted(name),
+                    quoted(&addr),
+                    quoted(&text)
+                ));
+            }
         }
         if cell.style != 0 {
             out(&format!(
@@ -396,8 +426,9 @@ impl Grid<'_> {
 }
 
 /// A `format` row: the index, the fill as six hex digits or `none`, the
-/// number format, and whether text wraps. An index the style table does not
-/// hold reads as the default format.
+/// number format, `general`, `text` or a code quoted (KERNEL.47), and
+/// whether text wraps. An index the style table does not hold reads as the
+/// default format.
 fn format_row(index: u32, style: Option<&Style>) -> String {
     let default = Style::default();
     let s = style.unwrap_or(&default);
@@ -405,14 +436,76 @@ fn format_row(index: u32, style: Option<&Style>) -> String {
         Some(rgb) => quoted(&format!("{:02X}{:02X}{:02X}", rgb.0, rgb.1, rgb.2)),
         None => "none".to_string(),
     };
-    let num = match s.num_fmt {
-        NumFmt::General => "general",
-        NumFmt::Text => "text",
+    let num = match &s.num_fmt {
+        NumFmt::General => "general".to_string(),
+        NumFmt::Text => "text".to_string(),
+        NumFmt::Code(code) => quoted(code.as_str()),
     };
     format!(
         "(format {index} {fill} {num} {})",
         if s.wrap { "wrap" } else { "nowrap" }
     )
+}
+
+/// What a record needs for a cell's `text` row (KERNEL.47): the style table
+/// and the sheet's looks read back from their spellings, made once a view
+/// and only where the table holds a code, so that a record whose formats
+/// hold none prints as it did and finds no look.
+struct Coded<'m> {
+    styles: &'m Styles,
+    looks: Vec<(Look, u32)>,
+}
+
+/// A look's value, as a value a code draws meets it: a number by its value,
+/// so that 7 and 7.0 are one and so are 0 and -0, and a text by its
+/// characters, the viewport's rule (Alonzo's `SPEC.md` §3.1). A look of a
+/// truth value or an error matches no value a code draws.
+enum Look {
+    Number(f64),
+    Text(String),
+}
+
+impl<'m> Coded<'m> {
+    fn of(model: &'m Workbook, sheet: &Sheet) -> Option<Coded<'m>> {
+        if !model.styles.has_code() {
+            return None;
+        }
+        let looks = sheet
+            .looks
+            .iter()
+            .filter_map(|(spelled, index)| {
+                let forms = crate::reader::read_forms(spelled).ok()?;
+                let look = match crate::machine::load::datum(forms.first()?)? {
+                    Datum::Number(n) => Look::Number(n),
+                    Datum::Text(t) => Look::Text(t),
+                    _ => return None,
+                };
+                Some((look, *index))
+            })
+            .collect();
+        Some(Coded {
+            styles: &model.styles,
+            looks,
+        })
+    }
+
+    /// The text a value draws as in a cell of format `style`: under its
+    /// look's format in place of the cell's own where its value has one, as
+    /// the viewport draws a look (Alonzo's `SPEC.md` decision 19), the first
+    /// look of the record's that it meets; `None` where that format holds no
+    /// code or the code draws the value as the record spells it.
+    fn text(&self, style: u32, value: &calc::Value) -> Option<String> {
+        let met = self.looks.iter().find(|(look, _)| match (look, value) {
+            (Look::Number(a), calc::Value::Number(b)) => a == b,
+            (Look::Text(a), calc::Value::Text(b)) => a == b,
+            _ => false,
+        });
+        let index = met.map_or(style, |(_, index)| *index);
+        match self.styles.get(index).map(|s| &s.num_fmt) {
+            Some(NumFmt::Code(code)) => code.text(value),
+            _ => None,
+        }
+    }
 }
 
 /// The sheet's used rectangle, or `None` for a sheet with no cell.
@@ -568,6 +661,7 @@ pub(crate) fn changes_text(
     crate::sheet::work::viewed(cells.len());
     let grid = Grid::valued(values);
     let lags = Some(values).filter(|v| v.lags(i));
+    let coded = Coded::of(model, sheet);
     let mut masters = None;
     let mut push = |line: &str| {
         out.push_str(line);
@@ -583,6 +677,7 @@ pub(crate) fn changes_text(
                 lags,
                 false,
                 &mut masters,
+                coded.as_ref(),
                 &mut push,
             )
         });

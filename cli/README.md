@@ -644,10 +644,13 @@ gridlines; a `column` row for each column of the window that has settings
 `none`), which is how a window over the `Frazaro` sheet learns that its
 column A is hidden and its columns B and C are wide and coloured; a
 `format` row for format 0 and every format the window uses (the fill as
-six hex digits or `none`, `general` or `text`, `wrap` or `nowrap`); then
+six hex digits or `none`, `general`, `text` or a code of Excel's in quotes
+such as `"0.00"` (KERNEL.47), `wrap` or `nowrap`); then
 the cells in row order, each as `reflect` prints the same cell of the
 written file, a `cell` row for a value or a `formula` row for a formula's
-text, followed by its `value` row for a formula (KERNEL.7), its `style`
+text, followed by its `value` row for a formula (KERNEL.7), its `text`
+row where its number draws under a code, the text Excel draws for it
+(KERNEL.47), its `style`
 row when its format is not 0 and its `sentence` row, the row of the
 sentence that wrote it, which is the
 program's line and the row of the `Frazaro` sheet that holds the sentence.

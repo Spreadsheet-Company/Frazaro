@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.4"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.47"
+' KERNEL.47: grid-format-code under VLA-Grid - a format row's number format
+' may be a code of Excel's in quotes, such as "0.00", and a code holding
+' what this version does not draw (a color, a date's letter, an exponent,
+' a fraction, a width or a fill) is refused naming it and what draws
+' instead. Raised by the language's loader alone; no VBA site raises it,
+' the add-in's formats being Excel's own.
+'
 ' VLA.4: the formula syntax's thirteen refusals under VLA, worded for a
 ' formula rather than for deflambda, whose eight keep their words:
 ' vla-formula-atom-unspelled and vla-formula-numeral-unspelled - an atom
@@ -1598,6 +1605,8 @@ Private Sub AddEntries(ByVal m As Collection)
     ' KERNEL.23 - the line a row stands on is the answer's own field, so no text says it.
     AddMsg m, "grid-row-unknown", 5, "VLA-Grid", "A ({head} ...) row is not one taken here; the rows taken here are {kinds}."
     AddMsg m, "grid-row-malformed", 5, "VLA-Grid", "The row {row} is not in its shape, {shape}. In a shape, <value> is a number, a text in quotes, true, false or an error such as (error ""#N/A"")."
+    ' KERNEL.47 - a format row's code of Excel's, the construct it holds that this version does not draw named, and what draws instead.
+    AddMsg m, "grid-format-code", 5, "VLA-Grid", "The format code {code} holds {what}, which this version does not draw; {fix}."
     AddMsg m, "grid-cell-written-twice", 5, "VLA-Grid", "{what} was already written by line {first}; a grid's rows say one thing about each cell and each setting, so write it once."
     AddMsg m, "grid-sheet-name-invalid", 5, "VLA-Grid", "A grid cannot hold a sheet named {name}. A sheet's name is 1 to 26 characters, so that the name of its twin, the previous frame, fits Excel's 31; it holds none of \ / ? * [ ] : and no apostrophe at either end; and a name ending in .last is a twin's own."
     AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "A write cannot go into {target}: the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."

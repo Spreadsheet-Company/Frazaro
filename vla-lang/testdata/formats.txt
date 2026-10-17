@@ -1,0 +1,248 @@
+The number formats fixture (KERNEL.47). Each case sits under a line
+"=== <name>" and runs to the next such line; these lines before the first
+header are ignored. A case's first line is a format code as
+Range.NumberFormat takes it, written as it is, quotes and all; each line
+after it is a value the code draws, a number in the record's spelling or a
+text after an apostrophe ('abc), Excel's own mark for a text. A header that
+ends "!refused <words>" names a code this version does not draw, the words
+being ones its refusal names (grid-format-code); such a case carries no
+value. VlaWriteFormatsGolden (VLA_Tests.bas) has Excel draw every case and
+writes formats_golden.txt beside this file: the header, then
+"CODE<TAB><the code as Range.NumberFormat reads it back>" or
+"REFUSED<TAB><Excel's error number>", then one line a value, "<the value as
+written><TAB><Range.Text in a column 255 characters wide>". vla-lang's
+numfmt.rs is held to that file by its own test (tests/formats_golden.rs),
+over the crate's copies, and tools/check_formats_golden.ps1 holds the
+pair's shape and the constructs the cases reach.
+=== two decimals
+0.00
+1
+12.3
+0
+-0
+-1.5
+1234567.891
+10000000000000000
+=== excel's rounding
+0.00
+2.675
+1.005
+0.125
+9.995
+0.005
+0.0049
+0.30000000000000004
+-2.675
+=== whole numbers, ties away from zero
+0
+2.5
+0.5
+-2.5
+0.4
+-0.4
+=== digits past the fifteenth
+0
+1234567890123455
+1234567890123465
+123456789012345680
+100000000000000000000
+0.1
+=== eighteen decimals
+0.000000000000000000
+0.1
+=== a small negative under one section
+0.00
+-0.001
+-0.004
+=== thousands
+#,##0
+0
+999
+1000
+1234567
+-1234567
+0.5
+=== thousands with decimals
+#,##0.00
+1234.5
+-0.001
+1000000
+0.01
+4327.15
+=== two sections
+0.00;(0.00)
+1.5
+-1.5
+-0.001
+0
+=== three sections
+0.00;(0.00);"zero"
+1
+-1
+0
+0.001
+-0.001
+=== a glyph joined to its number
+▲0.00;▼0.00;=0.00
+12.3
+-12.3
+0
+1.005
+=== a sign written as a literal
++0.00;-0.00;0.00
+0.25
+-0.25
+0
+=== a hash over zero
+#
+0
+7
+=== hashes after the point
+#.##
+0.5
+1.25
+1
+=== a trailing point
+0.#
+1
+1.25
+=== a zero then a hash
+0.0#
+1.5
+1.25
+1.255
+=== zeros before the digits
+000
+5
+1234
+=== a zero between hashes
+#0#
+5
+=== digits across literals
+000-00-0000
+123456789
+5
+=== a telephone number
+(000) 000-0000
+5551234567
+=== a literal inside the digits
+0-0
+123
+=== no placeholder before the point
+.00
+12.5
+0.5
+=== percent
+0%
+0.5
+1
+-0.255
+=== percent with decimals
+0.00%
+0.12345
+0.0005
+=== percent with one decimal
+0.0%
+0.145
+=== thousandths
+#,##0,
+1234567.891
+499
+500
+=== millions
+0.0,,
+12200000
+=== thousandths and a letter quoted
+#,##0,"K"
+2500
+1499
+=== a quoted literal after
+0.00" kg"
+2
+-2
+=== a negative's minus before a literal
+"Total: "0
+5
+-5
+=== a dollar escaped
+\$#,##0.00
+1234.5
+-5
+=== a bare dollar
+$#,##0.00
+-5
+=== a euro escaped
+\€#,##0.00
+3
+=== a euro after the digits
+0.00€
+3
+=== parentheses unquoted
+(0)
+5
+=== braces unquoted
+{0}
+5
+=== angles unquoted
+<0>
+5
+=== an equals sign unquoted
+=0
+5
+=== an empty section
+0;;0
+-3
+3
+0
+=== every section empty
+;;;
+5
+'abc
+=== a text's section
+0;-0;0;"<"@">"
+'abc
+5
+=== a text before its own
+0;-0;0;@" ok"
+'abc
+=== an empty text section
+0;-0;0;
+'abc
+=== literals alone
+"x"
+5
+-5
+=== Excel's built-in 37
+#,##0 ;(#,##0)
+1234
+-1234
+=== Excel's built-in 39
+#,##0.00;(#,##0.00)
+-0.001
+1234.5
+=== a color !refused a color
+[Red]0.00
+=== a date !refused date
+yyyy-mm-dd
+=== an exponent !refused exponent
+0.00E+00
+=== a fraction !refused width
+# ?/?
+=== the accounting layout !refused width
+_(\$* #,##0.00_);_(\$* (#,##0.00);_(\$* "-"??_);_(@_)
+=== a fill !refused fill
+* 0
+=== General inside a code !refused General inside
+General;-General
+=== a letter unquoted !refused a letter outside quotes
+0 kg
+=== a text's place too early !refused @ before the fourth
+@;0
+=== General as a code !refused General format
+General
+=== Text as a code !refused Text format
+@
+=== a comma among the decimals !refused among the decimals
+0.0,0
+=== a fifth section !refused fifth section
+0;0;0;@;0

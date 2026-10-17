@@ -56,6 +56,14 @@ refused in the same words.
   a formula's text, with column widths, a style table and the row of the
   sentence that wrote each cell. `Sheet::set_formula` fills a range with one
   formula as Excel fills it, the references moved cell by cell.
+- **Draws a number under a format's code.** `numfmt::Code::parse` takes a
+  code of Excel's, such as `0.00` or `▲0.00;▼0.00;=0.00`, its sections,
+  digit placeholders, thousands, thousandths, percents and literals, and
+  names whatever else a code holds that this version does not draw;
+  `Code::text` gives the text a value draws as under it, as Excel's
+  `Range.Text` does: the number's fifteen significant digits, rounded half
+  away from zero to the code's decimals. A style's `sheet::NumFmt` is
+  `General`, `Text` or a `Code`.
 - **Reads references.** `refers::scan` finds every reference inside a
   formula's text, cells, ranges, columns, rows, names, Tables, external
   books and 3D spans, and names the calls it cannot read; `refers::r1c1`
@@ -65,8 +73,9 @@ refused in the same words.
 - **Draws the view record.** `view::window_of` finds a sheet and a window
   in a model, and `view::view_text` prints that window as lines: every
   sheet, the window and the sheet's extent, its columns and formats, then
-  each cell's value or formula, its format and the row of the sentence that
-  wrote it. It is the first implementation of `projection::Projection`, the
+  each cell's value or formula, the text a number draws under its format's
+  code, its format and the row of the sentence that wrote it. It is the
+  first implementation of `projection::Projection`, the
   seam a second projection enters by. `view::view_text_valued` prints the
   same record with each formula's computed value after it. The second,
   `view::ValueGrid`, is the same record less its formula rows, the values a

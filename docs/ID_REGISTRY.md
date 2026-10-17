@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.46 | KERNEL.47 |
+| KERNEL | KERNEL.47 | KERNEL.48 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -267,6 +267,11 @@ measured beside them and not minted. `KERNEL.46` is next free.
 machine's write takes beside `cell`, `formula` and `derived`, so that a host
 gives a cell back to no value, as a rebuilt cartridge that no longer writes
 it asks. `KERNEL.47` is next free.
+`KERNEL.47` was minted 2026-10-17 at the owner's word, from Buffet's
+`POT.10` hand test of 2026-10-16 and its ledger's row in `MISE.6`, for a
+number format in the record, Excel's format codes beside `general` and
+`text`, so that a cell holding 1 under `0.00` draws 1.00, right-aligned as a
+number. `KERNEL.48` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

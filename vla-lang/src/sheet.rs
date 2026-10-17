@@ -20,6 +20,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use crate::numfmt::Code;
 use crate::rows::Visibility;
 
 /// A colour, as `Interior.Color = RGB(r, g, b)` names it.
@@ -34,20 +35,27 @@ impl Rgb {
 }
 
 /// The number formats a style names: Excel's built-in General and Text
-/// (`NumberFormat = "@"`, so a sentence is never read as a formula).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// (`NumberFormat = "@"`, so a sentence is never read as a formula), and
+/// since KERNEL.47 (2026-10-17) a code of Excel's, such as `0.00`
+/// (`crate::numfmt`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum NumFmt {
     #[default]
     General,
     Text,
+    Code(Code),
 }
 
 impl NumFmt {
-    /// The built-in format's id in the styles part.
-    pub fn id(self) -> u32 {
+    /// The id of the built-in format in a styles part, where Excel has one:
+    /// General's 0, Text's 49, and a code's own where it is a built-in that
+    /// Excel draws alike in every locale (`Code::builtin`); `None` for a
+    /// code a workbook must define.
+    pub fn builtin(&self) -> Option<u32> {
         match self {
-            NumFmt::General => 0,
-            NumFmt::Text => 49,
+            NumFmt::General => Some(0),
+            NumFmt::Text => Some(49),
+            NumFmt::Code(c) => c.builtin(),
         }
     }
 }
@@ -123,6 +131,14 @@ impl Styles {
             }
         }
         fills
+    }
+
+    /// Whether any format holds a code (KERNEL.47): a record over a table
+    /// that holds none prints no `text` row and finds no cell's look.
+    pub fn has_code(&self) -> bool {
+        self.xfs
+            .iter()
+            .any(|s| matches!(s.num_fmt, NumFmt::Code(_)))
     }
 }
 

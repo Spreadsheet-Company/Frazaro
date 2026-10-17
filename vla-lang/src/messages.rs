@@ -256,11 +256,12 @@ mod tests {
                 "{id} is not the language's"
             );
         }
-        // The machine's family (KERNEL.22): eleven grid ids, and the view's
-        // and recalculation's own the machine adds.
+        // The machine's family (KERNEL.22): eleven grid ids, a twelfth since
+        // KERNEL.47 (`grid-format-code`), and the view's and recalculation's
+        // own the machine adds.
         assert_eq!(
             ids().iter().filter(|id| id.starts_with("grid-")).count(),
-            11
+            12
         );
         // A row's line is the answer's own field (KERNEL.23): no grid text
         // says it, so a write of one row never reads "Line 1".

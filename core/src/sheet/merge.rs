@@ -8,7 +8,9 @@
 //! calcPr that asks the host to compute on open), the workbook's
 //! relationships, the content types, and the styles, whose fill and format
 //! lists grow at their ends so that every index the model's own cells use
-//! stays what it was. A model that already carries dynamic-array cell
+//! stays what it was, and whose number formats (`KERNEL.47`) gain this
+//! build's codes at ids past the model's own, a code the model already
+//! defines taking its id. A model that already carries dynamic-array cell
 //! metadata lends this build its index; one that carries none gets this
 //! writer's part. The model's own cells, strings, theme, calculation
 //! chain and properties are never read beyond the central directory.
@@ -135,6 +137,19 @@ fn tags(text: &str, name: &str) -> Vec<(usize, usize)> {
         }
     }
     out
+}
+
+/// The number formats a styles part defines (KERNEL.47): each `<numFmt>`'s
+/// code, unescaped, and its id.
+fn defined_codes(styles: &str) -> Vec<(String, u32)> {
+    tags(styles, "numFmt")
+        .into_iter()
+        .filter_map(|(s, e)| {
+            let tag = &styles[s..e];
+            let id = attr(tag, "numFmtId")?.parse().ok()?;
+            Some((attr(tag, "formatCode")?, id))
+        })
+        .collect()
 }
 
 /// The text with `insertion` put before the first `marker`.
@@ -588,10 +603,48 @@ pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal
     let content_types =
         insert_before(&model.content_types, "</Types>", &overrides).ok_or_else(too_large)?;
 
-    // The styles: this build's fills and formats at the ends of the lists.
+    // The styles: this build's fills and formats at the ends of the lists,
+    // and its number formats' codes (KERNEL.47): a code the model defines
+    // byte for byte takes the model's id, and ours take ids from one past
+    // the model's highest, so that no id the model's cells use moves.
     let fills = ours.styles.fills();
     let own_xfs = ours.styles.xfs().len().saturating_sub(1) as u32;
     let mut styles = model.styles.clone();
+    let defined = defined_codes(&styles);
+    let next = defined
+        .iter()
+        .map(|(_, id)| id + 1)
+        .max()
+        .unwrap_or(0)
+        .max(ooxml::FIRST_CODE_ID);
+    let mut codes = Vec::new();
+    let mut added = Vec::new();
+    for (code, _) in ooxml::code_ids(&ours.styles, 0) {
+        match defined.iter().find(|(text, _)| *text == code.as_str()) {
+            Some((_, id)) => codes.push((code, *id)),
+            None => {
+                let id = next + added.len() as u32;
+                added.push((code.clone(), id));
+                codes.push((code, id));
+            }
+        }
+    }
+    if !added.is_empty() {
+        let fragment = ooxml::numfmts_fragment(&added);
+        if styles.contains("</numFmts>") {
+            styles = insert_before(&styles, "</numFmts>", &fragment).ok_or_else(too_large)?;
+            styles = bump_count(&styles, "numFmts", added.len() as u32).ok_or_else(too_large)?;
+        } else if !tags(&styles, "numFmts").is_empty() {
+            return Err(unsupported(
+                &model.label,
+                STYLES,
+                "its numFmts list is self-closing",
+            ));
+        } else {
+            let list = format!("<numFmts count=\"{}\">{fragment}</numFmts>", added.len());
+            styles = insert_before(&styles, "<fonts", &list).ok_or_else(too_large)?;
+        }
+    }
     if !fills.is_empty() {
         styles = insert_before(&styles, "</fills>", &ooxml::fills_fragment(&ours.styles))
             .ok_or_else(too_large)?;
@@ -601,7 +654,7 @@ pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal
         styles = insert_before(
             &styles,
             "</cellXfs>",
-            &ooxml::cellxfs_fragment(&ours.styles, model.fills_count),
+            &ooxml::cellxfs_fragment(&ours.styles, model.fills_count, &codes),
         )
         .ok_or_else(too_large)?;
         styles = bump_count(&styles, "cellXfs", own_xfs).ok_or_else(too_large)?;
@@ -690,6 +743,7 @@ pub fn test_model(with_metadata: Option<&str>) -> Vec<u8> {
 mod tests {
     use super::*;
     use crate::sheet::{parse_a1_range, Cell, Content, Sheet};
+    use vla_lang::numfmt::Code;
 
     const EXCEL_METADATA: &str = "<metadata xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:xlrd=\"http://schemas.microsoft.com/office/spreadsheetml/2017/richdata\" xmlns:xda=\"http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray\"><metadataTypes count=\"2\"><metadataType name=\"XLRICHVALUE\" minSupportedVersion=\"120000\" copy=\"1\" pasteAll=\"1\" pasteValues=\"1\" merge=\"1\" splitFirst=\"1\" rowColShift=\"1\" clearFormats=\"1\" clearComments=\"1\" assign=\"1\" coerce=\"1\"/><metadataType name=\"XLDAPR\" minSupportedVersion=\"120000\" copy=\"1\" pasteAll=\"1\" pasteValues=\"1\" merge=\"1\" splitFirst=\"1\" rowColShift=\"1\" clearFormats=\"1\" clearComments=\"1\" assign=\"1\" coerce=\"1\" cellMeta=\"1\"/></metadataTypes><futureMetadata name=\"XLDAPR\" count=\"1\"><bk><extLst><ext uri=\"{bdbb8cdc-fa1e-496e-a857-3c3f30c029c3}\"><xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/></ext></extLst></bk></futureMetadata><cellMetadata count=\"2\"><bk><rc t=\"1\" v=\"0\"/></bk><bk><rc t=\"2\" v=\"0\"/></bk></cellMetadata></metadata>";
 
@@ -829,6 +883,70 @@ mod tests {
         );
         // Determinism, and the same bytes from the same inputs.
         assert_eq!(write(&model, &ours(), 1).unwrap(), out);
+    }
+
+    /// The test model with its styles part's text edited.
+    fn with_styles(edit: impl Fn(&str) -> String) -> Vec<u8> {
+        let bytes = test_model(None);
+        let parts: Vec<(String, Vec<u8>)> = zip::entries(&bytes)
+            .unwrap()
+            .iter()
+            .map(|e| {
+                let data = zip::stored_data(&bytes, e).unwrap().to_vec();
+                let data = match e.name == STYLES {
+                    true => edit(&String::from_utf8(data).unwrap()).into_bytes(),
+                    false => data,
+                };
+                (e.name.clone(), data)
+            })
+            .collect();
+        zip::write_stored(&parts).unwrap()
+    }
+
+    #[test]
+    fn a_build_s_codes_take_the_model_s_ids_or_ids_past_them() {
+        // KERNEL.47: a built-in by its id; a code the model defines byte for
+        // byte its id; any other an id past the model's highest, so that no
+        // id the model's own cells use moves.
+        let code = |text: &str| crate::sheet::NumFmt::Code(Code::parse(text).unwrap());
+        let mut wb = ours();
+        for text in ["0.00", "▲0.00;▼0.00;=0.00", "0.00\" kg\""] {
+            wb.styles.id(crate::sheet::Style {
+                num_fmt: code(text),
+                ..crate::sheet::Style::default()
+            });
+        }
+        let styles_of = |bytes: &[u8]| {
+            let entries = zip::entries(bytes).unwrap();
+            let e = entries.iter().find(|e| e.name == STYLES).unwrap();
+            String::from_utf8(zip::stored_data(bytes, e).unwrap().to_vec()).unwrap()
+        };
+        // A model defining none gains a list before its fonts.
+        let model = Model::read(test_model(None), "model.xlsx").unwrap();
+        let st = styles_of(&write(&model, &wb, 1).unwrap());
+        assert!(st.contains("<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"▲0.00;▼0.00;=0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.00&quot; kg&quot;\"/></numFmts><fonts"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"2\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/><xf numFmtId=\"164\" "), "{st}");
+        assert!(st.contains("<cellXfs count=\"7\">"), "{st}");
+        // A model defining its own keeps them, and lends the one we share.
+        let own = "<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"0.000\"/><numFmt numFmtId=\"170\" formatCode=\"0.00&quot; kg&quot;\"/></numFmts><fonts";
+        let model = Model::read(with_styles(|s| s.replace("<fonts", own)), "model.xlsx").unwrap();
+        let st = styles_of(&write(&model, &wb, 1).unwrap());
+        assert!(st.contains("<numFmts count=\"3\"><numFmt numFmtId=\"164\" formatCode=\"0.000\"/><numFmt numFmtId=\"170\" formatCode=\"0.00&quot; kg&quot;\"/><numFmt numFmtId=\"171\" formatCode=\"▲0.00;▼0.00;=0.00\"/></numFmts>"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"171\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/><xf numFmtId=\"170\" "), "{st}");
+        // A list closed on itself is refused, as a fills list closed on
+        // itself is.
+        let closed = "<numFmts count=\"0\"/><fonts";
+        let model = Model::read(with_styles(|s| s.replace("<fonts", closed)), "m.xlsx").unwrap();
+        let r = write(&model, &wb, 1).unwrap_err();
+        assert!(
+            r.text.contains("its numFmts list is self-closing"),
+            "{}",
+            r.text
+        );
+        // A build with no code edits no list.
+        let model = Model::read(with_styles(|s| s.replace("<fonts", own)), "model.xlsx").unwrap();
+        let st = styles_of(&write(&model, &ours(), 1).unwrap());
+        assert!(st.contains(&own.replace("<fonts", "")), "{st}");
     }
 
     #[test]

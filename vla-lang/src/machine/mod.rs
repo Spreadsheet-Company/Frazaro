@@ -6975,6 +6975,111 @@ mod tests {
         assert!(saved.contains("(row \"Model\" 4 none hidden)"), "{saved}");
         assert!(saved.contains("(sheet \"Notes\" hidden)"), "{saved}");
         assert!(saved.contains("(value \"Model\" \"C3\" 0.5)"), "{saved}");
+        // A record whose formats hold no code prints no text row (KERNEL.47).
+        assert!(!saved.contains("(text "), "{saved}");
+    }
+
+    /// A grid whose formats hold codes (KERNEL.47): a number's, a sign's
+    /// glyph, a text's fourth section, a look's code over its fill.
+    const CODED: &str = "\
+(sheet \"P\" visible)
+(format 1 none \"0.00\" nowrap)
+(format 2 none \"▲0.00;▼0.00;=0.00\" nowrap)
+(format 3 none \"0;-0;0;\\\"<\\\"@\\\">\\\"\" nowrap)
+(format 4 \"F7F4FC\" \"#,##0\" nowrap)
+(look \"P\" 7 4)
+(look \"P\" -0 2)
+(cell \"P\" \"A1\" 1)
+(style \"P\" \"A1\" 1)
+(cell \"P\" \"A2\" 1.005)
+(style \"P\" \"A2\" 1)
+(formula \"P\" \"B1\" \"=A1-A2\")
+(style \"P\" \"B1\" 2)
+(cell \"P\" \"C1\" \"abc\")
+(style \"P\" \"C1\" 3)
+(cell \"P\" \"C2\" true)
+(style \"P\" \"C2\" 1)
+(cell \"P\" \"D1\" 7)
+(cell \"P\" \"D2\" 12)
+(cell \"P\" \"D3\" 0)
+(style \"P\" \"D3\" 1)
+";
+
+    #[test]
+    fn a_code_draws_a_number_s_text_beside_its_value() {
+        let mut m = load(CODED);
+        let g = grid(&m, "P", None);
+        for rows in [
+            "(format 1 none \"0.00\" nowrap)",
+            "(format 2 none \"▲0.00;▼0.00;=0.00\" nowrap)",
+            "(format 3 none \"0;-0;0;\\\"<\\\"@\\\">\\\"\" nowrap)",
+            "(format 4 \"F7F4FC\" \"#,##0\" nowrap)",
+            // After the cell's value and before its style.
+            "(cell \"P\" \"A1\" 1)\n(text \"P\" \"A1\" \"1.00\")\n(style \"P\" \"A1\" 1)\n",
+            // Excel's rounding: fifteen digits, then half away from zero.
+            "(text \"P\" \"A2\" \"1.01\")",
+            // A text under a code's fourth section.
+            "(text \"P\" \"C1\" \"<abc>\")",
+            // A look's format in place of the cell's own, 0 meeting -0.
+            "(cell \"P\" \"D1\" 7)\n(text \"P\" \"D1\" \"7\")\n",
+            "(text \"P\" \"D3\" \"=0.00\")",
+        ] {
+            assert!(g.contains(rows), "{rows}\n{g}");
+        }
+        // No text for a formula before its first value, a truth value, or
+        // a number under general.
+        for addr in ["B1", "C2", "D2"] {
+            assert!(
+                !g.contains(&format!("(text \"P\" \"{addr}\"")),
+                "{addr}\n{g}"
+            );
+        }
+        assert!(m.step(0).done);
+        let g = grid(&m, "P", None);
+        // 1 - 1.005 is -0.004999999999999893: the negative's section, its
+        // fifteen digits rounding to 0.00.
+        assert!(g.contains("(text \"P\" \"B1\" \"▼0.00\")"), "{g}");
+        assert_eq!(values_view(&m, "P", None), less_formulas(&g));
+        // The load skips a text row and the record prints it again.
+        let saved = save(&m);
+        assert_eq!(save(&load(&saved)), saved, "row for row");
+    }
+
+    #[test]
+    fn a_text_row_is_the_code_s_and_never_the_rows() {
+        // A text row the rows wrote is skipped; the code makes the text.
+        let m = load(
+            "(format 1 none \"0.00\" nowrap)\n(cell \"P\" \"A1\" 2)\n(text \"P\" \"A1\" \"nonsense\")\n(style \"P\" \"A1\" 1)\n",
+        );
+        let g = grid(&m, "P", None);
+        assert!(g.contains("(text \"P\" \"A1\" \"2.00\")"), "{g}");
+        assert!(!g.contains("nonsense"), "{g}");
+    }
+
+    #[test]
+    fn a_code_this_version_does_not_draw_is_refused_by_name() {
+        let e = refused("(sheet \"P\" visible)\n(format 1 none \"[Red]0.00\" nowrap)\n");
+        assert_eq!(e.refusal.id, "grid-format-code");
+        assert_eq!(e.line, 2);
+        assert!(
+            e.refusal.text.contains("\"[Red]0.00\""),
+            "{}",
+            e.refusal.text
+        );
+        assert!(e.refusal.text.contains("a color"), "{}", e.refusal.text);
+        let e = refused("(format 1 none \"General\" nowrap)\n");
+        assert_eq!(e.refusal.id, "grid-format-code");
+        assert!(
+            e.refusal.text.contains("write it general"),
+            "{}",
+            e.refusal.text
+        );
+        let e = refused("(format 1 none \"yyyy-mm-dd\" nowrap)\n");
+        assert_eq!(e.refusal.id, "grid-format-code");
+        // A bare symbol but the two is no code: the row's shape says one.
+        let e = refused("(format 1 none dollars nowrap)\n");
+        assert_eq!(e.refusal.id, "grid-row-malformed");
+        assert!(e.refusal.text.contains("\"<code>\""), "{}", e.refusal.text);
     }
 
     #[test]

@@ -34,18 +34,28 @@
 //! moved. The model is unchanged: it still holds the fill as one formula, and
 //! what a reader prints of the file is what it printed before.
 //!
+//! Since `KERNEL.47` (2026-10-17) a format's number format may be a code of
+//! Excel's (`vla_lang::numfmt`): one that is a built-in Excel draws alike in
+//! every locale, `0.00` for one, is written by its id as Excel writes it,
+//! and any other is defined in the styles part's `<numFmts>`, ids from 164
+//! as Excel numbers its own, so that a cell holding 1 under `0.00` draws
+//! `1.00` in any host.
+//!
 //! Every name here is fixed and every order is fixed, so that the same model
 //! gives the same bytes: the parts in the order [`parts`] lists them, a
 //! sheet's rows and cells in row-then-column order (the model's map), the
-//! fills and formats in the order the style table holds them.
+//! fills, formats and codes in the order the style table holds them.
 
 use std::collections::HashSet;
 
 use super::xml;
 use super::zip;
-use super::{cell_ref, column_width_attr, number_text, shared_masters, Content, Sheet, Workbook};
+use super::{
+    cell_ref, column_width_attr, number_text, shared_masters, Content, NumFmt, Sheet, Workbook,
+};
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
+use vla_lang::numfmt::Code;
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -265,13 +275,70 @@ fn workbook_rels(wb: &Workbook) -> String {
     s
 }
 
-/// The styles part: one font, the two fills the format requires first (none
-/// and gray125) then each fill the model uses, one empty border, and one
-/// cell format per entry of the style table, in its order.
+/// The id Excel gives the first number format a workbook defines; the ids
+/// below it are its built-in formats.
+pub const FIRST_CODE_ID: u32 = 164;
+
+/// The ids a styles part gives the codes of a style table that are no
+/// built-in Excel draws alike in every locale (KERNEL.47): each such code
+/// once, in the order the table first uses it, numbered from `first`.
+pub fn code_ids(styles: &super::Styles, first: u32) -> Vec<(Code, u32)> {
+    let mut ids: Vec<(Code, u32)> = Vec::new();
+    for xf in styles.xfs() {
+        if let NumFmt::Code(code) = &xf.num_fmt {
+            if code.builtin().is_none() && !ids.iter().any(|(c, _)| c == code) {
+                let id = first + ids.len() as u32;
+                ids.push((code.clone(), id));
+            }
+        }
+    }
+    ids
+}
+
+/// A format's `numFmtId`: its built-in's, or the id `codes` gives its code.
+fn num_fmt_id(num_fmt: &NumFmt, codes: &[(Code, u32)]) -> u32 {
+    if let Some(id) = num_fmt.builtin() {
+        return id;
+    }
+    match num_fmt {
+        NumFmt::Code(code) => codes
+            .iter()
+            .find(|(c, _)| c == code)
+            .map_or(0, |(_, id)| *id),
+        _ => 0,
+    }
+}
+
+/// Codes and their ids as `<numFmt>` elements, for a `<numFmts>` list. A
+/// code is the attribute's text as written, escaped as every `ST_Xstring`
+/// is (`xml::attr`).
+pub fn numfmts_fragment(codes: &[(Code, u32)]) -> String {
+    let mut s = String::new();
+    for (code, id) in codes {
+        s.push_str(&format!(
+            "<numFmt numFmtId=\"{id}\" formatCode=\"{}\"/>",
+            xml::attr(code.as_str())
+        ));
+    }
+    s
+}
+
+/// The styles part: the number formats the style table defines (KERNEL.47),
+/// one font, the two fills the format requires first (none and gray125)
+/// then each fill the model uses, one empty border, and one cell format per
+/// entry of the style table, in its order.
 fn styles_xml(wb: &Workbook) -> String {
     let fills = wb.styles.fills();
+    let codes = code_ids(&wb.styles, FIRST_CODE_ID);
     let mut s = String::from(XML_HEAD);
     s.push_str(&format!("<styleSheet xmlns=\"{NS_MAIN}\">\n"));
+    if !codes.is_empty() {
+        s.push_str(&format!(
+            "<numFmts count=\"{}\">{}</numFmts>\n",
+            codes.len(),
+            numfmts_fragment(&codes)
+        ));
+    }
     s.push_str(
         "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/><family val=\"2\"/></font></fonts>\n",
     );
@@ -297,12 +364,11 @@ fn styles_xml(wb: &Workbook) -> String {
             Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) + 2,
             None => 0,
         };
+        let num_fmt_id = num_fmt_id(&xf.num_fmt, &codes);
         s.push_str(&format!(
-            "<xf numFmtId=\"{}\" fontId=\"0\" fillId=\"{}\" borderId=\"0\" xfId=\"0\"",
-            xf.num_fmt.id(),
-            fill_id
+            "<xf numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"{fill_id}\" borderId=\"0\" xfId=\"0\""
         ));
-        if xf.num_fmt.id() != 0 {
+        if num_fmt_id != 0 {
             s.push_str(" applyNumberFormat=\"1\"");
         }
         if xf.fill.is_some() {
@@ -337,8 +403,9 @@ pub fn fills_fragment(styles: &super::Styles) -> String {
 
 /// This build's cell formats after the default, as `<xf>` elements whose
 /// fills start at `fill_base` (the number of fills the workbook has before
-/// this build's), for appending to a workbook's `<cellXfs>`.
-pub fn cellxfs_fragment(styles: &super::Styles, fill_base: u32) -> String {
+/// this build's) and whose codes take the ids `codes` gives them in that
+/// workbook (KERNEL.47), for appending to a workbook's `<cellXfs>`.
+pub fn cellxfs_fragment(styles: &super::Styles, fill_base: u32, codes: &[(Code, u32)]) -> String {
     let fills = styles.fills();
     let mut s = String::new();
     for xf in styles.xfs().iter().skip(1) {
@@ -346,12 +413,11 @@ pub fn cellxfs_fragment(styles: &super::Styles, fill_base: u32) -> String {
             Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) as u32 + fill_base,
             None => 0,
         };
+        let num_fmt_id = num_fmt_id(&xf.num_fmt, codes);
         s.push_str(&format!(
-            "<xf numFmtId=\"{}\" fontId=\"0\" fillId=\"{}\" borderId=\"0\" xfId=\"0\"",
-            xf.num_fmt.id(),
-            fill_id
+            "<xf numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"{fill_id}\" borderId=\"0\" xfId=\"0\""
         ));
-        if xf.num_fmt.id() != 0 {
+        if num_fmt_id != 0 {
             s.push_str(" applyNumberFormat=\"1\"");
         }
         if xf.fill.is_some() {
@@ -745,6 +811,108 @@ mod tests {
     }
 
     #[test]
+    fn a_code_is_written_as_its_built_in_or_defined_from_164() {
+        // KERNEL.47: a built-in's code by its id, as Excel writes one; any
+        // other once, from 164, in the order the style table first uses it.
+        let code = |text: &str| NumFmt::Code(Code::parse(text).unwrap());
+        let mut wb = a_workbook();
+        let two = wb.styles.id(Style {
+            num_fmt: code("0.00"),
+            ..Style::default()
+        });
+        let glyph = wb.styles.id(Style {
+            num_fmt: code("▲0.00;▼0.00;=0.00"),
+            ..Style::default()
+        });
+        let kg = wb.styles.id(Style {
+            fill: Some(Rgb(1, 2, 3)),
+            num_fmt: code("0.00\" kg & <g>\""),
+            wrap: false,
+        });
+        let again = wb.styles.id(Style {
+            num_fmt: code("▲0.00;▼0.00;=0.00"),
+            wrap: true,
+            ..Style::default()
+        });
+        assert_eq!((two, glyph, kg, again), (2, 3, 4, 5));
+        let st = styles_xml(&wb);
+        assert!(st.contains("<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"▲0.00;▼0.00;=0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.00&quot; kg &amp; &lt;g&gt;&quot;\"/></numFmts>\n<fonts"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"2\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"165\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyAlignment=\"1\"><alignment wrapText=\"1\"/></xf>"), "{st}");
+        // A workbook whose formats hold no code writes no list, as before.
+        assert!(!styles_xml(&a_workbook()).contains("numFmts"));
+    }
+
+    /// The codes and values of the workbook the owner opens in Excel and in
+    /// LibreOffice Calc at the hand test (KERNEL.47).
+    const DRAWN: &[(&str, f64)] = &[
+        ("0.00", 1.0),
+        ("0.00", 1.005),
+        ("0.00", 2.675),
+        ("0.00", 0.125),
+        ("0.00", -0.001),
+        ("#,##0.00", 1234.5),
+        ("#,##0", 1234567.0),
+        ("0%", 0.5),
+        ("0.00%", 0.12345),
+        ("#,##0,\"K\"", 2500.0),
+        ("\\$#,##0.00", 1234.5),
+        ("#,##0 ;(#,##0)", -1234.0),
+        ("#,##0.00;(#,##0.00)", -0.001),
+        ("▲0.00;▼0.00;=0.00", 1.5),
+        ("▲0.00;▼0.00;=0.00", -1.5),
+        ("▲0.00;▼0.00;=0.00", 0.0),
+        ("000-00-0000", 123456789.0),
+        ("0.0,,", 12200000.0),
+        ("#.##", 0.5),
+        ("0.#", 1.0),
+        ("0", 123456789012345678.0),
+        ("0.00\" kg\"", 2.0),
+    ];
+
+    #[test]
+    fn a_workbook_of_codes_holds_what_a_host_draws_beside_what_the_language_does() {
+        // Each row the code in A, a value under it in B, the text the
+        // language draws in C, Excel's TEXT of B by A in D, and in E whether
+        // C and D are alike: the host computes D and E when it opens the
+        // file. Written where FRAZARO_WRITE_FORMATS names a path, for the
+        // owner's open of it in Excel and in Calc.
+        let mut wb = Workbook::new();
+        let mut sh = Sheet::new("Formats");
+        for (i, (text, x)) in DRAWN.iter().enumerate() {
+            let row = i as u32 + 1;
+            let code = Code::parse(text).unwrap();
+            let drawn = code.text(&Value::Number(*x)).unwrap();
+            let style = wb.styles.id(Style {
+                num_fmt: NumFmt::Code(code),
+                ..Style::default()
+            });
+            let cells = [
+                (1, Content::Text(text.to_string()), 0),
+                (2, Content::Number(*x), style),
+                (3, Content::Text(drawn), 0),
+                (4, Content::Formula(format!("TEXT(B{row},A{row})")), 0),
+                (5, Content::Formula(format!("EXACT(C{row},D{row})")), 0),
+            ];
+            for (col, content, style) in cells {
+                sh.set(row, col, Cell { content, style });
+            }
+        }
+        wb.sheets.push(sh);
+        let st = styles_xml(&wb);
+        // The built-ins among them by their ids, the rest defined.
+        assert!(st.contains("<numFmts count=\"8\">"), "{st}");
+        assert!(st.contains("<xf numFmtId=\"2\" "), "{st}");
+        assert!(st.contains("<xf numFmtId=\"37\" "), "{st}");
+        let bytes = workbook_bytes(&wb).expect("the workbook's bytes");
+        if let Ok(path) = std::env::var("FRAZARO_WRITE_FORMATS") {
+            std::fs::write(&path, &bytes).expect("the workbook written");
+        }
+    }
+
+    #[test]
     fn the_sheet_part_holds_each_kind_of_cell() {
         let wb = a_workbook();
         let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
@@ -784,7 +952,7 @@ mod tests {
             "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF7F4FC\"/><bgColor indexed=\"64\"/></patternFill></fill>"
         );
         assert_eq!(
-            cellxfs_fragment(&wb.styles, 3),
+            cellxfs_fragment(&wb.styles, 3, &[]),
             "<xf numFmtId=\"49\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"
         );
     }

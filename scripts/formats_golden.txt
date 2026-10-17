@@ -1,0 +1,232 @@
+=== two decimals
+CODE	0.00
+1	1.00
+12.3	12.30
+0	0.00
+-0	0.00
+-1.5	-1.50
+1234567.891	1234567.89
+10000000000000000	10000000000000000.00
+=== excel's rounding
+CODE	0.00
+2.675	2.68
+1.005	1.01
+0.125	0.13
+9.995	10.00
+0.005	0.01
+0.0049	0.00
+0.30000000000000004	0.30
+-2.675	-2.68
+=== whole numbers, ties away from zero
+CODE	0
+2.5	3
+0.5	1
+-2.5	-3
+0.4	0
+-0.4	0
+=== digits past the fifteenth
+CODE	0
+1234567890123455	1234567890123450
+1234567890123465	1234567890123460
+123456789012345680	123456789012346000
+100000000000000000000	100000000000000000000
+0.1	0
+=== eighteen decimals
+CODE	0.000000000000000000
+0.1	0.100000000000000000
+=== a small negative under one section
+CODE	0.00
+-0.001	0.00
+-0.004	0.00
+=== thousands
+CODE	#,##0
+0	0
+999	999
+1000	1,000
+1234567	1,234,567
+-1234567	-1,234,567
+0.5	1
+=== thousands with decimals
+CODE	#,##0.00
+1234.5	1,234.50
+-0.001	0.00
+1000000	1,000,000.00
+0.01	0.01
+4327.15	4,327.15
+=== two sections
+CODE	0.00;(0.00)
+1.5	1.50
+-1.5	(1.50)
+-0.001	(0.00)
+0	0.00
+=== three sections
+CODE	0.00;(0.00);"zero"
+1	1.00
+-1	(1.00)
+0	zero
+0.001	0.00
+-0.001	(0.00)
+=== a glyph joined to its number
+CODE	▲0.00;▼0.00;=0.00
+12.3	▲12.30
+-12.3	▼12.30
+0	=0.00
+1.005	▲1.01
+=== a sign written as a literal
+CODE	+0.00;-0.00;0.00
+0.25	+0.25
+-0.25	-0.25
+0	0.00
+=== a hash over zero
+CODE	#
+0	
+7	7
+=== hashes after the point
+CODE	#.##
+0.5	.5
+1.25	1.25
+1	1.
+=== a trailing point
+CODE	0.#
+1	1.
+1.25	1.3
+=== a zero then a hash
+CODE	0.0#
+1.5	1.5
+1.25	1.25
+1.255	1.26
+=== zeros before the digits
+CODE	000
+5	005
+1234	1234
+=== a zero between hashes
+CODE	#0#
+5	05
+=== digits across literals
+CODE	000-00-0000
+123456789	123-45-6789
+5	000-00-0005
+=== a telephone number
+CODE	(000) 000-0000
+5551234567	(555) 123-4567
+=== a literal inside the digits
+CODE	0-0
+123	12-3
+=== no placeholder before the point
+CODE	.00
+12.5	12.50
+0.5	.50
+=== percent
+CODE	0%
+0.5	50%
+1	100%
+-0.255	-26%
+=== percent with decimals
+CODE	0.00%
+0.12345	12.35%
+0.0005	0.05%
+=== percent with one decimal
+CODE	0.0%
+0.145	14.5%
+=== thousandths
+CODE	#,##0,
+1234567.891	1,235
+499	0
+500	1
+=== millions
+CODE	0.0,,
+12200000	12.2
+=== thousandths and a letter quoted
+CODE	#,##0,"K"
+2500	3K
+1499	1K
+=== a quoted literal after
+CODE	0.00" kg"
+2	2.00 kg
+-2	-2.00 kg
+=== a negative's minus before a literal
+CODE	"Total: "0
+5	Total: 5
+-5	-Total: 5
+=== a dollar escaped
+CODE	\$#,##0.00
+1234.5	$1,234.50
+-5	-$5.00
+=== a bare dollar
+CODE	$#,##0.00
+-5	-$5.00
+=== a euro escaped
+CODE	€#,##0.00
+3	€3.00
+=== a euro after the digits
+CODE	0.00€
+3	3.00€
+=== parentheses unquoted
+CODE	(0)
+5	(5)
+=== braces unquoted
+CODE	{0}
+5	{5}
+=== angles unquoted
+CODE	<0>
+5	<5>
+=== an equals sign unquoted
+CODE	=0
+5	=5
+=== an empty section
+CODE	0;;0
+-3	
+3	3
+0	0
+=== every section empty
+CODE	;;;
+5	
+'abc	
+=== a text's section
+CODE	0;-0;0;"<"@">"
+'abc	<abc>
+5	5
+=== a text before its own
+CODE	0;-0;0;@" ok"
+'abc	abc ok
+=== an empty text section
+CODE	0;-0;0;
+'abc	
+=== literals alone
+CODE	"x"
+5	x
+-5	-x
+=== Excel's built-in 37
+CODE	#,##0 ;(#,##0)
+1234	1,234 
+-1234	(1,234)
+=== Excel's built-in 39
+CODE	#,##0.00;(#,##0.00)
+-0.001	(0.00)
+1234.5	1,234.50
+=== a color !refused a color
+CODE	[Red]0.00
+=== a date !refused date
+CODE	yyyy-mm-dd
+=== an exponent !refused exponent
+CODE	0.00E+00
+=== a fraction !refused width
+CODE	# ?/?
+=== the accounting layout !refused width
+CODE	_(\$* #,##0.00_);_(\$* (#,##0.00);_(\$* "-"??_);_(@_)
+=== a fill !refused fill
+CODE	* 0
+=== General inside a code !refused General inside
+CODE	General;-General
+=== a letter unquoted !refused a letter outside quotes
+REFUSED	1004
+=== a text's place too early !refused @ before the fourth
+REFUSED	1004
+=== General as a code !refused General format
+CODE	General
+=== Text as a code !refused Text format
+CODE	@
+=== a comma among the decimals !refused among the decimals
+CODE	0.00
+=== a fifth section !refused fifth section
+REFUSED	1004

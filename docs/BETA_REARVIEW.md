@@ -27360,6 +27360,647 @@ and two checks, its line leaving the roadmap for the closed ledger.
 Released with 0.9.5 when the owner cuts it, beside `KERNEL.43`; Alonzo
 takes both at its pin's move, its describe goldens blessed then.
 
+**`KERNEL.47`, a number format in the record: the scoping, 2026-10-17.**
+Begun at the owner's word, from Buffet's `POT.10` hand test of 2026-10-16,
+"All dollar cells should show two decimals, so Portfolio!B5:B8 should show
+cents at all times, even when the amount is a full dollar": the next free
+`KERNEL` ID minted and nothing else, the scoping written here as this
+line's items are scoped, the decisions with recommendations and the
+predictions before any number, then a stop for the owner's approval.
+Nothing is built. HEAD `a20dc11`, four ahead of origin, the tree clean;
+Alonzo's HEAD `a19209c`, its tree clean, four commits past its latest tag,
+`v0.1.5`, at which its `SPEC.md` and `web/viewport.js` were read, and
+nothing of it written; Buffet's HEAD `518d414`, a peer's `POT.10`
+uncommitted in eleven of its files, read as its working copy stands and
+never written.
+
+*What it stands on, read in the code.*
+- `vla-lang`'s `NumFmt` (`sheet.rs`) is `General` or `Text`, `Copy`, its
+  `id` 0 or 49. `Style` is a fill, a `NumFmt` and a wrap, every field
+  public and none private, and `Styles` keeps its table private behind
+  `id`, `put`, `get`, `xfs` and `fills`. A `Style` is built at a dozen
+  places and its number format read at six, every one in the workspace:
+  neither Alonzo's engine nor Buffet's oracle names `NumFmt` or builds a
+  `Style`.
+- The loader's `format` row (`machine/load.rs`) is `(format <index>
+  <fill|none> general|text wrap|nowrap)`, its index below `FORMATS`
+  (65,536) and its third slot a bare symbol; anything else is
+  `grid-row-malformed`, whose shape says `general|text`. A format said
+  twice alike is taken, and otherwise refused naming both lines. The load
+  skips `window`, `extent`, `refers` and `table` by name.
+- The record (`view.rs`): `format_row` prints `general` or `text`, for
+  format 0 and every format the window's columns, cells and looks use,
+  ascending. A cell's rows are printed by `Grid::cell_rows` alone, for the
+  grid, the values and a window's changes (`KERNEL.42`), so a row it prints
+  is in all three by construction. A number is spelled by `number_text`,
+  Rust's shortest round trip with no exponent. A sheet's looks are a list
+  of a value's spelling and a format's index, in the order the rows wrote
+  them.
+- The language's other spellings of a number: `round15`, fifteen
+  significant digits by `{:.14e}`, and `number_to_text`, Excel's General
+  for `&` and a text argument, fifteen digits at most and an exponent
+  outside 1E-14 to 1E+14 (`calc/value.rs`); and the core's `ROUND`, half
+  away from zero after `round15`, so that `ROUND(2.675,2)` is 2.68
+  (`core/src/excel.rs`). Rust's own fixed precision rounds the exact
+  binary value, ties to even (*measurement*, rustc 1.99 in the session's
+  scratchpad): `{:.2}` spells 0.125 as 0.12, 2.675 as 2.67 and 1.005 as
+  1.00, and `{:.0}` spells 2.5 as 2 and -2.5 as -2.
+- The writer (`core/src/sheet/ooxml.rs`) writes one cell format a style,
+  its `numFmtId` the `NumFmt`'s id and `applyNumberFormat` where that is
+  not 0, and no `<numFmts>`. Into a model (`merge.rs`, `--into`) it appends
+  its fills and formats at their lists' ends and raises their counts; the
+  model's `<numFmts>` is never read.
+- The readers (`core/src/reflect/`) print `sheet`, `name`, `table`, `cell`,
+  `formula` and `refers` rows, and no look: no column's width, row's
+  height, fill, format or style. The package reader never decodes the
+  styles part; the OpenDocument reader decodes no style but a sheet's
+  display, and reads a cell's own text, `text:p`, only for a string.
+  Oracle 11's free oracle holds a built model's `sheet`, `cell` and
+  `formula` rows, viewed whole, to `reflect`'s rows of the file written
+  from it, and no look is in it.
+- The census (`calc/census.rs`) prints the plan's shapes, readers and
+  reads, and a frame computes no text of a format.
+- The reference writes codes already (`SD-18`): G-FORMAT slice 2's
+  sentences (`english.vla`; `VlaNumberFormatCode`, `VLA_Runtime.bas`) set
+  `0.00`, `#,##0.00`, `0.0%`, `0.00%`, `\$#,##0.00` and its euro and pound
+  twins, the accounting layout
+  `_(\$* #,##0.00_);_(\$* (#,##0.00);_(\$* "-"??_);_(@_)` and the dates'
+  system codes as `Range.NumberFormat`, each sign escaped, since Excel
+  reads a bare `$` there as the reading machine's currency (the owner's run
+  of 2026-09-10). The core's build refuses every such sentence
+  (`build-not-representable`), its walker writing a cell's `value` and
+  `formula` alone.
+- The standing decisions that bind: `SD-23`, one model and many
+  projections; `SD-30`, nothing fails silently; `SD-32`, appearance
+  declared and not painted; `SD-36`, a built workbook opens in any host;
+  `SD-37`, a refusal is a lesson; and `KERNEL.8`'s number formatting
+  locale-free.
+- Alonzo at `v0.1.5`. `SPEC.md` version 4: §3.1's grid mode draws "the
+  text, the number formats and the fills the record declares"; its note of
+  `ENGINE.14` says "the viewport never respells a value" and "Excel's
+  General format is the first game's to want"; §7.3 lists `format` among
+  the looks as the record prints them. The charter's rule 4 (`AD-4`):
+  everything whose output can be a golden is the language's or Frazaro's,
+  and the draw is Alonzo's. `web/viewport.js` counts a `format` row whose
+  number format is neither `general` nor `text` malformed and drops it
+  whole, its fill and wrap with it; it aligns a number right except under
+  `text`, and draws `#`s for one too wide for its column (`hashesOf`).
+  Every look of its cartridges, the grid card's 23 and Kairos's 16, maps a
+  value to a `general` format over cells of format 0; Buffet's cartridge
+  holds none.
+- Buffet (`POT.10`, uncommitted): `kitchen.vla`'s `dollars`, about 150
+  characters of formula a cell, pads a price's dollars with two spaces a
+  digit to four digits, two spaces being a digit to within a sixth of a
+  pixel in Segoe UI at 15 pixels (a digit 8.09, a space 4.11), the one
+  font measured; the figure space U+2007 is drawn from another font, 21.34
+  pixels wide. `Portfolio!B5:B8` and `Gigs!B9` call it, `C5:C8` is its
+  signed twin and `D5:D8` the glyph, read off the model's cents
+  (`SPIKE.md`, `POT.10`, decision 11 as amended). Its ledger's row is
+  `MISE.6`'s "Number formats in the record", `▲0.00;▼0.00;=0.00` among the
+  codes it names.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The spelling in the record.* Recommended: a quoted code in the
+   `format` row's third slot beside the two symbols, in Excel's syntax as
+   written: `(format 2 none "0.00" nowrap)`, a quote inside it escaped as
+   every string of the record is, `"0.00\" kg\""`. `general` and `text`
+   stay symbols, so that every record of today stands byte for byte, and a
+   quoted `"General"` or `"@"` is refused naming the symbol, one spelling a
+   format. The point is `.` and the thousands `,` whatever the machine, as
+   `Range.NumberFormat` reads a code, and a bare `$` is a dollar, the
+   record having no reading machine. *Declined:* Excel's built-in ids,
+   `(format 2 none 2 nowrap)`: a table between a reader and what a cell
+   draws; no id holds `▲0.00;▼0.00;=0.00` or any code of one's own, so ids
+   cannot carry the ask alone, and beside codes they are a second spelling;
+   Excel draws ids 5 to 8 and 14 by the reading machine's locale; and an
+   OpenDocument file has none. A code that is a built-in's is written as
+   its id (decision 7).
+
+2. *The codes this slice takes.* Recommended: the number subset the ask
+   names, with `%`:
+   - one to four sections by `;`, as Excel reads them: one for every
+     number, a negative drawn with its `-`; two, the first for zero and
+     above and the second for below, drawn without its `-`; three, the
+     third for zero; a fourth for a text; an empty section draws nothing;
+   - the digit placeholders `0` and `#`, one point, `,` between integer
+     placeholders for the thousands and after the last for each thousandth,
+     and `%` for each hundredfold; the integer digits laid right to left
+     across the placeholders and the literals between them, so that
+     `000-00-0000` draws 123456789 as `123-45-6789`;
+   - literals: a quoted text; `\` before any character; the characters
+     Excel draws unquoted, `$ - + ( ) : ! ^ & ' ~ { } < > =` and the space;
+     and any character outside ASCII, none of which means anything in a
+     code, so that `▲0.00;▼0.00;=0.00` joins a glyph to its number; and
+     `@` in the fourth section, the text itself;
+   - at most 255 characters, Excel's limit, and 30 decimals, Excel's
+     ceiling as `VlaNumberFormatCode` keeps it.
+
+   Refused by name, each with the construct it met (decision 10): a `[`
+   (a color, a condition, a locale or an elapsed time); a letter outside
+   quotes (a date or a time, the letters' readings being Excel's); `E+` or
+   `E-` (scientific); `?` or `/` (a fraction, or a digit's width); `_` or
+   `*` (a width, the draw's to measure); `General` inside a code; `@`
+   before the fourth section; a second point; a fifth section. It draws
+   Excel's built-ins 1 to 4, 9, 10, 37 and 39 (49 is `text`), every code of
+   the reference's sentences but the accounting layout and the dates, and
+   every code of Buffet's ask. *Declined:* the built-ins alone (no glyph
+   joined to its number); Excel's whole grammar at once: its dates are
+   `KERNEL.8`'s serials, its colors the record's text color, `MISE.6`'s own
+   candidate, which the owner deferred to `FRONT.2`'s aesthetic pass, and
+   its conditions, fractions, exponents, widths and fills each a later
+   slice with its cases in the golden.
+
+3. *Where a number becomes its text.* Recommended: in the language, at the
+   view. A number under a code prints a `text` row after its `cell` or
+   `value` row, `(text "Portfolio" "B5" "1.00")`, the text Excel's
+   `Range.Text` gives the cell in a column wide enough, made by one
+   function of the code and the value (`Code::text`); a text under a code
+   with a fourth section prints one too. A truth value, an error, a
+   formula with no value or not computed, an empty cell, and any value
+   under `general` or `text` print none, as today, and a record whose style
+   table holds no code asks nothing and prints none. The row is
+   `Grid::cell_rows`', so that the grid, the values and a window's changes
+   carry it, laws 9 and 11 holding by construction; and the load skips it
+   by name as it skips `extent`, so that a save, which prints it, loads.
+   The viewport draws the row's text in place of the value's spelling,
+   aligned by the value's kind, so that a cell holding 1 under `0.00` draws
+   `1.00` on the right, and it still never respells a value (`SPEC.md`
+   §3.1's line kept): the text is a golden and so the language's (`AD-4`),
+   and its pixels, the `#`s of a text too wide among them, are the draw's.
+   The name is Excel's own for it, `Range.Text`; it heads a row and is
+   never the `format` row's slot, whose `text` is Excel's Text format. The
+   row is one string in this slice; when `_` and `*` come it takes parts, a
+   string, `(space "<c>")` for a character's width and `(fill "<c>")` for
+   the rest of the cell, for the draw to measure. *Declined:* the viewport
+   formats (a second formatter, in JavaScript, whose `toFixed` spells 1.005
+   as 1.00, held to the language's by an oracle of its own, the SPEC's line
+   broken and the text no golden); the text in the `cell` or `value` row's
+   tail (every reader's shape of those rows changed, the loader's among
+   them); the names `shown` and `display`, no spreadsheet's; widths
+   flattened to spaces now, as Excel's `TEXT` gives them (the row's shape
+   decided again when they come).
+
+4. *Excel's rounding at display.* Recommended: the value's fifteen
+   significant digits, the precision Excel documents and `round15`,
+   `ROUND` and `&` already take; moved in decimal for `%` and each scaling
+   comma, never by a multiply in binary; then rounded half away from zero
+   to the section's decimals, digits past the fifteenth drawn as zeros. So
+   2.675 and 1.005 under `0.00` draw `2.68` and `1.01`, 0.125 draws `0.13`,
+   2.5 and -2.5 under `0` draw `3` and `-3`, and 123456789012345678 under
+   `0` draws `123456789012345000` (*prediction*, each a case of the
+   golden). The digits come from the shortest spelling where it has
+   fifteen significant digits or fewer, which is then the fifteen-digit
+   rounding exactly (a double's half step is at most a fifth of half the
+   fifteenth digit's unit), and from `{:.14e}` where it has more. The
+   section is chosen by the value's sign before rounding, so that a small
+   negative draws `-0.00` under one section and `(0.00)` under
+   `0.00;(0.00)` (*prediction*, the golden's to settle); -0 is zero, drawn
+   by the zero's section. *Declined:* Rust's `{:.N}` and JavaScript's
+   `toFixed`, each the binary value's rounding (measured above for Rust);
+   `%` as a multiply in binary (a rounding of its own beside the fifteen
+   digits).
+
+5. *A look and a code.* Recommended: a cell's text follows the format it
+   draws with, its look's where its value has one, as decision 19 of
+   Alonzo's page draws a look's format in place of the cell's own. The
+   language finds a cell's look as the viewport does: a number by its
+   value, so that 7 and 7.0 are one and so are 0 and -0; a text by its
+   characters; a truth value; an error by its name; the first look of the
+   record winning; and only where the style table holds a code. A look's
+   format may then hold a code, a board's values each drawn with a fill and
+   with digits. *Declined:* a look giving its fill and wrap alone, the
+   number format the cell's own (decision 19 amended, though no look of
+   the house would draw otherwise, each mapping to a `general` format over
+   cells of format 0); a look's code refused (a board's look losing its
+   digits); a look ignored for the text (one format's fill with another's
+   text, silently, against `SD-30`).
+
+6. *The model's type, and the release.* Recommended: `NumFmt::Code(Code)`,
+   `Code` a new public type in a new module, `vla_lang::numfmt`, holding a
+   code the language takes, parsed once and kept with its text
+   (`Code::parse`, `Code::as_str`, `Code::text`), two codes the same exactly
+   when their texts are. `NumFmt` then loses `Copy`, and its `id` becomes
+   `builtin`, Excel's id where it has one. That breaks the public surface,
+   in a type no crate of the house's but the core names, so the release
+   that carries it is 0.10.0, after 0.9.5's `KERNEL.43` and `KERNEL.44`, at
+   the owner's word; every crate that takes the language pins it exactly.
+   *Declined, the route that keeps the surface:* `NumFmt` and `Style`
+   untouched and each code kept in `Styles`' own table beside its style
+   (`Styles::code`): the same places changed, each reader of a format then
+   reading two, and a coded style's `num_fmt` saying `General` to any
+   reader that does not ask the table, the writer's own path among them
+   until it does.
+
+7. *The writer's `<numFmts>`.* Recommended: a code byte for byte one of
+   the built-ins Excel draws alike in every locale, 1 `0`, 2 `0.00`, 3
+   `#,##0`, 4 `#,##0.00`, 9 `0%`, 10 `0.00%`, 37 `#,##0 ;(#,##0)` and 39
+   `#,##0.00;(#,##0.00)`, is written as its id with no `<numFmt>`, as Excel
+   writes it; any other code is a `<numFmt numFmtId formatCode>` from 164,
+   in the order the style table first uses it, its text escaped for an
+   attribute, and `<numFmts count>` stands first in the styles part, as the
+   schema orders it. Into a model (`--into`), the model's `<numFmts>` is
+   read: a code it holds byte for byte takes its id; ours take ids from one
+   past its highest of 164 or more, appended and counted, or in a
+   `<numFmts>` made before its `<fonts>`; none of the model's moves, so
+   every index its cells use stays. *Declined:* every code from 164 (a
+   file unlike Excel's for its commonest codes, when a reader of Excel's
+   files needs the table anyway); a locale's ids, 5 to 8 and 14, for any
+   code (the reading machine's currency or date).
+
+8. *The round trip through .xlsx and ODF.* Recommended: the writer's half
+   here, held by the core's tests over the styles part, fresh and into a
+   model, and by the owner opening a workbook the core's test writes, in
+   Excel and in LibreOffice Calc, each cell drawn as the golden says and
+   Format Cells naming its code. The reading half is not this item's. The
+   readers print no look today, not a width, a height, a fill or a format;
+   reading a file's looks as rows, so that `reflect book.xlsx` behind a
+   manifest is a cartridge with its looks (`SPEC.md` §7.4's road), is one
+   decision for every look and for both formats, the OpenDocument reader
+   decoding its data styles into codes beside the package reader's
+   `<numFmts>` and `<cellXfs>` (*Found*). *Declined:* `reflect` printing
+   `format` and `style` rows now (every relations golden of a styled file
+   moves for a look, and `diff` reports a format's change, a decision of
+   `SD-26`'s review mode); the package reader alone (8e's rule, the two
+   formats printing the same rows).
+
+9. *What `reflect`, the view record and the census print.* Recommended:
+   the record, the `format` row's code and the `text` row (decisions 1 and
+   3), and `frazaro view` the record as the language prints it, so that
+   its six goldens stand, no program the build can make holding a code;
+   `reflect`, nothing new (decision 8); the census, nothing new, a format
+   being the view's and no frame computing a text, so that Alonzo's and
+   Buffet's `describe` goldens stand. *Declined:* a census row counting the
+   cells a view formats (a view's cost, which the census, a frame's, does
+   not price).
+
+10. *The refusal.* Recommended: one id, `grid-format-code`, "The format
+    code {code} holds {what}, which this version does not draw; {fix}.",
+    `{what}` the construct met and `{fix}` what draws instead (the letter
+    quoted, `general` or `text` as a symbol, the construct dropped);
+    raised by the load at the `format` row's line and by `Code::parse` for
+    a model built in code; `grid-row-malformed`'s shape for the row gaining
+    `"<code>"`; entered in `src/VLA_Messages.bas` (`VLA_MESSAGES_VERSION`
+    `KERNEL.47`) and exported. *Declined:* the malformed row alone (the
+    row's shape is right, and its code is the lesson, `SD-37`); an id for
+    each construct (a dozen ids for one sentence).
+
+11. *The oracle for the text.* Recommended: the reference's golden, in the
+    house's shape. `scripts/formats.txt` holds the cases, each a code and
+    its values; `scripts/formats_golden.txt` is written in Excel by
+    `VlaWriteFormatsGolden`, in a workbook it adds and closes unsaved, each
+    case Excel's reading of the code back from `Range.NumberFormat`, or its
+    refusal, then each value's `Range.Text` in a column wide enough. The
+    language's test holds every case whole over the crate's copies
+    (`check_crate_data`): a code Excel refuses refused, a code outside the
+    subset refused by its construct, and every other value's text Excel's.
+    `tools/check_formats_golden.ps1` holds the pair's shape and, as a
+    floor, the constructs its cases reach, with a control, and
+    `run_checks.ps1`'s floor rises to 58. The cases: every construct of
+    decision 2 and each refusal's, the ties of decision 4, digits past the
+    fifteenth, -0, a small negative under one, two and three sections, `#`
+    over 0, a negative's `-` before a literal, and Buffet's codes.
+    *Declined:* an Excel-saved fixture of `TEXT` formulas, oracle 12's way
+    (`TEXT` is not the cell's text where widths and `General` come in, and
+    it is `KERNEL.8`'s); the language's own cases alone (no witness of
+    Excel's).
+
+12. *Alonzo's half, named here and built there.* The page's next version,
+    for a cartridge that says it: its `format` rows may hold a code and
+    its records carry `text` rows, a cartridge written to 1 to 4 loading
+    as before. The viewport's reader takes a quoted code and the `text`
+    row, and its painter draws the text in place of the value's spelling,
+    aligned by the value's kind, with `#`s when too wide as for `general`;
+    `fake.js` prints `text` rows where a card holds a code; the render
+    oracle gains a fixture, the language's own record of a sheet with
+    codes; and the pin moves to the release that carries this item. It is
+    Alonzo's to mint after that release, and with it Buffet's `dollars`
+    becomes a format (`MISE.6`).
+
+*Prediction,* written before any build or measurement:
+- No golden of today moves: Frazaro's view, build, reflect, diff, audit,
+  recalc, census, refusal, expand, refers, egress and token goldens;
+  Alonzo's describe goldens, replays and digests; Buffet's describe
+  golden. No record or file of today holds a code. The catalogue's export
+  gains its line, and the words of `grid-row-malformed`'s `format` shape
+  and of `grid-row-unknown`'s list of the rows a load skips change.
+- A record whose style table holds no code costs what it costs, within
+  the noise, natively and in wasm, at every cartridge's frame and view.
+- A number under a code takes 60 to 150 ns natively where its shortest
+  spelling has fifteen significant digits or fewer and 250 to 450 where it
+  has more, about twice either in wasm. A window of 4,000 numbers under
+  codes views 0.3 to 0.8 ms slower natively; Buffet's Portfolio, its eight
+  dollar cells under codes, 1 to 3 µs slower a whole view, and its changes
+  at a mark, the same eight, 1 to 2.
+- Size: `vla-lang` 700 to 1,000 lines more (the code, its text, the row,
+  the load, the laws' generator, the tests), `frazaro-core` 150 to 250 (the
+  two writers and their tests), the reference's golden writer 60 to 100,
+  the check 150 to 250; the engine's module 10 to 25 KB larger.
+- The golden: every case of the subset agrees with Excel, three to watch:
+  a tie at the sixteenth digit (1234567890123455 under `0`, which `{:.14e}`
+  rounds to even as 1234567890123460); a small negative under one section
+  (`-0.00` predicted); and Excel's reading back of a literal outside ASCII
+  (kept as written, predicted). Where one disagrees, the formatter follows
+  Excel's text.
+- Buffet after the pin: a dollar cell from about 150 characters of formula
+  to 14, `=Stocks!E5/100` under `#,##0.00`, a column's points aligned in
+  any font whose digits are of one width.
+
+*The oracle*, the build's, text for text:
+- the reference's golden (decision 11), every case whole;
+- the machine's laws over generated grids whose styles hold codes and
+  whose looks map to them: law 3, a grid's view loaded and viewed again
+  the same view, its `text` rows skipped by the load and printed again;
+  law 9, the values the grid less its formulas, the `text` rows in both;
+  law 11, a window's changes patching its values, the `text` rows among
+  each changed cell's;
+- unit tests: each construct and each refusal by name; the look's rule (0
+  and -0 one, 7 and 7.0 one, the first look winning, a look's code drawn);
+  a record with no code printing no `text` row;
+- the writer: the styles part's `<numFmts>`, its ids and its escaping,
+  fresh and into models with and without one, a code they share and a
+  model's ids above 164; the owner's open of the written workbook in Excel
+  and Calc;
+- the refusal's checks (`check_message_slots`, `check_raise_ratchet`,
+  `check_no_vba_advice`) and the export's (`check_data_exports`);
+  `run_checks.ps1` 58 of 58; Alonzo over the build by a path, its engine
+  tests, `frames --check`, every replay and digest, its describe goldens
+  unmoved;
+- mutants, each caught by a named test: a tie rounded to even; a section
+  chosen after rounding; the second section drawn with its `-`; thousands
+  grouped by four; a scaling comma ignored; `%` multiplied in binary, or
+  not at all; `#` drawing a lone 0; a literal dropped; integer digits laid
+  left to right; a `text` row under `general`; a look's code ignored; -0 a
+  look apart from 0; `0.00` written as 164; a merge's id colliding with the
+  model's.
+
+**What it touches.** `vla-lang`: `src/numfmt.rs` (new: the code, its
+parse, its text), `sheet.rs` (`NumFmt::Code`), `view.rs` (the `format`
+row's code, the `text` row, a cell's look), `machine/load.rs` (the row's
+code, the `text` row skipped, `LOAD_ROWS`), `tests/laws.rs`, `testdata/`
+(the golden's copies), `data/messages.vla` (exported), the README.
+`frazaro-core`: `sheet/ooxml.rs` (`<numFmts>`), `sheet/merge.rs` (the
+model's), the places that build a `Style`. The reference:
+`src/VLA_Messages.bas` (`grid-format-code`), the golden's writer, their
+versions. `scripts/formats.txt` and its golden;
+`tools/check_formats_golden.ps1`, `run_checks.ps1`'s floor and
+`check_crate_data.ps1`'s list; oracle 11's amendment in
+`conformance/README.md`; the roadmap's line, this record, and a note in
+`RELEASES.md` under the release that carries it.
+
+**Beside it.** The English path's format sentences in the core's build
+(G-FORMAT slice 2, `VlaNumberFormatCode` ported) would give a program a
+workbook Excel draws 1.00 in and a view golden its first code; they are
+the first gear's formats, `KERNEL.16`'s, and the model holds no empty cell
+that keeps a format, which a format sentence before its value asks.
+`TEXT` is `KERNEL.8`'s, and computes with this item's function.
+
+**Found,** read, not minted: *A file's looks as rows* (decision 8):
+`reflect` prints no column, row, fill, format or style, so that a workbook
+read behind a manifest is a cartridge without its looks, and the
+OpenDocument reader decodes no data style; one decision for every look and
+both formats. *Excel's General as a viewport draws it,* fewer digits in a
+narrower column, which `SPEC.md` §3.1 leaves as "the first game's to
+want": `General` inside a code is refused until it is decided. *A code's
+colors* are the record's text color, `MISE.6`'s candidate, deferred with
+`FRONT.2`'s aesthetic pass. *Excel's count of codes a workbook may hold,*
+200 to 250 depending on its language version, by Microsoft's "Excel
+specifications and limits" (*exhibit*), against the 65,536 formats a grid
+holds; unmeasured for a written file.
+
+**Approved 2026-10-17** at the owner's word, "Recommendations approved;
+proceed with implementing as scoped."
+
+**Built 2026-10-17**, over `a20dc11`. Midway a peer session began `VLA.4`,
+the formula syntax, in the same tree (`formula_syntax.rs`, `VLA.bas`, the
+head table, the expand golden), and since then shares two files with this
+item, `vla-lang/src/lib.rs` and `docs/ID_REGISTRY.md`, each holding both
+sessions' hunks; so this item was verified apart, a tree of `HEAD` and its
+own 28 files alone (`d2c7b82`, by a temporary index, exported and given a
+repository of its own in the scratchpad).
+
+*What landed, by decision.*
+1. The spelling: the loader takes a quoted code in the `format` row's third
+   slot (`machine/load.rs`), and `format_row` prints it quoted (`view.rs`);
+   `"General"` and `"@"` refused naming the symbol.
+2. The codes: `vla-lang/src/numfmt.rs`, new, `Code::parse` over the tokens
+   of up to four sections, each of a number's read for its placeholders,
+   point, thousands, thousandths and percents, the fourth for literals and
+   `@`. Refused by name, with what draws instead, the constructs decision 2
+   lists, and the corners the same rule meets: a comma among the decimals,
+   just before the point or before any placeholder, a point or a percent
+   beside no placeholder, a control character, a quote left open, a
+   backslash with nothing after it.
+3. The text: `Grid::cell_rows` prints `(text "<sheet>" "<addr>" "<text>")`
+   after the cell's `cell` or `value` row and before its `style` row, so the
+   grid, the values and the changes carry it; what it needs, the style
+   table and the sheet's looks read back from their spellings (`Coded`),
+   made once a view and only where `Styles::has_code` (new, additive) says
+   the table holds a code. The load skips `text` by name, `LOAD_ROWS` naming
+   it, and the shape of a malformed `format` row names `"<code>"`.
+4. The rounding: `decimal` takes the digits of the shortest spelling, or of
+   `{:.14e}` past fifteen; `rounded` moves the point in decimal and rounds
+   half away from zero.
+5. A look: `Coded::text` takes the first look whose value the cell's meets,
+   a number by its value and a text by its characters, and draws under its
+   format.
+6. The type: `NumFmt::Code(Code)`, `NumFmt::builtin` in place of `id`;
+   `Code::parse`, `as_str`, `builtin` and `text`, and `Unsupported`.
+7. The writer: `ooxml.rs` (`FIRST_CODE_ID`, `code_ids`, `numfmts_fragment`,
+   each format's id; `<numFmts>` first; `cellxfs_fragment` takes the codes'
+   ids) and `merge.rs` (`defined_codes`: a code the model defines lends its
+   id, ours take ids past its highest, a list closed on itself refused).
+8. The round trip: the writer's half, and a workbook the core's test writes
+   where `FRAZARO_WRITE_FORMATS` names a path, each row a code, a value
+   under it, the language's text, Excel's `TEXT` of the value by the code
+   and `EXACT` of the two, for the owner's open in Excel and Calc.
+9. `reflect` and the census unchanged.
+10. `grid-format-code` in `src/VLA_Messages.bas` (`VLA_MESSAGES_VERSION`
+    `KERNEL.47`), exported: one line of `vla-lang/data/messages.vla`, the
+    grid family twelve ids.
+11. The oracle: `scripts/formats.txt`, 59 cases, 114 values, 13 of them
+    refused here; `scripts/formats_golden.txt`, the prediction, written in
+    the reference's own shape (its lines CRLF, one break at its end) by a
+    scratch program over the build, for the owner's run of
+    `VlaWriteFormatsGolden` to confirm or move; the crate's copies, held by
+    `check_crate_data` (22 pairs); `vla-lang/tests/formats_golden.rs`;
+    `VlaWriteFormatsGolden`, `FormatsCodeRecord` and `FormatsDrawn` in
+    `src/VLA_Tests.bas` (`VLA_TESTS_VERSION` `KERNEL.47`);
+    `tools/check_formats_golden.ps1`, its control among `run_checks.ps1`'s
+    other verifiers and its floor at 58; and `check_crate_package.ps1`'s
+    floor of the language's test includes 26 to 28, the golden's test's
+    two, without which its control's respelled include passed.
+12. Alonzo's half: not built.
+
+*Held.* Nine unit tests of the code (`numfmt.rs`); four of the record
+(`machine/mod.rs`: a code's text beside its value, a look's code, a fourth
+section, the refusals, a hand-written `text` row skipped, a record with no
+code printing none); the third, ninth and eleventh laws over grids whose
+formats hold codes and whose looks map to them, the `text` rows they met
+counted, 318, 2,181 and 254, floors of 150, 1,000 and 120 (law 11's grids
+family measured again with them, patched 1,851, still 834, whole 3,989);
+the golden's test, 114 values; three tests of the writer (`ooxml.rs` two,
+`merge.rs` one). Over the isolated tree: `cargo test --workspace`, the
+core's 186, the language's 250, its eleven laws and its other tests;
+`cargo fmt --check` and both clippies at `-D warnings` clean; `run_checks.ps1`
+58 of 58 and its fifteen other verifiers; the language's package tested
+from its own tarball, the two copies in it. Both wasm modules' import
+sections empty and their exports as pinned. Alonzo's `HEAD` `a19209c` over
+the build by a path: its 38 and 1 tests pass, and its three describe tests
+fail with output byte for byte the same as over Frazaro's `HEAD`
+(`KERNEL.43` and `KERNEL.44`'s census words, blessed at the pin's move);
+`frames --check` every frame equal, the allocations 80 and 5, 82 and 5,
+507 and 5, as they were. Fifteen mutants, each applied once to a scratch
+copy, every one caught by a named test: a tie rounded toward zero, a
+section chosen after rounding, the second section drawn with its `-`,
+thousands grouped by four, a thousandth ignored, a percent moving no point,
+a `#` drawing a lone 0, a literal dropped, the integer places reversed (the
+code's tests and the golden's); a `text` row under `general`, a look's code
+ignored, -0 a look apart from 0, a `text` row the load takes (the record's
+tests); `0.00` written as 164 and a merge's id colliding with the model's
+(the writer's tests).
+
+*Measured,* natively, opted out of the power throttling and pinned to the
+performance cores, medians of short passes, three runs:
+- A number's text under a code: 224 to 276 ns where its shortest spelling
+  has fifteen significant digits or fewer, 611 to 998 where it has more.
+  Rust's own spellings beside it: `{:e}` 84 ns for a number of cents and
+  176 for one of seventeen digits, `{:.14e}` 165 to 169 for either, so the
+  shortest spelling first is the cheaper for money, and a long number pays
+  both.
+- A window of 4,000 numbers, the values whole: 4.1 to 6.7 ms under
+  `general`, 6.5 to 10.6 under `#,##0.00`. A row of the record costs about
+  0.84 µs to print (8,007 rows in 6.7 ms), and a `text` row as much as any.
+- Buffet's Portfolio, a scratch copy of the working cartridge with
+  `B5:B8` `=Stocks!E5/100` under `#,##0.00`, `C5:C8` `=Stocks!I5/100` under
+  `▲0.00;▼0.00;=0.00` and `Gigs!B9` under `#,##0.00`, against the texts:
+  the values whole 23.2 to 24.5 µs, then 29.9 to 32.1; the changes at a
+  mark (frames 16, 31 and on, seven or eight cells) 6.4 to 7.3, then 11.1
+  to 12.1, each changed cell's `text` and `style` rows beside its value.
+- Alonzo's module 810,385 to 829,567 bytes (+19.2 KB, +2.4%).
+
+*Against the prediction:* no golden moved, as predicted. A record with no
+code costs what it did, as predicted, the test for a code one flag a view.
+A number's text, predicted 60 to 150 ns and 250 to 450, measured 224 to
+276 and 611 to 998, its spellings, vectors and output dearer than priced; a
+window of 4,000 numbers, predicted 0.3 to 0.8 ms slower, measured 2.4 to
+3.9, the price of printing a row left out of the prediction, which priced
+the formatting alone; Buffet's Portfolio, predicted 1 to 3 µs a whole view
+and 1 to 2 a mark, measured 6 to 8.5 and 4 to 5.7, its style rows too,
+which a code needs: a mark every fifteen frames, so 0.3 to 0.4 µs a frame.
+The module, predicted 10 to 25 KB, 19.2. The lines: the language's source
+1,135 and its tests 212 against 700 to 1,000, the core's 305 against 150
+to 250, the golden's writer about 95 against 60 to 100, the check 322
+against 150 to 250. Two corrections to decision 4: 123456789012345678
+under `0` draws `123456789012346000` by the rule, the fifteenth digit
+rounded up by the sixteenth, where the scoping wrote `...345000`, which is
+Excel's truncation of a number typed into a cell; and the tie 1234567890123455
+cannot tell ties to even from half up, its fifteenth digit odd, so the
+fixture holds 1234567890123465 too, which `{:.14e}` rounds to even as
+`...460` and half up would draw `...470`.
+
+**Found,** measured, not minted: *A row of the record costs about 0.84 µs
+natively,* each field quoted through the printer's form, so every view of
+every window pays it; a cheaper quoting would speed every record.
+
+**Left for the owner:** the VBA pass over the modules (`VLA_Messages.bas`,
+`VLA_Tests.bas`); `? VlaWriteFormatsGolden()` and `git diff
+scripts\formats_golden.txt`, Excel's text the witness, the copy into
+`vla-lang/testdata/` where it moves; the open of the written workbook in
+Excel and in Calc; the commit, this item's hunks alone, `lib.rs` and the
+registry holding the peer's too; and the release, 0.9.5 cut before this
+lands, then 0.10.0 with it.
+
+*The owner's hand test, 2026-10-17, the golden's first run in Excel.* The
+VBA pass: `VlaSelfTests` pure 2,031 of 2,031 and host 333 of 333.
+`VlaWriteFormatsGolden`: 59 cases, 114 values, three codes Excel refused,
+the three predicted (`0 kg`, `@;0`, five sections). Against the prediction
+the golden moved in seven lines: 109 of the 114 values drawn as predicted,
+five not, and two codes read back otherwise. Three rules of Excel's, each
+now the language's:
+1. *One section's minus is none where the number draws as zero:* -0.4
+   under `0` is `0`, and -0.001 and -0.004 under `0.00`, and -0.001 under
+   `#,##0.00`, are `0.00`, where the scoping predicted `-0` and `-0.00`;
+   a code of two sections or more still chooses its negative's section by
+   the sign before rounding, `(0.00)`, as predicted. `Section::draw` says
+   whether its number drew as zero, and the minus is put before the text
+   only where it did not; a section with no placeholder draws no number,
+   and `"x"` under -5 is `-x`, as Excel draws it and as predicted.
+2. *An exact tie at the fifteenth digit rounds toward zero:*
+   1234567890123455 under `0` is `1234567890123450`, where `{:.14e}`
+   rounds a tie to even, `...460`; 1234567890123465 is `...460` either
+   way, as predicted. A number exactly halfway has the tie itself for its
+   shortest spelling, sixteen digits ending in 5, and `exactly` reads
+   whether it is that decimal in whole numbers (the decimal times 10^p a
+   double only as a whole number, or as a whole number over a power of two
+   where 5^-p divides it), so the tie is found exactly and cheaply, and
+   rounded toward zero; anything else rounds to the nearest. The unit tests
+   pin a whole tie, a tie with a fraction (617283945061727.5), and two
+   near-ties that are not (1234567890123455.5, and 0.2234567890123455,
+   whose double is 0.22345678901234550250...).
+3. *Excel reads two codes back spelled otherwise:* `\€#,##0.00` as
+   `€#,##0.00`, which draws every value alike, and `0.0,0` as `0.00`, a
+   code refused here. The record keeps a code as written; the golden's
+   test now takes Excel's spelling of a drawn code too, and holds it to
+   draw every value alike, at most one respelling allowed so that another
+   is seen.
+
+The golden is Excel's since, in `scripts/` and the crate's copy alike, and
+the language's test, its 12 tests of the code and the record, and
+`check_formats_golden.ps1` pass over it. The hand-check workbook was
+written again, its column C the language's text by the rules above.
+
+*The owner's second run, the same day.* The language's golden test passed
+over Excel's golden. The workbook opened in Excel without a repair, and in
+all 22 rows the value under its code (B), the language's text (C) and
+Excel's `TEXT` of it (D) were alike, `EXACT` TRUE throughout (E): two
+decimals, the thousands, a scaled thousand and millions, the percents, an
+escaped dollar, a negative's parentheses, -0.001 under `0.00` drawn `0.00`,
+the glyphs of three sections, the literals of a number, `#.##` under 0.5
+drawn `.5`, `0.#` under 1 drawn `1.`, and 123456789012345678 drawn
+`123456789012346000`. The checks were 57 of 58: `check_shapes_golden` read
+a door built before `KERNEL.31`'s commit (`677d3c8`) moved the census's
+`reads` words, and passed once the door was built again; nothing of this
+item's. Then 58 of 58. The workbook opened in LibreOffice Calc without a
+complaint, 21 of its 22 rows alike: Calc draws 1 under `0.#` as `1`, and
+its `TEXT` too, without the point Excel draws, `1.`, which the language
+keeps, Excel being the oracle.
+
+*Over `KERNEL.31`'s commit.* `677d3c8` moved HEAD under this item's hunks
+the same day, so they were verified again alone over it, the files a peer
+shares built from HEAD's blobs and this item's blocks: the build, the
+format and both lints clean; the workspace's tests (the core's 186, the
+language's 256, its formats golden, its laws and the rest) and the
+package's own from its tarball; both wasm builds, their imports and
+exports and the exports' control; every `-Impl` check of the core job, the
+census goldens and their control, the page, the recalc floors over the
+runner and their control; and `run_checks` with its verifiers. Alonzo at
+`08a5477` over it by path answered as over `677d3c8` alone: 40 tests
+passing and the same three describe goldens moved by `KERNEL.31`'s census
+words, and `frames --check` alike but for the memory held, 18 bytes more in
+every cartridge. A `Style` is 24 bytes where it was 6, its `NumFmt` 16
+where it was 1, a code being held by its `Arc`, and each of those
+cartridges holds one style.
+
+*Over `VLA.4`'s commit.* `31c9ac8` followed, taking none of this item's
+lines and setting the two modules' version constants to its own, which
+this item's commit sets again. Verified alone over it as over `677d3c8`:
+the core job whole, the core's 188 tests and the language's 265, the
+package's own from its tarball; Alonzo at `8cd0d56` over it as over
+`31c9ac8` alone, 18 bytes more held in each of its seven cartridges. One
+verifier failed, and failed at `31c9ac8` alone as well:
+`check_crate_package`'s control passed its respelled include, `VLA.4`'s
+three test includes (`tests/formula_syntax.rs`) having left the floor at
+26 under 29. This item sets the floor to the 31 counted, `VLA.4`'s three
+named beside its own two, and the control fails its mutant again: 58
+checks of 58 and the 15 verifiers.
+
+**Found** at the run, not minted: *Near-ties,* a number whose shortest
+spelling is sixteen digits ending in 5 and which is no exact tie, round to
+the nearest here; Excel's way with them is unwitnessed, and a case of one
+(0.2234567890123455 under fifteen decimals) belongs in the fixture at its
+next run.
+
 **`KERNEL.31`, a frame's own sheets kept as arrays: the measurement and
 the scoping, 2026-10-17.** Begun at the owner's word of 2026-10-17, at
 `KERNEL.44`'s close: scope it, stop for the owner's approval, then build
@@ -41534,6 +42175,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.43 — a run's lanes typed end to end: a twin's numbers kept beside its slots and read by stride, a moving range's aggregate folded over shifted slices, the truth functions and `IF` over lanes, so that a fill's frame costs a few nanoseconds a cell.** Minted 2026-10-16 at the owner's word of 2026-10-15 from its own measurement, with `KERNEL.44` and `KERNEL.45`; scoped, approved, built, owner-tested and committed 2026-10-16. A twin a formula reads keeps each slot's number and kind beside it and a count a row of the slots holding none; a run reads a reference that moves with the column as one slice of those numbers from a stretch's first cell and a column a `$` holds once a stretch, folds `SUM`, `MIN`, `MAX`, `AND` and `OR` over a moving range slice by slice in the library's order, turns `NOT` in place, answers an `IF` between two literals by its condition's lane, and makes a value only for a number that changed; the census names the path `stride`. Bit for bit natively and in wasm: Life's frame a third faster natively and in the browser, the gun's a quarter, Sand's 6 to 8%, short of the prediction's two to three times, the residual priced in the record. A spreadsheet's twins, which no formula reads, keep no numbers, after the recalc floors caught the first build writing them, and every recalc floor rose, Life's whole frame from 15.4 to 28.5 million formulas a second. Decision 5, a chunk computed whole, built, measured at no gain and taken out. Held by six new tests, a law over generated grids against every cell alone and `Calc` among them, the census and buffer tests widened, and twenty-six mutants, each failing named tests, a first round's survivor showing a slice's left edge dead and taken out; Alonzo over it by a path, every replay and digest unchanged. To be released in 0.9.5. `~weeks`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.44 — a cell alone lowered once to a register program, its functions, sheets and references found at the plan, so that a cell no run holds costs nanoseconds a node and not tens.** Minted 2026-10-16 at the owner's word of 2026-10-15 from `KERNEL.43`'s measurement, with it and `KERNEL.45`; scoped, approved, built and owner-tested 2026-10-16, committed 2026-10-17. Each shape's parse is lowered where the plan keeps it to a program over registers of numbers, each operation the evaluator's own function, and six guards leave a cell to `Ctx` wherever a value no register holds appears, so that every answer is the walk's to the bit; a run's selection of fewer than sixteen cells runs its programs, the step's loop walks the runs beside the positions, and the census names a shape left to `Ctx` and why, `(unlowered text)`. Kairos's frame 45% faster natively and 47% in wasm, Buffet's 28 and 27%, `chain`'s whole frame 74% and its edit 55%, Life's rule written a cell at a time 64 and 53%; Life, Sand and the gun within about 1%, every frame equal natively and in wasm; a load up to 3% slower, the module 2.6% larger. The recalc floors' entry of 2026-10-16 raised `chain`'s whole frame from 14.0 to 63.0 million formulas a second, 6.2 times Excel's on twenty threads. Held by a law over generated grids against `Ctx` and `Calc`, a test a guard, and twenty-six mutants, each failing named tests, a first round's survivor showing a range's empty-cell arm dead and taken out; Alonzo over it by a path, every replay and digest unchanged. To be released in 0.9.5. `~weeks`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.31 — a sheet a range reads this frame kept as an array, so that a reduction over the frame's own cells walks an array as one over a twin does.** Minted 2026-10-12 at the owner's word, from the speed half of an Alonzo session's audit of the architecture; measured again with `KERNEL.34` to `KERNEL.36` and with `KERNEL.43`, which widened it to the cells a frame reads of its own sheets; scoped, approved, built, owner-tested and committed 2026-10-17. A rows' sheet the plan reads by a range, or by a run's cell that moves with it, keeps the frame's values as an array over its extent, the twin's slot under the twins' limit, each slot written where a value changes and a value cell's at its write, the array kept over a write that plans again and made again past its extent; a sheet one of whose formulas holds a reason offers no array until none does, so that a range answers the reason bit for bit; every array path reads it as a twin's, a run's cells one below the other read a column of it, and a door's census names the arrays its machine keeps. The recalc floors' `sums` whole 3.6 times faster and its edit 2.3 times, 2.5 times faster than Excel on twenty threads and 1.2 times at its edit, `column`'s whole frame 37% faster, Sand 18% natively and 17% in wasm, the Mind of 20,000 55 and 45%; Life, the gun, Kairos, Buffet and the sound card level, `chain` level to 5% slower; every frame equal natively and in wasm; a load that makes an array up to 9% slower, 33 bytes a slot, the module 1.1% larger. The recalc floors' entry of 2026-10-17 raised `sums`' whole frame from 7.21 to 31.0 million formulas a second and `column`'s from 56.8 to 108. Held by a law over generated grids against the same grids keeping no arrays and against `Calc`, five tests of its traps, and thirty mutants, each failing named tests, two gaps found and one closed; Alonzo and Buffet over it by paths, every replay and digest unchanged. To be released in 0.9.5. `~weeks`, taken in a day. *(more: the measurement, the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.47 — a number format in the record: Excel's format codes beside `general` and `text`, so that a cell holding 1 under `0.00` draws 1.00, right-aligned as a number.** Minted 2026-10-17 at the owner's word, from Buffet's `POT.10` hand test (2026-10-16): "All dollar cells should show two decimals, so Portfolio!B5:B8 should show cents at all times, even when the amount is a full dollar."; scoped, approved, built, owner-tested and committed 2026-10-17. A `format` row's number format may be a code of Excel's in quotes, `(format 2 none "0.00" nowrap)`: `numfmt` draws one to four sections, `0` and `#`, the point, the thousands, thousandths and percents, quoted, escaped and unquoted literals and any character outside ASCII, and refuses the rest by name with what draws instead (`grid-format-code`); a number becomes its text as Excel draws it, its nearest fifteen significant digits, an exact tie toward zero, then half away from zero to the code's decimals, one section's minus dropped where the number draws as zero; the record prints a `text` row after a cell's value wherever a code draws, a load skips it, and a record whose formats hold no code prints none, byte for byte as before; the writer writes a built-in by its id and defines every other code in `<numFmts>` from 164, into a workbook of one's own past its highest. `NumFmt::Code` breaks the public surface (`NumFmt` loses `Copy`, `NumFmt::id` is `NumFmt::builtin`, the core's `cellxfs_fragment` takes the codes' ids). A number's text 224 to 276 ns short and 611 to 998 long; a window of 4,000 coded numbers 2.4 to 3.9 ms slower, most of it the printing of its rows; a style 24 bytes where it was 6; the module 19.2 KB larger. Held by Excel's own text of 114 values under 59 codes (`VlaWriteFormatsGolden`, the owner's run, three rules of Excel's taken from it), the laws over grids whose formats hold codes, the writer's ids, a written workbook the owner opened in Excel (every row alike) and in Calc (all but 1 under `0.#`), and eighteen mutants, each failing named tests; Alonzo over it by path, its tests and frames as before but 18 bytes held a cartridge. Alonzo's half (a `SPEC.md` version, the viewport's reader and painter, the pin) named for Alonzo to mint after the release. To be released in 0.10.0. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

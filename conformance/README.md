@@ -1419,3 +1419,44 @@ host holds, and nothing when nothing changed.
   frame, after the writes before the next and while it yields, and by the
   count of the cells a view visits, a still window's changes visiting none.
   No door prints them, a door having no frames, and no golden moves.
+
+## Amendment of 2026-10-17: oracle 11's number formats, a code and a number's text (`KERNEL.47`)
+
+The record's formats were `general` or `text`, and it spells a number at
+its shortest round trip, which a viewport never respells, so a cell
+holding 1 drew `1` where a workbook's author wrote `0.00`. A format may now
+hold a code of Excel's, and the record prints the text the code draws.
+
+- **The code.** A `format` row's third field is `general`, `text` or a code
+  in quotes, written as `Range.NumberFormat` takes it, spelled the same on
+  every machine: `(format 2 none "0.00" nowrap)`. The language draws one to
+  four sections, `0` and `#`, the point, the thousands, thousandths and
+  percents, and literals; a code holding anything else is refused by name
+  (`grid-format-code`), and so are `"General"` and `"@"`, which are spelled
+  `general` and `text`.
+- **The text.** A cell whose number draws under a code, or whose text draws
+  under a code's fourth section, prints `(text "<sheet>" "<addr>" "<text>")`
+  after its `cell` or `value` row and before its `style` row: the text
+  Excel's `Range.Text` gives it in a column wide enough, under the code of
+  the format it draws with, its look's where its value has one. A number
+  is taken at its nearest fifteen significant digits, an exact tie toward
+  zero, then rounded half away from zero to the code's decimals, and one
+  section's minus is dropped where the number draws as zero, as Excel
+  draws them. The grid, the values and a window's changes print the row
+  alike; a load skips it, so that a save loads as before; and a record
+  whose formats hold no code prints none, so that no golden of oracle 11
+  moves.
+- **The oracle.** Excel's own text: `scripts/formats.txt` holds codes and
+  the values each draws, and `scripts/formats_golden.txt` is what
+  `VlaWriteFormatsGolden` (`VLA_Tests.bas`) writes of them in Excel, each
+  code as Excel reads it back, or Excel's refusal, and each value's
+  `Range.Text`. The language's test (`vla-lang/tests/formats_golden.rs`)
+  holds every case to that file whole, and
+  `tools/check_formats_golden.ps1` holds the pair's shape and the
+  constructs the cases reach. The language's third, ninth and eleventh laws
+  hold over grids whose formats hold codes.
+- **The writer.** A code that is a built-in Excel draws alike in every
+  locale is written by its id, as Excel writes it, and any other is defined
+  in the styles part's `<numFmts>` from 164; into a workbook of one's own,
+  a code the workbook defines takes its id and the rest take ids past its
+  highest. The readers print no format yet, as they print no look at all.

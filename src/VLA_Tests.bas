@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.4"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.47"
+' KERNEL.47: VlaWriteFormatsGolden, dev-only, which has Excel draw every
+' case of scripts/formats.txt, a number format's code and the values it
+' draws, in a workbook it adds and closes unsaved, and writes
+' scripts/formats_golden.txt, the golden vla-lang's number formats are
+' held to: each code as Range.NumberFormat reads it back, or Excel's
+' refusal, and each value's Range.Text.
+'
 ' VLA.4: TestFormulaSyntax - the formula syntax at expand time
 ' (formula-expand), its canonical spelling, a macro inside the expression
 ' firing first, a template's parameters filled in inside it, each of its
@@ -3286,6 +3293,111 @@ refused:
     d = Err.Description
     On Error GoTo 0
     ExpandReportFor = "REFUSED" & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
+End Function
+
+' KERNEL.47: the number formats golden. scripts/formats.txt holds cases,
+' each under a line "=== <name>": the first line of a case is a format
+' code as Range.NumberFormat takes it, and each line after it a value the
+' code draws, a number in the record's spelling or a text after an
+' apostrophe ('abc), Excel's own mark for a text. This has Excel draw
+' every case in a workbook it adds and closes unsaved, and writes
+' formats_golden.txt beside the fixture: the header, then CODE<TAB><the
+' code as Range.NumberFormat reads it back>, or REFUSED<TAB><Excel's error
+' number> for a code Excel does not take, then one line a value, <the
+' value as written><TAB><Range.Text in a column 255 characters wide>.
+' vla-lang's numfmt.rs reads the same fixture and is held to this file by
+' its own test, and tools/check_formats_golden.ps1 holds the pair's shape
+' and the constructs reached. Dev-only, like VlaWriteRefersGolden: run it,
+' then git diff. It adds a workbook, which can move the VBE's project, so
+' click a module's code window before the next Immediate command.
+Public Function VlaWriteFormatsGolden(Optional ByVal fixturePath As String = "") As Boolean
+    Dim scratchWb As Workbook
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("formats.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE FORMATS GOLDEN ====="
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Set scratchWb = Workbooks.Add
+    Dim target As Range
+    Set target = scratchWb.Worksheets(1).Cells(1, 1)
+    target.EntireColumn.ColumnWidth = 255
+    Dim outText As String, ln As String, fmtCode As String
+    Dim haveSection As Boolean, codeLine As Boolean, accepted As Boolean
+    Dim sections As Long, nValues As Long, nRefused As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines)
+        ln = lines(i)
+        If Left$(ln, 4) = "=== " Then
+            outText = outText & ln & vbCrLf
+            haveSection = True
+            codeLine = True
+            sections = sections + 1
+        ElseIf haveSection And Len(ln) > 0 Then
+            If codeLine Then
+                fmtCode = ln
+                outText = outText & FormatsCodeRecord(target, fmtCode, accepted)
+                If Not accepted Then nRefused = nRefused + 1
+                codeLine = False
+            ElseIf accepted Then
+                outText = outText & ln & vbTab & FormatsDrawn(target, fmtCode, ln) & vbCrLf
+                nValues = nValues + 1
+            End If
+        End If
+    Next i
+    scratchWb.Close SaveChanges:=False
+    Set scratchWb = Nothing
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & sections & " cases, " & nValues & " values, " & nRefused & " codes Excel refused -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the prediction held)"
+    Debug.Print "===== FORMATS GOLDEN WRITTEN ====="
+    VlaWriteFormatsGolden = True
+    Exit Function
+failed:
+    Dim failNo As Long, failWords As String
+    failNo = Err.Number
+    failWords = Err.Description
+    On Error Resume Next
+    If Not scratchWb Is Nothing Then scratchWb.Close SaveChanges:=False
+    On Error GoTo 0
+    Debug.Print "  FORMATS GOLDEN FAILED: " & failWords & " (" & failNo & ")"
+End Function
+
+' A case's code given to Excel: CODE and the code as Excel reads it back,
+' or REFUSED and Excel's error number where Excel takes no such code.
+Private Function FormatsCodeRecord(ByVal target As Range, ByVal fmtCode As String, _
+                                   ByRef accepted As Boolean) As String
+    Dim n As Long
+    On Error Resume Next
+    target.NumberFormat = fmtCode
+    n = Err.Number
+    On Error GoTo 0
+    If n <> 0 Then
+        accepted = False
+        FormatsCodeRecord = "REFUSED" & vbTab & CStr(n) & vbCrLf
+    Else
+        accepted = True
+        FormatsCodeRecord = "CODE" & vbTab & CStr(target.NumberFormat) & vbCrLf
+    End If
+End Function
+
+' One value drawn under the code: a text after an apostrophe, else a number
+' read as the record spells it (Val reads the point whatever the machine),
+' and the cell's text as Excel draws it.
+Private Function FormatsDrawn(ByVal target As Range, ByVal fmtCode As String, _
+                              ByVal valueLine As String) As String
+    target.NumberFormat = fmtCode
+    If Left$(valueLine, 1) = "'" Then
+        target.Value2 = Mid$(valueLine, 2)
+    Else
+        target.Value2 = Val(valueLine)
+    End If
+    FormatsDrawn = CStr(target.Text)
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and

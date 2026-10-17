@@ -7,9 +7,13 @@
 //! value fills the range, a formula fills it as a shared formula, moved as
 //! Excel moves a filled formula), `value` after its formula (the formula's
 //! last value, never a second write), `name`, `gridlines`, `column`, `row`,
-//! `format`, `look`, `style` and `sentence`. Skipped by name, being a
-//! view's or a reader's own derivation or a thing no model holds before
-//! `KERNEL.8`: `window`, `extent`, `refers` and `table`. A `sheet` row
+//! `format`, `look`, `style` and `sentence`; a `format` row's number format
+//! is `general`, `text` or, since KERNEL.47, a code of Excel's in quotes,
+//! refused by `grid-format-code` naming what it holds that this version
+//! does not draw (`crate::numfmt`). Skipped by name, being a view's or a
+//! reader's own derivation or a thing no model holds before `KERNEL.8`:
+//! `window`, `extent`, `refers`, `table` and `text`, a number's text under
+//! its code, which a save prints and the code makes again. A `sheet` row
 //! naming `X.last` is taken as the twin's own declaration, which every
 //! record of a save lists, when the rows hold `X`; the machine makes the
 //! twins itself.
@@ -28,6 +32,7 @@ use crate::calc::{CellId, Computed, ErrorKind, Reason, Value};
 use crate::form::Form;
 use crate::intrinsics::fold;
 use crate::messages::raise;
+use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
 use crate::rows::{quoted, Visibility};
 use crate::sheet::{
@@ -38,9 +43,9 @@ use crate::sheet::{
 use super::{LineRefusal, CELLS};
 use crate::calc::shape::spell_cell;
 
-/// The rows a load takes, the four it skips last, as `grid-row-unknown`
+/// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
-pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, style, sentence, window, extent, refers and table";
+pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, style, sentence, window, extent, refers, table and text";
 
 /// The most formats a grid's table holds, Excel's own count of cell
 /// formats a workbook may hold, rounded to a power of two.
@@ -184,7 +189,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "gridlines" => "(gridlines \"<sheet>\" on|off)",
         "column" => "(column \"<sheet>\" \"<letters>\" <width>|none shown|hidden <format>|none)",
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
-        "format" => "(format <index> \"<RRGGBB>\"|none general|text wrap|nowrap)",
+        "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap)",
         "look" => "(look \"<sheet>\" <value> <format>)",
         "style" => "(cell \"<sheet>\" \"<cell>\" <value>) (style \"<sheet>\" \"<cell>\" <format>)",
         "sentence" => {
@@ -205,6 +210,22 @@ pub(crate) fn malformed(line: u32, form: &Form, kind: &str) -> LineRefusal {
         refusal: raise(
             "grid-row-malformed",
             &[("row", &write_datum(form)), ("shape", shape_of(kind))],
+        ),
+    }
+}
+
+/// `grid-format-code` for a `format` row's code that holds what this version
+/// does not draw (KERNEL.47).
+pub(crate) fn format_code(line: u32, code: &str, unsupported: &Unsupported) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-format-code",
+            &[
+                ("code", &quoted(code)),
+                ("what", &unsupported.what),
+                ("fix", &unsupported.fix),
+            ],
         ),
     }
 }
@@ -362,7 +383,7 @@ impl Reader {
             "look" => self.look(form, items, line),
             "style" => self.style(form, items, line),
             "sentence" => self.sentence(form, items, line),
-            "window" | "extent" | "refers" | "table" => Ok(()),
+            "window" | "extent" | "refers" | "table" | "text" => Ok(()),
             other => Err(unknown(line, other, LOAD_ROWS)),
         }
     }
@@ -665,7 +686,7 @@ impl Reader {
     }
 
     fn format(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
-        let [Form::Sym(index), fill, Form::Sym(num), Form::Sym(wrap)] = items else {
+        let [Form::Sym(index), fill, num, Form::Sym(wrap)] = items else {
             return Err(malformed(line, form, "format"));
         };
         let index = match index.parse::<u32>() {
@@ -680,9 +701,15 @@ impl Reader {
             },
             _ => return Err(malformed(line, form, "format")),
         };
-        let num_fmt = match num.as_str() {
-            "general" => NumFmt::General,
-            "text" => NumFmt::Text,
+        let num_fmt = match num {
+            Form::Sym(s) if s == "general" => NumFmt::General,
+            Form::Sym(s) if s == "text" => NumFmt::Text,
+            // A code of Excel's (KERNEL.47), refused naming what it holds
+            // that this version does not draw.
+            Form::Str(code) => match Code::parse(code) {
+                Ok(code) => NumFmt::Code(code),
+                Err(unsupported) => return Err(format_code(line, code, &unsupported)),
+            },
             _ => return Err(malformed(line, form, "format")),
         };
         let wrap = match wrap.as_str() {

@@ -17,9 +17,10 @@
 //! since KERNEL.22 (2026-10-09), the machine (`machine`): a grid kept under
 //! a handle and stepped, the four calls an engine makes of it (load, write,
 //! step, view), the previous frame's twin sheets, the plane, with a C
-//! surface over them (`abi`) exported only under the `c-abi` feature; and
+//! surface over them (`abi`) exported only under the `c-abi` feature;
 //! since KERNEL.25 (2026-10-09), the hash the machine's maps use (`fx`, the
-//! crate's own).
+//! crate's own); and since KERNEL.47 (2026-10-17), a number format's code
+//! and the text a number draws as under it (`numfmt`).
 //!
 //! Since VLA.4 (2026-10-17) the language holds the formula syntax
 //! (`formula_syntax`): a VLA expression written as a formula's text in
@@ -50,6 +51,7 @@ pub mod headtable;
 pub mod intrinsics;
 pub mod machine;
 pub mod messages;
+pub mod numfmt;
 pub mod printer;
 pub mod projection;
 pub mod reader;
