@@ -508,9 +508,10 @@ fn read_number(s: &[char], i: usize) -> (Tok, usize) {
 /// The deepest a formula may nest, Excel's own limit (VLA.1): each pair of
 /// parentheses, each call's arguments, each sign before an operand and each
 /// `%` after one counts a level, so that evaluation, which recurses once a
-/// level, never goes deeper. The deepest real formula nests 6 (Life's
-/// rule). A chain of binary operators is not nesting: it is read in a loop
-/// and evaluated in one ([`LENGTH_LIMIT`] bounds it).
+/// level, never goes deeper. The deepest real formula nests 9 (Alonzo's
+/// Sand, its Screen's rule; Life's nests 6). A chain of binary operators is
+/// not nesting: it is read in a loop and evaluated in one ([`LENGTH_LIMIT`]
+/// bounds it).
 pub const NESTING_LIMIT: u32 = 64;
 
 /// The longest a formula's text may be, its leading `=` aside: Excel's own

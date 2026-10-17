@@ -5,7 +5,7 @@
 use super::names::{sym_name, to_vba_string};
 use super::Compiler;
 use crate::form::{sym_text, Form, List};
-use crate::headtable::resolve_head_alias;
+use crate::headtable::{self, resolve_head_alias, FormulaSupport};
 use crate::intrinsics::{fold, is_numeric};
 use crate::messages::{raise, Refusal};
 
@@ -172,6 +172,15 @@ pub fn emit_formula(v: &Form) -> Result<String, Refusal> {
             Err(raise("vla-formula-is-statement", &[("head", &h)]))
         }
         _ => {
+            // VLA.4 (F.7): a head the head table declares no formula's is
+            // refused by name, where this arm used to write it as a call,
+            // `(new x)` as `new(x)`.
+            if headtable::row(&h).is_some_and(|r| r.formula != FormulaSupport::Yes) {
+                return Err(raise(
+                    "vla-formula-head-refused",
+                    &[("head", &lst.head_sym()?)],
+                ));
+            }
             let mut parts = Vec::with_capacity(lst.count());
             for i in 2..=lst.count() {
                 parts.push(emit_formula(lst.nth(i)?)?);
@@ -272,5 +281,62 @@ mod tests {
             err("(lambda ((x)) x)"),
             "vla-formula-lambda-params-not-plain"
         );
+        // VLA.4 (F.7): a head the table refuses, where this wrote new(x).
+        assert_eq!(err("(new x)"), "vla-formula-head-refused");
+        assert_eq!(err("(. a b)"), "vla-formula-head-refused");
+    }
+
+    /// F.7's test (VLA.4) on deflambda's dialect: every head the head table
+    /// declares no formula's is refused by name, by the fourteen this
+    /// emitter always named or by the table's refusal; and the heads it
+    /// declares a formula's are written, `type` and `xor` as the calls
+    /// Excel's TYPE and XOR, as they always were.
+    #[test]
+    fn every_refused_head_of_the_table_is_refused() {
+        for row in headtable::rows() {
+            assert_ne!(
+                row.formula,
+                FormulaSupport::Undeclared,
+                "{} is undeclared",
+                row.symbol
+            );
+            let form = Form::list(vec![Form::sym(&row.symbol), Form::sym("a"), Form::sym("b")]);
+            if row.formula == FormulaSupport::Refused {
+                let id = emit_formula(&form).unwrap_err().id;
+                assert!(
+                    id == "vla-formula-is-statement" || id == "vla-formula-head-refused",
+                    "{}: {id}",
+                    row.symbol
+                );
+            }
+        }
+        assert_eq!(formula("(xor a (type b))"), "xor(a, type(b))");
+    }
+
+    /// The parity of the two writers (VLA.4): where deflambda's dialect and
+    /// the formula syntax both write an expression, the language's parser
+    /// reads their texts as one tree. They differ in spelling only: this
+    /// one parenthesizes every operation and keeps a call's case.
+    #[test]
+    fn the_formula_syntax_reads_as_this_dialect_does() {
+        use crate::calc::formula::parse;
+        for src in [
+            "(* x 2)",
+            "(> a b)",
+            "(if (= (mod n 2) 0) \"even\" \"odd\")",
+            "(and a (not b) (or c d))",
+            "(- (- x) 1)",
+            "(- a b c)",
+            "(+ 1 (* 2 3))",
+            "(* (+ 1 2) 3)",
+            "(& \"say \\\"hi\\\"\" 1)",
+            "(< (+ a 1) (* b 2))",
+            "(sum A1 B2 (max c d))",
+        ] {
+            let v = &read_forms(src).unwrap()[0];
+            let old = parse(&emit_formula(v).unwrap()).unwrap();
+            let new = parse(&crate::formula_syntax::write(v).unwrap()).unwrap();
+            assert_eq!(old, new, "{src}");
+        }
     }
 }

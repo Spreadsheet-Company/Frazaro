@@ -17369,6 +17369,160 @@ lost or mistaken for closer than they are:**
   The twelve decisions stand as built. **Closed ✅ and committed
   2026-10-10 at the owner's word.**
 
+- ✅ **VLA.4 — the formula syntax: an expression written as a formula's
+  text and read back, with `formula-expand`.** Minted, scoped and approved
+  2026-10-17 at the owner's word; built, owner-tested and committed the
+  same day. `~days`
+
+  *The ask.* A brief, pasted in chat, asked for a two-way contract between
+  VLA expressions and a spreadsheet formula's text: readable, composable
+  formula authoring in Alonzo's cartridges and any VLA source, with stated
+  guarantees of what round-trips and refusals by name outside the subset.
+  The scoping is the owner's page, "VLA.4 formula syntax scoping"
+  (https://claude.ai/code/artifact/adf1e3b5-e2f2-411b-b9b1-6d3147e24b51),
+  and in brief here.
+
+  *What it found.* Two converters, neither the contract. `EmitFormula`
+  (`VLA.bas`) and its port `emit_formula` (`core/src/emit/formula.rs`)
+  write deflambda's dialect: every operation parenthesized, `, ` between
+  arguments, a symbol renamed by `SymName` (`A1:B2` the name `A1_B2`,
+  `tax-rate` and `tax_rate` one name), no `^`, `%` or unary `+`, VBA's
+  numerals passed through, `(not a b)` dropping `b`; and nothing pins the
+  two together but the reference's own tests. `calc::formula::parse`
+  (`KERNEL.7`) reads a formula for evaluation and keeps no spelling. The
+  cartridges' 243 formula rows are texts: 169 literals, 7 `&expand`s, 48
+  from the kit's verbs' string pieces, 19 from Buffet's kitchen; Sand's
+  hash pasted three times, Buffet's `dollars` splicing one reference ten
+  times among 22 escaped quote marks. A probe of the writer below over
+  every row: 242 of the 243 already in its spelling, the exception
+  Buffet's Gigs A11 by a redundant pair of parentheses; the 912
+  replay-golden rows and Frazaro's readable fixture rows, all of them.
+
+  *The decisions, approved 2026-10-17:*
+  1. Composition by expressions, not by text, the route the candidate
+     `VLA.4` of `KERNEL.28`'s note and Alonzo's `CART.2` decision 14 named
+     (a macro's call inside `&expand`). `SQL.1`'s one-surface rule
+     weighed: formula text stays the only spelling of every artifact, the
+     rows, the view, the bar and the replay; the expression lives only in
+     sources, as a macro's input, where text cannot be composed (nothing to
+     adopt); and spliced text carries no precedence (`x*` and `A1+1` read
+     `x*A1+1`).
+  2. The charter amended first: Alonzo's `CHARTER.md` §4 rule 1 gives the
+     language the formula syntax, the core keeping the VBA emitter,
+     deflambda's dialect and the file formats' spellings.
+  3. A reference is a bare symbol where a symbol can hold it, `(ref sheet
+     address)` otherwise and for an address a macro computes.
+  4. The canonical spelling, which the probe settled: no space outside a
+     text, the fewest parentheses Excel's precedence allows, upper-case
+     names, truth values, errors and column letters, a sheet quoted only
+     where `quote_sheet` says, a number and a text as written; an error
+     written `(error "#N/A")`, as rows spell a value.
+  5. `formula-expand` is an operation of the walk, neither a template
+     macro nor a LISTOPS primitive: `Substitute` leaves it alone, the walk
+     expands its argument to its fixpoint before writing it, and one inside
+     another is refused.
+  6. The reader is for tools and tests, the port's alone (Excel reads the
+     add-in's formulas), and never the way back from an edited formula
+     (`SD-24`).
+  7. `F.7`'s remainder folded in: the head table's formula column declared
+     whole, and both writers held to it.
+  8. Deflambda keeps its dialect, its Case Else now refusing a head the
+     table refuses.
+  9. No version: no `(spec N)`, no dialect version; an additive release.
+
+  *Built*, in a worktree of `a20dc11`, beside `KERNEL.47`'s build in the
+  shared tree:
+  - `vla-lang/src/formula_syntax.rs`, new: `write` and `read`, the
+    precedence printer, the atoms read by `refers::scan`, thirteen refusals;
+    `expand.rs`: `formula-expand` in `expand_at`, reserved; `lib.rs`;
+    `headtable.rs`: 66 rows, 20 yes and 46 refused, its stale path;
+    `calc/formula.rs`'s comment, the deepest real formula nesting 9
+    (Sand's Screen).
+  - `src/VLA.bas`: `FormulaSyntaxWrite` and its `Fs` helpers beside
+    `EmitFormula`, `ExpandFormulaCall` and its arm in `ExpandMacros`,
+    `formula-expand` reserved in `DefineMacro`, `FormulaHeadRefused`
+    asked by `EmitFormula`'s Case Else. `VLA_HeadTable.bas`: the column
+    declared, `for-each-row`'s row. `VLA_Messages.bas`: the thirteen ids,
+    exported. `VLA_Tests.bas`: `TestFormulaSyntax` (29 pins) and
+    `TestHeadTableFormulaDeclared` (5), `TestHeadTable` at 66.
+  - `core/src/emit/formula.rs`: the Case Else's refusal, `F.7`'s test over
+    the port, and the two writers read as one tree by the evaluator's
+    parser; `core/src/lib.rs` re-exports the module.
+  - The goldens: `scripts/expand.txt`, 174 cases, 39 new, its golden
+    written by the port for the reference to confirm; the reader's
+    `vla-lang/testdata/formula_syntax.txt`, 79 cases, and its golden;
+    `vla-lang/tests/formula_syntax.rs`, the laws.
+  - The checks: `check_expand_golden`'s rule 6 (the walk's operation in
+    both, reached both ways, VLA.4's eleven ids) and a sixth mutant, floors
+    174, 96 and 30; `check_data_exports` at 66 and 217;
+    `check_raise_ratchet`'s VLA at 9, `ExpandFormulaCall`'s re-raise.
+
+  *Found while building.* The generator's seed 222 wrote `#N/A/x`, which
+  `calc::formula` reads as one error token, its error scan taking `/` and
+  letters. So the writer parenthesizes a `#N/A` that ends a division's
+  left side, `x*(#N/A)/y`, in both implementations, a case of the expand
+  golden pinning it; the reader refuses `#N/A/` unparenthesized as
+  unsupported, since the evaluator cannot read it. Whether Excel reads
+  `=#N/A/2`, and so whether the evaluator should, is `calc`'s question.
+
+  *Verified.* fmt and clippy (`-D warnings`) clean; `cargo test
+  --workspace`, 454 passed and 5 ignored; the laws over 3,000 generated
+  expressions, the 79 cases and the reference's 85 refers formulas;
+  `run_checks`, 57 of 57; `check_expand_golden -Control`, each of six
+  mutants failing. The writer and reader over every committed formula row:
+  Alonzo's and Buffet's 1,155 with their goldens all read and 1,154 written
+  back byte for byte; Frazaro's 312 readable all canonical, and 9 refused
+  (structured, external, `@`). Alonzo at `a19209c` over this `vla-lang` by
+  a path patch, in a scratch worktree: Sand's Stay and Screen rewritten as
+  `formula-expand` with their predicates named once (`in-brush`,
+  `stays-as`, `taken`, `lcg`, `soup`, `soup-square`), and Kairos's B31 as
+  one expression, expand to the committed cartridges byte for byte
+  (`every_cartridge_with_a_source_is_its_expansion_and_loads`), and a
+  planted change in one macro fails it. Alonzo's other tests pass but its
+  three describe goldens, which move with `KERNEL.43`'s census word
+  `stride`, unreleased in 0.9.5, and not with this item.
+
+  *Moved into the shared tree* beside `KERNEL.47`'s uncommitted build, by
+  a three-way merge where both items touched a file. Both set
+  `VLA_MESSAGES_VERSION` and `VLA_TESTS_VERSION`, left at `KERNEL.47` with
+  `VLA.4`'s header entries beneath its, whichever commits second setting
+  the lines. There: `run_checks`, 58 of 58; `cargo test --workspace`, 470
+  passed and 5 ignored; fmt and both clippy runs clean; the eleven `-Impl`
+  checks and `prove -Impl` (47 passed, none failed) against the door
+  built there. In the worktree, the CI's remaining steps: both wasm
+  modules with an empty import section and exactly their exports, and
+  `vla-lang`'s package, its new fixture and golden in it, tested from its
+  tarball, 269 passed.
+
+  *For the owner's pass:* `VlaDevReload`, Debug > Compile;
+  `? VlaSelfTests()`, the pure suite 34 pins more than its last run;
+  `? VlaWriteExpandGolden()`, then `git diff scripts\expand_golden.txt`,
+  empty predicted, the reference agreeing with the port on all 174 cases;
+  `? VlaGoldens()`, PASS, no emitted code having moved.
+
+  *The owner's pass, 2026-10-17:* `VlaSelfTests`, pure 2031/2031 and
+  host 333/333, as predicted, and `formula-expand` at the Immediate window
+  wrote `"=IF(Input!B5>0,A1+1,0)"`. `VlaWriteExpandGolden` wrote one line
+  unlike the port's: `formula-expand-an-alias`, `(si (> a 1) 1 0)`, as
+  `"=SI(a>1,1,0)"` for `"=IF(a>1,1,0)"`. The prediction's empty `git diff`
+  was mis-said, the 39 cases being new to HEAD; the witness is the port's
+  blob, `4b79012a`. The reference's `FsList` took an
+  alias to its form through `ResolveHeadAlias`, whose map only a compile
+  sets, and `VlaExpandText` sets none: in a session where no compile had
+  run, or a popped context had put the map back to `Nothing`, `si` was
+  written as typed. `TestFormulaSyntax`'s alias pin passed only because an
+  earlier test had compiled, and no test can put the map back to `Nothing`.
+  Fixed by `FsCanonicalHead`, the head table's own lookup, as `vla-lang`'s
+  `resolve_head_alias` holds no state; `check_expand_golden`'s rule 6 now
+  holds that no procedure of the reference's formula writer calls
+  `ResolveHeadAlias`, a seventh mutant failing it. The golden is the
+  port's again; `run_checks`, 58 of 58. The owner's second pass: straight
+  after `VlaDevReload`, before any compile, `(formula-expand (si (> a 1)
+  1 0))` wrote `"=IF(a>1,1,0)"`; `VlaWriteExpandGolden` wrote the port's
+  blob, `4b79012a`, all 174 cases agreeing; `VlaSelfTests`, pure
+  2031/2031 and host 333/333. **Closed ✅ and committed 2026-10-17 at the
+  owner's word.**
+
 ---
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
@@ -22583,7 +22737,11 @@ worktree, 56 of 56 checks. The item stays open, 🟡, for content addressing
   a frame's start 369 ms against 3; it moves no fixture. A macro's text
   inside `&expand`, by the next free `VLA` number (`VLA.4` today):
   `vla-expand-arg-is-list` refuses it, so a rule cannot be composed from
-  named predicates; it moves no fixture, being expand time.
+  named predicates; it moves no fixture, being expand time. *(Taken
+  2026-10-17 by `VLA.4`, by another route the owner approved: a rule's
+  predicates composed as expressions, `formula-expand` expanding a macro's
+  call inside the expression before it writes the formula; `&expand` still
+  refuses a list.)*
 
   *Oracle:* bit for bit against the library at every cell, by the laws and
   the goldens; the recalc floors, whose baseline is always the owner's run;
@@ -41126,6 +41284,8 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **F.18 — two latent bugs the refusal golden found: a dead guard, a half-registered rule.** `ParseStmt`'s `Case "get"` line stood twice (`B7`'s own commit), so the standalone-Get guard never ran and `Get taxed using a of 5.` met the parse error, on the line its pin asked; `AddPhraseRule` added a rule's words before reading its template, so a template that did not read left the rule store misaligned for the rest of the Excel session, every later rule carrying the next rule's template, and `TemplateForms` raised its refusal twice. Found 2026-10-02 by `PORT.6`'s refusal golden on the reference's first run, two of 115 cases, the second poisoning the 34 after it; fixed in the VBA first (`SD-18`): one `Case` line, the template read before any Add, one raise. Built, owner-verified live and committed the same day (pure 1667/1667, host 267/267; the golden's second run matched the port's prediction whole). *(more: the full entry, earlier in this file)* `~hours`
 
+- ✅ **F.7 — the formula dialect as a declared subset.** **Closed 2026-10-17 with `VLA.4`:** the head table's formula column declared whole, 66 rows, 20 `yes` and 46 `refused`, none undeclared (`for-each-row` given its row), and both writers held to it, the formula syntax and `EmitFormula`'s Case Else refusing a refused head by name (`vla-formula-head-refused`) where the dialect wrote `(new x)` as `new(x)`; the operator table is the formula syntax's precedence, one in each implementation, held to the other by the expand golden; pinned by `TestHeadTableFormulaDeclared` and the port's own test, owner-tested with `VLA.4`. *(more: `VLA.4`'s full entry, earlier in this file)* *As filed:* One operator table, plus a test that fails when the VBA emitter gains a case the formula dialect neither supports nor refuses. *Now generalized by SD-5 to cover every backend.* Two latent bugs were its first cases, found 2026-09-27 while Contemplation 9's collapse 1 was scoped and fixed 2026-10-01 ahead of `PORT.5`, so the port never reproduces a bug to match a golden: `(- x)` emitted `(x)`, because `EmitFormula`'s operator arm (`VLA.bas`) wrote the operator only between operands, so a lone operand lost its sign; and a string's inner `"` was never doubled for Excel — `EmitFormula`'s and `FormulaQuote`'s string arms wrapped the text as it stood — so a `deflambda` whose string held a quote mark wrote a formula Excel could not read. Pinned by `TestF7`; the goldens do not move. The operator table and the test remain. `~days`
+
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES
 
 ### Part A — language-neutrality
@@ -41319,6 +41479,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table arguments.** First in the order the owner set for the third gear, opened 2026-09-30 at the owner's call; owner-verified live and committed the same day (TestDSLs 2346/0, as predicted; VLA_SELF-TESTS pure 1570/1570 and host 265/265, unmoved by it; a live red control, one table cell's quotes taken off, failed exactly its proof). A proof's one `(tables ...)` clause holds its tables, each written as an answer is: a name, a header list (an Excel Table, whose columns a keyed atom may name) or `headless` (a plain named range), then its rows in the order written, every cell as a live Table's `Value2` gives it (a bare `007` is the number 7, `"007"` the text). The runner reads the clause into what a live Table argument is to every engine, a folded name and a Table-shaped array, and makes DATALOG's table arguments from it afresh for every run; PROLOG's, SQL's and the third gear's proofs will read the same arrays. Twenty-nine pins moved as twenty-six proofs (124 in all), with thirteen controls for the clause: `TestDatalog`, `TestDatalogBuiltins` and `TestDatalogKeyedAtoms` retired whole, and the six keyed refusals that accepted any error name their ids. Both parity loops hand a proof's tables to each engine, so OPTIMIZE and the integer grounder answer those programs; the table fell 99 → 76 and the call-site ceiling 109 → 84. The clingo translation declines a table, so its export stays 23. Found while building, and filed as `DATALOG.17`: a number written in a program is matched against a fractional number cell through `CStr`, which follows the machine's locale. *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **VLA.3 — the expand-time object model: a template macro reaches a column, an address and a text's characters as it reaches a row.** Scoped, built, owner-tested and committed 2026-10-10, at the owner's word on Alonzo's request after `SPEC.3`, whose §12 named it as the cartridge pass's next step. Ten primitives join the seventeen, each a name ending in `expand`, so that Excel's plain names stay free for the formula dialect. `-expand` and `*expand` subtract and multiply. `quotient-expand` and `mod-expand` are Excel's `QUOTIENT` and `MOD` over whole numbers, a zero divisor refused. `&expand` joins atoms into a string, so a macro needs no leading-quote trick. `characters-expand` splits a text into its characters, a surrogate pair kept whole. `address-expand`, `row-expand`, `column-expand` and `column-letters-expand` write an address from a row and a column and read it back, by one written grammar within Excel's bounds. Eight refusals by name, in the catalogue's language half, now 204. The reference came first (`VLA.bas`, `TestListopsObjectModel`'s 48 pins); the port mirrors it rule for rule (`expand.rs`). The two are held to one golden of 135 cases over all twenty-seven primitives: `VlaWriteExpandGolden` writes it, `tests/expand_golden.rs` reproduces it, and `check_expand_golden`, the 55th check, holds its shape and the reference's lists of the primitives to the port's. The owner's pass: pure 1997/1997, host 333/333, the reference's golden byte for byte the port's, goldens PASS, VerifyReports 371/371. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **VLA.4 — the formula syntax: an expression written as a formula's text and read back, with `formula-expand`.** Minted, scoped, built, owner-tested and committed 2026-10-17 at the owner's word. `vla-lang`'s `formula_syntax` writes an expanded VLA expression as a formula's canonical text in Excel's invariant spelling (`write`), and reads a formula's text back as the canonical expression (`read`, for tools and tests, never the way back from an edited formula, `SD-24`). The expander's `(formula-expand <expression>)` is the writer at expand time, an operation of the walk that expands its argument first, so that a cartridge composes a formula from expressions and its own macros, where a template macro fused a flat one from texts (Alonzo's `SPEC.md` §7.8 and §12, the step it names). The VBA reference writes the same text (`FormulaSyntaxWrite`), held to the port by the expand golden; the reader is the port's alone, as the evaluator is. Canonical both ways: no space outside a text, the fewest parentheses Excel's precedence allows, upper-case names, a sheet quoted only where it must be, numbers and texts as written; anything outside the subset is refused by one of thirteen ids, never renamed or guessed. The laws hold over the fixtures, the reference's 85 refers formulas and 3,000 generated expressions; a probe found 242 of the 243 authored cartridge formulas already in that spelling. It takes `F.7`'s remainder: every head of the head table declared, `yes` or `refused`, and both writers held to it. *Depends on:* Alonzo's `CHARTER.md` rule 1, amended the same day. *Pays into:* Alonzo's kit, its verbs over expressions; Buffet's formulas; `KERNEL.29`'s named functions. The owner's pass: pure 2031/2031, host 333/333; the reference's expand golden the port's byte for byte, once its first run had found `(si ...)` written `SI(...)` in a session no compile had run in, an alias read off a compile's state, now read off the head table and held by `check_expand_golden`'s seventh mutant. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

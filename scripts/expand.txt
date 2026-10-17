@@ -290,3 +290,84 @@ nothing here.
 (defmacro (column-expand x) x)
 === reserved-column-letters-expand
 (defmacro (column-letters-expand x) x)
+=== formula-expand-a-row
+(formula "Hustle" "B13" (formula-expand (if (= B11 1) (+ Day.last!$B$3 $B$6) Hustle.last!B13)))
+=== formula-expand-numerals
+(formula-expand (f 5 1.50 .5 1e3 -1))
+=== formula-expand-a-text
+(formula-expand "say \"hi\"")
+=== formula-expand-a-text-stays-a-text
+(formula-expand "=A1+1")
+=== formula-expand-truth-and-errors
+(formula-expand (f True false (error "#div/0!") (error "#N/A")))
+=== formula-expand-references
+(formula-expand (f a1 $B$2 C$3:$D4 e:E 5:$7 'Input'!b5 Tally.last!B16 '2026'!A1 Jan:Dec!A1))
+=== formula-expand-names
+(formula-expand (* Rate Model!Local tax_rate))
+=== formula-expand-ref-forms
+(formula-expand (+ (ref "Q1 Data" "a1") (ref "Input" "B5") (ref "C3")))
+=== formula-expand-ref-of-a-computed-address
+(formula-expand (ref "Input" (address-expand 5 2)))
+=== formula-expand-precedence
+(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- a (- b c)) (- a b c) (- (- a b) c)))
+=== formula-expand-power-and-sign
+(formula-expand (f (- (^ x 2)) (^ (- x) 2) (^ -2 2) (^ 2 3 2) (^ 2 (^ 3 2))))
+=== formula-expand-percent-and-sign
+(formula-expand (f (% -5) (- (% 5)) (% (+ a b)) (+ x) (- (- x))))
+=== formula-expand-concatenation-and-comparison
+(formula-expand (f (= (& 1 2) "12") (& (= a b) c) (< a b c) (* a -1) (- 2 -1)))
+=== formula-expand-calls
+(formula-expand (if (> A1 3) (stdev.s A1:A9) (pi)))
+=== formula-expand-an-alias
+(formula-expand (si (> a 1) 1 0))
+=== formula-expand-let-and-lambda
+(formula-expand (let x 1 (lambda (y) (+ x y))))
+=== formula-expand-type-and-xor-are-excel-s
+(formula-expand (xor (type A1) 1))
+=== formula-expand-n-a-before-a-division
+(formula-expand (f (/ (^ 2 (error "#N/A")) x) (/ x (error "#N/A") y) (/ x (error "#N/A"))))
+=== formula-expand-a-macro-inside-fires-first
+(defmacro (edge cell twin) (and (= cell 1) (= twin 0)))
+(formula-expand (if (edge Input!B5 Input.last!B5) 1 0))
+=== formula-expand-in-a-template
+(defmacro (rule sheet range expr) (formula sheet range (formula-expand expr)))
+(rule "Board" "A1:B2" (+ A1 1))
+=== formula-expand-quote-if-chooses-the-structure
+(defmacro (twice-or-not big) (quote-if big (* 2 A1) A1))
+(formula-expand (+ (twice-or-not true) 1))
+=== formula-expand-a-prelude-macro-shadows-a-function-refused
+(formula-expand (time 1 2 3))
+=== formula-expand-nested-refused
+(formula-expand (+ (formula-expand A1) 1))
+=== formula-expand-arity-refused
+(formula-expand)
+=== formula-expand-inside-concat-expand-refused
+(&expand (formula-expand A1))
+=== formula-expand-an-atom-refused
+(formula-expand tax-rate)
+=== formula-expand-a-keyword-refused
+(formula-expand (f :key 1))
+=== formula-expand-a-vba-numeral-refused
+(formula-expand &HFF)
+=== formula-expand-a-head-no-function-refused
+(formula-expand ((lambda (x) x) 1))
+=== formula-expand-a-statement-refused
+(formula-expand (set! x 1))
+=== formula-expand-a-vba-form-refused
+(formula-expand (new x))
+=== formula-expand-an-operator-arity-refused
+(formula-expand (+))
+=== formula-expand-not-arity-refused
+(formula-expand (not a b))
+=== formula-expand-an-array-refused
+(formula-expand (quote (1 2)))
+=== formula-expand-a-spill-refused
+(formula-expand A1#)
+=== formula-expand-lambda-params-refused
+(formula-expand (lambda ((x)) x))
+=== formula-expand-a-ref-refused
+(formula-expand (ref "Data" "A1+1"))
+=== formula-expand-a-long-text-refused
+(formula-expand "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+=== reserved-formula-expand
+(defmacro (formula-expand x) x)

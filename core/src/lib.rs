@@ -79,7 +79,9 @@ pub mod sheet;
 // The language, re-exported whole (PORT.12): `frazaro_core::form`,
 // `crate::view::Grid` and every other path a door or a test used before
 // the cut resolve as they did. The modules are vla-lang's, documented there.
-pub use vla_lang::{calc, expand, form, headtable, intrinsics, printer, reader, refers, view};
+pub use vla_lang::{
+    calc, expand, form, formula_syntax, headtable, intrinsics, printer, reader, refers, view,
+};
 
 /// The version predicates (`parse`, `compare`, `at_least`), the language's,
 /// re-exported as the module they were; the function `version` below is

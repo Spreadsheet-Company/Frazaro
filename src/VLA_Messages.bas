@@ -1,6 +1,19 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.42"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.4"
+' VLA.4: the formula syntax's thirteen refusals under VLA, worded for a
+' formula rather than for deflambda, whose eight keep their words:
+' vla-formula-atom-unspelled and vla-formula-numeral-unspelled - an atom
+' a formula cannot spell (tax-rate, &HFF); vla-formula-head-not-a-function
+' and vla-formula-head-refused - a head no function has, and a head the
+' head table declares no formula's; vla-formula-arity,
+' vla-formula-unsupported, vla-formula-lambda-params,
+' vla-formula-ref-invalid and vla-formula-text-too-long; the expander's
+' vla-formula-expand-arity and vla-formula-expand-nested; and the reader's
+' vla-formula-read-malformed and vla-formula-read-unsupported, a text that
+' is no formula and one Excel reads that the syntax does not yet, raised
+' by no VBA site.
+'
 ' KERNEL.42: view-projection-unknown names the fourth projection, changes,
 ' the values' rows of the cells the last frame changed.
 '
@@ -753,6 +766,24 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-interpolate-unused-argument", 5, "VLA", "L-INTERPOLATE: interpolate was given the keyword argument '{key}', but it is never used as a hole in the template"
     AddMsg m, "vla-operator-needs-two-operands", 5, "VLA", "operator '{op}' needs at least two operands"
     AddMsg m, "vla-name-no-plain-letters", 5, "VLA", "'{value}' has no plain letters or digits once its accented characters are converted - give it a name with at least one a-z letter in it"
+
+    ' VLA.4 - the formula syntax: VLA.bas's FormulaSyntaxWrite, the
+    ' expander's formula-expand, and vla-lang's formula_syntax. The two
+    ' vla-formula-read- ids are raised by no VBA site: the reader is
+    ' vla-lang's alone, as Excel reads the add-in's formulas itself.
+    AddMsg m, "vla-formula-atom-unspelled", 5, "VLA", "formula: '{tok}' is not a number, a truth value, a reference or a name a formula can spell"
+    AddMsg m, "vla-formula-numeral-unspelled", 5, "VLA", "formula: '{tok}' is a number a formula does not spell - write it in decimals, such as 255 or 1.5e3"
+    AddMsg m, "vla-formula-head-not-a-function", 5, "VLA", "formula: '{head}' cannot name a function - a function's name is letters, digits, . and _, beginning with a letter"
+    AddMsg m, "vla-formula-head-refused", 5, "VLA", "formula: '({head} ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls"
+    AddMsg m, "vla-formula-arity", 5, "VLA", "formula: ({head} ...) takes {want}, got {n}"
+    AddMsg m, "vla-formula-unsupported", 5, "VLA", "formula: {construct} is not in this version's formula syntax"
+    AddMsg m, "vla-formula-lambda-params", 5, "VLA", "formula: a lambda's parameters are names, got '{tok}'"
+    AddMsg m, "vla-formula-ref-invalid", 5, "VLA", "formula: (ref ...) names one reference from a sheet and an address, such as (ref ""Data"" ""B2"") - '{text}' is not one"
+    AddMsg m, "vla-formula-text-too-long", 5, "VLA", "formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds {n}"
+    AddMsg m, "vla-formula-expand-arity", 5, "VLA", "formula-expand: takes one expression, got {n}"
+    AddMsg m, "vla-formula-expand-nested", 5, "VLA", "formula-expand: one inside another would write the inner formula as a text - write the inner expression itself"
+    AddMsg m, "vla-formula-read-malformed", 5, "VLA", "formula text: {what}, so it is not a formula"
+    AddMsg m, "vla-formula-read-unsupported", 5, "VLA", "formula text: Excel reads {construct}, and this version's formula syntax does not yet"
 
     ' CO.4 - the one refusal grammar semantic versioning needs. A
     ' version that cannot be read is never treated as satisfied AND

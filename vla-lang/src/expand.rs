@@ -1,7 +1,9 @@
 //! The macro system: VLA.bas's `DefineMacro`, `ExpandMacros`, `ExpandOne`,
 //! `Substitute` with the QUASIQUOTE bundle, the twenty-seven LISTOPS
 //! primitives, `ExpandOnePass`, and `VlaExpandText` (PORT.5, slice 5d; the
-//! expand-time object model's ten, VLA.3).
+//! expand-time object model's ten, VLA.3); and `formula-expand`, the formula
+//! syntax at expand time, an operation of the walk that expands its argument
+//! before writing it (`ExpandFormulaCall`, VLA.4).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -36,6 +38,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use crate::form::{sym_text, Form, List};
+use crate::formula_syntax;
 use crate::intrinsics::{fold, is_numeric_literal_text, str_, val};
 use crate::messages::{raise, Refusal};
 use crate::printer::write_pretty;
@@ -96,6 +99,8 @@ const RESERVED: &[(&str, &str)] = &[
     ("row-expand", "expand-time row-number primitive"),
     ("column-expand", "expand-time column-number primitive"),
     ("column-letters-expand", "expand-time column-letters primitive"),
+    // VLA.4: the formula syntax at expand time, an operation of the walk.
+    ("formula-expand", "expand-time formula-syntax operation"),
 ];
 
 /// The twenty-seven LISTOPS primitives `Substitute` and `ExpandMacros` both
@@ -355,6 +360,9 @@ pub struct Expander {
     pub expand_budget: u64,
     /// L1: macro applications since the last reset.
     pub expand_fired: u64,
+    /// VLA.4: whether the walk stands inside a `formula-expand`'s argument,
+    /// where another one is refused.
+    formula_open: bool,
 }
 
 /// The most forms one macro application's result may hold (VLA.1), counted
@@ -504,6 +512,10 @@ impl Expander {
             if head_fold == "symbol" {
                 return Ok(fuse_symbol(items, &Env::default())?.form());
             }
+            // VLA.4: the formula syntax, its argument expanded first.
+            if head_fold == "formula-expand" {
+                return self.formula_expand(items, depth, walk);
+            }
             if matches!(
                 head_fold.as_str(),
                 "quasiquote" | "unquote" | "unquote-splicing"
@@ -566,6 +578,32 @@ impl Expander {
         }
         final_out.push(out);
         Ok(Form::list(final_out))
+    }
+
+    /// VLA.4: `(formula-expand <expression>)`, VBA `ExpandFormulaCall`: the
+    /// expression expanded to its fixpoint, then written by the formula
+    /// syntax as one text, the formula's with its `=`. Not one of the
+    /// LISTOPS primitives, which take their arguments as data and are
+    /// computed at substitution too: `Substitute` leaves this form alone, so
+    /// a template's parameters are filled in inside it, and the walk expands
+    /// its argument before writing it, so that an author's macros inside the
+    /// expression fire and a macro's call is never written as a function's.
+    /// One inside another's argument is refused, since its text would be a
+    /// text there and not the formula it wrote.
+    fn formula_expand(&mut self, items: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
+        if items.len() != 2 {
+            return Err(raise(
+                "vla-formula-expand-arity",
+                &[("n", &(items.len() - 1).to_string())],
+            ));
+        }
+        if self.formula_open {
+            return Err(raise("vla-formula-expand-nested", &[]));
+        }
+        self.formula_open = true;
+        let expr = self.expand_at(&items[1], depth, walk + 1);
+        self.formula_open = false;
+        Ok(Form::Str(formula_syntax::write(&expr?)?))
     }
 
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
@@ -1786,6 +1824,8 @@ mod tests {
             "unquote-splicing",
             "symbol",
         ];
+        // VLA.4: an operation of the walk, recognized by `expand_at` alone.
+        let walk_operations = ["formula-expand"];
         for name in LISTOPS {
             assert!(
                 reserved.contains(name),
@@ -1794,11 +1834,69 @@ mod tests {
         }
         for name in reserved {
             assert!(
-                LISTOPS.contains(&name) || quote_bundle.contains(&name),
+                LISTOPS.contains(&name)
+                    || quote_bundle.contains(&name)
+                    || walk_operations.contains(&name),
                 "{name} is reserved but not recognised"
             );
         }
         assert_eq!(LISTOPS.len(), 27);
+        assert_eq!(one("(formula-expand (+ 1 2))"), "\"=1+2\"");
+    }
+
+    // VLA.4: formula-expand, the formula syntax at expand time.
+    #[test]
+    fn formula_expand_expands_its_argument_first() {
+        // A macro inside the expression fires before the expression is
+        // written, so it is never written as a function's call.
+        assert_eq!(
+            one("(defmacro (edge cell twin) (and (= cell 1) (= twin 0)))\n\
+                 (formula-expand (if (edge Input!B5 Input.last!B5) 1 0))"),
+            "\"=IF(AND(Input!B5=1,Input.last!B5=0),1,0)\""
+        );
+        // A template's parameters are filled in inside it, and the row it
+        // stands in is written with the formula's text.
+        assert_eq!(
+            one(
+                "(defmacro (rule sheet range expr) (formula sheet range (formula-expand expr)))\n\
+                 (rule \"Board\" \"A1:B2\" (+ A1 1))"
+            ),
+            "(formula \"Board\" \"A1:B2\" \"=A1+1\")"
+        );
+        // An expand-time primitive inside it computes, a reference built
+        // by `ref` from the address it computes.
+        assert_eq!(
+            one("(formula-expand (ref \"Input\" (address-expand 5 2)))"),
+            "\"=Input!B5\""
+        );
+        // A text stays a text.
+        assert_eq!(one("(formula-expand \"=A1+1\")"), "\"=\\\"=A1+1\\\"\"");
+        assert_eq!(
+            expand_err("(formula-expand (+ (formula-expand A1) 1))").id,
+            "vla-formula-expand-nested"
+        );
+        assert_eq!(
+            expand_err("(formula-expand)").id,
+            "vla-formula-expand-arity"
+        );
+        assert_eq!(
+            expand_err("(formula-expand 1 2)").id,
+            "vla-formula-expand-arity"
+        );
+        assert_eq!(
+            expand_err("(&expand (formula-expand A1))").id,
+            "vla-expand-arg-is-list"
+        );
+        assert_eq!(
+            expand_err("(defmacro (formula-expand x) x)").id,
+            "vla-defmacro-reserved-name"
+        );
+        // After a refusal the walk is outside every formula-expand again.
+        let mut ex = Expander::new();
+        let bad = read_forms("(formula-expand (+ (formula-expand A1) 1))").unwrap();
+        assert!(ex.expand(&bad[0], 0).is_err());
+        let good = read_forms("(formula-expand A1)").unwrap();
+        assert_eq!(ex.expand(&good[0], 0).unwrap(), Form::string("=A1"));
     }
 
     // TestCond.

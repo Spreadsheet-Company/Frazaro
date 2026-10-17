@@ -65,6 +65,25 @@
   census names these reads `stride`, `slot` and `array`, as it names a
   previous frame's, and a door's census names the arrays its machine would
   keep. No call of the crate changed (KERNEL.31).
+- **For cartridge authors: a formula written as an expression.**
+  `(formula-expand (if (> Input!B5 0) (+ A1 1) 0))` expands to the text
+  `"=IF(Input!B5>0,A1+1,0)"`, so a formula row can be composed from
+  expressions and your own macros, a macro called inside the expression
+  expanding before the formula is written, where `&expand` could only join
+  pieces of text. The formula is written in the spelling Excel's files
+  hold: no spaces, the fewest parentheses Excel's precedence allows,
+  upper-case function names, a sheet quoted only where it must be, a
+  number and a text as you wrote them. A reference is a symbol (`A1`,
+  `Input!$B$5`, `Tally.last!B16`) or, for a sheet name with a space or an
+  address a macro computes, `(ref "Q1 Data" "A1")`; an error is
+  `(error "#N/A")`; a text in quotes is always a text. What a formula
+  cannot spell is refused by name rather than renamed: `tax-rate` (which
+  a formula would read as `tax` minus `rate`), `&HFF`, a statement, an
+  array constant. A formula string in a row is untouched, and writing one
+  you already have as an expression gives the same bytes. For tools,
+  `vla_lang::formula_syntax` writes an expression and reads a formula's
+  text back into one. In the add-in, a `deflambda` body now refuses a
+  program's form by name, where it wrote `(new x)` as `new(x)` (VLA.4).
 
 ## 0.9.4
 

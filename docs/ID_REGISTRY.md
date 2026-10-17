@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.3 | VLA.4 |
+| VLA | VLA.4 | VLA.5 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -290,7 +290,15 @@ committed 2026-10-12. `VLA.3` was minted
 whose §12 named it the cartridge pass's next step: the expand-time object
 model, a template macro reaching a column, an address and a text's
 characters as it reaches a row; scoped, built, owner-tested and committed
-the same day (`494100a`), and released in 0.9.0. `VLA.4` is next free.
+the same day (`494100a`), and released in 0.9.0. `VLA.4` was minted
+2026-10-17 at the owner's word, approving a scoping asked for in chat: the
+formula syntax, a VLA expression written as a formula's text and read back,
+the expander's `formula-expand` its writer at expand time, so that a
+cartridge composes a formula from expressions; it takes the number two
+records had given an unminted candidate for the same need (a macro's text
+inside `&expand`, `KERNEL.28`'s note and Alonzo's `CART.2` decision 14),
+and folds in what remained of `F.7`; scoped, built, owner-tested and
+committed the same day, `F.7` closing with it. `VLA.5` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

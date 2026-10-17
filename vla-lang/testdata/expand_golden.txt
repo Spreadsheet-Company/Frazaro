@@ -343,3 +343,102 @@ REFUSED	vla-defmacro-reserved-name	defmacro 'row-expand': 'row-expand' is the ex
 REFUSED	vla-defmacro-reserved-name	defmacro 'column-expand': 'column-expand' is the expand-time column-number primitive and cannot be a macro name
 === reserved-column-letters-expand
 REFUSED	vla-defmacro-reserved-name	defmacro 'column-letters-expand': 'column-letters-expand' is the expand-time column-letters primitive and cannot be a macro name
+=== formula-expand-a-row
+EXPANDED	0
+(formula "Hustle" "B13" "=IF(B11=1,Day.last!$B$3+$B$6,Hustle.last!B13)")
+=== formula-expand-numerals
+EXPANDED	0
+"=F(5,1.50,.5,1e3,-1)"
+=== formula-expand-a-text
+EXPANDED	0
+"=\"say \"\"hi\"\"\""
+=== formula-expand-a-text-stays-a-text
+EXPANDED	0
+"=\"=A1+1\""
+=== formula-expand-truth-and-errors
+EXPANDED	0
+"=F(TRUE,FALSE,#DIV/0!,#N/A)"
+=== formula-expand-references
+EXPANDED	0
+"=F(A1,$B$2,C$3:$D4,E:E,5:$7,Input!B5,Tally.last!B16,'2026'!A1,Jan:Dec!A1)"
+=== formula-expand-names
+EXPANDED	0
+"=Rate*Model!Local*tax_rate"
+=== formula-expand-ref-forms
+EXPANDED	0
+"='Q1 Data'!A1+Input!B5+C3"
+=== formula-expand-ref-of-a-computed-address
+EXPANDED	0
+"=Input!B5"
+=== formula-expand-precedence
+EXPANDED	0
+"=F(1+2*3,(1+2)*3,a-(b-c),a-b-c,a-b-c)"
+=== formula-expand-power-and-sign
+EXPANDED	0
+"=F(-(x^2),-x^2,-2^2,2^3^2,2^(3^2))"
+=== formula-expand-percent-and-sign
+EXPANDED	0
+"=F((-5)%,-5%,(a+b)%,+x,--x)"
+=== formula-expand-concatenation-and-comparison
+EXPANDED	0
+"=F(1&2=\"12\",(a=b)&c,a<b<c,a*-1,2--1)"
+=== formula-expand-calls
+EXPANDED	0
+"=IF(A1>3,STDEV.S(A1:A9),PI())"
+=== formula-expand-an-alias
+EXPANDED	0
+"=IF(a>1,1,0)"
+=== formula-expand-let-and-lambda
+EXPANDED	0
+"=LET(x,1,LAMBDA(y,x+y))"
+=== formula-expand-type-and-xor-are-excel-s
+EXPANDED	0
+"=XOR(TYPE(A1),1)"
+=== formula-expand-n-a-before-a-division
+EXPANDED	0
+"=F(2^(#N/A)/x,x/(#N/A)/y,x/#N/A)"
+=== formula-expand-a-macro-inside-fires-first
+EXPANDED	1
+"=IF(AND(Input!B5=1,Input.last!B5=0),1,0)"
+=== formula-expand-in-a-template
+EXPANDED	1
+(formula "Board" "A1:B2" "=A1+1")
+=== formula-expand-quote-if-chooses-the-structure
+EXPANDED	1
+"=2*A1+1"
+=== formula-expand-a-prelude-macro-shadows-a-function-refused
+REFUSED	vla-formula-head-refused	formula: '(begin ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls
+=== formula-expand-nested-refused
+REFUSED	vla-formula-expand-nested	formula-expand: one inside another would write the inner formula as a text - write the inner expression itself
+=== formula-expand-arity-refused
+REFUSED	vla-formula-expand-arity	formula-expand: takes one expression, got 0
+=== formula-expand-inside-concat-expand-refused
+REFUSED	vla-expand-arg-is-list	&expand: argument 1 is a list, expected an atom or string literal
+=== formula-expand-an-atom-refused
+REFUSED	vla-formula-atom-unspelled	formula: 'tax-rate' is not a number, a truth value, a reference or a name a formula can spell
+=== formula-expand-a-keyword-refused
+REFUSED	vla-formula-atom-unspelled	formula: ':key' is not a number, a truth value, a reference or a name a formula can spell
+=== formula-expand-a-vba-numeral-refused
+REFUSED	vla-formula-numeral-unspelled	formula: '&HFF' is a number a formula does not spell - write it in decimals, such as 255 or 1.5e3
+=== formula-expand-a-head-no-function-refused
+REFUSED	vla-formula-head-not-a-function	formula: '(lambda (x) x)' cannot name a function - a function's name is letters, digits, . and _, beginning with a letter
+=== formula-expand-a-statement-refused
+REFUSED	vla-formula-head-refused	formula: '(set! ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls
+=== formula-expand-a-vba-form-refused
+REFUSED	vla-formula-head-refused	formula: '(new ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls
+=== formula-expand-an-operator-arity-refused
+REFUSED	vla-formula-arity	formula: (+ ...) takes one operand or more, got 0
+=== formula-expand-not-arity-refused
+REFUSED	vla-formula-arity	formula: (not ...) takes one argument, got 2
+=== formula-expand-an-array-refused
+REFUSED	vla-formula-unsupported	formula: an array constant, (quote ...) is not in this version's formula syntax
+=== formula-expand-a-spill-refused
+REFUSED	vla-formula-unsupported	formula: the spill reference A1# is not in this version's formula syntax
+=== formula-expand-lambda-params-refused
+REFUSED	vla-formula-lambda-params	formula: a lambda's parameters are names, got '(x)'
+=== formula-expand-a-ref-refused
+REFUSED	vla-formula-ref-invalid	formula: (ref ...) names one reference from a sheet and an address, such as (ref "Data" "B2") - 'Data!A1+1' is not one
+=== formula-expand-a-long-text-refused
+REFUSED	vla-formula-text-too-long	formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds 256
+=== reserved-formula-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'formula-expand': 'formula-expand' is the expand-time formula-syntax operation and cannot be a macro name

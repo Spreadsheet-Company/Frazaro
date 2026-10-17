@@ -1,0 +1,195 @@
+=== a-row-of-buffet
+VLA	(if (= B11 1) (+ Day.last!$B$3 $B$6) Hustle.last!B13)
+TEXT	=IF(B11=1,Day.last!$B$3+$B$6,Hustle.last!B13)
+=== the-input-card-s-tally
+VLA	(+ Tally.last!B1 (if (and (= Input!B1 1) (= Input.last!B1 0)) 1 0))
+TEXT	=Tally.last!B1+IF(AND(Input!B1=1,Input.last!B1=0),1,0)
+=== buffet-s-clock-text
+VLA	(& (int (/ B15 60)) ":" (if (= (mod B15 60) 0) "00" "30"))
+TEXT	=INT(B15/60)&":"&IF(MOD(B15,60)=0,"00","30")
+=== sand-s-brush
+VLA	(if (if (< Gate!$B2 0) false (<= (^ (- (column) Gate!$A2) 2) Gate!$B2)) Gate!$C2 0)
+TEXT	=IF(IF(Gate!$B2<0,FALSE,(COLUMN()-Gate!$A2)^2<=Gate!$B2),Gate!$C2,0)
+=== kairos-s-words-a-semicolon-in-a-text
+VLA	(if (= State!B1 3) (& "Level " State!B3 " stacked: Z goes on; X takes the minor.") "")
+TEXT	=IF(State!B1=3,"Level "&State!B3&" stacked: Z goes on; X takes the minor.","")
+=== buffet-s-dollars
+VLA	(& (if (< Stocks!E5 1000) "  " "") (int (/ Stocks!E5 100)) "." (if (< (mod Stocks!E5 100) 10) "0" "") (mod Stocks!E5 100))
+TEXT	=IF(Stocks!E5<1000,"  ","")&INT(Stocks!E5/100)&"."&IF(MOD(Stocks!E5,100)<10,"0","")&MOD(Stocks!E5,100)
+=== a-number-as-written
+VLA	1.50
+TEXT	=1.50
+=== a-fraction-alone
+VLA	.5
+TEXT	=.5
+=== an-exponent
+VLA	1E+05
+TEXT	=1E+05
+=== a-sign-on-a-number
+VLA	-1
+TEXT	=-1
+=== two-signs
+VLA	(- -1)
+TEXT	=--1
+=== a-sign-before-parentheses
+VLA	-1
+TEXT	=-1
+=== a-sign-and-a-percent
+VLA	(- (% 5))
+TEXT	=-5%
+=== a-percent-of-a-sign
+VLA	(% -5)
+TEXT	=(-5)%
+=== a-text-with-a-quote-mark
+VLA	"say \"hi\""
+TEXT	="say ""hi"""
+=== an-empty-text
+VLA	""
+TEXT	=""
+=== a-non-ascii-text
+VLA	"▲"
+TEXT	="▲"
+=== truth-values-any-case
+VLA	(and true false)
+TEXT	=AND(TRUE,FALSE)
+=== an-error-lower-case
+VLA	(error "#N/A")
+TEXT	=#N/A
+=== every-error
+VLA	(choose 1 (error "#NULL!") (error "#DIV/0!") (error "#VALUE!") (error "#REF!") (error "#NAME?") (error "#NUM!") (error "#N/A"))
+TEXT	=CHOOSE(1,#NULL!,#DIV/0!,#VALUE!,#REF!,#NAME?,#NUM!,#N/A)
+=== references-of-every-shape
+VLA	(sum A1 $B$2 C$3:$D4 E:E 5:$7)
+TEXT	=SUM(A1,$B$2,C$3:$D4,E:E,5:$7)
+=== a-quoted-sheet-that-needs-none
+VLA	Input!B5
+TEXT	=Input!B5
+=== a-sheet-that-needs-quotes
+VLA	'2026'!A1
+TEXT	='2026'!A1
+=== a-sheet-with-a-space
+VLA	(ref "Q1 Data" "A1:B2")
+TEXT	='Q1 Data'!A1:B2
+=== a-span-of-sheets
+VLA	(sum Jan:Dec!A1)
+TEXT	=SUM(Jan:Dec!A1)
+=== a-span-with-a-space
+VLA	(sum (ref "Jan 1:Dec" "A1"))
+TEXT	=SUM('Jan 1:Dec'!A1)
+=== a-twin-sheet
+VLA	Tally.last!B16
+TEXT	=Tally.last!B16
+=== names
+VLA	(* Rate Model!Local tax_rate)
+TEXT	=Rate*Model!Local*tax_rate
+=== a-name-behind-a-quoted-sheet
+VLA	(ref "Q1 Data" "Rate")
+TEXT	='Q1 Data'!Rate
+=== spaces-dropped
+VLA	(+ A1 1)
+TEXT	=A1+1
+=== redundant-parentheses-dropped
+VLA	(+ A1 (* 2 3))
+TEXT	=A1+2*3
+=== a-left-chain-is-one-form
+VLA	(+ 1 2 3)
+TEXT	=1+2+3
+=== a-right-group-is-kept
+VLA	(+ 1 (+ 2 3))
+TEXT	=1+(2+3)
+=== a-parenthesized-left-group-is-the-chain
+VLA	(+ 1 2 3)
+TEXT	=1+2+3
+=== a-sign-then-a-difference
+VLA	(- (- a) b)
+TEXT	=-a-b
+=== a-chain-of-comparisons
+VLA	(< a b c)
+TEXT	=a<b<c
+=== excel-s-power-is-left-associative
+VLA	(^ 2 3 2)
+TEXT	=2^3^2
+=== a-sign-binds-tighter-than-power
+VLA	(^ -2 2)
+TEXT	=-2^2
+=== a-sign-on-a-power
+VLA	(- (^ 2 2))
+TEXT	=-(2^2)
+=== concatenation-below-arithmetic
+VLA	(= (& 1 2) "12")
+TEXT	=1&2="12"
+=== a-function-in-lower-case
+VLA	(sum A1:B2)
+TEXT	=SUM(A1:B2)
+=== a-function-with-a-dot
+VLA	(stdev.s A1:A9)
+TEXT	=STDEV.S(A1:A9)
+=== a-function-with-no-argument
+VLA	(pi)
+TEXT	=PI()
+=== lambda
+VLA	(lambda (x y) (+ x y))
+TEXT	=LAMBDA(x,y,x+y)
+=== let
+VLA	(let x 1 (+ x 1))
+TEXT	=LET(x,1,x+1)
+=== xor-and-type-are-excel-s
+VLA	(xor (type A1) 1)
+TEXT	=XOR(TYPE(A1),1)
+=== the-reference-error-alone
+VLA	(error "#REF!")
+TEXT	=#REF!
+=== malformed-empty
+REFUSED	vla-formula-read-malformed	formula text: it is empty, so it is not a formula
+=== malformed-a-trailing-operator
+REFUSED	vla-formula-read-malformed	formula text: it ends where an operand was wanted, so it is not a formula
+=== malformed-an-open-parenthesis
+REFUSED	vla-formula-read-malformed	formula text: a '(' that never closes, so it is not a formula
+=== malformed-a-close-parenthesis
+REFUSED	vla-formula-read-malformed	formula text: a ')' where an operand was wanted, so it is not a formula
+=== malformed-an-open-text
+REFUSED	vla-formula-read-malformed	formula text: a text that never closes, so it is not a formula
+=== malformed-two-operands
+REFUSED	vla-formula-read-malformed	formula text: two operands with no operator between them, so it is not a formula
+=== malformed-an-open-call
+REFUSED	vla-formula-read-malformed	formula text: SUM( never closes, so it is not a formula
+=== malformed-if-of-one
+REFUSED	vla-formula-read-malformed	formula text: IF takes two or three arguments, so it is not a formula
+=== malformed-not-of-two
+REFUSED	vla-formula-read-malformed	formula text: NOT takes one argument, so it is not a formula
+=== malformed-a-comma-outside-a-call
+REFUSED	vla-formula-read-malformed	formula text: a ',' outside a call, so it is not a formula
+=== malformed-a-locale-separator
+REFUSED	vla-formula-read-malformed	formula text: ';', which no formula holds there, so it is not a formula
+=== malformed-a-long-text
+REFUSED	vla-formula-read-malformed	formula text: a text longer than 255 characters, Excel's own limit, so it is not a formula
+=== unsupported-an-array
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads an array constant, {...}, and this version's formula syntax does not yet
+=== unsupported-implicit-intersection
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the implicit intersection @, and this version's formula syntax does not yet
+=== unsupported-an-intersection
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the intersection of two references, a space between them, and this version's formula syntax does not yet
+=== unsupported-a-union
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the union of references, (A1,B2), and this version's formula syntax does not yet
+=== unsupported-a-spill
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the spill reference A1#, and this version's formula syntax does not yet
+=== unsupported-a-structured-reference
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the structured reference Sales[Amount], and this version's formula syntax does not yet
+=== unsupported-another-workbook
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the reference into another workbook [Rates.xlsx]Sheet1!A1, and this version's formula syntax does not yet
+=== unsupported-an-omitted-argument
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads an omitted argument, and this version's formula syntax does not yet
+=== unsupported-a-file-spelling
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the file's spelling _xlfn.XLOOKUP, and this version's formula syntax does not yet
+=== unsupported-the-range-operator
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the range operator : between computed operands, and this version's formula syntax does not yet
+=== unsupported-a-newer-error
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the error #SPILL!, and this version's formula syntax does not yet
+=== unsupported-a-call-in-place
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function called in place, such as LAMBDA(x,x)(1), and this version's formula syntax does not yet
+=== unsupported-a-broken-reference-behind-a-sheet
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads the broken reference Sheet1!#REF!, and this version's formula syntax does not yet
+=== unsupported-a-function-named-like-a-form
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named CALL, a word the syntax keeps for a form of its own, and this version's formula syntax does not yet
+=== unsupported-a-function-named-ref
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named REF, a word the syntax keeps for a form of its own, and this version's formula syntax does not yet

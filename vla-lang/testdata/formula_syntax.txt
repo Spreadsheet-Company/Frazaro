@@ -1,0 +1,159 @@
+The formula syntax's reading fixture (VLA.4). Each case sits under a line
+"=== <name>" and its next line is a formula's text, as a formula row or
+the formula bar holds it; these lines before the first header are ignored.
+vla-lang/tests/formula_syntax.rs reads every case with formula_syntax::read
+and writes formula_syntax_golden.txt's record of it: "VLA<TAB><the
+canonical expression, printed flat>" and "TEXT<TAB><formula_syntax::write
+of that expression>", or "REFUSED<TAB><the catalogue's id><TAB><the
+refusal's text>". The reader has no VBA twin, as the evaluator has none,
+so the golden is the port's own, written by the test under VLA_BLESS=1 and
+read by a person before it is committed. A case is named for what it means
+to reach.
+=== a-row-of-buffet
+=IF(B11=1,Day.last!$B$3+$B$6,Hustle.last!B13)
+=== the-input-card-s-tally
+=Tally.last!B1+IF(AND(Input!B1=1,Input.last!B1=0),1,0)
+=== buffet-s-clock-text
+=INT(B15/60)&":"&IF(MOD(B15,60)=0,"00","30")
+=== sand-s-brush
+=IF(IF(Gate!$B2<0,FALSE,(COLUMN()-Gate!$A2)^2<=Gate!$B2),Gate!$C2,0)
+=== kairos-s-words-a-semicolon-in-a-text
+=IF(State!B1=3,"Level "&State!B3&" stacked: Z goes on; X takes the minor.","")
+=== buffet-s-dollars
+=IF(Stocks!E5<1000,"  ","")&INT(Stocks!E5/100)&"."&IF(MOD(Stocks!E5,100)<10,"0","")&MOD(Stocks!E5,100)
+=== a-number-as-written
+=1.50
+=== a-fraction-alone
+=.5
+=== an-exponent
+=1E+05
+=== a-sign-on-a-number
+=-1
+=== two-signs
+=--1
+=== a-sign-before-parentheses
+=-(1)
+=== a-sign-and-a-percent
+=-5%
+=== a-percent-of-a-sign
+=(-5)%
+=== a-text-with-a-quote-mark
+="say ""hi"""
+=== an-empty-text
+=""
+=== a-non-ascii-text
+="▲"
+=== truth-values-any-case
+=AND(true,FALSE)
+=== an-error-lower-case
+=#n/a
+=== every-error
+=CHOOSE(1,#NULL!,#DIV/0!,#VALUE!,#REF!,#NAME?,#NUM!,#N/A)
+=== references-of-every-shape
+=SUM(a1,$B$2,C$3:$D4,e:E,5:$7)
+=== a-quoted-sheet-that-needs-none
+='Input'!B5
+=== a-sheet-that-needs-quotes
+='2026'!A1
+=== a-sheet-with-a-space
+='Q1 Data'!A1:B2
+=== a-span-of-sheets
+=SUM(Jan:Dec!A1)
+=== a-span-with-a-space
+=SUM('Jan 1:Dec'!A1)
+=== a-twin-sheet
+=Tally.last!B16
+=== names
+=Rate*Model!Local*tax_rate
+=== a-name-behind-a-quoted-sheet
+='Q1 Data'!Rate
+=== spaces-dropped
+= A1 + 1
+=== redundant-parentheses-dropped
+=((A1))+(2*3)
+=== a-left-chain-is-one-form
+=1+2+3
+=== a-right-group-is-kept
+=1+(2+3)
+=== a-parenthesized-left-group-is-the-chain
+=(1+2)+3
+=== a-sign-then-a-difference
+=-a-b
+=== a-chain-of-comparisons
+=a<b<c
+=== excel-s-power-is-left-associative
+=2^3^2
+=== a-sign-binds-tighter-than-power
+=-2^2
+=== a-sign-on-a-power
+=-(2^2)
+=== concatenation-below-arithmetic
+=1&2="12"
+=== a-function-in-lower-case
+=sum(a1:b2)
+=== a-function-with-a-dot
+=STDEV.S(A1:A9)
+=== a-function-with-no-argument
+=PI()
+=== lambda
+=LAMBDA(x,y,x+y)
+=== let
+=LET(x,1,x+1)
+=== xor-and-type-are-excel-s
+=XOR(TYPE(A1),1)
+=== the-reference-error-alone
+=#REF!
+=== malformed-empty
+=
+=== malformed-a-trailing-operator
+=1+
+=== malformed-an-open-parenthesis
+=(1
+=== malformed-a-close-parenthesis
+=)
+=== malformed-an-open-text
+="abc
+=== malformed-two-operands
+=1 2
+=== malformed-an-open-call
+=SUM(1,2
+=== malformed-if-of-one
+=IF(1)
+=== malformed-not-of-two
+=NOT(1,2)
+=== malformed-a-comma-outside-a-call
+=1,2
+=== malformed-a-locale-separator
+=SUM(1;2)
+=== malformed-a-long-text
+="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+=== unsupported-an-array
+={1,2;3,4}
+=== unsupported-implicit-intersection
+=@A1:A3
+=== unsupported-an-intersection
+=A1 B1
+=== unsupported-a-union
+=SUM((A1,B2))
+=== unsupported-a-spill
+=A1#
+=== unsupported-a-structured-reference
+=SUM(Sales[Amount])
+=== unsupported-another-workbook
+=[Rates.xlsx]Sheet1!A1
+=== unsupported-an-omitted-argument
+=IF(A1,,B1)
+=== unsupported-a-file-spelling
+=_xlfn.XLOOKUP(1,A:A,B:B)
+=== unsupported-the-range-operator
+=A1:INDEX(B:B,5)
+=== unsupported-a-newer-error
+=#SPILL!
+=== unsupported-a-call-in-place
+=LAMBDA(x,x)(1)
+=== unsupported-a-broken-reference-behind-a-sheet
+=Sheet1!#REF!
+=== unsupported-a-function-named-like-a-form
+=CALL(1)
+=== unsupported-a-function-named-ref
+=REF(1)

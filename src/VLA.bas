@@ -20,7 +20,24 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.9.4"
-Public Const VLA_CORE_VERSION As String = "VLA.3"
+Public Const VLA_CORE_VERSION As String = "VLA.4"
+' VLA.4: THE FORMULA SYNTAX. FormulaSyntaxWrite writes an expression as a
+' formula's canonical text in Excel's invariant spelling - no space
+' outside a text, the fewest parentheses Excel's precedence allows, upper-
+' case names, a sheet quoted only where RefersQuoteSheet says, a number
+' and a text as written - and refuses by name what no formula spells: a
+' symbol RefersScan does not read whole as one reference or name
+' (tax-rate, never renamed), VBA's numerals (&HFF), a head the head table
+' refuses. (formula-expand <expression>) is it at expand time, an
+' operation of ExpandMacros' walk (ExpandFormulaCall) that expands its
+' argument first, reserved in DefineMacro. EmitFormula, deflambda's
+' dialect, keeps its spelling, and its Case Else now refuses a head the
+' table refuses (F.7's table: no row undeclared), where it wrote new(x).
+' vla-lang's formula_syntax mirrors the writer and adds the reader;
+' scripts/expand_golden.txt holds the two writers to one text. An alias
+' reaches its form by the head table itself (FsCanonicalHead), never by a
+' compile's mHeadAliases, which the expander does not set: the owner's
+' pass found (si ...) written SI(...) in a session no compile had run in.
 ' VLA.3: THE EXPAND-TIME OBJECT MODEL. Ten primitives join the seventeen,
 ' each named where those are (DefineMacro's reserved names, ExpandMacros'
 ' standalone Select, Substitute's inline Select, EvalListopsPrim), each a
@@ -844,6 +861,10 @@ Private mExpandFired As Long       ' L1: macro applications since the
                                    ' count one per application, so
                                    ' VlaExpandText can report "did any
                                    ' macro fire?" without diffing text
+Private mFormulaExpandOpen As Boolean ' VLA.4: the walk stands inside a
+                                   ' formula-expand's argument, where
+                                   ' another one is refused; cleared by
+                                   ' ExpandFormulaCall on every way out
 
 ' F5.0: the push/pop stack itself - NOT one of the eighteen fields a
 ' VlaFrame snapshots (it is the stack that HOLDS those snapshots).
@@ -1202,7 +1223,7 @@ End Function
 ' mHeadAliases (set fresh per compile by VlaTranspile/VlaCompileToForms
 ' from VLA_HeadTable.VlaHeadTableAliasMap) rather than calling
 ' VLA_HeadTable.VlaHeadTableRow directly: that function's alias match
-' is a linear scan over 65 rows, fine for the occasional catalog
+' is a linear scan over 66 rows, fine for the occasional catalog
 ' lookup it was built for, wrong for a call on every node of every
 ' emit - this is a plain keyed lookup instead, O(1) per call, built
 ' once per compile rather than once per node.
@@ -2624,6 +2645,8 @@ Private Sub DefineMacro(f As Collection)
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-expand", "desc", "expand-time column-number primitive"
         Case "column-letters-expand"
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-letters-expand", "desc", "expand-time column-letters primitive"
+        Case "formula-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "formula-expand", "desc", "expand-time formula-syntax operation"
     End Select
 
     Dim params As New Collection
@@ -3225,6 +3248,18 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             ExpandMacros = FuseSymbol(lst, New Collection, "", New Collection)
             Exit Function
         End If
+        ' VLA.4: (formula-expand <expression>), the formula syntax at
+        ' expand time - an operation of this walk and of no other site.
+        ' Substitute leaves it alone, so a template's parameters are
+        ' filled in inside it; ExpandFormulaCall expands its argument to
+        ' its fixpoint before writing it, so an author's macros inside the
+        ' expression fire and a macro's call is never written as a
+        ' function's. A helper, so this recursive procedure gains no
+        ' local (trap 8).
+        If headFold = "formula-expand" Then
+            ExpandMacros = ExpandFormulaCall(lst, depth, walkDepth)
+            Exit Function
+        End If
         ' QUASIQUOTE: unlike symbol, quasiquote/unquote/unquote-
         ' splicing DO require the ambient bindings table Substitute
         ' threads - unquote's entire job is looking a name up in
@@ -3346,6 +3381,35 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     finalOut.Add outc
     TagLine finalOut, 0
     Set ExpandMacros = finalOut
+End Function
+
+' VLA.4: (formula-expand <expression>) - vla-lang's
+' Expander::formula_expand. The one argument is expanded to its fixpoint,
+' then written by the formula syntax (FormulaSyntaxWrite) as one string
+' atom, the formula's text with its = (the leading quote character is the
+' reader's string marker). Arity is refused first, then a formula-expand
+' inside another's argument, whose text would be a text there.
+' mFormulaExpandOpen is cleared on every way out, a refusal's included,
+' and a refusal raised again from locals (trap 1).
+Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-expand-arity", "n", (lst.Count - 1)
+    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-formula-expand-nested"
+    Dim expr As Variant
+    Dim errNum As Long, errSrc As String, errDesc As String
+    mFormulaExpandOpen = True
+    On Error GoTo failed
+    AssignVar expr, ExpandMacros(lst.Item(2), depth, walkDepth + 1)
+    mFormulaExpandOpen = False
+    On Error GoTo 0
+    ExpandFormulaCall = Chr$(34) & FormulaSyntaxWrite(expr)
+    Exit Function
+failed:
+    errNum = Err.Number
+    errSrc = Err.Source
+    errDesc = Err.Description
+    mFormulaExpandOpen = False
+    On Error GoTo 0
+    Err.Raise errNum, errSrc, errDesc
 End Function
 
 ' PNTH.0: callForm widened Collection -> Object - both ExpandMacros'
@@ -5601,6 +5665,10 @@ Private Function EmitFormula(v As Variant) As String
         Case "set!", "obj-set!", "dim", "begin", "while", "for", "for-each", "for-each-row", "debug-print", "on-error", "label", "goto", "deflambda", "include"
             VLA_Messages.RaiseMsg "vla-formula-is-statement", "head", h
         Case Else
+            ' VLA.4 (F.7): a head the head table declares no formula's is
+            ' refused by name, where this arm used to write it as a call,
+            ' (new x) as new(x).
+            If FormulaHeadRefused(h) Then VLA_Messages.RaiseMsg "vla-formula-head-refused", "head", HeadSym(lst)
             For i = 2 To lst.Count
                 If Len(r) > 0 Then r = r & ", "
                 r = r & EmitFormula(Nth(lst, i))
@@ -5647,6 +5715,557 @@ End Function
 ' every other quote mark in the formula.
 Private Function FormulaText(ByVal content As String) As String
     FormulaText = Chr$(34) & Replace(content, Chr$(34), Chr$(34) & Chr$(34)) & Chr$(34)
+End Function
+
+' VLA.4 (F.7): whether the head table declares a head no formula's - a
+' statement, a declaration, a clause, or one of VBA's own operators and
+' forms. EmitFormula's Case Else and the formula syntax both ask it, so a
+' form the table refuses is refused in a formula by name.
+Private Function FormulaHeadRefused(ByVal foldedHead As String) As Boolean
+    Dim htRow As Collection
+    Set htRow = VLA_HeadTable.VlaHeadTableRow(foldedHead)
+    If htRow Is Nothing Then Exit Function
+    FormulaHeadRefused = (CStr(htRow.Item(VLA_HeadTable.HT_FORMULA)) <> "yes")
+End Function
+
+' VLA.4: the form a formula's head names, an alias taken to it by the head
+' table itself. ResolveHeadAlias reads mHeadAliases, which only a compile
+' sets, and formula-expand runs in the expander, which sets none: in a
+' session no compile had run in, or once a popped context put it back to
+' Nothing, (si ...) was written SI(...) where IF(...) is meant - the
+' owner's pass found it, VlaWriteExpandGolden against the port's golden.
+' The table's own lookup holds no state, as vla-lang's resolve_head_alias
+' holds none, so the formula syntax writes the same text in every session.
+Private Function FsCanonicalHead(ByVal foldedHead As String) As String
+    FsCanonicalHead = foldedHead
+    Dim htRow As Collection
+    Set htRow = VLA_HeadTable.VlaHeadTableRow(foldedHead)
+    If htRow Is Nothing Then Exit Function
+    FsCanonicalHead = CStr(htRow.Item(VLA_HeadTable.HT_SYMBOL))
+End Function
+
+' =====================================================================
+'  VLA.4: THE FORMULA SYNTAX'S WRITER - vla-lang's formula_syntax::write,
+'  of which this is the reference (SD-18), held to it by the expand
+'  golden through formula-expand (ExpandFormulaCall). An expression the
+'  expander has finished with, written as a formula's canonical text in
+'  Excel's invariant spelling, its leading = included: no space outside a
+'  text, the fewest parentheses Excel's precedence allows, every function
+'  name, truth value, error and column letter upper-case, a sheet quoted
+'  only where RefersQuoteSheet says it must be, a number and a text as
+'  written. Refused by name where an expression is no formula's.
+'
+'  Not EmitFormula, deflambda's dialect, which parenthesizes every
+'  operation and renames a symbol through SymName (A1:B2 becomes the name
+'  A1_B2); this one never renames: a symbol is a numeral, a truth value,
+'  or a reference or a name RefersScan reads whole, and anything else is
+'  refused. The precedence is Excel's, lowest first: the comparisons 1,
+'  & 2, + and - 3, * and / 4, ^ 5, a sign 6, % 7, anything else 8; every
+'  binary operator left-associative, a form of many operands its left
+'  fold, as EmitChain's. A left operand is parenthesized when it binds
+'  looser than its operator, a right one when looser or equally; a
+'  sign's operand when it is any binary operation, since a sign binds
+'  tighter than ^ ((- (^ x 2)) is -(x^2), (^ (- x) 2) is -x^2); %'s when
+'  it is a sign or a binary operation.
+' =====================================================================
+Private Function FormulaSyntaxWrite(v As Variant) As String
+    FormulaSyntaxWrite = "=" & FsText(v, 1)
+End Function
+
+Private Function FsText(v As Variant, ByVal depth As Long) As String
+    If depth > VLA_FORM_DEPTH_LIMIT Then VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", VLA_FORM_DEPTH_LIMIT, "loc", ""
+    If IsList(v) Then
+        FsText = FsList(v, depth)
+        Exit Function
+    End If
+    Dim s As String
+    s = CStr(v)
+    If Left$(s, 1) = Chr$(34) Then
+        s = Mid$(s, 2)
+        If Len(s) > 255 Then VLA_Messages.RaiseMsg "vla-formula-text-too-long", "n", Len(s)
+        FsText = FormulaText(s)
+    Else
+        FsText = FsAtom(s)
+    End If
+End Function
+
+' A form's level of precedence, as the writer spells it.
+Private Function FsLevel(v As Variant) As Long
+    FsLevel = 8
+    If Not IsList(v) Then
+        If FsIsNegativeNumeral(CStr(v)) Then FsLevel = 6
+        Exit Function
+    End If
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    Dim h As String
+    h = VLA_Identity.Fold(CStr(lst.Item(1)))
+    If (h = "+" Or h = "-") And lst.Count = 2 Then
+        FsLevel = 6
+    ElseIf h = "%" And lst.Count = 2 Then
+        FsLevel = 7
+    ElseIf lst.Count >= 3 And FsBinaryLevel(h) > 0 Then
+        FsLevel = FsBinaryLevel(h)
+    End If
+End Function
+
+' A binary operator's level, 0 for any other head.
+Private Function FsBinaryLevel(ByVal op As String) As Long
+    Select Case op
+        Case "=", "<>", "<", ">", "<=", ">="
+            FsBinaryLevel = 1
+        Case "&"
+            FsBinaryLevel = 2
+        Case "+", "-"
+            FsBinaryLevel = 3
+        Case "*", "/"
+            FsBinaryLevel = 4
+        Case "^"
+            FsBinaryLevel = 5
+    End Select
+End Function
+
+' An operand, parenthesized when the level it sits at needs it.
+Private Function FsOperand(v As Variant, ByVal atLevel As Long, ByVal isRight As Boolean, ByVal depth As Long) As String
+    Dim t As String
+    t = FsText(v, depth + 1)
+    Dim lv As Long
+    lv = FsLevel(v)
+    If lv < atLevel Or (isRight And lv = atLevel) Then
+        FsOperand = "(" & t & ")"
+    Else
+        FsOperand = t
+    End If
+End Function
+
+' A symbol: a numeral, a truth value, a reference or a name, each in its
+' canonical spelling; anything else refused.
+Private Function FsAtom(ByVal s As String) As String
+    If FsIsNumeral(s) Or FsIsNegativeNumeral(s) Then
+        If Not FsNumeralFinite(s) Then VLA_Messages.RaiseMsg "vla-formula-numeral-unspelled", "tok", s
+        FsAtom = s
+        Exit Function
+    End If
+    Select Case VLA_Identity.Fold(s)
+        Case "true"
+            FsAtom = "TRUE"
+            Exit Function
+        Case "false"
+            FsAtom = "FALSE"
+            Exit Function
+    End Select
+    Dim fr As FormulaRef
+    If FsWholeReference(s, fr) Then
+        Select Case fr.Kind
+            Case "cell", "range", "column", "row", "3d", "name"
+                FsAtom = FsReferenceText(fr)
+            Case Else
+                VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", FsConstructOf(fr)
+        End Select
+        Exit Function
+    End If
+    If FsVbaNumeral(s) Then VLA_Messages.RaiseMsg "vla-formula-numeral-unspelled", "tok", s
+    VLA_Messages.RaiseMsg "vla-formula-atom-unspelled", "tok", s
+End Function
+
+' The one record RefersScan reads over the whole of s, into fr; False
+' when it reads none, more than one, or one that is not all of s.
+Private Function FsWholeReference(ByVal s As String, ByRef fr As FormulaRef) As Boolean
+    If Len(s) = 0 Then Exit Function
+    If Left$(s, 1) = "=" Then Exit Function
+    Dim found() As FormulaRef
+    If VLA_Refers.RefersScan(s, found) <> 1 Then Exit Function
+    If found(1).Pos <> 1 Then Exit Function
+    If found(1).Span <> Len(s) Then Exit Function
+    fr = found(1)
+    FsWholeReference = True
+End Function
+
+' What a construct outside this version is called in a refusal.
+Private Function FsConstructOf(ByRef fr As FormulaRef) As String
+    Dim what As String
+    Select Case fr.Kind
+        Case "spill"
+            what = "the spill reference"
+        Case "structured"
+            what = "the structured reference"
+        Case "external"
+            what = "the reference into another workbook"
+        Case "broken"
+            what = "the broken reference"
+        Case Else
+            what = "the reference"
+    End Select
+    FsConstructOf = what & " " & fr.Written
+End Function
+
+' A reference's canonical spelling: its sheet or span quoted only where it
+' must be, its column letters upper-case, its $ marks as written; a name
+' as written behind its sheet.
+Private Function FsReferenceText(ByRef fr As FormulaRef) As String
+    Dim refPart As String
+    If fr.Kind = "name" Or Len(fr.PartShape) = 0 Then
+        refPart = fr.Part
+    Else
+        Select Case fr.PartShape
+            Case "cell"
+                refPart = FsCellText(fr.Col1, fr.ColAbs1, fr.Row1, fr.RowAbs1)
+            Case "range"
+                refPart = FsCellText(fr.Col1, fr.ColAbs1, fr.Row1, fr.RowAbs1) & ":" & FsCellText(fr.Col2, fr.ColAbs2, fr.Row2, fr.RowAbs2)
+            Case "column"
+                refPart = FsMark(fr.ColAbs1) & VLA_Refers.RefersColumnLetters(fr.Col1) & ":" & FsMark(fr.ColAbs2) & VLA_Refers.RefersColumnLetters(fr.Col2)
+            Case "row"
+                refPart = FsMark(fr.RowAbs1) & CStr(fr.Row1) & ":" & FsMark(fr.RowAbs2) & CStr(fr.Row2)
+            Case Else
+                refPart = fr.Part
+        End Select
+    End If
+    If Len(fr.SheetName) = 0 Then
+        FsReferenceText = refPart
+    Else
+        FsReferenceText = FsSheetText(fr.SheetName) & "!" & refPart
+    End If
+End Function
+
+Private Function FsCellText(ByVal colNum As Long, ByVal colAbs As Boolean, ByVal rowNum As Long, ByVal rowAbs As Boolean) As String
+    FsCellText = FsMark(colAbs) & VLA_Refers.RefersColumnLetters(colNum) & FsMark(rowAbs) & CStr(rowNum)
+End Function
+
+Private Function FsMark(ByVal isAbs As Boolean) As String
+    If isAbs Then FsMark = "$"
+End Function
+
+' A sheet, or a span of sheets, as a qualifier spells it: a span quoted
+' whole when either end needs quotes, as Excel writes 'Jan 1:Dec'!A1.
+Private Function FsSheetText(ByVal sheetSpelled As String) As String
+    Dim colonAt As Long
+    colonAt = InStr(1, sheetSpelled, ":", vbBinaryCompare)
+    If colonAt = 0 Then
+        FsSheetText = VLA_Refers.RefersQuoteSheet(sheetSpelled)
+        Exit Function
+    End If
+    Dim sheetA As String, sheetB As String
+    sheetA = Left$(sheetSpelled, colonAt - 1)
+    sheetB = Mid$(sheetSpelled, colonAt + 1)
+    If VLA_Refers.RefersQuoteSheet(sheetA) = sheetA And VLA_Refers.RefersQuoteSheet(sheetB) = sheetB Then
+        FsSheetText = sheetA & ":" & sheetB
+    Else
+        FsSheetText = "'" & Replace(sheetA, "'", "''") & ":" & Replace(sheetB, "'", "''") & "'"
+    End If
+End Function
+
+' A list: an operator, one of the syntax's own forms (error, ref,
+' lambda), or a call; a head the head table refuses is refused by name.
+Private Function FsList(v As Variant, ByVal depth As Long) As String
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then VLA_Messages.RaiseMsg "vla-formula-head-not-a-function", "head", "()"
+    If Not IsSym(lst.Item(1)) Then VLA_Messages.RaiseMsg "vla-formula-head-not-a-function", "head", WriteDatum(lst.Item(1))
+    Dim headWritten As String, h As String
+    headWritten = CStr(lst.Item(1))
+    h = FsCanonicalHead(VLA_Identity.Fold(headWritten))
+    Dim n As Long, i As Long, lv As Long
+    Dim outText As String
+    n = lst.Count - 1
+    If (h = "+" Or h = "-") And n = 1 Then
+        FsList = h & FsOperand(lst.Item(2), 6, False, depth)
+        Exit Function
+    End If
+    If h = "%" Then
+        If n <> 1 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one operand", "n", n
+        FsList = FsOperand(lst.Item(2), 7, False, depth) & "%"
+        Exit Function
+    End If
+    lv = FsBinaryLevel(h)
+    If lv > 0 Then
+        If n < 2 Then
+            If h = "+" Or h = "-" Then
+                VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one operand or more", "n", n
+            Else
+                VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "two operands or more", "n", n
+            End If
+        End If
+        outText = FsOperand(lst.Item(2), lv, False, depth)
+        For i = 3 To lst.Count
+            ' #N/A, the one error that ends in neither ! nor ?, is read with
+            ' a / after it as one token by vla-lang's parser, so before a /
+            ' it is parenthesized: x*(#N/A)/y.
+            If h = "/" And Right$(outText, 4) = "#N/A" Then outText = Left$(outText, Len(outText) - 4) & "(#N/A)"
+            outText = outText & h & FsOperand(lst.Item(i), lv, True, depth)
+        Next
+        FsList = outText
+        Exit Function
+    End If
+    Select Case h
+        Case "error"
+            FsList = FsErrorLiteral(lst, headWritten)
+            Exit Function
+        Case "ref"
+            FsList = FsRefForm(lst, headWritten)
+            Exit Function
+        Case "lambda"
+            FsList = FsLambda(lst, headWritten, depth)
+            Exit Function
+        Case "quote"
+            VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "an array constant, (quote ...)"
+    End Select
+    If FormulaHeadRefused(h) Then VLA_Messages.RaiseMsg "vla-formula-head-refused", "head", headWritten
+    Select Case h
+        Case "if"
+            If n < 2 Or n > 3 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "two or three arguments", "n", n
+        Case "not"
+            If n <> 1 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one argument", "n", n
+        Case "mod"
+            If n <> 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "two arguments", "n", n
+    End Select
+    Dim fnName As String
+    If h = VLA_Identity.Fold(headWritten) Then fnName = headWritten Else fnName = h
+    If Not FsIsFunctionName(fnName) Then VLA_Messages.RaiseMsg "vla-formula-head-not-a-function", "head", headWritten
+    For i = 2 To lst.Count
+        If i > 2 Then outText = outText & ","
+        outText = outText & FsText(lst.Item(i), depth + 1)
+    Next
+    FsList = UCase$(fnName) & "(" & outText & ")"
+End Function
+
+' (error "#N/A"): one of the seven errors a formula holds.
+Private Function FsErrorLiteral(lst As Object, ByVal headWritten As String) As String
+    Dim a As Variant
+    Dim canon As String
+    If lst.Count = 2 Then
+        AssignVar a, lst.Item(2)
+        If FsIsStringAtom(a) Then
+            canon = FsErrorCanonical(Mid$(CStr(a), 2))
+            If Len(canon) = 0 Then VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "the error " & Mid$(CStr(a), 2)
+            FsErrorLiteral = canon
+            Exit Function
+        End If
+    End If
+    VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one text, such as ""#N/A""", "n", (lst.Count - 1)
+End Function
+
+' An error's text in its canonical spelling, "" for none of the seven:
+' vla-lang's ErrorKind::parse and text.
+Private Function FsErrorCanonical(ByVal errText As String) As String
+    Select Case VLA_Identity.Fold(Trim$(errText))
+        Case "#null!"
+            FsErrorCanonical = "#NULL!"
+        Case "#div/0!"
+            FsErrorCanonical = "#DIV/0!"
+        Case "#value!"
+            FsErrorCanonical = "#VALUE!"
+        Case "#ref!"
+            FsErrorCanonical = "#REF!"
+        Case "#name?"
+            FsErrorCanonical = "#NAME?"
+        Case "#num!"
+            FsErrorCanonical = "#NUM!"
+        Case "#n/a"
+            FsErrorCanonical = "#N/A"
+    End Select
+End Function
+
+' (ref "Sheet" "A1") or (ref "A1"): one reference or one name, built from
+' a sheet and an address, the sheet quoted as it must be.
+Private Function FsRefForm(lst As Object, ByVal headWritten As String) As String
+    Dim a1 As Variant, a2 As Variant
+    Dim built As String, isBuilt As Boolean
+    If lst.Count = 2 Then
+        AssignVar a1, lst.Item(2)
+        If FsIsStringAtom(a1) Then
+            built = Mid$(CStr(a1), 2)
+            isBuilt = True
+        End If
+    ElseIf lst.Count = 3 Then
+        AssignVar a1, lst.Item(2)
+        AssignVar a2, lst.Item(3)
+        If FsIsStringAtom(a1) And FsIsStringAtom(a2) Then
+            built = FsSheetText(Mid$(CStr(a1), 2)) & "!" & Mid$(CStr(a2), 2)
+            isBuilt = True
+        End If
+    End If
+    If Not isBuilt Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "a sheet and an address as texts, or an address alone", "n", (lst.Count - 1)
+    Dim fr As FormulaRef
+    If FsWholeReference(built, fr) Then
+        Select Case fr.Kind
+            Case "cell", "range", "column", "row", "3d", "name"
+                FsRefForm = FsReferenceText(fr)
+                Exit Function
+        End Select
+    End If
+    VLA_Messages.RaiseMsg "vla-formula-ref-invalid", "text", built
+End Function
+
+' (lambda (x y) body): Excel's LAMBDA(x,y,body), each parameter a name.
+Private Function FsLambda(lst As Object, ByVal headWritten As String, ByVal depth As Long) As String
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "a list of parameters and one body", "n", (lst.Count - 1)
+    Dim ps As Variant
+    AssignVar ps, lst.Item(2)
+    If Not IsList(ps) Then VLA_Messages.RaiseMsg "vla-formula-lambda-params", "tok", WriteDatum(ps)
+    Dim psList As Object
+    Set psList = ps
+    Dim outText As String, i As Long
+    Dim p As Variant
+    Dim fr As FormulaRef
+    outText = "LAMBDA("
+    For i = 1 To psList.Count
+        AssignVar p, psList.Item(i)
+        If Not IsSym(p) Then VLA_Messages.RaiseMsg "vla-formula-lambda-params", "tok", WriteDatum(p)
+        If Not FsWholeReference(CStr(p), fr) Then VLA_Messages.RaiseMsg "vla-formula-lambda-params", "tok", CStr(p)
+        If fr.Kind <> "name" Then VLA_Messages.RaiseMsg "vla-formula-lambda-params", "tok", CStr(p)
+        If Len(fr.SheetName) > 0 Then VLA_Messages.RaiseMsg "vla-formula-lambda-params", "tok", CStr(p)
+        outText = outText & CStr(p) & ","
+    Next
+    FsLambda = outText & FsText(lst.Item(3), depth + 1) & ")"
+End Function
+
+Private Function FsIsStringAtom(v As Variant) As Boolean
+    If IsList(v) Then Exit Function
+    FsIsStringAtom = (Left$(CStr(v), 1) = Chr$(34))
+End Function
+
+' The formula's numeral, unsigned: digits with an optional fraction, or a
+' fraction alone, then an optional exponent with digits.
+Private Function FsIsNumeral(ByVal s As String) As Boolean
+    Dim n As Long, i As Long, digitCount As Long, expStart As Long
+    Dim c As String
+    n = Len(s)
+    i = 1
+    Do While i <= n
+        If Not FsIsDigit(Mid$(s, i, 1)) Then Exit Do
+        i = i + 1
+        digitCount = digitCount + 1
+    Loop
+    If i <= n Then
+        If Mid$(s, i, 1) = "." Then
+            i = i + 1
+            Do While i <= n
+                If Not FsIsDigit(Mid$(s, i, 1)) Then Exit Do
+                i = i + 1
+                digitCount = digitCount + 1
+            Loop
+        End If
+    End If
+    If digitCount = 0 Then Exit Function
+    If i <= n Then
+        c = Mid$(s, i, 1)
+        If c = "e" Or c = "E" Then
+            i = i + 1
+            If i <= n Then
+                c = Mid$(s, i, 1)
+                If c = "+" Or c = "-" Then i = i + 1
+            End If
+            expStart = i
+            Do While i <= n
+                If Not FsIsDigit(Mid$(s, i, 1)) Then Exit Do
+                i = i + 1
+            Loop
+            If i = expStart Then Exit Function
+        End If
+    End If
+    FsIsNumeral = (i > n)
+End Function
+
+Private Function FsIsNegativeNumeral(ByVal s As String) As Boolean
+    If Left$(s, 1) <> "-" Then Exit Function
+    FsIsNegativeNumeral = FsIsNumeral(Mid$(s, 2))
+End Function
+
+' Whether a numeral's value fits a Double; Val reads it without a locale.
+Private Function FsNumeralFinite(ByVal s As String) As Boolean
+    Dim d As Double
+    On Error GoTo tooLarge
+    d = Val(s)
+    FsNumeralFinite = True
+    Exit Function
+tooLarge:
+    FsNumeralFinite = False
+End Function
+
+' A token VBA's IsNumeric reads as a number, read without a locale:
+' vla-lang's intrinsics::is_numeric, mirrored, so that "a number a formula
+' does not spell" (&HFF, 1d5, +5) is told from any other atom alike in
+' both implementations, whatever Windows' regional settings say of a
+' comma or a currency sign.
+Private Function FsVbaNumeral(ByVal s As String) As Boolean
+    Dim n As Long, i As Long, j As Long
+    Dim c As String, radixCh As String
+    Dim sawDigit As Boolean, sawDot As Boolean
+    n = Len(s)
+    If n = 0 Then Exit Function
+    i = 1
+    c = Left$(s, 1)
+    If c = "+" Or c = "-" Then i = 2
+    If i + 1 <= n Then
+        If Mid$(s, i, 1) = "&" Then
+            radixCh = UCase$(Mid$(s, i + 1, 1))
+            If radixCh <> "H" And radixCh <> "O" Then Exit Function
+            If i + 2 > n Then Exit Function
+            For j = i + 2 To n
+                c = UCase$(Mid$(s, j, 1))
+                If radixCh = "H" Then
+                    If Not (FsIsDigit(c) Or (c >= "A" And c <= "F")) Then Exit Function
+                Else
+                    If Not (c >= "0" And c <= "7") Then Exit Function
+                End If
+            Next
+            FsVbaNumeral = True
+            Exit Function
+        End If
+    End If
+    Do While i <= n
+        c = Mid$(s, i, 1)
+        If FsIsDigit(c) Then
+            sawDigit = True
+        ElseIf c = "." And Not sawDot Then
+            sawDot = True
+        Else
+            Exit Do
+        End If
+        i = i + 1
+    Loop
+    If Not sawDigit Then Exit Function
+    If i > n Then
+        FsVbaNumeral = True
+        Exit Function
+    End If
+    c = Mid$(s, i, 1)
+    If c <> "e" And c <> "E" And c <> "d" And c <> "D" Then Exit Function
+    i = i + 1
+    If i <= n Then
+        c = Mid$(s, i, 1)
+        If c = "+" Or c = "-" Then i = i + 1
+    End If
+    If i > n Then Exit Function
+    For j = i To n
+        If Not FsIsDigit(Mid$(s, j, 1)) Then Exit Function
+    Next
+    FsVbaNumeral = True
+End Function
+
+Private Function FsIsDigit(ByVal c As String) As Boolean
+    If Len(c) <> 1 Then Exit Function
+    FsIsDigit = (AscW(c) >= 48 And AscW(c) <= 57)
+End Function
+
+' A function's name as a formula spells one: an ASCII letter, then
+' letters, digits, . and _.
+Private Function FsIsFunctionName(ByVal s As String) As Boolean
+    Dim i As Long, a As Long
+    If Len(s) = 0 Then Exit Function
+    For i = 1 To Len(s)
+        a = AscW(Mid$(s, i, 1))
+        If (a >= 65 And a <= 90) Or (a >= 97 And a <= 122) Then
+            ' a letter, anywhere
+        ElseIf i > 1 And ((a >= 48 And a <= 57) Or a = 46 Or a = 95) Then
+            ' a digit, . or _ after the first
+        Else
+            Exit Function
+        End If
+    Next
+    FsIsFunctionName = True
 End Function
 
 ' P.L5 (P-QUOTE): (quote <datum>) -> one VBA literal expression.

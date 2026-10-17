@@ -154,8 +154,14 @@ function Get-RawRaiseCount([string]$path) {
 # TakeRunSnapshot's `cleanup:` re-raise (the note above misplaces it at
 # ReadWordFile); a failed snapshot now rolls back and refuses through
 # RaiseMsg ide-undo-snapshot-failed instead of re-raising Excel's error.
+# 2026-10-17 (VLA.4): VLA 8->9. The ninth site is ExpandFormulaCall's
+# failed: handler, the same cleanup re-raise as the eight: a refusal raised
+# by RaiseMsg inside formula-expand's argument (its id already recorded) is
+# raised again from locals once the walk's mFormulaExpandOpen is cleared, so
+# that a refusal never leaves the next expansion inside a formula-expand. No
+# new English text; nothing an id could name.
 $ceilings = @{
-    'VLA'                = 8
+    'VLA'                = 9
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4

@@ -30,13 +30,25 @@ every push:
   4. every primitive of LISTOPS heads a form in at least one fixture case;
      each of VLA.3's ten heads one in an EXPANDED case and in a REFUSED
      case; and each of VLA.3's eight ids is the id of a REFUSED record;
-  5. the floors below: the cases, the expanded cases and the distinct ids.
+  5. the floors below: the cases, the expanded cases and the distinct ids;
+  6. VLA.4's formula-expand, an operation of the walk and no LISTOPS
+     primitive (Substitute leaves it alone, so it is in neither Select):
+     the walk recognizes it in both implementations (ExpandMacros' test of
+     headFold, expand_at's of head_fold), it heads a form in an EXPANDED
+     case and in a REFUSED one, and each of VLA.4's eleven ids an expansion
+     can raise is the id of a REFUSED record. The reference's formula
+     writer reads no compile's state: none of its procedures calls
+     ResolveHeadAlias, whose map only a compile sets, since formula-expand
+     runs in the expander (the owner's pass of 2026-10-17 found
+     (si ...) written SI(...) in a session no compile had run in).
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
 with its last case dropped, one refusing with an id the catalogue lacks, a
-reference with one name taken from Substitute's Select, and a fixture with
-every characters-expand renamed away.
+reference with one name taken from Substitute's Select, a fixture with
+every characters-expand renamed away, a reference whose walk no longer
+recognizes formula-expand, and a reference whose formula writer resolves
+an alias through ResolveHeadAlias.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -53,9 +65,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors, never lowered ------------------------------------------------
 # 2026-10-10, VLA.3: 135 cases, 75 of them expanded, 19 distinct ids refused;
 # the golden written by the port ahead of the reference's first run.
-$caseFloor = 135
-$expandedFloor = 75
-$idFloor = 19
+# 2026-10-17, VLA.4: 174 cases, 96 expanded, 30 distinct ids, formula-expand's
+# 39 written by the port ahead of the reference's run, as VLA.3's were.
+$caseFloor = 174
+$expandedFloor = 96
+$idFloor = 30
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -63,6 +77,15 @@ $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expa
 $newIds = @('vla-expand-arity', 'vla-expand-arg-is-list', 'vla-concat-expand-arity',
     'vla-arith-expand-not-whole', 'vla-arith-expand-divide-by-zero',
     'vla-address-expand-row', 'vla-address-expand-column', 'vla-address-expand-not-address')
+
+# VLA.4's operation of the walk and the eleven ids an expansion can raise
+# (the reader's two, vla-formula-read-malformed and -unsupported, are raised
+# by no expansion), which rule 6 holds to both implementations and the fixture.
+$walkOperation = 'formula-expand'
+$formulaIds = @('vla-formula-atom-unspelled', 'vla-formula-numeral-unspelled',
+    'vla-formula-head-not-a-function', 'vla-formula-head-refused', 'vla-formula-arity',
+    'vla-formula-unsupported', 'vla-formula-lambda-params', 'vla-formula-ref-invalid',
+    'vla-formula-text-too-long', 'vla-formula-expand-arity', 'vla-formula-expand-nested')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -267,6 +290,33 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
+    # 6. VLA.4's operation of the walk
+    $vbaText = [System.IO.File]::ReadAllText($vba)
+    $portText = [System.IO.File]::ReadAllText($port)
+    if ($vbaText -notmatch ('headFold = "' + [regex]::Escape($walkOperation) + '"')) {
+        [void]$problems.Add("the reference's walk (ExpandMacros) does not recognize '$walkOperation'")
+    }
+    if ($portText -notmatch ('head_fold == "' + [regex]::Escape($walkOperation) + '"')) {
+        [void]$problems.Add("the port's walk (expand_at) does not recognize '$walkOperation'")
+    }
+    if (-not $prt.Reserved.Contains($walkOperation)) { [void]$problems.Add("'$walkOperation' is not in the port's RESERVED") }
+    if (-not $headsExpanded.Contains($walkOperation)) { [void]$problems.Add("no EXPANDED case heads a form with '$walkOperation'") }
+    if (-not $headsRefused.Contains($walkOperation)) { [void]$problems.Add("no REFUSED case heads a form with '$walkOperation'") }
+    foreach ($x in $formulaIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+    # The reference's formula writer holds no compile's state: an alias
+    # reaches its form by the head table (FsCanonicalHead), never by
+    # ResolveHeadAlias, whose map only a compile sets.
+    $writer = [regex]::Matches($vbaText, '(?ms)^(?:Private|Public) Function (Fs\w+|FormulaSyntaxWrite|FormulaHeadRefused)\(.*?^End Function')
+    $writerNames = @($writer | ForEach-Object { $_.Groups[1].Value })
+    if ($writerNames -notcontains 'FsList') { [void]$problems.Add("the reference's formula writer has no FsList for this rule to read") }
+    foreach ($m in $writer) {
+        if ($m.Value -match 'ResolveHeadAlias\(') {
+            [void]$problems.Add("the reference's $($m.Groups[1].Value) resolves an alias through ResolveHeadAlias, a compile's state the expander does not set")
+        }
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -327,13 +377,25 @@ if ($Control) {
         if ($renamed -lt 1) { Write-Output 'FAIL: the control found no characters-expand in the fixture'; exit 1 }
         $pe = Join-Path $tmp 'e.txt'
         [System.IO.File]::WriteAllText($pe, $fixText.Replace('(characters-expand', '(chars-expand'), $utf8)
+        # (f) the reference whose walk no longer recognizes formula-expand
+        $walkAnchor = 'If headFold = "formula-expand" Then'
+        if ([regex]::Matches($vbaText, [regex]::Escape($walkAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected the walk''s formula-expand test once in the reference'; exit 1 }
+        $pf = Join-Path $tmp 'f.bas'
+        [System.IO.File]::WriteAllText($pf, $vbaText.Replace($walkAnchor, 'If headFold = "formula-expandd" Then'), $utf8)
+        # (g) the reference whose formula writer resolves an alias by a compile's state
+        $aliasAnchor = 'h = FsCanonicalHead(VLA_Identity.Fold(headWritten))'
+        if ([regex]::Matches($vbaText, [regex]::Escape($aliasAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected FsList''s FsCanonicalHead call once in the reference'; exit 1 }
+        $pg = Join-Path $tmp 'g.bas'
+        [System.IO.File]::WriteAllText($pg, $vbaText.Replace($aliasAnchor, 'h = ResolveHeadAlias(VLA_Identity.Fold(headWritten))'), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath
         $rd = Test-ExpandGolden $fixturePath $goldenPath $pd $portPath $catalogPath
         $re = Test-ExpandGolden $pe $goldenPath $vbaPath $portPath $catalogPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1) {
+        $rf = Test-ExpandGolden $fixturePath $goldenPath $pf $portPath $catalogPath
+        $rg = Test-ExpandGolden $fixturePath $goldenPath $pg $portPath $catalogPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

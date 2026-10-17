@@ -4,13 +4,16 @@
 //! One row per head symbol: its aliases, arity, interpreter routine, VBA
 //! routine, its standing in the formula dialect, and whether it is
 //! export-only. The VBA is the source; `tools/export_headtable.ps1` writes
-//! `core/data/headtable.vla` from it and `tools/check_data_exports.ps1` fails
-//! when the two drift. As in the VBA, the one live column is the aliases:
-//! [`alias_map`] feeds [`resolve_head_alias`], the lookup `EmitTop`,
+//! `vla-lang/data/headtable.vla` from it and `tools/check_data_exports.ps1`
+//! fails when the two drift. As in the VBA, the one live column is the
+//! aliases: [`alias_map`] feeds [`resolve_head_alias`], the lookup `EmitTop`,
 //! `EmitStmt`, `EmitExpr` and `EmitFormula` run before their dispatch, so an
 //! aliased head (`fijar!` for `set!`) reaches the arm its canonical spelling
 //! would. The other columns are the catalogue they are in the VBA, not the
-//! dispatch.
+//! dispatch, except that since VLA.4 the formula column is asked whether a
+//! head is refused: every row declares its form's standing in a formula,
+//! `yes` or `refused` (F.7's table), and the formula syntax and the core's
+//! `emit_formula` refuse a refused head by name.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -153,12 +156,13 @@ mod tests {
 
     #[test]
     fn the_table_is_read_whole() {
-        // 65 rows at IN5.0; the same floor is held on the file by
-        // tools/check_data_exports.ps1.
-        assert_eq!(count(), 65);
+        // 65 rows at IN5.0, 66 with VLA.4's for-each-row; the same floor is
+        // held on the file by tools/check_data_exports.ps1. Since VLA.4 no
+        // row is undeclared in a formula (F.7).
+        assert_eq!(count(), 66);
         assert_eq!(rows()[0].symbol, "sub");
         assert_eq!(rows()[0].vba_routine, "EmitProc");
-        assert_eq!(rows()[64].symbol, "not");
+        assert_eq!(rows()[65].symbol, "not");
         let yes = rows()
             .iter()
             .filter(|r| r.formula == FormulaSupport::Yes)
@@ -171,7 +175,7 @@ mod tests {
             .iter()
             .filter(|r| r.formula == FormulaSupport::Undeclared)
             .count();
-        assert_eq!((yes, refused, undeclared), (18, 9, 38));
+        assert_eq!((yes, refused, undeclared), (20, 46, 0));
     }
 
     #[test]

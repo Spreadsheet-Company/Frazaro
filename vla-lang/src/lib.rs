@@ -21,6 +21,12 @@
 //! since KERNEL.25 (2026-10-09), the hash the machine's maps use (`fx`, the
 //! crate's own).
 //!
+//! Since VLA.4 (2026-10-17) the language holds the formula syntax
+//! (`formula_syntax`): a VLA expression written as a formula's text in
+//! Excel's invariant spelling, and that text read back as an expression,
+//! canonical both ways; the expander's `formula-expand` is its writer at
+//! expand time, so that a cartridge composes a formula from expressions.
+//!
 //! The contract (docs/HORIZON.md section 12; Alonzo/CHARTER.md section 4,
 //! rule 1): bytes in, bytes out, nothing else. No English, no file format,
 //! no clock, no randomness, no threads, no file system, no socket, and no
@@ -38,6 +44,7 @@ pub mod abi;
 pub mod calc;
 pub mod expand;
 pub mod form;
+pub mod formula_syntax;
 mod fx;
 pub mod headtable;
 pub mod intrinsics;

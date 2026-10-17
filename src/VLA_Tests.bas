@@ -1,6 +1,17 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.3"
+Public Const VLA_TESTS_VERSION As String = "VLA.4"
+' VLA.4: TestFormulaSyntax - the formula syntax at expand time
+' (formula-expand), its canonical spelling, a macro inside the expression
+' firing first, a template's parameters filled in inside it, each of its
+' refusals by id (ExpandRefusalId, new), and the walk outside every
+' formula-expand again after a refusal; wired after TestListopsObjectModel.
+' TestHeadTableFormulaDeclared - F.7's test: no row of the head table is
+' undeclared in a formula, the formula syntax refuses every refused head,
+' EmitFormula refuses (new x), and type and xor stay Excel's; wired after
+' TestHeadTableExportOnly. TestHeadTable's count pins move to 66, the
+' table having gained for-each-row's row.
+'
 ' VLA.3: TestListopsObjectModel - the expand-time object model's ten
 ' primitives, each alone and inside a macro (both recognition sites), each
 ' refusal and each reserved name, wired after TestListopsExpand; and
@@ -464,6 +475,7 @@ Public Function VlaSelfTest() As Boolean
     TestListops
     TestListopsExpand
     TestListopsObjectModel
+    TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
     TestFormTooDeep
@@ -513,6 +525,7 @@ Public Function VlaSelfTest() As Boolean
     TestGPath
     TestHeadTable
     TestHeadTableExportOnly
+    TestHeadTableFormulaDeclared
     TestHeadAlias
     TestNonAsciiIdentifiers
     TestDotCount
@@ -5904,6 +5917,77 @@ refused:
     ExpandTrimmed = "refused: " & d
 End Function
 
+' VLA.4: the id of the refusal an expansion raises, or "" when it expands.
+Private Function ExpandRefusalId(ByVal source As String) As String
+    Dim fired As Long
+    Dim gotId As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    VlaExpandText source, True, fired
+    If Err.Number <> 0 Then gotId = VLA_Messages.VlaLastRaisedMsgId()
+    On Error GoTo 0
+    ExpandRefusalId = gotId
+End Function
+
+' VLA.4: the formula syntax at expand time (formula-expand, FormulaSyntaxWrite)
+' - the canonical spelling, the walk expanding the argument first, every
+' refusal by its id, and the walk outside every formula-expand again after a
+' refusal. scripts/expand_golden.txt holds the same cases' whole records to
+' vla-lang's; these pins say what each one means.
+Private Sub TestFormulaSyntax()
+    CheckV "formula: a row's formula is written in the canonical spelling", _
+        ExpandTrimmed("(formula ""Hustle"" ""B13"" (formula-expand (if (= B11 1) (+ Day.last!$B$3 $B$6) Hustle.last!B13)))"), _
+        "(formula ""Hustle"" ""B13"" ""=IF(B11=1,Day.last!$B$3+$B$6,Hustle.last!B13)"")"
+    CheckV "formula: the fewest parentheses Excel's precedence allows", _
+        ExpandTrimmed("(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- a (- b c)) (- a b c)))"), _
+        """=F(1+2*3,(1+2)*3,a-(b-c),a-b-c)"""
+    CheckV "formula: a sign binds tighter than power, as in Excel", _
+        ExpandTrimmed("(formula-expand (f (- (^ x 2)) (^ (- x) 2) (^ -2 2) (^ 2 3 2)))"), _
+        """=F(-(x^2),-x^2,-2^2,2^3^2)"""
+    CheckV "formula: a percent of a sign, and a sign of a percent", _
+        ExpandTrimmed("(formula-expand (f (% -5) (- (% 5))))"), """=F((-5)%,-5%)"""
+    CheckV "formula: #N/A before a / is parenthesized", _
+        ExpandTrimmed("(formula-expand (/ (error ""#n/a"") x))"), """=(#N/A)/x"""
+    CheckV "formula: references in the canonical spelling", _
+        ExpandTrimmed("(formula-expand (f a1 'Input'!b5 '2026'!A1 (ref ""Q1 Data"" ""c3"") (ref ""Input"" (address-expand 5 2))))"), _
+        """=F(A1,Input!B5,'2026'!A1,'Q1 Data'!C3,Input!B5)"""
+    CheckV "formula: truth values, errors and a name", _
+        ExpandTrimmed("(formula-expand (f True (error ""#div/0!"") Model!Local))"), _
+        """=F(TRUE,#DIV/0!,Model!Local)"""
+    CheckV "formula: an alias reaches its form, and xor and type are Excel's", _
+        ExpandTrimmed("(formula-expand (si (xor (type A1) 1) (lambda (y) (+ y 1)) 0))"), _
+        """=IF(XOR(TYPE(A1),1),LAMBDA(y,y+1),0)"""
+    CheckV "formula: a macro inside the expression fires before it is written", _
+        ExpandTrimmed("(defmacro (edge cell twin) (and (= cell 1) (= twin 0)))" & vbLf & _
+                      "(formula-expand (if (edge Input!B5 Input.last!B5) 1 0))"), _
+        """=IF(AND(Input!B5=1,Input.last!B5=0),1,0)"""
+    CheckV "formula: a template's parameters are filled in inside it", _
+        ExpandTrimmed("(defmacro (rule sheet range expr) (formula sheet range (formula-expand expr)))" & vbLf & _
+                      "(rule ""Board"" ""A1:B2"" (+ A1 1))"), _
+        "(formula ""Board"" ""A1:B2"" ""=A1+1"")"
+
+    CheckV "formula: tax-rate is no name, never renamed", ExpandRefusalId("(formula-expand tax-rate)"), "vla-formula-atom-unspelled"
+    CheckV "formula: a keyword is no atom of a formula", ExpandRefusalId("(formula-expand (f :key 1))"), "vla-formula-atom-unspelled"
+    CheckV "formula: &HFF is a number no formula spells", ExpandRefusalId("(formula-expand &HFF)"), "vla-formula-numeral-unspelled"
+    CheckV "formula: a list is no function's name", ExpandRefusalId("(formula-expand ((lambda (x) x) 1))"), "vla-formula-head-not-a-function"
+    CheckV "formula: a statement is refused", ExpandRefusalId("(formula-expand (set! x 1))"), "vla-formula-head-refused"
+    CheckV "formula: VBA's own form is refused", ExpandRefusalId("(formula-expand (new x))"), "vla-formula-head-refused"
+    CheckV "formula: an operator needs its operands", ExpandRefusalId("(formula-expand (+))"), "vla-formula-arity"
+    CheckV "formula: not takes one argument", ExpandRefusalId("(formula-expand (not a b))"), "vla-formula-arity"
+    CheckV "formula: an array constant is outside this version", ExpandRefusalId("(formula-expand (quote (1 2)))"), "vla-formula-unsupported"
+    CheckV "formula: a spill is outside this version", ExpandRefusalId("(formula-expand A1#)"), "vla-formula-unsupported"
+    CheckV "formula: a lambda's parameters are names", ExpandRefusalId("(formula-expand (lambda ((x)) x))"), "vla-formula-lambda-params"
+    CheckV "formula: ref names one reference", ExpandRefusalId("(formula-expand (ref ""Data"" ""A1+1""))"), "vla-formula-ref-invalid"
+    CheckV "formula: a text holds at most 255 characters", ExpandRefusalId("(formula-expand """ & String$(256, "a") & """)"), "vla-formula-text-too-long"
+    CheckV "formula: 255 characters are written", Len(ExpandTrimmed("(formula-expand """ & String$(255, "a") & """)")), 262
+    CheckV "formula-expand takes one expression", ExpandRefusalId("(formula-expand)"), "vla-formula-expand-arity"
+    CheckV "formula-expand inside another is refused", ExpandRefusalId("(formula-expand (+ (formula-expand A1) 1))"), "vla-formula-expand-nested"
+    CheckV "formula-expand after a refusal stands outside every formula-expand again", _
+        ExpandTrimmed("(formula-expand A1)"), """=A1"""
+    CheckV "formula-expand is no argument of &expand", ExpandRefusalId("(&expand (formula-expand A1))"), "vla-expand-arg-is-list"
+    CheckV "formula-expand is a reserved name", ExpandRefusalId("(defmacro (formula-expand x) x)"), "vla-defmacro-reserved-name"
+End Sub
+
 ' ---------------------------------------------------------------------
 '  COND.0: the tenth engine primitive, unifying the expand-time and
 '  runtime halves of `cond` under one name (BETA_REARVIEW.md's own COND
@@ -7063,8 +7147,8 @@ Private Sub TestHeadTable()
     Report "headtable: builds without a duplicate-key error", _
            VlaHeadTableCount() > 0, "count: " & VlaHeadTableCount()
 
-    Report "headtable: row count is the printed baseline (65)", _
-           VlaHeadTableCount() = 65, "got: " & VlaHeadTableCount()
+    Report "headtable: row count is the printed baseline (66)", _
+           VlaHeadTableCount() = 66, "got: " & VlaHeadTableCount()
 
     Dim ifRow As Collection
     Set ifRow = VlaHeadTableRow("if")
@@ -7094,7 +7178,7 @@ Private Sub TestHeadTable()
            VlaHeadTableRow("not-a-real-form") Is Nothing, "expected Nothing"
 
     Report "headtable: the summary line names the row count", _
-           InStr(1, VlaHeadTableSummary(), "65 forms", vbBinaryCompare) > 0, _
+           InStr(1, VlaHeadTableSummary(), "66 forms", vbBinaryCompare) > 0, _
            "got: " & VlaHeadTableSummary()
 
     ' LX.4: VlaHeadTableRow's own alias scan (the catalog-lookup path,
@@ -7154,6 +7238,47 @@ Private Sub TestHeadTableExportOnly()
     Next
     Report "in5: the nine corrected rows (sub/function/type/enum/public/private/include/at-line/doc) are all False", _
            allFalse, IIf(Len(detail) > 0, detail, "all correct")
+End Sub
+
+' VLA.4 (F.7's test): every row of the head table declares its form's
+' standing in a formula, "yes" or "refused", never "undeclared"; the formula
+' syntax refuses every refused head by name; EmitFormula, deflambda's
+' dialect, refuses a head it used to write as a call, (new x) as new(x);
+' and type and xor, "yes", stay Excel's TYPE and XOR there.
+Private Sub TestHeadTableFormulaDeclared()
+    Dim rows As Collection
+    Set rows = VlaHeadTableRows()
+    Dim row As Variant
+    Dim sym As String, st As String
+    Dim undeclared As String, notRefused As String, gotId As String
+    For Each row In rows
+        sym = CStr(row.Item(HT_SYMBOL))
+        st = CStr(row.Item(HT_FORMULA))
+        If st <> "yes" And st <> "refused" Then undeclared = undeclared & " " & sym
+        If st = "refused" Then
+            gotId = ExpandRefusalId("(formula-expand (" & sym & " 1 2))")
+            If gotId <> "vla-formula-head-refused" Then notRefused = notRefused & " " & sym & "=" & gotId
+        End If
+    Next
+    CheckV "vla4: no head of the table is undeclared in a formula", undeclared, ""
+    CheckV "vla4: the formula syntax refuses every refused head by name", notRefused, ""
+    CheckV "vla4: the table's count, its formula column declared whole", VlaHeadTableSummary(), _
+           "66 forms (formula: 20 supported, 46 refused, 0 undeclared; 3 export-only; 0 with an interpreter routine - IN.2 not built)"
+
+    Dim d As String, t As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    t = VlaTranspile("(sub t () (deflambda bad (x) (new x)))")
+    If Err.Number <> 0 Then d = VLA_Messages.VlaLastRaisedMsgId()
+    On Error GoTo 0
+    CheckV "vla4: deflambda refuses a head it used to write as a call", d, "vla-formula-head-refused"
+
+    t = TryTranspile("vla4: deflambda still writes type and xor as Excel's", _
+                     "(sub t () (deflambda either (a b) (xor a (type b))))")
+    If Len(t) > 0 Then
+        CheckFrags "vla4: deflambda still writes type and xor as Excel's", t, _
+                   Array("RefersTo:=""=LAMBDA(a, b, xor(a, type(b)))""")
+    End If
 End Sub
 
 ' LX.4: the actual chokepoint, proven at the emitter, not just the

@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_HeadTable"
 Option Explicit
-Public Const VLA_HEADTABLE_VERSION As String = "IN5.0"
+Public Const VLA_HEADTABLE_VERSION As String = "VLA.4"
+' VLA.4 (F.7's remainder): the Formula column declared whole - no row is
+' "undeclared" now. The four EmitFormula already refused by name
+' (include, on-error, goto, label) say "refused"; every other form a
+' program has and no formula does says "refused" too, the statements,
+' the declarations, the clauses and VBA's own operators and forms; type
+' and xor say "yes", a formula having Excel's TYPE and XOR; and
+' for-each-row, which had no row, has one. 66 rows: 20 yes, 46 refused.
+' TestHeadTableFormulaDeclared (VLA_Tests.bas) holds the column and both
+' writers to it.
+'
 ' IN5.0: the export-only column adjudicated (see the note below the
 ' honesty note on Formula) - 9 of the draft's 12 True rows corrected to
 ' False (sub, function, type, enum, public, private, include, at-line,
@@ -74,6 +84,24 @@ Public Const VLA_HEADTABLE_VERSION As String = "IN5.0"
 '  Case Else - neither supported nor refused) - rather than a clean
 '  yes/no, because collapsing "undeclared" into either would have
 '  hidden the exact gap F.7 needs to see.
+'
+'  VLA.4 (2026-10-17) closed that gap, taking F.7's table and its test:
+'  no row is "undeclared" now. Every form a program has and no formula
+'  does is "refused" - the statements, the declarations, the clauses
+'  of if and select, and VBA's own operators and forms (raw, ".", new,
+'  \, is, like, imp, eqv) - and both writers refuse each one by name:
+'  EmitFormula with vla-formula-is-statement for the fourteen its list
+'  always named, and with vla-formula-head-refused for the rest, where
+'  its Case Else used to write "new(x)"; the formula syntax
+'  (FormulaSyntaxWrite, the expander's formula-expand) with
+'  vla-formula-head-refused for all. Two rows say "yes" because a
+'  formula has a function of the same name: type is Excel's TYPE and
+'  xor Excel's XOR, which EmitFormula always wrote as calls. The column
+'  stays a catalog the writers are held to by a test
+'  (TestHeadTableFormulaDeclared), never their dispatch, except that
+'  the formula syntax and EmitFormula's Case Else ask it whether a head
+'  is refused, so that a form added to the table is refused in a
+'  formula the day its row says so.
 '
 '  IN.5's ADJUDICATION OF THE EXPORT-ONLY COLUMN (the draft above this
 '  note used to say "treat this as a draft, not a verdict" - this is
@@ -153,7 +181,7 @@ Public Const HT_EXPORTONLY As Long = 7
 ' The full table, rebuilt fresh on every call - no module-level cache,
 ' so there is nothing here for a recompile to lose (hazard: "editing a
 ' running project resets module-level state," LESSONS.md XXXII). The
-' table is 65 rows of string literals; rebuilding it costs nothing a
+' table is 66 rows of string literals; rebuilding it costs nothing a
 ' human would notice.
 Public Function VlaHeadTableRows() As Collection
     Set VlaHeadTableRows = BuildRows()
@@ -256,7 +284,7 @@ Private Sub AddRow(rows As Collection, ByVal symbol As String, ByVal aliases As 
     row.Add exportOnly
     ' Keyed Add: a duplicate symbol raises "key already exists" the
     ' moment BuildRows runs - a free, built-in F.4-style conflict
-    ' check for this table's own 65 rows.
+    ' check for this table's own 66 rows.
     rows.Add row, VLA_Identity.Fold(symbol)
 End Sub
 
@@ -268,18 +296,18 @@ Private Function BuildRows() As Collection
     Dim rows As New Collection
 
     ' --- Top-level / declaration forms (EmitTop) ---------------------
-    AddRow rows, "sub", "", "variable (name, params, [doc], body)", "", "EmitProc", "undeclared", False
-    AddRow rows, "function", "", "variable (name, params, [type], [doc], body)", "", "EmitProc", "undeclared", False
-    AddRow rows, "type", "", "variable (name, members)", "", "EmitTypeDef", "undeclared", False
-    AddRow rows, "enum", "", "variable (name, members)", "", "EmitEnumDef", "undeclared", False
-    AddRow rows, "public", "", "1 (wrapped form)", "", "EmitVisibility", "undeclared", False
-    AddRow rows, "private", "", "1 (wrapped form)", "", "EmitVisibility", "undeclared", False
-    AddRow rows, "include", "", "1 (path)", "", "refused - whole-line splicer only, never reaches the emitter", "undeclared", False
+    AddRow rows, "sub", "", "variable (name, params, [doc], body)", "", "EmitProc", "refused", False
+    AddRow rows, "function", "", "variable (name, params, [type], [doc], body)", "", "EmitProc", "refused", False
+    AddRow rows, "type", "", "variable (name, members)", "", "EmitTypeDef", "yes", False
+    AddRow rows, "enum", "", "variable (name, members)", "", "EmitEnumDef", "refused", False
+    AddRow rows, "public", "", "1 (wrapped form)", "", "EmitVisibility", "refused", False
+    AddRow rows, "private", "", "1 (wrapped form)", "", "EmitVisibility", "refused", False
+    AddRow rows, "include", "", "1 (path)", "", "refused - whole-line splicer only, never reaches the emitter", "refused", False
 
     ' --- Statement forms (EmitStmt), also legal some places above ----
     AddRow rows, "dim", "", "1-2 (name, [type])", "", "EmitDimCore (via EmitTop or EmitStmt)", "refused", False
-    AddRow rows, "const", "", "2 (name, value)", "", "EmitConstCore (via EmitTop or EmitStmt)", "undeclared", False
-    AddRow rows, "raw", "", "1 (literal VBA text)", "", "StrLitContent (inline)", "undeclared", True
+    AddRow rows, "const", "", "2 (name, value)", "", "EmitConstCore (via EmitTop or EmitStmt)", "refused", False
+    AddRow rows, "raw", "", "1 (literal VBA text)", "", "StrLitContent (inline)", "refused", True
     AddRow rows, "begin", "", "variable (body)", "", "EmitBody (inline)", "refused", False
     AddRow rows, "deflambda", "", "variable (name, params, [doc], formula-body)", "", "EmitDeflambda", "refused", True
     AddRow rows, "set!", "fijar!", "2 (place, value)", "", "inline in EmitStmt", "refused", False
@@ -287,34 +315,35 @@ Private Function BuildRows() As Collection
     AddRow rows, "if", "si", "variable (test, clauses)", "", "EmitIf", "yes", False
     AddRow rows, "for", "", "variable (header, body)", "", "EmitFor", "refused", False
     AddRow rows, "for-each", "", "variable (header, body)", "", "EmitForEach", "refused", False
+    AddRow rows, "for-each-row", "", "variable (header, body)", "", "EmitForEachRow", "refused", False
     AddRow rows, "while", "", "variable (test, body)", "", "inline in EmitStmt", "refused", False
-    AddRow rows, "do-until", "", "variable (test, body)", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "select", "", "variable (expr, cases)", "", "EmitSelect", "undeclared", False
-    AddRow rows, "with", "", "variable (expr, body)", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "return", "", "0-1 (value)", "", "EmitReturn", "undeclared", False
-    AddRow rows, "exit-sub", "", "0", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "exit-function", "", "0", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "exit-for", "", "0", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "exit-do", "", "0", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "redim", "", "variable (name, dims)", "", "EmitRedim", "undeclared", False
-    AddRow rows, "on-error", "", "1-2 (resume-next | goto label)", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "goto", "", "1 (label)", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "label", "", "1 (name)", "", "inline in EmitStmt", "undeclared", False
+    AddRow rows, "do-until", "", "variable (test, body)", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "select", "", "variable (expr, cases)", "", "EmitSelect", "refused", False
+    AddRow rows, "with", "", "variable (expr, body)", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "return", "", "0-1 (value)", "", "EmitReturn", "refused", False
+    AddRow rows, "exit-sub", "", "0", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "exit-function", "", "0", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "exit-for", "", "0", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "exit-do", "", "0", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "redim", "", "variable (name, dims)", "", "EmitRedim", "refused", False
+    AddRow rows, "on-error", "", "1-2 (resume-next | goto label)", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "goto", "", "1 (label)", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "label", "", "1 (name)", "", "inline in EmitStmt", "refused", False
     AddRow rows, "quote", "", "1 (datum)", "", "EmitQuote / QuoteDatum", "yes", False
     AddRow rows, "debug-print", "depurar", "variable (values)", "", "inline in EmitStmt", "refused", False
-    AddRow rows, "call", "", "variable (name, args)", "", "EmitCallStmt", "undeclared", False
-    AddRow rows, ".", "", "variable (obj, member, [args])", "", "EmitDotText", "undeclared", False
-    AddRow rows, "at-line", "", "variable (line-number, statements)", "", "inline in EmitStmt", "undeclared", False
-    AddRow rows, "then", "", "variable (body) - clause of if only", "", "consumed by EmitIf", "undeclared", False
-    AddRow rows, "else", "", "variable (body) - clause of if only", "", "consumed by EmitIf", "undeclared", False
-    AddRow rows, "elseif", "", "variable (test, body) - clause of if only", "", "consumed by EmitIf", "undeclared", False
-    AddRow rows, "case", "", "variable (values, body) - clause of select only", "", "consumed by EmitSelect", "undeclared", False
-    AddRow rows, "case-else", "", "variable (body) - clause of select only", "", "consumed by EmitSelect", "undeclared", False
-    AddRow rows, "doc", "", "1 (text)", "", "EmitDoc", "undeclared", False
-    AddRow rows, "resume", "", "0-1 (next | label)", "", "inline in EmitStmt", "undeclared", False
+    AddRow rows, "call", "", "variable (name, args)", "", "EmitCallStmt", "refused", False
+    AddRow rows, ".", "", "variable (obj, member, [args])", "", "EmitDotText", "refused", False
+    AddRow rows, "at-line", "", "variable (line-number, statements)", "", "inline in EmitStmt", "refused", False
+    AddRow rows, "then", "", "variable (body) - clause of if only", "", "consumed by EmitIf", "refused", False
+    AddRow rows, "else", "", "variable (body) - clause of if only", "", "consumed by EmitIf", "refused", False
+    AddRow rows, "elseif", "", "variable (test, body) - clause of if only", "", "consumed by EmitIf", "refused", False
+    AddRow rows, "case", "", "variable (values, body) - clause of select only", "", "consumed by EmitSelect", "refused", False
+    AddRow rows, "case-else", "", "variable (body) - clause of select only", "", "consumed by EmitSelect", "refused", False
+    AddRow rows, "doc", "", "1 (text)", "", "EmitDoc", "refused", False
+    AddRow rows, "resume", "", "0-1 (next | label)", "", "inline in EmitStmt", "refused", False
 
     ' --- Expression-only forms (EmitExpr) -----------------------------
-    AddRow rows, "new", "", "1 (type name)", "", "inline in EmitExpr", "undeclared", False
+    AddRow rows, "new", "", "1 (type name)", "", "inline in EmitExpr", "refused", False
     AddRow rows, "lambda", "", "2 (params, formula-body) - formula dialect only", "", "n/a - EmitFormula only; falls through EmitExpr's Case Else outside a formula", "yes", True
 
     ' --- Operators (EmitExpr's EmitChain / unary cases) ---------------
@@ -323,7 +352,7 @@ Private Function BuildRows() As Collection
     AddRow rows, "*", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "&", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "/", "", "2+ (chain)", "", "EmitChain", "yes", False
-    AddRow rows, "\", "", "2+ (chain)", "", "EmitChain", "undeclared", False
+    AddRow rows, "\", "", "2+ (chain)", "", "EmitChain", "refused", False
     AddRow rows, "=", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "<>", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "<", "", "2+ (chain)", "", "EmitChain", "yes", False
@@ -332,12 +361,12 @@ Private Function BuildRows() As Collection
     AddRow rows, ">=", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "and", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "or", "", "2+ (chain)", "", "EmitChain", "yes", False
-    AddRow rows, "xor", "", "2+ (chain)", "", "EmitChain", "undeclared", False
+    AddRow rows, "xor", "", "2+ (chain)", "", "EmitChain", "yes", False
     AddRow rows, "mod", "", "2 (a, b)", "", "EmitChain (VBA); fixed 2-arg MOD() in formulas", "yes", False
-    AddRow rows, "is", "", "2 (chain)", "", "EmitChain", "undeclared", False
-    AddRow rows, "like", "", "2 (chain)", "", "EmitChain", "undeclared", False
-    AddRow rows, "imp", "", "2+ (chain)", "", "EmitChain", "undeclared", False
-    AddRow rows, "eqv", "", "2+ (chain)", "", "EmitChain", "undeclared", False
+    AddRow rows, "is", "", "2 (chain)", "", "EmitChain", "refused", False
+    AddRow rows, "like", "", "2 (chain)", "", "EmitChain", "refused", False
+    AddRow rows, "imp", "", "2+ (chain)", "", "EmitChain", "refused", False
+    AddRow rows, "eqv", "", "2+ (chain)", "", "EmitChain", "refused", False
     AddRow rows, "not", "", "1", "", "inline in EmitExpr", "yes", False
 
     Set BuildRows = rows
