@@ -1194,19 +1194,52 @@ impl<'a> Many<'a> {
         // array, as one slice of the array's numbers from the first cell's
         // to the last's or the array's edge, the cells past the edge alone;
         // one whose column a `$` holds, as one read, the same cell at each.
-        // Any other cell, and the cells of a slice not wholly numbers, one by
-        // one. A cell outside the array is empty, which a lane of numbers
-        // never holds, so a slice starts at the first cell's or not at all.
+        // The cells one below the other in one column, a reference no `$`
+        // holds, over a sheet kept as an array, as one column of its numbers
+        // (KERNEL.31), or one by one where a slot holds no number. Any other
+        // cell, and the cells of a slice not wholly numbers, one by one. A
+        // cell outside the array is empty, which a lane of numbers never
+        // holds, so a slice starts at the first cell's or not at all.
         let mut numbers = self.take_numbers();
         let n = sel.len();
         let mut k = 0;
         let mut odd: Option<(usize, Got)> = None;
+        let down = !r.corners.row_abs1 && !r.corners.col_abs1;
         'cells: while k < n {
             let m = if dense.is_some() || r.corners.col_abs1 {
                 self.stretch(sel, k)
             } else {
                 1
             };
+            if m == 1 && down {
+                if let Some(d) = dense {
+                    let below = self.stretch_down(sel, k);
+                    if below > 1 {
+                        let (d_row, d_col) = self.offset(sel.at(k));
+                        let column = r.moved(d_row, d_col).is_some_and(|(row, col, _, _)| {
+                            d.numbers_in_column(row, col, below, &mut numbers)
+                        });
+                        if column {
+                            #[cfg(test)]
+                            sliced::note(sliced::DOWN);
+                            k += below;
+                            continue;
+                        }
+                        // Read one by one, the column's slots not all numbers.
+                        for j in k..k + below {
+                            match at(j) {
+                                Ok(x) => numbers.push(x),
+                                Err(other) => {
+                                    odd = Some((j, other));
+                                    break 'cells;
+                                }
+                            }
+                        }
+                        k += below;
+                        continue;
+                    }
+                }
+            }
             // How many of the stretch's cells its slice read.
             let mut read = 0;
             if m > 1 {
@@ -1277,6 +1310,22 @@ impl<'a> Many<'a> {
                 m
             }
         }
+    }
+
+    /// How many of the selection's cells from its `k`th stand one below the
+    /// other in one column, each the cell under the one before (KERNEL.31):
+    /// a run's cells of a column, as a spreadsheet's column of formulas
+    /// stands, or the stretch of one a branch or a frame's reach selects.
+    /// Counted as it is asked, a column's stretch being read at its first
+    /// cell alone.
+    #[inline]
+    fn stretch_down(&self, sel: Sel, k: usize) -> usize {
+        let (s, row, col) = self.cells[sel.at(k)];
+        let mut m = 1;
+        while k + m < sel.len() && self.cells[sel.at(k + m)] == (s, row + m as u32, col) {
+            m += 1;
+        }
+        m
     }
 
     /// Each cell's stretch, found the first time one is asked for, from the
@@ -2538,8 +2587,9 @@ fn number_at(lane: Option<&Lane>, k: usize) -> Option<f64> {
 pub(crate) struct Paths {
     /// A reference into a sheet kept as an array whose column moves with
     /// the cell (KERNEL.43): one cell read for a run's cells side by side in
-    /// a row as one slice of the array's numbers, or a range folded over its
-    /// rows' slices.
+    /// a row as one slice of the array's numbers, or for its cells one below
+    /// the other as one column of them where its row moves too (KERNEL.31),
+    /// or a range folded over its rows' slices.
     pub(crate) stride: bool,
     /// One cell of a sheet kept as an array, read by its index; its column
     /// held, once for a run's cells of one row.
@@ -2562,7 +2612,9 @@ pub(crate) struct Paths {
 
 /// The paths of a shape's parse, `arrays` saying which sheets the
 /// environment keeps as arrays (a machine's twins, as its last frame's end
-/// left them), `runs` whether the shape has runs, whose cells side by side
+/// left them, and its own sheets a read takes as arrays, KERNEL.31), `homes`
+/// the sheets the shape's cells stand on, which a reference that names no
+/// sheet reads, `runs` whether the shape has runs, whose cells side by side
 /// read a reference that moves with them by slices (KERNEL.43), where a cell
 /// alone reads it by index. The walk keeps its own stack, as every walk of a
 /// parse does, so that a chain as long as Excel holds costs it no depth.
@@ -2571,12 +2623,14 @@ pub(crate) fn paths(
     model: &crate::sheet::Workbook,
     e: &Expr,
     arrays: &dyn Fn(usize) -> bool,
+    homes: &[usize],
     runs: bool,
 ) -> Paths {
     let mut walk = Walk {
         lib,
         model,
         arrays,
+        homes,
         runs,
         paths: Paths::default(),
     };
@@ -2595,6 +2649,7 @@ struct Walk<'a> {
     lib: &'a Library,
     model: &'a crate::sheet::Workbook,
     arrays: &'a dyn Fn(usize) -> bool,
+    homes: &'a [usize],
     runs: bool,
     paths: Paths,
 }
@@ -2616,8 +2671,8 @@ impl Walk<'_> {
     }
 
     /// The sheet a reference to one sheet reads, as the run finds it:
-    /// `Some(Some(sheet))`, `Some(None)` for the formula's own, a frame's
-    /// sheet, never an array; `None` for a sheet the grid does not hold.
+    /// `Some(Some(sheet))`, `Some(None)` for the formula's own, each sheet
+    /// the shape's cells stand on; `None` for a sheet the grid does not hold.
     fn sheet_of(&self, r: &RefExpr) -> Option<Option<usize>> {
         match (r.found, &r.sheet) {
             (Some((first, _)), _) => Some(Some(usize::from(first))),
@@ -2626,9 +2681,13 @@ impl Walk<'_> {
         }
     }
 
-    /// Whether a reference's sheet is kept as an array.
+    /// Whether a reference's sheet is kept as an array: the formula's own
+    /// where every sheet its cells stand on is (KERNEL.31).
     fn kept(&self, sheet: Option<usize>) -> bool {
-        sheet.is_some_and(|s| (self.arrays)(s))
+        match sheet {
+            Some(s) => (self.arrays)(s),
+            None => !self.homes.is_empty() && self.homes.iter().all(|&s| (self.arrays)(s)),
+        }
     }
 
     /// One cell as [`Many::reads`] reads it.
@@ -2774,8 +2833,9 @@ impl Walk<'_> {
 
 /// How often a run read a reference by slices or a held column once, folded
 /// an aggregate by slices, and chose `IF`'s literals by its condition's lane
-/// (KERNEL.43), counted in a test on its own thread, so that a law over runs
-/// can say that each was taken.
+/// (KERNEL.43), and read a reference's cells one below the other as one
+/// column of an array (KERNEL.31), counted in a test on its own thread, so
+/// that a law over runs can say that each was taken.
 #[cfg(test)]
 pub(crate) mod sliced {
     use std::cell::Cell;
@@ -2784,9 +2844,10 @@ pub(crate) mod sliced {
     pub(crate) const HELD: usize = 1;
     pub(crate) const FOLDED: usize = 2;
     pub(crate) const CHOSEN: usize = 3;
+    pub(crate) const DOWN: usize = 4;
 
     thread_local! {
-        static COUNTS: Cell<[usize; 4]> = const { Cell::new([0; 4]) };
+        static COUNTS: Cell<[usize; 5]> = const { Cell::new([0; 5]) };
     }
 
     pub(crate) fn note(i: usize) {
@@ -2798,8 +2859,8 @@ pub(crate) mod sliced {
     }
 
     /// The counts since the last time they were taken.
-    pub(crate) fn take() -> [usize; 4] {
-        COUNTS.with(|c| c.replace([0; 4]))
+    pub(crate) fn take() -> [usize; 5] {
+        COUNTS.with(|c| c.replace([0; 5]))
     }
 }
 

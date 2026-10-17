@@ -13,7 +13,9 @@ runs and the path each of its reads takes - so that a model's cost is read
 before anything computes it. These goldens are the door's and the crate's,
 not an oracle of the treaty (conformance/README.md): the census is one
 implementation's plan, and it changes on purpose whenever the plan does
-(KERNEL.31 is to turn the sums program's `cells` into `array`). Such a change
+(KERNEL.31 turned the reads of a sheet its plan keeps as an array, a range
+of it or a run's moving cell, from `cells` and `lookup` into `array`,
+`stride` and `slot`, the sums program's among them). Such a change
 regenerates the goldens with the door, the diff showing what it moved, and
 the floors move with it.
 
@@ -32,7 +34,7 @@ minute with a debug door, most of it the 33 MB of Life's formulas.
 ALSO HELD, read off each golden itself: its line count, as a floor; the
 order, one plan row first with its nine counts in their order, then the
 readers rows, then the shape rows by ascending number, every row's forms in
-their order and its reads among the seven kinds in theirs; a readers row's
+their order and its reads among the eight kinds in theirs; a readers row's
 (most k), printed for a sheet whose readers are indexed (KERNEL.35), one
 reader at least and the row's readers at most; the totals the
 plan row states, summed from the shape rows (the shapes, their distinct
@@ -104,8 +106,9 @@ $goldens = @(
 $goldenDir = Join-Path $repoRoot 'scripts/recalc/shapes'
 $cacheDir = Join-Path $repoRoot 'target/shapes'
 
-# The kinds of read, in the order a row prints them.
-$kinds = @('slot', 'array', 'lookup', 'cells', 'once', 'start', 'each')
+# The kinds of read, in the order a row prints them; `stride` since a door's
+# plan keeps its sheets as arrays where a machine's would (KERNEL.31).
+$kinds = @('stride', 'slot', 'array', 'lookup', 'cells', 'once', 'start', 'each')
 
 # A text as its lines: line endings normalized, trailing blank lines dropped.
 function Get-Lines([string]$text) {
@@ -364,7 +367,7 @@ if ($Control) {
             @{ Name = 'two shape rows swapped'; Edit = { param($l) $t = $l[2]; $l[2] = $l[3]; $l[3] = $t; $l } },
             @{ Name = 'a readers row after a shape row'; Edit = { param($l) $t = $l[1]; $l[1] = $l[2]; $l[2] = $t; $l } },
             @{ Name = 'a (same k) pointing at a later row'; Edit = { param($l) $l[2] = $l[2] -replace '\)$', ' (same 2))'; $l } },
-            @{ Name = 'the kinds out of their order'; Edit = { param($l) $l[3] = $l[3] -replace '\(reads lookup once\)', '(reads once lookup)'; $l } },
+            @{ Name = 'the kinds out of their order'; Edit = { param($l) $l[3] = $l[3] -replace '\(reads stride once\)', '(reads once stride)'; $l } },
             @{ Name = 'a run under four cells'; Edit = { param($l) $l[2] = $l[2] -replace '\(runs 1 20000 20000 20000\)', '(runs 1 20000 3 20000)'; $l } },
             @{ Name = 'an (unlowered ...) on a shape with no cell alone'; Edit = { param($l) $l[2] = $l[2] -replace '\)$', ' (unlowered text))'; $l } }
         )

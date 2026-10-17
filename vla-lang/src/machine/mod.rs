@@ -37,7 +37,16 @@
 //!
 //! The frame's values are kept once, each overwritten as its cell computes
 //! a value that differs; a step that yields keeps each value it overwrote
-//! beside, so a view during a yield shows the last complete frame. When a
+//! beside, so a view during a yield shows the last complete frame. A sheet
+//! of the rows that the plan reads by a range or by a run's moving cell keeps
+//! the frame's values as an array too, each slot written where its cell's
+//! value is kept, a value cell's at the write that changes it (KERNEL.31): so
+//! that a range of the frame's own cells is folded and walked by index, and
+//! a run's cells read one of them by slices, as a twin's array is read; the
+//! order puts each reader after every cell it reads, so the slots it reads
+//! are this frame's. A sheet one of whose formulas holds a reason offers no
+//! array until none does, its ranges and cells read through its cells, which
+//! answer the reason. When a
 //! frame completes, the values that changed are copied into the twins, with
 //! the planes and the twins' arrays, however many changed (KERNEL.36); when
 //! the cells a copy would write through a twin's own cells, on a sheet too
@@ -87,6 +96,7 @@ pub mod plane;
 use std::cell::Cell as Slot;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap};
 
+use crate::calc::dense;
 use crate::calc::graph::{is_formula, Extent, Names};
 use crate::calc::program::{Answer, Source};
 use crate::calc::reach::{Reach, Reached};
@@ -118,14 +128,6 @@ pub const HANDLES: usize = 16;
 
 /// The rows a write takes, as `grid-row-unknown` lists them.
 pub const WRITE_ROWS: &str = "cell, formula and derived";
-
-/// The most slots a twin's array holds for each cell of its sheet
-/// (KERNEL.20): a slot is 24 bytes, its number and kind beside it 9 more
-/// (KERNEL.43), and a cell of the twin's B-tree about 137 (measured
-/// 2026-10-10), so an array within this is smaller than the cells it
-/// shadows, and a sheet sparser than that, two cells far apart, is read
-/// through its cells.
-const SLOTS_A_CELL: u64 = 4;
 
 /// The value cells a grid keeps room for as written between two frames
 /// (KERNEL.20), so that an engine's write of its Clock at every step makes
@@ -353,6 +355,25 @@ pub struct Machine {
     behind: Vec<Vec<u64>>,
     /// By rows' sheet, whether any of its twin's cells is behind.
     lagging: Vec<bool>,
+    /// By rows' sheet, the frame's own values as an array over the sheet's
+    /// extent, its numbers beside (KERNEL.31): for a sheet the plan reads by
+    /// a range or by a run's moving cell (`Shapes::read_as_array`) whose
+    /// cells stand close enough together for an array, as a twin's do. Each
+    /// slot holds what a read of its cell answers now, a formula's value of
+    /// this frame as it is kept, a value cell's content as it was written,
+    /// nothing for a cell that holds none or a formula with no value, beside
+    /// which a reason may stand; made at a load and where a write moves the
+    /// sheet's extent or which sheets the plan reads so, and written where a
+    /// value changes. `None` for every other sheet.
+    own: Vec<Option<Dense>>,
+    /// By rows' sheet kept as an array, how many of its formula cells hold
+    /// a reason: its array is offered to the evaluator only while none does,
+    /// its cells answering a reason where a slot holds nothing.
+    own_reasons: Vec<u32>,
+    /// Whether any of the frame's own sheets keeps an array, asked first, so
+    /// that a plan that keeps none asks of a cell's read and change nothing
+    /// it asked before (KERNEL.31).
+    owns: bool,
     /// The buffers a run evaluated at once holds, and its cells' answers,
     /// kept from one run to the next so that a frame makes them once
     /// (KERNEL.20).
@@ -425,6 +446,10 @@ pub struct Machine {
     /// always, but in the tests that hold the copy to the walk, whose every
     /// frame's end walks (KERNEL.36).
     copies: bool,
+    /// Whether a frame's own sheets the plan reads so keep their values as
+    /// arrays (KERNEL.31): always, but in the tests that hold the arrays to
+    /// the same sheets read through their cells.
+    arrays: bool,
     /// The cells the frame in progress computed, for the tests to count.
     #[cfg(test)]
     computed: usize,
@@ -432,6 +457,17 @@ pub struct Machine {
     /// to count (KERNEL.44).
     #[cfg(test)]
     ran: usize,
+    /// How often a frame's own sheet kept as an array was read through its
+    /// cells instead, a formula of it holding a reason, for the tests to
+    /// count (KERNEL.31).
+    #[cfg(test)]
+    aside: Slot<usize>,
+    /// How often a write kept a frame's own sheet's array over its extent,
+    /// and made one again, for the tests to count (KERNEL.31).
+    #[cfg(test)]
+    kept_over: usize,
+    #[cfg(test)]
+    made_again: usize,
 }
 
 impl std::fmt::Debug for Machine {
@@ -555,6 +591,9 @@ impl Machine {
             dense: vec![None; sheets],
             behind: vec![Vec::new(); sheets],
             lagging: vec![false; sheets],
+            own: vec![None; sheets],
+            own_reasons: vec![0; sheets],
+            owns: false,
             lanes: Lanes::default(),
             answers: Vec::new(),
             answered: Vec::with_capacity(vector::CHUNK),
@@ -579,14 +618,141 @@ impl Machine {
             incremental: true,
             lazy: true,
             copies: true,
+            arrays: true,
             #[cfg(test)]
             computed: 0,
             #[cfg(test)]
             ran: 0,
+            #[cfg(test)]
+            aside: Slot::new(0),
+            #[cfg(test)]
+            kept_over: 0,
+            #[cfg(test)]
+            made_again: 0,
         };
         m.fit();
         m.walk();
+        m.own_made(None);
         m
+    }
+
+    /// The frame's own sheets kept as arrays as the plan reads them
+    /// (KERNEL.31): at a load, `written` none, and at a write that plans
+    /// again or adds a cell, `written` the cells it changed. A sheet the plan
+    /// reads by a range or a run's moving cell whose cells stand close enough
+    /// together keeps one; one it kept over the same extent stands, its slots
+    /// being by place, which a plan does not move, the written cells' slots
+    /// alone written again, its reasons counted by the write (`settle`); any
+    /// other is made from the frame's values and the sheet's cells, its
+    /// reasons counted; every other sheet keeps none.
+    fn own_made(&mut self, written: Option<&[CellId]>) {
+        for s in 0..self.sheets {
+            if !self.arrays || !self.shapes.read_as_array(s) {
+                self.own[s] = None;
+                self.own_reasons[s] = 0;
+                continue;
+            }
+            if let (Some(written), Some(kept)) = (written, self.own[s].as_ref()) {
+                if kept.stands_over(self.extents[s]) {
+                    for &id in written.iter().filter(|id| id.0 == s) {
+                        let v = self.slot_value(id);
+                        if let Some(Some(kept)) = self.own.get_mut(s) {
+                            if let Some(i) = kept.index(id.1, id.2) {
+                                kept.write_at(i, |slot| *slot = v);
+                            }
+                        }
+                    }
+                    #[cfg(test)]
+                    {
+                        self.kept_over += 1;
+                    }
+                    continue;
+                }
+            }
+            #[cfg(test)]
+            if written.is_some() {
+                self.made_again += 1;
+            }
+            // Made whole, in an old store's memory, its extent having moved
+            // (`Dense::over` empties every slot of it first); none for a
+            // sheet whose cells stand too far apart for one, as a twin's.
+            let limit = dense::limit(self.book.sheets[s].cells.len(), CELLS as u64);
+            let old = self.own[s].take();
+            let Some(mut d) = Dense::over(self.extents[s], limit, old, true) else {
+                self.own_reasons[s] = 0;
+                continue;
+            };
+            let mut reasons = 0;
+            for (&(row, col), cell) in &self.book.sheets[s].cells {
+                let v = if is_formula(&cell.content) {
+                    match value_at(&self.shapes, &self.values, (s, row, col)) {
+                        Some(Computed::Value(v)) => v.clone(),
+                        Some(Computed::NotComputed(_)) => {
+                            reasons += 1;
+                            Value::Empty
+                        }
+                        None => Value::Empty,
+                    }
+                } else {
+                    content_value(&cell.content)
+                };
+                if let Some(i) = d.index(row, col) {
+                    d.write_at(i, |slot| *slot = v);
+                }
+            }
+            self.own[s] = Some(d);
+            self.own_reasons[s] = reasons;
+        }
+        self.owns = self.own.iter().any(Option::is_some);
+    }
+
+    /// What a read of a rows' cell answers now, as an array's slot holds it
+    /// (KERNEL.31): a formula's value of the frame, nothing for a formula
+    /// with no value or a reason, which a read finds beside; a value cell's
+    /// content as a read answers it; nothing for a cell holding none.
+    fn slot_value(&self, id: CellId) -> Value {
+        match self.book.sheets[id.0].cells.get(&(id.1, id.2)) {
+            Some(cell) if is_formula(&cell.content) => {
+                match value_at(&self.shapes, &self.values, id) {
+                    Some(Computed::Value(v)) => v.clone(),
+                    _ => Value::Empty,
+                }
+            }
+            Some(cell) => content_value(&cell.content),
+            None => Value::Empty,
+        }
+    }
+
+    /// The value a formula cell's frame changed to, at a position of the
+    /// order, into its sheet's array where one is kept (KERNEL.31), and its
+    /// sheet's reasons counted, `was` whether it held a reason before.
+    #[inline]
+    fn own_put(&mut self, p: usize, was: bool) {
+        if !self.owns {
+            return;
+        }
+        let id = self.shapes.order()[p];
+        let Some(Some(d)) = self.own.get_mut(id.0) else {
+            return;
+        };
+        let Some(i) = d.index(id.1, id.2) else {
+            return;
+        };
+        let now = &self.values[p];
+        let reason = matches!(now, Some(Computed::NotComputed(_)));
+        d.write_at(i, |slot| match now {
+            Some(Computed::Value(Value::Number(n))) => *slot = Value::Number(*n),
+            Some(Computed::Value(v)) => *slot = v.clone(),
+            _ => *slot = Value::Empty,
+        });
+        if reason != was {
+            let n = &mut self.own_reasons[id.0];
+            if reason {
+                *n += 1;
+            } else {
+                *n -= 1;
+            }
+        }
     }
 
     /// What follows a frame's changes made to the plan's size, once a plan
@@ -680,12 +846,19 @@ impl Machine {
     /// shape costs a frame, read before a frame runs, as
     /// [`crate::calc::Shapes::census`] prints a plan, but each read of a
     /// twin named by how the machine keeps that twin as its last frame's end
-    /// left it, an array read by index or cells read through lookups.
-    /// Computed when asked: a load, a step and a write keep nothing for it
-    /// but where each level of the order ends.
+    /// left it, an array read by index or cells read through lookups; and a
+    /// frame's own sheet as the plan keeps it (KERNEL.31), as a door's
+    /// census names it, a sheet stepping aside for a reason being a frame's
+    /// and never the plan's. Computed when asked: a load, a step and a write
+    /// keep nothing for it but where each level of the order ends and which
+    /// sheets a read takes as an array.
     pub fn census(&self) -> String {
         crate::calc::census::rows(&self.shapes, &self.book, &self.library, &|s| {
-            Env::dense(self, s).is_some()
+            if s < self.sheets {
+                self.own[s].is_some()
+            } else {
+                Env::dense(self, s).is_some()
+            }
         })
     }
 
@@ -1020,14 +1193,16 @@ impl Machine {
     }
 
     /// A value that differs from the one its cell holds kept: the old one
-    /// beside while a step yields, the cell counted as changed, and, but in
-    /// a frame that computes every cell, the cells of the frame that read it
-    /// marked.
+    /// beside while a step yields, the new one in its sheet's array where one
+    /// is kept (KERNEL.31), the cell counted as changed, and, but in a frame
+    /// that computes every cell, the cells of the frame that read it marked.
     fn changed_to(&mut self, p: usize, computed: Computed, keep: bool) {
         let was = self.values[p].replace(computed);
+        let reason = matches!(was, Some(Computed::NotComputed(_)));
         if keep {
             self.before.entry(p as u32).or_insert(was);
         }
+        self.own_put(p, reason);
         if self.changed.len() < self.changed.capacity() {
             self.changed.push(p as u32);
         } else {
@@ -1254,10 +1429,9 @@ impl Machine {
             } else {
                 None
             };
-            let slots = (sheet.cells.len() as u64).saturating_mul(SLOTS_A_CELL);
             let mut kept = Dense::over(
                 self.extents[s],
-                slots.min(CELLS as u64),
+                dense::limit(sheet.cells.len(), CELLS as u64),
                 self.dense[s].take(),
                 sliced(reach, t),
             );
@@ -2069,6 +2243,16 @@ impl Machine {
                 self.undo(&log);
                 return Err(LineRefusal { line, refusal });
             }
+            // A changed cell's reason uncounted from its sheet's array, its
+            // value forgotten below (KERNEL.31).
+            for id in log.changed.keys() {
+                if let Some(p) = saved.reach().position(*id) {
+                    let reason = matches!(self.values[p], Some(Computed::NotComputed(_)));
+                    if reason && self.own[id.0].is_some() {
+                        self.own_reasons[id.0] -= 1;
+                    }
+                }
+            }
             // Each value moved to its cell's new position in the order
             // (KERNEL.26).
             let mut moved: Vec<Option<Computed>> = vec![None; self.shapes.order().len()];
@@ -2107,6 +2291,26 @@ impl Machine {
             }
             if !self.shapes.holds(*id) {
                 self.written.push(*id);
+            }
+        }
+        // The frame's own sheets' arrays (KERNEL.31): kept or made again as
+        // the plan and the extents now stand, where either may have moved;
+        // else each written value cell's slot written, a cell's place and its
+        // sheet's extent standing.
+        if formula_changed || log.added > 0 {
+            let changed: Vec<CellId> = log.changed.keys().copied().collect();
+            self.own_made(Some(&changed));
+        } else if self.owns {
+            for id in log.changed.keys() {
+                if self.own[id.0].is_none() {
+                    continue;
+                }
+                let v = self.slot_value(*id);
+                if let Some(Some(kept)) = self.own.get_mut(id.0) {
+                    if let Some(i) = kept.index(id.1, id.2) {
+                        kept.write_at(i, |slot| *slot = v);
+                    }
+                }
             }
         }
         // A plane kept for a sheet the write changed is stale: the walk
@@ -2176,6 +2380,13 @@ impl Env for Machine {
         // write, so its read goes straight to the twin (KERNEL.25), past two
         // lookups that could only miss. Most of a frame's reads are of a twin.
         if id.0 < self.sheets {
+            // A frame's own sheet kept as an array read by its index, as a
+            // twin's is (KERNEL.31): offered only while none of its formulas
+            // holds a reason, its slot holds what a read answers, nothing for
+            // a cell holding none, and every cell stands inside its extent.
+            if let Some(kept) = Env::dense(self, id.0) {
+                return Ok(kept.get(id.1, id.2).cloned().unwrap_or(Value::Empty));
+            }
             // The frame's value: computed in this frame by now, the order
             // putting each cell after what it reads, or kept from the last,
             // its reads unchanged (KERNEL.20); found by the cell's position.
@@ -2222,9 +2433,25 @@ impl Env for Machine {
         self.names.resolve(name, scope, home)
     }
 
+    /// A twin's array, as its last frame's end left it (KERNEL.20); a frame's
+    /// own sheet's, as the frame keeps it, while none of its formulas holds
+    /// a reason (KERNEL.31), so that a range of it answers a reason as a walk
+    /// of its cells does.
     fn dense(&self, sheet: usize) -> Option<&Dense> {
-        let s = sheet.checked_sub(self.sheets)?;
-        self.dense.get(s)?.as_ref()
+        if sheet < self.sheets {
+            if !self.owns {
+                return None;
+            }
+            return match self.own_reasons[sheet] {
+                0 => self.own[sheet].as_ref(),
+                _ => {
+                    #[cfg(test)]
+                    self.aside.set(self.aside.get() + 1);
+                    None
+                }
+            };
+        }
+        self.dense.get(sheet - self.sheets)?.as_ref()
     }
 
     fn enter(&self, id: CellId) {
@@ -2235,13 +2462,22 @@ impl Env for Machine {
 impl Source for Machine {
     /// [`Env::read`]'s answer as a program's register holds it (KERNEL.44,
     /// `calc::program::number_of`), read where `read` reads it and no value
-    /// made: a formula's value of the frame by its position, a twin's slot
-    /// and the reason beside an empty one, a cell's content.
+    /// made: a frame's own sheet's slot where it offers its array, an empty
+    /// one nothing (KERNEL.31), a formula's value of the frame by its
+    /// position, a twin's slot and the reason beside an empty one, a cell's
+    /// content.
     #[inline]
     fn number(&self, id: CellId) -> Option<f64> {
         let reasonless =
             |id: &CellId| self.twin_reasons.is_empty() || !self.twin_reasons.contains_key(id);
         if id.0 < self.sheets {
+            if let Some(kept) = Env::dense(self, id.0) {
+                return match kept.get(id.1, id.2) {
+                    Some(Value::Number(n)) => Some(*n),
+                    Some(Value::Empty) | None => Some(0.0),
+                    Some(_) => None,
+                };
+            }
             if let Some(p) = self.shapes.reach().position(id) {
                 return match &self.values[p] {
                     Some(Computed::Value(Value::Number(n))) => Some(*n),
@@ -4520,10 +4756,24 @@ mod tests {
     // ---- KERNEL.30: the census held to the plan walked again, and to the
     // paths runs take ----
 
-    /// A machine's census, its twins' arrays as it keeps them.
+    /// A machine's census, its twins' arrays as it keeps them and its own
+    /// sheets' as the plan keeps them (KERNEL.31), as `Machine::census`.
     fn census_of(m: &Machine) -> crate::calc::census::Census {
         crate::calc::census::of(&m.shapes, &m.book, &m.library, &|s| {
-            Env::dense(m, s).is_some()
+            if s < m.sheets {
+                m.own[s].is_some()
+            } else {
+                Env::dense(m, s).is_some()
+            }
+        })
+    }
+
+    /// The same census with no sheet of the rows kept as an array: what a
+    /// run reads while a sheet steps its array aside, one of its formulas
+    /// holding a reason (KERNEL.31).
+    fn census_unkept(m: &Machine) -> crate::calc::census::Census {
+        crate::calc::census::of(&m.shapes, &m.book, &m.library, &|s| {
+            s >= m.sheets && Env::dense(m, s).is_some()
         })
     }
 
@@ -4688,8 +4938,10 @@ mod tests {
         // budget with writes between frames, every path a run takes, noted
         // as it takes it, is a kind of read or a call the census names for
         // the run's shape, the census taken at the frame's start, when the
-        // twins' arrays are the ones the run reads; and every kind of path is
-        // taken somewhere, so that the law holds over each.
+        // twins' arrays are the ones the run reads, or, for a frame's own
+        // sheet that steps its array aside while a formula of it holds a
+        // reason, the census with no array of the rows (KERNEL.31); and every
+        // kind of path is taken somewhere, so that the law holds over each.
         let mut kinds: BTreeSet<&str> = BTreeSet::new();
         for seed in 1..=80u64 {
             let mut d = Dice(seed);
@@ -4697,10 +4949,15 @@ mod tests {
             let mut m = load(&rows);
             for frame in 1..=4 {
                 let census = census_of(&m);
+                let unkept = census_unkept(&m);
                 let facts: BTreeMap<usize, &crate::calc::census::Facts> =
                     census.shapes.iter().map(|f| (f.shape, f)).collect();
+                let aside: BTreeMap<usize, &crate::calc::census::Facts> =
+                    unkept.shapes.iter().map(|f| (f.shape, f)).collect();
+                let stepped = m.aside.get();
                 vector::taken::begin();
                 while !m.step(1 + d.below(300)).done {}
+                let stepped = m.aside.get() > stepped;
                 for (s, path) in vector::taken::end() {
                     let Some(f) = facts.get(&s) else {
                         panic!(
@@ -4708,7 +4965,7 @@ mod tests {
                         );
                     };
                     assert!(
-                        named(f, &path),
+                        named(f, &path) || (stepped && named(aside[&s], &path)),
                         "seed {seed}, frame {frame}: shape {s} took {path:?}; its facts {f:?}\n{rows}"
                     );
                     kinds.insert(match path {
@@ -4748,29 +5005,41 @@ mod tests {
         // cells, a run, whose census names that kind and no other; and the
         // paths its run takes are the kinds named, but the parts compared at
         // the frame's start, which no run takes, and the reads under a node
-        // the evaluator computes at each cell, which are its own.
+        // the evaluator computes at each cell, which are its own. `T`, whose
+        // own cells and range its runs read, keeps the frame's values as an
+        // array (KERNEL.31), and holds no cell not computed, as `S` does at
+        // `M`'s, a range where one value is wanted; `W`, widened past four
+        // slots a cell by a cell far from the rest, keeps none, and is read
+        // through its cells.
         let mut m = load(concat!(
             "(sheet \"V\" visible)\n",
             "(cell \"V\" \"A1\" 1)\n",
             "(sheet \"S\" visible)\n",
             "(cell \"S\" \"A1:B8\" 1)\n",
+            "(sheet \"W\" visible)\n",
+            "(cell \"W\" \"A1:B9\" 1)\n",
+            "(cell \"W\" \"XFA1\" 1)\n",
+            "(sheet \"T\" visible)\n",
+            "(cell \"T\" \"A1:P8\" 1)\n",
             "(name \"Rate\" \"S!$A$1\")\n",
             "(formula \"S\" \"C1:C8\" \"=S.last!A1\")\n",
             "(formula \"S\" \"D1:D8\" \"=SUM(S.last!A1:B2)\")\n",
-            "(formula \"S\" \"E1:E8\" \"=A1\")\n",
-            "(formula \"S\" \"F1:F8\" \"=SUM(A1:B1)\")\n",
+            "(formula \"S\" \"E1:E8\" \"=W!A1\")\n",
+            "(formula \"S\" \"F1:F8\" \"=SUM(W!A1:B1)\")\n",
             "(formula \"S\" \"G1:G8\" \"=$A$1+1\")\n",
             "(formula \"S\" \"H1:H8\" \"=IF(V!$A$1=1,1,0)\")\n",
             "(formula \"S\" \"I1:I8\" \"=Rate+1\")\n",
             "(formula \"S\" \"J1:J8\" \"=MOD(S.last!A1,2)\")\n",
             "(formula \"S\" \"K1:K8\" \"=ROW()\")\n",
-            "(formula \"S\" \"L1:L8\" \"=SUM(IF(A1>0,A1:A2,B1:B2))\")\n",
+            "(formula \"S\" \"L1:L8\" \"=SUM(IF(W!A1>0,W!A1:A2,W!B1:B2))\")\n",
             "(formula \"S\" \"M1:M8\" \"=ABS(S.last!A1:A2)\")\n",
             "(formula \"S\" \"N1:N8\" \"=S.last!$A1\")\n",
             "(formula \"S\" \"O1:O8\" \"=SUM(S.last!$A1:$B2)\")\n",
             "(formula \"S\" \"P1\" \"=S.last!A1\")\n",
+            "(formula \"T\" \"Q1:Q8\" \"=A1\")\n",
+            "(formula \"T\" \"R1:R8\" \"=SUM(A1:B1)\")\n",
         ));
-        let want: [(&str, &str, &[&str]); 14] = [
+        let want: [(&str, &str, &[&str]); 16] = [
             ("C1", "stride", &[]),
             ("D1", "stride", &[]),
             ("E1", "lookup", &[]),
@@ -4790,6 +5059,10 @@ mod tests {
             ("N1", "slot", &[]),
             ("O1", "array", &[]),
             ("P1", "slot", &[]),
+            // The frame's own cells and range, its sheet kept as an array
+            // (KERNEL.31): read and folded by the run as a twin's are.
+            ("Q1", "stride", &[]),
+            ("R1", "stride", &[]),
         ];
         // Runs of eight, fewer than `SHORT`, are evaluated cell by cell by
         // their programs (KERNEL.44): the paths held here are the run's.
@@ -9620,5 +9893,409 @@ mod tests {
                 assert!(m.write(&w).is_ok(), "{w}");
             }
         }
+    }
+
+    // ---- KERNEL.31: a frame's own sheets kept as arrays ----
+
+    /// Each sheet of the rows a machine keeps as an array holds at every slot
+    /// what a read of its cell answers now, to the bit, over its sheet's
+    /// extent, and counts the reasons its formula cells hold; each kept where
+    /// the plan reads it so and its cells stand close enough together, and no
+    /// other (KERNEL.31).
+    fn own_is_the_frame(m: &Machine, when: &str) {
+        for s in 0..m.sheets {
+            let sheet = &m.book.sheets[s];
+            let fits = dense::fits(m.extents[s], dense::limit(sheet.cells.len(), CELLS as u64));
+            assert_eq!(
+                m.own[s].is_some(),
+                m.arrays && m.shapes.read_as_array(s) && fits,
+                "{when}: sheet {s} kept as an array"
+            );
+            let Some(d) = &m.own[s] else {
+                assert_eq!(m.own_reasons[s], 0, "{when}: sheet {s}, no array, no count");
+                continue;
+            };
+            assert!(
+                d.stands_over(m.extents[s]),
+                "{when}: sheet {s}'s array over its extent"
+            );
+            assert!(
+                d.keeps_numbers(),
+                "{when}: sheet {s}'s numbers beside its slots"
+            );
+            for i in 0..d.slots() {
+                let (slot, (row, col)) = d.at(i);
+                let want = m.slot_value((s, row, col));
+                assert!(
+                    same_value(slot, &want),
+                    "{when}: sheet {s}, row {row}, column {col}: {slot:?} for {want:?}"
+                );
+            }
+            let reasons = m
+                .shapes
+                .order()
+                .iter()
+                .zip(&m.values)
+                .filter(|(id, v)| id.0 == s && matches!(v, Some(Computed::NotComputed(_))))
+                .count();
+            assert_eq!(
+                m.own_reasons[s] as usize, reasons,
+                "{when}: sheet {s}'s reasons"
+            );
+        }
+    }
+
+    /// A grid of two sheets whose formulas stand in bands down a column,
+    /// each band one shape whose cells, one below the other, read the cell
+    /// beside each, the cells above the band, the value columns' ranges and
+    /// the sheet before's (KERNEL.31): `grid_of`'s bands one column wide,
+    /// every reference pointing before its cell in reading order, so that no
+    /// grid holds a cycle, and a run's cells read a column of numbers.
+    fn stacked_grid(d: &mut Dice) -> String {
+        let rows = 4 + d.below(40) as u32;
+        let mut out = String::new();
+        for (sheet, before) in [("A", None), ("B", Some("A"))] {
+            out.push_str(&format!("(sheet \"{sheet}\" visible)\n"));
+            for row in 1..=20 {
+                for col in ["A", "B"] {
+                    if let Some(v) = datum(d) {
+                        out.push_str(&format!("(cell \"{sheet}\" \"{col}{row}\" {v})\n"));
+                    }
+                }
+            }
+            for c in 2..8 {
+                let (col, left) = (LETTERS[c], LETTERS[c - 1]);
+                let mut top = 1;
+                while top <= rows {
+                    let bottom = (top + d.below(rows as usize) as u32).min(rows);
+                    let at = Band {
+                        before,
+                        top,
+                        rows,
+                        left,
+                    };
+                    let f = expr(d, &at, 0);
+                    let f = match d.below(3) {
+                        0 => format!("{left}{top}+({f})"),
+                        1 => format!("{left}{top}*2"),
+                        _ => f,
+                    };
+                    let f = crate::rows::quoted(&format!("={f}"));
+                    out.push_str(&format!(
+                        "(formula \"{sheet}\" \"{col}{top}:{col}{bottom}\" {f})\n"
+                    ));
+                    top = bottom + 1;
+                }
+            }
+        }
+        out.push_str("(name \"Rate\" \"A!$A$2\")\n");
+        out.push_str("(name \"Box\" \"A!$A$1:$B$3\")\n");
+        out.push_str("(name \"Prev\" \"A.last!$C$1\")\n");
+        out.push_str("(name \"Band\" \"A!$C$1:$D$2\")\n");
+        out
+    }
+
+    /// The same rows loaded twice: one machine keeping its frame's own
+    /// sheets as arrays, as every machine does, and one keeping none, its
+    /// sheets read through their cells as before KERNEL.31.
+    fn kept_and_not(rows: &str) -> (Machine, Machine) {
+        let kept = load(rows);
+        let mut cells = load(rows);
+        cells.arrays = false;
+        cells.own_made(None);
+        (kept, cells)
+    }
+
+    #[test]
+    fn a_frame_s_own_sheets_read_as_arrays_are_their_cells_read_one_by_one() {
+        // KERNEL.31: grids of generated formulas, in bands across a row and
+        // down a column, reading ranges and cells of their own sheet and of
+        // another, stepped in slices of any budget, against the same grids
+        // whose frames keep no arrays, frame for frame and bit for bit, and
+        // the first frame against `Calc`; every array held at every yield and
+        // after every write to what a read of each of its cells answers, and
+        // a view at every yield the last complete frame, never the array's;
+        // writes between frames of values, of texts, of a formula leaving its
+        // cell not computed, which steps its sheet's array aside, and of a
+        // cell past a sheet's extent, which makes its array again, each write
+        // planning again keeping the arrays over the extents that stand.
+        vector::sliced::take();
+        let (mut aside, mut kept_over, mut made_again, mut kept) = (0, 0, 0, 0);
+        for seed in 1..=60u64 {
+            for stacked in [false, true] {
+                let mut d = Dice(seed ^ if stacked { 0x3131 } else { 0 });
+                let rows = if stacked {
+                    stacked_grid(&mut d)
+                } else {
+                    generated_grid(&mut d)
+                };
+                let (mut m, mut cells) = kept_and_not(&rows);
+                let calc: BTreeMap<CellId, String> = {
+                    let calc = crate::calc::Calc::run(&m.book, &m.library);
+                    let spell =
+                        |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
+                    m.shapes.order().iter().map(|id| (*id, spell(id))).collect()
+                };
+                let shown = |m: &Machine| -> Vec<String> {
+                    let order = m.shapes.order().iter();
+                    order.map(|&id| format!("{:?}", m.computed(id))).collect()
+                };
+                for frame in 1..=5 {
+                    let when = format!("seed {seed}, stacked {stacked}, frame {frame}");
+                    let last = shown(&m);
+                    loop {
+                        let s = m.step(1 + d.below(300));
+                        own_is_the_frame(&m, &when);
+                        if s.done {
+                            break;
+                        }
+                        assert_eq!(shown(&m), last, "{when}: a view while the step yields");
+                    }
+                    assert!(cells.step(0).done);
+                    assert_eq!(values(&m), values(&cells), "{when}\n{rows}");
+                    if frame == 1 {
+                        assert_eq!(values(&m), calc, "{when}: Calc\n{rows}");
+                    }
+                    kept += m.own.iter().filter(|o| o.is_some()).count();
+                    let write = match d.below(6) {
+                        0 => format!("(cell \"A\" \"A{}\" 7)", 1 + d.below(20)),
+                        1 => format!("(cell \"B\" \"B{}\" \"y\")", 1 + d.below(20)),
+                        2 => format!(
+                            "(cell \"A\" \"{}{}\" 2)",
+                            d.pick(&LETTERS[2..8]),
+                            1 + d.below(4)
+                        ),
+                        3 => format!(
+                            "(formula \"A\" \"{}{}\" \"=$A$1:$A$2\")",
+                            d.pick(&LETTERS[2..8]),
+                            1 + d.below(4)
+                        ),
+                        4 => format!("(cell \"B\" \"J{}\" 1)", 30 + d.below(40)),
+                        _ => continue,
+                    };
+                    let (a, b) = (m.write(&write), cells.write(&write));
+                    assert_eq!(a.is_ok(), b.is_ok(), "{when}: {write}: {a:?} {b:?}");
+                    own_is_the_frame(&m, &format!("{when}, after {write}"));
+                }
+                aside += m.aside.get();
+                kept_over += m.kept_over;
+                made_again += m.made_again;
+            }
+        }
+        let down = vector::sliced::take()[vector::sliced::DOWN];
+        assert!(kept > 0, "a frame's own sheet kept as an array");
+        assert!(down > 0, "a column of a frame's numbers read whole");
+        assert!(aside > 0, "a sheet's array stepped aside for a reason");
+        assert!(kept_over > 0, "an array kept over a write that plans again");
+        assert!(made_again > 0, "an array made again past its extent");
+    }
+
+    #[test]
+    fn a_range_over_a_frame_s_sheet_answers_a_cell_not_computed() {
+        // KERNEL.31: a range of a frame's own sheet holding a cell not
+        // computed answers the cell's reason, as a walk of its cells does, a
+        // run's fold and a cell alone's walk alike: the sheet steps its array
+        // aside while a reason stands, and offers it again once none does.
+        // Beside them a twin's range skips the cell, as
+        // `a_range_over_a_twin_skips_a_cell_not_computed_as_it_did` pins it.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"B1:B2\" 1)\n",
+            "(formula \"S\" \"A1\" \"=B1:B2\")\n",
+            "(formula \"S\" \"C1:C8\" \"=SUM(A$1:B$1)+ROW()\")\n",
+            "(formula \"S\" \"D1\" \"=SUM(A1:B2)\")\n",
+            "(formula \"S\" \"E1:E8\" \"=SUM(S.last!A$1:B$1)\")\n",
+        );
+        let (mut m, mut cells) = kept_and_not(rows);
+        assert!(m.own[0].is_some(), "the sheet kept as an array");
+        for frame in 1..=2 {
+            assert!(m.step(0).done && cells.step(0).done);
+            assert_eq!(values(&m), values(&cells), "frame {frame}");
+            own_is_the_frame(&m, &format!("frame {frame}"));
+        }
+        for addr in ["A1", "C1", "C8", "D1"] {
+            assert!(
+                matches!(at(&m, "S", addr), Some(Computed::NotComputed(_))),
+                "{addr}: {:?}",
+                at(&m, "S", addr)
+            );
+        }
+        assert_eq!(at(&m, "S", "E1"), Some(Computed::Value(Value::Number(1.0))));
+        // `A1`'s reason, and the nine cells that answer it.
+        assert_eq!(m.own_reasons[0], 10);
+        assert!(m.aside.get() > 0, "the array stepped aside");
+        // A1 computed: no reason stands, and the array is read again.
+        let w = "(formula \"S\" \"A1\" \"=B1+B2\")";
+        assert!(m.write(w).is_ok() && cells.write(w).is_ok());
+        assert!(m.step(0).done && cells.step(0).done);
+        let aside = m.aside.get();
+        assert!(m.step(0).done && cells.step(0).done);
+        assert_eq!(values(&m), values(&cells));
+        assert_eq!(m.own_reasons[0], 0);
+        assert_eq!(
+            m.aside.get(),
+            aside,
+            "no array stepped aside once none stands"
+        );
+        assert_eq!(at(&m, "S", "C1"), Some(Computed::Value(Value::Number(4.0))));
+        assert_eq!(at(&m, "S", "D1"), Some(Computed::Value(Value::Number(4.0))));
+        own_is_the_frame(&m, "after the reason");
+    }
+
+    #[test]
+    fn a_frame_s_array_keeps_a_cell_not_reached_and_takes_each_write() {
+        // KERNEL.31: a frame computes what changed, so a slot whose cell it
+        // does not reach keeps the last frame's value; a value written lands
+        // in its slot at the write, before any frame; a formula written
+        // inside the sheet's extent plans again and keeps the array, its slot
+        // nothing until its first frame; a cell written past the extent makes
+        // the array again over the new one.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A8\" 1)\n",
+            "(formula \"S\" \"B1:B8\" \"=A1*2\")\n",
+            "(formula \"S\" \"C1:C8\" \"=B1+1\")\n",
+        );
+        let mut m = load(rows);
+        let slot = |m: &Machine, row: u32, col: u32| {
+            m.own[0].as_ref().and_then(|d| d.get(row, col).cloned())
+        };
+        assert!(m.step(0).done);
+        own_is_the_frame(&m, "frame 1");
+        assert!(m.write("(cell \"S\" \"A3\" 5)").is_ok());
+        assert_eq!(
+            slot(&m, 3, 1),
+            Some(Value::Number(5.0)),
+            "a value at its write"
+        );
+        own_is_the_frame(&m, "after a value");
+        assert!(m.step(0).done);
+        assert_eq!(slot(&m, 3, 2), Some(Value::Number(10.0)));
+        assert_eq!(slot(&m, 3, 3), Some(Value::Number(11.0)));
+        assert_eq!(
+            slot(&m, 1, 2),
+            Some(Value::Number(2.0)),
+            "a cell not reached"
+        );
+        own_is_the_frame(&m, "frame 2");
+        let first = |m: &Machine| m.own[0].as_ref().map(|d| d.slot_at(0) as *const Value);
+        let was = first(&m);
+        assert!(m.write("(formula \"S\" \"B4\" \"=A4*3\")").is_ok());
+        assert_eq!(first(&m), was, "the array kept, in its own memory");
+        assert_eq!((m.kept_over, m.made_again), (1, 0));
+        assert_eq!(
+            slot(&m, 4, 2),
+            Some(Value::Empty),
+            "a formula with no value yet"
+        );
+        own_is_the_frame(&m, "after a formula");
+        assert!(m.step(0).done);
+        assert_eq!(slot(&m, 4, 2), Some(Value::Number(3.0)));
+        assert_eq!(slot(&m, 4, 3), Some(Value::Number(4.0)));
+        own_is_the_frame(&m, "frame 3");
+        assert!(m.write("(cell \"S\" \"E12\" 1)").is_ok());
+        assert_eq!((m.kept_over, m.made_again), (1, 1));
+        assert_eq!(
+            slot(&m, 12, 5),
+            Some(Value::Number(1.0)),
+            "over the new extent"
+        );
+        own_is_the_frame(&m, "after a cell past the extent");
+        assert!(m.step(0).done);
+        own_is_the_frame(&m, "frame 4");
+    }
+
+    #[test]
+    fn a_sheet_no_read_takes_keeps_no_array() {
+        // KERNEL.31: a sheet whose cells only cells alone read, a running
+        // balance's, keeps no array, nor one read only by cells every `$`
+        // holds, nor one a range reads that is too sparse for an array; and
+        // a machine whose frames keep none keeps none where one would be.
+        for rows in [
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(cell \"S\" \"A1\" 1)\n",
+                "(formula \"S\" \"A2:A20\" \"=MOD(ROW()*7,13)\")\n",
+                "(formula \"S\" \"B1\" \"=A1\")\n",
+                "(formula \"S\" \"B2:B20\" \"=B1+A2\")\n",
+            ),
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(cell \"S\" \"A1\" 1)\n",
+                "(formula \"S\" \"B1:B8\" \"=$A$1+ROW()\")\n",
+            ),
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(cell \"S\" \"A1:A8\" 1)\n",
+                "(cell \"S\" \"XFA1\" 1)\n",
+                "(formula \"S\" \"B1:B8\" \"=SUM(A1:A2)\")\n",
+            ),
+        ] {
+            let mut m = load(rows);
+            assert!(m.step(0).done);
+            assert!(m.own[0].is_none(), "{rows}");
+            own_is_the_frame(&m, rows);
+        }
+        let (kept, cells) = kept_and_not(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A8\" 1)\n",
+            "(formula \"S\" \"B1:B8\" \"=SUM(A1:A2)\")\n",
+        ));
+        assert!(kept.own[0].is_some() && cells.own[0].is_none());
+    }
+
+    #[test]
+    fn cells_one_below_the_other_read_a_column_of_numbers() {
+        // KERNEL.31: a run's cells one below the other read the cell beside
+        // each, a reference no `$` holds, as one column of the sheet's
+        // numbers; a text in the column, and a reference moved past the
+        // array's last row or off the sheet's first, read cell by cell, the
+        // lane turning to values at the first cell not a number; a reference
+        // whose row a `$` holds, the same cell at each, never as a column;
+        // each frame against the same cells read one by one.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A6\" 2)\n",
+            "(cell \"S\" \"A7\" \"x\")\n",
+            "(cell \"S\" \"A8:A20\" 2)\n",
+            "(cell \"S\" \"G1:G20\" 3)\n",
+            "(formula \"S\" \"B1:B20\" \"=A1*2\")\n",
+            "(formula \"S\" \"C1:C20\" \"=A2+1\")\n",
+            "(formula \"S\" \"D1:D20\" \"=A1\")\n",
+            "(formula \"S\" \"E1:E20\" \"=SUM(D1:D20)+B1\")\n",
+            "(formula \"S\" \"H1:H20\" \"=G1+1\")\n",
+            "(formula \"S\" \"I1:I20\" \"=G2*H1\")\n",
+            "(formula \"S\" \"K1:K20\" \"=ROW()\")\n",
+            "(formula \"S\" \"J1:J20\" \"=K$1*10\")\n",
+        );
+        let (mut m, mut cells) = kept_and_not(rows);
+        vector::sliced::take();
+        let mut down = 0;
+        for frame in 1..=3 {
+            assert!(m.step(0).done && cells.step(0).done);
+            down += vector::sliced::take()[vector::sliced::DOWN];
+            assert_eq!(values(&m), values(&cells), "frame {frame}");
+            own_is_the_frame(&m, &format!("frame {frame}"));
+            let w = format!("(cell \"S\" \"A{}\" {})", 1 + frame, frame);
+            assert!(m.write(&w).is_ok() && cells.write(&w).is_ok());
+        }
+        assert!(down > 0, "a column of numbers read whole");
+        // `G21`, past the array's last row, is nothing.
+        assert_eq!(
+            at(&m, "S", "I20"),
+            Some(Computed::Value(Value::Number(0.0)))
+        );
+        assert_eq!(
+            at(&m, "S", "C20"),
+            Some(Computed::Value(Value::Number(1.0)))
+        );
+        assert!(matches!(
+            at(&m, "S", "B7"),
+            Some(Computed::Value(Value::Error(_)))
+        ));
+        assert_eq!(
+            at(&m, "S", "J20"),
+            Some(Computed::Value(Value::Number(10.0)))
+        );
     }
 }

@@ -36,16 +36,22 @@
 //!   `error`, `name`, `range`, `form`, `kinds`, `span`, `sheet`, `omitted`,
 //!   `deep`).
 //!
-//! The kinds of read, each the cost class of the path a run takes:
-//! - `slot`: one cell of a sheet kept as an array, a `.last` twin dense
-//!   enough, read by its index;
+//! The kinds of read, each the cost class of the path a run takes, a sheet
+//! kept as an array being a `.last` twin dense enough, or since KERNEL.31 a
+//! frame's own sheet dense enough that its plan reads by a range or a run's
+//! moving cell (`Shapes::read_as_array`):
+//! - `stride`: a cell of a sheet kept as an array that moves with the cell,
+//!   in a shape with runs, read for a run's cells side by side as one slice
+//!   of the array's numbers and for its cells one below the other as one
+//!   column of them, or a range folded over its rows' slices;
+//! - `slot`: one cell of a sheet kept as an array read by its index;
 //! - `array`: a range of a sheet kept as an array, walked by index, by the
 //!   run's fold or by the library's walk at each cell;
 //! - `lookup`: one cell through the machine's lookups, a formula's value of
 //!   the frame by its position, a value cell or a twin too sparse for an
 //!   array by its cells;
 //! - `cells`: a range walked through its cells at each cell, by the
-//!   library: a range of a frame's sheet, or of a twin too sparse;
+//!   library: a range of a sheet kept as no array;
 //! - `once`: a cell every `$` holds, read once a run, a change to which
 //!   reaches every cell of the shape;
 //! - `start`: a part the same at every cell, reading value cells and twins
@@ -193,7 +199,8 @@ pub(crate) struct Census {
 
 /// A plan's census over the grid it was made in: `library` the one the plan
 /// placed its shapes under, `arrays` whether the environment keeps a sheet
-/// as an array (a machine's twins, as its last frame's end left them).
+/// as an array (a machine's twins, as its last frame's end left them, and
+/// the frame's own sheets its plan reads so, KERNEL.31).
 pub(crate) fn of(
     plan: &Shapes,
     model: &Workbook,
@@ -284,7 +291,7 @@ pub(crate) fn of(
             }
         };
         if let Ok(e) = &shape.expr {
-            let paths = vector::paths(library, model, e, arrays, x.runs > 0);
+            let paths = vector::paths(library, model, e, arrays, &on[s], x.runs > 0);
             for (taken, kind) in [
                 (paths.stride, Kind::Stride),
                 (paths.slot, Kind::Slot),
@@ -500,7 +507,10 @@ mod tests {
         // Three columns of twenty, each reading its own row: three shapes at
         // three levels, each a run of twenty; the middle one reads its row
         // and a held cell, and the readers of the sheet are the two moving
-        // references and the held one.
+        // references and the held one. The runs read the sheet's own cells,
+        // so it keeps the frame's values as an array, and each run's cells,
+        // one below the other, read the column beside them as one column of
+        // its numbers (KERNEL.31).
         let m = machine(
             concat!(
                 "(sheet \"Output\" visible)\n",
@@ -517,8 +527,8 @@ mod tests {
                 "(plan (shapes 3) (texts 3) (formulas 60) (levels 3) (runs 3) (lanes 60) (alone 0) (every-frame 0) (cycles 0))\n",
                 "(readers \"Output\" 3)\n",
                 "(shape 0 \"Output\" \"A1\" \"=ROW()\" (cells 20) (levels 0 0 1 20) (runs 1 20 20 20) (alone 0) (reads))\n",
-                "(shape 1 \"Output\" \"B1\" \"=RC[-1]*R1C5+1\" (cells 20) (levels 1 1 1 20) (runs 1 20 20 20) (alone 0) (reads lookup once))\n",
-                "(shape 2 \"Output\" \"C1\" \"=IF(RC[-1]>30000,RC[-1]-30000,RC[-1])\" (cells 20) (levels 2 2 1 20) (runs 1 20 20 20) (alone 0) (reads lookup))\n",
+                "(shape 1 \"Output\" \"B1\" \"=RC[-1]*R1C5+1\" (cells 20) (levels 1 1 1 20) (runs 1 20 20 20) (alone 0) (reads stride once))\n",
+                "(shape 2 \"Output\" \"C1\" \"=IF(RC[-1]>30000,RC[-1]-30000,RC[-1])\" (cells 20) (levels 2 2 1 20) (runs 1 20 20 20) (alone 0) (reads stride))\n",
             )
         );
     }
@@ -550,37 +560,63 @@ mod tests {
         );
     }
 
+    /// Three months of twelve over a held assumption, each row summed and
+    /// rounded, each column totalled, and the rows the census of the plan
+    /// holds whatever the sheet's array (KERNEL.31).
+    const MONTHS: &str = concat!(
+        "(sheet \"Output\" visible)\n",
+        "(cell \"Output\" \"P1\" 100)\n",
+        "(formula \"Output\" \"B2:M4\" \"=MOD(ROW()*31+COLUMN()*17,97)+$P$1\")\n",
+        "(formula \"Output\" \"N2:N4\" \"=SUM(B2:M2)\")\n",
+        "(formula \"Output\" \"O2:O4\" \"=ROUND(N2/12,0)\")\n",
+        "(formula \"Output\" \"B5:O5\" \"=SUM(B2:B4)\")\n",
+    );
+    const MONTHS_PLAN: &str = concat!(
+        "(plan (shapes 4) (texts 4) (formulas 56) (levels 4) (runs 2) (lanes 48) (alone 8) (every-frame 0) (cycles 0))\n",
+        "(readers \"Output\" 4)\n",
+        "(shape 0 \"Output\" \"B2\" \"=MOD(ROW()*31+COLUMN()*17,97)+R1C16\" (cells 36) (levels 0 0 1 36) (runs 1 36 36 36) (alone 0) (reads once))\n",
+    );
+
     #[test]
-    fn a_range_of_the_frame_s_own_sheet_is_walked_through_its_cells() {
-        // Three months of twelve over a held assumption, each row summed and
-        // rounded, each column totalled: the row sums read a range of their
-        // own sheet, which the library walks at each cell; `ROUND`, which no
-        // run knows, is called at each cell over what the run computed; the
-        // totals stand at three levels, a run of twelve and two cells alone,
-        // and the three rows' sums and roundings, three cells a level, are
-        // each too few for a run.
-        let m = machine(
-            concat!(
-                "(sheet \"Output\" visible)\n",
-                "(cell \"Output\" \"P1\" 100)\n",
-                "(formula \"Output\" \"B2:M4\" \"=MOD(ROW()*31+COLUMN()*17,97)+$P$1\")\n",
-                "(formula \"Output\" \"N2:N4\" \"=SUM(B2:M2)\")\n",
-                "(formula \"Output\" \"O2:O4\" \"=ROUND(N2/12,0)\")\n",
-                "(formula \"Output\" \"B5:O5\" \"=SUM(B2:B4)\")\n",
-            ),
-            with_round(),
-        );
+    fn a_range_of_the_frame_s_own_sheet_is_walked_by_index() {
+        // The row sums read a range of their own sheet, so the sheet keeps
+        // the frame's values as an array (KERNEL.31), which the three rows'
+        // sums, three cells a level and each too few for a run, walk by
+        // index; `ROUND`, which no run knows, is called at each cell over a
+        // sum read by its slot; the totals stand at three levels, a run of
+        // twelve folding its column by slices and two cells alone.
+        let m = machine(MONTHS, with_round());
         assert_eq!(
             m.census(),
-            concat!(
-                "(plan (shapes 4) (texts 4) (formulas 56) (levels 4) (runs 2) (lanes 48) (alone 8) (every-frame 0) (cycles 0))\n",
-                "(readers \"Output\" 4)\n",
-                "(shape 0 \"Output\" \"B2\" \"=MOD(ROW()*31+COLUMN()*17,97)+R1C16\" (cells 36) (levels 0 0 1 36) (runs 1 36 36 36) (alone 0) (reads once))\n",
+            format!(
+                "{MONTHS_PLAN}{}{}{}",
+                "(shape 1 \"Output\" \"N2\" \"=SUM(RC[-12]:RC[-1])\" (cells 3) (levels 1 1 1 3) (runs 0 0 0 0) (alone 3) (reads array))\n",
+                "(shape 2 \"Output\" \"O2\" \"=ROUND(RC[-1]/12,0)\" (cells 3) (levels 2 2 1 3) (runs 0 0 0 0) (alone 3) (reads slot) (calls \"ROUND\"))\n",
+                "(shape 3 \"Output\" \"B5\" \"=SUM(R[-3]C:R[-1]C)\" (cells 14) (levels 1 3 3 12) (runs 1 12 12 12) (alone 2) (reads stride))\n",
+            )
+        );
+        assert_eq!(door(MONTHS, &with_round()), m.census());
+    }
+
+    #[test]
+    fn a_range_of_a_sheet_too_sparse_for_an_array_is_walked_through_its_cells() {
+        // The same months beside a cell far from the rest, which widens the
+        // sheet past four slots a cell: it keeps no array, and its ranges are
+        // walked through its cells by the library at each cell, its cells
+        // read through lookups, as every frame's own sheet was before
+        // KERNEL.31.
+        let rows = format!("{MONTHS}(cell \"Output\" \"XFA1\" 1)\n");
+        let m = machine(&rows, with_round());
+        assert_eq!(
+            m.census(),
+            format!(
+                "{MONTHS_PLAN}{}{}{}",
                 "(shape 1 \"Output\" \"N2\" \"=SUM(RC[-12]:RC[-1])\" (cells 3) (levels 1 1 1 3) (runs 0 0 0 0) (alone 3) (reads cells) (calls \"SUM\"))\n",
                 "(shape 2 \"Output\" \"O2\" \"=ROUND(RC[-1]/12,0)\" (cells 3) (levels 2 2 1 3) (runs 0 0 0 0) (alone 3) (reads lookup) (calls \"ROUND\"))\n",
                 "(shape 3 \"Output\" \"B5\" \"=SUM(R[-3]C:R[-1]C)\" (cells 14) (levels 1 3 3 12) (runs 1 12 12 12) (alone 2) (reads cells) (calls \"SUM\"))\n",
             )
         );
+        assert_eq!(door(&rows, &with_round()), m.census());
     }
 
     /// Life's rule over a small board, its first frame a pattern of the
@@ -670,29 +706,38 @@ mod tests {
     }
 
     #[test]
-    fn a_door_reads_another_sheet_through_lookups_as_the_machine_does() {
-        // A workbook keeps no sheet as an array: a door's plan reads another
-        // sheet's cell through lookups and its range through its cells at
-        // each cell, the library summing it, as a machine reads a sheet that
-        // is not a twin; so a grid that reads no twin is planned alike by
-        // the door and the machine. The range holds the cell at every offset,
-        // so the sheet's one reader is the range.
+    fn a_door_reads_another_sheet_as_the_machine_does() {
+        // A door's plan reads a sheet as a machine of the same grid keeps it,
+        // so that a grid that reads no twin is planned alike by the door and
+        // the machine. A run reading another sheet's moving cell and a range
+        // of it: the machine keeps that sheet's values as an array (KERNEL.31),
+        // the cell read by slices and the range folded by the run, no `SUM`
+        // called at each cell; the same sheet widened past four slots a cell
+        // keeps none, its cell read through lookups and its range through its
+        // cells, the library summing it. The range holds the cell at every
+        // offset, so the sheet's one reader is the range.
         let rows = concat!(
             "(sheet \"S\" visible)\n",
             "(sheet \"T\" visible)\n",
             "(cell \"T\" \"A1:A5\" 1)\n",
             "(formula \"S\" \"A1:A4\" \"=T!A1+SUM(T!A1:A2)\")\n",
         );
-        let census = door(rows, &library::language());
-        assert_eq!(
-            census,
-            concat!(
-                "(plan (shapes 1) (texts 1) (formulas 4) (levels 1) (runs 1) (lanes 4) (alone 0) (every-frame 0) (cycles 0))\n",
-                "(readers \"T\" 1)\n",
-                "(shape 0 \"S\" \"A1\" \"=T!RC+SUM(T!RC:R[1]C)\" (cells 4) (levels 0 0 1 4) (runs 1 4 4 4) (alone 0) (reads lookup cells) (calls \"SUM\"))\n",
-            )
+        let plan = concat!(
+            "(plan (shapes 1) (texts 1) (formulas 4) (levels 1) (runs 1) (lanes 4) (alone 0) (every-frame 0) (cycles 0))\n",
+            "(readers \"T\" 1)\n",
         );
-        assert_eq!(machine(rows, library::language()).census(), census);
+        let row = "(shape 0 \"S\" \"A1\" \"=T!RC+SUM(T!RC:R[1]C)\" (cells 4) (levels 0 0 1 4) (runs 1 4 4 4) (alone 0)";
+        for (rows, reads) in [
+            (rows.to_string(), " (reads stride))\n"),
+            (
+                format!("{rows}(cell \"T\" \"XFA1\" 1)\n"),
+                " (reads lookup cells) (calls \"SUM\"))\n",
+            ),
+        ] {
+            let census = door(&rows, &library::language());
+            assert_eq!(census, format!("{plan}{row}{reads}"));
+            assert_eq!(machine(&rows, library::language()).census(), census);
+        }
     }
 
     #[test]
@@ -732,7 +777,10 @@ mod tests {
         // it: a cycle, a function the library does not hold, a construct the
         // parser does not read, a span of sheets and a defined name, each
         // printed as a fact; two fills of one formula, two shapes of one
-        // text; one formula on two sheets, one shape.
+        // text; one formula on two sheets, one shape. `Model`, a range of
+        // which a call reads, is kept as an array, so its cells read alone
+        // are read by their slots (KERNEL.31); `Jan` and `Feb`, read by cells
+        // alone and by a span, are kept as none.
         let rows = concat!(
             "(sheet \"Model\" visible)\n",
             "(sheet \"Jan\" visible)\n",
@@ -771,14 +819,14 @@ mod tests {
             "{census}"
         );
         for row in [
-            "(shape 0 \"Model\" \"B1\" \"=RC[1]*3\" (cells 1) (levels) (runs 0 0 0 0) (alone 0) (reads lookup))",
-            "(shape 1 \"Model\" \"C1\" \"=RC[-1]*3\" (cells 1) (levels) (runs 0 0 0 0) (alone 0) (reads lookup))",
-            "(shape 2 \"Model\" \"D1\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads lookup))",
+            "(shape 0 \"Model\" \"B1\" \"=RC[1]*3\" (cells 1) (levels) (runs 0 0 0 0) (alone 0) (reads slot))",
+            "(shape 1 \"Model\" \"C1\" \"=RC[-1]*3\" (cells 1) (levels) (runs 0 0 0 0) (alone 0) (reads slot))",
+            "(shape 2 \"Model\" \"D1\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot))",
             "(shape 3 \"Model\" \"E1\" \"=Rate*2\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (every-frame name))",
             "(shape 4 \"Model\" \"F1\" \"=VLOOKUP(1,RC[-5]:R[3]C[-5],1)\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing \"VLOOKUP\"))",
             "(shape 5 \"Model\" \"G1\" \"=RC[-6] R[1]C[-6]\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (every-frame unread))",
             "(shape 6 \"Model\" \"H1\" \"=SUM(Jan:Feb!RC[-7])\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup) (calls \"SUM\") (every-frame span))",
-            "(shape 7 \"Model\" \"D3\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads lookup) (same 2))",
+            "(shape 7 \"Model\" \"D3\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot) (same 2))",
             "(shape 8 \"Jan\" \"B1\" \"=RC[-1]+1\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads lookup) (sheets 2))",
         ] {
             assert!(lines.contains(&row), "no row {row} in\n{census}");

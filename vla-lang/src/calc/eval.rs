@@ -127,11 +127,13 @@ pub trait Env {
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str>;
     /// A sheet's values kept as an array over its extent, when the
     /// environment keeps one (KERNEL.20: an engine's machine, for each
-    /// `.last` twin): each slot the value a read of its cell answers, or
-    /// `Value::Empty` for a cell holding none, which a walk skips as a walk
-    /// of the cells skips it; so a range of the sheet is walked by index and
-    /// never cell by cell. `None`, a sheet walked through its cells, unless
-    /// an environment says otherwise.
+    /// `.last` twin; and since KERNEL.31 for each of its frame's own sheets
+    /// its plan reads by a range or a run's moving cell, while none of their
+    /// formulas holds a reason): each slot the value a read of its cell
+    /// answers, or `Value::Empty` for a cell holding none, which a walk skips
+    /// as a walk of the cells skips it; so a range of the sheet is walked by
+    /// index and never cell by cell. `None`, a sheet walked through its
+    /// cells, unless an environment says otherwise.
     fn dense(&self, _sheet: usize) -> Option<&Dense> {
         None
     }

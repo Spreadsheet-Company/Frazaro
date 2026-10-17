@@ -28,9 +28,40 @@
 //! of a spreadsheet's frame, whose twins no formula reads, writes nothing
 //! more than its slots; one that comes to be read has them made from its
 //! slots.
+//!
+//! Since KERNEL.31 a machine keeps one for each of a frame's own sheets that
+//! its plan reads by a range or by a run's moving cell, each slot written
+//! where the frame keeps a value that changed, its numbers beside, so that a
+//! range of the frame's own cells is folded and walked by index as a twin's
+//! is, and a run's cells read one by slices: side by side in a row, a slice
+//! of one row (KERNEL.43), and one below the other in a column, the slots of
+//! one column read at the store's width.
 
 use super::graph::{Area, Extent};
 use super::value::Value;
+
+/// The most slots a store holds for each cell of its sheet (KERNEL.20): a
+/// slot is 24 bytes, its number and kind beside it 9 more (KERNEL.43), and a
+/// cell of a sheet's B-tree about 137 (measured 2026-10-10), so a store
+/// within this is smaller than the cells it shadows, and a sheet sparser than
+/// that, two cells far apart, is read through its cells.
+pub(crate) const SLOTS_A_CELL: u64 = 4;
+
+/// The most slots a store of a sheet of `cells` cells holds: [`SLOTS_A_CELL`]
+/// a cell, and never more than `most`, a grid's own limit. A twin's rule, and
+/// a frame's own sheet's (KERNEL.31), so that a machine and a door's census
+/// of the same grid keep the same sheets as arrays.
+pub(crate) fn limit(cells: usize, most: u64) -> u64 {
+    (cells as u64).saturating_mul(SLOTS_A_CELL).min(most)
+}
+
+/// Whether a store over an extent is within a limit, as [`Dense::over`]
+/// asks: a sheet that holds a cell, over no more cells than `limit`.
+pub(crate) fn fits(extent: Extent, limit: u64) -> bool {
+    extent.is_some_and(|((top, left), (bottom, right))| {
+        u64::from(right - left + 1) * u64::from(bottom - top + 1) <= limit
+    })
+}
 
 /// A slot's kind beside its number (KERNEL.43): a number, or anything else (a
 /// text, a truth value, an error, nothing), which a read by slice leaves to
@@ -84,11 +115,11 @@ impl Dense {
         numbers: bool,
     ) -> Option<Dense> {
         let ((top, left), (bottom, right)) = extent?;
-        let width = (right - left + 1) as usize;
-        let height = (bottom - top + 1) as usize;
-        if width as u64 * height as u64 > limit {
+        if !fits(extent, limit) {
             return None;
         }
+        let width = (right - left + 1) as usize;
+        let height = (bottom - top + 1) as usize;
         let (mut values, spare) = match old {
             Some(mut d) if d.stands_over(extent) => {
                 d.shade(numbers);
@@ -276,6 +307,40 @@ impl Dense {
             return None;
         }
         Some(&s.numbers[i..i + n])
+    }
+
+    /// The numbers of `n` slots one below the other in one column, from a
+    /// cell's, pushed to `out` (KERNEL.31): what an evaluation of many cells
+    /// reads a reference's cells as where its cells stand one below the
+    /// other, when every one is inside the extent and holds a number;
+    /// `false`, nothing pushed, otherwise, or where the store keeps no
+    /// numbers, its slots read one at a time.
+    #[inline]
+    pub(crate) fn numbers_in_column(
+        &self,
+        row: u32,
+        col: u32,
+        n: usize,
+        out: &mut Vec<f64>,
+    ) -> bool {
+        let Some(s) = self.shadow.as_ref() else {
+            return false;
+        };
+        let (Some(r), Some(c)) = (row.checked_sub(self.top), col.checked_sub(self.left)) else {
+            return false;
+        };
+        let (r, c, w) = (r as usize, c as usize, self.width);
+        if r + n > self.height || c >= w {
+            return false;
+        }
+        let first = r * w + c;
+        if s.odd[r..r + n].iter().any(|&o| o != 0)
+            && (0..n).any(|j| s.kinds[first + j * w] != NUMBER)
+        {
+            return false;
+        }
+        out.extend((0..n).map(|j| s.numbers[first + j * w]));
+        true
     }
 
     /// The value at an index, and its cell (KERNEL.27).
@@ -484,6 +549,18 @@ mod tests {
         }
     }
 
+    /// What a read of a column must answer, from the slots alone: the
+    /// numbers of `n` slots one below the other from a cell, when each is
+    /// inside the extent and holds a number (KERNEL.31).
+    fn column_of(d: &Dense, row: u32, col: u32, n: usize) -> Option<Vec<f64>> {
+        (0..n)
+            .map(|j| match d.get(row + j as u32, col)? {
+                Value::Number(x) => Some(*x),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// A store's numbers spelled by their bits, so that `-0.0` is not `0.0`.
     fn spelled(s: &Shadow) -> (Vec<u64>, &[u8], &[u32]) {
         (
@@ -522,7 +599,7 @@ mod tests {
         ];
         let extents = [Some(((2, 3), (6, 9))), Some(((1, 1), (3, 4)))];
         let mut d = Dense::over(extents[0], 100, None, true).unwrap();
-        let mut kept = 0;
+        let (mut kept, mut columns) = (0, 0);
         for round in 0..2000 {
             // Every hundredth round the numbers dropped or kept again, every
             // five hundredth the store made again, keeping them but once.
@@ -564,11 +641,26 @@ mod tests {
                     .filter(|_| d.shadow.is_some())
                     .map(|s| s.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
                 assert_eq!(got, want, "round {round}: {n} slots from ({row}, {col})");
+                // And the slots one below the other from it (KERNEL.31),
+                // pushed after what the lane holds already, or nothing.
+                let n = 1 + next(d.height as u64 + 1) as usize;
+                let mut out = vec![7.0];
+                let read = d.numbers_in_column(row, col, n, &mut out);
+                let want = column_of(&d, row, col, n).filter(|_| d.shadow.is_some());
+                let got = read.then(|| out[1..].iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                assert_eq!(
+                    got,
+                    want.map(|s| s.iter().map(|x| x.to_bits()).collect::<Vec<_>>()),
+                    "round {round}: {n} slots down from ({row}, {col})"
+                );
+                assert_eq!(out.len(), if read { 1 + n } else { 1 }, "round {round}");
+                columns += usize::from(read);
             }
         }
         assert!(
             0 < kept && kept < 2000,
             "rounds with numbers and without: {kept}"
         );
+        assert!(columns > 0, "a column read whole somewhere");
     }
 }

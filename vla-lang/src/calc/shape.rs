@@ -34,7 +34,9 @@
 //! (`super::program`, KERNEL.44). What each
 //! shape reads is found with the order, so that an engine follows a changed
 //! cell to the cells of the order that read it and computes those alone
-//! (`super::reach`, KERNEL.20).
+//! (`super::reach`, KERNEL.20); and so are the sheets a read takes as an
+//! array, a range of them or a run's moving cell, which an engine's machine
+//! keeps a frame's values of as arrays (KERNEL.31, [`Shapes::read_as_array`]).
 //!
 //! The plan is printed as rows on request ([`Shapes::census`], KERNEL.30,
 //! `super::census`): each shape's cells, the levels of the order it spans,
@@ -169,6 +171,9 @@ pub struct Shapes {
     /// rather than dropped, so that the census finds each cell's level
     /// without planning again.
     level_ends: Vec<u32>,
+    /// By sheet of the grid, whether a read takes it as an array (KERNEL.31,
+    /// [`Shapes::read_as_array`]), found with the order.
+    arrays: Vec<bool>,
 }
 
 /// A run of the order: its cells are `order[start..end]`, of one shape.
@@ -604,6 +609,7 @@ impl Shapes {
         let (members, starts) = graph::tarjan_flat(&offsets, &targets);
         let shape_at =
             self.order_and_runs(&ids, (&offsets, &targets), &shape_of, (&members, &starts));
+        self.arrays = read_as_arrays(model, &self.shapes, (&ids, &shape_of), &self.runs);
         let places = &self.places;
         let formula = |id: CellId| places.contains_key(&id);
         self.reach = Reach::of(model, &self.shapes, &self.order, shape_at, &formula);
@@ -748,11 +754,35 @@ impl Shapes {
         let _ = writeln!(out, "by shared {shared:?}\nby r1c1 {r1c1:?}");
         let _ = writeln!(
             out,
-            "order {:?}\ncycles {:?}\nruns {:?}\nlevels {:?}",
-            self.order, self.cycles, self.runs, self.level_ends
+            "order {:?}\ncycles {:?}\nruns {:?}\nlevels {:?}\narrays {:?}",
+            self.order, self.cycles, self.runs, self.level_ends, self.arrays
         );
         out.push_str(&self.reach.spelled());
         out
+    }
+
+    /// Whether a read takes a sheet as an array (KERNEL.31): a shape reads a
+    /// range of it, or a shape with runs reads a cell of it by a reference
+    /// no `$` holds at both corners, which its runs read by slices of the
+    /// sheet's array where one is kept. A sheet whose cells only cells alone
+    /// read, or only references every `$` holds, a run reading such a cell
+    /// once, is taken as none: a cell's read by an array's slot costs what
+    /// its read by its position costs (measured in the item's scoping).
+    pub(crate) fn read_as_array(&self, sheet: usize) -> bool {
+        self.arrays.get(sheet).is_some_and(|&b| b)
+    }
+
+    /// Whether a sheet of the grid the plan was made in keeps its frame's
+    /// values as an array (KERNEL.31): a read takes it as one, and its cells
+    /// stand close enough together, by the rule a machine keeps it by
+    /// (`dense::limit`), so that a door's census and a machine's name the
+    /// same reads alike.
+    pub(crate) fn keeps_array(&self, model: &Workbook, sheet: usize) -> bool {
+        self.read_as_array(sheet)
+            && model.sheets.get(sheet).is_some_and(|s| {
+                let most = crate::machine::CELLS as u64;
+                super::dense::fits(s.extent(), super::dense::limit(s.cells.len(), most))
+            })
     }
 
     /// The first run of the order that ends after a position, by its index
@@ -865,11 +895,14 @@ impl Shapes {
     /// a cell holds, each read named by the path an engine's machine takes
     /// for it (`super::census`). Every sheet is read as a frame's own, as a
     /// workbook's are: this is the census of a plan [`Shapes::of`] made over
-    /// a grid with no `.last` twin. A machine's, its twins read as it keeps
-    /// them, is `Machine::census`. Computed when asked from the plan as it
-    /// stands, which keeps nothing for it but where each level ends.
+    /// a grid with no `.last` twin, each sheet kept as an array where a
+    /// machine of the same grid keeps it (KERNEL.31, [`Shapes::keeps_array`]).
+    /// A machine's, its twins read as it keeps them, is `Machine::census`.
+    /// Computed when asked from the plan as it stands, which keeps nothing
+    /// for it but where each level ends and which sheets a read takes as an
+    /// array.
     pub fn census(&self, model: &Workbook, library: &Library) -> String {
-        super::census::rows(self, model, library, &|_| false)
+        super::census::rows(self, model, library, &|s| self.keeps_array(model, s))
     }
 
     /// Where each level of the order ends, by level (KERNEL.30).
@@ -1015,6 +1048,68 @@ fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> (Vec<us
     }
     start.truncate(keys);
     (out, start)
+}
+
+/// By sheet of the grid, whether a read takes it as an array (KERNEL.31,
+/// [`Shapes::read_as_array`]): a sheet a shape reads a range of, or a cell of
+/// by a reference no `$` holds at both corners in a shape with runs. A
+/// reference that names no sheet reads each sheet its shape's cells stand
+/// on; a span of sheets is read through its cells, and so is a defined
+/// name's text. One pass over each shape's reads, and one over the plan's
+/// cells, `ids` beside `shape_of`, for the shapes that read their own
+/// sheets: two arrays read in order, where a walk of the places would look
+/// each cell up (`plan`).
+fn read_as_arrays(
+    model: &Workbook,
+    shapes: &[Shape],
+    (ids, shape_of): (&[CellId], &[usize]),
+    runs: &[Run],
+) -> Vec<bool> {
+    let mut with_runs = vec![false; shapes.len()];
+    for r in runs {
+        with_runs[r.shape] = true;
+    }
+    let mut read = vec![false; model.sheets.len()];
+    // By shape, whether it reads its own sheets so.
+    let mut own = vec![false; shapes.len()];
+    for (k, shape) in shapes.iter().enumerate() {
+        let Ok(e) = &shape.expr else {
+            continue;
+        };
+        e.each_read(&mut |r| {
+            let Read::Ref(r) = r else {
+                return;
+            };
+            if r.last_sheet.is_some() {
+                return;
+            }
+            let held = r.corners.row_abs1 && r.corners.col_abs1;
+            let range = !matches!(r.shape, refers::Shape::Cell);
+            if !range && (held || !with_runs[k]) {
+                return;
+            }
+            let mut mark = |s: usize| {
+                if let Some(b) = read.get_mut(s) {
+                    *b = true;
+                }
+            };
+            match (r.found, &r.sheet) {
+                (Some((first, _)), _) => mark(usize::from(first)),
+                (None, None) => own[k] = true,
+                (None, Some(name)) => {
+                    if let Some(s) = model.find_sheet(name) {
+                        mark(s);
+                    }
+                }
+            }
+        });
+    }
+    for (id, &k) in ids.iter().zip(shape_of) {
+        if own[k] {
+            read[id.0] = true;
+        }
+    }
+    read
 }
 
 /// A formula cell's vertex, its position among a plan's sorted cells, as an

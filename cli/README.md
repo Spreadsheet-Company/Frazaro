@@ -757,9 +757,13 @@ prints
 (shape 2 "Output" "B3" "=R[-1]C*2" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))
 ```
 
-The reads, each named by what it costs: `slot`, one cell of a sheet kept
-as an array, read by its index (an engine's previous frame); `array`, a
-range of such a sheet walked by index; `lookup`, one cell found by its
+The reads, each named by what it costs. A sheet is kept as an array where
+its formulas read a range of it, or many cells computed together read its
+cells as they move, and its cells stand close enough together (an engine's
+previous frame is kept so too): `stride`, a cell of such a sheet read for
+many cells at once as one slice of its numbers, or a range folded over its
+rows' slices; `slot`, one cell of such a sheet read by its index; `array`,
+a range of such a sheet walked by index; `lookup`, one cell found by its
 place; `cells`, a range walked through its cells at each cell; `once`, a
 cell every `$` holds, read once for many cells; `start`, a part the same at
 every cell, compared once before the rest; `each`, a part computed at each

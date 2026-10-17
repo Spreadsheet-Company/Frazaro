@@ -1,5 +1,5 @@
 (plan (shapes 3) (texts 3) (formulas 60000) (levels 3) (runs 3) (lanes 60000) (alone 0) (every-frame 0) (cycles 0))
 (readers "Output" 3)
 (shape 0 "Output" "A1" "=ROW()" (cells 20000) (levels 0 0 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads))
-(shape 1 "Output" "B1" "=RC[-1]*R1C5+1" (cells 20000) (levels 1 1 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads lookup once))
-(shape 2 "Output" "C1" "=IF(RC[-1]>30000,RC[-1]-30000,RC[-1])" (cells 20000) (levels 2 2 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads lookup))
+(shape 1 "Output" "B1" "=RC[-1]*R1C5+1" (cells 20000) (levels 1 1 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads stride once))
+(shape 2 "Output" "C1" "=IF(RC[-1]>30000,RC[-1]-30000,RC[-1])" (cells 20000) (levels 2 2 1 20000) (runs 1 20000 20000 20000) (alone 0) (reads stride))

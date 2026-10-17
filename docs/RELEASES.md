@@ -40,6 +40,31 @@
   a kilobyte to two more a formula shape. The census marks a shape whose
   cells computed alone keep the walk, and why: `(unlowered text)`. No call
   of the crate changed (KERNEL.44).
+- **For engines and spreadsheets: a sheet read in the frame being computed
+  is read as an array.** A sheet whose formulas read a range of it, or whose
+  fill's cells read a cell of it that moves with them, now keeps the frame's
+  values in an array beside its cells, each formula's value written as the
+  cell is computed and each value cell's as it is written, so that
+  `SUM(B2:M2)` over its own sheet folds over the array where it searched the
+  sheet's cells row by row, and the slices and folds above read the frame
+  being computed as they read a previous frame's sheet. A fill's cells one
+  below the other, `=A1*2` down a column, now read the column beside them as
+  one column of the array's numbers. Every answer is the one the cells give
+  read one by one, to the bit: a range holding a cell not computed answers
+  its reason as before, its sheet read through its cells until no reason
+  stands. The recalculation floors' `sums` computes its whole frame 3.6
+  times faster and its edit 2.3 times, now 2.5 times faster than Excel on
+  twenty threads, and `column`'s whole frame 37% faster; Alonzo's Sand steps
+  18% faster natively and 17% in the browser, and a grid that scores 20,000
+  candidates every frame, a game's mind, takes less than half the time
+  natively and 45% less in the browser; Life, the gun, Kairos and Buffet
+  step as before, and `chain`, which keeps no array, as before to 5% slower.
+  A sheet that keeps an array holds 33 bytes more a cell of its extent, and
+  a load that makes one is up to 9% slower; a sheet whose cells only cells
+  computed alone read, or only references every `$` holds, keeps none. The
+  census names these reads `stride`, `slot` and `array`, as it names a
+  previous frame's, and a door's census names the arrays its machine would
+  keep. No call of the crate changed (KERNEL.31).
 
 ## 0.9.4
 
