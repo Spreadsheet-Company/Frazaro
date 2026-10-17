@@ -81,10 +81,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # of the golden holds its own; the into golden folds nothing and is as it was.
 # 2026-10-10, PORT.13: sheets 11854 - a new golden, two fills that read another
 # sheet written one formula a cell beside one that stays shared.
+# 2026-10-17, release 0.10.0: fixture 11444, into 13698, sheets 11855 - each
+# stamp's version a character longer, 0.10.0 where it was 0.9.4, the stamp
+# the one difference in each golden.
 $goldens = @(
-    @{ Name = 'fixture'; Fixture = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'; Into = '';                        Floor = 11443 },
-    @{ Name = 'into';    Fixture = 'scripts/build/into.txt';    Golden = 'scripts/build/into_golden.xlsx';    Into = 'scripts/build/model.xlsx'; Floor = 13697 },
-    @{ Name = 'sheets';  Fixture = 'scripts/build/sheets.txt';  Golden = 'scripts/build/sheets_golden.xlsx';  Into = '';                        Floor = 11854 }
+    @{ Name = 'fixture'; Fixture = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'; Into = '';                        Floor = 11444 },
+    @{ Name = 'into';    Fixture = 'scripts/build/into.txt';    Golden = 'scripts/build/into_golden.xlsx';    Into = 'scripts/build/model.xlsx'; Floor = 13698 },
+    @{ Name = 'sheets';  Fixture = 'scripts/build/sheets.txt';  Golden = 'scripts/build/sheets_golden.xlsx';  Into = '';                        Floor = 11855 }
 )
 $prelude = Join-Path $repoRoot 'scripts/prelude.vla'
 $english = Join-Path $repoRoot 'scripts/polyglotta/english.vla'

@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.9.4"
+Public Const VLA_RELEASE_VERSION As String = "0.10.0"
 Public Const VLA_CORE_VERSION As String = "VLA.4"
 ' VLA.4: THE FORMULA SYNTAX. FormulaSyntaxWrite writes an expression as a
 ' formula's canonical text in Excel's invariant spelling - no space

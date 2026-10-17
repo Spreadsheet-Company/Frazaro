@@ -6,40 +6,6 @@
 
 ### What changed
 
-- **For engines and every door that views a grid: a number format may be a
-  code of Excel's.** A format row's number format, `general` or `text`
-  until now, may be a code in quotes, `(format 2 none "0.00" nowrap)`, so
-  that a cell holding 1 under it draws `1.00`, right-aligned as a number.
-  This version draws one to four sections (a positive number's, a
-  negative's, zero's and a text's), the digit placeholders `0` and `#`,
-  the point, the thousands, thousandths and percents, quoted and escaped
-  literals, the characters Excel draws unquoted and any character outside
-  ASCII, so that `▲0.00;▼0.00;=0.00` draws a glyph beside its number. A
-  code holding anything else, a color, a condition, a date, an exponent, a
-  fraction, a width or a fill, is refused by name with what draws instead
-  (`grid-format-code`). A number becomes its text as Excel draws it: its
-  fifteen significant digits, rounded half away from zero to the code's
-  decimals, so 2.675 under `0.00` is `2.68`; and a negative that draws as
-  zero under one section draws without its minus, so -0.4 under `0` is `0`,
-  as Excel's own run of every case confirmed. The view record prints the
-  text in a `text` row after the cell's value,
-  `(text "Portfolio" "B5" "1.00")`, so that a viewport draws it and never
-  respells a value; a load skips the row, so a save loads as before; and a
-  record whose formats hold no code prints none, byte for byte as before.
-  The workbook writer defines each code in the styles part, a built-in
-  Excel draws alike in every locale by its id and any other from 164, into
-  a workbook of one's own as well (KERNEL.47).
-- **For embeddings: `NumFmt` holds a code, and loses `Copy`.**
-  `NumFmt::Code` holds a `vla_lang::numfmt::Code`, a code this version
-  draws, parsed once; `NumFmt::id` is `NumFmt::builtin`, Excel's id where
-  it has one; and the core's `ooxml::cellxfs_fragment` takes the codes'
-  ids in the workbook it appends to. The public surface changed, so this
-  release is 0.10.0 (KERNEL.47).
-
-## 0.9.5
-
-### What changed
-
 - **For engines: a fill's cells read and folded as slices of numbers.** A
   run of a fill's cells side by side in a row now reads a reference into
   the previous frame's sheet as one slice of that sheet's numbers, folds
@@ -99,6 +65,29 @@
   census names these reads `stride`, `slot` and `array`, as it names a
   previous frame's, and a door's census names the arrays its machine would
   keep. No call of the crate changed (KERNEL.31).
+- **For engines and every door that views a grid: a number format may be a
+  code of Excel's.** A format row's number format, `general` or `text`
+  until now, may be a code in quotes, `(format 2 none "0.00" nowrap)`, so
+  that a cell holding 1 under it draws `1.00`, right-aligned as a number.
+  This version draws one to four sections (a positive number's, a
+  negative's, zero's and a text's), the digit placeholders `0` and `#`,
+  the point, the thousands, thousandths and percents, quoted and escaped
+  literals, the characters Excel draws unquoted and any character outside
+  ASCII, so that `▲0.00;▼0.00;=0.00` draws a glyph beside its number. A
+  code holding anything else, a color, a condition, a date, an exponent, a
+  fraction, a width or a fill, is refused by name with what draws instead
+  (`grid-format-code`). A number becomes its text as Excel draws it: its
+  fifteen significant digits, rounded half away from zero to the code's
+  decimals, so 2.675 under `0.00` is `2.68`; and a negative that draws as
+  zero under one section draws without its minus, so -0.4 under `0` is `0`,
+  as Excel's own run of every case confirmed. The view record prints the
+  text in a `text` row after the cell's value,
+  `(text "Portfolio" "B5" "1.00")`, so that a viewport draws it and never
+  respells a value; a load skips the row, so a save loads as before; and a
+  record whose formats hold no code prints none, byte for byte as before.
+  The workbook writer defines each code in the styles part, a built-in
+  Excel draws alike in every locale by its id and any other from 164, into
+  a workbook of one's own as well (KERNEL.47).
 - **For cartridge authors: a formula written as an expression.**
   `(formula-expand (if (> Input!B5 0) (+ A1 1) 0))` expands to the text
   `"=IF(Input!B5>0,A1+1,0)"`, so a formula row can be composed from
@@ -118,6 +107,12 @@
   `vla_lang::formula_syntax` writes an expression and reads a formula's
   text back into one. In the add-in, a `deflambda` body now refuses a
   program's form by name, where it wrote `(new x)` as `new(x)` (VLA.4).
+- **For embeddings: `NumFmt` holds a code, and loses `Copy`.**
+  `NumFmt::Code` holds a `vla_lang::numfmt::Code`, a code this version
+  draws, parsed once; `NumFmt::id` is `NumFmt::builtin`, Excel's id where
+  it has one; and the core's `ooxml::cellxfs_fragment` takes the codes'
+  ids in the workbook it appends to. The public surface changed, so this
+  release is 0.10.0 (KERNEL.47).
 
 ## 0.9.4
 
