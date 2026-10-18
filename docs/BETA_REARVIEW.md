@@ -28699,6 +28699,841 @@ the owner cuts it, beside `KERNEL.43` and `KERNEL.44`; Alonzo takes all
 three at its pin's move, its describe goldens blessed then, and Buffet's
 oracle at its own.
 
+**`KERNEL.8`, recalculation's second slice, dates, text, lookups and spills:
+the scoping, 2026-10-18.** Begun at the owner's word of 2026-10-18: scope
+the whole item, cut it into slices with the first in full, write the scoping
+here under the KERNEL line, and stop for the owner's approval; the slices
+are built in order, each at the owner's word and each committed before the
+next. HEAD `1cc86c9` (the release of 0.10.0), level with origin, the tree
+clean; Alonzo's HEAD `275f1e0`, its tree clean, a peer scoping and building
+`CART.12` there; Buffet's HEAD `7bbeb59`, a peer's work uncommitted in eight
+files, every line of Buffet's cited below read at that commit by `git show`;
+neither tree touched. Nothing was built or timed for this scoping: each
+number below is an earlier record's measurement, cited where it stands, or
+Microsoft's, or a prediction, labelled, which the first slice's build sets
+its number beside.
+
+*Why now.* The language computes 21 functions: its own fourteen
+(`vla-lang/src/calc/library.rs`) and Excel's seven over them
+(`core/src/excel.rs`: `IFS`, `AVERAGE`, `ROUND`, `SUMIF`, `COUNTIF`,
+`ISNUMBER`, `ISBLANK`). A door labels each cell that calls any other
+function (`(not-computed "VLOOKUP")`, `KERNEL.7`'s decision 5), but an
+engine's load refuses the whole grid at the first such cell
+(`Shapes::first_refusal`, `calc/shape.rs`; `Machine::new`, `machine/mod.rs`;
+`calc-function-not-computed`), so the machine computes no workbook that
+calls one function outside the 21. The lookups are what every consumer asks
+first (below), and four of the Enron corpus's fifteen most used functions
+are lookups, `VLOOKUP`, `INDEX`, `MATCH` and `LOOKUP` (Jansen and Hermans
+2015, Table IV; `KERNEL.7`'s decision 2). The gap assessment of 2026-10-18
+measured what a lookup must not be: `COUNTIF($C$1:$C$n,ROW())` from n cells
+over an n-row column, 58.6 ms at n = 1,000 and 3,969 ms at 8,000, about 62
+ns a comparison and four times the time at each doubling (*measurement*,
+that session's spike over `Machine::load` and Excel's library at opt-level
+3, best of five edit frames). Excel answers both patterns with an index, its
+lookups since 2018 and its criteria since 2020 (below).
+
+*What it stands on, verified by file.*
+
+- *The seam* (`calc/eval.rs`). A `Library` of functions by upper-case name:
+  strict (`fn(&Ctx, &[Arg]) -> Result<Value, Reason>`, its arguments
+  evaluated left to right) or a form (`fn(&Ctx, &[Expr]) -> Result<Arg,
+  Reason>`, its arguments as written, so that `IF` and `CHOOSE` compute the
+  branch taken alone); each a function of its arguments and of the cell and
+  of nothing else, since the machine computes a cell again only when a cell
+  it reads has changed. The language's fourteen are known to the run
+  (`Known`, crate-private); Excel's register over them (`excel::library()`);
+  a function an engine comes to need moves down with its tests (`KERNEL.7`'s
+  decision 1).
+- *The values* (`calc/value.rs`). Five kinds: a number, a text (an owned
+  `String`), a truth value, one of seven errors (`ErrorKind::parse` answers
+  `None` for `#SPILL!` and `#CALC!`), the empty cell. A `Value` is 24 bytes,
+  and a read of a text through `Env::read` clones its string. An operand
+  (`Arg`) is a value or an area a reference names; nothing is an array.
+  `Ctx::one` of an area of more than one cell answers `Reason::Construct`,
+  the reference as written: a range where one value is wanted, not computed
+  (`KERNEL.7`'s decision 8).
+- *The comparisons.* `eval::compare` is Excel's order of kinds; two texts
+  compare by the language's `fold` (`intrinsics::fold`, the port of
+  `VLA_Identity.Fold`: A to Z lowered, every other character as it stands),
+  each folded into a new string at every comparison; `compare_numbers` is
+  exact. `COUNTIF` and `SUMIF` (`excel.rs`) scan their range at every call,
+  a search of the sheet's B-tree for each row through `graph::cells_in` and
+  a clone for each cell through `Env::read` (77 ns a cell of a column,
+  `KERNEL.31`'s measurement), a cell's text folded into a new string for
+  each test, and `wildcard` collecting the pattern and the text into two
+  vectors of characters for each test and matching `*` by a recursion that
+  tries every split.
+- *The three paths a function runs on.* The walk (`Ctx`, `eval.rs`): every
+  function, the definition. A run (`calc/vector.rs`, `KERNEL.20` to
+  `KERNEL.43`): the language's known functions computed over its lanes, `IF`
+  and `CHOOSE` computing each branch at the cells that take it
+  (`KERNEL.28`); any other strict function called at each cell with the
+  operands the run computed (`apply_one`, `apply_two`, `apply_many`); a form
+  other than `IF` and `CHOOSE`, a defined name and a range where one value
+  is wanted evaluated at each cell by `Ctx` (`each_cell`). A cell alone
+  (`calc/program.rs`, `KERNEL.44`): registers of numbers and truth values;
+  any other strict function called through its pointer, its answer guarded
+  to be a number, else the cell evaluated again by `Ctx` from its start; a
+  text where one value is wanted, a form and a range where one value is
+  wanted left to `Ctx` (`Why::Text`, `Why::Form`, `Why::Range`, printed by
+  the census as `(unlowered ...)`). A run's selection of fewer than sixteen
+  cells is evaluated by programs (`KERNEL.44`'s decision 4).
+- *The arrays* (`calc/dense.rs`). A twin's values, and since `KERNEL.31` a
+  frame's own sheet's where the plan reads a range of it or a run's moving
+  cell, kept as slots over the sheet's extent with their numbers and kinds
+  beside and walked by index and lent (`Dense::each_ref`); a frame's own
+  sheet offers its array only while none of its formulas holds a reason, and
+  a twin offers its array whatever its cells' reasons, which is the twin
+  defect.
+- *The changes* (`machine/mod.rs`). A computed value that differs is kept at
+  one site (`changed_to`), a written one at the write (`put_values`), a
+  twin's at the frame's end (`snapshot`, or the walk); a write that changes
+  a formula or adds a cell plans again.
+- *The parser* (`calc/formula.rs`). It reads no array constant, no `@`, no
+  intersection by a space, no union, no `A1#`, no structured reference, no
+  link into another workbook, and no `:` but between a reference's own
+  corners, so `A1:INDEX(B:B,5)` is a construct not read (`:`), as the
+  formula syntax's reader holds it unsupported (`formula_syntax.rs`,
+  `VLA.4`).
+- *The reader* (`core/src/reflect/ooxml.rs`). An array formula is its
+  anchor's text, its `cm` and its spill's `ref` dropped, and the cells it
+  spills into are values alone; `frazaro calc` loads every formula of a file
+  as a plain one (`reflect/calc.rs`), so a dynamic-array formula a host
+  saved is read as a legacy one. `Content::DynamicFormula` is the writer's,
+  for a formula calling a function that can return an array
+  (`core/src/sheet/xlfn.rs`, `ARRAY_CAPABLE`, `INDEX`, `LOOKUP`, `CHOOSE`
+  and `XLOOKUP` among them); a machine's `formula` row always makes a plain
+  or a shared formula.
+- *Number formats* (`vla-lang/src/numfmt.rs`, `KERNEL.47`). `Code::text`
+  draws a number's sections, `0`, `#`, the point, the thousands,
+  thousandths, percents and literals, and refuses a date's or a time's
+  letters, a bracket, an exponent and a fraction by name.
+- *The oracle* (`conformance/README.md`, oracle 12). A fixture written as a
+  program (`scripts/recalc/subset.txt`, 106 formulas), built by the door,
+  saved by the owner in Excel 365 (`subset_saved.xlsx`), each row `agree`,
+  `differ` or `unchecked` under fifteen significant digits;
+  `tools/check_recalc_golden.ps1` holds each golden's lines and agreements
+  as floors and each fixture's pin (`agree`, `no-differ`, `built`). The
+  subset's save holds `VLOOKUP(10,A1:B2,2)` at 1 and `CONCATENATE("a","b")`
+  at `"ab"`, both `unchecked` today; `SEQUENCE(2)` stands in the reader's
+  fixture (`Model!F1`, not computed) and `FILTER` in the formula sink's
+  (`scripts/egress.txt`). The floors (`tools/check_recalc_floors.ps1`): four
+  bench programs (`scripts/recalc/bench/`), the machine's whole frame and
+  its edit beside Excel's on the owner's machine, each floor 15% under its
+  run. No build or view golden's program calls a lookup or a criterion, so
+  of the fixtures and goldens only the subset's built fixture and its four
+  goldens move with the first slice.
+- *The language's own tests* name `VLOOKUP` as their function not computed
+  (`calc/mod.rs`, `calc/census.rs`, `machine/mod.rs`), and
+  `a_range_over_a_twin_skips_a_cell_not_computed_as_it_did`
+  (`machine/mod.rs`) pins the twin defect with `=A1:A2` in `B2`, which an
+  intersection reads as `A2`. The reasons a cell can hold at a step are
+  three: a range where one value is wanted, an operator's or a function's
+  (`Ctx::one`); a defined name whose text this version does not read
+  (`Ctx::named`); and a loaded `value` row's, until the first frame. A load
+  refuses none of them.
+
+*The consumers' asks, read in their trees.*
+
+- *Buffet* (`7bbeb59`). `MISE.6`'s row, "`KERNEL.8`, `INDEX` and text |
+  Frazaro | 6 | the ladder's `CHOOSE` at scale, by `MISE.4`'s dial rows |
+  open there" (`docs/OMAKASE.md`), its measurement not yet built (`MISE.4`,
+  course 6), and Buffet waits for none of it: "`CHOOSE` over references
+  spells every picker and ladder until `INDEX` computes" (the same file).
+  Its cartridge holds 19 formulas of `CHOOSE`, 14 of them `kitchen.vla`'s
+  `picker` over a content sheet's references, which holds at most 1,547 rows
+  under the 8,192 characters a formula may hold (`MENU.1`'s decision 5; its
+  oracle refuses 1,548, `calc-formula-too-long`); the ladder's macro comes
+  with `STATION.2`. The holidays are spelled by nothing: `POT.10` left them
+  out, since they "want a table of the year's sessions that the dialect,
+  with no `INDEX`, cannot search" (`docs/SPIKE.md`, its decision 4). `MATCH`
+  is spelled as nested `IF`s (the exam's `B30` and `B35`), the calendar by
+  `MOD` and `INT` (a month is thirty days), and a view's dollars are texts
+  of 995 to 1,232 characters of formula past the `=`, whose way out is a
+  number format, `KERNEL.47`'s, once Alonzo's viewport draws its code, and
+  not `TEXT`.
+- *Alonzo* (`275f1e0`). `KIT.3`, a tile map: "one short shape over `INDEX`
+  once Frazaro's `KERNEL.8` computes it"; `CART.3`, the falling-block game,
+  on "`KERNEL.8`'s lookups"; `CART.5`, "`INDEX` over the Score's column for
+  the beat"; `CART.13`, the word game: "per-character functions, counting
+  duplicates, an exact-match lookup in a list of two to thirteen thousand
+  words", the text functions and the lookup family "computed by the language
+  for a cartridge (`AD-1`: a game reaches the language alone), and the doors
+  computing through the machine (`KERNEL.32`)" (`docs/ROADMAP.md`).
+  `docs/SPEC.md` calls `INDEX` and `MATCH` in its appendix's examples and
+  holds that "a Table's lookups wait on `KERNEL.8`"; its rule 5 measured
+  `CHOOSE` in a board's formula at +38% while it was computed a cell at a
+  time, before `KERNEL.28`. Kairos reads its live level by gated sums and
+  spells column letters by `CHOOSE`. `docs/ALGEBRA.md` §7's first rung asks
+  `SUMPRODUCT`, `MMULT` and `TRANSPOSE` of the language, §10.6 a broad phase
+  by lookups, and §12.1 says "Strings and dates matter in no cartridge",
+  written before `CART.13`. A cartridge loads under the language's library
+  alone (`Machine::new(draft, library::language())`,
+  `engine/src/cartridge.rs`). No document of Alonzo's ties `AD-7` to spills;
+  the rule (`docs/CHARTER.md`): "The step computes values and never
+  formulas; a formula enters the grid by `load` or by a `write` made on a
+  person's act", its argument that eval by the program "would make every
+  static property ... a per-frame property".
+
+*Excel's own index, read.* Microsoft's page "Excel performance: Performance
+and limit improvements" (learn.microsoft.com, dated 2024-01-24, read
+2026-10-18): "In Office 365 version 1809 and later, Excel's VLOOKUP,
+HLOOKUP, and MATCH for exact match on unsorted data is much faster ... These
+lookup functions now create an internal cached index for the column range
+being searched. This cached index is reused in any subsequent lookups that
+are pulling from the same row (VLOOKUP and MATCH) or column (HLOOKUP)"; and
+since version 2005 SUMIFS, AVERAGEIFS, COUNTIFS, MAXIFS and MINIFS, with
+SUMIF, AVERAGEIF and COUNTIF, "create an internal cached index for the range
+being searched in each expression. This cached index is reused in any
+subsequent aggregations that are pulling from the same range". The page does
+not say when an index is dropped; SumProduct's account (February 2019, read
+only through a search's summary, the page refusing a fetch) is that it lasts
+until the range's data changes. An approximate match is a bisection, which
+needs none.
+
+**The slices.** Six, built in order, each at the owner's word and committed
+before the next (decision 1):
+
+| | the slice | what it computes | its crate | size |
+|---|---|---|---|---|
+| a | the lookups on an index | `INDEX`, `MATCH`, `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XMATCH`, `XLOOKUP`; `IFERROR`, `IFNA`, `ISERROR`, `ISNA`; `SUMIF` and `COUNTIF` moved onto the index | the language | `~weeks` |
+| b | implicit intersection and a formula's kind | a range where one value is wanted, `@` and the file's `SINGLE`; the twin defect | the language and the reader | `~days` |
+| c | text | `CONCATENATE` and its neighbours; `TEXT` through `numfmt`, whole | the language | `~weeks` |
+| d | dates | `MONTH` and its family over the 1900 system | Excel's library | `~days` |
+| e | aggregates by criteria | the `SUMIFS` family, `SUBTOTAL`, `DAVERAGE` and the database functions | Excel's library | `~weeks` |
+| f | arrays within a formula | an array as an operand, array constants, `:` between expressions, `SEQUENCE`, `FILTER` and their neighbours, `SUMPRODUCT` | the language | `~weeks` |
+
+A spill, an array laid into the cells beside its anchor, goes to an item of
+its own (decision 7). No function of this item is transcendental: `EXP`,
+`LN`, `LOG`, trigonometry past `SIN` and `NORM.S.DIST` stay out, since `^`
+and `SIN` already differ between a native build and WebAssembly (on 9.7% and
+1.6% of the inputs measured, 2026-10-14), which waits on its own decision;
+every function here is exact arithmetic, a comparison or a read, and
+`SUMPRODUCT`'s and `MMULT`'s sums are added in a stated order (`ALGEBRA.md`
+§7).
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The slices and their order.* Recommended: the six above, in that order.
+   The lookups first: every consumer asks them, four of the corpora's
+   fifteen are lookups, and the index they stand on is what the criteria of
+   (e) stand on. Implicit intersection second: it removes the commonest
+   reason a cell holds at a step, a range where one value is wanted, which
+   is what makes the twin defect reachable, and it brings a formula's kind,
+   legacy or dynamic, through the reader, which (f) needs to tell an array
+   formula from one that intersects. Text before dates, by the consumers:
+   `CART.13` and Buffet's `MISE.6` ask text and none asks dates; `TEXT`
+   comes whole in (c), `numfmt` learning the date and time codes there over
+   the calendar's conversion, written once and called again by (d)'s
+   functions. The criteria (e) after the index's first numbers. Arrays (f)
+   last: they are the item's one break of the public surface (decision 9),
+   which `KERNEL.29`'s helpers need and with whose own break it is batched.
+   Each slice's list of functions is fixed at its build by `KERNEL.6`'s
+   rule, a fixture and a measured frequency: (a)'s now, by Table IV and the
+   consumers, with `XLOOKUP` and `XMATCH` as Excel 365's own spelling of the
+   same search (Alonzo's `ALGEBRA.md` §12, the word game's row: "`VLOOKUP`
+   and `XLOOKUP` models"), and the four error tests, which no corpus of 2015
+   ranks, by their fixture and the owner's histogram, as `IFS` entered on
+   its fixture alone; the lists of (c) to (e) by the owner's run of `frazaro
+   reflect --functions` over the house's models (`KERNEL.6`'s half deferred
+   since `KERNEL.7`), before each is built. *Declined:* the owner's lean as
+   written, with spills its last slice (decision 7); dates before text (no
+   consumer asks dates, and `TEXT` comes whole either way); the `SUMIFS`
+   family in (a) (its criteria by size and its tuples of keys are a design
+   of their own, best made after the index's first numbers); the error tests
+   left out (a lookup that misses is `#N/A`, and `IFERROR(VLOOKUP(...),0)`
+   and the older `IF(ISNA(VLOOKUP(...)),0,VLOOKUP(...))` are how a model
+   reads a miss, so without them a model's lookups would compute and the
+   formulas around them would not).
+
+2. *The index, exact by construction.* Recommended, laid out in full in the
+   first slice below: an index over a vector, the cells of one row or one
+   column a lookup searches (`VLOOKUP`'s first column, `HLOOKUP`'s first
+   row, the vector of `MATCH`, `XMATCH`, `XLOOKUP` and `LOOKUP`) or the
+   range a criterion tests (`COUNTIF`'s and `SUMIF`'s, any rectangle, row by
+   row), known by the rectangle its reference names at the cell computing it
+   and by the equality it keys, a lookup's or a criterion's, and never by
+   its text, so that the 20,000 cells of one shape reading `$A$2:$A$20001`
+   share one index and a defined name naming that rectangle shares it too.
+   It holds each distinct key once with its first and its last position in
+   the vector's order, and for a criterion its count and, for each sum range
+   a `SUMIF` names, the numbers of its cells added in that order; and, made
+   when first asked for, each kind's distinct values in order with their
+   positions, for `XMATCH`'s and `XLOOKUP`'s next smaller and next larger.
+   It is built at the second probe of a vector in one evaluation, a frame or
+   a pass of `Calc`, the first answered by the scan, so that a vector probed
+   once, a moving range or a lookup of its own, never pays a build. The
+   machine keeps it across frames until a cell of its own vector changes,
+   the owner's lean: each changed cell of a sheet that holds an index is
+   tested against that sheet's indexes, at the write, at the computed value
+   and at a twin's copy (a twin walked whole drops its sheet's indexes), and
+   an index a change reaches is built again at its next probe; a write that
+   plans again drops every index with the plan; and the indexes' slots
+   together are held to the grid's own limit, `CELLS`, a vector past it
+   answered by the scan, so that no grid's indexes outgrow its cells. `Calc`
+   keeps its indexes for its one pass, in which nothing changes. The scan
+   stays in the code as the specification: it answers every first probe,
+   every pattern and every criterion by size, and a test-only switch answers
+   every probe both ways and compares, over the laws' generated grids with
+   writes between frames and over vectors of every kind. An approximate
+   match needs no index: a bisection over the vector as it stands, stated
+   below, exact on a vector sorted as Excel asks, and held to Excel's
+   answers over unsorted vectors by fixture rows chosen so that each
+   candidate rule answers differently, Excel's word against the build's
+   prediction, as `KERNEL.47`'s ties were settled. *Priced against the scan*
+   (*prediction*): a build 30 to 60 ns a cell through a frame's array; a
+   probe 30 to 80 ns; an exact scan 3 to 10 ns a cell through the array,
+   half the vector for a hit and all of it for a miss or a count, and 60 to
+   80 ns a cell through a sheet's cells, as `COUNTIF` reads today; a changed
+   cell's test a few nanoseconds against each index of its sheet, and
+   nothing on a sheet that holds none. *Declined:* built at the first probe,
+   Excel's way (a moving range would pay a build at each cell, five to ten
+   times its scan); built where the plan finds a held vector with more than
+   one reader (static and printable, but blind to a vector a defined name or
+   `INDEX` reaches, which the second probe sees); kept until any value on
+   its sheet changes, a count a sheet and an increment a changed cell (the
+   bench's own probes stand beside its table, as a model's formulas often
+   stand beside their data, and would rebuild both its indexes at every
+   edit); dropped at every frame's end (Buffet's tables and Kairos's levels
+   move only at a write, and every frame would pay a build a vector); the
+   scan alone (quadratic: the gap assessment's 3.97 s at 8,000 rows).
+
+3. *`SUMIF` and `COUNTIF` move onto the same index, and the `SUMIFS` family
+   joins this item as its fifth slice.* Recommended: in (a), an equality
+   criterion (a number, a text with no `*`, `?` or `~`, a truth value, an
+   error, a cell's value) answered from the index under the criterion's own
+   equality, by which a number and a text spelling it share a key (`COUNTIF`
+   counts the text `"5"` as 5), so that a `COUNTIF` from each of n cells
+   over an n-row range costs one build and n probes; a count is a whole
+   number, and each key's sum is the scan's additions in the scan's order
+   from the scan's start, so both are bit for bit. A criterion by size
+   (`">15"`, `"<"&B1`) and a pattern are scanned, the scan made to allocate
+   nothing and the pattern matched in linear time (Found). In (e), `SUMIFS`,
+   `COUNTIFS`, `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS` and `MINIFS`: each
+   criteria range's key at each row, the row's tuple of the keys of its
+   equality criteria a group's key, built once for those ranges and
+   answering every formula that tests them with other values, each group's
+   sums added in range order; the criteria by size tested over the rows the
+   equalities leave, or read from an ordered index whose positions are put
+   back in range order before they are added (measured first). A sum by
+   prefixes, the difference of two running totals, is declined at every
+   slice: it makes other additions than the scan's, and is not bit for bit.
+   The family is on no item, and ranks in no corpus of 2015 (`SUMIFS` is
+   Excel 2007's); its frequency is the owner's histogram's, before (e) is
+   built. *Declined:* `SUMIF` and `COUNTIF` left scanning (the measured
+   quadratic stays); the family as an item of its own (its criteria are
+   (a)'s, and its database functions' are the same).
+
+4. *Each function on the three paths.* Recommended: every function computes
+   on the walk, its definition, and on the others as follows:
+
+| the function | the walk | a run | a cell alone |
+|---|---|---|---|
+| `INDEX` | a form answering a reference | known, as `CHOOSE` is: its row and column in lanes, the cell picked read at each cell | lowered: its row and column in registers, the cell picked read as a read is, guarded |
+| `MATCH`, `XMATCH` | strict | called at each cell with the run's operands, the index serving | through its pointer |
+| `VLOOKUP`, `HLOOKUP`, `LOOKUP` | strict | called at each cell | through its pointer |
+| `XLOOKUP` | a form answering a reference | at each cell by `Ctx`, measured | left to `Ctx` (`Why::Form`) |
+| `IFERROR`, `IFNA` | forms | known, as `IF` is: the value at every cell, the other at the cells whose value is an error | left to `Ctx` |
+| `ISERROR`, `ISNA` | strict | called at each cell | left to `Ctx`, an error being what they read and no register holds |
+| `SUMIF`, `COUNTIF` | strict | called at each cell | through its pointer |
+
+In a program, a call at its root, the cell's whole formula, answers its
+value whatever its kind, which is `Ctx`'s answer for the cell by
+construction: today a call answering anything but a number fails the guard
+and the cell is evaluated again from its start, so a lookup answering a text
+or a miss in a cell alone would make its probe twice; a call nested in
+arithmetic keeps the guard, a miss there probing twice. `CHOOSE` computed a
+cell at a time cost a board 38% (Alonzo's `SPEC.md`, rule 5), and `KIT.3`'s
+tile map, one shape over `INDEX`, is that spelling at every cell of a board,
+so `INDEX` is known to the run from its first slice. *Declined:* `INDEX` a
+form left to `Ctx` at each cell (the 38% again, on every board that draws by
+it); a library entry of a new kind, a strict function answering a reference
+(one seam more, for what `Known` gives one function); every lookup known to
+the run (each is a call at each cell whatever path computes it, its probe
+its cost, and nothing a run could share between its cells but the index,
+which the environment keeps).
+
+5. *Text values: their storage, their comparison, the limit.* Recommended: a
+   text stays an owned `String` in `Value`, a read cloning it once and a
+   lookup's answer once a cell; `Arc<str>` would make the clone a count, and
+   break every match on `Value::Text` in three repositories (decision 9).
+   One comparison for every text a formula compares, the operators', the
+   lookups', the criteria's and the index's keys, folding its characters as
+   it reads them, so that no comparison makes a string (`compare` makes two
+   today); the index hashing a text's folded characters as it reads them,
+   and keeping each distinct key's folded copy once. The wildcard matcher
+   (`*`, `?`, `~`) linear in the text and the pattern, the walk that
+   remembers its last `*`, allocating nothing, held to today's recursive
+   matcher over generated patterns. The fold and the order stay today's in
+   (a), `fold`'s A to Z and the code points of the folded texts, so that (a)
+   changes no answer an operator gives; its fixture asks Excel the two
+   things its own equality turns on: a letter's case beyond ASCII
+   (`="É"="é"`), and two numbers equal to fifteen digits and not to the bit
+   (`=0.1+0.2=0.3`, and `MATCH` of the one in a cell holding the other).
+   Where Excel's save answers otherwise, the equality changes in (a)
+   everywhere at once, operators, lookups, criteria and keys together, or
+   the lookups' alone where Excel's operators and its lookups answer
+   differently. The order is (c)'s: measured whole there by a golden written
+   in Excel of every pair of printable ASCII characters and a set of
+   accented letters (decision 8), since Microsoft's help says a sort passes
+   over hyphens and apostrophes and puts the digits before the space and the
+   punctuation, which code points do not, and whether a formula's `<`
+   follows its sort no source read says. The limit, in (c): 32,767
+   characters, Excel's for a cell, counted in UTF-16 code units as Excel's
+   `LEN` counts them, checked before a text is made, so that `REPT` and `&`
+   answer `#VALUE!` past it; positions in the same units, and a cut through
+   a surrogate pair answered as U+FFFD, since Excel's half of a pair is no
+   character a `String` holds. *Declined:* `Arc<str>` (a break, for a clone
+   a lookup's answer pays once); Unicode's case folding written into the
+   crate now (a table carried before Excel's answer says it is wanted); the
+   order changed in (a) (an operator's answers moving in a slice about
+   lookups).
+
+6. *Dates, in (d).* Recommended: a date is a serial, a number of days in
+   Excel's 1900 system: serial 1 is 1900-01-01, serial 60 the 29 February
+   1900 that never was, Lotus's, which Excel keeps, 61 is 1900-03-01, 0 the
+   "1900-01-00" Excel shows, and 2,958,465 is 9999-12-31; a serial below 0
+   or past that `#NUM!`; a time the fraction of a day. Every function of the
+   calendar computes from the serial with no locale: `DATE` (a year from 0
+   to 1899 counted from 1900, as Excel counts it, a month or a day past its
+   end carried into the next), `YEAR`, `MONTH`, `DAY`, `WEEKDAY` (by its
+   types, counted as Excel counts its days, so that serial 1 is a Sunday,
+   which the real 1 January 1900 was not), `EOMONTH`, `EDATE`, `DAYS`,
+   `NETWORKDAYS` and `WORKDAY` with their holidays (a vector read as a set,
+   on (a)'s index), `TIME`, `HOUR`, `MINUTE` and `SECOND` (their rounding
+   measured), the rest by the histogram. The 1904 system, a Mac's workbook
+   (`date1904`), read by the reader and its date functions labelled, until a
+   workbook asks for it. What needs a locale stays refused by name:
+   `DATEVALUE`, `TIMEVALUE`, and a date spelled in a text that arithmetic
+   reads (Found); the names of months and days `TEXT` and `numfmt` draw are
+   English, as the invariant culture and the owner's Excel spell them. `NOW`
+   and `TODAY` stay volatile, refused by an engine and labelled by a door.
+   *Declined:* the true calendar before March 1900 (every serial Excel has
+   saved would move by a day); the 1904 system computed now (no fixture asks
+   it, and no consumer); a date text read by a locale (the language has
+   none: `value.rs`).
+
+7. *Spills: an item of their own, and arrays here, as (f).* Recommended:
+   arrays within a formula stay in this item, the value kind, array
+   constants, an array parameter's expression, `SEQUENCE`, `FILTER` and
+   their neighbours consumed by an aggregate or a lookup, and `SUMPRODUCT`,
+   so that every formula whose answer is one value computes and
+   `KERNEL.29`'s helpers have what they stand on; and a spill, an array laid
+   into the cells beside its anchor, goes to an item of its own, as `LET`
+   and `LAMBDA` went to `KERNEL.29`: not minted here, one line in this
+   scoping's summary. A spill is this item's one change to the plan rather
+   than to the library: cells whose values come from another cell's formula,
+   a range that may grow and shrink with its values (`FILTER`'s), `#SPILL!`
+   where it is blocked, `A1#` naming it, the view record's rows for a cell
+   spilled into, the reader's `ref` and the writer's spilled values; and in
+   an engine, `AD-7`'s question, which no document of Alonzo's has asked:
+   the step computes values, and a spill's are values, but an extent that
+   moves with them makes the cells a formula fills a property of the frame,
+   as `AD-7`'s argument says eval by the program would make every static
+   property. Its decisions, for its own scoping: an extent fixed at the load
+   where its size is (`SEQUENCE` of constants), or bounded at the load with
+   an edge to every cell it may fill; a cartridge's spill refused by name,
+   or kept within its bound; `#SPILL!` an error kind beside `KERNEL.29`'s
+   `#CALC!`; a spill over a cell a row writes refused or blocked (Alonzo's
+   one write a cell). Until it lands, a dynamic formula whose answer is many
+   values is labelled at its anchor. *Declined:* spills as (f) (an item's
+   worth of decisions, one of them Alonzo's, behind five slices of
+   functions); arrays with the spills (`KERNEL.29` and `SUMPRODUCT` waiting
+   on the plan's change).
+
+8. *The oracle and the floors.* Recommended: Excel's saved values on
+   fixtures, oracle 12's practice, for every function's rules: each slice a
+   program of one formula per function and per rule it claims
+   (`scripts/recalc/lookups.txt` for (a), then `intersect.txt`, `texts.txt`,
+   `dates.txt`, `criteria.txt` and `arrays.txt`), built by the door, saved
+   by the owner in Excel 365 beside it as its `_saved.xlsx`, pinned at no
+   row `differ` with its agreements a floor; and a golden written in Excel
+   by the reference, `VlaWriteFormatsGolden`'s practice (`KERNEL.47`), where
+   a rule is a table too large for a fixture's rows: the text order over
+   every pair of printable ASCII characters in (c), the calendar of every
+   day of a span of years in (d), each with its writer in `VLA_Tests.bas`,
+   its language test and its check. The floors: a fifth bench program,
+   `scripts/recalc/bench/lookups.txt` (below), with Excel's half on the same
+   file by `tools/bench_recalc_excel.ps1` and Excel's own index under it,
+   and one for (e)'s criteria; each held by `check_recalc_floors.ps1` as the
+   four are, its runner holding every lookup to one written by hand in the
+   runner, a third lineage beside `Calc` and the machine, as Life is held.
+   *Declined:* the reference's golden for everything (a fixture tests the
+   writer, Excel's opening of the file and the reader as well as the
+   function); fixtures alone for the large tables (9,025 comparisons are no
+   fixture).
+
+9. *The public surface: additive through (e), one break in (f), batched with
+   `KERNEL.29`'s.* Recommended: (a) to (e) add and change no signature:
+   functions registered; `calc::index` and `calc::criteria`, new modules; a
+   provided method of `Env` that answers `None`, so that an environment
+   outside the crate compiles unchanged and scans; a provided method of
+   `rows::Sink` for an array formula's anchor in (b), which the printer
+   ignores; `numfmt`'s codes taking the date letters in (c), a refusal
+   lifted. `library::NAMES` is a fixed array of fourteen whose length is its
+   type, so it stays the day-one list, its comment saying so, and a page
+   lists a library's names by `Library::names()`, as it can today. Each
+   slice may go out as 0.10.x at the owner's word, as 0.9.4 carried
+   `KERNEL.42`'s projection. (f) adds a kind to `Arg`, two to `Expr` (an
+   array constant, and `:` between expressions) and one to `Content` (a
+   legacy array formula, which (b) labels until then), each an exhaustive
+   public enum, so it breaks; batched into 0.11.0 with `KERNEL.29`'s eighth
+   `ErrorKind`, `#CALC!`, and at that break `ErrorKind`, `Arg`, `Expr` and
+   `Reason` marked `#[non_exhaustive]`, so that the next kind breaks nothing
+   (Alonzo's and the core's matches gain a wildcard arm once). Alonzo's pin
+   moves at the releases it wants: `KIT.3`, `CART.3` and `CART.5` at (a)'s,
+   `CART.13` at (c)'s. *Declined:* `NAMES` grown in (a) (a public constant's
+   type changed, a break's version for a list a page reads another way);
+   every slice held for one release at (f) (a quarter's functions kept from
+   the consumers asking for them).
+
+10. *Which crate holds each function (`AD-1`).* Recommended: the language
+    holds what an engine asks for, and the rest stays in Excel's library, a
+    function moving down with its tests the day an engine asks (`KERNEL.7`'s
+    decision 1): in (a) the seven lookups, the four error tests, the index,
+    and `SUMIF` and `COUNTIF` with their criteria moved down from
+    `core/src/excel.rs` (the index keys by a criterion's equality, and
+    `CART.13` counts duplicates); in (b) `SINGLE`; in (c) the text functions
+    (`CART.13`); in (f) the arrays, `SUMPRODUCT`, `MMULT` and `TRANSPOSE`
+    (`ALGEBRA.md` §7). The dates, the `SUMIFS` family, `SUBTOTAL` and the
+    database functions stay Excel's: no engine asks. `excel::SUBSET` keeps a
+    row for every function either crate computes, with its evidence.
+    *Declined:* the lookups in Excel's library (no cartridge could call one,
+    a game reaching the language alone); everything in the language (dates
+    and the database functions in the engine's crate with no engine asking).
+
+**The first slice in full: the lookups on an index.**
+
+*What it computes*, each rule as Excel documents it, and where the
+documentation is silent the fixture's row decides:
+
+- `INDEX(reference, row, [column])`: the cell of the reference's one area at
+  the row and the column counted from its corner, as a reference; a
+  reference one row high or one column wide takes a single number as its
+  place along it (`INDEX(A1:E1,3)` is `C1`); a row of 0 is the area's whole
+  column and a column of 0 its whole row, a reference to many cells that
+  `SUM`, a lookup's vector and every other reference parameter read whole
+  and that a place where one value is wanted labels, as today, until (b); a
+  number read down to a whole one; a place outside the area `#REF!`, below 0
+  `#VALUE!`. Its answer adds no edge: the cells it may name are its
+  reference's, which the graph already holds as `INDEX`'s precedents, as
+  Excel holds them.
+- `MATCH(value, vector, [type])`: the position, from 1, in a vector of one
+  row or one column (any other area `#N/A`); type 0 the first cell equal to
+  the value, a text holding `*`, `?` or `~` a pattern; type 1, or none, the
+  bisection's largest not past the value; type -1 its smallest not under it,
+  on a descending vector; none found `#N/A`; a value that is an error
+  answers that error.
+- `VLOOKUP(value, table, column, [approximate])` and `HLOOKUP`: the table's
+  first column (row) searched as `MATCH` searches, for an exact match when
+  the fourth argument is FALSE or 0 and by the bisection when it is TRUE,
+  left out or another number, and the value in the column (row) asked for; a
+  column below 1 `#VALUE!`, past the table `#REF!`; an empty cell found
+  answering as an empty cell, which its formula's cell holds as 0.
+- `LOOKUP(value, vector, [results])` and `LOOKUP(value, array)`: always the
+  bisection; the answer at the same position of the results, read from its
+  first cell whichever way it runs; the array form searching its first row
+  when it is wider than it is tall and its first column otherwise, and
+  answering from its last row or column.
+- `XMATCH(value, vector, [mode], [search])` and `XLOOKUP(value, vector,
+  results, [missing], [mode], [search])`: mode 0 (the default) exact with no
+  pattern, -1 exact or the next smaller, 1 exact or the next larger, 2 a
+  pattern; search 1 (the default) first to last, -1 last to first, 2 and -2
+  the bisection over an ascending and a descending vector; the next smaller
+  the largest value under the probe anywhere in the vector, sorted or not,
+  at its first position in the search's direction; `XLOOKUP`'s results a
+  column of the vector's height (or a row of its width), its answer the cell
+  at the match as a reference, `missing` computed only when nothing matches,
+  `#N/A` without it; results of many columns, whose answer is a row,
+  labelled until (f).
+- `IFERROR(value, other)` and `IFNA(value, other)`: the value, or `other`
+  computed when the value is an error (`#N/A` alone, for `IFNA`); a reason
+  is no error and passes through. `ISERROR(value)` and `ISNA(value)`:
+  whether it is one, never propagating it.
+- `SUMIF(range, criterion, [sums])` and `COUNTIF(range, criterion)`: their
+  meanings as `KERNEL.7` wrote them, moved into the language with their
+  tests, but for the one rule the fixture asks (Found: an error in the sum
+  range at a row the criterion does not meet).
+- *The equality of an exact search*, today's (decision 5): no two kinds
+  equal (5 is not `"5"` to a lookup, which it is to `COUNTIF`), a number by
+  its value, 0 and -0 one, a text by `fold`, a truth value by itself; an
+  empty cell found by no probe, and an empty probe finding nothing
+  (*prediction*: the fixture's rows decide).
+- *The bisection*, stated: over the vector as it stands, low at its first
+  position and high at its last; the middle at `(low + high) / 2` rounded
+  down, and from it the nearest cell of the probe's kind toward low, else
+  toward high, other kinds, empty cells and errors passed by; a cell not
+  past the probe (not under it, descending) kept as the answer so far with
+  low moved past it, any other moving high before it; done when low passes
+  high, the answer the last kept, or `#N/A` when none was. On a vector
+  sorted by kind and value, as every approximate match asks, that is the
+  last cell of the probe's kind not past it, which is what
+  `LOOKUP(9.99E+307,A:A)` and `LOOKUP("zzzz",A:A)` are written for (the last
+  number, the last text); on any other it is this bisection's, which the
+  fixture holds to Excel's.
+
+*The index* (decision 2), as the build lays it:
+
+- `vla-lang/src/calc/index.rs`, new: a vector's key, its sheet, its
+  rectangle and its equality; an index, for an exact search a map from each
+  distinct key to its first and last positions under the crate's own hash
+  (`fx`, `KERNEL.25`), for a criterion each key's count and its sums in the
+  vector's order, and for an ordered search each kind's distinct values in
+  order with their positions, made when first asked for; and beside it the
+  scan, the specification.
+- `Env` gains a provided method that probes a vector and answers `None`
+  where an environment keeps no index, as `Env::dense` answers `None`;
+  `Calc` and the machine answer it, counting each vector's probes in one
+  evaluation and building at the second; a function asks it, and scans on
+  `None`.
+- The machine keeps its indexes in a map by the vector's key, and for each
+  sheet the indexes over it; a changed cell is tested against its sheet's at
+  `changed_to`, at `put_values` and wherever a twin's cell changes at a
+  frame's end, the walk of a twin dropping its sheet's whole; a write that
+  plans again drops them all, as it makes the plan again; a build that would
+  take the indexes' slots past `CELLS` is not made, its vector scanned.
+- A number's key is its bits, -0 made 0; a text's its folded characters,
+  hashed and compared as they are read, its folded copy kept once; a truth
+  value's itself; an error and an empty cell have none.
+- A build reads its vector through `Dense::each_ref` where the sheet keeps
+  an array, and through the sheet's cells where it does not.
+
+*Its paths* (decision 4): `INDEX` known to the run (`Known::Index`) and
+lowered in a program; `IFERROR` and `IFNA` known to the run; a program's
+call at its root answering its value as it stands; the census naming a
+lookup's held vector by a word of its own, `keyed`, since `lookup` already
+names a read by the cells' positions in Frazaro's census golden and in
+Alonzo's describe goldens.
+
+*What it touches.* The language: `src/calc/index.rs` and
+`src/calc/criteria.rs` (new); `library.rs` (the eleven registered with
+`SUMIF` and `COUNTIF`, `INDEX`, `IFERROR` and `IFNA` known); `eval.rs`
+(`Known`'s rows, `Env`'s probe); `vector.rs` (`INDEX`, `IFERROR` and `IFNA`
+across a run); `program.rs` (`INDEX` lowered, the root call); `mod.rs`
+(`Calc`'s indexes); `machine/mod.rs` (the indexes kept, tested by each
+changed cell and dropped); `census.rs` (`keyed`); the tests that name
+`VLOOKUP` as a function not computed, moved to one no slice computes;
+`README.md` (the language's functions). The core: `excel.rs` (`SUMIF`,
+`COUNTIF` and their criteria moved down, `SUBSET`'s rows,
+`NAMED_NOT_COMPUTED` without the lookups); `examples/recalc.rs` (the fifth
+fixture and its lookups written by hand). The fixtures and goldens:
+`scripts/recalc/lookups.txt`, `lookups.xlsx`, `lookups_calc.vla`, and at the
+owner's save `lookups_saved.xlsx` and its golden; the subset's fixture built
+again, its `VLOOKUP` holding its value, and its two calc goldens and two
+census goldens (`scripts/recalc/shapes/`), `VLOOKUP` and the cell reading it
+computed; `scripts/recalc/bench/lookups.txt`. The checks:
+`check_recalc_golden.ps1` (two rows, `lookups` pinned `built` and
+`lookups_saved` `no-differ`), `check_recalc_floors.ps1` (the fifth fixture,
+from the owner's runs), `check_shapes_golden.ps1` where its floors move,
+`prove.ps1`'s inventory. The catalogue: no id added, a lookup answering
+Excel's errors and refusing nothing, so no VBA module changes. The docs:
+`conformance/README.md` (oracle 12's amendment), `docs/RELEASES.md`, this
+record, the roadmap's line, the map in `Delta/CLAUDE.md`. Alonzo: nothing in
+its tree; its engine tests and `frames --check` run over the slice by a
+path, and its pin's move is its own.
+
+*The oracle* (decision 8):
+
+- *The fixture*, `scripts/recalc/lookups.txt`, built by the door into
+  `lookups.xlsx` (pinned `built`) and saved by the owner in Excel 365 beside
+  it as `lookups_saved.xlsx` (pinned `no-differ`, its agreements a floor),
+  about 120 to 150 formulas over three sheets. A Table sheet of vectors: one
+  ascending and one descending; one of texts in two cases, letters and
+  digits alone so that their order is the same by any rule; one mixing kinds
+  with empty cells, errors and duplicates; and the unsorted vectors on which
+  the bisection's candidates answer differently. A Lookups sheet of one
+  formula per function, mode and rule above, `INDEX`'s every form, every
+  error a function answers, and the idioms (`LOOKUP(9.99E+307,...)`,
+  `IFERROR(VLOOKUP(...),0)`, `IF(ISNA(MATCH(...)),...)`). A Criteria sheet
+  of `SUMIF` and `COUNTIF` over the index's equality and the scan's sizes
+  and patterns, an error in the sum range at a row met and at a row not met,
+  and decision 5's two questions.
+- *The laws.* The test-only switch answering every probe by the index and by
+  the scan, over the language's generated grids (`tests/laws.rs`) with
+  lookups of every kind among their formulas and writes between frames, so
+  that an index a change should have reached fails by name; and the machine
+  held to `Calc` frame after frame, as every law holds it.
+- *The bench*, `scripts/recalc/bench/lookups.txt`: a table of 20,000 rows of
+  distinct whole-number keys and their values, and 20,000 rows of probes
+  each finding a key, each probe looked up four ways in the table's keys
+  held at both corners (`VLOOKUP` exact, `MATCH` exact, `INDEX` at the
+  match, `COUNTIF` of the key), every value whole so that the sums are
+  exact; its edit an assumption every probe reads, so that every lookup
+  computes again over a table that did not move. Held by
+  `check_recalc_floors.ps1` as the four are, Excel's half from
+  `tools/bench_recalc_excel.ps1`, the runner holding every lookup to one
+  written by hand.
+- *Alonzo.* Its engine tests, its describe goldens and `frames --check` over
+  the slice by a path.
+
+*Predictions*, written before any number, the build's beside each:
+
+| | predicted | what carries it | the build's |
+|---|---|---|---|
+| the bench's whole frame, natively: 140,000 formulas, 80,000 of them lookups | 8 to 20 ms | each lookup a call at each cell of a run, 60 to 150 ns with its probe (`KERNEL.44`'s runs at 32 to 143 ns a cell; a strict call's own cost, the residual once the scan is gone, unmeasured); two builds of 20,000 cells at 30 to 60 ns; the keys, values and probes, under 2 ms | |
+| its edit | 6 to 16 ms: the probes and the lookups, no build | the indexes kept, the table's cells unchanged; 20,000 changed probes tested against two indexes, under 0.1 ms | |
+| the same lookups scanned, the index switched off | 2 to 8 s | 20,000 probes, each reading 10,000 cells for a hit and 20,000 for `COUNTIF`, at 3 to 10 ns a cell through the frame's array | |
+| the gap assessment's `COUNTIF` at 8,000 rows (3,969 ms measured) | 0.5 to 2 ms | a build and 8,000 probes | |
+| Excel's half | not predicted but its order: linear in the rows, an index of its own under every lookup and `COUNTIF` | Microsoft's page | |
+| an index of 20,000 whole-number keys | 0.5 to 1 MB natively | a key's 8 bytes, its two positions' 8, the table's tag and its spare room | |
+| Alonzo's cartridges and Buffet's | every frame and every allocation count level | none calls a function the slice adds | |
+| the subset's save | 104 agreeing, 102 today: `VLOOKUP(10,A1:B2,2)` (1) and the cell reading it (2) computed; `CONCATENATE` and the range where one value is wanted still named | the bisection over `{10,20}` | |
+| the fixture at Excel's save | the build's rules kept where they are new, the bisection over unsorted vectors (one rule explains them all, the midpoint rounded down) and empty cells (found by nothing); three of today's corrected: `SUMIF`'s error at a row not met (passed by in Excel, answered today), `="É"="é"` (TRUE in Excel, FALSE today) and `=0.1+0.2=0.3` (TRUE in Excel, FALSE today), `MATCH` of the one in the other not predicted | each where Microsoft's documentation is silent | |
+
+*What it leaves:* a range made by `:` between expressions
+(`A1:INDEX(B:B,5)`) to (f), labelled `:` as today; a many-cell answer where
+one value is wanted, `INDEX`'s row or column of 0 among them, to (b);
+`INDEX`'s form over a union of areas, a construct not read; a Table's
+structured reference, not read (Found); `XLOOKUP`'s row of answers and an
+array as a lookup's vector to (f); the criteria by size on an ordered index
+to (e); the order of texts to (c).
+
+**The later slices in outline**, each scoped again at its own build for what
+the outline leaves open:
+
+- *(b) Implicit intersection and a formula's kind* (`~days`). In a legacy
+  formula a range where one value is wanted reads the cell at the formula's
+  row, for a range one column wide; at its column, for one a row high; at
+  both, for any other, when that cell lies inside; and `#VALUE!` where none
+  does or the range spans sheets: on the walk in `Ctx::one`, in a run as a
+  read at a place moved with each cell, in a program as a read at a computed
+  place, guarded; the subset's `IF(A1>5,A1:A2,0)`, `#VALUE!` in Excel's
+  save, then agreeing, 105. `@` read as Excel's file spells it, `SINGLE(x)`
+  (the file's `_xlfn.SINGLE`, its prefix dropped by the reader's rule), a
+  form of the language intersecting in any formula, and the formula syntax
+  and the writer spelling it so. A dynamic-array formula told from a legacy
+  one by the reader (a `cm` naming the dynamic-array metadata, `t="array"`
+  over its own cell or a spill's `ref`) through `Sink`'s provided method, so
+  that `frazaro calc` loads it as `Content::DynamicFormula`, in which a
+  range where one value is wanted is an array, labelled until (f); a legacy
+  array formula (`t="array"` and no `cm`, entered with Ctrl+Shift+Enter),
+  for which `Content` has no kind, labelled by name, its kind joining
+  `Content` with (f)'s break. The twin defect decided by its removal: with
+  intersection, the reasons a cell can hold at a step are a defined name
+  whose text this version does not read and a loaded `value` row's before
+  the first frame; the first is refused at the load with the constructs a
+  load already refuses (`calc-construct-not-read`), so that no cell of an
+  engine's grid holds a reason at a step and a range over a twin never meets
+  one; the pin is rewritten to hold that over the generated grids; and a
+  twin's walk answers a reason as its sheet's walk does wherever a later
+  construct brings one back (a sheet holding a reason offers no array and
+  its walk visits the reasons, `KERNEL.31`'s rule for a frame's own sheet).
+  Its decisions: whether `reflect`'s `formula` row prints the `@` Excel
+  365's formula bar shows, moving oracle 8's goldens, or the kind travels
+  beside it; the census's word for a read by intersection. Oracle:
+  `intersect.txt`, legacy and dynamic formulas over ranges as the writer
+  writes each kind, saved by Excel.
+- *(c) Text* (`~weeks`). The functions by the histogram and `CART.13`'s
+  list: `CONCATENATE`, `CONCAT`, `TEXTJOIN`, `LEFT`, `RIGHT`, `MID`, `LEN`,
+  `FIND`, `SEARCH`, `SUBSTITUTE`, `REPLACE`, `UPPER`, `LOWER`, `PROPER`,
+  `TRIM`, `REPT`, `EXACT`, `VALUE`, `T`, `N`, `UNICODE`, `UNICHAR`, and
+  `TEXT` through `numfmt`, which learns here the date and time codes (`y`,
+  `m`, `d`, `h`, `s`, `AM/PM`, elapsed hours) over the calendar's
+  conversion, written once for the record and for `TEXT`, so that a `format`
+  row may hold `yyyy-mm-dd` too. Its decisions: the order and the fold, from
+  the golden; the counts in UTF-16 units and the cut through a pair; the
+  32,767 characters on every text a formula makes, `&` included (Found);
+  `CHAR` and `CODE`, whose code page is the host's (Windows' 1252 under the
+  owner's Excel, the language having none), held to ASCII or declined;
+  `FIXED` and `DOLLAR`, a locale's separators and currency, declined.
+  Oracle: `texts.txt`, and the order's golden written in Excel.
+- *(d) Dates* (`~days`). Decision 6's functions in Excel's library;
+  `NETWORKDAYS` and `WORKDAY` reading their holidays on (a)'s index, so that
+  Buffet's holidays become a table and a call. Its decisions: the time
+  functions' rounding, `DATEDIF`, `YEARFRAC`'s bases and `WEEKNUM`'s types,
+  by the fixture. Oracle: `dates.txt`, and a golden written in Excel of
+  every day's `YEAR`, `MONTH`, `DAY` and `WEEKDAY` from serial 0 to
+  past 2100.
+- *(e) Aggregates by criteria* (`~weeks`). Decision 3's family; `SUBTOTAL`
+  (its numbers 1 to 11 and 101 to 111, a `SUBTOTAL` within its range passed
+  by, a row hidden by the sheet's row settings; a row a filter hides is told
+  from a row hidden by hand only with the filter's range, which the reader
+  does not read, so computed where no row of its range is hidden and
+  labelled where one is, until a model asks); `DSUM`, `DAVERAGE`, `DCOUNT`,
+  `DCOUNTA`, `DGET`, `DMAX` and `DMIN` (a criteria range's rows, each row's
+  tests all met and any row met, its headers found without case), on (a)'s
+  criteria. Oracle: `criteria.txt`, and a bench of `SUMIFS` by an account
+  and a month.
+- *(f) Arrays within a formula* (`~weeks`). An array as an operand (`Arg`'s
+  new kind: its rows, its columns and its values, a reference's values read
+  whole); array constants (`{1,2;3,4}`); `:` between expressions, its edges
+  the rectangle spanning what each side may name (a reference's own,
+  `INDEX`'s its reference's, `IF`'s and `CHOOSE`'s their branches'); a
+  dynamic formula evaluated as an array, and a legacy formula's array
+  parameters by Excel's parameter classes, a reference, a value or an array
+  (`[MS-XLS]`'s table of functions: `SUMPRODUCT`'s, `INDEX`'s, a lookup's
+  vector); broadcasting a row against a column, `#N/A` where the sizes
+  differ; `SEQUENCE`, `FILTER`, `SORT`, `UNIQUE`, `TRANSPOSE`, `SUMPRODUCT`
+  and `MMULT`; the formula syntax's forms for them (`VLA.4`). The break
+  (decision 9). Its decisions: an array's limit against `CELLS`, its paths
+  (an array operand at each cell by `Ctx` first), its memory. Oracle:
+  `arrays.txt`, with `KERNEL.29`'s parity floor beside it.
+
+**Beside it.** `KERNEL.29` stands on (f), and its `#CALC!` is batched with
+(f)'s break; `LET` and `LAMBDA` stay refused by name until it. `NOW` stays
+refused by an engine and labelled by a door, and `OFFSET` and `INDIRECT`
+unreadable by the reader's rule, as the line's note of 2026-10-09 has them.
+`KERNEL.32`, the doors through the machine: the machine still refuses a grid
+at its first function no slice computes (`OFFSET`, `INDIRECT`, `NOW` and the
+long tail), so after this item a typical workbook still steps only through
+`Calc`; a cell's reason kept in the machine, so that it computes the rest,
+is that item's question and not this one's. `KERNEL.6`'s other half, the
+owner's histogram, is the evidence (c) to (e) wait for. `KERNEL.48`, scoped
+the same day by a peer (below), counts the cells a frame changed at the site
+where (a)'s indexes learn that a cell of their vector changed, `changed_to`,
+so whichever is built second is built over the other's hunks there. Alonzo's
+`KIT.3`, `CART.3`, `CART.5` and `CART.13`, and Buffet's `MISE.6`, wait on
+(a) and (c); Buffet's holidays on (a) and (d).
+
+**Found,** read, not minted:
+
+- *`SUMIF` answers an error in its sum range at a row its criterion does not
+  meet* (`excel.rs`: the error returned before the criterion is tested).
+  Excel's rule is unwitnessed, the subset's sum range holding no error;
+  (a)'s fixture asks it, and the index then keeps each key's first error in
+  the vector's order.
+- *The wildcard matcher tries every split at each `*`* (`excel.rs`,
+  `wildcard`), so a pattern of k stars over a text of n characters costs up
+  to about n^k steps, and it collects two vectors at each test: (a) replaces
+  it.
+- *`compare` folds two texts into two new strings at every comparison*
+  (`eval.rs`), and `COUNTIF` folds each cell's text again at every test:
+  (a)'s one comparison.
+- *Two numbers equal to fifteen digits and not to the bit compare unequal*
+  (`compare_numbers`, exact), where Excel is believed to compare them equal
+  (`=0.1+0.2=0.3`); unwitnessed, and (a)'s fixture asks.
+- *A letter's case beyond ASCII:* `fold` keeps `É` and `é` apart, which
+  Excel is believed to compare equal; unwitnessed, and (a)'s fixture asks.
+- *A text spelling a date or a thousands separator reads as `#VALUE!` in
+  arithmetic* (`value::text_to_number`), where Excel reads it by the host's
+  locale (`="1/1/2026"+0`, `="1,000"+1` in an English Excel): a claim, which
+  `KERNEL.7`'s decision 8 declines elsewhere ("a wrong `#VALUE!` would be a
+  claim, the label is not"); (d) decides it.
+- *`&` makes a text of any length* (`eval::binary`), where Excel answers
+  `#VALUE!` past 32,767 characters, so that a chain of doublings can fill
+  the memory: (c).
+- *A dynamic-array formula a host saved loads as a legacy one*
+  (`reflect/calc.rs`, the reader dropping `cm` and a spill's `ref`):
+  harmless while no range where one value is wanted computes, and wrong the
+  day an intersection computes without the kind; (b) brings the two
+  together.
+- *Alonzo's record says that no value of an engine's grid is ever not
+  computed* (its `docs/REARVIEW.md`, `ENGINE.2`'s substrate), but a range
+  where one value is wanted is a reason at a step, which no load refuses:
+  true after (b).
+- *A Table's structured reference is read by no item* (`SUM(Sales[Amount])`,
+  a construct not read): this item's lookups read a Table's cells by their
+  address, and the name of a Table and of its columns are the reader's
+  `table` rows and not yet a reference, where Alonzo's `SPEC.md` has "a
+  Table's lookups wait on `KERNEL.8`". One line in the summary.
+- *`library::NAMES`'s length is its type* (decision 9), and *the census's
+  word `lookup` names a read by the cells' positions* (decision 4).
+
+**Left for the owner:** the approval of the decisions, whole or amended;
+and, before (c) is built, and before (a) if the error tests are to enter
+with a count, the run of `frazaro reflect <file> --functions` over the
+house's models, its rows pasted where the owner likes.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which
