@@ -109,7 +109,12 @@ refused in the same words.
   record with each formula's value, the values (the record less its formula
   rows, what a host draws), the changes (the values' rows of the cells the
   last frame changed, so that a host repaints those alone, or `whole` where
-  the machine cannot say), or the plane, a byte a cell. Each
+  the machine cannot say), or the plane, a byte a cell. After each frame
+  `changed` says how many formula cells it changed the value of, to the
+  bit, `changed_on` how many of them on a sheet and `reached` how many it
+  computed, so that a host stepping a grid until a cascade settles stops
+  when nothing moves: a frame that changed nothing, with no write before
+  it, is followed by frames that change nothing. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
   text is the same) and evaluated at each cell's offset. `census` prints
   the plan as rows before a frame runs: each shape's cells, the levels of

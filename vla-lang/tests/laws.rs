@@ -45,10 +45,19 @@
 //!     over the grids of laws 9, 10 and 8, and grids whose values turn
 //!     between ones their records spell alike (KERNEL.42); a cell's `text`
 //!     row among its rows (KERNEL.47).
+//! 12. A frame's count is the formula cells whose values it changed to the
+//!     bit, read before its first step and after its last, each sheet's
+//!     count is its share, and the counts during a yield are the last
+//!     frame's, stepped whole and in slices; and a frame that changed
+//!     nothing, with no write before it, is a fixed point: the next frame
+//!     with none before it either changes nothing and leaves every value as
+//!     it was (KERNEL.48).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use vla_lang::calc::graph::is_formula;
 use vla_lang::calc::library;
+use vla_lang::calc::{CellId, Values};
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
 use vla_lang::machine::{Draft, Machine, Viewed};
@@ -1233,4 +1242,240 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
         "grids: too few text rows for the law to hold over: {:?}",
         held[0]
     );
+}
+
+// ---- 12. a frame's own count ---------------------------------------------
+
+/// Every formula cell's value of the last complete frame, by its place, read
+/// through the machine's values as any caller reads them and spelled to the
+/// bit, a -0 apart from a 0.
+fn formula_values(m: &mut Machine) -> BTreeMap<CellId, String> {
+    let sheets = m.sheets();
+    let ids: Vec<CellId> = {
+        let book = m.workbook();
+        (0..sheets)
+            .flat_map(|s| {
+                book.sheets[s]
+                    .cells
+                    .iter()
+                    .filter(|(_, cell)| is_formula(&cell.content))
+                    .map(move |(&(row, col), _)| (s, row, col))
+            })
+            .collect()
+    };
+    let m: &Machine = m;
+    ids.into_iter()
+        .filter_map(|id| Some((id, format!("{:?}", Values::computed(m, id)?))))
+        .collect()
+}
+
+/// The frames counted: changing and still; stepped in slices and yielding;
+/// and settled, a frame stepped after a still one with no write before
+/// either.
+#[derive(Debug, Default)]
+struct Counted {
+    changing: usize,
+    still: usize,
+    yielded: usize,
+    settled: usize,
+}
+
+/// A frame stepped in slices of `budget` cells, 0 for one step, its counts
+/// during a yield the last complete frame's.
+fn step_counted(m: &mut Machine, budget: usize, counted: &mut Counted, when: &str) {
+    let last = (m.changed(), m.reached());
+    if !m.step(budget).done {
+        counted.yielded += 1;
+        let now = (m.changed(), m.reached());
+        assert_eq!(now, last, "{when}: the counts during a yield");
+        while !m.step(budget).done {}
+    }
+}
+
+/// A frame's counts held to its formulas' values before its first step and
+/// after its last: the count the cells whose values differ, a value gained
+/// or spelled otherwise; each sheet's its share, a twin's none, none past
+/// the grid's sheets; and the cells computed no fewer than those changed
+/// and no more than the formulas.
+fn counts_held(
+    m: &Machine,
+    before: &BTreeMap<CellId, String>,
+    after: &BTreeMap<CellId, String>,
+    when: &str,
+) {
+    let mut by_sheet: BTreeMap<usize, usize> = BTreeMap::new();
+    let ids: BTreeSet<&CellId> = before.keys().chain(after.keys()).collect();
+    for id in ids {
+        if before.get(id) != after.get(id) {
+            *by_sheet.entry(id.0).or_default() += 1;
+        }
+    }
+    let total: usize = by_sheet.values().sum();
+    assert_eq!(m.changed(), total, "{when}: the count");
+    let sheets = (0..).map_while(|i| m.sheet_name(i)).count();
+    for s in 0..sheets {
+        let share = by_sheet.get(&s).copied().unwrap_or(0);
+        let name = m.sheet_name(s).unwrap_or_default();
+        assert_eq!(m.changed_on(s), Some(share), "{when}: {name}'s count");
+    }
+    assert_eq!(m.changed_on(sheets), None, "{when}: past the sheets");
+    let (changed, reached) = (m.changed(), m.reached());
+    assert!(
+        changed <= reached && reached <= m.formulas().0,
+        "{when}: {changed} changed of {reached} computed"
+    );
+}
+
+/// The law over one grid's frames: before each, the rows `writes` gives
+/// written; the frame stepped in slices of `budget` cells and its counts
+/// held; and a frame that changed nothing with no write before it followed
+/// by one more with none before it either, which changes nothing and leaves
+/// every value as it was.
+fn counts_over(
+    m: &mut Machine,
+    frames: u64,
+    budget: usize,
+    writes: &mut dyn FnMut(u64) -> Vec<String>,
+    counted: &mut Counted,
+    what: &str,
+) {
+    // Every count the machine answers: the frame's, each sheet's, the cells
+    // it computed.
+    let all = |m: &Machine| -> Vec<Option<usize>> {
+        let sheets = (0..).map_while(|i| m.sheet_name(i)).count();
+        let mut v: Vec<Option<usize>> = (0..sheets).map(|s| m.changed_on(s)).collect();
+        v.extend([Some(m.changed()), Some(m.reached())]);
+        v
+    };
+    for frame in 1..=frames {
+        let rows = writes(frame);
+        let kept = all(m);
+        for w in &rows {
+            m.write(w)
+                .unwrap_or_else(|e| panic!("{what}, frame {frame}: {w}: {}", e.refusal.text));
+        }
+        let when = format!("{what}, frame {frame}");
+        assert_eq!(
+            all(m),
+            kept,
+            "{when}: the writes before it leave the counts"
+        );
+        let before = formula_values(m);
+        step_counted(m, budget, counted, &when);
+        let after = formula_values(m);
+        counts_held(m, &before, &after, &when);
+        match m.changed() {
+            0 => counted.still += 1,
+            _ => counted.changing += 1,
+        }
+        if rows.is_empty() && m.changed() == 0 {
+            step_counted(m, budget, counted, &format!("{when}, settled"));
+            assert_eq!(m.changed(), 0, "{when}: the frame after a fixed point");
+            let again = formula_values(m);
+            assert_eq!(again, after, "{when}: the values after a fixed point");
+            counted.settled += 1;
+        }
+    }
+}
+
+#[test]
+fn a_frame_s_count_is_the_formula_cells_whose_values_it_changed() {
+    // Each family's frames counted apart, so that each is held changing,
+    // and still, yielding and settled where its grids do.
+    let mut counted: [Counted; 4] = Default::default();
+    // Law 9's grids, dressed, written before every second frame as law 7
+    // writes them, each stepped whole or in slices.
+    for seed in 1..=50u64 {
+        let mut r = Rng::new(seed ^ 0x48);
+        let rows = grid_rows(&mut r);
+        let rows = dressed(&mut r, &rows);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let budget = [0, 1, 7, 64][r.below(4)];
+        let mut last = None;
+        let mut writes = |frame: u64| match frame % 2 {
+            0 => vec![write_between(&mut r, &mut last)],
+            _ => Vec::new(),
+        };
+        let what = format!("seed {seed}, budget {budget}\n{rows}");
+        counts_over(&mut m, 8, budget, &mut writes, &mut counted[0], &what);
+    }
+    // Law 10's, most of whose cells change while the cell they read is
+    // written before every frame, and which settle or not once it is not.
+    for seed in 1..=40u64 {
+        let mut r = Rng::new(seed ^ 0x4848);
+        let (rows, n) = churning_rows(&mut r);
+        let mut m = load(&rows, &format!("churning seed {seed}"));
+        let budget = [0, 7, 64][r.below(3)];
+        let mut writes = |frame: u64| {
+            if frame > 4 {
+                return Vec::new();
+            }
+            let mut w = vec![format!("(cell \"T\" \"A1\" {frame})")];
+            if r.below(3) == 0 {
+                w.push(format!(
+                    "(cell \"G\" \"A{}\" {})",
+                    1 + r.below(n),
+                    r.below(10)
+                ));
+            }
+            w
+        };
+        let what = format!("churning seed {seed}, budget {budget}\n{rows}");
+        counts_over(&mut m, 8, budget, &mut writes, &mut counted[1], &what);
+    }
+    // Law 8's fills, one written whole and one a cell each, their value
+    // sheet written before the first frames and then not.
+    for seed in 1..=20u64 {
+        let mut r = Rng::new(seed ^ 0x88);
+        let rows = 8 + r.below(17);
+        let grid = fill_rows(&mut r, rows);
+        for text in [grid.clone(), written(&grid, "cells")] {
+            let mut m = load(&text, &format!("fills seed {seed}"));
+            let mut writes = |frame: u64| match frame {
+                1..=2 => {
+                    let cell = format!("{}{}", r.pick(VALUES), 1 + r.below(rows + 2));
+                    vec![format!("(cell \"V\" \"{cell}\" {})", r.below(10))]
+                }
+                _ => Vec::new(),
+            };
+            let what = format!("fills seed {seed}\n{text}");
+            counts_over(&mut m, 6, 0, &mut writes, &mut counted[2], &what);
+        }
+    }
+    // Law 11's values that turn between ones their records spell alike: 0
+    // and -0, and a reason and another.
+    for seed in 1..=20u64 {
+        let mut r = Rng::new(seed ^ 0x5A48);
+        let rows = spelled_rows(&mut r);
+        let mut m = load(&rows, &format!("spelled seed {seed}"));
+        let mut writes = |frame: u64| match frame % 3 {
+            0 => {
+                let v = r.pick(&["0", "-0", "4", "\"t\""]);
+                vec![format!("(cell \"Z\" \"E{}\" {v})", 1 + r.below(5))]
+            }
+            _ => Vec::new(),
+        };
+        let what = format!("spelled seed {seed}\n{rows}");
+        counts_over(&mut m, 6, 0, &mut writes, &mut counted[3], &what);
+    }
+    // Measured 2026-10-18, changing, still, yielding and settled: the grids
+    // 374, 26, 155 and 16; the churning 234, 86, 256 and 86; the fills 91,
+    // 149, none stepped in slices, and 128; the spelled 120 changing, their
+    // first cell turning at every frame, so never still.
+    let floors = [
+        (180, 12, 75, 8),
+        (115, 40, 125, 40),
+        (45, 70, 0, 60),
+        (60, 0, 0, 0),
+    ];
+    let families = ["grids", "churning", "fills", "spelled"];
+    for ((family, c), floor) in families.iter().zip(&counted).zip(floors) {
+        assert!(
+            c.changing >= floor.0
+                && c.still >= floor.1
+                && c.yielded >= floor.2
+                && c.settled >= floor.3,
+            "{family}: too few frames of a kind for the law to hold over: {c:?}"
+        );
+    }
 }

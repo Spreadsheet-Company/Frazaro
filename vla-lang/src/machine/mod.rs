@@ -77,6 +77,16 @@
 //! again, after a write that changed a formula or added a cell, and while a
 //! value written since lies in the window.
 //!
+//! **The count** (KERNEL.48). A frame's end keeps how many formula cells
+//! the frame changed the value of, to the bit as the frame judges a change,
+//! how many of them stand on each sheet, and how many formula cells it
+//! computed ([`Machine::changed`], [`Machine::changed_on`],
+//! [`Machine::reached`]), so that a host stepping a grid to a fixed point
+//! asks after each frame whether anything still moves. A frame that changed
+//! nothing, with no write before it, is a fixed point: the twins at its end
+//! are the twins it read, so the next frame with no write before it
+//! computes what it computed.
+//!
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
@@ -407,6 +417,14 @@ pub struct Machine {
     /// and whether more changed than this holds.
     changed: Vec<u32>,
     changed_over: bool,
+    /// What the last complete frame's end kept of the frame (KERNEL.48):
+    /// how many formula cells it changed the value of, how many of those
+    /// stand on each rows' sheet, and how many formula cells it computed,
+    /// counted in `reaching` while it was in progress.
+    last_changed: usize,
+    changed_sheets: Vec<u32>,
+    last_reached: usize,
+    reaching: usize,
     /// The value cells written since the last frame completed.
     written: Vec<CellId>,
     /// The twin cells the last frame's end changed, which the next frame
@@ -607,6 +625,10 @@ impl Machine {
             parts: Vec::new(),
             changed: Vec::new(),
             changed_over: false,
+            last_changed: 0,
+            changed_sheets: vec![0; sheets],
+            last_reached: 0,
+            reaching: 0,
             written: Vec::with_capacity(WRITTEN),
             twin_changed: Vec::new(),
             alike: Vec::with_capacity(ALIKE),
@@ -842,6 +864,45 @@ impl Machine {
         (self.shapes.formulas(), self.shapes.shapes())
     }
 
+    /// How many formula cells the last complete frame changed the value of
+    /// (KERNEL.48): each whose value's bits differ from those it held when
+    /// the frame began, as the frame judges a change it keeps, so that a
+    /// first value, a 0 turned to -0 and a reason turned to another count,
+    /// and a value cell, written or not, never does. 0 before the first
+    /// frame since the load; while a frame is in progress, the last complete
+    /// one's; a write leaves it as it is.
+    ///
+    /// A frame that changed nothing, with no write before it, is a fixed
+    /// point: the twins at its end are the twins it read, so the next frame
+    /// with no write before it computes what it computed and changes
+    /// nothing. The frame right after a write is never that proof, since its
+    /// end copies the written cells into their twins, which a formula reading
+    /// a written cell's twin sees a frame later. So a host stepping a grid to
+    /// a fixed point steps again while the last frame changed a formula's
+    /// value or had a write before it, a write of its own included.
+    pub fn changed(&self) -> usize {
+        self.last_changed
+    }
+
+    /// Of the cells [`Machine::changed`] counts, how many stand on a sheet,
+    /// by its index as [`Machine::sheet_name`] takes one (KERNEL.48): 0 for a
+    /// twin, which holds no formula, and `None` past the grid's sheets.
+    pub fn changed_on(&self, sheet: usize) -> Option<usize> {
+        if sheet >= self.book.sheets.len() {
+            return None;
+        }
+        Some(self.changed_sheets.get(sheet).map_or(0, |&n| n as usize))
+    }
+
+    /// How many formula cells the last complete frame computed (KERNEL.48):
+    /// every one at a frame that computes every cell, else those its changes
+    /// reached, the shapes it computed whole among them. 0 before the first
+    /// frame since the load; while a frame is in progress, the last complete
+    /// one's.
+    pub fn reached(&self) -> usize {
+        self.last_reached
+    }
+
     /// The machine's plan printed as rows, its census (KERNEL.30): what each
     /// shape costs a frame, read before a frame runs, as
     /// [`crate::calc::Shapes::census`] prints a plan, but each read of a
@@ -954,6 +1015,7 @@ impl Machine {
     fn begin(&mut self) {
         self.every = self.every_next || !self.incremental;
         self.every_next = false;
+        self.reaching = 0;
         #[cfg(test)]
         {
             self.computed = 0;
@@ -1030,6 +1092,7 @@ impl Machine {
     /// first cell, where the shape has one and no guard fails (KERNEL.44);
     /// else by `Ctx`, as every cell alone was before.
     fn evaluate_alone(&mut self, p: usize, keep: bool) {
+        self.reaching += 1;
         let id = self.shapes.order()[p];
         if self.lowered {
             let s = self.shapes.reach().shape_at(p);
@@ -1099,11 +1162,13 @@ impl Machine {
                     &mut answered,
                 );
                 if answers.is_empty() {
+                    self.reaching += answered.len();
                     for (k, &x) in answered.iter().enumerate() {
                         self.keep_number(i + k, x, keep);
                     }
                     answered.clear();
                 } else {
+                    self.reaching += answers.len();
                     for (k, computed) in answers.drain(..).enumerate() {
                         self.keep(i + k, computed, keep);
                     }
@@ -1142,11 +1207,13 @@ impl Machine {
                 &mut answered,
             );
             if answers.is_empty() {
+                self.reaching += answered.len();
                 for (&p, &x) in gathered_at.iter().zip(&answered) {
                     self.keep_number(p as usize, x, keep);
                 }
                 answered.clear();
             } else {
+                self.reaching += answers.len();
                 for (&p, computed) in gathered_at.iter().zip(answers.drain(..)) {
                     self.keep(p as usize, computed, keep);
                 }
@@ -1231,7 +1298,10 @@ impl Machine {
     /// kept; else, or when a twin's cell would gain or lose its value, every
     /// sheet walked. Either way the twin cells whose content or reason
     /// changed are kept for the next frame, and are the frame's changes
-    /// unless they are more than the lists tell (KERNEL.42).
+    /// unless they are more than the lists tell (KERNEL.42). And what the
+    /// frame changed and computed is kept for the counts until the next
+    /// frame's end (KERNEL.48): each sheet's share counted by the copy as it
+    /// copies each changed cell, or over the list where the end walked.
     fn snapshot(&mut self) {
         self.marked.fill(0);
         self.whole.fill(false);
@@ -1239,6 +1309,7 @@ impl Machine {
         self.twin_changed.clear();
         self.alike.clear();
         self.alike_over = false;
+        self.changed_sheets.fill(0);
         if !(self.copies
             && self.incremental
             && !self.changed_over
@@ -1247,7 +1318,13 @@ impl Machine {
             && self.copy())
         {
             self.walk();
+            self.count_on_sheets();
         }
+        // The list holds each formula cell the frame changed once, with room
+        // for every one, so its length is the count.
+        debug_assert!(!self.changed_over, "the list holds every formula cell");
+        self.last_changed = self.changed.len();
+        self.last_reached = self.reaching;
         self.changed.clear();
         self.changed_over = false;
         self.written.clear();
@@ -1255,6 +1332,31 @@ impl Machine {
         // lands during a frame, so the flag is the end's own.
         self.changes_whole = self.every_next || self.alike_over || self.reshaped;
         self.reshaped = false;
+    }
+
+    /// Each rows' sheet's share of the formula cells the frame changed,
+    /// counted over the list, for a frame's end that walked (KERNEL.48); a
+    /// copy counts each cell as it copies it, its place read already. The
+    /// list stands in the order, by level and then shape, so its cells come
+    /// a sheet at a time, each run counted in a register and added once: a
+    /// count in memory raised at every cell waited on its own last store.
+    fn count_on_sheets(&mut self) {
+        self.changed_sheets.fill(0);
+        let order = self.shapes.order();
+        let (mut on, mut run) = (usize::MAX, 0);
+        for &p in &self.changed {
+            let s = order[p as usize].0;
+            if s != on {
+                if let Some(n) = self.changed_sheets.get_mut(on) {
+                    *n += run;
+                }
+                (on, run) = (s, 0);
+            }
+            run += 1;
+        }
+        if let Some(n) = self.changed_sheets.get_mut(on) {
+            *n += run;
+        }
     }
 
     /// Whether the cells a copy writes through their twins' own cells, a
@@ -1318,7 +1420,11 @@ impl Machine {
     /// cell of a sheet kept as an array leaves its twin cell behind its slot,
     /// made when read (KERNEL.27): the twin's cells are a B-tree of every
     /// cell, and its lookup and its write of each changed cell were most of
-    /// the frame's end.
+    /// the frame's end. Each changed formula cell is counted on its sheet as
+    /// it is copied (KERNEL.48), its place read here already: a pass over the
+    /// list for it read the order's places a second time, far apart on a
+    /// large board, 2% of the frame of Life's board of 1280 by 800
+    /// (measured, against nothing measurable counted here).
     fn copy(&mut self) -> bool {
         let Machine {
             book,
@@ -1333,6 +1439,7 @@ impl Machine {
             lagging,
             lazy,
             changed,
+            changed_sheets,
             written,
             twin_changed,
             alike,
@@ -1361,6 +1468,7 @@ impl Machine {
             #[cfg(test)]
             crate::sheet::work::copied();
             let (id, value) = (shapes.order()[p as usize], values[p as usize].as_ref());
+            changed_sheets[id.0] += 1;
             let (content, byte) = (formula_twin(value), plane::formula_byte(value));
             let put = match *lazy {
                 true => to.put_behind(id, content, value, byte),
@@ -10401,6 +10509,238 @@ mod tests {
         assert_eq!(
             at(&m, "S", "J20"),
             Some(Computed::Value(Value::Number(10.0)))
+        );
+    }
+
+    /// The formula cells at which two spellings of a frame's values differ,
+    /// by sheet: a value gained, lost or spelled otherwise, to the bit
+    /// (KERNEL.48).
+    fn differing(
+        before: &BTreeMap<CellId, String>,
+        after: &BTreeMap<CellId, String>,
+    ) -> BTreeMap<usize, usize> {
+        let mut by_sheet = BTreeMap::new();
+        let ids: BTreeSet<&CellId> = before.keys().chain(after.keys()).collect();
+        for id in ids {
+            if before.get(id) != after.get(id) {
+                *by_sheet.entry(id.0).or_insert(0) += 1;
+            }
+        }
+        by_sheet
+    }
+
+    /// A machine's counts after a frame held to the cells it changed, by
+    /// sheet: the count, each sheet's share, a twin's none, none past the
+    /// grid's sheets, and the cells computed the frame's own count of them.
+    fn counts_held(m: &Machine, by_sheet: &BTreeMap<usize, usize>, when: &str) {
+        let total: usize = by_sheet.values().sum();
+        assert_eq!(m.changed(), total, "{when}: the count");
+        for s in 0..m.book.sheets.len() {
+            let share = by_sheet.get(&s).copied().unwrap_or(0);
+            assert_eq!(m.changed_on(s), Some(share), "{when}: sheet {s}'s count");
+        }
+        let past = m.book.sheets.len();
+        assert_eq!(m.changed_on(past), None, "{when}: past the sheets");
+        assert_eq!(m.reached(), m.computed, "{when}: the cells computed");
+    }
+
+    #[test]
+    fn a_frame_s_counts_are_the_cells_it_changed_however_it_is_computed() {
+        // KERNEL.48: after every done step the count is the formula cells
+        // whose values differ to the bit across the frame, each sheet's its
+        // share, and the cells computed the frame's own count of them; the
+        // same count with each of the machine's paths turned off, the first
+        // machine stepped under a budget, its counts during a yield the
+        // last complete frame's.
+        let (mut changing, mut still, mut yielded, mut followed) = (0, 0, 0, 0);
+        for seed in 1..=40u64 {
+            let mut d = Dice(seed ^ 0x48);
+            let churn = seed % 2 == 0;
+            let rows = grid_of(&mut d, churn);
+            let mut machines: Vec<Machine> = (0..6).map(|_| load(&rows)).collect();
+            machines[1].incremental = false;
+            machines[2].by_runs = false;
+            machines[3].lowered = false;
+            machines[4].copies = false;
+            machines[5].arrays = false;
+            machines[5].own_made(None);
+            for m in &machines {
+                counts_held(m, &BTreeMap::new(), &format!("seed {seed}: loaded"));
+            }
+            for frame in 1..=8u32 {
+                let when = format!("seed {seed}, frame {frame}");
+                if churn {
+                    let clock = format!("(cell \"Clock\" \"B1\" {frame})");
+                    for m in &mut machines {
+                        assert!(m.write(&clock).is_ok(), "{when}: the Clock");
+                    }
+                }
+                let before = values(&machines[0]);
+                let last = (machines[0].changed(), machines[0].reached());
+                let budget = 1 + d.below(64);
+                if !machines[0].step(budget).done {
+                    yielded += 1;
+                    let now = (machines[0].changed(), machines[0].reached());
+                    assert_eq!(now, last, "{when}: the counts during a yield");
+                    while !machines[0].step(budget).done {}
+                }
+                for m in &mut machines[1..] {
+                    assert!(m.step(0).done, "{when}");
+                }
+                let by_sheet = differing(&before, &values(&machines[0]));
+                for (k, m) in machines.iter().enumerate() {
+                    counts_held(m, &by_sheet, &format!("{when}, machine {k}\n{rows}"));
+                }
+                let of = machines[1].shapes.order().len();
+                assert_eq!(machines[1].reached(), of, "{when}: every cell computed");
+                followed += usize::from(machines[0].reached() < of);
+                match machines[0].changed() {
+                    0 => still += 1,
+                    _ => changing += 1,
+                }
+                let Some(write) = write_between(&mut d, frame) else {
+                    continue;
+                };
+                let first = machines[0].write(&write).is_ok();
+                for m in &mut machines[1..] {
+                    assert_eq!(m.write(&write).is_ok(), first, "{when}: {write}");
+                }
+            }
+        }
+        // Measured 2026-10-18: of 320 frames, 226 changing, 94 still, 315
+        // yielding and 104 computing what changed.
+        assert!(
+            changing >= 110 && still >= 45 && yielded >= 150 && followed >= 50,
+            "{changing} frames changing, {still} still, {yielded} yielding, {followed} \
+             computing what changed: too few of a kind for the counts to be held over"
+        );
+    }
+
+    #[test]
+    fn a_frame_s_count_names_each_kind_of_change() {
+        // KERNEL.48, the named cases: a grid with no value rows counts every
+        // formula at its first frame; a frame that changes nothing counts
+        // none and, still, computes none; a value write counts its readers
+        // on each sheet and never the cell written; a reason turned to
+        // another counts; a cell whose one reader reads its twin counts
+        // nothing at the write's frame and its reader at the next, so that
+        // the frame right after a write is no fixed point; a 0 turned to -0
+        // counts, though a window's changes name no row of it; and a
+        // formula written counts as a first value, its bits the old ones.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1\" 0)\n",
+            "(cell \"S\" \"A2\" 1)\n",
+            "(cell \"S\" \"A3\" 1)\n",
+            "(cell \"S\" \"A5\" -0)\n",
+            "(cell \"S\" \"A6\" 1)\n",
+            "(formula \"S\" \"B1\" \"=IF(A6=1,A1,A5)\")\n",
+            "(formula \"S\" \"B2\" \"=A2*2\")\n",
+            "(formula \"S\" \"B3\" \"=S.last!A3*2\")\n",
+            "(formula \"S\" \"B4\" \"=IF(A2>5,A1:A2,A2:A3)\")\n",
+            "(sheet \"T\" visible)\n",
+            "(formula \"T\" \"A1\" \"=S!B2+1\")\n",
+        ));
+        let counts = |m: &Machine| (m.changed(), m.changed_on(0), m.changed_on(1));
+        let step = |m: &mut Machine| assert!(m.step(0).done);
+        let reason = |m: &Machine| match at(m, "S", "B4") {
+            Some(Computed::NotComputed(Reason::Construct(c))) => c,
+            other => panic!("B4: {other:?}"),
+        };
+        assert_eq!(counts(&m), (0, Some(0), Some(0)), "before the first frame");
+        assert_eq!((m.changed_on(2), m.changed_on(4)), (Some(0), None));
+        step(&mut m);
+        assert_eq!(
+            counts(&m),
+            (5, Some(4), Some(1)),
+            "every formula's first value"
+        );
+        assert_eq!(m.reached(), 5);
+        step(&mut m);
+        assert_eq!(m.changed(), 0, "every cell computed again, alike");
+        step(&mut m);
+        assert_eq!(
+            (m.changed(), m.reached()),
+            (0, 0),
+            "still, and nothing computed"
+        );
+        // A value write: its readers on both sheets, never the cell.
+        assert_eq!(m.write("(cell \"S\" \"A2\" 3)"), Ok(1));
+        step(&mut m);
+        assert_eq!(counts(&m), (2, Some(1), Some(1)), "B2 and T!A1");
+        assert_eq!(reason(&m), "A2:A3");
+        // A reason turned to another; the write before it leaves the last
+        // frame's counts as they were.
+        assert_eq!(m.write("(cell \"S\" \"A2\" 7)"), Ok(1));
+        assert_eq!(counts(&m), (2, Some(1), Some(1)), "a value written");
+        step(&mut m);
+        assert_eq!(reason(&m), "A1:A2");
+        assert_eq!(
+            counts(&m),
+            (3, Some(2), Some(1)),
+            "B2, B4's reason and T!A1"
+        );
+        // A cell read through its twin alone: nothing at the write's frame,
+        // its reader at the next.
+        assert_eq!(m.write("(cell \"S\" \"A3\" 5)"), Ok(1));
+        step(&mut m);
+        assert_eq!(m.changed(), 0, "the write's frame, B3 reading A3's twin");
+        step(&mut m);
+        assert_eq!(counts(&m), (1, Some(1), Some(0)), "B3, a frame later");
+        assert_eq!(number(&m, "S", "B3"), 10.0);
+        step(&mut m);
+        assert_eq!(m.changed(), 0, "and then still");
+        // A 0 turned to -0, which no record row of B1 spells otherwise: B1
+        // reads A5's -0 in place of A1's 0. (A write of -0 over a cell
+        // holding 0 is no change to the write, which keeps the 0.)
+        assert_eq!(m.write("(cell \"S\" \"A6\" 2)"), Ok(1));
+        step(&mut m);
+        assert_eq!(counts(&m), (1, Some(1), Some(0)), "B1, 0 to -0");
+        assert!(number(&m, "S", "B1").is_sign_negative());
+        let changes = changes_of(&m, "S", None);
+        assert!(
+            changes.contains("\"A6\"") && !changes.contains("\"B1\""),
+            "the changes name A6 alone:\n{changes}"
+        );
+        // A formula written: its first value, the others where they moved,
+        // the last frame's counts as they were until the next frame ends.
+        assert_eq!(m.write("(formula \"S\" \"B2\" \"=A2+A2\")"), Ok(1));
+        assert_eq!(counts(&m), (1, Some(1), Some(0)), "a formula written");
+        step(&mut m);
+        assert_eq!(
+            counts(&m),
+            (1, Some(1), Some(0)),
+            "B2's first value, 14 again"
+        );
+        assert_eq!(m.reached(), 5, "every cell computed");
+    }
+
+    #[test]
+    fn a_save_s_first_frame_counts_what_its_value_rows_did_not_hold() {
+        // KERNEL.48: a fresh grid's first frame counts every formula, each a
+        // first value; a save's, whose value rows hold what its frame
+        // computes again, none, though it computes every cell; and a save
+        // resumed at its frame answers 0 before its first, as a grid just
+        // loaded does.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1\" 3)\n",
+            "(formula \"S\" \"B1\" \"=A1*2\")\n",
+            "(formula \"S\" \"C1\" \"=B1+S.last!A1\")\n",
+        );
+        let mut m = load(rows);
+        assert!(m.step(0).done);
+        assert_eq!((m.changed(), m.reached()), (2, 2));
+        assert!(m.step(0).done);
+        assert_eq!(m.changed(), 0);
+        let mut again = load(&save(&m));
+        again.resume_at(m.frame()).expect("no frame in progress");
+        assert_eq!((again.changed(), again.reached(), again.frame()), (0, 0, 2));
+        assert!(again.step(0).done);
+        assert_eq!(
+            (again.changed(), again.reached()),
+            (0, 2),
+            "its values held"
         );
     }
 }

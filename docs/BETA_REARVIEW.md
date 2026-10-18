@@ -28699,6 +28699,415 @@ the owner cuts it, beside `KERNEL.43` and `KERNEL.44`; Alonzo takes all
 three at its pin's move, its describe goldens blessed then, and Buffet's
 oracle at its own.
 
+**`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
+the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
+large board, a mine-clearing game at 512 by 512, at rate zero), which
+recommends a version 6 of Alonzo's `SPEC.md`: after a person's act at rate
+zero the host steps the grid again, with no act, while the last complete
+frame changed any formula cell's value, at most K steps an act (a manifest
+line, `(settle K)`), the replay logging the act once; Excel's iterative
+calculation in this engine's terms, maximum iterations K and maximum
+change zero. Minted as the next free `KERNEL` ID and nothing else, the
+scoping written here as this line's items are scoped, the decisions with
+recommendations and the predictions before any number, then a stop for the
+owner's approval. Nothing is built. HEAD `1cc86c9` (Release 0.10.0), level
+with origin, the tree clean, a peer session scoping `KERNEL.8` in it with
+nothing uncommitted at the start. Alonzo's HEAD `275f1e0` (Release 0.2.0),
+its tree clean, read and never written: `docs/SPEC.md` §§3.5, 4 and 5,
+`engine/src/cartridge.rs`'s `Cartridge::step` and `engine/src/abi.rs`;
+`CART.12`'s record not yet in its `docs/REARVIEW.md`, its roadmap line read
+instead.
+
+*What it stands on, read in the code.*
+- The frame's list of changes (`machine/mod.rs`). `changed` holds a
+  position of the order for each formula cell whose value the frame in
+  progress changed: `keep` compares a computed value with the one its cell
+  holds by `same_computed` (a number by its bits, so that -0 is not 0; a
+  text, a truth value, an error and a reason by equality), `keep_number` a
+  run's number by its bits (`KERNEL.43`), and `changed_to` pushes the
+  position wherever the two differ, a first value, where the cell held
+  none, among them. The step passes each position of the order once a
+  frame, across its yields too, so a position is pushed at most once a
+  frame; `fit` keeps room for every formula cell (`KERNEL.36`), so
+  `changed_over`, set nowhere else, is never set while that room stands.
+  The frame's end (`snapshot`) copies the list's cells into the twins, or
+  walks every sheet, then clears it; nothing reads it after.
+- `Step`: `frame`, `evaluated`, `of` and `done`, every field public, the
+  type `Copy`. `evaluated` counts the positions a step passed, computed or
+  not, so it is `of` at every done frame. Its row, `(step <frame>
+  <evaluated> <of> done|yielded)`, is the record of the language's
+  `vla_step` (nine exports, which `check_wasm_exports` holds exactly) and
+  of Alonzo's `alonzo_step`, whose `Cartridge::step` returns the
+  language's `Step` unchanged.
+- `twin_changed` (`KERNEL.42`): the twin cells the last frame's end
+  changed, kept until the next frame's end for a view of the changes, the
+  written value cells' among them, `Clock!B1`'s at every step of
+  Alonzo's; room for half the cells and 64, past which the next frame
+  computes every cell. The `changes` projection prints each changed cell's
+  rows, a sheet's window at a time, or `whole`.
+- The cells a frame computes: counted under `#[cfg(test)]` alone
+  (`computed`), reset at the frame's start, raised once a cell in `keep`
+  and `keep_number`, and read by the tests after a frame.
+- A write: a value cell written joins `written`, copied into its twin at
+  the next frame's end and followed at its start to the cells that read
+  it; a formula written, or a cell added, makes the next frame compute
+  every cell and forgets each written formula's value (`settle`), so that
+  the next frame gives it a first value.
+- A frame's inputs (`calc/reach.rs`'s header): a cell's value is a
+  function of what it reads and where it stands, the library's functions
+  being functions of their arguments and their cell; a frame reads the
+  twins (the last frame's end), the value cells (the writes since) and the
+  formula cells before it in the order. A frame computing what changed is
+  the frame computing every cell, to the bit
+  (`a_frame_that_computes_what_changed_is_the_frame_computed_whole`), and
+  each twin after a frame is its sheet's values as the frame left them
+  (law 10).
+- Alonzo at `275f1e0`: `Cartridge::step` writes the next frame's number
+  into `Clock!B1` before every frame, the step's first act (SPEC §3.5); at
+  rate zero (§5, decision 20) the host steps once after each write made on
+  a person's act, the frame number counting edits, a `(spec 5)`
+  cartridge's command run written before every step, and the Write sheet's
+  derived rows applied before the next step; the loop is the host's, in
+  JavaScript (`AD-4`), reading the step's record; `Cartridge::machine()`
+  lends the language's `Machine` to Rust.
+- No method of `Machine`, and none of the traits it implements (`Values`,
+  `Env`, `Source`), is named `changed`, `changed_on` or `reached`; the
+  `Values` trait's `computed(id)` is one an inherent `computed()` would
+  shadow at every caller's `m.computed(id)`.
+
+*The fixed point, derived before any build,* which the count serves and a
+host's rule must keep. Write `V` for the value cells, `F_n` for the
+formula cells' values at frame `n` and `T_n` for the twins at its end,
+which hold `V` as it then stood and `F_n` (law 10); `F_{n+1}` is a function
+of `V` and `T_n` alone, by the facts above. If no write lands before frame
+`n`, nor before frame `n+1`, and frame `n` changed no formula's value, then
+`T_n` is `T_{n-1}`, frame `n+1` computes what frame `n` computed, and it
+changes nothing, nor does any later frame with no write. Two consequences:
+- The frame right after a write is never the proof. Its end copies the
+  written cells into their twins, so a formula that reads a written cell's
+  twin, `Input.last!B5` in an edge's detector, sees the act a frame later:
+  a frame after an act that changed no formula can be followed by one that
+  changes some.
+- Every write counts, the host's own among them. Alonzo writes `Clock!B1`
+  before every frame, so a settle step that numbers its frame changes the
+  Clock's readers, and a cell that reads the frame number into a value
+  that moves at every frame (Park and Miller's dice, a time shown) keeps
+  the count above zero for all K steps; so do the Write sheet's rows and
+  the command run where they are written before a step.
+
+The exact rule, in the language's terms: after an act, step; then step
+again while the last frame changed a formula's value or had a write before
+it, at most K frames an act. What a settle step writes is Alonzo's to say
+in its page's next version (*Beside it*).
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The shape and the names.* Recommended: methods of `Machine`, each a
+   read of what the last complete frame's end kept, constant in time:
+   - `changed(&self) -> usize`, the formula cells whose values the last
+     complete frame changed;
+   - `changed_on(&self, sheet: usize) -> Option<usize>`, those of them on
+     a sheet by its index, as `sheet_name` takes one: `Some(0)` for a twin,
+     which holds no formula, and `None` past the grid's sheets;
+   - `reached(&self) -> usize`, the formula cells it computed (decision 4).
+
+   Each answers 0 before the first frame since the load, a resumed grid's
+   included; during a yield, the last complete frame's, as a view does; and
+   a write leaves it as it is, a count of a frame and not of the grid. The
+   names are the code's own: the list is `changed`, a sheet's share is `on`
+   it as `Reach::formulas_on` and `readers_on` are, and a change `reaches`
+   the cells a frame computes (`calc/reach.rs`). By sheet, one pass over
+   the list at the frame's end, before the clear, a count for each rows'
+   sheet, measured on Life and Sand natively and in wasm before it stays:
+   within the floors' noise, it stays; above it, the count moves into the
+   copy's loop, which reads each changed cell's place already, the pass
+   kept for a frame whose end walks; past that, `changed_on` is dropped and
+   named under *Found*. *Declined:* a projection printing the count by
+   `view`, `(changed <frame> <n>)` (no window and no cell, a count in a
+   record's dress, and a reworded `view-projection-unknown` in the
+   reference's catalogue, the owner's VBA pass, for hosts that call the
+   machine in Rust); a struct of the frame's counts (public fields grown
+   later break whoever builds one, as `Step`'s would); `computed()` (the
+   shadowed trait method); `evaluated()` (`Step`'s word for the positions
+   passed, every one at a done frame); the list kept until the next frame
+   and counted by sheet when asked (its positions go stale at a write that
+   plans again, and during a yield it is the frame in progress's); a count
+   raised in `changed_to` (a load of each cell's place in the hot path of a
+   frame that computes every cell); a settle call in the machine (the loop
+   is the host's, `AD-4`, and what a settle step writes is the host's).
+
+2. *What is counted.* Recommended: a formula cell whose value's bits the
+   frame changed, as `keep` judges, which is what the next frame follows to
+   the cells that read it: a 0 turned to -0, which a `value` row spells 0
+   both times, counted; a reason turned to another, which its readers
+   inherit, counted, and a value turned to a reason or back; a first value
+   counted, a written formula's among them; a value cell, written or not,
+   never, being no formula. So 0 is the fixed point's premise exactly.
+   *Declined:* a change of the rows as the `changes` view judges one (a 0
+   turned to -0 is no change of a row and is one of the bits the twin's
+   readers compute with, so a count of rows could say still where the next
+   frame moves; and it needs each changed cell's spelling compared, the
+   alike notes being the twins' alone and at most 64); the twin cells a
+   frame's end changed (the written cells' among them, `Clock!B1`'s at
+   every step of Alonzo's, so never zero there, and past half the cells no
+   count at all).
+
+3. *The C surface and the step's record.* Recommended: neither in this
+   slice. `vla_step`'s record and `alonzo_step`'s are one row,
+   `Step::row`, so a field there moves a record's bytes and every parse of
+   it; and `Step`'s fields are all public, so a field added breaks every
+   literal and exhaustive pattern of it, a semver break by Cargo's rules
+   though no crate of the house's builds one. Frazaro's doors compute
+   through `Calc` and not the machine until `KERNEL.32`, and no caller of
+   `vla_step` asks; when one does, a tenth export, `vla_changed`, answering
+   `(changed <frame> <n>)`, is an addition the surface's version stays at
+   (`ABI_VERSION`'s rule), `check_wasm_exports`' baseline moving with it.
+   Alonzo crosses its own boundary as its page's next version says: its
+   step's record for a cartridge of that version, or the settling done in
+   Rust inside `alonzo_step`, which crosses nothing.
+
+4. *The cells a frame computed.* Recommended: kept always, as `reached()`,
+   counted where the frame computes: an add for each run evaluated at once
+   (the answers it gave) and one for each cell alone, never one a cell in
+   `keep`, kept at the frame's end beside the count. The test counter in
+   `keep` and `keep_number` stays as it is, the law holding the two equal
+   at every frame. A click's frame on a large board then says what it
+   reached, for Alonzo's floors and Frazaro's recalculation instruments
+   (`bench_recalc`'s edits). *Declined:* the test counter made public as it
+   stands (an add for each cell computed in the hottest path, about 42,000
+   a frame of Life).
+
+5. *The version.* Recommended: additive, 0.10.1, released at the owner's
+   word as `release.ps1` and crates.io by Trusted Publishing do, or folded
+   into the next release if one is near. No call, record, export or golden
+   moves; Alonzo, pinning `=0.10.0`, takes it at its pin's move.
+
+6. *The fixed point's condition, said where the count is.* Recommended:
+   `changed`'s comment states the condition above, that a frame which
+   changed nothing, with no write before it, is a fixed point, the next
+   frame with none before it either changing nothing (*corrected in the
+   build*: the scoping said "with no write before it or before the frame
+   before it", a clause the derivation does not need, a write before the
+   frame before it standing already in the twins the frame read), and the
+   law holds it; the rule a host keeps is its own. *Declined:* the count
+   named the grid's settling (`settled()`, or a
+   comment saying 0 means still), which a frame right after a write that
+   changed nothing would answer wrongly.
+
+*Prediction,* written before any build or measurement:
+- No golden moves, the language's, the core's, Alonzo's or Buffet's: no
+  record, census, view or step row prints the counts. No check's floor
+  moves.
+- The three reads cost a field each, and a frame costs what it cost:
+  Alonzo's frame floors and the recalc floors within their noise, natively
+  and in wasm.
+- The pass by sheet: 0.5 to 1 ns a changed cell natively, 1 to 2 in wasm.
+  Life's frame changes about 12,400 formula cells, so 6 to 12 µs of its
+  2.1 ms natively (0.3 to 0.6%) and 12 to 25 µs of its 2.5 in wasm; Sand's
+  and the gun's less. Within the noise.
+- `reached()`'s adds: nothing measurable.
+- Memory: four bytes a rows' sheet and a few counts; nothing a cell.
+- Size: `vla-lang` 200 to 350 lines (the fields, the three reads and their
+  comments, the law, the unit tests), no other crate.
+- The counts over Alonzo's fixtures: Life's frames 12,000 to 13,000
+  formula cells changed each, Sand's 2,000 to 15,000, the gun's 50 to 400;
+  every frame of every fixture equal to the bit, as before (`frames
+  --check`).
+
+*The oracle*, the build's:
+- the twelfth law (`tests/laws.rs`), through the public API alone: after
+  every done step, `changed()` equal to the formula cells whose values
+  differ to the bit between just before the frame's first step and just
+  after its last, read independently through `Values::computed`, and
+  `changed_on` each sheet's share of them; over law 9's grids written
+  between frames, law 10's churning ones, law 8's fills and law 11's values
+  turning between spellings alike, each stepped whole and under budgets of
+  1, 7 and 64 cells; and the fixed point: wherever a frame with no write
+  before it changed nothing, the next, with none before it either,
+  changes nothing and leaves every value as it was, to the bit (*corrected
+  in the build*, as decision 6); each family held changing, still and
+  settled by a floor of its own;
+- a unit test (`machine/mod.rs`) over the generated grids: six machines of
+  each, one with each of `incremental`, `by_runs`, `lowered`, `copies` and
+  `arrays` turned off, every count alike frame after frame; `reached()`
+  equal to the test counter at every frame;
+- named cases: the first frame of a grid with no value rows (every formula
+  counted) and of a save whose value rows hold its values (none); a frame
+  that changes nothing (0, frame after frame); a value write (its readers
+  counted, the written cell never); a formula write (the written cells
+  counted as first values, the rest only where they moved); a 0 turned to
+  -0 (counted, a window's `changes` naming no row for it); a reason turned
+  to another (counted); a written cell whose one reader reads its twin (0
+  at the act's frame, 1 at the next: the condition pinned); a yield (the
+  last complete frame's counts while a frame is in progress); a resumed
+  save (0 before its first frame);
+- mutants, each caught by a named test: the count kept at the frame's
+  start; kept after the clear; every cell computed counted; `keep_number`'s
+  changes left out; a first value left out; the by-sheet pass skipped where
+  the end walks; a sheet's count put on its twin; the count cleared by a
+  write; a run's adds left out where its cells were few;
+- `cargo test --workspace`, clippy `-D warnings`, `run_checks.ps1` 58 of
+  58; the recalc floors within their margins; Alonzo over the build by a
+  path: its engine tests, `frames --check` every frame equal, and the
+  counts printed over its fixtures beside its frames.
+
+*The hand test, the owner's,* after the build: a scratch runner over a
+flood fill on a board of 512 by 512, an opening spreading as a
+mine-clearing game spreads one, each square reading its neighbours' twins;
+a click written, then steps until a frame with no write before it changes
+nothing, printing each frame's `changed()`, `changed_on` the board and
+`reached()`: the wave counted ring by ring down to 0, then 0 again.
+
+**What it touches.** `vla-lang`: `src/machine/mod.rs` (the fields, the
+frame's end, the three reads, the module's paragraph, the unit tests),
+`tests/laws.rs` (the twelfth law), the README's machine paragraph.
+`docs/RELEASES.md`'s note under the release that carries it, the roadmap's
+line and this record. No other crate, no check, no golden, no module of
+the reference.
+
+**Beside it.** Alonzo's page's next version, `CART.12`'s rule: what a
+settle step writes (the Clock's number, the Write sheet's rows, the command
+run), how its page reads the count (its step's record, or the settling
+done in Rust), and whether a sheet a cartridge names is left out of the
+count, as a time shown or the dice would ask; all its own, on this item's
+reads.
+
+**Found,** read, not minted: *Excel's maximum change above zero.* A
+model's circular calculation converges in its last bits, or cycles there,
+where a game's cascade settles exactly; Excel stops at a change below
+0.001 or at 100 iterations by default. The largest change a frame made to
+a number, a subtraction a changed cell where `changed_to` holds both
+values, is the count's twin for Frazaro's own iterative calculation through
+the machine, `KERNEL.32`'s road. *`vla_view`'s comment* (`src/abi.rs`)
+names `grid` and `plane` alone, the projections four since `KERNEL.42`.
+
+*Approved 2026-10-18* at the owner's word, "Recommendations approved;
+proceed with implementing KERNEL.48 as scoped.": the six decisions as
+recommended. The build begun the same day, the roadmap's line 🟡, in a
+worktree of `HEAD` in the session's scratchpad, so that the peer's
+`KERNEL.8` in the shared tree reaches none of its runs.
+
+*Built 2026-10-18.* `vla-lang/src/machine/mod.rs`: `changed`, `changed_on`
+and `reached`, each a field's read, their comments stating the fixed point
+and its condition (decision 6); the fields the last complete frame's end
+keeps, `last_changed`, `changed_sheets` and `last_reached`, and
+`reaching`, the cells the frame in progress computed, set to 0 at its
+start and raised where it computes, once a cell alone and once a run by
+its answers (decision 4); the frame's end keeping the counts, the copy
+counting each changed cell on its sheet as it copies it, and
+`count_on_sheets` counting over the list where the end walked or a copy
+stopped part way (decision 1, as measured below); the module's paragraph;
+three unit tests. `vla-lang/tests/laws.rs`: the twelfth law.
+`vla-lang/README.md`: the machine's paragraph. `docs/RELEASES.md`: the
+note under `0.10.1`. Nothing of Alonzo's tree written: its cartridges were
+stepped through `Cartridge` in copies of its `HEAD` `275f1e0` pinned by a
+path, `A` to `HEAD`'s language and `B` to the build's, natively on the
+performance cores and opted out of power throttling, rounds alternated.
+
+*Measured.*
+- The counts, in a copy of the build with its frame's end timed: Life's
+  steady frames change 11,290 formula cells each at the median, 8,178 to
+  22,526, and compute 40,515; Sand's 11,528 and 41,726; the gun's 81, 21 to
+  133, and 362; every first frame every formula. Predicted for Life 12,000
+  to 13,000: missed, lower and wider; Sand's and the gun's within.
+- The pass by sheet as first built, at every frame's end, a count in
+  memory raised a cell: 14.8 to 16.3 µs of Life's 2.0 to 2.1 ms frame (0.74
+  to 0.77%), 15.2 to 15.9 of Sand's (0.53%); predicted 6 to 12 (0.3 to
+  0.6%): missed, each cell's add waiting on the last one's store. Counted a
+  run at a time in a register, 9.1 to 11.5 µs (0.44 to 0.51%) and 6.3
+  (0.22%).
+- The frames said more than the instrument. Life's board of 1280 by 800,
+  the size ladder's top rung, frames 2 to 61, nine rounds: `B` 3.0% slower
+  than `A` at the median and 2.1% at the mean; `C`, the build less the
+  pass, 1.0% and -0.2%. On a large board the places the pass reads stand
+  far apart in the order (16 MB at a million cells), so it costs more a
+  cell the larger the board. By decision 1's rule the count moved into the
+  copy's loop, which reads each changed cell's place already, the pass kept
+  for an end that walks: nine rounds again, `B` -0.6% and +0.4%, `C` -1.2%
+  and -0.4%, each within a percent of the others.
+- Life's and Sand's frames 2 to 301, 21 rounds rotated: the means `B` +0.2%
+  and +0.6%, `C` +0.5% and +0.3%, the medians within 2%. Alonzo's own
+  instrument, `tools/bench_frames.ps1`, three rounds alternated in each
+  copy, natively and in wasm under headless Chrome 155: every wasm row's
+  `B` over `A` 0.97 to 1.00 (Life 1.000, its top rung 0.986, Sand 0.974),
+  every native row within its spread. As predicted: a frame costs what it
+  cost.
+- Memory: `frames --check`'s high-water marks 20 to 48 bytes more a
+  cartridge, four a sheet, and the allocations a frame unchanged, 80 and 5,
+  82 and 5, 507 and 5. As predicted.
+- The recalculation floors, `tools/bench_recalc.ps1` in `HEAD`'s tree, the
+  item's and `C`'s, three rounds rotated: every row of the item's within
+  -0.4% and +4.4% of `HEAD`'s but column's edits, +6.5% (an earlier pair of
+  rounds had them at -4.5%, `C` +3.9% in this one: the row swings with the
+  machine). Every row above its floor of 2026-10-17 but column's whole
+  frame, 101.7 million formulas a second against 108, where `HEAD` read
+  100.4 the same hour: the machine's, not the item's. As predicted.
+
+*Held.* The twelfth law over its four families, each by floors of its own
+(measured, changing, still, yielding and settled: the grids 374, 26, 155
+and 16; the churning 234, 86, 256 and 86; the fills 91, 149, none and 128;
+the spelled 120 changing and never still), the fixed point held wherever
+its condition held, 230 times, and the counts across every frame's writes.
+The unit tests: six machines of 40 generated grids, each of `incremental`,
+`by_runs`, `lowered`, `copies` and `arrays` turned off in one, counting
+alike over 320 frames (226 changing, 94 still, 315 yielding, 104 computing
+what changed), `reached()` the test counter at every frame; the named
+cases; a save's first frame. `cargo test -p vla-lang`: the library 268,
+its twelve laws; clippy `-D warnings` clean. Alonzo over the build by a
+path: its engine tests 43, `frames --check` every frame of its seven
+fixtures equal. Twenty-one mutants, each applied once to a copy with its
+own build and asserted applied, against the item's tests: twenty failed
+named tests at the first round; the twenty-first, a write clearing the
+count, failed none, the whole crate's included, no test reading the
+counts between a write and the next frame. The named cases and the law
+now hold the counts across a frame's writes, and it fails both; the
+control passed before and after each round. *Verified in isolation:* the
+item's tree, `HEAD` and this item's seven files with only its own hunks of
+the shared documents (the peer's `KERNEL.8` left out), extracted on its
+own: CI's core job step by step, the workspace built, formatted, linted
+and tested (the core 188, the language 268 and its twelve laws), the
+language's package tested from its tarball outside the workspace, both
+wasm modules importing nothing and the language's exporting its ten
+names, `prove.ps1 -Impl` 47 passed, every `-Impl` golden whole, the recalc
+runner's values held; and `run_checks.ps1` 58 of 58.
+
+*Corrected in the build:* the fixed point's condition, decision 6 and the
+oracle marked where they stand: no write before the frame that changed
+nothing, and none before the next, the write before the frame before it
+standing in the twins already.
+
+*Found* in the build, read, not minted: *a write of -0 over a cell holding
+0 changes nothing.* The write compares a cell's content by `Content`'s
+equality (`put_values`), which takes -0 for 0, so the cell keeps 0 and the
+write counts no cell, where a load keeps a -0; Excel holds no -0 at all.
+
+*The hand test, prepared:* `settle`, a scratch runner over the build by a
+path: a board of 512 by 512 in three layers of formulas, 786,432 cells,
+its mines 30 a thousand from a seed; a click on the nearest square to the
+one asked for that counts no mine, the genre's safe first click; then the
+rule stepped. Its run: the wave counted ring by ring, 2, 14, 26 and 36
+cells and up to about 2,400 a frame, settled after 342 frames in 130 ms,
+252,213 squares open; one more frame, no write, changing and computing
+nothing. Clicked near row 100, column 400, the same 252,213 squares in
+448 frames; at 90 mines a thousand, 139,140 in 676 frames and 86 ms.
+
+*Owner-tested 2026-10-18:* the hand test's three runs, every count the
+build's (342 frames and 252,213 squares; 448 and 252,213 clicked near row
+100, column 400; 676 and 139,140 at 90 mines a thousand; the frame past
+each changing and computing nothing), the times within a tenth of the
+build's; and the item's three unit tests and its law in the shared tree.
+
+*Committed 2026-10-18* at the owner's word, "VLA.bas line 22 is updated to
+0.10.1, so commit that and the KERNEL.48 files so I can cut, deploy, and
+publish": this item's six files, staged as `HEAD` and this item's hunks
+alone beside the peer's uncommitted `KERNEL.8`, its line leaving the
+roadmap for the closed ledger, the line never committed. Line 22 of
+`src/VLA.bas`, `VLA_RELEASE_VERSION` 0.10.1, which the owner set, went in
+after it with its twins and the goldens that embed the version, as
+`Release 0.10.1`, so that each commit holds `check_version_twin`. Alonzo
+takes the item at its pin's move to 0.10.1, before `CART.12`'s first
+slice.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -42176,6 +42585,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.44 — a cell alone lowered once to a register program, its functions, sheets and references found at the plan, so that a cell no run holds costs nanoseconds a node and not tens.** Minted 2026-10-16 at the owner's word of 2026-10-15 from `KERNEL.43`'s measurement, with it and `KERNEL.45`; scoped, approved, built and owner-tested 2026-10-16, committed 2026-10-17. Each shape's parse is lowered where the plan keeps it to a program over registers of numbers, each operation the evaluator's own function, and six guards leave a cell to `Ctx` wherever a value no register holds appears, so that every answer is the walk's to the bit; a run's selection of fewer than sixteen cells runs its programs, the step's loop walks the runs beside the positions, and the census names a shape left to `Ctx` and why, `(unlowered text)`. Kairos's frame 45% faster natively and 47% in wasm, Buffet's 28 and 27%, `chain`'s whole frame 74% and its edit 55%, Life's rule written a cell at a time 64 and 53%; Life, Sand and the gun within about 1%, every frame equal natively and in wasm; a load up to 3% slower, the module 2.6% larger. The recalc floors' entry of 2026-10-16 raised `chain`'s whole frame from 14.0 to 63.0 million formulas a second, 6.2 times Excel's on twenty threads. Held by a law over generated grids against `Ctx` and `Calc`, a test a guard, and twenty-six mutants, each failing named tests, a first round's survivor showing a range's empty-cell arm dead and taken out; Alonzo over it by a path, every replay and digest unchanged. To be released in 0.10.0, 0.9.5 folded into it. `~weeks`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.31 — a sheet a range reads this frame kept as an array, so that a reduction over the frame's own cells walks an array as one over a twin does.** Minted 2026-10-12 at the owner's word, from the speed half of an Alonzo session's audit of the architecture; measured again with `KERNEL.34` to `KERNEL.36` and with `KERNEL.43`, which widened it to the cells a frame reads of its own sheets; scoped, approved, built, owner-tested and committed 2026-10-17. A rows' sheet the plan reads by a range, or by a run's cell that moves with it, keeps the frame's values as an array over its extent, the twin's slot under the twins' limit, each slot written where a value changes and a value cell's at its write, the array kept over a write that plans again and made again past its extent; a sheet one of whose formulas holds a reason offers no array until none does, so that a range answers the reason bit for bit; every array path reads it as a twin's, a run's cells one below the other read a column of it, and a door's census names the arrays its machine keeps. The recalc floors' `sums` whole 3.6 times faster and its edit 2.3 times, 2.5 times faster than Excel on twenty threads and 1.2 times at its edit, `column`'s whole frame 37% faster, Sand 18% natively and 17% in wasm, the Mind of 20,000 55 and 45%; Life, the gun, Kairos, Buffet and the sound card level, `chain` level to 5% slower; every frame equal natively and in wasm; a load that makes an array up to 9% slower, 33 bytes a slot, the module 1.1% larger. The recalc floors' entry of 2026-10-17 raised `sums`' whole frame from 7.21 to 31.0 million formulas a second and `column`'s from 56.8 to 108. Held by a law over generated grids against the same grids keeping no arrays and against `Calc`, five tests of its traps, and thirty mutants, each failing named tests, two gaps found and one closed; Alonzo and Buffet over it by paths, every replay and digest unchanged. To be released in 0.10.0, 0.9.5 folded into it. `~weeks`, taken in a day. *(more: the measurement, the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.47 — a number format in the record: Excel's format codes beside `general` and `text`, so that a cell holding 1 under `0.00` draws 1.00, right-aligned as a number.** Minted 2026-10-17 at the owner's word, from Buffet's `POT.10` hand test (2026-10-16): "All dollar cells should show two decimals, so Portfolio!B5:B8 should show cents at all times, even when the amount is a full dollar."; scoped, approved, built, owner-tested and committed 2026-10-17. A `format` row's number format may be a code of Excel's in quotes, `(format 2 none "0.00" nowrap)`: `numfmt` draws one to four sections, `0` and `#`, the point, the thousands, thousandths and percents, quoted, escaped and unquoted literals and any character outside ASCII, and refuses the rest by name with what draws instead (`grid-format-code`); a number becomes its text as Excel draws it, its nearest fifteen significant digits, an exact tie toward zero, then half away from zero to the code's decimals, one section's minus dropped where the number draws as zero; the record prints a `text` row after a cell's value wherever a code draws, a load skips it, and a record whose formats hold no code prints none, byte for byte as before; the writer writes a built-in by its id and defines every other code in `<numFmts>` from 164, into a workbook of one's own past its highest. `NumFmt::Code` breaks the public surface (`NumFmt` loses `Copy`, `NumFmt::id` is `NumFmt::builtin`, the core's `cellxfs_fragment` takes the codes' ids). A number's text 224 to 276 ns short and 611 to 998 long; a window of 4,000 coded numbers 2.4 to 3.9 ms slower, most of it the printing of its rows; a style 24 bytes where it was 6; the module 19.2 KB larger. Held by Excel's own text of 114 values under 59 codes (`VlaWriteFormatsGolden`, the owner's run, three rules of Excel's taken from it), the laws over grids whose formats hold codes, the writer's ids, a written workbook the owner opened in Excel (every row alike) and in Calc (all but 1 under `0.#`), and eighteen mutants, each failing named tests; Alonzo over it by path, its tests and frames as before but 18 bytes held a cartridge. Alonzo's half (a `SPEC.md` version, the viewport's reader and painter, the pin) named for Alonzo to mint after the release. To be released in 0.10.0. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.48 — a frame's own count: the formula cells whose values the last complete frame changed, read in constant time on `vla-lang`'s `Machine`, so that a host steps a grid again while a cascade still moves and stops when it has settled.** Minted 2026-10-18 at the owner's word, from Alonzo's `CART.12` (the large board at rate zero, a cascade settled inside an edit); scoped, approved, built, owner-tested and committed the same day. `Machine::changed` answers how many formula cells the last complete frame changed the value of, to the bit as the frame keeps a value (a first value, a 0 turned to -0 and a reason turned to another counted, a value cell never), `Machine::changed_on` how many of them stand on a sheet by its index, and `Machine::reached` how many formula cells the frame computed: each a field's read, 0 before the first frame, the last complete frame's during a yield and after a write. A frame that changed nothing, with no write before it, is a fixed point, the next frame with none before it changing nothing; so a host settles a grid by stepping again while the last frame changed a formula's value or had a write before it, the frame right after a write never the proof, since a formula reading a written cell's twin sees it a frame later (the scoping's stronger clause corrected in the build). Each sheet's share is counted in the copy's loop at the frame's end, where a pass over the list had cost Life's board of 1280 by 800 2% of its frame: a frame costs what it cost, natively and in wasm, and the recalculation floors are as they were. Held by a twelfth law over four families (the counts against every formula's value read to the bit, stepped whole and in slices, across writes, and the fixed point wherever its condition held), unit tests with each of the machine's paths turned off, and twenty-one mutants, each failing named tests once a survivor's blind spot, the counts across a write, was held; Alonzo over it by path, its tests and every frame equal; the owner's hand test a board of 512 by 512 settled after a click, 342 frames, the frame past it still. Additive: no call, record, export or golden moved. Alonzo's half, the page's version 6 and its `(settle K)`, is `CART.12`'s. To be released in 0.10.1. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

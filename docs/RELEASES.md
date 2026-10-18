@@ -2,6 +2,27 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.10.1
+
+### What changed
+
+- **For engines: a frame says how much it changed.** After a frame
+  completes, `Machine::changed` answers how many formula cells it changed
+  the value of, to the bit, and `Machine::changed_on` how many of them
+  stand on a sheet, so that a host stepping a grid until a cascade
+  settles, as a game at rate zero does after a click, steps again while
+  something still moves and stops when nothing does: a frame that changed
+  nothing, with no write before it, is followed by frames that change
+  nothing. The frame right after a write is never that proof, since a
+  formula reading a written cell's previous frame sees the write a frame
+  later. `Machine::reached` answers how many formula cells the frame
+  computed, every one at a frame that computes them all and otherwise those
+  its changes reached, so that a host can see what an edit cost. Each is
+  read in constant time and kept until the next frame ends, so a step that
+  yields answers for the last complete frame. A frame costs what it cost,
+  natively and in the browser, on Alonzo's boards up to 1280 by 800. No
+  call, record or export changed (KERNEL.48).
+
 ## 0.10.0
 
 ### What changed

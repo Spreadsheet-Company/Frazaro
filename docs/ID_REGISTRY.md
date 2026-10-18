@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.47 | KERNEL.48 |
+| KERNEL | KERNEL.48 | KERNEL.49 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -272,6 +272,12 @@ it asks. `KERNEL.47` is next free.
 number format in the record, Excel's format codes beside `general` and
 `text`, so that a cell holding 1 under `0.00` draws 1.00, right-aligned as a
 number. `KERNEL.48` is next free.
+`KERNEL.48` was minted 2026-10-18 at the owner's word, from Alonzo's
+`CART.12` scoping (the large board at rate zero, a cascade settled inside an
+edit), for a frame's own count, the formula cells whose values the last
+complete frame changed, read in constant time on `vla-lang`'s `Machine`, so
+that a host steps again while a cascade still moves. `KERNEL.49` is next
+free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
