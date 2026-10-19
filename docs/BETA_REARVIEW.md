@@ -29370,15 +29370,15 @@ path, and its pin's move is its own.
 
 | | predicted | what carries it | the build's |
 |---|---|---|---|
-| the bench's whole frame, natively: 140,000 formulas, 80,000 of them lookups | 8 to 20 ms | each lookup a call at each cell of a run, 60 to 150 ns with its probe (`KERNEL.44`'s runs at 32 to 143 ns a cell; a strict call's own cost, the residual once the scan is gone, unmeasured); two builds of 20,000 cells at 30 to 60 ns; the keys, values and probes, under 2 ms | |
-| its edit | 6 to 16 ms: the probes and the lookups, no build | the indexes kept, the table's cells unchanged; 20,000 changed probes tested against two indexes, under 0.1 ms | |
-| the same lookups scanned, the index switched off | 2 to 8 s | 20,000 probes, each reading 10,000 cells for a hit and 20,000 for `COUNTIF`, at 3 to 10 ns a cell through the frame's array | |
-| the gap assessment's `COUNTIF` at 8,000 rows (3,969 ms measured) | 0.5 to 2 ms | a build and 8,000 probes | |
-| Excel's half | not predicted but its order: linear in the rows, an index of its own under every lookup and `COUNTIF` | Microsoft's page | |
-| an index of 20,000 whole-number keys | 0.5 to 1 MB natively | a key's 8 bytes, its two positions' 8, the table's tag and its spare room | |
-| Alonzo's cartridges and Buffet's | every frame and every allocation count level | none calls a function the slice adds | |
-| the subset's save | 104 agreeing, 102 today: `VLOOKUP(10,A1:B2,2)` (1) and the cell reading it (2) computed; `CONCATENATE` and the range where one value is wanted still named | the bisection over `{10,20}` | |
-| the fixture at Excel's save | the build's rules kept where they are new, the bisection over unsorted vectors (one rule explains them all, the midpoint rounded down) and empty cells (found by nothing); three of today's corrected: `SUMIF`'s error at a row not met (passed by in Excel, answered today), `="É"="é"` (TRUE in Excel, FALSE today) and `=0.1+0.2=0.3` (TRUE in Excel, FALSE today), `MATCH` of the one in the other not predicted | each where Microsoft's documentation is silent | |
+| the bench's whole frame, natively: 140,000 formulas, 80,000 of them lookups | 8 to 20 ms | each lookup a call at each cell of a run, 60 to 150 ns with its probe (`KERNEL.44`'s runs at 32 to 143 ns a cell; a strict call's own cost, the residual once the scan is gone, unmeasured); two builds of 20,000 cells at 30 to 60 ns; the keys, values and probes, under 2 ms | 9.86 and 9.71 ms, the instrument alternated with `1cc86c9` (12.77 and 12.90 before a first probe's scan walked the arrays) |
+| its edit | 6 to 16 ms: the probes and the lookups, no build | the indexes kept, the table's cells unchanged; 20,000 changed probes tested against two indexes, under 0.1 ms | 12.05 and 11.71 ms |
+| the same lookups scanned, the index switched off | 2 to 8 s | 20,000 probes, each reading 10,000 cells for a hit and 20,000 for `COUNTIF`, at 3 to 10 ns a cell through the frame's array | 2.13 s a frame and 2.13 s an edit, the scans walking the frame's arrays; 53.5 s while `COUNTIF`'s read each cell through the environment |
+| the gap assessment's `COUNTIF` at 8,000 rows (3,969 ms measured) | 0.5 to 2 ms | a build and 8,000 probes | 86 to 88 ms for `frazaro calc`'s whole pass, its plan with it (13.1 and 14.3 s at `1cc86c9`); the probes' share not measured apart |
+| Excel's half | not predicted but its order: linear in the rows, an index of its own under every lookup and `COUNTIF` | Microsoft's page | the owner's run of 2026-10-19: 83.4 ms a whole frame with twenty threads and 757 ms with one, the edit 80.6 and 774 ms, against the machine's 9.83 and 12.21 over the final code: 8.5 and 77 times, 6.6 and 63 (9.59 and 11.80 over the slice before the fold's rules) |
+| an index of 20,000 whole-number keys | 0.5 to 1 MB natively | a key's 8 bytes, its two positions' 8, the table's tag and its spare room | not measured; by its parts 1.3 to 1.7 MB, the hash table's room and the vectors' past the keys |
+| Alonzo's cartridges and Buffet's | every frame and every allocation count level | none calls a function the slice adds | every frame equal; the second frame's allocations level, Sand's 8 fewer; a grid's high-water mark 533 bytes over, the library's thirteen names |
+| the subset's save | 104 agreeing, 102 today: `VLOOKUP(10,A1:B2,2)` (1) and the cell reading it (2) computed; `CONCATENATE` and the range where one value is wanted still named | the bisection over `{10,20}` | 104, as predicted |
+| the fixture at Excel's save | the build's rules kept where they are new, the bisection over unsorted vectors (one rule explains them all, the midpoint rounded down) and empty cells (found by nothing); three of today's corrected: `SUMIF`'s error at a row not met (passed by in Excel, answered today), `="É"="é"` (TRUE in Excel, FALSE today) and `=0.1+0.2=0.3` (TRUE in Excel, FALSE today), `MATCH` of the one in the other not predicted | each where Microsoft's documentation is silent | 149 agreeing, 12 differing, 4 labelled: the three predicted corrected as predicted, four not predicted (`MATCH`'s -1 a walk from the first cell, `XMATCH`'s mode 3 taken, `<>` of a number counting a text spelling it, an empty criterion 0); the bisection held for type 1 and the binary searches, a lookup's number matched to the bit; 160 agreeing and none differing once the seven rules changed |
 
 *What it leaves:* a range made by `:` between expressions
 (`A1:INDEX(B:B,5)`) to (f), labelled `:` as today; a many-cell answer where
@@ -29533,6 +29533,405 @@ so whichever is built second is built over the other's hunks there. Alonzo's
 and, before (c) is built, and before (a) if the error tests are to enter
 with a count, the run of `frazaro reflect <file> --functions` over the
 house's models, its rows pasted where the owner likes.
+
+**Approved 2026-10-18** at the owner's word, "Recommendations approved;
+proceed with implementing KERNEL.8 as scoped.": the ten decisions whole, the
+slices built in order, each at the owner's word and each committed before
+the next; this the first.
+
+**Built 2026-10-18, the first slice: the lookups on an index**, in a
+worktree of `1cc86c9` in the session's scratchpad with its own target, the
+shared tree touched in its docs alone. Midway the peer's `KERNEL.48` and the
+release of 0.10.1 landed (`f10e532`, `0d87447`) and the scoping was
+committed as `f123c23`; the slice was carried onto `f123c23` as a patch
+applied three ways, the machine's one conflict both sides kept (the frame's
+counts, then the twins' indexes told), its tests appended after
+`KERNEL.48`'s, and the built workbooks made again by the 0.10.1 door, their
+goldens unmoved.
+
+*What landed, by decision.*
+1. *The slices and their order:* (a) as scoped, with the error tests; the
+   language's 14 functions are 27 (`library::language`), `NAMES` the day-one
+   list still, its length its type, a test holding the thirteen beside it
+   (`KERNEL_8`).
+2. *The index:* `calc/index.rs`, new and public. A vector is its rectangle
+   and what it is keyed for, a lookup, a count, or a sum with its sum range;
+   a probe counted in its evaluation (`Indexes::begin`, a frame or a pass of
+   `Calc`) and the index built at the second, kept until a cell of its
+   vector changes (`Indexes::changed`, told at the computed value, at a
+   write and at a twin's copy, a twin's sheet whole where the end made it
+   again or overflowed its list), and dropped whole with a plan; the slots
+   held to `CELLS`. Keys as scoped: a number's bits, -0 made 0; a text
+   folded as it is read, hashed by its folded bytes sixty-four at a time and
+   kept folded once; a truth value; for a criterion an error and the blank,
+   a text spelling a number keyed as the number. A lookup's index holds each
+   key's first and last position and the vector's first and last reason, so
+   a search from either end answers as the scan meeting a reason first
+   would; a count's each key's count, the cells held and the first reason; a
+   sum's each key's sum added in the scan's order and the first error or
+   reason. Each kind's values in order are made when first asked, for the
+   next smaller and larger. The scans beside it are the meaning, and a test
+   switch (`index::check`, on a thread) holds every answer an index gives to
+   its scan as it gives it. `RefCell`s only; no borrow is held while a build
+   reads cells.
+3. *`SUMIF` and `COUNTIF` on the index:* `calc/criteria.rs`, new and public,
+   their meanings moved down from `excel.rs` with their tests; an equality
+   and its `<>` answered from the index, a size and a pattern scanned; the
+   wildcard matcher the walk that remembers its last `*`, linear, folding as
+   it reads, held to the old recursion over 955,141 pairs (every pattern of
+   up to four tokens over seven characters against every text of up to four
+   over four) and to a pattern of twenty stars over 4,000 characters. The
+   scans walk a range as an index's build does, by the array a sheet is kept
+   as where it is one, so that a first probe, a size and a pattern read no
+   cell through the environment: the bench's lookups with the index switched
+   off took 53.5 s a frame while `COUNTIF` read each cell so, and 2.13 s
+   walking. The scans walk a range as an index's build does, by the array a
+   sheet is kept as where it is one, so that a first probe, a size and a
+   pattern read no cell through the environment: the bench's lookups with
+   the index switched off took 53.5 s a frame with `COUNTIF` reading each
+   cell so, 2.13 s walking.
+4. *The three paths:* `INDEX`, `IFERROR` and `IFNA` known to a run
+   (`vector.rs`), `INDEX` reading its pick as a read is, labelling a pick of
+   many cells as `Ctx` does, and `#REF!` past its sheet; every other lookup
+   a call at each cell. A program (`program.rs`) lowers `INDEX` as a call,
+   through `lookups::index_value`'s pointer, and a call at its root answers
+   whatever its kind: a value of it that is no number is handed to the
+   machine (`Source::answered`) as the program gives the cell up, so that a
+   lookup answering a text in a cell alone is not computed again from the
+   start. An operation of its own for each was built first and undone: an
+   arm of its own in the loop every program runs cost `chain`'s cells alone
+   half their time again (0.235 ms a frame to 0.363) and the root's a tenth
+   (to 0.260), however its work was moved out of line, and a loop that could
+   break out to the root call cost the same tenth; with neither, 0.232
+   against `1cc86c9`'s 0.235. The census's `keyed` (`census.rs`), a vector
+   every `$` holds that a run's cells search alike, held to the paths a run
+   takes as every kind is.
+5. *Text values:* stored and ordered as today; one comparison
+   (`value::fold_cmp`, `fold_eq`), `compare` making no string, the order the
+   folded code points' still.
+6. *Dates* and 7. *spills:* not in this slice.
+8. *The oracle and the floors:* below.
+9. *The public surface:* additive. `calc::Indexes`, `calc::criteria` and
+   `calc::index` public, `Env::indexes` a provided method answering `None`;
+   the machine's and `Calc`'s indexes their own.
+10. *The crates:* every function the language's (`AD-1`), `excel.rs` the
+    subset's rows alone (`SUBSET` 32, the eleven with their evidence) and
+    `NAMED_NOT_COMPUTED` without the lookups.
+
+*Rules the build settled where the scoping was silent:* `MATCH`'s type given
+as nothing (`MATCH(x,v,)`, or an empty cell) is 0, exactly, as a number read
+from nothing is, where omitted it is 1; `XMATCH`'s and `XLOOKUP`'s mode and
+search are read down to whole numbers and checked before the vector, so that
+a value given as the vector answers `#VALUE!` for a mode it does not take;
+and two readings the plan cannot order are labelled, not read: `SUMIF`'s sum
+range smaller than its range (Excel reads it from its top-left cell in the
+range's shape, past the cells it names) and `LOOKUP`'s results read past
+their end, each `(not-computed "<the reference as written>")`. A sum range
+as large as the range, or larger, is read in the range's shape.
+
+*Two plans made linear, which the bench could not be built without.* Both
+planners gave every formula an edge to every formula cell of each range it
+reads: `Calc`'s (`graph::plan`), cell by cell, and the machine's
+(`Shapes::plan`), which found a shape's ranges every `$` holds once but
+copied their cells into each cell's edges, and found a held range of the
+formula's own sheet again at every cell. The bench's 20,000 lookups into a
+table of 20,000 formulas made about two billion edges: its build by the
+debug door was past 6 GB after ten minutes, stopped there, and `--shapes`
+took 1.5, 5.4 and 21.5 s at 1,000, 2,000 and 4,000 rows. Now `Calc` gives
+each distinct area of more than one cell a vertex of its own, its cells
+found once, a reader one edge to it; the machine gives a shape's held cells,
+its own sheet's found once a sheet, one hub where they are 64 or more
+(`HUB`), its level its deepest cell's, so that a reader stands one past that
+cell, and never in a run, a run being one shape's cells and a hub's of its
+own shape a cycle. The cells reach one another as before, so the order, the
+cycles, the levels and the runs are the ones the edges to every cell made:
+held by a law of `Calc`'s plan against the old one over 300 generated sheets
+with cycles, a name and whole columns among their reads, and by a law of the
+machine's plan with a hub for every held range against none, spelled whole
+over the generated grids at the load and after every write that plans again.
+The bench builds in 5.3 s and calcs in 9.7 s with the debug door; `--shapes`
+is 0.53, 0.72, 1.47 and 7.1 s at 1,000, 2,000, 4,000 and 20,000 rows, most
+of it the read; every census golden byte for byte.
+
+*The fixture,* `scripts/recalc/lookups.txt`, 165 formulas over Table,
+Lookups and Criteria as scoped: built by the door, 161 rows agree with its
+own values and four are labelled (`LOOKUP`'s results past their end,
+`INDEX`'s pick of many cells twice, `SUMIF`'s sum range smaller than its
+range), pinned `built` at 165 and 161 in `check_recalc_golden.ps1`, and
+`prove.ps1`'s eighth calc row. Decision 5's letters are value cells, the
+formulas reading them (`=F1=F2`, `COUNTIF(F1:F3,F2)`), since the checks
+under Windows PowerShell read the door's output in the console's code page
+and a letter beyond ASCII in a formula's text fails them (Found). The
+subset's fixture built again: its save and its build agree in 104 rows each,
+the prediction; its two census goldens moved in one row each, `VLOOKUP`'s
+shape reading an array and calling `VLOOKUP`. The census goldens gained the
+fixture's and the bench's, `lookups` and `lookups_bench`, and
+`check_shapes_golden.ps1` the ninth kind.
+
+*The bench,* `scripts/recalc/bench/lookups.txt`: keys
+`MOD(ROW()*7919,20011)` over 20,000 rows, a permutation of the rows modulo a
+prime, values `MOD(ROW()*31,97)`, probes naming a row through `P1`, the four
+lookups each; the sum the first half of the answers, which the edit moves by
+a row, since the probes find every row once. The runner holds it to the
+file, to `Calc` after every edit, and to the lookups written by hand
+(`lookups_by_hand`, a map of the keys from the program's arithmetic), a
+third lineage as Life's: 960,000 values held in its check mode, sums
+51,995,036 as built and 52,005,012 edited. The instruments and
+`check_recalc_floors.ps1` take a fifth fixture, the check holding a
+fixture's floors from the history's entry it joined on, every later entry
+and the latest every fixture's (two controls); its baseline rows wait for
+the owner's runs.
+
+*Measured,* this machine, the native instrument run twice on the final code
+alternated with `1cc86c9` built beside: the bench's whole frame 9.86 and
+9.71 ms (14.3 million formulas a second; 12.77 and 12.90 before a first
+probe's scan walked the arrays), its edit 12.05 and 11.71 ms, load 619 to
+632 ms, first frame 32 ms, `Calc` 725 ms. The four fixtures before it level
+with `1cc86c9`'s: `chain` 0.558 and 0.560 ms against 0.548 and 0.553, its
+edit 1.408 and 1.401 against 1.409 and 1.383; `column` 0.607 and 0.572
+against 0.604 and 0.527; `sums` 0.898 and 0.863 against 0.936 and 0.879;
+Life 1.947 and 1.881 against 1.940 and 1.791; their edits as level.
+Mid-build `chain` stood at 0.814 and 0.845 against 0.563 and 0.564, until
+the programs' loop was mended (decision 4). The gap assessment's `COUNTIF`
+from each of 8,000 rows over the 8,000, through the release door: 13.1 and
+14.3 s at `1cc86c9`, 86 to 88 ms now, the plan and the probes. The bench
+with the machine's indexes switched off (a test field, in a scratch harness
+of one round), every probe scanned: 2.13 s a frame and 2.13 s an edit,
+against about 10 and 12 ms indexed.
+
+*Held.* `vla-lang`'s 288 tests, twenty of them new (one moved from the
+core's), and its twelve laws, `frazaro-core`'s 187, clippy and rustfmt
+clean, the wasm module built. The machine's laws over the generated grids,
+lookups and criteria among their formulas now (one node in ten a lookup, a
+criterion or an error test, over vectors held whole, moving, a twin's and
+the sheet before's), with the test switch on: the runs against every cell
+alone and `Calc`, the incremental frame against the whole, writes against
+loads, the copied end against the walk, programs against `Ctx`; a new law,
+the same grids searching by the scan alone, frame for frame, five bands of
+lookups added to each so that 693 indexes were built, 251 reached by a
+change and 22,096 probes answered; the index's life (built at a second
+probe, kept past a write beside it, reached by a write and by a computed
+value, built again, dropped with a plan); `Calc`'s index over 150 sets of
+vectors of every kind, both zeros, two cases and beyond ASCII among them
+(949 built, 6,907 answered, the two cells of each formula alike); the
+lookups' answers over a table, 112 of them by name; the public laws with
+lookups in their grids. *Mutants:* the twins' notice, the computed value's
+and the write's, each taken out, fail the scan's law by name (`Number(10.0)
+along Line ...`); the twins' also four other laws and a public one; the
+`Calc` plan's range edges taken out fail its law; a hub's level unstepped
+fails the plan's.
+
+*Alonzo and Buffet over the slice,* by a path in scratch copies of their
+committed trees (`275f1e0` and `c7cd4f3`), nothing in theirs touched:
+Alonzo's 43 tests and its doc test, its describe goldens and replay digests
+among them, and its frames' runner in check mode, every frame of Life, the
+gun and Sand at every rung equal to the hand-written games and the second
+frame's allocations level (80 and 82; Sand's 499, eight fewer, `compare`
+folding no text into a string); each grid's heap high-water mark 533 bytes
+over the released 0.10.1's (whose own is 20 over the ceilings Alonzo set at
+0.10.0), every byte of it the library's thirteen new names and their map,
+the day-one fourteen alone giving 0.10.1's to the byte, against ceilings
+Alonzo sets to the byte at its pin's move; Buffet's 27 and 44 tests, every
+frame of the game held to its hand-written twin and its describe golden.
+Their frames' times were not taken (Alonzo's instrument drives a headless
+Chrome, the owner's to run); Frazaro's instrument times the same engine on
+its own fixtures, Life among them, above.
+
+*Against the prediction,* the scoping's table filled: the bench, its edit
+and the scan inside their ranges, the scan only once its walk read the
+frame's arrays; the index's memory, by its parts, over; the subset's save as
+predicted; Excel's half and the fixture's save filled on 2026-10-19, below.
+
+*Found in the build,* not minted:
+- *Both planners gave a reader an edge to every formula cell of a held
+  range* (above): mended in the slice, the bench being its measure.
+- *An operation of its own in a program's loop costs every program*, and so
+  does a loop that can break (decision 4): a program grows by calls and
+  out-of-line work, never by an arm, while chain stands where it stands.
+- *The checks decode the door's output in the console's code page* under
+  Windows PowerShell 5.1 (`Invoke-Door` in `check_recalc_golden.ps1`,
+  `check_shapes_golden.ps1` and their kin), so a corpus formula holding a
+  letter beyond ASCII fails them though the door prints it rightly; the
+  fixture keeps its formulas ASCII. One line in the summary.
+- *`check_recalc_floors.ps1` asked every entry of its history for every
+  fixture's floors*, which a fixture added later cannot meet without an edit
+  the history forbids: mended in the slice.
+- *An empty cell as a criterion* counts the blank cells (`criterion` of
+  `Value::Empty`), where Microsoft's page for `COUNTIFS` says an empty cell
+  is treated as 0: the fixture asks (`Criteria!H16`, over a range of one
+  blank and two zeros). Excel's save answered 0, below.
+
+**Folded in 2026-10-19: the owner's hand test, Excel's save and the owner's
+runs.** The owner's hand test of the slice as built: the 41 files staged,
+the workspace's tests passing, 57 of the 58 checks (the floors' check
+waiting on its paste, as it said it would), and `frazaro calc` over the
+fixture 161 agreeing and four labelled; then Excel 365's save of the
+fixture, `scripts/recalc/lookups_saved.xlsx` (Excel 16.0, build 20430), and
+the two instruments' blocks.
+
+*Excel's save,* read by the door: 149 rows agree, 12 differ, 4 labelled. Its
+unsorted vectors held the bisection for `MATCH`'s type 1 and for `XMATCH`'s
+binary searches, the middle rounded down (`Lookups!A23` to `A25`, `A27` to
+`A29`, `A35` to `A38`, `A44`, `A45`); an empty cell was found by nothing
+(`A51`); and a lookup matched a number to the bit, `MATCH` and `VLOOKUP` of
+0.3 in a cell holding `0.1+0.2` answering `#N/A` (`Criteria!H31`, `H33`),
+which the scoping left open. The twelve turned seven rules, each Excel's
+now:
+
+1. `MATCH`'s type -1 walks the vector from its first cell, a cell of the
+   value's kind not under it kept and the walk done at the first under it
+   (`index::descending`), where the build bisected: Excel answers 1 for 15
+   over 50, 10, 70, 20, 80, 30, 60, 40 (`A26`), where every bisection keeps
+   a later cell. On a descending vector the two are one (`A6` to `A8`). No
+   index answers it: the walk runs from the first cell each time.
+2. `XMATCH`'s and `XLOOKUP`'s match mode 3, the regular expressions Excel
+   has added, is taken and labelled `(not-computed "match mode 3")`, where
+   the build answered `#VALUE!` (`A46`); a mode or a search Excel does not
+   take stays `#VALUE!`, checked first.
+3. A criterion's `<>` of a number holds of a text spelling the number:
+   `"<>20"` counts `"20"` (`H4`, 10, and `H20`, 72), while `=` counts it
+   equal (`H1` to `H3`). A text spelling a number meets `=` alone, so a
+   count's index keys it apart from the number (`Probe::Spelled`), `=`
+   adding the two counts and `<>` taking the number's alone; a sum's keeps
+   the two one key, since a sum answers `=` alone and adds in the scan's
+   order.
+4. An empty cell given as a criterion is the number 0 (`H16`, 2: the two
+   zeros, not the blank), as Microsoft's page for `COUNTIFS` says and the
+   build's Found asked.
+5. An error in `SUMIF`'s sum range answers only at a row the criterion meets
+   (`H23`, 4; `H24`, at a row met, `#DIV/0!` as before): the scan reads the
+   criteria cell at a number or an error, adding the one and answering the
+   other where it meets; the index keeps each key's first error, its build
+   stopping at the first reason, before which every error it keeps stands.
+6. Two texts compare without case beyond A to Z too (`H29`, `="É"="é"`
+   TRUE; `H34` to `H36`, `COUNTIF`, `MATCH` and `SUMIF` over `É`, `é` and
+   `e`, the accent counting). `value::fold_char` lowers a character by
+   Unicode's simple mapping, the one character `char::to_lowercase` begins
+   with, so that every character folds to one; `fold_cmp` and `fold_eq`
+   compare byte by byte while both texts are ASCII and by characters from
+   the first byte that is not, making no string; an index keeps a text
+   folded so (`fold_text`) and hashes the folded bytes in the chunks a probe
+   hashes them in. The language's `fold`, which decides that two names are
+   one, stays ASCII's.
+7. Two numbers equal to fifteen significant digits are equal to the
+   comparison operators and to the criteria (`H30`, `=0.1+0.2=0.3` TRUE;
+   `H32`, `COUNTIF` 1), the lookups matching to the bit (`H31`, `H33`).
+   `eval::compare_numbers`, which `Ctx`, a program's `Compare` and a run's
+   lanes all answer by, is the exact order unless the two differ by no more
+   than 10^-13 of their sizes, where both are rounded (`round15`), out of
+   line; `eval::exact_order` is the lookups'. A criterion's index keys a
+   number by its fifteen digits, a whole number under 10^15 being its own. A
+   test holds the shortcut to the rounding over 600 numbers of every
+   magnitude, each against the 600 doubles about it, 0 and its negation;
+   another holds a run's lanes to the cells evaluated alone and to `Calc`
+   over numbers equal to fifteen digits and not to the bit, either side of
+   each of 0.3, 3, -0.3, 0 and 10^15, by every operator, with each side of
+   the operator a lane, and two mutants of the lanes (their second
+   comparison taken out, a side mismarked) fail it.
+
+After the rules the save agrees in 160 rows, none differing, five labelled
+(`A46` now among them), and joins oracle 12 at `no-differ`:
+`lookups_saved_calc.vla`, its census `shapes/lookups_saved.vla` (the build's
+but for the sheet's name as Excel writes it in the formulas, `table!`), and
+`prove.ps1`'s ninth calc row. The fixture built again moved in exactly those
+twelve rows; its agree floor went from 161 to 160, the reason written beside
+it, since `A46` agreed with the `#VALUE!` the build folded and is labelled
+now. No other golden moved, recalc, census or build. Excel's values for the
+rows labelled in both, for the slices that compute them: `LOOKUP`'s results
+past their end `"r8"` (`A78`); `INDEX(...,2,0)` 20, a spill's first cell,
+and `INDEX(...,0)` `#VALUE!` (`A106`, `A107`); `SUMIF`'s smaller sum range
+11 (`H27`).
+
+*Choices the save does not witness,* made with the rules and held by the
+tests, rows for a later save: `<=` and `>=` of a number over a text spelling
+it, not met, as `<` and `>` are not (`H5`, `H38`); `MATCH`'s -1 over a run
+of equal values keeping its last, and passing other kinds by; the fold
+beyond the Latin letters (the Kelvin sign is `k`; the dotless `ı` stands
+apart from `i`, the final `ς` from `σ`); mode 3 with a binary search
+labelled too; fifteen digits at a power of ten, each side rounded on its
+own.
+
+*The cost of fifteen digits, measured and mended,* by the native instrument
+in scratch copies with targets of their own, alternated with the slice
+before these rules. The first build of rule 7 slowed Life's frame by 15%
+(2.22 and 2.24 ms against 1.95 and 1.86, its edit likewise), the other
+fixtures level; with the comparison made exact again Life stayed slow, and
+with the lanes' loop made exact again it was level, so the cost was the near
+test inside the lanes' loop. That loop, read in the compiled code, never
+vectorized (no packed comparison of doubles stands anywhere in the crate at
+its target) and chose the operator's test through a jump table at every
+cell, before this slice as after. A run's lanes now compare by the
+operator's own test, chosen once a lane (`vector::tested`), each pair also
+marked where fifteen digits could answer otherwise, only on the side the
+operator's answer would change, the marks sharing the test's comparisons; a
+lane is compared again by `compare_numbers` only where one is marked
+(`compared_again`, out of line). With no marking, choosing the test once
+took 2 to 7% off Life's whole frame; the forms tried between cost Life 5%
+(the near test as arithmetic in the old loop), 10% (a second loop counting
+the near), and 18 to 22% (the bounds as branches). The final code over three
+rounds: Life's whole frame 1.999 ms against 2.008 and its edit 2.447 against
+2.418; the lookups' bench 9.90 against 9.89 ms and 12.18 against 12.07;
+`column`, `chain` and `sums` level. Four rounds a step earlier, the same
+loops with their tests written as negations (`!(x < y) & !(x > y)` for `x ==
+y`, alike for every finite number), had Life at +4.6% and +3.7%, and a
+session moves Life's frame between 1.7 and 2.0 ms. The owner's second run,
+of the final code, is the baseline: Life 1.899 and 2.368 ms, under floors
+that allow 2.064 and 2.439.
+
+*Held.* `vla-lang`'s 290 tests (two new and nine extended, three of them
+pins turned to the new rules: `XMATCH(...,3)`, the folded key, the folded
+comparison) and its twelve laws with the test switch on, `Calc`'s index over
+vectors now holding `0.1+0.2`, 0.3 and texts spelling numbers under `<>`,
+`=`, `<=` and `<>` of 0.3 and `<>2`; `frazaro-core`'s 187; clippy and
+rustfmt clean; the 58 checks, the floors' among them with the owner's runs
+pasted and its runner, built from today's tree, holding every value.
+Alonzo's `275f1e0` and Buffet's `c7cd4f3` over today's tree by a path, in
+scratch copies, nothing in theirs touched: Alonzo's 43 tests and its doc
+test, every frame of Life, the gun and Sand at every rung equal in `frames
+--check`, the allocations level (80, 82, Sand's 499); Buffet's 27 and 44:
+each run again over the lanes as they stand, as before. The wasm module
+built.
+
+*The owner's runs,* 2026-10-19, of the slice before these rules
+(frazaro-core 0.10.1): the bench's whole frame 9.594 ms (14.6 million
+formulas a second), its edit 11.803 ms, load 643 ms, first frame 31 ms,
+`Calc` 659 ms. Excel 365 on the same file: 83.4 ms a whole frame with its
+twenty threads and 757.1 ms with one, its edit 80.6 and 774.0 ms, opening it
+in 405 ms; the machine 8.7 and 79 times faster on the whole frame, 6.8 and
+65.6 on the edit. The lookups' first floors are the run less the margin,
+12,400,000 formulas a second and 72 edits. The four fixtures before it
+cleared their floors but `column`, whose run, 0.581 ms whole (103.3 million
+a second) and 1.733 ms an edit (577.1), stands under the floors of
+2026-10-17, 108,000,000 and 583, set from one run of 0.468 and 1.456 ms;
+`1cc86c9`, the base, took 0.572, 0.529, 0.604 and 0.527 ms whole and 1.746,
+1.756, 1.821 and 1.595 ms an edit through the same instrument on 2026-10-18,
+under those floors in five of its eight numbers, and column reads no lookup.
+At the owner's ruling, "Lower, with reason", the entry of 2026-10-19 lowers
+column's two floors to this run less the margin, 87,800,000 and 490, its
+reason written as `KERNEL.28`'s was.
+
+The owner then ran the native half again over the final code, its block
+pasted as the baseline beside Excel's half of the first (the five files
+the same bytes, by their digests), and its entry added to the history at
+the floors before it, every row clearing them: `column` 0.611 and 1.792
+ms, `chain` 0.556 and 1.407, `sums` 0.901 and 1.590, Life 1.899 and 2.368,
+the lookups' bench 9.831 and 12.211 ms (14.2 million formulas a second, 81.9
+edits), Excel 8.5 and 77 times slower on its whole frame and 6.6 and 63 on
+its edit; level with the first run within a session's spread, as the A/B
+predicted. `sums`' whole frame clears its floor by 0.3% (31,085,220 against
+31,000,000, a floor of 2026-10-17 set from a run of 0.767 ms), and its edit
+stands level with Excel's twenty threads on the bar (1.590 against 1.560
+ms); the slice moves neither, `sums` reading no lookup.
+
+*Found in the fold,* not minted:
+- *A run's lanes never vectorize at the crate's target*: no packed
+  comparison of doubles stands anywhere in `vla-lang`'s compiled code, and
+  until this fold the lanes chose a comparison's operator at every cell. A
+  speed question for a later item (a target's features, or `simd128` in the
+  module); one line in the summary.
+- *Life's frame moves between sessions* by as much as a change measures
+  (1.7 to 2.0 ms for one build), so a change's cost is read only from the
+  instrument alternated with its base in one session, three rounds or more.
 
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the

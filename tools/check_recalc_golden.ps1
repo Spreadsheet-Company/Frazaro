@@ -100,6 +100,21 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # subset and edges, were built again and their rows agree with the values
 # the build folded: 5, 102 and 16 agree, the subset's four not computed
 # holding none; their pin is 'built' and their agree floors rose from 0.
+# 2026-10-18, KERNEL.8's first slice: the subset's VLOOKUP and the cell
+# reading it computed, so subset and subset_saved agree 104 (the owner's save
+# held to both, as the slice predicted); and lookups 165, the lookups'
+# fixture built by the door (scripts/recalc/lookups.txt), 161 agreeing with
+# the values it folded and four labelled holding none (LOOKUP's results read
+# past their end, INDEX's pick of many cells twice, SUMIF's sum range smaller
+# than its range), pinned 'built' until the owner's save of it,
+# lookups_saved.xlsx, joins this table at no-differ.
+# 2026-10-19, KERNEL.8's first slice: the owner's Excel 365 save of it,
+# lookups_saved 165 at no-differ, 160 agree and five labelled; it corrected
+# seven rules (MATCH's -1 a walk, XMATCH's mode 3 taken, `<>` of a number,
+# an empty criterion 0, SUMIF's error at a row met alone, a case beyond
+# ASCII, two numbers equal to fifteen digits), so the build was made again
+# and its agree floor lowered 161 to 160: XMATCH(30,...,3), which agreed
+# with the #VALUE! the build folded, is labelled now, holding none.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -112,9 +127,11 @@ $goldens = @(
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 23 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
-    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 102 },
-    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 102 },
-    @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 }
+    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 104 },
+    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 104 },
+    @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
+    @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 165; Pin = 'built';     AgreeFloor = 160 },
+    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

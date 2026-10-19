@@ -61,6 +61,9 @@
 //!   it with it: a defined name, a form other than `IF` and `CHOOSE`, a range
 //!   where one value is wanted, a call one of whose operands may answer a
 //!   reference.
+//! - `keyed` (KERNEL.8): a vector a lookup or a criterion searches, every `$`
+//!   holding it, the same at each of a run's cells, by the index they share
+//!   (`super::index`) or by a bisection, never walked whole at each cell.
 //!
 //! A shape's kinds are the paths its run takes, read off its parse by a walk
 //! beside the run's own dispatch (`vector::paths`), and held to it by a test
@@ -97,6 +100,7 @@ pub(crate) enum Kind {
     Once,
     Start,
     Each,
+    Keyed,
 }
 
 impl Kind {
@@ -111,6 +115,7 @@ impl Kind {
             Kind::Once => "once",
             Kind::Start => "start",
             Kind::Each => "each",
+            Kind::Keyed => "keyed",
         }
     }
 }
@@ -301,6 +306,7 @@ pub(crate) fn of(
                 (paths.once, Kind::Once),
                 (!reach.parts(s).is_empty(), Kind::Start),
                 (paths.each, Kind::Each),
+                (paths.keyed, Kind::Keyed),
             ] {
                 if taken {
                     x.reads.insert(kind);
@@ -794,7 +800,7 @@ mod tests {
             "(formula \"Model\" \"D1:D2\" \"=A1*2\")\n",
             "(formula \"Model\" \"D3:D4\" \"=A3*2\")\n",
             "(formula \"Model\" \"E1\" \"=Rate*2\")\n",
-            "(formula \"Model\" \"F1\" \"=VLOOKUP(1,A1:A4,1)\")\n",
+            "(formula \"Model\" \"F1\" \"=FACT(A1:A4)\")\n",
             "(formula \"Model\" \"G1\" \"=A1 A2\")\n",
             "(formula \"Model\" \"H1\" \"=SUM(Jan:Feb!A1)\")\n",
             "(formula \"Jan\" \"B1\" \"=A1+1\")\n",
@@ -823,7 +829,7 @@ mod tests {
             "(shape 1 \"Model\" \"C1\" \"=RC[-1]*3\" (cells 1) (levels) (runs 0 0 0 0) (alone 0) (reads slot))",
             "(shape 2 \"Model\" \"D1\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot))",
             "(shape 3 \"Model\" \"E1\" \"=Rate*2\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (every-frame name))",
-            "(shape 4 \"Model\" \"F1\" \"=VLOOKUP(1,RC[-5]:R[3]C[-5],1)\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing \"VLOOKUP\"))",
+            "(shape 4 \"Model\" \"F1\" \"=FACT(RC[-5]:R[3]C[-5])\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing \"FACT\"))",
             "(shape 5 \"Model\" \"G1\" \"=RC[-6] R[1]C[-6]\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (every-frame unread))",
             "(shape 6 \"Model\" \"H1\" \"=SUM(Jan:Feb!RC[-7])\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup) (calls \"SUM\") (every-frame span))",
             "(shape 7 \"Model\" \"D3\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot) (same 2))",

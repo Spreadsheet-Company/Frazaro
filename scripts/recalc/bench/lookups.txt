@@ -1,0 +1,17 @@
+# The recalculation floors' lookups fixture (KERNEL.8, its first slice): a table of 20,000 rows of distinct
+# whole-number keys, a permutation of the rows modulo the prime 20,011, and their values; and 20,000 probes, each
+# finding a key through one assumption, P1, each looked up four ways in the table's keys held at both corners:
+# VLOOKUP exactly, MATCH exactly, INDEX at the match and COUNTIF of the key. Every value is a whole number, so the
+# sums are exact. The edit is P1, which every probe reads: every lookup computes again over a table that did not move.
+# The probes find every row once, so the sum is the first half of their answers, which the edit moves by a row.
+# bench: edit Output!P1 100 101
+# bench: sum Output!E2:H10001
+
+Put 100 into cell P1.
+Put formula "=MOD(ROW()*7919,20011)" into range A2:A20001.
+Put formula "=MOD(ROW()*31,97)" into range B2:B20001.
+Put formula "=MOD((MOD(ROW()+$P$1,20000)+2)*7919,20011)" into range D2:D20001.
+Put formula "=VLOOKUP(D2,$A$2:$B$20001,2,FALSE)" into range E2:E20001.
+Put formula "=MATCH(D2,$A$2:$A$20001,0)" into range F2:F20001.
+Put formula "=INDEX($B$2:$B$20001,F2)" into range G2:G20001.
+Put formula "=COUNTIF($A$2:$A$20001,D2)" into range H2:H20001.

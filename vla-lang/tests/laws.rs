@@ -288,7 +288,9 @@ fn grid_rows(r: &mut Rng) -> String {
 }
 
 /// A formula over the earlier cells, the last frame's, numbers and the
-/// language library's functions, three levels deep at most. `row` is the
+/// language library's functions, three levels deep at most, the lookups
+/// and the criteria among them over the last frame's columns and rows
+/// every `$` holds and over the rows above (KERNEL.8). `row` is the
 /// formula's row less one, so `A1:F{row}` is every row above it.
 fn expr(r: &mut Rng, earlier: &[String], all: &[String], row: usize, depth: u32) -> String {
     if depth >= 3 || r.below(3) == 0 {
@@ -299,7 +301,7 @@ fn expr(r: &mut Rng, earlier: &[String], all: &[String], row: usize, depth: u32)
         };
     }
     let e = |r: &mut Rng| expr(r, earlier, all, row, depth + 1);
-    match r.below(10) {
+    match r.below(11) {
         0 => format!("{}+{}", e(r), e(r)),
         1 => format!("{}-{}", e(r), e(r)),
         2 => format!("({})*{}", e(r), e(r)),
@@ -310,6 +312,32 @@ fn expr(r: &mut Rng, earlier: &[String], all: &[String], row: usize, depth: u32)
         6 => format!("SUM({},{})", e(r), e(r)),
         7 => format!("MOD({},{})", e(r), e(r)),
         8 => format!("CHOOSE({},{},{})", 1 + r.below(2), e(r), e(r)),
+        9 => {
+            let c = r.pick(COLUMNS);
+            match r.below(6) {
+                0 => format!(
+                    "MATCH({},{SHEET}.last!${c}$1:${c}${ROWS},{})",
+                    e(r),
+                    r.pick(&["0", "1", "-1"])
+                ),
+                1 => {
+                    let n = 1 + r.below(ROWS);
+                    format!("XMATCH({},{SHEET}.last!$A${n}:$F${n},1)", e(r))
+                }
+                2 => format!("COUNTIF({SHEET}.last!$A$1:$F${ROWS},{})", e(r)),
+                3 if row > 0 => format!("SUMIF(A1:F{row},{},A1:F{row})", e(r)),
+                4 => format!(
+                    "IFERROR(VLOOKUP({},{SHEET}.last!$A$1:$C${ROWS},2,FALSE),{})",
+                    e(r),
+                    e(r)
+                ),
+                _ => format!(
+                    "INDEX({SHEET}.last!$A$1:$F${ROWS},{},{})",
+                    1 + r.below(ROWS),
+                    1 + r.below(6)
+                ),
+            }
+        }
         _ => format!("MAX(ABS({}),INT({}))", e(r), e(r)),
     }
 }
@@ -497,7 +525,9 @@ const VALUES: &[&str] = &["A", "B", "C", "D", "E", "F", "G", "H"];
 /// A fill's formula at its first cell, in row `top`: the value sheet's cells
 /// around its own, a column held, a cell held, a range and a part every `$`
 /// holds, the last frame's cells, and the cell above its own once it is
-/// not the first row, under the language library's functions.
+/// not the first row, under the language library's functions, the lookups
+/// and the criteria among them over the value sheet's columns every `$`
+/// holds, whose indexes a fill's cells share (KERNEL.8).
 fn fill_expr(r: &mut Rng, top: usize, depth: u32) -> String {
     if depth >= 2 || r.below(3) == 0 {
         return match r.below(6) {
@@ -510,7 +540,12 @@ fn fill_expr(r: &mut Rng, top: usize, depth: u32) -> String {
         };
     }
     let e = |r: &mut Rng| fill_expr(r, top, depth + 1);
-    match r.below(6) {
+    match r.below(7) {
+        6 => match r.below(3) {
+            0 => format!("XLOOKUP({},V!$A$1:$A$5,V!$B$1:$B$5,-1)", e(r)),
+            1 => format!("COUNTIF(V!$A$1:$B$5,{})", e(r)),
+            _ => format!("INDEX(V!$A$1:$B$5,MOD({},5)+1,2)", e(r)),
+        },
         0 => format!("{}+{}", e(r), e(r)),
         1 => format!("{}*{}", e(r), e(r)),
         2 => format!("SUM(V!A{top}:B{})", top + 1),

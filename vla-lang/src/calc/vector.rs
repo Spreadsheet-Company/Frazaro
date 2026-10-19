@@ -70,7 +70,6 @@
 //! paths runs take ([`taken`]).
 
 use std::cell::{Cell, OnceCell, RefCell};
-use std::cmp::Ordering;
 use std::convert::Infallible;
 use std::hash::Hasher;
 
@@ -78,12 +77,13 @@ use crate::refers::Shape as Part;
 
 use super::dense::Dense;
 use super::eval::{
-    arithmetic, binary, compare_numbers, compares, finite, Arg, Computed, Ctx, Env, Known, Library,
-    Reason, Strict,
+    arithmetic, binary, compare_numbers, compares, finite, may_merge, near_bounds, Arg, Computed,
+    Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
 use super::graph::{Area, CellId};
 use super::library::{self, Axis, Fold, Ranged, Rule};
+use super::lookups;
 use super::value::{ErrorKind, Value};
 
 /// The most cells evaluated at once: a lane of them is a few kilobytes, so
@@ -155,6 +155,43 @@ fn is_arithmetic(op: BinOp) -> bool {
         op,
         BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Pow
     )
+}
+
+/// A comparison's truth value pushed for each pair of numbers, exactly, as
+/// `compares` over `eval::exact_order` answers for the finite numbers a
+/// lane holds, the operator's test chosen once and each test a loop of its
+/// own; and whether `marked` held of any pair (KERNEL.8).
+#[inline(always)]
+fn tested(
+    truths: &mut Vec<bool>,
+    pairs: impl Iterator<Item = (f64, f64)>,
+    op: BinOp,
+    marked: impl Fn(f64, f64) -> bool + Copy,
+) -> bool {
+    match op {
+        BinOp::Eq => tested_by(truths, pairs, |x, y| x == y, marked),
+        BinOp::Ne => tested_by(truths, pairs, |x, y| x != y, marked),
+        BinOp::Lt => tested_by(truths, pairs, |x, y| x < y, marked),
+        BinOp::Gt => tested_by(truths, pairs, |x, y| x > y, marked),
+        BinOp::Le => tested_by(truths, pairs, |x, y| x <= y, marked),
+        _ => tested_by(truths, pairs, |x, y| x >= y, marked),
+    }
+}
+
+/// [`tested`] by one test.
+#[inline(always)]
+fn tested_by(
+    truths: &mut Vec<bool>,
+    pairs: impl Iterator<Item = (f64, f64)>,
+    test: impl Fn(f64, f64) -> bool,
+    marked: impl Fn(f64, f64) -> bool,
+) -> bool {
+    let mut any = false;
+    truths.extend(pairs.map(|(x, y)| {
+        any |= marked(x, y);
+        test(x, y)
+    }));
+    any
 }
 
 /// The buffers an evaluation of many cells holds, kept by its caller from
@@ -263,6 +300,28 @@ pub(crate) fn holds(lib: &Library, e: &Expr) -> (usize, usize) {
                     }
                     return (values, positions);
                 }
+                if known == Some(Known::Index) && index_by_run(lib, args) {
+                    // The row's lane and the column's, each beside those
+                    // before it, then the answers (KERNEL.8).
+                    let (mut values, mut positions) = (args.len() + 1, 0);
+                    for (j, a) in args.iter().enumerate().skip(1) {
+                        let (v, p) = holds(lib, a);
+                        values = values.max(j + v);
+                        positions = positions.max(p);
+                    }
+                    return (values, positions);
+                }
+                if matches!(known, Some(Known::IfError | Known::IfNa)) && args.len() == 2 {
+                    // The value's lane, which holds the answers; then the
+                    // other beside it, with the cells it is computed at and
+                    // their positions in the run (KERNEL.8).
+                    let (mut values, mut positions) = holds(lib, &args[0]);
+                    values = values.max(1);
+                    let (v, p) = holds(lib, &args[1]);
+                    values = values.max(1 + v);
+                    positions = positions.max(2 + p);
+                    return (values, positions);
+                }
                 if known != Some(Known::If) || !(2..=3).contains(&args.len()) {
                     return (1, 0);
                 }
@@ -307,6 +366,29 @@ fn is_operand(lib: &Library, a: &Expr) -> bool {
     }
 }
 
+/// Whether a run computes `INDEX` by itself (KERNEL.8): of a reference written
+/// as one, on one sheet, and a row and maybe a column; any other at each cell
+/// by `Ctx`.
+fn index_by_run(lib: &Library, args: &[Expr]) -> bool {
+    (2..=3).contains(&args.len())
+        && ref_operand(lib, &args[0]).is_some_and(|r| r.last_sheet.is_none())
+}
+
+/// Whether a reference names the same cells at every cell, a `$` holding
+/// each corner it would move by (KERNEL.8): a vector a run's cells search
+/// alike, whose index they share, the census's `keyed`.
+pub(crate) fn held_whole(r: &RefExpr) -> bool {
+    let c = &r.corners;
+    r.last_sheet.is_none()
+        && match r.shape {
+            Part::Cell => c.row_abs1 && c.col_abs1,
+            Part::Range => c.row_abs1 && c.col_abs1 && c.row_abs2 && c.col_abs2,
+            Part::Column => c.col_abs1 && c.col_abs2,
+            Part::Row => c.row_abs1 && c.row_abs2,
+            Part::None => false,
+        }
+}
+
 /// Whether a reference to one cell or a range moves with the cell's column
 /// at every corner it has, no `$` before a column (KERNEL.43): so that a
 /// run's cells side by side in a row read it as slices one column apart. A
@@ -342,6 +424,11 @@ pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
         Expr::Pos(x) => yields_value(lib, x),
         Expr::Call(name, args) => match lib.known(name) {
             Some(Known::If | Known::Choose) => args.iter().skip(1).all(|a| yields_value(lib, a)),
+            // The value, read as one, or the other as `Ctx` evaluates it
+            // (KERNEL.8).
+            Some(Known::IfError | Known::IfNa) => {
+                args.get(1).map_or(true, |a| yields_value(lib, a))
+            }
             _ => lib.form(name).is_none(),
         },
         _ => true,
@@ -601,10 +688,15 @@ enum Reaches {
 /// [`Reaches`] for a call, as [`Many::call`] dispatches it.
 fn reaches(lib: &Library, name: &str, args: &[Expr]) -> Reaches {
     if lib.form(name).is_some() {
-        if lib.known(name) == Some(Known::If) && (2..=3).contains(&args.len()) {
-            Reaches::If
-        } else {
-            Reaches::None
+        match lib.known(name) {
+            Some(Known::If) if (2..=3).contains(&args.len()) => Reaches::If,
+            // The value at every cell, the other in a branch of its own
+            // (KERNEL.8).
+            Some(Known::IfError | Known::IfNa) if args.len() == 2 => Reaches::If,
+            // The row and the column at every cell, the reference read
+            // where it picks (KERNEL.8).
+            Some(Known::Index) if index_by_run(lib, args) => Reaches::Operands,
+            _ => Reaches::None,
         }
     } else if lib.strict(name).is_none() || !args.iter().all(|a| is_operand(lib, a)) {
         Reaches::None
@@ -993,12 +1085,89 @@ impl<'a> Many<'a> {
         Lane::Numbers(numbers)
     }
 
-    /// A comparison at each of `n` cells, `ordering` how its operands compare
-    /// at the `k`th: a lane of truth values (KERNEL.26).
-    fn compared(&self, op: BinOp, n: usize, ordering: impl Fn(usize) -> Ordering) -> Lane {
+    /// A comparison of two lanes of numbers at each of their cells: a lane
+    /// of truth values (KERNEL.26), each as [`compare_numbers`] answers.
+    /// Each pair compared exactly by the operator's own test, chosen once
+    /// for the lane and not at every cell, and marked where the two stand
+    /// near enough for fifteen digits to merge ([`may_merge`]), those alone
+    /// compared again (KERNEL.8).
+    fn compared(&self, op: BinOp, xs: &[f64], ys: &[f64]) -> Lane {
         let mut truths = self.take_truths();
-        truths.extend((0..n).map(|k| compares(op, ordering(k))));
+        let from = truths.len();
+        let pairs = || xs.iter().zip(ys).map(|(&x, &y)| (x, y));
+        let near = tested(&mut truths, pairs(), op, may_merge);
+        if near {
+            self.compared_again(op, &mut truths[from..], |k| (xs[k], ys[k]));
+        }
         Lane::Truths(truths)
+    }
+
+    /// A comparison of a lane of numbers with one number `y`, the lane's on
+    /// the left, or on the right where `flipped`: a lane of truth values,
+    /// each as [`compare_numbers`] answers (KERNEL.8). Each number compared
+    /// exactly by the operator's own test, chosen once for the lane, as
+    /// `compares` over `exact_order` answers, and marked where fifteen
+    /// digits could answer otherwise: between `y` and its [`near_bounds`]
+    /// on the side where the operator's exact answer would change, below
+    /// `y` for `<` and `>=`, above it for `>` and `<=`, either side for `=`
+    /// and `<>`, the marks sharing the test's own comparisons; the lane
+    /// compared again only where one is marked. The loop the lanes ran
+    /// before chose the operator's test at every cell.
+    fn compared_with(&self, op: BinOp, xs: &[f64], y: f64, flipped: bool) -> Lane {
+        // The operator read with the lane's number on its left.
+        let lane_op = match (flipped, op) {
+            (true, BinOp::Lt) => BinOp::Gt,
+            (true, BinOp::Gt) => BinOp::Lt,
+            (true, BinOp::Le) => BinOp::Ge,
+            (true, BinOp::Ge) => BinOp::Le,
+            (_, op) => op,
+        };
+        let (low, high) = near_bounds(y);
+        let mut truths = self.take_truths();
+        let from = truths.len();
+        let pairs = xs.iter().map(|&x| (x, y));
+        let t = &mut truths;
+        let near = match lane_op {
+            BinOp::Eq => tested_by(
+                t,
+                pairs,
+                |x, y| x == y,
+                move |x, y| ((x < y) & (x > low)) | ((x > y) & (x < high)),
+            ),
+            BinOp::Ne => tested_by(
+                t,
+                pairs,
+                |x, y| x != y,
+                move |x, y| ((x < y) & (x > low)) | ((x > y) & (x < high)),
+            ),
+            BinOp::Lt => tested_by(t, pairs, |x, y| x < y, move |x, y| (x < y) & (x > low)),
+            BinOp::Gt => tested_by(t, pairs, |x, y| x > y, move |x, y| (x > y) & (x < high)),
+            BinOp::Le => tested_by(t, pairs, |x, y| x <= y, move |x, y| (x > y) & (x < high)),
+            _ => tested_by(t, pairs, |x, y| x >= y, move |x, y| (x < y) & (x > low)),
+        };
+        if near {
+            let operands = |k: usize| if flipped { (y, xs[k]) } else { (xs[k], y) };
+            self.compared_again(op, &mut truths[from..], operands);
+        }
+        Lane::Truths(truths)
+    }
+
+    /// The truth values of a lane of comparisons made again where the two
+    /// numbers [`may_merge`], by [`compare_numbers`] itself.
+    #[cold]
+    #[inline(never)]
+    fn compared_again(
+        &self,
+        op: BinOp,
+        truths: &mut [bool],
+        operands: impl Fn(usize) -> (f64, f64),
+    ) {
+        for (k, truth) in truths.iter_mut().enumerate() {
+            let (x, y) = operands(k);
+            if may_merge(x, y) {
+                *truth = compares(op, compare_numbers(x, y));
+            }
+        }
     }
 
     /// One more cell's answer pushed to a lane being made, which stays a
@@ -1444,7 +1613,7 @@ impl<'a> Many<'a> {
                 let lane = if is_arithmetic(op) {
                     self.arithmetic_in_place(xs, |k, x| arithmetic(op, x, ys[k]))
                 } else {
-                    let lane = self.compared(op, xs.len(), |k| compare_numbers(xs[k], ys[k]));
+                    let lane = self.compared(op, &xs, &ys);
                     self.give_numbers(xs);
                     lane
                 };
@@ -1455,7 +1624,7 @@ impl<'a> Many<'a> {
                 return if is_arithmetic(op) {
                     self.arithmetic_in_place(xs, |_, x| arithmetic(op, x, y))
                 } else {
-                    let lane = self.compared(op, xs.len(), |k| compare_numbers(xs[k], y));
+                    let lane = self.compared_with(op, &xs, y, false);
                     self.give_numbers(xs);
                     lane
                 };
@@ -1464,7 +1633,7 @@ impl<'a> Many<'a> {
                 return if is_arithmetic(op) {
                     self.arithmetic_in_place(ys, |_, y| arithmetic(op, x, y))
                 } else {
-                    let lane = self.compared(op, ys.len(), |k| compare_numbers(x, ys[k]));
+                    let lane = self.compared_with(op, &ys, x, true);
                     self.give_numbers(ys);
                     lane
                 };
@@ -1526,6 +1695,9 @@ impl<'a> Many<'a> {
             return match self.lib.known(name) {
                 Some(Known::If) => self.if_(args, sel),
                 Some(Known::Choose) => self.choose(args, sel),
+                Some(Known::Index) if index_by_run(self.lib, args) => self.index(e, args, sel),
+                Some(Known::IfError) => self.if_error(args, sel, false),
+                Some(Known::IfNa) => self.if_error(args, sel, true),
                 _ => self.each_cell(e, sel),
             };
         }
@@ -1654,7 +1826,8 @@ impl<'a> Many<'a> {
             Known::And => self.aggregate::<library::All>(ops, kept, sel, truths()),
             Known::Or => self.aggregate::<library::Some_>(ops, kept, sel, truths()),
             // The forms, `NOT` above, and the functions `known_call` takes
-            // to their own paths (KERNEL.28).
+            // to their own paths (KERNEL.28); the lookups, the criteria and
+            // the error tests, called at each cell (KERNEL.8).
             Known::If
             | Known::Choose
             | Known::Not
@@ -1663,7 +1836,19 @@ impl<'a> Many<'a> {
             | Known::Sin
             | Known::Mod
             | Known::Row
-            | Known::Column => return None,
+            | Known::Column
+            | Known::Index
+            | Known::IfError
+            | Known::IfNa
+            | Known::IsError
+            | Known::IsNa
+            | Known::Match
+            | Known::XMatch
+            | Known::VLookup
+            | Known::HLookup
+            | Known::Lookup
+            | Known::CountIf
+            | Known::SumIf => return None,
         })
     }
 
@@ -1904,6 +2089,135 @@ impl<'a> Many<'a> {
             lane
         };
         self.place(out, lane, sel, ks);
+    }
+
+    /// `INDEX` at every cell (KERNEL.8), as `lookups::index` computes it at
+    /// one, of a reference written as one: its row and its column computed
+    /// at every cell, the reference moved to each, and the cell
+    /// `library::picked` names read there as a read of it answers; a reason
+    /// or an error of the row or the column the cell's answer; a pick of
+    /// many cells where one value is wanted the label `Ctx` gives it, the
+    /// reference as written, moved; a reference moved off its sheet, or to a
+    /// sheet the grid does not hold, a value given there, `#REF!` past the
+    /// pick's own errors, as an array of one.
+    fn index(&self, e: &Expr, args: &[Expr], sel: Sel) -> Lane {
+        let Some(r) = ref_operand(self.lib, &args[0]) else {
+            // Never: `index_by_run` holds a reference written as one.
+            return self.each_cell(e, sel);
+        };
+        if sel.len() == 0 {
+            return Lane::Each(self.take());
+        }
+        let sheet = match (r.found, &r.sheet) {
+            (Some((first, _)), _) => Some(usize::from(first)),
+            (None, None) => Some(self.cells[sel.at(0)].0),
+            (None, Some(name)) => self.env.model().find_sheet(name),
+        };
+        #[cfg(test)]
+        if let Some(s) = sheet {
+            taken::note(if self.env.dense(s).is_some() {
+                taken::Path::Slot
+            } else {
+                taken::Path::Lookup
+            });
+        }
+        let rows = self.scalars(&args[1], sel);
+        let cols = args.get(2).map(|a| self.scalars(a, sel));
+        let mut out = Lane::Numbers(self.take_numbers());
+        for k in 0..sel.len() {
+            let got = self.picked_at(r, sheet, &rows, cols.as_ref(), k, sel);
+            self.push(&mut out, got);
+        }
+        self.give_lane(rows);
+        if let Some(c) = cols {
+            self.give_lane(c);
+        }
+        out
+    }
+
+    /// `INDEX`'s answer at the selection's `k`th cell (KERNEL.8).
+    fn picked_at(
+        &self,
+        r: &RefExpr,
+        sheet: Option<usize>,
+        rows: &Lane,
+        cols: Option<&Lane>,
+        k: usize,
+        sel: Sel,
+    ) -> Got {
+        let number = |lane: &Lane| -> Result<Result<f64, ErrorKind>, Reason> {
+            lane.with(k, |g| match g {
+                Ok(v) => Ok(v.number()),
+                Err(r) => Err(r.clone()),
+            })
+        };
+        let row = match number(rows)? {
+            Ok(n) => n,
+            Err(e) => return Ok(Value::Error(e)),
+        };
+        let col = match cols {
+            None => None,
+            Some(lane) => match number(lane)? {
+                Ok(n) => Some(n),
+                Err(e) => return Ok(Value::Error(e)),
+            },
+        };
+        let (d_row, d_col) = self.offset(sel.at(k));
+        let Some((s, (top, left, bottom, right))) =
+            sheet.and_then(|s| r.moved(d_row, d_col).map(|m| (s, m)))
+        else {
+            return Ok(Value::Error(match library::picked(1, 1, row, col) {
+                Ok(_) => ErrorKind::Ref,
+                Err(e) => e,
+            }));
+        };
+        match library::picked(bottom - top + 1, right - left + 1, row, col) {
+            Err(e) => Ok(Value::Error(e)),
+            Ok((t, l, b, rr)) if t == b && l == rr => self.env.read((s, top + t, left + l)),
+            Ok(_) => Err(Reason::Construct(if (d_row, d_col) == (0, 0) {
+                r.written.clone()
+            } else {
+                crate::refers::shift_a1_references(&r.written, d_row, d_col)
+            })),
+        }
+    }
+
+    /// `IFERROR`, or `IFNA` where `na`, at every cell (KERNEL.8), as
+    /// `lookups::iferror` computes it at one: the value at each, the answer
+    /// but at the cells whose value is an error caught, where the other is
+    /// computed and at no other, its answers placed as `CHOOSE`'s values'.
+    fn if_error(&self, args: &[Expr], sel: Sel, na: bool) -> Lane {
+        if args.len() != 2 {
+            return Lane::Same(Ok(Value::Error(ErrorKind::Value)));
+        }
+        let mut out = self.scalars(&args[0], sel);
+        let caught = |g: Result<&Value, &Reason>| matches!(g, Ok(Value::Error(k)) if lookups::caught(*k, na));
+        match &out {
+            Lane::Same(got) => {
+                return if caught(got.as_ref()) {
+                    self.scalars(&args[1], sel)
+                } else {
+                    out
+                };
+            }
+            // No error stands in a lane of numbers or of truth values.
+            Lane::Numbers(_) | Lane::Truths(_) => return out,
+            Lane::Each(_) => {}
+        }
+        let mut ks = self.positions();
+        if let Lane::Each(each) = &out {
+            ks.extend(
+                each.iter()
+                    .enumerate()
+                    .filter(|(_, g)| caught(g.as_ref()))
+                    .map(|(k, _)| k as u32),
+            );
+        }
+        if !ks.is_empty() {
+            self.fill_value(&mut out, &args[1], sel, &ks);
+        }
+        self.give_positions(ks);
+        out
     }
 
     /// `NOT` at every cell, over the value its operand is there, as
@@ -2496,10 +2810,21 @@ impl<'a> Many<'a> {
     #[cfg(test)]
     fn noted_call(&self, name: &str, ops: &[&Operand<'_>]) {
         taken::note(taken::Path::Call(name.to_ascii_uppercase()));
-        for x in ops {
+        let known = self.lib.known(name);
+        for (j, x) in ops.iter().enumerate() {
             let Operand::Ref(r) = x else {
                 continue;
             };
+            // A vector a lookup or a criterion searches, the same at every
+            // cell, its index shared by the run's cells (KERNEL.8).
+            let found = match (r.found, &r.sheet) {
+                (Some(_), _) | (None, None) => true,
+                (None, Some(name)) => self.env.model().find_sheet(name).is_some(),
+            };
+            if found && known.is_some_and(|k| k.searches(j)) && held_whole(r) {
+                taken::note(taken::Path::Keyed);
+                continue;
+            }
             let one = matches!(r.shape, Part::Cell);
             let array = match (r.found, &r.sheet) {
                 _ if r.last_sheet.is_some() => Some(false),
@@ -2605,6 +2930,10 @@ pub(crate) struct Paths {
     pub(crate) once: bool,
     /// A node [`Ctx`] computes at each cell, everything under it with it.
     pub(crate) each: bool,
+    /// A vector a lookup or a criterion searches, the same at every cell of
+    /// the run, by its index or a bisection and never walked whole at each
+    /// (KERNEL.8).
+    pub(crate) keyed: bool,
     /// The functions called at each cell, by the library over operands the
     /// run computed or by [`Ctx`], in upper case, sorted, each once.
     pub(crate) calls: Vec<String>,
@@ -2754,6 +3083,22 @@ impl Walk<'_> {
                 Some(Known::If) if (2..=3).contains(&args.len()) => stack.extend(args.iter()),
                 Some(Known::Choose) if args.len() >= 2 => stack.extend(args.iter()),
                 Some(Known::If | Known::Choose) => {}
+                Some(Known::IfError | Known::IfNa) if args.len() == 2 => stack.extend(args.iter()),
+                Some(Known::IfError | Known::IfNa) => {}
+                // The cell picked read as one cell is (KERNEL.8): by its slot
+                // where its sheet is kept as an array, else by its position.
+                Some(Known::Index) if index_by_run(self.lib, args) => {
+                    if let Some(r) = ref_operand(self.lib, &args[0]) {
+                        if let Some(sheet) = self.sheet_of(r) {
+                            if self.kept(sheet) {
+                                self.paths.slot = true;
+                            } else {
+                                self.paths.lookup = true;
+                            }
+                        }
+                    }
+                    stack.extend(args[1..].iter());
+                }
                 _ => self.each(e),
             }
             return;
@@ -2768,14 +3113,18 @@ impl Walk<'_> {
             return;
         }
         let mut refs: Vec<&RefExpr> = Vec::new();
-        for a in args {
+        let mut searched: Vec<bool> = Vec::new();
+        let known = self.lib.known(name);
+        for (j, a) in args.iter().enumerate() {
             match ref_operand(self.lib, a) {
-                Some(r) => refs.push(r),
+                Some(r) => {
+                    refs.push(r);
+                    searched.push(known.is_some_and(|k| k.searches(j)));
+                }
                 None => stack.push(a),
             }
         }
         let one_cell = |r: &RefExpr| matches!(r.shape, Part::Cell) && r.last_sheet.is_none();
-        let known = self.lib.known(name);
         // Whether the run computes the call itself, as `Many::known_call`
         // answers; and the reads it makes when it does.
         let by_run = match known {
@@ -2803,8 +3152,14 @@ impl Walk<'_> {
         };
         if !by_run {
             self.paths.calls.push(name.to_ascii_uppercase());
-            for r in refs {
-                self.at_each(r);
+            for (r, searched) in refs.into_iter().zip(searched) {
+                // A vector the run's cells search alike, by the index they
+                // share or a bisection (KERNEL.8).
+                if self.runs && searched && held_whole(r) && self.sheet_of(r).is_some() {
+                    self.paths.keyed = true;
+                } else {
+                    self.at_each(r);
+                }
             }
             return;
         }
@@ -2883,6 +3238,9 @@ pub(crate) mod taken {
         Cells,
         Once,
         Each,
+        /// A vector a lookup or a criterion searches by its index or a
+        /// bisection, the same at every cell (KERNEL.8).
+        Keyed,
         /// The library's function, called at each cell.
         Call(String),
     }

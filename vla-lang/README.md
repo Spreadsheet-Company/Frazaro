@@ -88,11 +88,21 @@ refused in the same words.
   run a grid at a frame rate and yield; `Calc::run` evaluates everything.
   The parser reads Excel's operators and calls over the reference scanner,
   with Excel's precedence and coercions and its seven error values as a
-  value kind. Functions enter through `calc::Library`, the seam: the
+  value kind; a comparison holds two numbers equal to fifteen significant
+  digits equal, as Excel's does (`=0.1+0.2=0.3` is TRUE), and two texts
+  equal without case, beyond A to Z too, where a lookup matches a number
+  exactly. Functions enter through `calc::Library`, the seam: the
   language registers the fourteen a game's rule needs on day one (`IF`,
   `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
-  `COLUMN`, `CHOOSE`, `SIN`), and a crate above registers more, as
-  `frazaro-core` registers Excel's library by measurement. A formula that
+  `COLUMN`, `CHOOSE`, `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`,
+  `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is
+  read by (`IFERROR`, `IFNA`, `ISERROR`, `ISNA`) and the criteria
+  (`COUNTIF`, `SUMIF`), and a crate above registers more, as `frazaro-core`
+  registers Excel's library by measurement. A lookup or a criterion asked
+  of one range again and again searches the range's index
+  (`calc::Indexes`), built at its second probe in one evaluation and kept
+  until a cell of the range changes, its answers the ones a walk of the
+  range gives (`calc::index`). A formula that
   calls anything else is not computed, and says so naming the function; a
   cell that reads it inherits the label. `Calc::first_refusal` is what an
   engine's load asks: a cycle, a function outside the library, or a
@@ -195,8 +205,9 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Recalculation's next slices.** Dates, the text functions, the lookups,
-  dynamic arrays and spills, implicit intersection and `@` (KERNEL.8); the
+- **Recalculation's next slices.** Dates, the text functions, dynamic
+  arrays and spills, implicit intersection and `@` (KERNEL.8, whose first
+  slice, the lookups, is above); the
   vectorized evaluation of a shared formula, incremental recomputation and
   content-addressed evaluation (KERNEL.20), which is what makes a frame of
   a 320 by 200 grid fast: today the machine steps one in about a tenth of a

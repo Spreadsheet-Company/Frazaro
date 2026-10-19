@@ -29,7 +29,11 @@
 //! hide a machine that stopped following them; and every frame of Life equal
 //! to a Life written here by hand, the soup of the rule's own arithmetic and
 //! then Conway's rule with the border dead (the third Life outside the engine, after Alonzo's runner's and its
-//! page's). Each fixture's checksum, the sum of a range its program names,
+//! page's); and every probe of the lookups' fixture and its four answers,
+//! after its first frame and its edits, equal to the lookups written here by
+//! hand, a map of the table's keys made from the program's own arithmetic
+//! (`KERNEL.8`, a third lineage beside `Calc` and the machine, as Life's).
+//! Each fixture's checksum, the sum of a range its program names,
 //! is printed as built and as edited for Excel's half to equal: every value
 //! the fixtures compute is a whole number, so the sums are exact.
 //!
@@ -69,7 +73,7 @@ use vla_lang::machine::Machine;
 use vla_lang::sheet::{parse_a1_range, A1Range, Content};
 
 /// The fixtures in the order the block prints them.
-const FIXTURES: [&str; 4] = ["column", "chain", "sums", "life"];
+const FIXTURES: [&str; 5] = ["column", "chain", "sums", "life", "lookups"];
 
 /// The steps timed: whole frames, edits, and the reference's runs.
 const WHOLE: usize = 11;
@@ -216,6 +220,58 @@ fn thousands(n: u64) -> String {
         out.push(ch);
     }
     out
+}
+
+// ---- the reference: the lookups by hand ------------------------------------
+
+/// The lookups fixture's table, `A2:A20001`'s keys and `B2:B20001`'s values,
+/// and its probes beside it in `D2:D20001`, a row each.
+const LOOKUP_ROWS: u64 = 20_000;
+
+/// Each probe row's probe and four answers by hand, for the assumption `p1`,
+/// as the program's own arithmetic writes them: a key is its row times 7,919
+/// modulo the prime 20,011, a value its row times 31 modulo 97, and a probe
+/// the key of the row its own row and `p1` name; then the probe found in a
+/// map of the keys to their rows, written here and not the engine's, its
+/// value (`VLOOKUP`), its position from 1 (`MATCH`), the value there
+/// (`INDEX`) and its count, 1, the keys being distinct (`COUNTIF`).
+fn lookups_by_hand(p1: u64) -> Vec<[f64; 5]> {
+    let key = |r: u64| (r * 7_919) % 20_011;
+    let value = |r: u64| (r * 31) % 97;
+    let rows: std::collections::HashMap<u64, u64> =
+        (2..=LOOKUP_ROWS + 1).map(|r| (key(r), r)).collect();
+    (2..=LOOKUP_ROWS + 1)
+        .map(|r| {
+            let probe = key((r + p1) % LOOKUP_ROWS + 2);
+            let found = rows[&probe];
+            let v = value(found) as f64;
+            [probe as f64, v, (found - 1) as f64, v, 1.0]
+        })
+        .collect()
+}
+
+/// The machine's probes and answers, `D2:H20001`, equal to the lookups by
+/// hand for the assumption `p1`.
+fn held_lookups(m: &Machine, p1: &str) -> Result<usize, String> {
+    let p1: u64 = p1
+        .parse()
+        .map_err(|_| format!("the assumption {p1} is no whole number"))?;
+    let si = m.find_sheet("Output").ok_or("no sheet Output")?;
+    for (k, want) in lookups_by_hand(p1).iter().enumerate() {
+        let row = k as u32 + 2;
+        for (j, w) in want.iter().enumerate() {
+            let col = 4 + j as u32;
+            match m.computed((si, row, col)) {
+                Some(Computed::Value(Value::Number(n))) if n == w => {}
+                got => {
+                    return Err(format!(
+                        "Output!R{row}C{col}, with P1 {p1}: the machine holds {got:?}, the lookups by hand {w}"
+                    ))
+                }
+            }
+        }
+    }
+    Ok(LOOKUP_ROWS as usize * 5)
 }
 
 // ---- a fixture: its program and what its comments say ---------------------
@@ -594,6 +650,17 @@ fn round(
         ));
     }
     r.held += held;
+    // The lookups' fixture held to its lookups by hand as well (KERNEL.8).
+    let by_hand = |m: &Machine, p1: &str| -> Result<usize, String> {
+        if name == "lookups" {
+            held_lookups(m, p1).map_err(|e| format!("{name}: {e}"))
+        } else {
+            Ok(0)
+        }
+    };
+    if let Change::Edit { built, .. } = &fx.change {
+        r.held += by_hand(&m, built)?;
+    }
     r.loads.push(load_ms);
     r.firsts.push(first_ms);
     let sum_built = checksum(&mut m, &fx.sum).map_err(|e| format!("{name}: {e}"))?;
@@ -623,11 +690,13 @@ fn round(
                 if check {
                     r.held += held_to_calc(&mut m, &excel::library())
                         .map_err(|e| format!("{name}: after edit {}: {e}", k + 1))?;
+                    r.held += by_hand(&m, v)?;
                 }
             }
             if !check {
                 r.held +=
                     held_to_calc(&mut m, &excel::library()).map_err(|e| format!("{name}: {e}"))?;
+                r.held += by_hand(&m, other)?;
             }
         }
         Change::Frames {

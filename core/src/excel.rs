@@ -9,20 +9,23 @@
 //! 1503.04055), Table IV: the fifteen most used functions in each corpus,
 //! which cover 69% of the Enron corpus's spreadsheets and 70% of EUSES's.
 //! Of the Enron fifteen (SUM, IF, AVERAGE, VLOOKUP, ROUND, SUBTOTAL, OFFSET,
-//! CONCATENATE, NOW, DAVERAGE, SUMIF, INDEX, MATCH, LOOKUP, MONTH) this
-//! slice computes the five that are arithmetic and logic over values; the
-//! lookups, the database functions, the date and the text functions are
-//! `KERNEL.8`'s, `OFFSET` is unreadable by the reader's own rule, and `NOW`
-//! is volatile, which an engine refuses and a door shows as not computed.
-//! Of the EUSES fifteen (SUM, IF, ROUND, HYPERLINK, CONCATENATE, AND,
-//! COUNTIF, AVERAGE, OR, INDIRECT, MIN, ISNUMBER, MAX, VLOOKUP, ISBLANK) it
-//! computes nine. `IFS` enters on its fixture alone,
+//! CONCATENATE, NOW, DAVERAGE, SUMIF, INDEX, MATCH, LOOKUP, MONTH) `KERNEL.7`
+//! computed the five that are arithmetic and logic over values, and
+//! `KERNEL.8`'s first slice the four lookups (2026-10-18); the database
+//! functions, the dates and the text functions are its later slices',
+//! `OFFSET` is unreadable by the reader's own rule, and `NOW` is volatile,
+//! which an engine refuses and a door shows as not computed. Of the EUSES
+//! fifteen (SUM, IF, ROUND, HYPERLINK, CONCATENATE, AND, COUNTIF, AVERAGE,
+//! OR, INDIRECT, MIN, ISNUMBER, MAX, VLOOKUP, ISBLANK) it computes ten. `IFS` enters on its fixture alone,
 //! `scripts/reflect/saved.xlsx`, the owner's first Excel-saved workbook,
 //! whose cached values are this oracle's first row. The language's own
-//! fourteen (`vla_lang::calc::library`) are here because
-//! `Alonzo/SPEC.md` section 13 named them for the engine's first
-//! cartridges; `IF`, `SUM`, `AND`, `OR`, `MIN` and `MAX` are in the tables
-//! too.
+//! functions (`vla_lang::calc::library`) are here as they are there: its
+//! day-one fourteen, which `Alonzo/SPEC.md` section 13 named for the
+//! engine's first cartridges (`IF`, `SUM`, `AND`, `OR`, `MIN` and `MAX` in
+//! the tables too), and the thirteen `KERNEL.8` brought, the lookups, the
+//! error tests a lookup's miss is read by, and `SUMIF` and `COUNTIF`, moved
+//! down from this file with their criteria since a vector's index keys by
+//! them and a cartridge counts duplicates (Alonzo's `CART.13`).
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -35,11 +38,9 @@
 //! with its name (`HORIZON.md` section 12.6), and the one line that admits
 //! it is a row in [`SUBSET`] with its evidence.
 
-use vla_lang::calc::graph::cells_in;
 use vla_lang::calc::library::{language, number_arg, numbers};
-use vla_lang::calc::value::{round15, text_to_number};
-use vla_lang::calc::{Area, Arg, Ctx, ErrorKind, Expr, Library, Reason, Value};
-use vla_lang::intrinsics::fold;
+use vla_lang::calc::value::round15;
+use vla_lang::calc::{Arg, Ctx, ErrorKind, Expr, Library, Reason, Value};
 
 /// One function of the subset and why it is in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,7 +50,8 @@ pub struct Entry {
     pub evidence: &'static str,
 }
 
-/// The declared subset, the language's fourteen first, then Excel's.
+/// The declared subset: the language's functions first, its day-one
+/// fourteen and the thirteen `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -108,20 +110,64 @@ pub const SUBSET: &[Entry] = &[
         evidence: "SPEC.md s13: a slow oscillator",
     },
     Entry {
+        name: "INDEX",
+        evidence: "Enron 12; Alonzo's KIT.3 and CART.5, Buffet's MISE.6; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "MATCH",
+        evidence: "Enron 13; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "XMATCH",
+        evidence: "Excel 365's spelling of MATCH's search; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "VLOOKUP",
+        evidence: "Enron 4, EUSES 14; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "HLOOKUP",
+        evidence: "VLOOKUP's search across a row; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "LOOKUP",
+        evidence: "Enron 14; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "XLOOKUP",
+        evidence: "Excel 365's spelling of the lookups; Alonzo's ALGEBRA.md s12, the word game; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "IFERROR",
+        evidence: "a lookup's miss, read; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "IFNA",
+        evidence: "a lookup's miss, read; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "ISERROR",
+        evidence: "a lookup's miss, read; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "ISNA",
+        evidence: "a lookup's miss, read; scripts/recalc/lookups.txt",
+    },
+    Entry {
+        name: "COUNTIF",
+        evidence: "EUSES 7; moved into the language, KERNEL.8",
+    },
+    Entry {
+        name: "SUMIF",
+        evidence: "Enron 11; moved into the language, KERNEL.8",
+    },
+    Entry {
         name: "AVERAGE",
         evidence: "Enron 3, EUSES 8",
     },
     Entry {
         name: "ROUND",
         evidence: "Enron 5, EUSES 3",
-    },
-    Entry {
-        name: "SUMIF",
-        evidence: "Enron 11",
-    },
-    Entry {
-        name: "COUNTIF",
-        evidence: "EUSES 7",
     },
     Entry {
         name: "ISNUMBER",
@@ -137,15 +183,11 @@ pub const SUBSET: &[Entry] = &[
     },
 ];
 
-/// The functions named by the two corpora's top fifteen that this slice
+/// The functions named by the two corpora's top fifteen that the subset
 /// does not compute, each with the slice that takes it: what the honest
 /// label names most often on a real workbook.
 pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
-    ("VLOOKUP", "KERNEL.8, the lookups"),
-    ("INDEX", "KERNEL.8, the lookups"),
-    ("MATCH", "KERNEL.8, the lookups"),
-    ("LOOKUP", "KERNEL.8, the lookups"),
-    ("SUBTOTAL", "KERNEL.8, the lookups"),
+    ("SUBTOTAL", "KERNEL.8, the aggregates by criteria"),
     ("DAVERAGE", "KERNEL.8, the database functions"),
     ("CONCATENATE", "KERNEL.8, the text functions"),
     ("MONTH", "KERNEL.8, the dates"),
@@ -158,14 +200,12 @@ pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Excel's library: the language's functions and the seven above.
+/// Excel's library: the language's functions and the five of its own below.
 pub fn library() -> Library {
     let mut lib = language();
     lib.register_form("IFS", ifs);
     lib.register("AVERAGE", average);
     lib.register("ROUND", round);
-    lib.register("SUMIF", sumif);
-    lib.register("COUNTIF", countif);
     lib.register("ISNUMBER", isnumber);
     lib.register("ISBLANK", isblank);
     lib
@@ -222,245 +262,6 @@ fn round(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         round15(x / p).round() * p
     };
     Ok(vla_lang::calc::eval::finite(rounded))
-}
-
-/// What a criterion of `SUMIF` or `COUNTIF` asks of a cell.
-#[derive(Clone, Debug, PartialEq)]
-enum Criterion {
-    Eq(Target),
-    Ne(Target),
-    Lt(Target),
-    Gt(Target),
-    Le(Target),
-    Ge(Target),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum Target {
-    Number(f64),
-    /// A text with `*`, `?` and `~` as Excel's wildcards, folded.
-    Text(String),
-    Bool(bool),
-    Error(ErrorKind),
-    Blank,
-}
-
-/// A criterion as Excel reads one: a number, a truth value or an error
-/// matches cells equal to it; a text may begin with `=`, `<>`, `<`, `>`,
-/// `<=` or `>=`, and what follows is a number when it spells one, `TRUE` or
-/// `FALSE` when it spells either, blank when empty, a text pattern
-/// otherwise.
-fn criterion(v: &Value) -> Criterion {
-    let text = match v {
-        Value::Number(n) => return Criterion::Eq(Target::Number(*n)),
-        Value::Bool(b) => return Criterion::Eq(Target::Bool(*b)),
-        Value::Error(k) => return Criterion::Eq(Target::Error(*k)),
-        Value::Empty => return Criterion::Eq(Target::Blank),
-        Value::Text(t) => t.as_str(),
-    };
-    let (op, rest): (fn(Target) -> Criterion, &str) = if let Some(r) = text.strip_prefix("<>") {
-        (Criterion::Ne, r)
-    } else if let Some(r) = text.strip_prefix("<=") {
-        (Criterion::Le, r)
-    } else if let Some(r) = text.strip_prefix(">=") {
-        (Criterion::Ge, r)
-    } else if let Some(r) = text.strip_prefix('<') {
-        (Criterion::Lt, r)
-    } else if let Some(r) = text.strip_prefix('>') {
-        (Criterion::Gt, r)
-    } else if let Some(r) = text.strip_prefix('=') {
-        (Criterion::Eq, r)
-    } else {
-        (Criterion::Eq, text)
-    };
-    let target = if rest.is_empty() {
-        Target::Blank
-    } else if let Some(n) = text_to_number(rest) {
-        Target::Number(n)
-    } else if let Some(k) = ErrorKind::parse(rest) {
-        Target::Error(k)
-    } else {
-        match fold(rest).as_str() {
-            "true" => Target::Bool(true),
-            "false" => Target::Bool(false),
-            _ => Target::Text(fold(rest)),
-        }
-    };
-    op(target)
-}
-
-/// Whether a cell's value meets the criterion. A text that spells a number
-/// counts as the number for equality, as `COUNTIF` counts it; a comparison
-/// by size holds only between values of one kind; `<>` holds for every
-/// cell that `=` would not count, an empty cell included.
-fn meets(cell: &Value, c: &Criterion) -> bool {
-    use std::cmp::Ordering::*;
-    let ordering = |target: &Target| -> Option<std::cmp::Ordering> {
-        match (cell, target) {
-            (Value::Number(x), Target::Number(n)) => x.partial_cmp(n),
-            (Value::Text(t), Target::Number(n)) => {
-                text_to_number(t).and_then(|x| (x == *n).then_some(Equal))
-            }
-            (Value::Text(t), Target::Text(pattern)) => {
-                if wildcard(pattern, &fold(t)) {
-                    Some(Equal)
-                } else {
-                    Some(fold(t).cmp(pattern))
-                }
-            }
-            (Value::Bool(b), Target::Bool(want)) => Some(b.cmp(want)),
-            (Value::Error(k), Target::Error(want)) => (k == want).then_some(Equal),
-            (Value::Empty, Target::Blank) => Some(Equal),
-            (Value::Text(t), Target::Blank) if t.is_empty() => Some(Equal),
-            _ => None,
-        }
-    };
-    match c {
-        Criterion::Eq(t) => ordering(t) == Some(Equal),
-        Criterion::Ne(t) => ordering(t) != Some(Equal),
-        Criterion::Lt(t) => matches!(
-            (ordering(t), t),
-            (Some(Less), Target::Number(_) | Target::Text(_))
-        ),
-        Criterion::Gt(t) => matches!(
-            (ordering(t), t),
-            (Some(Greater), Target::Number(_) | Target::Text(_))
-        ),
-        Criterion::Le(t) => matches!(
-            (ordering(t), t),
-            (
-                Some(Less) | Some(Equal),
-                Target::Number(_) | Target::Text(_)
-            )
-        ),
-        Criterion::Ge(t) => matches!(
-            (ordering(t), t),
-            (
-                Some(Greater) | Some(Equal),
-                Target::Number(_) | Target::Text(_)
-            )
-        ),
-    }
-}
-
-/// Excel's wildcards over folded text: `*` any run, `?` one character, `~`
-/// the next character itself.
-fn wildcard(pattern: &str, text: &str) -> bool {
-    fn go(p: &[char], t: &[char]) -> bool {
-        match p.split_first() {
-            None => t.is_empty(),
-            Some(('*', rest)) => (0..=t.len()).any(|i| go(rest, &t[i..])),
-            Some(('?', rest)) => !t.is_empty() && go(rest, &t[1..]),
-            Some(('~', rest)) => match (rest.split_first(), t.split_first()) {
-                (Some((want, rest2)), Some((have, t2))) => want == have && go(rest2, t2),
-                (None, _) => t.is_empty(),
-                _ => false,
-            },
-            Some((want, rest)) => match t.split_first() {
-                Some((have, t2)) => want == have && go(rest, t2),
-                None => false,
-            },
-        }
-    }
-    let p: Vec<char> = pattern.chars().collect();
-    let t: Vec<char> = text.chars().collect();
-    if !p.iter().any(|c| matches!(c, '*' | '?' | '~')) {
-        return p == t;
-    }
-    go(&p, &t)
-}
-
-/// One area from an argument, for the range of `SUMIF` and `COUNTIF`.
-fn one_area(arg: Option<&Arg>) -> Option<Area> {
-    match arg {
-        Some(Arg::Area { areas, .. }) if areas.len() == 1 => Some(areas[0]),
-        _ => None,
-    }
-}
-
-/// `COUNTIF(range, criterion)`: the cells of the range meeting the
-/// criterion; a criterion a blank meets counts the empty cells of the whole
-/// range, as Excel counts them, however far it reaches.
-fn countif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    if args.len() != 2 {
-        return Ok(Value::Error(ErrorKind::Value));
-    }
-    let Some(area) = one_area(args.first()) else {
-        return Ok(Value::Error(ErrorKind::Value));
-    };
-    let c = criterion(&ctx.one(&args[1])?);
-    let model = ctx.env.model();
-    let Some(sheet) = model.sheets.get(area.sheet) else {
-        return Ok(Value::Error(ErrorKind::Ref));
-    };
-    let mut count = 0u64;
-    let mut present = 0u64;
-    for ((row, col), _) in cells_in(sheet, ctx.env.extent(area.sheet), &area) {
-        let v = ctx.env.read((area.sheet, row, col))?;
-        if v != Value::Empty {
-            present += 1;
-            if meets(&v, &c) {
-                count += 1;
-            }
-        }
-    }
-    let cells = u64::from(area.bottom - area.top + 1) * u64::from(area.right - area.left + 1);
-    if meets(&Value::Empty, &c) {
-        count += cells - present;
-    }
-    Ok(Value::Number(count as f64))
-}
-
-/// `SUMIF(range, criterion, [sum_range])`: the numbers of the sum range
-/// (the range itself when none is given) at the places where the range's
-/// cell meets the criterion; the sum range is read from its top-left cell
-/// in the range's shape, as Excel reads it.
-fn sumif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    if args.len() < 2 || args.len() > 3 {
-        return Ok(Value::Error(ErrorKind::Value));
-    }
-    let Some(area) = one_area(args.first()) else {
-        return Ok(Value::Error(ErrorKind::Value));
-    };
-    let c = criterion(&ctx.one(&args[1])?);
-    let sum_area = match args.get(2) {
-        None => area,
-        Some(a) => match one_area(Some(a)) {
-            Some(s) => Area {
-                sheet: s.sheet,
-                top: s.top,
-                left: s.left,
-                bottom: s.top.saturating_add(area.bottom - area.top),
-                right: s.left.saturating_add(area.right - area.left),
-            },
-            None => return Ok(Value::Error(ErrorKind::Value)),
-        },
-    };
-    let model = ctx.env.model();
-    let Some(sum_sheet) = model.sheets.get(sum_area.sheet) else {
-        return Ok(Value::Error(ErrorKind::Ref));
-    };
-    // Every contribution is a present cell of the sum range; the criterion
-    // is read at the same offset in the range, an absent cell being empty.
-    let mut total = 0.0;
-    for ((row, col), _) in cells_in(sum_sheet, ctx.env.extent(sum_area.sheet), &sum_area) {
-        let value = ctx.env.read((sum_area.sheet, row, col))?;
-        let n = match value {
-            Value::Number(n) => n,
-            Value::Error(k) => return Ok(Value::Error(k)),
-            _ => continue,
-        };
-        let at = (
-            area.sheet,
-            area.top + (row - sum_area.top),
-            area.left + (col - sum_area.left),
-        );
-        let tested = ctx.env.read(at)?;
-        if meets(&tested, &c) {
-            total += n;
-        }
-    }
-    Ok(vla_lang::calc::eval::finite(total))
 }
 
 /// `ISNUMBER(x)`: whether the value is a number; an error is not, and does
@@ -629,50 +430,5 @@ mod tests {
         assert_eq!(number(&calc, "C23"), 3.0, "the non-blank cells");
         assert_eq!(number(&calc, "C24"), 1.0);
         assert_eq!(number(&calc, "C25"), 0.0, "B3 is absent");
-    }
-
-    #[test]
-    fn criteria_read_as_excel_reads_them() {
-        assert_eq!(
-            criterion(&Value::Text(">=5".into())),
-            Criterion::Ge(Target::Number(5.0))
-        );
-        assert_eq!(
-            criterion(&Value::Text("<>".into())),
-            Criterion::Ne(Target::Blank)
-        );
-        assert_eq!(
-            criterion(&Value::Text("=TRUE".into())),
-            Criterion::Eq(Target::Bool(true))
-        );
-        assert_eq!(
-            criterion(&Value::Text("a*".into())),
-            Criterion::Eq(Target::Text("a*".into()))
-        );
-        assert_eq!(
-            criterion(&Value::Number(3.0)),
-            Criterion::Eq(Target::Number(3.0))
-        );
-        assert!(wildcard("a*", "abc"));
-        assert!(wildcard("a?c", "abc"));
-        assert!(!wildcard("a?c", "abbc"));
-        assert!(wildcard("10~*", "10*"));
-        assert!(wildcard("*", ""));
-        assert!(meets(
-            &Value::Text("5".into()),
-            &Criterion::Eq(Target::Number(5.0))
-        ));
-        assert!(
-            !meets(
-                &Value::Text("5".into()),
-                &Criterion::Gt(Target::Number(1.0))
-            ),
-            "a text is not compared by size against a number"
-        );
-        assert!(meets(&Value::Empty, &Criterion::Ne(Target::Number(5.0))));
-        assert!(meets(
-            &Value::Text("ABC".into()),
-            &Criterion::Eq(Target::Text("abc".into()))
-        ));
     }
 }

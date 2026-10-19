@@ -20,9 +20,10 @@ regenerates the goldens with the door, the diff showing what it moved, and
 the floors move with it.
 
 THE GOLDENS: scripts/recalc/shapes/<name>.vla, the door's own output saved
-CRLF, over oracle 12's seven fixtures (the files check_recalc_golden.ps1
-computes) and the four programs of scripts/recalc/bench/, which the door
-builds first, as `frazaro build` builds any program, into target/shapes/.
+CRLF, over oracle 12's nine fixtures (the files check_recalc_golden.ps1
+computes) and the five programs of scripts/recalc/bench/, which the door
+builds first, as `frazaro build` builds any program, into target/shapes/;
+the lookups' program is named lookups_bench, beside the lookups' fixture.
 
 THE CACHE: a bench program's workbook and its census are kept under
 target/shapes/ with the SHA-256 of the door and of the program they came
@@ -34,7 +35,7 @@ minute with a debug door, most of it the 33 MB of Life's formulas.
 ALSO HELD, read off each golden itself: its line count, as a floor; the
 order, one plan row first with its nine counts in their order, then the
 readers rows, then the shape rows by ascending number, every row's forms in
-their order and its reads among the eight kinds in theirs; a readers row's
+their order and its reads among the nine kinds in theirs; a readers row's
 (most k), printed for a sheet whose readers are indexed (KERNEL.35), one
 reader at least and the row's readers at most; the totals the
 plan row states, summed from the shape rows (the shapes, their distinct
@@ -90,6 +91,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # line counts: a plan row, a readers row a sheet read, a shape row a shape.
 # Raise a floor when a regenerated golden is longer; lower it only with a
 # regenerated golden that is shorter, and say why.
+# 2026-10-18, KERNEL.8's first slice: the lookups' fixture, an eighth, and
+# the lookups' bench program, a fifth, its golden named lookups_bench beside
+# the fixture's; the subset's two goldens moved, not their floors (VLOOKUP
+# computed, its shape's reads an array and its calls VLOOKUP's).
+# 2026-10-19, KERNEL.8's first slice: the owner's Excel save of the lookups'
+# fixture, a ninth, its census the build's but for the sheet's name as Excel
+# writes it into the formulas (`table!`).
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -98,17 +106,21 @@ $goldens = @(
     @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Floor = 106 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Floor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Floor = 17 },
+    @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Floor = 165 },
+    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Floor = 165 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },
-    @{ Name = 'life';          Program = 'scripts/recalc/bench/life.txt';     Floor = 4 }
+    @{ Name = 'life';          Program = 'scripts/recalc/bench/life.txt';     Floor = 4 },
+    @{ Name = 'lookups_bench'; Program = 'scripts/recalc/bench/lookups.txt';  Floor = 9 }
 )
 $goldenDir = Join-Path $repoRoot 'scripts/recalc/shapes'
 $cacheDir = Join-Path $repoRoot 'target/shapes'
 
 # The kinds of read, in the order a row prints them; `stride` since a door's
-# plan keeps its sheets as arrays where a machine's would (KERNEL.31).
-$kinds = @('stride', 'slot', 'array', 'lookup', 'cells', 'once', 'start', 'each')
+# plan keeps its sheets as arrays where a machine's would (KERNEL.31); and
+# `keyed` (KERNEL.8), a vector a run's cells search by the index they share.
+$kinds = @('stride', 'slot', 'array', 'lookup', 'cells', 'once', 'start', 'each', 'keyed')
 
 # A text as its lines: line endings normalized, trailing blank lines dropped.
 function Get-Lines([string]$text) {

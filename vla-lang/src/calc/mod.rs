@@ -31,21 +31,35 @@
 //! and the path each of its reads takes, so that a grid's cost is read
 //! before a frame runs.
 //!
-//! What is not here, by name, each a slice of its own: dates, text
-//! functions, lookups, dynamic arrays and spills, implicit intersection
-//! and `@`, `LET` and `LAMBDA` (`KERNEL.8`); the rest of speed,
-//! content-addressed evaluation among them (`KERNEL.20`). A formula that
-//! reaches any
-//! of them is not computed, and says so naming the function or the
-//! construct ([`Reason`]), which is the honest static label of `HORIZON.md`
-//! section 12.6; a cell that reads such a cell inherits the reason.
+//! The lookups compute since `KERNEL.8`'s first slice (2026-10-18), with the
+//! error tests a lookup's miss is read by and `COUNTIF` and `SUMIF` moved
+//! down from Excel's library ([`criteria`]), each search by a vector's
+//! index where the environment keeps one ([`index`]), so that a lookup
+//! asked again of one range costs a probe and not a scan. Excel's save of
+//! the slice's fixture set its comparisons: two numbers equal to fifteen
+//! significant digits are equal to an operator and a criterion, a lookup
+//! matching a number to the bit, and two texts are equal without case
+//! beyond ASCII too (`eval::compare_numbers`, `value::fold_char`).
+//!
+//! What is not here, by name, each a slice of its own: implicit
+//! intersection and `@`, text functions, dates, the `SUMIFS` family and the
+//! database functions, arrays within a formula (`KERNEL.8`'s later slices),
+//! spills (an item of their own), `LET` and `LAMBDA` (`KERNEL.29`); the rest
+//! of speed, content-addressed evaluation among them (`KERNEL.20`). A
+//! formula that reaches any of them is not computed, and says so naming the
+//! function or the construct ([`Reason`]), which is the honest static label
+//! of `HORIZON.md` section 12.6; a cell that reads such a cell inherits the
+//! reason.
 
 pub(crate) mod census;
+pub mod criteria;
 pub mod dense;
 pub mod eval;
 pub mod formula;
 pub mod graph;
+pub mod index;
 pub mod library;
+pub(crate) mod lookups;
 pub(crate) mod program;
 pub(crate) mod reach;
 pub mod shape;
@@ -63,6 +77,7 @@ pub use dense::Dense;
 pub use eval::{Arg, Computed, Ctx, Env, Form, Library, Reason, Strict};
 pub use formula::{calls, parse, Expr};
 pub use graph::{Area, Areas, CellId, Extent, Names, Plan};
+pub use index::Indexes;
 pub use shape::{Place, Shape, Shapes};
 pub use value::{agrees, ErrorKind, Value};
 
@@ -87,6 +102,9 @@ pub struct Calc<'m> {
     values: HashMap<CellId, Computed>,
     next: usize,
     here: Slot<CellId>,
+    /// The vectors its lookups and criteria search, indexed at a second
+    /// probe (KERNEL.8): its one pass changes none of their cells.
+    indexes: index::Indexes,
 }
 
 impl<'m> Calc<'m> {
@@ -123,6 +141,7 @@ impl<'m> Calc<'m> {
             values,
             next: 0,
             here: Slot::new((0, 1, 1)),
+            indexes: index::Indexes::new(),
         }
     }
 
@@ -211,6 +230,7 @@ impl<'m> Calc<'m> {
         self.values
             .retain(|_, v| matches!(v, Computed::NotComputed(Reason::Cycle)));
         self.next = 0;
+        self.indexes.clear();
     }
 
     fn evaluate(&self, id: CellId) -> Computed {
@@ -383,6 +403,10 @@ impl Env for Calc<'_> {
 
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str> {
         self.names.resolve(name, scope, home)
+    }
+
+    fn indexes(&self) -> Option<&index::Indexes> {
+        Some(&self.indexes)
     }
 }
 
@@ -618,7 +642,7 @@ mod tests {
             ("S", "A2", "-1E16"),
             ("S", "B2", "0"),
             ("S", "C1", "#N/A"),
-            ("S", "C2", "=VLOOKUP(1,A1:A2,2)"),
+            ("S", "C2", "=FACT(3)"),
             ("S", "D1", "=SUM(A1:B2)"),
             ("S", "D2", "=SUM(C1:C2)"),
             ("S", "D3", "=SUM(C1+0,C2:C2)"),
@@ -644,7 +668,7 @@ mod tests {
         assert_eq!(number(&calc, "S", "D1"), 0.0);
         assert_eq!(
             at(&calc, "S", "D2"),
-            Computed::NotComputed(Reason::Function("VLOOKUP".to_string())),
+            Computed::NotComputed(Reason::Function("FACT".to_string())),
             "a range is walked to its end: the cell not computed answers after the error"
         );
         assert_eq!(
@@ -748,7 +772,7 @@ mod tests {
             ("S", "A22", "=MOD(5.5,2)"),
             ("S", "A23", "=CHOOSE(1.9,\"a\",\"b\")"),
             ("S", "A24", "=AND()"),
-            ("S", "B1", "=VLOOKUP(1,A1:A2,2)"),
+            ("S", "B1", "=FACT(3)"),
             ("S", "B2", "=B1+1"),
             ("S", "B3", "=SUM(A1:A2 B1)"),
             ("S", "B4", "={1,2}"),
@@ -797,11 +821,11 @@ mod tests {
         );
         assert_eq!(
             at(&calc, "S", "B1"),
-            Computed::NotComputed(Reason::Function("VLOOKUP".to_string()))
+            Computed::NotComputed(Reason::Function("FACT".to_string()))
         );
         assert_eq!(
             at(&calc, "S", "B2"),
-            Computed::NotComputed(Reason::Function("VLOOKUP".to_string())),
+            Computed::NotComputed(Reason::Function("FACT".to_string())),
             "a reader inherits the reason"
         );
         assert_eq!(
@@ -819,17 +843,17 @@ mod tests {
         );
         assert_eq!(
             calc.missing_functions(),
-            vec![((0, 1, 2), "VLOOKUP".to_string())]
+            vec![((0, 1, 2), "FACT".to_string())]
         );
         let refusal = calc.first_refusal().unwrap();
         assert_eq!(refusal.id, "calc-function-not-computed");
         assert!(
-            refusal.text.contains("VLOOKUP") && refusal.text.contains("S!B1"),
+            refusal.text.contains("FACT") && refusal.text.contains("S!B1"),
             "{}",
             refusal.text
         );
         assert_eq!(at(&calc, "S", "A1").spell(), "\"yes\"");
-        assert_eq!(at(&calc, "S", "B1").spell(), "(not-computed \"VLOOKUP\")");
+        assert_eq!(at(&calc, "S", "B1").spell(), "(not-computed \"FACT\")");
     }
 
     #[test]

@@ -23,14 +23,14 @@ use std::cell::Cell as Counter;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-use crate::intrinsics::fold;
 use crate::rows::quoted;
 use crate::sheet::Workbook;
 
 use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RefExpr};
 use super::graph::{areas_at, cells_in, Area, Areas, CellId, Extent};
-use super::value::{ErrorKind, Value};
+use super::index::Indexes;
+use super::value::{fold_cmp, round15, ErrorKind, Value};
 
 /// Why a cell was not computed: the honest static label, named.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,7 +44,7 @@ pub enum Reason {
 }
 
 impl Reason {
-    /// The label as a datum: `(not-computed "VLOOKUP")`, `(not-computed cycle)`.
+    /// The label as a datum: `(not-computed "FACT")`, `(not-computed cycle)`.
     pub fn spell(&self) -> String {
         match self {
             Reason::Function(name) | Reason::Construct(name) => {
@@ -144,6 +144,15 @@ pub trait Env {
     /// keeps the cell it evaluates alone. Nothing, unless an environment
     /// says otherwise.
     fn enter(&self, _id: CellId) {}
+
+    /// The indexes of the vectors the lookups and the criteria search, when
+    /// the environment keeps them (KERNEL.8, `super::index`): an engine's
+    /// machine, which tells them each cell that changes, and `Calc`, whose
+    /// one pass changes none. `None`, every search a scan, unless an
+    /// environment says otherwise.
+    fn indexes(&self) -> Option<&Indexes> {
+        None
+    }
 }
 
 /// A strict function: its arguments evaluated, a value or a reason out.
@@ -185,6 +194,47 @@ pub(crate) enum Known {
     Column,
     /// `CHOOSE`: `library::chosen`.
     Choose,
+    /// `INDEX` (KERNEL.8), a form answering a reference, which a run
+    /// computes by itself as it computes `CHOOSE`, its row and column in
+    /// lanes and the cell picked read at each cell, and a program lowers:
+    /// `library::picked`.
+    Index,
+    /// `IFERROR` and `IFNA` (KERNEL.8), forms a run computes by itself as it
+    /// computes `IF`: the value at every cell, the other at the cells whose
+    /// value is an error.
+    IfError,
+    IfNa,
+    /// `ISERROR` and `ISNA` (KERNEL.8), which a run calls at each cell and a
+    /// program leaves to `Ctx`, an error being what they read and no
+    /// register holds.
+    IsError,
+    IsNa,
+    /// The lookups and the criteria (KERNEL.8), called at each cell, each
+    /// searching one of its operands by an index or a bisection
+    /// ([`Known::searches`]).
+    Match,
+    XMatch,
+    VLookup,
+    HLookup,
+    Lookup,
+    CountIf,
+    SumIf,
+}
+
+impl Known {
+    /// Whether the function searches its `j`th operand, by an index or a
+    /// bisection, rather than walking it whole at each cell (KERNEL.8): the
+    /// census names such a read `keyed` where every `$` holds it.
+    pub(crate) fn searches(self, j: usize) -> bool {
+        match self {
+            Known::Match | Known::XMatch | Known::VLookup | Known::HLookup | Known::Lookup => {
+                j == 1
+            }
+            Known::CountIf => j == 0,
+            Known::SumIf => j == 0 || j == 2,
+            _ => false,
+        }
+    }
 }
 
 /// The functions a formula may call, by upper-case name: the seam. Every
@@ -632,9 +682,73 @@ pub(crate) fn compares(op: BinOp, ordering: Ordering) -> bool {
     }
 }
 
-/// How two numbers compare.
+/// How two numbers compare under Excel's comparison operators and its
+/// criteria (KERNEL.8): equal where they are equal to fifteen significant
+/// digits, as Excel's save of the lookups' fixture holds `0.1+0.2=0.3` TRUE
+/// and `COUNTIF` of `0.1+0.2` against 0.3 one (`Criteria!H30`, `H32`), and
+/// otherwise by value, as rounding to fifteen digits never reverses an
+/// order. Two numbers apart by more than [`NEAR`] of the larger, or of two
+/// signs, are further apart than fifteen digits can merge (two numbers
+/// merged differ by at most a unit of their fifteenth digit, 10^-14 of the
+/// larger), so that only the rare pair near enough is rounded, out of line.
+/// The lookups compare exactly ([`exact_order`]).
 #[inline]
 pub(crate) fn compare_numbers(x: f64, y: f64) -> Ordering {
+    let o = exact_order(x, y);
+    if o != Ordering::Equal && near(x, y) {
+        to_fifteen_digits(x, y, o)
+    } else {
+        o
+    }
+}
+
+/// How near two numbers stand, as a share of the larger, for fifteen digits
+/// to merge them: ten times the most they can differ by.
+const NEAR: f64 = 1e-13;
+
+/// Whether two numbers stand near enough for fifteen digits to merge them:
+/// a superset, which [`to_fifteen_digits`] decides, the sum of their sizes
+/// standing for the larger as plain arithmetic, and larger.
+#[inline]
+fn near(x: f64, y: f64) -> bool {
+    (x - y).abs() <= NEAR * (x.abs() + y.abs())
+}
+
+/// Whether [`compare_numbers`] might answer otherwise than
+/// [`exact_order`]: two numbers unequal and [`near`] each other.
+#[inline]
+pub(crate) fn may_merge(x: f64, y: f64) -> bool {
+    (x != y) & near(x, y)
+}
+
+/// The bounds a number `y` is compared by over a lane (KERNEL.8): a number
+/// under the first is less than `y` and one over the second greater, to
+/// fifteen digits as exactly; one between them is `y`, or is compared again
+/// by [`compare_numbers`]. [`NEAR`] of `y` either side, which holds every
+/// number fifteen digits could merge with it, since such a number differs
+/// from `y` by at most 10^-14 of the larger of the two.
+#[inline]
+pub(crate) fn near_bounds(y: f64) -> (f64, f64) {
+    let reach = NEAR * y.abs();
+    (y - reach, y + reach)
+}
+
+/// [`compare_numbers`] of two numbers [`near`] each other.
+#[cold]
+#[inline(never)]
+fn to_fifteen_digits(x: f64, y: f64, o: Ordering) -> Ordering {
+    if round15(x) == round15(y) {
+        Ordering::Equal
+    } else {
+        o
+    }
+}
+
+/// How two numbers compare exactly, by value: the lookups' order and their
+/// equality, as Excel's save of the lookups' fixture finds no `0.1+0.2`
+/// for 0.3 by `MATCH` or `VLOOKUP` exactly (`Criteria!H31`, `H33`).
+#[inline]
+pub(crate) fn exact_order(x: f64, y: f64) -> Ordering {
     x.partial_cmp(&y).unwrap_or(Ordering::Equal)
 }
 
@@ -651,8 +765,10 @@ fn power(x: f64, y: f64) -> Value {
 }
 
 /// Excel's order of kinds in a comparison: every number is less than every
-/// text, every text less than every truth value; two texts compare without
-/// case; an empty cell is 0, `""` or FALSE, whichever the other side is.
+/// text, every text less than every truth value; two numbers equal to
+/// fifteen significant digits are equal ([`compare_numbers`]); two texts
+/// compare without case, beyond ASCII too; an empty cell is 0, `""` or
+/// FALSE, whichever the other side is.
 pub fn compare(a: &Value, b: &Value) -> Ordering {
     use Value::*;
     match (a, b) {
@@ -676,7 +792,8 @@ pub fn compare(a: &Value, b: &Value) -> Ordering {
         (Empty, Bool(y)) => false.cmp(y),
         (Bool(x), Empty) => x.cmp(&false),
         (Number(x), Number(y)) => compare_numbers(*x, *y),
-        (Text(x), Text(y)) => fold(x).cmp(&fold(y)),
+        // Folded as read, no string made (KERNEL.8): `fold`'s order exactly.
+        (Text(x), Text(y)) => fold_cmp(x, y),
         (Bool(x), Bool(y)) => x.cmp(y),
         _ => rank(a).cmp(&rank(b)),
     }
@@ -762,6 +879,64 @@ mod tests {
         assert_eq!(binary(BinOp::Ne, &n(1.0), &t("1")), yes);
         assert_eq!(binary(BinOp::Le, &n(2.0), &n(2.0)), yes);
         assert_eq!(binary(BinOp::Ge, &n(1.0), &n(2.0)), Value::Bool(false));
+        // KERNEL.8, as Excel's save holds them: two numbers equal to
+        // fifteen digits are equal, and a letter's case beyond ASCII is no
+        // difference.
+        let no = Value::Bool(false);
+        assert_eq!(binary(BinOp::Eq, &n(0.1 + 0.2), &n(0.3)), yes);
+        assert_eq!(binary(BinOp::Ne, &n(0.1 + 0.2), &n(0.3)), no);
+        assert_eq!(binary(BinOp::Lt, &n(0.3), &n(0.1 + 0.2)), no);
+        assert_eq!(binary(BinOp::Le, &n(0.1 + 0.2), &n(0.3)), yes);
+        assert_eq!(binary(BinOp::Eq, &n(0.3), &n(0.3000000000001)), no);
+        assert_eq!(binary(BinOp::Eq, &t("É"), &t("é")), yes);
+        assert_eq!(binary(BinOp::Eq, &t("é"), &t("e")), no);
+    }
+
+    #[test]
+    fn two_numbers_compare_as_their_fifteen_digits_do() {
+        // KERNEL.8: the comparison's shortcut never decides a pair that
+        // rounding to fifteen digits would merge. Numbers of every
+        // magnitude a double holds, each against the 300 doubles above it
+        // and below it, and against 0 and its own negation: equal exactly
+        // where their fifteen digits are, and otherwise ordered by value.
+        let mut state = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = || {
+            state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        };
+        let mut merged = 0usize;
+        for i in 0..600 {
+            let x = match i % 4 {
+                0 => f64::from_bits(next() & 0x7FEF_FFFF_FFFF_FFFF),
+                1 => (next() % 1_000_000) as f64 / 1_000.0,
+                2 => 0.1 * (next() % 100) as f64 + 0.2,
+                _ => -f64::from_bits(next() & 0x7FEF_FFFF_FFFF_FFFF) * 1e-200,
+            };
+            let mut others = vec![0.0, -x, round15(x)];
+            let mut up = x;
+            let mut down = x;
+            for _ in 0..300 {
+                up = f64::from_bits(up.to_bits() + 1);
+                down = f64::from_bits(down.to_bits().wrapping_sub(1));
+                others.push(up);
+                others.push(down);
+            }
+            let rx = round15(x);
+            for y in others.into_iter().filter(|y| y.is_finite()) {
+                let want = if rx == round15(y) {
+                    Ordering::Equal
+                } else {
+                    x.partial_cmp(&y).unwrap()
+                };
+                assert_eq!(compare_numbers(x, y), want, "{x:e} against {y:e}");
+                assert_eq!(compare_numbers(y, x), want.reverse(), "{y:e} against {x:e}");
+                merged += usize::from(want == Ordering::Equal && x != y);
+            }
+        }
+        assert!(merged > 5_000, "the pairs merged: {merged}");
     }
 
     #[test]

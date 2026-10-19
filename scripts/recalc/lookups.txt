@@ -1,0 +1,279 @@
+# The lookups' fixture (KERNEL.8, slice a): one formula per function, mode and rule the slice computes, over a
+# Table sheet of vectors: ascending, descending, texts in two cases (letters alone, so that every rule orders them
+# alike), every kind with an empty cell, an error and duplicates, and unsorted vectors on which the bisection's
+# candidate rules answer differently. The Criteria sheet holds SUMIF and COUNTIF over the equality an index keys and
+# the sizes and patterns the scan answers, an error in a sum range at a row met and at a row not met, and the two
+# questions the equality turns on: a letter's case beyond ASCII, and two numbers equal to fifteen digits alone.
+# Built by frazaro into lookups.xlsx (each value it computes held); the owner's save of it is lookups_saved.xlsx.
+
+Work on sheet Table.
+Put 10 into cell A1.
+Put 20 into cell A2.
+Put 30 into cell A3.
+Put 40 into cell A4.
+Put 50 into cell A5.
+Put 60 into cell A6.
+Put 70 into cell A7.
+Put 80 into cell A8.
+Put "r1" into cell B1.
+Put "r2" into cell B2.
+Put "r3" into cell B3.
+Put "r4" into cell B4.
+Put "r5" into cell B5.
+Put "r6" into cell B6.
+Put "r7" into cell B7.
+Put "r8" into cell B8.
+Put 80 into cell C1.
+Put 70 into cell C2.
+Put 60 into cell C3.
+Put 50 into cell C4.
+Put 40 into cell C5.
+Put 30 into cell C6.
+Put 20 into cell C7.
+Put 10 into cell C8.
+Put "apple" into cell D1.
+Put "Banana" into cell D2.
+Put "cherry" into cell D3.
+Put "Date" into cell D4.
+Put "elder" into cell D5.
+Put "Fig" into cell D6.
+Put "grape" into cell D7.
+Put "Hazel" into cell D8.
+Put 5 into cell E1.
+Put "5" into cell E2.
+Put formula "=TRUE" into cell E3.
+Put formula "=1/0" into cell E5.
+Put 5 into cell E6.
+Put "x" into cell E7.
+Put "X" into cell E8.
+Put 0 into cell E9.
+Put formula "=FALSE" into cell E10.
+Put 50 into cell F1.
+Put 10 into cell F2.
+Put 70 into cell F3.
+Put 20 into cell F4.
+Put 80 into cell F5.
+Put 30 into cell F6.
+Put 60 into cell F7.
+Put 40 into cell F8.
+Put 10 into cell G1.
+Put "x" into cell G2.
+Put 20 into cell G3.
+Put "y" into cell G4.
+Put 30 into cell G5.
+Put formula "=TRUE" into cell G6.
+Put 40 into cell G7.
+Put 50 into cell G9.
+Put 1 into cell A12.
+Put 2 into cell B12.
+Put 3 into cell C12.
+Put 4 into cell D12.
+Put 5 into cell E12.
+Put 6 into cell F12.
+Put 7 into cell G12.
+Put 8 into cell H12.
+Put "one" into cell A13.
+Put "two" into cell B13.
+Put "three" into cell C13.
+Put "four" into cell D13.
+Put "five" into cell E13.
+Put "six" into cell F13.
+Put "seven" into cell G13.
+Put "eight" into cell H13.
+
+Work on sheet Lookups.
+Put formula "=MATCH(30,Table!A1:A8,0)" into cell A1.
+Put formula "=MATCH(35,Table!A1:A8,1)" into cell A2.
+Put formula "=MATCH(35,Table!A1:A8)" into cell A3.
+Put formula "=MATCH(5,Table!A1:A8)" into cell A4.
+Put formula "=MATCH(99,Table!A1:A8)" into cell A5.
+Put formula "=MATCH(35,Table!C1:C8,-1)" into cell A6.
+Put formula "=MATCH(5,Table!C1:C8,-1)" into cell A7.
+Put formula "=MATCH(99,Table!C1:C8,-1)" into cell A8.
+Put formula "=MATCH(""BANANA"",Table!D1:D8,0)" into cell A9.
+Put formula "=MATCH(""b*"",Table!D1:D8,0)" into cell A10.
+Put formula "=MATCH(""?ig"",Table!D1:D8,0)" into cell A11.
+Put formula "=MATCH(""*e*"",Table!D1:D8,0)" into cell A12.
+Put formula "=MATCH(""cherrz"",Table!D1:D8,1)" into cell A13.
+Put formula "=MATCH(""5"",Table!E1:E10,0)" into cell A14.
+Put formula "=MATCH(5,Table!E1:E10,0)" into cell A15.
+Put formula "=MATCH(TRUE,Table!E1:E10,0)" into cell A16.
+Put formula "=MATCH(""X"",Table!E1:E10,0)" into cell A17.
+Put formula "=MATCH(0,Table!E1:E10,0)" into cell A18.
+Put formula "=MATCH(FALSE,Table!E1:E10,0)" into cell A19.
+Put formula "=MATCH(30,Table!A1:B8,0)" into cell A20.
+Put formula "=MATCH(35,Table!A1:A8,)" into cell A21.
+Put formula "=MATCH(3,Table!A12:H12,0)" into cell A22.
+Put formula "=MATCH(45,Table!F1:F8,1)" into cell A23.
+Put formula "=MATCH(25,Table!F1:F8,1)" into cell A24.
+Put formula "=MATCH(65,Table!F1:F8)" into cell A25.
+Put formula "=MATCH(15,Table!F1:F8,-1)" into cell A26.
+Put formula "=MATCH(35,Table!G1:G9,1)" into cell A27.
+Put formula "=MATCH(""xa"",Table!G1:G9,1)" into cell A28.
+Put formula "=MATCH(TRUE,Table!G1:G9,1)" into cell A29.
+Put formula "=MATCH(Table!E5,Table!A1:A8,0)" into cell A30.
+Put formula "=XMATCH(""banana"",Table!D1:D8)" into cell A31.
+Put formula "=XMATCH(35,Table!A1:A8)" into cell A32.
+Put formula "=XMATCH(35,Table!A1:A8,1)" into cell A33.
+Put formula "=XMATCH(35,Table!A1:A8,-1)" into cell A34.
+Put formula "=XMATCH(35,Table!A1:A8,1,2)" into cell A35.
+Put formula "=XMATCH(35,Table!A1:A8,-1,2)" into cell A36.
+Put formula "=XMATCH(35,Table!C1:C8,1,-2)" into cell A37.
+Put formula "=XMATCH(35,Table!C1:C8,-1,-2)" into cell A38.
+Put formula "=XMATCH(""c*"",Table!D1:D8,2)" into cell A39.
+Put formula "=XMATCH(""c*"",Table!D1:D8)" into cell A40.
+Put formula "=XMATCH(5,Table!E1:E10,0,-1)" into cell A41.
+Put formula "=XMATCH(45,Table!F1:F8,1)" into cell A42.
+Put formula "=XMATCH(45,Table!F1:F8,-1)" into cell A43.
+Put formula "=XMATCH(45,Table!F1:F8,1,2)" into cell A44.
+Put formula "=XMATCH(45,Table!F1:F8,-1,2)" into cell A45.
+Put formula "=XMATCH(30,Table!A1:A8,3)" into cell A46.
+Put formula "=XMATCH(30,Table!A1:A8,0,3)" into cell A47.
+Put formula "=XMATCH(""c*"",Table!D1:D8,2,2)" into cell A48.
+Put formula "=XMATCH(30,Table!A1:B8)" into cell A49.
+Put formula "=XMATCH(4,Table!A12:H12)" into cell A50.
+Put formula "=XMATCH(0,Table!E1:E10)" into cell A51.
+Put formula "=XMATCH(""x"",Table!E1:E10,0,-1)" into cell A52.
+Put formula "=VLOOKUP(30,Table!A1:B8,2,FALSE)" into cell A53.
+Put formula "=VLOOKUP(35,Table!A1:B8,2)" into cell A54.
+Put formula "=VLOOKUP(35,Table!A1:B8,2,TRUE)" into cell A55.
+Put formula "=VLOOKUP(35,Table!A1:B8,2,FALSE)" into cell A56.
+Put formula "=VLOOKUP(35,Table!A1:B8,2,)" into cell A57.
+Put formula "=VLOOKUP(30,Table!A1:B8,3,FALSE)" into cell A58.
+Put formula "=VLOOKUP(30,Table!A1:B8,0,FALSE)" into cell A59.
+Put formula "=VLOOKUP(""CHERRY"",Table!D1:E8,2,FALSE)" into cell A60.
+Put formula "=VLOOKUP(""gr*"",Table!D1:E8,2,FALSE)" into cell A61.
+Put formula "=VLOOKUP(40,Table!A1:E8,5,FALSE)" into cell A62.
+Put formula "=VLOOKUP(5,Table!A1:B8,2)" into cell A63.
+Put formula "=VLOOKUP(45,Table!F1:G8,2)" into cell A64.
+Put formula "=VLOOKUP(30,Table!A1:B8,2.7,FALSE)" into cell A65.
+Put formula "=VLOOKUP(""zzz"",Table!D1:E8,2)" into cell A66.
+Put formula "=HLOOKUP(3,Table!A12:H13,2,FALSE)" into cell A67.
+Put formula "=HLOOKUP(3.5,Table!A12:H13,2)" into cell A68.
+Put formula "=HLOOKUP(3,Table!A12:H13,3,FALSE)" into cell A69.
+Put formula "=HLOOKUP(0,Table!A12:H13,2)" into cell A70.
+Put formula "=LOOKUP(35,Table!A1:A8,Table!B1:B8)" into cell A71.
+Put formula "=LOOKUP(35,Table!A1:B8)" into cell A72.
+Put formula "=LOOKUP(5,Table!A1:A8,Table!B1:B8)" into cell A73.
+Put formula "=LOOKUP(3.5,Table!A12:H13)" into cell A74.
+Put formula "=LOOKUP(9.99E+307,Table!A1:A8)" into cell A75.
+Put formula "=LOOKUP(""zzzz"",Table!D1:D8)" into cell A76.
+Put formula "=LOOKUP(35,Table!A1:A8,Table!A13:H13)" into cell A77.
+Put formula "=LOOKUP(99,Table!A1:A8,Table!B1:B4)" into cell A78.
+Put formula "=LOOKUP(9.99E+307,Table!G1:G9)" into cell A79.
+Put formula "=LOOKUP(45,Table!F1:F8,Table!B1:B8)" into cell A80.
+Put formula "=XLOOKUP(30,Table!A1:A8,Table!B1:B8)" into cell A81.
+Put formula "=XLOOKUP(31,Table!A1:A8,Table!B1:B8,""none"")" into cell A82.
+Put formula "=XLOOKUP(31,Table!A1:A8,Table!B1:B8)" into cell A83.
+Put formula "=XLOOKUP(35,Table!A1:A8,Table!B1:B8,,1)" into cell A84.
+Put formula "=XLOOKUP(35,Table!A1:A8,Table!B1:B8,,-1,2)" into cell A85.
+Put formula "=XLOOKUP(30,Table!A1:A8,Table!B1:B7)" into cell A86.
+Put formula "=XLOOKUP(3,Table!A12:H12,Table!A13:H13)" into cell A87.
+Put formula "=XLOOKUP(5,Table!E1:E10,Table!A1:A10,,0,-1)" into cell A88.
+Put formula "=XLOOKUP(""b?nana"",Table!D1:D8,Table!A1:A8,,2)" into cell A89.
+Put formula "=XLOOKUP(45,Table!F1:F8,Table!A1:A8,,1)" into cell A90.
+Put formula "=XLOOKUP(31,Table!A1:A8,Table!B1:B8,1/0)" into cell A91.
+Put formula "=INDEX(Table!A1:B8,3,2)" into cell A92.
+Put formula "=INDEX(Table!A1:A8,4)" into cell A93.
+Put formula "=INDEX(Table!A12:H12,3)" into cell A94.
+Put formula "=INDEX(Table!A1:B8,9,1)" into cell A95.
+Put formula "=INDEX(Table!A1:B8,1,3)" into cell A96.
+Put formula "=INDEX(Table!A1:B8,-1,1)" into cell A97.
+Put formula "=INDEX(Table!A1:B8,2.9,1.2)" into cell A98.
+Put formula "=SUM(INDEX(Table!A1:C8,0,1))" into cell A99.
+Put formula "=SUM(INDEX(Table!A1:C8,2,0))" into cell A100.
+Put formula "=INDEX(Table!A1:A8,MATCH(40,Table!A1:A8,0))" into cell A101.
+Put formula "=INDEX(5,1)" into cell A102.
+Put formula "=INDEX(Table!A1:B8,1,1,1)" into cell A103.
+Put formula "=INDEX(Table!A1:B8,1,1,2)" into cell A104.
+Put formula "=INDEX(Table!A1:B8,""x"")" into cell A105.
+Put formula "=INDEX(Table!A1:B8,2,0)" into cell A106.
+Put formula "=INDEX(Table!A1:A8,0)" into cell A107.
+Put formula "=IFERROR(VLOOKUP(31,Table!A1:B8,2,FALSE),0)" into cell A108.
+Put formula "=IFERROR(VLOOKUP(30,Table!A1:B8,2,FALSE),0)" into cell A109.
+Put formula "=IFNA(1/0,2)" into cell A110.
+Put formula "=IFERROR(1/0,2)" into cell A111.
+Put formula "=IFNA(MATCH(31,Table!A1:A8,0),-1)" into cell A112.
+Put formula "=ISNA(MATCH(31,Table!A1:A8,0))" into cell A113.
+Put formula "=ISERROR(Table!A1)" into cell A114.
+Put formula "=ISERROR(Table!E5)" into cell A115.
+Put formula "=ISNA(1/0)" into cell A116.
+Put formula "=ISERROR(Table!E4)" into cell A117.
+Put formula "=IF(ISNA(MATCH(31,Table!A1:A8,0)),""missing"",MATCH(31,Table!A1:A8,0))" into cell A118.
+Put formula "=IFERROR(1/0,)" into cell A119.
+Put formula "=IFNA(Table!A1,1)" into cell A120.
+
+Work on sheet Criteria.
+Put 10 into cell A1.
+Put 20 into cell A2.
+Put 30 into cell A3.
+Put 20 into cell A4.
+Put "20" into cell A5.
+Put "x" into cell A6.
+Put "X" into cell A7.
+Put formula "=TRUE" into cell A8.
+Put 0 into cell A10.
+Put 0 into cell A11.
+Put 5 into cell A12.
+Put 1 into cell B1.
+Put 2 into cell B2.
+Put 3 into cell B3.
+Put 4 into cell B4.
+Put 5 into cell B5.
+Put 6 into cell B6.
+Put 7 into cell B7.
+Put 8 into cell B8.
+Put 9 into cell B9.
+Put 10 into cell B10.
+Put 11 into cell B11.
+Put 12 into cell B12.
+Put 1 into cell C1.
+Put formula "=1/0" into cell C2.
+Put 3 into cell C3.
+Put 4 into cell C4.
+Put "a" into cell D1.
+Put "b" into cell D2.
+Put "a" into cell D3.
+Put "b" into cell D4.
+Put formula "=0.1+0.2" into cell E1.
+Put "É" into cell F1.
+Put "é" into cell F2.
+Put "e" into cell F3.
+Put formula "=COUNTIF(A1:A12,20)" into cell H1.
+Put formula "=COUNTIF(A1:A12,""20"")" into cell H2.
+Put formula "=COUNTIF(A1:A12,""=20"")" into cell H3.
+Put formula "=COUNTIF(A1:A12,""<>20"")" into cell H4.
+Put formula "=COUNTIF(A1:A12,"">15"")" into cell H5.
+Put formula "=COUNTIF(A1:A12,""x"")" into cell H6.
+Put formula "=COUNTIF(A1:A12,""x*"")" into cell H7.
+Put formula "=COUNTIF(A1:A12,""?"")" into cell H8.
+Put formula "=COUNTIF(A1:A12,""*"")" into cell H9.
+Put formula "=COUNTIF(A1:A12,"""")" into cell H10.
+Put formula "=COUNTIF(A1:A12,""<>"")" into cell H11.
+Put formula "=COUNTIF(A1:A12,TRUE)" into cell H12.
+Put formula "=COUNTIF(A1:A12,""TRUE"")" into cell H13.
+Put formula "=COUNTIF(A1:A12,0)" into cell H14.
+Put formula "=COUNTIF(A1:A12,A4)" into cell H15.
+Put formula "=COUNTIF(A1:A12,A9)" into cell H16.
+Put formula "=SUMIF(A1:A12,20,B1:B12)" into cell H17.
+Put formula "=SUMIF(A1:A12,"">15"",B1:B12)" into cell H18.
+Put formula "=SUMIF(A1:A12,""x*"",B1:B12)" into cell H19.
+Put formula "=SUMIF(A1:A12,""<>20"",B1:B12)" into cell H20.
+Put formula "=SUMIF(A1:A12,"""",B1:B12)" into cell H21.
+Put formula "=SUMIF(A1:A12,20)" into cell H22.
+Put formula "=SUMIF(D1:D4,""a"",C1:C4)" into cell H23.
+Put formula "=SUMIF(D1:D4,""b"",C1:C4)" into cell H24.
+Put formula "=COUNTIF(C1:C4,1)" into cell H25.
+Put formula "=COUNTIF(C1:C4,""#DIV/0!"")" into cell H26.
+Put formula "=SUMIF(A1:A12,20,B1)" into cell H27.
+Put formula "=SUMIF(A1:A3,"">15"",B1:B12)" into cell H28.
+Put formula "=F1=F2" into cell H29.
+Put formula "=0.1+0.2=0.3" into cell H30.
+Put formula "=MATCH(0.3,E1,0)" into cell H31.
+Put formula "=COUNTIF(E1,0.3)" into cell H32.
+Put formula "=VLOOKUP(0.3,E1,1,FALSE)" into cell H33.
+Put formula "=COUNTIF(F1:F3,F2)" into cell H34.
+Put formula "=MATCH(F2,F1:F3,0)" into cell H35.
+Put formula "=SUMIF(F1:F3,F1,B1:B3)" into cell H36.
+Put formula "=COUNTIF(A1:A12,""<>x"")" into cell H37.
+Put formula "=COUNTIF(A1:A12,""<15"")" into cell H38.

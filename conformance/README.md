@@ -1460,3 +1460,104 @@ hold a code of Excel's, and the record prints the text the code draws.
   in the styles part's `<numFmts>` from 164; into a workbook of one's own,
   a code the workbook defines takes its id and the rest take ids past its
   highest. The readers print no format yet, as they print no look at all.
+
+## Amendment of 2026-10-18: oracle 12's lookups, each answered as its scan (`KERNEL.8`, its first slice)
+
+The language computes the lookups and the error tests a lookup's miss is
+read by: `INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`, `LOOKUP` and
+`XLOOKUP`; `IFERROR`, `IFNA`, `ISERROR` and `ISNA`; and `SUMIF` and
+`COUNTIF`, moved down from `frazaro-core` with their meanings and their
+tests, since a vector's index keys by a criterion's equality. Each is a row
+of `excel::SUBSET` with its evidence, the slice's fixture, so the subset is
+thirty-two functions. Each rule is Excel's as its documentation states it;
+where the documentation is silent, the fixture's row and the owner's save of
+it decide.
+
+**The index.** A lookup or a criterion asked of one range again and again
+answers from the range's index (`vla_lang::calc::Indexes`), built at its
+second probe in one evaluation and kept until a cell of its range changes;
+an approximate match takes a stated bisection over the vector as it stands,
+and needs none. The scan stays the meaning: it answers every first probe,
+every pattern and every criterion by size, and a test switch answers every
+probe both ways and compares, over the generated grids with writes between
+frames, so that an index a change should have reached fails by name. The
+index moves no answer, only the time a probe takes.
+
+**Labelled, not read.** Excel reads `SUMIF`'s sum range from its top-left
+cell in the range's shape, and `LOOKUP`'s results however far past their
+end: cells the formula's references do not name, which a plan orders after
+nothing. A sum range smaller than its range, and results read past their
+end, are labelled as written (`(not-computed "B1")`), where reading them
+could read a formula not computed yet. A larger sum range is read in the
+range's shape, as Excel reads it. `INDEX`'s pick of many cells where one
+value is wanted is labelled as a range is, until implicit intersection
+(the item's second slice).
+
+**The fixture.** `scripts/recalc/lookups.txt`, built by the door into
+`lookups.xlsx`, holds 165 formulas over three sheets: a Table of vectors
+ascending, descending, of texts in two cases, of every kind with an empty
+cell, an error and duplicates, and unsorted, on which the bisection's
+candidate rules answer differently; a Lookups sheet of one formula per
+function, mode, search and rule, `INDEX`'s every form, every error a
+function answers, and the idioms (`LOOKUP(9.99E+307,...)`,
+`IFERROR(VLOOKUP(...),0)`, `IF(ISNA(MATCH(...)),...)`); and a Criteria
+sheet of `SUMIF` and `COUNTIF` over the index's equality and the scan's
+sizes and patterns, an error in a sum range at a row met and at a row not
+met, an empty cell as a criterion, and the two questions the equality turns
+on: a letter's case beyond ASCII (`=F1=F2` over `É` and `é`) and two
+numbers equal to fifteen digits and not to the bit (`=0.1+0.2=0.3`, and
+`MATCH` of the one in a cell holding the other). `lookups_calc.vla` is the
+door's record of it: 161 rows `agree` with the values the build folded and
+four labelled holding none, pinned `built`. The owner's Excel 365 save of
+it, `lookups_saved.xlsx`, joins the table at `no-differ`, its agreements a
+floor; where Excel's save answers otherwise, the rule changes, in the
+lookups alone or in every comparison at once.
+
+**The subset's fixture.** `VLOOKUP(10,A1:B2,2)` and the cell reading it
+compute, so `subset.xlsx`, built again, agrees in 104 rows, and the owner's
+save of it, `subset_saved.xlsx`, agrees in the same 104, the build's
+prediction; `CONCATENATE` and the range where one value is wanted stay
+named.
+
+## Amendment of 2026-10-19: oracle 12 held to Excel's save of the lookups (`KERNEL.8`, its first slice)
+
+The owner's Excel 365 save of the lookups' fixture,
+`scripts/recalc/lookups_saved.xlsx`, joins the table at `no-differ`:
+`lookups_saved_calc.vla` holds its 165 rows, 160 `agree` and five
+labelled, its census beside the fixture's and its calc row `prove.ps1`'s
+ninth. It answered otherwise than the build in twelve rows, and seven rules
+changed to its answers:
+
+- `MATCH`'s type -1 walks the vector from its first cell, keeping each cell
+  of the value's kind not under it and stopping at the first under it,
+  where the build bisected (`Lookups!A26`: 1 over an unsorted vector, where
+  every bisection keeps a later cell). Type 1 and every other approximate
+  match keep the bisection, which the save agreed with over the same
+  unsorted vectors.
+- `XMATCH`'s and `XLOOKUP`'s match mode 3, Excel's regular expressions, is
+  taken and labelled `(not-computed "match mode 3")`, where the build
+  answered `#VALUE!` (`A46`).
+- A criterion's `<>` of a number holds of a text spelling the number
+  (`"<>20"` counts `"20"`, `Criteria!H4` and `H20`), while `=` counts it
+  equal (`H1` to `H3`): a text spelling a number meets `=` alone.
+- An empty cell given as a criterion is the number 0, counting the zeros
+  and not the blanks (`H16`).
+- An error in `SUMIF`'s sum range answers only at a row the criterion meets
+  (`H23`; `H24`, at a row met, answers it).
+- Two texts compare without case beyond A to Z too, by Unicode's simple
+  lowercase mapping: `="É"="é"` is TRUE (`H29`), and so in `COUNTIF`,
+  `SUMIF` and the lookups (`H34` to `H36`); an accent is no case.
+- Two numbers equal to fifteen significant digits are equal to the
+  comparison operators and to the criteria, `=0.1+0.2=0.3` TRUE and
+  `COUNTIF` of the one against the other 1 (`H30`, `H32`), while a lookup
+  matches a number to the bit, as the save's `MATCH` and `VLOOKUP` of the
+  one in the other answer `#N/A` (`H31`, `H33`).
+
+The build was made again, and its rows agree with the values it folds: 160,
+since `XMATCH`'s mode 3 is labelled now, holding none, so the agree floor of
+`lookups_calc.vla` moved from 161 to 160 with that reason written. Five
+rows are labelled in both files, `LOOKUP`'s results read past their end,
+`INDEX`'s pick of many cells twice and `SUMIF`'s smaller sum range; Excel's
+values for them (`"r8"`, 20, `#VALUE!`, 11) wait for the slices that compute
+them. The identity of a name is untouched: the language's `fold`, which
+decides that two names are one, stays ASCII's alone.

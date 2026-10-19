@@ -423,8 +423,61 @@ impl Plan {
     }
 }
 
+/// What a formula's text reads, as [`plan`] keeps it: the formula cells it
+/// names one at a time, and each area of more than one cell it names,
+/// through its references and the names they resolve to.
+fn reads(
+    model: &Workbook,
+    names: &Names,
+    home: usize,
+    text: &str,
+    depth: u32,
+    (cells, areas): (&mut Vec<CellId>, &mut Vec<Area>),
+) {
+    for r in refers::scan(text) {
+        match r.kind {
+            Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
+                let Some(re) = ref_expr(&r) else { continue };
+                let Ok(found) = areas_of(model, home, &re) else {
+                    continue;
+                };
+                for a in &found {
+                    if !a.is_cell() {
+                        areas.push(*a);
+                    } else if model.sheets[a.sheet]
+                        .cells
+                        .get(&(a.top, a.left))
+                        .is_some_and(|c| is_formula(&c.content))
+                    {
+                        cells.push((a.sheet, a.top, a.left));
+                    }
+                }
+            }
+            Kind::Name if depth < NAME_DEPTH => {
+                let scope = if r.sheet_name.is_empty() {
+                    None
+                } else {
+                    model.find_sheet(&r.sheet_name)
+                };
+                if let Some(t) = names.resolve(&r.part, scope, home) {
+                    let home = scope.unwrap_or(home);
+                    reads(model, names, home, t, depth + 1, (&mut *cells, &mut *areas));
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The plan over the formula cells given, each with its text (without its
-/// `=`), against the model and its names.
+/// `=`), against the model and its names. Each distinct area of more than
+/// one cell that any formula reads is a vertex of its own, after the cells',
+/// with an edge to each formula cell inside it, found once; a formula reading
+/// it has one edge to it (KERNEL.8). The cells reach one another exactly as
+/// an edge to every cell inside would have them, so that the order and the
+/// cycles are the ones those edges make, while twenty thousand cells reading
+/// one table of twenty thousand formulas cost the table's cells once, not
+/// four hundred million edges.
 pub fn plan(
     model: &Workbook,
     names: &Names,
@@ -436,26 +489,43 @@ pub fn plan(
     let index: HashMap<CellId, usize> = ids.iter().enumerate().map(|(i, id)| (*id, i)).collect();
     let n = ids.len();
     let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-    let mut deps = Vec::new();
+    // Each area's vertex, `None` for one holding no formula, which adds no
+    // edge.
+    let mut vertices: HashMap<Area, Option<usize>> = HashMap::new();
+    let (mut cells, mut areas) = (Vec::new(), Vec::new());
     for (vi, id) in ids.iter().enumerate() {
-        deps.clear();
-        dependencies(model, names, extents, id.0, &texts[id], &mut deps);
-        let edges = &mut adj[vi];
-        for d in &deps {
-            if let Some(&di) = index.get(d) {
-                edges.push(di);
-            }
+        cells.clear();
+        areas.clear();
+        reads(model, names, id.0, &texts[id], 0, (&mut cells, &mut areas));
+        let mut edges: Vec<usize> = cells.iter().filter_map(|d| index.get(d).copied()).collect();
+        for a in &areas {
+            let v = *vertices.entry(*a).or_insert_with(|| {
+                let sheet = &model.sheets[a.sheet];
+                let inside: Vec<usize> = cells_in(sheet, extents[a.sheet], a)
+                    .filter(|(_, cell)| is_formula(&cell.content))
+                    .filter_map(|((row, col), _)| index.get(&(a.sheet, row, col)).copied())
+                    .collect();
+                (!inside.is_empty()).then(|| {
+                    adj.push(inside);
+                    adj.len() - 1
+                })
+            });
+            edges.extend(v);
         }
         edges.sort_unstable();
         edges.dedup();
+        adj[vi] = edges;
     }
     let components = tarjan(&adj);
     let mut plan = Plan::default();
     for comp in components {
+        if comp.iter().all(|&v| v >= n) {
+            continue;
+        }
         if comp.len() == 1 && !adj[comp[0]].contains(&comp[0]) {
             plan.order.push(ids[comp[0]]);
         } else {
-            let mut cells: Vec<CellId> = comp.iter().map(|&i| ids[i]).collect();
+            let mut cells: Vec<CellId> = comp.iter().filter(|&&i| i < n).map(|&i| ids[i]).collect();
             cells.sort_unstable();
             plan.cycles.push(cells);
         }
@@ -748,5 +818,132 @@ mod tests {
         assert_eq!(comps.len(), n);
         assert_eq!(comps[0], vec![n - 1]);
         assert_eq!(comps[n - 1], vec![0]);
+    }
+
+    #[test]
+    fn a_range_read_by_many_is_one_vertex_and_the_plan_is_its_cells() {
+        // KERNEL.8: over generated sheets of formulas reading cells, ranges,
+        // a whole column and a defined name of one another, cycles among
+        // them, the plan that makes each range a vertex of its own finds the
+        // cycles that an edge to every cell inside finds, and orders every
+        // other formula after each formula cell it reads; and a column of
+        // two thousand cells reading one range of two thousand formulas is
+        // planned whole.
+        let letters = ["A", "B", "C", "D"];
+        let mut cycles_seen = 0;
+        for seed in 1..=300u64 {
+            let mut state = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+            let mut below = |n: u64| {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                (state >> 33) % n
+            };
+            let mut wb = Workbook::new();
+            let s = wb.ensure_sheet("S");
+            let mut texts: HashMap<CellId, String> = HashMap::new();
+            for row in 1..=8u32 {
+                for col in 1..=4u32 {
+                    let (r1, c1) = (1 + below(8), below(4) as usize);
+                    let (r2, c2) = (r1 + below(3), (c1 + below(2) as usize).min(3));
+                    let text = match below(7) {
+                        0 => continue,
+                        1 => {
+                            let content = Content::Number(1.0);
+                            wb.sheets[s].set(row, col, Cell { content, style: 0 });
+                            continue;
+                        }
+                        2 => format!("{}{r1}+1", letters[c1]),
+                        3 => format!("SUM({}:{})", letters[c1], letters[c2]),
+                        4 => "Box+1".to_string(),
+                        _ => format!("SUM({}{r1}:{}{r2})", letters[c1], letters[c2]),
+                    };
+                    let content = Content::Formula(text.clone());
+                    wb.sheets[s].set(row, col, Cell { content, style: 0 });
+                    texts.insert((s, row, col), text);
+                }
+            }
+            wb.defined_names
+                .push(("Box".to_string(), "S!$A$1:$B$3".to_string()));
+            let names = Names::of(&wb);
+            let extents: Vec<Extent> = wb.sheets.iter().map(|sh| sh.extent()).collect();
+            let p = plan(&wb, &names, &extents, &texts);
+            // The reference: an edge from each formula to every formula cell
+            // it reads, every range walked, as the plan made them before.
+            let mut ids: Vec<CellId> = texts.keys().copied().collect();
+            ids.sort_unstable();
+            let at: HashMap<CellId, usize> =
+                ids.iter().enumerate().map(|(i, id)| (*id, i)).collect();
+            let adj: Vec<Vec<usize>> = ids
+                .iter()
+                .map(|id| {
+                    let mut deps = Vec::new();
+                    dependencies(&wb, &names, &extents, id.0, &texts[id], &mut deps);
+                    let mut e: Vec<usize> =
+                        deps.iter().filter_map(|d| at.get(d).copied()).collect();
+                    e.sort_unstable();
+                    e.dedup();
+                    e
+                })
+                .collect();
+            let mut want: Vec<Vec<CellId>> = tarjan(&adj)
+                .into_iter()
+                .filter(|c| c.len() > 1 || adj[c[0]].contains(&c[0]))
+                .map(|c| {
+                    let mut cells: Vec<CellId> = c.iter().map(|&i| ids[i]).collect();
+                    cells.sort_unstable();
+                    cells
+                })
+                .collect();
+            want.sort();
+            assert_eq!(p.cycles, want, "seed {seed}: the cycles");
+            cycles_seen += want.len();
+            let place: HashMap<CellId, usize> =
+                p.order.iter().enumerate().map(|(k, id)| (*id, k)).collect();
+            assert_eq!(
+                p.order.len() + want.iter().map(Vec::len).sum::<usize>(),
+                ids.len(),
+                "seed {seed}: every formula planned once"
+            );
+            for (v, id) in ids.iter().enumerate() {
+                let Some(&k) = place.get(id) else { continue };
+                for &u in &adj[v] {
+                    if let Some(&j) = place.get(&ids[u]) {
+                        assert!(
+                            j < k,
+                            "seed {seed}: {id:?} before {:?}, which it reads",
+                            ids[u]
+                        );
+                    }
+                }
+            }
+        }
+        assert!(
+            cycles_seen > 100,
+            "{cycles_seen} cycles: too few for the law to hold over"
+        );
+        // Two thousand readers of one range of two thousand formulas.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        let mut texts: HashMap<CellId, String> = HashMap::new();
+        for row in 1..=2_000u32 {
+            for (col, text) in [
+                (1, "ROW()".to_string()),
+                (2, "SUM($A$1:$A$2000)+A1".to_string()),
+            ] {
+                let content = Content::Formula(text.clone());
+                wb.sheets[s].set(row, col, Cell { content, style: 0 });
+                texts.insert((s, row, col), text);
+            }
+        }
+        let names = Names::of(&wb);
+        let extents: Vec<Extent> = wb.sheets.iter().map(|sh| sh.extent()).collect();
+        let p = plan(&wb, &names, &extents, &texts);
+        assert_eq!((p.order.len(), p.cycles.len()), (4_000, 0));
+        let place: HashMap<CellId, usize> =
+            p.order.iter().enumerate().map(|(k, id)| (*id, k)).collect();
+        let last_a = (1..=2_000).map(|r| place[&(s, r, 1)]).max();
+        let first_b = (1..=2_000).map(|r| place[&(s, r, 2)]).min();
+        assert!(last_a < first_b, "the range before every reader");
     }
 }

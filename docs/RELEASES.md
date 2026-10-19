@@ -2,6 +2,61 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.10.2
+
+### What changed
+
+- **Lookups compute.** `INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
+  `LOOKUP` and `XLOOKUP` now compute wherever a formula does, in
+  `frazaro calc`, the page, a build's values and an engine's grid, with the
+  four tests a lookup's miss is read by, `IFERROR`, `IFNA`, `ISERROR` and
+  `ISNA`. Each answers as Excel documents it: an exact match by value and
+  without case, `*`, `?` and `~` as wildcards where Excel takes them, every
+  mode and search of `XMATCH` and `XLOOKUP`, `INDEX`'s row and column of 0,
+  and each error each function answers. A lookup asked of one range again
+  and again, as twenty thousand rows of `VLOOKUP` into one table are,
+  searches an index of the range, built once and kept until a cell of the
+  range changes, a probe where a walk of the range would be; the answers
+  are the ones a walk cell by cell gives. `COUNTIF` and `SUMIF` of a value
+  search the same index: a `COUNTIF` from each of 8,000 rows over the 8,000
+  took `frazaro calc` 13 seconds and takes 0.09. A sheet of twenty thousand
+  rows, each looked up four ways in a table of twenty thousand, computes
+  whole in 9.8 ms, where Excel 365 on the same machine takes 83 ms with its
+  twenty threads and 757 ms with one.
+- **Comparisons answer as Excel's own save does.** Every rule above was held
+  to Excel 365's save of a fixture of 165 formulas, and seven were corrected
+  to it, so that every cell computed agrees. Two numbers equal to fifteen
+  significant digits are equal to `=`, `<>`, `<`, `>` and to `COUNTIF` and
+  `SUMIF`: `=0.1+0.2=0.3` is TRUE, as in Excel, where it was FALSE; a lookup
+  still matches a number exactly, as Excel's lookups do. Two texts are equal
+  without case beyond A to Z too, `="É"="é"` TRUE, an accent still counting.
+  In `COUNTIF` and `SUMIF`, an empty cell given as the criterion counts the
+  zeros, not the blanks; `"<>20"` counts a text `"20"`, which `"20"` counts
+  too; and an error in `SUMIF`'s sum range answers only at a row the
+  criterion counts. `MATCH` with -1 walks from the first cell, as Excel's
+  does, and match mode 3 of `XMATCH` and `XLOOKUP`, Excel's new regular
+  expressions, says not computed where it said `#VALUE!`. A game or a model
+  that compared two numbers differing past their fifteenth digit now finds
+  them equal.
+- **A table read by many formulas is planned once.** A workbook whose
+  formulas read one range of formulas from many cells, a table of computed
+  keys searched by twenty thousand lookups among them, took memory that grew
+  with the readers times the range when it was planned, gigabytes for that
+  table; the range is planned once now, by `frazaro calc`, a build and an
+  engine's machine alike.
+- **Two readings are labelled, not guessed.** A `SUMIF` whose sum range is
+  smaller than its range, and a `LOOKUP` whose results are shorter than the
+  vector it searches, read cells past the ranges they name, which Excel
+  reads and no plan orders: each says `not computed` with the range named,
+  where a value could have been read from a cell not computed yet. A sum
+  range the size of the range, or larger, computes.
+- **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
+  `Env::indexes`, a provided method answering `None`, is where an
+  environment of one's own may keep them; `calc::criteria` and `calc::index`
+  are public. The census names a vector a run's cells search alike by a
+  read of its own, `keyed`. Alonzo's cartridges and Buffet's compute every
+  frame as they did, allocating no more (KERNEL.8).
+
 ## 0.10.1
 
 ### What changed

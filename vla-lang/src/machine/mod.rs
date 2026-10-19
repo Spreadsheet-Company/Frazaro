@@ -112,7 +112,9 @@ use crate::calc::program::{Answer, Source};
 use crate::calc::reach::{Reach, Reached};
 use crate::calc::shape::{spell_cell, Shapes, RUN, SHORT};
 use crate::calc::vector::{self, Lanes};
-use crate::calc::{CellId, Computed, Ctx, Dense, Env, ErrorKind, Library, Reason, Value, Values};
+use crate::calc::{
+    CellId, Computed, Ctx, Dense, Env, ErrorKind, Indexes, Library, Reason, Value, Values,
+};
 use crate::form::Form;
 use crate::fx::FxHashMap;
 use crate::messages::{raise, Refusal};
@@ -468,6 +470,16 @@ pub struct Machine {
     /// arrays (KERNEL.31): always, but in the tests that hold the arrays to
     /// the same sheets read through their cells.
     arrays: bool,
+    /// The vectors the lookups and the criteria search, each indexed at a
+    /// second probe in a frame and kept until a cell of it changes, which
+    /// every change of a value tells them (KERNEL.8).
+    indexes: Indexes,
+    /// Whether the lookups and the criteria search through those indexes:
+    /// always, but in the tests that hold the indexes to the scan.
+    indexed: bool,
+    /// The answer of the call at a cell's program's root that is no number,
+    /// handed over as the program gives the cell up (KERNEL.8).
+    root_answer: Slot<Option<Value>>,
     /// The cells the frame in progress computed, for the tests to count.
     #[cfg(test)]
     computed: usize,
@@ -641,6 +653,9 @@ impl Machine {
             lazy: true,
             copies: true,
             arrays: true,
+            indexes: Indexes::new(),
+            indexed: true,
+            root_answer: Slot::new(None),
             #[cfg(test)]
             computed: 0,
             #[cfg(test)]
@@ -1013,6 +1028,9 @@ impl Machine {
     /// last frame's changes are kept until this frame's end, which a view
     /// of them during a yield reads (KERNEL.42).
     fn begin(&mut self) {
+        // A vector probed once in the frame before is probed once again here
+        // before its index is built (KERNEL.8).
+        self.indexes.begin();
         self.every = self.every_next || !self.incremental;
         self.every_next = false;
         self.reaching = 0;
@@ -1118,6 +1136,15 @@ impl Machine {
                         Answer::Number(x) => self.keep_number(p, x, keep),
                         Answer::Truth(b) => self.keep(p, Computed::Value(Value::Bool(b)), keep),
                     };
+                }
+                // The call at the root answered no number: its answer the
+                // cell's all the same (KERNEL.8).
+                if let Some(v) = self.root_answer.take() {
+                    #[cfg(test)]
+                    {
+                        self.ran += 1;
+                    }
+                    return self.keep(p, Computed::Value(v), keep);
                 }
             }
         }
@@ -1265,6 +1292,9 @@ impl Machine {
     /// that computes every cell, the cells of the frame that read it marked.
     fn changed_to(&mut self, p: usize, computed: Computed, keep: bool) {
         let was = self.values[p].replace(computed);
+        // An index whose vector holds the cell is built again at its next
+        // probe (KERNEL.8); nothing asked where none is built.
+        self.indexes.changed(self.shapes.order()[p]);
         let reason = matches!(was, Some(Computed::NotComputed(_)));
         if keep {
             self.before.entry(p as u32).or_insert(was);
@@ -1325,6 +1355,20 @@ impl Machine {
         debug_assert!(!self.changed_over, "the list holds every formula cell");
         self.last_changed = self.changed.len();
         self.last_reached = self.reaching;
+        // A twin's indexes (KERNEL.8): each whose vector holds a twin cell
+        // the end changed built again at its next probe, or every twin's where
+        // the end made a twin again or changed more cells than it kept; the
+        // cells not walked where no index is built.
+        if self.indexes.any() && self.every_next {
+            for t in self.sheets..self.book.sheets.len() {
+                self.indexes.sheet_changed(t);
+            }
+        } else if self.indexes.any() {
+            for k in 0..self.twin_changed.len() {
+                let id = self.twin_changed[k];
+                self.indexes.changed(id);
+            }
+        }
         self.changed.clear();
         self.changed_over = false;
         self.written.clear();
@@ -2380,6 +2424,16 @@ impl Machine {
                 }
             }
         }
+        // The indexes (KERNEL.8): every one dropped with a plan made again,
+        // else each whose vector holds a changed cell built again at its next
+        // probe.
+        if formula_changed {
+            self.indexes.clear();
+        } else if self.indexes.any() {
+            for id in log.changed.keys() {
+                self.indexes.changed(*id);
+            }
+        }
         // A write never empties a cell: it only adds cells or changes them.
         // A formula changed or a cell added, and the next frame computes
         // every cell; a value cell changed, and the next follows it to the
@@ -2565,9 +2619,22 @@ impl Env for Machine {
     fn enter(&self, id: CellId) {
         self.here.set(id);
     }
+
+    /// The indexes of the vectors the lookups and the criteria search
+    /// (KERNEL.8), told every cell whose value changes: at a write, at a
+    /// frame's computed value and at a twin's copy.
+    fn indexes(&self) -> Option<&Indexes> {
+        self.indexed.then_some(&self.indexes)
+    }
 }
 
 impl Source for Machine {
+    /// The call at a program's root answering no number, its answer kept
+    /// for the cell (KERNEL.8).
+    fn answered(&self, value: Value) {
+        self.root_answer.set(Some(value));
+    }
+
     /// [`Env::read`]'s answer as a program's register holds it (KERNEL.44,
     /// `calc::program::number_of`), read where `read` reads it and no value
     /// made: a frame's own sheet's slot where it offers its array, an empty
@@ -4201,6 +4268,191 @@ mod tests {
         }
     }
 
+    /// A vector a lookup searches (KERNEL.8), one row or one column, and one
+    /// time in eight any range `range` writes: a value column held whole,
+    /// whose index every cell shares, or moving with the cell; a twin's
+    /// column or row held whole, which the frames change; the sheet before's
+    /// formulas held whole, which its frame changes before the band reads
+    /// them; or the formula cells above the band.
+    fn vector_of(d: &mut Dice, at: &Band) -> String {
+        let col = d.pick(&["A", "B"]);
+        let twin = d.pick(&["A", "B"]);
+        let f = d.pick(&LETTERS[2..8]);
+        let n = 1 + d.below(20) as u32;
+        match d.below(8) {
+            0 | 1 => format!("${col}$1:${col}${n}"),
+            2 => {
+                let r = 1 + d.below(at.rows as usize) as u32;
+                format!("${col}{r}:${col}{}", r + d.below(4) as u32)
+            }
+            3 => format!("{twin}.last!${f}$1:${f}${}", at.rows),
+            4 => format!("{twin}.last!$C${n}:$H${n}"),
+            5 if at.before.is_some() => {
+                format!("{}!${f}$1:${f}${}", at.before.unwrap_or("A"), at.rows)
+            }
+            6 if at.top > 1 => format!("${f}$1:${f}${}", at.top - 1),
+            _ => range(d, at),
+        }
+    }
+
+    /// A table `VLOOKUP` searches down its first column (KERNEL.8): the value
+    /// columns, a twin's formulas, the sheet before's, or any range.
+    fn table_of(d: &mut Dice, at: &Band) -> String {
+        let twin = d.pick(&["A", "B"]);
+        match d.below(4) {
+            0 => "$A$1:$B$20".to_string(),
+            1 => format!("{twin}.last!$C$1:$E${}", at.rows),
+            2 if at.before.is_some() => format!("{}!$C$1:$F${}", at.before.unwrap_or("A"), at.rows),
+            _ => range(d, at),
+        }
+    }
+
+    /// What a lookup searches for: a value of each kind the value cells
+    /// hold, a text in another case, a reference, or any formula.
+    fn probe_of(d: &mut Dice, at: &Band, depth: u32) -> String {
+        match d.below(4) {
+            0 => d
+                .pick(&[
+                    "0", "1", "3", "-2.5", "\"5\"", "\"x\"", "\"X\"", "TRUE", "\"TRUE\"", "\"\"",
+                    "\"x*\"", "\"?\"",
+                ])
+                .to_string(),
+            1 => reference(d, at),
+            _ => expr(d, at, depth + 1),
+        }
+    }
+
+    /// A criterion of `COUNTIF` and `SUMIF`: by size, `<>`, a pattern, the
+    /// blank, an error, or any probe, a cell's value among them.
+    fn criterion_of(d: &mut Dice, at: &Band, depth: u32) -> String {
+        match d.below(3) {
+            0 => d
+                .pick(&[
+                    "\">1\"",
+                    "\"<>x\"",
+                    "\"x*\"",
+                    "\"\"",
+                    "\"<>\"",
+                    "\"=5\"",
+                    "\"<3\"",
+                    "\"?\"",
+                    "\"=TRUE\"",
+                    "\"#N/A\"",
+                    "\"<>3\"",
+                ])
+                .to_string(),
+            _ => probe_of(d, at, depth),
+        }
+    }
+
+    /// The lookups, the criteria and the error tests (KERNEL.8), each of
+    /// every mode and search, over vectors held whole, whose index a band's
+    /// cells share, or moving with the cell.
+    fn lookup_expr(d: &mut Dice, at: &Band, depth: u32) -> String {
+        let e = |d: &mut Dice| expr(d, at, depth + 1);
+        let twin = d.pick(&["A", "B"]);
+        match d.below(12) {
+            0 => {
+                let t = d.pick(&["", ",0", ",1", ",-1", ","]);
+                format!("MATCH({},{}{t})", probe_of(d, at, depth), vector_of(d, at))
+            }
+            1 => {
+                let mode = d.pick(&["", ",0", ",-1", ",1", ",2", ",3"]);
+                let search = match mode {
+                    "" => "",
+                    _ => d.pick(&["", ",1", ",-1", ",2", ",-2"]),
+                };
+                format!(
+                    "XMATCH({},{}{mode}{search})",
+                    probe_of(d, at, depth),
+                    vector_of(d, at)
+                )
+            }
+            2 => {
+                let col = d.pick(&["1", "2", "3", "0"]);
+                let approx = d.pick(&["", ",FALSE", ",TRUE", ",0", ","]);
+                format!(
+                    "VLOOKUP({},{},{col}{approx})",
+                    probe_of(d, at, depth),
+                    table_of(d, at)
+                )
+            }
+            3 => {
+                let row = d.pick(&["1", "2", "3"]);
+                let approx = d.pick(&["", ",FALSE", ",TRUE"]);
+                format!(
+                    "HLOOKUP({},{twin}.last!$C$1:$H$3,{row}{approx})",
+                    probe_of(d, at, depth)
+                )
+            }
+            4 => {
+                let results = d.pick(&["", ",$B$1:$B$20", ",A.last!$D$1:$D$20", ",$B$1"]);
+                format!(
+                    "LOOKUP({},{}{results})",
+                    probe_of(d, at, depth),
+                    vector_of(d, at)
+                )
+            }
+            5 => {
+                let (vector, results) = match d.below(4) {
+                    0 => ("$A$1:$A$20".to_string(), "$B$1:$B$20".to_string()),
+                    1 => (
+                        format!("{twin}.last!$C$1:$C${}", at.rows),
+                        format!("{twin}.last!$D$1:$D${}", at.rows),
+                    ),
+                    2 => (
+                        format!("{twin}.last!$C$1:$H$1"),
+                        format!("{twin}.last!$C$2:$H$2"),
+                    ),
+                    _ => (vector_of(d, at), "$B$1:$B$20".to_string()),
+                };
+                let missing = d.pick(&["", ",\"none\"", ","]);
+                let mode = match missing {
+                    "" => "",
+                    _ => d.pick(&["", ",0", ",-1", ",1", ",2"]),
+                };
+                let search = match mode {
+                    "" => "",
+                    _ => d.pick(&["", ",1", ",-1", ",2", ",-2"]),
+                };
+                let p = probe_of(d, at, depth);
+                format!("XLOOKUP({p},{vector},{results}{missing}{mode}{search})")
+            }
+            // A row of a constant mostly, so that few cells turn from a value
+            // to a pick of many and back as the twins change.
+            6 => {
+                let col = d.pick(&["", ",1", ",2", ",0", ",3"]);
+                let row = match d.below(4) {
+                    0 => e(d),
+                    _ => d.pick(&["1", "2", "3", "0", "25"]).to_string(),
+                };
+                format!("INDEX({},{row}{col})", table_of(d, at))
+            }
+            7 => match d.below(3) {
+                0 => format!("SUM(INDEX({},0,{}))", table_of(d, at), d.pick(&["1", "2"])),
+                1 => format!("INDEX({},1)", reference(d, at)),
+                _ => format!(
+                    "({})+INDEX({},{},{})",
+                    e(d),
+                    range(d, at),
+                    d.pick(&["1", "2", "0"]),
+                    d.pick(&["1", "2", "MOD(ROW(),3)"])
+                ),
+            },
+            8 => format!("COUNTIF({},{})", range(d, at), criterion_of(d, at, depth)),
+            9 => {
+                let sums = d.pick(&["", ",$B$1:$B$20", ",A.last!$C$1", ",$A$1:$A$3"]);
+                format!(
+                    "SUMIF({},{}{sums})",
+                    range(d, at),
+                    criterion_of(d, at, depth)
+                )
+            }
+            10 => format!("{}({},{})", d.pick(&["IFERROR", "IFNA"]), e(d), e(d)),
+            _ => format!("{}({})", d.pick(&["ISERROR", "ISNA"]), e(d)),
+        }
+    }
+
     /// A formula of the language's functions over every kind of node the
     /// evaluation of a run computes, and of those it leaves to each cell: a
     /// name, a range where one value is wanted, a call whose operand may be
@@ -4209,10 +4461,14 @@ mod tests {
     /// functions a run computes by their meanings (KERNEL.28): `CHOOSE`'s
     /// index at each end of its count, `MOD` by 0 and of each sign, `ROW` and
     /// `COLUMN` of a reference across sheets or off the sheet, `CHOOSE`
-    /// beside and inside the run's other calls.
+    /// beside and inside the run's other calls; and the lookups, the
+    /// criteria and the error tests (KERNEL.8).
     fn expr(d: &mut Dice, at: &Band, depth: u32) -> String {
         if depth >= 3 || d.below(4) == 0 {
             return leaf(d, at);
+        }
+        if d.below(10) == 0 {
+            return lookup_expr(d, at, depth);
         }
         let e = |d: &mut Dice| expr(d, at, depth + 1);
         let operands = |d: &mut Dice, n: usize| {
@@ -4379,6 +4635,23 @@ mod tests {
         (d.below(4) != 0).then(|| d.pick(&all))
     }
 
+    /// Every probe an index answers held to its scan while it lives, on this
+    /// thread (KERNEL.8).
+    struct Checked;
+
+    impl Checked {
+        fn on() -> Checked {
+            crate::calc::index::check(true);
+            Checked
+        }
+    }
+
+    impl Drop for Checked {
+        fn drop(&mut self) {
+            crate::calc::index::check(false);
+        }
+    }
+
     /// A grid of two sheets, each with value cells in A1:B20 and formulas
     /// over C1:H`rows` in bands, each band one shape; in some grids a column
     /// of single formulas beside, which interleaves the order and leaves each
@@ -4473,6 +4746,7 @@ mod tests {
         // with every cell evaluated alone, frame for frame and bit for bit;
         // writes between frames change values, break a band's shape and make
         // the runs again.
+        let _checked = Checked::on();
         let (mut in_runs, mut by_cell) = (0, 0);
         for seed in 1..=80u64 {
             let mut d = Dice(seed);
@@ -5036,6 +5310,7 @@ mod tests {
             Path::Cells => f.reads.contains(&Kind::Cells),
             Path::Once => f.reads.contains(&Kind::Once),
             Path::Each => f.reads.contains(&Kind::Each),
+            Path::Keyed => f.reads.contains(&Kind::Keyed),
             Path::Call(name) => f.calls.contains(name),
         }
     }
@@ -5084,6 +5359,7 @@ mod tests {
                         vector::taken::Path::Cells => "cells",
                         vector::taken::Path::Once => "once",
                         vector::taken::Path::Each => "each",
+                        vector::taken::Path::Keyed => "keyed",
                         vector::taken::Path::Call(_) => "call",
                     });
                 }
@@ -5102,7 +5378,7 @@ mod tests {
         }
         assert_eq!(
             kinds.into_iter().collect::<Vec<_>>(),
-            ["array", "call", "cells", "each", "lookup", "once", "slot", "stride"],
+            ["array", "call", "cells", "each", "keyed", "lookup", "once", "slot", "stride"],
             "every kind of path taken somewhere"
         );
     }
@@ -5118,7 +5394,8 @@ mod tests {
         // array (KERNEL.31), and holds no cell not computed, as `S` does at
         // `M`'s, a range where one value is wanted; `W`, widened past four
         // slots a cell by a cell far from the rest, keeps none, and is read
-        // through its cells.
+        // through its cells; and `T`'s `S`, a vector a lookup searches, every
+        // `$` holding it (KERNEL.8).
         let mut m = load(concat!(
             "(sheet \"V\" visible)\n",
             "(cell \"V\" \"A1\" 1)\n",
@@ -5146,8 +5423,9 @@ mod tests {
             "(formula \"S\" \"P1\" \"=S.last!A1\")\n",
             "(formula \"T\" \"Q1:Q8\" \"=A1\")\n",
             "(formula \"T\" \"R1:R8\" \"=SUM(A1:B1)\")\n",
+            "(formula \"T\" \"S1:S8\" \"=MATCH(1,$A$1:$A$8,0)\")\n",
         ));
-        let want: [(&str, &str, &[&str]); 16] = [
+        let want: [(&str, &str, &[&str]); 17] = [
             ("C1", "stride", &[]),
             ("D1", "stride", &[]),
             ("E1", "lookup", &[]),
@@ -5171,6 +5449,9 @@ mod tests {
             // (KERNEL.31): read and folded by the run as a twin's are.
             ("Q1", "stride", &[]),
             ("R1", "stride", &[]),
+            // A vector every `$` holds, which the run's cells search by the
+            // index they share (KERNEL.8).
+            ("S1", "keyed", &["MATCH"]),
         ];
         // Runs of eight, fewer than `SHORT`, are evaluated cell by cell by
         // their programs (KERNEL.44): the paths held here are the run's.
@@ -5494,6 +5775,67 @@ mod tests {
         // The first, SUM over the twin's A1:B3 moved to each row: at D1, after
         // the writes of A1 and B3, 4 + 0 - 2.5.
         assert_eq!(number(&m, "S", "D1"), 1.5);
+    }
+
+    #[test]
+    fn a_run_compares_numbers_to_fifteen_digits_as_a_cell_alone_does() {
+        // KERNEL.8, Excel's save of the lookups' fixture: a run's lanes of
+        // numbers compared with one number, on either side of the operator,
+        // and with another lane, by every operator, over numbers equal to
+        // fifteen digits and not to the bit, just past the fifteenth digit
+        // and far apart, of both signs, both zeros, the smallest and the
+        // largest: each answer the one a cell evaluated alone gives, and
+        // `Calc`, which compare two numbers one pair at a time.
+        let numbers = [
+            0.3,
+            0.1 + 0.2,
+            0.3 + 4e-16,
+            0.3 - 4e-16,
+            0.3 + 6e-16,
+            0.3 - 1e-15,
+            0.300_000_000_000_1,
+            3.0,
+            3.0 + 4e-15,
+            3.0 - 4e-15,
+            2.999_999_999_99,
+            -0.3,
+            -(0.1 + 0.2),
+            0.0,
+            -0.0,
+            1e15,
+            1e15 + 1.0,
+            1e300,
+            5e-324,
+            1e-309,
+            2.0,
+        ];
+        let mut values = String::new();
+        for (k, n) in numbers.iter().enumerate() {
+            let m = numbers[(k + 1) % numbers.len()];
+            values.push_str(&format!("(cell \"S\" \"A{}\" {n})\n", k + 1));
+            values.push_str(&format!("(cell \"S\" \"B{}\" {m})\n", k + 1));
+        }
+        let mut formulas = Vec::new();
+        for op in ["=", "<>", "<", ">", "<=", ">="] {
+            for c in ["0.3", "3", "-0.3", "0", "1000000000000000"] {
+                formulas.push(format!("S.last!A1{op}{c}"));
+                formulas.push(format!("{c}{op}S.last!A1"));
+            }
+            formulas.push(format!("S.last!A1{op}S.last!B1"));
+            formulas.push(format!("S.last!A1{op}(0.1+0.2)"));
+        }
+        let rows = numbers.len() as u32;
+        let m = by_runs_and_alone(&columns(&values, rows, &formulas), &[]);
+        // `S.last!A1=0.3`, the first column, at the row holding 0.1+0.2, and
+        // `S.last!A1<0.3`, the twenty-fifth, at the rows holding 0.3 less
+        // 4E-16, equal to fifteen digits, and 0.3 less 1E-15, not.
+        let truth = |addr: &str| match at(&m, "S", addr) {
+            Some(Computed::Value(Value::Bool(b))) => b,
+            other => panic!("S!{addr}: {other:?}"),
+        };
+        assert!(truth("D2"));
+        assert!(!truth("AB4"));
+        assert!(truth("AB6"));
     }
 
     /// A meaning of its own for a name the language's library holds.
@@ -6330,6 +6672,7 @@ mod tests {
     /// `a_frame_that_computes_what_changed_is_the_frame_computed_whole` over
     /// the grids of some seeds.
     fn computes_what_changed(seeds: std::ops::RangeInclusive<u64>) {
+        let _checked = Checked::on();
         let (mut followed, mut frames, mut part, mut computed, mut passed) = (0, 0, 0, 0, 0);
         for seed in seeds {
             let mut d = Dice(seed ^ 0x5EED);
@@ -8095,6 +8438,7 @@ mod tests {
         seeds: std::ops::RangeInclusive<u64>,
         least: (u64, u64, usize, usize, usize),
     ) {
+        let _checked = Checked::on();
         let (mut nothing, mut refused, mut held) = (0, 0, 0);
         crate::sheet::work::begin();
         for seed in seeds {
@@ -8587,6 +8931,7 @@ mod tests {
         // slots; steps yield. Frames whose ends copied more than half the
         // formula cells, and walks after a frame's end that left twin cells
         // behind, each seen.
+        let _checked = Checked::on();
         let (mut past_half, mut after_copies) = (0, 0);
         for seed in 1..=60u64 {
             let mut d = Dice(seed ^ 0x36C0);
@@ -9526,8 +9871,8 @@ mod tests {
     /// `IF` with branches omitted or missing, `CHOOSE` with an index of every
     /// kind and omitted values, the aggregates over values and ranges, `NOT`,
     /// `ABS`, `INT`, `SIN`, `MOD`, `ROW` and `COLUMN` of the cell and of a
-    /// reference, and strict functions through their pointers handed values,
-    /// ranges and references.
+    /// reference, strict functions through their pointers handed values,
+    /// ranges and references, and `INDEX` (KERNEL.8).
     fn lowered_expr(d: &mut Dice, at: &Band, depth: u32) -> String {
         if depth >= 4 || d.below(4) == 0 {
             return lowered_leaf(d, at);
@@ -9605,6 +9950,33 @@ mod tests {
                 _ => format!("EMPTIES({})", e(d)),
             },
             19 => format!("AREA({})", operands(d, 1)),
+            // `INDEX`, which a program picks by itself, of a range or of a
+            // cell moved off the sheet, its row and column of every kind;
+            // and a lookup or a criterion through its pointer, at the root
+            // or inside (KERNEL.8).
+            20 => match d.below(5) {
+                0 => {
+                    let col = if d.below(2) == 0 {
+                        format!(",{}", e(d))
+                    } else {
+                        String::new()
+                    };
+                    format!("INDEX({},{}{col})", range(d, at), e(d))
+                }
+                1 => format!(
+                    "INDEX({},{})",
+                    reference(d, at),
+                    d.pick(&["1", "0", "2", "TRUE"])
+                ),
+                2 => format!("({})+INDEX({},{},{})", e(d), range(d, at), e(d), e(d)),
+                3 => format!(
+                    "MATCH({},{},{})",
+                    e(d),
+                    vector_of(d, at),
+                    d.pick(&["0", "1", "-1"])
+                ),
+                _ => format!("COUNTIF({},{})", range(d, at), e(d)),
+            },
             _ => format!("{}*{}", reference(d, at), reference(d, at)),
         }
     }
@@ -9688,6 +10060,7 @@ mod tests {
         // somewhere, and programs answer more than a third of the cells
         // alone, the rest left to `Ctx` by a guard (the grids read texts and
         // errors on purpose) or by a node a program does not hold.
+        let _checked = Checked::on();
         let mut guards = [0usize; program::guarded::GUARDS];
         let (mut ran, mut alone) = (0, 0);
         for seed in 1..=60u64 {
@@ -9837,7 +10210,11 @@ mod tests {
         // other, its value `Ctx`'s: a read of a text, a reference moved off
         // the sheet (the fill's second cell), an operation answering an
         // error, a fold meeting a text in a range, `CHOOSE`'s index past its
-        // values, a call answering an error.
+        // values, a call answering an error inside the formula (at its root,
+        // since KERNEL.8, a call's answer is the cell's, whatever its kind:
+        // `a_call_at_a_program_s_root_answers_whatever_its_kind`); and
+        // since KERNEL.8 `INDEX`, a call through its pointer, picking a text
+        // and picking past its area.
         use program::guarded;
         // Each case's cells, its formula, its guard, and the cells its
         // program answers (the fill's first, whose reference stays on).
@@ -9847,7 +10224,9 @@ mod tests {
             ("C1", "=1/S!A3", guarded::ANSWER, 0),
             ("D1", "=SUM(S!A1:B1)", guarded::RANGE, 0),
             ("E1", "=CHOOSE(S!A1+3,1,2)", guarded::INDEX, 0),
-            ("F1", "=TWICE(S!B1)", guarded::CALL, 0),
+            ("F1", "=TWICE(S!B1)+0", guarded::CALL, 0),
+            ("G1", "=INDEX(S!A1:B1,1,2)+0", guarded::CALL, 0),
+            ("H1", "=INDEX(S!A1:B1,1,3)+0", guarded::CALL, 0),
         ];
         for (cell, text, guard, answered) in cases {
             let rows = format!(
@@ -9866,6 +10245,45 @@ mod tests {
                 counts.iter().sum::<usize>(),
                 counts[guard],
                 "{text}: no other guard {counts:?}"
+            );
+            assert_eq!(values(&m), values(&ctx), "{text}");
+            assert_eq!(m.ran, answered, "{text}: the cells its program answered");
+        }
+    }
+
+    #[test]
+    fn a_call_at_a_program_s_root_answers_whatever_its_kind() {
+        // KERNEL.8: a call that is the cell's whole formula answers what the
+        // call answers, a text, a truth value or an error among them, with no
+        // guard and no evaluation again from the start, as `Ctx` would answer
+        // it; the same call inside the formula keeps its guard. And `INDEX`
+        // lowered picks a number where it stands, the cell's own program.
+        use program::guarded;
+        let cases = [
+            ("A1", "=TWICE(S!B1)", 1),
+            ("A2", "=TWICE(S!A1)", 1),
+            ("A3", "=MATCH(9,S!A1:A2,0)", 1),
+            ("A4", "=VLOOKUP(2,S!A1:B2,2,FALSE)", 1),
+            ("A5", "=INDEX(S!A1:A2,2)*2", 1),
+            ("A6", "=COUNTIF(S!A1:B2,3)", 1),
+        ];
+        for (cell, text, answered) in cases {
+            let rows = format!(
+                "(sheet \"S\" visible)\n(cell \"S\" \"A1\" 2)\n(cell \"S\" \"A2\" 3)\n\
+                 (cell \"S\" \"B1\" \"x\")\n(cell \"S\" \"B2\" \"y\")\n(sheet \"T\" visible)\n\
+                 (formula \"T\" \"{cell}\" {})\n",
+                crate::rows::quoted(text)
+            );
+            let mut m = load_programs(&rows, text);
+            let mut ctx = load_programs(&rows, text);
+            ctx.lowered = false;
+            guarded::take();
+            assert!(m.step(0).done && ctx.step(0).done);
+            let counts = guarded::take();
+            assert_eq!(
+                counts.iter().sum::<usize>(),
+                0,
+                "{text}: no guard {counts:?}"
             );
             assert_eq!(values(&m), values(&ctx), "{text}");
             assert_eq!(m.ran, answered, "{text}: the cells its program answered");
@@ -10741,6 +11159,219 @@ mod tests {
             (again.changed(), again.reached()),
             (0, 2),
             "its values held"
+        );
+    }
+
+    // ---- KERNEL.8: the vectors' indexes ----
+
+    #[test]
+    fn an_index_answers_as_its_scan_frame_after_frame() {
+        // KERNEL.8: the generated grids, lookups and criteria among their
+        // formulas, every other one churning with the Clock written before
+        // every frame, stepped in slices of any budget with writes between
+        // frames to the value cells the vectors hold and to the bands, against
+        // the same grids searching by the scan alone, frame for frame and bit
+        // for bit, every probe an index answers held to its scan as it
+        // answers; indexes built, and reached by changes, many times over.
+        let _checked = Checked::on();
+        let (mut builds, mut reached, mut answered) = (0, 0, 0);
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x0808);
+            let churns = seed % 2 == 0;
+            let mut rows = if churns {
+                churning_grid(&mut d)
+            } else {
+                generated_grid(&mut d)
+            };
+            // Bands searching the first sheet's value columns and formulas,
+            // every vector held whole, so that each grid's indexes are built
+            // and reached.
+            rows.push_str(concat!(
+                "(formula \"B\" \"M1:M20\" \"=MATCH(A!$A1,A!$A$1:$A$20,0)\")\n",
+                "(formula \"B\" \"N1:N20\" \"=COUNTIF(A!$B$1:$B$20,$A1)\")\n",
+                "(formula \"B\" \"O1:O20\" \"=SUMIF(A!$A$1:$A$20,$B1,A!$B$1:$B$20)\")\n",
+                "(formula \"B\" \"P1:P20\" \"=XLOOKUP($A1,A!$C$1:$C$20,A!$D$1:$D$20,\\\"none\\\",0,-1)\")\n",
+                "(formula \"B\" \"Q1:Q20\" \"=IFERROR(VLOOKUP(A!$B1,A!$C$1:$E$20,2,FALSE),-1)\")\n",
+            ));
+            let mut keyed = load(&rows);
+            let mut scanned = load(&rows);
+            scanned.indexed = false;
+            for frame in 1..=6 {
+                let when = format!("seed {seed}, frame {frame}");
+                if churns {
+                    let w = format!("(cell \"Clock\" \"B1\" {frame})");
+                    assert!(keyed.write(&w).is_ok() && scanned.write(&w).is_ok());
+                }
+                while !keyed.step(1 + d.below(300)).done {}
+                assert!(scanned.step(0).done);
+                assert_eq!(values(&keyed), values(&scanned), "{when}\n{rows}");
+                let write = match d.below(5) {
+                    0 | 1 => format!(
+                        "(cell \"{}\" \"{}{}\" {})",
+                        d.pick(&["A", "B"]),
+                        d.pick(&["A", "B"]),
+                        1 + d.below(20),
+                        d.pick(&[
+                            "7",
+                            "\"x\"",
+                            "\"X\"",
+                            "true",
+                            "0",
+                            "\"5\"",
+                            "(error \"#N/A\")"
+                        ])
+                    ),
+                    2 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    _ => continue,
+                };
+                let (a, b) = (keyed.write(&write), scanned.write(&write));
+                assert!(a.is_ok() == b.is_ok(), "{when}: {write}: {a:?} {b:?}");
+            }
+            let (b, r, a) = keyed.indexes.counted();
+            builds += b;
+            reached += r;
+            answered += a;
+            assert_eq!(
+                scanned.indexes.counted(),
+                (0, 0, 0),
+                "seed {seed}: no index unasked"
+            );
+        }
+        assert!(
+            builds >= 600 && reached >= 200 && answered > builds * 20,
+            "{builds} indexes built, {reached} reached by a change and {answered} probes \
+             answered: too few for the law to hold over"
+        );
+    }
+
+    #[test]
+    fn an_index_is_built_at_a_second_probe_and_kept_until_its_vector_changes() {
+        // KERNEL.8: a vector probed by one cell is never built; by two, once,
+        // at the second probe; kept from frame to frame while nothing of its
+        // vector changes, a write beside it among them; reached by a write to
+        // a cell of it and by a change of the formula cell it holds, and
+        // built again at its next probe; and dropped with every other when a
+        // formula is written.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:A2\" 1)\n",
+            "(cell \"S\" \"A3\" 5)\n",
+            "(cell \"S\" \"A4:A6\" 1)\n",
+            "(cell \"S\" \"B1\" 5)\n",
+            "(cell \"S\" \"D1\" 0)\n",
+            "(formula \"S\" \"A7\" \"=D1*2\")\n",
+            "(formula \"S\" \"C1\" \"=MATCH(5,$A$1:$A$7,0)\")\n",
+            "(formula \"S\" \"C2\" \"=MATCH(B1,$A$1:$A$7,0)\")\n",
+            "(formula \"S\" \"C3\" \"=COUNTIF($A$1:$A$9,1)\")\n",
+            "(formula \"S\" \"C4\" \"=MATCH(1,$A$1:$A$7,1)\")\n",
+            "(formula \"S\" \"E1\" \"=D1+1\")\n",
+        ));
+        let counted = |m: &Machine| {
+            let (builds, reached, _) = m.indexes.counted();
+            (m.indexes.built(), builds, reached)
+        };
+        let answered = |m: &Machine| m.indexes.counted().2;
+        // `$A$1:$A$7` searched exactly twice, built; the count's range once,
+        // never; the bisection keys nothing.
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 1, 0), "the first frame");
+        assert_eq!(at(&m, "S", "C1"), Some(Computed::Value(Value::Number(3.0))));
+        assert_eq!(at(&m, "S", "C3"), Some(Computed::Value(Value::Number(5.0))));
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 1, 0), "kept while nothing changes");
+        // A value beside the vector, which a probe reads.
+        let before = answered(&m);
+        assert!(m.write("(cell \"S\" \"B1\" 1)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 1, 0), "kept past a write beside it");
+        assert!(answered(&m) > before, "the probe answered by the index");
+        assert_eq!(at(&m, "S", "C2"), Some(Computed::Value(Value::Number(1.0))));
+        // A value of the vector: reached at the write, built again at its
+        // next probe.
+        assert!(m.write("(cell \"S\" \"A1\" 5)").is_ok());
+        assert_eq!(counted(&m), (0, 1, 1), "reached at the write");
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 2, 1), "built again at its next probe");
+        assert_eq!(at(&m, "S", "C1"), Some(Computed::Value(Value::Number(1.0))));
+        // The formula cell of the vector, its value changed by a write it
+        // reads.
+        assert!(m.write("(cell \"S\" \"D1\" 1)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 3, 2), "reached by a computed value");
+        assert_eq!(at(&m, "S", "C3"), Some(Computed::Value(Value::Number(4.0))));
+        // A formula written: every index dropped with the plan.
+        assert!(m.write("(formula \"S\" \"F1\" \"=1\")").is_ok());
+        assert_eq!(counted(&m).0, 0, "dropped with the plan");
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 4, 2), "built again at the second probe");
+    }
+
+    #[test]
+    fn a_plan_through_hubs_is_the_plan_of_every_edge() {
+        // KERNEL.8: the generated grids, and the bands the index's law adds,
+        // planned with a hub for every shape's held references and with none,
+        // at the load and after every write that plans again: the two plans
+        // spelled whole alike (each shape, the order, its cycles, runs and
+        // levels, the reach), and their frames bit for bit.
+        use crate::calc::shape::{hubs_at, hubs_made};
+        let planned = |rows: &str, hubs: usize| {
+            hubs_at(hubs);
+            let m = load(rows);
+            hubs_at(64);
+            m
+        };
+        let written = |m: &mut Machine, w: &str, hubs: usize| {
+            hubs_at(hubs);
+            let ok = m.write(w).is_ok();
+            hubs_at(64);
+            ok
+        };
+        hubs_made();
+        let mut made = 0;
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x4B8);
+            let mut rows = generated_grid(&mut d);
+            rows.push_str(concat!(
+                "(formula \"B\" \"M1:M20\" \"=MATCH(A!$A1,A!$C$1:$C$20,0)\")\n",
+                "(formula \"B\" \"N1:N20\" \"=SUM(A!$C$1:$H$4)+$A1\")\n",
+            ));
+            let mut with = planned(&rows, 1);
+            made += hubs_made();
+            let mut without = planned(&rows, usize::MAX);
+            assert_eq!(hubs_made(), 0, "seed {seed}: no hub at usize::MAX");
+            for frame in 1..=4 {
+                let when = format!("seed {seed}, frame {frame}");
+                assert_eq!(
+                    with.shapes.spelled(),
+                    without.shapes.spelled(),
+                    "{when}: the plans\n{rows}"
+                );
+                assert!(with.step(0).done && without.step(0).done);
+                assert_eq!(values(&with), values(&without), "{when}\n{rows}");
+                let w = match d.below(3) {
+                    0 => format!("(cell \"A\" \"A{}\" 7)", 1 + d.below(20)),
+                    1 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    _ => "(formula \"B\" \"C1:H2\" \"=$A1+1\")".to_string(),
+                };
+                let (a, b) = (
+                    written(&mut with, &w, 1),
+                    written(&mut without, &w, usize::MAX),
+                );
+                assert_eq!(a, b, "{when}: {w}");
+                made += hubs_made();
+            }
+        }
+        assert!(
+            made > 200,
+            "{made} hubs made: too few for the law to hold over"
         );
     }
 }

@@ -385,6 +385,32 @@ impl Dense {
         }
         Ok(())
     }
+
+    /// [`Dense::each_ref`]'s walk, each value with its row and its column
+    /// (KERNEL.8): what a vector's index is built from and a lookup's scan
+    /// walks, its positions read off the cells.
+    pub(crate) fn each_at<E, F>(&self, area: &Area, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(u32, u32, &Value) -> Result<(), E>,
+    {
+        let bottom = self.top + (self.height as u32 - 1);
+        let right = self.left + (self.width as u32 - 1);
+        let (top, left) = (area.top.max(self.top), area.left.max(self.left));
+        let (last_row, last_col) = (area.bottom.min(bottom), area.right.min(right));
+        if top > last_row || left > last_col {
+            return Ok(());
+        }
+        let n = (last_col - left + 1) as usize;
+        for row in top..=last_row {
+            let from = (row - self.top) as usize * self.width + (left - self.left) as usize;
+            for (j, v) in self.values[from..from + n].iter().enumerate() {
+                if !matches!(v, Value::Empty) {
+                    f(row, left + j as u32, v)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

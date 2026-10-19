@@ -719,15 +719,21 @@ corpora use most that are arithmetic and logic over values (`IF`, `SUM`,
 `AVERAGE`, `ROUND`, `SUMIF`, `COUNTIF`, `AND`, `OR`, `MIN`, `MAX`,
 `ISNUMBER`, `ISBLANK`), the ones a game's rule needs on day one (`NOT`,
 `ABS`, `INT`, `MOD`, `ROW`, `COLUMN`, `CHOOSE`, `SIN`), `IFS` on its
-fixture, the comparisons, the arithmetic, `&` and `%`, with Excel's
-coercions and its seven error values. A formula that calls anything else
-shows `(not-computed "VLOOKUP")` with the function named, a cell that
-reads it inherits the label, and a reference this version does not read
-(a link into another workbook, a structured reference, a spill, an array
-constant, a range where one value is wanted) is named as written; a cell
-in a cycle shows `(not-computed cycle)` and the cycle's cells come first as
-`(cycle "Sheet!A1" "Sheet!B1")`. Nothing is ever claimed that was not
-computed. Exit 0 whenever the calculation ran, agree or differ.
+fixture, the lookups (`INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
+`LOOKUP`, `XLOOKUP`) and the tests their misses are read by (`IFERROR`,
+`IFNA`, `ISERROR`, `ISNA`) on theirs, the comparisons, the arithmetic, `&`
+and `%`, with Excel's coercions and its seven error values. A comparison and
+a criterion hold two numbers equal to fifteen significant digits equal,
+`=0.1+0.2=0.3` TRUE as in Excel, where a lookup matches a number exactly, as
+Excel's do; two texts compare without case, beyond A to Z too, an accent
+counting. A formula that calls anything else shows `(not-computed "TEXT")`
+with the function named, a cell that reads it inherits the label, and a
+reference this version does not read (a link into another workbook, a
+structured reference, a spill, an array constant, a range where one value is
+wanted) is named as written; a cell in a cycle shows `(not-computed cycle)`
+and the cycle's cells come first as `(cycle "Sheet!A1" "Sheet!B1")`. Nothing
+is ever claimed that was not computed. Exit 0 whenever the calculation ran,
+agree or differ.
 
 With `--counts`, one line of counts and times alone: formulas, computed,
 not computed, cycles, agree, differ, unchecked, so that a model whose
@@ -770,7 +776,9 @@ a range of such a sheet walked by index; `lookup`, one cell found by its
 place; `cells`, a range walked through its cells at each cell; `once`, a
 cell every `$` holds, read once for many cells; `start`, a part the same at
 every cell, compared once before the rest; `each`, a part computed at each
-cell on its own, a defined name or a function such as `IFS`. `(calls ...)`
+cell on its own, a defined name or a function such as `IFS`; `keyed`, a
+range every `$` holds that a lookup or a criterion searches, the same at
+every cell, by the index the cells share. `(calls ...)`
 names the functions called at each cell, `(missing ...)` those not
 computed, `(same k)` a shape whose formula an earlier shape already is,
 `(every-frame ...)` a shape computed whenever anything is, since no change

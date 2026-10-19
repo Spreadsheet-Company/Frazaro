@@ -56,6 +56,7 @@ use super::eval::{
 use super::formula::{moved_at, BinOp, Corners, Expr, RefExpr};
 use super::graph::{cells_in, Area, Areas, CellId};
 use super::library::{self, All, Axis, Fold, Least, Most, Rule, Some_, Sum};
+use super::lookups;
 use super::value::{ErrorKind, Value};
 use super::vector::{ref_operand, yields_value};
 
@@ -284,6 +285,16 @@ pub(crate) struct Program {
     table: Vec<u16>,
     calls: Vec<Strict>,
     kind: Kind,
+    /// The call at the program's root, the cell's whole formula, by its
+    /// place among the calls: a value of it that is no number is the cell's
+    /// answer all the same, handed to the environment (`Source::answered`),
+    /// which is `Ctx`'s answer for the cell, so that a lookup answering a
+    /// text or a miss in a cell alone is not computed again from the start
+    /// (KERNEL.8). Every program's loop is the one it was: an operation of
+    /// the root's own in it cost the chain fixture's cells alone a tenth of
+    /// their time, and one of `INDEX`'s half again (measured, 0.235 ms a
+    /// frame to 0.260 and 0.363).
+    root: Option<u16>,
 }
 
 impl std::fmt::Debug for Program {
@@ -297,6 +308,7 @@ impl std::fmt::Debug for Program {
             .field("table", &self.table)
             .field("calls", &self.calls.len())
             .field("kind", &self.kind)
+            .field("root", &self.root)
             .finish()
     }
 }
@@ -309,6 +321,12 @@ pub(crate) trait Source: Env {
     fn number(&self, id: CellId) -> Option<f64> {
         number_of(self.read(id))
     }
+
+    /// The answer of the call at a program's root that is no number, the
+    /// cell's all the same (KERNEL.8), told just before the program answers
+    /// `None`: an environment that keeps it takes it as the cell's value; one
+    /// that does not passes it by, and the cell is `Ctx`'s.
+    fn answered(&self, _value: Value) {}
 }
 
 /// A read's answer as a register holds it: a number itself, 0 for a cell
@@ -361,6 +379,7 @@ impl Program {
             table: Vec::new(),
             calls: Vec::new(),
             depth: 0,
+            root: None,
         };
         let kind = l.expr(e, 0)?;
         l.code.push(Op::Done { from: 0 });
@@ -378,6 +397,7 @@ impl Program {
             table: l.table,
             calls: l.calls,
             kind,
+            root: l.root,
         })
     }
 
@@ -469,8 +489,7 @@ impl Program {
                 Op::Call { to, f, from, count } => {
                     let from = usize::from(from);
                     let ops = &self.operands[from..from + usize::from(count)];
-                    let f = self.calls[usize::from(f)];
-                    reg[usize::from(to)] = self.call(src, lib, f, ops, &reg, id, off)?;
+                    reg[usize::from(to)] = self.number(src, lib, f, ops, &reg, id, off)?;
                 }
                 Op::Unless { cond, to } => {
                     if reg[usize::from(cond)] == 0.0 {
@@ -536,9 +555,37 @@ impl Program {
         }
     }
 
+    /// The call at `calls[f]`, its answer guarded to be a number; at the
+    /// program's root another answer handed to the environment as the
+    /// cell's (`root`, KERNEL.8), no guard failing. Out of the loop, as every
+    /// value a call makes, so that the loop holds none.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn number<S: Source>(
+        &self,
+        src: &S,
+        lib: &Library,
+        f: u16,
+        ops: &[Operand],
+        reg: &[f64; REGISTERS],
+        id: CellId,
+        off: (i64, i64),
+    ) -> Option<f64> {
+        match self.call(src, lib, self.calls[usize::from(f)], ops, reg, id, off) {
+            Ok(Value::Number(n)) => Some(n),
+            Ok(v) if self.root == Some(f) => {
+                src.answered(v.settled());
+                None
+            }
+            _ => guard(guarded::CALL),
+        }
+    }
+
     /// A strict function through its pointer, over the operands `Ctx` would
     /// hand it: a reference as the cells it names, labelled with its text, or
-    /// `#REF!` where it leaves the sheet; a register as its value.
+    /// `#REF!` where it leaves the sheet; a register as its value. Its answer
+    /// as it stands, which a call inside the program guards to be a number
+    /// and a call at its root keeps whatever its kind (KERNEL.8).
     #[allow(clippy::too_many_arguments)]
     #[inline(never)]
     fn call<S: Source>(
@@ -550,7 +597,7 @@ impl Program {
         reg: &[f64; REGISTERS],
         id: CellId,
         off: (i64, i64),
-    ) -> Option<f64> {
+    ) -> Result<Value, Reason> {
         let ctx = Ctx::at(src, lib, off.0, off.1);
         let arg = |op: &Operand| -> Arg<'_> {
             match *op {
@@ -571,7 +618,7 @@ impl Program {
                 }
             }
         };
-        let got = match ops {
+        match ops {
             [] => f(&ctx, &[]),
             [a] => f(&ctx, &[arg(a)]),
             [a, b] => f(&ctx, &[arg(a), arg(b)]),
@@ -579,10 +626,6 @@ impl Program {
                 let args: Vec<Arg> = ops.iter().map(arg).collect();
                 f(&ctx, &args)
             }
-        };
-        match got {
-            Ok(Value::Number(n)) => Some(n),
-            _ => guard(guarded::CALL),
         }
     }
 }
@@ -648,6 +691,8 @@ struct Lowering<'l> {
     table: Vec<u16>,
     calls: Vec<Strict>,
     depth: u32,
+    /// The call at the root, where the formula is one (KERNEL.8).
+    root: Option<u16>,
 }
 
 impl Lowering<'_> {
@@ -763,6 +808,7 @@ impl Lowering<'_> {
             return match self.lib.known(name) {
                 Some(Known::If) => self.if_(args, at),
                 Some(Known::Choose) => self.choose(args, at),
+                Some(Known::Index) => self.index(args, at),
                 _ => Err(Why::Form),
             };
         }
@@ -841,20 +887,57 @@ impl Lowering<'_> {
                 }
                 Ok(Kind::Number)
             }
-            Some(Known::If | Known::Choose) => Err(Why::Form),
-            None => {
-                let (from, count) = self.operands(args, at, true)?;
-                let f_at = u16::try_from(self.calls.len()).map_err(|_| Why::Deep)?;
-                self.calls.push(f);
-                self.code.push(Op::Call {
-                    to,
-                    f: f_at,
-                    from,
-                    count,
-                });
-                Ok(Kind::Number)
+            Some(Known::If | Known::Choose | Known::Index | Known::IfError | Known::IfNa) => {
+                Err(Why::Form)
             }
+            // An error is what the error tests read, and no register holds
+            // one (KERNEL.8).
+            Some(Known::IsError | Known::IsNa) => Err(Why::Error),
+            Some(
+                Known::Match
+                | Known::XMatch
+                | Known::VLookup
+                | Known::HLookup
+                | Known::Lookup
+                | Known::CountIf
+                | Known::SumIf,
+            )
+            | None => self.called(f, args, at),
         }
+    }
+
+    /// A strict function's call through its pointer: its operands, then the
+    /// call, its answer guarded to be a number; or, the cell's whole
+    /// formula, the program's root, answering its value whatever its kind
+    /// once the program's operations are done (KERNEL.8).
+    fn called(&mut self, f: Strict, args: &[Expr], at: usize) -> Result<Kind, Why> {
+        let to = Self::reg(at)?;
+        let (from, count) = self.operands(args, at, true)?;
+        let f_at = u16::try_from(self.calls.len()).map_err(|_| Why::Deep)?;
+        self.calls.push(f);
+        if self.depth == 1 {
+            self.root = Some(f_at);
+        }
+        self.code.push(Op::Call {
+            to,
+            f: f_at,
+            from,
+            count,
+        });
+        Ok(Kind::Number)
+    }
+
+    /// `INDEX` of a reference written as one, at a row and maybe a column
+    /// (KERNEL.8): a call of `lookups::index_value` through its pointer, its
+    /// answer guarded as any call's, or the cell's at the root. An operation
+    /// of its own in the loop every program runs cost the chain fixture's
+    /// cells alone half their time again (measured, 0.24 to 0.36 ms a frame),
+    /// and the root's a tenth. Any other form of it is left to `Ctx`.
+    fn index(&mut self, args: &[Expr], at: usize) -> Result<Kind, Why> {
+        if !(2..=3).contains(&args.len()) || ref_operand(self.lib, &args[0]).is_none() {
+            return Err(Why::Form);
+        }
+        self.called(lookups::index_value, args, at)
     }
 
     /// A call's operands: a reference written as one, which the call takes

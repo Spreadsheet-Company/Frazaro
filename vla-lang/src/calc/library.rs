@@ -40,12 +40,17 @@
 use super::eval::{finite, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::value::{ErrorKind, Value};
+use super::{criteria, lookups};
 
 /// The language's library, every function above registered, each as one an
 /// evaluation of many cells at once computes by itself: `IF` as the form it
 /// computes as `if_` computes it at one (KERNEL.20), the aggregates and `NOT`
 /// by the same rule and fold (KERNEL.26), and the others, `CHOOSE` among
-/// them as a form, by the same meanings (KERNEL.28).
+/// them as a form, by the same meanings (KERNEL.28). Since KERNEL.8 the
+/// lookups and the error tests a lookup's miss is read by
+/// (`super::lookups`), and `COUNTIF` and `SUMIF` with their criteria
+/// (`super::criteria`), moved down from Excel's library: a run computes
+/// `INDEX`, `IFERROR` and `IFNA` by itself, and calls the rest at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -62,13 +67,37 @@ pub fn language() -> Library {
     lib.register_known_strict("COLUMN", column, Known::Column);
     lib.register_known("CHOOSE", choose, Known::Choose);
     lib.register_known_strict("SIN", sin, Known::Sin);
+    lib.register_known("INDEX", lookups::index, Known::Index);
+    lib.register_known_strict("MATCH", lookups::match_, Known::Match);
+    lib.register_known_strict("XMATCH", lookups::xmatch, Known::XMatch);
+    lib.register_known_strict("VLOOKUP", lookups::vlookup, Known::VLookup);
+    lib.register_known_strict("HLOOKUP", lookups::hlookup, Known::HLookup);
+    lib.register_known_strict("LOOKUP", lookups::lookup, Known::Lookup);
+    lib.register_form("XLOOKUP", lookups::xlookup);
+    lib.register_known("IFERROR", lookups::iferror, Known::IfError);
+    lib.register_known("IFNA", lookups::ifna, Known::IfNa);
+    lib.register_known_strict("ISERROR", lookups::iserror, Known::IsError);
+    lib.register_known_strict("ISNA", lookups::isna, Known::IsNa);
+    lib.register_known_strict("COUNTIF", criteria::countif, Known::CountIf);
+    lib.register_known_strict("SUMIF", criteria::sumif, Known::SumIf);
     lib
 }
 
-/// The names the language's library holds, for a page to list.
+/// The day-one list the language's library began with (KERNEL.7), the
+/// functions `Alonzo/SPEC.md` section 13 named. A fixed array whose length is
+/// its type, so it stays as it was when the library grew (KERNEL.8's
+/// decision 9): a page lists what a library holds by `Library::names`.
 pub const NAMES: [&str; 14] = [
     "IF", "AND", "OR", "NOT", "SUM", "MIN", "MAX", "ABS", "INT", "MOD", "ROW", "COLUMN", "CHOOSE",
     "SIN",
+];
+
+/// The functions KERNEL.8's lookups brought into the language, beside the
+/// day-one list.
+#[cfg(test)]
+const KERNEL_8: [&str; 13] = [
+    "INDEX", "MATCH", "XMATCH", "VLOOKUP", "HLOOKUP", "LOOKUP", "XLOOKUP", "IFERROR", "IFNA",
+    "ISERROR", "ISNA", "COUNTIF", "SUMIF",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
@@ -452,6 +481,46 @@ pub(crate) fn placed(axis: Axis, cell: Option<(u32, u32)>) -> Value {
     }
 }
 
+/// What `INDEX` picks of an area `rows` high and `cols` wide (KERNEL.8), as
+/// offsets from its corner, its first row and column and its last: the row
+/// and the column, each read down to a whole number; a `column` left out
+/// takes the one number as the column of an area one row high and as the
+/// row of any other; a row of 0 is every row, a column of 0 every column;
+/// `#VALUE!` below 0 and `#REF!` past the area. One meaning for the walk,
+/// a run and a program (`super::lookups`, `super::vector`,
+/// `super::program`).
+pub(crate) fn picked(
+    rows: u32,
+    cols: u32,
+    row: f64,
+    column: Option<f64>,
+) -> Result<(u32, u32, u32, u32), ErrorKind> {
+    let (row, column) = (row.trunc(), column.map(f64::trunc));
+    if row < 0.0 || column.is_some_and(|c| c < 0.0) {
+        return Err(ErrorKind::Value);
+    }
+    let (r, c) = match column {
+        Some(c) => (row, c),
+        None if rows == 1 => (0.0, row),
+        None => (row, 0.0),
+    };
+    if r > f64::from(rows) || c > f64::from(cols) {
+        return Err(ErrorKind::Ref);
+    }
+    let (r, c) = (r as u32, c as u32);
+    let (top, bottom) = if r == 0 {
+        (0, rows - 1)
+    } else {
+        (r - 1, r - 1)
+    };
+    let (left, right) = if c == 0 {
+        (0, cols - 1)
+    } else {
+        (c - 1, c - 1)
+    };
+    Ok((top, left, bottom, right))
+}
+
 /// `CHOOSE`'s index (KERNEL.28): which of its `count` values it picks, the
 /// index read down to a whole number; an error the index's own, and
 /// `#VALUE!` outside 1 to the count.
@@ -665,11 +734,17 @@ mod tests {
     }
 
     #[test]
-    fn the_language_registers_the_day_one_list_exactly() {
+    fn the_language_registers_the_day_one_list_and_kernel_8_s_exactly() {
         let lib = language();
-        let mut want: Vec<&str> = NAMES.to_vec();
+        let mut want: Vec<&str> = NAMES.iter().chain(KERNEL_8.iter()).copied().collect();
         want.sort_unstable();
         assert_eq!(lib.names(), want);
+        for name in ["INDEX", "XLOOKUP", "IFERROR", "IFNA"] {
+            assert!(
+                lib.form(name).is_some(),
+                "{name} computes only what it answers"
+            );
+        }
         assert!(
             lib.form("IF").is_some(),
             "IF computes only the branch it takes"

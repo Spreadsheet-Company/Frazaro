@@ -1830,7 +1830,8 @@ mod tests {
             Put formula \"=B2>3\" into cell C1.\n\
             Put formula \"=1/0\" into cell C2.\n\
             Put formula \"=\"\"a & <b> \"\"&B2\" into cell C3.\n\
-            Put formula \"=VLOOKUP(1,B2:B3,1)\" into cell C4.\n\
+            Put formula \"=FACT(3)\" into cell C4.\n\
+            Put formula \"=VLOOKUP(10,B2:B3,1)\" into cell C8.\n\
             Put formula \"=C4+1\" into cell C5.\n\
             Put formula \"=0.1+0.2\" into cell C6.\n\
             Put formula \"=B9\" into cell C7.\n\
@@ -1862,7 +1863,9 @@ mod tests {
                 );
             }
         }
-        assert_eq!((computed, not), (7, 2));
+        assert_eq!((computed, not), (8, 2));
+        // KERNEL.8: a lookup's value folded as any computed value is.
+        assert!(relations.contains("(cell \"Output\" \"C8\" 10)"));
         assert!(relations.contains("(cell \"Output\" \"C1\" true)"));
         assert!(relations.contains("(cell \"Output\" \"C2\" (error \"#DIV/0!\"))"));
         assert!(relations.contains("(cell \"Output\" \"C3\" \"a & <b> 5\")"));

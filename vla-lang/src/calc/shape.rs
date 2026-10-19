@@ -521,7 +521,12 @@ impl Shapes {
     /// whose formulas stand close together, and the edges are one flat array.
     /// Every cell's edges are the ones a walk of its parse at its offset
     /// finds, sorted and each once, so the order, its runs and its cycles
-    /// are the same.
+    /// are the same. A shape whose held references name many formula cells
+    /// has them as one vertex of its own, a hub after the cells, each of its
+    /// cells one edge to it (KERNEL.8): twenty thousand cells searching one
+    /// table of twenty thousand formulas held whole made four hundred million
+    /// edges, the same cells in every one. A hub stands for its cells and no
+    /// more, which [`Shapes::order_and_runs`] reads through.
     pub fn plan(&mut self, model: &Workbook, names: &Names, extents: &[Extent]) {
         let mut ids: Vec<CellId> = self.places.keys().copied().collect();
         ids.sort_unstable();
@@ -551,6 +556,13 @@ impl Shapes {
         let mut shape_of: Vec<usize> = Vec::with_capacity(n);
         let mut deps: Vec<CellId> = Vec::new();
         let mut edges: Vec<u32> = Vec::new();
+        // The vertices each shape's held references name, by the shape and,
+        // where one of them names the formula's own sheet, the cell's sheet,
+        // found once (KERNEL.8: a range of the own sheet was found again at
+        // every cell); with the hub of each that names enough of them,
+        // numbered after the cells.
+        let mut held: FxHashMap<(usize, usize), (Vec<u32>, Option<u32>)> = FxHashMap::default();
+        let mut hubs: Vec<(usize, usize)> = Vec::new();
         for id in &ids {
             edges.clear();
             deps.clear();
@@ -561,7 +573,35 @@ impl Shapes {
             match &shape.expr {
                 Ok(e) if read => {
                     let r = &reads[p.shape];
-                    edges.extend_from_slice(&r.fixed);
+                    // A shape holding nothing of its own sheet and too few
+                    // cells for a hub reads its held cells as the shape found
+                    // them, no entry made for it.
+                    if r.own.is_empty() && r.fixed.len() < hub_at() {
+                        edges.extend_from_slice(&r.fixed);
+                    } else {
+                        let key = (p.shape, if r.own.is_empty() { usize::MAX } else { id.0 });
+                        let (fixed, hub) = held.entry(key).or_insert_with(|| {
+                            let mut fixed = r.fixed.clone();
+                            for re in &r.own {
+                                if let Ok(areas) = areas_at(model, id.0, re, 0, 0) {
+                                    for a in &areas {
+                                        vertices.formulas_in(a, &mut fixed);
+                                    }
+                                }
+                            }
+                            fixed.sort_unstable();
+                            fixed.dedup();
+                            let hub = (fixed.len() >= hub_at()).then(|| {
+                                hubs.push(key);
+                                vertex(n + hubs.len() - 1)
+                            });
+                            (fixed, hub)
+                        });
+                        match hub {
+                            Some(hub) => edges.push(*hub),
+                            None => edges.extend_from_slice(fixed),
+                        }
+                    }
                     for re in &r.moving {
                         let Ok(areas) = areas_at(model, id.0, re, p.d_row, p.d_col) else {
                             continue;
@@ -606,6 +646,12 @@ impl Shapes {
             targets.extend_from_slice(&edges);
             offsets.push(targets.len());
         }
+        for key in &hubs {
+            targets.extend_from_slice(&held[key].0);
+            offsets.push(targets.len());
+        }
+        #[cfg(test)]
+        HUBS_MADE.with(|h| h.set(h.get() + hubs.len()));
         let (members, starts) = graph::tarjan_flat(&offsets, &targets);
         let shape_at =
             self.order_and_runs(&ids, (&offsets, &targets), &shape_of, (&members, &starts));
@@ -637,9 +683,14 @@ impl Shapes {
         self.cycles.clear();
         self.runs.clear();
         let adj = |v: usize| &targets[offsets[v]..offsets[v + 1]];
-        let mut component = vec![0; ids.len()];
-        let mut level = vec![0; ids.len()];
-        let mut alone = vec![false; ids.len()];
+        // The cells, then the hubs (`Shapes::plan`): a hub's level is its
+        // deepest cell's, so that a cell reading through it stands one past
+        // that cell, as an edge to each cell would stand it.
+        let n = ids.len();
+        let all = offsets.len() - 1;
+        let mut component = vec![0; all];
+        let mut level: Vec<usize> = vec![0; all];
+        let mut alone = vec![false; n];
         for (c, ends) in starts.windows(2).enumerate() {
             let comp = &members[ends[0]..ends[1]];
             for &v in comp {
@@ -652,13 +703,24 @@ impl Shapes {
                 .map(|&u| level[u as usize] + 1)
                 .max()
                 .unwrap_or(0);
+            if comp.iter().all(|&v| v as usize >= n) {
+                // A hub alone: its cells' deepest, one fewer than a reader's.
+                for &v in comp {
+                    level[v as usize] = deepest.saturating_sub(1);
+                }
+                continue;
+            }
             for &v in comp {
                 level[v as usize] = deepest;
             }
             if comp.len() == 1 && !adj(comp[0] as usize).contains(&comp[0]) {
                 alone[comp[0] as usize] = true;
             } else {
-                let mut cells: Vec<CellId> = comp.iter().map(|&i| ids[i as usize]).collect();
+                let mut cells: Vec<CellId> = comp
+                    .iter()
+                    .filter(|&&i| (i as usize) < n)
+                    .map(|&i| ids[i as usize])
+                    .collect();
                 cells.sort_unstable();
                 self.cycles.push(cells);
             }
@@ -667,16 +729,19 @@ impl Shapes {
         // By shape and then by level, each pass keeping the order before it,
         // so by level, shape and cell, a cell's sheet first among its own;
         // the second pass's counts are where each level ends (KERNEL.30).
-        let cells: Vec<usize> = (0..ids.len()).filter(|&v| alone[v]).collect();
+        let cells: Vec<usize> = (0..n).filter(|&v| alone[v]).collect();
         let (cells, _) = by_key(&cells, self.shapes.len(), |v| shape_of[v]);
-        let levels = level.iter().max().map_or(0, |deepest| deepest + 1);
+        let levels = level[..n].iter().max().map_or(0, |deepest| deepest + 1);
         let (order, ends) = by_key(&cells, levels, |v| level[v]);
         self.level_ends = ends;
         // The run each cell of the order joined, by the run's first position:
         // a cell joins the run before it when it is of the run's shape and
         // sheet and reads no cell of the run, so that the run's cells may be
-        // computed in any order, all at once among them (KERNEL.20).
-        let mut joined = vec![usize::MAX; ids.len()];
+        // computed in any order, all at once among them (KERNEL.20). A hub
+        // names no cell of a run: its cells are those its shape's every cell
+        // reads, so that one of its own shape would read itself, a cycle, and
+        // a run is one shape's cells.
+        let mut joined = vec![usize::MAX; n];
         let mut run = Run {
             start: 0,
             end: 0,
@@ -688,7 +753,9 @@ impl Shapes {
             let pos = self.order.len();
             let joins = shape == run.shape
                 && id.0 == self.order[run.start].0
-                && adj(v).iter().all(|&u| joined[u as usize] != run.start);
+                && adj(v)
+                    .iter()
+                    .all(|&u| u as usize >= n || joined[u as usize] != run.start);
             if !joins {
                 self.keep(run);
                 run = Run {
@@ -1119,6 +1186,42 @@ fn vertex(position: usize) -> u32 {
     position as u32
 }
 
+/// The fewest formula cells a shape's held references name for its cells to
+/// read them through one hub (`Shapes::plan`, KERNEL.8).
+const HUB: usize = 64;
+
+#[cfg(test)]
+thread_local! {
+    /// The test switch: hubs from this many cells on instead.
+    static HUB_AT: std::cell::Cell<usize> = const { std::cell::Cell::new(HUB) };
+    /// The hubs the plans on this thread made, for a test to count.
+    static HUBS_MADE: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// The fewest cells a hub stands for: [`HUB`], or the test switch's.
+fn hub_at() -> usize {
+    #[cfg(test)]
+    {
+        HUB_AT.with(std::cell::Cell::get)
+    }
+    #[cfg(not(test))]
+    {
+        HUB
+    }
+}
+
+/// A plan's hubs made from this many cells on, on this thread, for a test.
+#[cfg(test)]
+pub(crate) fn hubs_at(cells: usize) {
+    HUB_AT.with(|h| h.set(cells));
+}
+
+/// The hubs the plans on this thread made since the last asking.
+#[cfg(test)]
+pub(crate) fn hubs_made() -> usize {
+    HUBS_MADE.with(|h| h.replace(0))
+}
+
 /// A plan's formula cells as the vertices of its edges (KERNEL.33): each
 /// cell's position among the plan's sorted cells, and whether each sheet
 /// holds any formula.
@@ -1131,10 +1234,13 @@ struct Vertices<'a> {
 
 /// A shape's references as its plan reads them, once a shape (KERNEL.33):
 /// the vertices those every `$` holds name, the same at every cell, sorted
-/// and each once; the references each cell moves, each once; and whether
-/// the parse reads a name, which each cell resolves from its own sheet.
+/// and each once; those every `$` holds on the formula's own sheet, the
+/// same at every cell of one sheet (KERNEL.8); the references each cell
+/// moves, each once; and whether the parse reads a name, which each cell
+/// resolves from its own sheet.
 struct ShapeReads<'e> {
     fixed: Vec<u32>,
+    own: Vec<&'e RefExpr>,
     moving: Vec<&'e RefExpr>,
     named: bool,
 }
@@ -1175,6 +1281,7 @@ impl Vertices<'_> {
     fn reads_of<'e>(&self, shape: &'e Shape) -> ShapeReads<'e> {
         let mut reads = ShapeReads {
             fixed: Vec::new(),
+            own: Vec::new(),
             moving: Vec::new(),
             named: false,
         };
@@ -1207,6 +1314,10 @@ impl Vertices<'_> {
                     }
                     continue;
                 }
+            }
+            if re.sheet.is_none() && re.last_sheet.is_none() && every_dollar(re) {
+                reads.own.push(re);
+                continue;
             }
             reads.moving.push(re);
         }
