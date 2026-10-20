@@ -133,7 +133,9 @@ fixture (scripts/recalc/lookups.xlsx, built by the door).
 (lookups_saved.xlsx, no row differing). KERNEL.8's second slice: a tenth,
 implicit intersection's fixture (scripts/recalc/intersect.xlsx), and an
 eleventh, the owner's Excel save of it (intersect_saved.xlsx, no row
-differing).
+differing). KERNEL.8's third slice: a twelfth, the text functions' fixture
+(scripts/recalc/texts.xlsx), and a thirteenth, the owner's Excel save of
+it (texts_saved.xlsx, no row differing).
 #>
 param(
     [string]$Impl = '',
@@ -373,7 +375,9 @@ function Get-Oracles([string]$root) {
         @('scripts/recalc/lookups.xlsx',       'lookups_calc'),
         @('scripts/recalc/lookups_saved.xlsx', 'lookups_saved_calc'),
         @('scripts/recalc/intersect.xlsx',     'intersect_calc'),
-        @('scripts/recalc/intersect_saved.xlsx', 'intersect_saved_calc'))) {
+        @('scripts/recalc/intersect_saved.xlsx', 'intersect_saved_calc'),
+        @('scripts/recalc/texts.xlsx',         'texts_calc'),
+        @('scripts/recalc/texts_saved.xlsx',   'texts_saved_calc'))) {
         $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
                      Input = $c[0]; Golden = ('scripts/recalc/' + $c[1] + '.vla') })
     }
@@ -403,9 +407,18 @@ function Get-Oracles([string]$root) {
 }
 
 # ---- running an implementation ----
+# An implementation's stdout, read as the UTF-8 it writes whatever the
+# console's code page (KERNEL.8, slice c: the texts' fixture holds text
+# beyond ASCII, which PowerShell would otherwise read by the console's).
 function Invoke-Impl([string]$impl, [string[]]$cmdArgs) {
     $global:LASTEXITCODE = 0
-    $lines = & $impl @cmdArgs
+    $encoding = $null
+    try { $encoding = [Console]::OutputEncoding; [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
+    try {
+        $lines = & $impl @cmdArgs
+    } finally {
+        if ($null -ne $encoding) { try { [Console]::OutputEncoding = $encoding } catch { } }
+    }
     $code = $LASTEXITCODE
     if ($null -eq $code) { $code = 0 }
     $text = if ($null -eq $lines) { '' } else { (@($lines) | ForEach-Object { [string]$_ }) -join "`n" }
@@ -750,6 +763,8 @@ switch (`$kind) {
             'lookups_saved'  { 'scripts/recalc/lookups_saved_calc.vla' }
             'intersect'      { 'scripts/recalc/intersect_calc.vla' }
             'intersect_saved' { 'scripts/recalc/intersect_saved_calc.vla' }
+            'texts'          { 'scripts/recalc/texts_calc.vla' }
+            'texts_saved'    { 'scripts/recalc/texts_saved_calc.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

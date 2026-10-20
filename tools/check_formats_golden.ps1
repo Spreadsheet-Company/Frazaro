@@ -32,7 +32,9 @@ check holds those, host-free, on every push:
      one to four sections and an empty one, 0, #, the point, the thousands,
      a thousandth, %, a quoted literal, an escaped character, a literal
      drawn unquoted, a literal outside ASCII, the text's @, and among the
-     values a negative, zero and a text;
+     values a negative, zero and a text; and since KERNEL.8's third slice a
+     year, a month's name, a weekday's name, an hour, an elapsed time, a
+     twelve-hour clock and a second's decimals;
   6. the floors below: the cases, the values and the refused cases.
 
 -Control proves the check on scratch copies: the real files must pass, and
@@ -56,16 +58,22 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors, never lowered ------------------------------------------------
 # 2026-10-17, KERNEL.47: 59 cases, 114 values, 13 refused cases; the golden
 # written as the prediction ahead of the reference's first run in Excel.
-$caseFloor = 59
-$valueFloor = 114
-$refusedFloor = 13
+# 2026-10-19, KERNEL.8's third slice: 68 cases, 139 values, 12 refused
+# cases, the floor of refused cases lowered from 13 since a date's code is
+# drawn now, its case and nine of dates and times beside it written as the
+# prediction ahead of the reference's run.
+$caseFloor = 68
+$valueFloor = 139
+$refusedFloor = 12
 
 # The constructs rule 5 holds the drawn cases to.
 $constructs = @('one section', 'two sections', 'three sections', 'four sections',
     'an empty section', 'the placeholder 0', 'the placeholder #', 'the point',
     'the thousands', 'a thousandth', 'a percent', 'a quoted literal',
     'an escaped character', 'a literal drawn unquoted', 'a literal outside ASCII',
-    "the text's @", 'a negative value', 'a zero value', 'a text value')
+    "the text's @", 'a negative value', 'a zero value', 'a text value',
+    'a year', "a month's name", "a weekday's name", 'an hour', 'an elapsed time',
+    'a twelve-hour clock', "a second's decimals")
 
 $fixturePath = Join-Path $repoRoot 'scripts/formats.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/formats_golden.txt'
@@ -155,6 +163,15 @@ function Get-CodeConstructs([string]$code) {
             elseif ($after.StartsWith('D')) { [void]$found.Add('the thousands') }
         }
     }
+    # A date's and a time's parts (KERNEL.8, slice c), read outside quotes.
+    $bare = [regex]::Replace($code, '"[^"]*"|\\.', '')
+    if ($bare -match '(?i)y') { [void]$found.Add('a year') }
+    if ($bare -match '(?i)mmm') { [void]$found.Add("a month's name") }
+    if ($bare -match '(?i)ddd') { [void]$found.Add("a weekday's name") }
+    if ($bare -match '(?i)h') { [void]$found.Add('an hour') }
+    if ($bare -match '(?i)\[[hms]+\]') { [void]$found.Add('an elapsed time') }
+    if ($bare -match '(?i)am/pm|a/p') { [void]$found.Add('a twelve-hour clock') }
+    if ($bare -match '(?i)s\.0') { [void]$found.Add("a second's decimals") }
     return ,$found
 }
 

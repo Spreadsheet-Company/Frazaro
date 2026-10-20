@@ -101,6 +101,6 @@
 (calc "math" "C40" "=SUM(Output!A1,logic!A1)" 15 15 agree)
 (calc "math" "C41" "=SUM(Output:logic!A1)" 15 15 agree)
 (calc "math" "C42" "=VLOOKUP(10,A1:B2,2)" 1 1 agree)
-(calc "math" "C43" "=CONCATENATE(\"a\",\"b\")" (not-computed "CONCATENATE") "ab" unchecked)
+(calc "math" "C43" "=CONCATENATE(\"a\",\"b\")" "ab" "ab" agree)
 (calc "math" "C44" "=C42+1" 2 2 agree)
 (calc "math" "C45" "=SUM(C1:C3)" 76 76 agree)

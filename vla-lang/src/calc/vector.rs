@@ -13,21 +13,21 @@
 //! its parent is, into a lane, one answer a cell.
 //!
 //! The meaning is the cell by cell evaluation's, and every rule of it is
-//! written once. A value is made by [`binary`], over two numbers by its own
-//! [`arithmetic`] and [`compares`], or by the library: a strict function
-//! called at each cell with the operands it would be called with there, or,
-//! for the language's aggregates and `NOT`, the library's own rule and fold
-//! (`library::Fold`) driven here over the run's operands, a range of a sheet
-//! kept as an array walked by index (KERNEL.26). A reason propagates as it
-//! does there, each cell's answer the first its own evaluation meets, and
-//! `IF` computes each branch at the cells that take it and at no other. An
-//! operand computed at a cell whose answer an earlier operand has already
-//! decided is computed for nothing and changes nothing, an evaluation having
-//! no effect but its answer. A constant, and a reference every `$` holds, is
-//! computed once for the run. What is not computed here is computed at each
-//! cell by [`Ctx`] itself: a defined name, a form other than the language's
-//! `IF` and `CHOOSE`, a range where one value is wanted, and a call with such
-//! an operand.
+//! written once. A value is made by [`operate`], over two numbers by
+//! `binary`'s own [`arithmetic`] and [`compares`], or by the library: a
+//! strict function called at each cell with the operands it would be called
+//! with there, or, for the language's aggregates and `NOT`, the library's
+//! own rule and fold (`library::Fold`) driven here over the run's operands,
+//! a range of a sheet kept as an array walked by index (KERNEL.26). A
+//! reason propagates as it does there, each cell's answer the first its own
+//! evaluation meets, and `IF` computes each branch at the cells that take
+//! it and at no other. An operand computed at a cell whose answer an
+//! earlier operand has already decided is computed for nothing and changes
+//! nothing, an evaluation having no effect but its answer. A constant, and
+//! a reference every `$` holds, is computed once for the run. What is not
+//! computed here is computed at each cell by [`Ctx`] itself: a defined
+//! name, a form other than the language's `IF` and `CHOOSE`, a range where
+//! one value is wanted, and a call with such an operand.
 //!
 //! The language's other functions are computed here by the library's own
 //! meaning of each (KERNEL.28): `ABS`, `INT`, `SIN` and `MOD` at the cells
@@ -77,7 +77,7 @@ use crate::refers::Shape as Part;
 
 use super::dense::Dense;
 use super::eval::{
-    arithmetic, binary, compare_numbers, compares, finite, intersection, may_merge, near_bounds,
+    arithmetic, compare_numbers, compares, finite, intersection, may_merge, near_bounds, operate,
     Arg, Computed, Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
@@ -1602,10 +1602,10 @@ impl<'a> Many<'a> {
         acc
     }
 
-    /// [`binary`] at every cell: the left operand's reason first, then the
-    /// right's, then the operator over the two values; over two lanes of
-    /// numbers, or one and a number the same at every cell, the operator's
-    /// rule over numbers, `binary`'s own (KERNEL.26).
+    /// [`operate`] at every cell: the left operand's reason first, then the
+    /// right's, then the operator over the two values, or its label; over
+    /// two lanes of numbers, or one and a number the same at every cell, the
+    /// operator's rule over numbers, `binary`'s own (KERNEL.26).
     fn combine(&self, op: BinOp, a: Lane, b: Lane) -> Lane {
         let (a, b) = match (op, a, b) {
             (BinOp::Concat, a, b) => (self.values(a), self.values(b)),
@@ -1644,15 +1644,15 @@ impl<'a> Many<'a> {
             (Values::Same(x), Values::Same(y)) => Lane::Same(match (x, &y) {
                 (Err(r), _) => Err(r),
                 (Ok(_), Err(r)) => Err(r.clone()),
-                (Ok(x), Ok(y)) => Ok(binary(op, &x, y)),
+                (Ok(x), Ok(y)) => operate(op, &x, y),
             }),
             (Values::Each(mut xs), Values::Same(y)) => {
                 for x in xs.iter_mut() {
                     if let Ok(a) = x {
-                        match &y {
-                            Ok(b) => *a = binary(op, a, b),
-                            Err(r) => *x = Err(r.clone()),
-                        }
+                        *x = match &y {
+                            Ok(b) => operate(op, a, b),
+                            Err(r) => Err(r.clone()),
+                        };
                     }
                 }
                 Lane::Each(xs)
@@ -1663,7 +1663,7 @@ impl<'a> Many<'a> {
                         Err(r) => *y = Err(r.clone()),
                         Ok(a) => {
                             if let Ok(b) = y {
-                                *b = binary(op, a, b);
+                                *y = operate(op, a, b);
                             }
                         }
                     }
@@ -1673,10 +1673,10 @@ impl<'a> Many<'a> {
             (Values::Each(mut xs), Values::Each(mut ys)) => {
                 for (x, y) in xs.iter_mut().zip(ys.iter_mut()) {
                     if let Ok(a) = x {
-                        match y {
-                            Ok(b) => *a = binary(op, a, b),
-                            Err(r) => *x = Err(std::mem::replace(r, Reason::Cycle)),
-                        }
+                        *x = match y {
+                            Ok(b) => operate(op, a, b),
+                            Err(r) => Err(std::mem::replace(r, Reason::Cycle)),
+                        };
                     }
                 }
                 self.give(ys);

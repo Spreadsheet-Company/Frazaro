@@ -30138,6 +30138,358 @@ the values the same: `B6`'s `#REF!` is the value Excel computed for
   its stamp alone (0.8.1). A check building each again and comparing it, the
   stamp aside, would have caught it; one line in the summary.
 
+**Committed 2026-10-19** at the owner's word, "Commit, then proceed with
+slice 3": the second slice with its two saves as `7056927`, not pushed.
+
+**The third slice scoped at its build, 2026-10-19: text.** The outline's
+precondition, the owner's run of `frazaro reflect --functions` over the
+house's models, had not been made; asked it and the outline's three open
+decisions, the owner took each recommendation:
+
+1. *The outline's list built.* The twenty-two functions and `TEXT`:
+   `CONCATENATE`, the corpora's (Enron's eighth, EUSES's fifth), and the
+   functions Alonzo's `CART.13` reads its words by, with `CHAR` and `CODE`
+   (decision 3); the owner's histogram, when run, may add a function before
+   the commit. *Declined:* the histogram first.
+2. *UTF-16, a cut labelled.* Every count and position, `LEN`'s, `LEFT`'s,
+   `MID`'s, `FIND`'s and `SEARCH`'s, in UTF-16 units as Excel counts them,
+   an emoji two; a result that would cut a surrogate pair labelled (`half a
+   surrogate pair`), never a character Excel does not hold; and a `?` of
+   `SEARCH` over a text holding a pair labelled, since it takes one unit in
+   Excel and one character here. *Declined:* U+FFFD for the half, which
+   `UNICODE` would answer 65533 for where Excel answers 55357; counting
+   characters, an emoji one.
+3. *`CHAR` and `CODE` over ASCII.* Codes 1 to 127 computed, the same in
+   every code page; 128 to 255 labelled, Windows' 1252 under the owner's
+   Excel and Mac Roman on a Mac. *Declined:* Windows-1252 whole, a claim on
+   every other host; declining both.
+4. *English names.* `mmm`, `mmmm`, `ddd`, `dddd` and `AM/PM` drawn in
+   English, the codes being the file's own `en-US` syntax and the owner's
+   Excel English; another locale's names a distro's. *Declined:* numeric
+   codes alone.
+
+The outline's other decisions taken by its own words, unasked: every text a
+formula makes, `&`'s among them, `#VALUE!` past 32,767 units, as Excel
+answers; `FIXED` and `DOLLAR` not computed, a locale's separators and
+currency; and the order of texts from Excel's save, below. Two of the
+build's own, recorded: `VALUE` of a text no operator reads labelled when it
+holds a digit (`"1,000"`, which a host reads by its locale) and `#VALUE!`
+when it holds none; `TEXT` of a code this version does not draw labelled.
+
+**Built 2026-10-19, the third slice, before Excel's save.**
+
+*What landed.*
+- *The text functions* (`calc::texts`, public): the twenty-five, the
+  language's own, registered strict so that a run calls them at each cell as
+  `Ctx` does, beside `Library`'s day-one fourteen and the lookups
+  (`library::KERNEL_8` thirty-nine); a value read as text as `&` reads it, a
+  count truncated toward zero, an argument where one value is wanted met at
+  the cell. `SEARCH`'s wildcards by the criteria's walk over a text's
+  beginning (`criteria::wildcard_prefix`), folded as the operators fold;
+  `UPPER` and `LOWER` a character's case where Unicode gives one character
+  (`ß` kept); `PROPER` a letter after anything but a letter in upper case;
+  `TRIM` the space alone; `TEXTJOIN`'s empty cells joined at every place of
+  a reference where they are not passed by, and read cell by cell where
+  every delimiter is empty, so that a whole column costs its cells.
+  `excel::SUBSET` holds a row each, the fixture their evidence, and
+  `CONCATENATE` leaves the list named and not computed.
+- *The 32,767 units* (`texts::made`, `texts::MOST`), `&`'s in `eval::binary`
+  among them, a text's bytes counted first so that a text under the limit is
+  never counted in units.
+- *Dates and times in a number format's code* (`numfmt`): the year, the
+  month by number or name, the day or the weekday's name, the hour, the
+  minute (`m` beside an hour or a second, literals passed by), the second
+  and up to three decimals, `[h]`, `[m]` and `[s]`, and a twelve-hour clock;
+  `/` a date's separator in a date's section and a fraction's bar, refused,
+  elsewhere; over Excel's 1900 calendar (`numfmt::civil`), 60 its 29
+  February 1900 and 0 its `1900-01-00`; a time rounded to the second, or its
+  decimals, before it is split; a negative number and one past 9999 drawing
+  no date. The record's `format` rows take such a code, so that a view's
+  `text` row draws a date, and the writer gives it to Excel as any code.
+- *A formula's empty text read* (`reflect::ooxml`): `t="str"` and an empty
+  `<v>`, as Excel saves `=""`.
+- *The checks read the door's UTF-8* (`check_recalc_golden`,
+  `check_shapes_golden`, `prove.ps1`), the census check keys a shape's text
+  exactly, and the formats check holds the date's constructs and its floors
+  (Found).
+
+*The fixture,* `scripts/recalc/texts.txt`, written by a script whose
+characters beyond ASCII are escapes: a Data sheet of texts, an emoji first
+and between letters, a number, a truth value, an error, a row with an empty
+cell, delimiters, and texts a locale reads; a Functions sheet of 192 legacy
+formulas, one a function and a rule, `TEXT`'s dates and times among them,
+and twenty comparisons the order of texts answers; an Order sheet of 163
+characters and texts, ASCII's 95, forty beyond it and twenty-eight of
+several characters (a hyphen, an apostrophe, a space, accents, `ß` and
+`ss`, digits), each beside its rank among them,
+`SUMPRODUCT(--($A$1:$A$163<A1))`, which this version labels and Excel
+computes: the order's golden, Excel's own ranks, read off its save. Built by
+the door, 185 rows agree with the values it folded and 172 are labelled, the
+163 ranks and nine of the slice's own labels; pinned `built` at 357 and 185,
+with its census (194 lines) and `prove.ps1`'s twelfth calc row, until the
+owner's save, `texts_saved.xlsx`, joins at `no-differ`. The subset's
+`CONCATENATE("a","b")` computes `"ab"`: the subset built again and its save
+agree in 106 rows each. The formats fixture's date case draws now, beside
+nine of dates and times, its golden written as the prediction until the
+reference runs `VlaWriteFormatsGolden` again.
+
+*The order of texts.* Today's order folds each character and compares code
+points; Excel's collation is not that, its sort documented as putting digits
+before the space and passing hyphens and apostrophes by, which no single
+table of code points gives. The Order sheet's ranks are the evidence, the
+Functions sheet's comparisons their witnesses (`"~"<"a"` and `"é"<"f"`
+answer FALSE today): the language's order is held to them once Excel's save
+is in, and the fold records it.
+
+*Measured,* the bench's five fixtures, the slice against the second slice's
+commit in scratch copies, six rounds alternated: Life's whole frame 1.931 ms
+against 1.935 and its edit 2.307 against 2.341, the chain's and the lookups'
+level, the column's whole frame 0.572 ms against 0.554 and the sums' 0.903
+against 0.877, 3% behind in the means and 2.4 and 1.2% in the medians, the
+base's two fastest rounds of each among them. Three rounds more against a
+copy registering none of the text functions put the column 1.7% ahead and
+the sums 2% behind, each difference turning its sign with the round: none is
+the slice's, which adds no work to a run, a program or a walk, and no floor
+moves.
+
+*Held.* `vla-lang`'s 306 tests, eleven new: the text functions' nine, over a
+table of texts with an emoji, every rule and every label (counts and cuts in
+UTF-16 units, `FIND` and `SEARCH`, `SUBSTITUTE` and `REPLACE`, case and
+spaces, the 32,767 units, `VALUE`, `T` and `N`, a character and its code,
+the joins, `TEXT`); numfmt's dates and times, Excel's calendar from its day
+0 through 1900's 29 February to 9999; and a run of fifteen text formulas
+held to every cell alone and to `Calc` frame for frame, a cut through a pair
+labelled at a step. Two pins moved, numfmt's refusals and the machine's, a
+date's code drawn now and a locale's bracket still refused; the twelve laws.
+`frazaro-core`'s 190, one new (a formula's empty text read), the subset's
+table holding the twenty-five rows; the formats golden test over the nine
+cases of dates and times beside the date's; clippy and rustfmt clean;
+twenty-four mutants, each failing named tests or the recalc golden check,
+the one the golden check alone caught (`TRIM` taking a tab for a space)
+answered by a case written for it; the wasm modules built, `run_checks` 58
+of 58, and the language's package tested from its tarball.
+
+*Alonzo and Buffet over the slice,* by a path in scratch copies of their
+committed trees at today's heads (`5c43486`, `ENGINE.27`'s minting, and
+`f5dcde1`, `CRITIC.1`'s, Buffet's `alonzo` at `v0.2.0`, its pin), nothing in
+theirs touched: Alonzo's 55 tests and its doc test, its cartridges required,
+and its frames' runner in check mode over the slice and over the second
+slice's commit, every frame, digest and allocation the same; each grid's
+heap high-water mark 1,041 bytes more, a copy registering none of the text
+functions giving the second slice's marks to the byte for Life, the gun and
+Sand, and Superposition's 144 more beside them, its codes' sections larger
+by a date's three fields. Buffet's 38 and 54 tests, every frame of the game
+held to its hand-written twin and its describe golden.
+
+*Excel's save,* at the owner's hand test of 2026-10-20: the hand test held
+(the 32 files staged, the suites, the door's counts, the checks), the
+reference wrote the formats golden again unchanged, its nine cases of dates
+and times as predicted, and Excel 365 saved the fixture, `texts_saved.xlsx`:
+357 formulas, 185 computed, 168 agreeing and 17 differing, beside the nine
+labels, each of which Excel answered, and the Order sheet's 163 ranks,
+Excel's own. They called for five rules:
+
+- *A text is counted by its characters, an emoji one.* `LEN("😀ab")` is 3 in
+  Excel, `LEFT` of it by 2 is `"😀a"` and `RIGHT("a😀b",3)` the whole text,
+  `MID`, `REPLACE`, `FIND` and `SEARCH` count alike, and the four cuts
+  labelled as halving a pair and the `?` over one answer as a cut by
+  characters does (`"😀"`, `"😀b"`, `"b"`, `"😀Xb"`, 1). Decision 2 took
+  Excel's count for UTF-16's, the units Excel keeps a text in; its words,
+  "count as Excel does", ask for the characters, which the slice counts now
+  (`texts::length`), so that no cut halves one. Excel's limit stays in
+  units: `REPT` of 16,384 emoji, 32,768 units and 16,384 characters, is
+  `#VALUE!` in its save.
+- *A count is read down.* `LEFT(text,-0.5)` is `#VALUE!`, where truncation
+  toward zero made it 0 and `""`: a count, a start and an instance are read
+  down to the whole number at or below them (`texts::count`), as before for
+  every number not below 0.
+- *`LOWER` maps by Unicode's simple mapping.* `LOWER("İ")` is `i`, where the
+  slice kept a character whose full mapping is two; `UPPER` keeps `ß` as
+  before, its simple mapping none, and gives a Greek letter with a subscript
+  iota its title-case letter, the simple mapping Unicode's data names, which
+  no save has witnessed.
+- *`&` and `CONCATENATE` cut a text, not refuse it.*
+  `LEN(REPT("x",32767)&"x")` and the same by `CONCATENATE` are 32,767 in
+  Excel's save: the text is cut to the limit (`texts::cut_to_most`), and a
+  cut that would halve a surrogate pair is labelled, decision 2's label, now
+  of `&` alone; `REPT`, `SUBSTITUTE`, `REPLACE`, `CONCAT`, `TEXTJOIN` and
+  `TEXT` past it stay `#VALUE!`, as Excel documents the two joins and its
+  save holds `REPT` and `SUBSTITUTE`.
+- *Texts order as Excel orders them.* `"ß"="ss"` is TRUE, `"~"<"a"` and
+  `"é"<"f"` TRUE, `"co-op"<"coop"` FALSE and `"coop"<"co-op"` TRUE, where
+  the fold's order of code points answered each the other way.
+
+*Excel's order,* as the 163 ranks give it, every rank reproduced by one
+model, Windows' sort of words: four levels. First each character's place:
+the space; the no-break space; the punctuation and the currency in ASCII's
+order, `!` to `~` with `+`, `<`, `=`, `>`, `'` and `-` taken out, then `¡`,
+`¿`, `’` and `€`; the signs, `+`, `<`, `=`, `>`, `×`, `÷`, `°`, `µ`; the
+digits, `"10"` before `"2"`; the letters, `"a b"` before `"a1"` before
+`"aa"`; then `α`, `ω`, `ж`, `😀` and `日`. Second, where the places are one,
+the accents, character by character from the first, none before acute,
+grave, circumflex, diaeresis and ring, the same on a, e, o and u (`"resume"`
+before `"résumé"`, `ç` and `ñ` after their letters). Case counts for
+nothing, `"Aa"`, `"aA"` and `"aa"` one rank. Last, the apostrophe, the
+hyphen and the em dash, passed by until then (`'`, `-` and `—` alone first
+of all, their places none), compared by their places among the letters and
+then in that order, a text without one first and, of two with one at
+different places, the one with it later first: `"a"`, `"a-"`, `"-a"`, then
+`"á"`; `"ab"`, `"a'b"`, `"a-b"`; `"coop"`, `"co-op"`, `"cop"`, the last rule
+from `"a-"` before `"-a"` alone. `ß` is `ss` and `æ` is `ae` at every level,
+a rank each with them. `ı` and `İ` rank between `i` and `j`, and `ø` and `œ`
+between `ö` and `p`, alone, which two models of each give alike and a text
+of several characters would tell apart.
+
+*Built at the fold* (`calc::order`, crate-private): the language's one order
+of texts and its equality, the operators', a lookup's search, an index's
+sorted keys and a criterion's by size alike, where the first slice's fold
+ordered code points. Four decisions of the build's own, each for the owner
+to overrule:
+
+1. *One order and one equality for every comparison.* Excel's save witnesses
+   the operators; a lookup and a criterion take the same, Excel's
+   documentation naming one ascending order for a sorted search, so that `ß`
+   and `ss` are one to `MATCH` and to `COUNTIF` too, which no lookup's save
+   has witnessed. A criterion's pattern is matched character by character as
+   before.
+2. *A table of places, and a label beyond it.* The table holds the
+   characters the ranks place and what their levels give: ASCII's printable
+   95, the nine signs and the no-break space beyond it, the em dash, the
+   letters with an acute, a grave, a circumflex or a diaeresis (the save
+   ranks the four on a, e and u, three on o and the diaeresis on y, and the
+   rest take their accent's place, the same on every letter), `å`, `ç`, `ñ`,
+   `æ`, `ß`, `α`, `ω`, `ж`, `😀` and `日`, each letter in both its cases. `ı`,
+   `İ`, `ø` and `œ`, a tab and every character unranked stand beyond it,
+   weighed after it by their code points so that the order stays total for a
+   sort, and a comparison by size that one decides, before the table has, is
+   labelled `(not-computed "a character's order")`, never guessed; one
+   decided earlier, by a common beginning or a difference before it, is
+   answered (`"aø"<"bø"`).
+3. *Equality answered always.* Two texts are one where their characters are,
+   case aside, `ß` and `ss` and `æ` and `ae` one: within the table exactly
+   Excel's equality, the order's own; beyond it the fold's claim, as the
+   lookups' save held it beyond ASCII, so that `=A1="Łódź"` computes. The
+   fold now keeps `İ` itself: the first slice's folded it to `i`, so that
+   `"İ"="i"` was TRUE where Excel's ranks hold the two apart.
+4. *An index leaves the order beyond the table to its scan.* An index of
+   texts sorts them by the total order and answers a next smaller or larger
+   from it only where the probe and every text it keeps are the table's;
+   otherwise the scan answers, labelling where a comparison it makes is not
+   known, an exact match found answering whatever stands beside it.
+
+`eval::binary` and `eval::compare`, public since `KERNEL.7`, keep their
+signatures, so that the patch breaks no caller: they answer a comparison
+beyond the table by the total order and a cut through a pair short of the
+half, and a cell computes through `eval::operate`, which labels both, the
+evaluator's operators and a lane's alike.
+
+*Joined.* `texts.xlsx` built again, 357 formulas, 190 agreeing with the
+values it folded and 167 labelled (the four of the slice's own that remain,
+a locale's number twice and a code page's character and code, and the 163
+ranks), its census unmoved; `texts_saved.xlsx` at `no-differ`, its 190
+computed agreeing with Excel's, as `texts_saved_calc.vla`, its census beside
+the fixture's (194 lines, the sheet's name as Excel writes it, `data!`), and
+`prove.ps1`'s thirteenth calc row. The lookups', the intersection's and the
+subset's saves stand at `no-differ` unmoved.
+
+*Held at the fold.* `vla-lang`'s 312 tests, six new: the order's four, every
+pair of the 163 ranks reproduced and the four beyond the table unknown but
+against themselves, the Functions sheet's twenty comparisons, what a
+character beyond the table leaves known (a common beginning, a difference
+before it, a text that runs out before another's known place), and the order
+total over 64 texts, its equality its key's; a cell's labels beside
+`binary`'s answers; and a search's order and its labels by the scan and by
+the index, each probe asked twice. The text functions' tests moved to
+characters (the emoji's cuts computed, `SEARCH`'s `?` over it 1), a count
+read down (`LEFT` and `MID` by -0.5), `LOWER("İ")` an `i`, a subscript
+iota's title case and `ﬁ` kept, `&` and `CONCATENATE` cut at 32,767 and
+through a pair labelled, `CONCAT` past it `#VALUE!`; the machine's run of
+the text functions, seventeen formulas now, `&` cut through a pair at a step
+and two comparisons, one labelled, frame for frame by runs and by every cell
+alone; the criteria's test holding the order and its label, the fold's
+rewritten for `İ`; the twelve laws. `frazaro-core`'s 190. Twenty-one mutants
+of the fold: twenty failing named tests, every rule above put back as it was
+or its label dropped, the index's leaving the order to its scan and a single
+value's label caught by the search's test alone, written for them; and the
+twenty-first equivalent, the common beginning's shortcut dropped, which the
+levels pass by alike, its comment saying so; clippy and rustfmt clean; both
+wasm modules built, no import; `run_checks` 58 of 58; the language's package
+tested from its tarball.
+
+*Measured at the fold,* the bench's five fixtures, the folded tree against
+the slice before its fold in scratch copies, four rounds alternated: every
+whole frame and edit within 2.2% in the means and 1.8% in the medians, the
+signs mixed (Life's whole frame 1.950 ms against 1.960 and its edit 2.312
+against 2.349, the chain's 0.559 against 0.572, the column's 0.585 against
+0.580, the sums' 0.894 against 0.890, the lookups' 9.830 against 9.909): the
+fold adds no work to a run, a program or a lane of numbers, and to a cell's
+operator one test of its kind, and no floor moves.
+
+*Alonzo and Buffet over the fold,* by a path in the scratch copies of the
+slice's measure (Alonzo's `5c43486`, Buffet's `f5dcde1`) and in two of
+Alonzo's head since (`8ed1ea7`, `CART.14`'s close, Seiyaku), over the fold
+and over the slice before it: Alonzo's 55 tests and its doc test, and its
+head's 59, Seiyaku's board held to its hand at every frame among them; the
+frames' runner in check mode, every frame, digest, allocation and high-water
+mark the same as over the slice before the fold, at both heads. Buffet's 38
+and 54 tests, every frame of the game held to its hand-written twin and its
+describe golden.
+
+*Found in the slice,* not minted:
+- *The checks read the door's output by the console's code page*: PowerShell
+  decodes a native program's stdout by `[Console]::OutputEncoding`, the OEM
+  page, so a golden holding text beyond ASCII never matched the door's
+  UTF-8; no golden held any before this slice's. Read as UTF-8 now, where a
+  host has a console.
+- *The census check keyed a shape's text without case*: `@{}` is caseless,
+  so `EXACT("a","A")` and `EXACT("a","a")`, two shapes to the door, were one
+  text to it. Keyed exactly now.
+- *The reader read a formula's empty text as nothing*: an empty `<v>` was
+  dropped before its kind was asked, so `""` saved by Excel was unchecked;
+  read as the empty text now, where `t="str"`.
+- *The operators still read a text a locale spells as `#VALUE!`*:
+  `="1,000"+1` answers `#VALUE!` where Excel's English answers 1001, the
+  line's Found of 2026-10-18, which the dates' slice decides; `VALUE` alone
+  labels it here.
+- *A call through `Ctx` finds its function by name at every evaluation*: two
+  lookups in ordered maps keyed by the name in upper case (`Ctx::call`), so
+  that a library of more names costs every such call a comparison or two
+  more; the bench's calls go by lanes and programs, which resolve at the
+  plan, and moved within their spread. A speed question for a later item;
+  one line in the summary.
+- *The sums' whole frame stands at its floor here*: 0.903 ms, 31.0 million
+  formulas a second against the floor of 31.0 million set from the owner's
+  run of 2026-10-17, the base 3% faster in the same session; the floor's
+  margin is a session's spread, for the owner's next run of the instrument
+  to say.
+- *Decision 2's premise was the build's, and wrong*: the scoping took
+  Excel's count for UTF-16's, the units Excel keeps a text in, and asked no
+  save before the decision; Excel 365's save counts characters. The owner's
+  words, "count as Excel does", stand; the units remain the measure of the
+  32,767 limit alone.
+- *The VBA reference says Excel's `LEN` counts an emoji as two*:
+  `VLA_Prolog.bas`, its `PROLOG.18` header and `TextHasSurrogate`, and
+  0.5.6's note give it as the reason the goals that count or cut refuse a
+  text holding a pair. Excel 365's worksheet counts one; VBA's own `Len`,
+  which the engine's strings answer to, counts two, so the refusal stands on
+  that difference; the comment's reason is the module's, for the owner's
+  word.
+- *The first slice's fold held `İ` one with `i`*: `value::fold_char` took
+  the first character of `İ`'s full lower case, `i` with a dot above, so
+  `"İ"="i"` was TRUE and a lookup of `"i"` found `"İ"`, where Excel's ranks
+  hold them apart; the fold keeps `İ` now.
+- *Excel's order is the save's 163 ranks and no more*: the control
+  characters, Latin-1's other signs and letters (`ø`, `ð`, `þ`, `ã`, `õ`),
+  Latin Extended-A (`ł`, `š`, `ő`), the curly quotes and dashes but `’` and
+  `—`, and the alphabets of Greek and Cyrillic stand beyond the table, and
+  with them which of two models `ı`, `İ`, `ø` and `œ` follow among other
+  letters; a save of more characters would widen it, as would two hyphens in
+  one text against one, which the save does not hold. One line in the
+  summary.
+- *A lookup's equality now takes `ß` and `ss` as one*, by decision 1 of the
+  fold, which no save of a lookup has witnessed: the lookups' fixture holds
+  neither, and a row of it would say.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which

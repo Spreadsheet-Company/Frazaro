@@ -41,7 +41,7 @@ use super::eval::{finite, intersection, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{ErrorKind, Value};
-use super::{criteria, lookups};
+use super::{criteria, lookups, texts};
 
 /// The language's library, every function above registered, each as one an
 /// evaluation of many cells at once computes by itself: `IF` as the form it
@@ -53,7 +53,8 @@ use super::{criteria, lookups};
 /// (`super::criteria`), moved down from Excel's library: a run computes
 /// `INDEX`, `IFERROR` and `IFNA` by itself, and calls the rest at each cell.
 /// Since KERNEL.8's second slice `SINGLE`, Excel's `@`, a form a run
-/// computes at each cell.
+/// computes at each cell; since its third the text functions
+/// (`super::texts`), which a run calls at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -84,6 +85,31 @@ pub fn language() -> Library {
     lib.register_known_strict("COUNTIF", criteria::countif, Known::CountIf);
     lib.register_known_strict("SUMIF", criteria::sumif, Known::SumIf);
     lib.register_form("SINGLE", single);
+    lib.register("CONCATENATE", texts::concatenate);
+    lib.register("CONCAT", texts::concat);
+    lib.register("TEXTJOIN", texts::textjoin);
+    lib.register("LEFT", texts::left);
+    lib.register("RIGHT", texts::right);
+    lib.register("MID", texts::mid);
+    lib.register("LEN", texts::len);
+    lib.register("FIND", texts::find);
+    lib.register("SEARCH", texts::search);
+    lib.register("SUBSTITUTE", texts::substitute);
+    lib.register("REPLACE", texts::replace);
+    lib.register("UPPER", texts::upper);
+    lib.register("LOWER", texts::lower);
+    lib.register("PROPER", texts::proper);
+    lib.register("TRIM", texts::trim);
+    lib.register("REPT", texts::rept);
+    lib.register("EXACT", texts::exact);
+    lib.register("VALUE", texts::value);
+    lib.register("T", texts::t);
+    lib.register("N", texts::n);
+    lib.register("UNICODE", texts::unicode);
+    lib.register("UNICHAR", texts::unichar);
+    lib.register("CHAR", texts::char_);
+    lib.register("CODE", texts::code);
+    lib.register("TEXT", texts::text_);
     lib
 }
 
@@ -97,11 +123,48 @@ pub const NAMES: [&str; 14] = [
 ];
 
 /// The functions KERNEL.8 brought into the language, beside the day-one
-/// list: the lookups and `SINGLE`.
+/// list: the lookups, `SINGLE` and the text functions.
 #[cfg(test)]
-const KERNEL_8: [&str; 14] = [
-    "INDEX", "MATCH", "XMATCH", "VLOOKUP", "HLOOKUP", "LOOKUP", "XLOOKUP", "IFERROR", "IFNA",
-    "ISERROR", "ISNA", "COUNTIF", "SUMIF", "SINGLE",
+const KERNEL_8: [&str; 39] = [
+    "INDEX",
+    "MATCH",
+    "XMATCH",
+    "VLOOKUP",
+    "HLOOKUP",
+    "LOOKUP",
+    "XLOOKUP",
+    "IFERROR",
+    "IFNA",
+    "ISERROR",
+    "ISNA",
+    "COUNTIF",
+    "SUMIF",
+    "SINGLE",
+    "CONCATENATE",
+    "CONCAT",
+    "TEXTJOIN",
+    "LEFT",
+    "RIGHT",
+    "MID",
+    "LEN",
+    "FIND",
+    "SEARCH",
+    "SUBSTITUTE",
+    "REPLACE",
+    "UPPER",
+    "LOWER",
+    "PROPER",
+    "TRIM",
+    "REPT",
+    "EXACT",
+    "VALUE",
+    "T",
+    "N",
+    "UNICODE",
+    "UNICHAR",
+    "CHAR",
+    "CODE",
+    "TEXT",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.

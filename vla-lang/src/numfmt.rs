@@ -17,10 +17,36 @@
 //! character outside ASCII, none of which means anything in a code, so that
 //! `▲0.00;▼0.00;=0.00` draws a glyph beside its number. In a text's section,
 //! literals and `@`, the text itself. A bare `$` is a dollar here, the
-//! record having no reading machine whose currency it could be. Anything
-//! else is refused by name ([`Unsupported`]): a bracket (a color, a
-//! condition, a locale), a date's or a time's letters, an exponent, a
-//! fraction, a width or a fill, `General` inside a code.
+//! record having no reading machine whose currency it could be. Since
+//! KERNEL.8's third slice a date's and a time's parts too (below). Anything
+//! else is refused by name ([`Unsupported`]): a bracket other than an
+//! elapsed time's (a color, a condition, a locale), an era's or another
+//! calendar's letter, an exponent, a fraction, a width or a fill, `General`
+//! inside a code.
+//!
+//! A date's and a time's parts (KERNEL.8, slice c, 2026-10-19), in Excel's
+//! syntax as a file spells it, each letter in either case: `yy` the year in
+//! two digits and `yyyy` in four (`y` as `yy`, `yyy` as `yyyy`); `m` and
+//! `mm` the month in one or two digits, `mmm` its name in three letters,
+//! `mmmm` whole and `mmmmm` its first letter; `d` and `dd` the day, `ddd`
+//! and `dddd` the weekday's name; `h` and `hh` the hour; `m` and `mm` the
+//! minute where an hour stands before them or a second after them, literals
+//! between passed by; `s` and `ss` the second, a point and one to three
+//! `0`s right after it the second's decimals; `[h]`, `[m]` and `[s]` the
+//! hours, minutes or seconds elapsed, a run of the letter the least width;
+//! and `AM/PM`, `am/pm`, `A/P` or `a/p`, a twelve-hour clock and its half,
+//! drawn in the case written. A section holding any of them is a date's, in
+//! which a point is a literal but before a second's decimals, a comma a
+//! literal, and a digit placeholder or a percent refused. The names are
+//! English: the codes are the file's own syntax, `en-US`'s, and the owner's
+//! Excel is English (the owner's decision, 2026-10-19). A number is a day of
+//! Excel's 1900 calendar: serial 1 is 1 January 1900, 60 the 29 February
+//! 1900 that never was, which Excel keeps after Lotus 1-2-3, and 0 the day
+//! before the first, `1900-01-00`; a weekday counts on from serial 1, a
+//! Sunday by that count; its fraction is the time of day, rounded to the
+//! second, or to the second's decimals the code draws, before it is split.
+//! A negative number and one past 31 December 9999 draw no date, as Excel
+//! draws `#` across the cell.
 //!
 //! How a number becomes its text, as Excel draws it: the section is chosen
 //! by the number's sign before it is rounded (one section for every number,
@@ -108,6 +134,61 @@ enum Part {
     Literal(String),
     /// The text itself, in a text's section.
     At,
+    /// A date's or a time's part, in a date's section (KERNEL.8, slice c).
+    Date(DatePart),
+}
+
+/// A date's or a time's part as it draws.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DatePart {
+    /// The year in four digits, or in two.
+    Year {
+        four: bool,
+    },
+    /// The month: 1 or 2 its number's least digits, 3 its name in three
+    /// letters, 4 whole, 5 its first letter.
+    Month(usize),
+    /// The day: 1 or 2 its number's least digits, 3 the weekday's name in
+    /// three letters, 4 whole.
+    Day(usize),
+    /// The hour, the minute and the second, by their least digits.
+    Hour(usize),
+    Minute(usize),
+    Second(usize),
+    /// The second's decimals, a point and so many digits.
+    Fraction(usize),
+    /// The hours, minutes or seconds elapsed, by their least digits.
+    Elapsed(Unit, usize),
+    /// The clock's half: `AM/PM` long, `A/P` short, in upper or lower case.
+    AmPm {
+        long: bool,
+        upper: bool,
+    },
+}
+
+/// The unit of an elapsed time's bracket.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Unit {
+    Hour,
+    Minute,
+    Second,
+}
+
+/// A date's or a time's letter as a code writes it, before its section
+/// reads it: the letter and the length of its run.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DateToken {
+    Year(usize),
+    /// `m`, a month or a minute by its neighbours.
+    MonthOrMinute(usize),
+    Day(usize),
+    Hour(usize),
+    Second(usize),
+    Elapsed(Unit, usize),
+    AmPm {
+        long: bool,
+        upper: bool,
+    },
 }
 
 /// One section, read for drawing.
@@ -128,6 +209,11 @@ struct Section {
     /// The places the point moves right before rounding: 2 for each `%`,
     /// -3 for each thousandth.
     shift: i32,
+    /// Whether the section is a date's (KERNEL.8, slice c), its hours on a
+    /// twelve-hour clock, and its second's decimals.
+    date: bool,
+    twelve: bool,
+    fraction: usize,
 }
 
 /// A token of a code, before its section is read.
@@ -139,6 +225,10 @@ enum Token {
     Percent,
     Literal(String),
     At,
+    Date(DateToken),
+    /// `/`: a date's separator in a date's section, a fraction's bar,
+    /// refused, in any other.
+    Slash,
 }
 
 impl Code {
@@ -234,6 +324,11 @@ impl Code {
         } else {
             (&sections[0], false)
         };
+        if section.date {
+            // A date's section draws no negative number, as Excel draws `#`
+            // across the cell (KERNEL.8, slice c).
+            return if x < 0.0 { None } else { section.draw_date(x) };
+        }
         let mut out = String::new();
         let zero = section.draw(x.abs(), &mut out);
         // One section's minus, before every literal; none where the number
@@ -305,12 +400,31 @@ fn tokens(text: &str) -> Result<Vec<Vec<Token>>, Unsupported> {
             '$' | '-' | '+' | '(' | ')' | ':' | '!' | '^' | '&' | '\'' | '~' | '{' | '}' | '<'
             | '>' | '=' | ' ' => toks.push(Token::Literal(c.to_string())),
             '[' => {
-                let bracket: String = match chars[i..].iter().position(|&x| x == ']') {
+                let close = chars[i..].iter().position(|&x| x == ']');
+                let bracket: String = match close {
                     Some(len) => chars[i..=i + len].iter().collect(),
                     None => chars[i..].iter().collect(),
                 };
+                // An elapsed time's: one letter, h, m or s, and its run
+                // (KERNEL.8, slice c).
+                if let Some(len) = close {
+                    let inner = &chars[i + 1..i + len];
+                    let unit = match inner.first().map(char::to_ascii_lowercase) {
+                        Some('h') => Some(Unit::Hour),
+                        Some('m') => Some(Unit::Minute),
+                        Some('s') => Some(Unit::Second),
+                        _ => None,
+                    };
+                    if let Some(unit) = unit {
+                        if inner.iter().all(|c| c.eq_ignore_ascii_case(&inner[0])) {
+                            toks.push(Token::Date(DateToken::Elapsed(unit, inner.len())));
+                            i += len + 1;
+                            continue;
+                        }
+                    }
+                }
                 return Err(Unsupported::new(
-                    format!("{bracket}, a color, a condition, a locale or an elapsed time"),
+                    format!("{bracket}, a color, a condition or a locale"),
                     "drop it",
                 ));
             }
@@ -320,12 +434,7 @@ fn tokens(text: &str) -> Result<Vec<Vec<Token>>, Unsupported> {
                     "write 0 or # in its place",
                 ))
             }
-            '/' => {
-                return Err(Unsupported::new(
-                    "/, a fraction's bar",
-                    "quote it, \"/\", to draw it as written",
-                ))
-            }
+            '/' => toks.push(Token::Slash),
             '_' => {
                 return Err(Unsupported::new(
                     "_, a character's width",
@@ -333,6 +442,38 @@ fn tokens(text: &str) -> Result<Vec<Vec<Token>>, Unsupported> {
                 ))
             }
             '*' => return Err(Unsupported::new("*, a fill", "drop it")),
+            // A date's or a time's letter and its run (KERNEL.8, slice c).
+            c if matches!(c.to_ascii_lowercase(), 'y' | 'm' | 'd' | 'h' | 's') => {
+                let lower = c.to_ascii_lowercase();
+                let run = chars[i..]
+                    .iter()
+                    .take_while(|x| x.to_ascii_lowercase() == lower)
+                    .count();
+                toks.push(Token::Date(match lower {
+                    'y' => DateToken::Year(run),
+                    'm' => DateToken::MonthOrMinute(run),
+                    'd' => DateToken::Day(run),
+                    'h' => DateToken::Hour(run),
+                    _ => DateToken::Second(run),
+                }));
+                i += run;
+                continue;
+            }
+            'a' | 'A' => {
+                let ahead = |n: usize| -> String { chars[i..].iter().take(n).collect() };
+                let upper = c == 'A';
+                if ahead(5).eq_ignore_ascii_case("am/pm") {
+                    toks.push(Token::Date(DateToken::AmPm { long: true, upper }));
+                    i += 5;
+                    continue;
+                }
+                if ahead(3).eq_ignore_ascii_case("a/p") {
+                    toks.push(Token::Date(DateToken::AmPm { long: false, upper }));
+                    i += 3;
+                    continue;
+                }
+                return Err(letter(&chars, i));
+            }
             c if c.is_ascii_alphabetic() => return Err(letter(&chars, i)),
             c if c.is_ascii_digit() => {
                 return Err(Unsupported::new(
@@ -362,8 +503,8 @@ fn control() -> Unsupported {
     Unsupported::new("a control character", "drop it")
 }
 
-/// A letter outside quotes: `General` inside a code, an exponent, a date's
-/// or a time's letter, or a letter Excel draws only quoted.
+/// A letter outside quotes: `General` inside a code, an exponent, an era's
+/// or another calendar's letter, or a letter Excel draws only quoted.
 fn letter(chars: &[char], i: usize) -> Unsupported {
     let word: String = chars[i..].iter().take(7).collect();
     if word.eq_ignore_ascii_case("general") {
@@ -382,9 +523,11 @@ fn letter(chars: &[char], i: usize) -> Unsupported {
         );
     }
     match c.to_ascii_lowercase() {
-        'y' | 'm' | 'd' | 'h' | 's' | 'a' | 'p' | 'b' | 'e' | 'g' => Unsupported::new(
-            format!("{c}, a date's or a time's letter"),
-            format!("quote it, \"{c}\", to draw it as written; this version draws no date or time"),
+        'b' | 'e' | 'g' => Unsupported::new(
+            format!("{c}, an era's or another calendar's letter"),
+            format!(
+                "quote it, \"{c}\", to draw it as written; this version draws the Gregorian calendar's dates"
+            ),
         ),
         _ => Unsupported::new(
             format!("{c}, a letter outside quotes"),
@@ -400,6 +543,9 @@ fn number_section(toks: Vec<Token>) -> Result<Section, Unsupported> {
             "@ before the fourth section",
             "put a text's section fourth, after zero's",
         ));
+    }
+    if toks.iter().any(|t| matches!(t, Token::Date(_))) {
+        return date_section(toks);
     }
     if toks.iter().filter(|t| **t == Token::Point).count() > 1 {
         return Err(Unsupported::new(
@@ -469,6 +615,13 @@ fn number_section(toks: Vec<Token>) -> Result<Section, Unsupported> {
                 }
             }
             Token::At => unreachable!("refused above"),
+            Token::Date(_) => unreachable!("a date's section is read apart"),
+            Token::Slash => {
+                return Err(Unsupported::new(
+                    "/, a fraction's bar",
+                    "quote it, \"/\", to draw it as written",
+                ))
+            }
         }
     }
     if s.decimals.len() > MOST_DECIMALS {
@@ -482,6 +635,143 @@ fn number_section(toks: Vec<Token>) -> Result<Section, Unsupported> {
         .position(|zero| *zero)
         .map_or(0, |first| zeros.len() - first);
     Ok(s)
+}
+
+/// A date's section from its tokens (KERNEL.8, slice c): each letter's run
+/// read as its part, a run of one or two `m` a minute where an hour stands
+/// before it or a second after it, literals between passed by, and a month
+/// otherwise; a point right after a second and the `0`s after it the
+/// second's decimals; any other point, and a comma, a literal.
+fn date_section(toks: Vec<Token>) -> Result<Section, Unsupported> {
+    let dates: Vec<(usize, DateToken)> = toks
+        .iter()
+        .enumerate()
+        .filter_map(|(k, t)| match t {
+            Token::Date(d) => Some((k, *d)),
+            _ => None,
+        })
+        .collect();
+    // The date's letter before or after the one at `k`, literals passed by.
+    let beside = |k: usize, before: bool| -> Option<DateToken> {
+        let at = dates.iter().position(|&(j, _)| j == k)?;
+        let other = if before { at.checked_sub(1)? } else { at + 1 };
+        dates.get(other).map(|&(_, d)| d)
+    };
+    let hour = |d: Option<DateToken>| {
+        matches!(
+            d,
+            Some(DateToken::Hour(_) | DateToken::Elapsed(Unit::Hour, _))
+        )
+    };
+    let second = |d: Option<DateToken>| {
+        matches!(
+            d,
+            Some(DateToken::Second(_) | DateToken::Elapsed(Unit::Second, _))
+        )
+    };
+    let mut s = Section {
+        date: true,
+        ..Section::default()
+    };
+    let mut elapsed = false;
+    let mut k = 0;
+    while k < toks.len() {
+        let part = match &toks[k] {
+            Token::Date(d) => match *d {
+                DateToken::Year(n) => DatePart::Year { four: n >= 3 },
+                DateToken::MonthOrMinute(n)
+                    if n <= 2 && (hour(beside(k, true)) || second(beside(k, false))) =>
+                {
+                    DatePart::Minute(n)
+                }
+                DateToken::MonthOrMinute(n) if n <= 5 => DatePart::Month(n),
+                DateToken::MonthOrMinute(n) => {
+                    return Err(Unsupported::new(
+                        format!("{}, a month of {n} letters", "m".repeat(n)),
+                        "write mmmm for its name, mmm for three letters of it",
+                    ))
+                }
+                DateToken::Day(n) => DatePart::Day(n.min(4)),
+                DateToken::Hour(n) => DatePart::Hour(n.min(2)),
+                DateToken::Second(n) => DatePart::Second(n.min(2)),
+                DateToken::Elapsed(unit, n) => {
+                    if elapsed {
+                        return Err(Unsupported::new(
+                            "a second elapsed time's bracket",
+                            "keep one, [h], [m] or [s]",
+                        ));
+                    }
+                    elapsed = true;
+                    DatePart::Elapsed(unit, n)
+                }
+                DateToken::AmPm { long, upper } => {
+                    s.twelve = true;
+                    DatePart::AmPm { long, upper }
+                }
+            },
+            Token::Literal(text) => {
+                push_literal(&mut s.parts, text);
+                k += 1;
+                continue;
+            }
+            Token::Point | Token::Comma | Token::Slash => {
+                let what = match toks[k] {
+                    Token::Point => ".",
+                    Token::Comma => ",",
+                    _ => "/",
+                };
+                push_literal(&mut s.parts, what);
+                k += 1;
+                continue;
+            }
+            Token::Digit(_) => {
+                return Err(Unsupported::new(
+                    "a digit placeholder in a date's section",
+                    "quote it to draw it as written, or give the number a section of its own",
+                ))
+            }
+            Token::Percent => {
+                return Err(Unsupported::new(
+                    "% in a date's section",
+                    "quote it, \"%\", to draw it as written",
+                ))
+            }
+            Token::At => unreachable!("refused before a date's section is read"),
+        };
+        s.parts.push(Part::Date(part));
+        k += 1;
+        // A second's decimals: a point right after it, then its `0`s.
+        let seconds = matches!(
+            part,
+            DatePart::Second(_) | DatePart::Elapsed(Unit::Second, _)
+        );
+        if seconds && toks.get(k) == Some(&Token::Point) {
+            let zeros = toks[k + 1..]
+                .iter()
+                .take_while(|t| **t == Token::Digit(true))
+                .count();
+            if zeros > 3 {
+                return Err(Unsupported::new(
+                    "more than three decimals of a second",
+                    "keep three, Excel's most",
+                ));
+            }
+            if zeros > 0 {
+                s.fraction = zeros;
+                s.parts.push(Part::Date(DatePart::Fraction(zeros)));
+                k += 1 + zeros;
+            }
+        }
+    }
+    Ok(s)
+}
+
+/// A literal after the last part, joined to a literal before it.
+fn push_literal(parts: &mut Vec<Part>, text: &str) {
+    match parts.last_mut() {
+        Some(Part::Literal(last)) => last.push_str(text),
+        _ => parts.push(Part::Literal(text.to_string())),
+    }
 }
 
 /// A text's section from its tokens: literals and `@` alone.
@@ -505,6 +795,8 @@ fn text_section(toks: Vec<Token>) -> Result<Section, Unsupported> {
             Token::Point => ".",
             Token::Comma => ",",
             Token::Percent => "%",
+            Token::Date(_) => "a date's or a time's part",
+            Token::Slash => "/",
         };
         return Err(Unsupported::new(
             format!("{what} in a text's section"),
@@ -600,10 +892,153 @@ impl Section {
                 Part::Percent => out.push('%'),
                 Part::Literal(l) => out.push_str(l),
                 Part::At => {}
+                Part::Date(_) => unreachable!("a date's section draws by draw_date"),
             }
         }
         zero
     }
+}
+
+/// The months' and the weekdays' names, English (the owner's decision,
+/// 2026-10-19), the weekdays from Sunday.
+const MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+const WEEKDAYS: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+
+/// The last day Excel's calendar holds, 31 December 9999.
+const LAST_DAY: u64 = 2_958_465;
+
+impl Section {
+    /// A number not below 0 drawn by a date's section (KERNEL.8, slice c):
+    /// rounded to the second, or to the second's decimals the section
+    /// draws, then split into its day of the 1900 calendar and its time of
+    /// day; `None` past the calendar's last day.
+    fn draw_date(&self, x: f64) -> Option<String> {
+        let scale = 10u64.pow(self.fraction as u32);
+        let per_day = 86_400 * scale;
+        let ticks = (x * per_day as f64).round();
+        if ticks.is_nan() || ticks >= ((LAST_DAY + 1) * per_day) as f64 {
+            return None;
+        }
+        let ticks = ticks as u64;
+        let day = ticks / per_day;
+        let seconds = ticks / scale;
+        let fraction = ticks % scale;
+        let of_day = seconds % 86_400;
+        let (hour, minute, second) = (of_day / 3600, of_day / 60 % 60, of_day % 60);
+        let (year, month, mday) = civil(day);
+        // Serial 1 a Sunday, and serial 0 a Saturday before it.
+        let weekday = ((day + 6) % 7) as usize;
+        let name = MONTHS[month as usize - 1];
+        let mut out = String::new();
+        for p in &self.parts {
+            match p {
+                Part::Literal(l) => out.push_str(l),
+                Part::Date(d) => match *d {
+                    DatePart::Year { four: true } => padded(&mut out, year, 4),
+                    DatePart::Year { four: false } => padded(&mut out, year % 100, 2),
+                    DatePart::Month(n @ (1 | 2)) => padded(&mut out, month, n),
+                    DatePart::Month(3) => out.push_str(&name[..3]),
+                    DatePart::Month(4) => out.push_str(name),
+                    DatePart::Month(_) => out.push_str(&name[..1]),
+                    DatePart::Day(n @ (1 | 2)) => padded(&mut out, mday, n),
+                    DatePart::Day(3) => out.push_str(&WEEKDAYS[weekday][..3]),
+                    DatePart::Day(_) => out.push_str(WEEKDAYS[weekday]),
+                    DatePart::Hour(n) => {
+                        let h = match (self.twelve, hour % 12) {
+                            (false, _) => hour,
+                            (true, 0) => 12,
+                            (true, h) => h,
+                        };
+                        padded(&mut out, h, n);
+                    }
+                    DatePart::Minute(n) => padded(&mut out, minute, n),
+                    DatePart::Second(n) => padded(&mut out, second, n),
+                    DatePart::Fraction(n) => {
+                        out.push('.');
+                        padded(&mut out, fraction, n);
+                    }
+                    DatePart::Elapsed(unit, n) => {
+                        let total = match unit {
+                            Unit::Hour => seconds / 3600,
+                            Unit::Minute => seconds / 60,
+                            Unit::Second => seconds,
+                        };
+                        padded(&mut out, total, n);
+                    }
+                    DatePart::AmPm { long, upper } => {
+                        let half = match (hour < 12, long) {
+                            (true, true) => "AM",
+                            (true, false) => "A",
+                            (false, true) => "PM",
+                            (false, false) => "P",
+                        };
+                        if upper {
+                            out.push_str(half);
+                        } else {
+                            out.push_str(&half.to_ascii_lowercase());
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+        Some(out)
+    }
+}
+
+/// A whole number written with at least `width` digits, 0s before it.
+fn padded(out: &mut String, n: u64, width: usize) {
+    use std::fmt::Write;
+    let _ = write!(out, "{n:0width$}");
+}
+
+/// The year, the month and the day of a day of Excel's 1900 calendar: 0 the
+/// day before the first, 1900-01-00, and 60 the 29 February 1900 that never
+/// was; every other day the proleptic Gregorian calendar's, serial 25569
+/// being 1 January 1970 and a serial below 60 one day later than its count,
+/// the day that never was not among them.
+fn civil(day: u64) -> (u64, u64, u64) {
+    match day {
+        0 => (1900, 1, 0),
+        60 => (1900, 2, 29),
+        d => civil_from_days(d as i64 - if d < 60 { 25_568 } else { 25_569 }),
+    }
+}
+
+/// The proleptic Gregorian date `z` days after 1 January 1970 (Howard
+/// Hinnant's `civil_from_days`).
+fn civil_from_days(z: i64) -> (u64, u64, u64) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe as i64 + era * 400 + i64::from(m <= 2);
+    (y as u64, m, d)
 }
 
 /// A positive finite number's significant digits, no 0 at either end, and
@@ -872,6 +1307,53 @@ mod tests {
     }
 
     #[test]
+    fn a_date_and_a_time_draw_by_their_codes() {
+        // KERNEL.8, slice c: Excel's 1900 calendar, its day 0 and its 29
+        // February 1900, and serial 45292 the first of 2024, a Monday.
+        assert_eq!(drawn("yyyy-mm-dd", 0.0), "1900-01-00");
+        assert_eq!(drawn("yyyy-mm-dd", 1.0), "1900-01-01");
+        assert_eq!(drawn("yyyy-mm-dd", 59.0), "1900-02-28");
+        assert_eq!(drawn("yyyy-mm-dd", 60.0), "1900-02-29");
+        assert_eq!(drawn("yyyy-mm-dd", 61.0), "1900-03-01");
+        assert_eq!(drawn("yyyy-mm-dd", 25569.0), "1970-01-01");
+        assert_eq!(drawn("yyyy-mm-dd", 45292.0), "2024-01-01");
+        assert_eq!(drawn("YYYY-MM-DD", 45292.9), "2024-01-01");
+        assert_eq!(drawn("yyyy-mm-dd", 2_958_465.0), "9999-12-31");
+        assert_eq!(code("yyyy").text(&Value::Number(2_958_466.0)), None);
+        assert_eq!(code("yyyy").text(&Value::Number(-1.0)), None);
+        assert_eq!(drawn("d/m/yy", 45292.0), "1/1/24");
+        assert_eq!(drawn("y", 45292.0), "24");
+        assert_eq!(drawn("yyy", 45292.0), "2024");
+        assert_eq!(drawn("mmm d, yyyy", 45292.0), "Jan 1, 2024");
+        assert_eq!(drawn("mmmm", 45322.0), "January");
+        assert_eq!(drawn("mmmmm", 45323.0), "F");
+        assert_eq!(drawn("ddd dddd", 45292.0), "Mon Monday");
+        assert_eq!(drawn("ddd", 1.0), "Sun");
+        assert_eq!(drawn("ddd", 0.0), "Sat");
+        assert_eq!(drawn("dd.mm.yyyy", 45292.0), "01.01.2024");
+        // A time of day, rounded to the second before it is split.
+        assert_eq!(drawn("h:mm", 0.5), "12:00");
+        assert_eq!(drawn("h:m", 0.5 + 5.0 / 1440.0), "12:5");
+        assert_eq!(drawn("hh:mm:ss", 1.0 / 3.0), "08:00:00");
+        assert_eq!(drawn("h:mm:ss", 0.999_999_999), "0:00:00");
+        assert_eq!(drawn("yyyy-mm-dd hh:mm", 45292.75), "2024-01-01 18:00");
+        assert_eq!(drawn("mm:ss", 61.0 / 86400.0), "01:01");
+        assert_eq!(drawn("mm:ss.00", 1.5 / 86400.0), "00:01.50");
+        // A twelve-hour clock and its half, in the case written.
+        assert_eq!(drawn("h:mm AM/PM", 0.5), "12:00 PM");
+        assert_eq!(drawn("h:mm AM/PM", 0.0), "12:00 AM");
+        assert_eq!(drawn("h:mm am/pm", 0.75), "6:00 pm");
+        assert_eq!(drawn("h A/P", 0.25), "6 A");
+        assert_eq!(drawn("hh a/p", 0.9), "09 p");
+        // Elapsed, past a day.
+        assert_eq!(drawn("[h]:mm", 1.5), "36:00");
+        assert_eq!(drawn("[mm]:ss", 1.0 / 24.0), "60:00");
+        assert_eq!(drawn("[s]", 1.0 / 1440.0), "60");
+        // Literals beside the parts, a comma and a point among them.
+        assert_eq!(drawn("\"day \"d\", \"mmm", 45292.0), "day 1, Jan");
+    }
+
+    #[test]
     fn what_this_version_does_not_draw_is_named() {
         let named = |text: &str, word: &str| {
             let u = refused(text);
@@ -884,7 +1366,15 @@ mod tests {
         named("@", "Text format");
         named("[Red]0.00", "[Red]");
         named("0.00;[Red]-0.00", "color");
-        named("yyyy-mm-dd", "date");
+        named("[$-409]yyyy-mm-dd", "locale");
+        named("bbbb", "another calendar");
+        named("e", "another calendar");
+        named("mmmmmm", "of 6 letters");
+        named("[h]:[mm]", "second elapsed");
+        named("ss.0000", "three decimals");
+        named("yyyy 0", "digit placeholder in a date");
+        named("yyyy%", "% in a date");
+        named("0;0;0;yyyy", "in a text's section");
         named("0.00E+00", "E+");
         named("# ?/?", "?");
         named("0/0", "/");

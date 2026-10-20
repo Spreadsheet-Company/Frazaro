@@ -30,7 +30,7 @@ use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RefExpr};
 use super::graph::{areas_at, cells_in, places, Area, Areas, CellId, Extent, Names};
 use super::index::Indexes;
-use super::value::{fold_cmp, round15, ErrorKind, Value};
+use super::value::{round15, ErrorKind, Value};
 
 /// Why a cell was not computed: the honest static label, named.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -504,7 +504,7 @@ impl<'a> Ctx<'a> {
             Expr::Binary(op, l, r) if !matches!(**l, Expr::Binary(..)) => {
                 let a = self.scalar(l)?;
                 let b = self.scalar(r)?;
-                Ok(Arg::Scalar(binary(*op, &a, &b)))
+                Ok(Arg::Scalar(operate(*op, &a, &b)?))
             }
             Expr::Binary(..) => self.chain(e),
         }
@@ -536,7 +536,7 @@ impl<'a> Ctx<'a> {
         for i in (0..links).rev() {
             let (op, r) = if i < NEAR { near[i] } else { far[i - NEAR] };
             let b = self.scalar(r)?;
-            acc = binary(op, &acc, &b);
+            acc = operate(op, &acc, &b)?;
         }
         Ok(Arg::Scalar(acc))
     }
@@ -735,7 +735,12 @@ pub fn finite(v: f64) -> Value {
 /// their texts, a comparison in Excel's order of kinds. Its arithmetic and
 /// its comparison of two numbers are [`arithmetic`] and [`compares`] over
 /// [`compare_numbers`], which an evaluation of many cells at once calls over
-/// its lanes of numbers (KERNEL.26), so that each rule is written once.
+/// its lanes of numbers (KERNEL.26), so that each rule is written once. A
+/// cell computes it through [`operate`], which labels what this answers
+/// with the language's own reading: a comparison by size of two texts that
+/// a character beyond Excel's known order decides, weighed here after the
+/// known ones by its code point, and a text `&` cuts through a surrogate
+/// pair, cut here before the pair.
 pub fn binary(op: BinOp, a: &Value, b: &Value) -> Value {
     if let Value::Error(k) = a {
         return Value::Error(*k);
@@ -755,11 +760,54 @@ pub fn binary(op: BinOp, a: &Value, b: &Value) -> Value {
             };
             arithmetic(op, x, y)
         }
+        // Cut to Excel's 32,767 units, as its save holds `&` (KERNEL.8,
+        // slice c).
         BinOp::Concat => match (a.text(), b.text()) {
-            (Ok(s), Ok(t)) => Value::Text(s + &t),
+            (Ok(s), Ok(t)) => Value::Text(super::texts::cut_to_most(s + &t).0),
             (Err(k), _) | (_, Err(k)) => Value::Error(k),
         },
         _ => Value::Bool(compares(op, compare(a, b))),
+    }
+}
+
+/// [`binary`] as a cell computes it (KERNEL.8, slice c): a comparison by
+/// size of two texts, an empty value among them as `""`, that a character
+/// beyond Excel's known order decides is labelled (`order::sized`), and a
+/// text `&` would cut through a surrogate pair at its 32,767th unit,
+/// where Excel keeps half a character, is labelled (`texts::halved`). The
+/// evaluator's operators and a lane's call it, so that a run answers as a
+/// cell alone does.
+pub(crate) fn operate(op: BinOp, a: &Value, b: &Value) -> Result<Value, Reason> {
+    if matches!(a, Value::Error(_)) || matches!(b, Value::Error(_)) {
+        return Ok(binary(op, a, b));
+    }
+    match op {
+        BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
+            if let Some((x, y)) = texts_of(a, b) {
+                return Ok(Value::Bool(compares(op, super::order::sized(x, y)?)));
+            }
+        }
+        BinOp::Concat => {
+            if let (Ok(s), Ok(t)) = (a.text(), b.text()) {
+                return match super::texts::cut_to_most(s + &t) {
+                    (t, true) => Ok(Value::Text(t)),
+                    (_, false) => Err(super::texts::halved()),
+                };
+            }
+        }
+        _ => {}
+    }
+    Ok(binary(op, a, b))
+}
+
+/// Two operands as the texts a comparison orders: two texts, or a text and
+/// an empty value, which is `""` beside a text.
+fn texts_of<'v>(a: &'v Value, b: &'v Value) -> Option<(&'v str, &'v str)> {
+    match (a, b) {
+        (Value::Text(x), Value::Text(y)) => Some((x, y)),
+        (Value::Empty, Value::Text(y)) => Some(("", y)),
+        (Value::Text(x), Value::Empty) => Some((x, "")),
+        _ => None,
     }
 }
 
@@ -878,9 +926,10 @@ fn power(x: f64, y: f64) -> Value {
 
 /// Excel's order of kinds in a comparison: every number is less than every
 /// text, every text less than every truth value; two numbers equal to
-/// fifteen significant digits are equal ([`compare_numbers`]); two texts
-/// compare without case, beyond ASCII too; an empty cell is 0, `""` or
-/// FALSE, whichever the other side is.
+/// fifteen significant digits are equal ([`compare_numbers`]); two texts in
+/// Excel's order of texts, case aside, a character beyond its known order
+/// weighed after the known ones by its code point (`super::order`, KERNEL.8);
+/// an empty cell is 0, `""` or FALSE, whichever the other side is.
 pub fn compare(a: &Value, b: &Value) -> Ordering {
     use Value::*;
     match (a, b) {
@@ -904,8 +953,7 @@ pub fn compare(a: &Value, b: &Value) -> Ordering {
         (Empty, Bool(y)) => false.cmp(y),
         (Bool(x), Empty) => x.cmp(&false),
         (Number(x), Number(y)) => compare_numbers(*x, *y),
-        // Folded as read, no string made (KERNEL.8): `fold`'s order exactly.
-        (Text(x), Text(y)) => fold_cmp(x, y),
+        (Text(x), Text(y)) => super::order::compare(x, y).order,
         (Bool(x), Bool(y)) => x.cmp(y),
         _ => rank(a).cmp(&rank(b)),
     }
@@ -1002,6 +1050,43 @@ mod tests {
         assert_eq!(binary(BinOp::Eq, &n(0.3), &n(0.3000000000001)), no);
         assert_eq!(binary(BinOp::Eq, &t("É"), &t("é")), yes);
         assert_eq!(binary(BinOp::Eq, &t("é"), &t("e")), no);
+        // KERNEL.8, slice c, as Excel's save of the text fixture holds them:
+        // its order of texts, `ß` and `ss` one.
+        assert_eq!(binary(BinOp::Eq, &t("ß"), &t("ss")), yes);
+        assert_eq!(binary(BinOp::Lt, &t("~"), &t("a")), yes);
+        assert_eq!(binary(BinOp::Lt, &t("coop"), &t("co-op")), yes);
+        assert_eq!(binary(BinOp::Lt, &Value::Empty, &t("-")), yes);
+    }
+
+    #[test]
+    fn a_cell_labels_what_binary_answers_by_the_language_s_reading() {
+        let t = |s: &str| Value::Text(s.to_string());
+        let unknown = Err(super::super::order::unknown());
+        // A comparison by size a character beyond the table decides.
+        assert_eq!(operate(BinOp::Lt, &t("ø"), &t("o")), unknown);
+        assert_eq!(operate(BinOp::Ge, &t("a\u{2013}"), &t("a")), unknown);
+        assert_eq!(binary(BinOp::Lt, &t("o"), &t("ø")), Value::Bool(true));
+        // Equality, a difference before the character, and an error first
+        // are answered.
+        assert_eq!(operate(BinOp::Eq, &t("ø"), &t("o")), Ok(Value::Bool(false)));
+        assert_eq!(operate(BinOp::Le, &t("Ø"), &t("ø")), Ok(Value::Bool(true)));
+        assert_eq!(
+            operate(BinOp::Lt, &t("aø"), &t("bø")),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(
+            operate(BinOp::Lt, &Value::Error(ErrorKind::NA), &t("ø")),
+            Ok(Value::Error(ErrorKind::NA))
+        );
+        // `&` cut to 32,767 units, and through a pair labelled.
+        let x = t(&"x".repeat(32_767));
+        assert_eq!(operate(BinOp::Concat, &x, &t("y")), Ok(x.clone()));
+        let pairs = t(&"\u{1F600}".repeat(16_383));
+        assert_eq!(
+            operate(BinOp::Concat, &pairs, &t("\u{1F600}")),
+            Err(super::super::texts::halved())
+        );
+        assert_eq!(binary(BinOp::Concat, &pairs, &t("\u{1F600}")), pairs);
     }
 
     #[test]

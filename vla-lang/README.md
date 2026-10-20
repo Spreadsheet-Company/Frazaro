@@ -62,8 +62,11 @@ refused in the same words.
   names whatever else a code holds that this version does not draw;
   `Code::text` gives the text a value draws as under it, as Excel's
   `Range.Text` does: the number's fifteen significant digits, rounded half
-  away from zero to the code's decimals. A style's `sheet::NumFmt` is
-  `General`, `Text` or a `Code`.
+  away from zero to the code's decimals; and a date's and a time's parts,
+  the year, the month and the day by number or English name, the hour, the
+  minute, the second and its decimals, an elapsed time and a twelve-hour
+  clock, over Excel's 1900 calendar. A style's `sheet::NumFmt` is `General`,
+  `Text` or a `Code`.
 - **Reads references.** `refers::scan` finds every reference inside a
   formula's text, cells, ranges, columns, rows, names, Tables, external
   books and 3D spans, and names the calls it cannot read; `refers::r1c1`
@@ -89,18 +92,22 @@ refused in the same words.
   The parser reads Excel's operators and calls over the reference scanner,
   with Excel's precedence and coercions and its seven error values as a
   value kind; a comparison holds two numbers equal to fifteen significant
-  digits equal, as Excel's does (`=0.1+0.2=0.3` is TRUE), and two texts
-  equal without case, beyond A to Z too, where a lookup matches a number
-  exactly. A range where one value is wanted is met at the formula's cell,
-  Excel's implicit intersection, in a legacy formula, and is an array,
-  labelled until arrays come, in a dynamic-array formula, which
-  `Env::dynamic` tells. Functions enter through `calc::Library`, the seam:
-  the language registers the fourteen a game's rule needs on day one (`IF`,
-  `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
-  `COLUMN`, `CHOOSE`, `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`,
-  `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is
-  read by (`IFERROR`, `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`,
-  `SUMIF`) and `SINGLE`, Excel's `@`, and a crate above registers more, as
+  digits equal, as Excel's does (`=0.1+0.2=0.3` is TRUE), where a lookup
+  matches a number exactly, and orders two texts as Excel's save ranks them,
+  case aside, an accent after the plain letter, `ß` and `ss` one, a
+  comparison by size that a character it did not rank decides labelled. A
+  range where one value is wanted is met at the formula's cell, Excel's
+  implicit intersection, in a legacy formula, and is an array, labelled
+  until arrays come, in a dynamic-array formula, which `Env::dynamic` tells.
+  Functions enter through `calc::Library`, the seam: the language registers
+  the fourteen a game's rule needs on day one (`IF`, `AND`, `OR`, `NOT`,
+  `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`, `COLUMN`, `CHOOSE`,
+  `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
+  `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is read by (`IFERROR`,
+  `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`, `SUMIF`), `SINGLE`,
+  Excel's `@`, and the text functions (`calc::texts`: `LEFT`, `MID`, `LEN`,
+  `FIND`, `SUBSTITUTE`, `TEXT` and the rest, a text counted by its
+  characters as Excel counts it), and a crate above registers more, as
   `frazaro-core` registers Excel's library by measurement. A lookup or a
   criterion asked of one range again and again searches the range's index
   (`calc::Indexes`), built at its second probe in one evaluation and kept

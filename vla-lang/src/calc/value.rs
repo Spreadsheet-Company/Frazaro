@@ -184,9 +184,12 @@ impl Value {
 /// lowered by Unicode's simple mapping, the one character
 /// `char::to_lowercase` begins with, so that every character folds to one
 /// and `"É"="é"` holds, as Excel's save of the lookups' fixture holds it
-/// (`Criteria!H29`), where `"é"="e"` does not. A to Z lowered as the
+/// (`Criteria!H29`), where `"é"="e"` does not; and `İ` kept, which Excel's
+/// save of the text fixture orders apart from `i` (`Order!B74`, `B120`),
+/// its lower case being an `i` with a dot above. A to Z lowered as the
 /// language's `fold` lowers them; `fold` itself, which decides a name's
-/// identity, stays ASCII's alone.
+/// identity, stays ASCII's alone. The order of texts weighs what this
+/// leaves (`super::order`).
 #[inline]
 pub(crate) fn fold_char(c: char) -> char {
     if c.is_ascii() {
@@ -199,63 +202,20 @@ pub(crate) fn fold_char(c: char) -> char {
 /// [`fold_char`] beyond ASCII, out of line.
 #[inline(never)]
 fn lowered(c: char) -> char {
+    if c == '\u{130}' {
+        return c;
+    }
     c.to_lowercase().next().unwrap_or(c)
 }
 
-/// A text as [`fold_char`] leaves each of its characters: the form an index
-/// keeps a text in (`super::index`), and a criterion its pattern.
+/// A text as [`fold_char`] leaves each of its characters: a criterion's
+/// pattern, which its wildcards match character by character.
 pub(crate) fn fold_text(t: &str) -> String {
     if t.is_ascii() {
         t.to_ascii_lowercase()
     } else {
         t.chars().map(fold_char).collect()
     }
-}
-
-/// Two texts compared as [`fold_char`] leaves their characters, read as
-/// they are, with no string made (KERNEL.8): `fold_text(a).cmp(&
-/// fold_text(b))` exactly, since UTF-8's bytes order as its characters do.
-/// Byte by byte while both are ASCII, by characters from the first byte
-/// that is not, a place both texts' characters begin at. Every text a
-/// formula orders is ordered by this, the operators', the lookups' and the
-/// criteria's.
-#[inline]
-pub(crate) fn fold_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    let (x, y) = (a.as_bytes(), b.as_bytes());
-    for (i, (&p, &q)) in x.iter().zip(y).enumerate() {
-        if p >= 0x80 || q >= 0x80 {
-            return fold_cmp_chars(&a[i..], &b[i..]);
-        }
-        let (p, q) = (p.to_ascii_lowercase(), q.to_ascii_lowercase());
-        if p != q {
-            return p.cmp(&q);
-        }
-    }
-    x.len().cmp(&y.len())
-}
-
-/// [`fold_cmp`] from a character beyond ASCII on, out of line.
-#[inline(never)]
-fn fold_cmp_chars(a: &str, b: &str) -> std::cmp::Ordering {
-    a.chars().map(fold_char).cmp(b.chars().map(fold_char))
-}
-
-/// Whether two texts are one as [`fold_char`] leaves their characters
-/// (KERNEL.8), with no string made: `fold_text(a) == fold_text(b)`
-/// exactly. Two lengths in bytes may differ where a character beyond ASCII
-/// folds to one of another length (the Kelvin sign to `k`).
-#[inline]
-pub(crate) fn fold_eq(a: &str, b: &str) -> bool {
-    let (x, y) = (a.as_bytes(), b.as_bytes());
-    for (i, (&p, &q)) in x.iter().zip(y).enumerate() {
-        if p >= 0x80 || q >= 0x80 {
-            return fold_cmp_chars(&a[i..], &b[i..]) == std::cmp::Ordering::Equal;
-        }
-        if !p.eq_ignore_ascii_case(&q) {
-            return false;
-        }
-    }
-    x.len() == y.len()
 }
 
 /// A number rounded to fifteen significant digits, the precision Excel
@@ -444,32 +404,20 @@ mod tests {
     }
 
     #[test]
-    fn a_folded_comparison_is_the_folded_texts_without_the_strings() {
-        // KERNEL.8: every pair of a set of texts holding both cases, letters
-        // beyond ASCII in both cases, characters folding to another length
-        // and punctuation, ordered and equated as `fold_text` would leave
-        // them, with no string made.
-        let texts = [
-            "", "a", "A", "b", "B", "ab", "aB", "Ab", "abc", "é", "É", "ée", "Éé", "e", "z", "Z",
-            "-a", "a-", "1", "10", "2", " ", "a b", "ä", "Ä", "straße", "STRASSE", "ẞ", "ß",
-            "\u{212A}", "k", "K", "İ", "i", "Σ", "σ", "ς", "aÉ", "AÉb",
-        ];
-        for a in texts {
-            for b in texts {
-                assert_eq!(
-                    fold_cmp(a, b),
-                    fold_text(a).cmp(&fold_text(b)),
-                    "{a:?} {b:?}"
-                );
-                assert_eq!(fold_eq(a, b), fold_text(a) == fold_text(b), "{a:?} {b:?}");
-            }
-        }
-        // As Excel's save of the lookups' fixture holds them: a letter's
-        // case beyond ASCII is no difference, its accent is.
-        assert!(fold_eq("É", "é"));
-        assert!(!fold_eq("é", "e"));
-        assert!(!fold_eq("straße", "STRASSE"));
+    fn a_character_folds_to_one_its_case_aside() {
+        // KERNEL.8: a letter's case beyond ASCII is no difference, as Excel's
+        // save of the lookups' fixture holds it, its accent is; a character
+        // folds to one, of another length where it must (the Kelvin sign);
+        // `İ` stays itself, which Excel orders apart from `i`.
+        assert_eq!(fold_char('É'), 'é');
+        assert_eq!(fold_char('é'), 'é');
+        assert_ne!(fold_char('é'), 'e');
+        assert_eq!(fold_char('\u{212A}'), 'k');
+        assert_eq!(fold_char('ẞ'), 'ß');
+        assert_eq!(fold_char('Σ'), 'σ');
+        assert_eq!(fold_char('\u{130}'), '\u{130}');
         assert_eq!(fold_text("ÉCLAIR"), "éclair");
+        assert_eq!(fold_text("STRASSE"), "strasse");
         // The identity `fold` decides is ASCII's alone, as before.
         assert_ne!(fold("É"), fold("é"));
     }

@@ -101,6 +101,6 @@
 (shape 96 "math" "C40" "=SUM(Output!R[-39]C[-2],logic!R[-39]C[-2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot lookup) (calls "SUM"))
 (shape 97 "math" "C41" "=SUM(Output:logic!R[-40]C[-2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup) (calls "SUM") (every-frame span))
 (shape 98 "math" "C42" "=VLOOKUP(10,R[-41]C[-2]:R[-40]C[-1],2)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array) (calls "VLOOKUP"))
-(shape 99 "math" "C43" "=CONCATENATE(\"a\",\"b\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing "CONCATENATE"))
+(shape 99 "math" "C43" "=CONCATENATE(\"a\",\"b\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (calls "CONCATENATE") (unlowered text))
 (shape 100 "math" "C44" "=R[-2]C+1" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot))
 (shape 101 "math" "C45" "=SUM(R[-44]C:R[-42]C)" (cells 1) (levels 2 2 1 1) (runs 0 0 0 0) (alone 1) (reads array))

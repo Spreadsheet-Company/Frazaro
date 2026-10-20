@@ -222,8 +222,51 @@ $#,##0.00
 1234.5
 === a color !refused a color
 [Red]0.00
-=== a date !refused date
+=== a date
 yyyy-mm-dd
+0
+1
+59
+60
+61
+45292
+2958465
+=== a date and its names
+dddd, mmmm d, yyyy
+45292
+45658
+=== a short date
+d/m/yy
+45292
+45323
+=== a month's letter and a weekday's
+mmmmm ddd
+45292
+=== a time of day
+h:mm:ss
+0
+0.5
+0.75
+0.999999999
+=== a twelve-hour clock
+h:mm AM/PM
+0
+0.5
+0.75
+=== a twelve-hour clock in small letters
+hh:mm a/p
+0.25
+0.9
+=== elapsed hours
+[h]:mm:ss
+1.5
+2.75
+=== a second's decimals
+mm:ss.000
+0.0000173611111111111
+=== a date and a time
+yyyy-mm-dd hh:mm
+45292.75
 === an exponent !refused exponent
 0.00E+00
 === a fraction !refused width

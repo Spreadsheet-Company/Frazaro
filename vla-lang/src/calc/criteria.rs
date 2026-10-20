@@ -19,22 +19,25 @@
 //! (`Criteria!H16`), `"<>20"` counts the text `"20"` (`H4`, `H20`),
 //! `0.1+0.2` meets 0.3 (`H32`), and `"é"` meets `"É"` (`H34`, `H36`).
 //!
-//! Every text here is compared as `value::fold_char` leaves its characters,
-//! lowered beyond ASCII too, character by character as it is read
-//! (`value::fold_cmp`), so that no comparison makes a string, where the
-//! core's folded each cell's text into a new string at every test; and a
-//! pattern is matched by the walk that remembers its last `*`, linear in the
-//! text for each, allocating nothing, where the core's recursion tried every
-//! split at each `*` and collected two vectors of characters at every test
-//! (the scoping's Found). Both answer as the core's did, folding alike,
-//! which a test holds over generated patterns.
+//! Two texts are one, and ordered by size, in Excel's order of texts
+//! (`super::order`, KERNEL.8, slice c), read as they are, so that no
+//! comparison makes a string, where the core's folded each cell's text into
+//! a new string at every test; a comparison by size that a character
+//! beyond its known order decides is labelled. A pattern is matched
+//! character by character as `value::fold_char` leaves each, by the walk
+//! that remembers its last `*`, linear in the text for each, allocating
+//! nothing, where the core's recursion tried every split at each `*` and
+//! collected two vectors of characters at every test (the scoping's Found).
+//! Both answer as the core's did, folding alike, which a test holds over
+//! generated patterns.
 
 use std::cmp::Ordering;
 
 use super::eval::{compare_numbers, finite, Arg, Ctx, Reason};
 use super::graph::Area;
 use super::index::walk;
-use super::value::{fold_char, fold_cmp, fold_eq, fold_text, text_to_number, ErrorKind, Value};
+use super::order;
+use super::value::{fold_char, fold_text, text_to_number, ErrorKind, Value};
 
 /// What a criterion of `COUNTIF` or `SUMIF` asks of a cell.
 #[derive(Clone, Debug, PartialEq)]
@@ -114,10 +117,12 @@ pub fn criterion(v: &Value) -> Criterion {
     op(target)
 }
 
-/// Whether a cell's value meets the criterion (see the module's comment).
-pub fn meets(cell: &Value, c: &Criterion) -> bool {
+/// Whether a cell's value meets the criterion (see the module's comment);
+/// the label of a comparison of two texts by size that a character beyond
+/// Excel's known order decides.
+pub fn meets(cell: &Value, c: &Criterion) -> Result<bool, Reason> {
     use Ordering::*;
-    match c {
+    Ok(match c {
         Criterion::Eq(t) => equal(cell, t),
         // A text spelling the number is not the number to `<>`, as Excel's
         // save counts it (`Criteria!H4`, `H20`): only a number equal to it
@@ -126,11 +131,11 @@ pub fn meets(cell: &Value, c: &Criterion) -> bool {
             !matches!(cell, Value::Number(x) if compare_numbers(*x, *n) == Equal)
         }
         Criterion::Ne(t) => !equal(cell, t),
-        Criterion::Lt(t) => sized(cell, t) == Some(Less),
-        Criterion::Gt(t) => sized(cell, t) == Some(Greater),
-        Criterion::Le(t) => matches!(sized(cell, t), Some(Less | Equal)),
-        Criterion::Ge(t) => matches!(sized(cell, t), Some(Greater | Equal)),
-    }
+        Criterion::Lt(t) => sized(cell, t)? == Some(Less),
+        Criterion::Gt(t) => sized(cell, t)? == Some(Greater),
+        Criterion::Le(t) => matches!(sized(cell, t)?, Some(Less | Equal)),
+        Criterion::Ge(t) => matches!(sized(cell, t)?, Some(Greater | Equal)),
+    })
 }
 
 /// Whether a cell is equal to a target, as `=` and `<>` ask: a number to
@@ -154,18 +159,19 @@ fn equal(cell: &Value, target: &Target) -> bool {
 
 /// How a cell compares by size with a target, as `<`, `>`, `<=` and `>=`
 /// ask: a number with a number, to fifteen digits; a text with a text, a
-/// match of its wildcards equal; `None` between two kinds, a text spelling a
-/// number with the number among them.
-fn sized(cell: &Value, target: &Target) -> Option<Ordering> {
-    match (cell, target) {
+/// match of its wildcards equal, in Excel's order of texts, labelled where
+/// a character beyond its known order decides (`order::sized`); `None`
+/// between two kinds, a text spelling a number with the number among them.
+fn sized(cell: &Value, target: &Target) -> Result<Option<Ordering>, Reason> {
+    Ok(match (cell, target) {
         (Value::Number(x), Target::Number(n)) => Some(compare_numbers(*x, *n)),
         (Value::Text(t), Target::Text(pattern)) => Some(if wildcard(pattern, t) {
             Ordering::Equal
         } else {
-            fold_cmp(t, pattern)
+            order::sized(t, pattern)?
         }),
         _ => None,
-    }
+    })
 }
 
 /// One token of a pattern: `*` any run of characters, `?` one, or a
@@ -197,16 +203,17 @@ fn token(pattern: &str, at: usize) -> Option<(Token, usize)> {
 
 /// Excel's wildcards, a pattern against a text, both compared as
 /// `value::fold_char` leaves their characters: `*` any run of characters,
-/// `?` one, `~` the next character
-/// itself, a `~` with nothing after it matching nothing more; a pattern with
-/// none of the three is the text itself. The walk that remembers its last
-/// `*`: on a mismatch it lets that `*` take one more character and goes on
-/// from just after it, which is every split a recursion would try that can
-/// still match, so that a pattern costs at most its length times the
-/// text's, and nothing is collected.
+/// `?` one, `~` the next character itself, a `~` with nothing after it
+/// matching nothing more; a pattern with none of the three is the text
+/// itself, as Excel's order of texts holds two texts one (`order::equal`,
+/// `ß` and `ss` one). The walk that remembers its last `*`: on a mismatch
+/// it lets that `*` take one more character and goes on from just after it,
+/// which is every split a recursion would try that can still match, so that
+/// a pattern costs at most its length times the text's, and nothing is
+/// collected.
 pub fn wildcard(pattern: &str, text: &str) -> bool {
     if !has_wildcard(pattern) {
-        return fold_eq(pattern, text);
+        return order::equal(pattern, text);
     }
     let (mut p, mut t) = (0usize, 0usize);
     // The pattern just after the last `*`, and where in the text it took up.
@@ -237,6 +244,52 @@ pub fn wildcard(pattern: &str, text: &str) -> bool {
             }
             None => {
                 // The last `*` takes one more character, or the match fails.
+                let Some((after, from)) = star else {
+                    return false;
+                };
+                let Some(c) = text[from..].chars().next() else {
+                    return false;
+                };
+                let from = from + c.len_utf8();
+                star = Some((after, from));
+                p = after;
+                t = from;
+            }
+        }
+    }
+}
+
+/// [`wildcard`] over a text's beginning (KERNEL.8, slice c): whether the
+/// pattern matches the text's first characters, however many, as `SEARCH`
+/// asks of each place it tries. The same walk, the pattern's end a match
+/// wherever the text stands.
+pub(crate) fn wildcard_prefix(pattern: &str, text: &str) -> bool {
+    let (mut p, mut t) = (0usize, 0usize);
+    let mut star: Option<(usize, usize)> = None;
+    loop {
+        let step = match token(pattern, p) {
+            Some((Token::Star, after)) => {
+                star = Some((after, t));
+                p = after;
+                continue;
+            }
+            Some((Token::Any, after)) => {
+                text[t..].chars().next().map(|c| (after, t + c.len_utf8()))
+            }
+            Some((Token::Char(want), after)) => match text[t..].chars().next() {
+                Some(have) if fold_char(have) == fold_char(want) => {
+                    Some((after, t + have.len_utf8()))
+                }
+                _ => None,
+            },
+            None => return true,
+        };
+        match step {
+            Some((np, nt)) => {
+                p = np;
+                t = nt;
+            }
+            None => {
                 let Some((after, from)) = star else {
                     return false;
                 };
@@ -296,21 +349,23 @@ pub(crate) fn scan_count(ctx: &Ctx<'_>, area: Area, c: &Criterion) -> Result<Val
     }
     let (mut count, mut present) = (0u64, 0u64);
     let mut stop: Option<Reason> = None;
-    walk(ctx, &area, |_, _, read| match read {
-        Ok(v) => {
-            present += 1;
-            count += u64::from(meets(v, c));
-            true
-        }
-        Err(r) => {
-            stop = Some(r.clone());
-            false
+    walk(ctx, &area, |_, _, read| {
+        match read.map_err(Reason::clone).and_then(|v| meets(v, c)) {
+            Ok(met) => {
+                present += 1;
+                count += u64::from(met);
+                true
+            }
+            Err(r) => {
+                stop = Some(r);
+                false
+            }
         }
     });
     if let Some(r) = stop {
         return Err(r);
     }
-    if meets(&Value::Empty, c) {
+    if meets(&Value::Empty, c)? {
         count += cells_of(&area) - present;
     }
     Ok(Value::Number(count as f64))
@@ -419,8 +474,8 @@ pub(crate) fn scan_sum(
             area.top + (row - sums.top),
             area.left + (col - sums.left),
         );
-        match ctx.env.read(at) {
-            Ok(tested) if meets(&tested, c) => match held {
+        match ctx.env.read(at).and_then(|tested| meets(&tested, c)) {
+            Ok(true) => match held {
                 Ok(n) => {
                     total += n;
                     true
@@ -430,7 +485,7 @@ pub(crate) fn scan_sum(
                     false
                 }
             },
-            Ok(_) => true,
+            Ok(false) => true,
             Err(r) => {
                 stop = Some(Err(r));
                 false
@@ -479,6 +534,7 @@ mod tests {
 
     #[test]
     fn criteria_read_as_excel_reads_them() {
+        let meets = |v: &Value, c: &Criterion| super::meets(v, c).unwrap();
         assert_eq!(
             criterion(&Value::Text(">=5".into())),
             Criterion::Ge(Target::Number(5.0))
@@ -551,6 +607,16 @@ mod tests {
         assert!(!meets(&text("e"), &criterion(&text("é"))));
         assert!(wildcard("é*", "Éclair"));
         assert!(wildcard("?clair", "Éclair"));
+        // KERNEL.8, slice c: Excel's order of texts, and its label.
+        assert!(meets(&text("ß"), &criterion(&text("ss"))));
+        assert!(meets(&text("~"), &criterion(&text("<a"))));
+        assert!(meets(&text("co-op"), &criterion(&text(">coop"))));
+        assert_eq!(
+            super::meets(&text("ø"), &criterion(&text("<o"))),
+            Err(order::unknown())
+        );
+        assert!(!meets(&text("ø"), &criterion(&text("o"))));
+        assert!(meets(&text("aø"), &criterion(&text("<bø"))));
     }
 
     #[test]

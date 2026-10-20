@@ -28,7 +28,8 @@ use super::formula::Expr;
 use super::graph::{Area, Areas};
 use super::index::{self, Line};
 use super::library::picked;
-use super::value::{fold_cmp, ErrorKind, Value};
+use super::order;
+use super::value::{ErrorKind, Value};
 
 fn error<'e>(k: ErrorKind) -> Result<Arg<'e>, Reason> {
     Ok(Arg::Scalar(Value::Error(k)))
@@ -84,8 +85,10 @@ fn area_of(arg: &Arg<'_>) -> Option<Area> {
 
 /// Whether one value given where a vector is wanted, as Excel reads a value
 /// there, an array of one, is kept by a search's rule: of the probe's kind
-/// and `keep` keeping how it compares with the probe.
-fn one_kept(v: &Value, probe: &Value, keep: impl Fn(Ordering) -> bool) -> bool {
+/// and `keep` keeping how it compares with the probe; two texts in Excel's
+/// order of texts, labelled where a character beyond its known order
+/// decides an answer that turns on it, which an exact match's never does.
+fn one_kept(v: &Value, probe: &Value, keep: impl Fn(Ordering) -> bool) -> Result<bool, Reason> {
     let kind = |x: &Value| match x {
         Value::Number(_) => Some(0),
         Value::Text(_) => Some(1),
@@ -93,15 +96,24 @@ fn one_kept(v: &Value, probe: &Value, keep: impl Fn(Ordering) -> bool) -> bool {
         _ => None,
     };
     if kind(v).is_none() || kind(v) != kind(probe) {
-        return false;
+        return Ok(false);
     }
     let o = match (v, probe) {
         (Value::Number(a), Value::Number(b)) => exact_order(*a, *b),
-        (Value::Text(a), Value::Text(b)) => fold_cmp(a, b),
+        (Value::Text(a), Value::Text(b)) => {
+            let c = order::compare(a, b);
+            if !c.known
+                && c.order != Ordering::Equal
+                && keep(Ordering::Less) != keep(Ordering::Greater)
+            {
+                return Err(order::unknown());
+            }
+            c.order
+        }
         (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
-        _ => return false,
+        _ => return Ok(false),
     };
-    keep(o)
+    Ok(keep(o))
 }
 
 /// An exact match as `MATCH` 0, `VLOOKUP` and `HLOOKUP` take it: a text
@@ -263,12 +275,12 @@ pub(crate) fn match_(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
                     Value::Text(t) if has_wildcard(t) => {
                         matches!(v, Value::Text(x) if wildcard(t, x))
                     }
-                    _ => one_kept(v, &probe, |o| o == Ordering::Equal),
+                    _ => one_kept(v, &probe, |o| o == Ordering::Equal)?,
                 }
             } else if kind > 0.0 {
-                one_kept(v, &probe, |o| o != Ordering::Greater)
+                one_kept(v, &probe, |o| o != Ordering::Greater)?
             } else {
-                one_kept(v, &probe, |o| o != Ordering::Less)
+                one_kept(v, &probe, |o| o != Ordering::Less)?
             };
             kept.then_some(0)
         }
@@ -337,7 +349,7 @@ fn xsearch(
             return Ok(None);
         };
         let v = ctx.env.read(line.cell(k))?;
-        Ok(one_kept(&v, probe, |o| o == Ordering::Equal).then_some(k))
+        Ok(one_kept(&v, probe, |o| o == Ordering::Equal)?.then_some(k))
     };
     if search > 0 {
         match mode {
@@ -362,17 +374,17 @@ fn xsearch(
 
 /// One value given where `XMATCH`'s or `XLOOKUP`'s vector is wanted, an
 /// array of one: kept by the mode's rule.
-fn xsearch_one(v: &Value, probe: &Value, mode: i8) -> Option<u32> {
+fn xsearch_one(v: &Value, probe: &Value, mode: i8) -> Result<Option<u32>, Reason> {
     let kept = match mode {
-        -1 => one_kept(v, probe, |o| o != Ordering::Greater),
-        1 => one_kept(v, probe, |o| o != Ordering::Less),
+        -1 => one_kept(v, probe, |o| o != Ordering::Greater)?,
+        1 => one_kept(v, probe, |o| o != Ordering::Less)?,
         2 => match probe {
             Value::Text(t) => matches!(v, Value::Text(x) if wildcard(t, x)),
-            _ => one_kept(v, probe, |o| o == Ordering::Equal),
+            _ => one_kept(v, probe, |o| o == Ordering::Equal)?,
         },
-        _ => one_kept(v, probe, |o| o == Ordering::Equal),
+        _ => one_kept(v, probe, |o| o == Ordering::Equal)?,
     };
-    kept.then_some(0)
+    Ok(kept.then_some(0))
 }
 
 /// `XMATCH(value, vector, [mode], [search])`: the position, from 1, of the
@@ -399,7 +411,7 @@ pub(crate) fn xmatch(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         Err(e) => return Ok(Value::Error(e)),
     };
     let found = match &args[1] {
-        Arg::Scalar(v) => xsearch_one(v, &probe, modes.0),
+        Arg::Scalar(v) => xsearch_one(v, &probe, modes.0)?,
         arg => {
             let Some(line) = area_of(arg).and_then(Line::of) else {
                 return Ok(Value::Error(ErrorKind::Value));
@@ -449,13 +461,13 @@ fn table_lookup(ctx: &Ctx<'_>, args: &[Arg], across: bool) -> Result<Value, Reas
                 return Ok(Value::Error(ErrorKind::Ref));
             }
             let kept = if approximate {
-                one_kept(v, &probe, |o| o != Ordering::Greater)
+                one_kept(v, &probe, |o| o != Ordering::Greater)?
             } else {
                 match &probe {
                     Value::Text(t) if has_wildcard(t) => {
                         matches!(v, Value::Text(x) if wildcard(t, x))
                     }
-                    _ => one_kept(v, &probe, |o| o == Ordering::Equal),
+                    _ => one_kept(v, &probe, |o| o == Ordering::Equal)?,
                 }
             };
             return Ok(if kept {
@@ -550,7 +562,7 @@ pub(crate) fn lookup(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     let not_past = |o: Ordering| o != Ordering::Greater;
     let area = match &args[1] {
         Arg::Scalar(v) => {
-            if !one_kept(v, &probe, not_past) {
+            if !one_kept(v, &probe, not_past)? {
                 return Ok(Value::Error(ErrorKind::NA));
             }
             return Ok(match args.get(2) {
@@ -647,7 +659,7 @@ pub(crate) fn xlookup<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Re
         Err(e) => return error(e),
     };
     let (found, length, across) = match &vector {
-        Arg::Scalar(v) => (xsearch_one(v, &probe, modes.0), 1, false),
+        Arg::Scalar(v) => (xsearch_one(v, &probe, modes.0)?, 1, false),
         arg => {
             let Some(line) = area_of(arg).and_then(Line::of) else {
                 return error(ErrorKind::Value);
@@ -768,9 +780,10 @@ mod tests {
     /// The table the lookups search, on a sheet `T`: ascending numbers in
     /// A1:A6 with letters beside them, texts in two cases and beyond ASCII
     /// in C, descending numbers in D, every kind with an empty cell and an
-    /// error in E, numbers in no order in G, and a row of numbers over a row
-    /// of their names in A8:F9. A text spelling a number is written after a
-    /// `'`.
+    /// error in E, numbers in no order in G, a row of numbers over a row of
+    /// their names in A8:F9, and in I texts Excel's order decides, one
+    /// beyond its table (`ø`) among them. A text spelling a number is written
+    /// after a `'`.
     const TABLE: &[(&str, &str)] = &[
         ("A1", "10"),
         ("A2", "20"),
@@ -819,6 +832,12 @@ mod tests {
         ("D9", "four"),
         ("E9", "five"),
         ("F9", "six"),
+        ("I1", "a"),
+        ("I2", "ø"),
+        ("I3", "c"),
+        ("I4", "co-op"),
+        ("I5", "coop"),
+        ("I6", "Straße"),
     ];
 
     /// Each formula's value over [`TABLE`] as `Calc` computes it, spelled,
@@ -1053,6 +1072,38 @@ mod tests {
             ("SUMIF(T!A1:A3,\">15\",T!D1:D6)", "90"),
             // One smaller, which Excel reads past its end: labelled.
             ("SUMIF(T!A1:A6,\">25\",T!D1)", "(not-computed \"T!D1\")"),
+        ]);
+    }
+
+    #[test]
+    fn a_search_orders_texts_as_excel_does_and_labels_one_beyond_it() {
+        // KERNEL.8, slice c: Excel's order of texts in a search and a
+        // criterion, `ß` and `ss` one, and a search that a character beyond
+        // its table decides labelled, by the scan and by the index alike:
+        // each probe asked twice, the second answered from the vector's
+        // index, built at its second probe.
+        const ORDER: &str = "(not-computed \"a character's order\")";
+        holds(&[
+            ("XMATCH(\"b\",T!I1:I3,1)", ORDER),
+            ("XMATCH(\"b\",T!I1:I3,1)", ORDER),
+            ("XMATCH(\"b\",T!I1:I3,-1)", ORDER),
+            ("XMATCH(\"b\",T!I1:I3,-1)", ORDER),
+            // An exact match answers, whatever the order beside it.
+            ("XMATCH(\"Ø\",T!I1:I3,1)", "2"),
+            ("XMATCH(\"Ø\",T!I1:I3,1)", "2"),
+            ("XMATCH(\"ø\",T!I1:I3,0)", "2"),
+            ("MATCH(\"b\",T!I1:I3,1)", ORDER),
+            // "~" stands before "a" in Excel's order, after it in code points.
+            ("MATCH(\"~\",T!I1,1)", NA),
+            ("MATCH(\"co-op\",T!I4:I5,0)", "1"),
+            ("COUNTIF(T!I1:I6,\"<b\")", ORDER),
+            ("COUNTIF(T!I1:I6,\"strasse\")", "1"),
+            ("COUNTIF(T!I1:I6,\"strasse\")", "1"),
+            ("VLOOKUP(\"STRASSE\",T!I1:I6,1,FALSE)", "\"Straße\""),
+            // One value where a vector is wanted, by size and exactly.
+            ("XMATCH(\"b\",\"ø\",1)", ORDER),
+            ("XMATCH(\"ø\",\"Ø\",1)", "1"),
+            ("MATCH(\"b\",\"ø\",0)", NA),
         ]);
     }
 }

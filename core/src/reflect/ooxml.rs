@@ -683,6 +683,10 @@ impl<'a> Source for Package<'a> {
                             }
                         }
                     };
+                    // A formula's text value may be empty, `t="str"` and an
+                    // empty `<v>`, as a host saves `=""` (KERNEL.8, slice c);
+                    // every other kind's empty `<v>` holds nothing.
+                    let empty_text = kind.as_deref() == Some("str") && value_text.is_some();
                     let value_text = value_text.filter(|s| !s.is_empty());
                     let value = match kind.as_deref() {
                         Some("s") => match value_text {
@@ -705,7 +709,11 @@ impl<'a> Source for Package<'a> {
                             }
                             None => None,
                         },
-                        Some("str") => value_text.map(Value::Text),
+                        Some("str") => match value_text {
+                            Some(t) => Some(Value::Text(t)),
+                            None if empty_text => Some(Value::Text(String::new())),
+                            None => None,
+                        },
                         Some("b") => value_text.map(|s| {
                             let s = s.trim();
                             Value::Bool(s == "1" || s.eq_ignore_ascii_case("true"))
@@ -914,6 +922,29 @@ mod tests {
         assert!(stats.part_bytes > 500);
         let summary = package.summary();
         assert_eq!((summary.strings, summary.names, summary.tables), (2, 0, 0));
+    }
+
+    #[test]
+    fn a_formula_s_empty_text_reads_as_one() {
+        // KERNEL.8, slice c: a host saves `=""` as `t="str"` and an empty
+        // `<v>`, which is the empty text; with no `<v>`, or a number's empty
+        // `<v>`, the cell holds nothing.
+        let data = concat!(
+            "<row r=\"1\"><c r=\"A1\" t=\"str\"><f>\"\"&amp;\"\"</f><v></v></c>",
+            "<c r=\"B1\" t=\"str\"><f>\"\"&amp;\"\"</f></c>",
+            "<c r=\"C1\"><f>1+1</f><v></v></c></row>",
+        );
+        let text = reflect_text(&one_sheet(data, None), "t.xlsx").unwrap();
+        assert_eq!(
+            text,
+            concat!(
+                "(sheet \"Model\" visible)\n",
+                "(cell \"Model\" \"A1\" \"\")\n",
+                "(formula \"Model\" \"A1\" \"=\\\"\\\"&\\\"\\\"\")\n",
+                "(formula \"Model\" \"B1\" \"=\\\"\\\"&\\\"\\\"\")\n",
+                "(formula \"Model\" \"C1\" \"=1+1\")\n",
+            )
+        );
     }
 
     #[test]

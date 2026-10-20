@@ -1,0 +1,550 @@
+# The text functions' fixture (KERNEL.8, slice c): a Data sheet of the texts the functions read, words and spaces, an
+# apostrophe and digits among letters, letters beyond ASCII, an emoji (a surrogate pair, two UTF-16 units) first and
+# between letters, a number, a truth value and an error, a row of texts with an empty cell among them, delimiters, and
+# texts a locale might read; a Functions sheet of one formula a function and a rule, each a legacy formula, TEXT's
+# dates and times among them, and the comparisons the order of texts answers; and an Order sheet of characters and
+# texts, each beside its rank among them, SUMPRODUCT(--(range<text)), which this version does not compute: the
+# order's golden, Excel's own ranks, read off its save. Built by frazaro into texts.xlsx (each value it computes
+# held); the owner's save of it is texts_saved.xlsx.
+
+Work on sheet Data.
+Put "Hello World" into cell A1.
+Put "  lots   of   space  " into cell A2.
+Put "o'neil 2nd-place" into cell A3.
+Put "Éclair ß" into cell A4.
+Put "😀ab" into cell A5.
+Put "a😀b" into cell A6.
+Put "x" into cell B1.
+Put "z" into cell B3.
+Put "1,000" into cell C1.
+Put "12abc" into cell C2.
+Put "50%" into cell C3.
+Put " 7 " into cell C4.
+Put "abc" into cell C5.
+Put "-" into cell D1.
+Put "+" into cell D2.
+Put 123.5 into cell A7.
+Put formula "=TRUE" into cell A8.
+Put formula "=1/0" into cell A9.
+
+Work on sheet Functions.
+Put formula "=LEN(Data!A1)" into cell A1.
+Put formula "=LEN(Data!A5)" into cell A2.
+Put formula "=LEN(Data!A7)" into cell A3.
+Put formula "=LEN(Data!A8)" into cell A4.
+Put formula "=LEN("""")" into cell A5.
+Put formula "=LEN(Data!A9)" into cell A6.
+Put formula "=LEFT(Data!A1)" into cell A7.
+Put formula "=LEFT(Data!A1,5)" into cell A8.
+Put formula "=LEFT(Data!A1,99)" into cell A9.
+Put formula "=LEFT(Data!A1,0)" into cell A10.
+Put formula "=LEFT(Data!A1,2.9)" into cell A11.
+Put formula "=LEFT(Data!A1,-1)" into cell A12.
+Put formula "=LEFT(Data!A1,-0.5)" into cell A13.
+Put formula "=LEFT(1234,2)" into cell A14.
+Put formula "=LEFT(Data!A5,2)" into cell A15.
+Put formula "=LEFT(Data!A5,1)" into cell A16.
+Put formula "=RIGHT(Data!A1,5)" into cell A17.
+Put formula "=RIGHT(Data!A6,3)" into cell A18.
+Put formula "=RIGHT(Data!A6,2)" into cell A19.
+Put formula "=MID(Data!A1,7,5)" into cell A20.
+Put formula "=MID(Data!A1,7,99)" into cell A21.
+Put formula "=MID(Data!A1,20,5)" into cell A22.
+Put formula "=MID(Data!A1,0,5)" into cell A23.
+Put formula "=MID(Data!A1,1,-1)" into cell A24.
+Put formula "=MID(Data!A6,2,2)" into cell A25.
+Put formula "=MID(Data!A6,3,1)" into cell A26.
+Put formula "=MID(Data!A1,1.9,2)" into cell A27.
+Put formula "=FIND(""o"",Data!A1)" into cell A28.
+Put formula "=FIND(""o"",Data!A1,6)" into cell A29.
+Put formula "=FIND(""O"",Data!A1)" into cell A30.
+Put formula "=FIND(""x"",Data!A1)" into cell A31.
+Put formula "=FIND(""o"",Data!A1,0)" into cell A32.
+Put formula "=FIND(""o"",Data!A1,12)" into cell A33.
+Put formula "=FIND("""",Data!A1)" into cell A34.
+Put formula "=FIND("""",Data!A1,3)" into cell A35.
+Put formula "=FIND("""",Data!A1,12)" into cell A36.
+Put formula "=FIND("""","""")" into cell A37.
+Put formula "=FIND(""b"",Data!A6)" into cell A38.
+Put formula "=SEARCH(""O"",Data!A1)" into cell A39.
+Put formula "=SEARCH(""w?r"",Data!A1)" into cell A40.
+Put formula "=SEARCH(""l*d"",Data!A1)" into cell A41.
+Put formula "=SEARCH(""~*"",""a*b"")" into cell A42.
+Put formula "=SEARCH(""é"",Data!A4)" into cell A43.
+Put formula "=SEARCH(""É"",Data!A4)" into cell A44.
+Put formula "=SEARCH(""?"",Data!A6)" into cell A45.
+Put formula "=SEARCH(""b"",Data!A6)" into cell A46.
+Put formula "=SEARCH(""*"",Data!A1)" into cell A47.
+Put formula "=SEARCH(""d*"",Data!A1)" into cell A48.
+Put formula "=SUBSTITUTE(""aaa"",""aa"",""b"")" into cell A49.
+Put formula "=SUBSTITUTE(""a-b-c"",""-"",""+"")" into cell A50.
+Put formula "=SUBSTITUTE(""a-b-c"",""-"",""+"",2)" into cell A51.
+Put formula "=SUBSTITUTE(""a-b-c"",""-"",""+"",3)" into cell A52.
+Put formula "=SUBSTITUTE(""abc"","""",""x"")" into cell A53.
+Put formula "=SUBSTITUTE(""abc"",""B"",""x"")" into cell A54.
+Put formula "=SUBSTITUTE(""abc"",""b"",""x"",0)" into cell A55.
+Put formula "=SUBSTITUTE(""abc"",""b"",""x"",1.9)" into cell A56.
+Put formula "=REPLACE(""abcdef"",2,3,""X"")" into cell A57.
+Put formula "=REPLACE(""abc"",10,1,""X"")" into cell A58.
+Put formula "=REPLACE(""abc"",0,1,""X"")" into cell A59.
+Put formula "=REPLACE(""abc"",1,-1,""X"")" into cell A60.
+Put formula "=REPLACE(Data!A5,2,1,""X"")" into cell A61.
+Put formula "=REPLACE(Data!A5,3,1,""X"")" into cell A62.
+Put formula "=UPPER(Data!A4)" into cell A63.
+Put formula "=LOWER(""ÉCLAIR"")" into cell A64.
+Put formula "=PROPER(Data!A3)" into cell A65.
+Put formula "=PROPER(""hELLO wORLD"")" into cell A66.
+Put formula "=UPPER(""ﬁ"")" into cell A67.
+Put formula "=LOWER(""İ"")" into cell A68.
+Put formula "=PROPER(""élan vital"")" into cell A69.
+Put formula "=TRIM(Data!A2)" into cell A70.
+Put formula "=TRIM("" a"" & CHAR(9) & ""b "")" into cell A71.
+Put formula "=EXACT(""a"",""A"")" into cell A72.
+Put formula "=EXACT(""a"",""a"")" into cell A73.
+Put formula "=EXACT(1,""1"")" into cell A74.
+Put formula "=EXACT(TRUE,""TRUE"")" into cell A75.
+Put formula "=REPT(""ab"",3)" into cell A76.
+Put formula "=REPT(""ab"",0)" into cell A77.
+Put formula "=REPT(""ab"",-1)" into cell A78.
+Put formula "=REPT(""ab"",2.9)" into cell A79.
+Put formula "=REPT(""ab"",20000)" into cell A80.
+Put formula "=LEN(REPT(""x"",32767))" into cell A81.
+Put formula "=LEN(REPT(""x"",32767)&""x"")" into cell A82.
+Put formula "=LEN(REPT(""😀"",16383)&""x"")" into cell A83.
+Put formula "=LEN(REPT(""😀"",16384))" into cell A84.
+Put formula "=LEN(CONCATENATE(REPT(""x"",32767),""x""))" into cell A85.
+Put formula "=LEN(SUBSTITUTE(REPT(""x"",20000),""x"",""yy""))" into cell A86.
+Put formula "=VALUE(Data!C3)" into cell A87.
+Put formula "=VALUE(Data!C4)" into cell A88.
+Put formula "=VALUE(5)" into cell A89.
+Put formula "=VALUE(Data!C5)" into cell A90.
+Put formula "=VALUE(Data!A8)" into cell A91.
+Put formula "=VALUE(Data!C1)" into cell A92.
+Put formula "=VALUE(Data!C2)" into cell A93.
+Put formula "=VALUE(""1e3"")" into cell A94.
+Put formula "=VALUE(""-.5"")" into cell A95.
+Put formula "=VALUE("""")" into cell A96.
+Put formula "=T(Data!A1)" into cell A97.
+Put formula "=T(5)" into cell A98.
+Put formula "=T(Data!A9)" into cell A99.
+Put formula "=T(Data!A8)" into cell A100.
+Put formula "=N(5)" into cell A101.
+Put formula "=N(Data!A8)" into cell A102.
+Put formula "=N(""x"")" into cell A103.
+Put formula "=N(Data!A9)" into cell A104.
+Put formula "=N(Data!A1)" into cell A105.
+Put formula "=UNICODE(""A"")" into cell A106.
+Put formula "=UNICODE(Data!A5)" into cell A107.
+Put formula "=UNICODE("""")" into cell A108.
+Put formula "=UNICODE(""é"")" into cell A109.
+Put formula "=UNICHAR(65)" into cell A110.
+Put formula "=UNICHAR(233)" into cell A111.
+Put formula "=UNICHAR(128512)" into cell A112.
+Put formula "=UNICHAR(55296)" into cell A113.
+Put formula "=UNICHAR(0)" into cell A114.
+Put formula "=UNICHAR(1114112)" into cell A115.
+Put formula "=UNICHAR(65.9)" into cell A116.
+Put formula "=CHAR(65)" into cell A117.
+Put formula "=CHAR(32)" into cell A118.
+Put formula "=CHAR(126)" into cell A119.
+Put formula "=CHAR(200)" into cell A120.
+Put formula "=CHAR(0)" into cell A121.
+Put formula "=CHAR(256)" into cell A122.
+Put formula "=CODE(""A"")" into cell A123.
+Put formula "=CODE(""abc"")" into cell A124.
+Put formula "=CODE(""é"")" into cell A125.
+Put formula "=CODE("""")" into cell A126.
+Put formula "=CONCATENATE(""a"",1,TRUE)" into cell A127.
+Put formula "=CONCATENATE(Data!A9,""x"")" into cell A128.
+Put formula "=CONCATENATE(""a"",Data!B2,""b"")" into cell A129.
+Put formula "=CONCAT(Data!B1:B3)" into cell A130.
+Put formula "=CONCAT(""a"",Data!B1:B3,""b"")" into cell A131.
+Put formula "=CONCAT(Data!A8:A9)" into cell A132.
+Put formula "=CONCAT(Data!C1:D2)" into cell A133.
+Put formula "=TEXTJOIN("","",TRUE,Data!B1:B3)" into cell A134.
+Put formula "=TEXTJOIN("","",FALSE,Data!B1:B3)" into cell A135.
+Put formula "=TEXTJOIN("","",TRUE,""a"","""",""b"")" into cell A136.
+Put formula "=TEXTJOIN("","",FALSE,""a"","""",""b"")" into cell A137.
+Put formula "=TEXTJOIN("""",FALSE,Data!B1:B3)" into cell A138.
+Put formula "=TEXTJOIN(Data!D1:D2,TRUE,""a"",""b"",""c"")" into cell A139.
+Put formula "=TEXTJOIN("","",TRUE,Data!A9)" into cell A140.
+Put formula "=TEXTJOIN("", "",TRUE,Data!C1:D2)" into cell A141.
+Put formula "=LEN(TEXTJOIN("","",FALSE,Data!B:B))" into cell A142.
+Put formula "=TEXT(1234.5,""#,##0.00"")" into cell A143.
+Put formula "=TEXT(0.256,""0.0%"")" into cell A144.
+Put formula "=TEXT(45292,""yyyy-mm-dd"")" into cell A145.
+Put formula "=TEXT(45292,""dddd, mmmm d"")" into cell A146.
+Put formula "=TEXT(45292,""ddd d mmm yy"")" into cell A147.
+Put formula "=TEXT(45292,""mmmmm"")" into cell A148.
+Put formula "=TEXT(45292,""d/m/yyyy"")" into cell A149.
+Put formula "=TEXT(60,""yyyy-mm-dd"")" into cell A150.
+Put formula "=TEXT(0,""yyyy-mm-dd ddd"")" into cell A151.
+Put formula "=TEXT(1,""dddd"")" into cell A152.
+Put formula "=TEXT(2958465,""yyyy-mm-dd"")" into cell A153.
+Put formula "=TEXT(0.75,""h:mm AM/PM"")" into cell A154.
+Put formula "=TEXT(0.75,""hh:mm:ss"")" into cell A155.
+Put formula "=TEXT(0.5,""h:mm a/p"")" into cell A156.
+Put formula "=TEXT(1.5,""[h]:mm"")" into cell A157.
+Put formula "=TEXT(1/24,""[mm]:ss"")" into cell A158.
+Put formula "=TEXT(1.5/86400,""mm:ss.00"")" into cell A159.
+Put formula "=TEXT(0.99999999,""h:mm:ss"")" into cell A160.
+Put formula "=TEXT(59.6/86400,""h:mm"")" into cell A161.
+Put formula "=TEXT(45292.75,""yyyy-mm-dd hh:mm"")" into cell A162.
+Put formula "=TEXT(""12"",""0.00"")" into cell A163.
+Put formula "=TEXT(""abc"",""0.00"")" into cell A164.
+Put formula "=TEXT(""abc"",""0;0;0;""""<""""@"""">"""""")" into cell A165.
+Put formula "=TEXT(Data!A8,""0"")" into cell A166.
+Put formula "=TEXT(-1,""yyyy"")" into cell A167.
+Put formula "=TEXT(2958466,""yyyy"")" into cell A168.
+Put formula "=TEXT(1.5,""General"")" into cell A169.
+Put formula "=TEXT(5,""@"")" into cell A170.
+Put formula "=TEXT(5,"""")" into cell A171.
+Put formula "=TEXT(Data!A9,""0"")" into cell A172.
+Put formula "=""a""=""A""" into cell A173.
+Put formula "=""é""=""É""" into cell A174.
+Put formula "=""é""=""e""" into cell A175.
+Put formula "=""ß""=""ss""" into cell A176.
+Put formula "=""a""<""B""" into cell A177.
+Put formula "=""B""<""a""" into cell A178.
+Put formula "=""Z""<""a""" into cell A179.
+Put formula "=""-""<""a""" into cell A180.
+Put formula "="" ""<""0""" into cell A181.
+Put formula "=""0""<""a""" into cell A182.
+Put formula "=""_""<""a""" into cell A183.
+Put formula "=""[""<""a""" into cell A184.
+Put formula "=""~""<""a""" into cell A185.
+Put formula "=""é""<""f""" into cell A186.
+Put formula "=""e""<""é""" into cell A187.
+Put formula "=""co-op""<""coop""" into cell A188.
+Put formula "=""coop""<""co-op""" into cell A189.
+Put formula "=""a b""<""ab""" into cell A190.
+Put formula "=""a""<""a """ into cell A191.
+Put formula "=""10""<""9""" into cell A192.
+
+Work on sheet Order.
+Put " " into cell A1.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A1))" into cell B1.
+Put "!" into cell A2.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A2))" into cell B2.
+Put """" into cell A3.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A3))" into cell B3.
+Put "#" into cell A4.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A4))" into cell B4.
+Put "$" into cell A5.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A5))" into cell B5.
+Put "%" into cell A6.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A6))" into cell B6.
+Put "&" into cell A7.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A7))" into cell B7.
+Put "'" into cell A8.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A8))" into cell B8.
+Put "(" into cell A9.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A9))" into cell B9.
+Put ")" into cell A10.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A10))" into cell B10.
+Put "*" into cell A11.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A11))" into cell B11.
+Put "+" into cell A12.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A12))" into cell B12.
+Put "," into cell A13.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A13))" into cell B13.
+Put "-" into cell A14.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A14))" into cell B14.
+Put "." into cell A15.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A15))" into cell B15.
+Put "/" into cell A16.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A16))" into cell B16.
+Put "0" into cell A17.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A17))" into cell B17.
+Put "1" into cell A18.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A18))" into cell B18.
+Put "2" into cell A19.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A19))" into cell B19.
+Put "3" into cell A20.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A20))" into cell B20.
+Put "4" into cell A21.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A21))" into cell B21.
+Put "5" into cell A22.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A22))" into cell B22.
+Put "6" into cell A23.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A23))" into cell B23.
+Put "7" into cell A24.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A24))" into cell B24.
+Put "8" into cell A25.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A25))" into cell B25.
+Put "9" into cell A26.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A26))" into cell B26.
+Put ":" into cell A27.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A27))" into cell B27.
+Put ";" into cell A28.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A28))" into cell B28.
+Put "<" into cell A29.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A29))" into cell B29.
+Put "=" into cell A30.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A30))" into cell B30.
+Put ">" into cell A31.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A31))" into cell B31.
+Put "?" into cell A32.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A32))" into cell B32.
+Put "@" into cell A33.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A33))" into cell B33.
+Put "A" into cell A34.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A34))" into cell B34.
+Put "B" into cell A35.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A35))" into cell B35.
+Put "C" into cell A36.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A36))" into cell B36.
+Put "D" into cell A37.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A37))" into cell B37.
+Put "E" into cell A38.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A38))" into cell B38.
+Put "F" into cell A39.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A39))" into cell B39.
+Put "G" into cell A40.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A40))" into cell B40.
+Put "H" into cell A41.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A41))" into cell B41.
+Put "I" into cell A42.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A42))" into cell B42.
+Put "J" into cell A43.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A43))" into cell B43.
+Put "K" into cell A44.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A44))" into cell B44.
+Put "L" into cell A45.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A45))" into cell B45.
+Put "M" into cell A46.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A46))" into cell B46.
+Put "N" into cell A47.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A47))" into cell B47.
+Put "O" into cell A48.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A48))" into cell B48.
+Put "P" into cell A49.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A49))" into cell B49.
+Put "Q" into cell A50.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A50))" into cell B50.
+Put "R" into cell A51.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A51))" into cell B51.
+Put "S" into cell A52.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A52))" into cell B52.
+Put "T" into cell A53.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A53))" into cell B53.
+Put "U" into cell A54.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A54))" into cell B54.
+Put "V" into cell A55.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A55))" into cell B55.
+Put "W" into cell A56.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A56))" into cell B56.
+Put "X" into cell A57.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A57))" into cell B57.
+Put "Y" into cell A58.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A58))" into cell B58.
+Put "Z" into cell A59.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A59))" into cell B59.
+Put "[" into cell A60.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A60))" into cell B60.
+Put "\" into cell A61.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A61))" into cell B61.
+Put "]" into cell A62.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A62))" into cell B62.
+Put "^" into cell A63.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A63))" into cell B63.
+Put "_" into cell A64.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A64))" into cell B64.
+Put "`" into cell A65.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A65))" into cell B65.
+Put "a" into cell A66.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A66))" into cell B66.
+Put "b" into cell A67.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A67))" into cell B67.
+Put "c" into cell A68.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A68))" into cell B68.
+Put "d" into cell A69.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A69))" into cell B69.
+Put "e" into cell A70.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A70))" into cell B70.
+Put "f" into cell A71.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A71))" into cell B71.
+Put "g" into cell A72.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A72))" into cell B72.
+Put "h" into cell A73.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A73))" into cell B73.
+Put "i" into cell A74.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A74))" into cell B74.
+Put "j" into cell A75.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A75))" into cell B75.
+Put "k" into cell A76.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A76))" into cell B76.
+Put "l" into cell A77.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A77))" into cell B77.
+Put "m" into cell A78.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A78))" into cell B78.
+Put "n" into cell A79.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A79))" into cell B79.
+Put "o" into cell A80.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A80))" into cell B80.
+Put "p" into cell A81.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A81))" into cell B81.
+Put "q" into cell A82.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A82))" into cell B82.
+Put "r" into cell A83.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A83))" into cell B83.
+Put "s" into cell A84.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A84))" into cell B84.
+Put "t" into cell A85.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A85))" into cell B85.
+Put "u" into cell A86.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A86))" into cell B86.
+Put "v" into cell A87.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A87))" into cell B87.
+Put "w" into cell A88.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A88))" into cell B88.
+Put "x" into cell A89.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A89))" into cell B89.
+Put "y" into cell A90.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A90))" into cell B90.
+Put "z" into cell A91.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A91))" into cell B91.
+Put "{" into cell A92.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A92))" into cell B92.
+Put "|" into cell A93.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A93))" into cell B93.
+Put "}" into cell A94.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A94))" into cell B94.
+Put "~" into cell A95.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A95))" into cell B95.
+Put "é" into cell A96.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A96))" into cell B96.
+Put "è" into cell A97.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A97))" into cell B97.
+Put "ê" into cell A98.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A98))" into cell B98.
+Put "ë" into cell A99.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A99))" into cell B99.
+Put "à" into cell A100.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A100))" into cell B100.
+Put "â" into cell A101.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A101))" into cell B101.
+Put "ä" into cell A102.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A102))" into cell B102.
+Put "å" into cell A103.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A103))" into cell B103.
+Put "á" into cell A104.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A104))" into cell B104.
+Put "ñ" into cell A105.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A105))" into cell B105.
+Put "ç" into cell A106.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A106))" into cell B106.
+Put "ö" into cell A107.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A107))" into cell B107.
+Put "ô" into cell A108.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A108))" into cell B108.
+Put "ò" into cell A109.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A109))" into cell B109.
+Put "ø" into cell A110.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A110))" into cell B110.
+Put "ü" into cell A111.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A111))" into cell B111.
+Put "û" into cell A112.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A112))" into cell B112.
+Put "ù" into cell A113.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A113))" into cell B113.
+Put "ú" into cell A114.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A114))" into cell B114.
+Put "æ" into cell A115.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A115))" into cell B115.
+Put "œ" into cell A116.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A116))" into cell B116.
+Put "ß" into cell A117.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A117))" into cell B117.
+Put "ÿ" into cell A118.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A118))" into cell B118.
+Put "ı" into cell A119.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A119))" into cell B119.
+Put "İ" into cell A120.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A120))" into cell B120.
+Put "×" into cell A121.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A121))" into cell B121.
+Put "÷" into cell A122.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A122))" into cell B122.
+Put "¿" into cell A123.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A123))" into cell B123.
+Put "¡" into cell A124.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A124))" into cell B124.
+Put "µ" into cell A125.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A125))" into cell B125.
+Put "°" into cell A126.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A126))" into cell B126.
+Put "€" into cell A127.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A127))" into cell B127.
+Put "—" into cell A128.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A128))" into cell B128.
+Put "’" into cell A129.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A129))" into cell B129.
+Put " " into cell A130.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A130))" into cell B130.
+Put "Ω" into cell A131.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A131))" into cell B131.
+Put "α" into cell A132.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A132))" into cell B132.
+Put "Ж" into cell A133.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A133))" into cell B133.
+Put "日" into cell A134.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A134))" into cell B134.
+Put "😀" into cell A135.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A135))" into cell B135.
+Put "co-op" into cell A136.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A136))" into cell B136.
+Put "coop" into cell A137.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A137))" into cell B137.
+Put "co op" into cell A138.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A138))" into cell B138.
+Put "coo" into cell A139.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A139))" into cell B139.
+Put "cop" into cell A140.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A140))" into cell B140.
+Put "a-" into cell A141.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A141))" into cell B141.
+Put "-a" into cell A142.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A142))" into cell B142.
+Put "ab" into cell A143.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A143))" into cell B143.
+Put "a b" into cell A144.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A144))" into cell B144.
+Put "a-b" into cell A145.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A145))" into cell B145.
+Put "a'b" into cell A146.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A146))" into cell B146.
+Put "résumé" into cell A147.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A147))" into cell B147.
+Put "resume" into cell A148.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A148))" into cell B148.
+Put "Résumé" into cell A149.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A149))" into cell B149.
+Put "ss" into cell A150.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A150))" into cell B150.
+Put "st" into cell A151.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A151))" into cell B151.
+Put "ae" into cell A152.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A152))" into cell B152.
+Put "af" into cell A153.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A153))" into cell B153.
+Put "10" into cell A154.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A154))" into cell B154.
+Put "2" into cell A155.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A155))" into cell B155.
+Put "A1" into cell A156.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A156))" into cell B156.
+Put "A10" into cell A157.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A157))" into cell B157.
+Put "A2" into cell A158.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A158))" into cell B158.
+Put "a1" into cell A159.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A159))" into cell B159.
+Put "  " into cell A160.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A160))" into cell B160.
+Put "aa" into cell A161.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A161))" into cell B161.
+Put "aA" into cell A162.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A162))" into cell B162.
+Put "Aa" into cell A163.
+Put formula "=SUMPRODUCT(--($A$1:$A$163<A163))" into cell B163.

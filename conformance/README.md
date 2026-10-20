@@ -1612,3 +1612,76 @@ engine's load with the constructs (`calc-construct-not-read`); and a
 `.last` twin holding a reason beside its cells answers it to a range over
 the twin as its sheet answers a range over itself, the twin offering no
 array to a walk while the reason stands.
+
+## Amendment of 2026-10-19: oracle 12's text functions and oracle 11's dates (`KERNEL.8`, its third slice)
+
+The language computes twenty-five text functions, `CONCATENATE`, `CONCAT`,
+`TEXTJOIN`, `LEFT`, `RIGHT`, `MID`, `LEN`, `FIND`, `SEARCH`, `SUBSTITUTE`,
+`REPLACE`, `UPPER`, `LOWER`, `PROPER`, `TRIM`, `REPT`, `EXACT`, `VALUE`,
+`T`, `N`, `UNICODE`, `UNICHAR`, `CHAR`, `CODE` and `TEXT`, each as Excel's
+documentation states it and as Excel 365's save of the fixture answers. A
+text is counted by its characters, as Excel counts it, an emoji one; a
+count, a start or an instance is read down to the whole number at or below
+it, so that `LEFT(text,-0.5)` is `#VALUE!`. Excel's limit on a text, 32,767,
+is in UTF-16 units, an emoji two: a text `REPT`, `SUBSTITUTE`, `REPLACE`,
+`CONCAT`, `TEXTJOIN` or `TEXT` would make past it is `#VALUE!`, and one `&`
+or `CONCATENATE` makes is cut to it, labelled where the cut would halve a
+surrogate pair, a text of the language holding no half. `UPPER` and
+`LOWER` map a letter by Unicode's simple mapping, one character for one,
+`LOWER("İ")` an `i` and `UPPER("ß")` a `ß`. `CHAR` and `CODE` compute over
+ASCII and label a code page's 128 to 255; `VALUE` labels a text holding a
+digit that no operator reads, which a host reads by its locale; `TEXT`
+draws by a number format's code and labels a code this version does not
+draw. `FIXED` and `DOLLAR`, a locale's separators and currency, are not
+computed.
+
+**The order of texts.** Two texts compare as Excel's save ranks them: by
+their characters' places (the space, the punctuation and the currency, the
+other signs, the digits, then the letters, each with its accented forms,
+then the save's five of other scripts), then by their accents (none, acute,
+grave, circumflex, diaeresis, ring), case aside, and last by their
+apostrophes, hyphens and em dashes, passed by until then, a text without one
+first and of two with one at different places the later first; `ß` is `ss`
+and `æ` is `ae`. The operators, a lookup's search, an index's keys and a
+criterion all take it. The table of places holds the characters the save
+ranks and what its levels give: ASCII's printable characters, nine signs
+beyond it, the em dash, the letters with an acute, a grave, a circumflex or
+a diaeresis, `å`, `ç`, `ñ`, `æ`, `ß`, `α`, `ω`, `ж`, `😀` and `日`, each
+letter in both its cases. A comparison by size that a character beyond the
+table decides, its place unknown, is labelled `(not-computed "a character's
+order")`; whether two texts are one is answered always, by the fold beyond
+the table.
+
+**Oracle 11's dates.** A number format's code may hold a date's and a
+time's parts: the year, the month by number or English name, the day or
+the weekday's English name, the hour, the minute, the second and its
+decimals, an elapsed time and a twelve-hour clock, drawn over Excel's 1900
+calendar, its 29 February 1900 among its days; a negative number and one
+past 31 December 9999 draw no date. `scripts/formats.txt` holds nine cases
+of them beside its first date's, which was refused and draws now, and
+`scripts/formats_golden.txt` the text Excel draws for each, written ahead
+as the prediction and written again by the reference's
+`VlaWriteFormatsGolden` unchanged.
+
+**The fixture.** `scripts/recalc/texts.txt`, built by the door into
+`texts.xlsx`, holds 357 formulas: a Functions sheet of 192, one a function
+and a rule, `TEXT`'s dates among them, and the comparisons the order of
+texts answers; and an Order sheet of 163 characters and texts, each ranked
+among them by `SUMPRODUCT`, which this version does not compute, so that
+Excel's save holds its own order of texts for the language to be held to.
+`texts_calc.vla` is the door's record of it: 190 rows `agree` with the
+values the build folded, an empty text among them, and 167 labelled, pinned
+`built`. The owner's Excel 365 save of it, `texts_saved.xlsx`, joins the
+table at `no-differ`, its 190 computed rows agreeing with Excel's and its
+Order sheet's 163 ranks the order the language's own tests hold rank for
+rank. The save differed in 17 rows until the language counted characters,
+cut `&` and `CONCATENATE` at the limit, read a count down, lowered `İ` and
+ordered texts as Excel does.
+
+**A formula's empty text.** The xlsx reader reads `t="str"` and an empty
+`<v>`, as a host saves a formula's `""`, as the empty text, where it read
+nothing; any other kind's empty `<v>` still holds nothing.
+
+**The subset's fixture.** `CONCATENATE("a","b")` computes `"ab"`, as
+Excel's save holds it, so that `subset.xlsx`, built again, and
+`subset_saved.xlsx` agree in 106 rows each.

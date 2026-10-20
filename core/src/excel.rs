@@ -25,8 +25,9 @@
 //! the tables too), and the fourteen `KERNEL.8` brought, the lookups, the
 //! error tests a lookup's miss is read by, and `SUMIF` and `COUNTIF`, moved
 //! down from this file with their criteria since a vector's index keys by
-//! them and a cartridge counts duplicates (Alonzo's `CART.13`), and
-//! `SINGLE`, Excel's `@`, with implicit intersection (its second slice).
+//! them and a cartridge counts duplicates (Alonzo's `CART.13`),
+//! `SINGLE`, Excel's `@`, with implicit intersection (its second slice),
+//! and the twenty-five text functions with `TEXT` (its third).
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -52,7 +53,7 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the fourteen `KERNEL.8` brought, then Excel's.
+/// fourteen and the thirty-nine `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -167,6 +168,106 @@ pub const SUBSET: &[Entry] = &[
         evidence: "Excel's @ as its file spells it, with implicit intersection; scripts/recalc/intersect.txt",
     },
     Entry {
+        name: "CONCATENATE",
+        evidence: "Enron 8, EUSES 5; the text functions, KERNEL.8; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "CONCAT",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "TEXTJOIN",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "LEFT",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "RIGHT",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "MID",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "LEN",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "FIND",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "SEARCH",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "SUBSTITUTE",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "REPLACE",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "UPPER",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "LOWER",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "PROPER",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "TRIM",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "REPT",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "EXACT",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "VALUE",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "T",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "N",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "UNICODE",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "UNICHAR",
+        evidence: "the text functions, KERNEL.8, Alonzo's CART.13 among their readers; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "CHAR",
+        evidence: "over ASCII, another code page's labelled (the owner's decision), KERNEL.8; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "CODE",
+        evidence: "over ASCII, another code page's labelled (the owner's decision), KERNEL.8; scripts/recalc/texts.txt",
+    },
+    Entry {
+        name: "TEXT",
+        evidence: "a number format's code drawn by numfmt, a date's among them, KERNEL.8; scripts/recalc/texts.txt",
+    },
+    Entry {
         name: "AVERAGE",
         evidence: "Enron 3, EUSES 8",
     },
@@ -194,7 +295,6 @@ pub const SUBSET: &[Entry] = &[
 pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
     ("SUBTOTAL", "KERNEL.8, the aggregates by criteria"),
     ("DAVERAGE", "KERNEL.8, the database functions"),
-    ("CONCATENATE", "KERNEL.8, the text functions"),
     ("MONTH", "KERNEL.8, the dates"),
     ("NOW", "volatile: an engine refuses it, a door shows it"),
     ("OFFSET", "unreadable by the reader's rule"),

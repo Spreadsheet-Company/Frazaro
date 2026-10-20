@@ -128,6 +128,24 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # beside it, 31 and 28. Excel's second save, intersect_saved 31 at
 # no-differ, 28 agree and the three arrays unchecked beside the values
 # Excel spilled; it writes @ bare where a legacy formula's top holds it.
+# 2026-10-19, KERNEL.8's third slice, the text functions: the subset's
+# CONCATENATE("a","b") computed, "ab" as Excel's save holds it, so subset
+# and subset_saved agree 106, the subset built again; and texts 357, the
+# text functions' fixture built by the door (scripts/recalc/texts.txt), 185
+# agreeing with the values it folded, an empty text among them (the reader
+# taking `t="str"` and an empty `<v>` for one), nine labelled (a cut
+# through a surrogate pair, a wildcard
+# over one, a locale's number, a code page's character and code) and the
+# Order sheet's 163 ranks, SUMPRODUCT's, labelled, pinned 'built' until the
+# owner's save of it, texts_saved.xlsx, joins this table.
+# 2026-10-20, the third slice folded to Excel's save, which differed in 17
+# rows: Excel counts a character, an emoji one, so the cuts through a pair
+# and the wildcard over one compute; a count is read down to the whole
+# number below it, LEFT(text,-0.5) #VALUE!; LOWER("I with a dot") is i; & and
+# CONCATENATE cut at 32,767 units; and texts order as Excel's ranks say
+# (vla-lang's calc::order). texts built again, 190 agreeing and 167
+# labelled (four of the slice's, the 163 ranks); texts_saved 357 at
+# no-differ, its 190 computed agreeing with Excel's.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -140,13 +158,15 @@ $goldens = @(
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 23 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
-    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 105 },
-    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 105 },
+    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 106 },
+    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
     @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 165; Pin = 'built';     AgreeFloor = 160 },
     @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 },
     @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 31;  Pin = 'built';     AgreeFloor = 28 },
-    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 }
+    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 },
+    @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 190 },
+    @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
@@ -269,16 +289,21 @@ function Test-Pin($g, $counts) {
 }
 
 # `<impl> <args>` with the door's stderr set aside: its exit code and every
-# line of its stdout.
+# line of its stdout, read as the UTF-8 the door writes whatever the
+# console's code page (KERNEL.8, slice c: the texts' fixture holds text
+# beyond ASCII, which PowerShell would otherwise read by the console's).
 function Invoke-Door([string]$impl, [string[]]$doorArgs) {
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    $encoding = $null
+    try { $encoding = [Console]::OutputEncoding; [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
     try {
         $global:LASTEXITCODE = 0
         $lines = & $impl @doorArgs 2>$null
         $code = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $old
+        if ($null -ne $encoding) { try { [Console]::OutputEncoding = $encoding } catch { } }
     }
     if ($null -eq $code) { $code = 0 }
     $text = if ($null -eq $lines) { '' } else { (@($lines) | ForEach-Object { [string]$_ }) -join "`n" }

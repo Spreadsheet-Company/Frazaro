@@ -65,17 +65,49 @@
   in a formula, and a range over a `.last` twin now answers a cell not
   computed where the same range over the sheet does, where it passed the
   cell by.
+- **The text functions compute.** `CONCATENATE`, `CONCAT`, `TEXTJOIN`,
+  `LEFT`, `RIGHT`, `MID`, `LEN`, `FIND`, `SEARCH`, `SUBSTITUTE`, `REPLACE`,
+  `UPPER`, `LOWER`, `PROPER`, `TRIM`, `REPT`, `EXACT`, `VALUE`, `T`, `N`,
+  `UNICODE`, `UNICHAR`, `CHAR`, `CODE` and `TEXT`, in the language, so that
+  `frazaro calc`, the page, a build and an engine compute them alike. A text
+  is counted as Excel counts it, an emoji as one character; a text a
+  function would make past Excel's limit of 32,767 is `#VALUE!`, and `&` and
+  `CONCATENATE` cut theirs to the limit, as Excel does; `CHAR` and `CODE`
+  compute over ASCII and say not computed for a code page's other
+  characters, which are the computer's and not the workbook's; `VALUE` says
+  not computed of a number written a locale's way, `"1,000"`. Every rule was
+  held to Excel 365's save of a fixture of 357 formulas, and every cell
+  computed agrees: the save corrected five, counting an emoji as one
+  character, `LEFT(text,-0.5)` as `#VALUE!`, `LOWER("İ")` as `i`, `&` past
+  the limit and the order of texts below. A number format's code may now
+  hold a date or a time, `yyyy-mm-dd`, `dddd, mmmm d`, `h:mm AM/PM`,
+  `[h]:mm`, drawn as Excel draws them over its 1900 calendar, with English
+  names, in `TEXT` and in a view's `text` rows. A formula's empty text,
+  which Excel saves as an empty value, is read as the empty text.
+- **Texts are ordered as Excel orders them.** `<` and `>`, a sorted lookup
+  and a criterion such as `"<b"` order two texts as Excel does, as its save
+  ranks 163 of them: punctuation and signs before digits, digits before
+  letters, an accented letter after the plain one, case aside, and hyphens
+  and apostrophes passed by until last, so that `"~"<"a"` and
+  `"coop"<"co-op"` are TRUE, as in Excel, where they were FALSE; `"ß"="ss"`
+  is TRUE too. A comparison that a character the save did not rank decides,
+  a tab, `ø` or a letter of most other alphabets, says not computed rather
+  than guess; whether two texts are equal is always answered.
 - **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
   `Env::indexes`, a provided method answering `None`, is where an
   environment of one's own may keep them; `calc::criteria` and `calc::index`
-  are public. The census names a vector a run's cells search alike by a
-  read of its own, `keyed`. `Env::dynamic` and `Env::reasons_beside`,
-  provided methods answering `false`, are how an environment of one's own
-  says that a cell holds a dynamic-array formula, and that a sheet holds
-  reasons beside its cells; `rows::Sink::array`, a provided method, and
-  `rows::ArrayKind` carry an array formula's kind from the reader. Alonzo's
-  cartridges and Buffet's compute every frame as they did, allocating no
-  more (KERNEL.8).
+  are public. The census names a vector a run's cells search alike by a read
+  of its own, `keyed`. `Env::dynamic` and `Env::reasons_beside`, provided
+  methods answering `false`, are how an environment of one's own says that a
+  cell holds a dynamic-array formula, and that a sheet holds reasons beside
+  its cells; `rows::Sink::array`, a provided method, and `rows::ArrayKind`
+  carry an array formula's kind from the reader. `calc::texts` is public:
+  `length`, a text's length as Excel counts it, `units`, its size as Excel's
+  limit measures it, and `MOST`, that limit. `eval::compare` and
+  `eval::binary` order two texts as Excel does, a character Excel's save did
+  not rank weighed after the ones it did, by its code point, where a
+  formula's cell says not computed. Alonzo's cartridges and Buffet's compute
+  every frame as they did (KERNEL.8).
 
 ## 0.10.1
 

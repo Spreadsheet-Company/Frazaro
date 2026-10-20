@@ -20,25 +20,27 @@
 //! in order, for `XMATCH`'s and `XLOOKUP`'s next smaller and next larger. A
 //! key is a number's bits, 0 and -0 one, for a lookup exactly and for a
 //! criterion to fifteen significant digits, as each compares two numbers
-//! (`eval::exact_order`, `eval::compare_numbers`); a text as
-//! `value::fold_char` leaves its characters, lowered beyond ASCII too,
-//! hashed and compared as its characters are read, so that a probe makes no
-//! string; a truth value; and for a criterion an error and the blank, and a
-//! text spelling a number, keyed as the number for a sum and apart from it
-//! for a count, since `<>` counts it and `=` does not (Excel's save of the
-//! lookups' fixture, `Criteria!H4`).
+//! (`eval::exact_order`, `eval::compare_numbers`); a text as Excel's order
+//! of texts holds two one (`order::keyed`: its characters folded, `ß` as
+//! `ss`, `æ` as `ae`), hashed and compared as its characters are read, so
+//! that a probe makes no string; a truth value; and for a criterion an
+//! error and the blank, and a text spelling a number, keyed as the number
+//! for a sum and apart from it for a count, since `<>` counts it and `=`
+//! does not (Excel's save of the lookups' fixture, `Criteria!H4`).
 //!
 //! The scan is the specification, kept beside: it answers a vector's first
-//! probe in an evaluation, every pattern, every criterion by size and every
-//! environment that keeps no index, and a test switch has every probe
-//! answered both ways and compared. An index is built at the second probe of
-//! its vector in one evaluation, a frame or a pass of `Calc`, so that a
-//! vector probed once never pays a build; kept until a cell of its vector
-//! changes, which its environment tells it (`Indexes::changed`), and built
-//! again at its next probe; and the indexes' slots together are held to the
-//! grid's own limit, `machine::CELLS`, a vector past it scanned. Nothing here
-//! draws at random or reads a map's order: an index moves no answer, only
-//! the time a probe takes.
+//! probe in an evaluation, every pattern, every criterion by size, a next
+//! smaller or larger among texts beyond Excel's known order, which it
+//! labels where their order decides, and every environment that keeps no
+//! index, and a test switch has every probe answered both ways and
+//! compared. An index is built at the second probe of its vector in one
+//! evaluation, a frame or a pass of `Calc`, so that a vector probed once
+//! never pays a build; kept until a cell of its vector changes, which its
+//! environment tells it (`Indexes::changed`), and built again at its next
+//! probe; and the indexes' slots together are held to the grid's own limit,
+//! `machine::CELLS`, a vector past it scanned. Nothing here draws at random
+//! or reads a map's order: an index moves no answer, only the time a probe
+//! takes.
 
 use std::cell::{Cell, OnceCell, RefCell};
 use std::cmp::Ordering;
@@ -50,9 +52,8 @@ use crate::machine::CELLS;
 use super::criteria::{cells_of, has_wildcard, Criterion, Target};
 use super::eval::{exact_order, finite, Ctx, Reason};
 use super::graph::{cells_in, places, Area, CellId};
-use super::value::{
-    fold_char, fold_cmp, fold_eq, fold_text, round15, text_to_number, ErrorKind, Value,
-};
+use super::order;
+use super::value::{round15, text_to_number, ErrorKind, Value};
 
 /// A row or a column of cells a lookup searches; a single cell is a column
 /// of one.
@@ -211,9 +212,9 @@ fn fifteen(n: f64) -> u64 {
 
 impl Probe<'_> {
     /// The hash a key is found by: the house's own (`fx`, KERNEL.25), a
-    /// text's folded bytes fed sixty-four at a time, so that a text keyed
-    /// folded and one probed as written hash alike, a character folding to
-    /// one of another length among them.
+    /// text's keyed bytes fed sixty-four at a time (`order::keyed`), so that
+    /// a text keyed and one probed as written hash alike, a character
+    /// folding to one of another length among them, and `ß` as `ss`.
     fn hash(self) -> u64 {
         let mut h = FxHasher::default();
         match self {
@@ -233,9 +234,9 @@ impl Probe<'_> {
                     }
                 } else {
                     let mut n = 0;
-                    for c in t.chars() {
+                    for c in order::keyed(t) {
                         let mut one = [0u8; 4];
-                        for &b in fold_char(c).encode_utf8(&mut one).as_bytes() {
+                        for &b in c.encode_utf8(&mut one).as_bytes() {
                             buf[n] = b;
                             n += 1;
                             if n == buf.len() {
@@ -270,7 +271,7 @@ impl Probe<'_> {
     fn is(self, key: &Key) -> bool {
         match (self, key) {
             (Probe::Number(a), Key::Number(b)) => a == *b,
-            (Probe::Text(t), Key::Text(k)) => fold_eq(t, k),
+            (Probe::Text(t), Key::Text(k)) => order::equal(t, k),
             (Probe::Bool(a), Key::Bool(b)) => a == *b,
             (Probe::Error(a), Key::Error(b)) => a == *b,
             (Probe::Blank, Key::Blank) => true,
@@ -283,7 +284,7 @@ impl Probe<'_> {
     fn key(self) -> Key {
         match self {
             Probe::Number(b) => Key::Number(b),
-            Probe::Text(t) => Key::Text(fold_text(t).into_boxed_str()),
+            Probe::Text(t) => Key::Text(order::key(t).into_boxed_str()),
             Probe::Bool(b) => Key::Bool(b),
             Probe::Error(k) => Key::Error(k),
             Probe::Blank => Key::Blank,
@@ -307,7 +308,7 @@ pub(crate) fn lookup_probe(v: &Value) -> Option<Probe<'_>> {
 fn lookup_matches(cell: &Value, p: Probe<'_>) -> bool {
     match (cell, p) {
         (Value::Number(n), Probe::Number(b)) => bits(*n) == b,
-        (Value::Text(t), Probe::Text(q)) => fold_eq(t, q),
+        (Value::Text(t), Probe::Text(q)) => order::equal(t, q),
         (Value::Bool(x), Probe::Bool(y)) => *x == y,
         _ => false,
     }
@@ -407,12 +408,15 @@ struct LookupIndex {
     ordered: OnceCell<Ordered>,
 }
 
-/// Each kind's distinct values in order, by key: numbers by value, texts as
-/// `compare` orders them, folded, and the two truth values.
+/// Each kind's distinct values in order, by key: numbers by value, texts in
+/// Excel's order of texts (`order::compare`), and the two truth values;
+/// and whether a text holds a character beyond the order's table, whose
+/// place among the others is not known.
 struct Ordered {
     numbers: Vec<(f64, u32)>,
     texts: Vec<u32>,
     bools: [Option<u32>; 2],
+    beyond: bool,
 }
 
 /// A count's index: each key's count, the cells held, and the first reason
@@ -695,6 +699,7 @@ impl Indexes {
             Built::Lookup(ix) => ix.nearest(probe, larger, from_end),
             _ => unreachable!("a lookup's vector keyed for a lookup"),
         })
+        .flatten()
     }
 
     /// `COUNTIF` of an equality or its `<>` from its range's index; `None`
@@ -865,6 +870,7 @@ impl LookupIndex {
                 numbers: Vec::new(),
                 texts: Vec::new(),
                 bools: [None, None],
+                beyond: false,
             };
             for (i, key) in self.keys.keys.iter().enumerate() {
                 match key {
@@ -879,19 +885,28 @@ impl LookupIndex {
                 Key::Text(t) => &**t,
                 _ => "",
             };
-            o.texts.sort_by(|&a, &b| fold_cmp(text(a), text(b)));
+            o.beyond = o.texts.iter().any(|&i| !order::within(text(i)));
+            o.texts
+                .sort_by(|&a, &b| order::compare(text(a), text(b)).order);
             o
         })
     }
 
     /// The exact match, else the next smaller or larger, as [`scan_nearest`]
-    /// finds it.
-    fn nearest(&self, probe: &Value, larger: bool, from_end: bool) -> Result<Option<u32>, Reason> {
+    /// finds it; `None` where the scan answers, a text's next smaller or
+    /// larger where the probe or a text of the vector holds a character
+    /// beyond Excel's known order, which the scan labels where it decides.
+    fn nearest(
+        &self,
+        probe: &Value,
+        larger: bool,
+        from_end: bool,
+    ) -> Option<Result<Option<u32>, Reason>> {
         if let Some(((_, first), (_, last))) = &self.reasons {
-            return Err(if from_end { last } else { first }.clone());
+            return Some(Err(if from_end { last } else { first }.clone()));
         }
         let Some(p) = lookup_probe(probe) else {
-            return Ok(None);
+            return Some(Ok(None));
         };
         let at = |i: usize| {
             if from_end {
@@ -901,7 +916,7 @@ impl LookupIndex {
             }
         };
         if let Some(i) = self.keys.find(p) {
-            return Ok(Some(at(i)));
+            return Some(Ok(Some(at(i))));
         }
         let o = self.ordered();
         let key = match probe {
@@ -918,13 +933,16 @@ impl LookupIndex {
                 }
             }
             Value::Text(t) => {
+                if o.beyond || !order::within(t) {
+                    return None;
+                }
                 let text = |i: u32| match &self.keys.keys[i as usize] {
                     Key::Text(k) => &**k,
                     _ => "",
                 };
                 let n = o
                     .texts
-                    .partition_point(|&i| fold_cmp(text(i), t) == Ordering::Less);
+                    .partition_point(|&i| order::compare(text(i), t).order == Ordering::Less);
                 if larger {
                     o.texts.get(n).copied()
                 } else {
@@ -938,7 +956,7 @@ impl LookupIndex {
             },
             _ => None,
         };
-        Ok(key.map(|i| at(i as usize)))
+        Some(Ok(key.map(|i| at(i as usize))))
     }
 }
 
@@ -1166,11 +1184,23 @@ fn kind_of(v: &Value) -> Option<u8> {
 }
 
 /// Two values of one kind as a lookup orders them: numbers by value,
-/// exactly, texts as `compare` orders them, folded, FALSE before TRUE.
-fn ordered(a: &Value, b: &Value) -> Ordering {
+/// exactly, texts in Excel's order of texts, FALSE before TRUE; the label
+/// of two texts a character beyond its known order decides
+/// (`order::sized`).
+fn ordered(a: &Value, b: &Value) -> Result<Ordering, Reason> {
+    match (a, b) {
+        (Value::Text(x), Value::Text(y)) => order::sized(x, y),
+        _ => Ok(same_kind_order(a, b)),
+    }
+}
+
+/// [`ordered`]'s order, a text beyond Excel's known order weighed after the
+/// known ones by its code point, never labelled: whether two values are
+/// one, which is always known.
+fn same_kind_order(a: &Value, b: &Value) -> Ordering {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => exact_order(*x, *y),
-        (Value::Text(x), Value::Text(y)) => fold_cmp(x, y),
+        (Value::Text(x), Value::Text(y)) => order::compare(x, y).order,
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         _ => Ordering::Equal,
     }
@@ -1221,6 +1251,8 @@ fn scan_nearest(
     let mut exact: Option<(u32, u32)> = None;
     let mut best: Option<(Value, u32, u32)> = None;
     let mut reasons: Option<((u32, Reason), (u32, Reason))> = None;
+    // The first comparison a character beyond Excel's known order decided.
+    let mut unknown: Option<Reason> = None;
     walk(ctx, &line.area, |row, col, read| {
         let k = line.position(row, col);
         let v = match read {
@@ -1236,7 +1268,14 @@ fn scan_nearest(
         if kind_of(v) != kind {
             return true;
         }
-        match ordered(v, probe) {
+        let o = match ordered(v, probe) {
+            Ok(o) => o,
+            Err(r) => {
+                unknown.get_or_insert(r);
+                return true;
+            }
+        };
+        match o {
             Ordering::Equal => match &mut exact {
                 None => exact = Some((k, k)),
                 Some((_, last)) => *last = k,
@@ -1244,19 +1283,19 @@ fn scan_nearest(
             o if (o == Ordering::Greater) == larger => {
                 let better = match &best {
                     None => true,
-                    Some((held, _, _)) => {
-                        let o = ordered(v, held);
-                        if larger {
-                            o == Ordering::Less
-                        } else {
-                            o == Ordering::Greater
+                    Some((held, _, _)) => match ordered(v, held) {
+                        Ok(o) if larger => o == Ordering::Less,
+                        Ok(o) => o == Ordering::Greater,
+                        Err(r) => {
+                            unknown.get_or_insert(r);
+                            return true;
                         }
-                    }
+                    },
                 };
                 if better {
                     best = Some((v.clone(), k, k));
                 } else if let Some((held, _, last)) = &mut best {
-                    if ordered(v, held) == Ordering::Equal {
+                    if same_kind_order(v, held) == Ordering::Equal {
                         *last = k;
                     }
                 }
@@ -1269,7 +1308,14 @@ fn scan_nearest(
         return Err(if from_end { last } else { first });
     }
     let pick = |(first, last): (u32, u32)| if from_end { last } else { first };
-    Ok(exact.map(pick).or(best.map(|(_, f, l)| pick((f, l)))))
+    // A cell equal to the probe answers whatever the order elsewhere.
+    if let Some(e) = exact {
+        return Ok(Some(pick(e)));
+    }
+    if let Some(r) = unknown {
+        return Err(r);
+    }
+    Ok(best.map(|(_, f, l)| pick((f, l))))
 }
 
 /// The cell at a line's position, as a read of it answers.
@@ -1291,14 +1337,17 @@ pub(crate) fn descending(ctx: &Ctx<'_>, line: Line, probe: &Value) -> Result<Opt
     let mut kept: Option<u32> = None;
     let mut stop: Option<Reason> = None;
     walk(ctx, &line.area, |row, col, read| match read {
-        Ok(v) if kind_of(v) == Some(kind) => {
-            if ordered(v, probe) == Ordering::Less {
-                false
-            } else {
+        Ok(v) if kind_of(v) == Some(kind) => match ordered(v, probe) {
+            Ok(Ordering::Less) => false,
+            Ok(_) => {
                 kept = Some(line.position(row, col));
                 true
             }
-        }
+            Err(r) => {
+                stop = Some(r);
+                false
+            }
+        },
         Ok(_) => true,
         Err(r) => {
             stop = Some(r.clone());
@@ -1364,7 +1413,7 @@ pub(crate) fn bisect(
         let Some((j, v)) = at else {
             break;
         };
-        if keep(ordered(&v, probe)) {
+        if keep(ordered(&v, probe)?) {
             kept = Some(j as u32);
             low = j + 1;
         } else {

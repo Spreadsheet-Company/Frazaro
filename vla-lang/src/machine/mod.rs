@@ -5948,6 +5948,86 @@ mod tests {
     }
 
     #[test]
+    fn the_text_functions_a_run_calls_are_the_library_s_at_every_cell() {
+        // KERNEL.8, slice c: the text functions, which a run calls at each
+        // cell, by runs, by every cell alone and by `Calc`, frame for frame,
+        // over texts, a number, a truth value and an emoji, counted by
+        // characters; `&` cut to 32,767 units, and through a pair labelled
+        // at a step as at a load; and a comparison in Excel's order of
+        // texts, labelled where a character beyond its table decides.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" \"Hello\")\n",
+            "(cell \"S\" \"A2\" \"a\u{1F600}b\")\n",
+            "(cell \"S\" \"A3\" 12.5)\n",
+            "(cell \"S\" \"A4\" true)\n",
+            "(cell \"S\" \"A5\" \"  x  y \")\n",
+            "(cell \"S\" \"A6\" \"\u{C9}CLAIR\")\n",
+            "(cell \"S\" \"B1:B6\" 2)\n",
+        );
+        let formulas: Vec<String> = [
+            "LEN(A1)",
+            "LEFT(A1,$B1)",
+            "MID(A1,2,B1)",
+            "UPPER(A1)&\"!\"",
+            "TRIM(A1)",
+            "SUBSTITUTE(A1,\"l\",\"L\")",
+            "FIND(\"l\",A1&\"l\")",
+            "TEXT(B1+ROW(),\"0.00\")",
+            "TEXTJOIN(\",\",TRUE,A1:B1)",
+            "CONCATENATE(A1,B1)",
+            "REPT(\"x\",B1)",
+            "VALUE(B1&\"5\")",
+            "EXACT(A1,\"Hello\")",
+            "LOWER(A1)",
+            "LEN(REPT(\"x\",32765)&A2)",
+            "A1<\"b\"",
+            "A1>\"\u{D8}\"",
+        ]
+        .iter()
+        .map(|f| f.to_string())
+        .collect();
+        let m = by_runs_and_alone(&columns(rows, 6, &formulas), &[]);
+        assert_eq!(number(&m, "S", "D1"), 5.0, "LEN of Hello");
+        assert_eq!(number(&m, "S", "D2"), 3.0, "an emoji is one character");
+        assert_eq!(
+            at(&m, "S", "E2"),
+            Some(Computed::Value(Value::Text("a\u{1F600}".to_string()))),
+            "LEFT by characters"
+        );
+        assert_eq!(
+            at(&m, "S", "K1"),
+            Some(Computed::Value(Value::Text("3.00".to_string()))),
+            "TEXT of 2 and the row"
+        );
+        assert_eq!(
+            at(&m, "S", "R1"),
+            Some(Computed::NotComputed(Reason::Construct(
+                "half a surrogate pair".to_string()
+            ))),
+            "& through the pair at the 32,767th unit"
+        );
+        assert_eq!(number(&m, "S", "R2"), 32_767.0, "& cut to 32,767 units");
+        let truth = |cell: &str| match at(&m, "S", cell) {
+            Some(Computed::Value(Value::Bool(b))) => b,
+            other => panic!("{cell}: {other:?}"),
+        };
+        assert!(!truth("S1"), "Hello is not below b");
+        assert!(
+            truth("S2"),
+            "a text's first letter decides before its emoji"
+        );
+        assert_eq!(
+            at(&m, "S", "T1"),
+            Some(Computed::NotComputed(Reason::Construct(
+                "a character's order".to_string()
+            ))),
+            "Ø's place is not known"
+        );
+        assert!(!truth("T3"), "a number is below every text");
+        assert!(truth("T4"), "a truth value is above every text");
+    }
+
+    #[test]
     fn a_grid_reading_a_name_whose_text_is_not_read_is_refused() {
         // KERNEL.8, slice b: such a name, refused at the load with the
         // constructs, so that no cell holds its reason at a step; a name read,
@@ -7784,8 +7864,12 @@ mod tests {
             "{}",
             e.refusal.text
         );
-        let e = refused("(format 1 none \"yyyy-mm-dd\" nowrap)\n");
+        // A date's code draws since KERNEL.8's third slice; a locale's
+        // bracket before it is still refused.
+        let e = refused("(format 1 none \"[$-409]yyyy-mm-dd\" nowrap)\n");
         assert_eq!(e.refusal.id, "grid-format-code");
+        assert!(e.refusal.text.contains("a locale"), "{}", e.refusal.text);
+        load("(format 1 none \"yyyy-mm-dd\" nowrap)\n");
         // A bare symbol but the two is no code: the row's shape says one.
         let e = refused("(format 1 none dollars nowrap)\n");
         assert_eq!(e.refusal.id, "grid-row-malformed");

@@ -41,15 +41,24 @@
 //! matching a number to the bit, and two texts are equal without case
 //! beyond ASCII too (`eval::compare_numbers`, `value::fold_char`).
 //!
-//! What is not here, by name, each a slice of its own: implicit
-//! intersection and `@`, text functions, dates, the `SUMIFS` family and the
-//! database functions, arrays within a formula (`KERNEL.8`'s later slices),
-//! spills (an item of their own), `LET` and `LAMBDA` (`KERNEL.29`); the rest
-//! of speed, content-addressed evaluation among them (`KERNEL.20`). A
-//! formula that reaches any of them is not computed, and says so naming the
-//! function or the construct ([`Reason`]), which is the honest static label
-//! of `HORIZON.md` section 12.6; a cell that reads such a cell inherits the
-//! reason.
+//! A legacy formula reads a range where one value is wanted at its own row
+//! or column, Excel's implicit intersection, since the second slice
+//! (2026-10-19, `eval::intersection`, `SINGLE` the form of `@`); and the
+//! text functions compute since the third (2026-10-20, [`texts`]), over
+//! Excel's order of texts as its save ranks them (`order`): two texts
+//! ordered by their characters' places, then their accents, case aside, the
+//! hyphen and the apostrophe last, `ß` and `ss` one, by `<` and `>`, a
+//! lookup's sorted search and a criterion by size alike, and a comparison a
+//! character beyond the save's table decides labelled.
+//!
+//! What is not here, by name, each a slice of its own: dates, the `SUMIFS`
+//! family and the database functions, arrays within a formula (`KERNEL.8`'s
+//! later slices), spills (an item of their own), `LET` and `LAMBDA`
+//! (`KERNEL.29`); the rest of speed, content-addressed evaluation among
+//! them (`KERNEL.20`). A formula that reaches any of them is not computed,
+//! and says so naming the function or the construct ([`Reason`]), which is
+//! the honest static label of `HORIZON.md` section 12.6; a cell that reads
+//! such a cell inherits the reason.
 
 pub(crate) mod census;
 pub mod criteria;
@@ -60,9 +69,11 @@ pub mod graph;
 pub mod index;
 pub mod library;
 pub(crate) mod lookups;
+pub(crate) mod order;
 pub(crate) mod program;
 pub(crate) mod reach;
 pub mod shape;
+pub mod texts;
 pub mod value;
 pub(crate) mod vector;
 
