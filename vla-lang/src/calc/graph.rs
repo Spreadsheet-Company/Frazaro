@@ -141,6 +141,15 @@ impl Names {
         Names { entries }
     }
 
+    /// Whether any name's text is one the parse does not read (KERNEL.8,
+    /// slice b): where none is, no formula can read such a name, and a load
+    /// asks no cell.
+    pub(crate) fn any_unread(&self) -> bool {
+        self.entries
+            .iter()
+            .any(|e| super::formula::parse(&e.text).is_err())
+    }
+
     /// The text of the name a formula on `home` reads by `name`: the name
     /// scoped to the sheet written in front of it when one is, else the
     /// one scoped to the formula's own sheet, else the workbook's.
@@ -237,6 +246,23 @@ pub fn areas_at(
     }
     let (a, b) = (first.min(last), first.max(last));
     Ok(Areas::from((a..=b).map(area).collect::<Vec<Area>>()))
+}
+
+/// Every place of an area inside a sheet's extent, held or not, in
+/// row-major order (KERNEL.8, slice b): the walk of a sheet that holds
+/// reasons beside its cells (`Env::reasons_beside`), each place read
+/// through the environment, which answers the reason where one stands.
+pub(crate) fn places(extent: Extent, area: &Area) -> impl Iterator<Item = (u32, u32)> {
+    let (top, left, bottom, right) = match extent {
+        Some(((e_top, e_left), (e_bottom, e_right))) => (
+            area.top.max(e_top),
+            area.left.max(e_left),
+            area.bottom.min(e_bottom),
+            area.right.min(e_right),
+        ),
+        None => (1, 1, 0, 0),
+    };
+    (top..=bottom).flat_map(move |row| (left..=right).map(move |col| (row, col)))
 }
 
 /// The cells a sheet holds inside an area, in row-major order, the area

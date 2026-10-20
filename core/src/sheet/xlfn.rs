@@ -171,6 +171,8 @@ const XLFN: &[&str] = &[
     "REGEXTEST",
     "SCAN",
     "SEQUENCE",
+    // Excel's `@`, as its file spells the operator (KERNEL.8, slice b).
+    "SINGLE",
     "SORTBY",
     "STOCKHISTORY",
     "TAKE",
@@ -403,6 +405,13 @@ mod tests {
         assert_eq!(
             prefix_future_functions("UNICHAR(160)&CHAR(120)"),
             "_xlfn.UNICHAR(160)&CHAR(120)"
+        );
+        // Excel's `@`: without its prefix Excel reads `SINGLE` as a function
+        // of no add-in and answers `#NAME?` (KERNEL.8, slice b, Excel's save
+        // of the intersection's fixture).
+        assert_eq!(
+            prefix_future_functions("ROW(SINGLE(A1:A8))"),
+            "ROW(_xlfn.SINGLE(A1:A8))"
         );
     }
 

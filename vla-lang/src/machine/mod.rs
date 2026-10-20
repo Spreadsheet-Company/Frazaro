@@ -933,9 +933,23 @@ impl Machine {
             if s < self.sheets {
                 self.own[s].is_some()
             } else {
-                Env::dense(self, s).is_some()
+                self.twin_kept(s).is_some()
             }
         })
+    }
+
+    /// A twin's array as its last frame's end left it, the authority for its
+    /// values while its cells lag behind it (KERNEL.27), whatever reasons
+    /// stand beside it; `None` for a frame's own sheet and a twin kept as
+    /// cells.
+    fn twin_kept(&self, sheet: usize) -> Option<&Dense> {
+        self.dense.get(sheet.checked_sub(self.sheets)?)?.as_ref()
+    }
+
+    /// Whether a reason stands beside a twin's cells (KERNEL.8, slice b),
+    /// the map asked only where it holds any.
+    fn twin_holds_reason(&self, twin: usize) -> bool {
+        !self.twin_reasons.is_empty() && self.twin_reasons.keys().any(|k| k.0 == twin)
     }
 
     fn during_step(&self, done: usize) -> Refusal {
@@ -2561,10 +2575,10 @@ impl Env for Machine {
                     None => Err(Reason::Cycle),
                 };
             }
-        } else if let Some(kept) = self.dense(id.0) {
+        } else if let Some(kept) = self.twin_kept(id.0) {
             // A twin kept as an array is read by its index (KERNEL.20): the
             // value its cell holds, or nothing, beside which its reason may
-            // stand, as below.
+            // stand, as below; whether or not the array is offered to a walk.
             if let Some(v) = kept.get(id.1, id.2).filter(|v| !matches!(v, Value::Empty)) {
                 return Ok(v.clone());
             }
@@ -2595,10 +2609,11 @@ impl Env for Machine {
         self.names.resolve(name, scope, home)
     }
 
-    /// A twin's array, as its last frame's end left it (KERNEL.20); a frame's
-    /// own sheet's, as the frame keeps it, while none of its formulas holds
-    /// a reason (KERNEL.31), so that a range of it answers a reason as a walk
-    /// of its cells does.
+    /// A twin's array, as its last frame's end left it (KERNEL.20), while no
+    /// reason stands beside its cells (KERNEL.8, slice b); a frame's own
+    /// sheet's, as the frame keeps it, while none of its formulas holds a
+    /// reason (KERNEL.31): so that a range of either answers a reason as a
+    /// walk of the sheet does.
     fn dense(&self, sheet: usize) -> Option<&Dense> {
         if sheet < self.sheets {
             if !self.owns {
@@ -2613,7 +2628,23 @@ impl Env for Machine {
                 }
             };
         }
-        self.dense.get(sheet - self.sheets)?.as_ref()
+        if self.twin_holds_reason(sheet) {
+            return None;
+        }
+        self.twin_kept(sheet)
+    }
+
+    /// Whether the cell being computed holds a dynamic-array formula, as its
+    /// content says (KERNEL.8, slice b): a grid loaded from rows holds none,
+    /// a `formula` row making a plain or a shared formula.
+    fn dynamic(&self) -> bool {
+        crate::calc::is_dynamic(&self.book, self.here.get())
+    }
+
+    /// Whether a twin holds a reason beside its cells, a formula of the
+    /// sheet it copies not computed at the last frame (KERNEL.8, slice b).
+    fn reasons_beside(&self, sheet: usize) -> bool {
+        sheet >= self.sheets && self.twin_holds_reason(sheet)
     }
 
     fn enter(&self, id: CellId) {
@@ -2660,7 +2691,7 @@ impl Source for Machine {
                     _ => None,
                 };
             }
-        } else if let Some(kept) = Env::dense(self, id.0) {
+        } else if let Some(kept) = self.twin_kept(id.0) {
             return match kept.get(id.1, id.2) {
                 Some(Value::Number(n)) => Some(*n),
                 Some(Value::Empty) | None => reasonless(&id).then_some(0.0),
@@ -3120,12 +3151,48 @@ mod tests {
     use crate::view::{view_text_valued, view_text_values, whole, window_of};
 
     fn load(text: &str) -> Machine {
-        Machine::load(text, library::language())
+        Machine::load(text, labelling())
             .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text))
     }
 
+    /// The language's library with [`label`] beside it.
+    fn labelling() -> Library {
+        let mut lib = library::language();
+        lib.register_form("LABEL", label);
+        lib
+    }
+
+    /// The reason a range where one value is wanted held before KERNEL.8's
+    /// second slice met it at the cell: `Ctx::one`'s label, the reference as
+    /// written moved with its cell, owned through a name; one cell its
+    /// value. A form of the tests' library alone, so that the tests of a
+    /// reason at a step, a twin's and a plane's among them, keep one to
+    /// stand on, a legacy formula's range now computing.
+    fn label<'e>(
+        ctx: &crate::calc::Ctx<'_>,
+        args: &'e [crate::calc::Expr],
+    ) -> Result<crate::calc::Arg<'e>, Reason> {
+        use crate::calc::Arg;
+        let arg = ctx.eval(&args[0])?;
+        if let Arg::Area {
+            areas,
+            written,
+            moved,
+        } = &arg
+        {
+            if !matches!(&areas[..], [a] if a.is_cell()) {
+                return Err(Reason::Construct(if *moved == (0, 0) {
+                    written.to_string()
+                } else {
+                    crate::refers::shift_a1_references(written, moved.0, moved.1)
+                }));
+            }
+        }
+        Ok(Arg::Scalar(ctx.one(&arg)?))
+    }
+
     fn refused(text: &str) -> LineRefusal {
-        match Machine::load(text, library::language()) {
+        match Machine::load(text, labelling()) {
             Ok(m) => panic!("loaded: {m:?}"),
             Err(e) => e,
         }
@@ -3644,7 +3711,10 @@ mod tests {
         no_twin_cell_is_placed_or_valued(&m, "a yield");
         m.step(0);
         // A cell not computed leaves its reason beside its twin's cell.
-        assert_eq!(m.write("(formula \"Board\" \"J1\" \"=F1:G1*2\")"), Ok(1));
+        assert_eq!(
+            m.write("(formula \"Board\" \"J1\" \"=LABEL(F1:G1)*2\")"),
+            Ok(1)
+        );
         m.step(0);
         assert!(!m.twin_reasons.is_empty());
         no_twin_cell_is_placed_or_valued(&m, "a reason kept");
@@ -3682,23 +3752,24 @@ mod tests {
     /// evaluator asks it, of the twin.
     fn dense_kept(m: &Machine, sheet: &str) -> bool {
         let twin = m.find_sheet(&format!("{sheet}.last")).unwrap();
-        m.dense(twin).is_some()
+        m.twin_kept(twin).is_some()
     }
 
     /// Whether a sheet's twin's array keeps its numbers beside its slots
     /// (KERNEL.43); `None` for a twin kept as no array.
     fn numbers_kept(m: &Machine, sheet: &str) -> Option<bool> {
         let twin = m.find_sheet(&format!("{sheet}.last")).unwrap();
-        m.dense(twin).map(Dense::keeps_numbers)
+        m.twin_kept(twin).map(Dense::keeps_numbers)
     }
 
     /// Every twin read and walked by the evaluator held to its cells: each
     /// cell of a window a cell wider than its sheet's extent read both ways
     /// (a twin's own cells and its extent's corners, for an extent too wide
     /// to read whole), and areas inside, across and past the extent walked
-    /// both ways, value for value in order; then each sheet named kept as an
-    /// array, or not, as said, so that equal answers never hide a twin read
-    /// the old way.
+    /// both ways, value for value in order, a twin holding a reason beside
+    /// its cells walked at every place and answering its first reason
+    /// (KERNEL.8, slice b); then each sheet named kept as an array, or not,
+    /// as said, so that equal answers never hide a twin read the old way.
     fn dense_is_the_twin(m: &Machine, kept_now: &[(&str, bool)], when: &str) {
         use crate::calc::graph::cells_in;
         use crate::calc::{Area, Ctx};
@@ -3748,16 +3819,34 @@ mod tests {
                     right: a_right.min(MAX_COLUMN),
                 };
                 let mut walked = Vec::new();
-                ctx.each(&[area], |v| {
+                let walk = ctx.each(&[area], |v| {
                     walked.push(v);
                     Ok(())
-                })
-                .unwrap();
-                let want: Vec<Value> = cells_in(&m.book.sheets[t], m.extents[t], &area)
-                    .map(|((row, col), _)| twin_cell(m, t, row, col).unwrap())
-                    .filter(|v| *v != Value::Empty)
-                    .collect();
-                assert_eq!(walked, want, "{when}: {name} {area:?}");
+                });
+                let places: Vec<(u32, u32)> = if m.reasons_beside(t) {
+                    crate::calc::graph::places(m.extents[t], &area).collect()
+                } else {
+                    cells_in(&m.book.sheets[t], m.extents[t], &area)
+                        .map(|(at, _)| at)
+                        .collect()
+                };
+                let mut want = Vec::new();
+                let mut stop = None;
+                for (row, col) in places {
+                    match twin_cell(m, t, row, col) {
+                        Ok(v) if v != Value::Empty => want.push(v),
+                        Ok(_) => {}
+                        Err(r) => {
+                            stop = Some(r);
+                            break;
+                        }
+                    }
+                }
+                assert_eq!(
+                    (walked, walk.err()),
+                    (want, stop),
+                    "{when}: {name} {area:?}"
+                );
             }
         }
         for (sheet, kept) in kept_now {
@@ -3785,7 +3874,7 @@ mod tests {
             "(derived \"Board\" \"G2\" 3)",
             // A value cell become a formula not computed: its slot emptied
             // in place, the extent unchanged, its reason beside it.
-            "(formula \"Board\" \"E2\" \"=B2:C2\")",
+            "(formula \"Board\" \"E2\" \"=LABEL(B2:C2)\")",
             // A text changed in place, then the extent grown twice.
             "(cell \"Board\" \"D2\" \"a longer text than x\")",
             "(cell \"Board\" \"C5:D6\" 2)",
@@ -3853,32 +3942,61 @@ mod tests {
     }
 
     #[test]
-    fn a_range_over_a_twin_skips_a_cell_not_computed_as_it_did() {
-        // Found 2026-10-10 (KERNEL.20), kept bit for bit and named for
-        // KERNEL.8: a twin holds no cell for a formula not computed, its
-        // reason standing beside, so a read of that cell answers the reason
-        // while a range over the twin skips the cell, where a range over the
-        // sheet itself answers the reason. The array answers as the cells
-        // did, both ways.
+    fn a_range_over_a_twin_meets_a_reason_where_the_sheet_does() {
+        // The defect found 2026-10-10 (KERNEL.20), removed by KERNEL.8's
+        // second slice: a twin holds no cell for a formula not computed, its
+        // reason beside, and while one stands the twin offers no array and a
+        // walk of it reads every place, so that a range over the twin answers
+        // the reason as a range over the sheet does: on the walk, in a run,
+        // in a program, and in the lookups' and the criteria's walks. The
+        // range where one value is wanted that made the reason before now
+        // meets its cell; a reason comes from a label of the first slice.
         let mut m = load(concat!(
             "(cell \"S\" \"A1:A3\" 1)\n",
             "(cell \"S\" \"B1\" 5)\n",
-            "(formula \"S\" \"B2\" \"=A1:A2\")\n",
+            "(formula \"S\" \"B2\" \"=XMATCH(1,A1:A3,3)\")\n",
             "(cell \"S\" \"B3\" 7)\n",
             "(formula \"S\" \"C1\" \"=SUM(S.last!B1:B3)\")\n",
             "(formula \"S\" \"C2\" \"=S.last!B2\")\n",
             "(formula \"S\" \"C3\" \"=SUM(B1:B3)\")\n",
+            "(formula \"S\" \"C4\" \"=MATCH(7,S.last!B1:B3,0)\")\n",
+            "(formula \"S\" \"C5\" \"=COUNTIF(S.last!B1:B3,7)\")\n",
+            "(formula \"S\" \"C6\" \"=SUM(S.last!B1:B3)+1\")\n",
+            "(formula \"S\" \"E1:E8\" \"=SUM(S.last!$B$1:$B$3)\")\n",
+            "(formula \"S\" \"D1\" \"=A1:A3\")\n",
+            "(formula \"S\" \"D2\" \"=A1:A3*2\")\n",
+            "(formula \"S\" \"D4\" \"=A1:A3\")\n",
         ));
         m.step(0);
         m.step(0);
-        assert!(dense_kept(&m, "S"));
+        assert!(dense_kept(&m, "S"), "the twin is kept as an array");
+        let twin = m.find_sheet("S.last").unwrap();
+        assert!(
+            m.dense(twin).is_none(),
+            "and offers none while a reason stands"
+        );
         let reason = Some(Computed::NotComputed(Reason::Construct(
-            "A1:A2".to_string(),
+            "match mode 3".to_string(),
         )));
         assert_eq!(at(&m, "S", "B2"), reason);
-        assert_eq!(number(&m, "S", "C1"), 12.0, "the twin's range skips B2");
-        assert_eq!(at(&m, "S", "C2"), reason, "a read of B2's twin answers");
-        assert_eq!(at(&m, "S", "C3"), reason, "a range over the sheet answers");
+        for addr in ["C1", "C2", "C3", "C4", "C5", "C6", "E1", "E8"] {
+            assert_eq!(at(&m, "S", addr), reason, "{addr}");
+        }
+        assert_eq!(number(&m, "S", "D1"), 1.0, "A1:A3 met at row 1");
+        assert_eq!(number(&m, "S", "D2"), 2.0, "and at row 2");
+        assert_eq!(
+            at(&m, "S", "D4"),
+            Some(Computed::Value(Value::Error(ErrorKind::Value))),
+            "no cell of A1:A3 in row 4"
+        );
+        // B2 computed: no reason stands, and the array is offered again.
+        assert!(m.write("(formula \"S\" \"B2\" \"=8\")").is_ok());
+        m.step(0);
+        m.step(0);
+        assert!(m.dense(twin).is_some());
+        assert_eq!(number(&m, "S", "C1"), 20.0);
+        assert_eq!(number(&m, "S", "C4"), 3.0);
+        assert_eq!(number(&m, "S", "E8"), 20.0);
     }
 
     #[test]
@@ -4005,10 +4123,10 @@ mod tests {
             "(formula \"S\" \"B5\" \"=SUM(1,2,3,4)\")\n",
             "(formula \"S\" \"B6\" \"=SUM(1,2,3,4,5)\")\n",
             "(formula \"S\" \"C1\" \"=MOD(7,3)\")\n",
-            "(formula \"S\" \"C2\" \"=SUM(A1:A2*1,Z1:Z2*1)\")\n",
-            "(formula \"S\" \"C3\" \"=SUM(1,A1:A2*1,Z1:Z2*1)\")\n",
-            "(formula \"S\" \"C4\" \"=SUM(1,2,A1:A2*1,Z1:Z2*1)\")\n",
-            "(formula \"S\" \"C5\" \"=SUM(1,2,3,4,A1:A2*1,Z1:Z2*1)\")\n",
+            "(formula \"S\" \"C2\" \"=SUM(LABEL(A1:A2)*1,LABEL(Z1:Z2)*1)\")\n",
+            "(formula \"S\" \"C3\" \"=SUM(1,LABEL(A1:A2)*1,LABEL(Z1:Z2)*1)\")\n",
+            "(formula \"S\" \"C4\" \"=SUM(1,2,LABEL(A1:A2)*1,LABEL(Z1:Z2)*1)\")\n",
+            "(formula \"S\" \"C5\" \"=SUM(1,2,3,4,LABEL(A1:A2)*1,LABEL(Z1:Z2)*1)\")\n",
         ));
         m.step(0);
         for (addr, want) in [
@@ -4103,13 +4221,13 @@ mod tests {
         }
         for row in [
             "(cell \"Board\" \"B2\" 9)",
-            "(formula \"Board\" \"E2\" \"=B2:C2\")",
+            "(formula \"Board\" \"E2\" \"=LABEL(B2:C2)\")",
             "(cell \"Board\" \"D2\" \"a longer text than x\")",
             "(cell \"Board\" \"C5:D6\" 2)",
-            "(formula \"Board\" \"D6\" \"=B2:C2\")",
+            "(formula \"Board\" \"D6\" \"=LABEL(B2:C2)\")",
             // One cell losing its value and another gaining one in the same
             // write: as many valued cells as before, standing elsewhere.
-            "(formula \"Board\" \"F2\" \"=B2:C2\")\n(cell \"Board\" \"H3\" 5)",
+            "(formula \"Board\" \"F2\" \"=LABEL(B2:C2)\")\n(cell \"Board\" \"H3\" 5)",
             "(cell \"Board\" \"I1\" \"far\")",
             "(cell \"Other\" \"A1\" 4)",
         ] {
@@ -5524,15 +5642,15 @@ mod tests {
         // right, its label moved with the cell, as alone.
         let grid = concat!(
             "(cell \"S\" \"A1:B8\" 1)\n",
-            "(formula \"S\" \"X1\" \"=A1:A2\")\n",
-            "(formula \"S\" \"C1:C8\" \"=(A1:A2)+(B1:B2)\")\n",
-            "(formula \"S\" \"D1:D8\" \"=$X$1+(B1:B2)\")\n",
-            "(formula \"S\" \"E1:E8\" \"=(B1:B2)+$X$1\")\n",
-            "(formula \"S\" \"F1:F8\" \"=MOD((A1:A2)+1,(B1:B2)+1)\")\n",
-            "(formula \"S\" \"G1:G8\" \"=SUM((A1:A2)+1,(B1:B2)+1,(A3:A4)+1)\")\n",
-            "(formula \"S\" \"H1:H8\" \"=ABS((B1:B2)*2)\")\n",
-            "(formula \"S\" \"I1:I8\" \"=1+(A1:A2)-(B1:B2)\")\n",
-            "(formula \"S\" \"J1:J8\" \"=IF((A1:A2)=1,(B1:B2),0)\")\n",
+            "(formula \"S\" \"X1\" \"=LABEL(A1:A2)\")\n",
+            "(formula \"S\" \"C1:C8\" \"=LABEL(A1:A2)+LABEL(B1:B2)\")\n",
+            "(formula \"S\" \"D1:D8\" \"=$X$1+LABEL(B1:B2)\")\n",
+            "(formula \"S\" \"E1:E8\" \"=LABEL(B1:B2)+$X$1\")\n",
+            "(formula \"S\" \"F1:F8\" \"=MOD(LABEL(A1:A2)+1,LABEL(B1:B2)+1)\")\n",
+            "(formula \"S\" \"G1:G8\" \"=SUM(LABEL(A1:A2)+1,LABEL(B1:B2)+1,LABEL(A3:A4)+1)\")\n",
+            "(formula \"S\" \"H1:H8\" \"=ABS(LABEL(B1:B2)*2)\")\n",
+            "(formula \"S\" \"I1:I8\" \"=1+LABEL(A1:A2)-LABEL(B1:B2)\")\n",
+            "(formula \"S\" \"J1:J8\" \"=IF(LABEL(A1:A2)=1,LABEL(B1:B2),0)\")\n",
             "(formula \"S\" \"K1:K8\" \"=$X$1&$X$1\")\n",
         );
         let mut runs = load(grid);
@@ -5775,6 +5893,145 @@ mod tests {
         // The first, SUM over the twin's A1:B3 moved to each row: at D1, after
         // the writes of A1 and B3, 4 + 0 - 2.5.
         assert_eq!(number(&m, "S", "D1"), 1.5);
+    }
+
+    #[test]
+    fn a_run_meets_a_range_where_one_value_is_wanted_at_each_cell() {
+        // KERNEL.8, slice b: implicit intersection by runs, by every cell
+        // alone and by `Calc`, frame for frame: a column met at each cell's
+        // row, inside it and past it, held and moving; a row met at each
+        // cell's column and a block at both, on another sheet; a twin's
+        // column; a name's range; `SINGLE`; `INDEX`'s pick of many cells; and
+        // each as the operand of a node a run computes, a condition, a call,
+        // a sign, `&` and `CHOOSE`'s value among them.
+        let rows = concat!(
+            "(cell \"S\" \"A1:A6\" 3)\n",
+            "(cell \"S\" \"B1:C8\" 2)\n",
+            "(cell \"T\" \"A1:Z1\" 5)\n",
+            "(cell \"T\" \"A2:Z3\" 6)\n",
+            "(name \"Col\" \"S!$A$1:$A$6\")\n",
+        );
+        let formulas: Vec<String> = [
+            "$A$1:$A$6*2",
+            "A1:A2+1",
+            "T!$A$1:$Z$1",
+            "T!$A$1:$Z$3",
+            "S.last!$A$1:$A$6",
+            "Col+ROW()",
+            "SINGLE($A$1:$A$6)",
+            "ROW(SINGLE($A$1:$A$8))",
+            "INDEX($A$1:$C$8,0,1)",
+            "IF($A$1:$A$6>2,$B$1:$B$8,0)",
+            "SUM($A$1:$A$6,1)",
+            "MOD($A$1:$A$6,2)",
+            "-$A$1:$A$6",
+            "$A$1:$A$6&\"x\"",
+            "CHOOSE(1,$A$1:$A$6)",
+        ]
+        .iter()
+        .map(|f| f.to_string())
+        .collect();
+        let m = by_runs_and_alone(&columns(rows, 8, &formulas), &[]);
+        assert_eq!(number(&m, "S", "D3"), 6.0, "A3 doubled");
+        assert_eq!(
+            at(&m, "S", "D7"),
+            Some(Computed::Value(Value::Error(ErrorKind::Value))),
+            "row 7 is not in A1:A6"
+        );
+        assert_eq!(
+            number(&m, "S", "E8"),
+            1.0,
+            "A8:A9 met at row 8, empty, plus 1"
+        );
+        assert_eq!(number(&m, "S", "F1"), 5.0, "T's row met at column F");
+        assert_eq!(number(&m, "S", "K8"), 8.0, "ROW of SINGLE's cell");
+    }
+
+    #[test]
+    fn a_grid_reading_a_name_whose_text_is_not_read_is_refused() {
+        // KERNEL.8, slice b: such a name, refused at the load with the
+        // constructs, so that no cell holds its reason at a step; a name read,
+        // and one no formula reads, refused by nothing.
+        let e = refused(concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(name \"Pair\" \"{1,2}\")\n",
+            "(formula \"S\" \"B1\" \"=Pair*2\")\n",
+        ));
+        assert_eq!(e.refusal.id, "calc-construct-not-read");
+        assert!(e.refusal.text.contains("S!B1"), "{}", e.refusal.text);
+        let m = load(concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(name \"Pair\" \"{1,2}\")\n",
+            "(name \"Rate\" \"S!$A$1\")\n",
+            "(formula \"S\" \"B1\" \"=Rate*2\")\n",
+        ));
+        assert_eq!(m.formulas(), (1, 1));
+    }
+
+    #[test]
+    fn a_draft_s_dynamic_array_formula_keeps_its_range_an_array() {
+        // KERNEL.8, slice b: a draft made by hand, as from a reader's
+        // workbook, may hold a dynamic-array formula: the machine asks the
+        // kind of the cell it computes, as `Calc` does, so that the formula's
+        // range where one value is wanted is an array, labelled as written,
+        // and the same text written legacy is met at its cell, on one shape;
+        // `SINGLE` meets the range in either kind.
+        let text = concat!(
+            "(cell \"S\" \"A1:A6\" 3)\n",
+            "(formula \"S\" \"B3\" \"=$A$1:$A$6*2\")\n",
+            "(formula \"S\" \"B7\" \"=$A$1:$A$6*2\")\n",
+            "(formula \"S\" \"C3\" \"=$A$1:$A$6*2\")\n",
+            "(formula \"S\" \"C7\" \"=$A$1:$A$6*2\")\n",
+            "(formula \"S\" \"D3\" \"=SINGLE($A$1:$A$6)*2\")\n",
+        );
+        let mut draft = read_rows(&read_forms(text).unwrap()).unwrap();
+        let s = draft.workbook.find_sheet("S").unwrap();
+        let sheet = &mut draft.workbook.sheets[s];
+        for (row, col) in [(3, 3), (7, 3), (3, 4)] {
+            let Some(Content::Formula(body)) =
+                sheet.cells.get(&(row, col)).map(|c| c.content.clone())
+            else {
+                panic!("({row}, {col}) holds no formula");
+            };
+            let content = Content::DynamicFormula(body);
+            sheet.set(row, col, Cell { content, style: 0 });
+        }
+        let cells = ["B3", "B7", "C3", "C7", "D3"];
+        let library = labelling();
+        let calc: Vec<String> = {
+            let calc = crate::calc::Calc::run(&draft.workbook, &library);
+            cells
+                .iter()
+                .map(|addr| {
+                    let r = parse_a1_range(addr).unwrap();
+                    format!("{:?}", calc.computed((s, r.top, r.left)).cloned())
+                })
+                .collect()
+        };
+        let mut m = Machine::new(draft, labelling())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+        assert!(m.step(0).done);
+        assert_eq!(number(&m, "S", "B3"), 6.0, "legacy: A3 doubled");
+        assert_eq!(
+            at(&m, "S", "B7"),
+            Some(Computed::Value(Value::Error(ErrorKind::Value))),
+            "legacy: row 7 is not in A1:A6"
+        );
+        for addr in ["C3", "C7"] {
+            assert_eq!(
+                at(&m, "S", addr),
+                Some(Computed::NotComputed(Reason::Construct(
+                    "$A$1:$A$6".to_string()
+                ))),
+                "dynamic {addr}: an array, labelled"
+            );
+        }
+        assert_eq!(number(&m, "S", "D3"), 6.0, "SINGLE in a dynamic formula");
+        let machine: Vec<String> = cells
+            .iter()
+            .map(|addr| format!("{:?}", at(&m, "S", addr)))
+            .collect();
+        assert_eq!(machine, calc, "the machine is Calc, cell for cell");
     }
 
     #[test]
@@ -6045,7 +6302,7 @@ mod tests {
         // first read first.
         let rows = concat!(
             "(cell \"S\" \"A1:A8\" (error \"#N/A\"))\n",
-            "(formula \"S\" \"C1:C8\" \"=XX1:XX2\")\n",
+            "(formula \"S\" \"C1:C8\" \"=LABEL(XX1:XX2)\")\n",
         );
         let formulas: Vec<String> = ["MOD(A1,C1+1)", "MOD(A1+1,C1)", "MOD(C1,A1)", "MOD(A1,C1)"]
             .iter()
@@ -7002,7 +7259,7 @@ mod tests {
         // cells changed) or copies the cells that changed (a few did).
         for value_cells in [0, 20] {
             let grid = format!(
-                "(cell \"S\" \"A1\" 1)\n{}(formula \"S\" \"C1\" \"=IF(A1=1,D1:D2,E1:E2)\")\n\
+                "(cell \"S\" \"A1\" 1)\n{}(formula \"S\" \"C1\" \"=IF(A1=1,LABEL(D1:D2),LABEL(E1:E2))\")\n\
                  (formula \"S\" \"F1\" \"=S.last!C1\")\n",
                 (1..=value_cells)
                     .map(|r| format!("(cell \"S\" \"H{r}\" {r})\n"))
@@ -7068,15 +7325,17 @@ mod tests {
     }
 
     #[test]
-    fn a_range_where_one_value_is_wanted_is_labelled_as_written() {
+    fn a_reason_s_label_is_moved_with_its_cell_and_owned_through_a_name() {
         // KERNEL.25: the label is borrowed from the parse, moved with a cell
         // at an offset from its shape's first, and owned when read through
-        // a name, whose reference does not move.
+        // a name, whose reference does not move; made by the tests' `LABEL`
+        // since KERNEL.8's second slice met a range where one value is wanted
+        // at its cell.
         let mut m = load(concat!(
             "(cell \"S\" \"A1:B3\" 1)\n",
             "(name \"Wide\" \"S!$A$1:$B$1\")\n",
-            "(formula \"S\" \"D1:D2\" \"=A1:B1*2\")\n",
-            "(formula \"S\" \"E1:E2\" \"=Wide*2\")\n",
+            "(formula \"S\" \"D1:D2\" \"=LABEL(A1:B1)*2\")\n",
+            "(formula \"S\" \"E1:E2\" \"=LABEL(Wide)*2\")\n",
         ));
         assert_eq!(m.formulas(), (4, 2));
         m.step(0);
@@ -7150,7 +7409,7 @@ mod tests {
 (cell \"Board\" \"G2\" 1.5)
 (formula \"Board\" \"B3\" \"=Board.last!B3+1\")
 (formula \"Board\" \"C3\" \"=B3*100\")
-(formula \"Board\" \"D3\" \"=B2:C2\")
+(formula \"Board\" \"D3\" \"=LABEL(B2:C2)\")
 (formula \"Board\" \"E3\" \"=IF(B3>1,D2,B3)\")
 (formula \"Board\" \"F3\" \"=1/0\")
 (formula \"Board\" \"B4:D4\" \"=B3+B2\")
@@ -9283,7 +9542,7 @@ mod tests {
             let when = format!("frame {frame}");
             let mut w = format!("(cell \"Clock\" \"B1\" {frame})");
             if frame == 4 {
-                w.push_str("\n(formula \"Grid\" \"E200\" \"=A1:A2\")");
+                w.push_str("\n(formula \"Grid\" \"E200\" \"=LABEL(A1:A2)\")");
             }
             for m in [&mut copied, &mut walked, &mut whole] {
                 assert!(m.write(&w).is_ok(), "{when}");
@@ -9656,7 +9915,7 @@ mod tests {
                 "(sheet \"S\" visible)\n(cell \"S\" \"A1\" 0)\n(cell \"S\" \"A2\" -0)\n",
                 "(cell \"S\" \"E1\" 1)\n",
                 "(formula \"S\" \"B1\" \"=IF(S.last!B1=1,0,1)\")\n",
-                "(formula \"S\" \"D1\" \"=IF(B1=1,X1:X2,Y1:Y2)\")\n",
+                "(formula \"S\" \"D1\" \"=IF(B1=1,LABEL(X1:X2),LABEL(Y1:Y2))\")\n",
                 "(formula \"S\" \"C1:C{}\" \"=IF($B$1=1,$A$1,$A$2)\")\n",
             ),
             n
@@ -10732,7 +10991,7 @@ mod tests {
         let rows = concat!(
             "(sheet \"S\" visible)\n",
             "(cell \"S\" \"B1:B2\" 1)\n",
-            "(formula \"S\" \"A1\" \"=B1:B2\")\n",
+            "(formula \"S\" \"A1\" \"=LABEL(B1:B2)\")\n",
             "(formula \"S\" \"C1:C8\" \"=SUM(A$1:B$1)+ROW()\")\n",
             "(formula \"S\" \"D1\" \"=SUM(A1:B2)\")\n",
             "(formula \"S\" \"E1:E8\" \"=SUM(S.last!A$1:B$1)\")\n",
@@ -11055,7 +11314,7 @@ mod tests {
             "(formula \"S\" \"B1\" \"=IF(A6=1,A1,A5)\")\n",
             "(formula \"S\" \"B2\" \"=A2*2\")\n",
             "(formula \"S\" \"B3\" \"=S.last!A3*2\")\n",
-            "(formula \"S\" \"B4\" \"=IF(A2>5,A1:A2,A2:A3)\")\n",
+            "(formula \"S\" \"B4\" \"=IF(A2>5,LABEL(A1:A2),LABEL(A2:A3))\")\n",
             "(sheet \"T\" visible)\n",
             "(formula \"T\" \"A1\" \"=S!B2+1\")\n",
         ));

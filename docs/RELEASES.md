@@ -50,12 +50,32 @@
   reads and no plan orders: each says `not computed` with the range named,
   where a value could have been read from a cell not computed yet. A sum
   range the size of the range, or larger, computes.
+- **A range where one value is wanted computes, as Excel's implicit
+  intersection.** A legacy formula that reads a range where one value is
+  wanted, `=A1:A10*2` in row 3 or `=IF(Prices>100,"high","low")`, reads the
+  range's cell in the formula's own row (in its column, for a range one row
+  high), `#VALUE!` where the range holds no cell there and `#REF!` for a
+  reference spanning sheets, as Excel does; it said not computed before. A
+  dynamic-array formula's range stays an array, not computed until arrays
+  come: `frazaro calc` now tells the two kinds apart in a file Excel saved,
+  and an OpenDocument file's matrix formulas as arrays. `SINGLE`, which is
+  how Excel's file spells `@`, computes in a formula of either kind, and a
+  built workbook spells it so that Excel reads it. An engine refuses at its
+  load a defined name whose text it cannot read, as it refuses the same text
+  in a formula, and a range over a `.last` twin now answers a cell not
+  computed where the same range over the sheet does, where it passed the
+  cell by.
 - **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
   `Env::indexes`, a provided method answering `None`, is where an
   environment of one's own may keep them; `calc::criteria` and `calc::index`
   are public. The census names a vector a run's cells search alike by a
-  read of its own, `keyed`. Alonzo's cartridges and Buffet's compute every
-  frame as they did, allocating no more (KERNEL.8).
+  read of its own, `keyed`. `Env::dynamic` and `Env::reasons_beside`,
+  provided methods answering `false`, are how an environment of one's own
+  says that a cell holds a dynamic-array formula, and that a sheet holds
+  reasons beside its cells; `rows::Sink::array`, a provided method, and
+  `rows::ArrayKind` carry an array formula's kind from the reader. Alonzo's
+  cartridges and Buffet's compute every frame as they did, allocating no
+  more (KERNEL.8).
 
 ## 0.10.1
 

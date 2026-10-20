@@ -49,7 +49,7 @@ use crate::machine::CELLS;
 
 use super::criteria::{cells_of, has_wildcard, Criterion, Target};
 use super::eval::{exact_order, finite, Ctx, Reason};
-use super::graph::{cells_in, Area, CellId};
+use super::graph::{cells_in, places, Area, CellId};
 use super::value::{
     fold_char, fold_cmp, fold_eq, fold_text, round15, text_to_number, ErrorKind, Value,
 };
@@ -119,9 +119,10 @@ pub(crate) type Read<'v> = Result<&'v Value, &'v Reason>;
 
 /// Each cell an area holds, row by row, its row, its column and its value
 /// lent or its reason, to `f`, as `Ctx::each` walks an area: a sheet the
-/// environment keeps as an array by index, its empty slots passed by; any
-/// other through its cells, each read through the environment, a cell that
-/// reads as nothing passed by. `f` answers whether to go on.
+/// environment keeps as an array by index, its empty slots passed by; a
+/// sheet holding reasons beside its cells at every place (KERNEL.8, slice
+/// b); any other through its cells, each read through the environment, a
+/// cell that reads as nothing passed by. `f` answers whether to go on.
 pub(crate) fn walk<F>(ctx: &Ctx<'_>, area: &Area, mut f: F)
 where
     F: FnMut(u32, u32, Read<'_>) -> bool,
@@ -137,13 +138,24 @@ where
     let Some(sheet) = model.sheets.get(area.sheet) else {
         return;
     };
-    for ((row, col), _) in cells_in(sheet, ctx.env.extent(area.sheet), area) {
-        let go = match ctx.env.read((area.sheet, row, col)) {
+    let extent = ctx.env.extent(area.sheet);
+    let mut visit = |row: u32, col: u32| -> bool {
+        match ctx.env.read((area.sheet, row, col)) {
             Ok(Value::Empty) => true,
             Ok(v) => f(row, col, Ok(&v)),
             Err(r) => f(row, col, Err(&r)),
-        };
-        if !go {
+        }
+    };
+    if ctx.env.reasons_beside(area.sheet) {
+        for (row, col) in places(extent, area) {
+            if !visit(row, col) {
+                return;
+            }
+        }
+        return;
+    }
+    for ((row, col), _) in cells_in(sheet, extent, area) {
+        if !visit(row, col) {
             return;
         }
     }

@@ -54,7 +54,7 @@ use crate::intrinsics::fold;
 use crate::messages::Refusal;
 use crate::refers::{self, Kind};
 
-pub use vla_lang::rows::{sheet_prefix, RefersTo, Row, Sink, Value, Visibility};
+pub use vla_lang::rows::{sheet_prefix, ArrayKind, RefersTo, Row, Sink, Value, Visibility};
 
 /// The cap on the sets of distinct R1C1 formulas `--counts` keeps, a
 /// sheet's and the workbook's.

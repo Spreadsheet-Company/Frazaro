@@ -212,7 +212,17 @@ pub(crate) fn index_value(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> 
                 Ok((t, l, b, r)) if t == b && l == r => {
                     ctx.env.read((a.sheet, a.top + t, a.left + l))
                 }
-                Ok(_) => Err(as_written(written, *moved)),
+                // A pick of many cells, where one value is wanted: met at
+                // the cell in a legacy formula, an array in a dynamic one,
+                // labelled until arrays come (KERNEL.8, slice b).
+                Ok(_) if ctx.env.dynamic() => Err(as_written(written, *moved)),
+                Ok((t, l, b, r)) => ctx.intersect(&Area {
+                    sheet: a.sheet,
+                    top: a.top + t,
+                    left: a.left + l,
+                    bottom: a.top + b,
+                    right: a.left + r,
+                }),
                 Err(k) => Ok(Value::Error(k)),
             }
         }
@@ -969,7 +979,7 @@ mod tests {
             ("XLOOKUP(30,T!A1:A6,T!B1:B5)", VALUE),
             ("XLOOKUP(3,T!A8:F8,T!A9:F9)", "\"three\""),
             ("XLOOKUP(\"apple\",T!C1:C6,T!A1:A6,,0,-1)", "40"),
-            ("XLOOKUP(30,T!A1:A6,T!A1:B6)", "(not-computed \"T!A1:B6\")"),
+            ("XLOOKUP(30,T!A1:A6,T!A1:B6)", "30"),
             (
                 "XLOOKUP(30,T!A1:A6,T!B1:B6,,3)",
                 "(not-computed \"match mode 3\")",
@@ -990,7 +1000,11 @@ mod tests {
             ("SUM(INDEX(T!A1:B6,0,1))", "210"),
             ("SUM(INDEX(T!A1:D6,2,0))", "70"),
             ("INDEX(T!A1:A6,MATCH(40,T!A1:A6,0))", "40"),
-            ("INDEX(T!A1:B6,2,0)", "(not-computed \"T!A1:B6\")"),
+            // A row picked where one value is wanted meets the formula's
+            // column, A, in a legacy formula (KERNEL.8, slice b); a row with
+            // no cell there is `#VALUE!`.
+            ("INDEX(T!A1:B6,2,0)", "20"),
+            ("INDEX(T!C1:D6,2,0)", VALUE),
             ("INDEX(5,1)", "5"),
             ("INDEX(5,2)", REF),
             ("INDEX(T!A1:B6,1,1,1)", "10"),

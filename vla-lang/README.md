@@ -91,23 +91,25 @@ refused in the same words.
   value kind; a comparison holds two numbers equal to fifteen significant
   digits equal, as Excel's does (`=0.1+0.2=0.3` is TRUE), and two texts
   equal without case, beyond A to Z too, where a lookup matches a number
-  exactly. Functions enter through `calc::Library`, the seam: the
-  language registers the fourteen a game's rule needs on day one (`IF`,
+  exactly. A range where one value is wanted is met at the formula's cell,
+  Excel's implicit intersection, in a legacy formula, and is an array,
+  labelled until arrays come, in a dynamic-array formula, which
+  `Env::dynamic` tells. Functions enter through `calc::Library`, the seam:
+  the language registers the fourteen a game's rule needs on day one (`IF`,
   `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
   `COLUMN`, `CHOOSE`, `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`,
   `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is
-  read by (`IFERROR`, `IFNA`, `ISERROR`, `ISNA`) and the criteria
-  (`COUNTIF`, `SUMIF`), and a crate above registers more, as `frazaro-core`
-  registers Excel's library by measurement. A lookup or a criterion asked
-  of one range again and again searches the range's index
+  read by (`IFERROR`, `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`,
+  `SUMIF`) and `SINGLE`, Excel's `@`, and a crate above registers more, as
+  `frazaro-core` registers Excel's library by measurement. A lookup or a
+  criterion asked of one range again and again searches the range's index
   (`calc::Indexes`), built at its second probe in one evaluation and kept
   until a cell of the range changes, its answers the ones a walk of the
-  range gives (`calc::index`). A formula that
-  calls anything else is not computed, and says so naming the function; a
-  cell that reads it inherits the label. `Calc::first_refusal` is what an
-  engine's load asks: a cycle, a function outside the library, or a
-  construct the parser does not read, each refused by name from the
-  catalogue.
+  range gives (`calc::index`). A formula that calls anything else is not
+  computed, and says so naming the function; a cell that reads it inherits
+  the label. `Calc::first_refusal` is what an engine's load asks: a cycle, a
+  function outside the library, or a construct the parser does not read, a
+  defined name's text among them, each refused by name from the catalogue.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's

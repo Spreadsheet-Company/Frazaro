@@ -54,6 +54,7 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip;
 use crate::sheet::{cell_ref, MAX_COLUMN, MAX_ROW};
+use vla_lang::rows::ArrayKind;
 
 const MIMETYPE: &str = "application/vnd.oasis.opendocument.spreadsheet";
 const CONTENT: &str = "content.xml";
@@ -677,6 +678,12 @@ impl Source for Document {
                                         &mut sheet_distinct,
                                         book_distinct,
                                     );
+                                    // A matrix formula's anchor, of the
+                                    // kind the format can tell (KERNEL.8,
+                                    // slice b).
+                                    if cell.matrix {
+                                        sink.array(&info.name, &addr, ArrayKind::Legacy);
+                                    }
                                 }
                             }
                             col = col.saturating_add(cell.repeat);
@@ -1225,6 +1232,37 @@ mod tests {
             (15, 5, 1, 4, 5)
         );
         assert_eq!((stats.distinct_r1c1, stats.unreadable), (5, 0));
+    }
+
+    #[test]
+    fn a_matrix_formula_s_kind_goes_beside_its_row() {
+        // KERNEL.8, slice b: a matrix formula's anchor told to the sink after
+        // its formula row, legacy, the format telling no dynamic-array
+        // formula from it; a plain formula told nothing.
+        #[derive(Default)]
+        struct Kinds(Vec<(String, ArrayKind)>);
+        impl Sink for Kinds {
+            fn row(&mut self, _: &Row<'_>) {}
+            fn array(&mut self, _sheet: &str, addr: &str, kind: ArrayKind) {
+                self.0.push((addr.to_string(), kind));
+            }
+        }
+        let content = format!(concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<office:document-content {OFFICE}>",
+            "<office:body><office:spreadsheet>",
+            "<table:table table:name=\"Model\">",
+            "<table:table-row>",
+            "<table:table-cell office:value-type=\"float\" office:value=\"1\"><text:p>1</text:p></table:table-cell>",
+            "<table:table-cell table:formula=\"of:=[.A1]*2\" office:value-type=\"float\" office:value=\"2\"><text:p>2</text:p></table:table-cell>",
+            "<table:table-cell table:formula=\"of:=[.A1:.A2]*2\" table:number-matrix-columns-spanned=\"1\" table:number-matrix-rows-spanned=\"2\" office:value-type=\"float\" office:value=\"2\"><text:p>2</text:p></table:table-cell>",
+            "</table:table-row>",
+            "</table:table>",
+            "</office:spreadsheet></office:body></office:document-content>"), OFFICE = OFFICE);
+        let document = Document::open(&ods(&content, MIMETYPE), "t.ods").unwrap();
+        let mut kinds = Kinds::default();
+        document.walk_sheet(0, &mut kinds).unwrap();
+        assert_eq!(kinds.0, vec![("C1".to_string(), ArrayKind::Legacy)]);
     }
 
     #[test]

@@ -29933,6 +29933,211 @@ ms); the slice moves neither, `sums` reading no lookup.
   (1.7 to 2.0 ms for one build), so a change's cost is read only from the
   instrument alternated with its base in one session, three rounds or more.
 
+**Committed 2026-10-19** at the owner's word, "Commit, then proceed with
+slice 2": the first slice with its fold as `e437b60`, not pushed.
+
+**The second slice scoped at its build, 2026-10-19: implicit intersection
+and a formula's kind.** The outline left two decisions open; the owner took
+each recommendation when asked:
+
+1. *A formula's kind travels beside its row, unprinted.* The reader tells an
+   array formula's anchor to its sink after the anchor's `formula` row, by a
+   provided method of `rows::Sink` (`array`, with `rows::ArrayKind`), which
+   the printer ignores, so that no reflect golden moves and a formula row
+   stays the file's own text. *Declined:* `reflect` printing the `@` Excel
+   365's formula bar shows (where Excel puts it turns on every function's
+   parameters, past the language's library, and oracle 8's goldens would
+   move wherever such a formula stands); a row of its own for an array's
+   anchor (the four reflect goldens holding `Model!F1`'s `SEQUENCE` would
+   gain one, for a mark the calc door alone reads).
+2. *The walk alone, measured.* Intersection in `Ctx::one`, to which a run
+   (`each_cell`) and a program (`Why::Range`) already leave a range where
+   one value is wanted, so that the three paths answer alike at once and the
+   census keeps its words (`each`, `(unlowered range)`). The scoping's read
+   at a place moved with each cell of a run, and a program's read at a
+   computed place, guarded, wait until a consumer intersects or the cost
+   says so: no engine's grid intersects today, every such cell having been
+   not computed. *Declined for now:* the two reads, and a census word of
+   their own.
+
+**Built 2026-10-19, the second slice.**
+
+*What landed.*
+- *Implicit intersection* (`eval::intersection`, `Ctx::intersect`, called by
+  `Ctx::one`): a legacy formula reads an area where one value is wanted at
+  the cell being computed, an area one column wide at the cell's row, one a
+  row high at its column, any other at both, an area on another sheet by the
+  same row and column; `#VALUE!` where the area holds no such cell, and
+  `#REF!` for a reference spanning sheets, as Excel's first save showed
+  (below). `INDEX`'s pick of many cells where one value is wanted, a row or
+  a column of 0, met so too, in a program's call (`lookups::index_value`)
+  and at each cell of a run, the run's cell entered first so that its kind
+  is asked of it; `XLOOKUP`'s row of results with them, through `Ctx::one`.
+- *A formula's kind* (`Env::dynamic`, a provided method answering `false`):
+  `Calc` and the machine answer it from the cell's content
+  (`calc::is_dynamic`), so that a `DynamicFormula`'s range where one value
+  is wanted is an array, labelled as before, until (f). The xlsx reader
+  tells a `t="array"` anchor's kind by its `cm` through the metadata part,
+  dynamic where `cm` names the `XLDAPR` block (`merge::dynamic_cm_of`, the
+  `--into` merge's, now shared), or names anything in a package with no
+  metadata part, and legacy otherwise; the OpenDocument reader tells a
+  matrix formula's, legacy, its format telling no dynamic one from it. The
+  calc door's sink (`reflect/calc.rs`) loads either kind as a
+  `DynamicFormula`: a legacy array formula, entered with Ctrl+Shift+Enter,
+  for which `Content` has no kind until (f), is read as a dynamic one is,
+  where the outline had it labelled by name, since over single values it
+  computes as Excel's array evaluation computes it and a range where one
+  value is wanted in it is labelled alike.
+- *`SINGLE`*, Excel's `@` as its file spells it (`_xlfn.SINGLE`, the prefix
+  the reader drops and the writer now adds, `sheet::xlfn`): a form of the
+  language (`library::single`), meeting a reference of one area at the cell
+  in a formula of either kind and answering a reference to the cell met,
+  `#VALUE!` where it meets none, `#REF!` over a span, any other value
+  itself; a row of `excel::SUBSET` with the fixture its evidence, the
+  language's library twenty-eight names, the day-one fourteen and this
+  item's fourteen. The formula syntax spells it as it spells any call, and
+  still refuses `@` itself.
+- *The twin defect removed.* A twin holding a reason beside its cells offers
+  no array to a walk (`Env::dense`, while `twin_holds_reason`), its own
+  reads still taking the array, the authority for its values while its cells
+  lag (`twin_kept`); and a walk of a sheet holding reasons beside its cells
+  (`Env::reasons_beside`, a provided method) reads every place of the area
+  inside the extent (`graph::places`): `Ctx::each`, the index's `walk`, and
+  a program's range walk, which leaves such a sheet to `Ctx`. A range over a
+  twin answers a reason where a range over its sheet does.
+- *An unread name refused at the load.* A defined name a formula reads, or
+  one such a name's text reads, as deep as an evaluation follows names,
+  whose text the parse does not read, refused with the constructs
+  (`calc-construct-not-read`, `eval::unread_name`) by `Calc::first_refusal`
+  and the plan's, in cell order with them; asked only of a workbook that
+  defines such a name (`Names::any_unread`), once a shape and a sheet. The
+  reasons a cell can hold at a step are then a loaded `value` row's before
+  the first frame and the first slice's labels, `SUMIF`'s smaller sum range,
+  `LOOKUP`'s results past their end and match mode 3 (Found).
+- *The tests' `LABEL`*, a form of the machine tests' library alone making
+  the reason a range where one value is wanted made before, the reference as
+  written moved with its cell: the tests of a reason at a step, a twin's, a
+  plane's, a frame's count and a change's spelling among them, stand on it
+  now, their reads and paths unchanged; the label's own test renamed for
+  what it holds.
+
+*The fixture,* `scripts/recalc/intersect.txt`: 31 formulas over a Data
+sheet's column, row and block, 21 on a Legacy sheet calling no function that
+can return an array, so written legacy, each met inside its area and past
+it, through an operator, a condition, a sign, `&`, a whole column and a
+whole row, a span of sheets alone and through `SINGLE`, and `SINGLE`; and 10
+on a Dynamic sheet, each calling `CHOOSE`, `INDEX` or `LOOKUP`, so written
+dynamic, their arrays labelled with room to spill and `SINGLE` meeting them
+all the same. Built by the door, 28 rows agree with the values it folded and
+three arrays are labelled holding none, pinned `built` at 31 and 28, with
+its census and `prove.ps1`'s tenth calc row, until the owner's save,
+`intersect_saved.xlsx`, joins at `no-differ`. The subset's
+`IF(A1>5,A1:A2,0)`, met at row 27 outside `A1:A2`, is `#VALUE!` as Excel's
+save holds it: the subset built again and its save agree in 105 rows each,
+the outline's prediction. No other golden moved, recalc, census, reflect or
+build, the OpenDocument fixture's `=B1:B2*2` held as an array once its
+reader told the kind (Found).
+
+*Measured,* a scratch harness over the machine, its whole frame of 20,000
+cells: meeting a held column at each cell's row 55 to 69 ns a cell, 1.1 to
+1.4 ms; by `SINGLE` 47 to 48 ns; the same cells reading their row's cell
+directly 3.7 to 6.7 ns, 0.07 to 0.13 ms, so that a run's own read would make
+an intersection some ten times cheaper, for the day a consumer asks. The
+bench's five fixtures, the slice against the first's commit in scratch
+copies: in three rounds of each, Life's whole frame 2.029 ms against 2.047
+and its edit 2.480 against 2.442, the lookups' 10.27 against 10.06 and 12.63
+against 12.42, 2% behind, the column, the chain and the sums level; in three
+more, alternated, the lookups level (9.98 against 9.99 ms, 12.05 against
+12.16) and every other with them, and a copy with `SINGLE` not registered no
+faster (10.14 and 12.43 ms beside the slice's 9.99 and 12.35): the 2% was
+the spread between sessions the first slice's fold found, and no floor
+moves.
+
+*Held.* `vla-lang`'s 295 tests, five new (`Calc`'s intersection over every
+kind of area and both kinds of formula, its refusal of an unread name, a
+run's intersection held to every cell alone and to `Calc` frame for frame
+over fifteen nodes, the machine's refusal, and a draft's dynamic-array
+formula beside the same text written legacy on one shape, the machine held
+to `Calc` cell for cell), the defect's pin rewritten to its removal (a twin
+holding match mode 3's reason answering it to `SUM`, a read, `MATCH`,
+`COUNTIF`, a program and a run, its array offered again once the reason
+goes) and the twin's walk test held to every place, and the twelve laws over
+the generated grids; `frazaro-core`'s 189, two new (the xlsx reader telling
+a dynamic, a legacy and a metadata-less anchor, the printer's record the
+same with the kind or without, and the OpenDocument reader telling a
+matrix's); clippy and rustfmt clean; eighteen mutants, each failing named
+tests, and the door's two the recalc golden check as well: two survived the
+first round, the machine's kind (`Env::dynamic` answering `false`), asked
+only of a draft made by hand since no grid loaded from rows holds a
+dynamic-array formula, and the OpenDocument reader's matrix untold, which
+the golden check alone caught, each answered by a test written for it; the
+wasm modules built, `run_checks` 58 of 58, and the language's package tested
+from its tarball.
+
+*Alonzo and Buffet over the slice,* by a path in scratch copies of their
+committed trees at today's heads (`640c0a3`, `CART.12`'s, and `7386c3d`,
+`POT.11`'s, Buffet's `alonzo` at `v0.2.0`, its pin), nothing in theirs
+touched: Alonzo's 55 tests and its doc test, its cartridges required, and
+its frames' runner in check mode over the slice and over the first slice's
+commit, every row the same but its memory: every frame of Life, the gun,
+Sand and Superposition's three rows equal to the hand-written games, the
+digests, the facts, the grains and the settles the same, and the second
+frame's allocations and reallocations; each grid's heap high-water mark 6
+bytes more, every byte of it `SINGLE`'s name, a copy that registers no
+`SINGLE` giving the first slice's marks to the byte: 539 bytes over the
+ceilings Alonzo set at its pin to 0.10.1, which its next pin's move sets
+again. Buffet's 29 and 47 tests, every frame of the game held to its
+hand-written twin and its describe golden.
+
+*Excel's first save,* at the owner's hand test of 2026-10-19: the rest of
+the hand test held (the 34 files staged, the suites, the door's counts, the
+58 checks), and Excel 365 opened the fixture and saved it, 30 rows, 18
+agreeing, every other legacy cell met where the door met it and the three
+arrays spilling as written, and two defects found. The build had been made
+before the writer learned `SINGLE`'s prefix, so its eight cells held
+`SINGLE(` bare, which Excel read as a function of no add-in
+(`_xludf.SINGLE`, `#NAME?`); and `Data:Other!A1`, a span of sheets where one
+value is wanted, is `#REF!` in Excel, where the slice had answered
+`#VALUE!`. Mended: a span is `#REF!` in a legacy formula and under `SINGLE`
+(`Ctx::one`, `library::single`, `Calc`'s test holding both), the writer's
+test holds `SINGLE`'s prefix, and the fixture, built again, holds
+`_xlfn.SINGLE` and `SINGLE(Data:Other!A1)` beside the span: 31 rows, 28
+agreeing, its census 33 lines, and three mutants more (either span answered
+`#VALUE!` again, the prefix dropped), each failing named tests, the prefix's
+caught by the writer's test alone since the reader drops any `_xlfn.`; the
+owner's save to be made again.
+
+*Excel's second save,* the owner's of 2026-10-19, of the fixture built
+again: the hand test held again (the 34 files staged, the suites, the
+counts, the 58 checks), no `#NAME?`, both spans `#REF!`, and the door
+counting 31 formulas, 28 agreeing, none differing and three unchecked, the
+arrays, beside the values Excel spilled (10, 10 and 1). Joined at
+`no-differ` as `intersect_saved_calc.vla`, its census beside the fixture's
+(33 lines, the sheet's name as Excel writes it, `data!`), `prove.ps1`'s
+eleventh calc row, the runner's control failing its mutant on all 52. Excel
+writes `@` bare where a legacy formula's top holds it (`C1`, `C10`, `B6`,
+the values the same: `B6`'s `#REF!` is the value Excel computed for
+`@data:other!A1` before it wrote the reference bare), and keeps
+`_xlfn.SINGLE` under `ROW` and in the dynamic formulas.
+
+*Found in the slice,* not minted:
+- *The OpenDocument reader told no matrix formula's kind*: its fixture's
+  `=B1:B2*2`, a matrix over two rows in `Model!E3`, would have been met at
+  row 3 and answered `#VALUE!` where the file holds the array's 2400; told
+  now, and labelled as before.
+- *The reasons at a step are three kinds, not the outline's two*: the first
+  slice's labels stand at a step too, two of them static in their
+  references' sizes and match mode 3 a value, and no load refuses them; the
+  twin's walk covers them where they stand.
+- *A legacy array formula is read as a dynamic one* (above), the outline's
+  label by name declined at the build.
+- *A built fixture is not held to its script's build*: `intersect.xlsx`,
+  built before the writer's prefix, reached Excel with `SINGLE(` bare, no
+  check comparing it with what the door builds from `intersect.txt` today;
+  of the five built fixtures `edges.xlsx` differs from a fresh build too, by
+  its stamp alone (0.8.1). A check building each again and comparing it, the
+  stamp aside, would have caught it; one line in the summary.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which

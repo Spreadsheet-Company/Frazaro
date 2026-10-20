@@ -298,11 +298,20 @@ impl<'m> Calc<'m> {
                 &[("cell", &self.spell_cell(id)), ("function", &name)],
             ));
         }
-        let (id, construct) = self.formula_cells().into_iter().find_map(|id| {
-            formula::parse(&self.texts[&id])
-                .err()
-                .map(|construct| (id, construct))
-        })?;
+        // A construct the parse does not read, or a defined name the
+        // formula reads whose text it does not (KERNEL.8, slice b), the first
+        // cell holding either.
+        let named = self.names.any_unread();
+        let (id, construct) =
+            self.formula_cells().into_iter().find_map(|id| {
+                match formula::parse(&self.texts[&id]) {
+                    Err(construct) => Some((id, construct)),
+                    Ok(parsed) if named => {
+                        eval::unread_name(self.model, &self.names, &parsed, id.0).map(|c| (id, c))
+                    }
+                    Ok(_) => None,
+                }
+            })?;
         Some(formula::unread_refusal(&self.spell_cell(id), &construct))
     }
 }
@@ -408,6 +417,26 @@ impl Env for Calc<'_> {
     fn indexes(&self) -> Option<&index::Indexes> {
         Some(&self.indexes)
     }
+
+    /// Whether the cell being computed holds a dynamic-array formula, as its
+    /// content says (KERNEL.8, slice b).
+    fn dynamic(&self) -> bool {
+        let (s, row, col) = self.here.get();
+        is_dynamic(self.model, (s, row, col))
+    }
+}
+
+/// Whether a cell of a model holds a dynamic-array formula (KERNEL.8, slice
+/// b): [`Env::dynamic`]'s answer for `Calc` and an engine's machine alike.
+pub(crate) fn is_dynamic(model: &Workbook, (s, row, col): CellId) -> bool {
+    matches!(
+        model
+            .sheets
+            .get(s)
+            .and_then(|sheet| sheet.cells.get(&(row, col)))
+            .map(|c| &c.content),
+        Some(Content::DynamicFormula(_))
+    )
 }
 
 #[cfg(test)]
@@ -746,6 +775,151 @@ mod tests {
     }
 
     #[test]
+    fn a_range_where_one_value_is_wanted_meets_the_cell_in_a_legacy_formula() {
+        // KERNEL.8, slice b: implicit intersection. A legacy formula reads an
+        // area where one value is wanted at the cell: the area's cell in its
+        // row for one column, in its column for one row, in both for any
+        // other, on any sheet, `#VALUE!` where the area holds none there and
+        // `#REF!` where it spans sheets, as Excel's save of the fixture holds
+        // them; `SINGLE`, Excel's `@`, the same in a formula of
+        // either kind, answering a reference; a dynamic-array formula's range
+        // an array, labelled until arrays come, `INDEX`'s pick of many cells
+        // alike.
+        let mut wb = model(&[
+            ("S", "A1", "1"),
+            ("S", "A2", "2"),
+            ("S", "A3", "3"),
+            ("S", "A4", "4"),
+            ("S", "A5", "5"),
+            ("S", "B1", "10"),
+            ("S", "C1", "20"),
+            ("S", "D1", "30"),
+            ("S", "E1", "40"),
+            ("T", "A1", "100"),
+            ("T", "A2", "200"),
+            ("T", "A3", "300"),
+            ("T", "B3", "310"),
+            ("T", "C3", "320"),
+            ("U", "A1", "1000"),
+            ("S", "G3", "=A1:A5"),
+            ("S", "G7", "=A1:A5"),
+            ("S", "D2", "=B1:E1"),
+            ("S", "H2", "=B1:E1"),
+            ("S", "B3", "=T!A1:C5"),
+            ("S", "C9", "=T!A1:C5"),
+            ("S", "G2", "=T!A1:A3*2"),
+            ("S", "G4", "=IF(A1:A5>3,\"y\",\"n\")"),
+            ("S", "G5", "=A:A+1"),
+            ("S", "G1", "=SUM(T:U!A1)+T:U!A1"),
+            ("S", "I2", "=Column*10"),
+            ("S", "H4", "=SINGLE(A1:A5)"),
+            ("S", "H5", "=ROW(SINGLE(A1:A5))"),
+            ("S", "H6", "=SINGLE(7)"),
+            ("S", "H9", "=SINGLE(A1:A5)"),
+            ("S", "H7", "=SINGLE(T:U!A1)"),
+            ("S", "I3", "=INDEX(A1:B5,0,1)"),
+            ("S", "J3", "=A1:A5"),
+            ("S", "J4", "=SINGLE(A1:A5)"),
+            ("S", "J5", "=INDEX(A1:B5,0,1)"),
+        ]);
+        wb.defined_names
+            .push(("Column".to_string(), "S!$A$1:$A$5".to_string()));
+        let s = wb.find_sheet("S").unwrap();
+        for (row, col) in [(3, 10), (4, 10), (5, 10)] {
+            let text = match &wb.sheets[s].cells[&(row, col)].content {
+                Content::Formula(t) => t.clone(),
+                other => panic!("{other:?}"),
+            };
+            wb.sheets[s].set(
+                row,
+                col,
+                Cell {
+                    content: Content::DynamicFormula(text),
+                    style: 0,
+                },
+            );
+        }
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let value_error = Computed::Value(Value::Error(ErrorKind::Value));
+        assert_eq!(number(&calc, "S", "G3"), 3.0, "a column, met at row 3");
+        assert_eq!(at(&calc, "S", "G7"), value_error, "row 7 is not in A1:A5");
+        assert_eq!(number(&calc, "S", "D2"), 30.0, "a row, met at column D");
+        assert_eq!(at(&calc, "S", "H2"), value_error, "column H is not in B:E");
+        assert_eq!(number(&calc, "S", "B3"), 310.0, "a block, at both, on T");
+        assert_eq!(at(&calc, "S", "C9"), value_error, "row 9 is not in it");
+        assert_eq!(number(&calc, "S", "G2"), 400.0, "met, then doubled");
+        assert_eq!(
+            at(&calc, "S", "G4"),
+            Computed::Value(Value::Text("y".to_string())),
+            "a condition met at row 4"
+        );
+        assert_eq!(number(&calc, "S", "G5"), 6.0, "a whole column, at row 5");
+        assert_eq!(
+            at(&calc, "S", "G1"),
+            Computed::Value(Value::Error(ErrorKind::Ref)),
+            "a span of sheets"
+        );
+        assert_eq!(
+            number(&calc, "S", "I2"),
+            20.0,
+            "a name's range, met at row 2"
+        );
+        assert_eq!(number(&calc, "S", "H4"), 4.0);
+        assert_eq!(number(&calc, "S", "H5"), 5.0, "SINGLE answers a reference");
+        assert_eq!(number(&calc, "S", "H6"), 7.0);
+        assert_eq!(at(&calc, "S", "H9"), value_error);
+        assert_eq!(
+            at(&calc, "S", "H7"),
+            Computed::Value(Value::Error(ErrorKind::Ref)),
+            "SINGLE over a span of sheets"
+        );
+        assert_eq!(number(&calc, "S", "I3"), 3.0, "INDEX's column, met");
+        assert_eq!(
+            at(&calc, "S", "J3"),
+            Computed::NotComputed(Reason::Construct("A1:A5".to_string())),
+            "a dynamic formula's range is an array, labelled"
+        );
+        assert_eq!(number(&calc, "S", "J4"), 4.0, "SINGLE in a dynamic formula");
+        assert_eq!(
+            at(&calc, "S", "J5"),
+            Computed::NotComputed(Reason::Construct("A1:B5".to_string())),
+            "INDEX's column in a dynamic formula"
+        );
+    }
+
+    #[test]
+    fn a_name_whose_text_is_not_read_is_refused_at_the_load() {
+        // KERNEL.8, slice b: a defined name a formula reads, or a name such a
+        // name reads, whose text the parse does not read, refused with the
+        // constructs, so that no cell of an engine's grid holds the reason;
+        // a name read, or none the workbook defines, refused by nothing.
+        let refusal = |names: &[(&str, &str)], formula: &str| {
+            let mut wb = model(&[("S", "A1", "1"), ("S", "B1", formula)]);
+            for (n, t) in names {
+                wb.defined_names.push((n.to_string(), t.to_string()));
+            }
+            let lib = library::language();
+            let calc = Calc::new(&wb, &lib);
+            calc.first_refusal()
+        };
+        let read = refusal(&[("Rate", "S!$A$1")], "=Rate*2");
+        assert!(read.is_none(), "{read:?}");
+        assert!(refusal(&[("Rate", "S!$A$1")], "=Missing*2").is_none());
+        let unread = refusal(&[("Pair", "{1,2}")], "=Pair*2").unwrap();
+        assert_eq!(unread.id, "calc-construct-not-read");
+        assert!(
+            unread.text.contains("S!B1") && unread.text.contains('{'),
+            "{}",
+            unread.text
+        );
+        let nested = refusal(&[("Outer", "Inner+1"), ("Inner", "{1,2}")], "=Outer").unwrap();
+        assert_eq!(nested.id, "calc-construct-not-read");
+        let unused = refusal(&[("Pair", "{1,2}")], "=A1*2");
+        assert!(unused.is_none(), "a name no formula reads: {unused:?}");
+    }
+
+    #[test]
     fn the_day_one_functions_compute_exactly() {
         let wb = model(&[
             ("S", "A1", "=IF(1>0,\"yes\",\"no\")"),
@@ -838,8 +1012,8 @@ mod tests {
         );
         assert_eq!(
             at(&calc, "S", "B5"),
-            Computed::NotComputed(Reason::Construct("A1:A2".to_string())),
-            "a range where one value is wanted waits for KERNEL.8"
+            err(ErrorKind::Value),
+            "a range where one value is wanted met at the cell, row 5 outside A1:A2"
         );
         assert_eq!(
             calc.missing_functions(),

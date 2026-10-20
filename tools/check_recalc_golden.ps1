@@ -115,6 +115,19 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # ASCII, two numbers equal to fifteen digits), so the build was made again
 # and its agree floor lowered 161 to 160: XMATCH(30,...,3), which agreed
 # with the #VALUE! the build folded, is labelled now, holding none.
+# 2026-10-19, KERNEL.8's second slice, implicit intersection: the subset's
+# IF(A1>5,A1:A2,0) met at its cell, #VALUE! as in Excel's save, so subset and
+# subset_saved agree 105, the subset built again; and intersect 31, the
+# intersection's fixture built by the door (scripts/recalc/intersect.txt), 28
+# agreeing with the values it folded and three dynamic-array formulas whose
+# ranges are arrays labelled holding none, pinned 'built' until the owner's
+# save of it, intersect_saved.xlsx, joins this table at no-differ. Excel's
+# first save (30 rows, 18 agreeing) read a build older than the writer's
+# _xlfn.SINGLE as a function of no add-in, #NAME?, and a span of sheets as
+# #REF!: built again with the prefix, a span #REF!, and SINGLE over a span
+# beside it, 31 and 28. Excel's second save, intersect_saved 31 at
+# no-differ, 28 agree and the three arrays unchecked beside the values
+# Excel spilled; it writes @ bare where a legacy formula's top holds it.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -127,11 +140,13 @@ $goldens = @(
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 23 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
-    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 104 },
-    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 104 },
+    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 105 },
+    @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 105 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
     @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 165; Pin = 'built';     AgreeFloor = 160 },
-    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 }
+    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 },
+    @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 31;  Pin = 'built';     AgreeFloor = 28 },
+    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

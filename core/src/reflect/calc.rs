@@ -41,7 +41,7 @@
 use std::collections::BTreeMap;
 
 use vla_lang::calc::{agrees, Calc, CellId, Computed, Extent, Library, Names, Reason, Shapes};
-use vla_lang::rows::{datum, quoted, Row, Sink, Value};
+use vla_lang::rows::{datum, quoted, ArrayKind, Row, Sink, Value};
 use vla_lang::sheet::{cell_ref, parse_a1_range, Cell, Content, Sheet, Workbook};
 
 use super::{open, Discard};
@@ -107,6 +107,26 @@ impl Sink for Collected {
                         style: 0,
                     },
                 );
+            }
+        }
+    }
+
+    /// An array formula's anchor (KERNEL.8, slice b): loaded as a
+    /// dynamic-array formula, in which a range where one value is wanted is
+    /// an array, labelled until arrays come, and not met at the cell as a
+    /// legacy formula meets it. A legacy array formula, entered with
+    /// Ctrl+Shift+Enter, is read the same way, `Content` having no kind of
+    /// its own for it until arrays come: over single values it computes as
+    /// Excel's array evaluation computes it, and a range where one value is
+    /// wanted in it is labelled as a dynamic one's is.
+    fn array(&mut self, sheet: &str, addr: &str, _kind: ArrayKind) {
+        let Some(id) = self.place(sheet, addr) else {
+            return;
+        };
+        if let Some(cell) = self.model.sheets[id.0].cells.get(&(id.1, id.2)) {
+            if let Content::Formula(body) = &cell.content {
+                let content = Content::DynamicFormula(body.clone());
+                self.model.sheets[id.0].set(id.1, id.2, Cell { content, style: 0 });
             }
         }
     }

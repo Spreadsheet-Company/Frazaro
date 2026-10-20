@@ -1,0 +1,72 @@
+# Implicit intersection's fixture (KERNEL.8, slice b): a Data sheet of a column, a row and a block, and formulas
+# reading them where one value is wanted, as the writer writes each kind. On the Legacy sheet no formula calls a
+# function that can return an array, so each is a legacy formula, met at its cell: a column at the formula's row, a
+# row at its column, a block at both, inside each and past it, through an operator, a condition, a sign, a whole
+# column and a whole row, a span of sheets alone and through SINGLE, and SINGLE, Excel's @, which the writer
+# spells _xlfn.SINGLE (unprefixed, Excel's first save read it as a function of no add-in, #NAME?). On the Dynamic
+# sheet each formula calls CHOOSE,
+# INDEX or LOOKUP, so the writer writes it as a dynamic-array formula: a range there is an array, labelled until
+# arrays come, each with room below or beside it to spill into, and SINGLE meets it at the cell all the same.
+# Built by frazaro into intersect.xlsx (each value it computes held); the owner's save of it is intersect_saved.xlsx.
+
+Work on sheet Data.
+Put 10 into cell A1.
+Put 20 into cell A2.
+Put 30 into cell A3.
+Put 40 into cell A4.
+Put 50 into cell A5.
+Put 60 into cell A6.
+Put 70 into cell A7.
+Put 80 into cell A8.
+Put 1 into cell B1.
+Put 2 into cell C1.
+Put 3 into cell D1.
+Put 4 into cell E1.
+Put 5 into cell F1.
+Put 100 into cell D10.
+Put 101 into cell E10.
+Put 102 into cell F10.
+Put 110 into cell D11.
+Put 111 into cell E11.
+Put 112 into cell F11.
+Put 120 into cell D12.
+Put 121 into cell E12.
+Put 122 into cell F12.
+
+Work on sheet Other.
+Put 7 into cell A1.
+
+Work on sheet Legacy.
+Put formula "=SINGLE(Data!A1:A8)" into cell C1.
+Put formula "=SUM(Data!A1:A8)" into cell C2.
+Put formula "=Data!A1:A8" into cell C3.
+Put formula "=Data!A1:A8*2" into cell C4.
+Put formula "=IF(Data!A1:A8>40,""big"",""small"")" into cell C5.
+Put formula "=Data!A:A+1" into cell C6.
+Put formula "=ABS(-Data!A1:A8)" into cell C7.
+Put formula "=Data!A1:A8&""x""" into cell C8.
+Put formula "=Data!A1:A8" into cell C9.
+Put formula "=SINGLE(Data!A1:A8)" into cell C10.
+Put formula "=SUM(Data!A1:A8)-Data!A1:A8" into cell C12.
+Put formula "=Data!B1:F1" into cell D2.
+Put formula "=ROW(SINGLE(Data!A1:A8))" into cell D3.
+Put formula "=MAX(Data!A1:A8)+Data!A1:A8" into cell D5.
+Put formula "=Data!1:1" into cell F4.
+Put formula "=Data!B1:F1" into cell H2.
+Put formula "=Data!D10:F12" into cell E11.
+Put formula "=Data!D10:F12" into cell E13.
+Put formula "=Data!D10:F12" into cell G11.
+Put formula "=Data:Other!A1" into cell B5.
+Put formula "=SINGLE(Data:Other!A1)" into cell B6.
+
+Work on sheet Dynamic.
+Put formula "=CHOOSE(1,Data!A1:A8)" into cell A1.
+Put formula "=INDEX(Data!A1:C8,0,1)" into cell C1.
+Put formula "=CHOOSE(1,SINGLE(Data!A1:A8))" into cell E1.
+Put formula "=CHOOSE(1,SINGLE(Data!A1:A8))" into cell E4.
+Put formula "=CHOOSE(1,SINGLE(Data!A1:A8))" into cell E9.
+Put formula "=INDEX(Data!A1:C8,5,1)" into cell F5.
+Put formula "=SINGLE(INDEX(Data!A1:C8,0,1))" into cell G3.
+Put formula "=SINGLE(INDEX(Data!A1:C8,0,1))" into cell G10.
+Put formula "=CHOOSE(1,Data!B1:F1)+0" into cell H2.
+Put formula "=LOOKUP(30,Data!A1:A8)" into cell I1.

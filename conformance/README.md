@@ -1561,3 +1561,54 @@ rows are labelled in both files, `LOOKUP`'s results read past their end,
 values for them (`"r8"`, 20, `#VALUE!`, 11) wait for the slices that compute
 them. The identity of a name is untouched: the language's `fold`, which
 decides that two names are one, stays ASCII's alone.
+
+## Amendment of 2026-10-19: oracle 12's implicit intersection and a formula's kind (`KERNEL.8`, its second slice)
+
+A legacy formula reads a range where one value is wanted at its own cell,
+Excel's implicit intersection: an area one column wide at the formula's row,
+one a row high at its column, any other at both, on any sheet; `#VALUE!`
+where the area holds no such cell, and `#REF!` for a reference spanning
+sheets, as Excel's save holds them. A dynamic-array formula's range where
+one value is wanted is an array, labelled as written until the item's
+arrays. `SINGLE`, Excel's `@` as the file spells it (`_xlfn.SINGLE`, without
+which prefix Excel reads a function of no add-in, `#NAME?`), meets the range
+at the cell in a formula of either kind and answers a reference to the cell
+met, a span `#REF!`.
+
+The kind comes from the file. The xlsx reader tells an array formula's
+anchor (`t="array"`) dynamic where its `cm` names the dynamic-array
+metadata (`XLDAPR`) and legacy where it does not, and the OpenDocument
+reader tells a matrix formula, legacy, its format telling no dynamic one
+from it; each tells it to the sink beside the formula row, and the printer
+ignores it, so that oracle 8's records are unchanged. `frazaro calc` loads
+an array formula of either kind as a dynamic one: a legacy array formula
+over single values computes as Excel's array evaluation computes it.
+
+**The fixture.** `scripts/recalc/intersect.txt`, built by the door into
+`intersect.xlsx`, holds 31 formulas over a Data sheet's column, row and
+block: 21 written legacy, each met inside its area and past it, through an
+operator, a condition, a sign, `&`, a whole column, a whole row, a span of
+sheets alone and through `SINGLE`, and `SINGLE`; and 10 written dynamic by
+the functions they call, their arrays labelled and `SINGLE` meeting them all
+the same. `intersect_calc.vla` is the door's record of it: 28 rows `agree`
+with the values the build folded and three labelled holding none, pinned
+`built`. Excel 365's first save of it, of a build older than the writer's
+prefix, read `SINGLE` as a function of no add-in (`_xludf.SINGLE`, `#NAME?`)
+in its eight cells and the span as `#REF!` where the door had answered
+`#VALUE!`, its other eighteen rows agreeing. Built again, its second save,
+`intersect_saved.xlsx`, joins the table at `no-differ`: 31 rows, 28 agreeing
+and the three arrays unchecked beside the values Excel spilled. Excel writes
+`@` bare where a legacy formula's top holds it (`C1`, `C10`, `B6`), the
+value the same, and keeps `_xlfn.SINGLE` under `ROW` and in the dynamic
+formulas.
+
+**The subset's fixture.** `IF(A1>5,A1:A2,0)`, met at row 27 outside
+`A1:A2`, is `#VALUE!`, as Excel's save holds it, so `subset.xlsx`, built
+again, and `subset_saved.xlsx` agree in 105 rows each.
+
+**An engine's load and its twins.** A defined name whose text the parse
+does not read, read by a formula or by a name it reads, is refused at an
+engine's load with the constructs (`calc-construct-not-read`); and a
+`.last` twin holding a reason beside its cells answers it to a range over
+the twin as its sheet answers a range over itself, the twin offering no
+array to a walk while the reason stands.

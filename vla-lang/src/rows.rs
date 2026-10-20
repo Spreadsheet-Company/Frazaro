@@ -108,9 +108,31 @@ pub enum Row<'r> {
     },
 }
 
+/// An array formula's kind, as the reader finds it beside its anchor's
+/// `formula` row (KERNEL.8, slice b).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArrayKind {
+    /// Excel 365's dynamic-array formula: `t="array"`, its `cm` naming the
+    /// dynamic-array metadata (`XLDAPR`), over its own cell or the range it
+    /// spills into.
+    Dynamic,
+    /// A legacy array formula, entered with Ctrl+Shift+Enter: `t="array"`
+    /// and no such `cm`; and an OpenDocument matrix formula, whose file
+    /// tells no dynamic one from it.
+    Legacy,
+}
+
 /// Where rows go as a walk emits them.
 pub trait Sink {
     fn row(&mut self, row: &Row<'_>);
+
+    /// The `formula` row just emitted, at this sheet and address, is an
+    /// array formula's anchor of this kind (KERNEL.8, slice b): what a
+    /// door computing the workbook needs to tell a formula that intersects
+    /// a range where one value is wanted from one that reads it as an
+    /// array. Nothing, unless a sink says otherwise: the printer ignores it,
+    /// so that a formula row stays the file's own text.
+    fn array(&mut self, _sheet: &str, _addr: &str, _kind: ArrayKind) {}
 }
 
 /// A sheet's name as a reference spells it in front of `!`: the one quoting

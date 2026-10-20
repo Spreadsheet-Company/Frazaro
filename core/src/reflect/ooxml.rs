@@ -41,6 +41,7 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip::{self, Entry};
 use crate::sheet::{cell_ref, parse_a1_range, xlfn};
+use vla_lang::rows::ArrayKind;
 
 /// The most distinct R1C1 formulas a count keeps, per sheet and per
 /// workbook; past it the count stands still (AXM.1's own cap).
@@ -67,6 +68,11 @@ pub struct Package<'a> {
     external_books: Vec<String>,
     strings: Vec<String>,
     string_bytes: usize,
+    /// The cell-metadata index a dynamic-array formula's `cm` names, from
+    /// the metadata part, and whether the package holds that part
+    /// (KERNEL.8, slice b).
+    dynamic_cm: Option<u32>,
+    has_metadata: bool,
 }
 
 impl std::fmt::Debug for Package<'_> {
@@ -397,6 +403,19 @@ impl<'a> Package<'a> {
             }
         }
 
+        // The metadata part, for the index a dynamic-array formula's `cm`
+        // names (KERNEL.8, slice b).
+        let metadata_part = rels
+            .iter()
+            .find(|r| r.kind.ends_with("/sheetMetadata"))
+            .map(|r| resolve("xl/", &r.target))
+            .unwrap_or_else(|| "xl/metadata.xml".to_string());
+        let metadata = text(&metadata_part)?;
+        let has_metadata = metadata.is_some();
+        let dynamic_cm = metadata
+            .as_deref()
+            .and_then(crate::sheet::merge::dynamic_cm_of);
+
         // The external books, each by the name of its file.
         let mut external_books: Vec<String> = Vec::new();
         for rid in external_rids {
@@ -425,7 +444,21 @@ impl<'a> Package<'a> {
             external_books,
             strings,
             string_bytes,
+            dynamic_cm,
+            has_metadata,
         })
+    }
+
+    /// An array formula's kind by its cell's `cm` (KERNEL.8, slice b):
+    /// dynamic where it names the dynamic-array metadata, or names anything
+    /// in a package with no metadata part to say otherwise; legacy, entered
+    /// with Ctrl+Shift+Enter, where it is absent or names other metadata.
+    fn array_kind(&self, cm: Option<u32>) -> ArrayKind {
+        match (cm, self.dynamic_cm) {
+            (Some(c), Some(d)) if c == d => ArrayKind::Dynamic,
+            (Some(_), None) if !self.has_metadata => ArrayKind::Dynamic,
+            _ => ArrayKind::Legacy,
+        }
     }
 }
 
@@ -530,6 +563,8 @@ impl<'a> Source for Package<'a> {
                     row_no = row;
                     col_no = col;
                     let kind: Option<Cow<str>> = attr(attrs, "t");
+                    let cm: Option<u32> = attr(attrs, "cm").and_then(|v| v.trim().parse().ok());
+                    let mut array_anchor = false;
                     let mut formula_part: Option<(Option<String>, Option<String>, String)> = None;
                     let mut value_text: Option<String> = None;
                     let mut inline: Option<String> = None;
@@ -627,6 +662,7 @@ impl<'a> Source for Package<'a> {
                                         None
                                     } else {
                                         stats.array_anchors += 1;
+                                        array_anchor = true;
                                         Some(f_text)
                                     }
                                 }
@@ -706,6 +742,9 @@ impl<'a> Source for Package<'a> {
                             &mut sheet_distinct,
                             book_distinct,
                         );
+                        if array_anchor {
+                            sink.array(&info.name, &addr, self.array_kind(cm));
+                        }
                     }
                 }
                 _ => {}
@@ -743,6 +782,80 @@ mod tests {
             ));
         }
         zip::write_stored(&parts).unwrap()
+    }
+
+    #[test]
+    fn an_array_formula_s_kind_goes_beside_its_row() {
+        // KERNEL.8, slice b: an array formula's anchor told to the sink after
+        // its formula row, dynamic where its `cm` names the dynamic-array
+        // metadata, legacy where it has none or names other metadata, or
+        // where the package holds no metadata part and its `cm` names
+        // nothing to say otherwise; a plain formula told nothing; the
+        // printer's record the same either way.
+        #[derive(Default)]
+        struct Kinds(Vec<(String, ArrayKind)>);
+        impl Sink for Kinds {
+            fn row(&mut self, _: &Row<'_>) {}
+            fn array(&mut self, _sheet: &str, addr: &str, kind: ArrayKind) {
+                self.0.push((addr.to_string(), kind));
+            }
+        }
+        let data = concat!(
+            "<row r=\"1\"><c r=\"A1\" cm=\"1\"><f t=\"array\" ref=\"A1:A2\">_xlfn.SEQUENCE(2)</f><v>1</v></c>",
+            "<c r=\"B1\"><f t=\"array\" ref=\"B1\">SUM(C1:C2*D1:D2)</f><v>0</v></c>",
+            "<c r=\"C1\"><f>D1+1</f><v>1</v></c>",
+            "<c r=\"E1\" cm=\"2\"><f t=\"array\" ref=\"E1\">D1</f><v>0</v></c></row>",
+        );
+        let kinds = |bytes: &[u8]| {
+            let p = Package::open(bytes, "t.xlsx").unwrap();
+            let mut k = Kinds::default();
+            p.walk_sheet(0, &mut k).unwrap();
+            k.0
+        };
+        let without = one_sheet(data, None);
+        let mut parts = zip::entries(&without)
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    e.name.clone(),
+                    part_text_raw(&without, &zip::entries(&without).unwrap(), &e.name)
+                        .unwrap()
+                        .unwrap()
+                        .into_bytes(),
+                )
+            })
+            .collect::<Vec<_>>();
+        parts.push((
+            "xl/metadata.xml".to_string(),
+            crate::sheet::ooxml::metadata_xml().into_bytes(),
+        ));
+        let with = zip::write_stored(&parts).unwrap();
+        let dynamic = ArrayKind::Dynamic;
+        let legacy = ArrayKind::Legacy;
+        assert_eq!(
+            kinds(&with),
+            vec![
+                ("A1".to_string(), dynamic),
+                ("B1".to_string(), legacy),
+                ("E1".to_string(), legacy)
+            ],
+            "the metadata names cm 1 alone"
+        );
+        assert_eq!(
+            kinds(&without),
+            vec![
+                ("A1".to_string(), dynamic),
+                ("B1".to_string(), legacy),
+                ("E1".to_string(), dynamic)
+            ],
+            "no metadata part: a cm marks a dynamic formula"
+        );
+        assert_eq!(
+            reflect_text(&with, "t.xlsx").unwrap(),
+            reflect_text(&without, "t.xlsx").unwrap(),
+            "the printer ignores the kind"
+        );
     }
 
     #[test]

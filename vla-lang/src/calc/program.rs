@@ -635,7 +635,9 @@ impl Program {
 /// `f` as the rule reads a number in a range, an empty slot and a cell not
 /// held skipped by the walks themselves; the guard fails at any other value
 /// and at a reason, a held cell read as nothing among them (a formula with no
-/// place, which the machine never leaves, and which `Ctx` skips).
+/// place, which the machine never leaves, and which `Ctx` skips), and on a
+/// sheet holding reasons beside its cells, which `Ctx` walks place by place
+/// (KERNEL.8, slice b).
 fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> Option<()> {
     if let Some(kept) = src.dense(a.sheet) {
         let walked = kept.each_ref(a, |v| match v {
@@ -653,6 +655,9 @@ fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> 
     let Some(sheet) = src.model().sheets.get(a.sheet) else {
         return Some(());
     };
+    if src.reasons_beside(a.sheet) {
+        return guard(guarded::RANGE);
+    }
     for ((row, col), _) in cells_in(sheet, src.extent(a.sheet), a) {
         match src.read((a.sheet, row, col)) {
             Ok(Value::Number(n)) => f(R::ranged_number(n)),

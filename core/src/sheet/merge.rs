@@ -469,7 +469,7 @@ pub(crate) fn host_sheets_of(workbook: &str, rels: &str) -> Vec<String> {
 /// The 1-based index of the cell-metadata block that marks a dynamic-array
 /// formula in a model's metadata part, when the part has one: the block
 /// whose record names the XLDAPR type.
-fn dynamic_cm_of(metadata: &str) -> Option<u32> {
+pub(crate) fn dynamic_cm_of(metadata: &str) -> Option<u32> {
     let mut xldapr: Option<usize> = None;
     for (i, (s, e)) in tags(metadata, "metadataType").iter().enumerate() {
         if attr(&metadata[*s..*e], "name").as_deref() == Some("XLDAPR") {

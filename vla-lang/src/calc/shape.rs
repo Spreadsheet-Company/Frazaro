@@ -51,7 +51,7 @@ use crate::messages::{raise, Refusal};
 use crate::refers::{self, quote_sheet};
 use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Workbook};
 
-use super::eval::{Computed, Ctx, Env, Library, Reason};
+use super::eval::{unread_name, Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{
     self, areas_at, cells_in, dependencies, is_formula, Area, CellId, Extent, Names,
@@ -1043,11 +1043,37 @@ impl Shapes {
                 .collect(),
             None => self.places.keys().copied().collect(),
         };
+        // A defined name a cell's formula reads whose text the parse does
+        // not read, which a load refuses with the constructs (KERNEL.8, slice
+        // b): asked only of a workbook that defines a name whose text is
+        // not read, and once a shape and a sheet, a name being resolved by
+        // the sheet that reads it.
+        let mut named: FxHashMap<(usize, usize), String> = FxHashMap::default();
+        let names = (!model.defined_names.is_empty()).then(|| Names::of(model));
+        if let Some(names) = names.filter(Names::any_unread) {
+            let mut asked: FxHashMap<(usize, usize), ()> = FxHashMap::default();
+            for id in &ids {
+                let s = self.places[id].shape;
+                if asked.insert((s, id.0), ()).is_some() {
+                    continue;
+                }
+                if let Ok(e) = &self.shapes[s].expr {
+                    if let Some(construct) = unread_name(model, &names, e, id.0) {
+                        named.insert((s, id.0), construct);
+                    }
+                }
+            }
+        }
+        let unread_named =
+            |id: &CellId| -> Option<String> { named.get(&(self.places[id].shape, id.0)).cloned() };
         // A grid is refused nowhere far more often than somewhere: its cells
         // are sorted, to find the first refused, only when one is (KERNEL.34).
         let refused = |id: &CellId| {
             let shape = &self.shapes[self.places[id].shape];
-            !shape.missing.is_empty() || shape.expr.is_err() || self.unread.contains_key(id)
+            !shape.missing.is_empty()
+                || shape.expr.is_err()
+                || self.unread.contains_key(id)
+                || unread_named(id).is_some()
         };
         if !ids.iter().any(refused) {
             return None;
@@ -1080,7 +1106,7 @@ impl Shapes {
                             .unwrap_or_else(|| construct.clone()),
                     )
                 }
-                (Ok(_), None) => None,
+                (Ok(_), None) => unread_named(id),
             };
             if let Some(label) = label {
                 return Some((

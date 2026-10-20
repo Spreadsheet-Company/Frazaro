@@ -77,8 +77,8 @@ use crate::refers::Shape as Part;
 
 use super::dense::Dense;
 use super::eval::{
-    arithmetic, binary, compare_numbers, compares, finite, may_merge, near_bounds, Arg, Computed,
-    Ctx, Env, Known, Library, Reason, Strict,
+    arithmetic, binary, compare_numbers, compares, finite, intersection, may_merge, near_bounds,
+    Arg, Computed, Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
 use super::graph::{Area, CellId};
@@ -2174,11 +2174,31 @@ impl<'a> Many<'a> {
         match library::picked(bottom - top + 1, right - left + 1, row, col) {
             Err(e) => Ok(Value::Error(e)),
             Ok((t, l, b, rr)) if t == b && l == rr => self.env.read((s, top + t, left + l)),
-            Ok(_) => Err(Reason::Construct(if (d_row, d_col) == (0, 0) {
-                r.written.clone()
-            } else {
-                crate::refers::shift_a1_references(&r.written, d_row, d_col)
-            })),
+            // A pick of many cells, met at the cell in a legacy formula and
+            // labelled in a dynamic one, as `lookups::index_value` answers
+            // (KERNEL.8, slice b), the cell entered to be asked its kind.
+            Ok((t, l, b, rr)) => {
+                let cell = self.cells[sel.at(k)];
+                self.env.enter(cell);
+                if self.env.dynamic() {
+                    return Err(Reason::Construct(if (d_row, d_col) == (0, 0) {
+                        r.written.clone()
+                    } else {
+                        crate::refers::shift_a1_references(&r.written, d_row, d_col)
+                    }));
+                }
+                let picked = Area {
+                    sheet: s,
+                    top: top + t,
+                    left: left + l,
+                    bottom: top + b,
+                    right: left + rr,
+                };
+                match intersection(&picked, cell) {
+                    Some(id) => self.env.read(id),
+                    None => Ok(Value::Error(ErrorKind::Value)),
+                }
+            }
         }
     }
 

@@ -37,8 +37,9 @@
 //! numbers where every operand at a cell is a number and the function below
 //! at any other cell, so that a coercion is written here alone.
 
-use super::eval::{finite, Arg, Ctx, Known, Library, Reason};
+use super::eval::{finite, intersection, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
+use super::graph::Areas;
 use super::value::{ErrorKind, Value};
 use super::{criteria, lookups};
 
@@ -51,6 +52,8 @@ use super::{criteria, lookups};
 /// (`super::lookups`), and `COUNTIF` and `SUMIF` with their criteria
 /// (`super::criteria`), moved down from Excel's library: a run computes
 /// `INDEX`, `IFERROR` and `IFNA` by itself, and calls the rest at each cell.
+/// Since KERNEL.8's second slice `SINGLE`, Excel's `@`, a form a run
+/// computes at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -80,6 +83,7 @@ pub fn language() -> Library {
     lib.register_known_strict("ISNA", lookups::isna, Known::IsNa);
     lib.register_known_strict("COUNTIF", criteria::countif, Known::CountIf);
     lib.register_known_strict("SUMIF", criteria::sumif, Known::SumIf);
+    lib.register_form("SINGLE", single);
     lib
 }
 
@@ -92,12 +96,12 @@ pub const NAMES: [&str; 14] = [
     "SIN",
 ];
 
-/// The functions KERNEL.8's lookups brought into the language, beside the
-/// day-one list.
+/// The functions KERNEL.8 brought into the language, beside the day-one
+/// list: the lookups and `SINGLE`.
 #[cfg(test)]
-const KERNEL_8: [&str; 13] = [
+const KERNEL_8: [&str; 14] = [
     "INDEX", "MATCH", "XMATCH", "VLOOKUP", "HLOOKUP", "LOOKUP", "XLOOKUP", "IFERROR", "IFNA",
-    "ISERROR", "ISNA", "COUNTIF", "SUMIF",
+    "ISERROR", "ISNA", "COUNTIF", "SUMIF", "SINGLE",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
@@ -667,6 +671,43 @@ fn position(ctx: &Ctx<'_>, args: &[Arg], axis: Axis) -> Result<Value, Reason> {
             None => Value::Error(ErrorKind::Ref),
         },
         _ => placed(axis, None),
+    })
+}
+
+/// `SINGLE(value)`, Excel's `@` as its file spells it (`_xlfn.SINGLE`, the
+/// prefix dropped by the reader, KERNEL.8's second slice): a reference of
+/// one area intersected with the cell being computed, as a legacy formula
+/// reads a range where one value is wanted (`eval::intersection`), and
+/// answered as a reference to that one cell, in a formula of either kind;
+/// `#VALUE!` where the area holds no such cell, `#REF!` for a span of
+/// sheets, as a legacy formula meets one; any other value itself.
+fn single<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
+    let [e] = args else {
+        return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+    };
+    Ok(match ctx.eval(e)? {
+        Arg::Area {
+            areas,
+            written,
+            moved,
+        } => match &areas[..] {
+            [a] => match intersection(a, ctx.env.here()) {
+                Some((sheet, row, col)) => Arg::Area {
+                    areas: Areas::one(super::graph::Area {
+                        sheet,
+                        top: row,
+                        left: col,
+                        bottom: row,
+                        right: col,
+                    }),
+                    written,
+                    moved,
+                },
+                None => Arg::Scalar(Value::Error(ErrorKind::Value)),
+            },
+            _ => Arg::Scalar(Value::Error(ErrorKind::Ref)),
+        },
+        value => value,
     })
 }
 

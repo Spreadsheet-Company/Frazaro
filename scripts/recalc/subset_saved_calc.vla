@@ -57,7 +57,7 @@
 (calc "logic" "C24" "=ISNUMBER(A6)" false false agree)
 (calc "logic" "C25" "=IF(1/0,1,2)" (error "#DIV/0!") (error "#DIV/0!") agree)
 (calc "logic" "C26" "=AND(TRUE,1/0)" (error "#DIV/0!") (error "#DIV/0!") agree)
-(calc "logic" "C27" "=IF(A1>5,A1:A2,0)" (not-computed "A1:A2") (error "#VALUE!") unchecked)
+(calc "logic" "C27" "=IF(A1>5,A1:A2,0)" (error "#VALUE!") (error "#VALUE!") agree)
 (calc "math" "C1" "=SUM(A1:A6)" 60 60 agree)
 (calc "math" "C2" "=SUM(A1,\"5\",TRUE)" 16 16 agree)
 (calc "math" "C3" "=SUM(A3)" 0 0 agree)

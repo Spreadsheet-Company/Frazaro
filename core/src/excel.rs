@@ -22,10 +22,11 @@
 //! functions (`vla_lang::calc::library`) are here as they are there: its
 //! day-one fourteen, which `Alonzo/SPEC.md` section 13 named for the
 //! engine's first cartridges (`IF`, `SUM`, `AND`, `OR`, `MIN` and `MAX` in
-//! the tables too), and the thirteen `KERNEL.8` brought, the lookups, the
+//! the tables too), and the fourteen `KERNEL.8` brought, the lookups, the
 //! error tests a lookup's miss is read by, and `SUMIF` and `COUNTIF`, moved
 //! down from this file with their criteria since a vector's index keys by
-//! them and a cartridge counts duplicates (Alonzo's `CART.13`).
+//! them and a cartridge counts duplicates (Alonzo's `CART.13`), and
+//! `SINGLE`, Excel's `@`, with implicit intersection (its second slice).
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -51,7 +52,7 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the thirteen `KERNEL.8` brought, then Excel's.
+/// fourteen and the fourteen `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -160,6 +161,10 @@ pub const SUBSET: &[Entry] = &[
     Entry {
         name: "SUMIF",
         evidence: "Enron 11; moved into the language, KERNEL.8",
+    },
+    Entry {
+        name: "SINGLE",
+        evidence: "Excel's @ as its file spells it, with implicit intersection; scripts/recalc/intersect.txt",
     },
     Entry {
         name: "AVERAGE",

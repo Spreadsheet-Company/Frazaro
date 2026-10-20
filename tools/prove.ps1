@@ -130,7 +130,10 @@ fixture by the fixture's name; the mutant changes one character.
 2026-10-18, KERNEL.8's first slice: an eighth calc row, the lookups'
 fixture (scripts/recalc/lookups.xlsx, built by the door).
 2026-10-19, KERNEL.8's first slice: a ninth, the owner's Excel save of it
-(lookups_saved.xlsx, no row differing).
+(lookups_saved.xlsx, no row differing). KERNEL.8's second slice: a tenth,
+implicit intersection's fixture (scripts/recalc/intersect.xlsx), and an
+eleventh, the owner's Excel save of it (intersect_saved.xlsx, no row
+differing).
 #>
 param(
     [string]$Impl = '',
@@ -368,7 +371,9 @@ function Get-Oracles([string]$root) {
         @('scripts/recalc/subset_saved.xlsx',  'subset_saved_calc'),
         @('scripts/recalc/edges.xlsx',         'edges_calc'),
         @('scripts/recalc/lookups.xlsx',       'lookups_calc'),
-        @('scripts/recalc/lookups_saved.xlsx', 'lookups_saved_calc'))) {
+        @('scripts/recalc/lookups_saved.xlsx', 'lookups_saved_calc'),
+        @('scripts/recalc/intersect.xlsx',     'intersect_calc'),
+        @('scripts/recalc/intersect_saved.xlsx', 'intersect_saved_calc'))) {
         $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
                      Input = $c[0]; Golden = ('scripts/recalc/' + $c[1] + '.vla') })
     }
@@ -743,6 +748,8 @@ switch (`$kind) {
             'edges'          { 'scripts/recalc/edges_calc.vla' }
             'lookups'        { 'scripts/recalc/lookups_calc.vla' }
             'lookups_saved'  { 'scripts/recalc/lookups_saved_calc.vla' }
+            'intersect'      { 'scripts/recalc/intersect_calc.vla' }
+            'intersect_saved' { 'scripts/recalc/intersect_saved_calc.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

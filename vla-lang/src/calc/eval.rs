@@ -28,7 +28,7 @@ use crate::sheet::Workbook;
 
 use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RefExpr};
-use super::graph::{areas_at, cells_in, Area, Areas, CellId, Extent};
+use super::graph::{areas_at, cells_in, places, Area, Areas, CellId, Extent, Names};
 use super::index::Indexes;
 use super::value::{fold_cmp, round15, ErrorKind, Value};
 
@@ -153,6 +153,50 @@ pub trait Env {
     fn indexes(&self) -> Option<&Indexes> {
         None
     }
+
+    /// Whether the formula of the cell being computed is a dynamic-array
+    /// formula (KERNEL.8, slice b): one a host saved as an array formula,
+    /// Excel 365's kind, in which a range where one value is wanted is an
+    /// array, labelled until arrays come; a formula of the legacy kind
+    /// intersects such a range with its cell instead ([`Ctx::one`]).
+    /// `false`, the legacy kind, unless an environment says otherwise: an
+    /// engine's grid, loaded from rows, holds that kind alone.
+    fn dynamic(&self) -> bool {
+        false
+    }
+
+    /// Whether reasons stand on a sheet beside its cells, at places no cell
+    /// of it holds (KERNEL.8, slice b: an engine's machine, whose `.last`
+    /// twin holds no cell for a formula not computed, its reason beside):
+    /// a walk of an area of such a sheet reads every place of the area
+    /// inside the sheet's extent, so that it meets a reason where a walk of
+    /// the sheet the twin copies meets it. `false`, unless an environment
+    /// says otherwise.
+    fn reasons_beside(&self, _sheet: usize) -> bool {
+        false
+    }
+}
+
+/// The cell of an area a legacy formula reads where one value is wanted,
+/// implicit intersection (KERNEL.8, slice b; Microsoft's page "Implicit
+/// intersection operator: @"): the area's cell in the row of the cell being
+/// computed, for an area one column wide; in its column, for one a row
+/// high; in both, for any other; `None` where that cell is not in the area,
+/// which reads as `#VALUE!`. An area on another sheet is met by the same
+/// row and column.
+pub(crate) fn intersection(a: &Area, here: CellId) -> Option<CellId> {
+    let (_, row, col) = here;
+    let row = if a.top == a.bottom {
+        a.top
+    } else {
+        (a.top..=a.bottom).contains(&row).then_some(row)?
+    };
+    let col = if a.left == a.right {
+        a.left
+    } else {
+        (a.left..=a.right).contains(&col).then_some(col)?
+    };
+    Some((a.sheet, row, col))
 }
 
 /// A strict function: its arguments evaluated, a value or a reason out.
@@ -355,6 +399,49 @@ fn key(name: &str) -> Cow<'_, str> {
 /// How deep a name may read a name before `#NAME?`.
 const NAME_DEPTH: u32 = 16;
 
+/// The construct a defined name leaves unread for a formula read at a sheet
+/// (KERNEL.8, slice b): the first name the parse reads, or a name such a
+/// name's text reads, as deep as an evaluation follows names, whose text the
+/// parse does not read, and the construct that parse names; `None` where
+/// every name it reaches is read, or is none the workbook defines, which an
+/// evaluation answers `#NAME?`. What a load refuses with the constructs
+/// (`calc-construct-not-read`), so that no cell of an engine's grid holds
+/// the reason [`Ctx`] would label it with at a step.
+pub(crate) fn unread_name(
+    model: &Workbook,
+    names: &Names,
+    e: &Expr,
+    home: usize,
+) -> Option<String> {
+    fn go(model: &Workbook, names: &Names, e: &Expr, home: usize, depth: u32) -> Option<String> {
+        let mut found = None;
+        e.each_read(&mut |read| {
+            let formula::Read::Name { name, sheet } = read else {
+                return;
+            };
+            if found.is_some() || depth >= NAME_DEPTH {
+                return;
+            }
+            let scope = match sheet {
+                None => None,
+                Some(s) => match model.find_sheet(s) {
+                    Some(i) => Some(i),
+                    None => return,
+                },
+            };
+            let Some(text) = names.resolve(name, scope, home) else {
+                return;
+            };
+            found = match formula::parse(text) {
+                Err(construct) => Some(construct),
+                Ok(parsed) => go(model, names, &parsed, home, depth + 1),
+            };
+        });
+        found
+    }
+    go(model, names, e, home, 0)
+}
+
 /// One cell's evaluation: the environment and the library.
 pub struct Ctx<'a> {
     pub env: &'a dyn Env,
@@ -471,12 +558,27 @@ impl<'a> Ctx<'a> {
                 moved,
             } => match &areas[..] {
                 [a] if a.is_cell() => self.env.read((a.sheet, a.top, a.left)),
+                // A legacy formula intersects the area with its cell, and a
+                // span of sheets is `#REF!`, as Excel's save of the
+                // intersection's fixture holds it (KERNEL.8, slice b); a
+                // dynamic-array formula's range is an array, labelled.
+                [a] if !self.env.dynamic() => self.intersect(a),
+                _ if !self.env.dynamic() => Ok(Value::Error(ErrorKind::Ref)),
                 _ if *moved == (0, 0) => Err(Reason::Construct(written.to_string())),
                 // The label a moved text would show: the cell's own reference.
                 _ => Err(Reason::Construct(crate::refers::shift_a1_references(
                     written, moved.0, moved.1,
                 ))),
             },
+        }
+    }
+
+    /// An area's cell at the cell being computed, by [`intersection`], read;
+    /// `#VALUE!` where the area holds none there.
+    pub fn intersect(&self, a: &Area) -> Result<Value, Reason> {
+        match intersection(a, self.env.here()) {
+            Some(id) => self.env.read(id),
+            None => Ok(Value::Error(ErrorKind::Value)),
         }
     }
 
@@ -501,7 +603,8 @@ impl<'a> Ctx<'a> {
     /// a type of its own and not a pointer, so that an aggregate's fold is
     /// compiled into the walk (KERNEL.25). A sheet the environment keeps as
     /// an array is walked by index, the same values in the same order
-    /// (KERNEL.20).
+    /// (KERNEL.20); a sheet holding reasons beside its cells, at every place,
+    /// so that a reason answers where it stands (KERNEL.8, slice b).
     pub fn each<F>(&self, areas: &[Area], mut f: F) -> Result<(), Reason>
     where
         F: FnMut(Value) -> Result<(), Reason>,
@@ -515,6 +618,15 @@ impl<'a> Ctx<'a> {
             let Some(sheet) = model.sheets.get(a.sheet) else {
                 continue;
             };
+            if self.env.reasons_beside(a.sheet) {
+                for (row, col) in places(self.env.extent(a.sheet), a) {
+                    let v = self.env.read((a.sheet, row, col))?;
+                    if v != Value::Empty {
+                        f(v)?;
+                    }
+                }
+                continue;
+            }
             for ((row, col), _) in cells_in(sheet, self.env.extent(a.sheet), a) {
                 let v = self.env.read((a.sheet, row, col))?;
                 if v != Value::Empty {

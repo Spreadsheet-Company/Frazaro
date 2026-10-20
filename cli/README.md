@@ -727,13 +727,17 @@ a criterion hold two numbers equal to fifteen significant digits equal,
 `=0.1+0.2=0.3` TRUE as in Excel, where a lookup matches a number exactly, as
 Excel's do; two texts compare without case, beyond A to Z too, an accent
 counting. A formula that calls anything else shows `(not-computed "TEXT")`
-with the function named, a cell that reads it inherits the label, and a
+with the function named, a cell that reads it inherits the label. A range
+where one value is wanted is met at the formula's cell in a legacy formula,
+Excel's implicit intersection, `#VALUE!` where the range holds no cell there
+and `#REF!` for a reference spanning sheets, and is an array in a
+dynamic-array formula, named as written until arrays come; `SINGLE` is
+Excel's `@`, meeting the range at the cell in a formula of either kind. A
 reference this version does not read (a link into another workbook, a
-structured reference, a spill, an array constant, a range where one value is
-wanted) is named as written; a cell in a cycle shows `(not-computed cycle)`
-and the cycle's cells come first as `(cycle "Sheet!A1" "Sheet!B1")`. Nothing
-is ever claimed that was not computed. Exit 0 whenever the calculation ran,
-agree or differ.
+structured reference, a spill, an array constant) is named as written; a
+cell in a cycle shows `(not-computed cycle)` and the cycle's cells come
+first as `(cycle "Sheet!A1" "Sheet!B1")`. Nothing is ever claimed that was
+not computed. Exit 0 whenever the calculation ran, agree or differ.
 
 With `--counts`, one line of counts and times alone: formulas, computed,
 not computed, cycles, agree, differ, unchecked, so that a model whose

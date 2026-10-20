@@ -20,7 +20,7 @@ regenerates the goldens with the door, the diff showing what it moved, and
 the floors move with it.
 
 THE GOLDENS: scripts/recalc/shapes/<name>.vla, the door's own output saved
-CRLF, over oracle 12's nine fixtures (the files check_recalc_golden.ps1
+CRLF, over oracle 12's ten fixtures (the files check_recalc_golden.ps1
 computes) and the five programs of scripts/recalc/bench/, which the door
 builds first, as `frazaro build` builds any program, into target/shapes/;
 the lookups' program is named lookups_bench, beside the lookups' fixture.
@@ -98,6 +98,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-19, KERNEL.8's first slice: the owner's Excel save of the lookups'
 # fixture, a ninth, its census the build's but for the sheet's name as Excel
 # writes it into the formulas (`table!`).
+# 2026-10-19, KERNEL.8's second slice: the intersection's fixture, a tenth;
+# no other golden moved, a range where one value is wanted met by `Ctx` at
+# each cell of a run as before (the owner's ruling, the walk alone); 32
+# lines, then 33 with `SINGLE` over a span of sheets after Excel's first
+# save; Excel's second save of it, an eleventh, its census the build's but
+# for the sheet's name as Excel writes it (`data!`) and `@` written bare at
+# a legacy formula's top.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -108,6 +115,8 @@ $goldens = @(
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Floor = 17 },
     @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Floor = 165 },
     @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Floor = 165 },
+    @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Floor = 33 },
+    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Floor = 33 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },
