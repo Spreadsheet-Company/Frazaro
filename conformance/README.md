@@ -1685,3 +1685,69 @@ nothing; any other kind's empty `<v>` still holds nothing.
 **The subset's fixture.** `CONCATENATE("a","b")` computes `"ab"`, as
 Excel's save holds it, so that `subset.xlsx`, built again, and
 `subset_saved.xlsx` agree in 106 rows each.
+
+## Amendment of 2026-10-20: oracle 12's date functions (`KERNEL.8`, its fourth slice)
+
+The language computes seventeen date functions, `DATE`, `YEAR`, `MONTH`,
+`DAY`, `WEEKDAY`, `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS`, `WORKDAY`,
+`TIME`, `HOUR`, `MINUTE`, `SECOND`, `DATEDIF`, `YEARFRAC` and `WEEKNUM`,
+each as Excel's documentation states it and, where it is silent, as Excel
+365's own save answers. A date is a serial of Excel's 1900 calendar: 1 is 1
+January 1900, 60 the 29 February 1900 that never was, which Excel keeps, 0
+the day before the first, and 2,958,465 31 December 9999; a serial below 0
+or past the last day is `#NUM!`, as is a date `DATE`, `EOMONTH` or `EDATE`
+would make outside them, or a month they reach before 1900 or after 9999.
+February 1900 has 28 days to `EOMONTH`, `EDATE` and `YEARFRAC`, and 1900 is
+no leap year to `YEARFRAC`. A date's parts, its weekday among them, and a
+time's are read from the serial rounded to the second, as `numfmt` draws it,
+so that a time a hair before midnight is the next day's. A whole number an
+argument asks for is read as Excel's save reads it: `DATE`'s and `TIME`'s
+parts, `WORKDAY`'s days, a type and a basis by their floor, `EOMONTH`'s and
+`EDATE`'s months truncated toward zero. `NETWORKDAYS` and `WORKDAY` pass by
+Saturdays, Sundays and their holidays, each holiday counted once.
+`DATEDIF`'s `"YD"` walks the months past the years from the start's own
+month in its own year and adds the days past the months, as Excel's saves
+reckon it. Two edges are labelled, where two of Excel's saves of one formula
+answered differently: a year outside 0 to 9999 that `DATE`'s months carry
+back into it, `(not-computed "a year outside the calendar")`, and
+`WEEKNUM`'s types past 21, which its documentation does not name,
+`(not-computed "WEEKNUM's undocumented type")`.
+
+**A locale's number.** An argument of a date function, an operand of `+`,
+`-`, `*`, `/`, `^`, `%` and the unary minus, and `VALUE`'s, read as a
+number: a text spelling one by the language's rule its number, a text
+holding a digit that rule does not read, `"1,000"` or `"1/1/2026"`, labelled
+`(not-computed "a locale's number")`, since a host reads it by its locale,
+and any other text `#VALUE!`. The operators answered `#VALUE!` for such a
+text before. `DATEVALUE`, `TIMEVALUE`, `TODAY` and `NOW` are not computed,
+named.
+
+**The 1904 system.** The xlsx reader reads `workbookPr`'s `date1904`, a
+Mac's workbook counting its dates from 1904, and a door computing it labels
+every function whose answer turns on the calendar, `(not-computed "the 1904
+date system")`, and `TEXT` of a date's code, while `DAYS`, `TIME`, `HOUR`,
+`MINUTE` and `SECOND` compute; a workbook without the attribute counts from
+1900.
+
+**The fixture.** `scripts/recalc/dates.txt`, built by the door into
+`dates.xlsx`, holds 1,377 formulas: a Functions sheet of 364, one a function
+and a rule, the edges Excel's documentation leaves unsaid among them (a
+fraction where a whole number is asked, a time a hair before midnight, the
+1900 calendar's first days, `DATEDIF`'s `"MD"`, `YEARFRAC`'s bases), and
+arithmetic over the texts a locale reads; and a Calendar sheet of every year
+from 1900 to 2101, its first day's serial, February's length, the first
+day's weekday and ISO week, the day before's date and the last day's ISO
+week, from which with the months' fixed lengths every day's date and weekday
+follow, as a test of the core holds every day of them to Excel's save.
+Excel 365's first save of the first 297 differed in 25 rows, each folded to
+its answer; the 51 after them are the edges the fold chose, for its second.
+The second differed in 13: two of the 297 answered otherwise than in the
+first, whose edges are labelled, and the rest folded; the 11 after the 348
+are `DATEDIF`'s `"YD"` and the two edges again, for its third. The third
+differed in one, `"YD"` from 22 June 1988 to 11 May 2012, 323, whose rule
+it corrected; the 5 after the 359 are where that rule parts from the
+anniversary's, and its fourth agreed with each. `dates_calc.vla` is the
+door's record of it: 1,329 rows `agree` with the values the build folded
+and 48 labelled, pinned `built`; the owner's fourth save of it,
+`dates_saved.xlsx`, joins the table at `no-differ` as
+`dates_saved_calc.vla`, its 1,329 computed agreeing with Excel's.

@@ -5948,6 +5948,56 @@ mod tests {
     }
 
     #[test]
+    fn the_date_functions_a_run_calls_are_the_library_s_at_every_cell() {
+        // KERNEL.8, slice d: the date functions, which a run calls at each
+        // cell, by runs, by every cell alone and by `Calc`, frame for frame,
+        // over serials, a time, a truth value and a date a locale reads; and
+        // arithmetic and its unary minus labelling that text at a step.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" 46023)\n",
+            "(cell \"S\" \"A2\" 46023.75)\n",
+            "(cell \"S\" \"A3\" 60)\n",
+            "(cell \"S\" \"A4\" true)\n",
+            "(cell \"S\" \"A5\" \"1/1/2026\")\n",
+            "(cell \"S\" \"A6\" 45351)\n",
+            "(cell \"S\" \"B1:B6\" 2)\n",
+        );
+        let formulas: Vec<String> = [
+            "YEAR(A1)",
+            "MONTH(A1)",
+            "DAY(A1)",
+            "WEEKDAY(A1,$B1)",
+            "DATE(2026,B1,ROW())",
+            "EOMONTH(A1,B1)",
+            "EDATE(A1,-B1)",
+            "DAYS(A1,A6)",
+            "NETWORKDAYS(A6,A1)",
+            "WORKDAY(A1,B1*ROW())",
+            "HOUR(A2)",
+            "TIME(ROW(),B1,0)",
+            "DATEDIF(A6,A1,\"M\")",
+            "YEARFRAC(A6,A1,B1)",
+            "WEEKNUM(A1,B1)",
+            "A1+1",
+            "-A1",
+        ]
+        .iter()
+        .map(|f| f.to_string())
+        .collect();
+        let m = by_runs_and_alone(&columns(rows, 6, &formulas), &[]);
+        assert_eq!(number(&m, "S", "D1"), 2026.0, "YEAR");
+        assert_eq!(number(&m, "S", "F3"), 29.0, "DAY of the day that never was");
+        assert_eq!(number(&m, "S", "N1"), 18.0, "HOUR of a time");
+        let locale = Some(Computed::NotComputed(Reason::Construct(
+            "a locale's number".to_string(),
+        )));
+        assert_eq!(at(&m, "S", "D5"), locale, "YEAR of a locale's date");
+        assert_eq!(at(&m, "S", "S5"), locale, "+ over it");
+        assert_eq!(at(&m, "S", "T5"), locale, "- over it");
+        assert_eq!(number(&m, "S", "S4"), 2.0, "TRUE is 1 to +");
+    }
+
+    #[test]
     fn the_text_functions_a_run_calls_are_the_library_s_at_every_cell() {
         // KERNEL.8, slice c: the text functions, which a run calls at each
         // cell, by runs, by every cell alone and by `Calc`, frame for frame,

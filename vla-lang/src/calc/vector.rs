@@ -77,8 +77,8 @@ use crate::refers::Shape as Part;
 
 use super::dense::Dense;
 use super::eval::{
-    arithmetic, compare_numbers, compares, finite, intersection, may_merge, near_bounds, operate,
-    Arg, Computed, Ctx, Env, Known, Library, Reason, Strict,
+    arithmetic, compare_numbers, compares, finite, intersection, may_merge, near_bounds, numeric,
+    operate, Arg, Computed, Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
 use super::graph::{Area, CellId};
@@ -1524,10 +1524,15 @@ impl<'a> Many<'a> {
     /// that nothing here stands beneath the evaluation of a deeper level.
     #[inline(never)]
     fn signed(&self, lane: Lane, f: fn(f64) -> f64) -> Lane {
-        let number = |v: &mut Value| {
-            *v = match v.number() {
-                Ok(n) => finite(f(n)),
-                Err(k) => Value::Error(k),
+        // A value as arithmetic reads it, a text holding a digit no rule
+        // reads labelled (`eval::numeric`, KERNEL.8, slice d).
+        let number = |got: &mut Result<Value, Reason>| {
+            if let Ok(v) = got {
+                *got = match numeric(v) {
+                    Ok(Ok(n)) => Ok(finite(f(n))),
+                    Ok(Err(k)) => Ok(Value::Error(k)),
+                    Err(r) => Err(r),
+                };
             }
         };
         match lane {
@@ -1535,14 +1540,12 @@ impl<'a> Many<'a> {
             Lane::Numbers(numbers) => self.numbers_mapped(numbers, |n| finite(f(n))),
             lane => match self.values(lane) {
                 Values::Same(mut got) => {
-                    if let Ok(v) = got.as_mut() {
-                        number(v);
-                    }
+                    number(&mut got);
                     Lane::Same(got)
                 }
                 Values::Each(mut each) => {
-                    for v in each.iter_mut().flatten() {
-                        number(v);
+                    for got in each.iter_mut() {
+                        number(got);
                     }
                     Lane::Each(each)
                 }

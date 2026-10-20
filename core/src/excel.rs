@@ -11,8 +11,9 @@
 //! Of the Enron fifteen (SUM, IF, AVERAGE, VLOOKUP, ROUND, SUBTOTAL, OFFSET,
 //! CONCATENATE, NOW, DAVERAGE, SUMIF, INDEX, MATCH, LOOKUP, MONTH) `KERNEL.7`
 //! computed the five that are arithmetic and logic over values, and
-//! `KERNEL.8`'s first slice the four lookups (2026-10-18); the database
-//! functions, the dates and the text functions are its later slices',
+//! `KERNEL.8`'s first slice the four lookups (2026-10-18), its third
+//! `CONCATENATE` with the text functions and its fourth `MONTH` with the
+//! dates (2026-10-20); the database functions are a later slice's,
 //! `OFFSET` is unreadable by the reader's own rule, and `NOW` is volatile,
 //! which an engine refuses and a door shows as not computed. Of the EUSES
 //! fifteen (SUM, IF, ROUND, HYPERLINK, CONCATENATE, AND, COUNTIF, AVERAGE,
@@ -27,7 +28,8 @@
 //! down from this file with their criteria since a vector's index keys by
 //! them and a cartridge counts duplicates (Alonzo's `CART.13`),
 //! `SINGLE`, Excel's `@`, with implicit intersection (its second slice),
-//! and the twenty-five text functions with `TEXT` (its third).
+//! the twenty-five text functions with `TEXT` (its third), and the
+//! seventeen date functions (its fourth).
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -53,7 +55,7 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the thirty-nine `KERNEL.8` brought, then Excel's.
+/// fourteen and the fifty-six `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -268,6 +270,74 @@ pub const SUBSET: &[Entry] = &[
         evidence: "a number format's code drawn by numfmt, a date's among them, KERNEL.8; scripts/recalc/texts.txt",
     },
     Entry {
+        name: "DATE",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "YEAR",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "MONTH",
+        evidence: "Enron 15; the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "DAY",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "WEEKDAY",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "EOMONTH",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "EDATE",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "DAYS",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "NETWORKDAYS",
+        evidence: "the dates, KERNEL.8, a game's holidays among them (Buffet's Caveats); scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "WORKDAY",
+        evidence: "the dates, KERNEL.8, a game's holidays among them (Buffet's Caveats); scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "TIME",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "HOUR",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "MINUTE",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "SECOND",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "DATEDIF",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "YEARFRAC",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
+        name: "WEEKNUM",
+        evidence: "the dates, KERNEL.8; scripts/recalc/dates.txt",
+    },
+    Entry {
         name: "AVERAGE",
         evidence: "Enron 3, EUSES 8",
     },
@@ -295,8 +365,16 @@ pub const SUBSET: &[Entry] = &[
 pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
     ("SUBTOTAL", "KERNEL.8, the aggregates by criteria"),
     ("DAVERAGE", "KERNEL.8, the database functions"),
-    ("MONTH", "KERNEL.8, the dates"),
+    (
+        "DATEVALUE",
+        "a date spelled in a text, which a host reads by its locale",
+    ),
+    (
+        "TIMEVALUE",
+        "a time spelled in a text, which a host reads by its locale",
+    ),
     ("NOW", "volatile: an engine refuses it, a door shows it"),
+    ("TODAY", "volatile: an engine refuses it, a door shows it"),
     ("OFFSET", "unreadable by the reader's rule"),
     ("INDIRECT", "unreadable by the reader's rule"),
     (

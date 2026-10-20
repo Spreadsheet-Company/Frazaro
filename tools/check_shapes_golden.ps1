@@ -112,6 +112,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-20, the third slice folded to Excel's save: no census moved; the
 # owner's Excel save of the text functions' fixture, a thirteenth, its
 # census the build's but for the sheet's name as Excel writes it (`data!`).
+# 2026-10-20, KERNEL.8's fourth slice: the date functions' fixture, a
+# fourteenth, its Calendar sheet's five fills five runs. Folded to Excel's
+# first save, with 51 formulas after its 297 for Excel's second: 351 lines.
+# Folded to its second, with 11 more for its third: 360 lines. Folded to
+# its third, with 5 more for its fourth: 365 lines. The owner's fourth save
+# of it, a fifteenth, its census the build's but for the sheet's name as
+# Excel writes it into the formulas (`data!`).
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -126,6 +133,8 @@ $goldens = @(
     @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Floor = 33 },
     @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Floor = 194 },
     @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Floor = 194 },
+    @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Floor = 365 },
+    @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Floor = 365 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },

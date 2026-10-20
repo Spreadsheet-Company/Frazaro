@@ -30,7 +30,7 @@
 //! `DOLLAR`, a locale's separators and its currency, are not here.
 
 use super::criteria::wildcard_prefix;
-use super::eval::{Arg, Ctx, Reason};
+use super::eval::{numeric, Arg, Ctx, Reason};
 use super::value::{number_to_text, text_to_number, ErrorKind, Value};
 use crate::numfmt::Code;
 
@@ -99,8 +99,9 @@ pub(crate) fn halved() -> Reason {
 }
 
 /// What a text function answers other than its value: an error, which is
-/// the cell's value, or a reason, which labels the cell.
-enum Fault {
+/// the cell's value, or a reason, which labels the cell; the date
+/// functions' too (`super::dates`).
+pub(crate) enum Fault {
     Error(ErrorKind),
     Reason(Reason),
 }
@@ -119,7 +120,7 @@ impl From<Reason> for Fault {
 
 /// A function's answer from its rule: a fault's error the value, its
 /// reason the label.
-fn answer(rule: impl FnOnce() -> Result<Value, Fault>) -> Result<Value, Reason> {
+pub(crate) fn answer(rule: impl FnOnce() -> Result<Value, Fault>) -> Result<Value, Reason> {
     match rule() {
         Ok(v) => Ok(v),
         Err(Fault::Error(k)) => Ok(Value::Error(k)),
@@ -129,7 +130,7 @@ fn answer(rule: impl FnOnce() -> Result<Value, Fault>) -> Result<Value, Reason> 
 
 /// The answer to a call with the wrong count of arguments, or one out of
 /// its range.
-fn wrong<T>() -> Result<T, Fault> {
+pub(crate) fn wrong<T>() -> Result<T, Fault> {
     Err(Fault::Error(ErrorKind::Value))
 }
 
@@ -489,12 +490,13 @@ pub(crate) fn exact(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     })
 }
 
-/// `VALUE(text)`: the number a text spells, as an operator reads one; a
-/// number itself, an empty value 0, a truth value `#VALUE!`. A text no
-/// operator reads is `#VALUE!` when it holds no digit, and labelled when it
-/// does: a thousands separator, a currency or a date is read by the host's
-/// locale in Excel (`VALUE("1,000")` is 1000 in an English one), which the
-/// language has none of (the line's Found of 2026-10-18: dates decide it).
+/// `VALUE(text)`: the number a text spells, as an operator reads one
+/// (`eval::numeric`); a number itself, an empty value 0, a truth value
+/// `#VALUE!`. A text no operator reads is `#VALUE!` when it holds no digit,
+/// and labelled when it does: a thousands separator, a currency or a date
+/// is read by the host's locale in Excel (`VALUE("1,000")` is 1000 in an
+/// English one), which the language has none of, as the operators label it
+/// since the dates' slice (the owner's decision, 2026-10-20).
 pub(crate) fn value(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     answer(|| {
         let [v] = args else { return wrong() };
@@ -503,11 +505,7 @@ pub(crate) fn value(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
             Value::Empty => Ok(Value::Number(0.0)),
             Value::Bool(_) => wrong(),
             Value::Error(k) => Ok(Value::Error(k)),
-            Value::Text(t) => match text_to_number(&t) {
-                Some(n) => Ok(Value::Number(n)),
-                None if t.bytes().any(|b| b.is_ascii_digit()) => label("a locale's number"),
-                None => wrong(),
-            },
+            t @ Value::Text(_) => Ok(Value::Number(numeric(&t)??)),
         }
     })
 }

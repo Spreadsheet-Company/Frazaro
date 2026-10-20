@@ -143,6 +143,12 @@ pub trait Source: std::fmt::Debug {
     fn tables(&self) -> &[TableInfo];
     /// The other workbooks the file links to, by file name.
     fn external_books(&self) -> &[String];
+    /// Whether the workbook counts its dates from 1904, as a Mac's may
+    /// (KERNEL.8, slice d: the OOXML workbook part's `date1904`), whose date
+    /// functions a door labels. `false` unless a reader says otherwise.
+    fn date1904(&self) -> bool {
+        false
+    }
     /// The counts `--counts` prints for the workbook.
     fn summary(&self) -> Summary;
 

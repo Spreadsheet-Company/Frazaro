@@ -1284,7 +1284,7 @@ fn calc(args: &[String]) -> ExitCode {
         }
     };
     let opened = std::time::Instant::now();
-    let collected = match frazaro_core::reflect::calc::collect(&bytes, file) {
+    let (collected, date1904) = match frazaro_core::reflect::calc::collect_dated(&bytes, file) {
         Ok(c) => c,
         Err(refusal) => {
             eprintln!("{refusal}");
@@ -1292,7 +1292,10 @@ fn calc(args: &[String]) -> ExitCode {
         }
     };
     let read_ms = ms_since(opened);
-    let library = frazaro_core::excel::library();
+    // A workbook counting its dates from 1904 has its calendar's functions
+    // labelled (KERNEL.8, slice d).
+    let excel = frazaro_core::excel::library();
+    let library = frazaro_core::reflect::calc::dated(&excel, date1904);
     if shapes {
         print!(
             "{}",

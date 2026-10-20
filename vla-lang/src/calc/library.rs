@@ -41,7 +41,7 @@ use super::eval::{finite, intersection, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{ErrorKind, Value};
-use super::{criteria, lookups, texts};
+use super::{criteria, dates, lookups, texts};
 
 /// The language's library, every function above registered, each as one an
 /// evaluation of many cells at once computes by itself: `IF` as the form it
@@ -54,7 +54,8 @@ use super::{criteria, lookups, texts};
 /// `INDEX`, `IFERROR` and `IFNA` by itself, and calls the rest at each cell.
 /// Since KERNEL.8's second slice `SINGLE`, Excel's `@`, a form a run
 /// computes at each cell; since its third the text functions
-/// (`super::texts`), which a run calls at each cell.
+/// (`super::texts`), and since its fourth the date functions
+/// (`super::dates`), which a run calls at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -110,6 +111,23 @@ pub fn language() -> Library {
     lib.register("CHAR", texts::char_);
     lib.register("CODE", texts::code);
     lib.register("TEXT", texts::text_);
+    lib.register("DATE", dates::date);
+    lib.register("YEAR", dates::year);
+    lib.register("MONTH", dates::month);
+    lib.register("DAY", dates::day_);
+    lib.register("WEEKDAY", dates::weekday_);
+    lib.register("EOMONTH", dates::eomonth);
+    lib.register("EDATE", dates::edate);
+    lib.register("DAYS", dates::days);
+    lib.register("NETWORKDAYS", dates::networkdays);
+    lib.register("WORKDAY", dates::workday);
+    lib.register("TIME", dates::time);
+    lib.register("HOUR", dates::hour);
+    lib.register("MINUTE", dates::minute);
+    lib.register("SECOND", dates::second);
+    lib.register("DATEDIF", dates::datedif);
+    lib.register("YEARFRAC", dates::yearfrac);
+    lib.register("WEEKNUM", dates::weeknum);
     lib
 }
 
@@ -123,9 +141,9 @@ pub const NAMES: [&str; 14] = [
 ];
 
 /// The functions KERNEL.8 brought into the language, beside the day-one
-/// list: the lookups, `SINGLE` and the text functions.
+/// list: the lookups, `SINGLE`, the text functions and the date functions.
 #[cfg(test)]
-const KERNEL_8: [&str; 39] = [
+const KERNEL_8: [&str; 56] = [
     "INDEX",
     "MATCH",
     "XMATCH",
@@ -165,6 +183,23 @@ const KERNEL_8: [&str; 39] = [
     "CHAR",
     "CODE",
     "TEXT",
+    "DATE",
+    "YEAR",
+    "MONTH",
+    "DAY",
+    "WEEKDAY",
+    "EOMONTH",
+    "EDATE",
+    "DAYS",
+    "NETWORKDAYS",
+    "WORKDAY",
+    "TIME",
+    "HOUR",
+    "MINUTE",
+    "SECOND",
+    "DATEDIF",
+    "YEARFRAC",
+    "WEEKNUM",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.

@@ -107,16 +107,19 @@ refused in the same words.
   `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`, `SUMIF`), `SINGLE`,
   Excel's `@`, and the text functions (`calc::texts`: `LEFT`, `MID`, `LEN`,
   `FIND`, `SUBSTITUTE`, `TEXT` and the rest, a text counted by its
-  characters as Excel counts it), and a crate above registers more, as
-  `frazaro-core` registers Excel's library by measurement. A lookup or a
-  criterion asked of one range again and again searches the range's index
-  (`calc::Indexes`), built at its second probe in one evaluation and kept
-  until a cell of the range changes, its answers the ones a walk of the
-  range gives (`calc::index`). A formula that calls anything else is not
-  computed, and says so naming the function; a cell that reads it inherits
-  the label. `Calc::first_refusal` is what an engine's load asks: a cycle, a
-  function outside the library, or a construct the parser does not read, a
-  defined name's text among them, each refused by name from the catalogue.
+  characters as Excel counts it), the date functions (`calc::dates`: `DATE`,
+  `YEAR`, `MONTH`, `WEEKDAY`, `NETWORKDAYS`, `YEARFRAC` and the rest, over
+  Excel's 1900 calendar, a text a locale reads labelled in arithmetic), and
+  a crate above registers more, as `frazaro-core` registers Excel's library
+  by measurement. A lookup or a criterion asked of one range again and again
+  searches the range's index (`calc::Indexes`), built at its second probe in
+  one evaluation and kept until a cell of the range changes, its answers the
+  ones a walk of the range gives (`calc::index`). A formula that calls
+  anything else is not computed, and says so naming the function; a cell
+  that reads it inherits the label. `Calc::first_refusal` is what an
+  engine's load asks: a cycle, a function outside the library, or a
+  construct the parser does not read, a defined name's text among them, each
+  refused by name from the catalogue.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's

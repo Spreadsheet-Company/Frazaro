@@ -38,6 +38,7 @@
 //! machine takes for it, so that a model's cost is read before anything
 //! computes it.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use vla_lang::calc::{agrees, Calc, CellId, Computed, Extent, Library, Names, Reason, Shapes};
@@ -164,6 +165,12 @@ impl Counts {
 /// the model and the cached values beside it; a constant-only workbook has
 /// nothing to compute and prints nothing.
 pub fn collect(bytes: &[u8], label: &str) -> Result<Collected, Refusal> {
+    Ok(collect_dated(bytes, label)?.0)
+}
+
+/// [`collect`], and whether the workbook counts its dates from 1904, as a
+/// Mac's may (KERNEL.8, slice d), which [`dated`] makes its library of.
+pub fn collect_dated(bytes: &[u8], label: &str) -> Result<(Collected, bool), Refusal> {
     let package = open(bytes, label)?;
     let mut collected = Collected::default();
     package.header_rows(&mut collected);
@@ -172,7 +179,22 @@ pub fn collect(bytes: &[u8], label: &str) -> Result<Collected, Refusal> {
         package.walk_sheet(i, &mut collected)?;
     }
     let _ = Discard;
-    Ok(collected)
+    Ok((collected, package.date1904()))
+}
+
+/// The library a workbook computes under (KERNEL.8, slice d): the one
+/// given, or, for a workbook counting its dates from 1904, the same with
+/// every function whose answer turns on the calendar labelled, `the 1904
+/// date system` (`vla_lang::calc::dates::label_1904`), until a workbook
+/// asks for that system computed.
+pub fn dated(library: &Library, date1904: bool) -> Cow<'_, Library> {
+    if date1904 {
+        let mut labelled = library.clone();
+        vla_lang::calc::dates::label_1904(&mut labelled);
+        Cow::Owned(labelled)
+    } else {
+        Cow::Borrowed(library)
+    }
 }
 
 /// A collected workbook's census (KERNEL.30, `frazaro calc --shapes`): the
@@ -251,14 +273,14 @@ pub fn rows_of(collected: &Collected, library: &Library) -> (String, Counts) {
 /// The whole of a workbook's recalculation as text, one row a line in the
 /// fixed order: the API's surface and the goldens'.
 pub fn calc_text(bytes: &[u8], label: &str, library: &Library) -> Result<String, Refusal> {
-    let collected = collect(bytes, label)?;
-    Ok(rows_of(&collected, library).0)
+    let (collected, date1904) = collect_dated(bytes, label)?;
+    Ok(rows_of(&collected, &dated(library, date1904)).0)
 }
 
 /// The counts alone.
 pub fn calc_counts(bytes: &[u8], label: &str, library: &Library) -> Result<Counts, Refusal> {
-    let collected = collect(bytes, label)?;
-    Ok(rows_of(&collected, library).1)
+    let (collected, date1904) = collect_dated(bytes, label)?;
+    Ok(rows_of(&collected, &dated(library, date1904)).1)
 }
 
 #[cfg(test)]
@@ -338,5 +360,72 @@ mod tests {
         assert_eq!(counts.differ, 0, "{text}");
         assert_eq!(counts.cycles, 0);
         assert!(counts.agree >= 15, "{}", counts.line());
+    }
+
+    /// Excel 365's save of the date functions' fixture (KERNEL.8, slice d).
+    const DATES_SAVED: &[u8] = include_bytes!("../../../scripts/recalc/dates_saved.xlsx");
+
+    /// KERNEL.8's fourth slice: every day from day 0 to 31 December 2101 is
+    /// the day Excel's save makes it. The save's Calendar sheet holds a row
+    /// a year from 1900, the year's first day's serial (A), that day's
+    /// weekday a hundred times over (C) and the day before's date (D); the
+    /// days between follow by the months' fixed lengths, February's the
+    /// days between two years' first days less 337, 1900's 29 among them,
+    /// and 2101's by its `EOMONTH` (B). Each day's `YEAR`, `MONTH`, `DAY`
+    /// and `WEEKDAY`, as the language computes them down a column of every
+    /// serial, is held to the day so made.
+    #[test]
+    fn every_day_from_1900_to_2101_is_the_day_excel_s_save_makes_it() {
+        let saved = collect(DATES_SAVED, "dates_saved.xlsx").unwrap();
+        let sheet = saved
+            .model
+            .sheets
+            .iter()
+            .position(|s| s.name == "calendar")
+            .unwrap();
+        let cell = |row: u32, col: u32| match saved.cached.get(&(sheet, row, col)) {
+            Some(Value::Number(n)) => n.parse::<i64>().unwrap(),
+            other => panic!("calendar R{row}C{col}: {other:?}"),
+        };
+        // Day 0 first, 1900-01-00 as the day before serial 1 (D1), a
+        // Saturday; then each year's days, its first the serial Excel's
+        // DATE gave it.
+        let mut days = vec![(cell(1, 4), 7)];
+        for row in 1..=202 {
+            let year = 1899 + i64::from(row);
+            let first = cell(row, 1);
+            assert_eq!(first, days.len() as i64, "{year}'s first day");
+            assert_eq!(days[days.len() - 1].0, cell(row, 4), "{year}'s day before");
+            let february = if row < 202 {
+                cell(row + 1, 1) - first - 337
+            } else {
+                cell(row, 2)
+            };
+            let lengths = [31, february, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            let mut weekday = cell(row, 3) / 100;
+            for (month, length) in (1..).zip(lengths) {
+                for day in 1..=length {
+                    days.push((year * 10_000 + month * 100 + day, weekday));
+                    weekday = weekday % 7 + 1;
+                }
+            }
+        }
+        assert_eq!(days.len(), 73_781, "day 0 to 31 December 2101");
+        let mut wb = Workbook::new();
+        let t = wb.ensure_sheet("T");
+        let put = |content| Cell { content, style: 0 };
+        for s in 0..days.len() {
+            let row = s as u32 + 1;
+            wb.sheets[t].set(row, 1, put(Content::Number(s as f64)));
+            let formula =
+                format!("((YEAR(A{row})*100+MONTH(A{row}))*100+DAY(A{row}))*10+WEEKDAY(A{row})");
+            wb.sheets[t].set(row, 2, put(Content::Formula(formula)));
+        }
+        let lib = excel::library();
+        let calc = Calc::run(&wb, &lib);
+        for (s, (date, weekday)) in days.iter().enumerate() {
+            let got = calc.computed((t, s as u32 + 1, 2)).unwrap().spell();
+            assert_eq!(got, (date * 10 + weekday).to_string(), "serial {s}");
+        }
     }
 }

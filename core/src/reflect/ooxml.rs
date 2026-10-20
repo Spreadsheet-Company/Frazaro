@@ -73,6 +73,9 @@ pub struct Package<'a> {
     /// (KERNEL.8, slice b).
     dynamic_cm: Option<u32>,
     has_metadata: bool,
+    /// Whether the workbook counts its dates from 1904 (`workbookPr`'s
+    /// `date1904`, KERNEL.8, slice d).
+    date1904: bool,
 }
 
 impl std::fmt::Debug for Package<'_> {
@@ -302,9 +305,18 @@ impl<'a> Package<'a> {
         let mut sheets: Vec<SheetInfo> = Vec::new();
         let mut names: Vec<NameInfo> = Vec::new();
         let mut external_rids: Vec<String> = Vec::new();
+        let mut date1904 = false;
         let mut cursor = Cursor::new(&workbook);
         while let Some(event) = step(&mut cursor, label, WORKBOOK)? {
             match event {
+                Event::Start {
+                    name: "workbookPr",
+                    attrs,
+                    ..
+                } => {
+                    date1904 =
+                        matches!(attr(attrs, "date1904").as_deref(), Some("1") | Some("true"));
+                }
                 Event::Start {
                     name: "sheet",
                     attrs,
@@ -446,6 +458,7 @@ impl<'a> Package<'a> {
             string_bytes,
             dynamic_cm,
             has_metadata,
+            date1904,
         })
     }
 
@@ -486,6 +499,10 @@ impl<'a> Source for Package<'a> {
     /// formula's text; an empty name for a link of another kind.
     fn external_books(&self) -> &[String] {
         &self.external_books
+    }
+
+    fn date1904(&self) -> bool {
+        self.date1904
     }
 
     fn summary(&self) -> Summary {
@@ -922,6 +939,38 @@ mod tests {
         assert!(stats.part_bytes > 500);
         let summary = package.summary();
         assert_eq!((summary.strings, summary.names, summary.tables), (2, 0, 0));
+    }
+
+    #[test]
+    fn a_workbook_of_1904_says_so_and_its_calendar_s_functions_are_labelled() {
+        // KERNEL.8, slice d: `workbookPr`'s `date1904`, a Mac's workbook,
+        // read; the door labels the functions whose answer turns on the
+        // calendar there, and computes the rest, and a workbook without it
+        // counts from 1900.
+        let sheet = concat!(
+            "<row r=\"1\"><c r=\"A1\"><f>YEAR(1)</f><v>1904</v></c>",
+            "<c r=\"B1\"><f>DAYS(10,1)</f><v>9</v></c></row>",
+        );
+        let plain = one_sheet(sheet, None);
+        let parts: Vec<(String, Vec<u8>)> = vec![
+            ("xl/workbook.xml".to_string(), format!("<workbook {NS}><workbookPr date1904=\"1\"/><sheets><sheet name=\"Model\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>").into_bytes()),
+            ("xl/_rels/workbook.xml.rels".to_string(), format!("<Relationships><Relationship Id=\"rId1\" Type=\"{REL_SHEET}\" Target=\"worksheets/sheet1.xml\"/></Relationships>").into_bytes()),
+            ("xl/worksheets/sheet1.xml".to_string(), format!("<worksheet {NS}><sheetData>{sheet}</sheetData></worksheet>").into_bytes()),
+        ];
+        let mac = zip::write_stored(&parts).unwrap();
+        assert!(Package::open(&mac, "m.xlsx").unwrap().date1904());
+        assert!(!Package::open(&plain, "p.xlsx").unwrap().date1904());
+        let library = crate::excel::library();
+        let rows = crate::reflect::calc::calc_text(&mac, "m.xlsx", &library).unwrap();
+        assert_eq!(
+            rows,
+            concat!(
+                "(calc \"Model\" \"A1\" \"=YEAR(1)\" (not-computed \"the 1904 date system\") 1904 unchecked)\n",
+                "(calc \"Model\" \"B1\" \"=DAYS(10,1)\" 9 9 agree)\n",
+            )
+        );
+        let rows = crate::reflect::calc::calc_text(&plain, "p.xlsx", &library).unwrap();
+        assert!(rows.starts_with("(calc \"Model\" \"A1\" \"=YEAR(1)\" 1900 1904 differ)\n"));
     }
 
     #[test]

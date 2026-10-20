@@ -293,6 +293,12 @@ impl Code {
             .map(|&(_, id)| id)
     }
 
+    /// Whether a section of the code draws a date or a time (KERNEL.8,
+    /// slice c), which turns on the calendar a serial counts from.
+    pub fn draws_date(&self) -> bool {
+        self.0.sections.iter().any(|s| s.date)
+    }
+
     /// The text a value draws as under the code, as Excel's `Range.Text`
     /// gives it in a column wide enough: a number's, and a text's where the
     /// code has a text's section; `None` for a text under a code without
@@ -926,7 +932,7 @@ const WEEKDAYS: [&str; 7] = [
 ];
 
 /// The last day Excel's calendar holds, 31 December 9999.
-const LAST_DAY: u64 = 2_958_465;
+const LAST_DAY: u64 = crate::calc::dates::LAST_DAY as u64;
 
 impl Section {
     /// A number not below 0 drawn by a date's section (KERNEL.8, slice c):
@@ -1013,32 +1019,12 @@ fn padded(out: &mut String, n: u64, width: usize) {
     let _ = write!(out, "{n:0width$}");
 }
 
-/// The year, the month and the day of a day of Excel's 1900 calendar: 0 the
-/// day before the first, 1900-01-00, and 60 the 29 February 1900 that never
-/// was; every other day the proleptic Gregorian calendar's, serial 25569
-/// being 1 January 1970 and a serial below 60 one day later than its count,
-/// the day that never was not among them.
+/// The year, the month and the day of a day of Excel's 1900 calendar, the
+/// date functions' own (`crate::calc::dates::civil`, KERNEL.8, slice d),
+/// a day being one the calendar holds.
 fn civil(day: u64) -> (u64, u64, u64) {
-    match day {
-        0 => (1900, 1, 0),
-        60 => (1900, 2, 29),
-        d => civil_from_days(d as i64 - if d < 60 { 25_568 } else { 25_569 }),
-    }
-}
-
-/// The proleptic Gregorian date `z` days after 1 January 1970 (Howard
-/// Hinnant's `civil_from_days`).
-fn civil_from_days(z: i64) -> (u64, u64, u64) {
-    let z = z + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = yoe as i64 + era * 400 + i64::from(m <= 2);
-    (y as u64, m, d)
+    let (y, m, d) = crate::calc::dates::civil(day as i64);
+    (y as u64, m as u64, d as u64)
 }
 
 /// A positive finite number's significant digits, no 0 at either end, and

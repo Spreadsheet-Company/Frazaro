@@ -93,6 +93,24 @@
   is TRUE too. A comparison that a character the save did not rank decides,
   a tab, `ø` or a letter of most other alphabets, says not computed rather
   than guess; whether two texts are equal is always answered.
+- **The date functions compute.** `DATE`, `YEAR`, `MONTH`, `DAY`, `WEEKDAY`,
+  `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS`, `WORKDAY`, `TIME`, `HOUR`,
+  `MINUTE`, `SECOND`, `DATEDIF`, `YEARFRAC` and `WEEKNUM`, in the language,
+  so that `frazaro calc`, the page, a build and an engine compute them
+  alike, a game's calendar and its holidays among them. A date is a serial
+  of Excel's 1900 calendar, its 29 February 1900 included as Excel keeps it,
+  and a date before 1900 or after 9999 is `#NUM!`. A number or a date a text
+  spells a locale's way, `"1,000"` or `"1/1/2026"`, now says not computed in
+  arithmetic, as in `VALUE` and the date functions, where it answered
+  `#VALUE!`: a host reads it by its locale, an English Excel `="1,000"+1` as
+  1001. `DATEVALUE`, `TIMEVALUE`, `TODAY` and `NOW` stay not computed, a
+  locale's and a clock's, and a workbook that counts its dates from 1904, as
+  a Mac's may, has its calendar's functions say not computed. Where Excel's
+  documentation is silent, each function answers as Excel 365's own saves
+  do: a time a second before midnight is the next day's to `DAY`, and
+  February 1900 has 28 days to `EOMONTH`. Two edges where two of Excel's
+  saves of one formula disagreed say not computed: a year outside 0 to 9999
+  that `DATE`'s months carry back, and `WEEKNUM`'s types past 21.
 - **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
   `Env::indexes`, a provided method answering `None`, is where an
   environment of one's own may keep them; `calc::criteria` and `calc::index`
@@ -106,8 +124,13 @@
   limit measures it, and `MOST`, that limit. `eval::compare` and
   `eval::binary` order two texts as Excel does, a character Excel's save did
   not rank weighed after the ones it did, by its code point, where a
-  formula's cell says not computed. Alonzo's cartridges and Buffet's compute
-  every frame as they did (KERNEL.8).
+  formula's cell says not computed. `calc::dates` is public, `label_1904`
+  the library a door gives a workbook of 1904 and `CALENDAR` the functions
+  it labels; `calc::Library` is `Clone`. In frazaro-core,
+  `reflect::calc::collect_dated` reads a workbook with its date system,
+  `reflect::calc::dated` makes its library, and `reflect::Source::date1904`
+  is a provided method. Alonzo's cartridges and Buffet's compute every frame
+  as they did (KERNEL.8).
 
 ## 0.10.1
 

@@ -146,6 +146,40 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # (vla-lang's calc::order). texts built again, 190 agreeing and 167
 # labelled (four of the slice's, the 163 ranks); texts_saved 357 at
 # no-differ, its 190 computed agreeing with Excel's.
+# 2026-10-20, KERNEL.8's fourth slice, the dates: dates 1310, the date
+# functions' fixture built by the door (scripts/recalc/dates.txt), 1290
+# agreeing with the values it folded and 20 labelled (a locale's number in
+# a date function and in arithmetic, DATEVALUE, TIMEVALUE, TODAY and NOW
+# named), pinned 'built' until the owner's save of it, dates_saved.xlsx,
+# joins this table.
+# 2026-10-20, the fourth slice folded to Excel's first save, which differed
+# in 25 rows: DATE's parts floored and the year its months reach held, a
+# date's parts read from the serial rounded to the second, February 1900
+# 28 days to EOMONTH and EDATE, WORKDAY's days and TIME's parts floored,
+# TIME's fraction as Excel takes it, DATEDIF's "YD" from the start's day,
+# 1900 no leap year to YEARFRAC, WEEKNUM's type 22. Built again with 51
+# formulas after the 297, the edges the fold chose, for Excel's second
+# save: dates 1361, 1341 agreeing and the 20 labelled.
+# 2026-10-20, Excel's second save: of the 297 two rows answered otherwise
+# than in its first, DATE(10000,-11,1) and WEEKNUM(data!A1,22), so their
+# edges are labelled (a year outside the calendar its months carry back,
+# WEEKNUM's types past 21), the probes' 24 rows of them with them; serial
+# 60 not February's end to YEARFRAC, its basis by its floor, and DATEDIF's
+# "YD" held to the month's end in the year before. Built again with 11
+# formulas after the 348, "YD"'s and the two edges' again, for its third
+# save: dates 1372, 1324 agreeing (the floor lowered from 1341, 28 rows
+# now labelled) and 48 labelled.
+# 2026-10-20, Excel's third save: "YD" from 22 June 1988 to 11 May 2012 is
+# 323, where the build made 324, and the one reading of all fourteen of the
+# three saves' "YD" answers walks the months past the years from the
+# start's own month in its own year, then adds "MD"'s days; and
+# WEEKNUM(data!A1,22) #NUM! and 1 within the one save. Built again with five
+# formulas after the 359, where that walk parts from the anniversary's,
+# for its fourth: dates 1377, 1329 agreeing and 48 labelled.
+# 2026-10-20, Excel's fourth save, the last by the stop rule stated before
+# it: the five agree, and the owner's save of the fixture, dates_saved.xlsx,
+# joins this table, dates_saved 1377 at no-differ, its 1329 computed
+# agreeing with Excel's to the bit and the 48 labelled.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -166,7 +200,9 @@ $goldens = @(
     @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 31;  Pin = 'built';     AgreeFloor = 28 },
     @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 },
     @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 190 },
-    @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 }
+    @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 },
+    @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Golden = 'scripts/recalc/dates_calc.vla';         Floor = 1377; Pin = 'built';    AgreeFloor = 1329 },
+    @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

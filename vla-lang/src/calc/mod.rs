@@ -51,9 +51,14 @@
 //! lookup's sorted search and a criterion by size alike, and a comparison a
 //! character beyond the save's table decides labelled.
 //!
-//! What is not here, by name, each a slice of its own: dates, the `SUMIFS`
-//! family and the database functions, arrays within a formula (`KERNEL.8`'s
-//! later slices), spills (an item of their own), `LET` and `LAMBDA`
+//! The date functions compute since the fourth slice (2026-10-20,
+//! [`dates`]), over Excel's 1900 calendar, which `numfmt` draws by, a text
+//! holding a digit no rule reads labelled in arithmetic as in `VALUE`, a
+//! locale's number.
+//!
+//! What is not here, by name, each a slice of its own: the `SUMIFS` family
+//! and the database functions, arrays within a formula (`KERNEL.8`'s later
+//! slices), spills (an item of their own), `LET` and `LAMBDA`
 //! (`KERNEL.29`); the rest of speed, content-addressed evaluation among
 //! them (`KERNEL.20`). A formula that reaches any of them is not computed,
 //! and says so naming the function or the construct ([`Reason`]), which is
@@ -62,6 +67,7 @@
 
 pub(crate) mod census;
 pub mod criteria;
+pub mod dates;
 pub mod dense;
 pub mod eval;
 pub mod formula;

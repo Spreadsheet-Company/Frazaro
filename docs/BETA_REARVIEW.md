@@ -30490,6 +30490,444 @@ describe golden.
   fold, which no save of a lookup has witnessed: the lookups' fixture holds
   neither, and a row of it would say.
 
+**Committed 2026-10-20** at the owner's word, "Commit, then proceed with the
+next slice": the third slice with Excel's save folded, as `3c74f39`, not
+pushed.
+
+**The fourth slice scoped at its build, 2026-10-20: dates.** The outline's
+precondition, the owner's run of `frazaro reflect --functions` over the
+house's models, had not been made; asked it and the two choices the outline
+left open, the owner took each recommendation:
+
+1. *The language.* The date functions in the language, where the outline's
+   table placed them in Excel's library: a game reaches the language alone
+   (Alonzo's `AD-1`), the outline's own `NETWORKDAYS` and `WORKDAY` were to
+   make Buffet's holidays "a table and a call", which a cartridge could not
+   reach in Excel's library, Buffet's Caveats promise holidays from the rank
+   of Partner, and the calendar (`numfmt`'s, the third slice's) and the
+   index are the language's. *Declined:* Excel's library as the table wrote
+   it.
+2. *The outline's list and three.* Decision 6's fourteen, `DATE`, `YEAR`,
+   `MONTH`, `DAY`, `WEEKDAY`, `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS`,
+   `WORKDAY`, `TIME`, `HOUR`, `MINUTE` and `SECOND`, and the three the
+   outline's slice names for Excel's save to settle, `DATEDIF`, `YEARFRAC`
+   and `WEEKNUM`; the owner's histogram, when run, may add more before the
+   commit. *Declined:* decision 6's list alone; the histogram first.
+3. *A locale's number, labelled wherever arithmetic reads one.* A text
+   holding a digit that no rule of the language reads, `"1,000"` or
+   `"1/1/2026"`, labelled `(not-computed "a locale's number")` in arithmetic
+   as `VALUE` labels it since the third slice: the scoping's Found of
+   2026-10-18, a text spelling a date or a thousands separator read as
+   `#VALUE!`, which decision 6 left for this slice to decide by refusing it
+   by name. *Declined:* the shapes of a date and a time alone, under which
+   `="1,000"+1` stays a wrong `#VALUE!`; `#VALUE!` kept.
+
+Taken by decision 6's own words, unasked: Excel's 1900 calendar, its 29
+February 1900 kept, a serial below 0 or past 9999 `#NUM!`; `DATE`'s years 0
+to 1899 counted from 1900; the 1904 system read by the reader and its date
+functions labelled; `DATEVALUE`, `TIMEVALUE`, `NOW` and `TODAY` named not
+computed; the time functions' rounding, `DATEDIF`, `YEARFRAC`'s bases and
+`WEEKNUM`'s types settled by Excel's save. Two of the build's own, for the
+owner to overrule: the oracle's calendar a row a year, not a row a day, the
+outline's "every day's `YEAR`, `MONTH`, `DAY` and `WEEKDAY` from serial 0 to
+past 2100" held by a test over every day once Excel's save is in (a row a
+day would make the fixture about 5 MB built, by the 64 bytes a formula cell
+the bench's fixtures take; a row a month, built first, made it 705 KB and
+its golden 837 KB; a row a year 168 KB and 99 KB, only February's length and
+each year's first day varying); and `EOMONTH` and `EDATE` `#NUM!` for a date
+before 1 January 1900, as Excel documents an invalid date, where
+`DATE(1900,1,0)` is 0.
+
+**Built 2026-10-20, the fourth slice, before Excel's save.**
+
+*What landed.*
+- *The date functions* (`calc::dates`, public): the seventeen, the
+  language's own, registered strict so that a run calls them at each cell.
+  The calendar is here, moved from `numfmt`, which draws a date by it
+  (`dates::civil`, `dates::serial_of`, Howard Hinnant's two conversions over
+  Excel's offset of a day after February 1900). A date argument is read as
+  arithmetic reads it (below) and held to the calendar, `#NUM!` outside it;
+  a whole number an argument asks for, truncated toward zero, as Excel
+  documents `EDATE`'s and `WORKDAY`'s. `DATE` carries a month or a day past
+  its end into the next and counts from its month's first day, so that
+  February 1900 holds its 29th; `WEEKDAY` by its types 1, 2, 3 and 11 to 17;
+  `EOMONTH` and `EDATE` by months counted from year 0, `EDATE` to the
+  month's last day where its day is not there; `NETWORKDAYS` and `WORKDAY`
+  over their holidays read as a set of the weekdays among them, a truth
+  value `#VALUE!`, their first error the answer; `TIME` the day's fraction,
+  `#NUM!` past 32,767 or below 0; `HOUR`, `MINUTE` and `SECOND` from the
+  time rounded to the second, as `numfmt` draws it; `DATEDIF` by Excel's own
+  reckoning of `"MD"`, the end against the start's day in the end's month or
+  the one before, which may fall below 0; `YEARFRAC` by David Wheeler's
+  reading of Excel's five bases, 1900 a leap year as Excel keeps it;
+  `WEEKNUM` by its types, 21 the ISO week.
+- *A locale's number* (`eval::numeric`): arithmetic, its unary minus and its
+  percent, `VALUE` and the date functions read a text alike, a text spelling
+  a number by the language's rule its number, a text holding a digit that
+  rule does not read labelled, any other `#VALUE!`; a cell's operators
+  (`eval::operate`) and a run's (`vector::signed`, the lanes' `operate`)
+  alike.
+- *The 1904 system*: the xlsx reader reads `workbookPr`'s `date1904`
+  (`reflect::Source::date1904`, a provided method answering `false`); the
+  door's calc reads a workbook with it (`reflect::calc::collect_dated`) and
+  computes under `reflect::calc::dated`, which labels `dates::CALENDAR`'s
+  twelve functions, `the 1904 date system`, and `TEXT` of a date's code
+  (`numfmt::Code::draws_date`), by `dates::label_1904`; `DAYS`, `TIME`,
+  `HOUR`, `MINUTE` and `SECOND` compute. `calc::Library` is `Clone`, for
+  that. No public struct gains a field.
+- `excel::SUBSET` holds a row each, `MONTH`'s Enron's fifteenth;
+  `NAMED_NOT_COMPUTED` names `DATEVALUE`, `TIMEVALUE` and `TODAY` beside
+  `NOW`, where it named `MONTH`.
+
+*The fixture,* `scripts/recalc/dates.txt`, written by a script: a Data sheet
+of the dates the functions read, serials of 2026's first day, of 2024's leap
+day, of 1900's day that never was, of day 0 and of the last day, a time, a
+time a hair before midnight, a truth value, an error, a text a locale reads
+and a text spelling a number, and holidays, one given twice, one on a
+weekend, an empty cell and one far off, beside holidays of a text, a truth
+value and a date a locale reads; a Functions sheet of 297 legacy formulas,
+one a function and a rule, the edges Excel's documentation is silent on
+among them (a fraction where a whole number is asked, below 0 too, the
+calendar's first days and its last, a time rounded at a half second and
+before midnight, `DATEDIF`'s units across month ends and leap days,
+`YEARFRAC`'s bases over February's ends and the 31sts, `WEEKNUM`'s types
+across the years' turns), arithmetic over the texts a locale reads, and
+`DATEVALUE`, `TIMEVALUE`, `TODAY` and `NOW`; and a Calendar sheet of every
+year from 1900 to 2101, five formulas a row (its first day's serial,
+February's length, the first day's weekday and ISO week, the year before's
+last day's year, month and day, and the last day's ISO week). Built by the
+door, 1,310 formulas, 1,290 agreeing with the values it folded and 20
+labelled; pinned `built` at 1,310 and 1,290, with its census (300 lines) and
+`prove.ps1`'s fourteenth calc row, until the owner's save,
+`dates_saved.xlsx`, joins at `no-differ`.
+
+*Measured,* the bench's five fixtures, the slice against the third slice's
+commit in scratch copies, four rounds alternated: every whole frame and edit
+within 2.1% in the medians and 3.2% in the means, the signs mixed (Life's
+whole frame 1.977 ms against 1.980 and its edit 2.344 against 2.397, the
+chain's 0.579 against 0.572, the column's 0.591 against 0.608, the sums'
+0.928 against 0.915, the lookups' 10.014 against 10.028): the slice adds to
+a cell's arithmetic one test of its operands' kind and nothing to a run, a
+program or a lane of numbers, and no floor moves.
+
+*Held.* `vla-lang`'s 321 tests, nine new: the date functions' seven, over a
+table of serials, a time, holidays, a truth value, texts a locale reads and
+an error (the calendar from day 0 to the last day, each day the serial of
+its own date and after the one before it; `DATE`'s carries, its years and
+its edges; the parts of a date; `WEEKDAY`'s types; the months moved and
+their ends; the working days; the time and its parts; `DATEDIF`'s units,
+`YEARFRAC`'s bases and `WEEKNUM`'s types; and a library of 1904 labelling
+the calendar's functions and `TEXT` of a date's code, computing the rest);
+arithmetic labelling a text a locale reads, an error first and a text
+holding no digit `#VALUE!`; and a run of seventeen date formulas held to
+every cell alone and to `Calc` frame for frame, a locale's date labelled by
+a date function, by `+` and by the unary minus at a step; the twelve laws.
+`frazaro-core`'s 191, one new: a workbook of 1904 read so and its calendar's
+functions labelled by the door, and a workbook without it counting from
+1900. Twenty-nine mutants, each failing named tests, the six the first round
+left (the year 1899 counted from 1900, a year of 10000 carried back by its
+months, `DATEDIF`'s `"YD"` landing on the start's own day, 1900 a leap year
+to `YEARFRAC`, a 29 February start of its basis 1, a 30th against a 31st of
+its basis 0) answered by rows written for them, the fixture given two of
+them; clippy and rustfmt clean; both wasm modules built, no import;
+`run_checks` 58 of 58; the language's package tested from its tarball.
+
+*Alonzo and Buffet over the slice,* by a path in scratch copies of their
+committed trees at the heads the third slice was measured at (Alonzo's
+`8ed1ea7`, `CART.14`'s close, and Buffet's `f5dcde1`), nothing in theirs
+touched: Alonzo's 59 tests and its doc test, Seiyaku's board held to its
+hand at every frame among them, and its frames' runner in check mode, every
+frame, digest and allocation the same as over the third slice; each grid's
+heap high-water mark 1,011 bytes more, a copy registering none of the date
+functions giving the third slice's marks to the byte, so that the names of
+the seventeen in the library are the whole of it. The grids stand 2,591
+bytes over the ceilings Alonzo set at its pin to 0.10.1, the four slices'
+names, which its next pin's move sets again. Buffet's 38 and 54 tests, every
+frame of the game held to its hand-written twin and its describe golden.
+
+*Excel's save,* at the owner's hand test of 2026-10-20: the hand test held
+(the 26 files staged, the suites, the door's counts, the checks), and Excel
+365 saved the fixture, `dates_saved.xlsx`: 1,310 formulas, 1,290 computed,
+1,265 agreeing and 25 differing, beside the 20 labels, each of which Excel
+answered. They called for nine rules, the second of the build's own two
+among them:
+
+- *`DATE`'s parts are read by their floor, and the year its months reach is
+  held.* `DATE(2026,1,-0.5)` is 30 December 2025, `DATE(2026,-0.5,1)` 1
+  November 2025 and `DATE(-0.5,1,1)` `#NUM!`, where truncation toward zero
+  read each as 0; `DATE(10000,-11,1)` is 1 January 9999 and
+  `DATE(9999,13,-31)` and `DATE(1900,0,31)` `#NUM!`: the year is counted
+  from 1900 below 1900, the months carried into it, and the year they reach
+  held to 1900 to 9999 before the days carry (`dates::held_month`).
+- *A date's parts are read from its serial rounded to the second.*
+  `DAY(45658.99999999)` is 2 and `YEAR(2958465.9999999)` `#NUM!`, a time a
+  hair before midnight the next day's, as `numfmt` draws one, and
+  `SECOND(2958465.9999999)` `#NUM!` with them (`dates::moment`); `WEEKDAY`
+  reads so beside them, which the second save witnesses.
+- *February 1900 is 28 days to `EOMONTH` and `EDATE`.* `EOMONTH(60,0)` is
+  59, and a month's end or its last day moved into February 1900 the 28th,
+  where the serials hold the 29th (`dates::days_in`); serial 60 stays the
+  29th to `DATE` and to a date's parts.
+- *`EOMONTH` and `EDATE` hold the month they reach, not the day.*
+  `EDATE(0,0)` is 0, the day before the first moved as January's day 0,
+  where the build's own rule, the second of its two, answered `#NUM!` for a
+  date before 1 January 1900; `EOMONTH(1,-1)` and `EDATE(31,-1)` stay
+  `#NUM!`, December 1899 not held.
+- *`WORKDAY`'s days and `TIME`'s parts are read by their floor.*
+  `WORKDAY(...,-1.9)` counts two days back and `TIME(0,0,-0.5)` is `#NUM!`;
+  `EOMONTH`'s and `EDATE`'s months, read by -1.9, agreed truncated, as Excel
+  documents them.
+- *`TIME`'s fraction is the days' fraction.* `TIME(32767,0,0)` is
+  0.29166666666674246, the seconds over 86,400 less their whole days, where
+  the seconds' remainder over 86,400 made it 7/24; the thirteen times of the
+  save agree to the bit, two that agreed to fifteen digits only among them.
+- *`DATEDIF`'s `"YD"` moves the start, not the end.* 29 February 2020 to 1
+  March 2021 is 0 days and 1 March 2019 to 29 February 2020 365: the start's
+  month and day are taken in the end's year, or the year before where they
+  come after the end's, a 29 February carried into 1 March.
+- *1900 is no leap year to `YEARFRAC`.* Its basis 1 counts 1 January 1900 to
+  31 December 1900 one year and to 1 January 1901 366 days over 365, the
+  days the serials', the year's length the Gregorian calendar's: the build's
+  1900 a leap year, written to answer a mutant, was wrong.
+- *`WEEKNUM` answers type 22.* `WEEKNUM(...,22)` is 1 in Excel's save,
+  though its documentation names 21 alone and says any other type is `#NUM!`
+  (type 3 is): read, for the second save to witness, as the system type 21
+  is with a week beginning on a Tuesday, and 23 to 27 on the days after it
+  (`dates::fourth_day_week`).
+
+*Folded, 2026-10-20.* Each rule as above; the build's first decision, the
+oracle's calendar a row a year, stands, and every day it spans is held to
+Excel's save by a test (below). Three of the six rows the build wrote to
+answer its first round of mutants held its own guesses, which the save
+overturned (a year of 10000 carried back by its months, `"YD"` landing on
+the start's own day, 1900 a leap year to `YEARFRAC`): a row written for a
+mutant where the documentation is silent is a guess until a save witnesses
+it, and the fold's rows are Excel's. The fold makes eight choices the save
+does not witness, each the reading its neighbours' answers suggest: how
+`WEEKDAY`, `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS` and its holidays,
+`WORKDAY`, `DATEDIF`, `YEARFRAC` and `WEEKNUM` read a time a hair before
+midnight (`WEEKDAY` rounded with the parts, the others by the serial's whole
+part, as a date is counted from); `DATE`'s year below 0 carried into the
+calendar's; a date's part below 0 by less than a second; `TIME`'s hour and
+minute by their floor; `EDATE(60,0)`; `DATEDIF`'s `"YD"` from a 29 February
+over two years; `YEARFRAC`'s February 1900 and its years from 1900; and
+`WEEKNUM`'s other types. The fixture is built again with 51 formulas after
+its 297, those edges and `TEXT` of a time a hair before midnight, for
+Excel's second save: 348 on the Functions sheet, 1,361 formulas, 1,341
+agreeing with the values the build folded and the 20 labelled, its census
+351 lines. `dates_saved.xlsx`, the first save, is at `no-differ` against the
+fold, 1,290 agreeing and every number to the bit, and joins when the second
+replaces it.
+
+*Held at the fold.* `vla-lang`'s 321 tests, the date functions' seven moved
+to Excel's answers (`DATE`'s floors and its year carried, a part rounded to
+the second, February 1900's 28 to `EOMONTH` and `EDATE`, `EDATE(0,0)`,
+`WORKDAY`'s floor, `TIME`'s fraction and floors, `"YD"` from the start, 1900
+no leap year, `WEEKNUM`'s type 22); the machine's run of seventeen date
+formulas unmoved; the twelve laws. `frazaro-core`'s 192, one new: every day
+from day 0 to 31 December 2101, 73,781 of them, each one's `YEAR`, `MONTH`,
+`DAY` and `WEEKDAY` as the language computes them down a column held to the
+day Excel's save makes it, the Calendar sheet's first days, February's
+lengths and weekdays walked by the months' fixed lengths. Twenty-one mutants
+of the fold, each failing named tests: every rule above put back as the
+build had it (`DATE`'s parts truncated and its year held before its months
+carry, a date's parts by the serial's whole part, February 1900's 29th to
+`EOMONTH` and `EDATE`, `TIME`'s remainder, `"YD"` from the end, 1900 a leap
+year), the floor and the truncation each in the other's place, the bounds of
+the year a month reaches and of the day a time rounds to moved, the time
+rounded down and a time below 0 let through, `"YD"` a year long on the
+start's own month and day, a week's fourth day and a type's first day moved,
+types 22 to 27 dropped, `EDATE`'s day past its month's end, `EOMONTH`'s end
+a day late, a time's second moved; and the calendar's first 59 days a day
+off, which the every-day test catches beside the language's own. Clippy and
+rustfmt clean; both wasm modules built, no import; `run_checks` 58 of 58;
+the language's package tested from its tarball. The fold moves `calc::dates`
+alone, registering no function and touching no run, program or lane of
+numbers: the bench's measure and Alonzo's and Buffet's runs stand as the
+build made them.
+
+*Excel's second save,* at the owner's hand test of 2026-10-20: the hand test
+held (the 26 files staged, the suites, the first save against the fold at
+`no-differ`, the fixture built again, the every-day test, the checks), and
+Excel 365 saved the fixture again, `dates_saved.xlsx` replaced: 1,361
+formulas, 1,328 agreeing and 13 differing beside the 20 labels. Two of the
+297 rows the first save had answered were answered otherwise:
+`DATE(10000,-11,1)` `#NUM!`, where the first save held 2958101, and
+`WEEKNUM(data!A1,22)` `#NUM!`, where it held 1, while type 22 was 1 for
+three other dates in the same save. Of the two saves' 2,014 shared cells
+these two alone differ; both are the same Excel (its calculation engine
+191029, its build 30430), each a full calculation on its load, and its
+calculation chain stands the same cells before each of the two. These two
+edges have no answer that is Excel's, so the language labels them, as it
+labels a locale's number:
+
+- *A year outside the calendar, carried back.* `DATE` with a year below 0 or
+  past 9999 whose months carry it into 0 to 9999 is `(not-computed "a year
+  outside the calendar")`: Excel's documentation answers `#NUM!`, its first
+  save 2958101 for `DATE(10000,-11,1)` and its second `#NUM!`, and its
+  second 1 for `DATE(-1,13,1)`. A year outside the calendar that its months
+  do not carry back stays `#NUM!`, as both saves answer (`DATE(-1,1,1)`,
+  `DATE(10000,1,1)`).
+- *`WEEKNUM`'s types past 21* are `(not-computed "WEEKNUM's undocumented
+  type")`: the second save answered 1 for every date and type from 22 to 30
+  and for 150 but the one, which it answered `#NUM!`. The build's reading of
+  22 to 27 as ISO's system from another weekday, which the first save's
+  single 1 had suggested, is refuted by them (1 January 2022 by type 22 1,
+  where that reading made it 53). Types 0, 3, 4, 10, 18 and 20 are `#NUM!`,
+  type 3 in both saves, as the documentation says, and stay so.
+
+The rest called for three rules:
+
+- *Serial 60 is not February's last day to `YEARFRAC`'s basis 0.* From it to
+  31 March 1900 is 32 days over 360, where 28 February 1900, the Gregorian
+  month's last day, counts as its 30th, 31 days; the build took a day past
+  the month's end for its end.
+- *`YEARFRAC`'s basis is read by its floor.* -0.5 is `#NUM!`, where
+  truncation made it 0; a type is read so too, which answers alike for every
+  type.
+- *`DATEDIF`'s `"YD"` holds the start's day to the month's end in the year
+  before.* 29 February 2020 to 28 February 2022 is 365 days, from 28
+  February 2021, where carrying the 29th into 1 March, as the end's own year
+  carries it, made it 364.
+
+The save witnessed the fold's other choices: `WEEKDAY` reads a time a hair
+before midnight as the next day, as the parts do, and `EOMONTH`, `EDATE`,
+`DAYS`, `NETWORKDAYS` and its holidays, `WORKDAY`, `DATEDIF`, `YEARFRAC` and
+`WEEKNUM` by the serial's whole part, and `TEXT` draws it as the next day; a
+date's part and a time's below 0 by less than a second are `#NUM!`; `TIME`'s
+hour and minute are read by their floor; `EDATE(60,0)` is 59; `DATEDIF`'s
+`"MD"` from a 29 February to the next 28th is 30; 28 February 1900 is
+February's end to `YEARFRAC`, and its years from 1900 are the Gregorian
+calendar's; `DATE(1899,13,1)` is 1 January 3800, the year counted from 1900
+before its months carry.
+
+*Folded again, 2026-10-20.* The three rules and the two labels as above.
+`"YD"`'s rule fits each of Excel's answers, and so does another, a leap
+year's 366 days added to the days back to the start's day in the end's year,
+which parts from it wherever the end's month and day come before the start's
+across a year of 365 days (31 December 2018 to 1 January 2019: 1 day by the
+rule, 2 by the other). The fixture is built again with 11 formulas after its
+348, seven of `"YD"` that part the two and two copies each of the two
+formulas the saves answered differently, labelled, for Excel's third save:
+359 on the Functions sheet, 1,372 formulas, 1,324 agreeing with the values
+the build folded and 48 labelled, its census 360 lines. Both saves stand at
+`no-differ` against the fold, every number agreeing to the bit (1,288 and
+1,317 agreeing).
+
+*Held at the second fold.* `vla-lang`'s 321 tests, the date functions' seven
+given the second save's answers and the witnessed probes' (`DATE`'s years
+outside the calendar labelled or `#NUM!`, its year counted from 1900 before
+its months carry; a part below 0 by less than a second; `WEEKDAY` rounded;
+`EOMONTH`, `EDATE` and `DAYS` by the whole part; `EDATE(60,0)`; `TIME`'s
+floors; `"YD"` from a 29 February over two years; `"MD"` from it; `YEARFRAC`
+over February 1900, its years from 1900 and a basis of -0.5; `WEEKNUM`'s
+types past 21 labelled and below it `#NUM!`); `frazaro-core`'s 192, the
+every-day test over the second save. Ten mutants of the second fold, each
+failing named tests: a year carried back answered `#NUM!` and its carry
+truncated, type 22 left to `#NUM!`, `"YD"`'s day not held in the year before
+and the end's own month and day sent there, a day past February's end taken
+for its end, the basis truncated, `WEEKDAY` by the whole part, the ISO
+week's Thursday moved, and the year 1899 not counted from 1900. Clippy and
+rustfmt clean; both wasm modules built, no import; `run_checks` 58 of 58;
+the language's package tested from its tarball.
+
+*Excel's third save,* at the owner's hand test of 2026-10-20: the hand test
+held (the 26 files staged, the suites, the second save against the fold at
+`no-differ`, the fixture built again, the every-day test, the checks), and
+Excel 365 saved the fixture a third time: 1,372 formulas, 1,323 agreeing and
+one differing beside the 48 labels.
+`DATEDIF(DATE(1988,6,22),DATE(2012,5,11),"YD")` is 323, where the build's
+rule made 324, the days from 22 June 2011 to 11 May 2012 across 29 February
+2012. The other six rows of `"YD"` agreed with the build's rule and parted
+from the other reading the second save had left (31 December 2018 to 1
+January 2019 1, 1 June 2001 to 1 May 2003 334, 1 March 2019 to 28 February
+2021 364). The one reading of all fourteen of the three saves' `"YD"`
+answers walks the months past the years, `"YM"`'s, from the start's own
+month in its own year, and then adds `"MD"`'s days: from 22 June 1988 ten
+months reach 22 April 1989, across February 1989's 28 days, and nineteen
+days more make 323. Tested by a script against four readings (the start's
+month and day carried into the end's year or the year before, the build's, a
+leap year's days added, and the walk), the walk alone answers all fourteen.
+The save's copies of the two labelled formulas answered `DATE(10000,-11,1)`
+`#NUM!` three times, and `WEEKNUM(data!A1,22)` `#NUM!` once and 1 twice
+within the one save, the same formula at three cells.
+
+*Folded a third time, 2026-10-20.* `"YD"` as above (`dates::datedif`), the
+fourteen answers rows of the date functions' test, with a fifteenth where
+`"MD"` falls below 0 (31 January to 1 March 2011, 29 days). The fixture is
+built again with five formulas after its 359 where the walk parts from the
+anniversary's (31 January 2019 to 31 March 2020 59 days, 1 January 2007 to 1
+March 2008 59, 1 June 2019 to 1 May 2021 335, 1 June 2020 to 1 May 2024 334,
+15 January 2019 to 10 January 2021 360), for Excel's fourth save: 364 on the
+Functions sheet, 1,377 formulas, 1,329 agreeing with the values the build
+folded and 48 labelled, its census 365 lines. The three saves stand at
+`no-differ` against the fold, every number agreeing to the bit (1,288, 1,317
+and 1,324). Four mutants of the walk, each failing named tests: the walk
+from the anniversary's year, `"MD"`'s days held at 0 or more, a month more
+walked, and the start's month and day carried into the end's year or the
+year before. `vla-lang`'s 321 tests and `frazaro-core`'s 192. Clippy and
+rustfmt clean; both wasm modules built, no import; `run_checks` 58 of 58;
+the language's package tested from its tarball.
+
+*Excel's fourth save,* at the owner's hand test of 2026-10-20, the last by a
+stop rule stated before it: every one of the five agreeing, the walk stands;
+any differing, `"YD"` labelled where the walk and the anniversary's reading
+part; no fifth save either way. The owner, asked for a fourth save, asked
+whether this was a time loop, and then that necessary testing not be skipped
+nor Excel's own mistakes chased: hence the stop rule, and a working rule for
+the slices to come, every probe of a fixture designed before its first save
+and two saves planned at most. The hand test held (the 26 files staged, the
+suites, the third save against the fold at `no-differ`, the fixture built
+again, the every-day test, the checks), and Excel 365 saved the fixture a
+fourth time: 1,377 formulas, 1,329 agreeing and none differing beside the 48
+labels. The five rows of the walk agreed (59, 59, 335, 334 and 360 days),
+and the walk stands. Of the 2,200 cells the third and fourth saves share
+none differs: the copies of the two labelled formulas answered as in the
+third, `DATE(10000,-11,1)` `#NUM!` at its three cells and
+`WEEKNUM(data!A1,22)` `#NUM!` at one and 1 at two.
+
+*Joined, 2026-10-20.* `dates_saved.xlsx`, Excel's fourth save, joins oracle
+12's table at `no-differ`, 1,377 formulas, its 1,329 computed agreeing with
+Excel's, every number to the bit, and the 48 labelled, as
+`dates_saved_calc.vla`, with its census beside the fixture's (365 lines, the
+sheet's name as Excel writes it into the formulas, `data!`) and
+`prove.ps1`'s fifteenth calc row (55 passed). `run_checks` 58 of 58; the
+every-day test reads the fourth save.
+
+*Found in the slice,* not minted:
+- *A function's own reading of a text given directly still answers `#VALUE!`
+  where arithmetic labels it*: `SUM("1,000")`, `ABS("1/1/2026")`, `INT`,
+  `MOD`, `ROUND`, `AVERAGE` and the text functions' counts read a text by
+  `Value::number`, which answers `#VALUE!` for a text a locale reads, where
+  English Excel's `SUM("1,000")` is 1000 (`library::Rule::given_number`,
+  `texts::count`). The owner's decision named arithmetic; one rule for every
+  coercion is a later slice's question.
+- *An OpenDocument workbook counts its dates from 30 December 1899 by
+  default*: LibreOffice's null date, under which a serial below 61 is a day
+  off Excel's and no 29 February 1900 is held; the ODF reader reads no null
+  date, so its dates are taken as Excel's 1900 system's, which no fixture of
+  a date before March 1900 has witnessed.
+- *`ISOWEEKNUM` is `WEEKNUM`'s type 21 under a name of its own*, and
+  `NETWORKDAYS.INTL`, `WORKDAY.INTL` and `DAYS360` stand beside the slice's
+  list; each one call to add when the owner's histogram asks.
+- *The oracle's tolerance hides a last bit*: `agrees` holds two numbers
+  equal at fifteen significant digits, the treaty's stated tolerance, so
+  `TIME(25,0,0)` and `TIME(0,32767,0)` agreed with Excel's save while
+  differing from it in their last bits; the fold held the save to the bit by
+  a script beside the door. A verdict to the bit, where a save writes
+  seventeen digits, is the oracle's to decide; one line in the summary.
+- *An edge the documentation leaves open may have no one answer*: two saves
+  of one Excel, each a full calculation, answered `DATE(10000,-11,1)` and
+  `WEEKNUM(46023,22)` each two ways, and the first fold built a rule on
+  each one's first face. An edge the documentation leaves open wants two
+  saves before its rule, the oracle's to decide; one line in the summary.
+- *`DATEDIF` is Lotus's, its quirks with it*: the language matches its
+  answers where Excel's are steady, as the treaty asks, `"YD"`'s walk from
+  the start's own year among them, where the days since the last
+  anniversary would be the plain answer. Date functions of the language's
+  own, sound where Excel's are not, under names of their own, would be an
+  item of their own, the owner's to mint; one line in the summary.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which

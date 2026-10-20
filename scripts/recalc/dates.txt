@@ -1,0 +1,414 @@
+# The date functions' fixture (KERNEL.8, slice d): a Data sheet of the dates the functions read, serials of 2026's
+# first day, of 2024's leap day, of 1900's day that never was and of the calendar's day 0 and last day, a time, a
+# truth value, an error, texts a locale reads and one spelling a number, and holidays, one given twice, one on a
+# weekend, one empty and one far off, beside holidays of a text, a truth value and a date a locale reads; a Functions
+# sheet of one formula a function and a rule, each a legacy formula, the edges Excel's documentation is silent on
+# among them, arithmetic over the texts a locale reads, from row 298 the edges Excel's first save left the fold to
+# choose, which its second witnessed, from row 349 those its second left, for its third, and from row 360 the third's
+# reading of DATEDIF's "YD", for its fourth; and a Calendar sheet of every year from 1900 to 2101, a row each: its
+# first day's serial, February's length, the first day's weekday and ISO week, the year before's last day's year,
+# month and day, and the last day's ISO week, from which, with the months' fixed lengths, every day's YEAR, MONTH, DAY
+# and WEEKDAY follow. Built by frazaro into dates.xlsx (each value it computes held); the owner's save of it is
+# dates_saved.xlsx.
+
+Work on sheet Data.
+Put 46023 into cell A1.
+Put 45351 into cell A2.
+Put 60 into cell A3.
+Put 0 into cell A4.
+Put 46023.75 into cell A5.
+Put 2958465 into cell A11.
+Put 45658.999999 into cell A12.
+Put 46027 into cell B1.
+Put 46028 into cell B2.
+Put 46027 into cell B3.
+Put 46032 into cell B4.
+Put 46100 into cell B6.
+Put 46027 into cell C1.
+Put 46027 into cell D1.
+Put 46027 into cell E1.
+Put "1/1/2026" into cell A7.
+Put "abc" into cell A8.
+Put "46023" into cell A10.
+Put "46028" into cell C2.
+Put "1/6/2026" into cell E2.
+Put "1,000" into cell F1.
+Put "$5" into cell F2.
+Put "12abc" into cell F3.
+Put "5" into cell F4.
+Put formula "=TRUE" into cell A6.
+Put formula "=1/0" into cell A9.
+Put formula "=TRUE" into cell D2.
+
+Work on sheet Functions.
+Put formula "=DATE(2026,1,1)" into cell A1.
+Put formula "=DATE(1900,1,1)" into cell A2.
+Put formula "=DATE(1900,1,0)" into cell A3.
+Put formula "=DATE(1900,2,28)" into cell A4.
+Put formula "=DATE(1900,2,29)" into cell A5.
+Put formula "=DATE(1900,2,30)" into cell A6.
+Put formula "=DATE(1900,3,0)" into cell A7.
+Put formula "=DATE(1900,3,1)" into cell A8.
+Put formula "=DATE(1900,0,31)" into cell A9.
+Put formula "=DATE(1900,1,-1)" into cell A10.
+Put formula "=DATE(108,1,2)" into cell A11.
+Put formula "=DATE(1,1,1)" into cell A12.
+Put formula "=DATE(1899,12,31)" into cell A13.
+Put formula "=DATE(2008,14,2)" into cell A14.
+Put formula "=DATE(2008,-3,2)" into cell A15.
+Put formula "=DATE(2008,1,35)" into cell A16.
+Put formula "=DATE(2008,1,-15)" into cell A17.
+Put formula "=DATE(-1,1,1)" into cell A18.
+Put formula "=DATE(10000,1,1)" into cell A19.
+Put formula "=DATE(10000,-11,1)" into cell A20.
+Put formula "=DATE(9999,12,31)" into cell A21.
+Put formula "=DATE(9999,12,32)" into cell A22.
+Put formula "=DATE(9999,13,-31)" into cell A23.
+Put formula "=DATE(2026.9,1.9,1.9)" into cell A24.
+Put formula "=DATE(2026,1,-0.5)" into cell A25.
+Put formula "=DATE(2026,-0.5,1)" into cell A26.
+Put formula "=DATE(-0.5,1,1)" into cell A27.
+Put formula "=DATE(1899.9,1,1)" into cell A28.
+Put formula "=DATE(""2026"",1,1)" into cell A29.
+Put formula "=DATE(TRUE,1,1)" into cell A30.
+Put formula "=DATE(Data!A9,1,1)" into cell A31.
+Put formula "=DATE(2026,1,Data!F1)" into cell A32.
+Put formula "=YEAR(Data!A1)" into cell A33.
+Put formula "=MONTH(Data!A1)" into cell A34.
+Put formula "=DAY(Data!A1)" into cell A35.
+Put formula "=YEAR(Data!A2)" into cell A36.
+Put formula "=MONTH(Data!A2)" into cell A37.
+Put formula "=DAY(Data!A2)" into cell A38.
+Put formula "=YEAR(Data!A3)" into cell A39.
+Put formula "=MONTH(Data!A3)" into cell A40.
+Put formula "=DAY(Data!A3)" into cell A41.
+Put formula "=YEAR(Data!A4)" into cell A42.
+Put formula "=MONTH(Data!A4)" into cell A43.
+Put formula "=DAY(Data!A4)" into cell A44.
+Put formula "=DAY(59)" into cell A45.
+Put formula "=DAY(61)" into cell A46.
+Put formula "=DAY(Data!A5)" into cell A47.
+Put formula "=YEAR(Data!A6)" into cell A48.
+Put formula "=YEAR(Data!A7)" into cell A49.
+Put formula "=YEAR(Data!A8)" into cell A50.
+Put formula "=YEAR(Data!A9)" into cell A51.
+Put formula "=YEAR(Data!A10)" into cell A52.
+Put formula "=YEAR(Data!A11)" into cell A53.
+Put formula "=MONTH(Data!A11)" into cell A54.
+Put formula "=DAY(Data!A11)" into cell A55.
+Put formula "=YEAR(2958465.9999999)" into cell A56.
+Put formula "=YEAR(2958466)" into cell A57.
+Put formula "=YEAR(-1)" into cell A58.
+Put formula "=YEAR(-0.5)" into cell A59.
+Put formula "=DAY(Data!A12)" into cell A60.
+Put formula "=DAY(45658.99999999)" into cell A61.
+Put formula "=DAY(45658.9999999999)" into cell A62.
+Put formula "=YEAR("""")" into cell A63.
+Put formula "=MONTH(45658.5)" into cell A64.
+Put formula "=DAY(Data!B5)" into cell A65.
+Put formula "=WEEKDAY(Data!A1)" into cell A66.
+Put formula "=WEEKDAY(Data!A1,1)" into cell A67.
+Put formula "=WEEKDAY(Data!A1,2)" into cell A68.
+Put formula "=WEEKDAY(Data!A1,3)" into cell A69.
+Put formula "=WEEKDAY(Data!A1,11)" into cell A70.
+Put formula "=WEEKDAY(Data!A1,12)" into cell A71.
+Put formula "=WEEKDAY(Data!A1,13)" into cell A72.
+Put formula "=WEEKDAY(Data!A1,14)" into cell A73.
+Put formula "=WEEKDAY(Data!A1,15)" into cell A74.
+Put formula "=WEEKDAY(Data!A1,16)" into cell A75.
+Put formula "=WEEKDAY(Data!A1,17)" into cell A76.
+Put formula "=WEEKDAY(Data!A1,1.9)" into cell A77.
+Put formula "=WEEKDAY(Data!A1,0)" into cell A78.
+Put formula "=WEEKDAY(Data!A1,4)" into cell A79.
+Put formula "=WEEKDAY(Data!A1,18)" into cell A80.
+Put formula "=WEEKDAY(0)" into cell A81.
+Put formula "=WEEKDAY(1)" into cell A82.
+Put formula "=WEEKDAY(59)" into cell A83.
+Put formula "=WEEKDAY(60)" into cell A84.
+Put formula "=WEEKDAY(61)" into cell A85.
+Put formula "=WEEKDAY(0,2)" into cell A86.
+Put formula "=WEEKDAY(0,3)" into cell A87.
+Put formula "=WEEKDAY(-1)" into cell A88.
+Put formula "=WEEKDAY(Data!A7)" into cell A89.
+Put formula "=EOMONTH(Data!A1,0)" into cell A90.
+Put formula "=EOMONTH(Data!A1,1)" into cell A91.
+Put formula "=EOMONTH(Data!A2,-1)" into cell A92.
+Put formula "=EOMONTH(Data!A2,12)" into cell A93.
+Put formula "=EOMONTH(Data!A1,1.9)" into cell A94.
+Put formula "=EOMONTH(Data!A1,-1.9)" into cell A95.
+Put formula "=EOMONTH(DATE(1900,1,15),1)" into cell A96.
+Put formula "=EOMONTH(1,-1)" into cell A97.
+Put formula "=EOMONTH(0,0)" into cell A98.
+Put formula "=EOMONTH(60,0)" into cell A99.
+Put formula "=EOMONTH(DATE(9999,12,1),0)" into cell A100.
+Put formula "=EOMONTH(DATE(9999,12,1),1)" into cell A101.
+Put formula "=EOMONTH(Data!A1,""1"")" into cell A102.
+Put formula "=EOMONTH(Data!A7,0)" into cell A103.
+Put formula "=EDATE(DATE(2011,1,31),1)" into cell A104.
+Put formula "=EDATE(Data!A2,12)" into cell A105.
+Put formula "=EDATE(Data!A2,-12)" into cell A106.
+Put formula "=EDATE(Data!A2,48)" into cell A107.
+Put formula "=EDATE(Data!A1,-1.9)" into cell A108.
+Put formula "=EDATE(Data!A1,1.9)" into cell A109.
+Put formula "=EDATE(DATE(1900,1,31),1)" into cell A110.
+Put formula "=EDATE(DATE(1900,3,31),-1)" into cell A111.
+Put formula "=EDATE(31,-1)" into cell A112.
+Put formula "=EDATE(0,0)" into cell A113.
+Put formula "=EDATE(0,1)" into cell A114.
+Put formula "=EDATE(60,12)" into cell A115.
+Put formula "=EDATE(Data!A5,1)" into cell A116.
+Put formula "=DAYS(Data!A1,Data!A2)" into cell A117.
+Put formula "=DAYS(Data!A2,Data!A1)" into cell A118.
+Put formula "=DAYS(Data!A5,Data!A1)" into cell A119.
+Put formula "=DAYS(2.1,1.9)" into cell A120.
+Put formula "=DAYS(1.9,2.1)" into cell A121.
+Put formula "=DAYS(Data!A1,Data!A7)" into cell A122.
+Put formula "=DAYS(-1,1)" into cell A123.
+Put formula "=DAYS(Data!A11,0)" into cell A124.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13)" into cell A125.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,Data!B1:B6)" into cell A126.
+Put formula "=NETWORKDAYS(Data!A1+13,Data!A1,Data!B1:B6)" into cell A127.
+Put formula "=NETWORKDAYS(Data!A1+2,Data!A1+3)" into cell A128.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1)" into cell A129.
+Put formula "=NETWORKDAYS(Data!A1+2,Data!A1+2)" into cell A130.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1,Data!A1)" into cell A131.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,46027)" into cell A132.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,Data!C1:C2)" into cell A133.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,Data!D1:D2)" into cell A134.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,Data!E1:E2)" into cell A135.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+13,Data!A9)" into cell A136.
+Put formula "=NETWORKDAYS(Data!A1+0.9,Data!A1+13.9)" into cell A137.
+Put formula "=NETWORKDAYS(Data!A1,Data!A1+365)" into cell A138.
+Put formula "=NETWORKDAYS(1,Data!A11)" into cell A139.
+Put formula "=NETWORKDAYS(Data!A7,Data!A1)" into cell A140.
+Put formula "=NETWORKDAYS(-1,Data!A1)" into cell A141.
+Put formula "=WORKDAY(Data!A1,1)" into cell A142.
+Put formula "=WORKDAY(Data!A1,2)" into cell A143.
+Put formula "=WORKDAY(Data!A1,2,Data!B1:B6)" into cell A144.
+Put formula "=WORKDAY(Data!A1,-1)" into cell A145.
+Put formula "=WORKDAY(Data!A1,0)" into cell A146.
+Put formula "=WORKDAY(Data!A1+2,0)" into cell A147.
+Put formula "=WORKDAY(Data!A1+2,1)" into cell A148.
+Put formula "=WORKDAY(Data!A1+2,-1)" into cell A149.
+Put formula "=WORKDAY(Data!A1,1.9)" into cell A150.
+Put formula "=WORKDAY(Data!A1,-1.9)" into cell A151.
+Put formula "=WORKDAY(Data!A1,10,Data!B1:B6)" into cell A152.
+Put formula "=WORKDAY(Data!A1,1000)" into cell A153.
+Put formula "=WORKDAY(Data!A1,-1000,Data!B1:B6)" into cell A154.
+Put formula "=WORKDAY(46027,0,Data!B1:B6)" into cell A155.
+Put formula "=WORKDAY(Data!A1,3,Data!C1:C2)" into cell A156.
+Put formula "=WORKDAY(Data!A1,3,Data!A9)" into cell A157.
+Put formula "=WORKDAY(1,-1)" into cell A158.
+Put formula "=WORKDAY(Data!A11,1)" into cell A159.
+Put formula "=WORKDAY(Data!A1+0.5,1)" into cell A160.
+Put formula "=TIME(18,0,0)" into cell A161.
+Put formula "=TIME(12,30,15)" into cell A162.
+Put formula "=TIME(24,0,0)" into cell A163.
+Put formula "=TIME(25,0,0)" into cell A164.
+Put formula "=TIME(23,59,60)" into cell A165.
+Put formula "=TIME(0,90,0)" into cell A166.
+Put formula "=TIME(1,-30,0)" into cell A167.
+Put formula "=TIME(1,-60,0)" into cell A168.
+Put formula "=TIME(1,-61,0)" into cell A169.
+Put formula "=TIME(-1,120,0)" into cell A170.
+Put formula "=TIME(0,0,-1)" into cell A171.
+Put formula "=TIME(0,0,59.9)" into cell A172.
+Put formula "=TIME(0,0,-0.5)" into cell A173.
+Put formula "=TIME(32767,0,0)" into cell A174.
+Put formula "=TIME(32768,0,0)" into cell A175.
+Put formula "=TIME(0,32767,0)" into cell A176.
+Put formula "=TIME(0,0,32767)" into cell A177.
+Put formula "=TIME(0,0,32768)" into cell A178.
+Put formula "=TIME(Data!A9,0,0)" into cell A179.
+Put formula "=HOUR(Data!A5)" into cell A180.
+Put formula "=MINUTE(Data!A5)" into cell A181.
+Put formula "=SECOND(Data!A5)" into cell A182.
+Put formula "=HOUR(0.75)" into cell A183.
+Put formula "=HOUR(1.75)" into cell A184.
+Put formula "=HOUR(0.999999)" into cell A185.
+Put formula "=MINUTE(0.999999)" into cell A186.
+Put formula "=SECOND(0.999999)" into cell A187.
+Put formula "=HOUR(0.99999)" into cell A188.
+Put formula "=SECOND(0.5/86400)" into cell A189.
+Put formula "=SECOND(0.49/86400)" into cell A190.
+Put formula "=SECOND(0.51/86400)" into cell A191.
+Put formula "=SECOND(TIME(1,2,3)+0.4/86400)" into cell A192.
+Put formula "=SECOND(TIME(1,2,3)+0.6/86400)" into cell A193.
+Put formula "=SECOND(TIME(1,2,3))" into cell A194.
+Put formula "=MINUTE(TIME(1,2,3))" into cell A195.
+Put formula "=HOUR(TIME(1,2,3))" into cell A196.
+Put formula "=HOUR(-0.1)" into cell A197.
+Put formula "=HOUR(2958466)" into cell A198.
+Put formula "=HOUR(Data!A7)" into cell A199.
+Put formula "=SECOND(Data!A11+0.9999999)" into cell A200.
+Put formula "=MINUTE(Data!A12)" into cell A201.
+Put formula "=DATEDIF(DATE(2001,1,1),DATE(2003,1,1),""Y"")" into cell A202.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""D"")" into cell A203.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""M"")" into cell A204.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""YM"")" into cell A205.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""YD"")" into cell A206.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""MD"")" into cell A207.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2002,8,15),""md"")" into cell A208.
+Put formula "=DATEDIF(DATE(2011,1,31),DATE(2011,3,1),""MD"")" into cell A209.
+Put formula "=DATEDIF(DATE(2011,1,31),DATE(2011,3,1),""M"")" into cell A210.
+Put formula "=DATEDIF(DATE(2011,1,31),DATE(2011,2,28),""M"")" into cell A211.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2021,2,28),""Y"")" into cell A212.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2021,2,28),""YD"")" into cell A213.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2021,3,1),""YD"")" into cell A214.
+Put formula "=DATEDIF(DATE(2019,3,1),DATE(2020,2,29),""YD"")" into cell A215.
+Put formula "=DATEDIF(DATE(2019,12,31),DATE(2020,1,1),""YD"")" into cell A216.
+Put formula "=DATEDIF(DATE(2020,3,31),DATE(2020,4,30),""MD"")" into cell A217.
+Put formula "=DATEDIF(DATE(2020,1,31),DATE(2020,3,30),""MD"")" into cell A218.
+Put formula "=DATEDIF(Data!A1,Data!A1,""D"")" into cell A219.
+Put formula "=DATEDIF(Data!A1,Data!A2,""D"")" into cell A220.
+Put formula "=DATEDIF(Data!A2,Data!A1,""W"")" into cell A221.
+Put formula "=DATEDIF(Data!A2,Data!A1+0.9,""D"")" into cell A222.
+Put formula "=DATEDIF(1,61,""D"")" into cell A223.
+Put formula "=DATEDIF(0,61,""M"")" into cell A224.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30))" into cell A225.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30),1)" into cell A226.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30),2)" into cell A227.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30),3)" into cell A228.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2012,7,30),4)" into cell A229.
+Put formula "=YEARFRAC(DATE(2012,7,30),DATE(2012,1,1),1)" into cell A230.
+Put formula "=YEARFRAC(DATE(2011,1,31),DATE(2011,2,28),0)" into cell A231.
+Put formula "=YEARFRAC(DATE(2011,2,28),DATE(2011,3,31),0)" into cell A232.
+Put formula "=YEARFRAC(DATE(2012,2,29),DATE(2013,2,28),0)" into cell A233.
+Put formula "=YEARFRAC(DATE(2011,1,30),DATE(2011,3,31),0)" into cell A234.
+Put formula "=YEARFRAC(DATE(2011,1,31),DATE(2011,3,31),4)" into cell A235.
+Put formula "=YEARFRAC(DATE(2011,2,28),DATE(2011,3,31),4)" into cell A236.
+Put formula "=YEARFRAC(DATE(2010,6,15),DATE(2013,2,1),1)" into cell A237.
+Put formula "=YEARFRAC(DATE(2011,3,1),DATE(2012,3,1),1)" into cell A238.
+Put formula "=YEARFRAC(DATE(2011,3,2),DATE(2012,3,1),1)" into cell A239.
+Put formula "=YEARFRAC(DATE(2012,2,29),DATE(2013,1,1),1)" into cell A240.
+Put formula "=YEARFRAC(DATE(2012,1,1),DATE(2013,1,1),1)" into cell A241.
+Put formula "=YEARFRAC(DATE(2011,6,1),DATE(2012,5,31),1)" into cell A242.
+Put formula "=YEARFRAC(DATE(2011,1,1),DATE(2011,12,31),1)" into cell A243.
+Put formula "=YEARFRAC(DATE(1900,1,1),DATE(1900,12,31),1)" into cell A244.
+Put formula "=YEARFRAC(DATE(1900,1,1),DATE(1901,1,1),1)" into cell A245.
+Put formula "=YEARFRAC(Data!A2,Data!A1,0)" into cell A246.
+Put formula "=YEARFRAC(Data!A2,Data!A1,1)" into cell A247.
+Put formula "=YEARFRAC(Data!A2,Data!A1,3)" into cell A248.
+Put formula "=YEARFRAC(Data!A1,Data!A1)" into cell A249.
+Put formula "=YEARFRAC(Data!A2,Data!A1,1.9)" into cell A250.
+Put formula "=YEARFRAC(Data!A2,Data!A1,-1)" into cell A251.
+Put formula "=YEARFRAC(Data!A2,Data!A1,5)" into cell A252.
+Put formula "=YEARFRAC(Data!A2,Data!A7)" into cell A253.
+Put formula "=WEEKNUM(Data!A1)" into cell A254.
+Put formula "=WEEKNUM(DATE(2026,1,3))" into cell A255.
+Put formula "=WEEKNUM(DATE(2026,1,4))" into cell A256.
+Put formula "=WEEKNUM(DATE(2026,1,4),2)" into cell A257.
+Put formula "=WEEKNUM(DATE(2026,1,5),2)" into cell A258.
+Put formula "=WEEKNUM(DATE(2026,12,31))" into cell A259.
+Put formula "=WEEKNUM(DATE(2026,12,31),2)" into cell A260.
+Put formula "=WEEKNUM(DATE(2026,1,8),11)" into cell A261.
+Put formula "=WEEKNUM(DATE(2026,1,8),12)" into cell A262.
+Put formula "=WEEKNUM(DATE(2026,1,8),13)" into cell A263.
+Put formula "=WEEKNUM(DATE(2026,1,8),14)" into cell A264.
+Put formula "=WEEKNUM(DATE(2026,1,8),15)" into cell A265.
+Put formula "=WEEKNUM(DATE(2026,1,8),16)" into cell A266.
+Put formula "=WEEKNUM(DATE(2026,1,8),17)" into cell A267.
+Put formula "=WEEKNUM(DATE(2026,1,1),21)" into cell A268.
+Put formula "=WEEKNUM(DATE(2027,1,1),21)" into cell A269.
+Put formula "=WEEKNUM(DATE(2024,12,30),21)" into cell A270.
+Put formula "=WEEKNUM(DATE(2021,1,3),21)" into cell A271.
+Put formula "=WEEKNUM(DATE(2020,12,31),21)" into cell A272.
+Put formula "=WEEKNUM(0)" into cell A273.
+Put formula "=WEEKNUM(1)" into cell A274.
+Put formula "=WEEKNUM(1,21)" into cell A275.
+Put formula "=WEEKNUM(60)" into cell A276.
+Put formula "=WEEKNUM(Data!A1,3)" into cell A277.
+Put formula "=WEEKNUM(Data!A1,1.9)" into cell A278.
+Put formula "=WEEKNUM(Data!A1,22)" into cell A279.
+Put formula "=Data!F1+1" into cell A280.
+Put formula "=Data!F2*2" into cell A281.
+Put formula "=Data!F3+1" into cell A282.
+Put formula "=Data!F4+1" into cell A283.
+Put formula "=Data!A8+1" into cell A284.
+Put formula "=Data!A7+0" into cell A285.
+Put formula "=-Data!F1" into cell A286.
+Put formula "=Data!F1%" into cell A287.
+Put formula "=""""&Data!F1" into cell A288.
+Put formula "=Data!F1=1000" into cell A289.
+Put formula "=VALUE(Data!F1)" into cell A290.
+Put formula "=DATEVALUE(""1/1/2026"")" into cell A291.
+Put formula "=TIMEVALUE(""12:00"")" into cell A292.
+Put formula "=TODAY()-TODAY()" into cell A293.
+Put formula "=NOW()-NOW()" into cell A294.
+Put formula "=TEXT(DATE(2026,1,1),""dddd, mmmm d, yyyy"")" into cell A295.
+Put formula "=TEXT(TIME(18,5,9),""hh:mm:ss"")" into cell A296.
+Put formula "=TEXT(EOMONTH(Data!A2,0),""yyyy-mm-dd"")" into cell A297.
+Put formula "=DATE(-1,13,1)" into cell A298.
+Put formula "=DATE(1899,13,1)" into cell A299.
+Put formula "=YEAR(-0.000001)" into cell A300.
+Put formula "=HOUR(-0.000001)" into cell A301.
+Put formula "=WEEKDAY(45658.99999999)" into cell A302.
+Put formula "=EOMONTH(45688.99999999,0)" into cell A303.
+Put formula "=EDATE(45658.99999999,0)" into cell A304.
+Put formula "=DAYS(45658.99999999,45658)" into cell A305.
+Put formula "=NETWORKDAYS(45658.99999999,45659)" into cell A306.
+Put formula "=NETWORKDAYS(45659,45660,45658.99999999)" into cell A307.
+Put formula "=WORKDAY(45658.99999999,0)" into cell A308.
+Put formula "=DATEDIF(45658,45658.99999999,""D"")" into cell A309.
+Put formula "=YEARFRAC(45658,45658.99999999,3)" into cell A310.
+Put formula "=WEEKNUM(45661.99999999)" into cell A311.
+Put formula "=TEXT(45658.99999999,""d"")" into cell A312.
+Put formula "=TIME(1,-0.5,0)" into cell A313.
+Put formula "=TIME(-0.5,60,0)" into cell A314.
+Put formula "=EDATE(60,0)" into cell A315.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2022,2,28),""YD"")" into cell A316.
+Put formula "=DATEDIF(DATE(2019,2,28),DATE(2020,2,29),""YD"")" into cell A317.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2021,2,28),""MD"")" into cell A318.
+Put formula "=YEARFRAC(DATE(1900,2,28),DATE(1900,3,31),0)" into cell A319.
+Put formula "=YEARFRAC(60,DATE(1900,3,31),0)" into cell A320.
+Put formula "=YEARFRAC(DATE(1900,1,1),DATE(1902,1,2),1)" into cell A321.
+Put formula "=YEARFRAC(Data!A2,Data!A1,-0.5)" into cell A322.
+Put formula "=WEEKNUM(DATE(2021,1,3),0)" into cell A323.
+Put formula "=WEEKNUM(DATE(2021,1,3),4)" into cell A324.
+Put formula "=WEEKNUM(DATE(2021,1,3),10)" into cell A325.
+Put formula "=WEEKNUM(DATE(2021,1,3),18)" into cell A326.
+Put formula "=WEEKNUM(DATE(2021,1,3),20)" into cell A327.
+Put formula "=WEEKNUM(DATE(2021,1,3),28)" into cell A328.
+Put formula "=WEEKNUM(DATE(2021,1,3),30)" into cell A329.
+Put formula "=WEEKNUM(DATE(2021,1,3),150)" into cell A330.
+Put formula "=WEEKNUM(DATE(2021,1,1),22)" into cell A331.
+Put formula "=WEEKNUM(DATE(2021,1,3),22)" into cell A332.
+Put formula "=WEEKNUM(DATE(2022,1,1),22)" into cell A333.
+Put formula "=WEEKNUM(DATE(2021,1,1),23)" into cell A334.
+Put formula "=WEEKNUM(DATE(2021,1,3),23)" into cell A335.
+Put formula "=WEEKNUM(DATE(2022,1,1),23)" into cell A336.
+Put formula "=WEEKNUM(DATE(2021,1,1),24)" into cell A337.
+Put formula "=WEEKNUM(DATE(2021,1,3),24)" into cell A338.
+Put formula "=WEEKNUM(DATE(2022,1,1),24)" into cell A339.
+Put formula "=WEEKNUM(DATE(2021,1,1),25)" into cell A340.
+Put formula "=WEEKNUM(DATE(2021,1,3),25)" into cell A341.
+Put formula "=WEEKNUM(DATE(2022,1,1),25)" into cell A342.
+Put formula "=WEEKNUM(DATE(2021,1,1),26)" into cell A343.
+Put formula "=WEEKNUM(DATE(2021,1,3),26)" into cell A344.
+Put formula "=WEEKNUM(DATE(2022,1,1),26)" into cell A345.
+Put formula "=WEEKNUM(DATE(2021,1,1),27)" into cell A346.
+Put formula "=WEEKNUM(DATE(2021,1,3),27)" into cell A347.
+Put formula "=WEEKNUM(DATE(2022,1,1),27)" into cell A348.
+Put formula "=DATEDIF(DATE(2018,12,31),DATE(2019,1,1),""YD"")" into cell A349.
+Put formula "=DATEDIF(DATE(2001,6,1),DATE(2003,5,1),""YD"")" into cell A350.
+Put formula "=DATEDIF(DATE(2019,3,1),DATE(2021,2,28),""YD"")" into cell A351.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2023,2,28),""YD"")" into cell A352.
+Put formula "=DATEDIF(DATE(2016,2,29),DATE(2018,1,15),""YD"")" into cell A353.
+Put formula "=DATEDIF(DATE(1988,6,22),DATE(2012,5,11),""YD"")" into cell A354.
+Put formula "=DATEDIF(DATE(2020,2,29),DATE(2023,3,1),""YD"")" into cell A355.
+Put formula "=DATE(10000,-11,1)" into cell A356.
+Put formula "=DATE(10000,-11,1)" into cell A357.
+Put formula "=WEEKNUM(Data!A1,22)" into cell A358.
+Put formula "=WEEKNUM(Data!A1,22)" into cell A359.
+Put formula "=DATEDIF(DATE(2019,1,31),DATE(2020,3,31),""YD"")" into cell A360.
+Put formula "=DATEDIF(DATE(2007,1,1),DATE(2008,3,1),""YD"")" into cell A361.
+Put formula "=DATEDIF(DATE(2019,6,1),DATE(2021,5,1),""YD"")" into cell A362.
+Put formula "=DATEDIF(DATE(2020,6,1),DATE(2024,5,1),""YD"")" into cell A363.
+Put formula "=DATEDIF(DATE(2019,1,15),DATE(2021,1,10),""YD"")" into cell A364.
+
+Work on sheet Calendar.
+Put formula "=DATE(1899+ROW(),1,1)" into range A1:A202.
+Put formula "=DAY(EOMONTH(A1,1))" into range B1:B202.
+Put formula "=WEEKDAY(A1)*100+WEEKNUM(A1,21)" into range C1:C202.
+Put formula "=YEAR(A1-1)*10000+MONTH(A1-1)*100+DAY(A1-1)" into range D1:D202.
+Put formula "=WEEKNUM(DATE(1899+ROW(),12,31),21)" into range E1:E202.

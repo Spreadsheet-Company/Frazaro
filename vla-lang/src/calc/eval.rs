@@ -30,7 +30,7 @@ use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RefExpr};
 use super::graph::{areas_at, cells_in, places, Area, Areas, CellId, Extent, Names};
 use super::index::Indexes;
-use super::value::{round15, ErrorKind, Value};
+use super::value::{round15, text_to_number, ErrorKind, Value};
 
 /// Why a cell was not computed: the honest static label, named.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -287,7 +287,7 @@ impl Known {
 /// own. An engine's machine computes a cell again only when a cell it reads
 /// has changed (KERNEL.20, `super::reach`), so a function that answered
 /// differently over the same arguments would be computed once and kept.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Library {
     /// Each strict function, and whether it is one an evaluation of many
     /// cells at once knows (KERNEL.26).
@@ -485,7 +485,7 @@ impl<'a> Ctx<'a> {
             Expr::Call(name, args) => self.call(name, args),
             Expr::Neg(x) => {
                 let v = self.scalar(x)?;
-                Ok(Arg::Scalar(match v.number() {
+                Ok(Arg::Scalar(match numeric(&v)? {
                     Ok(n) => finite(-n),
                     Err(k) => Value::Error(k),
                 }))
@@ -494,7 +494,7 @@ impl<'a> Ctx<'a> {
             Expr::Pos(x) => self.eval(x),
             Expr::Percent(x) => {
                 let v = self.scalar(x)?;
-                Ok(Arg::Scalar(match v.number() {
+                Ok(Arg::Scalar(match numeric(&v)? {
                     Ok(n) => finite(n / 100.0),
                     Err(k) => Value::Error(k),
                 }))
@@ -770,18 +770,30 @@ pub fn binary(op: BinOp, a: &Value, b: &Value) -> Value {
     }
 }
 
-/// [`binary`] as a cell computes it (KERNEL.8, slice c): a comparison by
-/// size of two texts, an empty value among them as `""`, that a character
-/// beyond Excel's known order decides is labelled (`order::sized`), and a
-/// text `&` would cut through a surrogate pair at its 32,767th unit,
-/// where Excel keeps half a character, is labelled (`texts::halved`). The
-/// evaluator's operators and a lane's call it, so that a run answers as a
-/// cell alone does.
+/// [`binary`] as a cell computes it (KERNEL.8, slices c and d): arithmetic
+/// over two values as [`numeric`] reads them, a text holding a digit no
+/// rule reads labelled; a comparison by size of two texts, an empty value
+/// among them as `""`, that a character beyond Excel's known order decides
+/// is labelled (`order::sized`), and a text `&` would cut through a
+/// surrogate pair at its 32,767th unit, where Excel keeps half a character,
+/// is labelled (`texts::halved`). The evaluator's operators and a lane's
+/// call it, so that a run answers as a cell alone does.
 pub(crate) fn operate(op: BinOp, a: &Value, b: &Value) -> Result<Value, Reason> {
     if matches!(a, Value::Error(_)) || matches!(b, Value::Error(_)) {
         return Ok(binary(op, a, b));
     }
     match op {
+        BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Pow => {
+            let x = match numeric(a)? {
+                Ok(n) => n,
+                Err(k) => return Ok(Value::Error(k)),
+            };
+            let y = match numeric(b)? {
+                Ok(n) => n,
+                Err(k) => return Ok(Value::Error(k)),
+            };
+            return Ok(arithmetic(op, x, y));
+        }
         BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
             if let Some((x, y)) = texts_of(a, b) {
                 return Ok(Value::Bool(compares(op, super::order::sized(x, y)?)));
@@ -798,6 +810,25 @@ pub(crate) fn operate(op: BinOp, a: &Value, b: &Value) -> Result<Value, Reason> 
         _ => {}
     }
     Ok(binary(op, a, b))
+}
+
+/// A value read as a number by arithmetic, by `VALUE` and by the date
+/// functions (KERNEL.8, slice d): as [`Value::number`] reads it, but a text
+/// holding a digit that no rule of the language reads labelled (`a
+/// locale's number`), since a host reads `"1,000"` and `"1/1/2026"` by its
+/// locale, where any other text is `#VALUE!` (the owner's decision,
+/// 2026-10-20).
+pub(crate) fn numeric(v: &Value) -> Result<Result<f64, ErrorKind>, Reason> {
+    match v {
+        Value::Text(t) => match text_to_number(t) {
+            Some(n) => Ok(Ok(n)),
+            None if t.bytes().any(|b| b.is_ascii_digit()) => {
+                Err(Reason::Construct("a locale's number".to_string()))
+            }
+            None => Ok(Err(ErrorKind::Value)),
+        },
+        v => Ok(v.number()),
+    }
 }
 
 /// Two operands as the texts a comparison orders: two texts, or a text and
@@ -1056,6 +1087,33 @@ mod tests {
         assert_eq!(binary(BinOp::Lt, &t("~"), &t("a")), yes);
         assert_eq!(binary(BinOp::Lt, &t("coop"), &t("co-op")), yes);
         assert_eq!(binary(BinOp::Lt, &Value::Empty, &t("-")), yes);
+    }
+
+    #[test]
+    fn arithmetic_labels_a_text_a_locale_reads() {
+        // KERNEL.8, slice d, the owner's decision: a text holding a digit no
+        // rule reads is a locale's number, labelled; a text holding none is
+        // `#VALUE!`, as is a text an operator reads not; an error first.
+        let n = |v: f64| Value::Number(v);
+        let t = |s: &str| Value::Text(s.to_string());
+        let locale = Err(Reason::Construct("a locale's number".to_string()));
+        assert_eq!(operate(BinOp::Add, &t("1,000"), &n(1.0)), locale);
+        assert_eq!(operate(BinOp::Mul, &n(2.0), &t("1/1/2026")), locale);
+        assert_eq!(operate(BinOp::Add, &t("5"), &n(1.0)), Ok(n(6.0)));
+        assert_eq!(
+            operate(BinOp::Add, &t("abc"), &t("1,000")),
+            Ok(Value::Error(ErrorKind::Value))
+        );
+        assert_eq!(
+            operate(BinOp::Add, &t("1,000"), &Value::Error(ErrorKind::NA)),
+            Ok(Value::Error(ErrorKind::NA))
+        );
+        assert_eq!(
+            binary(BinOp::Add, &t("1,000"), &n(1.0)),
+            Value::Error(ErrorKind::Value)
+        );
+        assert_eq!(numeric(&Value::Bool(true)), Ok(Ok(1.0)));
+        assert_eq!(numeric(&Value::Empty), Ok(Ok(0.0)));
     }
 
     #[test]
