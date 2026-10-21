@@ -620,6 +620,15 @@ impl Source for Document {
                         .and_then(|v| v.parse::<u32>().ok())
                         .unwrap_or(1)
                         .max(1);
+                    // KERNEL.8, slice e: a row hidden by hand (`collapse`)
+                    // or by a filter (`filter`), which `SUBTOTAL`'s 101 to
+                    // 111 pass by, told to the sink as the xlsx reader tells
+                    // its one flag; a row holding no value or formula is
+                    // told nothing, since no aggregate counts it either way.
+                    let hidden = matches!(
+                        attr(attrs, "visibility").as_deref(),
+                        Some("collapse") | Some("filter")
+                    );
                     if empty {
                         row_no = row_no.saturating_add(repeat);
                         continue;
@@ -640,6 +649,9 @@ impl Source for Document {
                         let row = row_no.saturating_add(1).saturating_add(r);
                         if row > MAX_ROW {
                             break;
+                        }
+                        if hidden {
+                            sink.hidden_row(&info.name, row);
                         }
                         let mut col: u32 = 0;
                         for cell in &cells {
@@ -1263,6 +1275,68 @@ mod tests {
         let mut kinds = Kinds::default();
         document.walk_sheet(0, &mut kinds).unwrap();
         assert_eq!(kinds.0, vec![("C1".to_string(), ArrayKind::Legacy)]);
+    }
+
+    #[test]
+    fn a_row_hidden_by_hand_or_by_a_filter_is_told_hidden() {
+        // KERNEL.8, slice e: `table:visibility`'s `collapse`, a row hidden by
+        // hand, and `filter`, a row a filter hides, each told to the sink as
+        // the one flag the xlsx reader tells, at every row a repeat spans; a
+        // row shown, or holding no value, told nothing. The door's
+        // `SUBTOTAL` 109 passes both by, and its 9, which would count the
+        // one and not the other, is labelled over them, as over an xlsx
+        // file's.
+        #[derive(Default)]
+        struct Hidden(Vec<u32>);
+        impl Sink for Hidden {
+            fn row(&mut self, _: &Row<'_>) {}
+            fn hidden_row(&mut self, _sheet: &str, row: u32) {
+                self.0.push(row);
+            }
+        }
+        let number = |n: u32| {
+            format!("<table:table-cell office:value-type=\"float\" office:value=\"{n}\"><text:p>{n}</text:p></table:table-cell>")
+        };
+        let content = format!(
+            concat!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+                "<office:document-content {OFFICE}>",
+                "<office:body><office:spreadsheet>",
+                "<table:table table:name=\"Model\">",
+                "<table:table-row>{one}</table:table-row>",
+                "<table:table-row table:visibility=\"collapse\">{two}</table:table-row>",
+                "<table:table-row table:visibility=\"filter\" table:number-rows-repeated=\"2\">{four}</table:table-row>",
+                "<table:table-row table:visibility=\"visible\">{eight}</table:table-row>",
+                "<table:table-row table:visibility=\"collapse\"><table:table-cell/></table:table-row>",
+                "<table:table-row>",
+                "<table:table-cell table:formula=\"of:=SUBTOTAL(109;[.A1:.A6])\" office:value-type=\"float\" office:value=\"9\"><text:p>9</text:p></table:table-cell>",
+                "<table:table-cell table:formula=\"of:=SUBTOTAL(9;[.A1:.A6])\" office:value-type=\"float\" office:value=\"11\"><text:p>11</text:p></table:table-cell>",
+                "</table:table-row>",
+                "</table:table>",
+                "</office:spreadsheet></office:body></office:document-content>"
+            ),
+            OFFICE = OFFICE,
+            one = number(1),
+            two = number(2),
+            four = number(4),
+            eight = number(8),
+        );
+        let bytes = ods(&content, MIMETYPE);
+        let mut hidden = Hidden::default();
+        Document::open(&bytes, "h.ods")
+            .unwrap()
+            .walk_sheet(0, &mut hidden)
+            .unwrap();
+        assert_eq!(hidden.0, vec![2, 3, 4]);
+        let library = crate::excel::library();
+        let rows = crate::reflect::calc::calc_text(&bytes, "h.ods", &library).unwrap();
+        assert_eq!(
+            rows,
+            concat!(
+                "(calc \"Model\" \"A7\" \"=SUBTOTAL(109,A1:A6)\" 9 9 agree)\n",
+                "(calc \"Model\" \"B7\" \"=SUBTOTAL(9,A1:A6)\" (not-computed \"a row a filter may hide\") 11 unchecked)\n",
+            )
+        );
     }
 
     #[test]

@@ -12,10 +12,11 @@
 //! CONCATENATE, NOW, DAVERAGE, SUMIF, INDEX, MATCH, LOOKUP, MONTH) `KERNEL.7`
 //! computed the five that are arithmetic and logic over values, and
 //! `KERNEL.8`'s first slice the four lookups (2026-10-18), its third
-//! `CONCATENATE` with the text functions and its fourth `MONTH` with the
-//! dates (2026-10-20); the database functions are a later slice's,
-//! `OFFSET` is unreadable by the reader's own rule, and `NOW` is volatile,
-//! which an engine refuses and a door shows as not computed. Of the EUSES
+//! `CONCATENATE` with the text functions, its fourth `MONTH` with the
+//! dates and its fifth `SUBTOTAL` and `DAVERAGE` with the aggregates and
+//! the database functions (2026-10-20); `OFFSET` is unreadable by the
+//! reader's own rule, and `NOW` is volatile, which an engine refuses and a
+//! door shows as not computed. Of the EUSES
 //! fifteen (SUM, IF, ROUND, HYPERLINK, CONCATENATE, AND, COUNTIF, AVERAGE,
 //! OR, INDIRECT, MIN, ISNUMBER, MAX, VLOOKUP, ISBLANK) it computes ten. `IFS` enters on its fixture alone,
 //! `scripts/reflect/saved.xlsx`, the owner's first Excel-saved workbook,
@@ -28,8 +29,10 @@
 //! down from this file with their criteria since a vector's index keys by
 //! them and a cartridge counts duplicates (Alonzo's `CART.13`),
 //! `SINGLE`, Excel's `@`, with implicit intersection (its second slice),
-//! the twenty-five text functions with `TEXT` (its third), and the
-//! seventeen date functions (its fourth).
+//! the twenty-five text functions with `TEXT` (its third), the
+//! seventeen date functions (its fourth), and the thirty-one aggregates,
+//! `SUBTOTAL`, `SUMIFS` and its family and the database functions (its
+//! fifth), `AVERAGE` moved down from this file with them.
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -42,7 +45,7 @@
 //! with its name (`HORIZON.md` section 12.6), and the one line that admits
 //! it is a row in [`SUBSET`] with its evidence.
 
-use vla_lang::calc::library::{language, number_arg, numbers};
+use vla_lang::calc::library::{language, number_arg};
 use vla_lang::calc::value::round15;
 use vla_lang::calc::{Arg, Ctx, ErrorKind, Expr, Library, Reason, Value};
 
@@ -55,7 +58,7 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the fifty-six `KERNEL.8` brought, then Excel's.
+/// fourteen and the eighty-seven `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -339,7 +342,127 @@ pub const SUBSET: &[Entry] = &[
     },
     Entry {
         name: "AVERAGE",
-        evidence: "Enron 3, EUSES 8",
+        evidence: "Enron 3, EUSES 8; moved down into the language with SUBTOTAL, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "COUNT",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "COUNTA",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "PRODUCT",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "STDEV",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "STDEV.S",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "STDEVP",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "STDEV.P",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "VAR",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "VAR.S",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "VARP",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "VAR.P",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "SUBTOTAL",
+        evidence: "Enron 6; the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "SUMIFS",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "COUNTIFS",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "AVERAGEIF",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "AVERAGEIFS",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "MAXIFS",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "MINIFS",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DSUM",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DAVERAGE",
+        evidence: "Enron 10; the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DCOUNT",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DCOUNTA",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DGET",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DMAX",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DMIN",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DPRODUCT",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DSTDEV",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DSTDEVP",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DVAR",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "DVARP",
+        evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
     },
     Entry {
         name: "ROUND",
@@ -363,8 +486,6 @@ pub const SUBSET: &[Entry] = &[
 /// does not compute, each with the slice that takes it: what the honest
 /// label names most often on a real workbook.
 pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
-    ("SUBTOTAL", "KERNEL.8, the aggregates by criteria"),
-    ("DAVERAGE", "KERNEL.8, the database functions"),
     (
         "DATEVALUE",
         "a date spelled in a text, which a host reads by its locale",
@@ -383,11 +504,10 @@ pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Excel's library: the language's functions and the five of its own below.
+/// Excel's library: the language's functions and the four of its own below.
 pub fn library() -> Library {
     let mut lib = language();
     lib.register_form("IFS", ifs);
-    lib.register("AVERAGE", average);
     lib.register("ROUND", round);
     lib.register("ISNUMBER", isnumber);
     lib.register("ISBLANK", isblank);
@@ -409,15 +529,6 @@ fn ifs<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
         }
     }
     Ok(Arg::Scalar(Value::Error(ErrorKind::NA)))
-}
-
-/// `AVERAGE` over the numbers `SUM` would read; none is `#DIV/0!`.
-fn average(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match numbers(ctx, args)? {
-        Err(k) => Value::Error(k),
-        Ok(ns) if ns.is_empty() => Value::Error(ErrorKind::Div0),
-        Ok(ns) => Value::Number(ns.iter().sum::<f64>() / ns.len() as f64),
-    })
 }
 
 /// `ROUND(x, digits)`: half away from zero, the digits read down to a

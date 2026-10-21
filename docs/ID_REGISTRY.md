@@ -95,13 +95,13 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.48 | KERNEL.49 |
+| KERNEL | KERNEL.52 | KERNEL.53 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
 | PF | PF.6 | PF.7 |
 | PI | PI.7 | PI.8 |
-| PORT | PORT.13 | PORT.14 |
+| PORT | PORT.14 | PORT.15 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
@@ -278,10 +278,22 @@ edit), for a frame's own count, the formula cells whose values the last
 complete frame changed, read in constant time on `vla-lang`'s `Machine`, so
 that a host steps again while a cascade still moves. `KERNEL.49` is next
 free.
+`KERNEL.51` was minted 2026-10-20 at the owner's word, from `KERNEL.8`'s
+fifth slice (Excel 365's first save of its criteria fixture, which cut a
+formula's literals of sixteen digits to fifteen), for such a literal read
+as Excel reads it, or kept whole and named where Excel would cut it.
+`KERNEL.52` is next free. `KERNEL.52` was minted the same day at the
+owner's word, from the same slice's labelled rows, for Excel's computed
+criteria: a database function's formula computed at each record with its
+relative references moved there. `KERNEL.53` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
 free.
+`PORT.14` was minted 2026-10-20 at the owner's word, from `KERNEL.8`'s
+fifth slice, whose first build wrote `SUBTOTAL(9,5)`, a formula Excel's
+opening repaired by taking it out, for a formula no Excel cell holds
+refused by name at the build; `PORT.15` is next free.
 
 The `VLA` family had its row in the inventory above and no sentence here
 until 2026-10-12, when the owner asked where `VLA.3` was minted. Its items

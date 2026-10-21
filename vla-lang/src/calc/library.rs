@@ -41,7 +41,7 @@ use super::eval::{finite, intersection, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{ErrorKind, Value};
-use super::{criteria, dates, lookups, texts};
+use super::{aggregates, criteria, database, dates, lookups, texts};
 
 /// The language's library, every function above registered, each as one an
 /// evaluation of many cells at once computes by itself: `IF` as the form it
@@ -54,8 +54,11 @@ use super::{criteria, dates, lookups, texts};
 /// `INDEX`, `IFERROR` and `IFNA` by itself, and calls the rest at each cell.
 /// Since KERNEL.8's second slice `SINGLE`, Excel's `@`, a form a run
 /// computes at each cell; since its third the text functions
-/// (`super::texts`), and since its fourth the date functions
-/// (`super::dates`), which a run calls at each cell.
+/// (`super::texts`), since its fourth the date functions
+/// (`super::dates`), and since its fifth the aggregates and `SUBTOTAL`
+/// (`super::aggregates`, `AVERAGE` moved down from Excel's library),
+/// `SUMIFS` and its family (`super::criteria`) and the database functions
+/// (`super::database`), which a run calls at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -128,6 +131,37 @@ pub fn language() -> Library {
     lib.register("DATEDIF", dates::datedif);
     lib.register("YEARFRAC", dates::yearfrac);
     lib.register("WEEKNUM", dates::weeknum);
+    lib.register("AVERAGE", aggregates::average);
+    lib.register("COUNT", aggregates::count);
+    lib.register("COUNTA", aggregates::counta);
+    lib.register("PRODUCT", aggregates::product);
+    lib.register("STDEV", aggregates::stdev_s);
+    lib.register("STDEV.S", aggregates::stdev_s);
+    lib.register("STDEVP", aggregates::stdev_p);
+    lib.register("STDEV.P", aggregates::stdev_p);
+    lib.register("VAR", aggregates::var_s);
+    lib.register("VAR.S", aggregates::var_s);
+    lib.register("VARP", aggregates::var_p);
+    lib.register("VAR.P", aggregates::var_p);
+    lib.register("SUBTOTAL", aggregates::subtotal);
+    lib.register("SUMIFS", criteria::sumifs);
+    lib.register("COUNTIFS", criteria::countifs);
+    lib.register("AVERAGEIF", criteria::averageif);
+    lib.register("AVERAGEIFS", criteria::averageifs);
+    lib.register("MAXIFS", criteria::maxifs);
+    lib.register("MINIFS", criteria::minifs);
+    lib.register("DSUM", database::dsum);
+    lib.register("DAVERAGE", database::daverage);
+    lib.register("DCOUNT", database::dcount);
+    lib.register("DCOUNTA", database::dcounta);
+    lib.register("DGET", database::dget);
+    lib.register("DMAX", database::dmax);
+    lib.register("DMIN", database::dmin);
+    lib.register("DPRODUCT", database::dproduct);
+    lib.register("DSTDEV", database::dstdev);
+    lib.register("DSTDEVP", database::dstdevp);
+    lib.register("DVAR", database::dvar);
+    lib.register("DVARP", database::dvarp);
     lib
 }
 
@@ -141,9 +175,11 @@ pub const NAMES: [&str; 14] = [
 ];
 
 /// The functions KERNEL.8 brought into the language, beside the day-one
-/// list: the lookups, `SINGLE`, the text functions and the date functions.
+/// list: the lookups, `SINGLE`, the text functions, the date functions, the
+/// aggregates and `SUBTOTAL`, the `SUMIFS` family and the database
+/// functions.
 #[cfg(test)]
-const KERNEL_8: [&str; 56] = [
+const KERNEL_8: [&str; 87] = [
     "INDEX",
     "MATCH",
     "XMATCH",
@@ -200,6 +236,37 @@ const KERNEL_8: [&str; 56] = [
     "DATEDIF",
     "YEARFRAC",
     "WEEKNUM",
+    "AVERAGE",
+    "COUNT",
+    "COUNTA",
+    "PRODUCT",
+    "STDEV",
+    "STDEV.S",
+    "STDEVP",
+    "STDEV.P",
+    "VAR",
+    "VAR.S",
+    "VARP",
+    "VAR.P",
+    "SUBTOTAL",
+    "SUMIFS",
+    "COUNTIFS",
+    "AVERAGEIF",
+    "AVERAGEIFS",
+    "MAXIFS",
+    "MINIFS",
+    "DSUM",
+    "DAVERAGE",
+    "DCOUNT",
+    "DCOUNTA",
+    "DGET",
+    "DMAX",
+    "DMIN",
+    "DPRODUCT",
+    "DSTDEV",
+    "DSTDEVP",
+    "DVAR",
+    "DVARP",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.

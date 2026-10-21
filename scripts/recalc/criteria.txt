@@ -1,0 +1,402 @@
+# The aggregates by criteria's fixture (KERNEL.8, slice e): a Data sheet of twelve records under names in row 1 (an
+# account, one blank and one in lower case; a month, one a text spelling 3; a region, its cases mixed; an amount; a
+# quantity; a note of wildcards, an empty text, texts beginning alike and texts spelling numbers; a mixed column of a
+# truth value, a text spelling 5, two errors and a blank; a day), criteria ranges for the database functions in K
+# to AL, and a SUBTOTAL among the cells it sums in X; a Far sheet of three keys and a cell below them in another
+# column; and a Functions sheet of one formula a function and a rule: the aggregates and their newer names, SUBTOTAL
+# by every number, SUMIFS, COUNTIFS, AVERAGEIF, AVERAGEIFS, MAXIFS and MINIFS, and the twelve database functions,
+# the edges Excel's documentation is silent on among them, and the reach of the rules Excel's first save settled.
+# Built by frazaro into criteria.xlsx (each value it computes held). The owner hides the Data sheet's row 6 in
+# Excel and saves it as criteria_saved.xlsx: SUBTOTAL's 101 to 111 pass that row by, and its 1 to 11 over it are
+# labelled.
+
+Work on sheet Data.
+Put "Account" into cell A1.
+Put "Month" into cell B1.
+Put "Region" into cell C1.
+Put "Amount" into cell D1.
+Put "Qty" into cell E1.
+Put "Note" into cell F1.
+Put "Mixed" into cell G1.
+Put "Day" into cell H1.
+Put "Cash" into cell A2.
+Put 1 into cell B2.
+Put "East" into cell C2.
+Put 100 into cell D2.
+Put 5 into cell E2.
+Put "plain" into cell F2.
+Put 1 into cell G2.
+Put 46023 into cell H2.
+Put "Bank" into cell A3.
+Put 1 into cell B3.
+Put "West" into cell C3.
+Put 250.5 into cell D3.
+Put 3 into cell E3.
+Put "a*b" into cell F3.
+Put formula "=TRUE" into cell G3.
+Put 46024 into cell H3.
+Put "Cash" into cell A4.
+Put 2 into cell B4.
+Put "east" into cell C4.
+Put 75 into cell D4.
+Put 2 into cell E4.
+Put "a?b" into cell F4.
+Put "5" into cell G4.
+Put 46054 into cell H4.
+Put "Card" into cell A5.
+Put 2 into cell B5.
+Put "North" into cell C5.
+Put 40 into cell D5.
+Put 1 into cell E5.
+Put "~tilde" into cell F5.
+Put formula "=1/0" into cell G5.
+Put 46055 into cell H5.
+Put "Bank" into cell A6.
+Put 3 into cell B6.
+Put "West" into cell C6.
+Put 300 into cell D6.
+Put 4 into cell E6.
+Put 46082 into cell H6.
+Put "Cash" into cell A7.
+Put 3 into cell B7.
+Put "East" into cell C7.
+Put 125 into cell D7.
+Put 6 into cell E7.
+Put formula "=""""" into cell F7.
+Put 2 into cell G7.
+Put 46083 into cell H7.
+Put "Card" into cell A8.
+Put 1 into cell B8.
+Put "South" into cell C8.
+Put -20 into cell D8.
+Put 7 into cell E8.
+Put "Dav" into cell F8.
+Put formula "=""a""+1" into cell G8.
+Put 46025 into cell H8.
+Put "Cash" into cell A9.
+Put 12 into cell B9.
+Put "East" into cell C9.
+Put 10 into cell D9.
+Put 0 into cell E9.
+Put "Davolio" into cell F9.
+Put 3 into cell G9.
+Put 46357 into cell H9.
+Put 2 into cell B10.
+Put "West" into cell C10.
+Put 60 into cell D10.
+Put 2 into cell E10.
+Put "David" into cell F10.
+Put 4 into cell G10.
+Put 46056 into cell H10.
+Put "bank" into cell A11.
+Put 2 into cell B11.
+Put "WEST" into cell C11.
+Put 0.1 into cell D11.
+Put 1 into cell E11.
+Put "davis" into cell F11.
+Put 5 into cell G11.
+Put 46057 into cell H11.
+Put "Cash" into cell A12.
+Put 3 into cell B12.
+Put "East" into cell C12.
+Put 0.2 into cell D12.
+Put 9 into cell E12.
+Put "100" into cell F12.
+Put 6 into cell G12.
+Put 46084 into cell H12.
+Put "Card" into cell A13.
+Put "3" into cell B13.
+Put "North" into cell C13.
+Put 55 into cell D13.
+Put 3 into cell E13.
+Put "1e2" into cell F13.
+Put 7 into cell G13.
+Put 46085 into cell H13.
+Put "Region" into cell K1.
+Put "East" into cell K2.
+Put "Note" into cell L1.
+Put "Dav" into cell L2.
+Put "Note" into cell M1.
+Put "=Dav" into cell M2.
+Put "Month" into cell N1.
+Put 3 into cell N2.
+Put "Account" into cell O1.
+Put "Cash" into cell O2.
+Put "Month" into cell P1.
+Put 3 into cell P2.
+Put "Account" into cell Q1.
+Put "Card" into cell Q2.
+Put "Bank" into cell Q3.
+Put "Account" into cell R1.
+Put "Cash" into cell R2.
+Put "region" into cell S1.
+Put "west" into cell S2.
+Put "Nope" into cell T1.
+Put "x" into cell T2.
+Put "Big" into cell U1.
+Put formula "=Data!D2>100" into cell U2.
+Put "Account" into cell W1.
+Put "Nope" into cell W2.
+Put "Note" into cell Y1.
+Put "Dav*" into cell Y2.
+Put "Note" into cell Z1.
+Put "*vi*" into cell Z2.
+Put "Note" into cell AA1.
+Put "D?v" into cell AA2.
+Put "Amount" into cell AB1.
+Put "10" into cell AB2.
+Put "Amount" into cell AC1.
+Put 10 into cell AC2.
+Put "Amount" into cell AD1.
+Put ">100" into cell AD2.
+Put "Account" into cell AE1.
+Put "<>Cash" into cell AE2.
+Put "Account" into cell AF1.
+Put "=" into cell AF2.
+Put "Account" into cell AG1.
+Put "<>" into cell AG2.
+Put "Mixed" into cell AH1.
+Put formula "=TRUE" into cell AH2.
+Put "Account" into cell AI1.
+Put "Cash" into cell AI2.
+Put "Card" into cell AI3.
+Put "Month" into cell AJ1.
+Put 3 into cell AJ2.
+Put "Mixed" into cell AK1.
+Put ">1" into cell AK2.
+Put "Amount" into cell AL1.
+Put 300 into cell AL2.
+Put 1 into cell X1.
+Put 2 into cell X2.
+Put formula "=SUBTOTAL(9,X1:X2)" into cell X3.
+Put formula "=SUBTOTAL(9,X1:X2)*2" into cell X4.
+Put formula "=SUM(X1:X2)" into cell X5.
+
+Work on sheet Far.
+Put "Key" into cell A1.
+Put "x" into cell A2.
+Put "y" into cell A3.
+Put 1 into cell C9.
+Put "Key" into cell E1.
+Put "=" into cell E2.
+
+Work on sheet Functions.
+Put formula "=COUNT(Data!D2:D13)" into cell A1.
+Put formula "=COUNT(Data!G2:G13)" into cell A2.
+Put formula "=COUNT(1,TRUE,""2"",""x"",1/0)" into cell A3.
+Put formula "=COUNT(1,,2)" into cell A4.
+Put formula "=COUNT(1/0)" into cell A5.
+Put formula "=COUNT(Data!J1)" into cell A6.
+Put formula "=COUNTA(Data!F2:F13)" into cell A7.
+Put formula "=COUNTA(1,"""",TRUE,1/0)" into cell A8.
+Put formula "=COUNTA(Data!J1)" into cell A9.
+Put formula "=COUNTA(Data!F7)" into cell A10.
+Put formula "=COUNTA(1,,2)" into cell A11.
+Put formula "=PRODUCT(Data!E2:E5)" into cell A12.
+Put formula "=PRODUCT(Data!G2:G13)" into cell A13.
+Put formula "=PRODUCT(2,""3"",TRUE)" into cell A14.
+Put formula "=PRODUCT(""x"")" into cell A15.
+Put formula "=PRODUCT(Data!J1:J2)" into cell A16.
+Put formula "=PRODUCT(Data!D2:D13)" into cell A17.
+Put formula "=AVERAGE(Data!E2:E13)" into cell A18.
+Put formula "=AVERAGE(1,""2"",TRUE)" into cell A19.
+Put formula "=AVERAGE(Data!J1:J2)" into cell A20.
+Put formula "=AVERAGE(1,,2)" into cell A21.
+Put formula "=AVERAGE(""x"")" into cell A22.
+Put formula "=AVERAGE(TRUE)" into cell A23.
+Put formula "=AVERAGE(Data!D2:D13)" into cell A24.
+Put formula "=VAR(1,2,3,4)" into cell A25.
+Put formula "=VAR.S(1,2,3,4)" into cell A26.
+Put formula "=VARP(1,2,3,4)" into cell A27.
+Put formula "=VAR.P(1,2,3,4)" into cell A28.
+Put formula "=STDEV(1,2,3,4)" into cell A29.
+Put formula "=STDEV.S(1,2,3,4)" into cell A30.
+Put formula "=STDEVP(1,2,3,4)" into cell A31.
+Put formula "=STDEV.P(1,2,3,4)" into cell A32.
+Put formula "=STDEV(5)" into cell A33.
+Put formula "=STDEVP(5)" into cell A34.
+Put formula "=VARP(Data!J1)" into cell A35.
+Put formula "=VAR(1000000001,1000000002,1000000003)" into cell A36.
+Put formula "=VAR(1E15+1,1E15+2,1E15+3)" into cell A37.
+Put formula "=VAR(0.1,0.2,0.3)" into cell A38.
+Put formula "=STDEV(0.1,0.2,0.3)" into cell A39.
+Put formula "=STDEV(Data!E2:E13)" into cell A40.
+Put formula "=STDEVP(Data!E2:E13)" into cell A41.
+Put formula "=VAR(Data!D2:D13)" into cell A42.
+Put formula "=VARP(Data!D2:D13)" into cell A43.
+Put formula "=STDEV.S(Data!D2:D13)" into cell A44.
+Put formula "=STDEV.P(Data!D2:D13)" into cell A45.
+Put formula "=STDEV(Data!G2:G13)" into cell A46.
+Put formula "=VAR(Data!H2:H13)" into cell A47.
+Put formula "=SUBTOTAL(1,Data!D2:D13)" into cell A48.
+Put formula "=SUBTOTAL(2,Data!D2:D13)" into cell A49.
+Put formula "=SUBTOTAL(3,Data!D2:D13)" into cell A50.
+Put formula "=SUBTOTAL(4,Data!D2:D13)" into cell A51.
+Put formula "=SUBTOTAL(5,Data!D2:D13)" into cell A52.
+Put formula "=SUBTOTAL(6,Data!D2:D13)" into cell A53.
+Put formula "=SUBTOTAL(7,Data!D2:D13)" into cell A54.
+Put formula "=SUBTOTAL(8,Data!D2:D13)" into cell A55.
+Put formula "=SUBTOTAL(9,Data!D2:D13)" into cell A56.
+Put formula "=SUBTOTAL(10,Data!D2:D13)" into cell A57.
+Put formula "=SUBTOTAL(11,Data!D2:D13)" into cell A58.
+Put formula "=SUBTOTAL(101,Data!D2:D13)" into cell A59.
+Put formula "=SUBTOTAL(102,Data!D2:D13)" into cell A60.
+Put formula "=SUBTOTAL(103,Data!D2:D13)" into cell A61.
+Put formula "=SUBTOTAL(104,Data!D2:D13)" into cell A62.
+Put formula "=SUBTOTAL(105,Data!D2:D13)" into cell A63.
+Put formula "=SUBTOTAL(106,Data!D2:D13)" into cell A64.
+Put formula "=SUBTOTAL(107,Data!D2:D13)" into cell A65.
+Put formula "=SUBTOTAL(108,Data!D2:D13)" into cell A66.
+Put formula "=SUBTOTAL(109,Data!D2:D13)" into cell A67.
+Put formula "=SUBTOTAL(110,Data!D2:D13)" into cell A68.
+Put formula "=SUBTOTAL(111,Data!D2:D13)" into cell A69.
+Put formula "=SUBTOTAL(102,Data!G2:G13)" into cell A70.
+Put formula "=SUBTOTAL(103,Data!A2:A13)" into cell A71.
+Put formula "=SUBTOTAL(103,Data!F2:F13)" into cell A72.
+Put formula "=SUBTOTAL(9,Data!D2:D5)" into cell A73.
+Put formula "=SUBTOTAL(109,Data!D2:D13,Data!E2:E13)" into cell A74.
+Put formula "=SUBTOTAL(9,Data!X1:X5)" into cell A75.
+Put formula "=SUBTOTAL(109,Data!X1:X5)" into cell A76.
+Put formula "=SUBTOTAL(9,Data!G2:G13)" into cell A77.
+Put formula "=SUBTOTAL(109,Data!G2:G13)" into cell A78.
+Put formula "=SUBTOTAL(0,Data!D2:D3)" into cell A79.
+Put formula "=SUBTOTAL(12,Data!D2:D3)" into cell A80.
+Put formula "=SUBTOTAL(100,Data!D2:D3)" into cell A81.
+Put formula "=SUBTOTAL(112,Data!D2:D3)" into cell A82.
+Put formula "=SUBTOTAL(-9,Data!D2:D3)" into cell A83.
+Put formula "=SUBTOTAL(9.7,Data!D2:D3)" into cell A84.
+Put formula "=SUBTOTAL(""9"",Data!D2:D3)" into cell A85.
+Put formula "=COUNTIF(Data!F2:F13,""~~*"")" into cell A86.
+Put formula "=SUBTOTAL(109,Data!D2:H2)" into cell A87.
+Put formula "=SUBTOTAL(109,Data!D6:H6)" into cell A88.
+Put formula "=SUBTOTAL(9,Data!D6)" into cell A89.
+Put formula "=SUBTOTAL(9,Data!D7:H7)" into cell A90.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""Cash"")" into cell A91.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""Cash"",Data!B2:B13,3)" into cell A92.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""Cash"",Data!B2:B13,"">1"")" into cell A93.
+Put formula "=SUMIFS(Data!D2:D13,Data!C2:C13,""east"")" into cell A94.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""B*"")" into cell A95.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""?a??"")" into cell A96.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,"""")" into cell A97.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""="")" into cell A98.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""<>"")" into cell A99.
+Put formula "=SUMIFS(Data!D2:D13,Data!B2:B13,""3"")" into cell A100.
+Put formula "=SUMIFS(Data!D2:D13,Data!B2:B13,3)" into cell A101.
+Put formula "=SUMIFS(Data!D2:D13,Data!B2:B13,"">=3"")" into cell A102.
+Put formula "=SUMIFS(Data!D2:D13,Data!B2:B13,""<>3"")" into cell A103.
+Put formula "=SUMIFS(Data!D2:D13,Data!G2:G13,TRUE)" into cell A104.
+Put formula "=SUMIFS(Data!D2:D13,Data!G2:G13,""#DIV/0!"")" into cell A105.
+Put formula "=SUMIFS(Data!D2:D13,Data!F2:F13,""a~*b"")" into cell A106.
+Put formula "=SUMIFS(Data!D2:D13,Data!F2:F13,""a?b"")" into cell A107.
+Put formula "=SUMIFS(Data!D2:D13,Data!F2:F13,""~~tilde"")" into cell A108.
+Put formula "=SUMIFS(Data!D2:D13,Data!F2:F13,""*"")" into cell A109.
+Put formula "=SUMIFS(Data!D2:D13,Data!F2:F13,""?*"")" into cell A110.
+Put formula "=SUMIFS(Data!D2:D13,Data!B2:B13,"">1"",Data!B2:B13,""<3"")" into cell A111.
+Put formula "=SUMIFS(Data!G2:G13,Data!A2:A13,""Card"")" into cell A112.
+Put formula "=SUMIFS(Data!G2:G13,Data!A2:A13,""Cash"")" into cell A113.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A12,""Cash"")" into cell A114.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,Data!J1)" into cell A115.
+Put formula "=SUMIFS(Data!D2:D13,Data!H2:H13,"">=""&DATE(2026,2,1))" into cell A116.
+Put formula "=SUMIFS(Data!D:D,Data!A:A,""Cash"")" into cell A117.
+Put formula "=SUMIFS(Data!D2:E13,Data!A2:B13,""Cash"")" into cell A118.
+Put formula "=SUMIFS(Data!D2:D13,Data!A2:A13,""Cash"",Data!C2:C13,""East"",Data!E2:E13,"">2"")" into cell A119.
+Put formula "=COUNTIFS(Data!A2:A13,""Cash"",Data!B2:B13,"">1"")" into cell A120.
+Put formula "=COUNTIFS(Data!A2:A13,""<>Cash"")" into cell A121.
+Put formula "=COUNTIFS(Data!F2:F13,"""")" into cell A122.
+Put formula "=COUNTIFS(Data!A2:A13,""*"")" into cell A123.
+Put formula "=COUNTIFS(Data!A:A,""Cash"")" into cell A124.
+Put formula "=COUNTIFS(Data!A:A,"""")" into cell A125.
+Put formula "=COUNTIFS(Data!A:A,"""",Data!B:B,"""")" into cell A126.
+Put formula "=COUNTIFS(Data!A2:A13,""Cash"",Data!B2:B12,3)" into cell A127.
+Put formula "=COUNTIFS(Data!B2:B13,Data!J1)" into cell A128.
+Put formula "=COUNTIFS(Data!E2:E13,Data!J1)" into cell A129.
+Put formula "=COUNTIFS(Data!G2:G13,""<>#DIV/0!"")" into cell A130.
+Put formula "=COUNTIFS(Data!G2:G13,"">=2"")" into cell A131.
+Put formula "=COUNTIFS(Data!A2:A13,""cash"",Data!C2:C13,""EAST"")" into cell A132.
+Put formula "=AVERAGEIF(Data!D2:D13,"">100"")" into cell A133.
+Put formula "=AVERAGEIF(Data!A2:A13,""Cash"",Data!D2:D13)" into cell A134.
+Put formula "=AVERAGEIF(Data!A2:A13,""Cash"",Data!D2)" into cell A135.
+Put formula "=AVERAGEIF(Data!A2:A13,""Cash"",Data!D2:E13)" into cell A136.
+Put formula "=AVERAGEIF(Data!A2:A13,""Nope"",Data!D2:D13)" into cell A137.
+Put formula "=AVERAGEIF(Data!G2:G13,"">0"")" into cell A138.
+Put formula "=AVERAGEIF(Data!G2:G13,""<>"")" into cell A139.
+Put formula "=AVERAGEIFS(Data!D2:D13,Data!A2:A13,""Cash"",Data!B2:B13,3)" into cell A140.
+Put formula "=AVERAGEIFS(Data!D2:D13,Data!A2:A13,""Nope"")" into cell A141.
+Put formula "=AVERAGEIFS(Data!G2:G13,Data!A2:A13,""Cash"")" into cell A142.
+Put formula "=AVERAGEIFS(Data!D2:D13,Data!A2:A12,""Cash"")" into cell A143.
+Put formula "=MAXIFS(Data!D2:D13,Data!A2:A13,""Card"")" into cell A144.
+Put formula "=MINIFS(Data!D2:D13,Data!A2:A13,""Card"")" into cell A145.
+Put formula "=MAXIFS(Data!D2:D13,Data!A2:A13,""Nope"")" into cell A146.
+Put formula "=MINIFS(Data!D2:D13,Data!A2:A13,""Nope"")" into cell A147.
+Put formula "=MAXIFS(Data!G2:G13,Data!A2:A13,""Card"")" into cell A148.
+Put formula "=MAXIFS(Data!D2:D13,Data!A2:A12,""Card"")" into cell A149.
+Put formula "=MINIFS(Data!E2:E13,Data!C2:C13,""West"",Data!B2:B13,"">=2"")" into cell A150.
+Put formula "=MAXIFS(Data!H2:H13,Data!A2:A13,""<>Cash"")" into cell A151.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!K1:K2)" into cell A152.
+Put formula "=DSUM(Data!A1:H13,4,Data!K1:K2)" into cell A153.
+Put formula "=DSUM(Data!A1:H13,4.7,Data!K1:K2)" into cell A154.
+Put formula "=DSUM(Data!A1:H13,""amount"",Data!K1:K2)" into cell A155.
+Put formula "=DSUM(Data!A1:H13,""Amt"",Data!K1:K2)" into cell A156.
+Put formula "=DSUM(Data!A1:H13,0,Data!K1:K2)" into cell A157.
+Put formula "=DSUM(Data!A1:H13,9,Data!K1:K2)" into cell A158.
+Put formula "=DSUM(Data!A1:H13,,Data!K1:K2)" into cell A159.
+Put formula "=DSUM(Data!A1:H13,""4"",Data!K1:K2)" into cell A160.
+Put formula "=DSUM(Data!A1:H13,Data!D1,Data!K1:K2)" into cell A161.
+Put formula "=DCOUNTA(Data!A1:H13,""Note"",Data!L1:L2)" into cell A162.
+Put formula "=DCOUNTA(Data!A1:H13,""Note"",Data!M1:M2)" into cell A163.
+Put formula "=DCOUNTA(Data!A1:H13,""Note"",Data!Y1:Y2)" into cell A164.
+Put formula "=DCOUNTA(Data!A1:H13,""Note"",Data!Z1:Z2)" into cell A165.
+Put formula "=DCOUNTA(Data!A1:H13,""Note"",Data!AA1:AA2)" into cell A166.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!N1:N2)" into cell A167.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!O1:P2)" into cell A168.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!Q1:Q3)" into cell A169.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!R1:R3)" into cell A170.
+Put formula "=DCOUNT(Data!A1:H13,""Qty"",Data!S1:S2)" into cell A171.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!T1:T2)" into cell A172.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!U1:U2)" into cell A173.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AB1:AB2)" into cell A174.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AC1:AC2)" into cell A175.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AD1:AD2)" into cell A176.
+Put formula "=DCOUNTA(Data!A1:H13,""Account"",Data!AE1:AE2)" into cell A177.
+Put formula "=DCOUNT(Data!A1:H13,,Data!AE1:AE2)" into cell A178.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AF1:AF2)" into cell A179.
+Put formula "=DCOUNT(Data!A1:H13,,Data!AG1:AG2)" into cell A180.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AH1:AH2)" into cell A181.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!AI1:AJ3)" into cell A182.
+Put formula "=DCOUNT(Data!A1:H13,""Mixed"",Data!AK1:AK2)" into cell A183.
+Put formula "=DGET(Data!A1:H13,""Amount"",Data!O1:P2)" into cell A184.
+Put formula "=DGET(Data!A1:H13,""Amount"",Data!M1:M2)" into cell A185.
+Put formula "=DGET(Data!A1:H13,""Amount"",Data!W1:W2)" into cell A186.
+Put formula "=DGET(Data!A1:H13,""Note"",Data!M1:M2)" into cell A187.
+Put formula "=DGET(Data!A1:H13,""Mixed"",Data!M1:M2)" into cell A188.
+Put formula "=DCOUNT(Data!A1:H13,,Data!K1:K2)" into cell A189.
+Put formula "=DCOUNTA(Data!A1:H13,,Data!K1:K2)" into cell A190.
+Put formula "=DCOUNT(Data!A1:H13,""Mixed"",Data!K1:K2)" into cell A191.
+Put formula "=DCOUNTA(Data!A1:H13,""Mixed"",Data!K1:K2)" into cell A192.
+Put formula "=DAVERAGE(Data!A1:H13,""Amount"",Data!K1:K2)" into cell A193.
+Put formula "=DAVERAGE(Data!A1:H13,""Amount"",Data!W1:W2)" into cell A194.
+Put formula "=DMAX(Data!A1:H13,""Amount"",Data!K1:K2)" into cell A195.
+Put formula "=DMIN(Data!A1:H13,""Amount"",Data!K1:K2)" into cell A196.
+Put formula "=DMAX(Data!A1:H13,""Amount"",Data!W1:W2)" into cell A197.
+Put formula "=DMIN(Data!A1:H13,""Amount"",Data!W1:W2)" into cell A198.
+Put formula "=DPRODUCT(Data!A1:H13,""Qty"",Data!K1:K2)" into cell A199.
+Put formula "=DPRODUCT(Data!A1:H13,""Qty"",Data!W1:W2)" into cell A200.
+Put formula "=DSTDEV(Data!A1:H13,""Qty"",Data!K1:K2)" into cell A201.
+Put formula "=DSTDEVP(Data!A1:H13,""Qty"",Data!K1:K2)" into cell A202.
+Put formula "=DVAR(Data!A1:H13,""Qty"",Data!K1:K2)" into cell A203.
+Put formula "=DVARP(Data!A1:H13,""Qty"",Data!K1:K2)" into cell A204.
+Put formula "=DSTDEV(Data!A1:H13,""Qty"",Data!M1:M2)" into cell A205.
+Put formula "=DSUM(Data!A1:H13,""Mixed"",Data!K1:K2)" into cell A206.
+Put formula "=DSUM(Data!A1:H13,""Mixed"",Data!Q1:Q3)" into cell A207.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!K1)" into cell A208.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!K2:K3)" into cell A209.
+Put formula "=DSUM(Data!A:H,""Amount"",Data!K1:K2)" into cell A210.
+Put formula "=DCOUNTA(Data!A:H,,Data!AF1:AF2)" into cell A211.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!K1:L2)" into cell A212.
+Put formula "=DGET(Data!A1:H13,""Note"",Data!AL1:AL2)" into cell A213.
+Put formula "=COUNTIF(Data!F2:F13,""~tilde"")" into cell A214.
+Put formula "=COUNTIF(Data!F2:F13,""~t*"")" into cell A215.
+Put formula "=MATCH(""~~tilde"",Data!F2:F13,0)" into cell A216.
+Put formula "=MATCH(""~tilde"",Data!F2:F13,0)" into cell A217.
+Put formula "=DCOUNTA(Far!A:A,,Far!E1:E2)" into cell A218.
+Put formula "=DSUM(Data!A1:H13,""Amount"",Data!K13:K15)" into cell A219.

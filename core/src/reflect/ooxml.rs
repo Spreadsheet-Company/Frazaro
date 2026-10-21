@@ -567,6 +567,11 @@ impl<'a> Source for Package<'a> {
                         .and_then(|v| v.parse::<u32>().ok())
                         .unwrap_or(row_no + 1);
                     col_no = 0;
+                    // KERNEL.8, slice e: a hidden row, which `SUBTOTAL`'s
+                    // 101 to 111 pass by.
+                    if matches!(attr(attrs, "hidden").as_deref(), Some("1") | Some("true")) {
+                        sink.hidden_row(&info.name, row_no);
+                    }
                 }
                 Event::Start {
                     name: "c",
@@ -971,6 +976,60 @@ mod tests {
         );
         let rows = crate::reflect::calc::calc_text(&plain, "p.xlsx", &library).unwrap();
         assert!(rows.starts_with("(calc \"Model\" \"A1\" \"=YEAR(1)\" 1900 1904 differ)\n"));
+    }
+
+    #[test]
+    fn a_hidden_row_is_read_and_subtotal_s_101_to_111_pass_it_by() {
+        // KERNEL.8, slice e: `<row hidden="1">` told to the sink, `true`
+        // spelled as well, and a row hidden `0` not; the door's `SUBTOTAL`
+        // 109 sums the rows shown, and its 9 over a range a hidden row
+        // crosses is labelled, the file's one flag for a row a filter hides
+        // and one a person hides, which 1 to 11 tell apart; over a range no
+        // hidden row crosses, it computes. The printer's record is the same
+        // with the flags as without them.
+        #[derive(Default)]
+        struct Hidden(Vec<(String, u32)>);
+        impl Sink for Hidden {
+            fn row(&mut self, _row: &Row<'_>) {}
+            fn hidden_row(&mut self, sheet: &str, row: u32) {
+                self.0.push((sheet.to_string(), row));
+            }
+        }
+        let sheet = concat!(
+            "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>",
+            "<row r=\"2\" hidden=\"1\"><c r=\"A2\"><v>2</v></c></row>",
+            "<row r=\"3\" hidden=\"0\"><c r=\"A3\"><v>4</v></c></row>",
+            "<row r=\"4\" hidden=\"true\"><c r=\"A4\"><v>8</v></c></row>",
+            "<row r=\"5\"><c r=\"B5\"><f>SUBTOTAL(109,A1:A4)</f><v>5</v></c>",
+            "<c r=\"C5\"><f>SUBTOTAL(9,A1:A4)</f><v>15</v></c>",
+            "<c r=\"D5\"><f>SUBTOTAL(9,A1,A3)</f><v>5</v></c></row>",
+        );
+        let book = one_sheet(sheet, None);
+        let mut hidden = Hidden::default();
+        Package::open(&book, "h.xlsx")
+            .unwrap()
+            .walk_sheet(0, &mut hidden)
+            .unwrap();
+        let model = "Model".to_string();
+        assert_eq!(hidden.0, vec![(model.clone(), 2), (model, 4)]);
+        let library = crate::excel::library();
+        let computed = crate::reflect::calc::calc_text(&book, "h.xlsx", &library).unwrap();
+        assert_eq!(
+            computed,
+            concat!(
+                "(calc \"Model\" \"B5\" \"=SUBTOTAL(109,A1:A4)\" 5 5 agree)\n",
+                "(calc \"Model\" \"C5\" \"=SUBTOTAL(9,A1:A4)\" (not-computed \"a row a filter may hide\") 15 unchecked)\n",
+                "(calc \"Model\" \"D5\" \"=SUBTOTAL(9,A1,A3)\" 5 5 agree)\n",
+            )
+        );
+        let plain = [" hidden=\"1\"", " hidden=\"0\"", " hidden=\"true\""]
+            .iter()
+            .fold(sheet.to_string(), |s, flag| s.replace(flag, ""));
+        let shown = one_sheet(&plain, None);
+        assert_eq!(
+            reflect_text(&book, "h.xlsx").unwrap(),
+            reflect_text(&shown, "h.xlsx").unwrap()
+        );
     }
 
     #[test]

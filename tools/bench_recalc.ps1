@@ -1,6 +1,6 @@
 <#
 bench_recalc.ps1 - the recalculation floors' native half: the machine timed
-on the five fixtures of scripts/recalc/bench/ on the owner's machine, and
+on the six fixtures of scripts/recalc/bench/ on the owner's machine, and
 printed as one block to paste into tools/check_recalc_floors.ps1, beside
 the block tools/bench_recalc_excel.ps1 prints for Excel.
 
@@ -30,9 +30,9 @@ more than 10%.
 WHAT IT DOES:
   1. builds the runner, unless -NoBuild: cargo build --release -p
      frazaro-core --example recalc;
-  2. runs it, opted out and on the performance cores, and reads its five
+  2. runs it, opted out and on the performance cores, and reads its six
      rows;
-  3. prints the block: the date, the environment, the five rows, and the
+  3. prints the block: the date, the environment, the six rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
      down to three figures, or the entry before it where that stands
@@ -59,7 +59,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $margin = 0.15
-$fixtures = @('column', 'chain', 'sums', 'life', 'lookups')
+$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria')
 
 function Find-Cargo {
     $c = Get-Command cargo -ErrorAction SilentlyContinue

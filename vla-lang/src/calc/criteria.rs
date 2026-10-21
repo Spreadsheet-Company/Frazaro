@@ -9,8 +9,13 @@
 //! may begin with `=`, `<>`, `<`, `>`, `<=` or `>=`, and what follows is a
 //! number when it spells one, `TRUE` or `FALSE` when it spells either, blank
 //! when empty, and a text pattern otherwise, `*` any run of characters, `?`
-//! one, `~` the next as itself. Two numbers equal to fifteen significant
-//! digits are equal, as Excel's operators hold them
+//! one, `~` the next as itself; a text with neither `*` nor `?` is the text
+//! itself, its tildes as written, as Excel's save of the aggregates'
+//! fixture shows (KERNEL.8, slice e: `"~~tilde"` meets no `~tilde`, where
+//! Excel's documentation reads `~~` as one `~`), while a lookup reads every
+//! `~` as that documentation does, as its second save shows (`MATCH` of
+//! `"~~tilde"` finds `~tilde`, and of `"~tilde"` nothing). Two numbers equal to
+//! fifteen significant digits are equal, as Excel's operators hold them
 //! (`eval::compare_numbers`). A text that spells a number is equal to the
 //! number and to nothing else of it: `<>` holds of it, `<` and `>` do not; a
 //! comparison by size holds only between values of one kind; `<>` holds for
@@ -33,6 +38,7 @@
 
 use std::cmp::Ordering;
 
+use super::aggregates::{Stat, Tally};
 use super::eval::{compare_numbers, finite, Arg, Ctx, Reason};
 use super::graph::Area;
 use super::index::walk;
@@ -54,7 +60,8 @@ pub enum Criterion {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Target {
     Number(f64),
-    /// A text with `*`, `?` and `~` as Excel's wildcards, folded
+    /// A text with `*` and `?` as Excel's wildcards and `~` before a
+    /// character as that character, where it holds a `*` or a `?`, folded
     /// (`value::fold_text`).
     Text(String),
     Bool(bool),
@@ -65,13 +72,33 @@ pub enum Target {
 impl Target {
     /// Whether a text target holds a wildcard, which only a scan matches.
     pub fn is_pattern(&self) -> bool {
-        matches!(self, Target::Text(t) if has_wildcard(t))
+        matches!(self, Target::Text(t) if criterion_wildcard(t))
     }
 }
 
-/// Whether a text holds one of Excel's wildcards, `*`, `?` or `~`.
+/// Whether a text holds one of Excel's wildcards, `*`, `?` or `~`, as a
+/// lookup and the matcher read them (`wildcard`); a criterion's text is a
+/// pattern only by [`criterion_wildcard`].
 pub fn has_wildcard(t: &str) -> bool {
     t.bytes().any(|b| matches!(b, b'*' | b'?' | b'~'))
+}
+
+/// Whether a criterion's text is a pattern: one holding `*` or `?`, a text
+/// with neither compared as written, a `~` in it too, as Excel's save shows
+/// (see the module's comment; KERNEL.8, slice e).
+pub fn criterion_wildcard(t: &str) -> bool {
+    t.bytes().any(|b| matches!(b, b'*' | b'?'))
+}
+
+/// A criterion's text against a cell's: its wildcards where it is a
+/// pattern ([`criterion_wildcard`]), the text itself otherwise, as Excel's
+/// order of texts holds two texts one (`order::equal`).
+fn matched(pattern: &str, text: &str) -> bool {
+    if criterion_wildcard(pattern) {
+        wildcard(pattern, text)
+    } else {
+        order::equal(pattern, text)
+    }
 }
 
 /// A criterion as Excel reads one (see the module's comment).
@@ -148,7 +175,7 @@ fn equal(cell: &Value, target: &Target) -> bool {
         (Value::Text(t), Target::Number(n)) => {
             text_to_number(t).is_some_and(|x| compare_numbers(x, *n) == Ordering::Equal)
         }
-        (Value::Text(t), Target::Text(pattern)) => wildcard(pattern, t),
+        (Value::Text(t), Target::Text(pattern)) => matched(pattern, t),
         (Value::Bool(b), Target::Bool(want)) => b == want,
         (Value::Error(k), Target::Error(want)) => k == want,
         (Value::Empty, Target::Blank) => true,
@@ -165,7 +192,7 @@ fn equal(cell: &Value, target: &Target) -> bool {
 fn sized(cell: &Value, target: &Target) -> Result<Option<Ordering>, Reason> {
     Ok(match (cell, target) {
         (Value::Number(x), Target::Number(n)) => Some(compare_numbers(*x, *n)),
-        (Value::Text(t), Target::Text(pattern)) => Some(if wildcard(pattern, t) {
+        (Value::Text(t), Target::Text(pattern)) => Some(if matched(pattern, t) {
             Ordering::Equal
         } else {
             order::sized(t, pattern)?
@@ -204,13 +231,13 @@ fn token(pattern: &str, at: usize) -> Option<(Token, usize)> {
 /// Excel's wildcards, a pattern against a text, both compared as
 /// `value::fold_char` leaves their characters: `*` any run of characters,
 /// `?` one, `~` the next character itself, a `~` with nothing after it
-/// matching nothing more; a pattern with none of the three is the text
-/// itself, as Excel's order of texts holds two texts one (`order::equal`,
-/// `ß` and `ss` one). The walk that remembers its last `*`: on a mismatch
-/// it lets that `*` take one more character and goes on from just after it,
-/// which is every split a recursion would try that can still match, so that
-/// a pattern costs at most its length times the text's, and nothing is
-/// collected.
+/// matching nothing more, as a lookup reads them; a pattern with none of
+/// the three is the text itself, as Excel's order of texts holds two texts
+/// one (`order::equal`, `ß` and `ss` one). The walk that remembers its last
+/// `*`: on a mismatch it lets that `*` take one more character and goes on
+/// from just after it, which is every split a recursion would try that can
+/// still match, so that a pattern costs at most its length times the
+/// text's, and nothing is collected.
 pub fn wildcard(pattern: &str, text: &str) -> bool {
     if !has_wildcard(pattern) {
         return order::equal(pattern, text);
@@ -499,6 +526,258 @@ pub(crate) fn scan_sum(
     }
 }
 
+/// How many rows and columns an area spans.
+fn shape(area: &Area) -> (u32, u32) {
+    (area.bottom - area.top + 1, area.right - area.left + 1)
+}
+
+/// The ranges and criteria of a function of many criteria (KERNEL.8, slice
+/// e), from its arguments in pairs: each range one area of `shape`, or of
+/// the first range's shape where none is given; `#VALUE!` for an odd count,
+/// a range of more than one area or of another shape, and `#REF!` for a
+/// sheet the grid does not hold.
+fn pairs(
+    ctx: &Ctx<'_>,
+    args: &[Arg],
+    shape_of: Option<(u32, u32)>,
+) -> Result<Result<Vec<(Area, Criterion)>, ErrorKind>, Reason> {
+    if args.is_empty() || args.len() % 2 != 0 {
+        return Ok(Err(ErrorKind::Value));
+    }
+    let mut out: Vec<(Area, Criterion)> = Vec::with_capacity(args.len() / 2);
+    for pair in args.chunks(2) {
+        let Some(area) = one_area(pair.first()) else {
+            return Ok(Err(ErrorKind::Value));
+        };
+        let want = shape_of.or_else(|| out.first().map(|(a, _)| shape(a)));
+        if want.is_some_and(|w| w != shape(&area)) {
+            return Ok(Err(ErrorKind::Value));
+        }
+        if ctx.env.model().sheets.get(area.sheet).is_none() {
+            return Ok(Err(ErrorKind::Ref));
+        }
+        out.push((area, criterion(&ctx.one(&pair[1])?)));
+    }
+    Ok(Ok(out))
+}
+
+/// Whether the cells at one place of every range meet their criteria, the
+/// place an offset from each range's corner, an absent cell empty; a
+/// reason read the answer.
+fn all_met(ctx: &Ctx<'_>, pairs: &[(Area, Criterion)], dr: u32, dc: u32) -> Result<bool, Reason> {
+    for (area, c) in pairs {
+        let tested = ctx.env.read((area.sheet, area.top + dr, area.left + dc))?;
+        if !meets(&tested, c)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// `COUNTIFS(range, criterion, ...)` (KERNEL.8, slice e): the places where
+/// every range's cell meets its criterion, the ranges of one shape. Read
+/// from a range whose criterion an empty cell does not meet, each place it
+/// holds a cell, since no other place can count; where an empty cell meets
+/// every criterion, each place any range holds, and every other place
+/// besides, as `COUNTIF` counts a blank's empty cells.
+pub(crate) fn countifs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    let pairs = match pairs(ctx, args, None)? {
+        Ok(p) => p,
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    if let Some(indexes) = ctx.env.indexes() {
+        if let Some(answer) = indexes.ifs(ctx, None, &pairs, None) {
+            return answer;
+        }
+    }
+    countifs_scan(ctx, &pairs)
+}
+
+/// `COUNTIFS`'s scan, its meaning (see [`countifs`]); its ranges' index
+/// answers as it does (`super::index`).
+pub(crate) fn countifs_scan(ctx: &Ctx<'_>, pairs: &[(Area, Criterion)]) -> Result<Value, Reason> {
+    let mut lead = None;
+    for (k, (_, c)) in pairs.iter().enumerate() {
+        if !meets(&Value::Empty, c)? {
+            lead = Some(k);
+            break;
+        }
+    }
+    let mut count = 0u64;
+    let mut stop: Option<Reason> = None;
+    let leads: Vec<usize> = match lead {
+        Some(k) => vec![k],
+        None => (0..pairs.len()).collect(),
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    for k in leads {
+        let area = pairs[k].0;
+        walk(ctx, &area, |row, col, read| {
+            if let Err(r) = read {
+                stop = Some(r.clone());
+                return false;
+            }
+            let place = (row - area.top, col - area.left);
+            if lead.is_none() && !seen.insert(place) {
+                return true;
+            }
+            match all_met(ctx, pairs, place.0, place.1) {
+                Ok(met) => {
+                    count += u64::from(met);
+                    true
+                }
+                Err(r) => {
+                    stop = Some(r);
+                    false
+                }
+            }
+        });
+        if let Some(r) = stop {
+            return Err(r);
+        }
+    }
+    if lead.is_none() {
+        count += cells_of(&pairs[0].0) - seen.len() as u64;
+    }
+    Ok(Value::Number(count as f64))
+}
+
+/// An aggregate of the cells of `values` at the places where each range's
+/// cell meets its criterion (KERNEL.8, slice e), from the ranges' index
+/// where the environment keeps one (`super::index`), by the scan below
+/// otherwise; the two are one meaning, which a test holds.
+fn aggregate_ifs(
+    ctx: &Ctx<'_>,
+    values: Area,
+    pairs: &[(Area, Criterion)],
+    stat: Stat,
+) -> Result<Value, Reason> {
+    if let Some(indexes) = ctx.env.indexes() {
+        if let Some(answer) = indexes.ifs(ctx, Some(values), pairs, Some(stat)) {
+            return answer;
+        }
+    }
+    aggregate_ifs_scan(ctx, values, pairs, stat)
+}
+
+/// The aggregate's scan, its meaning, as `SUMIF`'s scan reads them: each
+/// cell `values` holds read in order, a reason the answer at once; at a
+/// number or an error the criteria tested at its place in order, and where
+/// all are met the number counted or the error the answer at once.
+pub(crate) fn aggregate_ifs_scan(
+    ctx: &Ctx<'_>,
+    values: Area,
+    pairs: &[(Area, Criterion)],
+    stat: Stat,
+) -> Result<Value, Reason> {
+    let mut tally = Tally::new(stat);
+    let mut stop: Option<Result<ErrorKind, Reason>> = None;
+    walk(ctx, &values, |row, col, read| {
+        let held = match read {
+            Ok(v @ (Value::Number(_) | Value::Error(_))) => v,
+            Ok(_) => return true,
+            Err(r) => {
+                stop = Some(Err(r.clone()));
+                return false;
+            }
+        };
+        match all_met(ctx, pairs, row - values.top, col - values.left) {
+            Ok(true) => match held {
+                Value::Error(k) => {
+                    stop = Some(Ok(*k));
+                    false
+                }
+                v => {
+                    tally.ranged(v);
+                    true
+                }
+            },
+            Ok(false) => true,
+            Err(r) => {
+                stop = Some(Err(r));
+                false
+            }
+        }
+    });
+    match stop {
+        Some(Ok(k)) => Ok(Value::Error(k)),
+        Some(Err(r)) => Err(r),
+        None => Ok(tally.answer()),
+    }
+}
+
+/// `SUMIFS`, `AVERAGEIFS`, `MAXIFS` and `MINIFS`: the range aggregated
+/// first, then its criteria in pairs, every range of its shape.
+fn ifs(ctx: &Ctx<'_>, args: &[Arg], stat: Stat) -> Result<Value, Reason> {
+    let Some(values) = one_area(args.first()) else {
+        return Ok(Value::Error(ErrorKind::Value));
+    };
+    if ctx.env.model().sheets.get(values.sheet).is_none() {
+        return Ok(Value::Error(ErrorKind::Ref));
+    }
+    let pairs = match pairs(ctx, &args[1..], Some(shape(&values)))? {
+        Ok(p) => p,
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    aggregate_ifs(ctx, values, &pairs, stat)
+}
+
+/// `SUMIFS(sum_range, range, criterion, ...)`.
+pub(crate) fn sumifs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    ifs(ctx, args, Stat::Sum)
+}
+
+/// `AVERAGEIFS(average_range, range, criterion, ...)`: `#DIV/0!` where no
+/// number is met.
+pub(crate) fn averageifs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    ifs(ctx, args, Stat::Average)
+}
+
+/// `MAXIFS(max_range, range, criterion, ...)`: 0 where no number is met.
+pub(crate) fn maxifs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    ifs(ctx, args, Stat::Max)
+}
+
+/// `MINIFS(min_range, range, criterion, ...)`: 0 where no number is met.
+pub(crate) fn minifs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    ifs(ctx, args, Stat::Min)
+}
+
+/// `AVERAGEIF(range, criterion, [average_range])`: `SUMIF`'s reading, its
+/// average range read from its top-left cell in the range's shape and one
+/// smaller than the range labelled as written, the numbers met averaged,
+/// `#DIV/0!` where none is.
+pub(crate) fn averageif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    if args.len() < 2 || args.len() > 3 {
+        return Ok(Value::Error(ErrorKind::Value));
+    }
+    let Some(area) = one_area(args.first()) else {
+        return Ok(Value::Error(ErrorKind::Value));
+    };
+    let c = criterion(&ctx.one(&args[1])?);
+    let values = match args.get(2) {
+        None => area,
+        Some(Arg::Area {
+            areas,
+            written,
+            moved,
+        }) if areas.len() == 1 => {
+            let s = areas[0];
+            let values = sum_area(&area, &s);
+            if values.bottom > s.bottom || values.right > s.right {
+                return Err(as_written(written, *moved));
+            }
+            values
+        }
+        Some(_) => return Ok(Value::Error(ErrorKind::Value)),
+    };
+    let model = ctx.env.model();
+    if model.sheets.get(values.sheet).is_none() || model.sheets.get(area.sheet).is_none() {
+        return Ok(Value::Error(ErrorKind::Ref));
+    }
+    aggregate_ifs(ctx, values, &[(area, c)], Stat::Average)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -559,6 +838,18 @@ mod tests {
         assert!(wildcard("a?c", "abc"));
         assert!(!wildcard("a?c", "abbc"));
         assert!(wildcard("10~*", "10*"));
+        // The matcher reads `~` as Excel's documentation does, the next
+        // character as itself, as a lookup reads it (Excel's second save of
+        // the aggregates' fixture); a criterion's text is a pattern only with
+        // a `*` or a `?`, its tildes as written otherwise (its first save).
+        assert!(wildcard("~~tilde", "~tilde"));
+        assert!(!wildcard("~tilde", "~tilde"));
+        assert!(wildcard("~~*", "~tilde"));
+        assert!(has_wildcard("~") && !criterion_wildcard("~"));
+        let tilde = Value::Text("~tilde".into());
+        assert!(!meets(&tilde, &criterion(&Value::Text("~~tilde".into()))));
+        assert!(meets(&tilde, &criterion(&Value::Text("~tilde".into()))));
+        assert!(meets(&tilde, &criterion(&Value::Text("~~*".into()))));
         assert!(wildcard("*", ""));
         assert!(meets(
             &Value::Text("5".into()),
@@ -664,6 +955,76 @@ mod tests {
             }
         }
         assert_eq!(checked, 2_801 * 341, "every pair");
+    }
+
+    #[test]
+    fn the_criteria_s_family_meets_every_criterion_at_one_place() {
+        use crate::calc::aggregates::fixture::{holds, DIV0, VALUE};
+        holds(
+            &[],
+            &[
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"Cash\")", "310.2"),
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"Cash\",T!B2:B13,3)", "125.2"),
+                (
+                    "SUMIFS(T!D2:D13,T!A2:A13,\"Cash\",T!B2:B13,\">1\")",
+                    "210.2",
+                ),
+                ("SUMIFS(T!D2:D13,T!C2:C13,\"east\")", "310.2"),
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"B*\")", "550.6"),
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"\")", "60"),
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"=\")", "60"),
+                ("SUMIFS(T!D2:D13,T!A2:A13,\"<>\")", "935.8000000000001"),
+                ("SUMIFS(T!D2:D13,T!B2:B13,\"3\")", "480.2"),
+                ("SUMIFS(T!D2:D13,T!B2:B13,3)", "480.2"),
+                ("SUMIFS(T!D2:D13,T!B2:B13,\">=3\")", "435.2"),
+                ("SUMIFS(T!D2:D13,T!G2:G13,TRUE)", "250.5"),
+                ("SUMIFS(T!D2:D13,T!G2:G13,\"#DIV/0!\")", "40"),
+                ("SUMIFS(T!D2:D13,T!F2:F13,\"a~*b\")", "250.5"),
+                // A tilde with no `*` or `?` beside it is a tilde, as
+                // Excel's save shows (`functions!A108`); beside one it
+                // gives the next character as itself, `~~` one `~`; and a
+                // lookup reads every tilde so (`A216`, `A217`).
+                ("SUMIFS(T!D2:D13,T!F2:F13,\"~~tilde\")", "0"),
+                ("COUNTIF(T!F2:F13,\"~tilde\")", "1"),
+                ("COUNTIF(T!F2:F13,\"~~*\")", "1"),
+                ("COUNTIF(T!F2:F13,\"~t*\")", "0"),
+                ("MATCH(\"~~tilde\",T!F2:F13,0)", "4"),
+                ("MATCH(\"~tilde\",T!F2:F13,0)", "(error \"#N/A\")"),
+                ("SUMIFS(T!D2:D13,T!F2:F13,\"a?b\")", "325.5"),
+                ("SUMIFS(T!D2:D13,T!B2:B13,\">1\",T!B2:B13,\"<3\")", "175.1"),
+                ("SUMIFS(T!G2:G13,T!A2:A13,\"Card\")", DIV0),
+                ("SUMIFS(T!G2:G13,T!A2:A13,\"Cash\")", "12"),
+                ("SUMIFS(T!D2:D13,T!A2:A12,\"Cash\")", VALUE),
+                ("SUMIFS(T!D2:D13)", VALUE),
+                ("SUMIFS(T!D2:D13,T!A2:A13,T!J1)", "0"),
+                ("COUNTIFS(T!A2:A13,\"Cash\",T!B2:B13,\">1\")", "4"),
+                ("COUNTIFS(T!A2:A13,\"<>Cash\")", "7"),
+                ("COUNTIFS(T!F2:F13,\"\")", "2"),
+                ("COUNTIFS(T!A2:A13,\"*\")", "11"),
+                ("COUNTIFS(T!A:A,\"Cash\")", "5"),
+                ("COUNTIFS(T!A:A,\"\")", "1048564"),
+                ("COUNTIFS(T!A:A,\"\",T!B:B,\"\")", "1048563"),
+                ("COUNTIFS(T!A2:A13,\"Cash\",T!B2:B12,3)", VALUE),
+                ("AVERAGEIF(T!D2:D13,\">100\")", "225.16666666666666"),
+                ("AVERAGEIF(T!A2:A13,\"Cash\",T!D2:D13)", "62.04"),
+                (
+                    "AVERAGEIF(T!A2:A13,\"Cash\",T!D2)",
+                    "(not-computed \"T!D2\")",
+                ),
+                ("AVERAGEIF(T!A2:A13,\"Nope\",T!D2:D13)", DIV0),
+                ("AVERAGEIF(T!G2:G13,\">0\")", "4"),
+                ("AVERAGEIFS(T!D2:D13,T!A2:A13,\"Cash\",T!B2:B13,3)", "62.6"),
+                ("AVERAGEIFS(T!D2:D13,T!A2:A13,\"Nope\")", DIV0),
+                ("AVERAGEIFS(T!G2:G13,T!A2:A13,\"Cash\")", "3"),
+                ("MAXIFS(T!D2:D13,T!A2:A13,\"Card\")", "55"),
+                ("MINIFS(T!D2:D13,T!A2:A13,\"Card\")", "-20"),
+                ("MAXIFS(T!D2:D13,T!A2:A13,\"Nope\")", "0"),
+                ("MINIFS(T!D2:D13,T!A2:A13,\"Nope\")", "0"),
+                ("MAXIFS(T!G2:G13,T!A2:A13,\"Card\")", DIV0),
+                ("MAXIFS(T!D2:D13,T!A2:A12,\"Card\")", VALUE),
+                ("MINIFS(T!E2:E13,T!C2:C13,\"West\",T!B2:B13,\">=2\")", "1"),
+            ],
+        );
     }
 
     #[test]

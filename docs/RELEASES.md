@@ -111,6 +111,37 @@
   February 1900 has 28 days to `EOMONTH`. Two edges where two of Excel's
   saves of one formula disagreed say not computed: a year outside 0 to 9999
   that `DATE`'s months carry back, and `WEEKNUM`'s types past 21.
+- **The aggregates by criteria compute.** `SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
+  `AVERAGEIFS`, `MAXIFS` and `MINIFS`; `SUBTOTAL` by each of its numbers;
+  the database functions, `DSUM`, `DAVERAGE`, `DCOUNT`, `DCOUNTA`, `DGET`,
+  `DMAX`, `DMIN`, `DPRODUCT`, `DSTDEV`, `DSTDEVP`, `DVAR` and `DVARP`; and
+  `COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `STDEVP`, `VAR` and `VARP` with
+  their newer names, `STDEV.S`, `STDEV.P`, `VAR.S` and `VAR.P`, in the
+  language, so that `frazaro calc`, the page, a build and an engine compute
+  them alike, a game's ledger summed by a stock and a month among them;
+  `AVERAGE` moved down into the language with them. A criterion reads as
+  `COUNTIF`'s does. A database's criteria are rows of tests under its
+  columns' names: a record meets the criteria where it meets every test of
+  any row, and a text with no operator, `Dav`, meets a text beginning with
+  it, as Excel's filters read one. `SUBTOTAL` passes by every cell that is
+  itself a `SUBTOTAL`, and its 101 to 111 pass by a hidden row, which
+  `frazaro calc` now reads from an xlsx or an OpenDocument file; its 1 to 11
+  over a hidden row holding a cell of the range say not computed, since a
+  file does not say whether a filter hid the row, which they pass by, or a
+  person did, which they count. A database's test under a name no column
+  holds says not computed too, a formula there being Excel's computed
+  criterion; a criteria range of one row, its names alone, is `#VALUE!`, as
+  is `DGET` of an empty cell, and a whole column's records end with its
+  sheet's last cell. A criterion's text with no `*` or `?` is now compared
+  as written, a `~` in it too, as Excel's own save shows, where its
+  documentation reads `~~` as one `~`: `COUNTIF` of `"~~x"` no longer counts
+  `~x`, while `MATCH` of `"~~x"` still finds it, a lookup reading every `~`
+  as documented. A `SUMIFS` asked of the same ranges with other values, as a
+  summary of accounts by months is, groups the ranges' rows once and answers
+  each formula from its group, its sum added in the order a walk of the
+  range adds it: such a summary, 97 accounts by 12 months over a ledger of
+  twenty thousand rows, computes whole in 12.3 ms, where Excel 365 on the
+  same machine takes 13.7 ms with its twenty threads and 94.5 ms with one.
 - **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
   `Env::indexes`, a provided method answering `None`, is where an
   environment of one's own may keep them; `calc::criteria` and `calc::index`
@@ -129,8 +160,14 @@
   it labels; `calc::Library` is `Clone`. In frazaro-core,
   `reflect::calc::collect_dated` reads a workbook with its date system,
   `reflect::calc::dated` makes its library, and `reflect::Source::date1904`
-  is a provided method. Alonzo's cartridges and Buffet's compute every frame
-  as they did (KERNEL.8).
+  is a provided method. `rows::Sink::hidden_row`, a provided method, carries
+  a hidden row from a reader, which a door's model holds in `Sheet::rows` as
+  an engine's `row` rows do. `calc::agrees` holds two numbers agreeing when
+  their fifteen significant digits, as each spells them, are at most one
+  unit of the last apart, where they had to round to the same fifteen, so
+  that a computation a few units in the last place from a host's no longer
+  differs across a rounding boundary. Alonzo's cartridges and Buffet's
+  compute every frame as they did (KERNEL.8).
 
 ## 0.10.1
 

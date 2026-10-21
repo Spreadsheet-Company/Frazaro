@@ -180,6 +180,19 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # it: the five agree, and the owner's save of the fixture, dates_saved.xlsx,
 # joins this table, dates_saved 1377 at no-differ, its 1329 computed
 # agreeing with Excel's to the bit and the 48 labelled.
+# 2026-10-20, KERNEL.8's fifth slice, the aggregates by criteria: criteria
+# 228, the fixture built by the door (scripts/recalc/criteria.txt), 225
+# agreeing with the values it wrote and 3 labelled (an average range
+# smaller than its range, a criterion of no field, a computed criterion),
+# pinned 'built' until the owner's save of it, criteria_saved.xlsx, joins
+# this table; Excel's first save folded (a tilde with no wildcard, a
+# criteria range of one row, a whole column's records, DGET of an empty
+# cell) and six rows added for its second. Excel's second save, the last
+# by the stop rule stated before the first: two rows of MATCH, whose tilde
+# keeps Excel's documented reading, folded, and the owner's save of the
+# fixture, criteria_saved.xlsx, joins this table, criteria_saved 228 at
+# no-differ, its 213 computed agreeing with Excel's, 205 to the bit and
+# the variance's 8 to fifteen digits, and the 15 labelled.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -202,7 +215,9 @@ $goldens = @(
     @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 190 },
     @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 },
     @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Golden = 'scripts/recalc/dates_calc.vla';         Floor = 1377; Pin = 'built';    AgreeFloor = 1329 },
-    @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 }
+    @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 },
+    @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Golden = 'scripts/recalc/criteria_calc.vla';      Floor = 228;  Pin = 'built';    AgreeFloor = 225 },
+    @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

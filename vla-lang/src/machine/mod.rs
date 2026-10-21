@@ -5998,6 +5998,79 @@ mod tests {
     }
 
     #[test]
+    fn the_aggregates_by_criteria_a_run_calls_are_the_library_s_at_every_cell() {
+        // KERNEL.8, slice e: the aggregates, `SUBTOTAL`, the criteria's
+        // family and the database functions, which a run calls at each
+        // cell, by runs, by every cell alone and by `Calc`, frame for frame,
+        // over a table under names whose fourth row a `row` row hides; and
+        // a `SUBTOTAL` over a column of `SUBTOTAL`s, which a formula written
+        // over a range makes a master and its shared children, passing each
+        // by.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" \"Account\")\n",
+            "(cell \"S\" \"B1\" \"Amount\")\n",
+            "(cell \"S\" \"C1\" \"Month\")\n",
+            "(cell \"S\" \"A2\" \"Cash\")\n",
+            "(cell \"S\" \"A3\" \"Bank\")\n",
+            "(cell \"S\" \"A4\" \"Cash\")\n",
+            "(cell \"S\" \"A5\" \"Card\")\n",
+            "(cell \"S\" \"A6\" \"Bank\")\n",
+            "(cell \"S\" \"B2\" 10)\n",
+            "(cell \"S\" \"B3\" 20)\n",
+            "(cell \"S\" \"B4\" 30)\n",
+            "(cell \"S\" \"B5\" 40)\n",
+            "(cell \"S\" \"B6\" 50)\n",
+            "(cell \"S\" \"C2:C3\" 1)\n",
+            "(cell \"S\" \"C4:C5\" 2)\n",
+            "(cell \"S\" \"C6\" 3)\n",
+            "(cell \"S\" \"Z1\" \"Account\")\n",
+            "(cell \"S\" \"Z2\" \"Cash\")\n",
+            "(row \"S\" 4 none hidden)\n",
+        );
+        let formulas: Vec<String> = [
+            "SUMIFS($B$1:$B$6,$A$1:$A$6,A1)",
+            "COUNTIFS($A$1:$A$6,A1,$C$1:$C$6,\">=\"&C1)",
+            "AVERAGEIF($A$1:$A$6,A1,$B$1:$B$6)",
+            "AVERAGEIFS($B$1:$B$6,$A$1:$A$6,A1)",
+            "MAXIFS($B$1:$B$6,$A$1:$A$6,A1)",
+            "MINIFS($B$1:$B$6,$C$1:$C$6,C1)",
+            "COUNT($B$1:B1)",
+            "COUNTA($A$1:A1)",
+            "PRODUCT(C1,ROW())",
+            "AVERAGE($B$1:B1)",
+            "STDEV($B$1:B1)",
+            "VAR.P($B$1:B1)",
+            "SUBTOTAL(109,$B$1:B1)",
+            "SUBTOTAL(9,$B$1:B1)",
+            "DSUM($A$1:$C$6,\"Amount\",$Z$1:$Z$2)",
+            "DGET($A$1:$C$6,2,$Z$1:$Z$2)",
+            "SUBTOTAL(109,$P$1:P1)",
+        ]
+        .iter()
+        .map(|f| f.to_string())
+        .collect();
+        let m = by_runs_and_alone(&columns(rows, 6, &formulas), &[]);
+        assert_eq!(number(&m, "S", "D2"), 40.0, "SUMIFS of Cash");
+        assert_eq!(number(&m, "S", "P4"), 30.0, "SUBTOTAL 109 passes row 4 by");
+        assert_eq!(number(&m, "S", "Q3"), 30.0, "SUBTOTAL 9 above row 4");
+        let filtered = Some(Computed::NotComputed(Reason::Construct(
+            "a row a filter may hide".to_string(),
+        )));
+        assert_eq!(at(&m, "S", "Q4"), filtered, "SUBTOTAL 9 over row 4");
+        assert_eq!(number(&m, "S", "R2"), 40.0, "DSUM counts a hidden row");
+        assert_eq!(
+            at(&m, "S", "S2"),
+            Some(Computed::Value(Value::Error(ErrorKind::Num))),
+            "DGET of two records"
+        );
+        assert_eq!(
+            number(&m, "S", "T6"),
+            0.0,
+            "SUBTOTAL passes a SUBTOTAL's shared children by"
+        );
+    }
+
+    #[test]
     fn the_text_functions_a_run_calls_are_the_library_s_at_every_cell() {
         // KERNEL.8, slice c: the text functions, which a run calls at each
         // cell, by runs, by every cell alone and by `Calc`, frame for frame,
@@ -11578,13 +11651,19 @@ mod tests {
             };
             // Bands searching the first sheet's value columns and formulas,
             // every vector held whole, so that each grid's indexes are built
-            // and reached.
+            // and reached; since slice e the criteria's family among them,
+            // a sum range on the bands' own sheet, a second equality's range
+            // and a test by size after an equality, which the group's places
+            // are tested by.
             rows.push_str(concat!(
                 "(formula \"B\" \"M1:M20\" \"=MATCH(A!$A1,A!$A$1:$A$20,0)\")\n",
                 "(formula \"B\" \"N1:N20\" \"=COUNTIF(A!$B$1:$B$20,$A1)\")\n",
                 "(formula \"B\" \"O1:O20\" \"=SUMIF(A!$A$1:$A$20,$B1,A!$B$1:$B$20)\")\n",
                 "(formula \"B\" \"P1:P20\" \"=XLOOKUP($A1,A!$C$1:$C$20,A!$D$1:$D$20,\\\"none\\\",0,-1)\")\n",
                 "(formula \"B\" \"Q1:Q20\" \"=IFERROR(VLOOKUP(A!$B1,A!$C$1:$E$20,2,FALSE),-1)\")\n",
+                "(formula \"B\" \"R1:R20\" \"=SUMIFS(B!$B$1:$B$20,A!$A$1:$A$20,$A1,A!$C$1:$C$20,$B1)\")\n",
+                "(formula \"B\" \"S1:S20\" \"=COUNTIFS(A!$B$1:$B$20,$B1,A!$A$1:$A$20,$A1)\")\n",
+                "(formula \"B\" \"T1:T20\" \"=AVERAGEIFS(A!$A$1:$A$20,A!$B$1:$B$20,$A1,A!$C$1:$C$20,\\\">1\\\")\")\n",
             ));
             let mut keyed = load(&rows);
             let mut scanned = load(&rows);

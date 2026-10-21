@@ -1,0 +1,18 @@
+# The recalculation floors' criteria fixture (KERNEL.8, its fifth slice): a ledger of 20,000 rows, each an account, its
+# row times 7,919 modulo 97, a month, its row times 31 modulo 12 and 1, and an amount, its row times 13 modulo 1,000
+# and the assumption P1; and a summary of every account by every month, 97 rows of 12 SUMIFS of the ledger's
+# amounts at that account and that month, each row with a COUNTIFS of its account. Every value is a whole number, so
+# the sums are exact. The edit is P1, which every amount reads: every SUMIFS computes again over keys that did not
+# move. Every amount lands in one cell of the summary and every row in one count, so the sum is the ledger's and
+# 20,000, and the edit moves it by 20,000.
+# bench: edit Output!P1 100 101
+# bench: sum Output!R2:AD98
+
+Put 100 into cell P1.
+Put formula "=MOD(ROW()*7919,97)" into range A2:A20001.
+Put formula "=MOD(ROW()*31,12)+1" into range B2:B20001.
+Put formula "=MOD(ROW()*13,1000)+$P$1" into range C2:C20001.
+Put formula "=ROW()-2" into range Q2:Q98.
+Put formula "=COLUMN()-17" into range R1:AC1.
+Put formula "=SUMIFS($C$2:$C$20001,$A$2:$A$20001,$Q2,$B$2:$B$20001,R$1)" into range R2:AC98.
+Put formula "=COUNTIFS($A$2:$A$20001,$Q2)" into range AD2:AD98.

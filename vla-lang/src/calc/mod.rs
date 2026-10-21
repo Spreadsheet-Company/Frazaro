@@ -65,8 +65,10 @@
 //! the honest static label of `HORIZON.md` section 12.6; a cell that reads
 //! such a cell inherits the reason.
 
+pub(crate) mod aggregates;
 pub(crate) mod census;
 pub mod criteria;
+pub(crate) mod database;
 pub mod dates;
 pub mod dense;
 pub mod eval;

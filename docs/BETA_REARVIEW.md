@@ -30928,6 +30928,380 @@ every-day test reads the fourth save.
   own, sound where Excel's are not, under names of their own, would be an
   item of their own, the owner's to mint; one line in the summary.
 
+**Committed 2026-10-20** at the owner's word, "If the following hand tests
+pass according to your expectations, then commit slice d before proceeding
+with slice e of KERNEL.8": the fourth slice with Excel's fourth save
+joined, as `3d06abc`, not pushed.
+
+**The fifth slice scoped at its build, 2026-10-20: aggregates by
+criteria.** The outline's precondition, the owner's run of `frazaro
+reflect --functions`, had not been made; asked the three choices the
+outline left open, the owner took each recommendation:
+
+1. *The language.* Beside the first slice's `SUMIF`, `COUNTIF` and the
+   index they share, so that a cartridge calls them too, Buffet's ledger
+   summed by a stock and a month among them, where the outline's table
+   placed the slice in Excel's library because no engine had asked.
+   *Declined:* Excel's library, computed by the doors alone, no cartridge
+   calling `SUMIFS` or `SUBTOTAL`.
+2. *The outline's list, and both families whole.* The outline's fourteen,
+   `SUMIFS`, `COUNTIFS`, `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`,
+   `SUBTOTAL`, `DSUM`, `DAVERAGE`, `DCOUNT`, `DCOUNTA`, `DGET`, `DMAX` and
+   `DMIN`; `SUBTOTAL`'s own aggregates as functions of their own, `COUNT`,
+   `COUNTA`, `PRODUCT`, `STDEV`, `STDEVP`, `VAR` and `VARP` with their
+   newer names `STDEV.S`, `STDEV.P`, `VAR.S` and `VAR.P`, and `AVERAGE`
+   moved down from Excel's library; and the database family's rest,
+   `DPRODUCT`, `DSTDEV`, `DSTDEVP`, `DVAR` and `DVARP`: thirty-one names.
+   `AGGREGATE` is left out. *Declined:* the outline's list, `SUBTOTAL`'s
+   aggregates used by it alone; the histogram first.
+3. *A hidden row read, and `SUBTOTAL`'s 1 to 11 labelled over one.* The
+   outline's choice: the reader reads a row's hidden flag, an additive
+   change; 101 to 111 pass every hidden row by; 1 to 11, which count a row
+   hidden by hand and pass by a row a filter hides, compute where no row of
+   a reference is hidden and are labelled `(not-computed "a row a filter
+   may hide")` where one is. *Declined:* the filter's range read too, so
+   that 1 to 11 compute, a row hidden by hand within a filter's range left
+   ambiguous all the same; nothing read, every `SUBTOTAL` computed as if no
+   row were hidden, wrong without a word where one is.
+
+Taken by the decisions' own words, unasked: Excel's documented rules for
+each function; the first slice's criteria, read as `COUNTIF` reads them;
+and a database's criteria read as Excel's filters read them, a text with no
+operator a record's text beginning with it (`Dav` meets `Davolio`) and
+`=Dav` that text alone. Four of the build's own, for the owner to
+overrule: a test under a header no column of the database holds labelled
+until a model asks, a formula there Excel's computed criterion moved record
+by record, `(not-computed "a computed criterion")`, and a value there
+`(not-computed "a criterion of no field")`; `AVERAGEIF`'s average range
+smaller than its range labelled with the range named, as the first slice
+labels `SUMIF`'s, its cells past the range read where no plan orders them;
+1 to 11 computed over a hidden row holding no cell of the reference,
+nothing there counting either way, so that only a hidden row a reference's
+answer turns on is labelled; and the OpenDocument reader's two kinds of
+hidden row, `collapse` and `filter`, read as the one flag the xlsx reader
+reads, though that format tells them apart (Found).
+
+**Built 2026-10-20, the fifth slice, before Excel's save.**
+
+*What landed.*
+- *The aggregates* (`calc::aggregates`): `COUNT`, `COUNTA`, `PRODUCT`,
+  `AVERAGE`, `STDEV`, `STDEVP`, `VAR` and `VARP`, the four newer names
+  beside, through one tally that `SUBTOTAL`, the criteria's family and the
+  database functions share. A value given and a value a range holds count
+  as `SUM` counts them: given, a number, a truth value or a text spelling a
+  number is the number, any other text `#VALUE!` and an error the answer;
+  in a range a number alone counts, and the range's first error is the
+  answer once it is walked. `COUNT` counts what would be a number and
+  passes every error by; `COUNTA` counts every value given and every cell
+  holding one, an error and an empty text among them; an argument left out,
+  `COUNT(1,,2)`, is a value to both and 0 to the rest. A sum and a mean add
+  in the walk's order from -0.0, as `SUM` does; a variance is taken in two
+  passes, the mean and then the squares of the distances from it; a mean of
+  nothing and a variance of fewer than two (one, for the populations') are
+  `#DIV/0!`, and a greatest, a least and a product of nothing 0.
+- *`SUBTOTAL`*: its number read down to a whole number, 1 to 11 or 101 to
+  111 and `#VALUE!` otherwise, each argument after it a reference and
+  `#VALUE!` otherwise; every cell whose formula calls `SUBTOTAL` passed by,
+  the name read as a call's outside every text in quotes, a shared
+  formula's child through its master's text; 101 to 111 pass every hidden
+  row by, and 1 to 11 are labelled where a hidden row holds a cell of a
+  reference (decision 3).
+- *The criteria's family* (`calc::criteria`): `SUMIFS`, `COUNTIFS`,
+  `AVERAGEIFS`, `MAXIFS` and `MINIFS`, their ranges one area each and of one
+  shape, `#VALUE!` for an odd count, a range of more areas or of another
+  shape and `#REF!` for a sheet the grid does not hold; a place counts where
+  every range's cell there meets its criterion, each criterion read as
+  `COUNTIF` reads one; `COUNTIFS` of criteria an empty cell meets counts the
+  places no range holds a cell at too, as `COUNTIF` of a blank counts them;
+  `AVERAGEIF` resized as `SUMIF` is, its smaller average range labelled.
+- *The database functions* (`calc::database`): the twelve over one rule,
+  the field by a name its first row holds, without case, or by its place,
+  the number read down, `#VALUE!` for none, and `DCOUNT` and `DCOUNTA`
+  counting the records where it is left out; a record meeting a criteria
+  row whose every test it meets, and the criteria where it meets any row,
+  a blank row meeting every record; a test read as `COUNTIF`'s criterion,
+  but for a text with no operator; `DGET` the one record's cell, `#VALUE!`
+  for none and `#NUM!` for more. The rows of a database or of a criteria
+  range past the sheet's extent read as empty, so that a whole column's
+  every row is a record.
+- *The group index* (`calc::index`, the outline's decision 3): for the
+  family's equality criteria, each place's group the tuple of its equality
+  ranges' keys, keyed as `SUMIF`'s are (a text spelling a number as the
+  number, an empty text as the blank), and each group's count, sum, numbers,
+  greatest, least, first error and places in the scan's order. The leading
+  run of equalities a key answers is keyed, four at most; the criteria
+  after it are tested at the group's places in the order given, so that the
+  index reads no cell the scan does not. Built at the second probe and made
+  stale by a change to any of its ranges, as the first slice's vectors are,
+  and held to the same limit of cells; the scan answers where a build reads
+  a reason, and for `COUNTIFS` of blanks with a test beside them.
+- *A hidden row*: `rows::Sink::hidden_row`, a provided method; the xlsx
+  reader tells `<row hidden="1">` (or `true`), and the OpenDocument reader a
+  row of `table:visibility` `collapse` or `filter` that holds a value; the
+  door's collector writes it into `Sheet::rows`, where an engine's `row`
+  rows put it.
+- *Excel's library* (`excel.rs`): `AVERAGE` moved down with its evidence,
+  `SUBTOTAL` and `DAVERAGE` leaving the names not computed, and the
+  subset's thirty-one rows, each with its evidence and the fixture.
+
+*The fixture.* `scripts/recalc/criteria.txt`, built by the door into
+`criteria.xlsx`: a Data sheet of twelve records under eight names, an
+account (one blank, one in lower case), a month (one a text spelling 3), a
+region (cases mixed), an amount, a quantity, a note (wildcards, an empty
+text, texts beginning alike, texts spelling numbers), a mixed column (a
+truth value, a text spelling 5, two errors, a blank) and a day; criteria
+ranges for the database functions in K to AL; and a `SUBTOTAL` among the
+cells it sums in X. A Functions sheet of 213 formulas, one a function and a
+rule, the edges Excel's documentation leaves unsaid among them: `COUNT` and
+`COUNTA` of an argument left out, a variance of numbers near 10^15,
+`SUBTOTAL`'s number as a fraction, a text and a value, a `SUBTOTAL` times 2
+within a `SUBTOTAL`'s range, an error as a criterion, `"="` against `""`,
+`COUNTIFS` of blanks over whole columns, the field as a fraction, a text
+spelling a number, a reference and nothing, a criteria range of its header
+alone, of a blank row and of two columns, `DGET` of an empty cell, and a
+whole-column database. 222 formulas: 219 agree with the values the build
+wrote and 3 are labelled (`AVERAGEIF` of `Data!D2`, a criterion of no
+field, a computed criterion); its census, 223 lines, beside it. Oracle
+12's sixteenth row, `criteria_calc.vla`, pinned `built`, and `prove.ps1`'s
+sixteenth calc row (56 passed). The owner's save hides the Data sheet's
+row 6 first, so that `SUBTOTAL`'s 101 to 111 pass it by and its 1 to 11
+over it are labelled: twelve labels more, the eleven of 1 to 11 over the
+amounts and `SUBTOTAL(9,Data!D6)`, and `SUBTOTAL(9,Data!G2:G13)` computed,
+row 6 holding nothing in its column; the door over a copy of the built
+file with row 6 marked hidden computes 207 and labels 15, its 13 rows of
+101 to 111 that pass the row by differing from the values the build wrote
+without it.
+
+*The floors' sixth program.* `scripts/recalc/bench/criteria.txt`: a ledger
+of 20,000 rows, an account of 97, a month of 12 and an amount reading the
+assumption `P1`, and a summary of every account by every month, 97 rows of
+12 `SUMIFS` and a `COUNTIFS`, 61,370 formulas; the edit moves `P1` from 100
+to 101, every amount, and the summary's sum from 12,010,000 to 12,030,000.
+The runner holds every cell of the summary to `criteria_by_hand`; both
+instruments take the sixth fixture, and `check_recalc_floors.ps1` waits on
+the owner's runs, failing until their blocks are pasted. The door computed
+the program's first draft in 6,370 ms by the scan and in 441 ms with the
+group index; the runner's frames here, at the build, 12.2 to 12.8 ms whole
+and 7.5 to 8.2 ms an edit, in four rounds.
+
+*Measured, and mended at the build.*
+- *The lookups' edit frame, 12% slower.* Four rounds of the base
+  (`3d06abc`) and the slice alternated through `bench_recalc.ps1`, each copy
+  with its own target: every fixture within its spread but the lookups'
+  edit, 12.33 ms to 13.83 (12.22 to 12.58 against 13.57 to 14.00), its
+  whole frame unmoved. The family's ranges made every vector's key 160
+  bytes where it was 56, and a change, which the lookups' edit makes at
+  80,000 cells, asked each vector on its sheet whether it held the cell
+  through an iterator over its ranges, a copy of each vector made first. A
+  lookup's vector now tests its rectangle alone, a vector is copied only
+  once it holds the cell, and its sheets are walked without a list; four
+  rounds again, 12.24 ms to 12.37 (12.11 to 12.34 against 12.15 to 12.54),
+  every other fixture within the spread between the two sessions.
+- *A `SUBTOTAL`'s shared children counted.* A formula an engine writes over
+  a range is a shared formula, its first cell the master and the rest its
+  children, which the test of a `SUBTOTAL`'s cell read as no formula: a
+  `SUBTOTAL` over a column of them would have counted every child. A
+  child now reads as its master's text, the sheet's masters found once a
+  walk at its first child; the door was never wrong, its reader writing
+  every cell's own text.
+- *A hidden row an OpenDocument file holds.* The xlsx reader alone was to
+  read the flag, which would have left an OpenDocument file's 101 to 111
+  counting every hidden row, wrong without a word, as decision 3 declined.
+- *A hidden row holding nothing labelled.* A hidden row with no cell in a
+  reference labelled 1 to 11 where nothing of the answer turns on it; the
+  label now asks for a cell of the reference in the row, and an engine's
+  model holds every cell a person wrote, as the door's does.
+
+*Held.* `vla-lang`'s 327 tests and `frazaro-core`'s 194, the core's two new
+ones a hidden row read by each reader and the door's `SUBTOTAL` over it,
+the language's 12 laws; the index's law across frames gained three bands,
+a `SUMIFS` of two equalities whose sum range stands on the bands' own
+sheet, a `COUNTIFS` of two ranges and an `AVERAGEIFS` with a test by size
+after its equality, so that a write reaches each of a vector's ranges; the
+law in one pass gained ten arms (`SUMIFS` over columns, a block and whole
+columns, `COUNTIFS`, the other four, a two-dimensional `SUMIFS`, and
+`SUMIFS` and `COUNTIFS` of three criteria, so that two may follow the
+equalities a key answers), every answer the index gives held to the
+scan's. Five rows written for the mutants before they ran, the gaps their
+design found: `SUBTOTAL`'s 101 and 111 with no row hidden, `AVERAGE` of
+texts alone and of numbers beside a text, and a criteria range past the
+sheet's extent, the last the build's reading, which no save has
+witnessed; and a sixth beside the fixture's row 213, `DGET` of an empty
+cell, which the fixture had not probed, added before Excel's save. Of 48
+mutants of the slice, each applied alone to a copy of the tree with its
+own target, 46 failed named tests, among them a change missed at a second
+equality's range, at the aggregated range and at a vector's second sheet,
+each caught by the new bands; of the two that survived, the criteria after
+a group's keys tested to the first alone was caught once the law gained
+its arms of three criteria, and a sum begun at +0.0 survives, the two
+zeros spelled alike in every answer a test reads. Clippy and rustfmt
+clean; both wasm modules built, no import, the exports at the baseline;
+the language's package tested from its tarball, 81 files; `run_checks` 57
+of 58, `check_recalc_floors` waiting on the owner's runs; every check the
+door answers (`prove.ps1` 56 passed, the recalc and census goldens
+reproduced whole). Alonzo's `8ed1ea7` and Buffet's `f5dcde1` over the slice
+by a path: Alonzo's tests, its cartridges' expansion, and every frame of
+its floors' runner equal to the fourth slice's, each digest and fact; each
+grid 2,467 bytes more, the thirty-one names, which a copy registering none
+gives back to the byte, so that Alonzo's memory ceilings, set at 0.10.1,
+stand 5,058 bytes short at its next pin; Buffet's 38 and 54.
+
+*Excel's first save,* at the owner's hand test of 2026-10-20, a stop rule
+stated before it: at most two saves, the second only to confirm what the
+first corrected, an edge the documentation leaves open labelled. The hand
+test held (the 29 files staged, the suites, the floors' two instruments),
+and Excel 365 saved the fixture with the Data sheet's row 6 hidden. Opening
+the built file, Excel repaired it: `A86`'s `SUBTOTAL(9,5)`, a value where
+Excel's grammar wants a reference, is a formula no Excel cell holds, and
+the repair took it out (Found). Of the 221 formulas left, 206 computed and
+the 15 predicted labelled (1 to 11 over the amounts, `SUBTOTAL(9,Data!D6)`
+and the build's three); 199 agreed and 7 differed:
+- *A tilde with no wildcard is a tilde*: `SUMIFS` of `"~~tilde"` met no
+  `~tilde`, where Excel's documentation reads `~~` as one `~`. Excel
+  compares a criterion with no `*` or `?` as written. Folded in
+  `criteria::has_wildcard`, which the lookups and the index share, so that
+  such a text is a key.
+- *A criteria range of one row*, `DSUM(…,Data!K1)`, its name alone, is
+  `#VALUE!`, where the build met no record. Folded.
+- *A whole column's records end with its sheet's cells*: `DCOUNTA` over
+  `Data!A:H` of a blank account counted 1, the one record of rows 2 to 13,
+  where the build counted every empty row to 1,048,576. Folded: no record
+  past the sheet's last cell.
+- *`DGET` of an empty cell* is `#VALUE!`, where the build answered 0.
+  Folded.
+- *The variance's last digits*: `VAR(0.1,0.2,0.3)`, Excel's
+  0.009999999999999988 against the two-pass's 0.009999999999999998, its
+  `STDEV`, and `VARP(Data!D2:D13)`, 9174.2080555555549 against
+  9174.208055555557. Past the fifteen digits Excel documents, its variance
+  family follows no one formulation: of 22 of its answers held to the bit,
+  the two-pass met 14 and a one-pass 17, and of some 35 formulations none
+  met all (its `SUBTOTAL` 10x over a hidden row fits a one-pass, its `VAR`
+  of large numbers the two-pass). As fifteen digits spell them, the two of
+  `VAR(0.1,0.2,0.3)` lie a tenth of the larger's unit apart
+  (0.0100000000000000 and 0.00999999999999999) and `VARP`'s one unit (…556
+  and …555), their values 0.21 of a unit apart, each pair on either side of
+  the rounding the agreement compared. The owner's decision, asked: oracle
+  12's agreement amended, two numbers' fifteen digits as each spells them at
+  most one unit apart, the unit the larger spelling's, and the two-pass
+  kept, Microsoft's documented algorithm since Excel 2003 and the more
+  accurate here. *Declined:* the test kept and the three rows dropped; the
+  formulation chased further. Implementing it, the bound was measured
+  against both readings of the unit: as a unit of each number's own
+  magnitude, `VAR(0.1,0.2,0.3)`'s pair lies 1.04 units apart and would
+  differ still, which the owner was told; the larger spelling's unit is
+  the decision's reading.
+
+`A37`'s literals of sixteen digits came back cut to fifteen,
+`VAR(1000000000000000,…)`, 0 in Excel and in the door over the save
+(Found). Folded, the door over the first save: 221 formulas, 206 computed,
+every one agreeing, 15 labelled.
+
+*For the second save*, rows designed before it: `A37` the variance of
+large numbers by arithmetic, `VAR(1E15+1,1E15+2,1E15+3)`; `A86` in
+`SUBTOTAL(9,5)`'s place, `COUNTIF` of `"~~*"`; `A214` to `A217` the tilde
+rule's reach, `"~tilde"` as written, `"~t*"` a tilde before an ordinary
+character beside a wildcard, and `MATCH` of `"~~tilde"` and of `"~tilde"`;
+`A218` a whole column's records on a sheet whose cells reach below the
+database's own, a Far sheet's `C9` under its three keys (6 by the sheet's
+last cell, 0 by the database's own); and `A219` a criteria range whose rows
+lie past the sheet's last cell, read blank, every record met. 228
+formulas, 225 agreeing with the values the build wrote and 3 labelled; the
+door over a copy with row 6 marked hidden computes 213 and labels the same
+15.
+
+*The floors.* The owner's runs of both instruments, pasted from the files
+they write (the console's copy wrapped two lines and lost a space in each),
+the sixth fixture joining the history: `criteria` 12.267 ms whole and
+8.007 an edit natively, Excel 13.706 and 11.734 on 20 threads and 94.547
+and 85.635 on one. The run fell under two floors of fixtures the slice
+does not move, sums' whole frame (30.15 million formulas a second against
+31) and Life's edit (405.9 against 410), which the base fell under in seven
+and in two of its eight A/B rounds; at the owner's ruling, asked, both
+lowered to the run less the margin, the reason in the entry. The check's
+control, its stand-in rows keyed by the five fixtures' names, failed on the
+sixth; mended.
+
+*Held, the fold.* The language's 327 tests and the core's 194, the
+agreement's own test holding its boundaries (a tenth of the larger
+spelling's unit apart agrees, two units apart not, zero with zero alone),
+the tilde's rows beside the criteria's and the lookups', and the database's
+rows moved to Excel's answers; seven mutants of the fold, each failing
+named tests: the tilde a wildcard again, the agreement's bound at none and
+at two units and its unit the smaller spelling's, a criteria range of one
+row read, `DGET` of an empty cell 0, and a whole column's rows past its
+sheet's last cell records again. Clippy and rustfmt clean; both wasm
+modules built; the language's package tested from its tarball; every check
+the door answers; `run_checks` 58 of 58, the floors held over the sixth
+fixture; Alonzo's `8ed1ea7` and Buffet's `f5dcde1` over the fold by a path,
+every frame as before.
+
+*Excel's second save,* at the owner's hand test of 2026-10-20, the last by
+the stop rule. The hand test held (the 32 files staged, the suites), Excel
+365 opened the rebuilt file without a repair and saved it with row 6
+hidden: 228 formulas, 213 computed and the 15 predicted labelled, 211
+agreeing and 2 differing, both `MATCH`. `MATCH("~~tilde",…)` found
+`~tilde` at 4 and `MATCH("~tilde",…)` found nothing, the reverse of the
+fold's answers: a lookup reads every `~` as Excel's documentation does,
+the next character as itself, and a criterion alone compares a text with
+no `*` or `?` as written. The fold had carried the criteria's rule to the
+lookups through the test the two shared; the slice's build, before it,
+answered both as Excel does. The stop rule labels a row that still
+differs; these two are folded instead, since the save itself settles them,
+one rule meeting both and the lookups' answers before the fold, so that no
+third save is wanted: the lookups' test given back (`has_wildcard`, `*`,
+`?` or `~`) and the criteria given their own (`criterion_wildcard`, `*`
+or `?`), their matching and their index. The rows the second save added
+for the rules' reach agreed: a criterion's tilde as written (`A214`), one
+before an ordinary character beside a wildcard read as that character
+(`A215`), `COUNTIF` of `"~~*"` (`A86`), a whole column's records by its
+sheet's last cell (`A218`, 6), criteria rows past it read blank (`A219`),
+and the variance of large numbers by the two-pass (`A37`, which Excel
+spelled `1000000000000000+1`).
+
+*Joined, 2026-10-20.* `criteria_saved.xlsx`, Excel's second save, joins
+oracle 12's table at `no-differ`, 228 formulas, its 213 computed agreeing
+with Excel's, 205 to the bit and the variance family's 8 within one unit of
+the fifteenth digit, and the 15 labelled, as `criteria_saved_calc.vla`,
+with its census beside the fixture's (230 lines) and `prove.ps1`'s
+seventeenth calc row (57 passed). The fixture built again by the door, its
+two rows of `MATCH` the cached values it now computes (`criteria_calc.vla`,
+228, 225 agreeing and 3 labelled). Two mutants of the split, each failing
+named tests: the criteria matching every tilde again, and the lookups
+losing it. The suites, clippy and rustfmt, both wasm modules, the package
+from its tarball, every check the door answers and `run_checks` 58 of 58
+again; Alonzo's `8ed1ea7` and Buffet's `f5dcde1` over the split by a path,
+every frame and every grid's bytes as before.
+
+*Found in the slice,* three of them minted at the owner's word:
+- *An OpenDocument file tells a row a filter hides from one hidden by
+  hand*: `table:visibility`'s `filter` and `collapse`, so that its
+  `SUBTOTAL`'s 1 to 11 could compute where an xlsx file's are labelled; the
+  reader reads both as the one flag, decision 3's rule for both formats,
+  until a model asks.
+- *Excel's computed criteria are labelled*: a formula under a header that
+  names no column of the database, `=Data!D2>100`, which Excel computes at
+  each record with its relative references moved there, wants the
+  criterion's cell computed as if it stood at each record, as the machine
+  computes a shape at each of its cells (`Ctx::at`, `KERNEL.22`), which the
+  database functions do not do; minted as `KERNEL.52`.
+- *A `SUBTOTAL` reached through a defined name is counted*: a cell is
+  passed by when its own formula's text calls `SUBTOTAL`, so a cell whose
+  formula is a name standing for one is counted, as no save has witnessed
+  Excel's answer to.
+- *An xlsx file's `zeroHeight` is not read*: `sheetFormatPr`'s flag hiding
+  every row the file does not write; such a row holds no cell, so no
+  aggregate turns on it.
+- *Excel cuts a literal's digits past the fifteenth*: it read
+  `VAR(1000000000000001,…)` as `VAR(1000000000000000,…)` and saved it
+  so, where the language reads a literal as its nearest double; every
+  formula holding a literal of sixteen digits or more computes otherwise
+  than Excel's. A parser's rule, not this slice's; minted as `KERNEL.51`.
+- *The build writes a formula no Excel cell holds*: `SUBTOTAL(9,5)`, a
+  value where Excel's grammar wants a reference, which Excel's opening
+  repaired by taking it out. The language answers `#VALUE!`; refusing such
+  a formula by name at the build is the writer's question; minted as
+  `PORT.14`.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which

@@ -19,7 +19,8 @@
 //!
 //! The verdict is `agree` when the computed value and the cached one are
 //! the same under the one stated tolerance (`vla_lang::calc::agrees`:
-//! fifteen significant digits for a number, Excel's documented precision),
+//! fifteen significant digits for a number, Excel's documented precision,
+//! at most one unit of the last apart as each spells them),
 //! `differ` when both exist and are not, `unchecked` when the file holds no
 //! cached value, the formula was not computed, or the cached value is one
 //! this version does not compare. This is the treaty's twelfth oracle: the
@@ -43,7 +44,7 @@ use std::collections::BTreeMap;
 
 use vla_lang::calc::{agrees, Calc, CellId, Computed, Extent, Library, Names, Reason, Shapes};
 use vla_lang::rows::{datum, quoted, ArrayKind, Row, Sink, Value};
-use vla_lang::sheet::{cell_ref, parse_a1_range, Cell, Content, Sheet, Workbook};
+use vla_lang::sheet::{cell_ref, parse_a1_range, Cell, Content, RowSettings, Sheet, Workbook};
 
 use super::{open, Discard};
 use crate::messages::Refusal;
@@ -130,6 +131,19 @@ impl Sink for Collected {
                 self.model.sheets[id.0].set(id.1, id.2, Cell { content, style: 0 });
             }
         }
+    }
+
+    /// A hidden row (KERNEL.8, slice e): the model's row settings, as an
+    /// engine's load row sets them, which `SUBTOTAL` reads.
+    fn hidden_row(&mut self, sheet: &str, row: u32) {
+        let i = self.model.ensure_sheet(sheet);
+        self.model.sheets[i].rows.insert(
+            row,
+            RowSettings {
+                height: None,
+                hidden: true,
+            },
+        );
     }
 }
 

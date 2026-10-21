@@ -119,6 +119,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # its third, with 5 more for its fourth: 365 lines. The owner's fourth save
 # of it, a fifteenth, its census the build's but for the sheet's name as
 # Excel writes it into the formulas (`data!`).
+# 2026-10-20, KERNEL.8's fifth slice: the aggregates by criteria's fixture,
+# a sixteenth, every formula a cell alone; and the owner's second Excel
+# save of it, a seventeenth.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -135,6 +138,8 @@ $goldens = @(
     @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Floor = 194 },
     @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Floor = 365 },
     @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Floor = 365 },
+    @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Floor = 230 },
+    @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Floor = 230 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },

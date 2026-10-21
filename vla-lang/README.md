@@ -105,16 +105,23 @@ refused in the same words.
   `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
   `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is read by (`IFERROR`,
   `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`, `SUMIF`), `SINGLE`,
-  Excel's `@`, and the text functions (`calc::texts`: `LEFT`, `MID`, `LEN`,
+  Excel's `@`, the text functions (`calc::texts`: `LEFT`, `MID`, `LEN`,
   `FIND`, `SUBSTITUTE`, `TEXT` and the rest, a text counted by its
   characters as Excel counts it), the date functions (`calc::dates`: `DATE`,
   `YEAR`, `MONTH`, `WEEKDAY`, `NETWORKDAYS`, `YEARFRAC` and the rest, over
   Excel's 1900 calendar, a text a locale reads labelled in arithmetic), and
-  a crate above registers more, as `frazaro-core` registers Excel's library
-  by measurement. A lookup or a criterion asked of one range again and again
-  searches the range's index (`calc::Indexes`), built at its second probe in
-  one evaluation and kept until a cell of the range changes, its answers the
-  ones a walk of the range gives (`calc::index`). A formula that calls
+  the aggregates by criteria: `SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
+  `AVERAGEIFS`, `MAXIFS` and `MINIFS`, `SUBTOTAL` by each of its numbers, a
+  hidden row (`Sheet::rows`) passed by at 101 to 111, the database functions
+  (`DSUM`, `DGET` and the rest) and the aggregates `SUBTOTAL` names
+  (`AVERAGE`, `COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `VAR` and their newer
+  names). A crate above registers more, as `frazaro-core` registers Excel's
+  library by measurement. A lookup or a criterion asked of one range again
+  and again searches the range's index (`calc::Indexes`), built at its
+  second probe in one evaluation and kept until a cell of the range
+  changes, its answers the ones a walk of the range gives (`calc::index`);
+  the `SUMIFS` family's ranges are grouped by the keys of its equalities,
+  every group answering the formulas that ask it. A formula that calls
   anything else is not computed, and says so naming the function; a cell
   that reads it inherits the label. `Calc::first_refusal` is what an
   engine's load asks: a cycle, a function outside the library, or a
@@ -217,9 +224,10 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Recalculation's next slices.** Dates, the text functions, dynamic
-  arrays and spills, implicit intersection and `@` (KERNEL.8, whose first
-  slice, the lookups, is above); the
+- **Recalculation's next slices.** Arrays within a formula, and dynamic
+  arrays' spills after them (KERNEL.8, whose first five slices, the
+  lookups, implicit intersection and `@`, the text and the date functions
+  and the aggregates by criteria, are above); the
   vectorized evaluation of a shared formula, incremental recomputation and
   content-addressed evaluation (KERNEL.20), which is what makes a frame of
   a 320 by 200 grid fast: today the machine steps one in about a tenth of a

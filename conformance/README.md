@@ -1751,3 +1751,75 @@ door's record of it: 1,329 rows `agree` with the values the build folded
 and 48 labelled, pinned `built`; the owner's fourth save of it,
 `dates_saved.xlsx`, joins the table at `no-differ` as
 `dates_saved_calc.vla`, its 1,329 computed agreeing with Excel's.
+
+## Amendment of 2026-10-20: oracle 12's aggregates by criteria (`KERNEL.8`, its fifth slice)
+
+The language computes thirty-one functions more, each as Excel's
+documentation states it and, where it is silent, as Excel 365's own save
+answers: `SUMIFS`, `COUNTIFS`, `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS` and
+`MINIFS`; `SUBTOTAL`; the database functions `DSUM`, `DAVERAGE`, `DCOUNT`,
+`DCOUNTA`, `DGET`, `DMAX`, `DMIN`, `DPRODUCT`, `DSTDEV`, `DSTDEVP`, `DVAR`
+and `DVARP`; and the aggregates `SUBTOTAL` names, `AVERAGE`, `COUNT`,
+`COUNTA`, `PRODUCT`, `STDEV`, `STDEVP`, `VAR` and `VARP`, with `STDEV.S`,
+`STDEV.P`, `VAR.S` and `VAR.P`. A criterion reads as `COUNTIF`'s (the
+amendment of 2026-10-18), and the ranges of `SUMIFS` and its family are of
+one shape, `#VALUE!` otherwise. A criterion's text with no `*` or `?` is
+compared as written, its tildes too: Excel's save met no `~tilde` with
+`"~~tilde"`, where its documentation reads `~~` as one `~`. A lookup's
+reads every `~` as that documentation does: its second save found
+`~tilde` with `MATCH` of `"~~tilde"` and nothing with `"~tilde"`.
+A database's criteria are rows of tests under its columns' names, found
+without case: a record meets a row whose every test it meets, and the
+criteria where it meets any row, a blank row meeting every record; a text
+with no operator is a record's text beginning with it, as Excel's filters
+read one; a criteria range of one row, its names alone, is `#VALUE!`. A
+database's rows end with its sheet's last cell, so that a whole column's
+records are the rows its sheet holds anything in, and `DGET` of an empty
+cell is `#VALUE!`. A sum and a mean add in the order a range is walked,
+from -0.0, as `SUM`'s do, and a variance is taken in two passes, the mean
+first.
+
+**A hidden row.** The xlsx reader reads a row's `hidden`, and the
+OpenDocument reader a row's `table:visibility` of `collapse` or `filter`,
+as one flag. `SUBTOTAL`'s 101 to 111 pass every hidden row by. Its 1 to 11
+count a row hidden by hand and pass by a row a filter hides, which an xlsx
+file tells apart only by its filter's range, which the reader does not
+read: where a hidden row holds a cell of a reference they are labelled
+`(not-computed "a row a filter may hide")`, and where none does they
+compute. Every `SUBTOTAL` passes by a cell whose formula calls `SUBTOTAL`.
+
+**Labelled.** A database's test under a name no column of it holds: a
+formula there, which Excel computes record by record, `(not-computed "a
+computed criterion")`, and a value there `(not-computed "a criterion of no
+field")`; and an `AVERAGEIF` whose average range is smaller than its range,
+the range named, as `SUMIF`'s is.
+
+**The tolerance, amended.** Two numbers agree when their fifteen significant
+digits, as each spells them, are at most one unit of the fifteenth apart,
+the unit the larger spelling's; until this amendment they had to round to
+the same fifteen. Two computations of one quantity a few units in the last
+place apart then agree whichever side of a rounding boundary each falls on:
+Excel's save gave `VARP` of the amounts 9174.2080555555549 where the
+language's two passes give 9174.208055555557, 0.21 of a unit apart and
+spelled ...555 and ...556, and `VAR(0.1,0.2,0.3)` 0.009999999999999988 where
+they give 0.009999999999999998, spelled 0.00999999999999999 and
+0.0100000000000000, a tenth of the larger's unit apart. Past the fifteen
+digits Excel documents, its variance family follows no one formulation its
+save shows. Every earlier row of the table agrees under both readings.
+
+**The fixture.** `scripts/recalc/criteria.txt`, built by the door into
+`criteria.xlsx`, holds 228 formulas: a Functions sheet of 219, one a
+function and a rule, the edges Excel's documentation leaves unsaid among
+them, over a Data sheet of twelve records, its criteria ranges and a
+`SUBTOTAL` among the cells it sums, and a Far sheet whose cells reach below
+its database's. `criteria_calc.vla` is the door's record of it: 225 rows
+`agree` with the values the build wrote and 3 labelled, pinned `built`.
+The owner's save hides the Data sheet's row 6 before Excel computes it, so
+that `SUBTOTAL`'s 101 to 111 pass a row by and its 1 to 11 are labelled
+over it. Excel's first save of it differed in seven rows, four of them the
+rules above that it settled, three the variance's last digits; its second,
+of the rules' reach, in two, `MATCH`'s tilde, which keeps the documented
+reading. The owner's second save, `criteria_saved.xlsx`, joins the table
+at `no-differ` as `criteria_saved_calc.vla`, its 213 computed agreeing
+with Excel's, 205 to the bit and the variance family's 8 within one unit
+of the fifteenth digit, and the 15 labelled.

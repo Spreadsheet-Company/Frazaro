@@ -316,23 +316,58 @@ pub fn text_to_number(text: &str) -> Option<f64> {
 }
 
 /// Whether a computed value agrees with the value a host saved in the
-/// file: two numbers when they round to the same fifteen significant
-/// digits (the stated tolerance), two texts when equal, two truth values
-/// or two errors when the same; `None` when the file's value is one this
-/// version does not compare (a date; see [`Value::from_file`]).
+/// file: two numbers when they agree to fifteen significant digits (the
+/// stated tolerance, [`fifteen_digits`]), two texts when equal, two truth
+/// values or two errors when the same; `None` when the file's value is one
+/// this version does not compare (a date; see [`Value::from_file`]).
 pub fn agrees(computed: &Value, cached: &rows::Value) -> Option<bool> {
     let cached = Value::from_file(cached)?;
     let computed = computed.clone().settled();
     Some(match (&computed, &cached) {
-        (Value::Number(a), Value::Number(b)) => {
-            let key = |x: f64| format!("{:.14e}", if x == 0.0 { 0.0 } else { round15(x) });
-            key(*a) == key(*b)
-        }
+        (Value::Number(a), Value::Number(b)) => fifteen_digits(*a, *b),
         (Value::Text(a), Value::Text(b)) => a == b,
         (Value::Bool(a), Value::Bool(b)) => a == b,
         (Value::Error(a), Value::Error(b)) => a == b,
         _ => false,
     })
+}
+
+/// Whether two numbers agree to fifteen significant digits, the precision
+/// Excel documents for its arithmetic: their fifteen digits, as each spells
+/// them, at most one unit of the fifteenth apart, the unit the larger
+/// spelling's (the owner's decision, KERNEL.8's fifth slice, 2026-10-20).
+/// Two computations of one quantity a few units in the last place apart
+/// agree whichever side of a rounding boundary each falls on, where the
+/// texts of both rounded to fifteen digits parted 9174.208055555557 from
+/// Excel's 9174.2080555555549, 0.21 of a unit apart; and 0.009999999999999998,
+/// which fifteen digits spell 0.0100000000000000, agrees with Excel's
+/// 0.009999999999999988, spelled 0.00999999999999999, a tenth of the
+/// larger's unit apart. The spellings are compared as whole numbers of
+/// units, so that no binary rounding of a difference decides; zero agrees
+/// with zero alone.
+fn fifteen_digits(a: f64, b: f64) -> bool {
+    if a == b {
+        return true;
+    }
+    if a == 0.0 || b == 0.0 {
+        return false;
+    }
+    // A number as its fifteen digits, a whole number of units of the
+    // fifteenth, and the power of ten of the first.
+    let spelled = |x: f64| -> Option<(f64, i32)> {
+        let text = format!("{x:.14e}");
+        let (digits, exponent) = text.rsplit_once('e')?;
+        Some((
+            digits.replace('.', "").parse().ok()?,
+            exponent.parse().ok()?,
+        ))
+    };
+    let (Some((ua, ea)), Some((ub, eb))) = (spelled(a), spelled(b)) else {
+        return false;
+    };
+    let e = ea.max(eb);
+    let at = |units: f64, exponent: i32| units / 10f64.powi(e - exponent);
+    (at(ua, ea) - at(ub, eb)).abs() <= 1.0 + 1e-9
 }
 
 #[cfg(test)]
@@ -459,6 +494,27 @@ mod tests {
             agrees(&Value::Number(15.0), &cached("15.000000000001")),
             Some(false)
         );
+        // KERNEL.8, slice e: within one unit of the fifteenth digit of the
+        // larger as fifteen digits spell it, whichever side of a rounding
+        // boundary each falls on; two units apart, not.
+        let agree = |a: f64, b: &str| agrees(&Value::Number(a), &cached(b));
+        assert_eq!(agree(9174.208055555557, "9174.2080555555549"), Some(true));
+        assert_eq!(
+            agree(0.009999999999999998, "9.9999999999999881E-3"),
+            Some(true)
+        );
+        assert_eq!(
+            agree(0.09999999999999999, "9.9999999999999936E-2"),
+            Some(true)
+        );
+        assert_eq!(agree(1.23456789012345, "1.23456789012346"), Some(true));
+        assert_eq!(agree(1.23456789012345, "1.23456789012347"), Some(false));
+        assert_eq!(agree(-1.23456789012345, "-1.23456789012346"), Some(true));
+        assert_eq!(agree(-1.23456789012345, "1.23456789012345"), Some(false));
+        assert_eq!(agree(0.0, "1E-300"), Some(false));
+        assert_eq!(agree(0.0, "-0"), Some(true));
+        assert_eq!(agree(0.009999999999999981, "0.01"), Some(true));
+        assert_eq!(agree(0.009999999999999, "0.01"), Some(false));
         assert_eq!(agrees(&Value::Empty, &cached("0")), Some(true));
         assert_eq!(
             agrees(&Value::Text("big".into()), &rows::Value::Text("big".into())),

@@ -49,7 +49,8 @@ use std::hash::Hasher;
 use crate::fx::{FxHashMap, FxHasher};
 use crate::machine::CELLS;
 
-use super::criteria::{cells_of, has_wildcard, Criterion, Target};
+use super::aggregates::{Stat, Tally};
+use super::criteria::{cells_of, criterion_wildcard, Criterion, Target};
 use super::eval::{exact_order, finite, Ctx, Reason};
 use super::graph::{cells_in, places, Area, CellId};
 use super::order;
@@ -347,7 +348,7 @@ fn sum_probe(v: &Value) -> Probe<'_> {
 fn target_probe(t: &Target) -> Option<Probe<'_>> {
     match t {
         Target::Number(n) => Some(Probe::Number(fifteen(*n))),
-        Target::Text(p) if has_wildcard(p) => None,
+        Target::Text(p) if criterion_wildcard(p) => None,
         Target::Text(p) => Some(Probe::Text(p)),
         Target::Bool(b) => Some(Probe::Bool(*b)),
         Target::Error(k) => Some(Probe::Error(*k)),
@@ -438,10 +439,38 @@ struct SumIndex {
     stop: Option<Reason>,
 }
 
+/// The criteria's family's index (KERNEL.8, slice e): each equality range's
+/// keys, and each place's group, the tuple of its keys, `END` past the
+/// ranges; each group's count of places, the numbers its places hold in the
+/// aggregated range, their sum added in the scan's order, their count,
+/// their greatest and their least, and its first error there; each group's
+/// places in the scan's order, as offsets from the ranges' corners, each
+/// with the aggregated range's number or error there, where there is one;
+/// for `COUNTIFS`, the places no equality range holds a cell at, which are
+/// all blank; and whether the build read a reason, where the scan answers.
+struct GroupIndex {
+    keys: Vec<Keys>,
+    groups: FxHashMap<[u32; 4], u32>,
+    count: Vec<u64>,
+    sum: Vec<f64>,
+    numbers: Vec<u64>,
+    most: Vec<f64>,
+    least: Vec<f64>,
+    error: Vec<Option<ErrorKind>>,
+    first: Vec<u32>,
+    last: Vec<u32>,
+    next: Vec<u32>,
+    place: Vec<(u32, u32)>,
+    held: Vec<Option<Result<f64, ErrorKind>>>,
+    extra: u64,
+    stopped: bool,
+}
+
 enum Built {
     Lookup(LookupIndex),
     Count(CountIndex),
     Sum(SumIndex),
+    Groups(GroupIndex),
 }
 
 /// What a vector is keyed for.
@@ -451,6 +480,13 @@ enum Kind {
     Count,
     /// `SUMIF`'s, its sum range beside.
     Sum(Area),
+    /// The criteria's family's (KERNEL.8, slice e): its equality ranges
+    /// after the first, at most three, and the range it aggregates, where
+    /// one is (`COUNTIFS` aggregates none).
+    Groups {
+        more: [Option<Area>; 3],
+        values: Option<Area>,
+    },
 }
 
 /// A vector's identity: its rectangle and what it is keyed for.
@@ -461,7 +497,21 @@ struct Vector {
 }
 
 impl Vector {
-    /// Whether a cell of either of its ranges is the one given.
+    /// Every range of the vector, its rectangle first.
+    fn areas(&self) -> impl Iterator<Item = Area> {
+        let (more, values) = match self.kind {
+            Kind::Sum(s) => ([None; 3], Some(s)),
+            Kind::Groups { more, values } => (more, values),
+            Kind::Lookup | Kind::Count => ([None; 3], None),
+        };
+        std::iter::once(self.area)
+            .chain(more.into_iter().flatten())
+            .chain(values)
+    }
+
+    /// Whether a cell of any of its ranges is the one given: asked of every
+    /// vector on a changed cell's sheet, so a lookup's is its rectangle's
+    /// test alone.
     fn holds(&self, id: CellId) -> bool {
         let inside = |a: &Area| {
             a.sheet == id.0
@@ -470,17 +520,20 @@ impl Vector {
         };
         inside(&self.area)
             || match &self.kind {
+                Kind::Lookup | Kind::Count => false,
                 Kind::Sum(s) => inside(s),
-                _ => false,
+                Kind::Groups { more, values } => {
+                    more.iter().flatten().any(inside) || values.as_ref().is_some_and(inside)
+                }
             }
     }
 
-    /// The sheets its ranges stand on.
-    fn sheets(&self) -> (usize, Option<usize>) {
-        match &self.kind {
-            Kind::Sum(s) if s.sheet != self.area.sheet => (self.area.sheet, Some(s.sheet)),
-            _ => (self.area.sheet, None),
-        }
+    /// The sheets its ranges stand on, each once.
+    fn sheets(&self) -> impl Iterator<Item = usize> + '_ {
+        self.areas()
+            .enumerate()
+            .filter(|(i, a)| !self.areas().take(*i).any(|b| b.sheet == a.sheet))
+            .map(|(_, a)| a.sheet)
     }
 }
 
@@ -550,7 +603,7 @@ impl Indexes {
         let Some(vectors) = over.get_mut(&id.0) else {
             return;
         };
-        let reached: Vec<Vector> = vectors.iter().copied().filter(|v| v.holds(id)).collect();
+        let reached: Vec<Vector> = vectors.iter().filter(|v| v.holds(id)).copied().collect();
         for v in reached {
             self.stale(v);
         }
@@ -611,8 +664,7 @@ impl Indexes {
             self.tally(0, 1, 0);
         }
         let over = self.over.get_mut();
-        let (a, b) = v.sheets();
-        for s in [Some(a), b].into_iter().flatten() {
+        for s in v.sheets() {
             if let Some(list) = over.get_mut(&s) {
                 list.retain(|w| *w != v);
             }
@@ -656,8 +708,7 @@ impl Indexes {
         #[cfg(test)]
         self.tally(1, 0, 1);
         let mut over = self.over.borrow_mut();
-        let (a, b) = v.sheets();
-        for s in [Some(a), b].into_iter().flatten() {
+        for s in v.sheets() {
             over.entry(s).or_default().push(v);
         }
         Some(answer)
@@ -735,6 +786,62 @@ impl Indexes {
         Some(answer)
     }
 
+    /// The criteria's family from its ranges' index (KERNEL.8, slice e):
+    /// keyed by the equalities its criteria begin with, at most four, each
+    /// one that a key answers; the criteria after them tested at the
+    /// places of the group the equalities key, in the order they are given,
+    /// so that the index reads no cell the scan does not; `None` where the
+    /// scan answers (`criteria::countifs`, `criteria::aggregate_ifs`): a
+    /// first criterion no key answers, and see [`GroupIndex::answer`].
+    /// `stat` is the aggregate over `values`, `None` for `COUNTIFS`.
+    pub(crate) fn ifs(
+        &self,
+        ctx: &Ctx<'_>,
+        values: Option<Area>,
+        pairs: &[(Area, Criterion)],
+        stat: Option<Stat>,
+    ) -> Option<Result<Value, Reason>> {
+        let mut probes: Vec<Probe<'_>> = Vec::new();
+        for (_, c) in pairs.iter().take(4) {
+            match c {
+                Criterion::Eq(t) => match target_probe(t) {
+                    Some(p) => probes.push(p),
+                    None => break,
+                },
+                _ => break,
+            }
+        }
+        if probes.is_empty() {
+            return None;
+        }
+        let mut more = [None; 3];
+        for (slot, (a, _)) in more.iter_mut().zip(&pairs[1..probes.len()]) {
+            *slot = Some(*a);
+        }
+        let v = Vector {
+            area: pairs[0].0,
+            kind: Kind::Groups { more, values },
+        };
+        let rest = &pairs[probes.len()..];
+        let answer = self
+            .with(ctx, v, |b| match b {
+                Built::Groups(ix) => ix.answer(ctx, &probes, rest, stat),
+                _ => unreachable!("the criteria's family's vector keyed for its groups"),
+            })
+            .flatten()?;
+        #[cfg(test)]
+        if checking() {
+            let scan = match (values, stat) {
+                (Some(values), Some(stat)) => {
+                    super::criteria::aggregate_ifs_scan(ctx, values, pairs, stat)
+                }
+                _ => super::criteria::countifs_scan(ctx, pairs),
+            };
+            assert_eq!(answer, scan, "{pairs:?}, aggregating {values:?}");
+        }
+        Some(answer)
+    }
+
     /// `SUMIF` of an equality from its pair's index; `None` where the scan
     /// answers (`criteria::sumif`).
     pub(crate) fn sum(
@@ -782,11 +889,7 @@ fn slots_of(ctx: &Ctx<'_>, v: &Vector) -> usize {
         }
         (bottom - top + 1) as usize * (right - left + 1) as usize
     };
-    inside(&v.area)
-        + match &v.kind {
-            Kind::Sum(s) => inside(s),
-            _ => 0,
-        }
+    v.areas().map(|a| inside(&a)).sum()
 }
 
 /// A vector's index built from its cells as they stand.
@@ -795,6 +898,7 @@ fn build(ctx: &Ctx<'_>, v: &Vector) -> Built {
         Kind::Lookup => Built::Lookup(build_lookup(ctx, Line { area: v.area })),
         Kind::Count => Built::Count(build_count(ctx, &v.area)),
         Kind::Sum(sums) => Built::Sum(build_sum(ctx, &v.area, &sums)),
+        Kind::Groups { more, values } => Built::Groups(build_groups(ctx, v, more, values)),
     }
 }
 
@@ -1066,6 +1170,246 @@ impl SumIndex {
             return Err(r.clone());
         }
         Ok(finite(found.map_or(0.0, |i| self.sums[i])))
+    }
+}
+
+/// The criteria's family's index (see [`GroupIndex`]) from its equality
+/// ranges, `area` and `more`, and the range it aggregates: each place of the
+/// aggregated range holding a number or an error, in the scan's order, its
+/// group the keys of the equality ranges' cells there; for `COUNTIFS`, each
+/// place any equality range holds a cell at, in order, and the rest of the
+/// ranges' places counted aside, all blank. A reason read anywhere stops
+/// the build, and the scan answers.
+fn build_groups(
+    ctx: &Ctx<'_>,
+    v: &Vector,
+    more: [Option<Area>; 3],
+    values: Option<Area>,
+) -> GroupIndex {
+    let equal: Vec<Area> = std::iter::once(v.area)
+        .chain(more.into_iter().flatten())
+        .collect();
+    let mut ix = GroupIndex {
+        keys: equal.iter().map(|_| Keys::default()).collect(),
+        groups: FxHashMap::default(),
+        count: Vec::new(),
+        sum: Vec::new(),
+        numbers: Vec::new(),
+        most: Vec::new(),
+        least: Vec::new(),
+        error: Vec::new(),
+        first: Vec::new(),
+        last: Vec::new(),
+        next: Vec::new(),
+        place: Vec::new(),
+        held: Vec::new(),
+        extra: 0,
+        stopped: false,
+    };
+    match values {
+        Some(values) => walk(ctx, &values, |row, col, read| {
+            let held = match read {
+                Ok(Value::Number(n)) => Ok(*n),
+                Ok(Value::Error(k)) => Err(*k),
+                Ok(_) => return true,
+                Err(_) => {
+                    ix.stopped = true;
+                    return false;
+                }
+            };
+            let at = (row - values.top, col - values.left);
+            match ix.tuple(ctx, &equal, at) {
+                Ok(t) => {
+                    ix.join(t, at, Some(held));
+                    true
+                }
+                Err(_) => {
+                    ix.stopped = true;
+                    false
+                }
+            }
+        }),
+        None => {
+            let mut places: Vec<(u32, u32)> = Vec::new();
+            for a in &equal {
+                walk(ctx, a, |row, col, read| {
+                    if read.is_err() {
+                        ix.stopped = true;
+                        return false;
+                    }
+                    places.push((row - a.top, col - a.left));
+                    true
+                });
+                if ix.stopped {
+                    return ix;
+                }
+            }
+            places.sort_unstable();
+            places.dedup();
+            for &at in &places {
+                match ix.tuple(ctx, &equal, at) {
+                    Ok(t) => ix.join(t, at, None),
+                    Err(_) => {
+                        ix.stopped = true;
+                        return ix;
+                    }
+                }
+            }
+            ix.extra = cells_of(&v.area) - places.len() as u64;
+        }
+    }
+    ix
+}
+
+impl GroupIndex {
+    /// The group of a place: each equality range's cell there keyed as a
+    /// sum keys it, a text spelling a number as the number, an empty text as
+    /// the blank (`sum_probe`); a reason read the answer.
+    fn tuple(&mut self, ctx: &Ctx<'_>, equal: &[Area], at: (u32, u32)) -> Result<[u32; 4], Reason> {
+        let mut t = [END; 4];
+        for (j, a) in equal.iter().enumerate() {
+            let v = ctx.env.read((a.sheet, a.top + at.0, a.left + at.1))?;
+            t[j] = self.keys[j].add(sum_probe(&v)).0 as u32;
+        }
+        Ok(t)
+    }
+
+    /// A place joining its group, with the aggregated range's number or
+    /// error there.
+    fn join(&mut self, t: [u32; 4], at: (u32, u32), held: Option<Result<f64, ErrorKind>>) {
+        let g = match self.groups.get(&t) {
+            Some(&g) => g as usize,
+            None => {
+                let g = self.count.len();
+                self.groups.insert(t, g as u32);
+                self.count.push(0);
+                self.sum.push(-0.0);
+                self.numbers.push(0);
+                self.most.push(f64::NEG_INFINITY);
+                self.least.push(f64::INFINITY);
+                self.error.push(None);
+                self.first.push(END);
+                self.last.push(END);
+                g
+            }
+        };
+        self.count[g] += 1;
+        match held {
+            Some(Ok(n)) => {
+                self.sum[g] += n;
+                self.numbers[g] += 1;
+                self.most[g] = self.most[g].max(n);
+                self.least[g] = self.least[g].min(n);
+            }
+            Some(Err(k)) => {
+                self.error[g].get_or_insert(k);
+            }
+            None => {}
+        }
+        let p = self.place.len() as u32;
+        self.place.push(at);
+        self.held.push(held);
+        self.next.push(END);
+        if self.first[g] == END {
+            self.first[g] = p;
+        } else {
+            let last = self.last[g] as usize;
+            self.next[last] = p;
+        }
+        self.last[g] = p;
+    }
+
+    /// The criteria's family's answer over the group the probes key, as
+    /// `criteria::countifs` and `criteria::aggregate_ifs` answer it: the
+    /// criteria after the equalities, `rest`, tested at each of the group's
+    /// places in order, as the scan tests them there; `None` where the
+    /// scan answers, a build a reason stopped, and `COUNTIFS` of blanks
+    /// with a test beside them, which places no equality range holds may
+    /// meet.
+    fn answer(
+        &self,
+        ctx: &Ctx<'_>,
+        probes: &[Probe<'_>],
+        rest: &[(Area, Criterion)],
+        stat: Option<Stat>,
+    ) -> Option<Result<Value, Reason>> {
+        if self.stopped {
+            return None;
+        }
+        let mut t = [END; 4];
+        let mut keyed = true;
+        for (j, p) in probes.iter().enumerate() {
+            match self.keys[j].find(*p) {
+                Some(i) => t[j] = i as u32,
+                None => keyed = false,
+            }
+        }
+        let group = keyed
+            .then(|| self.groups.get(&t).map(|&g| g as usize))
+            .flatten();
+        let met = |i: usize| -> Result<bool, Reason> {
+            let (dr, dc) = self.place[i];
+            for (a, c) in rest {
+                let v = ctx.env.read((a.sheet, a.top + dr, a.left + dc))?;
+                if !super::criteria::meets(&v, c)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        };
+        let Some(stat) = stat else {
+            let blank = probes.iter().all(|p| matches!(p, Probe::Blank));
+            if blank && !rest.is_empty() {
+                return None;
+            }
+            let mut n = if blank { self.extra } else { 0 };
+            if let Some(g) = group {
+                if rest.is_empty() {
+                    n += self.count[g];
+                } else {
+                    let mut i = self.first[g];
+                    while i != END {
+                        match met(i as usize) {
+                            Ok(m) => n += u64::from(m),
+                            Err(r) => return Some(Err(r)),
+                        }
+                        i = self.next[i as usize];
+                    }
+                }
+            }
+            return Some(Ok(Value::Number(n as f64)));
+        };
+        let Some(g) = group else {
+            return Some(Ok(Tally::new(stat).answer()));
+        };
+        if rest.is_empty() {
+            if let Some(k) = self.error[g] {
+                return Some(Ok(Value::Error(k)));
+            }
+            let tally = Tally::grouped(
+                stat,
+                self.sum[g],
+                self.numbers[g],
+                self.most[g],
+                self.least[g],
+            );
+            return Some(Ok(tally.answer()));
+        }
+        let mut tally = Tally::new(stat);
+        let mut i = self.first[g];
+        while i != END {
+            match met(i as usize) {
+                Ok(true) => match self.held[i as usize] {
+                    Some(Ok(n)) => tally.ranged(&Value::Number(n)),
+                    Some(Err(k)) => return Some(Ok(Value::Error(k))),
+                    None => {}
+                },
+                Ok(false) => {}
+                Err(r) => return Some(Err(r)),
+            }
+            i = self.next[i as usize];
+        }
+        Some(Ok(tally.answer()))
     }
 }
 
@@ -1567,6 +1911,33 @@ mod tests {
         let p = probe(d);
         let mode = d.pick(&["0", "-1", "1", "2"]);
         let search = d.pick(&["1", "-1", "1", "-1", "2", "-2"]);
+        // KERNEL.8, slice e: the criteria's family, its equalities first or
+        // after a test by size, over a column, a block and whole columns,
+        // and three criteria, so that two may follow the equalities a key
+        // answers.
+        let (c1, c2, c3) = (criterion(d), criterion(d), criterion(d));
+        match d.below(18) {
+            8 => return format!("SUMIFS(V!$B$1:$B$24,V!$A$1:$A$24,{c1})"),
+            9 => return format!("SUMIFS(V!$B$1:$B$24,V!$A$1:$A$24,{c1},V!$B$1:$B$24,{c2})"),
+            10 => return format!("COUNTIFS(V!$A$1:$A$24,{c1},V!$B$1:$B$24,{c2})"),
+            11 => {
+                let f = d.pick(&["AVERAGEIFS", "MAXIFS", "MINIFS"]);
+                return format!("{f}(V!$B$1:$B$24,V!$A$1:$A$24,{c1},V!$A$1:$A$24,{c2})");
+            }
+            12 => return format!("COUNTIFS(V!$C$3:$F$8,{c1},V!$C$3:$F$8,{c2})"),
+            13 => return format!("COUNTIFS(V!$A:$A,{c1},V!$B:$B,{c2})"),
+            14 => return format!("AVERAGEIF(V!$A$1:$A$24,{c1},V!$B$1:$B$24)"),
+            15 => return format!("SUMIFS(V!$D$3:$F$8,V!$C$3:$E$8,{c1},V!$E$3:$G$8,{c2})"),
+            16 => {
+                return format!(
+                    "SUMIFS(V!$B$1:$B$24,V!$A$1:$A$24,{c1},V!$B$1:$B$24,{c2},V!$A$1:$A$24,{c3})"
+                )
+            }
+            17 => {
+                return format!("COUNTIFS(V!$A$1:$A$24,{c1},V!$B$1:$B$24,{c2},V!$A$1:$A$24,{c3})")
+            }
+            _ => {}
+        }
         match d.below(8) {
             0 => format!("MATCH({p},V!$A$1:$A$24,{})", d.pick(&["0", "0", "1", "-1"])),
             1 => format!("XMATCH({p},V!$A$1:$A$24,{mode},{search})"),
@@ -1640,7 +2011,7 @@ mod tests {
         }
         check(false);
         assert!(
-            builds > 900 && answered > builds * 6,
+            builds > 1500 && answered > builds * 3,
             "{builds} indexes built and {answered} probes answered: too few for the law to \
              hold over"
         );
@@ -1687,6 +2058,25 @@ mod tests {
         assert_eq!(
             counted(&["MATCH(2,V!A1:A4,0)", "MATCH(2,V!$A$1:$A$4,0)"]),
             (1, 1)
+        );
+        // KERNEL.8, slice e: the criteria's family keyed by its equalities
+        // and the range it aggregates, whatever their values; a test by
+        // size after them tested at the group's places, and one before them
+        // keying nothing.
+        let s1 = "SUMIFS(V!$A$1:$A$4,V!$A$1:$A$4,2)";
+        let s2 = "SUMIFS(V!$A$1:$A$4,V!$A$1:$A$4,3)";
+        assert_eq!(counted(&[s1, s2, s1]), (1, 2), "one index, any value");
+        let a = "AVERAGEIFS(V!$A$1:$A$4,V!$A$1:$A$4,2,V!$A$1:$A$4,\">1\")";
+        assert_eq!(counted(&[a, a]), (1, 1));
+        let c = "COUNTIFS(V!$A$1:$A$4,2)";
+        assert_eq!(
+            counted(&[c, c, s1, s1]),
+            (2, 2),
+            "COUNTIFS keyed apart, aggregating nothing"
+        );
+        assert_eq!(
+            counted(&["SUMIFS(V!$A$1:$A$4,V!$A$1:$A$4,\">1\",V!$A$1:$A$4,2)"; 3]),
+            (0, 0)
         );
     }
 

@@ -32,7 +32,10 @@
 //! page's); and every probe of the lookups' fixture and its four answers,
 //! after its first frame and its edits, equal to the lookups written here by
 //! hand, a map of the table's keys made from the program's own arithmetic
-//! (`KERNEL.8`, a third lineage beside `Calc` and the machine, as Life's).
+//! (`KERNEL.8`, a third lineage beside `Calc` and the machine, as Life's);
+//! and every cell of the criteria fixture's summary, its `SUMIFS` and its
+//! `COUNTIFS`, equal to the summary written here by hand, the ledger added
+//! up by account and month in an array (`KERNEL.8`, its fifth slice).
 //! Each fixture's checksum, the sum of a range its program names,
 //! is printed as built and as edited for Excel's half to equal: every value
 //! the fixtures compute is a whole number, so the sums are exact.
@@ -73,7 +76,7 @@ use vla_lang::machine::Machine;
 use vla_lang::sheet::{parse_a1_range, A1Range, Content};
 
 /// The fixtures in the order the block prints them.
-const FIXTURES: [&str; 5] = ["column", "chain", "sums", "life", "lookups"];
+const FIXTURES: [&str; 6] = ["column", "chain", "sums", "life", "lookups", "criteria"];
 
 /// The steps timed: whole frames, edits, and the reference's runs.
 const WHOLE: usize = 11;
@@ -272,6 +275,53 @@ fn held_lookups(m: &Machine, p1: &str) -> Result<usize, String> {
         }
     }
     Ok(LOOKUP_ROWS as usize * 5)
+}
+
+// ---- the reference: the criteria by hand -----------------------------------
+
+/// The criteria fixture's ledger, `A2:C20001`, and the accounts of its
+/// summary, `R2:AD98`, a row each (KERNEL.8, its fifth slice).
+const LEDGER_ROWS: u64 = 20_000;
+const ACCOUNTS: usize = 97;
+
+/// The summary by hand for the assumption `p1`, as the program's own
+/// arithmetic writes the ledger: an account its row times 7,919 modulo 97, a
+/// month its row times 31 modulo 12 and 1, an amount its row times 13
+/// modulo 1,000 and `p1`; each account's amounts added by month in an array
+/// here, not the engine's, and its rows counted.
+fn criteria_by_hand(p1: u64) -> Vec<[u64; 13]> {
+    let mut summary = vec![[0u64; 13]; ACCOUNTS];
+    for r in 2..=LEDGER_ROWS + 1 {
+        let account = ((r * 7_919) % 97) as usize;
+        let month = ((r * 31) % 12) as usize;
+        summary[account][month] += (r * 13) % 1_000 + p1;
+        summary[account][12] += 1;
+    }
+    summary
+}
+
+/// The machine's summary, its twelve `SUMIFS` and its `COUNTIFS` a row,
+/// `R2:AD98`, equal to the criteria by hand for the assumption `p1`.
+fn held_criteria(m: &Machine, p1: &str) -> Result<usize, String> {
+    let p1: u64 = p1
+        .parse()
+        .map_err(|_| format!("the assumption {p1} is no whole number"))?;
+    let si = m.find_sheet("Output").ok_or("no sheet Output")?;
+    for (a, want) in criteria_by_hand(p1).iter().enumerate() {
+        let row = a as u32 + 2;
+        for (j, w) in want.iter().enumerate() {
+            let col = 18 + j as u32;
+            match m.computed((si, row, col)) {
+                Some(Computed::Value(Value::Number(n))) if *n == *w as f64 => {}
+                got => {
+                    return Err(format!(
+                        "Output!R{row}C{col}, with P1 {p1}: the machine holds {got:?}, the criteria by hand {w}"
+                    ))
+                }
+            }
+        }
+    }
+    Ok(ACCOUNTS * 13)
 }
 
 // ---- a fixture: its program and what its comments say ---------------------
@@ -650,12 +700,13 @@ fn round(
         ));
     }
     r.held += held;
-    // The lookups' fixture held to its lookups by hand as well (KERNEL.8).
+    // The lookups' fixture held to its lookups by hand as well, and the
+    // criteria's to its summary by hand (KERNEL.8).
     let by_hand = |m: &Machine, p1: &str| -> Result<usize, String> {
-        if name == "lookups" {
-            held_lookups(m, p1).map_err(|e| format!("{name}: {e}"))
-        } else {
-            Ok(0)
+        match name.as_str() {
+            "lookups" => held_lookups(m, p1).map_err(|e| format!("{name}: {e}")),
+            "criteria" => held_criteria(m, p1).map_err(|e| format!("{name}: {e}")),
+            _ => Ok(0),
         }
     };
     if let Change::Edit { built, .. } = &fx.change {

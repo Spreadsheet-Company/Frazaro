@@ -133,6 +133,12 @@ pub trait Sink {
     /// array. Nothing, unless a sink says otherwise: the printer ignores it,
     /// so that a formula row stays the file's own text.
     fn array(&mut self, _sheet: &str, _addr: &str, _kind: ArrayKind) {}
+
+    /// A row of this sheet is hidden (KERNEL.8, slice e): what a door
+    /// computing the workbook needs for `SUBTOTAL`, whose 101 to 111 pass a
+    /// hidden row by. Nothing, unless a sink says otherwise: the printer
+    /// ignores it.
+    fn hidden_row(&mut self, _sheet: &str, _row: u32) {}
 }
 
 /// A sheet's name as a reference spells it in front of `!`: the one quoting
