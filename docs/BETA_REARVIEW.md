@@ -32182,6 +32182,857 @@ after it with its twins and the goldens that embed the version, as
 takes the item at its pin's move to 0.10.1, before `CART.12`'s first
 slice.
 
+**`KERNEL.49`, the grid held as what a person wrote: the scoping,
+2026-10-19.** Begun at the owner's word of 2026-10-19, after Alonzo's
+`CART.12` hand test, the prompt relayed from that session with its memory
+probe's numbers: a formula cell's cost proportional to what a person wrote
+and not to the cells a fill covers, its load proportional to the source's
+rows, the two co-equal; abductive research toward the best in class and past
+it, each claim verified before it is cited; floors for both; semantics
+unchanged. Minted as the next free `KERNEL` ID and nothing else (the owner's
+word of 2026-10-16 on minting, the findings below under *Found*), the
+scoping written here, the decisions with recommendations and the predictions
+before any build, then a stop for the owner's approval. Nothing is built.
+HEAD `e437b60` (`KERNEL.8`'s first slice), one ahead of origin, the tree
+clean at the start and run_checks 58 of 58, a peer's second slice of
+`KERNEL.8` under way in it since (*Beside it*); Alonzo's HEAD `640c0a3`
+(`CART.12` closed), read and never written. `docs/HORIZON.md` §§10 to 12
+read first: the item restructures storage inside `vla-lang` and nothing of
+§12's shape. The contract of §12.2 (bytes in and bytes out, no clock, no
+thread, an empty import section, `check_core_imports` and
+`check_wasm_exports`) holds; §12.8's additive rule holds (no crate, no
+folder moved); the recalculation engine behind a declared subset,
+`web/CALLOSUM.md`'s amendment of §12.2, is the machine this item makes
+smaller and faster, its meaning untouched.
+
+*The measurement, on this tree.* A scratch probe outside the repository (the
+session's scratchpad, `k49/`): a copy of `vla-lang` at `e437b60` with phase
+marks, under Alonzo's engine at `640c0a3` by a path, a counting global
+allocator around `read_rows`, `Machine::new`, `Cartridge::load` and the
+first frames, release at opt-level 3, natively; bytes are the bytes asked of
+the allocator, the same on every run and every 64-bit machine; times one run
+each, the machine busy with the research below, so a time here is a size and
+not a floor. It repeats the `CART.12` session's figures to the megabyte.
+
+| grid | formula cells | load (rows + `new`) | held after load | held after frame 1 | peak, load and frame 1 |
+|---|---|---|---|---|---|
+| Superposition, side 64 | 12,939 | 1.8 + 6.9 ms | 366.6 B a formula | 462.7 | 481.4 |
+| side 128 | 50,699 | 12.9 + 37.2 ms | 335.4 | 415.0 | 436.0 |
+| side 256 | 200,715 | 41.4 + 157.4 ms | 327.8 | 403.4 | 425.4 |
+| side 512 | 798,731 | 121 to 126 + 555 to 611 ms | 327.0 (261.2 MB) | 401.5 (320.7 MB) | 424.0 (338.7 MB) |
+| Life, 320 by 200 | 62,964 | 10.0 + 21.5 ms | 325.5 | 402.3 | 477.2 |
+| Life, 1280 by 800 | 1,019,844 | 158.0 + 459.0 ms | 323.0 (329.5 MB) | 397.4 (405.3 MB) | 471.4 (480.8 MB) |
+
+The heap is linear in the cells from side 128 on. Alonzo's frame floors hold
+the same high-water marks as ceilings today (`check_frame_floors.ps1`:
+Superposition 338,676,723 bytes, Life ×16 480,770,537).
+
+*Where the bytes go,* a formula cell of Superposition at side 512 held after
+its first frame, each structure's size read off its type
+(`std::mem::size_of`: `Content` 56, `Cell` 64, a B-tree entry 72, `Value`
+24, `Computed` 32, `CellId` 16, `Place` 24, a places entry 40) and its
+count, and held to the phase marks' deltas (*derived*; the sum 398 of the
+measured 401.5):
+
+- 137, the rows' sheets' cells (`sheet.rs`'s `Sheet::cells`, a
+  `BTreeMap<(u32, u32), Cell>`): a fill's every cell an entry
+  (`Sheet::set_formula` makes a `SharedChild` for each), a leaf of 808 bytes
+  holding six entries after ordered inserts; 137 is the crate's own figure
+  (`calc/dense.rs`, `SLOTS_A_CELL`'s comment).
+- 74, the twins' cells, a second B-tree, made again whole by a `collect`
+  when a twin cell gains a value, which every formula does at the first
+  frame (`machine/mod.rs`, the walk's last branch), bulk-built leaves of
+  eleven.
+- 54, `Shapes::places` (`calc/shape.rs`), an `FxHashMap<CellId, Place>` of
+  2^20 buckets of 41 bytes for 798,731 cells: what the shapes already know,
+  the shape a cell's fill's and the offset its distance from the anchor.
+- 33, the frame's own sheets' arrays (`KERNEL.31`), a 24-byte `Value` a slot
+  and the 9-byte shadow beside (`KERNEL.43`), for Decays, Field, Readings
+  and the others the plan reads by a range or a run's moving cell.
+- 32, `values`, a `Vec<Option<Computed>>` by position.
+- 27, the twins' arrays, the same slots, Field's with its shadow and Decays'
+  and Readings', which no formula reads, without.
+- 21, `Shapes::order`, a `Vec<CellId>` of 16-byte ids grown to 2^20.
+- 12, the change lists sized for every cell at a load (`fit`): `changed`, 4
+  bytes a formula cell, and `twin_changed`, 16 bytes for half the cells.
+- 8, `Reach`'s positions grid (a `u32` a cell of each sheet's formulas'
+  rectangle) and `shape_at` (a `u32` a position).
+
+The formulas are not the cost: 798,731 cells are 44 shapes, each parsed and
+lowered once (`KERNEL.44`).
+
+*Where the time goes,* the same grid, one run, each phase's mark:
+`read_rows` 121 ms, a B-tree insert and a SipHash `HashMap<CellId, u32>`
+insert for every cell a range claims (`machine/load.rs`, `claim`, the one
+write per cell and each cell's line); then `Machine::new` 555 ms: the
+extents and twins 13, every cell placed 110 (a `shared_masters` walk and a
+places insert a cell), the cells sorted and positioned 42, every cell's
+edges 258 (6,554,126 targets, each cell's moving references found at its
+offset and their formula cells looked up, `Shapes::plan`), Tarjan 13, the
+order and runs 35, the reach 7, the first refusal 13, the values 7, the walk
+that makes the twins and their arrays 26, the frame's own arrays 25. The
+plan's temporaries peak at 331.5 MB inside `Shapes::of` and fall to 204 MB
+as it returns. The first frame then computes every cell in 78 ms and ends in
+99, every twin's B-tree made again; Life ×16's 43 and 130. A frame's end is
+most of a first frame.
+
+*What a formula cell must hold,* derived from the frame's meaning
+(`calc/reach.rs`'s header: a cell's value is a function of what it reads and
+where it stands): its value in this frame, a number of eight bytes and a
+kind; and, where a formula reads its sheet's twin, its value as the last
+frame left it, the same again. Its formula is its shape's, its place in the
+order its fill's, what reads it its readers' patterns (`Reach`, per shape
+already). Superposition: 798,731 slots of this frame, 7.2 MB, and Field's
+twin, the only one of the three layers' twins a formula reads, 2.4 MB: about
+10 MB, 12 bytes a formula cell, against 321 MB. Life ×16: its board and its
+twin, 18.4 MB, 18 bytes. The prompt's bound, the three layers and their
+twins as plain numbers, about 13 MB, holds a twin no formula reads.
+
+*The prior art,* each claim read in its primary source by this scoping's
+survey (code at the commits named, papers by section and page, Microsoft's
+documents by section), marked as the house marks them: read, *derived* from
+what was read, or *secondary* where only a secondary source says it; the
+survey's copies are scratch and named in the session's notes.
+
+- **Excel.** Its files share a fill: a shared formula (ECMA-376-1
+  §18.3.1.40) keeps its text and `ref` at its master, every other cell
+  holding `<f t="shared" si="0"/>`, "optional ... to optimize load
+  performance by sharing formulas", two formulas the same where their R1C1
+  forms are. Every cell is still a record of its own, in XLSX, in XLS (a
+  `ShrFmla` and a Formula record a cell, [MS-XLS]) and in XLSB. Its memory
+  is undocumented; the nearest figure Microsoft gives, six million formulas
+  in 2 GB of virtual memory under Excel 2016, is about 340 bytes of address
+  space a formula (*derived*). Its calculation chain lists every formula
+  cell in order (§18.6), an entry a cell.
+- **LibreOffice Calc** (`LibreOffice/core` at `aa91bb77c1d6`, mdds 3.2.1).
+  Each column a vector of typed blocks, its numbers a contiguous array of
+  doubles, a formula block an array of pointers to cells. A fill's run down
+  one column (`ScFormulaCellGroup`) shares one token array, its references
+  relative, but every cell is still an object of its own, 128 bytes, 140
+  with its pointer and its text attributes (*derived* from
+  `formulacell.hxx`'s members); a run along a row is cloned cell by cell; a
+  single-cell reference is registered on a broadcaster a cell, about 348
+  bytes a cell for a fill reading eight neighbours (*derived*). Its importer
+  copies the shared formula's tokens into every cell and groups them only at
+  the end of the load (`ScDocumentImport::finalize`), so its peak holds a
+  token array a cell; its XLSX and ODS writers write every formula's text.
+  Its designer put contiguous formula storage after "the transition phase"
+  in 2012 (*secondary*); the cells are pointers still.
+- **HyperFormula** (3.5.0). A sheet's addresses an array of vertices or maps
+  of maps, the array by default; a formula cell a vertex holding its tree,
+  the parser's cache keyed by the formula's relative form so that a fill is
+  parsed once, its trees then rebuilt above their leaves at each cell; edges
+  a list of ids a vertex; a range's vertex built from the same range one row
+  shorter, which helps a range grown down from a held start and no window.
+  No memory figure.
+- **IronCalc** (at `e94e6f1aed1e`). "All formulas are shared": each sheet's
+  in R1C1 once, one tree each, a cell holding its index; a cell 48 bytes and
+  a row's entry 56, which its own test asserts; rows in chunks of 1,024, a
+  row of numbers eight bytes each; no dependency graph, every pass a
+  recursion over every formula. 56 bytes a formula cell.
+- **Gnumeric.** One tree shared by a fill's cells after every load; a cell
+  about 104 bytes in a sheet's hash (*derived*); its dependencies by
+  absolute position, so the tree is shared and its edges are not.
+- **TACO** (Tang et al., "Efficient and Compact Spreadsheet Formula Graphs",
+  ICDE 2023). A fill's edges compressed into pattern records, a precedent
+  range, a dependent range and the offsets autofill makes (RR, RF, FR, FF
+  and a chain), found through an R-tree: 23.7 million edges to 1.2 million
+  over the Enron corpus and 179.8 million to 3.5 million over GitHub's
+  (Table II); dependents found up to 34,972 times faster than over the plain
+  graph (§VI); its build about twice as slow; no memory figure. Its
+  implementation keeps a dependent range one-dimensional, so a fill over a
+  rectangle keeps an edge a reference a column (read in its code).
+- **DataSpread** (Bendre et al., ICDE 2018). A sheet stored as row, column
+  or cell tables, or a hybrid of them, a formula beside each value; a row's
+  place found through a counted B+-tree, so an inserted row renumbers
+  nothing; formulas 1.3 to 3.4% of a web or Enron sheet's cells, 23% of an
+  academic one's (Table I).
+- **Anti-Freeze** (Bendre, Wattanawaroon, Mack, Chang and Parameswaran,
+  SIGMOD 2019). A cell's dependents kept as at most K ranges, false
+  positives allowed: on a sheet of 600,000 cells, dependents found in about
+  1 ms where they took 750; a cell being computed shown as such and never
+  stale, which the budgeted step's yield is here (`SD-34`).
+- **Formualizer** (0.12.0, at `932e31e3260`). Its claim, read in its own
+  files: "… memory after calculation | 897 MB | 45 MB | 20× less" for a
+  "1M-formula financial model" (`README.md`, line 97); "holds 45 MB of heap
+  (was 897 MB), and peaks at 195 MB during calculation (was 2.9 GB)"
+  (`CHANGELOG.md`, 0.10.0, line 233); its report: 44.5 MB of heap after the
+  calculation, 195 MB at the heap's peak, 678 MB of peak resident memory
+  (`benchmarks/0.10-vs-0.9.3.md`, lines 57 to 59). A fill is "one template
+  and one dependency node", its values in Apache Arrow columns; the model's
+  shape is not described. Its 45 bytes are the heap it holds; its heap's
+  peak is 195 bytes a formula, and a WebAssembly module, whose memory never
+  shrinks, pays the peak.
+- Briefly: OnlyOffice's groups and its save of 64-by-64 tiles; Univer's
+  cells as offsets from their anchor's tree; Quadratic's fill a code run
+  cloned a cell; Apache POI's dependent cell its master's text shifted;
+  Google Sheets' cap of 20 million cells and its WasmGC engine, its
+  representation unpublished.
+
+What the best of them share, and where each stops: the run owns its formula
+(all of them, but each keeps an object or a record a cell, 56 to 140 bytes,
+Formualizer's the smallest); values in typed contiguous columns
+(LibreOffice's blocks, IronCalc's rows of numbers, Formualizer's Arrow);
+dependencies by region and offset (TACO's patterns, a group's one listener
+for a range, Formualizer's family node, and `Reach` here since `KERNEL.20`);
+and a load that never expands a fill into cells, which every file format
+makes hard by writing a record a cell: OnlyOffice and Formualizer find the
+runs as they read, where LibreOffice and HyperFormula hold a token array or
+a list of dependencies a cell until their loads end. None keeps a previous
+frame's values, the twins being this engine's own; none but Formualizer
+publishes its peak. This item does the four, keeps no object, record or edge
+a cell for a fill, keeps a twin only where a formula reads it, and floors
+its peak.
+
+*Formualizer, measured* by the scoping's second agent in a scratch crate
+outside every repository, never a dependency: `formualizer-workbook` and
+`-eval` 0.12.0 from crates.io (its tag's commit `932e31e3`), release at
+opt-level 3, natively on the owner's machine, under a counting allocator,
+each time the best of three fresh processes. It built only with its
+published lockfile: a fresh resolve takes `zip` 7.4.0, under which 0.12.0
+does not compile. The claim's own path, an `.xlsx` read by its Calamine
+loader into an ephemeral workbook, each workload written with Excel's shared
+formulas; every value spot-checked against a sum computed by hand, all
+equal. Bytes a formula after its first calculation, held and at the peak:
+
+| workload | held | peak | load, first calculation |
+|---|---|---|---|
+| a million `=Sheet2!A1*2` down a column, its best case | 26 over its inputs' own (17 with no literal) | 192 | 2.69 s, 0.23 s |
+| Life 320 by 200, as the bench writes it (`Screen.last!A1:C3`) | 5,447 | 8,500 | 2.76 s, 0.034 s |
+| the same, the sheet's name quoted | 234 | 381 | 1.21 s, 0.028 s |
+| Life ×16, quoted | 184 | 339 | 24.0 s, 0.44 s |
+| Life ×16, as written | 5,357 | 8,416 | 73.4 s, 0.75 s |
+| Superposition, its twins' names quoted | 173.5 | 325 | 19.2 s, 0.33 s |
+| Superposition, as written | 1,990 | 4,716 | 49.3 s, 0.39 s |
+| Life ×16 through its cell-by-cell API, quoted | 700 | 5,849 | about 4 min |
+
+Its canonical spelling quotes a sheet's name holding a `.`, and a reference
+not spelled canonically turns its sharing off (read in its code,
+`authority_host.rs` and `formualizer-common`'s `address.rs`), so that every
+cell keeps a tree of its own, 5,109 bytes for one of Life's measured alone
+(90 nodes of about 57 bytes); this engine reads `Screen.last!` as written.
+Its shared formulas save nothing at its load: its loader moves and parses
+every cell's text, 487 MB of it for Superposition. Where its bytes go, read
+in its code at that commit: its values in Arrow columns of 32,768 rows, a
+kind tag a row and a formula's result in an overlay, about nine bytes; a
+formula one hash-consed tree a template, a family's cells members of it, a
+column's run of members one record; a vertex a flag byte and 20 bytes of
+position, sheet, value and edges, in pages of 1,024 made one span of 24
+bytes only where one column's run covers the page whole; no edge a cell, its
+dependencies a region's records, each reference a projection of its rows and
+columns; and each member keeps a row of its own literals (4 bytes, and 4 a
+literal), a 4-byte place in its schedule, and its dirty bits. Its best case,
+26 bytes, is the result's nine, the tag's one, the literal row's 9.3, the
+flag's one, the schedule's four and about two unattributed; Life's 32
+literals a cell are 133 of its 172 bytes net.
+
+*Working backward from 45 bytes.* Formualizer's 44.5 MB for a million
+formulas is, by the agent's reading (*inferred*), about 17 bytes a formula
+and four a literal over the model's inputs at nine or ten bytes each: its
+best case, each cell's result, tag, flag, schedule place and literals kept,
+the template read once; its 195 at the peak are its load's and its first
+calculation's temporaries. The representation that gives it holds a fill's
+formula once and a few words of bookkeeping a member. The one that beats it
+handily keeps none: a fill's literals in its shape, the same at every cell,
+which is why the cells are one shape here (`KERNEL.44`'s programs and
+`KERNEL.27`'s parts hold them once a shape already); its order, levels and
+runs in blocks; its dirty state a bit; so that a cell holds its value alone,
+nine bytes, and its last where a formula reads its twin. A formula cell
+whose twin no formula reads is then nine bytes and a few bits against
+Formualizer's best 17 to 26; Superposition 12 and Life ×16 18, each with the
+twin Formualizer does not hold; and the peak floored with them. On these
+fixtures today's machine already loads 28 and 39 times faster than
+Formualizer (0.68 and 0.62 s against 19.2 and 24.0, its from an `.xlsx` and
+this one's from rows, each shape parsed once where it parses each cell's
+text) and computes its first frame faster (177 to 211 ms and 173 to 190
+against 330 and 440).
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The machine's grid: a representation of its own, or the file model's
+   changed.* Recommended: the machine holds its grid in a representation of
+   its own, in `vla-lang`, beside `sheet::Workbook`, which stays the file
+   model: the writer's and the reader's in `frazaro-core`, the doors', and
+   `Calc`'s, all untouched. A sheet of the machine is its name and settings
+   (columns, rows, looks, visibility, gridlines, as `Sheet` holds them), its
+   fills, each a rectangle and a shape (decision 2), its formulas alone, its
+   values in a store by place (decisions 3 and 4), its formats and sentences
+   in ordered maps of the few cells that have them. `read_rows` builds it
+   from rows and makes no cell of a fill (decision 8), and
+   `Machine::workbook` makes a `Workbook` from it when a door or a test
+   asks, at the cost a cell of today's grid (decision 10). The record, the
+   plane, the census and the evaluator read either grid, a `Workbook` or the
+   machine's, through one reading of a grid's sheets and of a window's cells
+   in their order, crate-private, which both give: so each record is printed
+   by the code that prints it today, and `Projection::project` keeps its
+   signature for the doors. *Declined:* `sheet::Sheet` itself changed, fills
+   held as records for every crate (the writer, the reader, `diff`, `audit`
+   and the doors read `Sheet::cells` cell by cell throughout `frazaro-core`,
+   no one has asked for a file model's memory, and `KERNEL.32`'s road brings
+   the doors to the machine instead); the B-tree kept and made smaller, a
+   packed key and a content of sixteen bytes (about 60 bytes a cell at best,
+   every fill's cell still an entry made at the load).
+
+2. *A fill's holes: cut, or layered.* Recommended: cut. A sheet's fills
+   never overlap: a write into part of a fill takes the written rectangle
+   out of it and keeps the rest as at most four rectangles around it (the
+   rows above, the cells to its left and to its right, the rows below), each
+   the same fill, its shape, its anchor and its index, so a fill's cells
+   keep their texts as the record moves them; a fill written over whole is
+   gone. A write leaves the plan the one a load of the grid it leaves makes,
+   numbered and anchored as a load's (`KERNEL.34`), as today. *Declined:*
+   layered, a written cell standing over the fill beneath it (every read, a
+   view's walk and the plan asking two places for one cell, a fill's cells
+   found by subtraction at every view).
+
+3. *Values by place.* Recommended: each rows' sheet keeps every value its
+   cells hold, a value cell's and a formula's of this frame alike, in one
+   store by place over its extent; `values` by position, the frame's own
+   arrays of `KERNEL.31` and the shadow beside them, and a value cell's
+   content in the B-tree are that store. A store holds an array where its
+   cells stand close enough (`dense::limit`, four slots a cell, as today)
+   and an ordered map of its cells where they do not. A read of any rows'
+   cell is then an index, where a formula cell's was a position found in a
+   grid first; a reason is a kind beside its slot, so a sheet whose formula
+   holds one keeps its array (`KERNEL.31` took it away, `own_reasons`). A
+   view before a yielded frame completes shows the last complete frame, as
+   today: a formula cell's value read from its twin's store where one is
+   kept (decision 5), which holds exactly that frame's values, and from a
+   slot kept beside where none is, a hashed `u32` and a slot for each value
+   the yielded frame overwrote, about 29 bytes where `before` keeps 47; a
+   value cell from its own store, no write landing during a frame. The
+   census names the path a read takes, so a read of a cell of a sheet whose
+   store is an array becomes `slot` where it was `lookup`, and a range of
+   one `array` where it was `cells`: what the census reports of storage,
+   which the prompt allows, and no other word of it. Today's goldens name
+   `lookup` on about 316 lines of Frazaro's census goldens
+   (`scripts/recalc/shapes/`, 260 of them the lookups' two), 60 of Alonzo's
+   describe goldens and 47 of Buffet's, and `cells` on 66 of Frazaro's; each
+   such line is printed again, its read kinds alone moved. *Declined:*
+   values by position, as today (a read of a formula cell asks a positions
+   grid first, and a sheet read by a range keeps a second copy by place); a
+   store for the sheets `KERNEL.31` keeps arrays of and positions for the
+   rest (two homes for a value again, and the census words kept by keeping
+   the slower path).
+
+4. *A slot: eight bytes and a kind, or NaN-boxing.* Recommended: two arrays,
+   a number of eight bytes and a kind of one byte, `KERNEL.43`'s shadow made
+   the store itself: a slot's number where it holds one and 0 where it does
+   not, its kind one of empty, a number, a text, true, false, an error by
+   its kind, a reason, a formula with no value yet; a text's string, and a
+   reason's name, in a side table by slot, few by construction; a row's
+   count of slots holding no number beside, so a run reads a row of numbers
+   as one slice where the count is 0, as it does today. Nine bytes a slot,
+   against the 33 of a `Value` and its shadow. *Declined:* NaN-boxing, eight
+   bytes a slot (one byte saved, an eleventh): a slot's kind would live in a
+   NaN's bits, so no number kept may be a NaN, which the operators and the
+   lanes hold today by `finite` (`calc/eval.rs`, `arithmetic`;
+   `calc/vector.rs`, `numbers_mapped`) and no keep checks, a function of a
+   library above returning one being read as a text; the two arrays keep any
+   number's bits as they are, the kind in a byte; the 24-byte `Value` kept
+   (today's).
+
+5. *The twins.* Recommended: a twin keeps a store, its sheet's values as the
+   last complete frame left them, only where a formula reads it (a reader of
+   it in `Reach`, or a shape the plan does not follow, which `sliced` asks
+   today); a twin no formula reads keeps nothing, and a view of it, its
+   extent and its changes are read from its sheet's store, the cells written
+   since the last frame's end read as they stood before, which the write
+   keeps beside (a slot a cell written, at most the cells written between
+   two frames). No twin cell anywhere: `KERNEL.27`'s cells behind their
+   slots, `KERNEL.36`'s copy and walk through a twin's B-tree and the half
+   that chose between them, and the questions of `KERNEL.40` and
+   `KERNEL.41`, all go with the B-tree. A frame's end copies each changed
+   slot into its twin's store, at any share, and a twin made again is a copy
+   of a store. A twin stays a sheet to every reader: its name, its index,
+   `find_sheet`, `sheet_name`, `view` and its census row are today's.
+   *Declined:* every twin kept (Superposition's Decays and Readings, 4.7 MB
+   no formula reads); a twin's B-tree kept beside its store for its readers
+   as a sheet (today's, 74 bytes a cell).
+
+6. *The change lists.* Recommended: bitsets, a bit a slot of each sheet's
+   store for the cells a frame changed and a bit a slot of each twin's for
+   the twin cells a frame's end changed, each sheet's count beside
+   (`KERNEL.48`'s `changed_on`); the next frame's start and a window's
+   changes (`KERNEL.42`) walk the set bits, in the order of the cells; the
+   `alike` notes stay, at most 64. A bit a slot is an eighth of a byte where
+   the lists hold 12 bytes a cell. *Declined:* bounded lists, the next frame
+   computing every cell past them (a cliff: Life's steady frames change
+   11,290 formula cells at the median, `KERNEL.48`'s measure, so Life ×16
+   about 180,000); today's, room reserved for every formula cell and half
+   the cells at every load.
+
+7. *The plan: by fills and levels.* Recommended: the plan places nodes and
+   not cells. A node is a fill's rectangle, or a formula alone; each of its
+   shape's references swept over the node's offsets once, the rectangle it
+   reads found, and the nodes of that sheet it meets found by their
+   rectangles; an edge is a pair of nodes with the rectangle of the reading
+   node's cells that read the other, `$` holding a corner where it holds it.
+   Tarjan's components over the nodes; a node's cells' levels from its
+   edges' rectangles and the levels of the nodes they read, in blocks of a
+   shape, a sheet and a level each. A node that reads itself, or stands in a
+   component of more than one node, or whose shape the reach does not follow
+   (a defined name, a span of sheets, a text not read), is planned cell by
+   cell as today: its cells' edges found at each cell, so a chain's order
+   and a cycle's cells and its refusal are today's to the cell. The order is
+   then a list of blocks, a cell's position the cells of the blocks before
+   it and its rank in its own, the blocks of one shape, sheet and level
+   walked together row by row, so the order is today's cell for cell, its
+   runs, levels and cycles with it; a shape's cells reached by a changed
+   cell found through its blocks, where `Reach` asked a positions grid. No
+   `places`, no order of cells, no positions grid, no `shape_at`, no edge a
+   cell for a fill. The per-cell plan stays as the tests' reference: the
+   block plan's order, runs, levels, cycles and reach equal to it, over the
+   machine's generated grids and every fixture. *Declined:* the per-cell
+   plan made compact (`u32` ids, a position computed from a fill: every
+   cell's edges still found at the load, 258 ms and 52 MB of targets here,
+   and about 30 bytes a cell); TACO's compressed graph kept as the stored
+   graph (the plan needs an order and levels, which a pattern graph does not
+   hold, and `Reach` already reads a changed cell's readers by pattern).
+
+8. *The draft and the load.* Recommended: `read_rows` writes records: each
+   row's sheet, rectangle and line, a value or a formula's text; one write
+   per cell held by the rectangles' overlap, each sheet's records kept by
+   their first row and a cell written alone kept by place, so a rectangle is
+   checked against the rows it spans; a cell's line the record that covers
+   it. The draft answers an engine's reads between `read_rows` and
+   `Machine::new`: a sheet by name, made when new; a cell's content; the
+   cells of a sheet walked (a value range's each, a fill's each where a
+   caller asks); every formula's text once a record; a cell put or taken
+   out, counted (Alonzo's Clock and File cells); a cell's line. No cell is
+   made for a fill, no line kept a cell, no entry hashed a cell. *Declined:*
+   the draft kept a `Workbook` (the 121 ms and 137 MB a load makes before a
+   machine); records with the one write per cell held by a hashed set of
+   cells (a cell's entry for every cell a range claims).
+
+9. *The cell's name.* Recommended: `CellId` stays `(usize, u32, u32)` in
+   every signature, the machine's and the evaluator's; storage holds no
+   `CellId` a cell, a slot being a `u32` index into its sheet's store, and
+   the WebAssembly target's 32-bit indices are its own. *Declined:* a `u32`
+   `CellId` (every signature of the crate and its callers broken, for no
+   byte once no structure holds a cell's id; a 32-bit name cannot name a
+   cell of a sheet of 17 billion).
+
+10. *The API and the version.* Recommended: one break, released once as
+    `vla-lang` 0.11.0 after the item's last slice, `frazaro-core` and the
+    door moved with it in each slice's commit:
+    - `Draft`: its four public fields become decision 8's methods;
+    - `Env::model() -> &Workbook` becomes the narrow reads the evaluator
+      asks of a model (a sheet's index by name, its name, the count of
+      sheets, the cells of an area walked), which `Calc` answers from its
+      `Workbook`; Alonzo's one read of the Input sheet's cells through it
+      becomes a read of the machine's;
+    - `Values::computed(id) -> Option<&Computed>` answers an owned
+      `Computed`, a slot holding no `Computed` to lend; frazaro-core's
+      `ooxml.rs` and `reflect/calc.rs`, the recalc runner and Alonzo's tests
+      and runners change a pattern each;
+    - `Machine::workbook(&mut self) -> &Workbook` answers a `Workbook` made
+      whole when asked, owned, at today's cost a cell, for a door and a
+      test;
+    - `Values::lags` and `Values::content` (`KERNEL.27`) go, no twin cell
+      standing behind a slot;
+    - `Shapes`'s per-cell reads (`order`, `place`) answer from blocks, an
+      iterator where a slice was; its `replace` and `plan` over a `Workbook`
+      become the machine's own, crate-private; `of` and `census` over a
+      `Workbook` stay for the doors (frazaro-core's `reflect/calc.rs`).
+      Every other signature Alonzo uses keeps its meaning: `load`, `new`,
+      `write`, `step`, `view` and its four projections, `formulas`,
+      `census`, `changed`, `changed_on`, `reached`, `frame`, `sheets`,
+      `sheet_name`, `find_sheet`, `resume_at`, `in_progress` and `loaded`.
+      *The alternative that breaks nothing*, priced, for the owner to weigh:
+      decisions 3 to 7 inside the machine with the rows' B-tree kept (1, 2
+      and 8 declined), the fills found by a walk of its cells, `computed`
+      lending from an arena of the values asked that the next step or write
+      empties: about 150 bytes a formula cell held and 190 at its peak (the
+      B-tree's 137, and the draft's lines at the load), a load of about 150
+      ms (`read_rows`, the extents and the walk), 0.10.2 (*derived* from the
+      measured shares above). Three times better than today and ten times
+      worse than the break: above Formualizer's held figure, and level with
+      its peak.
+
+11. *What the language owes a save.* A save as the records stand prints each
+    formula cell's text again: 521 MB for Superposition, the Field 346, the
+    Decays 141, the Readings 33 (`CART.12`'s measurement; the save's shape
+    is Alonzo's `ENGINE.5`, the record the language's). Recommended: a fifth
+    projection, `fills`, the grid's record with each fill's formula rows
+    printed once, a `formula` row over each rectangle of the fill (decision
+    2) with its text moved to the rectangle's first cell, which the loader
+    reads already as a fill; every other row as the grid prints it, the
+    formulas' `value` rows among them. A save of the board then holds the
+    source's rows, about 650, and its 798,731 `value` rows, about 25 to 30
+    MB, and loads in tens of milliseconds, the value rows its weight; the
+    free law, a grid loaded from its `fills` record views the same as the
+    grid, holds it. Its own slice, the last; `view-projection-unknown`
+    reworded in both catalogues, the reference's by the owner's pass.
+    *Declined:* the `grid` projection printing fills so (every view golden
+    and every host that reads formula rows moved); nothing in this item (a
+    save of a large board stays the size of its cells' texts until a later
+    item); a range's values printed as one row (a new row, the loader's and
+    the page's to agree on: under *Found*).
+
+12. *The floors.* Recommended: two fixtures of rows the machine loads as
+    they are, no build and no workbook between (Life ×16's workbook would
+    hold its million formulas one a cell, `PORT.13`): Superposition, copied
+    from Alonzo at `640c0a3` with its license line, its manifest left out
+    and the rows of Alonzo's own sheets it reads added (the Clock, the File,
+    the Input sheet's labels), and Life at 1280 by 800, the pass's output on
+    the size ladder's sixteenth rung, under `scripts/recalc/bench/`, each
+    pinned by its SHA-256 as the programs are. The runner measures each
+    under a counting allocator in a binary of its own, so that no timed
+    frame of the five fixtures pays for the count: the bytes a formula cell
+    held after the load and after two frames, and the peak over them; and
+    the load, timed as the other floors are. Memory is held as ceilings that
+    never rise, exact (the bytes asked of the allocator are the same on
+    every run and every 64-bit machine), so the runner's check mode holds
+    them on every push in CI as well as in the owner's pasted run; the load
+    as a floor, formula cells loaded a second, the owner's run, with the
+    house's margin of 15%, never going down. Every existing floor holds.
+    *Declined:* ceilings over the wasm module's memory here (Alonzo's page
+    measures it, and Frazaro has no wasm runner of the machine); memory
+    counted inside the existing runner (an atomic add at every allocation of
+    every timed frame).
+
+13. *The slices, each a commit at the owner's word, in order.* Recommended:
+    - first, the instrument and the floors at today's numbers (decision 12):
+      nothing of the machine touched;
+    - second, values by place, a slot, the twins and the change lists
+      (decisions 3, 4, 5 and 6), the grid's B-tree still holding the cells:
+      the evaluator's hot paths move here, held to every recalc floor;
+    - third, the grid and the draft (decisions 1, 2 and 8): the rows' B-tree
+      and the draft's lines go;
+    - fourth, the plan by fills and levels (decision 7);
+    - fifth, the `fills` record (decision 11), if approved. The release,
+      0.11.0, after the fourth or the fifth at the owner's word (decision
+      10); Alonzo's pin moves after it. The break begins at the second slice
+      (`computed`), so a release between the second and the fourth would be
+      a minor of its own and a second break for Alonzo: the three are best
+      built one after another. `KERNEL.8`'s second slice, in a peer's hands
+      in this tree as this is written, lands first and this item's first
+      slice builds on it; `KERNEL.8`'s later slices wait for this item's
+      fourth or build on it (*Beside it*).
+
+14. *The targets, the item's closing condition.* Recommended: on both
+    fixtures, natively, at most 20 bytes a formula cell held after the load
+    and two frames and at most 24 at the peak over them; a load of at most
+    20 ms each; a first frame no slower than today's; every recalc floor and
+    Alonzo's frame floors held. Against the best published figures,
+    Formualizer's 45 bytes a formula held and 195 at its heap's peak, those
+    are at least two and eight times fewer; against Formualizer measured on
+    these two fixtures, 173.5 and 184 held and 325 and 339 at its peak,
+    about nine and fourteen times; against today's, twenty times.
+
+*Prediction,* written before any build, each with the term it rests on. The
+bytes are *derived* from the shares above (each measured share taken out,
+each new structure's size and count put in); what remains after the last
+slice is a residual this probe measured only as a difference, about 3.5
+bytes a formula cell of Superposition (its 44 shapes' parses and programs,
+the run's buffers, the strings), and is priced so:
+
+| after | Superposition, held | its peak | Life ×16, held | its peak | load, Superposition / Life ×16 |
+|---|---|---|---|---|---|
+| today (measured) | 401.5 B | 424.0 | 397.4 | 471.4 | 0.68 / 0.62 s |
+| slice 1, the floors | the same | the same | the same | the same | the same |
+| slice 2, values by place | 230 to 240 | 410 to 420 | 260 to 270 | 415 to 425 | 0.62 / 0.57 s |
+| slice 3, the grid | 95 to 105 | 240 to 250 | 120 to 130 | 225 to 240 | 0.49 / 0.41 s |
+| slice 4, the plan | 12 to 16 | 14 to 18 | 18 to 20 | 19 to 22 | 3 to 8 / 2 to 6 ms |
+
+- Slice 2 takes out `values` (32), the twins' B-trees (74), the twins' and
+  the own arrays (60 for Superposition, 33 for Life) and the change lists
+  (12), and puts in a store of nine bytes a slot for each rows' sheet (9.0 a
+  formula cell on both) and Field's twin's (3.0; Life's Screen's 9.0), and a
+  few bits. The first frame's twin made again by a `collect` goes (18 MB,
+  Life ×16's 75), but the peak stays the load's, inside the plan (415 bytes
+  a formula cell at side 512: the draft's B-tree and lines, `places`, every
+  cell's edges and the order's temporaries at once), until slices 3 and 4
+  take its terms out.
+- Slice 3 takes out the rows' B-tree (137) and, at the load's peak, the
+  draft's lines (33 at side 512, a SipHash entry a cell in 2^20 buckets; 51
+  for Life ×16's 2^21).
+- Slice 4 takes out `places` (54; Life ×16's 84, its 1,019,844 cells
+  crossing to 2^21 buckets), the order (21; Life's 16), the positions grid
+  and `shape_at` (8), and the plan's temporaries at the load. Life ×16 is
+  then its two stores, 18.4 bytes, nearly all of it; Superposition its
+  stores (12.0) and the residual (3.5); each peak its held bytes and a run's
+  buffers.
+- The load before slice 4: slice 2 takes the walk's and the own arrays' 51
+  ms to a store's allocation; slice 3 takes `read_rows`' 121 ms (158 for
+  Life ×16) and the extents' 13; the plan's per-cell phases, 465 ms of
+  Superposition's, stay until slice 4.
+- The load after slice 4, the residual priced term by term: the reader (0.8
+  ms for Superposition's 30 KB, measured), the rows into records (well under
+  a millisecond, 650 rows), the 44 shapes parsed, lowered and sized (1.71 to
+  1.78 ms over three runs, measured alone inside today's placing; Life's one
+  shape 0.18), the plan over its nodes (Superposition's fills in the dozens
+  and 13 cells alone, well under a millisecond, predicted) and the stores
+  allocated and zeroed (10 MB, Life ×16's 18, a millisecond or two):
+  Superposition 3 to 8 ms, Life ×16 2 to 6. Alonzo's `Cartridge::load` adds
+  its own checks over the draft, which decision 8 makes a record's each.
+- The first frame: its evaluation unmoved or faster (78 ms of
+  Superposition's and 43 of Life ×16's, measured; a read of a twin nine
+  bytes where it was 33), its end a copy of each changed slot into a kept
+  twin's store at 4 to 9 ns a cell (`KERNEL.36`'s copy into an array, a
+  third of the walk's 12 to 27) where it made every twin's B-tree again (99
+  and 130 ms): Superposition's first frame 80 to 95 ms where it is 177 to
+  211, Life ×16's 45 to 55 where it is 173 to 190.
+- Steady frames: within the recalc floors' noise or faster, a read of a
+  twin's slot and of a frame's own value an index into nine bytes where it
+  was a position's lookup and a 24-byte clone; Life's whole frame, 1.9 ms
+  natively, 1.6 to 1.9. Alonzo's frame floors the same, every frame equal to
+  the bit.
+- The browser: Superposition's module memory, 263 MB on the player after the
+  owner's replay and 315 on `?frames=1` today, about 15 to 25 MB over the
+  module's own after slice 4 (Alonzo's to measure).
+- The census: only read kinds move, at slice 2 (decision 3), and only on
+  sheets whose stores are arrays.
+- Size: `vla-lang` the largest change since `KERNEL.22`: `machine/mod.rs`'s
+  storage, writes and frame's end rewritten (about 1,500 of its 3,100 lines
+  of code), `calc/shape.rs`'s plan and `calc/reach.rs`'s positions (about
+  1,000), the store (`dense.rs`, about 400), the evaluator's reads of the
+  model (about 200), the view's walk (about 200), their tests moved with
+  them (about 2,000 of the machine's 8,270 lines of tests touched); the
+  core's changes a pattern a caller; `~weeks`.
+
+*The oracle,* each slice's:
+
+- Every golden byte for byte: the view goldens (`check_view_golden`, the
+  language's `testdata/view/`), the recalc goldens (`check_recalc_golden`,
+  `-Impl`), the build goldens, the formats golden, the expand and formula
+  syntax goldens, reflect's, diff's and audit's, the treaty's oracles
+  (`prove.ps1 -Impl`); the census goldens (`check_shapes_golden`) and
+  Alonzo's and Buffet's describe goldens byte for byte but their read kinds,
+  each moved word counted and listed in the slice's record, on a sheet whose
+  store is an array.
+- The crate's twelve laws (`tests/laws.rs`) and the machine's tests over its
+  generated grids: a frame computing what changed is the frame computed
+  whole, a run is its cells one by one, a program is `Ctx`, a write between
+  frames is a load of the grid it leaves, a budget never changes a frame,
+  the plane is the walk; each test of a mode the item keeps (`by_runs`,
+  `lowered`, `incremental`, `indexed`) kept, each of a mode it retires
+  (`lazy` and `copies` with the twins' cells, `arrays` with values by
+  position) retired in its slice's record with the law that now holds its
+  claim.
+- Slice 2: a kept twin's store equal, slot for slot, to its sheet's values
+  at the last frame's end; a twin no formula reads viewed equal, row for
+  row, to the same twin kept (two machines over each generated grid, one
+  keeping every twin), with writes between frames and yields; a yielded
+  frame's view the last complete frame's.
+- Slice 3: the free law, a grid loaded from its own record views the same; a
+  grid after any write equal to a load of the rows it leaves (`KERNEL.34`,
+  `as_a_load`); fills cut by writes equal, cell for cell, to the cells the
+  same writes leave in a grid of cells the tests keep as their reference;
+  the draft's refusals by their lines as today (one write per cell, a cycle,
+  a function not held, a construct not read), over the refusals' tests and
+  the strangers' texts (`tests/strangers.rs`).
+- Slice 4: the plan by blocks equal to the per-cell plan, kept for the
+  tests: the order as a sequence of cells, its runs, levels, cycles, reach
+  and first refusal, over the generated grids, every fixture, Alonzo's
+  cartridges and the bench programs; chains, cycles and defined names
+  through the fallback, by name.
+- Memory: the runner's ceilings, each slice's numbers recorded beside its
+  prediction; the peak counted over the load and two frames.
+- Speed: every recalc floor within its margin (the owner's run); Alonzo over
+  the build by a path, its engine tests, `frames --check` every frame equal
+  to the bit and its floors' rows printed; the first frames timed.
+- The wasm modules importing nothing and exporting what they did
+  (`check_core_imports`, `check_wasm_exports`).
+- `cargo test --workspace`, clippy `-D warnings`, `run_checks.ps1` whole,
+  the language's package tested from its tarball; mutants named in each
+  slice, each caught by a named test.
+
+*The hand test, the owner's,* each slice: Superposition played over the
+build in Alonzo's page and its replay run (`ENGINE.16`'s case), the first
+frame and the page's memory read beside today's; the bench run and pasted
+(`tools/bench_recalc.ps1`, the floors' block).
+
+**What Alonzo must change** at its pin's move to the release, and Buffet
+after it (read at Alonzo's `640c0a3` and Buffet's `HEAD`):
+
+1. `Cartridge::load`'s checks over the draft (`engine/src/cartridge.rs`:
+   `check_devices`, `check_palette`, `check_commands`, `make_own_sheets` and
+   `put`) read decision 8's methods where they read `draft.workbook`'s cells
+   and `draft.lines`; its scan for the volatile functions reads each
+   formula's text once a record, where it visits every cell of every sheet
+   (Superposition's 798,731) to read a fill's master's text once.
+2. `release()`'s read of the Input sheet's cells through `Env::model`
+   becomes the machine's read of a cell.
+3. Its tests' and its runners' reads of `computed` take an owned `Computed`
+   (`cartridge.rs`'s tests, `examples/frames.rs`, `examples/play.rs`), and
+   its test of the formulas reads an owned `workbook()`.
+4. Its describe goldens printed again (`ALONZO_BLESS=1 cargo test
+   describe`), the diff held to read kinds alone.
+5. Its frame floors: the Memory ceilings lowered from a run over the
+   release, every fixture's falling (Superposition's 338,676,723 bytes and
+   Life ×16's 480,770,537 to about 15 and 20 million); the Load floors
+   raised; every frame equal to the bit.
+6. Its page: the module's memory read on the player and on `?frames=1`.
+7. If decision 11 is approved: its save (`ENGINE.5`) prints the `fills`
+   record.
+
+Buffet: its pin to the release and its describe golden printed again the
+same way; its oracle reads `Viewed`, `Step`, `LineRefusal` and the reader
+alone, none of which moves.
+
+**What it touches.** `vla-lang`: `src/machine/mod.rs` and `load.rs` (the
+grid, the draft, the stores, the writes, the frame's end), `src/calc/`
+(`shape.rs` and `reach.rs` the plan by blocks, `dense.rs` the store,
+`eval.rs`, `vector.rs`, `program.rs`, `criteria.rs` and `index.rs` the reads
+of a model, `census.rs` the read kinds, `mod.rs` the `Values` trait and
+`Calc`'s reads), `src/view.rs` (the record read from the grid, and the
+`fills` projection), the tests, the README's machine paragraph.
+`frazaro-core`: `reflect/calc.rs`, `sheet/ooxml.rs`, `excel.rs` and
+`examples/recalc.rs` (an owned `Computed`), a second runner beside it for
+memory and the load. `scripts/recalc/bench/`, two fixtures;
+`tools/bench_recalc.ps1` and `tools/check_recalc_floors.ps1`; the census
+goldens. `docs/RELEASES.md`'s note, the roadmap's line, this record,
+`docs/ID_REGISTRY.md`. The reference (`src/`): `view-projection-unknown`'s
+words in its catalogue, if decision 11 is approved, by the owner's pass and
+`check_data_exports`. No crate added, no dependency, no folder moved.
+
+**Beside it.**
+- `KERNEL.40` and `KERNEL.41`, open, ask how a twin's cells are kept and
+  copied; after slice 2 no twin holds a cell. The owner's call to close both
+  as superseded the day slice 2 lands.
+- `KERNEL.46`, open, a write that empties a cell: an emptied slot, or a cell
+  cut from a fill by decision 2; simpler after slice 3, its decisions its
+  own.
+- `KERNEL.45`, open, is the marks' and moves with nothing here.
+- `KERNEL.8`'s slices read the model through the evaluator, as this item
+  changes it; whichever lands second moves over the other's reads. Its
+  second slice was being built in this tree as this scoping was written
+  (seventeen files of `vla-lang` and the core uncommitted, `machine/mod.rs`
+  and `calc/` among them, none read by this scoping's measurement, whose
+  copy of the crate is `HEAD`'s, file by file). Recommended: that slice
+  first, then this item's four, then `KERNEL.8`'s third to sixth over the
+  new storage, each of them adding code over what this item replaces; the
+  order is the owner's.
+- `KERNEL.32`, the doors computing through the machine: `Calc` keeps a text
+  and a value hashed a formula cell, the doors' memory, untouched here;
+  after this item the machine is the cheaper evaluator of a large file by
+  far, which is that item's case.
+- Alonzo's `SPEC.md` §10 keeps the cap, `CELLS`, at 1,048,576 cells beside
+  the twins; this item moves no limit (*Found*).
+
+**Found,** read, not minted:
+- *The cap.* Alonzo's `SPEC.md` §10 states 1,048,576 cells beside the twins,
+  "a raise is asked of Frazaro when a cartridge needs one, with that slope
+  in hand", the slope then 460 bytes a formula cell natively and 377 of
+  module memory. After this item it is about 18 where a twin is read and 9
+  where none is: sixteen million formula cells in about 290 MB. The gap
+  assessment of 2026-10-18 named the cap, and the owner's central model
+  holds three million used cells. A stated limit in `vla-lang` and in
+  Alonzo's page, the owner's to raise in an item of its own.
+- *A range's values as one row.* After decision 11 a save of Superposition
+  is its 798,731 `value` rows and little else; a row printing a rectangle's
+  values in its order would make it kilobytes. A row for the loader and
+  every host to agree on.
+- *Narrow stores.* A store whose numbers are all small whole numbers (Life's
+  0 and 1; a board's codes) could hold one or four bytes a slot, widened
+  when a value outgrows them: Life ×16 at about three bytes a formula cell.
+  Past this item's targets.
+- *A save's value rows hashed at the load.* `Draft::values` keys each
+  formula's `value` row by its cell, a hashed entry a cell of a save; after
+  decision 8 they are records, one a row, as the rows are, until the row of
+  the second finding prints a rectangle's.
+
+*Approved 2026-10-21* at the owner's word, "KERNEL.8 is built and committed.
+Recommendations approved; proceed with implementing KERNEL.49 as scoped.":
+the fourteen decisions as recommended. HEAD `72e6fb8`, `KERNEL.8` closed in
+six slices, six commits ahead of origin; beside this item's three documents
+the tree holds peers' uncommitted mints and scopings, `KERNEL.50`,
+`KERNEL.53`, `KERNEL.54` and `KERNEL.55`, one of them a bullet of
+`KERNEL.54`'s set into this scoping's *Beside it*, kept as its session wrote
+it. The build begun the same day, the roadmap's line 🟡, the first slice
+first.
+
+*The addendum,* relayed with the approval from Alonzo's `CART.9` scoping
+(Naught, a bench of logic gates, the engine's first irregular graph; its
+entry in Alonzo's `docs/REARVIEW.md`, its probe's table and its *Found* 1 to
+6, read), measured natively over `vla-lang` 0.10.1: the same netlists,
+ripple adders to 65,536 bits and array multipliers to 256 by 256, laid in
+the same cells by fill and with every gate its own shape. Four points, each
+weighed here and recommended:
+
+1. *Decision 7 and the irregular grid.* Where every formula is a shape of
+   its own, every node of decision 7 is a formula alone, and its blocks save
+   nothing: a node and its block cost about 60 bytes a cell, where `places`,
+   the order and the positions cost 83 today. The shape dominates, about 2.2
+   KB each (its `Shape`, its parse, its program, its R1C1 key and its
+   reach's patterns): `CART.9` measured 2,451 to 2,740 bytes a formula cell
+   held with every gate its own shape against 399 to 505 by fill; a load of
+   8.5 to 11 µs a cell against 0.4 to 0.9; a cell evaluated and its readers
+   marked in 0.4 and 0.4 µs at 16,384 bits against 0.02 and 0.05, both
+   growing as the shapes leave the caches (0.17 and 0.10 at 1,024 bits), so
+   that a steady frame's premium grows from 2.1 times at 5,000 gates to 8.7
+   at 328,000. This item takes out what such a cell shares with a fill's
+   (the grid's B-tree, the twins', the values, the arrays and the lists),
+   about 300 of its bytes, and leaves the shape's: Naught's shuffled bench
+   predicted at about 2,100 to 2,450 bytes a formula cell, its load and its
+   frames within their noise. *Recommended:* the irregular grid's ceiling
+   left unbounded by this item, on purpose, its targets being a fill's; held
+   from rising by the ceilings that weigh it (point 2); bounded by the item
+   point 3 names.
+
+2. *Decision 12 and a third fixture.* *Recommended, amended:* the memory
+   runner weighs every bench program as well as the two fixtures of rows, a
+   ceiling of the bytes held and one of the peak's each, exact and held in
+   CI: the six the door builds today, among them `chain`, a fill reading
+   itself, which decision 7 plans cell by cell, so that its ceiling holds
+   that fallback's cost; and `KERNEL.54`'s netlist when it lands (an adder
+   of 4,096 bits, its gates shuffled with their coincidences, 20,480
+   formulas, nearly every gate a shape of its own), the irregular grid's
+   ceiling. The load is floored on the two fixtures of rows alone, as
+   approved. Naught's own `naught-f` and `naught-s` (a 4,096-bit adder and a
+   64 by 64 multiplier, 44,544 gates) stay Alonzo's: its frame floors hold
+   their heap as ceilings natively and in wasm today (23,358,979 and
+   135,862,777 bytes natively, about 442 and 2,570 bytes a cell), and those
+   fall at its pin's move. *Declined:* Naught's generator copied into
+   Frazaro (a third netlist beside `KERNEL.54`'s, from a crate Frazaro's
+   never depend on); the shuffled bench committed (megabytes, which Alonzo's
+   floors build in memory and never commit).
+
+3. *Shapes by structure:* one lowered program for every cell of one operator
+   structure, each cell's operands its own, a gate's type and its inputs as
+   a netlist simulator keeps them, the irregular grid's analog of a fill.
+   *Recommended:* under *Found*, for an item after 0.11.0, and not inside
+   decision 7. It changes what a shape is (a structure with each cell's
+   operands, where a shape is a text moved by an offset), the runs' and the
+   programs' reads (an operand an index, where a reference is an offset) and
+   the census's rows; this item's targets do not need it, and its storage by
+   place is what such an item would stand on.
+
+4. *`KERNEL.54`, minted separately, scoped after `KERNEL.50` in this file:*
+   a change's cost set by the change, three costs that grow with the grid: a
+   far-apart shape's readers filed by its pieces (tiles of 32 by 32;
+   `CART.9`'s quadratic, 25.8 s a frame at 65,536 bits against 279 ms), a
+   write's extent grown by its own cells, and a frame passing from one
+   marked cell to the next through each shape's stretches of the order.
+   Named here so that the two do not both fix them:
+   - *the pieces* are the reach's, and `KERNEL.54`'s alone: decision 7 keeps
+     `Reach`'s readers as patterns over what the reach files, a shape's
+     stand today and its pieces once `KERNEL.54` lands, and files no reader
+     by node; the far-apart quadratic stands after this item unless
+     `KERNEL.54` lands;
+   - *the stretches* are decision 7's blocks, a shape's cells at one place
+     of the order: whichever lands second takes the other's for its own;
+   - *the extent and the step* (its decisions 4 and 5): a written sheet's
+     extent grown by the write's cells, which decision 1's grid would keep
+     from its records, and the step from mark to mark, which decision 6's
+     bitsets walk: the first to land holds the rule, and the second keeps
+     it. *Recommended order:* this item's first slice now, the instrument
+     and the floors, touching no code of `KERNEL.54`'s; then, at the owner's
+     word, `KERNEL.54` before this item's second slice, as its scoping
+     recommends (days, its quadratic met by a game today); this item's
+     second to fourth slices then built on its pieces and stretches.
+     *Declined:* this item's slices first, and `KERNEL.54` built over them
+     weeks later.
+
+*Beside it, since the scoping:* `KERNEL.50`, a format's appearance, grows
+`Style` and the record's `format` row, a table this item keeps by index, so
+none of its storage moves; `KERNEL.53` reads a cell's formula text, which
+after the third slice the grid answers from a fill's shape moved to the
+cell, as the record moves it; `KERNEL.55` lays a formula's values into the
+cells beside it, which decision 3's stores hold by place.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

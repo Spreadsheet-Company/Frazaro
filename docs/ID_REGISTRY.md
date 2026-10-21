@@ -278,6 +278,13 @@ edit), for a frame's own count, the formula cells whose values the last
 complete frame changed, read in constant time on `vla-lang`'s `Machine`, so
 that a host steps again while a cascade still moves. `KERNEL.49` is next
 free.
+`KERNEL.49` was minted 2026-10-19 at the owner's word, after Alonzo's
+`CART.12` hand test (a board of 798,731 formula cells holding 401 bytes a
+formula cell after its first frame and loading in 0.68 s), for the grid
+held as what a person wrote: a fill one record, every value by place in
+nine bytes, a twin kept only where a formula reads it, and the plan by
+fills and levels, so that a formula cell costs bytes and a load its rows.
+`KERNEL.50` is next free.
 `KERNEL.51` was minted 2026-10-20 at the owner's word, from `KERNEL.8`'s
 fifth slice (Excel 365's first save of its criteria fixture, which cut a
 formula's literals of sixteen digits to fifteen), for such a literal read
