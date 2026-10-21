@@ -27,12 +27,21 @@ a peer session's headless Chrome beside the first runs). The runner also watches
 computation timed beside every frame, and prints no rows when it moved
 more than 10%.
 
+SINCE KERNEL.49's first slice it runs a second runner the same way,
+core/examples/memory.rs, which weighs every bench program and the two
+fixtures of rows (scripts/recalc/bench/superposition.vla and life-x16.vla)
+under a counting allocator and times their loads: its rows join the block,
+the fixtures of rows' loads join the floors (formulas loaded a second, less
+the margin), and each fixture's bytes held and at the peak are the
+ceilings' new entry, exactly, a ceiling kept from the entry before where it
+stands lower (a heavier run is a finding, never a raised ceiling).
+
 WHAT IT DOES:
-  1. builds the runner, unless -NoBuild: cargo build --release -p
-     frazaro-core --example recalc;
-  2. runs it, opted out and on the performance cores, and reads its six
-     rows;
-  3. prints the block: the date, the environment, the six rows, and the
+  1. builds the two runners, unless -NoBuild: cargo build --release -p
+     frazaro-core --example recalc --example memory;
+  2. runs each, opted out and on the performance cores, and reads its rows,
+     the recalc runner's six and the memory runner's eight;
+  3. prints the block: the date, the environment, the rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
      down to three figures, or the entry before it where that stands
@@ -60,6 +69,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $margin = 0.15
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria')
+# The memory runner's fixtures, and those whose loads are floored (KERNEL.49).
+$loadFloored = @('superposition', 'life-x16')
+$weighed = @($fixtures) + @($loadFloored)
 
 function Find-Cargo {
     $c = Get-Command cargo -ErrorAction SilentlyContinue
@@ -140,13 +152,15 @@ function Get-Floor([double]$x) {
     return [long]([math]::Floor($y / $p) * $p)
 }
 
-# The floor history's entries as tools/check_recalc_floors.ps1 holds them, one a line.
-function Get-HistoryEntries([string]$path) {
+# A history's entries as tools/check_recalc_floors.ps1 holds them, one a line:
+# the floors', or by its name the ceilings' (KERNEL.49).
+function Get-HistoryEntries([string]$path, [string]$name = 'floorHistory') {
     $entries = New-Object System.Collections.Generic.List[string]
     if (-not (Test-Path -LiteralPath $path)) { return $entries.ToArray() }
     $inside = $false
+    $opening = '^\$' + $name + ' = @\(\s*$'
     foreach ($line in [System.IO.File]::ReadAllLines($path)) {
-        if (-not $inside) { if ($line -match '^\$floorHistory = @\(\s*$') { $inside = $true }; continue }
+        if (-not $inside) { if ($line -match $opening) { $inside = $true }; continue }
         if ($line -match '^\)\s*$') { break }
         $t = $line.Trim().TrimEnd(',').Trim()
         if ($t -ne '' -and -not $t.StartsWith('#')) { $entries.Add($t) }
@@ -156,46 +170,71 @@ function Get-HistoryEntries([string]$path) {
 
 function Get-Field([string]$row, [string]$name) { $m = [regex]::Match($row, "\b$name = '?([^;']+)'?"); if ($m.Success) { return $m.Groups[1].Value.Trim() }; return '' }
 
-$runnerExe = Join-Path $repoRoot ('target/release/examples/recalc' + $(if ($onWindows) { '.exe' } else { '' }))
-Write-Output '=== THE RECALCULATION FLOORS, THE NATIVE HALF: THE MACHINE ON THE FIXTURES (KERNEL.20) ==='
+$exe = if ($onWindows) { '.exe' } else { '' }
+$runnerExe = Join-Path $repoRoot ('target/release/examples/recalc' + $exe)
+$memoryExe = Join-Path $repoRoot ('target/release/examples/memory' + $exe)
+Write-Output '=== THE RECALCULATION FLOORS, THE NATIVE HALF: THE MACHINE ON THE FIXTURES (KERNEL.20, KERNEL.49) ==='
 if (-not $NoBuild) {
     $cargo = Find-Cargo
-    if ($cargo -eq '') { Write-Output 'FAIL: no cargo on PATH or in ~/.cargo/bin; build the runner, then run with -NoBuild'; exit 1 }
-    Write-Output '  building the runner...'
+    if ($cargo -eq '') { Write-Output 'FAIL: no cargo on PATH or in ~/.cargo/bin; build the runners, then run with -NoBuild'; exit 1 }
+    Write-Output '  building the runners...'
     Push-Location $repoRoot
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { $out = & $cargo build --release -p frazaro-core --example recalc 2>&1 | Out-String } finally { $ErrorActionPreference = $old; Pop-Location }
-    if ($LASTEXITCODE -ne 0) { Write-Output $out; Write-Output 'FAIL: the runner did not build'; exit 1 }
+    try { $out = & $cargo build --release -p frazaro-core --example recalc --example memory 2>&1 | Out-String } finally { $ErrorActionPreference = $old; Pop-Location }
+    if ($LASTEXITCODE -ne 0) { Write-Output $out; Write-Output 'FAIL: the runners did not build'; exit 1 }
 }
-if (-not (Test-Path -LiteralPath $runnerExe)) { Write-Output "FAIL: $runnerExe is not built; run without -NoBuild"; exit 1 }
+foreach ($built in @($runnerExe, $memoryExe)) {
+    if (-not (Test-Path -LiteralPath $built)) { Write-Output "FAIL: $built is not built; run without -NoBuild"; exit 1 }
+}
 
 $cores = Get-PerformanceCores
 $self = [System.Diagnostics.Process]::GetCurrentProcess()
 $ownAffinity = $self.ProcessorAffinity
 $coresWord = if ($cores.Mask -ne 0) { ', on the performance cores' } else { '' }
-Write-Output ("  the runner, its process opted out of power throttling{0}..." -f $coresWord)
-$psi = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName = $runnerExe
-$psi.UseShellExecute = $false
-$psi.RedirectStandardOutput = $true
-$psi.WorkingDirectory = $repoRoot
-if ($cores.Mask -ne 0) { $self.ProcessorAffinity = [IntPtr]$cores.Mask }
-try { $proc = [System.Diagnostics.Process]::Start($psi) } finally { $self.ProcessorAffinity = $ownAffinity }
-$optedOut = $true
-if ($onWindows) { try { $optedOut = [RecalcPowerThrottling]::OptOut($proc.Handle) } catch { $optedOut = $false } }
-$high = $true
-try { $proc.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::High } catch { $high = $false }
-$pinned = $true
-if ($cores.Mask -ne 0) { try { $pinned = ([long]$proc.ProcessorAffinity -eq $cores.Mask) } catch { $pinned = $false } }
-$text = $proc.StandardOutput.ReadToEnd()
-$proc.WaitForExit()
+
+# A runner started as every timed run is: opted out of power throttling, on
+# the performance cores, at high priority; its words, and whether each held.
+function Invoke-Pinned([string]$path) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $path
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.WorkingDirectory = $repoRoot
+    if ($cores.Mask -ne 0) { $self.ProcessorAffinity = [IntPtr]$cores.Mask }
+    try { $proc = [System.Diagnostics.Process]::Start($psi) } finally { $self.ProcessorAffinity = $ownAffinity }
+    $optedOut = $true
+    if ($onWindows) { try { $optedOut = [RecalcPowerThrottling]::OptOut($proc.Handle) } catch { $optedOut = $false } }
+    $high = $true
+    try { $proc.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::High } catch { $high = $false }
+    $pinned = $true
+    if ($cores.Mask -ne 0) { try { $pinned = ([long]$proc.ProcessorAffinity -eq $cores.Mask) } catch { $pinned = $false } }
+    $text = $proc.StandardOutput.ReadToEnd()
+    $proc.WaitForExit()
+    return @{ Text = $text; Exit = $proc.ExitCode; OptedOut = $optedOut; High = $high; Pinned = $pinned }
+}
+
+Write-Output ("  the recalc runner, its process opted out of power throttling{0}..." -f $coresWord)
+$recalc = Invoke-Pinned $runnerExe
+$text = $recalc.Text
 $rows = @(($text -split "`r?`n") | Where-Object { $_ -match "^\s+@\{ Half = 'native'" } | ForEach-Object { $_.Trim() })
 if ($rows.Count -ne $fixtures.Count) {
     Write-Output $text
-    Write-Output ("FAIL: the runner printed {0} row(s), not {1} (exit {2}); its words are above" -f $rows.Count, $fixtures.Count, $proc.ExitCode)
+    Write-Output ("FAIL: the runner printed {0} row(s), not {1} (exit {2}); its words are above" -f $rows.Count, $fixtures.Count, $recalc.Exit)
     exit 1
 }
+Write-Output ("  the memory runner, the same way{0}..." -f $coresWord)
+$memory = Invoke-Pinned $memoryExe
+$memoryText = $memory.Text
+$memoryRows = @(($memoryText -split "`r?`n") | Where-Object { $_ -match "^\s+@\{ Half = 'memory'" } | ForEach-Object { $_.Trim() })
+if ($memoryRows.Count -ne $weighed.Count) {
+    Write-Output $memoryText
+    Write-Output ("FAIL: the memory runner printed {0} row(s), not {1} (exit {2}); its words are above" -f $memoryRows.Count, $weighed.Count, $memory.Exit)
+    exit 1
+}
+$optedOut = $recalc.OptedOut -and $memory.OptedOut
+$high = $recalc.High -and $memory.High
+$pinned = $recalc.Pinned -and $memory.Pinned
 
 # The environment line, as the check reads it.
 $cpu = 'unknown processor'
@@ -233,24 +272,64 @@ foreach ($r in $rows) {
     $floors.Add(("'{0} whole' = {1}" -f $f, (Get-KeptFloor "$f whole" (Get-Floor ([double](Get-Field $r 'WholePerSecond'))))))
     $floors.Add(("'{0} edit' = {1}" -f $f, (Get-KeptFloor "$f edit" (Get-Floor ([double](Get-Field $r 'EditsPerSecond'))))))
 }
+# The fixtures of rows' loads, formulas loaded a second (KERNEL.49).
+foreach ($r in $memoryRows) {
+    $f = Get-Field $r 'Fixture'
+    if ($loadFloored -notcontains $f) { continue }
+    $floors.Add(("'{0} load' = {1}" -f $f, (Get-KeptFloor "$f load" (Get-Floor ([double](Get-Field $r 'LoadPerSecond'))))))
+}
 $entry = ("@{{ Date = '{0}'; Reason = ''; Floors = @{{ {1} }} }}" -f $today, ($floors -join '; '))
 $history = $committed + @($entry)
+
+# The ceiling history with this run's entry added last (KERNEL.49): each
+# ceiling the run's bytes exactly, or the entry before it where that stands
+# lower, a heavier run being a finding to record and never a raised ceiling.
+$committedCeilings = @(Get-HistoryEntries (Join-Path $repoRoot 'tools/check_recalc_floors.ps1') 'ceilingHistory')
+$beforeCeilings = @{}
+if ($committedCeilings.Count -gt 0) {
+    foreach ($m in [regex]::Matches($committedCeilings[$committedCeilings.Count - 1], "'([^']+)' = (\d+)")) { $beforeCeilings[$m.Groups[1].Value] = [long]$m.Groups[2].Value }
+}
+$keptCeilings = New-Object System.Collections.Generic.List[string]
+function Get-KeptCeiling([string]$key, [long]$bytes) {
+    if ($beforeCeilings.ContainsKey($key) -and $beforeCeilings[$key] -lt $bytes) {
+        $keptCeilings.Add(("'{0}' {1}, this run's {2}" -f $key, $beforeCeilings[$key], $bytes))
+        return $beforeCeilings[$key]
+    }
+    return $bytes
+}
+$ceilings = New-Object System.Collections.Generic.List[string]
+foreach ($r in $memoryRows) {
+    $f = Get-Field $r 'Fixture'
+    $ceilings.Add(("'{0} held' = {1}" -f $f, (Get-KeptCeiling "$f held" ([long](Get-Field $r 'Held')))))
+    $ceilings.Add(("'{0} peak' = {1}" -f $f, (Get-KeptCeiling "$f peak" ([long](Get-Field $r 'Peak')))))
+}
+$ceilingEntry = ("@{{ Date = '{0}'; Reason = ''; Ceilings = @{{ {1} }} }}" -f $today, ($ceilings -join '; '))
+$ceilingHistory = $committedCeilings + @($ceilingEntry)
 
 $block = New-Object System.Collections.Generic.List[string]
 $block.Add(("`$baselineDate = '{0}'" -f $today))
 $block.Add(("`$baselineNative = '{0}'" -f ($environment -replace "'", "''")))
 $block.Add('    # the native rows:')
 foreach ($r in $rows) { $block.Add('    ' + $r) }
+$block.Add('    # the memory rows (KERNEL.49):')
+foreach ($r in $memoryRows) { $block.Add('    ' + $r) }
 $block.Add('# the floor history, with this run''s entry last:')
 $block.Add('$floorHistory = @(')
 for ($i = 0; $i -lt $history.Count; $i++) { $block.Add('    ' + $history[$i] + $(if ($i -lt $history.Count - 1) { ',' } else { '' })) }
+$block.Add(')')
+$block.Add('# the ceiling history, with this run''s entry last:')
+$block.Add('$ceilingHistory = @(')
+for ($i = 0; $i -lt $ceilingHistory.Count; $i++) { $block.Add('    ' + $ceilingHistory[$i] + $(if ($i -lt $ceilingHistory.Count - 1) { ',' } else { '' })) }
 $block.Add(')')
 $out = ($block -join "`r`n") + "`r`n"
 try { [System.IO.File]::WriteAllText((Join-Path $repoRoot 'target/bench_recalc.txt'), $out, (New-Object System.Text.UTF8Encoding($false))) } catch { }
 Write-Output ''
 Write-Output ($text.TrimEnd())
 Write-Output ''
+Write-Output ($memoryText.TrimEnd())
+Write-Output ''
 if ($kept.Count -gt 0) { Write-Output ('  floors kept from the entry before, this run under them: ' + ($kept -join '; ')) }
+if ($keptCeilings.Count -gt 0) { Write-Output ('  ceilings kept from the entry before, this run over them (a finding to record): ' + ($keptCeilings -join '; ')) }
 Write-Output 'Paste this block, and Excel''s half''s, into the reply (also in target\bench_recalc.txt):'
 Write-Output $out
 exit 0

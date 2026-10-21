@@ -109,11 +109,11 @@ jobs:
         run: |
           pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Impl target/debug/frazaro
           pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Control
-      - name: the machine's values held on the fixtures the recalculation floors were measured on (KERNEL.20)
+      - name: the machine's values held on the fixtures the recalculation floors were measured on (KERNEL.20), and its bytes under their ceilings (KERNEL.49)
         shell: pwsh
         run: |
-          cargo build --release -p frazaro-core --example recalc
-          pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Runner target/release/examples/recalc
+          cargo build --release -p frazaro-core --example recalc --example memory
+          pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Runner target/release/examples/recalc -MemoryRunner target/release/examples/memory
           pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Control
       - name: build the web page from the wasm core (PORT.6, slice 6h)
         shell: pwsh

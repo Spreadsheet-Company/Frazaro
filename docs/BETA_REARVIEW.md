@@ -33033,6 +33033,89 @@ after the third slice the grid answers from a fill's shape moved to the
 cell, as the record moves it; `KERNEL.55` lays a formula's values into the
 cells beside it, which decision 3's stores hold by place.
 
+*The first slice built 2026-10-21*, decision 12 as the addendum's second
+point amends it, nothing of the machine touched:
+
+- `scripts/recalc/bench/superposition.vla` and `life-x16.vla`, 0BSD as they
+  are in Alonzo, under a table of their own in `REUSE.toml`: Alonzo's
+  Superposition at `640c0a3` (its committed pass output, which the pass
+  reproduces byte for byte at side 512) and Life on the size ladder's
+  sixteenth rung (the pass's output of `life.source.vla` with the ladder's
+  definition at 1280 by 800), each less its manifest, with the rows of the
+  engine's own sheets that Alonzo's `Cartridge::load` writes into its draft
+  written last (the Clock's frame 1 and seed 1, the File's name and size,
+  the Input sheet's labels and blanks). Each was held by a scratch generator
+  to Alonzo's own load of the cartridge: the same 798,731 and 1,019,844
+  formulas in 44 and 1 shapes, the same 16 and 6 sheets in the same order,
+  and after the first frame every one of the cartridge's sheets alike in its
+  `values` record, byte for byte.
+- `core/examples/memory.rs`, the memory runner: the six bench programs built
+  through the door and the two fixtures of rows, each text's lines made LF
+  first, so that a checkout's line ends move no byte; each loaded into the
+  machine under Excel's library inside a counting global allocator and
+  stepped twice, its bytes held after the load and after the frames and its
+  peak between counted in a pass of their own, and its load timed in three
+  rounds beside the recalc runner's clock; `--check` prints the bytes alone.
+  The bytes are exact: the scoping's probe gave the same numbers to the byte
+  over three runs, and this runner's check mode and the bench gave the same
+  as each other.
+- `core/examples/bench/common.rs`: the recalc runner's clock, its
+  hand-written Life, its statistics and its rows for the machine, moved
+  whole, 171 lines, by a script that asserted each range's edges before it
+  cut, so that the two runners share them; `recalc.rs` names the module
+  where they stood, and its check mode's eight rows are the same after the
+  move as before it.
+- `tools/check_recalc_floors.ps1`: the memory half, eight rows, each source
+  pinned (the programs' SHA-256 as before, the two fixtures of rows' beside
+  them); the ceilings' history, exact, never raised without a reason
+  written, appended to and never pasted over, held against the last commit's
+  copy as the floors' history is; two load floors in the floors' history;
+  and the memory runner's check mode on every push, each fixture's bytes at
+  most its latest ceilings and its formulas the baseline's, bytes under a
+  ceiling printed. Its control gains eighteen cases, eleven of a baseline,
+  two of the ceilings' history read from text and five fake memory runners,
+  every clean case passing and every mutant failing under Windows PowerShell
+  5.1.
+- `tools/bench_recalc.ps1`: both runners built and started the same way,
+  opted out of power throttling, on the performance cores, at high priority;
+  the block gains the memory rows, the two load floors and the ceilings'
+  entry, a ceiling kept from the entry before where that stands lower.
+- `.github/workflows/checks.yml`: the core job builds the memory runner
+  beside the recalc runner and checks both.
+
+*Measured,* this session's run of the bench (its bytes exact, its times a
+busy machine's and not the baseline), bytes a formula held after the load,
+after two frames, and at the peak:
+
+| fixture | formulas | after the load | after two frames | at the peak | the load |
+|---|---|---|---|---|---|
+| column | 60,000 | 410.4 | 485.0 | 1,048.5 | 269.5 ms |
+| chain | 39,999 | 322.7 | 397.8 | 936.2 | 161.6 ms |
+| sums | 28,014 | 348.9 | 424.4 | 1,134.0 | 134.4 ms |
+| life | 62,964 | 811.2 | 887.6 | 4,506.0 | 1,655.7 ms |
+| lookups | 140,000 | 456.1 | 555.5 | 1,111.1 | 763.9 ms |
+| criteria | 61,370 | 364.3 | 472.2 | 846.1 | 239.3 ms |
+| superposition | 798,731 | 327.1 | 401.5 | 424.0 | 639.0 ms |
+| life-x16 | 1,019,844 | 323.1 | 397.4 | 471.4 | 654.9 ms |
+
+The check, pasted with that run's block into a scratch copy, passed whole in
+0.9 minutes, both runners' check modes among it; clippy with warnings denied
+and rustfmt over the workspace clean.
+
+*Found in the build:* the Life program, whose file holds one formula text a
+cell (`PORT.13`), holds 887.6 bytes a formula after two frames and peaks at
+4,506.0 while it loads, against 397.4 and 471.4 for the same rule as a fill:
+each cell's own text, kept, and its parse at the load. Slice 3's grid is to
+keep a plain formula's own text only where it is not its shape's text moved
+to the cell (decision 1's grid, decision 8's records), or such a file keeps
+paying it. And the peaks of the door's programs stand two to five times
+their held bytes, the load's plan at its widest, which decision 7 is to take
+out.
+
+*The hand test, the owner's:* the bench on a quiet machine and its block
+pasted, so that the floors and the ceilings are the owner's run; the check
+then whole.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
