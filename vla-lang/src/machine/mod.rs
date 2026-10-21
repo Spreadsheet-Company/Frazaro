@@ -3504,7 +3504,7 @@ mod tests {
                 "calc-function-not-computed",
             ),
             (
-                "(formula \"S\" \"C3\" \"={1,2}\")\n",
+                "(formula \"S\" \"C3\" \"=A1#\")\n",
                 1,
                 "calc-construct-not-read",
             ),
@@ -6157,14 +6157,14 @@ mod tests {
         // and one no formula reads, refused by nothing.
         let e = refused(concat!(
             "(cell \"S\" \"A1\" 1)\n",
-            "(name \"Pair\" \"{1,2}\")\n",
+            "(name \"Pair\" \"A1#\")\n",
             "(formula \"S\" \"B1\" \"=Pair*2\")\n",
         ));
         assert_eq!(e.refusal.id, "calc-construct-not-read");
         assert!(e.refusal.text.contains("S!B1"), "{}", e.refusal.text);
         let m = load(concat!(
             "(cell \"S\" \"A1\" 1)\n",
-            "(name \"Pair\" \"{1,2}\")\n",
+            "(name \"Pair\" \"A1#\")\n",
             "(name \"Rate\" \"S!$A$1\")\n",
             "(formula \"S\" \"B1\" \"=Rate*2\")\n",
         ));
@@ -6176,9 +6176,11 @@ mod tests {
         // KERNEL.8, slice b: a draft made by hand, as from a reader's
         // workbook, may hold a dynamic-array formula: the machine asks the
         // kind of the cell it computes, as `Calc` does, so that the formula's
-        // range where one value is wanted is an array, labelled as written,
-        // and the same text written legacy is met at its cell, on one shape;
-        // `SINGLE` meets the range in either kind.
+        // range where one value is wanted is an array, its answer of many a
+        // spill, labelled at its cell (slice f; slice b labelled the range as
+        // written), each kind on a shape of its own; and the same text
+        // written legacy is met at its cell; `SINGLE` meets the range in
+        // either kind.
         let text = concat!(
             "(cell \"S\" \"A1:A6\" 3)\n",
             "(formula \"S\" \"B3\" \"=$A$1:$A$6*2\")\n",
@@ -6186,11 +6188,13 @@ mod tests {
             "(formula \"S\" \"C3\" \"=$A$1:$A$6*2\")\n",
             "(formula \"S\" \"C7\" \"=$A$1:$A$6*2\")\n",
             "(formula \"S\" \"D3\" \"=SINGLE($A$1:$A$6)*2\")\n",
+            "(formula \"S\" \"E3\" \"=SUM(ABS($A$1:$A$6))\")\n",
+            "(formula \"S\" \"F3\" \"=INDEX($A$1:$B$6,2,0)\")\n",
         );
         let mut draft = read_rows(&read_forms(text).unwrap()).unwrap();
         let s = draft.workbook.find_sheet("S").unwrap();
         let sheet = &mut draft.workbook.sheets[s];
-        for (row, col) in [(3, 3), (7, 3), (3, 4)] {
+        for (row, col) in [(3, 3), (7, 3), (3, 4), (3, 5), (3, 6)] {
             let Some(Content::Formula(body)) =
                 sheet.cells.get(&(row, col)).map(|c| c.content.clone())
             else {
@@ -6199,7 +6203,7 @@ mod tests {
             let content = Content::DynamicFormula(body);
             sheet.set(row, col, Cell { content, style: 0 });
         }
-        let cells = ["B3", "B7", "C3", "C7", "D3"];
+        let cells = ["B3", "B7", "C3", "C7", "D3", "E3", "F3"];
         let library = labelling();
         let calc: Vec<String> = {
             let calc = crate::calc::Calc::run(&draft.workbook, &library);
@@ -6224,17 +6228,115 @@ mod tests {
             assert_eq!(
                 at(&m, "S", addr),
                 Some(Computed::NotComputed(Reason::Construct(
-                    "$A$1:$A$6".to_string()
+                    "a spill".to_string()
                 ))),
-                "dynamic {addr}: an array, labelled"
+                "dynamic {addr}: an array, a spill labelled"
             );
         }
         assert_eq!(number(&m, "S", "D3"), 6.0, "SINGLE in a dynamic formula");
+        // A function of one value over a range in a dynamic formula lifts
+        // over the range read whole, where a program lowered for a legacy
+        // formula would meet it at its cell (KERNEL.8, slice f).
+        assert_eq!(number(&m, "S", "E3"), 18.0, "dynamic: ABS over A1:A6");
+        // `INDEX`'s whole row read as a dynamic formula answers a range of
+        // two cells, labelled by its text as slice b labels one (a program
+        // lowered for a legacy formula leaves it to `Ctx` by its guard).
+        assert_eq!(
+            at(&m, "S", "F3"),
+            Some(Computed::NotComputed(Reason::Construct(
+                "$A$1:$B$6".to_string()
+            ))),
+            "dynamic: INDEX's row 2 of A1:B6"
+        );
         let machine: Vec<String> = cells
             .iter()
             .map(|addr| format!("{:?}", at(&m, "S", addr)))
             .collect();
         assert_eq!(machine, calc, "the machine is Calc, cell for cell");
+    }
+
+    #[test]
+    fn a_grid_holding_arrays_computes_each_cell_by_ctx_as_calc_does() {
+        // KERNEL.8, slice f: a shape whose parse holds an array (a constant,
+        // `:` between expressions, an array function, an array parameter
+        // given an expression) is computed at each of its cells by `Ctx`,
+        // a run's among them, its program never lowered; every cell as
+        // `Calc` computes it, at the load and after a write a range's reach
+        // and an array parameter's references follow.
+        let text = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"A2\" 2)\n",
+            "(cell \"S\" \"A3\" 3)\n",
+            "(cell \"S\" \"A4\" 4)\n",
+            "(cell \"S\" \"A5\" 5)\n",
+            "(cell \"S\" \"A6\" 6)\n",
+            "(formula \"S\" \"B1:B6\" \"=SUMPRODUCT($A$1:$A$6*(ROW($A$1:$A$6)<=ROW()))\")\n",
+            "(formula \"S\" \"C1\" \"=SUM({1,2;3,4})\")\n",
+            "(formula \"S\" \"C2\" \"=SUM(A1:INDEX(A1:A6,3))\")\n",
+            "(formula \"S\" \"C3\" \"=INDEX(SORT(A1:A6,1,-1),1)\")\n",
+            "(formula \"S\" \"C4\" \"=ROWS(FILTER(A1:A6,A1:A6>2))\")\n",
+            "(formula \"S\" \"C5\" \"={10,20}+C1\")\n",
+            "(formula \"S\" \"C6\" \"=SUM(INDEX(A1:A6,2):A4)*2\")\n",
+            // Runs whose cells each hold an array, a constant's and an
+            // array function's, which no lane holds whole.
+            "(formula \"S\" \"D1:D6\" \"=SUM({1,2}*A1)\")\n",
+            "(formula \"S\" \"E1:E6\" \"=SUM(SEQUENCE(2))*A1\")\n",
+        );
+        let cells = [
+            "B1", "B2", "B3", "B4", "B5", "B6", "C1", "C2", "C3", "C4", "C5", "C6", "D1", "D6",
+            "E1", "E6",
+        ];
+        let mut m = load(text);
+        let held = |m: &mut Machine| {
+            assert!(m.step(0).done);
+            let library = labelling();
+            let book = m.workbook().clone();
+            let calc = crate::calc::Calc::run(&book, &library);
+            let s = book.find_sheet("S").unwrap();
+            for addr in cells {
+                let r = parse_a1_range(addr).unwrap();
+                assert_eq!(
+                    at(m, "S", addr),
+                    calc.computed((s, r.top, r.left)).cloned(),
+                    "{addr}: the machine is Calc"
+                );
+            }
+        };
+        held(&mut m);
+        assert_eq!(number(&m, "S", "B6"), 21.0, "a running sum by arrays");
+        assert_eq!(number(&m, "S", "C1"), 10.0);
+        assert_eq!(number(&m, "S", "C2"), 6.0, "A1:A3");
+        assert_eq!(number(&m, "S", "C3"), 6.0);
+        assert_eq!(number(&m, "S", "C4"), 4.0);
+        assert_eq!(number(&m, "S", "C5"), 20.0, "the first value of {{20,30}}");
+        assert_eq!(number(&m, "S", "C6"), 18.0, "A2:A4 doubled");
+        assert_eq!(number(&m, "S", "D6"), 18.0, "{{1,2}} times A6, summed");
+        assert_eq!(number(&m, "S", "E6"), 18.0, "SEQUENCE(2) summed, times A6");
+        m.write("(cell \"S\" \"A3\" 30)").unwrap();
+        held(&mut m);
+        assert_eq!(number(&m, "S", "B6"), 48.0);
+        assert_eq!(number(&m, "S", "C2"), 33.0, "the range's reach follows A3");
+        assert_eq!(number(&m, "S", "C3"), 30.0);
+        assert_eq!(number(&m, "S", "C6"), 72.0);
+        // A range whose ends move apart, one held by `$` and one not, is
+        // bounded at its shape's first cell alone; its other cells are
+        // labelled, since their reach is not the first one's moved.
+        let m = load(concat!(
+            "(cell \"S\" \"A1:C9\" 1)\n",
+            "(formula \"S\" \"E1:E3\" \"=SUM($A$1:INDEX(C1:C3,2))\")\n",
+        ));
+        let mut m = m;
+        assert!(m.step(0).done);
+        assert_eq!(number(&m, "S", "E1"), 6.0, "A1:C2 at the first cell");
+        for addr in ["E2", "E3"] {
+            assert_eq!(
+                at(&m, "S", addr),
+                Some(Computed::NotComputed(Reason::Construct(
+                    "a range whose ends move apart".to_string()
+                ))),
+                "{addr}"
+            );
+        }
     }
 
     #[test]
@@ -8167,6 +8269,18 @@ mod tests {
                 (Expr::Neg(x), Expr::Neg(y))
                 | (Expr::Pos(x), Expr::Pos(y))
                 | (Expr::Percent(x), Expr::Percent(y)) => same(x, y, d),
+                // A range's ends moved as references are, and its reach with
+                // them where it moves as they do (KERNEL.8, slice f).
+                (Expr::Range(x), Expr::Range(y)) => {
+                    same(&x.left, &y.left, d)
+                        && same(&x.right, &y.right, d)
+                        && match (&x.reach, &y.reach) {
+                            (Some(p), Some(q)) if x.rigid => {
+                                p.moved(d.0, d.1) == Some((q.top, q.left, q.bottom, q.right))
+                            }
+                            _ => true,
+                        }
+                }
                 _ => a == b,
             }
         }

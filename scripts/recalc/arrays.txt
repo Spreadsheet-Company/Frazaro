@@ -1,0 +1,256 @@
+# The arrays' fixture (KERNEL.8, slice f): a Data sheet of numbers in A1:A6 (unsorted, two alike), texts in B1:B5
+# in two cases above an empty B6, numbers in C1:C6, a mixed column in D (a number, a text, a truth value, an empty
+# cell, zero and a negative), a matrix of three rows and two columns in E1:F3 and a column of two in G1:G2, an error
+# and a number in H1:H2, and 0.3 beside 0.1+0.2 in I1:I2; and a Functions sheet of one formula a rule from row 10:
+# array constants and the lift of an operator and of a value parameter over them, in legacy formulas;
+# SUMPRODUCT, ROWS and COLUMNS; SEQUENCE, FILTER, SORT, SORTBY, UNIQUE, TRANSPOSE and MMULT; the shapers
+# CHOOSECOLS, CHOOSEROWS, TAKE, DROP, HSTACK, VSTACK, TOCOL, TOROW, WRAPROWS, WRAPCOLS and EXPAND; a range read
+# whole in a dynamic formula (one calling an array function, as the build writes it); the lookups over arrays; `:`
+# between expressions; empty cells in arrays, and the edges Excel's documentation is silent on. Two formulas in D1
+# and G1 spill, room left beside them. Built by frazaro into arrays.xlsx (each value it computes held). The owner
+# types three legacy array formulas into K1:K3 with Ctrl+Shift+Enter in Excel and saves it as arrays_saved.xlsx.
+
+Work on sheet Data.
+Put 3 into cell A1.
+Put 1 into cell A2.
+Put 4 into cell A3.
+Put 1 into cell A4.
+Put 5 into cell A5.
+Put 9 into cell A6.
+Put "pear" into cell B1.
+Put "Apple" into cell B2.
+Put "fig" into cell B3.
+Put "apple" into cell B4.
+Put "Date" into cell B5.
+Put 10 into cell C1.
+Put 20 into cell C2.
+Put 30 into cell C3.
+Put 40 into cell C4.
+Put 50 into cell C5.
+Put 60 into cell C6.
+Put 2 into cell D1.
+Put "x" into cell D2.
+Put formula "=TRUE" into cell D3.
+Put 0 into cell D5.
+Put -1 into cell D6.
+Put 1 into cell E1.
+Put 2 into cell F1.
+Put 3 into cell E2.
+Put 4 into cell F2.
+Put 5 into cell E3.
+Put 6 into cell F3.
+Put 7 into cell G1.
+Put 8 into cell G2.
+Put formula "=1/0" into cell H1.
+Put 7 into cell H2.
+Put 0.3 into cell I1.
+Put formula "=0.1+0.2" into cell I2.
+
+Work on sheet Functions.
+Put formula "=SEQUENCE(2,2)" into cell D1.
+Put formula "=FILTER(Data!A1:A6,Data!A1:A6>4)" into cell G1.
+Put formula "=SUM({1,2;3,4})" into cell A10.
+Put formula "=SUM({1,""2"",TRUE})" into cell A11.
+Put formula "=COUNTA({1,""a"",TRUE,#N/A})" into cell A12.
+Put formula "=COUNT({1,""2"",TRUE})" into cell A13.
+Put formula "=AVERAGE({1,2,3,4})" into cell A14.
+Put formula "=MAX({-1,-5;3,0})" into cell A15.
+Put formula "=AND({TRUE,1})" into cell A16.
+Put formula "=OR({FALSE,0})" into cell A17.
+Put formula "={1,2,3}" into cell A18.
+Put formula "={-1,2}*2" into cell A19.
+Put formula "=SUM({1,2,3}*{4,5,6})" into cell A20.
+Put formula "=SUM({1,2,3}+{10;20})" into cell A21.
+Put formula "=SUM({1,2,3}+{10,20})" into cell A22.
+Put formula "=SUM(LEN({""a"",""bc"",""def""}))" into cell A23.
+Put formula "=SUM(IF({TRUE,FALSE,TRUE},{1,2,3},{10,20,30}))" into cell A24.
+Put formula "=SUM(IF({TRUE,FALSE,TRUE},{1,2},0))" into cell A25.
+Put formula "=SUM(IF({FALSE,FALSE,FALSE},{1,2},5))" into cell A26.
+Put formula "=SUM(CHOOSE({1,2},10,20))" into cell A27.
+Put formula "=SUM(IFERROR({1,#N/A,3},0))" into cell A28.
+Put formula "=SUM(IFERROR({1,2,3},{10,20}))" into cell A29.
+Put formula "=SUM(ISNUMBER({1,""a"",TRUE})*1)" into cell A30.
+Put formula "=SUM(COUNTIF(Data!A1:A6,{1,3}))" into cell A31.
+Put formula "=SUM(SUMIF(Data!A1:A6,{1,5},Data!C1:C6))" into cell A32.
+Put formula "=SUM(VLOOKUP(3,Data!A1:C6,{1,3},FALSE))" into cell A33.
+Put formula "=MATCH(4,{3,1,4},0)" into cell A34.
+Put formula "=SUM(-{1,2})" into cell A35.
+Put formula "=SUM({50,150}%)" into cell A36.
+Put formula "=SUM(({1,2,3}>1)*1)" into cell A37.
+Put formula "=SUMPRODUCT({1,2},{3,4})" into cell A38.
+Put formula "=SUMPRODUCT(Data!A1:A6,Data!C1:C6)" into cell A39.
+Put formula "=SUMPRODUCT(Data!A1:A6*Data!C1:C6)" into cell A40.
+Put formula "=SUMPRODUCT((Data!A1:A6>2)*Data!C1:C6)" into cell A41.
+Put formula "=SUMPRODUCT(--(Data!A1:A6>2))" into cell A42.
+Put formula "=SUMPRODUCT((Data!A1:A6>2)*1,Data!C1:C6)" into cell A43.
+Put formula "=SUMPRODUCT(Data!A1:A6,Data!C1:C5)" into cell A44.
+Put formula "=SUMPRODUCT({1,""a"",TRUE},{1,1,1})" into cell A45.
+Put formula "=SUMPRODUCT(Data!D1:D6)" into cell A46.
+Put formula "=SUMPRODUCT({1,2},{3,#N/A})" into cell A47.
+Put formula "=SUMPRODUCT(ROW(Data!A1:A6)*Data!A1:A6)" into cell A48.
+Put formula "=SUMPRODUCT(LEN(Data!B1:B6))" into cell A49.
+Put formula "=SUMPRODUCT(5)" into cell A50.
+Put formula "=SUMPRODUCT(""5"")" into cell A51.
+Put formula "=ROWS({1,2;3,4;5,6})" into cell A52.
+Put formula "=COLUMNS({1,2;3,4;5,6})" into cell A53.
+Put formula "=ROWS(Data!A1:C6)" into cell A54.
+Put formula "=COLUMNS(Data!A1:C6)" into cell A55.
+Put formula "=ROWS(5)" into cell A56.
+Put formula "=ROWS(Data!A1:A6*1)" into cell A57.
+Put formula "=SUM(Data!A1:A6*Data!C1:C6)" into cell A58.
+Put formula "=SUM(ROW(Data!A1:A6))" into cell A59.
+Put formula "=SUM(SEQUENCE(4))" into cell A60.
+Put formula "=SUM(SEQUENCE(2,3))" into cell A61.
+Put formula "=SUM(SEQUENCE(3,1,10,5))" into cell A62.
+Put formula "=SUM(SEQUENCE(5,1,0,0.1))" into cell A63.
+Put formula "=SEQUENCE(0)" into cell A64.
+Put formula "=SEQUENCE(-1)" into cell A65.
+Put formula "=SUM(SEQUENCE(2.9))" into cell A66.
+Put formula "=SEQUENCE(1,0)" into cell A67.
+Put formula "=SUM(SEQUENCE(,3))" into cell A68.
+Put formula "=INDEX(SEQUENCE(3,3),2,3)" into cell A69.
+Put formula "=INDEX(SEQUENCE(2,2)*10,2,2)" into cell A70.
+Put formula "=SUM(SEQUENCE(3)*{1;2;3})" into cell A71.
+Put formula "=SUM(FILTER(Data!C1:C6,Data!A1:A6>2))" into cell A72.
+Put formula "=ROWS(FILTER(Data!A1:A6,Data!A1:A6=1))" into cell A73.
+Put formula "=FILTER(Data!A1:A6,Data!A1:A6>100)" into cell A74.
+Put formula "=FILTER(Data!A1:A6,Data!A1:A6>100,""none"")" into cell A75.
+Put formula "=FILTER(Data!A1:A6,Data!A1:A6>100,0)" into cell A76.
+Put formula "=SUM(FILTER(Data!E1:F3,{TRUE,FALSE}))" into cell A77.
+Put formula "=FILTER(Data!A1:A6,Data!A1:A5>1)" into cell A78.
+Put formula "=SUM(FILTER(Data!A1:A6,(Data!A1:A6>1)*(Data!A1:A6<5)))" into cell A79.
+Put formula "=ROWS(FILTER(Data!A1:A6,Data!C1:C6))" into cell A80.
+Put formula "=FILTER(Data!A1:A6,Data!B1:B6)" into cell A81.
+Put formula "=COUNTA(FILTER(Data!B1:B6,Data!A1:A6>0))" into cell A82.
+Put formula "=SUM(ISBLANK(FILTER(Data!B1:B6,Data!A1:A6>0))*1)" into cell A83.
+Put formula "=TEXTJOIN("","",FALSE,FILTER(Data!B1:B6,Data!A1:A6>0))" into cell A84.
+Put formula "=INDEX(SORT(Data!A1:A6),1)" into cell A85.
+Put formula "=INDEX(SORT(Data!A1:A6),6)" into cell A86.
+Put formula "=INDEX(SORT(Data!A1:A6,1,-1),1)" into cell A87.
+Put formula "=INDEX(SORT(Data!B1:B5),1)" into cell A88.
+Put formula "=INDEX(SORT(Data!B1:B5),2)" into cell A89.
+Put formula "=INDEX(SORT(Data!B1:B6),6)" into cell A90.
+Put formula "=INDEX(SORT(Data!E1:F3,2,-1),1,1)" into cell A91.
+Put formula "=INDEX(SORT(Data!E1:F3,1,1,TRUE),1,1)" into cell A92.
+Put formula "=INDEX(SORT({3,1,2},1,1,TRUE),1)" into cell A93.
+Put formula "=INDEX(SORT({""b"";""A"";""a"";""B""}),1)" into cell A94.
+Put formula "=INDEX(SORT({2;""a"";TRUE;1}),3)" into cell A95.
+Put formula "=INDEX(SORT({2;""a"";TRUE;1}),4)" into cell A96.
+Put formula "=INDEX(SORT({2;""a"";TRUE;1},1,-1),1)" into cell A97.
+Put formula "=INDEX(SORT({3;1;2},1,0),1)" into cell A98.
+Put formula "=INDEX(SORT({3;1;2},2),1)" into cell A99.
+Put formula "=INDEX(SORT(Data!E1:F3,{2,1},{-1,1}),1,2)" into cell A100.
+Put formula "=INDEX(SORTBY(Data!B1:B5,Data!A1:A5),1)" into cell A101.
+Put formula "=INDEX(SORTBY(Data!B1:B5,Data!A1:A5,-1),1)" into cell A102.
+Put formula "=INDEX(SORTBY(Data!C1:C6,Data!A1:A6,1,Data!C1:C6,-1),1)" into cell A103.
+Put formula "=SORTBY(Data!A1:A6,Data!A1:A5)" into cell A104.
+Put formula "=TEXTJOIN("","",TRUE,SORT(Data!B1:B5))" into cell A105.
+Put formula "=ROWS(UNIQUE(Data!A1:A6))" into cell A106.
+Put formula "=ROWS(UNIQUE(Data!A1:A6,FALSE,TRUE))" into cell A107.
+Put formula "=ROWS(UNIQUE(Data!B1:B5))" into cell A108.
+Put formula "=INDEX(UNIQUE(Data!B1:B5),2)" into cell A109.
+Put formula "=COLUMNS(UNIQUE({1,1,2},TRUE))" into cell A110.
+Put formula "=UNIQUE({1;1},FALSE,TRUE)" into cell A111.
+Put formula "=ROWS(UNIQUE(Data!B1:B6))" into cell A112.
+Put formula "=ROWS(UNIQUE(Data!I1:I2))" into cell A113.
+Put formula "=INDEX(TRANSPOSE(Data!E1:F3),2,3)" into cell A114.
+Put formula "=ROWS(TRANSPOSE(Data!A1:A6))" into cell A115.
+Put formula "=COLUMNS(TRANSPOSE(Data!A1:A6))" into cell A116.
+Put formula "=SUM(TRANSPOSE(Data!A1:A6)*{1,1,1,1,1,1})" into cell A117.
+Put formula "=INDEX(TRANSPOSE(Data!B1:B6),1,6)" into cell A118.
+Put formula "=COUNTA(TRANSPOSE(Data!B1:B6))" into cell A119.
+Put formula "=INDEX(MMULT(Data!E1:F3,{1;1}),3,1)" into cell A120.
+Put formula "=INDEX(MMULT({1,2},{3;4}),1,1)" into cell A121.
+Put formula "=MMULT({1,2},{3,4})" into cell A122.
+Put formula "=MMULT({1,""a""},{1;1})" into cell A123.
+Put formula "=MMULT({1,#N/A},{1;1})" into cell A124.
+Put formula "=SUM(MMULT(Data!E1:F3,Data!G1:G2))" into cell A125.
+Put formula "=INDEX(CHOOSECOLS(Data!E1:F3,2),3)" into cell A126.
+Put formula "=INDEX(CHOOSECOLS(Data!E1:F3,-1,1),1,2)" into cell A127.
+Put formula "=CHOOSECOLS(Data!E1:F3,3)" into cell A128.
+Put formula "=CHOOSECOLS(Data!E1:F3,0)" into cell A129.
+Put formula "=SUM(CHOOSEROWS(Data!A1:A6,{1,6}))" into cell A130.
+Put formula "=INDEX(CHOOSEROWS(Data!E1:F3,-1),1,1)" into cell A131.
+Put formula "=SUM(TAKE(Data!A1:A6,2))" into cell A132.
+Put formula "=SUM(TAKE(Data!A1:A6,-2))" into cell A133.
+Put formula "=SUM(TAKE(Data!E1:F3,2,1))" into cell A134.
+Put formula "=SUM(TAKE(Data!A1:A6,10))" into cell A135.
+Put formula "=TAKE(Data!A1:A6,0)" into cell A136.
+Put formula "=SUM(DROP(Data!A1:A6,2))" into cell A137.
+Put formula "=SUM(DROP(Data!A1:A6,-2))" into cell A138.
+Put formula "=DROP(Data!A1:A6,6)" into cell A139.
+Put formula "=SUM(DROP(Data!E1:F3,1,1))" into cell A140.
+Put formula "=COLUMNS(HSTACK(Data!A1:A6,Data!E1:F3))" into cell A141.
+Put formula "=ROWS(HSTACK(Data!A1:A6,Data!E1:F3))" into cell A142.
+Put formula "=INDEX(HSTACK(Data!A1:A6,Data!E1:F3),6,2)" into cell A143.
+Put formula "=INDEX(HSTACK(1,2),1,2)" into cell A144.
+Put formula "=ROWS(VSTACK(Data!A1:A6,Data!E1:F3))" into cell A145.
+Put formula "=INDEX(VSTACK(Data!A1:A6,Data!E1:F3),1,2)" into cell A146.
+Put formula "=INDEX(VSTACK({1,2},{3}),2,2)" into cell A147.
+Put formula "=ROWS(TOCOL(Data!E1:F3))" into cell A148.
+Put formula "=INDEX(TOCOL(Data!E1:F3),2)" into cell A149.
+Put formula "=INDEX(TOCOL(Data!E1:F3,0,TRUE),2)" into cell A150.
+Put formula "=ROWS(TOCOL(Data!B1:B6,1))" into cell A151.
+Put formula "=ROWS(TOCOL(Data!H1:H2,2))" into cell A152.
+Put formula "=TOCOL(Data!B6,1)" into cell A153.
+Put formula "=COLUMNS(TOROW(Data!E1:F3))" into cell A154.
+Put formula "=INDEX(TOROW(Data!E1:F3),1,3)" into cell A155.
+Put formula "=INDEX(WRAPROWS(Data!A1:A6,4),2,3)" into cell A156.
+Put formula "=INDEX(WRAPROWS(Data!A1:A6,4,0),2,3)" into cell A157.
+Put formula "=WRAPROWS(Data!E1:F3,2)" into cell A158.
+Put formula "=WRAPROWS(Data!A1:A6,0)" into cell A159.
+Put formula "=INDEX(WRAPCOLS(Data!A1:A6,4),3,1)" into cell A160.
+Put formula "=ROWS(WRAPCOLS(Data!A1:A6,4))" into cell A161.
+Put formula "=INDEX(EXPAND(Data!E1:F3,4,3),4,3)" into cell A162.
+Put formula "=INDEX(EXPAND(Data!E1:F3,4,3,""-""),1,3)" into cell A163.
+Put formula "=EXPAND(Data!E1:F3,2,2)" into cell A164.
+Put formula "=ROWS(EXPAND({1},3))" into cell A165.
+Put formula "=SUM(Data!A1:A6*Data!C1:C6)+ROWS(SEQUENCE(1))-1" into cell A166.
+Put formula "=SUM(LEN(Data!B1:B6))+ROWS(SEQUENCE(1))-1" into cell A167.
+Put formula "=SUM(IF(Data!A1:A6>2,Data!C1:C6,0))+ROWS(SEQUENCE(1))-1" into cell A168.
+Put formula "=SUM(ROW(Data!A1:A6))+ROWS(SEQUENCE(1))-1" into cell A169.
+Put formula "=SUM(ISBLANK(Data!B1:B6)*1)+ROWS(SEQUENCE(1))-1" into cell A170.
+Put formula "=SUM((Data!B1:B6="""")*1)+ROWS(SEQUENCE(1))-1" into cell A171.
+Put formula "=SUM(CHOOSE({1,2},Data!A1:A6,Data!C1:C6))+ROWS(SEQUENCE(1))-1" into cell A172.
+Put formula "=MAX(INDEX(Data!A1:A6*Data!C1:C6,0,1))" into cell A173.
+Put formula "=SUM(INDEX(Data!C1:C6,{1,6}))" into cell A174.
+Put formula "=SUM(INDEX({10,20,30},{1,3}))" into cell A175.
+Put formula "=SINGLE(SEQUENCE(3)*2)" into cell A176.
+Put formula "=XLOOKUP(4,Data!A1:A6,Data!C1:C6)" into cell A177.
+Put formula "=XLOOKUP(5,SEQUENCE(6),Data!C1:C6)" into cell A178.
+Put formula "=SUM(XLOOKUP({1,9},Data!A1:A6,Data!C1:C6))" into cell A179.
+Put formula "=XLOOKUP(2,{1,2,3},{""a"",""b"",""c""})" into cell A180.
+Put formula "=MATCH(5,SORT(Data!A1:A6),0)" into cell A181.
+Put formula "=VLOOKUP(4,SORT(Data!A1:C6),3,FALSE)" into cell A182.
+Put formula "=LOOKUP(4.5,SORT(Data!A1:A6),SEQUENCE(6))" into cell A183.
+Put formula "=INDEX({10,20;30,40},2,1)" into cell A184.
+Put formula "=CONCAT(SEQUENCE(3))" into cell A185.
+Put formula "=TEXTJOIN(""-"",FALSE,{""a"","""",TRUE})" into cell A186.
+Put formula "=SUM(Data!A1:INDEX(Data!A1:A6,3))" into cell A187.
+Put formula "=SUM(INDEX(Data!A1:A6,2):INDEX(Data!A1:A6,4))" into cell A188.
+Put formula "=ROWS(Data!A1:INDEX(Data!A:A,4))" into cell A189.
+Put formula "=SUM(Data!A1:INDEX(Data!C1:C6,2))" into cell A190.
+Put formula "=SUM(Data!A1:INDEX(Data!A1:A6,7))" into cell A191.
+Put formula "=SUM(Data!A1:IF(TRUE,Data!A3,Data!A5))" into cell A192.
+Put formula "=SUM(Data!A1:CHOOSE(2,Data!A2,Data!A6))" into cell A193.
+Put formula "=ROWS(Data!A2:Data!A5)" into cell A194.
+Put formula "=SUM(SEQUENCE(2000000))" into cell A195.
+Put formula "=INDEX(SORT({#N/A;TRUE;1;""a""}),3)" into cell A196.
+Put formula "=INDEX(SORT({#N/A;TRUE;1;""a""},1,-1),2)" into cell A197.
+Put formula "=SUM(IFNA(MOD({5,6,7},{2,3}),100))" into cell A198.
+Put formula "=TEXTJOIN("","",TRUE,SORTBY(SEQUENCE(40),MOD(SEQUENCE(40),2)))" into cell A199.
+Put formula "=SUM(IFERROR(SEQUENCE(1,3)/{1,0,1},{10,20}))" into cell A200.
+Put formula "=SUM(VLOOKUP(3,Data!A1:C6,SEQUENCE(1,2,1,2),FALSE))" into cell A201.
+Put formula "=SUM(HLOOKUP(1,{1,2;10,20},{1,2},FALSE))" into cell A202.
+Put formula "=SUM(VLOOKUP({3,4},Data!A1:C6,3,FALSE))" into cell A203.
+Put formula "=SUM(MATCH({4,9},Data!A1:A6,0))" into cell A204.
+Put formula "=SUM(LOOKUP({1,5},{1,5,9},{10,50,90}))" into cell A205.
+Put formula "=SUMPRODUCT(IF(Data!A1:A6>2,1,0))" into cell A206.
+Put formula "=SUMPRODUCT(IFERROR(1/(Data!A1:A6-1),0))" into cell A207.
+Put formula "=SUM(CHOOSE({2,2,2},{10,20},5))" into cell A208.
+Put formula "=SUM(IF(SEQUENCE(1,3)>5,{1,2},7))" into cell A209.
+Put formula "=SUMPRODUCT(IF(Data!A1:A6>2,SEQUENCE(6)^0,0))" into cell A210.
+Put formula "=COUNTA(SORT(Data!B1:B6))" into cell A211.
+Put formula "=COUNT(TRANSPOSE(Data!D1:D6))" into cell A212.
+Put formula "=LEN(TEXTJOIN("","",TRUE,REPT(""x"",20000),REPT(""y"",20000)))" into cell A213.
+Put formula "=LEN(CONCAT(REPT(""x"",20000),REPT(""y"",20000)))" into cell A214.

@@ -108,7 +108,7 @@
 (calc "lookups" "A104" "=INDEX(table!A1:B8,1,1,2)" (error "#REF!") (error "#REF!") agree)
 (calc "lookups" "A105" "=INDEX(table!A1:B8,\"x\")" (error "#VALUE!") (error "#VALUE!") agree)
 (calc "lookups" "A106" "=INDEX(table!A1:B8,2,0)" (not-computed "table!A1:B8") 20 unchecked)
-(calc "lookups" "A107" "=INDEX(table!A1:A8,0)" (not-computed "table!A1:A8") (error "#VALUE!") unchecked)
+(calc "lookups" "A107" "=INDEX(table!A1:A8,0)" (not-computed "table!A1:A8") (error "#SPILL!") unchecked)
 (calc "lookups" "A108" "=IFERROR(VLOOKUP(31,table!A1:B8,2,FALSE),0)" 0 0 agree)
 (calc "lookups" "A109" "=IFERROR(VLOOKUP(30,table!A1:B8,2,FALSE),0)" "r3" "r3" agree)
 (calc "lookups" "A110" "=IFNA(1/0,2)" (error "#DIV/0!") (error "#DIV/0!") agree)

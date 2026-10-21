@@ -26,14 +26,17 @@ use std::collections::BTreeMap;
 use crate::rows::quoted;
 use crate::sheet::Workbook;
 
+use super::array::{self, Array, Lifted};
 use super::dense::Dense;
-use super::formula::{self, BinOp, Expr, RefExpr};
+use super::formula::{self, BinOp, Expr, RangeExpr, RefExpr};
 use super::graph::{areas_at, cells_in, places, Area, Areas, CellId, Extent, Names};
 use super::index::Indexes;
 use super::value::{round15, text_to_number, ErrorKind, Value};
 
-/// Why a cell was not computed: the honest static label, named.
+/// Why a cell was not computed: the honest static label, named. A list that
+/// may grow (KERNEL.8's decision 9).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Reason {
     /// A function the library does not hold, by name.
     Function(String),
@@ -72,10 +75,12 @@ impl Computed {
     }
 }
 
-/// An evaluated operand: one value, or the cells a reference names. `'e` is
-/// the life of the expression it was evaluated from, whose text labels an
-/// area (KERNEL.25).
+/// An evaluated operand: one value, the cells a reference names, or an
+/// array (KERNEL.8, slice f). `'e` is the life of the expression it was
+/// evaluated from, whose text labels an area (KERNEL.25). A list that may
+/// grow (KERNEL.8's decision 9).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Arg<'e> {
     Scalar(Value),
     Area {
@@ -89,6 +94,10 @@ pub enum Arg<'e> {
         /// before it is shown; (0, 0) everywhere else.
         moved: (i64, i64),
     },
+    /// An array a formula computed: a constant, a range read whole where an
+    /// array is wanted, a function's answer, or a lift over one of those
+    /// (`super::array`).
+    Array(Array),
 }
 
 impl Arg<'_> {
@@ -106,8 +115,57 @@ impl Arg<'_> {
                 written: Cow::Owned(written.into_owned()),
                 moved,
             },
+            Arg::Array(a) => Arg::Array(a),
         }
     }
+}
+
+/// How a function reads one of its parameters (KERNEL.8, slice f), Excel's
+/// three classes as its documentation of each function and its saves show
+/// them. The class decides two things: whether an array given lifts the
+/// function over its values, and whether the argument's expression is
+/// computed as an array even in a legacy formula.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Param {
+    /// One value: an array given lifts the function, computed at each of
+    /// its values (`LEN({"a","bc"})` is `{1,2}`), and so does a range in a
+    /// formula read as arrays; a legacy formula meets a range at its cell.
+    Value,
+    /// A reference or an array, handed to the function whole: `SUM`'s,
+    /// `COUNTIF`'s range.
+    Range,
+    /// An array: handed whole, and its expression computed as a dynamic
+    /// formula computes one, a range where one value is wanted read whole,
+    /// in a legacy formula too (`SUMPRODUCT((A1:A3>1)*B1:B3)`).
+    Array,
+    /// One value, forced so in a legacy formula, as Excel's own save of
+    /// the arrays' fixture showed it: there the expression is computed as
+    /// one value even inside an array parameter, a range met at the
+    /// formula's cell, and an array given is its first value
+    /// (`IFERROR({1,#N/A,3},0)` is 1, `VLOOKUP`'s index `{1,3}` its first
+    /// column); a dynamic formula and a legacy array formula lift the
+    /// function over it as over [`Param::Value`].
+    Scalar,
+}
+
+/// A function's class of each parameter, by its place from 0, the last of a
+/// list standing for every place after it.
+pub type Classes = fn(usize) -> Param;
+
+/// Every parameter one value: what [`Library::register`] gives.
+pub fn values(_: usize) -> Param {
+    Param::Value
+}
+
+/// Every parameter a reference or an array, handed whole: `SUM`'s.
+pub fn ranges(_: usize) -> Param {
+    Param::Range
+}
+
+/// Every parameter an array: `SUMPRODUCT`'s.
+pub fn arrays(_: usize) -> Param {
+    Param::Array
 }
 
 /// The grid as the cell being computed sees it.
@@ -156,12 +214,21 @@ pub trait Env {
 
     /// Whether the formula of the cell being computed is a dynamic-array
     /// formula (KERNEL.8, slice b): one a host saved as an array formula,
-    /// Excel 365's kind, in which a range where one value is wanted is an
-    /// array, labelled until arrays come; a formula of the legacy kind
+    /// Excel 365's kind, in which a range where one value is wanted is read
+    /// whole as an array (slice f), an answer of many values being a spill,
+    /// labelled at its cell until spills come; a formula of the legacy kind
     /// intersects such a range with its cell instead ([`Ctx::one`]).
     /// `false`, the legacy kind, unless an environment says otherwise: an
     /// engine's grid, loaded from rows, holds that kind alone.
     fn dynamic(&self) -> bool {
+        false
+    }
+
+    /// Whether the formula of the cell being computed is a legacy array
+    /// formula (KERNEL.8, slice f), one entered with Ctrl+Shift+Enter: read
+    /// as arrays as a dynamic formula is, its cell holding the first value
+    /// of an answer of many. `false`, unless an environment says otherwise.
+    fn array_formula(&self) -> bool {
         false
     }
 
@@ -205,6 +272,11 @@ pub type Strict = fn(&Ctx<'_>, &[Arg<'_>]) -> Result<Value, Reason>;
 /// A form: its arguments as written, an operand or a reason out, the operand
 /// living as long as the arguments it was evaluated from.
 pub type Form = for<'e> fn(&Ctx<'_>, &'e [Expr]) -> Result<Arg<'e>, Reason>;
+
+/// A function answering an operand, an array as often as not (KERNEL.8,
+/// slice f: `SEQUENCE`, `FILTER`, `TRANSPOSE`): its arguments evaluated by
+/// its classes and handed over as they are, never lifted.
+pub type Arrayed = fn(&Ctx<'_>, &[Arg<'_>]) -> Result<Arg<'static>, Reason>;
 
 /// One of the language's own functions that an evaluation of many cells at
 /// once computes by itself (`super::vector`), known by the name the
@@ -289,12 +361,16 @@ impl Known {
 /// differently over the same arguments would be computed once and kept.
 #[derive(Clone, Default)]
 pub struct Library {
-    /// Each strict function, and whether it is one an evaluation of many
-    /// cells at once knows (KERNEL.26).
-    strict: BTreeMap<String, (Strict, Option<Known>)>,
+    /// Each strict function, whether it is one an evaluation of many cells at
+    /// once knows (KERNEL.26), and its parameters' classes (KERNEL.8, slice
+    /// f).
+    strict: BTreeMap<String, (Strict, Option<Known>, Classes)>,
     /// Each form, and whether it is one an evaluation of many cells at once
     /// knows (KERNEL.20).
     forms: BTreeMap<String, (Form, Option<Known>)>,
+    /// Each function answering an operand, and its classes (KERNEL.8, slice
+    /// f).
+    arrayed: BTreeMap<String, (Arrayed, Classes)>,
 }
 
 impl Library {
@@ -303,36 +379,62 @@ impl Library {
         Library::default()
     }
 
-    /// Register a strict function; a later registration of the same name
-    /// replaces the earlier.
-    pub fn register(&mut self, name: &str, f: Strict) {
+    /// The name as a key, every other kind's registration of it removed, so
+    /// that a name holds one kind.
+    fn claim(&mut self, name: &str) -> String {
         let key = name.to_ascii_uppercase();
+        self.strict.remove(&key);
         self.forms.remove(&key);
-        self.strict.insert(key, (f, None));
+        self.arrayed.remove(&key);
+        key
+    }
+
+    /// Register a strict function, every parameter one value ([`values`]):
+    /// an array given lifts it (KERNEL.8, slice f). A later registration of
+    /// the same name replaces the earlier.
+    pub fn register(&mut self, name: &str, f: Strict) {
+        self.register_classed(name, f, values);
+    }
+
+    /// Register a strict function with its parameters' classes (KERNEL.8,
+    /// slice f).
+    pub fn register_classed(&mut self, name: &str, f: Strict, classes: Classes) {
+        let key = self.claim(name);
+        self.strict.insert(key, (f, None, classes));
     }
 
     /// Register a form.
     pub fn register_form(&mut self, name: &str, f: Form) {
-        let key = name.to_ascii_uppercase();
-        self.strict.remove(&key);
+        let key = self.claim(name);
         self.forms.insert(key, (f, None));
+    }
+
+    /// Register a function answering an operand, with its parameters'
+    /// classes (KERNEL.8, slice f).
+    pub fn register_arrayed(&mut self, name: &str, f: Arrayed, classes: Classes) {
+        let key = self.claim(name);
+        self.arrayed.insert(key, (f, classes));
     }
 
     /// Register one of the language's own forms as one an evaluation of
     /// many cells at once computes by itself (KERNEL.20).
     pub(crate) fn register_known(&mut self, name: &str, f: Form, known: Known) {
-        let key = name.to_ascii_uppercase();
-        self.strict.remove(&key);
+        let key = self.claim(name);
         self.forms.insert(key, (f, Some(known)));
     }
 
     /// Register one of the language's own strict functions as one an
     /// evaluation of many cells at once computes by itself, by the same rule
-    /// and fold (KERNEL.26).
-    pub(crate) fn register_known_strict(&mut self, name: &str, f: Strict, known: Known) {
-        let key = name.to_ascii_uppercase();
-        self.forms.remove(&key);
-        self.strict.insert(key, (f, Some(known)));
+    /// and fold (KERNEL.26), with its parameters' classes.
+    pub(crate) fn register_known_strict(
+        &mut self,
+        name: &str,
+        f: Strict,
+        known: Known,
+        classes: Classes,
+    ) {
+        let key = self.claim(name);
+        self.strict.insert(key, (f, Some(known), classes));
     }
 
     /// The known function registered under that name, without case: a form
@@ -341,13 +443,13 @@ impl Library {
         let key = key(name);
         match self.forms.get(&*key) {
             Some(&(_, known)) => known,
-            None => self.strict.get(&*key).and_then(|&(_, known)| known),
+            None => self.strict.get(&*key).and_then(|&(_, known, _)| known),
         }
     }
 
     /// The strict function of that name, without case.
     pub fn strict(&self, name: &str) -> Option<Strict> {
-        self.strict.get(&*key(name)).map(|&(f, _)| f)
+        self.strict.get(&*key(name)).map(|&(f, _, _)| f)
     }
 
     /// The form of that name, without case.
@@ -355,10 +457,38 @@ impl Library {
         self.forms.get(&*key(name)).map(|&(f, _)| f)
     }
 
+    /// The function answering an operand of that name, without case.
+    pub fn arrayed(&self, name: &str) -> Option<Arrayed> {
+        self.arrayed.get(&*key(name)).map(|&(f, _)| f)
+    }
+
+    /// The classes of a strict function's or an arrayed one's parameters,
+    /// without case; `None` for a form, which reads its own, or a name the
+    /// library does not hold.
+    pub fn classes(&self, name: &str) -> Option<Classes> {
+        let key = key(name);
+        match self.strict.get(&*key) {
+            Some(&(_, _, classes)) => Some(classes),
+            None => self.arrayed.get(&*key).map(|&(_, classes)| classes),
+        }
+    }
+
+    /// A strict function with its known tag and its classes, at once.
+    fn strict_entry(&self, name: &str) -> Option<(Strict, Option<Known>, Classes)> {
+        self.strict.get(&*key(name)).copied()
+    }
+
+    /// A function answering an operand with its classes, at once.
+    fn arrayed_entry(&self, name: &str) -> Option<(Arrayed, Classes)> {
+        self.arrayed.get(&*key(name)).copied()
+    }
+
     /// Whether the library holds a function of that name.
     pub fn has(&self, name: &str) -> bool {
         let wanted = key(name);
-        self.strict.contains_key(&*wanted) || self.forms.contains_key(&*wanted)
+        self.strict.contains_key(&*wanted)
+            || self.forms.contains_key(&*wanted)
+            || self.arrayed.contains_key(&*wanted)
     }
 
     /// Every name the library holds, sorted.
@@ -367,6 +497,7 @@ impl Library {
             .strict
             .keys()
             .chain(self.forms.keys())
+            .chain(self.arrayed.keys())
             .map(String::as_str)
             .collect();
         names.sort_unstable();
@@ -375,7 +506,7 @@ impl Library {
 
     /// How many functions the library holds.
     pub fn len(&self) -> usize {
-        self.strict.len() + self.forms.len()
+        self.strict.len() + self.forms.len() + self.arrayed.len()
     }
 
     /// Whether the library holds none.
@@ -451,6 +582,10 @@ pub struct Ctx<'a> {
     /// read at: (0, 0) but in an engine's machine, which parses a shape once
     /// and evaluates it at each of its cells (KERNEL.22).
     offset: Counter<(i64, i64)>,
+    /// How many array parameters the expression being evaluated stands
+    /// inside (KERNEL.8, slice f): above none, a range where one value is
+    /// wanted is read whole, as a formula read as arrays reads one.
+    inside: Counter<u32>,
 }
 
 impl<'a> Ctx<'a> {
@@ -469,6 +604,59 @@ impl<'a> Ctx<'a> {
             lib,
             depth: Counter::new(0),
             offset: Counter::new((d_row, d_col)),
+            inside: Counter::new(0),
+        }
+    }
+
+    /// Whether the expression being evaluated reads a range where one value
+    /// is wanted whole, as an array (KERNEL.8, slice f): in a dynamic formula,
+    /// in a legacy array formula, and inside an array parameter of any
+    /// formula; a legacy formula elsewhere meets the range at its cell.
+    pub fn arrays(&self) -> bool {
+        self.inside.get() > 0 || self.env.dynamic() || self.env.array_formula()
+    }
+
+    /// `f`, its expressions read as arrays, as inside an array parameter.
+    pub fn as_arrays<T>(&self, f: impl FnOnce() -> T) -> T {
+        self.inside.set(self.inside.get() + 1);
+        let out = f();
+        self.inside.set(self.inside.get() - 1);
+        out
+    }
+
+    /// Whether the formula reads arrays by its kind, a dynamic formula or a
+    /// legacy array formula, where every parameter of one value lifts; a
+    /// legacy formula reads arrays only inside an array parameter.
+    pub fn reads_arrays_by_kind(&self) -> bool {
+        self.env.dynamic() || self.env.array_formula()
+    }
+
+    /// `f`, its expressions read as values, as outside every array
+    /// parameter: a legacy formula meets a range at its cell.
+    pub fn as_values<T>(&self, f: impl FnOnce() -> T) -> T {
+        let held = self.inside.replace(0);
+        let out = f();
+        self.inside.set(held);
+        out
+    }
+
+    /// An expression as one value by [`Param::Scalar`]'s reading in a
+    /// legacy formula: computed as outside every array parameter, a range
+    /// met at the formula's cell, an array its first value.
+    pub fn forced(&self, e: &Expr) -> Result<Value, Reason> {
+        self.as_values(|| match self.eval(e)? {
+            Arg::Array(a) => Ok(a.get(0, 0).clone()),
+            other => self.one(&other),
+        })
+    }
+
+    /// Whether a parameter of this class lifts its function over an array
+    /// given to it.
+    fn lifting(&self, class: Param) -> bool {
+        match class {
+            Param::Value => true,
+            Param::Scalar => self.reads_arrays_by_kind(),
+            _ => false,
         }
     }
 
@@ -480,33 +668,173 @@ impl<'a> Ctx<'a> {
             Expr::Bool(b) => Ok(Arg::Scalar(Value::Bool(*b))),
             Expr::Error(k) => Ok(Arg::Scalar(Value::Error(*k))),
             Expr::Empty => Ok(Arg::Scalar(Value::Empty)),
+            Expr::Array(a) => Ok(Arg::Array(a.clone())),
             Expr::Ref(r) => self.reference(r),
+            Expr::Range(r) => self.range(r),
             Expr::Name { name, sheet } => self.named(name, sheet.as_deref()),
             Expr::Call(name, args) => self.call(name, args),
-            Expr::Neg(x) => {
-                let v = self.scalar(x)?;
-                Ok(Arg::Scalar(match numeric(&v)? {
-                    Ok(n) => finite(-n),
-                    Err(k) => Value::Error(k),
-                }))
-            }
+            Expr::Neg(x) => self.unary(x, |n| finite(-n)),
             // Unary plus returns its operand as it is, an area included.
             Expr::Pos(x) => self.eval(x),
-            Expr::Percent(x) => {
-                let v = self.scalar(x)?;
-                Ok(Arg::Scalar(match numeric(&v)? {
-                    Ok(n) => finite(n / 100.0),
-                    Err(k) => Value::Error(k),
-                }))
-            }
+            Expr::Percent(x) => self.unary(x, |n| finite(n / 100.0)),
             // One operator, as it always was; a chain of them goes round a
             // loop instead (VLA.1).
             Expr::Binary(op, l, r) if !matches!(**l, Expr::Binary(..)) => {
-                let a = self.scalar(l)?;
-                let b = self.scalar(r)?;
-                Ok(Arg::Scalar(operate(*op, &a, &b)?))
+                let a = self.operand(l)?;
+                let b = self.operand(r)?;
+                Ok(self.operated(*op, a, b)?)
             }
             Expr::Binary(..) => self.chain(e),
+        }
+    }
+
+    /// A sign or a `%` over its operand, lifted over an array (KERNEL.8,
+    /// slice f).
+    fn unary(&self, x: &Expr, f: fn(f64) -> Value) -> Result<Arg<'static>, Reason> {
+        let signed = |v: &Value| -> Result<Value, Reason> {
+            Ok(match numeric(v)? {
+                Ok(n) => f(n),
+                Err(k) => Value::Error(k),
+            })
+        };
+        match self.operand(x)? {
+            Lifted::One(v) => Ok(Arg::Scalar(signed(&v)?)),
+            Lifted::Many(a) => Ok(Arg::Array(array::lift1(&a, signed)?)),
+        }
+    }
+
+    /// A binary operator over two operands, lifted where either is an array
+    /// (KERNEL.8, slice f).
+    fn operated(&self, op: BinOp, a: Lifted, b: Lifted) -> Result<Arg<'static>, Reason> {
+        match (&a, &b) {
+            (Lifted::One(x), Lifted::One(y)) => Ok(Arg::Scalar(operate(op, x, y)?)),
+            _ => Ok(Arg::Array(array::lift2(&a, &b, |x, y| operate(op, x, y))?)),
+        }
+    }
+
+    /// An expression as an operator reads it (KERNEL.8, slice f): one value,
+    /// or an array, a range read whole where the expression is read as
+    /// arrays and met at the cell where it is not.
+    pub(crate) fn operand(&self, e: &Expr) -> Result<Lifted, Reason> {
+        let arg = self.eval(e)?;
+        self.lifted(arg)
+    }
+
+    /// An evaluated operand as an operator reads it, by the same rule.
+    pub(crate) fn lifted(&self, arg: Arg<'_>) -> Result<Lifted, Reason> {
+        match arg {
+            Arg::Scalar(v) => Ok(Lifted::One(v)),
+            Arg::Array(a) if a.is_single() => Ok(Lifted::One(a.get(0, 0).clone())),
+            Arg::Array(a) => Ok(Lifted::Many(a)),
+            Arg::Area { ref areas, .. } => match &areas[..] {
+                [a] if a.is_cell() => Ok(Lifted::One(self.env.read((a.sheet, a.top, a.left))?)),
+                [a] if self.arrays() => Ok(Lifted::Many(self.area_array(a)?)),
+                _ => Ok(Lifted::One(self.one(&arg)?)),
+            },
+        }
+    }
+
+    /// An area's values as an array, every place of it, an empty cell
+    /// `Value::Empty` (KERNEL.8, slice f); an area past the limit labelled.
+    pub fn area_array(&self, a: &Area) -> Result<Array, Reason> {
+        let rows = u64::from(a.bottom - a.top) + 1;
+        let columns = u64::from(a.right - a.left) + 1;
+        let Ok((rows, columns)) = array::room(rows, columns)? else {
+            // Never: an area holds a place.
+            return Ok(Array::single(Value::Error(ErrorKind::Calc)));
+        };
+        let width = columns as usize;
+        let mut values = vec![Value::Empty; (rows as usize) * width];
+        let mut put = |row: u32, col: u32, v: Value| {
+            values[((row - a.top) as usize) * width + (col - a.left) as usize] = v;
+        };
+        let extent = self.env.extent(a.sheet);
+        if self.env.dense(a.sheet).is_some() || self.env.reasons_beside(a.sheet) {
+            for (row, col) in places(extent, a) {
+                put(row, col, self.env.read((a.sheet, row, col))?);
+            }
+        } else if let Some(sheet) = self.env.model().sheets.get(a.sheet) {
+            for ((row, col), _) in cells_in(sheet, extent, a) {
+                put(row, col, self.env.read((a.sheet, row, col))?);
+            }
+        }
+        Ok(Array::new(rows, columns, values))
+    }
+
+    /// `:` between two expressions that answer references (KERNEL.8, slice
+    /// f): the rectangle spanning both, on their one sheet; `#VALUE!` where
+    /// either is no reference to one area or the two stand on two sheets, and
+    /// an error either answers, that error. A range whose ends no plan can
+    /// bound, a defined name's among them, is labelled, since the plan's
+    /// edges are its reach (`formula::RangeExpr::reach`).
+    fn range<'e>(&self, r: &'e RangeExpr) -> Result<Arg<'e>, Reason> {
+        if r.reach.is_none() {
+            return Err(Reason::Construct(
+                "a range between computed ends".to_string(),
+            ));
+        }
+        // A reach whose ends move apart bounds the range at the cell its
+        // formula was read at alone: a shape's other cells are labelled.
+        if !r.rigid && self.offset.get() != (0, 0) {
+            return Err(Reason::Construct(
+                "a range whose ends move apart".to_string(),
+            ));
+        }
+        let left = self.eval(&r.left)?;
+        let right = self.eval(&r.right)?;
+        let one = |arg: &Arg<'_>| -> Result<Area, ErrorKind> {
+            match arg {
+                Arg::Area { areas, .. } if areas.len() == 1 => Ok(areas[0]),
+                Arg::Scalar(Value::Error(k)) => Err(*k),
+                _ => Err(ErrorKind::Value),
+            }
+        };
+        let (a, b) = match (one(&left), one(&right)) {
+            (Ok(a), Ok(b)) if a.sheet == b.sheet => (a, b),
+            (Err(k), _) | (_, Err(k)) => return Ok(Arg::Scalar(Value::Error(k))),
+            _ => return Ok(Arg::Scalar(Value::Error(ErrorKind::Value))),
+        };
+        let span = Area {
+            sheet: a.sheet,
+            top: a.top.min(b.top),
+            left: a.left.min(b.left),
+            bottom: a.bottom.max(b.bottom),
+            right: a.right.max(b.right),
+        };
+        let mut written = crate::sheet::A1Range {
+            top: span.top,
+            left: span.left,
+            bottom: span.bottom,
+            right: span.right,
+        }
+        .text();
+        if span.sheet != self.env.here().0 {
+            if let Some(sheet) = self.env.model().sheets.get(span.sheet) {
+                written = format!("{}!{written}", crate::rows::sheet_prefix(&sheet.name));
+            }
+        }
+        Ok(Arg::Area {
+            areas: Areas::one(span),
+            written: Cow::Owned(written),
+            moved: (0, 0),
+        })
+    }
+
+    /// A formula's answer as its cell holds it (KERNEL.8, slice f): one value
+    /// as [`Ctx::one`] reads it; of an array of many, its first value in a
+    /// legacy formula, as Excel's `@` takes it, and a spill in a dynamic one,
+    /// labelled at its cell until spills come; of a range, in a legacy array
+    /// formula, its first cell's.
+    pub fn result(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
+        match arg {
+            Arg::Array(a) if a.is_single() => Ok(a.get(0, 0).clone()),
+            Arg::Array(_) if self.env.dynamic() => Err(Reason::Construct("a spill".to_string())),
+            Arg::Array(a) => Ok(a.get(0, 0).clone()),
+            Arg::Area { areas, .. } if self.env.array_formula() => match &areas[..] {
+                [a] => self.env.read((a.sheet, a.top, a.left)),
+                _ => Ok(Value::Error(ErrorKind::Ref)),
+            },
+            _ => self.one(arg),
         }
     }
 
@@ -532,13 +860,21 @@ impl<'a> Ctx<'a> {
             links += 1;
             left = l;
         }
-        let mut acc = self.scalar(left)?;
+        let mut acc = self.operand(left)?;
         for i in (0..links).rev() {
             let (op, r) = if i < NEAR { near[i] } else { far[i - NEAR] };
-            let b = self.scalar(r)?;
-            acc = operate(op, &acc, &b)?;
+            let b = self.operand(r)?;
+            acc = match (acc, b) {
+                (Lifted::One(x), Lifted::One(y)) => Lifted::One(operate(op, &x, &y)?),
+                // An array anywhere along the chain lifts the rest of it
+                // (KERNEL.8, slice f).
+                (x, y) => Lifted::Many(array::lift2(&x, &y, |p, q| operate(op, p, q))?),
+            };
         }
-        Ok(Arg::Scalar(acc))
+        Ok(match acc {
+            Lifted::One(v) => Arg::Scalar(v),
+            Lifted::Many(a) => Arg::Array(a),
+        })
     }
 
     /// An expression as one value: a scalar, or a reference to one cell;
@@ -548,10 +884,18 @@ impl<'a> Ctx<'a> {
         self.one(&arg)
     }
 
-    /// An operand as one value, by the same rule.
+    /// An operand as one value, by the same rule; an array of many, its first
+    /// value in a legacy formula, as Excel's `@` takes it ("If the value is an
+    /// array, then pick the top-left value"), and labelled where the
+    /// expression is read as arrays, which lifts the function wanting one
+    /// value instead (KERNEL.8, slice f).
     pub fn one(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
             Arg::Scalar(v) => Ok(v.clone()),
+            Arg::Array(a) if a.is_single() || !self.arrays() => Ok(a.get(0, 0).clone()),
+            Arg::Array(_) => Err(Reason::Construct(
+                "an array where one value is wanted".to_string(),
+            )),
             Arg::Area {
                 areas,
                 written,
@@ -683,38 +1027,225 @@ impl<'a> Ctx<'a> {
         if let Some(form) = self.lib.form(name) {
             return form(self, args);
         }
-        if let Some(f) = self.lib.strict(name) {
+        if let Some((f, known, classes)) = self.lib.strict_entry(name) {
             // One argument or two, the counts a call mostly has, held on the
             // stack in a frame of their own (KERNEL.20), so that this frame,
             // which evaluation stacks once a level of nesting, holds no array
             // (`VLA.1`'s limits are pinned on a small stack); any other count
             // in a vector. Left to right, stopping at the first not computed.
             return match args {
-                [a] => self.strict_one(f, a),
-                [a, b] => self.strict_two(f, a, b),
-                _ => {
-                    let mut values = Vec::with_capacity(args.len());
-                    for a in args {
-                        values.push(self.eval(a)?);
-                    }
-                    f(self, &values)
-                }
+                [a] => self.strict_one(f, known, classes, a),
+                [a, b] => self.strict_two(f, classes, a, b),
+                _ => self.strict_many(f, classes, args),
+            };
+        }
+        if let Some((f, classes)) = self.lib.arrayed_entry(name) {
+            let mut values = Vec::with_capacity(args.len());
+            for (j, a) in args.iter().enumerate() {
+                values.push(self.argument(classes(j), a)?);
             }
-            .map(Arg::Scalar);
+            return f(self, &values);
         }
         Err(Reason::Function(name.to_string()))
     }
 
-    /// A strict call of one argument, the argument on the stack (KERNEL.20).
-    fn strict_one(&self, f: Strict, a: &Expr) -> Result<Value, Reason> {
-        let x = self.eval(a)?;
-        f(self, std::slice::from_ref(&x))
+    /// An argument evaluated by its parameter's class (KERNEL.8, slice f): an
+    /// array parameter's expression read as arrays, any other's as it stands.
+    #[inline]
+    pub fn argument<'e>(&self, class: Param, a: &'e Expr) -> Result<Arg<'e>, Reason> {
+        match class {
+            Param::Array => self.as_arrays(|| self.eval(a)),
+            Param::Scalar if !self.reads_arrays_by_kind() => Ok(Arg::Scalar(self.forced(a)?)),
+            _ => self.eval(a),
+        }
+    }
+
+    /// A strict call of one argument, the argument on the stack (KERNEL.20);
+    /// `ROW` and `COLUMN` of a range read as arrays answer its rows' or its
+    /// columns' numbers, and a function lifted where its value parameter is
+    /// given an array (KERNEL.8, slice f).
+    fn strict_one(
+        &self,
+        f: Strict,
+        known: Option<Known>,
+        classes: Classes,
+        a: &Expr,
+    ) -> Result<Arg<'static>, Reason> {
+        let x = self.argument(classes(0), a)?;
+        if let Some(k @ (Known::Row | Known::Column)) = known {
+            if let Some(placed) = self.placed_many(k, &x) {
+                return placed;
+            }
+        }
+        if self.lifting(classes(0)) && self.lifts(&x) {
+            return self.lifted_call(f, classes, vec![x]);
+        }
+        f(self, std::slice::from_ref(&x)).map(Arg::Scalar)
     }
 
     /// A strict call of two arguments, evaluated left to right, on the stack.
-    fn strict_two(&self, f: Strict, a: &Expr, b: &Expr) -> Result<Value, Reason> {
-        let pair = [self.eval(a)?, self.eval(b)?];
-        f(self, &pair)
+    fn strict_two(
+        &self,
+        f: Strict,
+        classes: Classes,
+        a: &Expr,
+        b: &Expr,
+    ) -> Result<Arg<'static>, Reason> {
+        let pair = [self.argument(classes(0), a)?, self.argument(classes(1), b)?];
+        if (self.lifting(classes(0)) && self.lifts(&pair[0]))
+            || (self.lifting(classes(1)) && self.lifts(&pair[1]))
+        {
+            return self.lifted_call(f, classes, pair.into());
+        }
+        f(self, &pair).map(Arg::Scalar)
+    }
+
+    /// A strict call of any other count of arguments, in a vector.
+    fn strict_many(
+        &self,
+        f: Strict,
+        classes: Classes,
+        args: &[Expr],
+    ) -> Result<Arg<'static>, Reason> {
+        let mut values = Vec::with_capacity(args.len());
+        for (j, a) in args.iter().enumerate() {
+            values.push(self.argument(classes(j), a)?);
+        }
+        if values
+            .iter()
+            .enumerate()
+            .any(|(j, v)| self.lifting(classes(j)) && self.lifts(v))
+        {
+            return self.lifted_call(f, classes, values);
+        }
+        f(self, &values).map(Arg::Scalar)
+    }
+
+    /// Whether an argument at a value parameter lifts its function: an
+    /// array, or a range of many cells where the expression is read as
+    /// arrays (KERNEL.8, slice f).
+    #[inline]
+    fn lifts(&self, v: &Arg<'_>) -> bool {
+        match v {
+            Arg::Array(_) => true,
+            Arg::Area { areas, .. } => self.lifts_area(areas),
+            Arg::Scalar(_) => false,
+        }
+    }
+
+    /// A strict function lifted over the arrays its value parameters are
+    /// given (KERNEL.8, slice f): computed at each place of the lift with
+    /// each array's value there, `#N/A` where one does not reach; an array
+    /// of one value handed over as that value.
+    #[inline(never)]
+    fn lifted_call(
+        &self,
+        f: Strict,
+        classes: Classes,
+        mut values: Vec<Arg<'_>>,
+    ) -> Result<Arg<'static>, Reason> {
+        let mut lifted: Vec<(usize, Array)> = Vec::new();
+        for (j, v) in values.iter_mut().enumerate() {
+            if !self.lifting(classes(j)) {
+                continue;
+            }
+            match v {
+                Arg::Array(a) if a.is_single() => *v = Arg::Scalar(a.get(0, 0).clone()),
+                Arg::Array(a) => lifted.push((j, a.clone())),
+                Arg::Area { areas, .. } if self.lifts_area(areas) => {
+                    let area = areas[0];
+                    lifted.push((j, self.area_array(&area)?));
+                }
+                _ => {}
+            }
+        }
+        if lifted.is_empty() {
+            return f(self, &values).map(Arg::Scalar);
+        }
+        let (rows, columns) = array::shape_of(lifted.iter().map(|(_, a)| (a.rows(), a.columns())));
+        let (rows, columns) = match array::room(u64::from(rows), u64::from(columns))? {
+            Ok(rc) => rc,
+            Err(k) => return Ok(Arg::Scalar(Value::Error(k))),
+        };
+        let mut out = Vec::with_capacity((rows as usize) * (columns as usize));
+        for r in 0..rows {
+            for c in 0..columns {
+                let mut reached = true;
+                for (j, a) in &lifted {
+                    match a.at(r, c) {
+                        Some(v) => values[*j] = Arg::Scalar(v.clone()),
+                        None => {
+                            reached = false;
+                            break;
+                        }
+                    }
+                }
+                out.push(if reached {
+                    f(self, &values)?
+                } else {
+                    Value::Error(ErrorKind::NA)
+                });
+            }
+        }
+        Ok(Arg::Array(Array::new(rows, columns, out)))
+    }
+
+    /// Whether a reference's areas lift a value parameter: one area of many
+    /// cells, where the expression is read as arrays.
+    fn lifts_area(&self, areas: &Areas) -> bool {
+        matches!(&areas[..], [a] if !a.is_cell()) && self.arrays()
+    }
+
+    /// `ROW` or `COLUMN` of a range of many rows or columns where the
+    /// expression is read as arrays (KERNEL.8, slice f): the numbers of its
+    /// rows, a column of them, or of its columns, a row of them, as Excel's
+    /// `ROW(A1:A3)` is `{1;2;3}` there; `None` for any other operand, which
+    /// the function answers itself.
+    fn placed_many(&self, known: Known, x: &Arg<'_>) -> Option<Result<Arg<'static>, Reason>> {
+        let Arg::Area { areas, .. } = x else {
+            return None;
+        };
+        let [a] = &areas[..] else {
+            return None;
+        };
+        let (from, to) = if known == Known::Row {
+            (a.top, a.bottom)
+        } else {
+            (a.left, a.right)
+        };
+        if from == to || !self.arrays() {
+            return None;
+        }
+        let numbers: Vec<Value> = (from..=to).map(|n| Value::Number(f64::from(n))).collect();
+        let count = numbers.len() as u32;
+        Some(Ok(Arg::Array(if known == Known::Row {
+            Array::new(count, 1, numbers)
+        } else {
+            Array::new(1, count, numbers)
+        })))
+    }
+
+    /// Every value of an operand to `f`, in order (KERNEL.8, slice f): one
+    /// value given directly, a reference's cells as [`Ctx::each`] walks them,
+    /// an array's values row by row, an empty one skipped as an empty cell
+    /// is. `direct` is told whether the value was given directly, which an
+    /// aggregate coerces, or read out of a range or an array.
+    pub fn each_value<F>(&self, arg: &Arg<'_>, mut f: F) -> Result<(), Reason>
+    where
+        F: FnMut(Value, bool) -> Result<(), Reason>,
+    {
+        match arg {
+            Arg::Scalar(v) => f(v.clone(), true),
+            Arg::Area { areas, .. } => self.each(areas, |v| f(v, false)),
+            Arg::Array(a) => {
+                for v in a.values() {
+                    if *v != Value::Empty {
+                        f(v.clone(), false)?;
+                    }
+                }
+                Ok(())
+            }
+        }
     }
 }
 

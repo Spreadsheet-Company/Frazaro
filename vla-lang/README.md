@@ -90,43 +90,54 @@ refused in the same words.
   order up to a budget in cells and says how far it got, so an engine can
   run a grid at a frame rate and yield; `Calc::run` evaluates everything.
   The parser reads Excel's operators and calls over the reference scanner,
-  with Excel's precedence and coercions and its seven error values as a
-  value kind; a comparison holds two numbers equal to fifteen significant
-  digits equal, as Excel's does (`=0.1+0.2=0.3` is TRUE), where a lookup
-  matches a number exactly, and orders two texts as Excel's save ranks them,
-  case aside, an accent after the plain letter, `ß` and `ss` one, a
-  comparison by size that a character it did not rank decides labelled. A
-  range where one value is wanted is met at the formula's cell, Excel's
-  implicit intersection, in a legacy formula, and is an array, labelled
-  until arrays come, in a dynamic-array formula, which `Env::dynamic` tells.
-  Functions enter through `calc::Library`, the seam: the language registers
-  the fourteen a game's rule needs on day one (`IF`, `AND`, `OR`, `NOT`,
-  `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`, `COLUMN`, `CHOOSE`,
-  `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
-  `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is read by (`IFERROR`,
-  `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`, `SUMIF`), `SINGLE`,
-  Excel's `@`, the text functions (`calc::texts`: `LEFT`, `MID`, `LEN`,
-  `FIND`, `SUBSTITUTE`, `TEXT` and the rest, a text counted by its
-  characters as Excel counts it), the date functions (`calc::dates`: `DATE`,
-  `YEAR`, `MONTH`, `WEEKDAY`, `NETWORKDAYS`, `YEARFRAC` and the rest, over
-  Excel's 1900 calendar, a text a locale reads labelled in arithmetic), and
-  the aggregates by criteria: `SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
-  `AVERAGEIFS`, `MAXIFS` and `MINIFS`, `SUBTOTAL` by each of its numbers, a
-  hidden row (`Sheet::rows`) passed by at 101 to 111, the database functions
-  (`DSUM`, `DGET` and the rest) and the aggregates `SUBTOTAL` names
-  (`AVERAGE`, `COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `VAR` and their newer
-  names). A crate above registers more, as `frazaro-core` registers Excel's
-  library by measurement. A lookup or a criterion asked of one range again
-  and again searches the range's index (`calc::Indexes`), built at its
-  second probe in one evaluation and kept until a cell of the range
-  changes, its answers the ones a walk of the range gives (`calc::index`);
-  the `SUMIFS` family's ranges are grouped by the keys of its equalities,
-  every group answering the formulas that ask it. A formula that calls
-  anything else is not computed, and says so naming the function; a cell
-  that reads it inherits the label. `Calc::first_refusal` is what an
-  engine's load asks: a cycle, a function outside the library, or a
-  construct the parser does not read, a defined name's text among them, each
-  refused by name from the catalogue.
+  with Excel's precedence and coercions and its eight error values,
+  `#CALC!` among them, as a value kind, array constants (`{1,2;3,4}`) and
+  `:` between two expressions that answer references among its forms; a
+  comparison holds two numbers equal to fifteen significant digits equal,
+  as Excel's does (`=0.1+0.2=0.3` is TRUE), where a lookup matches a number
+  exactly, and orders two texts as Excel's save ranks them, case aside, an
+  accent after the plain letter, `ß` and `ss` one, a comparison by size
+  that a character it did not rank decides labelled. A range where one
+  value is wanted is met at the formula's cell, Excel's implicit
+  intersection, in a legacy formula, and is read whole, as an array, in a
+  dynamic-array formula, which `Env::dynamic` tells, in a legacy array
+  formula, which `Env::array_formula` tells, and inside a parameter its
+  function reads as an array in any formula (`calc::Param`). An operator,
+  or a function of one value, given an array computes at each of its
+  values, Excel's lift (`calc::Array`, its values shared by a count); a
+  cell holds the first value of an answer of many in a legacy formula and
+  a legacy array formula, and labels it a spill in a dynamic one until
+  spills come. Functions enter through `calc::Library`, the seam: the
+  language registers the fourteen a game's rule needs on day one (`IF`,
+  `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
+  `COLUMN`, `CHOOSE`, `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`,
+  `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XLOOKUP`), the tests a lookup's miss is
+  read by (`IFERROR`, `IFNA`, `ISERROR`, `ISNA`), the criteria (`COUNTIF`,
+  `SUMIF`), `SINGLE`, Excel's `@`, the text functions (`calc::texts`:
+  `LEFT`, `MID`, `LEN`, `FIND`, `SUBSTITUTE`, `TEXT` and the rest, a text
+  counted by its characters as Excel counts it), the date functions
+  (`calc::dates`: `DATE`, `YEAR`, `MONTH`, `WEEKDAY`, `NETWORKDAYS`,
+  `YEARFRAC` and the rest, over Excel's 1900 calendar, a text a locale
+  reads labelled in arithmetic), the aggregates by criteria: `SUMIFS`,
+  `COUNTIFS`, `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS` and `MINIFS`, `SUBTOTAL`
+  by each of its numbers, a hidden row (`Sheet::rows`) passed by at 101 to
+  111, the database functions (`DSUM`, `DGET` and the rest) and the
+  aggregates `SUBTOTAL` names (`AVERAGE`, `COUNT`, `COUNTA`, `PRODUCT`,
+  `STDEV`, `VAR` and their newer names), and the array functions
+  (`calc::arrays`: `SEQUENCE`, `FILTER`, `SORT`, `UNIQUE`, `SUMPRODUCT`,
+  `MMULT`, the shapers `TAKE`, `HSTACK`, `TOCOL` and the rest, `#CALC!`
+  for an array with nothing in it). A crate above registers more, as
+  `frazaro-core` registers Excel's library by measurement. A lookup or a
+  criterion asked of one range again and again searches the range's
+  index (`calc::Indexes`), built at its second probe in one evaluation and
+  kept until a cell of the range changes, its answers the ones a walk of the
+  range gives (`calc::index`); the `SUMIFS` family's ranges are grouped by
+  the keys of its equalities, every group answering the formulas that ask
+  it. A formula that calls anything else is not computed, and says so naming
+  the function; a cell that reads it inherits the label.
+  `Calc::first_refusal` is what an engine's load asks: a cycle, a function
+  outside the library, or a construct the parser does not read, a defined
+  name's text among them, each refused by name from the catalogue.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
@@ -224,14 +235,14 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Recalculation's next slices.** Arrays within a formula, and dynamic
-  arrays' spills after them (KERNEL.8, whose first five slices, the
-  lookups, implicit intersection and `@`, the text and the date functions
-  and the aggregates by criteria, are above); the
-  vectorized evaluation of a shared formula, incremental recomputation and
-  content-addressed evaluation (KERNEL.20), which is what makes a frame of
-  a 320 by 200 grid fast: today the machine steps one in about a tenth of a
-  second natively. The first slice is here.
+- **Recalculation's next slices.** Dynamic arrays' spills, an item of their
+  own after KERNEL.8, whose six slices, the lookups, implicit intersection
+  and `@`, the text and the date functions, the aggregates by criteria and
+  arrays within a formula, are above; the vectorized evaluation of a shared
+  formula, incremental recomputation and content-addressed evaluation
+  (KERNEL.20), which is what makes a frame of a 320 by 200 grid fast: today
+  the machine steps one in about a tenth of a second natively. The first
+  slice is here.
 - **The corpus's expansion golden.** The corpus program expanded under the
   prelude, written by the reference and reproduced here, beside the golden
   of the expand-time primitives the crate is already held to.

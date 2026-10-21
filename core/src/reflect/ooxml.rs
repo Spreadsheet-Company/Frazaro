@@ -73,6 +73,10 @@ pub struct Package<'a> {
     /// (KERNEL.8, slice b).
     dynamic_cm: Option<u32>,
     has_metadata: bool,
+    /// The error each value-metadata block names, by a cell's `vm` less one:
+    /// `#CALC!` and `#SPILL!`, which Excel writes as `#VALUE!` beside a rich
+    /// value (KERNEL.8, slice f).
+    rich_errors: Vec<Option<String>>,
     /// Whether the workbook counts its dates from 1904 (`workbookPr`'s
     /// `date1904`, KERNEL.8, slice d).
     date1904: bool,
@@ -427,6 +431,26 @@ impl<'a> Package<'a> {
         let dynamic_cm = metadata
             .as_deref()
             .and_then(crate::sheet::merge::dynamic_cm_of);
+        // The rich values an error with no cell error value of its own names
+        // through a cell's `vm` (KERNEL.8, slice f).
+        let rich_part = |suffix: &str| {
+            rels.iter()
+                .find(|r| r.kind.ends_with(suffix))
+                .map(|r| resolve("xl/", &r.target))
+        };
+        let rich_errors = match (
+            metadata.as_deref(),
+            rich_part("/rdRichValue"),
+            rich_part("/rdRichValueStructure"),
+        ) {
+            (Some(m), Some(v), Some(s)) => match (text(&v)?, text(&s)?) {
+                (Some(values), Some(structures)) => {
+                    crate::sheet::merge::rich_errors_of(m, &values, &structures)
+                }
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        };
 
         // The external books, each by the name of its file.
         let mut external_books: Vec<String> = Vec::new();
@@ -458,6 +482,7 @@ impl<'a> Package<'a> {
             string_bytes,
             dynamic_cm,
             has_metadata,
+            rich_errors,
             date1904,
         })
     }
@@ -586,6 +611,7 @@ impl<'a> Source for Package<'a> {
                     col_no = col;
                     let kind: Option<Cow<str>> = attr(attrs, "t");
                     let cm: Option<u32> = attr(attrs, "cm").and_then(|v| v.trim().parse().ok());
+                    let vm: Option<usize> = attr(attrs, "vm").and_then(|v| v.trim().parse().ok());
                     let mut array_anchor = false;
                     let mut formula_part: Option<(Option<String>, Option<String>, String)> = None;
                     let mut value_text: Option<String> = None;
@@ -740,7 +766,16 @@ impl<'a> Source for Package<'a> {
                             let s = s.trim();
                             Value::Bool(s == "1" || s.eq_ignore_ascii_case("true"))
                         }),
-                        Some("e") => value_text.map(|s| Value::Error(s.trim().to_string())),
+                        // An error with no cell error value of its own, read off the
+                        // rich value its `vm` names, where Excel wrote `#VALUE!`
+                        // (KERNEL.8, slice f).
+                        Some("e") => match vm
+                            .and_then(|i| self.rich_errors.get(i.checked_sub(1)?))
+                            .and_then(Option::as_ref)
+                        {
+                            Some(rich) => Some(Value::Error(rich.clone())),
+                            None => value_text.map(|s| Value::Error(s.trim().to_string())),
+                        },
                         Some("d") => value_text.map(|s| Value::Date(s.trim().to_string())),
                         Some("inlineStr") => inline.map(Value::Text),
                         _ => value_text.map(|s| Value::Number(s.trim().to_string())),
@@ -885,6 +920,81 @@ mod tests {
             reflect_text(&with, "t.xlsx").unwrap(),
             reflect_text(&without, "t.xlsx").unwrap(),
             "the printer ignores the kind"
+        );
+    }
+
+    #[test]
+    fn an_error_a_rich_value_holds_reads_as_its_own() {
+        // KERNEL.8, slice f: Excel writes `#SPILL!` and `#CALC!`, which have
+        // no cell error value, as `#VALUE!` beside a `vm` naming a rich value
+        // of the `_error` structure, its `errorType` 8 or 13; the reader reads
+        // the error the rich value names, and a `vm` naming nothing it knows
+        // leaves the cell's own value. The parts are Excel's own save of the
+        // arrays' fixture, its keys in its order.
+        const RICH: &str = "http://schemas.microsoft.com/office/2017/06/relationships";
+        const META: &str =
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata";
+        let metadata = concat!(
+            "<metadata xmlns:xlrd=\"http://schemas.microsoft.com/office/spreadsheetml/2017/richdata\">",
+            "<metadataTypes count=\"2\"><metadataType name=\"XLDAPR\" minSupportedVersion=\"120000\"/>",
+            "<metadataType name=\"XLRICHVALUE\" minSupportedVersion=\"120000\"/></metadataTypes>",
+            "<futureMetadata name=\"XLDAPR\" count=\"1\"><bk><extLst><ext uri=\"{bdbb8cdc}\">",
+            "<xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/></ext></extLst></bk></futureMetadata>",
+            "<futureMetadata name=\"XLRICHVALUE\" count=\"2\"><bk><extLst><ext uri=\"{3e2802c4}\">",
+            "<xlrd:rvb i=\"0\"/></ext></extLst></bk><bk><extLst><ext uri=\"{3e2802c4}\">",
+            "<xlrd:rvb i=\"1\"/></ext></extLst></bk></futureMetadata>",
+            "<cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>",
+            "<valueMetadata count=\"2\"><bk><rc t=\"2\" v=\"0\"/></bk><bk><rc t=\"2\" v=\"1\"/></bk>",
+            "</valueMetadata></metadata>",
+        );
+        let values = concat!(
+            "<rvData count=\"2\"><rv s=\"0\"><v>0</v><v>8</v><v>5</v><v>1</v></rv>",
+            "<rv s=\"1\"><v>13</v><v>3</v></rv></rvData>",
+        );
+        let structures = concat!(
+            "<rvStructures count=\"2\"><s t=\"_error\"><k n=\"colOffset\" t=\"i\"/>",
+            "<k n=\"errorType\" t=\"i\"/><k n=\"rwOffset\" t=\"i\"/><k n=\"subType\" t=\"i\"/></s>",
+            "<s t=\"_error\"><k n=\"errorType\" t=\"i\"/><k n=\"subType\" t=\"i\"/></s></rvStructures>",
+        );
+        let data = concat!(
+            "<row r=\"1\"><c r=\"A1\" t=\"e\" cm=\"1\" vm=\"1\"><f t=\"array\" ref=\"A1\">B1:B6*2</f><v>#VALUE!</v></c>",
+            "<c r=\"B1\" t=\"e\" cm=\"1\" vm=\"2\"><f t=\"array\" ref=\"B1\">_xlfn.SEQUENCE(0)</f><v>#VALUE!</v></c>",
+            "<c r=\"C1\" t=\"e\" vm=\"3\"><f>1/0</f><v>#DIV/0!</v></c>",
+            "<c r=\"D1\" t=\"e\"><f>NA()</f><v>#N/A</v></c></row>",
+        );
+        let rels = format!(
+            "<Relationships><Relationship Id=\"rId1\" Type=\"{REL_SHEET}\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"{META}\" Target=\"metadata.xml\"/><Relationship Id=\"rId3\" Type=\"{RICH}/rdRichValue\" Target=\"richData/rdrichvalue.xml\"/><Relationship Id=\"rId4\" Type=\"{RICH}/rdRichValueStructure\" Target=\"richData/rdrichvaluestructure.xml\"/></Relationships>"
+        );
+        let parts: Vec<(String, Vec<u8>)> = vec![
+            ("xl/workbook.xml".to_string(), format!("<workbook {NS}><sheets><sheet name=\"Model\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>").into_bytes()),
+            ("xl/_rels/workbook.xml.rels".to_string(), rels.into_bytes()),
+            ("xl/worksheets/sheet1.xml".to_string(), format!("<worksheet {NS}><sheetData>{data}</sheetData></worksheet>").into_bytes()),
+            ("xl/metadata.xml".to_string(), metadata.as_bytes().to_vec()),
+            ("xl/richData/rdrichvalue.xml".to_string(), values.as_bytes().to_vec()),
+            ("xl/richData/rdrichvaluestructure.xml".to_string(), structures.as_bytes().to_vec()),
+        ];
+        let bytes = zip::write_stored(&parts).unwrap();
+        #[derive(Default)]
+        struct Values(Vec<(String, Value)>);
+        impl Sink for Values {
+            fn row(&mut self, row: &Row<'_>) {
+                if let Row::Cell { addr, value, .. } = row {
+                    self.0.push((addr.to_string(), (*value).clone()));
+                }
+            }
+        }
+        let p = Package::open(&bytes, "t.xlsx").unwrap();
+        let mut got = Values::default();
+        p.walk_sheet(0, &mut got).unwrap();
+        let error = |a: &str, t: &str| (a.to_string(), Value::Error(t.to_string()));
+        assert_eq!(
+            got.0,
+            vec![
+                error("A1", "#SPILL!"),
+                error("B1", "#CALC!"),
+                error("C1", "#DIV/0!"),
+                error("D1", "#N/A"),
+            ]
         );
     }
 

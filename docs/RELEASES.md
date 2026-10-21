@@ -2,6 +2,75 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.11.0
+
+### What changed
+
+- **Arrays compute within a formula.** An array constant, `{1,2;3,4}`, reads
+  as its values; an operator and a function of one value given an array
+  compute at each of its values, Excel's lift, the answer as many rows and
+  columns as the largest array, a row or a column standing at every place,
+  `#N/A` where an array falls short (`{1,2,3}+{10,20}` is `{11,22,#N/A}`);
+  and `SUM`, the lookups and every function reading a range read an array as
+  a range. A dynamic-array formula reads a range where one value is wanted
+  whole, as an array, where it said not computed: `=SUM(A1:A3*B1:B3)` saved
+  by Excel 365 sums the products. A legacy formula meets such a range at its
+  own cell as before, but inside an argument Excel reads as an array,
+  `SUMPRODUCT`'s, a lookup's vector, `INDEX`'s, it reads the range whole
+  too: `=SUMPRODUCT((A1:A9>2)*B1:B9)` computes in any workbook, as in Excel.
+  In a legacy formula `IFERROR` and `IFNA`, and `VLOOKUP` and `HLOOKUP` but
+  for their table, take an array's first value, as Excel 365 computes a file
+  saved without the dynamic mark (`=SUM(IFERROR({1,#N/A,3},0))` is 1, and
+  `=SUM(VLOOKUP({3,4},A1:C6,3,FALSE))` looks up 3 alone), and lift in a
+  dynamic one; `IF`, `CHOOSE` and `IFERROR` lifted take at each place the
+  value they choose there, a branch not chosen free to fall short. A legacy
+  array formula, entered with Ctrl+Shift+Enter, computes as arrays and holds
+  its first value, where it said not computed. `SEQUENCE`, `FILTER`, `SORT`,
+  `SORTBY`, `UNIQUE`, `TRANSPOSE`, `SUMPRODUCT`, `MMULT`, `ROWS` and
+  `COLUMNS` compute, and Excel's shapers `CHOOSECOLS`, `CHOOSEROWS`, `TAKE`,
+  `DROP`, `HSTACK`, `VSTACK`, `TOCOL`, `TOROW`, `WRAPROWS`, `WRAPCOLS` and
+  `EXPAND`, in the language, so that `frazaro calc`, the page, a build and
+  an engine compute them alike; `COUNTA` counts an array's empty value, and
+  `CONCAT` and `TEXTJOIN` past the text limit are `#CALC!`, as Excel 365
+  computes them, where they said `#VALUE!`. An array with nothing in it,
+  `FILTER` keeping no row, is `#CALC!`, Excel's eighth error value: read
+  from the rich value Excel 365 saves it as, and never written as a built
+  cell's value, which Excel repairs, the cell holding its formula alone. `:`
+  between two expressions that answer references,
+  `A1:INDEX(A:A,COUNTA(A:A))`, computes the range spanning them, where it
+  said not computed. A dynamic formula whose answer is many values still
+  says not computed, `a spill`, until spills come; and an array of more than
+  1,048,576 values says not computed, the grid's own limit.
+- **For engines.** This release changes the public surface of
+  `vla_lang::calc`, so its version is 0.11.0. `Arg::Array`, an operand that
+  is an array (`calc::Array`, its values shared by a count); `Expr::Array`,
+  an array constant, and `Expr::Range`, `:` between expressions with its
+  `RangeExpr::reach`, the plan's edges for it; `Content::ArrayFormula`, a
+  legacy array formula; and `ErrorKind::Calc`, `#CALC!`. `ErrorKind`, `Arg`,
+  `Expr`, `Reason` and `Content` are marked `#[non_exhaustive]`, and the
+  new `Param` with them, so that a kind added after this breaks no match
+  outside the language: a match of one's own gains a wildcard arm once. A
+  function's parameters have classes (`calc::Param`: a value, lifted over
+  an array given; a value forced, one value in a legacy formula; a
+  reference or an array, handed whole; an array, its expression read as
+  arrays), given at `Library::register_classed`; `Library::register` gives
+  every parameter the value's, so that a function registered there is
+  lifted over an array and never sees one; `Library::register_arrayed`
+  registers a function answering an operand (`eval::Arrayed`).
+  `Env::array_formula`, a provided method answering `false`, is how an
+  environment of one's own says a cell holds a legacy array formula;
+  `Ctx::result` is a formula's answer as its cell holds it, `Ctx::arrays`
+  whether the expression being evaluated reads a range whole,
+  `Ctx::reads_arrays_by_kind` whether the formula does by its kind, and
+  `Ctx::as_values` and `Ctx::forced` the reading of a value forced. A run of
+  an engine's machine computes a shape whose formula holds an array, and
+  every shape of dynamic formulas or legacy array formulas, at each of its
+  cells by `Ctx`, and its program is not lowered (`(unlowered array)` in
+  the census). The formula syntax writes and reads `(quote ((1 2) (3 4)))`
+  as `{1,2;3,4}` and `(: a b)` as `a:b`. Alonzo's cartridges and Buffet's
+  compute every frame as they did (KERNEL.8), each grid 2,745 bytes larger,
+  1,601 of them the twenty-one names.
+
 ## 0.10.2
 
 ### What changed

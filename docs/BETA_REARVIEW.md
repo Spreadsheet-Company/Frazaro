@@ -31302,6 +31302,465 @@ every frame and every grid's bytes as before.
   a formula by name at the build is the writer's question; minted as
   `PORT.14`.
 
+**Committed 2026-10-20** at the owner's word, "if the tests pass as
+expected, then commit the slice before proceeding with the next slice (if
+one exists)": the fifth slice with Excel's second save joined and the three
+items its Found minted at the owner's word, `KERNEL.51`, `KERNEL.52` and
+`PORT.14`, as `5431d8e`, not pushed.
+
+**The sixth slice scoped at its build, 2026-10-20: arrays within a
+formula.** The outline's path, an array operand computed at each cell by
+`Ctx` first, stood approved with the outline, and so did decision 9's break,
+batched into 0.11.0: `Arg`'s new kind, `Expr`'s two and `Content`'s one,
+with `KERNEL.29`'s `#CALC!`, which the slice brings in for `FILTER` keeping
+no row, and `ErrorKind`, `Arg`, `Expr`, `Reason` and `Content` marked
+`#[non_exhaustive]`; and `VLA.4`'s forms for both, written by both
+implementations. Asked the four choices the outline left open, the owner
+took a longer list and three recommendations:
+
+1. *The outline's functions, `SORTBY`, `ROWS` and `COLUMNS`, and the
+   shapers.* `SEQUENCE`, `FILTER`, `SORT`, `SORTBY`, `UNIQUE`, `TRANSPOSE`,
+   `SUMPRODUCT`, `MMULT`, `ROWS` and `COLUMNS`, and Excel's newer reshapers,
+   `CHOOSECOLS`, `CHOOSEROWS`, `TAKE`, `DROP`, `HSTACK`, `VSTACK`, `TOCOL`,
+   `TOROW`, `WRAPROWS`, `WRAPCOLS` and `EXPAND`: twenty-one names, each
+   exact, every grid's bytes growing by each; every function the language
+   has reading an array where it reads a range, and lifted over one through
+   a parameter of one value. *Declined:* the recommendation, the first ten;
+   the outline's seven alone.
+2. *The fixture through today's writer rule.* The build writes a formula as
+   dynamic when it calls a function that may answer an array (the core's
+   `xlfn::ARRAY_CAPABLE`), as it did, and the fixture writes each rule of
+   arrays inside such a call or `SUMPRODUCT`; the legacy array formulas,
+   entered with Ctrl+Shift+Enter, the owner types into the save. *Declined:*
+   Formula2's rule, a formula written as dynamic wherever its legacy reading
+   would meet at its cell a range its dynamic reading lifts, which would
+   respell the intersection fixture's legacy formulas with `@` and redo its
+   goldens and its save (Found).
+3. *An array past the grid's limit labelled*: one of more than `CELLS`
+   values, 1,048,576, `(not-computed "an array past the grid's limit")`,
+   since Excel computes it. *Declined:* `#NUM!`, an answer Excel never
+   gives.
+4. *An array's values shared by a count*, `Rc<[Value]>`: an array passed
+   between functions or read twice, `IF`'s branches or a lookup's, never
+   copied, a lifted answer a new array. *Declined:* owned values, copied at
+   every clone of an operand.
+
+Taken by the decisions' own words, unasked: Excel's documented rules for
+each function; Excel's lift for an operator and a function of one value; a
+parameter's class as Excel's table of functions gives it (`[MS-XLS]`: a
+reference, a value or an array), the outline's. Four of the build's own, for
+the owner to overrule: an answer of many values, in a legacy formula or a
+legacy array formula, its first, as Excel's `@` takes it, and in a dynamic
+one `(not-computed "a spill")` until spills come; an array met where one
+value is wanted and no class lifts the function over it, `(not-computed "an
+array where one value is wanted")`, which no formula of the fixture meets;
+`:` between expressions whose ends no plan bounds, a defined name's,
+`(not-computed "a range between computed ends")`, and one whose ends move
+apart at a shape's other cells, `(not-computed "a range whose ends move
+apart")`; and a shape of dynamic formulas or legacy array formulas computed
+at each cell by `Ctx` whole, its program not lowered (Found).
+
+**Built 2026-10-20, the sixth slice, before Excel's save.**
+
+*What landed.*
+- *An array* (`calc::array`): rows by columns of values in row-major order,
+  held once and shared by a count, at most `LIMIT` of them, the grid's
+  `CELLS`; `room` sizing one before it is made, `#CALC!` for an array of no
+  row or no column and the label past the limit; Excel's lift, `lift1`,
+  `lift2` and `lift_n`, the answer the most rows and the most columns of its
+  operands, an operand of one row standing at every row and one of one
+  column at every column, `#N/A` at a place one of them does not reach.
+- *`Arg::Array` and a parameter's class* (`calc::eval`, `calc::library`):
+  `Param::Value`, `Param::Range` and `Param::Array`, a function's classes
+  registered beside it (`Library::register_classed`) and every parameter a
+  value's where none are given. A parameter of one value lifts its function
+  over an array given, and over a range where the formula reads arrays; an
+  array parameter's expression is read as arrays in a formula of either kind
+  (`Ctx::as_arrays`), and a range parameter's handed over whole. A formula
+  reads arrays when it is dynamic or a legacy array formula, or inside an
+  array parameter (`Ctx::arrays`). A cell's answer (`Ctx::result`): an array
+  of one value that value; of many, the first in a legacy formula or a
+  legacy array formula and a spill in a dynamic one; a legacy array
+  formula's range its first cell's. `ROW` and `COLUMN` of a range read as
+  arrays are its rows' and its columns' numbers, and `IF` of an array of
+  conditions lifts over its condition and both branches.
+- *An array constant and `:` between expressions* (`calc::formula`):
+  `Expr::Array`, `{1,2;3,4}`, `,` between a row's values and `;` between
+  rows, every row as long as the first, each value a number with its sign, a
+  text, a truth value or an error, `-0` read as 0; `Expr::Range`, `:`
+  binding tightest, its ends any expressions, an end answering no reference
+  `#VALUE!`, with its reach, the rectangle spanning every reference either
+  end may answer (a reference's own, `INDEX`'s its reference's, `IF`'s and
+  `CHOOSE`'s their branches'), and whether the reach moves with the
+  formula's cell as every span it bounds does (`RangeExpr::rigid`). The
+  plan's edges for such a range are its reach, `Calc`'s graph parsing a
+  formula's text for one only where a `:` stands outside every reference the
+  scanner reads (`graph::range_reaches`).
+- *The functions* (`calc::arrays`): the twenty-one as Excel documents them,
+  `#CALC!` for an answer with nothing in it (`FILTER` keeping no row and
+  given no third argument, `SEQUENCE(0)`, `TAKE` of no row); `UNIQUE`
+  telling two texts one without case, `SORT` and `SORTBY` ordering by the
+  kinds' order and Excel's order of texts, rows of one order keeping theirs.
+- *An array where a range is read* (`calc::aggregates`, `calc::lookups`,
+  `calc::texts`, `calc::index`): `SUM`, the aggregates, the lookups' vectors
+  and tables and every function reading a range read an array as one;
+  `COUNTIF`'s and the database functions' ranges, references, read one as
+  `#VALUE!`; a lookup searching an array scans it, no index built over
+  values no cell holds (`index::Seek`).
+- *`#CALC!`*, `ErrorKind::Calc` (`calc::value`): the eighth error value,
+  read from a cached value and spelled; no formula's literal, which the
+  parser and the formula syntax refuse.
+- *A legacy array formula*, `Content::ArrayFormula` (`sheet`): the door
+  loads `t="array"` with no `cm` as one, where (b) labelled it, and the
+  writer writes one back as `<f t="array" ref="…">` with no metadata
+  (`core/src/sheet/ooxml.rs`), sharing no formula that holds `:` between
+  expressions.
+- *The machine* (`machine`, `calc::shape`, `calc::program`): a shape whose
+  parse holds an array (`vector::arrays_in`: an array constant, `:` between
+  expressions, a function answering an array, or an array parameter given
+  anything but a reference or a literal), and every shape of dynamic
+  formulas or legacy array formulas, computed at each cell by `Ctx` whole
+  and lowered to no program, the census naming it `(unlowered array)`; a
+  shape of either kind keyed apart from a legacy formula of the same text.
+- *The formula syntax's forms* (`formula_syntax`, and `VLA.bas`'s
+  `FormulaSyntaxWrite` in the reference): an array constant as a quoted
+  list, `(quote (1 2 3))` writing `{1,2,3}` and `(quote ((1 2) (3 4)))`
+  `{1,2;3,4}`, an error in it `(error "#N/A")`; `(: a b)` writing `a:b`, at
+  the tightest level; the expand golden's four cases, two of them refusals,
+  and the reader's golden blessed again, three lines moved.
+- *Excel's library* (`excel.rs`): the twenty-one subset rows, each with its
+  evidence and the fixture.
+- *The break* (decision 9): `Arg::Array`, `Expr::Array` and `Expr::Range`,
+  `Content::ArrayFormula` and `ErrorKind::Calc`; `ErrorKind`, `Arg`, `Expr`,
+  `Reason`, `Content` and the new `Param` marked `#[non_exhaustive]`;
+  `Env::array_formula`, a provided method answering `false`; the notes under
+  0.11.0 in `docs/RELEASES.md`.
+
+*The fixture.* `scripts/recalc/arrays.txt`, built by the door into
+`arrays.xlsx`: a Data sheet of numbers, two of them alike, texts in two
+cases above an empty cell, a column of mixed kinds, a matrix of three rows
+and two columns, an error beside a number and `0.3` beside `0.1+0.2`; and a
+Functions sheet of 190 formulas from row 10, one a rule, array constants and
+the lift in legacy formulas, `SUMPRODUCT`, `ROWS` and `COLUMNS`, the array
+functions and the shapers, a range read whole in a dynamic formula, the
+lookups over arrays and `:` between expressions, and two spills, `D1` and
+`G1`, with room beside them. The edges Excel's documentation leaves unsaid
+are rows of their own, each answered by the build's reading until the save:
+`IF` of an array of conditions `#N/A` where any of its three operands falls
+short, the branch not taken among them (`A26`); an empty cell read into an
+array an empty value, `ISBLANK` of it TRUE, `TEXTJOIN` keeping it as an
+empty text and `INDEX` of it 0 (`A83`, `A84`, `A90`); an array of more than
+`CELLS` values labelled (`A195`); and four rows the mutants asked for
+(below), `SORT` ranking an error after a truth value either way (`A196`,
+`A197`), a function of one value lifted over two arrays of two lengths
+(`A198`) and a sort of forty lines whose ties keep their order (`A199`). 195
+formulas: 192 agree with the values the build wrote and 3 are labelled, the
+two spills and the grid's limit; its census, 197 lines, beside it. Oracle
+12's eighteenth row, `arrays_calc.vla`, pinned `built`, and `prove.ps1`'s
+eighteenth calc row (58 passed).
+
+*The goldens it moved.* The reflect fixture's legacy array formula,
+`fixture.xlsx`'s `E3`, `=B1:B2*2`, and the OpenDocument fixture's matrix
+formula in the same cell compute their first value, 2400, and agree, each
+labelled by its range before (`fixture` 24 agreeing, `opendocument` 26); the
+reflect fixture's dynamic `=SEQUENCE(2)` is labelled a spill, and the
+OpenDocument file's, a plain formula there, computes 1 and agrees; the
+intersection fixture's dynamic `=CHOOSE(1,Data!B1:F1)+0` and its save's are
+labelled a spill where their range was; and the text fixture's 163
+`SUMPRODUCT` ranks of its Order sheet and its save's, labelled `SUMPRODUCT`
+before, compute their comparisons, which the order of texts labels, `a
+character's order`, each rank comparing its text with all 163. Eight
+censuses moved, none of their counts: the lookups fixture's nineteen dynamic
+shapes (`LOOKUP`'s array form, `INDEX` over a block, a `MATCH`), dynamic by
+the writer's rule and by Excel's save, and the reflect, OpenDocument and
+intersection fixtures' dynamic shapes, `(unlowered array)`; and the
+`SEQUENCE`s and `SUMPRODUCT`s called, read `each`. `check_shapes_golden`'s
+grammar of a row learned `(unlowered array)`.
+
+*Measured, and mended at the build.*
+- *The parser past the stack `VLA.1` pins.* The language's own `limits` test
+  overflowed its thread of 1 MiB in the debug build `cargo test` makes, the
+  formula parser and a machine's load at Excel's nesting of 64. A probe
+  painting the stack below its frame measured each stage's peak in both
+  trees: the deepest parse, `ABS(` nested 64 deep, 989,304 bytes at the base
+  (`5431d8e`) and 1,024,952 in the slice, and a load 998,216 against
+  1,034,344, 557 bytes more at every level of nesting. The `:` loop was a
+  frame of its own between `postfix` and `primary`, which every level passes
+  through, and a debug build gives each temporary a slot. The loop is now
+  entered only where a `:` follows, writing the range into the primary's
+  place, and `postfix`'s two calls are matched by hand, a `?` holding
+  temporaries of its own (146 bytes a level): the deepest parse 986,472
+  bytes and a load 995,864, below the base's at every stage of the test but
+  a nest of minus signs and a chain, 240 and 288 bytes deeper once. The
+  overflow had gone unseen at first: `cargo test` stops at the first binary
+  that fails, and the counts printed before it were read as the whole run;
+  the suites run with `--no-fail-fast` since.
+- *The floors, alternated.* Four rounds of the base and the slice through
+  `bench_recalc.ps1`, each copy with its own target: every fixture's median
+  within its rounds' spread, from 4.8% faster (the criteria's whole frame)
+  to 2.7% slower (the lookups' whole frame, 9.84 to 10.37 ms against 9.86 to
+  10.27), no program of the floors holding an array. The outline's oracle
+  names `KERNEL.29`'s parity floor beside the fixture; its two spellings of
+  one program, inline and through named functions, wait on `LET` and
+  `LAMBDA`, so the slice adds no program to the floors.
+
+*Held.* `vla-lang`'s 343 tests and `frazaro-core`'s 195, its new one a
+legacy array formula written over its cell with no metadata, every binary of
+the workspace run whole (`--no-fail-fast`), the language's 12 laws, its 4
+limits, the formula syntax's three and the expand golden: the law in one
+pass gained arms of `SUMPRODUCT`, `INDEX` of a `SORT`, and `SUM` over `:`
+between a reference and an `INDEX`, the fill law a `SUMPRODUCT`, each answer
+the machine gives held to `Ctx`'s. Of 62 mutants of the slice, each applied
+alone to a copy of the crates with its own target and a survivor held to the
+door's calc and census goldens, 44 failed named tests at once; the core's
+two had not built in a copy without `scripts/`, which its tests read at
+build time; and 16 survived. One is equivalent, `-0` kept in an array
+constant, which no answer tells from 0, the formats drawing it as 0; one of
+`TRANSPOSE`'s was written wrongly, reading the very places it should, and
+was written again. The rest each found a rule no test held, and the tests
+were written before they ran again: `IF` over a branch shorter than its
+conditions and a function lifted over two arrays of two lengths, which the
+fixture alone had caught; a form of a crate above wanting one value, given
+an array in each kind of formula, its label met by nothing; a range whose
+end is a defined name; `FILTER`'s 0 left out, an empty value sorted last and
+an error after a truth value; forty lines sorted, so that a sort keeping no
+order of ties shows, as no sort of fewer than twenty does; a range's reach
+ordering a formula its span holds and no reference names; and two runs of
+arrays in a machine, a constant's and `SEQUENCE`'s. Run again, the eighteen:
+fifteen fail named tests, the equivalent survives, and two change the census
+alone, which `check_shapes_golden` holds, the lowering's own refusal of an
+array, which a later refusal meets under another word, and a dynamic shape's
+marking, which no value a test or a fixture reads tells from its absence
+(Found). Four of the rules became rows of the fixture for Excel's save
+(`A196` to `A199`). Clippy and rustfmt clean, the C surface's feature too;
+both wasm modules built, no import, the exports at the baseline; the
+language's package tested from its tarball, 83 files; `run_checks` 58 of 58;
+every check the door answers (`prove.ps1` 58 passed, the recalc and census
+goldens reproduced whole). Alonzo's `78fe570` and Buffet's `f5dcde1` by a
+path, over the slice and over the base, each copy with its own target:
+Alonzo's 76 tests, its cartridges' expansion and every frame of its floors'
+runner the base's, each digest and fact, and Buffet's 92 tests and its
+expansion; each grid 2,745 bytes more, 1,601 of them the twenty-one names,
+which a copy registering none gives back, so that Alonzo's memory ceilings,
+set at 0.10.1, stand 7,803 bytes short at its next pin; and three of its
+fixtures allocating less in their counted steps, Sand 499 to 491 and
+Superposition's act and cascade 396 to 346 and 4,002 to 3,948, which a trace
+of each allocation's callers gave to an operand moved into its operator,
+where the base's `Ctx::scalar` cloned it, a text's clone an allocation.
+
+*For Excel's save,* a stop rule stated before it: at most two saves, the
+second only to confirm what the first corrected, an edge the documentation
+leaves open labelled. The owner opens `arrays.xlsx` in Excel 365, types
+three legacy array formulas into the Functions sheet with Ctrl+Shift+Enter,
+`K1` `=SUM(LEN(Data!B1:B6))` (the build's reading 21), `K2` `=Data!A1:A6*2`
+(6, its first value) and `K3` `=MAX(Data!A1:A6*Data!C1:C6)` (540), and saves
+it as `arrays_saved.xlsx`, which the door then reads: 198 formulas, the
+three legacy array formulas among them.
+
+*Excel's first save,* at the owner's hand test of 2026-10-21, the stop rule
+stated before it. The hand test held, the 58 files staged, the suites and
+the checks, but for one of the reference's self-tests, which still held an
+array constant refused, written before the forms came (`VLA_Tests.bas`): now
+held to the constant written, its rows of two lengths refused and `:`
+written; and `VlaWriteExpandGolden` wrote the expand golden to the byte.
+Excel 365 opened the built file by repairing the Functions sheet's cells,
+and the owner typed `K1:K3` as dynamic formulas, not with Ctrl+Shift+Enter,
+`K2` spilling into `K3` and saved `#SPILL!`, so that the save holds no
+legacy array formula. Of its 198 formulas the door computed 194: 180 agreed
+and 14 differed:
+- *`#CALC!` and `#SPILL!` are rich values.* Excel writes an error with no
+  cell error value of its own as `#VALUE!` beside a `vm` naming a block of
+  value metadata, whose rich value is an `_error` of an `errorType`
+  ([MS-XLSX] section 2.3.6.1.3: 8 `#SPILL!`, 11 `#UNKNOWN!`, 12 `#FIELD!`,
+  13 `#CALC!`). The build had cached seven `#CALC!` answers as cell errors,
+  which Excel repaired, and the reader read Excel's own `#CALC!` there as
+  its fallback `#VALUE!` (`A64`, `A67`, `A74`, `A111`, `A136`, `A139`,
+  `A153`). Folded: the reader reads the error a rich value names
+  (`merge::rich_errors_of`, the codes the specification names, any other
+  leaving the cell's own value), and the build writes a `#CALC!` answer with
+  no cached value, as it writes a formula outside the subset, the host
+  computing it.
+- *`IF` lifted takes its branch at each place.* Excel computes
+  `IF({FALSE,FALSE,FALSE},{1,2},5)` as three 5s (`A26`), where the lift
+  answered `#N/A` at the place the branch not taken falls short. Folded for
+  `IF`, and for `CHOOSE` and `IFERROR` by the same reading: a control
+  function's lift reads at each place only the operand it takes there
+  (`array::lift_by`, `lift_n` going with it).
+- *A value forced in a legacy formula.* Excel computes
+  `IFERROR({1,#N/A,3},0)` and `IFERROR({1,2,3},{10,20})` as 1 (`A28`,
+  `A29`), `IFNA` over `MOD`'s lifted array as its first value (`A198`), and
+  `VLOOKUP(3,A1:C6,{1,3},FALSE)` as its first column (`A33`), where `LEN`'s
+  and `ISNUMBER`'s values, `COUNTIF`'s and `SUMIF`'s criteria, `IF`'s
+  condition and the operators lift in the same legacy formulas: Excel's
+  class for those parameters forces one value. Folded: `Param::Scalar`, a
+  value forced, `IFERROR`'s and `IFNA`'s and `VLOOKUP`'s and `HLOOKUP`'s
+  index, read in a legacy formula as one value even inside an array
+  parameter, a range met at the cell and an array its first value, and
+  lifted in a dynamic formula or a legacy array formula (`Ctx::forced`,
+  `Ctx::as_values`). Taken with it, unwitnessed by this save: `IF`'s
+  condition and `CHOOSE`'s index keep their own class in a legacy formula,
+  an array lifting and a range met at the cell even inside an array
+  parameter, as `SUMPRODUCT(IF(A1:A9>2,1,0))` asks for Ctrl+Shift+Enter in
+  Excel.
+- *`COUNTA` counts an array's empty value* (`A82`, `A119`), where it passes
+  a range's empty cell by. Folded.
+
+`A195`, `SUM(SEQUENCE(2000000))`, Excel answered `#VALUE!`, where the
+scoping's third decision rested on Excel computing an array there; the row
+stays labelled, and the owner is asked whether it should answer `#VALUE!` as
+Excel does. Read again by the reader that knows rich values, two earlier
+saves moved. The text fixture's `A142`, `LEN(TEXTJOIN(",",FALSE,data!B:B))`,
+Excel saved as a rich `#CALC!`, its fallback `#VALUE!` what the reader took
+and the language agreed with, and Excel's documentation's answer: folded,
+`TEXTJOIN` past the text limit is `#CALC!`, `texts.xlsx` built again with
+that cell holding no value (189 agreeing, its floor lowered by the one) and
+`texts_saved` agreeing at `#CALC!`; the correction is the arrays'
+amendment's. The lookups fixture's save holds its `A107`,
+`INDEX(table!A1:A8,0)`, as the `#SPILL!` it is, labelled either way. Folded,
+the door over the first save: 198 formulas, 194 computed, every one
+agreeing, and 4 a spill or labelled (`D1`, `G1`, `K2` and `A195`).
+
+*Held, the fold.* `vla-lang`'s 343 tests and `frazaro-core`'s 196, the
+core's new one reading Excel's own rich values, the writer's holding a
+`#CALC!` with no value, every binary of the workspace run whole; the rows
+the save moved held to Excel's legacy answers, each beside a dynamic twin
+that lifts (`E14`, `E17`, `E31`, `E34` and `E40` to `E43`), and rows of the
+folds' reach (`IF` and `IFERROR` over a range inside `SUMPRODUCT`, `CHOOSE`
+at each place, `COUNTA` over an array and over a range, `IFERROR` lifted at
+each place); the text limit's row of `TEXTJOIN` `#CALC!`. Of 17 mutants of
+the fold, each applied alone to a copy of the crates with its own target, 16
+failed named tests at once; the seventeenth, the forced reading of an
+argument taken away, failed once a row held a forced value inside an array
+parameter (`E52`), where outside one a legacy formula's reading of an array
+as its first value hides it. Clippy and rustfmt clean; `run_checks` 58 of
+58, `check_recalc_golden`'s rule for a built fixture excepting a `#CALC!`
+answer, which the build writes with no value, its control still failing a
+value the file does not hold; both wasm modules built; the language's
+package tested from its tarball; every check the door answers (`prove.ps1`
+58 passed). Alonzo's `78fe570` and Buffet's `f5dcde1` over the fold by a
+path: their tests and their expansions, and every frame of Alonzo's floors'
+runner the base's, each digest and fact, each grid's bytes and its
+allocations as at the build.
+
+*For Excel's second save,* the last by the stop rule, an edge it leaves open
+labelled: the owner opens the rebuilt `arrays.xlsx` and types `K1:K3` with
+Ctrl+Shift+Enter, the formula bar showing each in braces and `K2` holding 6
+in its one cell. Fifteen rows designed before it: `A200` to `A212`, the
+folds' reach, `IFERROR` lifted at each place in a dynamic formula and
+`VLOOKUP`'s index lifted there, `HLOOKUP`'s index forced in a legacy
+formula, the values `VLOOKUP` and `MATCH` seek given an array in a legacy
+formula and `LOOKUP`'s in a dynamic one, `IF`'s condition and `IFERROR`'s
+value over a range inside `SUMPRODUCT` in a legacy formula, `CHOOSE` and
+`IF` at each place in a dynamic formula, `IF`'s range condition lifted
+there, `COUNTA` over a sorted array with an empty value and `COUNT` over a
+transposed one of mixed kinds; and `A213` and `A214`, the text limit,
+`TEXTJOIN` past it without a whole column and `CONCAT` past it. 210
+formulas: 199 agree with the values the build wrote, 8 `#CALC!` answers hold
+no value and 3 are labelled.
+
+*Excel's second save,* at the owner's hand test of 2026-10-21, the last by
+the stop rule. The hand test held: the 63 files staged, every binary of the
+workspace, `run_checks` 58 of 58, the reference's self-tests (pure 2,033 of
+2,033, host 333 of 333), and the rebuilt `arrays.xlsx` opened in Excel 365
+with no repair, its spills drawn. The owner typed `K1:K3` with
+Ctrl+Shift+Enter, each shown in braces and saved as `t="array"`: `K1` 21 and
+`K3` 540, lifted over their ranges, and `K2` as `data!A1:A1*2`, one value,
+as the first save's came back dynamic, so that no save holds a legacy array
+formula whose answer is many values, which the language holds at its first
+value on its own tests alone. Of the save's 213 formulas the door computed
+210: 208 agreed, and two of the rows designed for it differed:
+- *The value `VLOOKUP` seeks is forced in a legacy formula.* Excel computes
+  `SUM(VLOOKUP({3,4},data!A1:C6,3,FALSE))` as 10, the row of 3 alone
+  (`A203`), where `MATCH`'s value sought lifts in the same legacy formula
+  (`A204`, 9). Folded: every value `VLOOKUP` and `HLOOKUP` take but the
+  table is forced, `HLOOKUP`'s value sought and the match kinds of both
+  with it by their likeness, unwitnessed, as their indexes were witnessed
+  alike (`A33`, `A202`).
+- *`CONCAT` past the text limit is `#CALC!`* (`A214`), as `TEXTJOIN` is
+  (`A213` agreeing), where the documentation of each says `#VALUE!`.
+  Folded: the one answer of a text the two join past the limit
+  (`texts::Joined`).
+
+Every other row designed for it agreed as built: `IFERROR` lifted at each
+place and `VLOOKUP`'s index lifted in a dynamic formula, `HLOOKUP`'s index
+forced in a legacy one, `LOOKUP`'s value sought lifted in a dynamic one,
+`IF`'s condition and `IFERROR`'s value over a range inside `SUMPRODUCT` met
+at the cell in a legacy formula, `CHOOSE` and `IF` at each place, `IF`'s
+range condition lifted, `COUNTA` over a sorted array counting its empty
+value and `COUNT` over a transposed one of mixed kinds. `A195` the owner
+kept labelled, "Keep the label for arrays past 1,048,576", as recommended:
+Excel's one answer there is of a sequence past the sheet's rows, and an
+array within them past the limit may compute in Excel, where `#VALUE!`
+would be wrong. Folded, the door over the second save: 213 formulas, 210
+computed, every one agreeing, and 3 a spill or labelled (`D1`, `G1` and
+`A195`). `arrays_saved.xlsx` joins oracle 12's table: its calc golden at
+`no-differ` (213, 210 agreeing), its census (215 lines) and `prove.ps1`'s
+nineteenth calc row. `arrays.xlsx` built again, `A203` holding 10 and
+`A214` no value: 198 agreeing with the values the build wrote, its floor
+lowered by the one, 9 `#CALC!` answers holding none and 3 labelled.
+
+*Held, the second fold.* `vla-lang`'s 343 tests and `frazaro-core`'s 196,
+every binary of the workspace run whole; rows of the fold (`E53` to `E61`:
+the value sought forced in a legacy formula and lifted in a dynamic one and
+in a legacy array formula, `HLOOKUP`'s alike, the match's kind forced, a
+range sought inside `SUMPRODUCT` met at the cell) and `CONCAT` past the
+limit at three rows, a reference among them. Of 4 mutants of the fold,
+each applied alone to a copy of the crates with its own target, every one
+failed a named test: the value sought lifting again (`E53`), the match's
+kind lifting (`E57`), and a text past the limit `#VALUE!` again, for both
+functions and for `CONCAT` alone (the `CONCAT` rows). Clippy and rustfmt
+clean; `run_checks` 58 of 58; `prove.ps1` 59 passed; both wasm modules
+built; the language's package tested from its tarball. Alonzo's `78fe570`
+and Buffet's `f5dcde1` over it by a path: their tests and their
+expansions, and Alonzo's floors' runner printing every frame as over the
+first fold, to the byte, each digest and fact, each grid's bytes and its
+allocations.
+
+*Found in the slice,* read, not minted:
+- *The writer follows today's rule, not Formula2's* (decision 2): a
+  sentence's `=SUM(A1:A3*B1:B3)` is written as a legacy formula, which Excel
+  opens meeting each range at its cell, where the same text typed into Excel
+  365 is stored dynamic and lifts; the language computes the file as
+  written, Excel's legacy answer. Writing as dynamic every formula whose
+  legacy reading would meet a range its dynamic one lifts is the writer's
+  question, and moves the intersection fixture.
+- *A legacy array formula over many cells computes at its first cell alone.*
+  The reader reads `t="array"`'s formula at its anchor and not its `ref`, so
+  that the other cells of a block entered with Ctrl+Shift+Enter read as the
+  values the file cached, where Excel computes each its place of the array;
+  the fixture's three are one cell each. As before the slice, which labelled
+  the anchor too.
+- *Every dynamic shape gives up its program.* A shape of dynamic formulas is
+  computed at each cell by `Ctx` whole though its parse holds no array, as
+  the lookups fixture's nineteen. Its mutant, the marking taken away,
+  changes no value a test or a fixture reads, only the census's word: the
+  lowering refuses a range where one value is wanted, and its guards leave
+  `INDEX`'s whole row or column to `Ctx`, so that a dynamic shape could keep
+  its program wherever every range stands where a range is wanted; a model
+  of many dynamic formulas computes without `KERNEL.44`'s programs until the
+  machine tells the two apart.
+- *The error types the reader names.* It maps the `errorType`s the
+  specification's pages read here name, 8, 11, 12 and 13; `#CONNECT!`,
+  `#BLOCKED!` and `#BUSY!`, whose codes stand in vendors' tables and not in
+  those pages, keep the cell's own `#VALUE!`, and no formula the language
+  computes answers one.
+- *The lookups' legacy class is witnessed in part.* The saves witnessed
+  `VLOOKUP`'s value sought and its index forced, `HLOOKUP`'s index forced
+  and `MATCH`'s value sought lifting; `HLOOKUP`'s value sought and the match
+  kinds of both are forced by their likeness, and `INDEX`'s row and column
+  still lift over an array in a legacy formula. The build writes `INDEX`,
+  `LOOKUP` and `CHOOSE` only in dynamic formulas, so that no save of its
+  files witnesses their legacy class.
+
+*Committed 2026-10-21* at the owner's standing word of 2026-10-20, "if the
+tests pass as expected, then commit the slice before proceeding with the
+next slice (if one exists)", the second save's hand test holding and its
+two rows folded: this slice's files alone, the shared documents staged as
+`HEAD` and this item's lines, nothing of a peer's in them. The item closed
+with it; its line left the roadmap for the closed ledger. Spills, an array
+laid into the cells beside its anchor, wait for an item of their own,
+unminted (the scoping's decision 7). Not pushed.
+
 **`KERNEL.48`, a frame's own count: the scoping, 2026-10-18.** Begun at
 the owner's word, the prompt relayed from Alonzo's `CART.12` scoping (the
 large board, a mine-clearing game at 512 by 512, at rate zero), which
@@ -45189,6 +45648,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.31 — a sheet a range reads this frame kept as an array, so that a reduction over the frame's own cells walks an array as one over a twin does.** Minted 2026-10-12 at the owner's word, from the speed half of an Alonzo session's audit of the architecture; measured again with `KERNEL.34` to `KERNEL.36` and with `KERNEL.43`, which widened it to the cells a frame reads of its own sheets; scoped, approved, built, owner-tested and committed 2026-10-17. A rows' sheet the plan reads by a range, or by a run's cell that moves with it, keeps the frame's values as an array over its extent, the twin's slot under the twins' limit, each slot written where a value changes and a value cell's at its write, the array kept over a write that plans again and made again past its extent; a sheet one of whose formulas holds a reason offers no array until none does, so that a range answers the reason bit for bit; every array path reads it as a twin's, a run's cells one below the other read a column of it, and a door's census names the arrays its machine keeps. The recalc floors' `sums` whole 3.6 times faster and its edit 2.3 times, 2.5 times faster than Excel on twenty threads and 1.2 times at its edit, `column`'s whole frame 37% faster, Sand 18% natively and 17% in wasm, the Mind of 20,000 55 and 45%; Life, the gun, Kairos, Buffet and the sound card level, `chain` level to 5% slower; every frame equal natively and in wasm; a load that makes an array up to 9% slower, 33 bytes a slot, the module 1.1% larger. The recalc floors' entry of 2026-10-17 raised `sums`' whole frame from 7.21 to 31.0 million formulas a second and `column`'s from 56.8 to 108. Held by a law over generated grids against the same grids keeping no arrays and against `Calc`, five tests of its traps, and thirty mutants, each failing named tests, two gaps found and one closed; Alonzo and Buffet over it by paths, every replay and digest unchanged. To be released in 0.10.0, 0.9.5 folded into it. `~weeks`, taken in a day. *(more: the measurement, the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.47 — a number format in the record: Excel's format codes beside `general` and `text`, so that a cell holding 1 under `0.00` draws 1.00, right-aligned as a number.** Minted 2026-10-17 at the owner's word, from Buffet's `POT.10` hand test (2026-10-16): "All dollar cells should show two decimals, so Portfolio!B5:B8 should show cents at all times, even when the amount is a full dollar."; scoped, approved, built, owner-tested and committed 2026-10-17. A `format` row's number format may be a code of Excel's in quotes, `(format 2 none "0.00" nowrap)`: `numfmt` draws one to four sections, `0` and `#`, the point, the thousands, thousandths and percents, quoted, escaped and unquoted literals and any character outside ASCII, and refuses the rest by name with what draws instead (`grid-format-code`); a number becomes its text as Excel draws it, its nearest fifteen significant digits, an exact tie toward zero, then half away from zero to the code's decimals, one section's minus dropped where the number draws as zero; the record prints a `text` row after a cell's value wherever a code draws, a load skips it, and a record whose formats hold no code prints none, byte for byte as before; the writer writes a built-in by its id and defines every other code in `<numFmts>` from 164, into a workbook of one's own past its highest. `NumFmt::Code` breaks the public surface (`NumFmt` loses `Copy`, `NumFmt::id` is `NumFmt::builtin`, the core's `cellxfs_fragment` takes the codes' ids). A number's text 224 to 276 ns short and 611 to 998 long; a window of 4,000 coded numbers 2.4 to 3.9 ms slower, most of it the printing of its rows; a style 24 bytes where it was 6; the module 19.2 KB larger. Held by Excel's own text of 114 values under 59 codes (`VlaWriteFormatsGolden`, the owner's run, three rules of Excel's taken from it), the laws over grids whose formats hold codes, the writer's ids, a written workbook the owner opened in Excel (every row alike) and in Calc (all but 1 under `0.#`), and eighteen mutants, each failing named tests; Alonzo over it by path, its tests and frames as before but 18 bytes held a cartridge. Alonzo's half (a `SPEC.md` version, the viewport's reader and painter, the pin) named for Alonzo to mint after the release. To be released in 0.10.0. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.48 — a frame's own count: the formula cells whose values the last complete frame changed, read in constant time on `vla-lang`'s `Machine`, so that a host steps a grid again while a cascade still moves and stops when it has settled.** Minted 2026-10-18 at the owner's word, from Alonzo's `CART.12` (the large board at rate zero, a cascade settled inside an edit); scoped, approved, built, owner-tested and committed the same day. `Machine::changed` answers how many formula cells the last complete frame changed the value of, to the bit as the frame keeps a value (a first value, a 0 turned to -0 and a reason turned to another counted, a value cell never), `Machine::changed_on` how many of them stand on a sheet by its index, and `Machine::reached` how many formula cells the frame computed: each a field's read, 0 before the first frame, the last complete frame's during a yield and after a write. A frame that changed nothing, with no write before it, is a fixed point, the next frame with none before it changing nothing; so a host settles a grid by stepping again while the last frame changed a formula's value or had a write before it, the frame right after a write never the proof, since a formula reading a written cell's twin sees it a frame later (the scoping's stronger clause corrected in the build). Each sheet's share is counted in the copy's loop at the frame's end, where a pass over the list had cost Life's board of 1280 by 800 2% of its frame: a frame costs what it cost, natively and in wasm, and the recalculation floors are as they were. Held by a twelfth law over four families (the counts against every formula's value read to the bit, stepped whole and in slices, across writes, and the fixed point wherever its condition held), unit tests with each of the machine's paths turned off, and twenty-one mutants, each failing named tests once a survivor's blind spot, the counts across a write, was held; Alonzo over it by path, its tests and every frame equal; the owner's hand test a board of 512 by 512 settled after a click, 342 frames, the frame past it still. Additive: no call, record, export or golden moved. Alonzo's half, the page's version 6 and its `(settle K)`, is `CART.12`'s. To be released in 0.10.1. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
+- ✅ **KERNEL.8 — recalculation, slice 2: dates, text, lookups and spills.** Scoped 2026-10-18 at the owner's word, its ten decisions approved whole, and built in six slices, each at the owner's word and committed before the next, 2026-10-19 to 2026-10-21, each held to Excel 365's own saves of its fixture, every cell the door computes agreeing: the lookups on an index (`e437b60`: thirteen functions in the language, a range searched again and again answering from an index exact by construction, both planners linear); implicit intersection and a formula's kind (`7056927`: a legacy formula's range where one value is wanted met at its cell, a dynamic-array formula told by the reader, `SINGLE` computed, the twin defect removed); the text functions (`3c74f39`: twenty-five, a text counted by its characters as Excel counts it, Excel's order of texts, dates and times in a number format's code); the dates (`3d06abc`: seventeen functions over Excel's 1900 calendar, every day from 1900 to 2101 held to Excel's save); the aggregates by criteria (`5431d8e`: the `SUMIFS` family, `SUBTOTAL` and the database functions over one tally, answered from groups of their ranges, a hidden row read, oracle 12's agreement amended at the owner's decision to fifteen digits at most one unit apart); and arrays within a formula (the sixth: Excel's lift and its parameters' classes, a value forced in a legacy formula among them, array constants and `:` between expressions, twenty-one array functions and shapers, `#CALC!` read from the rich values Excel saves it as, a legacy array formula computed, and the break batched into 0.11.0). Each slice's saves ended under a stop rule stated before the first, an edge Excel answered unstably or no save could settle labelled, an array past the grid's limit among them at the owner's decision. `LET` and `LAMBDA` went to `KERNEL.29`; `KERNEL.51`, `KERNEL.52` and `PORT.14` were minted from the fifth slice's Found; spills, an array laid into the cells beside its anchor, wait for an item of their own, unminted (the scoping's decision 7). To be released, the first five slices in 0.10.2 and the sixth, which changes the public surface, in 0.11.0. `~quarter`, taken in four days. *(more: the scoping and the six slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

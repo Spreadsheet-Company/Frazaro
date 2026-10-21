@@ -1082,6 +1082,10 @@ impl At<'_, '_> {
                         stack.push((b, false));
                         stack.push((a, false));
                     }
+                    Expr::Range(r) => {
+                        stack.push((&r.right, false));
+                        stack.push((&r.left, false));
+                    }
                     _ => {}
                 }
                 continue;
@@ -1089,15 +1093,21 @@ impl At<'_, '_> {
             let operands = match e {
                 Expr::Call(_, args) => args.len(),
                 Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) => 1,
-                Expr::Binary(..) => 2,
+                Expr::Binary(..) | Expr::Range(_) => 2,
                 _ => 0,
             };
             let first = done.len() - operands;
             let same = match e {
-                Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => {
-                    true
-                }
+                Expr::Number(_)
+                | Expr::Text(_)
+                | Expr::Bool(_)
+                | Expr::Error(_)
+                | Expr::Empty
+                | Expr::Array(_) => true,
                 Expr::Ref(r) => held(r),
+                // A range is read by its reach, the cells any span it
+                // answers may name (KERNEL.8, slice f).
+                Expr::Range(_) => false,
                 Expr::Name { .. } => {
                     followed = false;
                     false
@@ -1114,6 +1124,12 @@ impl At<'_, '_> {
                 }
                 if let Expr::Ref(r) = e {
                     followed &= self.reference(r);
+                }
+                if let Expr::Range(r) = e {
+                    match &r.reach {
+                        Some(reach) => followed &= self.reference(reach),
+                        None => followed = false,
+                    }
                 }
             }
             done.truncate(first);

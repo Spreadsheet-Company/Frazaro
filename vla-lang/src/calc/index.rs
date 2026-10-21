@@ -1416,7 +1416,64 @@ impl GroupIndex {
 // ---- the lookups' searches, each from an index where one stands, and the
 // ---- scans that are their meaning ---------------------------------------
 
-/// A lookup's exact match along a line (`MATCH` 0, `VLOOKUP` and `HLOOKUP`
+/// A vector a lookup searches: a line of cells, or the values of an array's
+/// row or column in order (KERNEL.8, slice f), which no index keeps and
+/// every search scans, an empty value passed by as an empty cell is.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Seek<'v> {
+    Line(Line),
+    Values(&'v [Value]),
+}
+
+impl Seek<'_> {
+    /// How many places the vector spans.
+    pub(crate) fn len(&self) -> u32 {
+        match self {
+            Seek::Line(line) => line.len(),
+            Seek::Values(values) => values.len() as u32,
+        }
+    }
+
+    /// Each value the vector holds and its position, to `f`, as [`walk`]
+    /// hands a line's cells on, in order: an empty one passed by. `f`
+    /// answers whether to go on.
+    fn visit<F>(&self, ctx: &Ctx<'_>, mut f: F)
+    where
+        F: FnMut(u32, Read<'_>) -> bool,
+    {
+        match self {
+            Seek::Line(line) => walk(ctx, &line.area, |row, col, read| {
+                f(line.position(row, col), read)
+            }),
+            Seek::Values(values) => {
+                for (k, v) in values.iter().enumerate() {
+                    if *v != Value::Empty && !f(k as u32, Ok(v)) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /// The first and last positions a value may stand at: a line's inside
+    /// its sheet's extent, an array's every one.
+    fn within(&self, ctx: &Ctx<'_>) -> Option<(u32, u32)> {
+        match self {
+            Seek::Line(line) => line.within(ctx),
+            Seek::Values(values) => (!values.is_empty()).then(|| (0, values.len() as u32 - 1)),
+        }
+    }
+
+    /// The value at a position, as a read of it answers.
+    pub(crate) fn read(&self, ctx: &Ctx<'_>, k: u32) -> Result<Value, Reason> {
+        match self {
+            Seek::Line(line) => ctx.env.read(line.cell(k)),
+            Seek::Values(values) => Ok(values[k as usize].clone()),
+        }
+    }
+}
+
+/// A lookup's exact match along a vector (`MATCH` 0, `VLOOKUP` and `HLOOKUP`
 /// exactly, `XMATCH` and `XLOOKUP` mode 0): the position of the first cell
 /// equal to the probe under the lookups' equality (no two kinds equal, a
 /// number by its value, a text without case, a truth value), or the last
@@ -1425,52 +1482,49 @@ impl GroupIndex {
 /// empty probe among them.
 pub(crate) fn exact(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     from_end: bool,
 ) -> Result<Option<u32>, Reason> {
     let Some(p) = lookup_probe(probe) else {
         return Ok(None);
     };
-    if let Some(ix) = ctx.env.indexes() {
+    if let (Seek::Line(line), Some(ix)) = (seek, ctx.env.indexes()) {
         if let Some(answer) = ix.exact(ctx, line, p, from_end) {
             #[cfg(test)]
             if checking() {
                 assert_eq!(
                     answer,
-                    scan_exact(ctx, line, p, from_end),
+                    scan_exact(ctx, seek, p, from_end),
                     "{probe:?} along {line:?}"
                 );
             }
             return answer;
         }
     }
-    scan_exact(ctx, line, p, from_end)
+    scan_exact(ctx, seek, p, from_end)
 }
 
-/// [`exact`]'s meaning: the line walked in order, stopping at its first
+/// [`exact`]'s meaning: the vector walked in order, stopping at its first
 /// match or its first reason; from the end, every cell, its last match
 /// answering unless a reason stands after it.
 fn scan_exact(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     p: Probe<'_>,
     from_end: bool,
 ) -> Result<Option<u32>, Reason> {
     let mut found: Option<u32> = None;
     let mut reason: Option<(u32, Reason)> = None;
-    walk(ctx, &line.area, |row, col, read| {
-        let k = line.position(row, col);
-        match read {
-            Ok(v) if lookup_matches(v, p) => {
-                found = Some(k);
-                from_end
-            }
-            Ok(_) => true,
-            Err(r) => {
-                reason = Some((k, r.clone()));
-                from_end
-            }
+    seek.visit(ctx, |k, read| match read {
+        Ok(v) if lookup_matches(v, p) => {
+            found = Some(k);
+            from_end
+        }
+        Ok(_) => true,
+        Err(r) => {
+            reason = Some((k, r.clone()));
+            from_end
         }
     });
     match (found, reason) {
@@ -1481,31 +1535,28 @@ fn scan_exact(
     }
 }
 
-/// A pattern's match along a line (`MATCH` 0 and `VLOOKUP` exactly, with a
+/// A pattern's match along a vector (`MATCH` 0 and `VLOOKUP` exactly, with a
 /// text holding `*`, `?` or `~`; `XMATCH` mode 2): the first text matching
 /// it by Excel's wildcards (`criteria::wildcard`), or the last `from_end`,
 /// a reason met before it answering. A scan, every time: a pattern is no
 /// key.
 pub(crate) fn pattern(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     pattern: &str,
     from_end: bool,
 ) -> Result<Option<u32>, Reason> {
     let mut found: Option<u32> = None;
     let mut reason: Option<(u32, Reason)> = None;
-    walk(ctx, &line.area, |row, col, read| {
-        let k = line.position(row, col);
-        match read {
-            Ok(Value::Text(t)) if super::criteria::wildcard(pattern, t) => {
-                found = Some(k);
-                from_end
-            }
-            Ok(_) => true,
-            Err(r) => {
-                reason = Some((k, r.clone()));
-                from_end
-            }
+    seek.visit(ctx, |k, read| match read {
+        Ok(Value::Text(t)) if super::criteria::wildcard(pattern, t) => {
+            found = Some(k);
+            from_end
+        }
+        Ok(_) => true,
+        Err(r) => {
+            reason = Some((k, r.clone()));
+            from_end
         }
     });
     match (found, reason) {
@@ -1551,15 +1602,15 @@ fn same_kind_order(a: &Value, b: &Value) -> Ordering {
 }
 
 /// `XMATCH`'s and `XLOOKUP`'s exact match or, where none, the next larger
-/// (`larger`) or the next smaller, along a line sorted or not (modes 1 and
+/// (`larger`) or the next smaller, along a vector sorted or not (modes 1 and
 /// -1, searching first to last or last to first): the position of the cell
 /// equal to the probe, else of the least value above it or the greatest
 /// below it among the cells of its kind, its first position, or its last
-/// `from_end`; any reason in the line answers, its first, or its last
+/// `from_end`; any reason in the vector answers, its first, or its last
 /// `from_end`, a search for the nearest reading every cell.
 pub(crate) fn nearest(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     larger: bool,
     from_end: bool,
@@ -1567,26 +1618,26 @@ pub(crate) fn nearest(
     if lookup_probe(probe).is_none() {
         return Ok(None);
     }
-    if let Some(ix) = ctx.env.indexes() {
+    if let (Seek::Line(line), Some(ix)) = (seek, ctx.env.indexes()) {
         if let Some(answer) = ix.nearest(ctx, line, probe, larger, from_end) {
             #[cfg(test)]
             if checking() {
                 assert_eq!(
                     answer,
-                    scan_nearest(ctx, line, probe, larger, from_end),
+                    scan_nearest(ctx, seek, probe, larger, from_end),
                     "{probe:?} along {line:?}"
                 );
             }
             return answer;
         }
     }
-    scan_nearest(ctx, line, probe, larger, from_end)
+    scan_nearest(ctx, seek, probe, larger, from_end)
 }
 
-/// [`nearest`]'s meaning: the line walked whole.
+/// [`nearest`]'s meaning: the vector walked whole.
 fn scan_nearest(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     larger: bool,
     from_end: bool,
@@ -1597,8 +1648,7 @@ fn scan_nearest(
     let mut reasons: Option<((u32, Reason), (u32, Reason))> = None;
     // The first comparison a character beyond Excel's known order decided.
     let mut unknown: Option<Reason> = None;
-    walk(ctx, &line.area, |row, col, read| {
-        let k = line.position(row, col);
+    seek.visit(ctx, |k, read| {
         let v = match read {
             Ok(v) => v,
             Err(r) => {
@@ -1662,29 +1712,28 @@ fn scan_nearest(
     Ok(best.map(|(_, f, l)| pick((f, l))))
 }
 
-/// The cell at a line's position, as a read of it answers.
-fn read_at(ctx: &Ctx<'_>, line: Line, k: u32) -> Result<Value, Reason> {
-    ctx.env.read(line.cell(k))
-}
-
 /// `MATCH`'s type -1, its smallest value not under the probe on a
-/// descending line: the line walked from its first cell, a cell of the
+/// descending vector: the vector walked from its first cell, a cell of the
 /// probe's kind not under it kept, and the walk done at the first under it;
 /// other kinds, empty cells and errors passed by; a reason read answers.
 /// Not the bisection, as Excel's save of the lookups' fixture answers 1
 /// for 15 over 50, 10, 70, 20, 80, 30, 60, 40, where any bisection keeps a
-/// later cell (`Lookups!A26`); on a descending line the two are one.
-pub(crate) fn descending(ctx: &Ctx<'_>, line: Line, probe: &Value) -> Result<Option<u32>, Reason> {
+/// later cell (`Lookups!A26`); on a descending vector the two are one.
+pub(crate) fn descending(
+    ctx: &Ctx<'_>,
+    seek: Seek<'_>,
+    probe: &Value,
+) -> Result<Option<u32>, Reason> {
     let Some(kind) = kind_of(probe) else {
         return Ok(None);
     };
     let mut kept: Option<u32> = None;
     let mut stop: Option<Reason> = None;
-    walk(ctx, &line.area, |row, col, read| match read {
+    seek.visit(ctx, |k, read| match read {
         Ok(v) if kind_of(v) == Some(kind) => match ordered(v, probe) {
             Ok(Ordering::Less) => false,
             Ok(_) => {
-                kept = Some(line.position(row, col));
+                kept = Some(k);
                 true
             }
             Err(r) => {
@@ -1706,26 +1755,26 @@ pub(crate) fn descending(ctx: &Ctx<'_>, line: Line, probe: &Value) -> Result<Opt
 
 /// The bisection every approximate match takes but `MATCH`'s -1 (`MATCH`
 /// 1, `VLOOKUP` and `HLOOKUP` but exactly, `LOOKUP`, `XMATCH` and `XLOOKUP`
-/// searching 2 and -2), over the line as it stands, sorted or not, and
+/// searching 2 and -2), over the vector as it stands, sorted or not, and
 /// needing no index: low at its first position inside the sheet's extent
 /// and high at its last; the middle at `(low + high) / 2` rounded down, and
 /// from it the nearest cell of the probe's kind toward low, else toward
 /// high, other kinds, empty cells and errors passed by; a cell `keep`
 /// keeps, by how it compares with the probe, the answer so far and low
 /// moved past it, any other moving high before it; done when low passes
-/// high, the answer the last kept. On a line sorted by kind and value, as
+/// high, the answer the last kept. On a vector sorted by kind and value, as
 /// every approximate match asks, that is the last cell of the probe's kind
 /// that `keep` keeps. A reason read answers.
 pub(crate) fn bisect(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     keep: impl Fn(Ordering) -> bool,
 ) -> Result<Option<u32>, Reason> {
     let Some(kind) = kind_of(probe) else {
         return Ok(None);
     };
-    let Some((lo, hi)) = line.within(ctx) else {
+    let Some((lo, hi)) = seek.within(ctx) else {
         return Ok(None);
     };
     let (mut low, mut high) = (i64::from(lo), i64::from(hi));
@@ -1736,7 +1785,7 @@ pub(crate) fn bisect(
         let mut at: Option<(i64, Value)> = None;
         let mut j = mid;
         while j >= low {
-            let v = read_at(ctx, line, j as u32)?;
+            let v = seek.read(ctx, j as u32)?;
             if kind_of(&v) == Some(kind) {
                 at = Some((j, v));
                 break;
@@ -1746,7 +1795,7 @@ pub(crate) fn bisect(
         if at.is_none() {
             let mut j = mid + 1;
             while j <= high {
-                let v = read_at(ctx, line, j as u32)?;
+                let v = seek.read(ctx, j as u32)?;
                 if kind_of(&v) == Some(kind) {
                     at = Some((j, v));
                     break;
@@ -1767,24 +1816,24 @@ pub(crate) fn bisect(
     Ok(kept)
 }
 
-/// The next cell of a value's kind after a position along a line, or the
+/// The next cell of a value's kind after a position along a vector, or the
 /// first where `after` is `None`, reading as the bisection reads: what a
 /// next larger or smaller by the bisection steps to.
 pub(crate) fn next_of_kind(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     after: Option<u32>,
 ) -> Result<Option<u32>, Reason> {
     let Some(kind) = kind_of(probe) else {
         return Ok(None);
     };
-    let Some((lo, hi)) = line.within(ctx) else {
+    let Some((lo, hi)) = seek.within(ctx) else {
         return Ok(None);
     };
     let from = after.map_or(lo, |a| (a + 1).max(lo));
     for k in from..=hi {
-        if kind_of(&read_at(ctx, line, k)?) == Some(kind) {
+        if kind_of(&seek.read(ctx, k)?) == Some(kind) {
             return Ok(Some(k));
         }
     }

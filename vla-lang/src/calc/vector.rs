@@ -78,7 +78,7 @@ use crate::refers::Shape as Part;
 use super::dense::Dense;
 use super::eval::{
     arithmetic, compare_numbers, compares, finite, intersection, may_merge, near_bounds, numeric,
-    operate, Arg, Computed, Ctx, Env, Known, Library, Reason, Strict,
+    operate, Arg, Computed, Ctx, Env, Known, Library, Param, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
 use super::graph::{Area, CellId};
@@ -266,7 +266,8 @@ impl Lanes {
 pub(crate) fn holds(lib: &Library, e: &Expr) -> (usize, usize) {
     match e {
         Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => (0, 0),
-        Expr::Ref(_) | Expr::Name { .. } => (1, 0),
+        // A parse holding an array is computed at each cell by `Ctx` whole.
+        Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => (1, 0),
         Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => holds(lib, x),
         Expr::Binary(..) => {
             // The accumulated lane held while each right operand is evaluated.
@@ -420,7 +421,7 @@ pub(crate) fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr>
 /// are told by the same rule (KERNEL.44).
 pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
     match e {
-        Expr::Ref(_) | Expr::Name { .. } => false,
+        Expr::Ref(_) | Expr::Name { .. } | Expr::Range(_) | Expr::Array(_) => false,
         Expr::Pos(x) => yields_value(lib, x),
         Expr::Call(name, args) => match lib.known(name) {
             Some(Known::If | Known::Choose) => args.iter().skip(1).all(|a| yields_value(lib, a)),
@@ -433,6 +434,65 @@ pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
         },
         _ => true,
     }
+}
+
+/// Whether a parse holds an array anywhere (KERNEL.8, slice f): an array
+/// constant, `:` between expressions, a function answering an operand, or
+/// an array parameter (`SUMPRODUCT`'s, a lookup's vector, `INDEX`'s and
+/// `XLOOKUP`'s arrays) given anything but a reference or a literal, whose
+/// expression is read as arrays. A run computes such a parse at each of its
+/// cells by [`Ctx`] whole and a program does not lower it, since a lane and
+/// a register hold one value a cell; so every path answers as `Ctx` does.
+pub(crate) fn arrays_in(lib: &Library, e: &Expr) -> bool {
+    let plain = |a: &Expr| {
+        let mut a = a;
+        while let Expr::Pos(x) = a {
+            a = x;
+        }
+        matches!(
+            a,
+            Expr::Ref(_)
+                | Expr::Name { .. }
+                | Expr::Number(_)
+                | Expr::Text(_)
+                | Expr::Bool(_)
+                | Expr::Error(_)
+                | Expr::Empty
+        )
+    };
+    let mut stack = vec![e];
+    while let Some(e) = stack.pop() {
+        match e {
+            Expr::Array(_) | Expr::Range(_) => return true,
+            Expr::Call(name, args) => {
+                if lib.arrayed(name).is_some() {
+                    return true;
+                }
+                let read_as_arrays = |j: usize| match lib.known(name) {
+                    Some(Known::Index) => j == 0,
+                    _ if lib.form(name).is_some() => {
+                        name.eq_ignore_ascii_case("XLOOKUP") && (j == 1 || j == 2)
+                    }
+                    _ => lib.classes(name).is_some_and(|c| c(j) == Param::Array),
+                };
+                if args
+                    .iter()
+                    .enumerate()
+                    .any(|(j, a)| read_as_arrays(j) && !plain(a))
+                {
+                    return true;
+                }
+                stack.extend(args);
+            }
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),
+            Expr::Binary(_, a, b) => {
+                stack.push(a);
+                stack.push(b);
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// The parts written more than once in a shape's parse that a run computes
@@ -748,7 +808,8 @@ fn node_hash(e: &Expr, h: &mut crate::fx::FxHasher) {
             args.len().hash(h);
         }
         Expr::Binary(op, ..) => std::mem::discriminant(op).hash(h),
-        Expr::Empty | Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) => {}
+        Expr::Array(a) => (a.rows(), a.columns()).hash(h),
+        Expr::Empty | Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) | Expr::Range(_) => {}
     }
 }
 
@@ -763,6 +824,8 @@ fn same_part(a: &Expr, b: &Expr) -> bool {
             (Expr::Bool(x), Expr::Bool(y)) if x == y => {}
             (Expr::Error(x), Expr::Error(y)) if x == y => {}
             (Expr::Empty, Expr::Empty) => {}
+            (Expr::Array(x), Expr::Array(y)) if x == y => {}
+            (Expr::Range(x), Expr::Range(y)) if x == y => {}
             (Expr::Ref(x), Expr::Ref(y)) if x == y => {}
             (Expr::Name { name, sheet }, Expr::Name { name: n, sheet: s })
                 if name == n && sheet == s => {}
@@ -1219,8 +1282,12 @@ impl<'a> Many<'a> {
             Expr::Percent(x) => self.unary(x, sel, |n| n / 100.0),
             Expr::Binary(..) => self.chain(e, sel),
             Expr::Call(name, args) => self.call(e, name, args, sel),
-            // A range where one value is wanted, a defined name: each cell's.
-            Expr::Ref(_) | Expr::Name { .. } => self.each_cell(e, sel),
+            // A range where one value is wanted, a defined name: each cell's;
+            // and an array, which a parse holding one is never run by
+            // (`arrays_in`).
+            Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => {
+                self.each_cell(e, sel)
+            }
         }
     }
 
@@ -2986,9 +3053,15 @@ pub(crate) fn paths(
         runs,
         paths: Paths::default(),
     };
-    let mut stack: Vec<&Expr> = vec![e];
-    while let Some(e) = stack.pop() {
-        walk.node(e, &mut stack);
+    // A parse holding an array is computed at each cell by `Ctx` whole
+    // (KERNEL.8, slice f).
+    if arrays_in(lib, e) {
+        walk.each(e);
+    } else {
+        let mut stack: Vec<&Expr> = vec![e];
+        while let Some(e) = stack.pop() {
+            walk.node(e, &mut stack);
+        }
     }
     let mut paths = walk.paths;
     paths.calls.sort_unstable();
@@ -3018,7 +3091,7 @@ impl Walk<'_> {
                 stack.push(a);
             }
             Expr::Call(name, args) => self.call(e, name, args, stack),
-            Expr::Ref(_) | Expr::Name { .. } => self.each(e),
+            Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => self.each(e),
         }
     }
 
@@ -3080,6 +3153,14 @@ impl Walk<'_> {
         while let Some(x) = stack.pop() {
             match x {
                 Expr::Ref(r) => self.at_each(r),
+                // A range read by its reach, its ends with it (KERNEL.8, slice f).
+                Expr::Range(r) => {
+                    if let Some(reach) = &r.reach {
+                        self.at_each(reach);
+                    }
+                    stack.push(&r.right);
+                    stack.push(&r.left);
+                }
                 Expr::Call(name, args) => {
                     self.paths.calls.push(name.to_ascii_uppercase());
                     stack.extend(args.iter());
@@ -3094,7 +3175,8 @@ impl Walk<'_> {
                 | Expr::Text(_)
                 | Expr::Bool(_)
                 | Expr::Error(_)
-                | Expr::Empty => {}
+                | Expr::Empty
+                | Expr::Array(_) => {}
             }
         }
     }

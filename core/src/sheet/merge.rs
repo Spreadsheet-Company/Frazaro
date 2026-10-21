@@ -488,6 +488,115 @@ pub(crate) fn dynamic_cm_of(metadata: &str) -> Option<u32> {
     None
 }
 
+/// The inner text of each `<name ...>...</name>` element in `text`, in order,
+/// for an element that does not nest in itself.
+fn inners<'t>(text: &'t str, name: &str) -> Vec<(&'t str, &'t str)> {
+    let close = format!("</{name}>");
+    let mut out = Vec::new();
+    for (s, e) in tags(text, name) {
+        let tag = &text[s..e];
+        if tag.ends_with("/>") {
+            out.push((tag, ""));
+        } else if let Some(j) = text[e..].find(&close) {
+            out.push((tag, &text[e..e + j]));
+        }
+    }
+    out
+}
+
+/// The text a cell error shows, by the rich value's `errorType` that
+/// [MS-XLSX] section 2.3.6.1.3 documents for it: the errors that have no
+/// cell error value of their own (KERNEL.8, slice f).
+fn rich_error_text(error_type: &str) -> Option<&'static str> {
+    match error_type.trim() {
+        "8" => Some("#SPILL!"),
+        "11" => Some("#UNKNOWN!"),
+        "12" => Some("#FIELD!"),
+        "13" => Some("#CALC!"),
+        _ => None,
+    }
+}
+
+/// The error each value-metadata block names, by a cell's `vm` less one
+/// (KERNEL.8, slice f). Excel writes an error with no cell error value of
+/// its own, `#CALC!` or `#SPILL!`, as `#VALUE!` and a `vm` naming a block of
+/// the rich-value type, whose rich value is an `_error` of an `errorType`:
+/// `metadata` the metadata part, `values` the rich values
+/// (`rdrichvalue.xml`) and `structures` their structures
+/// (`rdrichvaluestructure.xml`). `None` for any other block, or a type the
+/// specification does not name, where the cell's own value stands.
+pub(crate) fn rich_errors_of(
+    metadata: &str,
+    values: &str,
+    structures: &str,
+) -> Vec<Option<String>> {
+    let Some(rich) = tags(metadata, "metadataType")
+        .iter()
+        .position(|&(s, e)| attr(&metadata[s..e], "name").as_deref() == Some("XLRICHVALUE"))
+        .map(|i| i + 1)
+    else {
+        return Vec::new();
+    };
+    // The rich-value type's future metadata: each block names a rich value.
+    let future: Vec<Option<usize>> = inners(metadata, "futureMetadata")
+        .into_iter()
+        .filter(|(tag, _)| attr(tag, "name").as_deref() == Some("XLRICHVALUE"))
+        .flat_map(|(_, inner)| inners(inner, "bk"))
+        .map(|(_, bk)| {
+            let i = bk.find("rvb ")?;
+            let start = bk[..i].rfind('<')?;
+            let end = start + bk[start..].find('>')? + 1;
+            attr(&bk[start..end], "i")?.trim().parse().ok()
+        })
+        .collect();
+    // Each structure's type and its keys' names, in order.
+    let shapes: Vec<(Option<String>, Vec<Option<String>>)> = inners(structures, "s")
+        .into_iter()
+        .map(|(tag, inner)| {
+            let keys = tags(inner, "k")
+                .into_iter()
+                .map(|(s, e)| attr(&inner[s..e], "n"))
+                .collect();
+            (attr(tag, "t"), keys)
+        })
+        .collect();
+    // Each rich value's error text, where it is an error of a known type.
+    let errors: Vec<Option<&'static str>> = inners(values, "rv")
+        .into_iter()
+        .map(|(tag, inner)| {
+            let s: usize = attr(tag, "s")?.trim().parse().ok()?;
+            let (kind, keys) = shapes.get(s)?;
+            if kind.as_deref() != Some("_error") {
+                return None;
+            }
+            let at = keys
+                .iter()
+                .position(|k| k.as_deref() == Some("errorType"))?;
+            let (_, v) = inners(inner, "v").into_iter().nth(at)?;
+            rich_error_text(v)
+        })
+        .collect();
+    let start = metadata.find("<valueMetadata");
+    let end = start.and_then(|s| metadata[s..].find("</valueMetadata>").map(|j| s + j));
+    let (Some(start), Some(end)) = (start, end) else {
+        return Vec::new();
+    };
+    inners(&metadata[start..end], "bk")
+        .into_iter()
+        .map(|(_, bk)| {
+            let (s, e) = *tags(bk, "rc").first()?;
+            let rc = &bk[s..e];
+            let t: usize = attr(rc, "t")?.trim().parse().ok()?;
+            if t != rich {
+                return None;
+            }
+            let v: usize = attr(rc, "v")?.trim().parse().ok()?;
+            let value = (*future.get(v)?)?;
+            errors.get(value).copied().flatten().map(str::to_string)
+        })
+        .collect()
+}
+
 /// The model with this build's sheets added: every part of the model as it
 /// was, the four it must edit edited, this build's parts appended. `cm` is
 /// the metadata index the build's dynamic-array formulas were given.

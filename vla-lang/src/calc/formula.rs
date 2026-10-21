@@ -10,24 +10,32 @@
 //! English function names, `,` between arguments and `.` as the decimal
 //! mark, whatever locale typed it (ISO/IEC 29500-1, 18.17). Excel's
 //! precedence, lowest first: the comparisons; `&`; `+` and `-`; `*` and
-//! `/`; `^`, left to right; a sign, so that `-2^2` is 4; `%`.
+//! `/`; `^`, left to right; a sign, so that `-2^2` is 4; `%`; and `:`
+//! between two expressions that answer references (`A1:INDEX(A:A,5)`),
+//! above them all.
+//!
+//! An array constant (`{1,2;3,4}`: `,` between the values of a row, `;`
+//! between rows, each a number, a text, a truth value or an error) reads
+//! as the array it holds since `KERNEL.8`'s sixth slice, and `:` between
+//! expressions as a range whose plan's edges are its reach
+//! ([`RangeExpr::reach`]).
 //!
 //! A construct this slice does not read is not an error: the parse answers
 //! with the construct as written, and the cell shows `not computed here`
 //! naming it, the honest static label of `HORIZON.md` section 12.6. Those
-//! are: an array constant (`{1,2;3,4}`), implicit intersection by `@` or by
-//! a space between two references, a union in parentheses, a spill range
-//! (`A1#`), a structured reference (`Sales[Amount]`), a link into another
-//! workbook (`[Rates.xlsx]Sheet1!A1`), and a range where one value is
-//! wanted (`=B1:B2*2`), which a legacy formula intersects and a dynamic one
-//! spills; the reader cannot tell the two apart from the text alone, so
-//! neither is claimed (`KERNEL.8` takes them with the `@` operator).
+//! are: implicit intersection by `@` or by a space between two references,
+//! a union in parentheses, a spill range (`A1#`), a structured reference
+//! (`Sales[Amount]`), and a link into another workbook
+//! (`[Rates.xlsx]Sheet1!A1`). A range where one value is wanted (`=B1:B2*2`)
+//! a legacy formula intersects and a dynamic one reads whole (`KERNEL.8`'s
+//! second and sixth slices), by the kind the file gives the formula.
 
 use crate::messages::{raise, Refusal};
 use crate::refers::{self, is_ident_char, FormulaRef, Kind, Shape};
 use crate::sheet::{MAX_COLUMN, MAX_ROW};
 
-use super::value::ErrorKind;
+use super::array::Array;
+use super::value::{ErrorKind, Value};
 
 /// One reference as the parser hands it to the evaluator: a rectangle on
 /// one sheet, or the same rectangle on every sheet of a span.
@@ -178,8 +186,9 @@ pub enum BinOp {
     Ge,
 }
 
-/// A parsed formula.
+/// A parsed formula. A list that may grow (KERNEL.8's decision 9).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Expr {
     Number(f64),
     Text(String),
@@ -187,7 +196,12 @@ pub enum Expr {
     Error(ErrorKind),
     /// An argument left out, `IF(A1,,B1)`.
     Empty,
+    /// An array constant, `{1,2;3,4}` (KERNEL.8, slice f).
+    Array(Array),
     Ref(RefExpr),
+    /// `:` between two expressions that answer references,
+    /// `A1:INDEX(A:A,5)` (KERNEL.8, slice f).
+    Range(Box<RangeExpr>),
     /// A defined name, with the sheet that scopes it when one is written.
     Name {
         name: String,
@@ -199,6 +213,248 @@ pub enum Expr {
     Pos(Box<Expr>),
     Percent(Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
+}
+
+/// `:` between two expressions that answer references (KERNEL.8, slice f):
+/// the rectangle spanning the two it evaluates to, and the rectangle every
+/// such span lies in, which is what a plan reads it by.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RangeExpr {
+    pub left: Expr,
+    pub right: Expr,
+    /// The rectangle spanning every reference either end may answer, as a
+    /// reference written at the formula's cell: a reference's own, `INDEX`'s
+    /// its reference's, `IF`'s and `CHOOSE`'s their branches', on the one
+    /// sheet they share. The plan's edges for the range, as a reference's
+    /// are for it. `None` where an end is anything else (a defined name, a
+    /// function the plan cannot bound) or the ends stand on two sheets,
+    /// which the evaluation labels.
+    pub reach: Option<RefExpr>,
+    /// Whether the reach moves with the formula's cell as every span it
+    /// bounds does, each of its edges held by a `$` in every end or in none,
+    /// so that a shape read at one cell and evaluated at another reads it
+    /// moved (KERNEL.22); a range whose ends move apart is labelled there.
+    pub rigid: bool,
+}
+
+impl RangeExpr {
+    /// The range between two ends, its reach found.
+    pub fn new(left: Expr, right: Expr) -> RangeExpr {
+        let mut ends = Vec::new();
+        let (reach, rigid) = if bounded(&left, &mut ends) && bounded(&right, &mut ends) {
+            spanned(&ends)
+        } else {
+            (None, false)
+        };
+        RangeExpr {
+            left,
+            right,
+            reach,
+            rigid,
+        }
+    }
+}
+
+/// The references an end of a range may answer, into `out`: whether every
+/// one is bounded ([`RangeExpr::reach`]).
+fn bounded<'e>(e: &'e Expr, out: &mut Vec<&'e RefExpr>) -> bool {
+    match e {
+        Expr::Ref(r) => {
+            out.push(r);
+            true
+        }
+        Expr::Pos(x) => bounded(x, out),
+        Expr::Range(r) => match &r.reach {
+            Some(reach) if r.rigid => {
+                out.push(reach);
+                true
+            }
+            _ => false,
+        },
+        Expr::Call(name, args) => match (name.as_str(), args.as_slice()) {
+            ("INDEX", [first, ..]) => bounded(first, out),
+            ("IF", [_, yes]) => bounded(yes, out),
+            ("IF", [_, yes, no]) => bounded(yes, out) && bounded(no, out),
+            ("CHOOSE", [_, values @ ..]) if !values.is_empty() => {
+                values.iter().all(|v| bounded(v, out))
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// The rectangle spanning references on one sheet, as a reference written
+/// at the formula's cell, and whether it moves as each of them does: an
+/// edge whose every end is held by a `$`, or none is, is held or moves with
+/// them; a whole column's rows and a whole row's columns are whole.
+fn spanned(ends: &[&RefExpr]) -> (Option<RefExpr>, bool) {
+    let Some(first) = ends.first() else {
+        return (None, false);
+    };
+    let same_sheet = |r: &RefExpr| {
+        r.last_sheet.is_none()
+            && match (&r.sheet, &first.sheet) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
+                _ => false,
+            }
+    };
+    if !ends.iter().all(|r| same_sheet(r)) {
+        return (None, false);
+    }
+    // Each edge's number and whether a `$` holds it, from the corner of
+    // each end that gives it.
+    struct Edge {
+        n: u32,
+        held: Option<bool>,
+        mixed: bool,
+    }
+    let fold = |edge: &mut Edge, n: u32, held: bool, pick: fn(u32, u32) -> u32| {
+        edge.n = pick(edge.n, n);
+        match edge.held {
+            None => edge.held = Some(held),
+            Some(h) if h != held => edge.mixed = true,
+            _ => {}
+        }
+    };
+    let mut top = Edge {
+        n: u32::MAX,
+        held: None,
+        mixed: false,
+    };
+    let mut left = Edge {
+        n: u32::MAX,
+        held: None,
+        mixed: false,
+    };
+    let mut bottom = Edge {
+        n: 0,
+        held: None,
+        mixed: false,
+    };
+    let mut right = Edge {
+        n: 0,
+        held: None,
+        mixed: false,
+    };
+    let (mut whole_rows, mut whole_columns) = (false, false);
+    for r in ends {
+        let c = &r.corners;
+        match r.shape {
+            Shape::Cell => {
+                fold(&mut top, c.row1, c.row_abs1, u32::min);
+                fold(&mut bottom, c.row1, c.row_abs1, u32::max);
+                fold(&mut left, c.col1, c.col_abs1, u32::min);
+                fold(&mut right, c.col1, c.col_abs1, u32::max);
+            }
+            Shape::Range => {
+                for (row, held) in [(c.row1, c.row_abs1), (c.row2, c.row_abs2)] {
+                    fold(&mut top, row, held, u32::min);
+                    fold(&mut bottom, row, held, u32::max);
+                }
+                for (col, held) in [(c.col1, c.col_abs1), (c.col2, c.col_abs2)] {
+                    fold(&mut left, col, held, u32::min);
+                    fold(&mut right, col, held, u32::max);
+                }
+            }
+            Shape::Column => {
+                whole_rows = true;
+                for (col, held) in [(c.col1, c.col_abs1), (c.col2, c.col_abs2)] {
+                    fold(&mut left, col, held, u32::min);
+                    fold(&mut right, col, held, u32::max);
+                }
+            }
+            Shape::Row => {
+                whole_columns = true;
+                for (row, held) in [(c.row1, c.row_abs1), (c.row2, c.row_abs2)] {
+                    fold(&mut top, row, held, u32::min);
+                    fold(&mut bottom, row, held, u32::max);
+                }
+            }
+            Shape::None => return (None, false),
+        }
+    }
+    let rows_rigid = whole_rows || !(top.mixed || bottom.mixed);
+    let columns_rigid = whole_columns || !(left.mixed || right.mixed);
+    let held = |e: &Edge| e.held.unwrap_or(false);
+    let (shape, corners, rect) = if whole_rows {
+        // Every row: a whole column's span, whatever rows the others name;
+        // and every column too where a whole row stands beside it.
+        let (l, r, lh, rh) = if whole_columns {
+            (1, MAX_COLUMN, true, true)
+        } else {
+            (left.n, right.n, held(&left), held(&right))
+        };
+        (
+            Shape::Column,
+            Corners {
+                row1: 0,
+                col1: l,
+                row2: 0,
+                col2: r,
+                row_abs1: false,
+                col_abs1: lh,
+                row_abs2: false,
+                col_abs2: rh,
+            },
+            (1, l, MAX_ROW, r),
+        )
+    } else if whole_columns {
+        (
+            Shape::Row,
+            Corners {
+                row1: top.n,
+                col1: 0,
+                row2: bottom.n,
+                col2: 0,
+                row_abs1: held(&top),
+                col_abs1: false,
+                row_abs2: held(&bottom),
+                col_abs2: false,
+            },
+            (top.n, 1, bottom.n, MAX_COLUMN),
+        )
+    } else {
+        (
+            Shape::Range,
+            Corners {
+                row1: top.n,
+                col1: left.n,
+                row2: bottom.n,
+                col2: right.n,
+                row_abs1: held(&top),
+                col_abs1: held(&left),
+                row_abs2: held(&bottom),
+                col_abs2: held(&right),
+            },
+            (top.n, left.n, bottom.n, right.n),
+        )
+    };
+    let text = crate::sheet::A1Range {
+        top: rect.0,
+        left: rect.1,
+        bottom: rect.2,
+        right: rect.3,
+    }
+    .text();
+    let written = match &first.sheet {
+        Some(s) => format!("{}!{text}", crate::rows::sheet_prefix(s)),
+        None => text,
+    };
+    let reach = RefExpr {
+        sheet: first.sheet.clone(),
+        last_sheet: None,
+        top: rect.0,
+        left: rect.1,
+        bottom: rect.2,
+        right: rect.3,
+        written,
+        shape,
+        corners,
+        found: None,
+    };
+    (Some(reach), rows_rigid && columns_rigid)
 }
 
 /// What an expression reads besides its literals: a reference, or a defined
@@ -225,9 +481,31 @@ impl Expr {
                     name,
                     sheet: sheet.as_deref(),
                 }),
+                // A range reads its reach, the plan's edges for it, and
+                // whatever its ends read (KERNEL.8, slice f).
+                Expr::Range(r) => {
+                    if let Some(reach) = &r.reach {
+                        f(Read::Ref(reach));
+                    }
+                    e.push_children(&mut stack);
+                }
                 other => other.push_children(&mut stack),
             }
         }
+    }
+
+    /// Whether the expression holds `:` between two expressions anywhere
+    /// (KERNEL.8, slice f), the range operator Excel's shared formulas cannot
+    /// hold (`PtgRange`).
+    pub fn has_range(&self) -> bool {
+        let mut stack = vec![self];
+        while let Some(e) = stack.pop() {
+            if matches!(e, Expr::Range(_)) {
+                return true;
+            }
+            e.push_children(&mut stack);
+        }
+        false
     }
 
     /// The functions the expression calls, upper-cased, in the order they
@@ -255,13 +533,18 @@ impl Expr {
                 stack.push(b);
                 stack.push(a);
             }
+            Expr::Range(r) => {
+                stack.push(&r.right);
+                stack.push(&r.left);
+            }
             Expr::Ref(_)
             | Expr::Name { .. }
             | Expr::Number(_)
             | Expr::Text(_)
             | Expr::Bool(_)
             | Expr::Error(_)
-            | Expr::Empty => {}
+            | Expr::Empty
+            | Expr::Array(_) => {}
         }
     }
 }
@@ -285,6 +568,12 @@ enum Tok {
     LParen,
     RParen,
     Comma,
+    /// An array constant's braces and its row separator, and `:` between
+    /// two expressions (KERNEL.8, slice f).
+    LBrace,
+    RBrace,
+    Semi,
+    Colon,
     /// A construct this slice does not read, as written.
     Other(String),
 }
@@ -400,8 +689,8 @@ fn tokenize(text: &str) -> Vec<Tok> {
             }
             let tok: String = s[i..k].iter().collect();
             toks.push(match ErrorKind::parse(&tok) {
-                Some(kind) => Tok::Err(kind),
-                None => Tok::Other(tok),
+                Some(kind) if kind.is_literal() => Tok::Err(kind),
+                _ => Tok::Other(tok),
             });
             i = k;
         } else if c.is_ascii_alphabetic() || c == '_' {
@@ -440,6 +729,10 @@ fn tokenize(text: &str) -> Vec<Tok> {
                     '(' => (Tok::LParen, 1),
                     ')' => (Tok::RParen, 1),
                     ',' => (Tok::Comma, 1),
+                    '{' => (Tok::LBrace, 1),
+                    '}' => (Tok::RBrace, 1),
+                    ';' => (Tok::Semi, 1),
+                    ':' => (Tok::Colon, 1),
                     other => (Tok::Other(other.to_string()), 1),
                 },
             };
@@ -607,6 +900,10 @@ impl Parser {
             Tok::LParen => "(".to_string(),
             Tok::RParen => ")".to_string(),
             Tok::Comma => ",".to_string(),
+            Tok::LBrace => "{".to_string(),
+            Tok::RBrace => "}".to_string(),
+            Tok::Semi => ";".to_string(),
+            Tok::Colon => ":".to_string(),
             Tok::Num(v) => format!("{v}"),
             Tok::Str(s) => format!("\"{s}\""),
             Tok::Bool(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
@@ -628,6 +925,7 @@ impl Parser {
                 | Tok::Name { .. }
                 | Tok::Func(_)
                 | Tok::LParen
+                | Tok::LBrace
         )
     }
 
@@ -701,8 +999,26 @@ impl Parser {
         }
     }
 
+    // Every level of nesting passes through this frame, and VLA.1's limits
+    // are pinned on 1 MiB in a debug build, which gives each temporary a
+    // slot of its own. A `?` holds temporaries of its own: written with
+    // them, the `:` check below made a level 146 bytes deeper; matched by
+    // hand, the two calls leave a level 44 bytes shallower than before the
+    // check (KERNEL.8, slice f).
+    #[allow(clippy::question_mark)]
     fn postfix(&mut self) -> Result<Expr, String> {
-        let mut e = self.primary()?;
+        let mut e = match self.primary() {
+            Ok(e) => e,
+            Err(why) => return Err(why),
+        };
+        // `:` binds tightest of all (KERNEL.8, slice f): its loop a frame of
+        // its own, entered only where one follows, writing into the
+        // primary's place.
+        if self.peek() == Some(&Tok::Colon) {
+            if let Err(why) = self.ranged(&mut e) {
+                return Err(why);
+            }
+        }
         let mut percents = 0;
         while self.peek() == Some(&Tok::Percent) {
             // Each `%` wraps what came before, a level its evaluation
@@ -724,6 +1040,76 @@ impl Parser {
         Ok(e)
     }
 
+    /// `:` after a primary read to another (KERNEL.8, slice f), the
+    /// tightest binding of all, the range written into the primary's place:
+    /// each `:` a level its evaluation recurses through (VLA.1). Two
+    /// references side by side with `:` between them the scanner reads as
+    /// one range; this is the `:` it leaves, where an end is a call or a
+    /// name.
+    fn ranged(&mut self, e: &mut Expr) -> Result<(), String> {
+        let mut ranges = 0;
+        while self.peek() == Some(&Tok::Colon) {
+            if self.depth + ranges >= NESTING_LIMIT {
+                return Err(TOO_DEEP.to_string());
+            }
+            ranges += 1;
+            self.at += 1;
+            let right = self.primary()?;
+            let left = std::mem::replace(e, Expr::Empty);
+            *e = Expr::Range(Box::new(RangeExpr::new(left, right)));
+        }
+        Ok(())
+    }
+
+    /// An array constant's values after its `{`, through its `}` (KERNEL.8,
+    /// slice f): `,` between the values of a row and `;` between rows, every
+    /// row as long as the first, each value a number with its sign, a text,
+    /// a truth value or an error, as Excel holds one; anything else, a
+    /// reference among them, is a construct the formula cannot hold.
+    fn array_constant(&mut self) -> Result<Expr, String> {
+        let mut rows: Vec<Vec<Value>> = vec![Vec::new()];
+        loop {
+            let v = self.array_value()?;
+            if let Some(row) = rows.last_mut() {
+                row.push(v);
+            }
+            match self.take() {
+                Some(Tok::Comma) => {}
+                Some(Tok::Semi) => rows.push(Vec::new()),
+                Some(Tok::RBrace) => break,
+                Some(other) => return Err(Self::label(&other)),
+                None => return Err("end of formula".to_string()),
+            }
+        }
+        let width = rows[0].len();
+        if rows.iter().any(|r| r.len() != width) {
+            return Err("an array constant of rows unlike".to_string());
+        }
+        let height = rows.len();
+        let values: Vec<Value> = rows.into_iter().flatten().collect();
+        Ok(Expr::Array(Array::new(height as u32, width as u32, values)))
+    }
+
+    /// One value of an array constant.
+    fn array_value(&mut self) -> Result<Value, String> {
+        let signed = |p: &mut Self, sign: f64| match p.take() {
+            // No negative zero in an array, as in a cell.
+            Some(Tok::Num(v)) => Ok(Value::Number(if v == 0.0 { 0.0 } else { sign * v })),
+            Some(other) => Err(Self::label(&other)),
+            None => Err("end of formula".to_string()),
+        };
+        match self.take() {
+            Some(Tok::Num(v)) => Ok(Value::Number(v)),
+            Some(Tok::Op(BinOp::Sub)) => signed(self, -1.0),
+            Some(Tok::Op(BinOp::Add)) => signed(self, 1.0),
+            Some(Tok::Str(s)) => Ok(Value::Text(s)),
+            Some(Tok::Bool(b)) => Ok(Value::Bool(b)),
+            Some(Tok::Err(k)) => Ok(Value::Error(k)),
+            Some(other) => Err(Self::label(&other)),
+            None => Err("end of formula".to_string()),
+        }
+    }
+
     fn primary(&mut self) -> Result<Expr, String> {
         let Some(t) = self.take() else {
             return Err("end of formula".to_string());
@@ -733,6 +1119,7 @@ impl Parser {
             Tok::Str(s) => Ok(Expr::Text(s)),
             Tok::Bool(b) => Ok(Expr::Bool(b)),
             Tok::Err(k) => Ok(Expr::Error(k)),
+            Tok::LBrace => self.array_constant(),
             Tok::Ref(r) => Ok(Expr::Ref(r)),
             Tok::Name { name, sheet } => Ok(Expr::Name { name, sheet }),
             Tok::Func(name) => {
@@ -977,8 +1364,63 @@ mod tests {
     }
 
     #[test]
+    fn an_array_constant_and_a_range_between_expressions_parse() {
+        // KERNEL.8, slice f: an array constant as the array it holds, each
+        // value with its sign, every row as long as the first; `:` between
+        // two expressions a range, its reach the rectangle spanning what
+        // its ends may answer, moving with the cell where every end's `$`
+        // marks agree, unbounded at a name; `:` above a sign; `#CALC!` no
+        // literal.
+        let Ok(Expr::Array(a)) = parse("={1,-2;\"a\",TRUE}") else {
+            panic!("an array constant");
+        };
+        assert_eq!((a.rows(), a.columns()), (2, 2));
+        assert_eq!(
+            a.values(),
+            &[
+                Value::Number(1.0),
+                Value::Number(-2.0),
+                Value::Text("a".to_string()),
+                Value::Bool(true)
+            ]
+        );
+        assert!(matches!(parse("={#N/A,-0}"), Ok(Expr::Array(_))));
+        assert_eq!(
+            parse("={1,2;3}"),
+            Err("an array constant of rows unlike".to_string())
+        );
+        assert_eq!(parse("={A1}"), Err("A1".to_string()));
+        let Ok(Expr::Range(r)) = parse("=A1:INDEX(C1:C10,5)") else {
+            panic!("a range");
+        };
+        let reach = r.reach.as_ref().unwrap();
+        assert_eq!(
+            (reach.top, reach.left, reach.bottom, reach.right),
+            (1, 1, 10, 3)
+        );
+        assert!(r.rigid);
+        let Ok(Expr::Range(r)) = parse("=$A$1:INDEX(C1:C10,5)") else {
+            panic!("a range");
+        };
+        assert!(!r.rigid, "an edge held by a $ at one end and not the other");
+        let Ok(Expr::Range(r)) = parse("=A1:Rate") else {
+            panic!("a range");
+        };
+        assert!(r.reach.is_none(), "a name no plan can bound");
+        let Ok(Expr::Range(r)) = parse("=A5:INDEX(B:B,3)") else {
+            panic!("a range");
+        };
+        let reach = r.reach.as_ref().unwrap();
+        assert_eq!(reach.shape, Shape::Column);
+        assert_eq!((reach.left, reach.right), (1, 2));
+        assert!(
+            matches!(parse("=-A1:INDEX(B:B,3)"), Ok(Expr::Neg(x)) if matches!(*x, Expr::Range(_)))
+        );
+        assert_eq!(parse("=#CALC!"), Err("#CALC!".to_string()));
+    }
+
+    #[test]
     fn a_construct_this_slice_does_not_read_is_named_as_written() {
-        assert_eq!(parse("={1,2;3,4}"), Err("{".to_string()));
         assert_eq!(parse("=@A1:A3"), Err("@".to_string()));
         assert_eq!(parse("=A1 B1"), Err("intersection".to_string()));
         assert_eq!(parse("=SUM((A1,B2))"), Err("union".to_string()));

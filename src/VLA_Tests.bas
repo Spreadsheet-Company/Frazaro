@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.47"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.8"
+' KERNEL.8, SLICE F: TestFormulaSyntax writes an array constant, a row and
+' rows, `{1,2}` and `{1,"a";TRUE,#N/A}`, where it held one refused,
+' refuses one whose rows differ in length, and writes `:` between two
+' expressions, `A1:INDEX(A:A,5)`, as vla-lang's formula_syntax does.
+'
 ' KERNEL.47: VlaWriteFormatsGolden, dev-only, which has Excel draw every
 ' case of scripts/formats.txt, a number format's code and the values it
 ' draws, in a workbook it adds and closes unsaved, and writes
@@ -6086,7 +6091,12 @@ Private Sub TestFormulaSyntax()
     CheckV "formula: VBA's own form is refused", ExpandRefusalId("(formula-expand (new x))"), "vla-formula-head-refused"
     CheckV "formula: an operator needs its operands", ExpandRefusalId("(formula-expand (+))"), "vla-formula-arity"
     CheckV "formula: not takes one argument", ExpandRefusalId("(formula-expand (not a b))"), "vla-formula-arity"
-    CheckV "formula: an array constant is outside this version", ExpandRefusalId("(formula-expand (quote (1 2)))"), "vla-formula-unsupported"
+    CheckV "formula: an array constant, a row and rows (KERNEL.8)", _
+        ExpandTrimmed("(formula-expand (sum (quote (1 2)) (quote ((1 ""a"") (true (error ""#n/a""))))))"), _
+        """=SUM({1,2},{1,\""a\"";TRUE,#N/A})"""
+    CheckV "formula: an array constant's rows are of one length", ExpandRefusalId("(formula-expand (quote ((1 2) (3))))"), "vla-formula-unsupported"
+    CheckV "formula: : between two expressions (KERNEL.8)", _
+        ExpandTrimmed("(formula-expand (sum (: a1 (index a:a 5))))"), """=SUM(A1:INDEX(A:A,5))"""
     CheckV "formula: a spill is outside this version", ExpandRefusalId("(formula-expand A1#)"), "vla-formula-unsupported"
     CheckV "formula: a lambda's parameters are names", ExpandRefusalId("(formula-expand (lambda ((x)) x))"), "vla-formula-lambda-params"
     CheckV "formula: ref names one reference", ExpandRefusalId("(formula-expand (ref ""Data"" ""A1+1""))"), "vla-formula-ref-invalid"

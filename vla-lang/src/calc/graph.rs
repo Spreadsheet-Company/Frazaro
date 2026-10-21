@@ -365,6 +365,7 @@ pub fn is_formula(content: &Content) -> bool {
             | Content::SharedMaster { .. }
             | Content::SharedChild { .. }
             | Content::DynamicFormula(_)
+            | Content::ArrayFormula(_)
     )
 }
 
@@ -393,7 +394,9 @@ fn collect(
     depth: u32,
     out: &mut Vec<CellId>,
 ) {
-    for r in refers::scan(text) {
+    let scanned = refers::scan(text);
+    let reaches = range_reaches(text, &scanned);
+    for r in scanned {
         match r.kind {
             Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
                 let Some(re) = ref_expr(&r) else { continue };
@@ -430,6 +433,21 @@ fn collect(
             _ => {}
         }
     }
+    // A range between expressions read by its reach, after the references
+    // (KERNEL.8, slice f).
+    for re in &reaches {
+        let Ok(areas) = areas_of(model, home, re) else {
+            continue;
+        };
+        for a in &areas {
+            let sheet = &model.sheets[a.sheet];
+            for ((row, col), cell) in cells_in(sheet, extents[a.sheet], a) {
+                if is_formula(&cell.content) {
+                    out.push((a.sheet, row, col));
+                }
+            }
+        }
+    }
 }
 
 /// The plan: every formula cell either in the evaluation order, each after
@@ -460,23 +478,13 @@ fn reads(
     depth: u32,
     (cells, areas): (&mut Vec<CellId>, &mut Vec<Area>),
 ) {
-    for r in refers::scan(text) {
+    let scanned = refers::scan(text);
+    let reaches = range_reaches(text, &scanned);
+    for r in scanned {
         match r.kind {
             Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
-                let Some(re) = ref_expr(&r) else { continue };
-                let Ok(found) = areas_of(model, home, &re) else {
-                    continue;
-                };
-                for a in &found {
-                    if !a.is_cell() {
-                        areas.push(*a);
-                    } else if model.sheets[a.sheet]
-                        .cells
-                        .get(&(a.top, a.left))
-                        .is_some_and(|c| is_formula(&c.content))
-                    {
-                        cells.push((a.sheet, a.top, a.left));
-                    }
+                if let Some(re) = ref_expr(&r) {
+                    read_ref(model, home, &re, (&mut *cells, &mut *areas));
                 }
             }
             Kind::Name if depth < NAME_DEPTH => {
@@ -493,6 +501,81 @@ fn reads(
             _ => {}
         }
     }
+    // A range between expressions read by its reach (KERNEL.8, slice f),
+    // after the references, so that a text holding none reads as before.
+    for re in &reaches {
+        read_ref(model, home, re, (&mut *cells, &mut *areas));
+    }
+}
+
+/// One reference [`reads`] keeps: each formula cell it names alone, each area
+/// of more than one cell.
+fn read_ref(
+    model: &Workbook,
+    home: usize,
+    re: &RefExpr,
+    (cells, areas): (&mut Vec<CellId>, &mut Vec<Area>),
+) {
+    let Ok(found) = areas_of(model, home, re) else {
+        return;
+    };
+    for a in &found {
+        if !a.is_cell() {
+            areas.push(*a);
+        } else if model.sheets[a.sheet]
+            .cells
+            .get(&(a.top, a.left))
+            .is_some_and(|c| is_formula(&c.content))
+        {
+            cells.push((a.sheet, a.top, a.left));
+        }
+    }
+}
+
+/// The reaches of the ranges between expressions a formula's text holds
+/// (KERNEL.8, slice f, `formula::RangeExpr::reach`), the plan's edges for
+/// them: none, and no parse, where every `:` outside a text stands inside a
+/// reference the scanner reads, as in every text before arrays came.
+fn range_reaches(text: &str, scanned: &[refers::FormulaRef]) -> Vec<RefExpr> {
+    let s: Vec<char> = text.chars().collect();
+    let mut quoted = false;
+    let free = s.iter().enumerate().any(|(i, &c)| {
+        if c == '"' {
+            quoted = !quoted;
+        }
+        c == ':'
+            && !quoted
+            && !scanned
+                .iter()
+                .any(|r| (r.pos..r.pos + r.span.max(1)).contains(&i))
+    });
+    if !free {
+        return Vec::new();
+    }
+    let Ok(e) = super::formula::parse(text) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let mut stack = vec![&e];
+    while let Some(x) = stack.pop() {
+        match x {
+            super::formula::Expr::Range(r) => {
+                out.extend(r.reach.clone());
+                stack.push(&r.left);
+                stack.push(&r.right);
+            }
+            super::formula::Expr::Call(_, args) => stack.extend(args.iter()),
+            super::formula::Expr::Neg(y)
+            | super::formula::Expr::Pos(y)
+            | super::formula::Expr::Percent(y) => stack.push(y),
+            super::formula::Expr::Binary(_, a, b) => {
+                stack.push(a);
+                stack.push(b);
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 /// The plan over the formula cells given, each with its text (without its

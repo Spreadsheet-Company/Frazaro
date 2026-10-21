@@ -122,6 +122,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-20, KERNEL.8's fifth slice: the aggregates by criteria's fixture,
 # a sixteenth, every formula a cell alone; and the owner's second Excel
 # save of it, a seventeenth.
+# 2026-10-20, KERNEL.8's sixth slice: the arrays' fixture, an eighteenth,
+# every formula a cell alone; eight censuses moved, not their counts: a
+# dynamic formula's shape, which a program would read as a legacy one's,
+# unlowered (`array`), and a shape whose parse holds an array computed at
+# each cell by Ctx, its reads `each`.
+# 2026-10-21, the arrays' fixture folded to Excel's first save, 15 rows
+# added for its second: 212 lines. The owner's second Excel save of it, a
+# nineteenth: 215 lines, the build's 210 formulas and the three legacy
+# array formulas typed into K1:K3.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -140,6 +149,8 @@ $goldens = @(
     @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Floor = 365 },
     @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Floor = 230 },
     @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Floor = 230 },
+    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Floor = 212 },
+    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Floor = 215 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },
@@ -169,7 +180,7 @@ $planRow = '^\(plan \(shapes (\d+)\) \(texts (\d+)\) \(formulas (\d+)\) \(levels
 $readersRow = '^\(readers ' + $q + ' (\d+)(?: \(most (\d+)\))?\)$'
 $shapeRow = '^\(shape (\d+) ' + $q + ' ' + $q + ' ' + $q + ' \(cells (\d+)\) \(levels(?: (\d+) (\d+) (\d+) (\d+))?\) \(runs (\d+) (\d+) (\d+) (\d+)\) \(alone (\d+)\) \(reads((?: [a-z]+)*)\)' +
     '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread)\))?' +
-    '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep)\))?\)$'
+    '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep|array)\))?\)$'
 
 # The order, the forms and the totals read off a golden's lines: problems,
 # empty when they hold, and what was counted.

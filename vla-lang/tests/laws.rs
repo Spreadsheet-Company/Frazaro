@@ -314,7 +314,7 @@ fn expr(r: &mut Rng, earlier: &[String], all: &[String], row: usize, depth: u32)
         8 => format!("CHOOSE({},{},{})", 1 + r.below(2), e(r), e(r)),
         9 => {
             let c = r.pick(COLUMNS);
-            match r.below(6) {
+            match r.below(9) {
                 0 => format!(
                     "MATCH({},{SHEET}.last!${c}$1:${c}${ROWS},{})",
                     e(r),
@@ -331,6 +331,19 @@ fn expr(r: &mut Rng, earlier: &[String], all: &[String], row: usize, depth: u32)
                     e(r),
                     e(r)
                 ),
+                // Arrays (KERNEL.8, slice f): an array parameter given an
+                // expression, an array function, and `:` between two
+                // expressions over the rows above.
+                6 => format!(
+                    "SUMPRODUCT(({SHEET}.last!${c}$1:${c}${ROWS}>{})*{SHEET}.last!$A$1:$A${ROWS})",
+                    e(r)
+                ),
+                7 => format!(
+                    "INDEX(SORT({SHEET}.last!${c}$1:${c}${ROWS},1,{}),{})",
+                    r.pick(&["1", "-1"]),
+                    1 + r.below(ROWS)
+                ),
+                8 if row > 0 => format!("SUM(A1:INDEX(A1:F{row},{}))", 1 + r.below(row)),
                 _ => format!(
                     "INDEX({SHEET}.last!$A$1:$F${ROWS},{},{})",
                     1 + r.below(ROWS),
@@ -541,9 +554,11 @@ fn fill_expr(r: &mut Rng, top: usize, depth: u32) -> String {
     }
     let e = |r: &mut Rng| fill_expr(r, top, depth + 1);
     match r.below(7) {
-        6 => match r.below(3) {
+        6 => match r.below(4) {
             0 => format!("XLOOKUP({},V!$A$1:$A$5,V!$B$1:$B$5,-1)", e(r)),
             1 => format!("COUNTIF(V!$A$1:$B$5,{})", e(r)),
+            // An array parameter given an expression (KERNEL.8, slice f).
+            2 => format!("SUMPRODUCT(V!$A$1:$A$5*(V!$B$1:$B$5>{}))", e(r)),
             _ => format!("INDEX(V!$A$1:$B$5,MOD({},5)+1,2)", e(r)),
         },
         0 => format!("{}+{}", e(r), e(r)),

@@ -1823,3 +1823,125 @@ reading. The owner's second save, `criteria_saved.xlsx`, joins the table
 at `no-differ` as `criteria_saved_calc.vla`, its 213 computed agreeing
 with Excel's, 205 to the bit and the variance family's 8 within one unit
 of the fifteenth digit, and the 15 labelled.
+
+## Amendment of 2026-10-20: oracle 12's arrays within a formula (`KERNEL.8`, its sixth slice)
+
+**An array** is rows by columns of values that a formula computes and no
+cell holds: an array constant, `{1,2;3,4}`, `,` between the values of a row
+and `;` between rows, each a number, a text, a truth value or an error; a
+range read whole, every place of it, an empty cell an empty value; and a
+function's answer. An operator, and a function of one value given an array,
+compute at each of its values, Excel's lift: the answer has the most rows
+and the most columns of its operands, an operand of one row standing at
+every row and one of one column at every column, and `#N/A` at a place one
+of them does not reach. `SUM`, the aggregates, the lookups' vectors and
+every function reading a range read an array as a range; `COUNTIF`'s and
+the database functions' ranges are references, an array there `#VALUE!`.
+
+**A formula's kind and its parameters' classes.** A dynamic-array formula
+reads a range where one value is wanted whole, as an array; a legacy one
+meets it at its cell, implicit intersection (the amendment of 2026-10-19),
+but inside a parameter Excel reads as an array, `SUMPRODUCT`'s, `MMULT`'s,
+`TRANSPOSE`'s, `ROWS`' and `COLUMNS`', `INDEX`'s reference, a lookup's
+vector and table, `XLOOKUP`'s arrays and every array function's array, the
+argument's expression is read as arrays in a formula of either kind. A
+parameter of one value lifts its function over an array given, and over a
+range where the formula reads arrays: `LEN(B1:B6)` is six lengths there, and
+`COUNTIF(A1:A9,{1,3})` two counts in any formula. A parameter of one value
+forced, `IFERROR`'s and `IFNA`'s, and every one of `VLOOKUP`'s and
+`HLOOKUP`'s but the table, is one value in a legacy formula: its expression
+is computed as outside every array parameter, a range met at the cell, and
+an array given is its first value, as Excel's own saves compute
+`IFERROR({1,#N/A,3},0)` as 1, `VLOOKUP(3,A1:C6,{1,3},FALSE)` as its first
+column and `VLOOKUP({3,4},A1:C6,3,FALSE)` as the row of 3, where
+`MATCH({4,9},A1:A6,0)` lifts; a dynamic formula lifts the function over it.
+`IF`'s condition and `CHOOSE`'s index keep their own class in a legacy
+formula: an array lifts the function, and a range is met at the cell even
+inside an array parameter, as `SUMPRODUCT(IF(A1:A9>2,1,0))` asks for
+Ctrl+Shift+Enter in Excel. `ROW` and `COLUMN` of a range read as arrays are
+its rows' and columns' numbers. A legacy array formula, entered with
+Ctrl+Shift+Enter, reads as arrays as a dynamic one does.
+
+**A cell's answer.** An array of one value is that value. An answer of many
+is, in a legacy formula and a legacy array formula, its first value, as
+Excel's `@` takes the top-left value of an array; in a dynamic formula a
+spill, labelled `(not-computed "a spill")` at its cell until spills come, as
+a dynamic formula's range answered is labelled by its text (the amendment of
+2026-10-19). An array with nothing in it is `#CALC!`, the eighth error
+value, which no formula writes as a literal. The file holds it only as a
+rich value, `#VALUE!` beside a `vm` naming an `_error` of `errorType` 13
+([MS-XLSX] 2.3.6.1.3), `#SPILL!` its 8, and the reader reads the error the
+rich value names; the build writes a `#CALC!` answer with no cached value,
+since Excel repairs a bare one. An array of more than 1,048,576 values, the
+grid's own limit, is labelled `(not-computed "an array past the grid's
+limit")`; Excel's own save answers `SEQUENCE(2000000)` `#VALUE!`, which its
+documentation does not state, and the label stands at the owner's decision
+of 2026-10-21, since that answer is of a sequence past the sheet's rows, and
+an array past the limit within them may compute in Excel. An array a
+function wanting one value meets where the formula reads arrays is
+`(not-computed "an array where one value is wanted")`.
+
+**A correction to the amendment of 2026-10-19.** `TEXTJOIN` and `CONCAT`
+past the text limit are `#CALC!`, not the `#VALUE!` their documentation and
+that amendment state: Excel's own save of the text fixture holds its `A142`,
+`LEN(TEXTJOIN(",",FALSE,data!B:B))`, as a rich `#CALC!` whose fallback
+`#VALUE!` the reader took before it read rich values, and its second save of
+the arrays' fixture holds `LEN(CONCAT(REPT("x",20000),REPT("y",20000)))`
+(`A214`) the same. `REPT`, `SUBSTITUTE`, `REPLACE` and `TEXT` past it stay
+`#VALUE!`, and `&` and `CONCATENATE` cut their text to it.
+
+**The functions.** `SEQUENCE`, `FILTER`, `SORT`, `SORTBY`, `UNIQUE`,
+`TRANSPOSE`, `SUMPRODUCT`, `MMULT`, `ROWS` and `COLUMNS`, and `CHOOSECOLS`,
+`CHOOSEROWS`, `TAKE`, `DROP`, `HSTACK`, `VSTACK`, `TOCOL`, `TOROW`,
+`WRAPROWS`, `WRAPCOLS` and `EXPAND`, each as Excel documents it: `FILTER`
+keeping no row is its third argument or `#CALC!`; `SORT` and `SORTBY` order
+numbers, then texts in Excel's order of texts, then FALSE and TRUE, then the
+errors, an empty value last either way, rows of one order keeping theirs;
+`UNIQUE` tells two texts one without case; `SUMPRODUCT` counts a value that
+is no number as 0 and adds place by place in rows from 0, `MMULT` along each
+row from its first column (`Alonzo/docs/ALGEBRA.md` section 7); the shapers
+pad with `#N/A`. `IF`, `CHOOSE`, `IFERROR` and `IFNA` lifted take at each
+place the value of the operand they choose there, `#N/A` where that one
+falls short, an operand not chosen free to: Excel's own save computes
+`IF({FALSE,FALSE,FALSE},{1,2},5)` as three 5s. `COUNTA` counts an array's
+empty value, where it passes a range's empty cell by, as Excel's save
+counts `COUNTA(TRANSPOSE(B1:B6))` over an empty `B6`.
+
+**`:` between expressions.** `A1:INDEX(A:A,5)`, `INDEX(A1:A9,2):A9` and
+`IF(c,A1,B1):C5` are the rectangle spanning the two references their ends
+answer, on their one sheet; an end that answers no reference is `#VALUE!`.
+The plan's edges for such a range are its reach, the rectangle spanning
+every reference either end may answer (a reference's own, `INDEX`'s its
+reference's, `IF`'s and `CHOOSE`'s their branches'); a range whose end is a
+defined name, which no plan bounds, is labelled `(not-computed "a range
+between computed ends")`.
+
+**The goldens it moves.** The reflect fixture's legacy array formula,
+`=B1:B2*2` (`fixture.xlsx`'s `E3`), and the OpenDocument fixture's matrix
+formula, the same `E3`, compute their first value, 2400, and agree; the
+reflect fixture's dynamic `=SEQUENCE(2)` is labelled a spill, and the
+OpenDocument fixture's, a plain formula there, computes its first value
+and agrees. The intersection fixture's dynamic `=CHOOSE(1,Data!B1:F1)+0` is
+labelled a spill where its range was. The text fixture's 163 `SUMPRODUCT`
+ranks of its Order sheet, labelled `SUMPRODUCT` before, compute and compare
+texts the save did not rank, labelled `a character's order`.
+
+**The fixture.** `scripts/recalc/arrays.txt`, built by the door into
+`arrays.xlsx`, holds 210 formulas: a Functions sheet of 205 from row 10, one
+a rule, array constants and the lift in legacy formulas, `SUMPRODUCT`,
+`ROWS` and `COLUMNS`, the array functions, a range read whole in a dynamic
+formula, the lookups over arrays and `:` between expressions, the edges
+Excel's documentation leaves unsaid among them, and two spills with room
+beside them, over a Data sheet; the build writes a formula calling an array
+function as a dynamic one, as it writes every such formula.
+`arrays_calc.vla` is the door's record of it: 198 rows `agree` with the
+values the build wrote, 9 `#CALC!` answers it holds no value for, and 3
+labelled, the two spills and the grid's limit. Excel's first save of it, on
+2026-10-21, agreed at every cell the door computes once the classes, the
+lifts and the reading above were folded to it; its second, the same day,
+with three legacy array formulas typed in and 15 rows of the folds' reach
+(`A200` to `A214`), agreed too once the value `VLOOKUP` seeks was forced and
+`CONCAT` past the limit was `#CALC!`. That save, `arrays_saved.xlsx`, joins
+the table at `no-differ` (`arrays_saved_calc.vla`): 213 formulas, the 210
+the door computes agreeing with Excel's, the legacy array formulas among
+them, and 3 labelled, the two spills and the grid's limit.

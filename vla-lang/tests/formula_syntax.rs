@@ -130,6 +130,20 @@ fn shape(e: &Expr) -> String {
         Expr::Pos(x) => format!("(pos {})", shape(x)),
         Expr::Percent(x) => format!("(pct {})", shape(x)),
         Expr::Binary(op, a, b) => format!("({} {} {})", op_word(*op), shape(a), shape(b)),
+        Expr::Array(a) => format!(
+            "{{{}}}",
+            (0..a.rows())
+                .map(|r| {
+                    (0..a.columns())
+                        .map(|c| format!("{:?}", a.get(r, c)))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                })
+                .collect::<Vec<_>>()
+                .join(";")
+        ),
+        Expr::Range(r) => format!("(: {} {})", shape(&r.left), shape(&r.right)),
+        other => format!("{other:?}"),
     }
 }
 

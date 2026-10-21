@@ -100,6 +100,9 @@ pub(crate) enum Why {
     Omitted,
     /// More registers, levels or operations than a program holds.
     Deep,
+    /// An array anywhere in the parse (KERNEL.8, slice f, `vector::arrays_in`),
+    /// which no register holds.
+    Array,
 }
 
 impl Why {
@@ -116,6 +119,7 @@ impl Why {
             Why::Sheet => "sheet",
             Why::Omitted => "omitted",
             Why::Deep => "deep",
+            Why::Array => "array",
         }
     }
 }
@@ -370,6 +374,10 @@ fn guard<T>(_which: usize) -> Option<T> {
 impl Program {
     /// A parse lowered, or why it is left to [`Ctx`].
     pub(crate) fn lower(lib: &Library, e: &Expr) -> Result<Program, Why> {
+        // A parse holding an array anywhere is `Ctx`'s (KERNEL.8, slice f).
+        if super::vector::arrays_in(lib, e) {
+            return Err(Why::Array);
+        }
         let mut l = Lowering {
             lib,
             code: Vec::new(),
@@ -767,6 +775,7 @@ impl Lowering<'_> {
             Expr::Error(_) => Err(Why::Error),
             Expr::Empty => Err(Why::Omitted),
             Expr::Name { .. } => Err(Why::Name),
+            Expr::Array(_) | Expr::Range(_) => Err(Why::Array),
         }
     }
 

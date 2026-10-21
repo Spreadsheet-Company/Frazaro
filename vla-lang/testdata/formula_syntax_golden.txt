@@ -160,11 +160,12 @@ REFUSED	vla-formula-read-malformed	formula text: NOT takes one argument, so it i
 === malformed-a-comma-outside-a-call
 REFUSED	vla-formula-read-malformed	formula text: a ',' outside a call, so it is not a formula
 === malformed-a-locale-separator
-REFUSED	vla-formula-read-malformed	formula text: ';', which no formula holds there, so it is not a formula
+REFUSED	vla-formula-read-malformed	formula text: a ';' outside an array constant, so it is not a formula
 === malformed-a-long-text
 REFUSED	vla-formula-read-malformed	formula text: a text longer than 255 characters, Excel's own limit, so it is not a formula
 === unsupported-an-array
-REFUSED	vla-formula-read-unsupported	formula text: Excel reads an array constant, {...}, and this version's formula syntax does not yet
+VLA	(quote ((1 2) (3 4)))
+TEXT	={1,2;3,4}
 === unsupported-implicit-intersection
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads the implicit intersection @, and this version's formula syntax does not yet
 === unsupported-an-intersection
@@ -182,7 +183,8 @@ REFUSED	vla-formula-read-unsupported	formula text: Excel reads an omitted argume
 === unsupported-a-file-spelling
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads the file's spelling _xlfn.XLOOKUP, and this version's formula syntax does not yet
 === unsupported-the-range-operator
-REFUSED	vla-formula-read-unsupported	formula text: Excel reads the range operator : between computed operands, and this version's formula syntax does not yet
+VLA	(: A1 (index B:B 5))
+TEXT	=A1:INDEX(B:B,5)
 === unsupported-a-newer-error
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads the error #SPILL!, and this version's formula syntax does not yet
 === unsupported-a-call-in-place

@@ -191,4 +191,4 @@
 (shape 187 "functions" "A190" "=\"a b\"<\"ab\"" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (unlowered text))
 (shape 188 "functions" "A191" "=\"a\"<\"a \"" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (unlowered text))
 (shape 189 "functions" "A192" "=\"10\"<\"9\"" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (unlowered text))
-(shape 190 "order" "B1" "=SUMPRODUCT(--(R1C1:R163C1<RC[-1]))" (cells 163) (levels 0 0 1 163) (runs 1 163 163 163) (alone 0) (reads) (missing "SUMPRODUCT"))
+(shape 190 "order" "B1" "=SUMPRODUCT(--(R1C1:R163C1<RC[-1]))" (cells 163) (levels 0 0 1 163) (runs 1 163 163 163) (alone 0) (reads slot array each) (calls "SUMPRODUCT"))

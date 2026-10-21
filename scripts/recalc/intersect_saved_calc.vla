@@ -23,7 +23,7 @@
 (calc "dynamic" "C1" "=INDEX(data!A1:C8,0,1)" (not-computed "data!A1:C8") 10 unchecked)
 (calc "dynamic" "E1" "=CHOOSE(1,SINGLE(data!A1:A8))" 10 10 agree)
 (calc "dynamic" "I1" "=LOOKUP(30,data!A1:A8)" 30 30 agree)
-(calc "dynamic" "H2" "=CHOOSE(1,data!B1:F1)+0" (not-computed "data!B1:F1") 1 unchecked)
+(calc "dynamic" "H2" "=CHOOSE(1,data!B1:F1)+0" (not-computed "a spill") 1 unchecked)
 (calc "dynamic" "G3" "=SINGLE(INDEX(data!A1:C8,0,1))" 30 30 agree)
 (calc "dynamic" "E4" "=CHOOSE(1,SINGLE(data!A1:A8))" 40 40 agree)
 (calc "dynamic" "F5" "=INDEX(data!A1:C8,5,1)" 50 50 agree)

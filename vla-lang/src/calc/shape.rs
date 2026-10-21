@@ -97,6 +97,11 @@ pub struct Shape {
     /// `None` for a text not read and a risky shape, whose cells `Ctx`
     /// evaluates as it always has.
     lowered: Option<Result<Program, Why>>,
+    /// Whether the parse holds an array anywhere (KERNEL.8, slice f,
+    /// `vector::arrays_in`): its cells each computed by `Ctx` whole, a run's
+    /// among them, since a lane holds one value a cell; and a shape of dynamic
+    /// formulas or legacy array formulas, read as arrays.
+    arrayed: bool,
 }
 
 impl Shape {
@@ -320,7 +325,9 @@ impl Shapes {
                     }
                 }
                 None => match model.sheets[f.0].cells.get(&(f.1, f.2)).map(|c| &c.content) {
-                    Some(Content::Formula(t) | Content::DynamicFormula(t)) => (f, t.as_str()),
+                    Some(
+                        Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t),
+                    ) => (f, t.as_str()),
                     _ => continue,
                 },
             };
@@ -412,9 +419,17 @@ impl Shapes {
                 };
                 (shape, anchor)
             }
-            Content::Formula(t) | Content::DynamicFormula(t) => {
+            Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t) => {
                 let text = strip_future_prefixes(t);
-                let key = refers::r1c1(&text, row, col);
+                let mut key = refers::r1c1(&text, row, col);
+                // A dynamic formula and a legacy array formula are read as
+                // arrays, a shape of their own beside a legacy formula of the
+                // same text (KERNEL.8, slice f).
+                match content {
+                    Content::DynamicFormula(_) => key.insert(0, '\u{1}'),
+                    Content::ArrayFormula(_) => key.insert(0, '\u{2}'),
+                    _ => {}
+                }
                 match self.by_r1c1.get(&key) {
                     Some(&s) => (s, self.shapes[s].anchor),
                     None => {
@@ -461,7 +476,21 @@ impl Shapes {
         });
         missing.sort_unstable();
         missing.dedup();
-        self.push(text, expr, anchor, missing, risky, library)
+        // A shape of dynamic formulas or legacy array formulas, read as
+        // arrays, is computed at each cell by `Ctx` (KERNEL.8, slice f).
+        let kind_reads_arrays =
+            super::is_dynamic(model, anchor) || super::is_array_formula(model, anchor);
+        let s = self.push(text, expr, anchor, missing, risky, library);
+        if kind_reads_arrays {
+            // A program lowered for such a shape would read its ranges as a
+            // legacy formula does; one already left to `Ctx` keeps its reason.
+            let shape = &mut self.shapes[s];
+            shape.arrayed = true;
+            if let Some(Ok(_)) = shape.lowered {
+                shape.lowered = Some(Err(Why::Array));
+            }
+        }
+        s
     }
 
     /// A shape kept, with what an evaluation of it at many cells holds found
@@ -489,6 +518,7 @@ impl Shapes {
             }
             Err(_) => ((0, 0), Repeats::default()),
         };
+        let arrayed = expr.as_ref().is_ok_and(|e| vector::arrays_in(library, e));
         let lowered = match &expr {
             Ok(e) if !risky => Some(Program::lower(library, e)),
             _ => None,
@@ -503,6 +533,7 @@ impl Shapes {
             repeats,
             fill: None,
             lowered,
+            arrayed,
         });
         self.shapes.len() - 1
     }
@@ -900,6 +931,12 @@ impl Shapes {
         #[cfg(test)]
         vector::taken::shape(shape);
         match &s.expr {
+            // A parse holding an array: each cell by `Ctx` whole (KERNEL.8,
+            // slice f).
+            Ok(_) if s.arrayed => out.extend(cells.iter().map(|&id| {
+                env.enter(id);
+                self.evaluate(env, library, id)
+            })),
             Ok(e) => {
                 let held = s.holds;
                 vector::evaluate(
@@ -1008,7 +1045,7 @@ impl Shapes {
             Err(construct) => Computed::NotComputed(Reason::Construct(construct.clone())),
             Ok(e) => {
                 let ctx = Ctx::at(env, library, p.d_row, p.d_col);
-                match ctx.eval(e).and_then(|arg| ctx.one(&arg)) {
+                match ctx.eval(e).and_then(|arg| ctx.result(&arg)) {
                     Ok(v) => Computed::Value(v.settled()),
                     Err(reason) => Computed::NotComputed(reason),
                 }
@@ -1379,6 +1416,18 @@ fn find_sheets(expr: &mut Expr, model: &Workbook) {
     while let Some(e) = stack.pop() {
         match e {
             Expr::Ref(r) => r.found = sheets_of(model, r),
+            // A range's reach is found as a reference is, and its ends
+            // (KERNEL.8, slice f).
+            Expr::Range(r) => {
+                let crate::calc::formula::RangeExpr {
+                    left, right, reach, ..
+                } = &mut **r;
+                if let Some(reach) = reach {
+                    reach.found = sheets_of(model, reach);
+                }
+                stack.push(left);
+                stack.push(right);
+            }
             Expr::Call(_, args) => stack.extend(args.iter_mut()),
             Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),
             Expr::Binary(_, a, b) => {
@@ -1390,7 +1439,8 @@ fn find_sheets(expr: &mut Expr, model: &Workbook) {
             | Expr::Text(_)
             | Expr::Bool(_)
             | Expr::Error(_)
-            | Expr::Empty => {}
+            | Expr::Empty
+            | Expr::Array(_) => {}
         }
     }
 }

@@ -738,29 +738,41 @@ system")`, the aggregates by criteria (`SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
 (`COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `STDEV.S`, `STDEVP`, `STDEV.P`,
 `VAR`, `VAR.S`, `VARP`, `VAR.P`) on theirs, a row the file hides passed by
 at `SUBTOTAL`'s 101 to 111 and its 1 to 11 over one showing `(not-computed
-"a row a filter may hide")`, and the comparisons, the arithmetic, `&` and
-`%`, with Excel's coercions and its seven error values. A comparison and a
-criterion hold two numbers equal to fifteen significant digits equal,
-`=0.1+0.2=0.3` TRUE as in Excel, where a lookup matches a number exactly, as
-Excel's do; two texts compare as Excel orders them, punctuation before
-digits and digits before letters, an accent after the plain letter, case
-aside, hyphens and apostrophes last, and a comparison that a character
-Excel's save did not rank decides shows `(not-computed "a character's
-order")`. A text a locale reads as a number or a date, `"1,000"` or
-`"1/1/2026"`, shows `(not-computed "a locale's number")` in arithmetic,
-`VALUE` and the date functions. A formula that calls anything else shows
-`(not-computed "SUMPRODUCT")` with the function named, a cell that reads it
-inherits the label. A range where one value is wanted is met at the
-formula's cell in a legacy formula, Excel's implicit intersection, `#VALUE!`
-where the range holds no cell there and `#REF!` for a reference spanning
-sheets, and is an array in a dynamic-array formula, named as written until
-arrays come; `SINGLE` is Excel's `@`, meeting the range at the cell in a
-formula of either kind. A reference this version does not read (a link into
-another workbook, a structured reference, a spill, an array constant) is
-named as written; a cell in a cycle shows `(not-computed cycle)` and the
-cycle's cells come first as `(cycle "Sheet!A1" "Sheet!B1")`. Nothing is ever
-claimed that was not computed. Exit 0 whenever the calculation ran, agree or
-differ.
+"a row a filter may hide")`, the array functions (`SEQUENCE`, `FILTER`,
+`SORT`, `SORTBY`, `UNIQUE`, `TRANSPOSE`, `SUMPRODUCT`, `MMULT`, `ROWS`,
+`COLUMNS` and the shapers `CHOOSECOLS`, `CHOOSEROWS`, `TAKE`, `DROP`,
+`HSTACK`, `VSTACK`, `TOCOL`, `TOROW`, `WRAPROWS`, `WRAPCOLS`, `EXPAND`) on
+theirs, with array constants (`{1,2;3,4}`) and `:` between two expressions
+that answer references (`A1:INDEX(A:A,5)`), and the comparisons, the
+arithmetic, `&` and `%`, with Excel's coercions and its eight error values,
+`#CALC!` among them. A comparison and a criterion hold two numbers equal to
+fifteen significant digits equal, `=0.1+0.2=0.3` TRUE as in Excel, where a
+lookup matches a number exactly, as Excel's do; two texts compare as Excel
+orders them, punctuation before digits and digits before letters, an
+accent after the plain letter, case aside, hyphens and apostrophes last,
+and a comparison that a character Excel's save did not rank decides shows
+`(not-computed "a character's order")`. A text a locale reads as a number
+or a date, `"1,000"` or `"1/1/2026"`, shows `(not-computed "a locale's
+number")` in arithmetic, `VALUE` and the date functions. A formula that
+calls anything else shows `(not-computed "LARGE")` with the function
+named, a cell that reads it inherits the label. A range where one value is
+wanted is met at the formula's cell in a legacy formula, Excel's implicit
+intersection, `#VALUE!` where the range holds no cell there and `#REF!`
+for a reference spanning sheets; it is read whole, as an array, in a
+dynamic-array formula and in a legacy array formula, entered with
+Ctrl+Shift+Enter, and in any formula inside an argument Excel reads as an
+array (`SUMPRODUCT`'s, a lookup's vector). An operator, or a function of
+one value, given an array computes at each of its values, Excel's lift.
+An answer of many values is its first in a legacy formula and a legacy
+array formula, and shows `(not-computed "a spill")` in a dynamic one until
+spills come; an array of more than 1,048,576 values shows `(not-computed
+"an array past the grid's limit")`. `SINGLE` is Excel's `@`, meeting the
+range at the cell in a formula of either kind. A reference this version
+does not read (a link into another workbook, a structured reference, a
+spill) is named as written; a cell in a cycle shows `(not-computed cycle)`
+and the cycle's cells come first as `(cycle "Sheet!A1" "Sheet!B1")`.
+Nothing is ever claimed that was not computed. Exit 0 whenever the
+calculation ran, agree or differ.
 
 With `--counts`, one line of counts and times alone: formulas, computed,
 not computed, cycles, agree, differ, unchecked, so that a model whose
@@ -812,11 +824,13 @@ computed, `(same k)` a shape whose formula an earlier shape already is,
 is followed to it, and why, and `(unlowered ...)` a shape whose cells
 computed one at a time an engine walks node by node, its formula holding
 something its compiled form does not (a text, `&`, a form such as `IFS`, a
-range where one value is wanted, two kinds compared), where every other
-such cell runs its formula compiled once. A workbook is read as it is: a
-cycle, a function outside the subset and a reference this version does not
-read are facts of the plan, never refusals. Exit 0 whenever the plan ran;
-`--counts` and `--shapes` together are a usage error, exit 2.
+range where one value is wanted, two kinds compared, an array) or of a
+kind that reads its ranges whole, a dynamic formula or a legacy array
+formula, where every other such cell runs its formula compiled once. A
+workbook is read as it is: a cycle, a function outside the subset and a
+reference this version does not read are facts of the plan, never
+refusals. Exit 0 whenever the plan ran; `--counts` and `--shapes` together
+are a usage error, exit 2.
 
 ### `frazaro load`
 

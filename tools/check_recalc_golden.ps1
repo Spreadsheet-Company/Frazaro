@@ -29,7 +29,9 @@ the Excel-saved fixture every row agree, a fixture whose cached values a
 script computed (two lineages of evaluation) no row differ, and the door's
 own build, which holds the value of every formula it computes (KERNEL.20's
 fifth slice, the values folded at build time), every computed row agreeing
-and every row not computed holding none.
+and every row not computed holding none, but a #CALC! answer, which the
+file holds only as a rich value and the build writes with none (KERNEL.8,
+its sixth slice, after Excel repaired the cached ones).
 
 THE STUDY'S WORKBOOKS (scripts/study/, KERNEL.3) are instruments held by
 their own check and not treaty fixtures, so no golden is stored for them;
@@ -193,6 +195,34 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # fixture, criteria_saved.xlsx, joins this table, criteria_saved 228 at
 # no-differ, its 213 computed agreeing with Excel's, 205 to the bit and
 # the variance's 8 to fifteen digits, and the 15 labelled.
+# 2026-10-20, KERNEL.8's sixth slice, arrays within a formula: arrays 195,
+# the fixture built by the door (scripts/recalc/arrays.txt), 192 agreeing
+# with the values it wrote and 3 labelled (two spills and an array past the
+# grid's limit), pinned 'built' until the owner's save of it,
+# arrays_saved.xlsx, joins this table. The fixture's and the OpenDocument
+# fixture's legacy array formula, E3, computes its first value and agrees,
+# and the OpenDocument file's SEQUENCE, a plain formula there, its first:
+# fixture 24 agreeing, opendocument 26. Four goldens' labels moved, not
+# their counts: a dynamic formula's answer of many a spill, and the text
+# fixture's 163 SUMPRODUCT ranks computing their comparisons, which the
+# order of texts labels.
+# 2026-10-21, folded to Excel's first save of it, which repaired every
+# #CALC! the build cached: arrays 210, 199 agreeing and 11 unchecked, the
+# 8 #CALC! answers now held with no value and Excel's save of them read
+# off their rich values; 15 rows for the second save, A200 to A214.
+# The text fixture's A142, TEXTJOIN past the text limit, which its save
+# holds as a rich #CALC! that the reader took as its fallback #VALUE!:
+# texts_saved agreeing at #CALC!, and texts built again, its A142 holding
+# no value, 189 agreeing; lookups_saved's A107 read as the #SPILL! it is.
+# 2026-10-21, Excel's second save, the last by the stop rule stated before
+# the first: two rows differed and are folded, VLOOKUP's value sought
+# forced in a legacy formula (A203) and CONCAT past the text limit #CALC!
+# (A214), and the owner's save of the fixture, arrays_saved.xlsx, joins this
+# table, arrays_saved 213 at no-differ, its 210 computed agreeing with
+# Excel's, the legacy array formulas K1:K3 among them, and two spills and an
+# array past the grid's limit labelled (the owner kept the label). arrays
+# 210, its agree floor lowered by one: A214 a #CALC! answer that holds no
+# value, 198 agreeing.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -202,9 +232,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # computes and no other).
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/recalc/saved_calc.vla';         Floor = 5;   Pin = 'agree';     AgreeFloor = 5 },
-    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 23 },
+    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
-    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
+    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 26 },
     @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 106 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
@@ -212,12 +242,14 @@ $goldens = @(
     @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 },
     @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 31;  Pin = 'built';     AgreeFloor = 28 },
     @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 },
-    @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 190 },
+    @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 189 },
     @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 },
     @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Golden = 'scripts/recalc/dates_calc.vla';         Floor = 1377; Pin = 'built';    AgreeFloor = 1329 },
     @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 },
     @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Golden = 'scripts/recalc/criteria_calc.vla';      Floor = 228;  Pin = 'built';    AgreeFloor = 225 },
-    @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 }
+    @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 },
+    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 210;  Pin = 'built';    AgreeFloor = 198 },
+    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 213;  Pin = 'no-differ'; AgreeFloor = 210 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
@@ -310,8 +342,9 @@ function Test-Order($lines) {
         if ($null -eq $f) { $problems.Add("line ${n}: not shaped as a calc row (computed, cached, verdict): $line"); continue }
         $counts[$f.Verdict]++
         $notComputed = $f.Computed.StartsWith('(not-computed ')
-        # A computed value the file holds nothing for.
-        if (-not $notComputed -and $f.Cached -eq 'none') { $counts.bare++ }
+        # A computed value the file holds nothing for, but a #CALC! answer,
+        # which the build writes with no value (KERNEL.8, slice f).
+        if (-not $notComputed -and $f.Cached -eq 'none' -and $f.Computed -ne '(error "#CALC!")') { $counts.bare++ }
         if ($f.Verdict -ne 'unchecked' -and ($notComputed -or $f.Cached -eq 'none')) { $problems.Add("line ${n}: a verdict of $($f.Verdict) with nothing to compare: $line") }
         if ($f.Verdict -eq 'unchecked' -and -not $notComputed -and $f.Cached -ne 'none' -and -not $f.Cached.StartsWith('(date ')) { $problems.Add("line ${n}: unchecked though both values are there: $line") }
         if ($strings[0] -ne $sheet) {

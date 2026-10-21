@@ -20,14 +20,16 @@
 //! the emoji and a letter): every count and position here is a character's
 //! of the language, so that no cut halves one. Excel's limit on a cell's
 //! text, 32,767, is in UTF-16 units, an emoji two (`REPT` of 16,384 emoji
-//! `#VALUE!`): a text a function makes past it is `#VALUE!` ([`made`]), and
-//! one `&` or `CONCATENATE` makes is cut to it, as Excel's save holds them
-//! ([`cut_to_most`]), and labelled where the cut would halve a surrogate
-//! pair, where Excel keeps half a character. `CHAR` and `CODE` read the
-//! host's code page in Excel, Windows' 1252 under the owner's, which the
-//! language has none of: they compute over ASCII, the same in every code
-//! page, and label the rest (the owner's decision, 2026-10-19). `FIXED` and
-//! `DOLLAR`, a locale's separators and its currency, are not here.
+//! `#VALUE!`): a text a function makes past it is `#VALUE!` ([`made`]), one
+//! `CONCAT` or `TEXTJOIN` makes `#CALC!`, as Excel 365's saves compute
+//! them, and one `&` or `CONCATENATE` makes is cut to it, as Excel's save
+//! holds them ([`cut_to_most`]), and labelled where the cut would halve a
+//! surrogate pair, where Excel keeps half a character. `CHAR` and `CODE`
+//! read the host's code page in Excel, Windows' 1252 under the owner's,
+//! which the language has none of: they compute over ASCII, the same in
+//! every code page, and label the rest (the owner's decision, 2026-10-19).
+//! `FIXED` and `DOLLAR`, a locale's separators and its currency, are not
+//! here.
 
 use super::criteria::wildcard_prefix;
 use super::eval::{numeric, Arg, Ctx, Reason};
@@ -594,8 +596,11 @@ pub(crate) fn code(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     })
 }
 
-/// A text growing toward [`MOST`]: past it `#VALUE!`, as Excel documents
-/// `CONCAT` and `TEXTJOIN`, or cut to it, as its save holds `CONCATENATE`.
+/// A text growing toward [`MOST`]: past it `#CALC!`, as Excel 365's own
+/// saves compute `CONCAT` and `TEXTJOIN` where their documentation says
+/// `#VALUE!` (KERNEL.8, slice f, the arrays' fixture's `A214` and the text
+/// fixture's `A142` read off their rich values), or cut to it, as its save
+/// holds `CONCATENATE`.
 struct Joined {
     out: String,
     over: bool,
@@ -617,9 +622,10 @@ impl Joined {
         self.over = self.out.len() > MOST && units(&self.out) > MOST;
     }
 
+    /// The text, or `#CALC!` once it passed [`MOST`].
     fn value(self) -> Value {
         if self.over {
-            Value::Error(ErrorKind::Value)
+            Value::Error(ErrorKind::Calc)
         } else {
             Value::Text(self.out)
         }
@@ -679,6 +685,22 @@ fn each_value(
             })?;
             Ok(error)
         }
+        // An array's values in order, as a reference's cells (KERNEL.8,
+        // slice f).
+        Arg::Array(a) => {
+            let mut error = None;
+            for v in a.values() {
+                match v {
+                    Value::Empty => {}
+                    Value::Error(k) => {
+                        error.get_or_insert(*k);
+                    }
+                    v if error.is_none() => f(v.clone()),
+                    _ => {}
+                }
+            }
+            Ok(error)
+        }
     }
 }
 
@@ -712,7 +734,7 @@ const MOST_DELIMITERS: usize = 1024;
 /// a range of delimiters taken in turn; an empty value and an empty text
 /// passed by where `ignore_empty` is TRUE, and joined as `""` where it is
 /// FALSE, an empty cell of a reference among them, so that its delimiters
-/// stand.
+/// stand. A text past [`MOST`] is `#CALC!`, Excel 365's own answer ([`Joined`]).
 pub(crate) fn textjoin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     answer(|| {
         if args.len() < 3 || args.len() > 252 {
@@ -749,9 +771,22 @@ pub(crate) fn textjoin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
                                     v => push(&v.text()?, &mut joined),
                                 }
                                 if joined.over {
-                                    return wrong();
+                                    return Ok(Value::Error(ErrorKind::Calc));
                                 }
                             }
+                        }
+                    }
+                }
+                // An array's every place, an empty value joined as `""`, as a
+                // reference's cells are (KERNEL.8, slice f).
+                Arg::Array(arr) if every_place => {
+                    for v in arr.values() {
+                        match v {
+                            Value::Error(e) => return Ok(Value::Error(*e)),
+                            v => push(&v.text()?, &mut joined),
+                        }
+                        if joined.over {
+                            return Ok(Value::Error(ErrorKind::Calc));
                         }
                     }
                 }
@@ -774,6 +809,18 @@ pub(crate) fn textjoin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 /// an empty cell `""`, up to [`MOST_DELIMITERS`] of them, a larger range
 /// labelled.
 fn delimiters(ctx: &Ctx<'_>, arg: &Arg<'_>) -> Result<Vec<String>, Fault> {
+    // An array of delimiters, taken in turn as a range's are (KERNEL.8,
+    // slice f).
+    if let Arg::Array(a) = arg {
+        if a.len() > MOST_DELIMITERS {
+            return label("a range of more than 1024 delimiters");
+        }
+        let mut out = Vec::with_capacity(a.len());
+        for v in a.values() {
+            out.push(v.text()?);
+        }
+        return Ok(out);
+    }
     let Arg::Area { areas, .. } = arg else {
         return Ok(vec![ctx.one(arg)?.text()?]);
     };
@@ -922,6 +969,7 @@ mod tests {
     const NA: &str = "(error \"#N/A\")";
     const VALUE: &str = "(error \"#VALUE!\")";
     const HALF: &str = "(not-computed \"half a surrogate pair\")";
+    const CALC: &str = "(error \"#CALC!\")";
 
     #[test]
     fn a_text_is_counted_and_cut_by_its_characters() {
@@ -1033,7 +1081,17 @@ mod tests {
             ("LEN(REPT(\"😀\",16384))", VALUE),
             ("LEN(CONCATENATE(REPT(\"x\",32767),\"x\"))", "32767"),
             ("LEN(CONCATENATE(REPT(\"😀\",16383),\"😀\"))", HALF),
-            ("LEN(CONCAT(REPT(\"x\",32767),\"x\"))", VALUE),
+            // `CONCAT` and `TEXTJOIN` past the limit are `#CALC!`, as Excel
+            // 365's own saves compute them where their documentation says
+            // `#VALUE!` (KERNEL.8, slice f, the arrays' fixture's `A214` and
+            // the text fixture's `A142` read off their rich values).
+            ("LEN(CONCAT(REPT(\"x\",32767),\"x\"))", CALC),
+            ("LEN(CONCAT(REPT(\"x\",20000),REPT(\"y\",20000)))", CALC),
+            ("LEN(CONCAT(T!A1,REPT(\"x\",32767)))", CALC),
+            (
+                "LEN(TEXTJOIN(\",\",TRUE,REPT(\"x\",20000),REPT(\"y\",20000)))",
+                CALC,
+            ),
             ("LEN(SUBSTITUTE(REPT(\"x\",20000),\"x\",\"yy\"))", VALUE),
         ]);
     }
@@ -1094,7 +1152,9 @@ mod tests {
             ("TEXTJOIN(\"\",FALSE,T!B1:B3)", "\"xz\""),
             ("TEXTJOIN(T!D1:D2,TRUE,\"a\",\"b\",\"c\")", "\"a-b+c\""),
             ("TEXTJOIN(\",\",TRUE,T!A9)", NA),
-            ("LEN(TEXTJOIN(\",\",FALSE,T!B:B))", VALUE),
+            // Past the limit, `#CALC!`: Excel's save holds it as a rich value,
+            // its `#VALUE!` the fallback a reader of the older format sees.
+            ("LEN(TEXTJOIN(\",\",FALSE,T!B:B))", CALC),
         ]);
     }
 

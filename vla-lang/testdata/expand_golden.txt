@@ -397,6 +397,12 @@ EXPANDED	0
 === formula-expand-n-a-before-a-division
 EXPANDED	0
 "=F(2^(#N/A)/x,x/(#N/A)/y,x/#N/A)"
+=== formula-expand-an-array-constant
+EXPANDED	0
+"=SUM({1,2},{1,\"a\";TRUE,#N/A})"
+=== formula-expand-a-range-between-expressions
+EXPANDED	0
+"=SUM(A1:INDEX(A:A,5),INDEX(B1:B9,2):B9)"
 === formula-expand-a-macro-inside-fires-first
 EXPANDED	1
 "=IF(AND(Input!B5=1,Input.last!B5=0),1,0)"
@@ -430,8 +436,10 @@ REFUSED	vla-formula-head-refused	formula: '(new ...)' is a form of a program, wh
 REFUSED	vla-formula-arity	formula: (+ ...) takes one operand or more, got 0
 === formula-expand-not-arity-refused
 REFUSED	vla-formula-arity	formula: (not ...) takes one argument, got 2
-=== formula-expand-an-array-refused
-REFUSED	vla-formula-unsupported	formula: an array constant, (quote ...) is not in this version's formula syntax
+=== formula-expand-an-array-of-rows-unlike-refused
+REFUSED	vla-formula-unsupported	formula: an array constant whose rows differ in length is not in this version's formula syntax
+=== formula-expand-a-range-arity-refused
+REFUSED	vla-formula-arity	formula: (: ...) takes two operands or more, got 1
 === formula-expand-a-spill-refused
 REFUSED	vla-formula-unsupported	formula: the spill reference A1# is not in this version's formula syntax
 === formula-expand-lambda-params-refused

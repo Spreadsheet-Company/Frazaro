@@ -6,7 +6,7 @@
 (shape 0 "Model" "C1" "=RC[-1]*2" (cells 7) (levels 0 1 2 6) (runs 1 4 4 4) (alone 3) (reads stride) (sheets 2))
 (shape 1 "Model" "D1" "=SUM(C[-2])" (cells 1) (levels 2 2 1 1) (runs 0 0 0 0) (alone 1) (reads array))
 (shape 2 "Model" "E1" "=SUM(Sales[Amount])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (every-frame unread))
-(shape 3 "Model" "F1" "=SEQUENCE(2)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing "SEQUENCE"))
+(shape 3 "Model" "F1" "=SEQUENCE(2)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "SEQUENCE") (unlowered array))
 (shape 4 "Model" "G1" "=HiddenName" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (every-frame name))
 (shape 5 "Model" "D2" "=INDIRECT(\"B1\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (missing "INDIRECT"))
 (shape 6 "Model" "E2" "=[Rates.xlsx]Sheet1!R[-1]C[-4]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (every-frame unread))

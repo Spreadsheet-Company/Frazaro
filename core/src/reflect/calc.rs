@@ -113,21 +113,23 @@ impl Sink for Collected {
         }
     }
 
-    /// An array formula's anchor (KERNEL.8, slice b): loaded as a
-    /// dynamic-array formula, in which a range where one value is wanted is
-    /// an array, labelled until arrays come, and not met at the cell as a
-    /// legacy formula meets it. A legacy array formula, entered with
-    /// Ctrl+Shift+Enter, is read the same way, `Content` having no kind of
-    /// its own for it until arrays come: over single values it computes as
-    /// Excel's array evaluation computes it, and a range where one value is
-    /// wanted in it is labelled as a dynamic one's is.
-    fn array(&mut self, sheet: &str, addr: &str, _kind: ArrayKind) {
+    /// An array formula's anchor (KERNEL.8, slices b and f): a dynamic-array
+    /// formula loaded as one, in which a range where one value is wanted is
+    /// read whole as an array and an answer of many is a spill, labelled at
+    /// its cell; a legacy array formula, entered with Ctrl+Shift+Enter, and
+    /// an OpenDocument matrix formula as a legacy array formula, read as
+    /// arrays the same way, its cell holding the first value of an answer of
+    /// many, the other cells of its range the values the file gives them.
+    fn array(&mut self, sheet: &str, addr: &str, kind: ArrayKind) {
         let Some(id) = self.place(sheet, addr) else {
             return;
         };
         if let Some(cell) = self.model.sheets[id.0].cells.get(&(id.1, id.2)) {
             if let Content::Formula(body) = &cell.content {
-                let content = Content::DynamicFormula(body.clone());
+                let content = match kind {
+                    ArrayKind::Dynamic => Content::DynamicFormula(body.clone()),
+                    ArrayKind::Legacy => Content::ArrayFormula(body.clone()),
+                };
                 self.model.sheets[id.0].set(id.1, id.2, Cell { content, style: 0 });
             }
         }
@@ -361,11 +363,13 @@ mod tests {
         has("(calc \"Model\" \"C1\" \"=B1*2\" 2400 2400 agree)");
         has("(calc \"Model\" \"D1\" \"=SUM(B:B)\"");
         has("(not-computed \"Sales[Amount]\")");
-        has("(not-computed \"SEQUENCE\")");
+        // A dynamic formula answering many values, a spill (KERNEL.8, slice f).
+        has("(not-computed \"a spill\")");
         has("(not-computed \"INDIRECT\")");
         has("(not-computed \"OFFSET\")");
         has("(not-computed \"[Rates.xlsx]Sheet1!A1\")");
-        has("(not-computed \"B1:B2\")");
+        // A legacy array formula, its first value (KERNEL.8, slice f).
+        has("(calc \"Model\" \"E3\" \"=B1:B2*2\" 2400 2400 agree)");
         has("(calc \"Model\" \"E5\" \"=1/0\" (error \"#DIV/0!\") (error \"#DIV/0!\") agree)");
         has("(calc \"Model\" \"B4\" \"=B3*Rate\" 80 80 agree)");
         has("(calc \"Model\" \"G2\" \"=Local\" 800 800 agree)");

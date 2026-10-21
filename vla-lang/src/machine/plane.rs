@@ -167,7 +167,8 @@ pub(crate) fn kept_byte(content: &Content, value: Option<&Computed>) -> u8 {
         Content::Formula(_)
         | Content::SharedMaster { .. }
         | Content::SharedChild { .. }
-        | Content::DynamicFormula(_) => formula_byte(value),
+        | Content::DynamicFormula(_)
+        | Content::ArrayFormula(_) => formula_byte(value),
     }
 }
 

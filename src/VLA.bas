@@ -20,7 +20,17 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.10.1"
-Public Const VLA_CORE_VERSION As String = "VLA.4"
+Public Const VLA_CORE_VERSION As String = "KERNEL.8"
+' KERNEL.8, SLICE F: ARRAYS IN THE FORMULA SYNTAX. FormulaSyntaxWrite
+' writes (quote (1 2 3)) as the array constant {1,2,3} and
+' (quote ((1 2) (3 4))) as {1,2;3,4}, each value a numeral, a text, a
+' truth value or (error "#N/A"), every row as long as the first, and
+' refuses by name an empty one, one mixing values and rows, rows of two
+' lengths and any other value (FsQuote); and (: a b) as a:b, the range
+' operator between two expressions that answer references, bound above
+' every other operator (FsBinaryLevel 8, an atom now 9). vla-lang's
+' formula_syntax holds the same writer and reads both back; the expand
+' golden holds the two writers to one text.
 ' VLA.4: THE FORMULA SYNTAX. FormulaSyntaxWrite writes an expression as a
 ' formula's canonical text in Excel's invariant spelling - no space
 ' outside a text, the fewest parentheses Excel's precedence allows, upper-
@@ -5760,7 +5770,8 @@ End Function
 '  A1_B2); this one never renames: a symbol is a numeral, a truth value,
 '  or a reference or a name RefersScan reads whole, and anything else is
 '  refused. The precedence is Excel's, lowest first: the comparisons 1,
-'  & 2, + and - 3, * and / 4, ^ 5, a sign 6, % 7, anything else 8; every
+'  & 2, + and - 3, * and / 4, ^ 5, a sign 6, % 7, : 8 (KERNEL.8, slice
+'  f), anything else 9; every
 '  binary operator left-associative, a form of many operands its left
 '  fold, as EmitChain's. A left operand is parenthesized when it binds
 '  looser than its operator, a right one when looser or equally; a
@@ -5791,7 +5802,7 @@ End Function
 
 ' A form's level of precedence, as the writer spells it.
 Private Function FsLevel(v As Variant) As Long
-    FsLevel = 8
+    FsLevel = 9
     If Not IsList(v) Then
         If FsIsNegativeNumeral(CStr(v)) Then FsLevel = 6
         Exit Function
@@ -5824,6 +5835,8 @@ Private Function FsBinaryLevel(ByVal op As String) As Long
             FsBinaryLevel = 4
         Case "^"
             FsBinaryLevel = 5
+        Case ":"
+            FsBinaryLevel = 8
     End Select
 End Function
 
@@ -6009,7 +6022,8 @@ Private Function FsList(v As Variant, ByVal depth As Long) As String
             FsList = FsLambda(lst, headWritten, depth)
             Exit Function
         Case "quote"
-            VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "an array constant, (quote ...)"
+            FsList = FsQuote(lst, headWritten)
+            Exit Function
     End Select
     If FormulaHeadRefused(h) Then VLA_Messages.RaiseMsg "vla-formula-head-refused", "head", headWritten
     Select Case h
@@ -6044,6 +6058,86 @@ Private Function FsErrorLiteral(lst As Object, ByVal headWritten As String) As S
         End If
     End If
     VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one text, such as ""#N/A""", "n", (lst.Count - 1)
+End Function
+
+' Whether a form is an error literal, (error "#N/A"), a value an array
+' constant holds (KERNEL.8, slice f).
+Private Function FsIsErrorForm(v As Variant) As Boolean
+    If Not IsList(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    FsIsErrorForm = (VLA_Identity.Fold(CStr(lst.Item(1))) = "error")
+End Function
+
+' Whether a form is a row of an array constant: a list that is no error
+' literal.
+Private Function FsIsRow(v As Variant) As Boolean
+    If IsList(v) Then FsIsRow = Not FsIsErrorForm(v)
+End Function
+
+' (quote (1 2 3)), one row, or (quote ((1 2) (3 4))), rows: an array
+' constant, {1,2,3} and {1,2;3,4} (KERNEL.8, slice f), each value a
+' numeral, a text, a truth value or (error "#N/A"), every row as long as
+' the first; anything else refused by name.
+Private Function FsQuote(lst As Object, ByVal headWritten As String) As String
+    Dim held As Variant
+    If lst.Count = 2 Then AssignVar held, lst.Item(2)
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one list of values or of rows", "n", (lst.Count - 1)
+    If Not IsList(held) Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one list of values or of rows", "n", (lst.Count - 1)
+    Dim heldItems As Object
+    Set heldItems = held
+    If heldItems.Count = 0 Then VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "an empty array constant, (quote ())"
+    Dim i As Long, j As Long, nRows As Long
+    For i = 1 To heldItems.Count
+        If FsIsRow(heldItems.Item(i)) Then nRows = nRows + 1
+    Next
+    If nRows > 0 And nRows < heldItems.Count Then VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "an array constant mixing values and rows"
+    ' Its rows: each a list of values, or the one row its values are.
+    Dim arrRows As Collection
+    Set arrRows = New Collection
+    If nRows = 0 Then
+        arrRows.Add heldItems
+    Else
+        For i = 1 To heldItems.Count
+            arrRows.Add heldItems.Item(i)
+        Next
+    End If
+    Dim rowWidth As Long
+    rowWidth = arrRows.Item(1).Count
+    Dim r As Variant
+    For Each r In arrRows
+        If rowWidth = 0 Or r.Count <> rowWidth Then VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", "an array constant whose rows differ in length"
+    Next
+    Dim outText As String, s As String, v As Variant, rowItems As Object, errList As Object
+    outText = "{"
+    For i = 1 To arrRows.Count
+        If i > 1 Then outText = outText & ";"
+        Set rowItems = arrRows.Item(i)
+        For j = 1 To rowItems.Count
+            If j > 1 Then outText = outText & ","
+            AssignVar v, rowItems.Item(j)
+            If FsIsErrorForm(v) Then
+                Set errList = v
+                outText = outText & FsErrorLiteral(errList, "error")
+            ElseIf IsList(v) Then
+                VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", WriteDatum(v) & " in an array constant"
+            Else
+                s = CStr(v)
+                If Left$(s, 1) = Chr$(34) Then
+                    s = Mid$(s, 2)
+                    If Len(s) > 255 Then VLA_Messages.RaiseMsg "vla-formula-text-too-long", "n", Len(s)
+                    outText = outText & FormulaText(s)
+                ElseIf FsIsNumeral(s) Or FsIsNegativeNumeral(s) Or VLA_Identity.Fold(s) = "true" Or VLA_Identity.Fold(s) = "false" Then
+                    outText = outText & FsAtom(s)
+                Else
+                    VLA_Messages.RaiseMsg "vla-formula-unsupported", "construct", WriteDatum(v) & " in an array constant"
+                End If
+            End If
+        Next
+    Next
+    FsQuote = outText & "}"
 End Function
 
 ' An error's text in its canonical spelling, "" for none of the seven:

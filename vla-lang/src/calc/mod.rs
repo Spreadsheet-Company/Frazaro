@@ -66,6 +66,8 @@
 //! such a cell inherits the reason.
 
 pub(crate) mod aggregates;
+pub mod array;
+pub(crate) mod arrays;
 pub(crate) mod census;
 pub mod criteria;
 pub(crate) mod database;
@@ -92,8 +94,9 @@ use crate::messages::{raise, Refusal};
 use crate::refers::quote_sheet;
 use crate::sheet::{cell_ref, formula_text, shared_masters, Content, Workbook};
 
+pub use array::Array;
 pub use dense::Dense;
-pub use eval::{Arg, Computed, Ctx, Env, Form, Library, Reason, Strict};
+pub use eval::{Arg, Arrayed, Classes, Computed, Ctx, Env, Form, Library, Param, Reason, Strict};
 pub use formula::{calls, parse, Expr};
 pub use graph::{Area, Areas, CellId, Extent, Names, Plan};
 pub use index::Indexes;
@@ -262,7 +265,7 @@ impl<'m> Calc<'m> {
             Err(construct) => return Computed::NotComputed(Reason::Construct(construct)),
         };
         let ctx = Ctx::new(self, self.library);
-        match ctx.eval(&parsed).and_then(|arg| ctx.one(&arg)) {
+        match ctx.eval(&parsed).and_then(|arg| ctx.result(&arg)) {
             Ok(v) => Computed::Value(v.settled()),
             Err(reason) => Computed::NotComputed(reason),
         }
@@ -443,6 +446,25 @@ impl Env for Calc<'_> {
         let (s, row, col) = self.here.get();
         is_dynamic(self.model, (s, row, col))
     }
+
+    /// Whether the cell being computed holds a legacy array formula, as its
+    /// content says (KERNEL.8, slice f).
+    fn array_formula(&self) -> bool {
+        is_array_formula(self.model, self.here.get())
+    }
+}
+
+/// Whether a cell of a model holds a legacy array formula (KERNEL.8, slice
+/// f): [`Env::array_formula`]'s answer for `Calc`.
+pub(crate) fn is_array_formula(model: &Workbook, (s, row, col): CellId) -> bool {
+    matches!(
+        model
+            .sheets
+            .get(s)
+            .and_then(|sheet| sheet.cells.get(&(row, col)))
+            .map(|c| &c.content),
+        Some(Content::ArrayFormula(_))
+    )
 }
 
 /// Whether a cell of a model holds a dynamic-array formula (KERNEL.8, slice
@@ -925,16 +947,16 @@ mod tests {
         let read = refusal(&[("Rate", "S!$A$1")], "=Rate*2");
         assert!(read.is_none(), "{read:?}");
         assert!(refusal(&[("Rate", "S!$A$1")], "=Missing*2").is_none());
-        let unread = refusal(&[("Pair", "{1,2}")], "=Pair*2").unwrap();
+        let unread = refusal(&[("Pair", "A1#")], "=Pair*2").unwrap();
         assert_eq!(unread.id, "calc-construct-not-read");
         assert!(
-            unread.text.contains("S!B1") && unread.text.contains('{'),
+            unread.text.contains("S!B1") && unread.text.contains("A1#"),
             "{}",
             unread.text
         );
-        let nested = refusal(&[("Outer", "Inner+1"), ("Inner", "{1,2}")], "=Outer").unwrap();
+        let nested = refusal(&[("Outer", "Inner+1"), ("Inner", "A1#")], "=Outer").unwrap();
         assert_eq!(nested.id, "calc-construct-not-read");
-        let unused = refusal(&[("Pair", "{1,2}")], "=A1*2");
+        let unused = refusal(&[("Pair", "A1#")], "=A1*2");
         assert!(unused.is_none(), "a name no formula reads: {unused:?}");
     }
 
@@ -1027,7 +1049,8 @@ mod tests {
         );
         assert_eq!(
             at(&calc, "S", "B4"),
-            Computed::NotComputed(Reason::Construct("{".to_string()))
+            Computed::Value(Value::Number(1.0)),
+            "an array constant's first value, in a legacy formula (KERNEL.8, slice f)"
         );
         assert_eq!(
             at(&calc, "S", "B5"),
@@ -1055,7 +1078,7 @@ mod tests {
         // this version does not read, naming the construct.
         let wb = model(&[
             ("S", "A1", "=1+1"),
-            ("S", "B2", "={1,2}"),
+            ("S", "B2", "=A1#"),
             ("S", "C3", "=@A1"),
         ]);
         let lib = library::language();
@@ -1063,12 +1086,12 @@ mod tests {
         let r = calc.first_refusal().unwrap();
         assert_eq!(r.id, "calc-construct-not-read");
         assert!(
-            r.text.contains("S!B2") && r.text.contains("reaches {"),
+            r.text.contains("S!B2") && r.text.contains("reaches A1#"),
             "{}",
             r.text
         );
         // A function the library does not hold comes first.
-        let wb = model(&[("S", "B2", "={1,2}"), ("S", "C3", "=NOW()")]);
+        let wb = model(&[("S", "B2", "=A1#"), ("S", "C3", "=NOW()")]);
         let calc = Calc::new(&wb, &lib);
         assert_eq!(
             calc.first_refusal().unwrap().id,

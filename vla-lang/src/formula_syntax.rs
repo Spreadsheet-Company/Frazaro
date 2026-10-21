@@ -34,7 +34,9 @@
 //! function's existence or of its arity, which are evaluation's.
 //!
 //! **Precedence**, Excel's as `calc::formula` reads it, lowest first: the
-//! comparisons; `&`; `+` and `-`; `*` and `/`; `^`; a sign; `%`; every
+//! comparisons; `&`; `+` and `-`; `*` and `/`; `^`; a sign; `%`; and `:`
+//! between two expressions that answer references (KERNEL.8, slice f),
+//! `(: A1 (index A:A 5))` for `A1:INDEX(A:A,5)`, above them all; every
 //! binary operator left-associative, so `2^3^2` is 64. A left operand is
 //! parenthesized when it binds looser than its operator, a right one when
 //! it binds looser or equally; a sign's operand when it is any binary
@@ -63,15 +65,17 @@
 //! F.7's declaration) refused; any other head a function call, its name
 //! letters, digits, `.` and `_` from a letter on. `if`, `not` and `mod`,
 //! VLA's own heads, have their arity checked; an Excel function's arity is
-//! Excel's. `quote`, an array constant, is outside this version.
+//! Excel's. `quote` is an array constant (KERNEL.8, slice f): `(quote (1 2
+//! 3))` one row, `{1,2,3}`, and `(quote ((1 2) (3 4)))` rows, `{1,2;3,4}`,
+//! each value a numeral, a text, a truth value or an error, every row as
+//! long as the first.
 //!
 //! **What [`read`] refuses** is told apart: a text that is no formula at
 //! all (`vla-formula-read-malformed`), and a construct Excel reads that
-//! this version does not (`vla-formula-read-unsupported`): an array
-//! constant, `@`, an intersection, a union, a spill, a structured
-//! reference, a link into another workbook, an omitted argument, `:`
-//! between computed operands, a `_xlfn.` spelling, an error beyond the
-//! seven, a LAMBDA called in place, and a function named like a word the
+//! this version does not (`vla-formula-read-unsupported`): `@`, an
+//! intersection, a union, a spill, a structured reference, a link into
+//! another workbook, an omitted argument, a `_xlfn.` spelling, an error
+//! beyond the seven, a LAMBDA called in place, and a function named like a word the
 //! syntax keeps for its own forms. The reader has no VBA twin, as the
 //! evaluator has none: the add-in's formulas are read by Excel, and its two
 //! ids are raised by no VBA site. The writer has one (`VLA.bas`'s
@@ -100,7 +104,8 @@ const MUL: u8 = 4;
 const POW: u8 = 5;
 const SIGN: u8 = 6;
 const PCT: u8 = 7;
-const ATOM: u8 = 8;
+const RANGE: u8 = 8;
+const ATOM: u8 = 9;
 
 /// The binary operators, as the head spells each and the text writes it.
 const BINARY: &[&str] = &[
@@ -140,6 +145,7 @@ fn level(f: &Form) -> u8 {
             match h.as_str() {
                 "+" | "-" if n == 1 => SIGN,
                 "%" if n == 1 => PCT,
+                ":" if n >= 2 => RANGE,
                 op if n >= 2 && BINARY.contains(&op) => binary_level(op),
                 _ => ATOM,
             }
@@ -355,13 +361,23 @@ fn list(l: &List, depth: u32) -> Result<String, Refusal> {
             }
             Ok(out)
         }
+        // `:` between two expressions that answer references, above every
+        // other operator (KERNEL.8, slice f).
+        ":" => {
+            if n < 2 {
+                return Err(arity(head, "two operands or more", n));
+            }
+            let mut out = operand(&args[0], RANGE, false, depth)?;
+            for a in &args[1..] {
+                out.push(':');
+                out.push_str(&operand(a, RANGE, true, depth)?);
+            }
+            Ok(out)
+        }
         "error" => error_literal(head, args),
         "ref" => ref_form(head, args),
         "lambda" => lambda(head, args, depth),
-        "quote" => Err(raise(
-            "vla-formula-unsupported",
-            &[("construct", "an array constant, (quote ...)")],
-        )),
+        "quote" => quote_form(head, args),
         _ => {
             if let Some(row) = headtable::row(&h) {
                 if row.formula != FormulaSupport::Yes {
@@ -411,12 +427,85 @@ fn error_literal(head: &str, args: &[Form]) -> Result<String, Refusal> {
         return Err(arity(head, "one text, such as \"#N/A\"", args.len()));
     };
     match ErrorKind::parse(t) {
-        Some(k) => Ok(k.text().to_string()),
-        None => Err(raise(
+        Some(k) if k.is_literal() => Ok(k.text().to_string()),
+        _ => Err(raise(
             "vla-formula-unsupported",
             &[("construct", &format!("the error {t}"))],
         )),
     }
+}
+
+/// Whether a form is an error literal, `(error "#N/A")`, a value an array
+/// constant holds.
+fn is_error_form(f: &Form) -> bool {
+    match f {
+        Form::List(l) => matches!(l.items.first(), Some(Form::Sym(h)) if fold(h) == "error"),
+        _ => false,
+    }
+}
+
+/// `(quote (1 2 3))`, one row, or `(quote ((1 2) (3 4)))`, rows: an array
+/// constant, `{1,2,3}` and `{1,2;3,4}` (KERNEL.8, slice f), each value a
+/// numeral, a text, a truth value or `(error "#N/A")`, every row as long as
+/// the first; anything else refused by name.
+fn quote_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
+    let [Form::List(l)] = args else {
+        return Err(arity(head, "one list of values or of rows", args.len()));
+    };
+    let unsupported =
+        |construct: &str| raise("vla-formula-unsupported", &[("construct", construct)]);
+    if l.items.is_empty() {
+        return Err(unsupported("an empty array constant, (quote ())"));
+    }
+    let is_row = |f: &Form| matches!(f, Form::List(_)) && !is_error_form(f);
+    let rows: Vec<&[Form]> = if l.items.iter().all(is_row) {
+        l.items
+            .iter()
+            .map(|f| match f {
+                Form::List(r) => r.items.as_slice(),
+                _ => &[],
+            })
+            .collect()
+    } else if l.items.iter().any(is_row) {
+        return Err(unsupported("an array constant mixing values and rows"));
+    } else {
+        vec![l.items.as_slice()]
+    };
+    let width = rows[0].len();
+    if width == 0 || rows.iter().any(|r| r.len() != width) {
+        return Err(unsupported("an array constant whose rows differ in length"));
+    }
+    let mut out = String::from("{");
+    for (i, row) in rows.iter().enumerate() {
+        if i > 0 {
+            out.push(';');
+        }
+        for (j, v) in row.iter().enumerate() {
+            if j > 0 {
+                out.push(',');
+            }
+            let value = match v {
+                Form::Str(s) => text_literal(s)?,
+                Form::Sym(s)
+                    if is_numeral(s)
+                        || is_negative_numeral(s)
+                        || matches!(fold(s).as_str(), "true" | "false") =>
+                {
+                    atom(s)?
+                }
+                Form::List(e) if is_error_form(v) => error_literal("error", &e.items[1..])?,
+                other => {
+                    return Err(unsupported(&format!(
+                        "{} in an array constant",
+                        write_datum(other)
+                    )))
+                }
+            };
+            out.push_str(&value);
+        }
+    }
+    out.push('}');
+    Ok(out)
 }
 
 /// `(ref "Sheet" "A1")` or `(ref "A1")`: one reference or one name, built
@@ -580,6 +669,12 @@ enum Tok {
     Open,
     Close,
     Comma,
+    /// An array constant's braces and its row separator, and `:` between
+    /// two expressions (KERNEL.8, slice f).
+    OpenBrace,
+    CloseBrace,
+    Semi,
+    Colon,
 }
 
 /// The tokens of a formula's text, the references and names read by
@@ -687,11 +782,12 @@ fn lex(text: &str) -> Result<Vec<Tok>, Refusal> {
             }
             let tok: String = s[i..k].iter().collect();
             match ErrorKind::parse(&tok) {
-                Some(kind) => toks.push(Tok::Err(kind)),
+                Some(kind) if kind.is_literal() => toks.push(Tok::Err(kind)),
                 None if fold(&tok).starts_with("#n/a/") => return Err(unsupported(
                     "#N/A right before a /, which this version reads only parenthesized, (#N/A)",
                 )),
-                None => return Err(unsupported(&format!("the error {tok}"))),
+                // An error no formula writes as a literal, `#CALC!` among them.
+                _ => return Err(unsupported(&format!("the error {tok}"))),
             }
             i = k;
         } else if c.is_ascii_alphabetic() || c == '_' || (c as u32) > 127 {
@@ -730,13 +826,11 @@ fn lex(text: &str) -> Result<Vec<Tok>, Refusal> {
                     '(' => (Tok::Open, 1),
                     ')' => (Tok::Close, 1),
                     ',' => (Tok::Comma, 1),
-                    '{' => return Err(unsupported("an array constant, {...}")),
+                    '{' => (Tok::OpenBrace, 1),
+                    '}' => (Tok::CloseBrace, 1),
+                    ';' => (Tok::Semi, 1),
+                    ':' => (Tok::Colon, 1),
                     '@' => return Err(unsupported("the implicit intersection @")),
-                    ':' => {
-                        return Err(unsupported(
-                            "the range operator : between computed operands",
-                        ))
-                    }
                     '[' => return Err(unsupported("a structured reference")),
                     other => {
                         return Err(malformed(&format!(
@@ -794,6 +888,8 @@ impl Reader {
         match t {
             Tok::Close => malformed("a ')' that opens nothing"),
             Tok::Comma => malformed("a ',' outside a call"),
+            Tok::CloseBrace => malformed("a '}' that opens nothing"),
+            Tok::Semi => malformed("a ';' outside an array constant"),
             _ => malformed("two operands with no operator between them"),
         }
     }
@@ -861,7 +957,7 @@ impl Reader {
     }
 
     fn postfix(&mut self) -> Result<Form, Refusal> {
-        let mut e = self.primary()?;
+        let mut e = self.ranged()?;
         let mut levels = 0;
         while self.peek() == Some(&Tok::Percent) {
             if self.depth + levels >= NESTING_LIMIT {
@@ -883,6 +979,78 @@ impl Reader {
             }
         }
         Ok(e)
+    }
+
+    /// A primary, and `:` after it to another (KERNEL.8, slice f): a run of
+    /// them one form of many operands, `(: a b c)`, the tightest binding of
+    /// all; a `:` between two references side by side the scanner reads as
+    /// one range, a symbol.
+    fn ranged(&mut self) -> Result<Form, Refusal> {
+        let mut left = self.primary()?;
+        while self.peek() == Some(&Tok::Colon) {
+            self.at += 1;
+            let right = self.primary()?;
+            left = match left {
+                Form::List(mut l)
+                    if l.items.len() >= 3
+                        && matches!(l.items.first(), Some(Form::Sym(h)) if h == ":") =>
+                {
+                    l.items.push(right);
+                    Form::List(l)
+                }
+                other => Form::list(vec![Form::sym(":"), other, right]),
+            };
+        }
+        Ok(left)
+    }
+
+    /// An array constant's values after its `{`, through its `}` (KERNEL.8,
+    /// slice f): `(quote (1 2 3))` for one row, `(quote ((1 2) (3 4)))` for
+    /// rows, each value a numeral with its sign, a text, a truth value or an
+    /// error, every row as long as the first.
+    fn array_constant(&mut self) -> Result<Form, Refusal> {
+        let mut rows: Vec<Vec<Form>> = vec![Vec::new()];
+        loop {
+            let value = match self.take() {
+                Some(Tok::Num(n)) => Form::Sym(n),
+                Some(Tok::Op("-")) => match self.take() {
+                    Some(Tok::Num(n)) => Form::Sym(format!("-{n}")),
+                    _ => return Err(malformed("a sign before no number in an array constant")),
+                },
+                Some(Tok::Op("+")) => match self.take() {
+                    Some(Tok::Num(n)) => Form::Sym(n),
+                    _ => return Err(malformed("a sign before no number in an array constant")),
+                },
+                Some(Tok::Text(s)) => Form::Str(s),
+                Some(Tok::Bool(b)) => Form::sym(if b { "true" } else { "false" }),
+                Some(Tok::Err(k)) => Form::list(vec![Form::sym("error"), Form::string(k.text())]),
+                Some(_) => {
+                    return Err(malformed(
+                        "an array constant holding what is no number, text, truth value or error",
+                    ))
+                }
+                None => return Err(malformed("a '{' that never closes")),
+            };
+            if let Some(row) = rows.last_mut() {
+                row.push(value);
+            }
+            match self.take() {
+                Some(Tok::Comma) => {}
+                Some(Tok::Semi) => rows.push(Vec::new()),
+                Some(Tok::CloseBrace) => break,
+                _ => return Err(malformed("a '{' that never closes")),
+            }
+        }
+        let width = rows[0].len();
+        if rows.iter().any(|r| r.len() != width) {
+            return Err(malformed("an array constant whose rows differ in length"));
+        }
+        let held = if rows.len() == 1 {
+            Form::list(rows.pop().unwrap_or_default())
+        } else {
+            Form::list(rows.into_iter().map(Form::list).collect())
+        };
+        Ok(Form::list(vec![Form::sym("quote"), held]))
     }
 
     fn primary(&mut self) -> Result<Form, Refusal> {
@@ -914,6 +1082,10 @@ impl Reader {
                 "the operator {op} where an operand was wanted"
             ))),
             Tok::Percent => Err(malformed("a '%' where an operand was wanted")),
+            Tok::OpenBrace => self.array_constant(),
+            Tok::CloseBrace => Err(malformed("a '}' that opens nothing")),
+            Tok::Semi => Err(malformed("a ';' outside an array constant")),
+            Tok::Colon => Err(malformed("a ':' where an operand was wanted")),
         }
     }
 
@@ -1003,6 +1175,7 @@ fn starts_operand(t: &Tok) -> bool {
             | Tok::Ref(_)
             | Tok::Func(_)
             | Tok::Open
+            | Tok::OpenBrace
     )
 }
 
@@ -1162,7 +1335,25 @@ mod tests {
         assert_eq!(w_err("(if c)"), "vla-formula-arity");
         assert_eq!(w_err("(mod a)"), "vla-formula-arity");
         assert_eq!(w_err("(lambda x)"), "vla-formula-arity");
-        assert_eq!(w_err("(quote (1 2))"), "vla-formula-unsupported");
+        // An array constant (KERNEL.8, slice f), and what it cannot hold.
+        assert_eq!(w("(quote (1 2))"), "={1,2}");
+        assert_eq!(
+            w("(quote ((1 \"a\") (true (error \"#n/a\"))))"),
+            "={1,\"a\";TRUE,#N/A}"
+        );
+        assert_eq!(w("(: a1 (index a:a 5))"), "=A1:INDEX(A:A,5)");
+        assert_eq!(w("(+ 1 (: a1 (index a:a 5)))"), "=1+A1:INDEX(A:A,5)");
+        for bad in [
+            "(quote ((1 2) (3)))",
+            "(quote (A1))",
+            "(quote ((1) 2))",
+            "(quote ())",
+            "(quote ((error \"#calc!\")))",
+        ] {
+            assert_eq!(w_err(bad), "vla-formula-unsupported", "{bad}");
+        }
+        assert_eq!(w_err("(quote)"), "vla-formula-arity");
+        assert_eq!(w_err("(: a1)"), "vla-formula-arity");
         assert_eq!(w_err("(error \"#SPILL!\")"), "vla-formula-unsupported");
         assert_eq!(w_err("A1#"), "vla-formula-unsupported");
         assert_eq!(w_err("(lambda ((x)) x)"), "vla-formula-lambda-params");
@@ -1213,11 +1404,18 @@ mod tests {
             "=SUM(1,2",
             "=IF(1)",
             "=NOT(1,2)",
+            // Array constants Excel cannot hold (KERNEL.8, slice f).
+            "={1,2;3}",
+            "={A1}",
+            "={1,",
+            "={}",
+            "=1}",
+            "=1;2",
+            "=A1:",
         ] {
             assert_eq!(r_err(bad), "vla-formula-read-malformed", "{bad}");
         }
         for valid in [
-            "={1,2;3,4}",
             "=@A1:A3",
             "=A1 B1",
             "=SUM((A1,B2))",
@@ -1226,7 +1424,6 @@ mod tests {
             "=[Rates.xlsx]Sheet1!A1",
             "=IF(A1,,B1)",
             "=_xlfn.XLOOKUP(1,A:A,B:B)",
-            "=A1:INDEX(B:B,5)",
             "=#SPILL!",
             "=LAMBDA(x,x)(1)",
             "=Sheet1!#REF!",
@@ -1242,7 +1439,7 @@ mod tests {
     /// F.7's test (VLA.4): no row of the head table is undeclared in a
     /// formula; the writer refuses every head the table refuses, by name;
     /// and every head it declares a formula's is written, or refused only
-    /// for its shape or as outside this version (`quote`).
+    /// for its shape.
     #[test]
     fn every_head_of_the_table_is_declared_and_the_writer_holds_to_it() {
         for row in headtable::rows() {
@@ -1286,6 +1483,16 @@ mod tests {
             "=(-5)%+-5%",
             "=a-(b-c)",
             "=2^(3^2)",
+            // KERNEL.8, slice f: array constants and `:` between expressions.
+            "={1,2,3}",
+            "={1,-2.5;\"a\",TRUE}",
+            "={#N/A}",
+            "=SUM({1;2;3})",
+            "=A1:INDEX(A:A,5)",
+            "=SUM(INDEX(A1:A9,2):INDEX(A1:A9,5))",
+            "=-A1:INDEX(A:A,5)",
+            "=A1:INDEX(A:A,5)%",
+            "=Data!A1:Data!B2",
         ] {
             let v = read(text).unwrap();
             assert_eq!(write(&v).unwrap(), text, "{text}");

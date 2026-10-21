@@ -147,8 +147,10 @@ impl Styles {
 /// cells is a shared formula, which is what Excel itself writes when a
 /// formula is filled: the top-left cell is the master and holds the text
 /// and the range, the others point at it by its index, and the host
-/// adjusts the references for each cell as `Range.Formula2` would have.
+/// adjusts the references for each cell as `Range.Formula2` would have. A
+/// list that may grow (KERNEL.8's decision 9).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Content {
     Text(String),
     Number(f64),
@@ -172,6 +174,12 @@ pub enum Content {
     /// can return an array, and reads back without the `@` it puts on a
     /// legacy formula of that kind.
     DynamicFormula(String),
+    /// A legacy array formula (KERNEL.8, slice f): one entered with
+    /// Ctrl+Shift+Enter, `t="array"` and no dynamic-array `cm`, read as
+    /// arrays as a dynamic formula is and holding the first value of an
+    /// answer of many; an OpenDocument matrix formula reads as one. Over a
+    /// range of cells, the others hold the values the file gives them.
+    ArrayFormula(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -428,7 +436,7 @@ pub fn formula_text(
     masters: &HashMap<u32, (&str, u32, u32)>,
 ) -> Option<String> {
     let raw = match content {
-        Content::Formula(t) | Content::DynamicFormula(t) => t.clone(),
+        Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t) => t.clone(),
         Content::SharedMaster { text, .. } => text.clone(),
         Content::SharedChild { si } => {
             let (text, m_row, m_col) = masters.get(si)?;

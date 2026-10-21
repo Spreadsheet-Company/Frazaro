@@ -22,11 +22,12 @@
 
 use std::cmp::Ordering;
 
+use super::array::{self, Array, Lifted};
 use super::criteria::{as_written, has_wildcard, wildcard};
 use super::eval::{exact_order, Arg, Ctx, Reason};
 use super::formula::Expr;
 use super::graph::{Area, Areas};
-use super::index::{self, Line};
+use super::index::{self, Line, Seek};
 use super::library::picked;
 use super::order;
 use super::value::{ErrorKind, Value};
@@ -72,14 +73,32 @@ fn expr_number_or(
     })
 }
 
-/// The one area of a reference, `None` for a value or a span of sheets.
+/// The one area of a reference, `None` for a value, an array or a span of
+/// sheets.
 fn area_of(arg: &Arg<'_>) -> Option<Area> {
     match arg {
         Arg::Area { areas, .. } => match &areas[..] {
             [a] => Some(*a),
             _ => None,
         },
-        Arg::Scalar(_) => None,
+        _ => None,
+    }
+}
+
+/// The vector an argument is where a lookup searches one: a reference's one
+/// row or column, or an array's (KERNEL.8, slice f); `None` for any other.
+fn seek_of<'a>(arg: &'a Arg<'_>) -> Option<Seek<'a>> {
+    match arg {
+        Arg::Array(a) if a.is_vector() => Some(Seek::Values(a.values())),
+        arg => area_of(arg).and_then(Line::of).map(Seek::Line),
+    }
+}
+
+/// Whether a vector runs across a row, a reference's or an array's.
+fn runs_across(arg: &Arg<'_>) -> bool {
+    match arg {
+        Arg::Array(a) => a.rows() == 1 && a.columns() > 1,
+        arg => area_of(arg).is_some_and(|a| a.left != a.right),
     }
 }
 
@@ -118,11 +137,26 @@ fn one_kept(v: &Value, probe: &Value, keep: impl Fn(Ordering) -> bool) -> Result
 
 /// An exact match as `MATCH` 0, `VLOOKUP` and `HLOOKUP` take it: a text
 /// holding `*`, `?` or `~` a pattern, any other probe by its key.
-fn exactly(ctx: &Ctx<'_>, line: Line, probe: &Value) -> Result<Option<u32>, Reason> {
+fn exactly(ctx: &Ctx<'_>, seek: Seek<'_>, probe: &Value) -> Result<Option<u32>, Reason> {
     match probe {
-        Value::Text(t) if has_wildcard(t) => index::pattern(ctx, line, t, false),
-        _ => index::exact(ctx, line, probe, false),
+        Value::Text(t) if has_wildcard(t) => index::pattern(ctx, seek, t, false),
+        _ => index::exact(ctx, seek, probe, false),
     }
+}
+
+/// The part of an array `INDEX` picks (`library::picked`'s offsets): its one
+/// value, or the array of its rows and columns there (KERNEL.8, slice f).
+fn sub_array(a: &Array, (t, l, b, r): (u32, u32, u32, u32)) -> Arg<'static> {
+    if t == b && l == r {
+        return Arg::Scalar(a.get(t, l).clone());
+    }
+    let mut values = Vec::with_capacity(((b - t + 1) * (r - l + 1)) as usize);
+    for row in t..=b {
+        for col in l..=r {
+            values.push(a.get(row, col).clone());
+        }
+    }
+    Arg::Array(Array::new(b - t + 1, r - l + 1, values))
 }
 
 /// `INDEX(reference, row, [column], [area])`: the cell of the reference's
@@ -130,24 +164,21 @@ fn exactly(ctx: &Ctx<'_>, line: Line, probe: &Value) -> Result<Option<u32>, Reas
 /// (`library::picked`): a reference one row high takes a single number as
 /// its column; a row of 0 is a whole column, a column of 0 a whole row; a
 /// number read down to a whole one; outside the area `#REF!`, below 0
-/// `#VALUE!`. A value given as the reference is an array of one. Only area
-/// 1 of the one area a reference names, a union being no reference this
-/// version reads.
+/// `#VALUE!`. A value given as the reference is an array of one, and an
+/// array is picked from as a reference is, its values answered (KERNEL.8,
+/// slice f): the reference's expression is read as arrays, and a row or a
+/// column given as an array lifts the pick, each place's one value. Only
+/// area 1 of the one area a reference names, a union being no reference
+/// this version reads.
 pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if !(2..=4).contains(&args.len()) {
         return error(ErrorKind::Value);
     }
-    let reference = ctx.eval(&args[0])?;
-    let row = match ctx.scalar(&args[1])?.number() {
-        Ok(n) => n,
-        Err(k) => return error(k),
-    };
+    let reference = ctx.as_arrays(|| ctx.eval(&args[0]))?;
+    let row = ctx.operand(&args[1])?;
     let column = match args.get(2) {
         None => None,
-        Some(e) => match ctx.scalar(e)?.number() {
-            Ok(n) => Some(n),
-            Err(k) => return error(k),
-        },
+        Some(e) => Some(ctx.operand(e)?),
     };
     if let Some(e) = args.get(3) {
         match expr_number_or(ctx, Some(e), 1.0)? {
@@ -156,6 +187,42 @@ pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
             Err(k) => return error(k),
         }
     }
+    let many = matches!(row, Lifted::Many(_)) || matches!(column, Some(Lifted::Many(_)));
+    if many {
+        // Each place's pick, one value each.
+        let column = column.unwrap_or(Lifted::One(Value::Empty));
+        let left_out = args.get(2).is_none();
+        let at = array::lift2(&row, &column, |r, c| {
+            let (r, c) = match (r.number(), c.number()) {
+                (Ok(r), Ok(c)) => (r, c),
+                (Err(k), _) | (_, Err(k)) => return Ok(Value::Error(k)),
+            };
+            let picked = pick(&reference, r, (!left_out).then_some(c))?;
+            ctx.one(&picked)
+        })?;
+        return Ok(Arg::Array(at));
+    }
+    let row = match row {
+        Lifted::One(v) => match v.number() {
+            Ok(n) => n,
+            Err(k) => return error(k),
+        },
+        Lifted::Many(_) => unreachable!("a lift answered above"),
+    };
+    let column = match column {
+        None => None,
+        Some(Lifted::One(v)) => match v.number() {
+            Ok(n) => Some(n),
+            Err(k) => return error(k),
+        },
+        Some(Lifted::Many(_)) => unreachable!("a lift answered above"),
+    };
+    pick(&reference, row, column)
+}
+
+/// [`index`]'s pick of a reference, a value or an array at one row and
+/// column.
+fn pick<'e>(reference: &Arg<'e>, row: f64, column: Option<f64>) -> Result<Arg<'e>, Reason> {
     match reference {
         Arg::Area {
             areas,
@@ -175,14 +242,18 @@ pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
                         bottom: a.top + p.2,
                         right: a.left + p.3,
                     }),
-                    written,
-                    moved,
+                    written: written.clone(),
+                    moved: *moved,
                 }),
                 Err(k) => error(k),
             }
         }
+        Arg::Array(a) => match picked(a.rows(), a.columns(), row, column) {
+            Ok(p) => Ok(sub_array(a, p)),
+            Err(k) => error(k),
+        },
         Arg::Scalar(v) => match picked(1, 1, row, column) {
-            Ok(_) => Ok(Arg::Scalar(v)),
+            Ok(_) => Ok(Arg::Scalar(v.clone())),
             Err(k) => error(k),
         },
     }
@@ -238,18 +309,18 @@ pub(crate) fn index_value(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> 
                 Err(k) => Ok(Value::Error(k)),
             }
         }
-        Arg::Scalar(v) => match picked(1, 1, row, column) {
-            Ok(_) => Ok(v.clone()),
-            Err(k) => Ok(Value::Error(k)),
+        arg => match pick(arg, row, column)? {
+            Arg::Scalar(v) => Ok(v),
+            other => ctx.one(&other),
         },
     }
 }
 
 /// `MATCH(value, vector, [type])`: the position, from 1, of the value in a
-/// vector of one row or one column (any other `#N/A`): type 0 exactly, a
-/// text holding a wildcard a pattern; type 1, or none, the bisection's
-/// largest not past the value; type -1 the smallest not under it on a
-/// descending vector, by the walk from its first cell
+/// vector of one row or one column, a reference's or an array's (any other
+/// `#N/A`): type 0 exactly, a text holding a wildcard a pattern; type 1, or
+/// none, the bisection's largest not past the value; type -1 the smallest
+/// not under it on a descending vector, by the walk from its first cell
 /// (`index::descending`); none `#N/A`; a value that is an error answers it.
 /// A type given as nothing, `MATCH(x, v, )` or an empty cell, is 0, as a
 /// number read from nothing is.
@@ -285,15 +356,15 @@ pub(crate) fn match_(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
             kept.then_some(0)
         }
         arg => {
-            let Some(line) = area_of(arg).and_then(Line::of) else {
+            let Some(seek) = seek_of(arg) else {
                 return Ok(Value::Error(ErrorKind::NA));
             };
             if kind == 0.0 {
-                exactly(ctx, line, &probe)?
+                exactly(ctx, seek, &probe)?
             } else if kind > 0.0 {
-                index::bisect(ctx, line, &probe, |o| o != Ordering::Greater)?
+                index::bisect(ctx, seek, &probe, |o| o != Ordering::Greater)?
             } else {
-                index::descending(ctx, line, &probe)?
+                index::descending(ctx, seek, &probe)?
             }
         }
     };
@@ -331,43 +402,43 @@ fn modes(mode: f64, search: f64) -> Result<Result<(i8, i8), ErrorKind>, Reason> 
 /// descending vector.
 fn xsearch(
     ctx: &Ctx<'_>,
-    line: Line,
+    seek: Seek<'_>,
     probe: &Value,
     (mode, search): (i8, i8),
 ) -> Result<Option<u32>, Reason> {
     if search.abs() == 1 {
         let from_end = search < 0;
         return match (mode, probe) {
-            (2, Value::Text(t)) if has_wildcard(t) => index::pattern(ctx, line, t, from_end),
-            (-1, _) => index::nearest(ctx, line, probe, false, from_end),
-            (1, _) => index::nearest(ctx, line, probe, true, from_end),
-            _ => index::exact(ctx, line, probe, from_end),
+            (2, Value::Text(t)) if has_wildcard(t) => index::pattern(ctx, seek, t, from_end),
+            (-1, _) => index::nearest(ctx, seek, probe, false, from_end),
+            (1, _) => index::nearest(ctx, seek, probe, true, from_end),
+            _ => index::exact(ctx, seek, probe, from_end),
         };
     }
     let equal = |k: Option<u32>| -> Result<Option<u32>, Reason> {
         let Some(k) = k else {
             return Ok(None);
         };
-        let v = ctx.env.read(line.cell(k))?;
+        let v = seek.read(ctx, k)?;
         Ok(one_kept(&v, probe, |o| o == Ordering::Equal)?.then_some(k))
     };
     if search > 0 {
         match mode {
-            -1 => index::bisect(ctx, line, probe, |o| o != Ordering::Greater),
+            -1 => index::bisect(ctx, seek, probe, |o| o != Ordering::Greater),
             1 => {
-                let under = index::bisect(ctx, line, probe, |o| o == Ordering::Less)?;
-                index::next_of_kind(ctx, line, probe, under)
+                let under = index::bisect(ctx, seek, probe, |o| o == Ordering::Less)?;
+                index::next_of_kind(ctx, seek, probe, under)
             }
-            _ => equal(index::bisect(ctx, line, probe, |o| o != Ordering::Greater)?),
+            _ => equal(index::bisect(ctx, seek, probe, |o| o != Ordering::Greater)?),
         }
     } else {
         match mode {
-            1 => index::bisect(ctx, line, probe, |o| o != Ordering::Less),
+            1 => index::bisect(ctx, seek, probe, |o| o != Ordering::Less),
             -1 => {
-                let over = index::bisect(ctx, line, probe, |o| o == Ordering::Greater)?;
-                index::next_of_kind(ctx, line, probe, over)
+                let over = index::bisect(ctx, seek, probe, |o| o == Ordering::Greater)?;
+                index::next_of_kind(ctx, seek, probe, over)
             }
-            _ => equal(index::bisect(ctx, line, probe, |o| o != Ordering::Less)?),
+            _ => equal(index::bisect(ctx, seek, probe, |o| o != Ordering::Less)?),
         }
     }
 }
@@ -388,8 +459,8 @@ fn xsearch_one(v: &Value, probe: &Value, mode: i8) -> Result<Option<u32>, Reason
 }
 
 /// `XMATCH(value, vector, [mode], [search])`: the position, from 1, of the
-/// value in a vector of one row or one column (any other `#VALUE!`), by
-/// [`xsearch`]; none `#N/A`.
+/// value in a vector of one row or one column, a reference's or an array's
+/// (any other `#VALUE!`), by [`xsearch`]; none `#N/A`.
 pub(crate) fn xmatch(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if !(2..=4).contains(&args.len()) {
         return Ok(Value::Error(ErrorKind::Value));
@@ -413,10 +484,10 @@ pub(crate) fn xmatch(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     let found = match &args[1] {
         Arg::Scalar(v) => xsearch_one(v, &probe, modes.0)?,
         arg => {
-            let Some(line) = area_of(arg).and_then(Line::of) else {
+            let Some(seek) = seek_of(arg) else {
                 return Ok(Value::Error(ErrorKind::Value));
             };
-            xsearch(ctx, line, &probe, modes)?
+            xsearch(ctx, seek, &probe, modes)?
         }
     };
     Ok(match found {
@@ -431,7 +502,8 @@ pub(crate) fn xmatch(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 /// another number or left out, and the value in the column (row) asked for;
 /// a column below 1 `#VALUE!`, past the table `#REF!`; none found `#N/A`;
 /// an empty cell found answers as an empty cell, which a formula's cell
-/// holds as 0.
+/// holds as 0. A table may be an array, searched and answered as a
+/// reference is (KERNEL.8, slice f).
 fn table_lookup(ctx: &Ctx<'_>, args: &[Arg], across: bool) -> Result<Value, Reason> {
     if !(3..=4).contains(&args.len()) {
         return Ok(Value::Error(ErrorKind::Value));
@@ -454,6 +526,13 @@ fn table_lookup(ctx: &Ctx<'_>, args: &[Arg], across: bool) -> Result<Value, Reas
     if at < 1.0 {
         return Ok(Value::Error(ErrorKind::Value));
     }
+    let search = |seek: Seek<'_>| -> Result<Option<u32>, Reason> {
+        if approximate {
+            index::bisect(ctx, seek, &probe, |o| o != Ordering::Greater)
+        } else {
+            exactly(ctx, seek, &probe)
+        }
+    };
     let table = match &args[1] {
         Arg::Scalar(v) => {
             // A value given as the table, an array of one.
@@ -474,6 +553,23 @@ fn table_lookup(ctx: &Ctx<'_>, args: &[Arg], across: bool) -> Result<Value, Reas
                 v.clone()
             } else {
                 Value::Error(ErrorKind::NA)
+            });
+        }
+        Arg::Array(a) => {
+            let width = if across { a.rows() } else { a.columns() };
+            if at > f64::from(width) {
+                return Ok(Value::Error(ErrorKind::Ref));
+            }
+            let at = at as u32 - 1;
+            let first: Vec<Value> = if across {
+                (0..a.columns()).map(|c| a.get(0, c).clone()).collect()
+            } else {
+                (0..a.rows()).map(|r| a.get(r, 0).clone()).collect()
+            };
+            return Ok(match search(Seek::Values(&first))? {
+                None => Value::Error(ErrorKind::NA),
+                Some(k) if across => a.get(at, k).clone(),
+                Some(k) => a.get(k, at).clone(),
             });
         }
         arg => match area_of(arg) {
@@ -503,12 +599,7 @@ fn table_lookup(ctx: &Ctx<'_>, args: &[Arg], across: bool) -> Result<Value, Reas
             }
         },
     };
-    let found = if approximate {
-        index::bisect(ctx, line, &probe, |o| o != Ordering::Greater)?
-    } else {
-        exactly(ctx, line, &probe)?
-    };
-    match found {
+    match search(Seek::Line(line))? {
         None => Ok(Value::Error(ErrorKind::NA)),
         Some(k) => {
             let id = if across {
@@ -545,12 +636,25 @@ fn along(r: &Area, k: u32) -> Option<(usize, u32, u32)> {
     }
 }
 
+/// The value `k` along an array as [`along`] reads a reference: its first
+/// row where it is one row high and wider than one value, its first column
+/// otherwise; `None` past its end.
+fn along_array(a: &Array, k: u32) -> Option<&Value> {
+    if a.rows() == 1 && a.columns() > 1 {
+        (k < a.columns()).then(|| a.get(0, k))
+    } else {
+        (k < a.rows()).then(|| a.get(k, 0))
+    }
+}
+
 /// `LOOKUP(value, vector, [results])` and `LOOKUP(value, array)`: always
 /// the bisection; the answer at the same position of the results, read from
 /// their first cell whichever way they run, a position past their end
 /// labelled as they are written; the array form searching its first row
 /// when it is wider than it is tall and its first column otherwise, and
-/// answering from its last row or column; none `#N/A`.
+/// answering from its last row or column; none `#N/A`. A vector, results
+/// or an array form may be arrays, read as references are (KERNEL.8, slice
+/// f), a position past an array's end `#N/A`.
 pub(crate) fn lookup(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if !(2..=3).contains(&args.len()) {
         return Ok(Value::Error(ErrorKind::Value));
@@ -560,47 +664,80 @@ pub(crate) fn lookup(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         return Ok(Value::Error(k));
     }
     let not_past = |o: Ordering| o != Ordering::Greater;
-    let area = match &args[1] {
-        Arg::Scalar(v) => {
-            if !one_kept(v, &probe, not_past)? {
-                return Ok(Value::Error(ErrorKind::NA));
-            }
-            return Ok(match args.get(2) {
-                None => v.clone(),
-                Some(Arg::Scalar(r)) => r.clone(),
-                Some(arg) => match area_of(arg) {
-                    Some(r) => ctx.env.read((r.sheet, r.top, r.left))?,
-                    None => Value::Error(ErrorKind::NA),
-                },
-            });
-        }
-        arg => match area_of(arg) {
-            Some(a) => a,
-            None => return Ok(Value::Error(ErrorKind::NA)),
-        },
-    };
-    if let Some(results) = args.get(2) {
-        let Some(line) = Line::of(area) else {
-            return Ok(Value::Error(ErrorKind::NA));
-        };
-        let Some(k) = index::bisect(ctx, line, &probe, not_past)? else {
-            return Ok(Value::Error(ErrorKind::NA));
-        };
-        return match results {
-            Arg::Scalar(r) => Ok(if k == 0 {
+    // The results at a position found.
+    let answer = |k: u32| -> Result<Value, Reason> {
+        match args.get(2) {
+            Some(Arg::Scalar(r)) => Ok(if k == 0 {
                 r.clone()
             } else {
                 Value::Error(ErrorKind::NA)
             }),
-            Arg::Area {
+            Some(Arg::Area {
                 areas,
                 written,
                 moved,
-            } if areas.len() == 1 => match along(&areas[0], k) {
+            }) if areas.len() == 1 => match along(&areas[0], k) {
                 Some(id) => ctx.env.read(id),
                 None => Err(as_written(written, *moved)),
             },
-            Arg::Area { .. } => Ok(Value::Error(ErrorKind::NA)),
+            Some(Arg::Array(r)) => Ok(along_array(r, k)
+                .cloned()
+                .unwrap_or(Value::Error(ErrorKind::NA))),
+            _ => Ok(Value::Error(ErrorKind::NA)),
+        }
+    };
+    match &args[1] {
+        Arg::Scalar(v) => {
+            if !one_kept(v, &probe, not_past)? {
+                return Ok(Value::Error(ErrorKind::NA));
+            }
+            return match args.get(2) {
+                None => Ok(v.clone()),
+                Some(Arg::Area { .. }) => match area_of(&args[2]) {
+                    Some(r) => ctx.env.read((r.sheet, r.top, r.left)),
+                    None => Ok(Value::Error(ErrorKind::NA)),
+                },
+                Some(_) => answer(0),
+            };
+        }
+        Arg::Array(a) => {
+            if args.get(2).is_some() {
+                let Some(seek) = seek_of(&args[1]) else {
+                    return Ok(Value::Error(ErrorKind::NA));
+                };
+                return match index::bisect(ctx, seek, &probe, not_past)? {
+                    Some(k) => answer(k),
+                    None => Ok(Value::Error(ErrorKind::NA)),
+                };
+            }
+            // The array form: its first row or column searched, its last
+            // answering.
+            let across = a.columns() > a.rows();
+            let first: Vec<Value> = if across {
+                (0..a.columns()).map(|c| a.get(0, c).clone()).collect()
+            } else {
+                (0..a.rows()).map(|r| a.get(r, 0).clone()).collect()
+            };
+            return Ok(
+                match index::bisect(ctx, Seek::Values(&first), &probe, not_past)? {
+                    None => Value::Error(ErrorKind::NA),
+                    Some(k) if across => a.get(a.rows() - 1, k).clone(),
+                    Some(k) => a.get(k, a.columns() - 1).clone(),
+                },
+            );
+        }
+        _ => {}
+    }
+    let Some(area) = area_of(&args[1]) else {
+        return Ok(Value::Error(ErrorKind::NA));
+    };
+    if args.get(2).is_some() {
+        let Some(line) = Line::of(area) else {
+            return Ok(Value::Error(ErrorKind::NA));
+        };
+        return match index::bisect(ctx, Seek::Line(line), &probe, not_past)? {
+            Some(k) => answer(k),
+            None => Ok(Value::Error(ErrorKind::NA)),
         };
     }
     let (rows, cols) = (area.bottom - area.top + 1, area.right - area.left + 1);
@@ -618,7 +755,7 @@ pub(crate) fn lookup(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
             }
         },
     };
-    let Some(k) = index::bisect(ctx, line, &probe, not_past)? else {
+    let Some(k) = index::bisect(ctx, Seek::Line(line), &probe, not_past)? else {
         return Ok(Value::Error(ErrorKind::NA));
     };
     let id = if across {
@@ -634,18 +771,21 @@ pub(crate) fn lookup(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 /// the results' cells at its position, as a reference: their row where the
 /// vector is a column of their height, their column where it is a row of
 /// their width (any other `#VALUE!`); results of many cells, whose answer
-/// is many, labelled where one value is wanted until arrays come. None
-/// found, `missing`, computed only then, or `#N/A` without it.
+/// is many, an array where the formula is read as arrays and labelled where
+/// one value is wanted. None found, `missing`, computed only then, or `#N/A`
+/// without it. The vector and the results are read as arrays and may be
+/// arrays (KERNEL.8, slice f), and a value sought given as an array lifts
+/// the search, each place's one value.
 pub(crate) fn xlookup<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if !(3..=6).contains(&args.len()) {
         return error(ErrorKind::Value);
     }
-    let probe = ctx.scalar(&args[0])?;
-    if let Value::Error(k) = probe {
+    let probe = ctx.operand(&args[0])?;
+    if let Lifted::One(Value::Error(k)) = probe {
         return error(k);
     }
-    let vector = ctx.eval(&args[1])?;
-    let results = ctx.eval(&args[2])?;
+    let vector = ctx.as_arrays(|| ctx.eval(&args[1]))?;
+    let results = ctx.as_arrays(|| ctx.eval(&args[2]))?;
     let mode = match expr_number_or(ctx, args.get(4), 0.0)? {
         Ok(n) => n,
         Err(k) => return error(k),
@@ -658,21 +798,48 @@ pub(crate) fn xlookup<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Re
         Ok(m) => m,
         Err(e) => return error(e),
     };
-    let (found, length, across) = match &vector {
-        Arg::Scalar(v) => (xsearch_one(v, &probe, modes.0)?, 1, false),
+    match probe {
+        Lifted::One(probe) => xlooked(ctx, args, &probe, &vector, &results, modes),
+        Lifted::Many(probes) => {
+            let answers = array::lift1(&probes, |p| {
+                if let Value::Error(k) = p {
+                    return Ok(Value::Error(*k));
+                }
+                let answer = xlooked(ctx, args, p, &vector, &results, modes)?;
+                ctx.one(&answer)
+            })?;
+            Ok(Arg::Array(answers))
+        }
+    }
+}
+
+/// [`xlookup`]'s search of one value and its answer.
+fn xlooked<'e>(
+    ctx: &Ctx<'_>,
+    args: &'e [Expr],
+    probe: &Value,
+    vector: &Arg<'_>,
+    results: &Arg<'e>,
+    modes: (i8, i8),
+) -> Result<Arg<'e>, Reason> {
+    let (found, length, across) = match vector {
+        Arg::Scalar(v) => (xsearch_one(v, probe, modes.0)?, 1, false),
         arg => {
-            let Some(line) = area_of(arg).and_then(Line::of) else {
+            let Some(seek) = seek_of(arg) else {
                 return error(ErrorKind::Value);
             };
-            let across = line.area.left != line.area.right;
-            (xsearch(ctx, line, &probe, modes)?, line.len(), across)
+            (
+                xsearch(ctx, seek, probe, modes)?,
+                seek.len(),
+                runs_across(arg),
+            )
         }
     };
     let answer_at = |k: u32| -> Result<Arg<'e>, Reason> {
         match results {
             Arg::Scalar(v) => {
                 if length == 1 && k == 0 {
-                    Ok(Arg::Scalar(v))
+                    Ok(Arg::Scalar(v.clone()))
                 } else {
                     error(ErrorKind::Value)
                 }
@@ -707,9 +874,22 @@ pub(crate) fn xlookup<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Re
                 };
                 Ok(Arg::Area {
                     areas: Areas::one(area),
-                    written,
-                    moved,
+                    written: written.clone(),
+                    moved: *moved,
                 })
+            }
+            Arg::Array(r) => {
+                if across {
+                    if r.columns() != length {
+                        return error(ErrorKind::Value);
+                    }
+                    Ok(sub_array(r, (0, k, r.rows() - 1, k)))
+                } else {
+                    if r.rows() != length {
+                        return error(ErrorKind::Value);
+                    }
+                    Ok(sub_array(r, (k, 0, k, r.columns() - 1)))
+                }
             }
         }
     };
@@ -726,14 +906,42 @@ pub(crate) fn xlookup<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Re
 /// value, or `other` computed when the value is an error, `#N/A` alone for
 /// `IFNA`; a reason is no error, and passes through. A run computes it by
 /// itself (`super::vector`, its `if_error`): a change here is a change
-/// there, and the machine's tests hold the two to each other.
+/// there, and the machine's tests hold the two to each other. In a legacy
+/// formula both are values forced, Excel's class for them (`Param::Scalar`,
+/// KERNEL.8, slice f): an array's first value, a range met at the cell even
+/// inside an array parameter, as Excel's own save of the arrays' fixture
+/// computes `IFERROR({1,#N/A,3},0)` as 1. Where the formula reads arrays by
+/// its kind, a value that is an array is caught at each of its places,
+/// `other` read there, and a place not caught leaves `other` free to fall
+/// short, as `IF` leaves the branch it does not take.
 fn or_else<'e>(ctx: &Ctx<'_>, args: &'e [Expr], na: bool) -> Result<Arg<'e>, Reason> {
     if args.len() != 2 {
         return error(ErrorKind::Value);
     }
-    match ctx.scalar(&args[0])? {
-        Value::Error(k) if caught(k, na) => ctx.eval(&args[1]),
-        v => Ok(Arg::Scalar(v)),
+    if !ctx.reads_arrays_by_kind() {
+        return Ok(Arg::Scalar(match ctx.forced(&args[0])? {
+            Value::Error(k) if caught(k, na) => ctx.forced(&args[1])?,
+            v => v,
+        }));
+    }
+    match ctx.operand(&args[0])? {
+        Lifted::One(Value::Error(k)) if caught(k, na) => ctx.eval(&args[1]),
+        Lifted::One(v) => Ok(Arg::Scalar(v)),
+        Lifted::Many(a) => {
+            let value = Lifted::Many(a);
+            let other = ctx.operand(&args[1])?;
+            let short = || Value::Error(ErrorKind::NA);
+            let lifted = array::lift_by(&[&value, &other], |r, c| {
+                Ok(match value.at(r, c) {
+                    None => short(),
+                    Some(Value::Error(k)) if caught(*k, na) => {
+                        other.at(r, c).cloned().unwrap_or_else(short)
+                    }
+                    Some(v) => v.clone(),
+                })
+            })?;
+            Ok(Arg::Array(lifted))
+        }
     }
 }
 
@@ -752,8 +960,7 @@ pub(crate) fn ifna<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reaso
     or_else(ctx, args, true)
 }
 
-/// `ISERROR(value)`: whether it is one of the seven errors, never
-/// propagating it.
+/// `ISERROR(value)`: whether it is one of the errors, never propagating it.
 pub(crate) fn iserror(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));

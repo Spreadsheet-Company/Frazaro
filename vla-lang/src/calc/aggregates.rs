@@ -239,6 +239,20 @@ fn aggregate(ctx: &Ctx<'_>, args: &[Arg], stat: Stat) -> Result<Value, Reason> {
                 tally.ranged(&v);
                 Ok(())
             })?,
+            // An array's values are counted as a range's cells are, an empty
+            // one skipped but by `COUNTA`, which counts it where it skips an
+            // empty cell, as Excel's own save of the arrays' fixture counts
+            // `COUNTA(TRANSPOSE(B1:B6))` over an empty `B6` (KERNEL.8,
+            // slice f).
+            Arg::Array(a) => {
+                for v in a.values() {
+                    match v {
+                        Value::Empty if stat == Stat::CountA => tally.values += 1,
+                        Value::Empty => {}
+                        v => tally.ranged(v),
+                    }
+                }
+            }
         }
     }
     Ok(tally.answer())

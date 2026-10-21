@@ -4,9 +4,11 @@
 //!
 //! The kinds are a cell's: a number (an IEEE 754 double, Excel's own and
 //! VBA's `Double`; `Alonzo/SPEC.md` section 6, rule 5), a text, a truth
-//! value, one of the seven error values a cell can hold, and the empty
+//! value, one of the eight error values a cell can hold, and the empty
 //! cell, which a reference to nothing yields and which a formula never
-//! returns: a formula's empty result settles to 0, as Excel's does.
+//! returns: a formula's empty result settles to 0, as Excel's does. An
+//! array a formula computes is no cell's value: it lives inside the
+//! evaluation, as an operand (`super::array`, KERNEL.8, slice f).
 //! Coercion is where a spreadsheet's semantics hide (the roadmap's catch
 //! for `KERNEL.7`), so each rule here is one method with Excel's rule in
 //! its comment, and each enters the oracle with a fixture that shows it
@@ -22,8 +24,13 @@ use crate::intrinsics::fold;
 use crate::rows;
 use crate::sheet::number_text;
 
-/// The seven error values a cell can hold, Excel's spelling.
+/// The error values a cell can hold, Excel's spelling: the seven a formula
+/// writes as a literal, and `#CALC!`, Excel's answer for an array with
+/// nothing in it (KERNEL.8, slice f). Marked as a list that may grow
+/// (KERNEL.8's decision 9), so that a kind added later breaks no match
+/// outside the language.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// `#NULL!`: an intersection of two ranges that do not meet.
     Null,
@@ -39,6 +46,9 @@ pub enum ErrorKind {
     Num,
     /// `#N/A`
     NA,
+    /// `#CALC!`: an array with nothing in it, `FILTER` keeping no row
+    /// (KERNEL.8, slice f); a formula cannot write it as a literal.
+    Calc,
 }
 
 impl ErrorKind {
@@ -52,11 +62,12 @@ impl ErrorKind {
             ErrorKind::Name => "#NAME?",
             ErrorKind::Num => "#NUM!",
             ErrorKind::NA => "#N/A",
+            ErrorKind::Calc => "#CALC!",
         }
     }
 
     /// The kind an error text names, without case; `None` for an error this
-    /// version does not hold (`#SPILL!`, `#CALC!`, `#GETTING_DATA`).
+    /// version does not hold (`#SPILL!`, `#GETTING_DATA`).
     pub fn parse(text: &str) -> Option<ErrorKind> {
         match fold(text.trim()).as_str() {
             "#null!" => Some(ErrorKind::Null),
@@ -66,8 +77,15 @@ impl ErrorKind {
             "#name?" => Some(ErrorKind::Name),
             "#num!" => Some(ErrorKind::Num),
             "#n/a" => Some(ErrorKind::NA),
+            "#calc!" => Some(ErrorKind::Calc),
             _ => None,
         }
+    }
+
+    /// Whether a formula writes the error as a literal: the seven, and not
+    /// `#CALC!`, which an evaluation alone answers.
+    pub fn is_literal(self) -> bool {
+        self != ErrorKind::Calc
     }
 }
 
@@ -162,10 +180,10 @@ impl Value {
     }
 
     /// A cached value as the file holds it, read as a computed kind: the
-    /// file's number text parsed, a text, a truth value, one of the seven
+    /// file's number text parsed, a text, a truth value, one of the eight
     /// errors. `None` for a value this version does not compare: a date
     /// cell, a number text that is not a number, an error outside the
-    /// seven.
+    /// eight.
     pub fn from_file(v: &rows::Value) -> Option<Value> {
         match v {
             rows::Value::Number(text) => {
@@ -375,7 +393,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_seven_errors_spell_and_parse() {
+    fn the_eight_errors_spell_and_parse() {
         for k in [
             ErrorKind::Null,
             ErrorKind::Div0,
@@ -384,10 +402,13 @@ mod tests {
             ErrorKind::Name,
             ErrorKind::Num,
             ErrorKind::NA,
+            ErrorKind::Calc,
         ] {
             assert_eq!(ErrorKind::parse(k.text()), Some(k));
             assert_eq!(ErrorKind::parse(&k.text().to_lowercase()), Some(k));
+            assert_eq!(k.is_literal(), k != ErrorKind::Calc);
         }
+        assert_eq!(ErrorKind::parse("#CALC!"), Some(ErrorKind::Calc));
         assert_eq!(ErrorKind::parse("#SPILL!"), None);
     }
 

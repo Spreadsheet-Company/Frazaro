@@ -502,9 +502,10 @@ pub fn sheet_xml_valued(
 /// operator (`PtgUnion`, `PtgIsect`, `PtgRange`). Read on the safe side, since
 /// a formula a cell holds alone is never refused and a shared one may be: a
 /// table's column or a spill, which the specification predates; a newer
-/// function, which Excel's binary formats hold as an external name; and any
-/// text the evaluator's parser does not read, which is how a union, an
-/// intersection and a range operator over anything but two corners arrive.
+/// function, which Excel's binary formats hold as an external name; any
+/// text the evaluator's parser does not read, which is how a union and an
+/// intersection arrive; and a range operator over anything but two corners,
+/// which the parser reads as a range between expressions (KERNEL.8, slice f).
 fn shares(text: &str) -> bool {
     if text.contains("_xlfn.") || has_array_constant(text) {
         return false;
@@ -520,7 +521,7 @@ fn shares(text: &str) -> bool {
     }) {
         return false;
     }
-    crate::calc::parse(text).is_ok()
+    crate::calc::parse(text).is_ok_and(|e| !e.has_range())
 }
 
 /// Whether a formula's text holds an array constant: a `{` outside its
@@ -541,10 +542,14 @@ fn has_array_constant(text: &str) -> bool {
 /// kind takes and its `<v>` element, a number in the writer's spelling (zero
 /// as `0`, since no cell holds a negative zero) and one no cell can hold as
 /// `#NUM!`, as a value cell spells it; nothing at all for a formula with no
-/// value, which the host computes when it opens the file.
+/// value, which the host computes when it opens the file, and for one whose
+/// value is an error with no cell error value of its own, `#CALC!`, which
+/// the file format holds only as a rich value: written bare, Excel opened
+/// the arrays' fixture by repairing every such cell (KERNEL.8, slice f).
 fn cached(value: Option<&Value>) -> (&'static str, String) {
     match value {
         None => ("", String::new()),
+        Some(Value::Error(e)) if !e.is_literal() => ("", String::new()),
         Some(Value::Number(n)) if *n == 0.0 => ("", "<v>0</v>".to_string()),
         Some(Value::Number(n)) => match number_text(*n) {
             Some(t) => ("", format!("<v>{t}</v>")),
@@ -696,6 +701,14 @@ fn sheet_text(
                 render.cm,
                 xml::text(f)
             )),
+            // A legacy array formula over its own cell, Ctrl+Shift+Enter's,
+            // with no dynamic-array metadata (KERNEL.8, slice f).
+            Content::ArrayFormula(f) => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"array\" ref=\"{r}\">{}</f>{held}</c>",
+                xml::text(f)
+            )),
+            // A kind of content this writer does not know writes no cell.
+            _ => {}
         }
     }
     if current_row.is_some() {
@@ -1009,6 +1022,25 @@ mod tests {
             .contains("<cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>"));
     }
 
+    #[test]
+    fn a_legacy_array_formula_is_written_over_its_cell_and_brings_no_metadata() {
+        // Ctrl+Shift+Enter's formula (KERNEL.8, slice f): `t="array"` over its
+        // own cell and no `cm`, which a reader tells from a dynamic one, and
+        // no metadata part, which a dynamic formula alone brings.
+        let mut wb = a_workbook();
+        wb.sheets[0].set(
+            2,
+            6,
+            Cell {
+                content: Content::ArrayFormula("SUM(C3:C4*2)".to_string()),
+                style: 0,
+            },
+        );
+        assert!(!parts(&wb).iter().any(|(n, _)| n == "xl/metadata.xml"));
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
+        assert!(sx.contains("<c r=\"F2\" s=\"0\"><f t=\"array\" ref=\"F2\">SUM(C3:C4*2)</f></c>"));
+    }
+
     /// Values held as a recalculation would hold them, by cell.
     #[derive(Debug)]
     struct Held(std::collections::HashMap<crate::calc::CellId, Computed>);
@@ -1032,6 +1064,7 @@ mod tests {
             "-0",
             "1E308*10",
             "B2",
+            "SEQUENCE(0)",
         ];
         for (row, f) in (1..).zip(column_g) {
             sh.set(
@@ -1060,6 +1093,7 @@ mod tests {
                 ((0, 4, 7), Computed::Value(Value::Number(-0.0))),
                 ((0, 5, 7), Computed::Value(Value::Number(f64::INFINITY))),
                 ((0, 6, 7), Computed::Value(Value::Empty)),
+                ((0, 7, 7), Computed::Value(Value::Error(ErrorKind::Calc))),
                 // A value cell is never asked for its value.
                 ((0, 3, 3), Computed::Value(Value::Number(99.0))),
             ]
@@ -1080,6 +1114,9 @@ mod tests {
         assert!(sx.contains("<c r=\"G4\" s=\"0\"><f>-0</f><v>0</v></c>"));
         assert!(sx.contains("<c r=\"G5\" s=\"0\" t=\"e\"><f>1E308*10</f><v>#NUM!</v></c>"));
         assert!(sx.contains("<c r=\"G6\" s=\"0\"><f>B2</f><v>0</v></c>"));
+        // `#CALC!` has no cell error value: Excel repaired a bare one, so the
+        // formula holds no value and the host computes it (KERNEL.8, slice f).
+        assert!(sx.contains("<c r=\"G7\" s=\"0\"><f>SEQUENCE(0)</f></c>"));
         assert!(sx.contains("<c r=\"C3\" s=\"0\"><v>2.5</v></c>"));
         // The same sheet unvalued, as a build added to a workbook writes it,
         // and valued from nothing, is the part as it always was.

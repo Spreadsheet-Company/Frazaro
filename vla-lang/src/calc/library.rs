@@ -37,11 +37,106 @@
 //! numbers where every operand at a cell is a number and the function below
 //! at any other cell, so that a coercion is written here alone.
 
-use super::eval::{finite, intersection, Arg, Ctx, Known, Library, Reason};
+use super::array::{self, Array, Lifted};
+use super::eval::{finite, intersection, ranges, values, Arg, Ctx, Known, Library, Param, Reason};
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{ErrorKind, Value};
-use super::{aggregates, criteria, database, dates, lookups, texts};
+use super::{aggregates, arrays, criteria, database, dates, lookups, texts};
+
+// The classes of the language's functions' parameters (KERNEL.8, slice f),
+// each by its place from 0, as Excel's documentation of each function gives
+// them: a value, lifted over an array given; a reference or an array, handed
+// whole; an array, its expression read as arrays (`super::eval::Param`).
+
+/// `MATCH`'s and `XMATCH`'s: the value sought, the array searched, values
+/// after.
+fn searched(j: usize) -> Param {
+    if j == 1 {
+        Param::Array
+    } else {
+        Param::Value
+    }
+}
+
+/// `VLOOKUP`'s and `HLOOKUP`'s: the table, and every other a value forced
+/// in a legacy formula, as Excel's own saves of the arrays' fixture read
+/// `VLOOKUP(3,A1:C6,{1,3},FALSE)` there as its first column and
+/// `VLOOKUP({3,4},A1:C6,3,FALSE)` as its first value's row (KERNEL.8,
+/// slice f), the match's kind with them.
+fn looked_across(j: usize) -> Param {
+    if j == 1 {
+        Param::Array
+    } else {
+        Param::Scalar
+    }
+}
+
+/// `LOOKUP`'s: the value sought, then two arrays.
+fn looked(j: usize) -> Param {
+    if j == 0 {
+        Param::Value
+    } else {
+        Param::Array
+    }
+}
+
+/// `COUNTIF`'s, `SUMIF`'s and `AVERAGEIF`'s, and the database functions': a
+/// range, a criterion (or a field), a range.
+fn criterion(j: usize) -> Param {
+    if j == 1 {
+        Param::Value
+    } else {
+        Param::Range
+    }
+}
+
+/// `SUMIFS`'s, `AVERAGEIFS`'s, `MAXIFS`'s and `MINIFS`'s: a range, then a
+/// range and a criterion in turn.
+fn criteria_after(j: usize) -> Param {
+    if j >= 2 && j % 2 == 0 {
+        Param::Value
+    } else {
+        Param::Range
+    }
+}
+
+/// `COUNTIFS`'s: a range and a criterion in turn.
+fn criteria_pairs(j: usize) -> Param {
+    if j % 2 == 1 {
+        Param::Value
+    } else {
+        Param::Range
+    }
+}
+
+/// `SUBTOTAL`'s: the function's number, then references.
+fn subtotaled(j: usize) -> Param {
+    if j == 0 {
+        Param::Value
+    } else {
+        Param::Range
+    }
+}
+
+/// `NETWORKDAYS`'s and `WORKDAY`'s: two values, then the holidays.
+fn holidays(j: usize) -> Param {
+    if j >= 2 {
+        Param::Range
+    } else {
+        Param::Value
+    }
+}
+
+/// `TEXTJOIN`'s: the delimiter, which may be a range of them used in turn,
+/// whether to skip empty texts, then the texts.
+fn joined(j: usize) -> Param {
+    if j == 1 {
+        Param::Value
+    } else {
+        Param::Range
+    }
+}
 
 /// The language's library, every function above registered, each as one an
 /// evaluation of many cells at once computes by itself: `IF` as the form it
@@ -62,36 +157,36 @@ use super::{aggregates, criteria, database, dates, lookups, texts};
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
-    lib.register_known_strict("AND", and, Known::And);
-    lib.register_known_strict("OR", or, Known::Or);
-    lib.register_known_strict("NOT", not, Known::Not);
-    lib.register_known_strict("SUM", sum, Known::Sum);
-    lib.register_known_strict("MIN", min, Known::Min);
-    lib.register_known_strict("MAX", max, Known::Max);
-    lib.register_known_strict("ABS", abs, Known::Abs);
-    lib.register_known_strict("INT", int, Known::Int);
-    lib.register_known_strict("MOD", modulo, Known::Mod);
-    lib.register_known_strict("ROW", row, Known::Row);
-    lib.register_known_strict("COLUMN", column, Known::Column);
+    lib.register_known_strict("AND", and, Known::And, ranges);
+    lib.register_known_strict("OR", or, Known::Or, ranges);
+    lib.register_known_strict("NOT", not, Known::Not, values);
+    lib.register_known_strict("SUM", sum, Known::Sum, ranges);
+    lib.register_known_strict("MIN", min, Known::Min, ranges);
+    lib.register_known_strict("MAX", max, Known::Max, ranges);
+    lib.register_known_strict("ABS", abs, Known::Abs, values);
+    lib.register_known_strict("INT", int, Known::Int, values);
+    lib.register_known_strict("MOD", modulo, Known::Mod, values);
+    lib.register_known_strict("ROW", row, Known::Row, ranges);
+    lib.register_known_strict("COLUMN", column, Known::Column, ranges);
     lib.register_known("CHOOSE", choose, Known::Choose);
-    lib.register_known_strict("SIN", sin, Known::Sin);
+    lib.register_known_strict("SIN", sin, Known::Sin, values);
     lib.register_known("INDEX", lookups::index, Known::Index);
-    lib.register_known_strict("MATCH", lookups::match_, Known::Match);
-    lib.register_known_strict("XMATCH", lookups::xmatch, Known::XMatch);
-    lib.register_known_strict("VLOOKUP", lookups::vlookup, Known::VLookup);
-    lib.register_known_strict("HLOOKUP", lookups::hlookup, Known::HLookup);
-    lib.register_known_strict("LOOKUP", lookups::lookup, Known::Lookup);
+    lib.register_known_strict("MATCH", lookups::match_, Known::Match, searched);
+    lib.register_known_strict("XMATCH", lookups::xmatch, Known::XMatch, searched);
+    lib.register_known_strict("VLOOKUP", lookups::vlookup, Known::VLookup, looked_across);
+    lib.register_known_strict("HLOOKUP", lookups::hlookup, Known::HLookup, looked_across);
+    lib.register_known_strict("LOOKUP", lookups::lookup, Known::Lookup, looked);
     lib.register_form("XLOOKUP", lookups::xlookup);
     lib.register_known("IFERROR", lookups::iferror, Known::IfError);
     lib.register_known("IFNA", lookups::ifna, Known::IfNa);
-    lib.register_known_strict("ISERROR", lookups::iserror, Known::IsError);
-    lib.register_known_strict("ISNA", lookups::isna, Known::IsNa);
-    lib.register_known_strict("COUNTIF", criteria::countif, Known::CountIf);
-    lib.register_known_strict("SUMIF", criteria::sumif, Known::SumIf);
+    lib.register_known_strict("ISERROR", lookups::iserror, Known::IsError, values);
+    lib.register_known_strict("ISNA", lookups::isna, Known::IsNa, values);
+    lib.register_known_strict("COUNTIF", criteria::countif, Known::CountIf, criterion);
+    lib.register_known_strict("SUMIF", criteria::sumif, Known::SumIf, criterion);
     lib.register_form("SINGLE", single);
     lib.register("CONCATENATE", texts::concatenate);
-    lib.register("CONCAT", texts::concat);
-    lib.register("TEXTJOIN", texts::textjoin);
+    lib.register_classed("CONCAT", texts::concat, ranges);
+    lib.register_classed("TEXTJOIN", texts::textjoin, joined);
     lib.register("LEFT", texts::left);
     lib.register("RIGHT", texts::right);
     lib.register("MID", texts::mid);
@@ -122,8 +217,8 @@ pub fn language() -> Library {
     lib.register("EOMONTH", dates::eomonth);
     lib.register("EDATE", dates::edate);
     lib.register("DAYS", dates::days);
-    lib.register("NETWORKDAYS", dates::networkdays);
-    lib.register("WORKDAY", dates::workday);
+    lib.register_classed("NETWORKDAYS", dates::networkdays, holidays);
+    lib.register_classed("WORKDAY", dates::workday, holidays);
     lib.register("TIME", dates::time);
     lib.register("HOUR", dates::hour);
     lib.register("MINUTE", dates::minute);
@@ -131,37 +226,38 @@ pub fn language() -> Library {
     lib.register("DATEDIF", dates::datedif);
     lib.register("YEARFRAC", dates::yearfrac);
     lib.register("WEEKNUM", dates::weeknum);
-    lib.register("AVERAGE", aggregates::average);
-    lib.register("COUNT", aggregates::count);
-    lib.register("COUNTA", aggregates::counta);
-    lib.register("PRODUCT", aggregates::product);
-    lib.register("STDEV", aggregates::stdev_s);
-    lib.register("STDEV.S", aggregates::stdev_s);
-    lib.register("STDEVP", aggregates::stdev_p);
-    lib.register("STDEV.P", aggregates::stdev_p);
-    lib.register("VAR", aggregates::var_s);
-    lib.register("VAR.S", aggregates::var_s);
-    lib.register("VARP", aggregates::var_p);
-    lib.register("VAR.P", aggregates::var_p);
-    lib.register("SUBTOTAL", aggregates::subtotal);
-    lib.register("SUMIFS", criteria::sumifs);
-    lib.register("COUNTIFS", criteria::countifs);
-    lib.register("AVERAGEIF", criteria::averageif);
-    lib.register("AVERAGEIFS", criteria::averageifs);
-    lib.register("MAXIFS", criteria::maxifs);
-    lib.register("MINIFS", criteria::minifs);
-    lib.register("DSUM", database::dsum);
-    lib.register("DAVERAGE", database::daverage);
-    lib.register("DCOUNT", database::dcount);
-    lib.register("DCOUNTA", database::dcounta);
-    lib.register("DGET", database::dget);
-    lib.register("DMAX", database::dmax);
-    lib.register("DMIN", database::dmin);
-    lib.register("DPRODUCT", database::dproduct);
-    lib.register("DSTDEV", database::dstdev);
-    lib.register("DSTDEVP", database::dstdevp);
-    lib.register("DVAR", database::dvar);
-    lib.register("DVARP", database::dvarp);
+    lib.register_classed("AVERAGE", aggregates::average, ranges);
+    lib.register_classed("COUNT", aggregates::count, ranges);
+    lib.register_classed("COUNTA", aggregates::counta, ranges);
+    lib.register_classed("PRODUCT", aggregates::product, ranges);
+    lib.register_classed("STDEV", aggregates::stdev_s, ranges);
+    lib.register_classed("STDEV.S", aggregates::stdev_s, ranges);
+    lib.register_classed("STDEVP", aggregates::stdev_p, ranges);
+    lib.register_classed("STDEV.P", aggregates::stdev_p, ranges);
+    lib.register_classed("VAR", aggregates::var_s, ranges);
+    lib.register_classed("VAR.S", aggregates::var_s, ranges);
+    lib.register_classed("VARP", aggregates::var_p, ranges);
+    lib.register_classed("VAR.P", aggregates::var_p, ranges);
+    lib.register_classed("SUBTOTAL", aggregates::subtotal, subtotaled);
+    lib.register_classed("SUMIFS", criteria::sumifs, criteria_after);
+    lib.register_classed("COUNTIFS", criteria::countifs, criteria_pairs);
+    lib.register_classed("AVERAGEIF", criteria::averageif, criterion);
+    lib.register_classed("AVERAGEIFS", criteria::averageifs, criteria_after);
+    lib.register_classed("MAXIFS", criteria::maxifs, criteria_after);
+    lib.register_classed("MINIFS", criteria::minifs, criteria_after);
+    lib.register_classed("DSUM", database::dsum, criterion);
+    lib.register_classed("DAVERAGE", database::daverage, criterion);
+    lib.register_classed("DCOUNT", database::dcount, criterion);
+    lib.register_classed("DCOUNTA", database::dcounta, criterion);
+    lib.register_classed("DGET", database::dget, criterion);
+    lib.register_classed("DMAX", database::dmax, criterion);
+    lib.register_classed("DMIN", database::dmin, criterion);
+    lib.register_classed("DPRODUCT", database::dproduct, criterion);
+    lib.register_classed("DSTDEV", database::dstdev, criterion);
+    lib.register_classed("DSTDEVP", database::dstdevp, criterion);
+    lib.register_classed("DVAR", database::dvar, criterion);
+    lib.register_classed("DVARP", database::dvarp, criterion);
+    arrays::register(&mut lib);
     lib
 }
 
@@ -176,10 +272,10 @@ pub const NAMES: [&str; 14] = [
 
 /// The functions KERNEL.8 brought into the language, beside the day-one
 /// list: the lookups, `SINGLE`, the text functions, the date functions, the
-/// aggregates and `SUBTOTAL`, the `SUMIFS` family and the database
-/// functions.
+/// aggregates and `SUBTOTAL`, the `SUMIFS` family, the database functions,
+/// and the array functions.
 #[cfg(test)]
-const KERNEL_8: [&str; 87] = [
+const KERNEL_8: [&str; 108] = [
     "INDEX",
     "MATCH",
     "XMATCH",
@@ -267,6 +363,27 @@ const KERNEL_8: [&str; 87] = [
     "DSTDEVP",
     "DVAR",
     "DVARP",
+    "SEQUENCE",
+    "FILTER",
+    "SORT",
+    "SORTBY",
+    "UNIQUE",
+    "TRANSPOSE",
+    "SUMPRODUCT",
+    "MMULT",
+    "ROWS",
+    "COLUMNS",
+    "CHOOSECOLS",
+    "CHOOSEROWS",
+    "TAKE",
+    "DROP",
+    "HSTACK",
+    "VSTACK",
+    "TOCOL",
+    "TOROW",
+    "WRAPROWS",
+    "WRAPCOLS",
+    "EXPAND",
 ];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
@@ -404,6 +521,23 @@ fn each_item<R: Rule, F: FnMut(R::Item)>(
                     }
                     Ok(())
                 })?;
+                if let Some(k) = err {
+                    return Ok(Err(k));
+                }
+            }
+            // An array's values are read as a range's are, as Excel's
+            // documentation of `SUM` says of both (KERNEL.8, slice f).
+            Arg::Array(a) => {
+                let mut err: Option<ErrorKind> = None;
+                for v in a.values() {
+                    match R::ranged(v) {
+                        Ranged::Counts(x) => f(x),
+                        Ranged::Error(k) => {
+                            err.get_or_insert(k);
+                        }
+                        Ranged::Skipped => {}
+                    }
+                }
                 if let Some(k) = err {
                     return Ok(Err(k));
                 }
@@ -734,9 +868,12 @@ fn if_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 || args.len() > 3 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
     }
-    let condition = match ctx.truth(&args[0])? {
-        Ok(b) => b,
-        Err(k) => return Ok(Arg::Scalar(Value::Error(k))),
+    let condition = match kept_class(ctx, &args[0])? {
+        Lifted::One(v) => match v.truth() {
+            Ok(b) => b,
+            Err(k) => return Ok(Arg::Scalar(Value::Error(k))),
+        },
+        Lifted::Many(conditions) => return lifted_if(ctx, args, conditions),
     };
     // A branch left out reads as 0 when taken; a missing else is FALSE.
     match (condition, args.get(1), args.get(2)) {
@@ -748,6 +885,49 @@ fn if_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
         (false, _, None) => Ok(Arg::Scalar(Value::Bool(false))),
         (true, None, _) => Ok(Arg::Scalar(Value::Error(ErrorKind::Value))),
     }
+}
+
+/// A control function's condition or index as an operand (KERNEL.8, slice
+/// f): in a legacy formula it keeps its own class, Excel's, so that an
+/// array given lifts the function while a range is met at the formula's
+/// cell even inside an array parameter (`SUMPRODUCT(IF(A1:A9>2,1,0))`
+/// wants Ctrl+Shift+Enter); a dynamic formula reads it as arrays.
+fn kept_class(ctx: &Ctx<'_>, e: &Expr) -> Result<Lifted, Reason> {
+    if ctx.reads_arrays_by_kind() {
+        ctx.operand(e)
+    } else {
+        ctx.as_values(|| ctx.operand(e))
+    }
+}
+
+/// `IF` of an array of conditions (KERNEL.8, slice f): both branches
+/// computed, and at each place of the lift the value of the branch its
+/// condition takes there, `#N/A` where that branch falls short and a
+/// branch not taken free to, as Excel's own save computes
+/// `IF({FALSE,FALSE,FALSE},{1,2},5)` as three 5s; an error condition its
+/// error; a branch left out reads as 0, a missing else as FALSE, as one
+/// condition reads them.
+fn lifted_if(ctx: &Ctx<'_>, args: &[Expr], conditions: Array) -> Result<Arg<'static>, Reason> {
+    let branch = |e: Option<&Expr>| -> Result<Lifted, Reason> {
+        match e {
+            None => Ok(Lifted::One(Value::Bool(false))),
+            Some(Expr::Empty) => Ok(Lifted::One(Value::Number(0.0))),
+            Some(e) => ctx.operand(e),
+        }
+    };
+    let yes = branch(args.get(1))?;
+    let no = branch(args.get(2))?;
+    let conditions = Lifted::Many(conditions);
+    let na = || Value::Error(ErrorKind::NA);
+    let lifted = array::lift_by(&[&conditions, &yes, &no], |r, c| {
+        Ok(match conditions.at(r, c).map(Value::truth) {
+            None => na(),
+            Some(Ok(true)) => yes.at(r, c).cloned().unwrap_or_else(na),
+            Some(Ok(false)) => no.at(r, c).cloned().unwrap_or_else(na),
+            Some(Err(k)) => Value::Error(k),
+        })
+    })?;
+    Ok(Arg::Array(lifted))
 }
 
 fn and(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
@@ -845,7 +1025,9 @@ fn position(ctx: &Ctx<'_>, args: &[Arg], axis: Axis) -> Result<Value, Reason> {
 /// reads a range where one value is wanted (`eval::intersection`), and
 /// answered as a reference to that one cell, in a formula of either kind;
 /// `#VALUE!` where the area holds no such cell, `#REF!` for a span of
-/// sheets, as a legacy formula meets one; any other value itself.
+/// sheets, as a legacy formula meets one; an array its first value, as
+/// Microsoft's page on `@` has it ("If the value is an array, then pick the
+/// top-left value", KERNEL.8, slice f); any other value itself.
 fn single<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     let [e] = args else {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
@@ -872,6 +1054,7 @@ fn single<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
             },
             _ => Arg::Scalar(Value::Error(ErrorKind::Ref)),
         },
+        Arg::Array(a) => Arg::Scalar(a.get(0, 0).clone()),
         value => value,
     })
 }
@@ -880,12 +1063,36 @@ fn single<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
 /// chosen is computed, and a reference chosen stays a reference. An
 /// evaluation of many cells at once computes each value at the cells that
 /// choose it (`super::vector`, its `choose`, KERNEL.28): a change here is a
-/// change there, and the machine's tests hold the two to each other.
+/// change there, and the machine's tests hold the two to each other. An
+/// index that is an array computes every value and picks at each place of
+/// the lift the one its index chooses there, `#N/A` where that one falls
+/// short, as `IF` picks its branch (KERNEL.8, slice f); the index keeps
+/// its class in a legacy formula ([`kept_class`]).
 fn choose<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
     }
-    match chosen(&ctx.scalar(&args[0])?, args.len() - 1) {
+    let index = match kept_class(ctx, &args[0])? {
+        Lifted::One(v) => v,
+        Lifted::Many(indices) => {
+            let mut operands = vec![Lifted::Many(indices)];
+            for a in &args[1..] {
+                operands.push(ctx.operand(a)?);
+            }
+            let held: Vec<&Lifted> = operands.iter().collect();
+            let count = args.len() - 1;
+            let na = || Value::Error(ErrorKind::NA);
+            let lifted = array::lift_by(&held, |r, c| {
+                Ok(match held[0].at(r, c).map(|i| chosen(i, count)) {
+                    None => na(),
+                    Some(Ok(k)) => held[k].at(r, c).cloned().unwrap_or_else(na),
+                    Some(Err(e)) => Value::Error(e),
+                })
+            })?;
+            return Ok(Arg::Array(lifted));
+        }
+    };
+    match chosen(&index, args.len() - 1) {
         Ok(k) => ctx.eval(&args[k]),
         Err(e) => Ok(Arg::Scalar(Value::Error(e))),
     }

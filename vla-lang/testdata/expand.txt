@@ -326,6 +326,10 @@ nothing here.
 (formula-expand (xor (type A1) 1))
 === formula-expand-n-a-before-a-division
 (formula-expand (f (/ (^ 2 (error "#N/A")) x) (/ x (error "#N/A") y) (/ x (error "#N/A"))))
+=== formula-expand-an-array-constant
+(formula-expand (sum (quote (1 2)) (quote ((1 "a") (true (error "#n/a"))))))
+=== formula-expand-a-range-between-expressions
+(formula-expand (sum (: a1 (index a:a 5)) (: (index b1:b9 2) b9)))
 === formula-expand-a-macro-inside-fires-first
 (defmacro (edge cell twin) (and (= cell 1) (= twin 0)))
 (formula-expand (if (edge Input!B5 Input.last!B5) 1 0))
@@ -359,8 +363,10 @@ nothing here.
 (formula-expand (+))
 === formula-expand-not-arity-refused
 (formula-expand (not a b))
-=== formula-expand-an-array-refused
-(formula-expand (quote (1 2)))
+=== formula-expand-an-array-of-rows-unlike-refused
+(formula-expand (quote ((1 2) (3))))
+=== formula-expand-a-range-arity-refused
+(formula-expand (: a1))
 === formula-expand-a-spill-refused
 (formula-expand A1#)
 === formula-expand-lambda-params-refused

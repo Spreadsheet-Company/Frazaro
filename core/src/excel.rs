@@ -32,7 +32,8 @@
 //! the twenty-five text functions with `TEXT` (its third), the
 //! seventeen date functions (its fourth), and the thirty-one aggregates,
 //! `SUBTOTAL`, `SUMIFS` and its family and the database functions (its
-//! fifth), `AVERAGE` moved down from this file with them.
+//! fifth), `AVERAGE` moved down from this file with them, and the
+//! twenty-one array functions (its sixth).
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -58,7 +59,7 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the eighty-seven `KERNEL.8` brought, then Excel's.
+/// fourteen and the hundred and eight `KERNEL.8` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -463,6 +464,90 @@ pub const SUBSET: &[Entry] = &[
     Entry {
         name: "DVARP",
         evidence: "the aggregates by criteria, KERNEL.8; scripts/recalc/criteria.txt",
+    },
+    Entry {
+        name: "SEQUENCE",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "FILTER",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "SORT",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "SORTBY",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "UNIQUE",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "TRANSPOSE",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "SUMPRODUCT",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "MMULT",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "ROWS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "COLUMNS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "CHOOSECOLS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "CHOOSEROWS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "TAKE",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "DROP",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "HSTACK",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "VSTACK",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "TOCOL",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "TOROW",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "WRAPROWS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "WRAPCOLS",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "EXPAND",
+        evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
     },
     Entry {
         name: "ROUND",
