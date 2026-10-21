@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.52 | KERNEL.53 |
+| KERNEL | KERNEL.55 | KERNEL.56 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -286,6 +286,12 @@ as Excel reads it, or kept whole and named where Excel would cut it.
 owner's word, from the same slice's labelled rows, for Excel's computed
 criteria: a database function's formula computed at each record with its
 relative references moved there. `KERNEL.53` is next free.
+`KERNEL.55` was minted 2026-10-21 at the owner's word, from `KERNEL.8`'s
+sixth slice (its Found, and the spills its scoping left to an item of
+their own), for the dynamic-array behaviours it left: a spill laid into
+the cells beside its formula, a legacy array formula over many cells
+computed at each, a formula written dynamic as Excel 365 stores one typed,
+and a dynamic shape lowered to its program. `KERNEL.56` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
