@@ -179,6 +179,14 @@ pub struct Shapes {
     /// By sheet of the grid, whether a read takes it as an array (KERNEL.31,
     /// [`Shapes::read_as_array`]), found with the order.
     arrays: Vec<bool>,
+    /// Each shape's stretches of the order (KERNEL.54), each its first
+    /// position and the position after its last: the longest spans of the
+    /// order its cells fill with no other shape's between, runs and cells
+    /// alone, found with the order, so that a machine marks every cell of a
+    /// shape a word at a time. A shape's are
+    /// `stretches[stretch_firsts[s]..stretch_firsts[s + 1]]`.
+    stretches: Vec<(u32, u32)>,
+    stretch_firsts: Vec<u32>,
 }
 
 /// A run of the order: its cells are `order[start..end]`, of one shape.
@@ -211,8 +219,8 @@ impl Shapes {
     /// parsed, and the order found. The plan is made in a box: every formula
     /// is parsed beneath this frame, the deepest a load reaches, which
     /// `VLA.1`'s limits pin on a stack of 1 MiB, and the plan held here by
-    /// value would stand on it, 480 bytes since it kept its level ends
-    /// (KERNEL.30).
+    /// value would stand on it, 600 bytes since it kept each shape's
+    /// stretches (KERNEL.54).
     pub fn of(
         model: &Workbook,
         sheets: usize,
@@ -779,6 +787,7 @@ impl Shapes {
             shape: usize::MAX,
         };
         let mut shape_at = Vec::with_capacity(order.len());
+        let mut stretches = Vec::new();
         for v in order {
             let (id, shape) = (ids[v], shape_of[v]);
             let pos = self.order.len();
@@ -788,7 +797,7 @@ impl Shapes {
                     .iter()
                     .all(|&u| u as usize >= n || joined[u as usize] != run.start);
             if !joins {
-                self.keep(run);
+                self.keep(run, &mut stretches);
                 run = Run {
                     start: pos,
                     end: pos,
@@ -800,7 +809,24 @@ impl Shapes {
             self.order.push(id);
             shape_at.push(shape as u32);
         }
-        self.keep(run);
+        self.keep(run, &mut stretches);
+        // Each shape's stretches together, by a counting sort (KERNEL.54).
+        let shapes = self.shapes.len();
+        let mut firsts = vec![0u32; shapes + 1];
+        for &(s, _, _) in &stretches {
+            firsts[s as usize + 1] += 1;
+        }
+        for s in 0..shapes {
+            firsts[s + 1] += firsts[s];
+        }
+        let mut at = firsts.clone();
+        let mut by_shape = vec![(0, 0); stretches.len()];
+        for (s, start, end) in stretches {
+            by_shape[at[s as usize] as usize] = (start, end);
+            at[s as usize] += 1;
+        }
+        self.stretches = by_shape;
+        self.stretch_firsts = firsts;
         shape_at
     }
 
@@ -808,13 +834,33 @@ impl Shapes {
     /// enough and its shape parsed and not risky, so that every cell of it
     /// reads as the shape does (KERNEL.20). (A risky shape's cells all read
     /// as it does in a grid that loaded, every other being refused; the
-    /// shape is evaluated cell by cell all the same.)
-    fn keep(&mut self, run: Run) {
+    /// shape is evaluated cell by cell all the same.) Every run, kept or
+    /// not, is its shape's stretch, or grows the last one where it carries
+    /// on the same shape's (KERNEL.54).
+    fn keep(&mut self, run: Run, stretches: &mut Vec<(u32, u32, u32)>) {
         let Some(shape) = self.shapes.get(run.shape) else {
             return;
         };
+        let (s, start, end) = (run.shape as u32, run.start as u32, run.end as u32);
+        match stretches.last_mut() {
+            Some(last) if last.0 == s && last.2 == start => last.2 = end,
+            _ => stretches.push((s, start, end)),
+        }
         if run.end - run.start >= RUN && !shape.risky && shape.expr.is_ok() {
             self.runs.push(run);
+        }
+    }
+
+    /// A shape's stretches of the order, each its first position and the
+    /// position after its last (KERNEL.54): every position its cells stand
+    /// at, and none other.
+    pub(crate) fn stretches(&self, shape: usize) -> &[(u32, u32)] {
+        match (
+            self.stretch_firsts.get(shape),
+            self.stretch_firsts.get(shape + 1),
+        ) {
+            (Some(&a), Some(&b)) => &self.stretches[a as usize..b as usize],
+            _ => &[],
         }
     }
 
@@ -827,7 +873,8 @@ impl Shapes {
     /// The plan spelled whole, each map in order: every shape with its first
     /// cell, its fill, its text and its parse; every cell's place and the
     /// construct it leaves unread; the two maps a cell finds its shape by;
-    /// the order, its cycles, runs and levels; the reach. KERNEL.34's oracle,
+    /// the order, its cycles, runs and levels, and each shape's stretches
+    /// (KERNEL.54); the reach, its pieces among its stands. KERNEL.34's oracle,
     /// a write leaving the plan a load of its grid makes, part for part.
     #[cfg(test)]
     pub(crate) fn spelled(&self) -> String {
@@ -854,6 +901,11 @@ impl Shapes {
             out,
             "order {:?}\ncycles {:?}\nruns {:?}\nlevels {:?}\narrays {:?}",
             self.order, self.cycles, self.runs, self.level_ends, self.arrays
+        );
+        let _ = writeln!(
+            out,
+            "stretches {:?}\nstretch firsts {:?}",
+            self.stretches, self.stretch_firsts
         );
         out.push_str(&self.reach.spelled());
         out

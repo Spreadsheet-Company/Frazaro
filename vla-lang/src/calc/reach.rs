@@ -58,6 +58,21 @@
 //! again by the other axis. A changed cell is checked against the readers
 //! too wide to file and against its band's, each exactly as the scan checks
 //! it, so the index leaves out only readers that reach nothing from it.
+//!
+//! One text is one shape wherever its cells stand (KERNEL.34), so a shape's
+//! box can span far more than its cells: a formula pasted where a model
+//! needs it, or `CART.9`'s gates shuffled, one in forty sharing a text with
+//! a gate far away, whose readers were too wide to file and checked against
+//! every changed cell (KERNEL.54, 2026-10-21). A shape whose box spans more
+//! than [`WIDE`] rows or columns and whose cells fill less than half of it is
+//! cut into pieces by tiles of [`TILE`] rows and columns of each sheet, each
+//! piece the box of the cells a tile holds; each moving reference of the
+//! shape is filed and checked once a piece, its footprint read over the
+//! piece's box and its cells found within it. A piece's cells are its
+//! shape's, so what the readers of all its pieces reach is what the shape's
+//! one reader reached.
+
+use std::collections::hash_map::Entry;
 
 use crate::fx::FxHashMap;
 use crate::refers::Shape as Part;
@@ -296,9 +311,13 @@ struct Reader {
     /// change reaches the shape's cells on the changed cell's sheet alone.
     own: bool,
     kind: Kind,
+    /// The stand its footprint is read over and its cells found within, by
+    /// its index among the stands: its shape's, or one piece's of a shape
+    /// cut into pieces (KERNEL.54).
+    stand: u32,
 }
 
-/// Where a shape's cells stand.
+/// Where a shape's cells stand, or a piece's of them (KERNEL.54).
 #[derive(Clone, Debug, Default)]
 struct Stand {
     /// The sheets its cells are on, sorted; empty for a shape with none.
@@ -330,6 +349,126 @@ const INDEX_FROM: usize = 16;
 /// The most bands a reader is filed under: one whose footprint is wider is
 /// checked against every changed cell of its sheet, as the scan checks it.
 const WIDE: u32 = 64;
+
+/// The rows and columns of a sheet's tiles, by which a shape whose cells
+/// stand far apart is cut into pieces (KERNEL.54): a piece's box inside a
+/// tile, so that a reference reaching 32 cells or fewer either way has a
+/// footprint over it inside [`WIDE`].
+const TILE: u32 = 32;
+
+/// Whether a shape is cut into pieces (KERNEL.54): its cells' box spans more
+/// than [`WIDE`] rows or columns, and its cells fill less than half of it,
+/// the line between a fill with holes and cells that only share a text.
+fn cut(stand: &Stand, cells: u64) -> bool {
+    let (rows, cols) = (
+        stand.rows.1 - stand.rows.0 + 1,
+        stand.cols.1 - stand.cols.0 + 1,
+    );
+    let area = u128::from(rows.unsigned_abs())
+        * u128::from(cols.unsigned_abs())
+        * stand.sheets.len() as u128;
+    (rows > i64::from(WIDE) || cols > i64::from(WIDE)) && u128::from(cells) * 2 < area
+}
+
+/// The pieces each shape is cut into (KERNEL.54), each a stand of its own
+/// added after the shapes', listed by its shape: a shape [`cut`] finds far
+/// apart has its cells bucketed by the tiles of each sheet, a piece the box
+/// of the cells one tile holds; every other shape none, and so every shape
+/// where a test asks the reach unpieced, the list then empty. The pieces
+/// are gathered apart and the stands given room for them alone: pushed
+/// onto the stands, the netlist's 992 doubled its 19,955 stands' room, 1.2
+/// MB held for nothing.
+fn pieces(
+    stands: &mut Vec<Stand>,
+    cells: &[u64],
+    order: &[CellId],
+    shape_at: &[u32],
+) -> Vec<Vec<u32>> {
+    let far: Vec<bool> = (0..cells.len())
+        .map(|s| cells[s] > 0 && cut(&stands[s], cells[s]))
+        .collect();
+    if unpieced() || !far.contains(&true) {
+        return Vec::new();
+    }
+    let mut pieces: Vec<Vec<u32>> = vec![Vec::new(); cells.len()];
+    let first = stands.len();
+    let mut added: Vec<Stand> = Vec::new();
+    let mut piece_at: FxHashMap<(u32, usize, u32, u32), u32> = FxHashMap::default();
+    for (&(sheet, row, col), &s) in order.iter().zip(shape_at) {
+        if !far[s as usize] {
+            continue;
+        }
+        let anchor = stands[s as usize].anchor;
+        let (d_row, d_col) = (
+            i64::from(row) - i64::from(anchor.0),
+            i64::from(col) - i64::from(anchor.1),
+        );
+        match piece_at.entry((s, sheet, row / TILE, col / TILE)) {
+            Entry::Occupied(at) => {
+                let piece = &mut added[*at.get() as usize - first];
+                piece.rows = (piece.rows.0.min(d_row), piece.rows.1.max(d_row));
+                piece.cols = (piece.cols.0.min(d_col), piece.cols.1.max(d_col));
+            }
+            Entry::Vacant(at) => {
+                let k = (first + added.len()) as u32;
+                added.push(Stand {
+                    sheets: vec![sheet],
+                    anchor,
+                    rows: (d_row, d_row),
+                    cols: (d_col, d_col),
+                });
+                at.insert(k);
+                pieces[s as usize].push(k);
+            }
+        }
+    }
+    stands.reserve_exact(added.len());
+    stands.extend(added);
+    pieces
+}
+
+/// Whether a test asks every reach built with no shape cut into pieces;
+/// `false` outside a test.
+#[cfg(not(test))]
+fn unpieced() -> bool {
+    false
+}
+
+#[cfg(test)]
+fn unpieced() -> bool {
+    whole::asked()
+}
+
+/// Every reach built in a test with no shape cut into pieces, each shape's
+/// readers read over its whole stand as before KERNEL.54: the pieced index
+/// held to the unpieced scan (KERNEL.54's oracle). On the thread that asked,
+/// until the guard drops.
+#[cfg(test)]
+pub(crate) mod whole {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ASKED: Cell<bool> = const { Cell::new(false) };
+    }
+
+    /// Asked until dropped, then as before.
+    pub(crate) struct Guard(bool);
+
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            ASKED.with(|a| a.set(self.0));
+        }
+    }
+
+    /// Every reach built on this thread unpieced.
+    pub(crate) fn stands() -> Guard {
+        Guard(ASKED.with(|a| a.replace(true)))
+    }
+
+    pub(super) fn asked() -> bool {
+        ASKED.with(Cell::get)
+    }
+}
 
 /// The least and the most rows, or columns, a footprint holds.
 type Span = (u32, u32);
@@ -533,7 +672,7 @@ impl Index {
         }
         let spans: Vec<Option<(Span, Span)>> = readers
             .iter()
-            .map(|r| footprint(r, &stands[r.shape]))
+            .map(|r| footprint(r, &stands[r.stand as usize]))
             .collect();
         let all = 0..readers.len() as u32;
         let rows = Bands::of(all.clone(), |i| spans[i as usize].map(|s| s.0));
@@ -729,6 +868,8 @@ pub(crate) mod checked {
 /// the plan is: the cells a changed cell reaches. See the module's comment.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Reach {
+    /// Each shape's stand by its index, then the pieces of the shapes cut
+    /// into pieces (KERNEL.54).
     stands: Vec<Stand>,
     /// By sheet, the shapes that read it and how.
     readers: Vec<Vec<Reader>>,
@@ -760,8 +901,10 @@ impl Reach {
     ) -> Reach {
         let mut stands: Vec<Stand> = vec![Stand::default(); shapes.len()];
         let mut seen = vec![false; shapes.len()];
+        let mut cells = vec![0u64; shapes.len()];
         for (&(sheet, row, col), &s) in order.iter().zip(&shape_at) {
             let s = s as usize;
+            cells[s] += 1;
             let (a_row, a_col) = (shapes[s].anchor.1, shapes[s].anchor.2);
             let (d_row, d_col) = (
                 i64::from(row) - i64::from(a_row),
@@ -780,6 +923,10 @@ impl Reach {
                 stand.sheets.push(sheet);
             }
         }
+        for stand in &mut stands {
+            stand.sheets.sort_unstable();
+        }
+        let pieces = pieces(&mut stands, &cells, order, &shape_at);
         let mut readers: Vec<Vec<Reader>> = vec![Vec::new(); model.sheets.len()];
         let mut unfollowed = Vec::new();
         let mut parts = Vec::new();
@@ -790,8 +937,7 @@ impl Reach {
             if !seen[s] {
                 continue;
             }
-            let stand = &mut stands[s];
-            stand.sheets.sort_unstable();
+            let stand = &stands[s];
             let single = (stand.sheets.len() == 1).then(|| stand.sheets[0]);
             let mut found = Vec::new();
             let followed = match &shape.expr {
@@ -842,27 +988,39 @@ impl Reach {
                     })
                 })
                 .collect();
+            // A moving reference of a shape cut into pieces is filed once a
+            // piece (KERNEL.54); a held rectangle's and a part's footprints
+            // are read over no cell, so each stays one a shape.
+            let whole = [s as u32];
             for (k, (on, kind)) in found.into_iter().enumerate() {
                 if inside[k] {
                     continue;
                 }
-                match on {
-                    On::Sheet(x) => {
-                        if let Some(list) = readers.get_mut(x) {
-                            list.push(Reader {
-                                shape: s,
-                                own: false,
-                                kind,
-                            });
+                let filed: &[u32] = match (kind, pieces.get(s)) {
+                    (Kind::Moving { .. }, Some(cut)) if !cut.is_empty() => cut,
+                    _ => &whole,
+                };
+                for &at in filed {
+                    match on {
+                        On::Sheet(x) => {
+                            if let Some(list) = readers.get_mut(x) {
+                                list.push(Reader {
+                                    shape: s,
+                                    own: false,
+                                    kind,
+                                    stand: at,
+                                });
+                            }
                         }
-                    }
-                    On::Own => {
-                        for &y in &stand.sheets {
-                            readers[y].push(Reader {
-                                shape: s,
-                                own: true,
-                                kind,
-                            });
+                        On::Own => {
+                            for &y in &stands[at as usize].sheets {
+                                readers[y].push(Reader {
+                                    shape: s,
+                                    own: true,
+                                    kind,
+                                    stand: at,
+                                });
+                            }
                         }
                     }
                 }
@@ -944,7 +1102,8 @@ impl Reach {
                 }
             }
             Kind::Moving { rows, cols } => {
-                let stand = &self.stands[s];
+                // A piece's reader finds its shape's cells within the piece.
+                let stand = &self.stands[reader.stand as usize];
                 let (Some((r0, r1)), Some((c0, c1))) = (rows.offsets(row), cols.offsets(col))
                 else {
                     return;
@@ -1034,10 +1193,18 @@ impl Reach {
         )
     }
 
+    /// How many pieces the shapes cut into pieces make (KERNEL.54).
+    #[cfg(test)]
+    pub(crate) fn pieces(&self) -> usize {
+        self.stands.len() + 1 - self.firsts.len()
+    }
+
     /// The readers of a sheet, each shape's references to it that reach
     /// other cells than another of its own does (KERNEL.30's census prints
     /// how many): what a changed cell of a sheet without an index is checked
-    /// against, at a frame's start and at each cell the frame changes.
+    /// against, at a frame's start and at each cell the frame changes. A
+    /// shape cut into pieces counts each moving reference once a piece
+    /// (KERNEL.54), as a changed cell checks it.
     pub(crate) fn readers_on(&self, sheet: usize) -> usize {
         self.readers.get(sheet).map_or(0, Vec::len)
     }

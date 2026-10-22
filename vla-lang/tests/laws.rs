@@ -52,6 +52,11 @@
 //!     nothing, with no write before it, is a fixed point: the next frame
 //!     with none before it either changes nothing and leaves every value as
 //!     it was (KERNEL.48).
+//! 13. Far-apart cells of one text compute what the same cells compute each
+//!     written with a text of its own, frame for frame through value writes:
+//!     a few texts each copied to scattered cells, one shape however far
+//!     apart its cells stand, which the machine cuts into pieces, held to
+//!     shapes never cut (KERNEL.54).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -1528,4 +1533,146 @@ fn a_frame_s_count_is_the_formula_cells_whose_values_it_changed() {
             "{family}: too few frames of a kind for the law to hold over: {c:?}"
         );
     }
+}
+
+// ---- 13. far-apart cells of one text -------------------------------------
+
+/// An expression written at `C1`: references moving over the value sheet
+/// `V` and over the cell's own sheet left of it, a range moving with them,
+/// held rectangles and parts, so that every copy of it reads as it does
+/// where it is moved, and none reads a cell right of its own.
+fn scattered_expr(r: &mut Rng, depth: u32) -> String {
+    if depth >= 2 || r.below(3) == 0 {
+        return match r.below(6) {
+            0 => format!("V!{}{}", r.pick(&["A", "B", "C"]), 1 + r.below(2)),
+            1 => format!("V!${}{}", r.pick(&["A", "B"]), 1 + r.below(2)),
+            2 => format!("V!$A${}", 1 + r.below(5)),
+            3 => format!("{}{}", r.pick(&["A", "B"]), 1 + r.below(2)),
+            _ => r.below(10).to_string(),
+        };
+    }
+    let e = |r: &mut Rng| scattered_expr(r, depth + 1);
+    match r.below(6) {
+        0 => format!("{}+{}", e(r), e(r)),
+        1 => format!("{}*{}", e(r), e(r)),
+        2 => format!("SUM(V!A1:B2)+{}", e(r)),
+        3 => format!("IF(V!$A$1>{},{},{})", r.below(5), e(r), e(r)),
+        4 => format!("MOD({},7)", e(r)),
+        _ => format!("MAX({},SUM(V!$A$1:$B$2))", e(r)),
+    }
+}
+
+/// A grid of far-apart cells of one text: a value sheet `V`, and sheets `F`
+/// and `G` with values in columns A and B, on which a few texts are each
+/// copied to scattered cells of columns C to J over 400 rows, a copy now and
+/// then beside the one before it; each copy the text moved to its cell. The
+/// grid's rows, and the same grid with each copy given a text of its own
+/// (`+0*k`) that computes the same value; and whether a text's copies stand
+/// far enough apart for its shape to be cut (KERNEL.54's line: a box more
+/// than 64 rows or columns, its cells less than half of it).
+fn scattered_rows(r: &mut Rng) -> (String, String, bool) {
+    let mut head =
+        String::from("(sheet \"F\" visible)\n(sheet \"G\" visible)\n(sheet \"V\" visible)\n");
+    for row in 1..=402 {
+        for col in ["A", "B", "C"] {
+            if r.below(4) != 0 {
+                head.push_str(&format!("(cell \"V\" \"{col}{row}\" {})\n", r.below(10)));
+            }
+        }
+    }
+    head.push_str("(cell \"F\" \"A1:B402\" 2)\n(cell \"G\" \"A1:B402\" 3)\n");
+    let (mut one, mut own) = (head.clone(), head);
+    let mut taken: BTreeSet<(&str, u32, u32)> = BTreeSet::new();
+    let (mut n, mut cut) = (0, false);
+    for _ in 0..2 + r.below(4) {
+        let text = scattered_expr(r, 0);
+        let mut at: Vec<(&str, u32, u32)> = Vec::new();
+        for _ in 0..2 + r.below(9) {
+            let cell = match at.last() {
+                Some(&(sheet, row, col)) if r.below(4) == 0 => (sheet, row + 1, col),
+                _ => (
+                    *r.pick(&["F", "G"]),
+                    1 + r.below(400) as u32,
+                    3 + r.below(8) as u32,
+                ),
+            };
+            if taken.insert(cell) {
+                at.push(cell);
+            }
+        }
+        for &(sheet, row, col) in &at {
+            let a1 = A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            }
+            .text();
+            let moved = shift_a1_references(&text, i64::from(row) - 1, i64::from(col) - 3);
+            n += 1;
+            one.push_str(&format!(
+                "(formula \"{sheet}\" \"{a1}\" {})\n",
+                quoted(&format!("={moved}"))
+            ));
+            own.push_str(&format!(
+                "(formula \"{sheet}\" \"{a1}\" {})\n",
+                quoted(&format!("=({moved})+0*{n}"))
+            ));
+        }
+        let span = |f: fn(&(&str, u32, u32)) -> u32| {
+            let (lo, hi) = at
+                .iter()
+                .fold((u32::MAX, 0), |(lo, hi), c| (lo.min(f(c)), hi.max(f(c))));
+            u64::from(hi - lo + 1)
+        };
+        let (rows, cols) = (span(|c| c.1), span(|c| c.2));
+        let sheets: BTreeSet<&str> = at.iter().map(|c| c.0).collect();
+        let area = rows * cols * sheets.len() as u64;
+        cut |= (rows > 64 || cols > 64) && (at.len() as u64) * 2 < area;
+    }
+    (one, own, cut)
+}
+
+#[test]
+fn far_apart_cells_of_one_text_compute_what_each_written_alone_computes() {
+    let mut cut = 0;
+    for seed in 1..=30u64 {
+        let mut r = Rng::new(seed);
+        let (one, own, any_cut) = scattered_rows(&mut r);
+        cut += usize::from(any_cut);
+        let mut pieced = load(&one, &format!("seed {seed}, one text a shape"));
+        let mut alone = load(&own, &format!("seed {seed}, a text a copy"));
+        for frame in 1..=5 {
+            assert!(pieced.step(0).done && alone.step(0).done);
+            assert_eq!(
+                values(&pieced),
+                values(&alone),
+                "seed {seed}, frame {frame}\n{one}"
+            );
+            let write = match r.below(3) {
+                0 => format!(
+                    "(cell \"V\" \"{}{}\" {})",
+                    r.pick(&["A", "B", "C"]),
+                    1 + r.below(402),
+                    r.below(10)
+                ),
+                _ => format!(
+                    "(cell \"{}\" \"{}{}\" {})",
+                    r.pick(&["F", "G"]),
+                    r.pick(&["A", "B"]),
+                    1 + r.below(402),
+                    r.below(10)
+                ),
+            };
+            for m in [&mut pieced, &mut alone] {
+                m.write(&write).unwrap_or_else(|e| {
+                    panic!("seed {seed}, frame {frame}: {write}: {}", e.refusal.text)
+                });
+            }
+        }
+    }
+    assert!(
+        cut >= 20,
+        "{cut} grids of 30 held a text whose shape is cut: too few for the law to hold over"
+    );
 }

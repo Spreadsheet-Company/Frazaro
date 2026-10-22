@@ -70,6 +70,30 @@
   as `{1,2;3,4}` and `(: a b)` as `a:b`. Alonzo's cartridges and Buffet's
   compute every frame as they did (KERNEL.8), each grid 2,745 bytes larger,
   1,601 of them the twenty-one names.
+- **A change costs what it reaches, wherever the grid's formulas stand.**
+  In an engine's machine one formula text is one shape wherever its cells
+  stand, and a shape's readers were read over the box of all its cells: a
+  text copied to cells far apart, a formula pasted where a model needs it or
+  a netlist's gates shuffled, made readers too wide to file by where a
+  change stands, each checked against every changed cell of its sheet, so
+  that a frame cost its changes times the grid. Such a shape is now cut into
+  pieces of 32 rows and columns, each filed where it stands: `CART.9`'s
+  adder of 65,536 bits shuffled, one gate in forty sharing a text with
+  another far away, steps a frame after every switch is written in 293 ms
+  where it took 26.4 s, and the recalc floors' netlist, the same adder at
+  4,096 bits, computes an edit of its carry-in in 7.4 ms where it took 70.4.
+  A value written no longer walks every cell of its sheet for the sheet's
+  extent, nor every cell of its range's rows: into a sheet of 458,753
+  cells, 5.8 µs where it took 5.3 ms. And a frame passes
+  from one cell it must compute to the next, where it asked every cell
+  computed alone and every shape, and its end clears what it set, where it
+  cleared everything: a frame that computes nothing, over 391,168 cells
+  alone, 1.4 µs where it took 428. Every value is the same to the bit. The
+  census's `(readers ...)` row counts a cut shape's moving reference once a
+  piece, as a changed cell is checked against it. Each shape keeps its
+  stretches of the order, 8 bytes each and 4 a shape, and a frame's lists 4
+  bytes a shape and 4 a word of 64 cells: the netlist holds 0.57% more, the
+  large board 0.016% (KERNEL.54).
 
 ## 0.10.2
 

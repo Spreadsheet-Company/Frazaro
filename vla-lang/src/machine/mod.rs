@@ -412,6 +412,14 @@ pub struct Machine {
     /// the frame's start.
     whole: Vec<bool>,
     recheck: Vec<bool>,
+    /// The shapes made whole and the shapes rechecked by the frame in
+    /// progress, and the words of `marked` it set, each listed as it is first
+    /// set (KERNEL.54): the frame's start asks the shapes rechecked alone for
+    /// their parts, and its end clears what it set by the lists, where both
+    /// went over every shape and every word.
+    wholes: Vec<u32>,
+    rechecked: Vec<u32>,
+    touched: Vec<u32>,
     /// Each such part's value as a frame's start last computed it.
     parts: Vec<Option<Result<Value, Reason>>>,
     /// The formula cells whose values the frame in progress changed, by
@@ -527,7 +535,11 @@ struct Log {
     released: BTreeSet<CellId>,
     written: usize,
     added: usize,
-    sheets: BTreeSet<usize>,
+    /// Each sheet the write set a cell of, with its extent as the write
+    /// found it, which an undo puts back (KERNEL.54): kept beside the sheet,
+    /// where a list of its own cost a write an allocation more, and a host
+    /// writing its devices every frame a frame's.
+    sheets: BTreeMap<usize, Extent>,
 }
 
 impl Machine {
@@ -634,6 +646,9 @@ impl Machine {
             marked: Vec::new(),
             whole: Vec::new(),
             recheck: Vec::new(),
+            wholes: Vec::new(),
+            rechecked: Vec::new(),
+            touched: Vec::new(),
             parts: Vec::new(),
             changed: Vec::new(),
             changed_over: false,
@@ -798,7 +813,9 @@ impl Machine {
     /// among the changes, since a cell is kept as changed at most once a
     /// frame (KERNEL.36: four bytes a formula cell), and room for the twin
     /// cells' changes of half the cells, beyond which the next frame computes
-    /// every cell.
+    /// every cell; and room in the lists of what a frame sets, each entry set
+    /// at most once a frame (KERNEL.54): every shape made whole, every shape
+    /// with parts rechecked, every word of the marks touched.
     fn fit(&mut self) {
         let of = self.shapes.order().len();
         self.marked.clear();
@@ -815,6 +832,14 @@ impl Machine {
         }
         room(&mut self.changed, of);
         room(&mut self.twin_changed, self.cells / 2 + 64);
+        let reach = self.shapes.reach();
+        let parted = (0..shapes).filter(|&s| !reach.parts(s).is_empty()).count();
+        self.wholes.clear();
+        room(&mut self.wholes, shapes);
+        self.rechecked.clear();
+        room(&mut self.rechecked, parted);
+        self.touched.clear();
+        room(&mut self.touched, self.marked.len());
     }
 
     /// What the load made, for the load's row.
@@ -985,38 +1010,10 @@ impl Machine {
         // A step that stops before the frame's end keeps each value it
         // overwrites beside, for a view before the frame completes.
         let keep = end < of;
-        // The runs walked in order beside the positions, the next found once
-        // where a search found the run of each position (KERNEL.44): a grid
-        // of many cells alone between its runs searched them at every one.
-        let mut i = start;
-        let mut k = self.shapes.run_after(start);
-        while i < end {
-            let next = if self.by_runs {
-                self.shapes.run_span(k)
-            } else {
-                None
-            };
-            match next {
-                Some((from, after, shape)) if from <= i => {
-                    let to = after.min(end);
-                    #[cfg(test)]
-                    walk::run();
-                    self.evaluate_run(shape, i, to, keep);
-                    i = to;
-                    k += 1;
-                }
-                _ => {
-                    let stop = next.map_or(end, |(from, _, _)| from.min(end));
-                    while i < stop {
-                        #[cfg(test)]
-                        walk::visited(1);
-                        if self.wants(i) {
-                            self.evaluate_alone(i, keep);
-                        }
-                        i += 1;
-                    }
-                }
-            }
+        if self.every {
+            self.walk_every(start, end, keep);
+        } else {
+            self.walk_marks(start, end, keep);
         }
         if end < of {
             self.progress = Some(end);
@@ -1036,6 +1033,83 @@ impl Machine {
             evaluated: of,
             of,
             done: true,
+        }
+    }
+
+    /// The positions from `start` to `end` of a frame that computes every
+    /// cell, every one computed: the runs walked in order beside the
+    /// positions, the next found once where a search found the run of each
+    /// position (KERNEL.44), a grid of many cells alone between its runs
+    /// having searched them at every one.
+    fn walk_every(&mut self, start: usize, end: usize, keep: bool) {
+        let mut i = start;
+        let mut k = self.shapes.run_after(start);
+        while i < end {
+            let next = if self.by_runs {
+                self.shapes.run_span(k)
+            } else {
+                None
+            };
+            match next {
+                Some((from, after, shape)) if from <= i => {
+                    let to = after.min(end);
+                    #[cfg(test)]
+                    walk::run();
+                    self.evaluate_run(shape, i, to, keep);
+                    i = to;
+                    k += 1;
+                }
+                _ => {
+                    let stop = next.map_or(end, |(from, _, _)| from.min(end));
+                    #[cfg(test)]
+                    walk::visited((stop - i) as u64);
+                    while i < stop {
+                        self.evaluate_alone(i, keep);
+                        i += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    /// The positions from `start` to `end` of a frame that computes what
+    /// changed, passed from one marked position to the next (KERNEL.54): a
+    /// run's cells gathered from the first marked among them, and the cells
+    /// alone up to the next run each at its mark, the next run found once
+    /// for them all; a shape made whole having marked every cell of it
+    /// through its stretches. A cell a computed cell's change reaches stands
+    /// later in the order and outside its run, so the search finds its mark.
+    /// The walk visited every run and asked every cell alone whether it was
+    /// marked or its shape whole: an idle frame of 391,168 cells alone cost
+    /// 430 µs, and costs 1.3, the search a word for 64 positions.
+    fn walk_marks(&mut self, start: usize, end: usize, keep: bool) {
+        let mut i = start;
+        while let Some(p) = next_marked(&self.marked, i, end) {
+            let run = if self.by_runs {
+                self.shapes.run_span(self.shapes.run_after(p))
+            } else {
+                None
+            };
+            match run {
+                Some((from, after, shape)) if from <= p => {
+                    let to = after.min(end);
+                    #[cfg(test)]
+                    walk::run();
+                    self.evaluate_run(shape, p, to, keep);
+                    i = to;
+                }
+                next => {
+                    let stop = next.map_or(end, |(from, _, _)| from.min(end));
+                    let mut q = p;
+                    while let Some(m) = next_marked(&self.marked, q, stop) {
+                        #[cfg(test)]
+                        walk::visited(1);
+                        self.evaluate_alone(m, keep);
+                        q = m + 1;
+                    }
+                    i = stop;
+                }
+            }
         }
     }
 
@@ -1068,30 +1142,48 @@ impl Machine {
             marked,
             whole,
             recheck,
+            wholes,
+            rechecked,
+            touched,
             twin_changed,
             written,
             ..
         } = self;
         let reach = shapes.reach();
         for &s in reach.unfollowed() {
-            whole[s] = true;
+            make_whole(shapes, whole, wholes, marked, touched, s);
         }
         for id in twin_changed.iter().chain(written.iter()) {
             reach.each(*id, &mut |r| match r {
-                Reached::Cell(p) => marked[p / 64] |= 1 << (p % 64),
-                Reached::Shape(s) => whole[s] = true,
-                Reached::Parts(s) => recheck[s] = true,
+                Reached::Cell(p) => mark(marked, touched, p),
+                Reached::Shape(s) => make_whole(shapes, whole, wholes, marked, touched, s),
+                Reached::Parts(s) => {
+                    if !recheck[s] {
+                        recheck[s] = true;
+                        rechecked.push(s as u32);
+                    }
+                }
             });
         }
         // Every shape whose parts read a changed cell has them computed, even
         // one computed whole already, so that what is kept is what its cells
         // were computed with: a part kept from an earlier frame would let a
-        // later change back to it pass unseen.
+        // later change back to it pass unseen. The shapes on the list alone,
+        // where every shape was asked (KERNEL.54).
         #[cfg(test)]
-        walk::shapes(self.shapes.shapes() as u64);
-        for s in 0..self.shapes.shapes() {
-            if self.recheck[s] && self.parts_moved(s) {
-                self.whole[s] = true;
+        walk::shapes(self.rechecked.len() as u64);
+        for k in 0..self.rechecked.len() {
+            let s = self.rechecked[k] as usize;
+            if self.parts_moved(s) {
+                let Machine {
+                    shapes,
+                    marked,
+                    whole,
+                    wholes,
+                    touched,
+                    ..
+                } = self;
+                make_whole(shapes, whole, wholes, marked, touched, s);
             }
         }
     }
@@ -1111,13 +1203,6 @@ impl Machine {
             self.parts[k] = Some(got);
         }
         moved
-    }
-
-    /// Whether the frame in progress computes the cell at a position.
-    fn wants(&self, pos: usize) -> bool {
-        self.every
-            || self.whole[self.shapes.reach().shape_at(pos)]
-            || self.marked[pos / 64] & (1 << (pos % 64)) != 0
     }
 
     fn evaluate(&self, id: CellId) -> Computed {
@@ -1330,12 +1415,16 @@ impl Machine {
                 shapes,
                 marked,
                 whole,
+                wholes,
+                touched,
                 ..
             } = self;
             let id = shapes.order()[p];
             shapes.reach().each(id, &mut |r| match r {
-                Reached::Cell(p) => marked[p / 64] |= 1 << (p % 64),
-                Reached::Shape(s) | Reached::Parts(s) => whole[s] = true,
+                Reached::Cell(q) => mark(marked, touched, q),
+                Reached::Shape(s) | Reached::Parts(s) => {
+                    make_whole(shapes, whole, wholes, marked, touched, s);
+                }
             });
         }
     }
@@ -1353,11 +1442,22 @@ impl Machine {
     /// frame's end (KERNEL.48): each sheet's share counted by the copy as it
     /// copies each changed cell, or over the list where the end walked.
     fn snapshot(&mut self) {
+        // What the frame set cleared by its lists (KERNEL.54), where every
+        // shape's two flags and every word of the marks were.
         #[cfg(test)]
-        walk::cleared((self.marked.len() + self.whole.len() + self.recheck.len()) as u64);
-        self.marked.fill(0);
-        self.whole.fill(false);
-        self.recheck.fill(false);
+        walk::cleared((self.wholes.len() + self.rechecked.len() + self.touched.len()) as u64);
+        for &s in &self.wholes {
+            self.whole[s as usize] = false;
+        }
+        self.wholes.clear();
+        for &s in &self.rechecked {
+            self.recheck[s as usize] = false;
+        }
+        self.rechecked.clear();
+        for &w in &self.touched {
+            self.marked[w as usize] = 0;
+        }
+        self.touched.clear();
         self.twin_changed.clear();
         self.alike.clear();
         self.alike_over = false;
@@ -1953,23 +2053,15 @@ impl Machine {
         if count > CELLS as u64 {
             return Err(load::too_many(line, sheet, addr, self.cells as u64 + count));
         }
-        let present = self.book.sheets[si]
-            .cells
-            .range((range.top, 0)..=(range.bottom, u32::MAX))
-            .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
-            .count() as u64;
+        let present = within(&self.book.sheets[si].cells, range).count() as u64;
         let grows = count - present;
         let now = (self.cells + log.added) as u64;
         if now + grows > CELLS as u64 {
             return Err(load::too_many(line, sheet, addr, now + grows));
         }
         if head == "derived" {
-            let formula_cell = self.book.sheets[si]
-                .cells
-                .range((range.top, 0)..=(range.bottom, u32::MAX))
-                .find(|((_, col), c)| {
-                    *col >= range.left && *col <= range.right && is_formula(&c.content)
-                })
+            let formula_cell = within(&self.book.sheets[si].cells, range)
+                .find(|(_, c)| is_formula(&c.content))
                 .map(|(&(row, col), _)| (si, row, col));
             if let Some(id) = formula_cell {
                 return Err(LineRefusal {
@@ -1999,7 +2091,7 @@ impl Machine {
             None => sheet.cells.remove(&(id.1, id.2)),
         };
         log.undo.push((id, old));
-        log.sheets.insert(id.0);
+        log.sheets.entry(id.0).or_insert(self.extents[id.0]);
     }
 
     /// Before a range is written over: every shared formula whose first cell
@@ -2018,19 +2110,17 @@ impl Machine {
         let inside = |row: u32, col: u32| {
             row >= range.top && row <= range.bottom && col >= range.left && col <= range.right
         };
-        let masters: Vec<(u32, u32, u32, String, String)> = self.book.sheets[si]
-            .cells
-            .range((range.top, 0)..=(range.bottom, u32::MAX))
-            .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
-            .filter_map(|(&(row, col), c)| match &c.content {
-                Content::SharedMaster {
-                    text,
-                    range: fill,
-                    si: index,
-                } => Some((row, col, *index, text.clone(), fill.clone())),
-                _ => None,
-            })
-            .collect();
+        let masters: Vec<(u32, u32, u32, String, String)> =
+            within(&self.book.sheets[si].cells, range)
+                .filter_map(|(&(row, col), c)| match &c.content {
+                    Content::SharedMaster {
+                        text,
+                        range: fill,
+                        si: index,
+                    } => Some((row, col, *index, text.clone(), fill.clone())),
+                    _ => None,
+                })
+                .collect();
         if masters.is_empty() {
             return;
         }
@@ -2190,7 +2280,7 @@ impl Machine {
                 log.changed.entry((si, row, col)).or_insert(line);
             }
         }
-        log.sheets.insert(si);
+        log.sheets.entry(si).or_insert(self.extents[si]);
         log.written += differs;
         Ok(())
     }
@@ -2366,8 +2456,10 @@ impl Machine {
                 }
             }
         }
-        for &s in &log.sheets {
-            self.extents[s] = self.book.sheets[s].extent();
+        // Each written sheet's extent as the write found it (KERNEL.54),
+        // where every cell of each was walked again.
+        for (&s, &extent) in &log.sheets {
+            self.extents[s] = extent;
         }
     }
 
@@ -2378,8 +2470,18 @@ impl Machine {
         if log.changed.is_empty() {
             return Ok(log.written);
         }
-        for &s in &log.sheets {
-            self.extents[s] = self.book.sheets[s].extent();
+        // No write empties a cell (below), so each written sheet's extent is
+        // its extent grown by the cells the write changed (KERNEL.54), where
+        // every cell of the sheet was walked for it: one value written into
+        // a sheet of 458,753 cells cost 5.2 ms.
+        for &(s, row, col) in log.changed.keys() {
+            self.extents[s] = Some(match self.extents[s] {
+                None => ((row, col), (row, col)),
+                Some(((top, left), (bottom, right))) => (
+                    (top.min(row), left.min(col)),
+                    (bottom.max(row), right.max(col)),
+                ),
+            });
         }
         let formula_changed = log.changed.keys().any(|id| {
             self.shapes.holds(*id)
@@ -2500,7 +2602,7 @@ impl Machine {
         // A plane kept for a sheet the write changed is stale: the walk
         // answers until the next frame's end keeps it again (KERNEL.24). A
         // refused write never reaches here, having changed nothing.
-        for &s in &log.sheets {
+        for &s in log.sheets.keys() {
             if let Some(kept) = self.planes.get_mut(s) {
                 *kept = None;
             }
@@ -2721,6 +2823,18 @@ impl Source for Machine {
             None => reasonless(&id).then_some(0.0),
         }
     }
+}
+
+/// The cells of a sheet a written range holds, read by the range's own keys a
+/// row at a time (KERNEL.54), where reading its rows whole read every cell
+/// of them: each of a row's 1,540 cells, in `CART.9`'s multiplier, for one
+/// value written into it.
+fn within(
+    cells: &BTreeMap<(u32, u32), Cell>,
+    range: A1Range,
+) -> impl Iterator<Item = (&(u32, u32), &Cell)> {
+    (range.top..=range.bottom)
+        .flat_map(move |row| cells.range((row, range.left)..=(row, range.right)))
 }
 
 /// A formula cell's value in the frame's values, kept at its position in the
@@ -3079,6 +3193,53 @@ fn alike(
     bits
 }
 
+/// A position marked for the frame in progress, its word listed as it is
+/// first set, for the frame's end to clear (KERNEL.54).
+#[inline]
+fn mark(marked: &mut [u64], touched: &mut Vec<u32>, p: usize) {
+    let w = p / 64;
+    if marked[w] == 0 {
+        touched.push(w as u32);
+    }
+    marked[w] |= 1 << (p % 64);
+}
+
+/// A shape made whole for the frame in progress, listed as it first is,
+/// and every cell of it marked through its stretches a word at a time
+/// (KERNEL.54), so that a step passing from mark to mark computes them.
+fn make_whole(
+    shapes: &Shapes,
+    whole: &mut [bool],
+    wholes: &mut Vec<u32>,
+    marked: &mut [u64],
+    touched: &mut Vec<u32>,
+    s: usize,
+) {
+    if whole[s] {
+        return;
+    }
+    whole[s] = true;
+    wholes.push(s as u32);
+    for &(start, end) in shapes.stretches(s) {
+        let (mut p, end) = (start as usize, end as usize);
+        while p < end {
+            // The word's bits from `p` to the stretch's end or the word's.
+            let w = p / 64;
+            let (lo, hi) = (p % 64, (end - w * 64).min(64));
+            let bits = if hi - lo == 64 {
+                !0
+            } else {
+                ((1u64 << (hi - lo)) - 1) << lo
+            };
+            if marked[w] == 0 {
+                touched.push(w as u32);
+            }
+            marked[w] |= bits;
+            p = w * 64 + hi;
+        }
+    }
+}
+
 /// The first position from `from` and before `to` whose bit is set.
 fn next_marked(marked: &[u64], from: usize, to: usize) -> Option<usize> {
     let mut w = from / 64;
@@ -3144,7 +3305,7 @@ fn value_content(v: &Value) -> Content {
 
 /// What a frame touched beside the cells it computed, counted in a test
 /// (KERNEL.54's oracle), as `crate::calc::reach::checked` counts the readers
-/// checked: the positions of cells alone the step asked or passed, the runs it
+/// checked: the positions of cells alone the step visited, the runs it
 /// visited, the shapes a frame's start asked for their parts, and the flags
 /// and words a frame's end cleared. Counted on the thread that asked, between
 /// [`walk::begin`] and [`walk::end`], and only in a test build.
@@ -3155,7 +3316,9 @@ pub(crate) mod walk {
     /// What the frames since [`begin`] touched.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Walk {
-        /// The positions of cells alone the step asked or passed.
+        /// The positions of cells alone the step visited: each marked one a
+        /// frame that computes what changed computes, and each a frame that
+        /// computes every cell passes.
         pub(crate) visited: u64,
         /// The runs the step visited.
         pub(crate) runs: u64,
@@ -3199,7 +3362,7 @@ pub(crate) mod walk {
         }
     }
 
-    /// Positions of cells alone asked or passed.
+    /// Positions of cells alone visited.
     pub(crate) fn visited(n: u64) {
         add(|w| w.visited += n);
     }
@@ -9316,11 +9479,19 @@ mod tests {
     /// `rows` rows and `cols` columns and at the sheet's far edges, changed,
     /// reaching through its sheet's index exactly what every reader checked
     /// reaches, and checking no more readers than the sheet holds
-    /// (KERNEL.35); how many sheets were indexed.
+    /// (KERNEL.35); how many sheets were indexed. The readers checked are
+    /// the same grid's planned with no shape cut into pieces, so that the
+    /// pieced index is held to the unpieced scan (KERNEL.54).
     fn reaches_as_the_scan_does(m: &Machine, (rows, cols): (u32, u32), when: &str) -> usize {
         use crate::calc::reach::{checked, Reached};
         use crate::sheet::{MAX_COLUMN, MAX_ROW};
         let reach = m.shapes.reach();
+        let unpieced = {
+            let _whole = crate::calc::reach::whole::stands();
+            Shapes::of(&m.book, m.sheets, &m.library, &m.names, &m.extents)
+        };
+        assert_eq!(unpieced.order(), m.shapes.order(), "{when}: the orders");
+        assert_eq!(unpieced.reach().pieces(), 0, "{when}: unpieced");
         let key = |r: Reached| match r {
             Reached::Cell(p) => (0, p),
             Reached::Shape(s) => (1, s),
@@ -9341,7 +9512,9 @@ mod tests {
                 checked::begin();
                 reach.each(id, &mut |r| by_index.push(key(r)));
                 let checks = checked::end();
-                reach.each_by_scan(id, &mut |r| by_scan.push(key(r)));
+                unpieced
+                    .reach()
+                    .each_by_scan(id, &mut |r| by_scan.push(key(r)));
                 let at = format!("{when}: {name}!{}", crate::sheet::cell_ref(row, col));
                 assert!(
                     checks <= readers,
@@ -9357,6 +9530,82 @@ mod tests {
         indexed
     }
 
+    /// A text written at `C1` moved to a cell, as a fill reads there: the
+    /// copies of one text one shape wherever they stand (KERNEL.34).
+    fn moved_to(text: &str, row: u32, col: u32) -> String {
+        shift_a1_references(text, i64::from(row) - 1, i64::from(col) - 3)
+    }
+
+    /// A grid of a few texts each moved to scattered cells of sheets S and T
+    /// over 200 rows (KERNEL.54), each one shape whose cells stand far apart:
+    /// references moving over a value sheet V and over the cell's own sheet's
+    /// values, a range moving with them, held rectangles and parts; one text
+    /// copied twice to a tile's neighbouring cells, and one also as a fill,
+    /// which is a shape of its own. A reference to a cell's own sheet reads
+    /// a column left of it, so the grid holds no cycle. With two writes: a
+    /// value of V, and one more copy of a text, which plans the grid again.
+    fn scattered_grid(d: &mut Dice) -> (String, Vec<String>) {
+        const TEXTS: [&str; 6] = [
+            "=V!A1*2",
+            "=SUM(V!A1:B2)+1",
+            "=A2+B1",
+            "=V!$A$1+V!A1",
+            "=SUM(V!$A$1:$B$3)*V!B2",
+            "=IF(V!$C$2>3,A1,V!A1)",
+        ];
+        let mut out = String::new();
+        for sheet in ["S", "T", "V"] {
+            out.push_str(&format!("(sheet \"{sheet}\" visible)\n"));
+        }
+        for row in 1..=40 {
+            for col in ["A", "B", "C", "D"] {
+                if d.below(3) != 0 {
+                    out.push_str(&format!("(cell \"V\" \"{col}{row}\" {})\n", d.below(9)));
+                }
+            }
+        }
+        out.push_str("(cell \"S\" \"A1:A200\" 2)\n(cell \"T\" \"A1:A200\" 3)\n");
+        let mut taken = BTreeSet::new();
+        let mut copies = Vec::new();
+        let first = d.below(TEXTS.len());
+        for k in 0..3 + d.below(3) {
+            let text = TEXTS[(first + k) % TEXTS.len()];
+            for _ in 0..2 + d.below(9) {
+                let at = (
+                    d.pick(&["S", "T"]),
+                    1 + d.below(200) as u32,
+                    3 + d.below(8) as u32,
+                );
+                if taken.insert(at) {
+                    copies.push((text, at));
+                }
+            }
+        }
+        // A copy beside another, in its tile unless at its edge.
+        if let Some(&(text, (sheet, row, col))) = copies.first() {
+            let at = (sheet, row + 1, col);
+            if taken.insert(at) {
+                copies.push((text, at));
+            }
+        }
+        for (text, (sheet, row, col)) in &copies {
+            let cell = crate::sheet::cell_ref(*row, *col);
+            let f = crate::rows::quoted(&format!("={}", moved_to(&text[1..], *row, *col)));
+            out.push_str(&format!("(formula \"{sheet}\" \"{cell}\" {f})\n"));
+        }
+        let fill = moved_to(&TEXTS[first][1..], 150, 12);
+        out.push_str(&format!("(formula \"S\" \"L150:N155\" \"={fill}\")\n"));
+        let (text, _) = copies[0];
+        let (row, col) = (190 + d.below(10) as u32, 3 + d.below(8) as u32);
+        let cell = crate::sheet::cell_ref(row, col);
+        let again = crate::rows::quoted(&format!("={}", moved_to(&text[1..], row, col)));
+        let writes = vec![
+            format!("(cell \"V\" \"B{}\" {})", 1 + d.below(40), d.below(9)),
+            format!("(formula \"T\" \"{cell}\" {again})"),
+        ];
+        (out, writes)
+    }
+
     #[test]
     fn the_index_reaches_what_the_scan_reaches() {
         // KERNEL.35: generated grids, and grids of the readers they hold few
@@ -9367,7 +9616,10 @@ mod tests {
         // after a frame and a formula's write, which plans the grid again, and
         // after a value over a fill's first cell, which gives it up: every
         // cell around the grid's and at the sheet's far edges, changed,
-        // reaches through the index what every reader checked reaches.
+        // reaches through the index what every reader checked reaches. And
+        // grids of far-apart cells of one text, each written as it is
+        // (KERNEL.54): their shapes cut into pieces, the pieced index reaches
+        // what the unpieced scan reaches.
         let mut grids: Vec<(String, String, Vec<String>)> = Vec::new();
         for seed in 1..=8u64 {
             let mut d = Dice(seed ^ 0x3535);
@@ -9383,21 +9635,41 @@ mod tests {
             ];
             grids.push((format!("{n} readers of W"), index_grid(n), writes));
         }
-        let (mut indexed, mut cases) = (0, 0);
-        for (name, rows, writes) in &grids {
+        let regular = grids.len();
+        for seed in 1..=6u64 {
+            let mut d = Dice(seed ^ 0x5454);
+            let (rows, writes) = scattered_grid(&mut d);
+            grids.push((format!("far-apart seed {seed}"), rows, writes));
+        }
+        grids.push((
+            "12 far-apart pairs".to_string(),
+            far_apart(12),
+            vec![
+                "(cell \"S\" \"A4\" 9)".to_string(),
+                "(formula \"S\" \"C700\" \"=A703\")".to_string(),
+            ],
+        ));
+        let (mut indexed, mut cases, mut pieced) = (0, 0, 0);
+        for (k, (name, rows, writes)) in grids.iter().enumerate() {
             let around = (last_row(rows) + 1, 18);
-            for how in [
-                Spelling::One,
-                Spelling::Rows,
-                Spelling::Cols,
-                Spelling::Cells(2),
-            ] {
+            let hows: &[Spelling] = if k < regular {
+                &[
+                    Spelling::One,
+                    Spelling::Rows,
+                    Spelling::Cols,
+                    Spelling::Cells(2),
+                ]
+            } else {
+                &[Spelling::One]
+            };
+            for &how in hows {
                 let text = spelled(rows, how);
                 for way in [None, Some(None), Some(Some(true)), Some(Some(false))] {
                     let _every = way.map(crate::calc::reach::every::sheet_indexed);
                     let when = format!("{name}, {how:?}, every sheet indexed {way:?}");
                     let mut m = load(&text);
                     indexed += reaches_as_the_scan_does(&m, around, &when);
+                    pieced += usize::from(m.shapes.reach().pieces() > 0);
                     for write in writes {
                         assert!(m.step(0).done);
                         if m.write(write).is_ok() {
@@ -9409,9 +9681,10 @@ mod tests {
                 }
             }
         }
+        let far = grids.len() - regular;
         assert!(
-            cases == grids.len() * 16 && indexed > cases * 2,
-            "{indexed} sheets indexed over {cases} cases: too few for the law to hold over"
+            cases == regular * 16 + far * 4 && indexed > cases * 2 && pieced == far * 4,
+            "{indexed} sheets indexed and {pieced} grids pieced over {cases} cases: too few for the law to hold over"
         );
     }
 
@@ -9506,51 +9779,126 @@ mod tests {
     /// lower, so that each pair is one shape (`KERNEL.34`'s rule, one text one
     /// shape) whose cells' box is 1,001 rows tall.
     fn far_apart(p: u32) -> String {
+        far_apart_as(p, false)
+    }
+
+    /// [`far_apart`], each copy given a text of its own (`+0*k`,
+    /// KERNEL.35's spelling) where `own`, so that no shape is cut.
+    fn far_apart_as(p: u32, own: bool) -> String {
         let gap = 1000;
         let rows = 2 * p + gap + 1;
         let mut s = format!("(cell \"S\" \"A1:A{rows}\" 1)\n");
         for i in 1..=p {
             for at in [i, i + gap] {
-                s.push_str(&format!("(formula \"S\" \"C{at}\" \"=A{}\")\n", at + i));
+                let own = if own {
+                    format!("+0*{at}")
+                } else {
+                    String::new()
+                };
+                s.push_str(&format!(
+                    "(formula \"S\" \"C{at}\" \"=A{}{own}\")\n",
+                    at + i
+                ));
             }
         }
         s
     }
 
     #[test]
-    fn far_apart_cells_of_one_text_are_checked_by_every_change_as_found() {
-        // KERNEL.54, counted and not timed, as found: three value cells
-        // written, each read by the first cell of one pair, and the frame's
-        // six changed cells, those three and the three formulas reading them,
-        // each checked against every pair's reader: a reader's footprint is
-        // read over its shape's box, 1,001 rows, too wide to file, so the
-        // sheet's index would not halve them and every change scans them all,
-        // six times the pairs at 32 pairs and at 64.
+    fn far_apart_cells_of_one_text_are_checked_where_a_change_reaches_them() {
+        // KERNEL.54, counted and not timed: three value cells written, each
+        // read by the first cell of one pair, and the frame's six changed
+        // cells, those three and the three formulas reading them. Each pair's
+        // shape is cut into two pieces, its reader filed once a piece over
+        // the piece's one cell, so the sheet's readers, two a pair, are
+        // indexed by rows, a band each: A2, A4 and A6 meet one reader each,
+        // C2 the reader of row 2, and C1 and C3 none, four at 32 pairs and at
+        // 64, as many as the same grid with every copy its own shape. They
+        // were each checked against every pair's reader, its footprint read
+        // over its shape's box of 1,001 rows, too wide to file: 192 and 384.
         use crate::calc::reach::checked;
         for p in [32u32, 64] {
-            let mut m = load(&far_apart(p));
-            assert!(m.step(0).done && m.step(0).done);
-            for i in [1u32, 2, 3] {
-                assert_eq!(m.write(&format!("(cell \"S\" \"A{}\" 2)", 2 * i)), Ok(1));
+            let mut checks = Vec::new();
+            for own in [false, true] {
+                let mut m = load(&far_apart_as(p, own));
+                assert!(m.step(0).done && m.step(0).done);
+                for i in [1u32, 2, 3] {
+                    assert_eq!(m.write(&format!("(cell \"S\" \"A{}\" 2)", 2 * i)), Ok(1));
+                }
+                checked::begin();
+                assert!(m.step(0).done);
+                checks.push(checked::end());
+                assert_eq!(m.changed(), 3, "{p} pairs: the formulas the frame changed");
+                let census = m.census();
+                assert!(
+                    census.contains(&format!("(readers \"S\" {} (most 1))\n", 2 * p)),
+                    "{p} pairs, each copy its own text {own}: {census}"
+                );
             }
-            checked::begin();
-            assert!(m.step(0).done);
-            let frame = checked::end();
-            assert_eq!(m.changed(), 3, "{p} pairs: the formulas the frame changed");
-            assert_eq!(frame, 6 * u64::from(p), "{p} pairs: the readers checked");
-            let census = m.census();
-            assert!(
-                census.contains(&format!("(readers \"S\" {p})\n")),
-                "{p} pairs: {census}"
+            assert_eq!(
+                checks,
+                [4, 4],
+                "{p} pairs: the readers checked, pieced and each copy its own shape"
             );
         }
     }
 
     #[test]
-    fn a_value_written_walks_its_sheet_for_its_extent_as_found() {
-        // KERNEL.54, counted, as found: one value written into a sheet of
-        // `2n` cells walks every one of them for the sheet's extent
-        // (`Sheet::extent`, from `settle`), at 100 rows and at 1,000.
+    fn a_far_apart_shape_is_cut_by_tiles_its_moving_references_filed_a_piece() {
+        // KERNEL.54: one text at C31, C32, C1000, C1005 and C2000, its box
+        // 1,970 rows by one column, its five cells a 394th of it, cut into
+        // pieces by tiles of 32 rows and columns: C31 and C32 either side of
+        // a tile's edge, C1000 and C1005 one piece; its moving reference
+        // filed once a piece, its held rectangle and its part once. Another
+        // text at AE3000, AF3000 and AE5000, its columns either side of a
+        // tile's edge, three pieces; and a fill of 200 rows, its every cell
+        // in its box, one shape and one reader as before. A change reaches
+        // each piece's cells: C1005, the second cell of its piece.
+        let mut rows = String::from(concat!(
+            "(cell \"S\" \"A1:A200\" 1)\n(cell \"S\" \"B1:B3\" 1)\n(cell \"S\" \"D1\" 10)\n",
+            "(formula \"S\" \"E1:E200\" \"=A1+1\")\n",
+        ));
+        for r in [31, 32, 1000, 1005, 2000] {
+            if r > 200 {
+                rows.push_str(&format!("(cell \"S\" \"A{r}\" 1)\n"));
+            }
+            rows.push_str(&format!(
+                "(formula \"S\" \"C{r}\" \"=A{r}*2+SUM($B$1:$B$3)+$D$1\")\n"
+            ));
+        }
+        for (at, read) in [
+            ("AE3000", "A3000"),
+            ("AF3000", "B3000"),
+            ("AE5000", "A5000"),
+        ] {
+            rows.push_str(&format!("(formula \"S\" \"{at}\" \"={read}*3\")\n"));
+        }
+        let mut m = load(&rows);
+        let census = m.census();
+        assert!(
+            census.contains("(readers \"S\" 10)\n"),
+            "four pieces' and one held rectangle's and one part's readers, three pieces', one fill's: {census}"
+        );
+        assert!(m.step(0).done);
+        assert_eq!(m.write("(cell \"S\" \"A1005\" 7)"), Ok(1));
+        assert!(m.step(0).done);
+        assert_eq!(m.changed(), 1, "C1005 alone changed");
+        let c1005 = m.shapes.reach().position((0, 1005, 3)).expect("C1005");
+        assert_eq!(
+            m.values[c1005],
+            Some(Computed::Value(Value::Number(27.0))),
+            "7 * 2 + 3 + 10"
+        );
+    }
+
+    #[test]
+    fn a_value_written_walks_no_cell_for_its_extent() {
+        // KERNEL.54, counted: one value written into a sheet of `2n` cells,
+        // at 100 rows and at 1,000, walks none of them for the sheet's
+        // extent, grown by the cells the write changed, where it walked every
+        // one of them (`Sheet::extent`, from `settle`): 200 and 2,000. The
+        // extent kept is the sheet's walked, after that write and after one
+        // past the extent's corner.
         for n in [100u32, 1000] {
             let mut m = load(&format!(
                 "(cell \"S\" \"A1:A{n}\" 1)\n(formula \"S\" \"B1:B{n}\" \"=A1*2\")\n"
@@ -9559,12 +9907,31 @@ mod tests {
             crate::sheet::work::begin();
             assert_eq!(m.write("(cell \"S\" \"A5\" 3)"), Ok(1));
             let work = crate::sheet::work::end();
-            assert_eq!(
-                work.extents,
-                2 * u64::from(n),
-                "{n} rows: the cells walked for the extent"
-            );
+            assert_eq!(work.extents, 0, "{n} rows: the cells walked for the extent");
+            assert_eq!(m.extents[0], m.book.sheets[0].extent(), "{n} rows");
+            let far = format!("(cell \"S\" \"{}\" 3)", crate::sheet::cell_ref(n + 7, 4));
+            assert_eq!(m.write(&far), Ok(1));
+            assert_eq!(m.extents[0], Some(((1, 1), (n + 7, 4))), "{n} rows: {far}");
+            assert_eq!(m.extents[0], m.book.sheets[0].extent(), "{n} rows: {far}");
         }
+    }
+
+    #[test]
+    fn a_refused_write_leaves_the_extents_it_found() {
+        // KERNEL.54: a write whose first row lands past the extent's corner
+        // and whose second makes a cycle is refused when it settles, after
+        // its extent grew by the first; the undo puts back the extent the
+        // write found, where it walked the sheet again.
+        let mut m = load("(cell \"S\" \"A1:A10\" 1)\n(formula \"S\" \"B1:B10\" \"=A1*2\")\n");
+        assert!(m.step(0).done);
+        let found = m.extents.clone();
+        let refused = m.write("(cell \"S\" \"Z500\" 1)\n(formula \"S\" \"C1\" \"=C1+1\")\n");
+        assert_eq!(
+            refused.map_err(|e| e.refusal.id),
+            Err("calc-cycle".to_string())
+        );
+        assert_eq!(m.extents, found, "the extents the write found");
+        assert_eq!(m.extents[0], m.book.sheets[0].extent());
     }
 
     /// `n` cells alone, each a shape of its own reading the value beside it
@@ -9579,33 +9946,41 @@ mod tests {
     }
 
     #[test]
-    fn an_idle_frame_visits_every_cell_alone_and_every_shape_as_found() {
-        // KERNEL.54, counted, as found: a frame that computes nothing asks
-        // each of its `n` cells alone whether to compute it, visits its run,
-        // asks each of its `n + 1` shapes for its parts, and clears every
-        // shape's two flags and every word of its marks, at 64 cells alone and
-        // at 128.
+    fn an_idle_frame_touches_nothing_and_a_cone_its_marks() {
+        // KERNEL.54, counted: at 64 cells alone and at 128 beside a run, a
+        // frame that computes nothing visits no position, no run and no
+        // shape and clears nothing, where it asked each of its `n` cells
+        // alone, visited its run, asked each of its `n + 1` shapes for its
+        // parts and cleared every shape's two flags and every word of its
+        // marks; after one value written, its frame visits its two marks,
+        // the cell alone and the run's cell, and clears their two words; and
+        // the frame after it, nothing again.
+        let idle = walk::Walk::default();
+        let cone = walk::Walk {
+            visited: 1,
+            runs: 1,
+            shapes: 0,
+            cleared: 2,
+        };
         for n in [64u32, 128] {
             let mut m = load(&alone_and_a_run(n));
             for _ in 0..3 {
                 assert!(m.step(0).done);
             }
-            walk::begin();
-            assert!(m.step(0).done);
-            let w = walk::end();
-            assert_eq!(m.reached(), 0, "{n}: the frame computed nothing");
-            let shapes = u64::from(n) + 1;
-            let words = u64::from(2 * n).div_ceil(64);
-            assert_eq!(
-                w,
-                walk::Walk {
-                    visited: u64::from(n),
-                    runs: 1,
-                    shapes,
-                    cleared: words + 2 * shapes,
-                },
-                "{n} cells alone: what an idle frame touched"
-            );
+            for (write, want, reached) in [(None, idle, 0), (Some(5), cone, 2), (None, idle, 0)] {
+                if let Some(v) = write {
+                    assert_eq!(m.write(&format!("(cell \"S\" \"A5\" {v})")), Ok(1));
+                }
+                walk::begin();
+                assert!(m.step(0).done);
+                let w = walk::end();
+                assert_eq!(
+                    m.reached(),
+                    reached,
+                    "{n} cells alone: what the frame computed"
+                );
+                assert_eq!(w, want, "{n} cells alone: what the frame touched");
+            }
         }
     }
 
