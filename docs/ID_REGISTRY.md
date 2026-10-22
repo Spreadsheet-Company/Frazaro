@@ -299,6 +299,13 @@ as Excel reads it, or kept whole and named where Excel would cut it.
 owner's word, from the same slice's labelled rows, for Excel's computed
 criteria: a database function's formula computed at each record with its
 relative references moved there. `KERNEL.53` is next free.
+`KERNEL.53` was minted 2026-10-21 at the owner's word of 2026-10-20, given
+at Alonzo's `SPEC.5` hand test beside Alonzo's `ENGINE.29`, from `CART.9`
+(Naught, whose decision 20 keeps a level's gates by its words and stars, no
+formula reading which formula another cell holds), for `FORMULATEXT` and
+`ISFORMULA` in `vla-lang`'s library: whether a cell holds a formula, and
+the formula's text, read by a formula from the cell's reference, so that a
+cartridge reads which formula a person wrote. `KERNEL.54` is next free.
 `KERNEL.54` was minted 2026-10-21 at the owner's word, from Alonzo's
 `CART.9` (Naught, whose scoping probe measured three costs of `vla-lang`
 that grow with the grid where they should grow with the change), for a

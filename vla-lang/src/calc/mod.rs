@@ -56,6 +56,10 @@
 //! holding a digit no rule reads labelled in arithmetic as in `VALUE`, a
 //! locale's number.
 //!
+//! A formula reads another cell's formula since KERNEL.53 (2026-10-21,
+//! `formulas`): `ISFORMULA`, and `FORMULATEXT`, the text the view record
+//! prints, labelled where Excel's formula bar spells it otherwise.
+//!
 //! What is not here, by name, each a slice of its own: the `SUMIFS` family
 //! and the database functions, arrays within a formula (`KERNEL.8`'s later
 //! slices), spills (an item of their own), `LET` and `LAMBDA`
@@ -75,6 +79,7 @@ pub mod dates;
 pub mod dense;
 pub mod eval;
 pub mod formula;
+pub(crate) mod formulas;
 pub mod graph;
 pub mod index;
 pub mod library;

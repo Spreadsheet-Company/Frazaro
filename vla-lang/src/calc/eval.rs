@@ -359,6 +359,9 @@ impl Known {
 /// own. An engine's machine computes a cell again only when a cell it reads
 /// has changed (KERNEL.20, `super::reach`), so a function that answered
 /// differently over the same arguments would be computed once and kept.
+/// `ISFORMULA` and `FORMULATEXT` (KERNEL.53) read the formula a cell their
+/// reference names holds, which only a write changes, and a write that
+/// changes a formula has the next frame compute every cell.
 #[derive(Clone, Default)]
 pub struct Library {
     /// Each strict function, whether it is one an evaluation of many cells at

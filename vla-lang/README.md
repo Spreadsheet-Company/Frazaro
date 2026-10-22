@@ -137,7 +137,10 @@ refused in the same words.
   `STDEV`, `VAR` and their newer names), and the array functions
   (`calc::arrays`: `SEQUENCE`, `FILTER`, `SORT`, `UNIQUE`, `SUMPRODUCT`,
   `MMULT`, the shapers `TAKE`, `HSTACK`, `TOCOL` and the rest, `#CALC!`
-  for an array with nothing in it). A crate above registers more, as
+  for an array with nothing in it), and a cell's formula read by its
+  reference (`calc::formulas`: `ISFORMULA`, and `FORMULATEXT`, the text
+  the view record prints, labelled where Excel's formula bar may spell it
+  otherwise). A crate above registers more, as
   `frazaro-core` registers Excel's library by measurement. A lookup or a
   criterion asked of one range again and again searches the range's
   index (`calc::Indexes`), built at its second probe in one evaluation and

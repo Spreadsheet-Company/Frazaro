@@ -35127,6 +35127,281 @@ cost, its whole frame 320 ns a gate, every gate a shape computed alone,
 which `KERNEL.49`'s addendum weighs; and the empty cell's two whole frames
 stand under the scoping's *Found*.
 
+**`KERNEL.53`, `FORMULATEXT` and `ISFORMULA` in the language: scoped at
+its build and built, 2026-10-21.** Minted the same day at the owner's word of
+2026-10-20 (Alonzo's `SPEC.5` hand test, for `CART.9`'s decision 20), mint
+only, its line leaving five decisions open with no recommendation. The
+owner's word to build: "Recommendations approved; proceed with implementing
+KERNEL.53 as scoped." No scoping held recommendations, so the build scoped
+the item as `KERNEL.8`'s slices were scoped at theirs: the decisions read
+against the code and Microsoft's pages, the two with real alternatives put
+to the owner and answered as recommended, the others taken by the code and
+stated here for the owner to overrule at the hand test. HEAD `8586732`
+(`KERNEL.54` closed), built in a worktree of its own, since `KERNEL.49`'s
+second slice rebuilds the machine's stores and `KERNEL.50`'s build stands in
+the shared tree's docs, neither touched.
+
+*What it stands on, read in the code at `8586732`.*
+- A formula calling either was `(not-computed "FORMULATEXT")`, a function
+  the library does not hold (`calc/eval.rs`); the writer already spelled
+  both with the file's `_xlfn.` prefix (`core/src/sheet/xlfn.rs`).
+- A formula's text is held and spelled once: `sheet::formula_text`, "a
+  formula's text as the formula bar shows it, without its `=`, the file's
+  prefixes dropped", a fill's cell its master's text moved to it, which the
+  view record prints with its `=`. `KERNEL.49`'s record names this item:
+  after its third slice the grid answers a cell's formula text "from a
+  fill's shape moved to the cell, as the record moves it".
+- A function given a reference receives it as `Arg::Area`, moved to the cell
+  being computed (`Ctx::reference`); `ROW` and `COLUMN` read its place
+  (`library::position`) and, since `KERNEL.8`'s sixth slice, answer an array
+  of many where the expression is read as arrays (`Ctx::placed_many`).
+- The plan reads every reference of a formula's text as an edge, by the
+  scanner and not the parse (`graph::reads`), whatever call it stands in, so
+  that `=ROW(A1)` in `A1` is a cycle.
+- A write that changes a formula, or puts a value over one, has the next
+  frame compute every cell (`Machine::settle`, `every_next`): a formula
+  rewritten to the value it had computes its readers again with no code of
+  this item's.
+- The parser refuses by name the spellings Excel's bar shows otherwise, `@`,
+  `A1#`, a table's reference and another workbook's, and a text past 8,192
+  characters, its `=` aside (`formula::LENGTH_LIMIT`).
+- Microsoft's pages: `FORMULATEXT` "returns what is displayed in the formula
+  bar if you select the referenced cell", `#N/A` for a cell with no formula,
+  one past 8,192 characters, one a sheet's protection hides and one in a
+  workbook not open, a range's "upper leftmost cell", its own cell no
+  circular reference, `#VALUE!` for an invalid type; `ISFORMULA` TRUE or
+  FALSE, `#VALUE!` for "a defined name that is not a reference".
+
+*The decisions.*
+1. *The text as written or as the formula syntax writes it back.* Taken: as
+   written, the record's text with its `=`, which for a workbook Excel saved
+   is the spelling Excel saved and its bar shows (spaces kept, names in
+   capitals, the prefixes dropped); the formula syntax's writer would spell
+   it anew. One function for both, so that `KERNEL.49`'s third slice moves
+   the record and this item together.
+2. *A1 or R1C1.* Taken: A1, the record's and Excel's default; a workbook
+   saved in R1C1 style under *Found*.
+3. *Whether a step may read a formula's text.* Taken: yes. A formula changes
+   only by a write, which a replay holds, so a frame's values still follow
+   from the rows and the acts; a `.last` twin holds values alone, so its
+   cells hold no formula (`FALSE`, `#N/A`).
+4. *Recalculation.* A formula rewritten to the value it had, or a value
+   written over the formula that gave it: the machine's write computes every
+   cell at the next frame as it stood, held by a test through the machine's
+   public calls, so that a later plan that kept only a value's change would
+   fail it. A cell reading its own formula, asked: "A cycle, as ROW's is
+   (Recommended)", `(not-computed cycle)` at a door and a write refused as
+   `calc-cycle` by an engine, where Excel computes it; the general rule under
+   *Found*.
+5. *A range.* Taken: its first cell's answer where one value is wanted,
+   Microsoft's page's, and each cell's where the expression is read as
+   arrays, as `ROW`'s since `KERNEL.8`'s sixth slice, so that
+   `SUMPRODUCT(--ISFORMULA(A1:A9))` counts a range's formulas; a reference
+   handed whole to `SUM` or `COUNTA` in a legacy formula read where one value
+   is wanted, as `=SUM(ROW(A1:A6))` is 1 in Excel's save of the arrays'
+   fixture (its A59). Excel's save to tell.
+6. *The `@`*, found at the build: Excel 365 shows an `@` in a legacy formula
+   where it may intersect a range, and the file holds none. Asked: "Label
+   where an @ may show (Recommended)": `(not-computed "a formula Excel shows
+   with @")` for `SINGLE` and for a legacy formula where the rule below finds
+   one may show; the text never guessed.
+7. *The other spellings*, taken by the same reading: `ANCHORARRAY`, Excel's
+   `#`, `(not-computed "a formula Excel shows with #")`; a construct the
+   parser does not read by its own name; a text past 8,192 characters `#N/A`,
+   before the parse that would refuse it; a legacy array formula in braces,
+   what the bar displays.
+8. *Where.* The language's library, as the item says, each function
+   registered as answering an operand (`Library::register_arrayed`), its
+   parameter a reference handed whole, so that a run and a program never
+   take one and every path computes it as `Ctx` does; a reference over a
+   span of sheets labelled for Excel's save to tell (folded to `#VALUE!` at
+   the first save, below); a value or an array `#VALUE!`; an error the
+   error.
+9. *The release.* Additive: two names in the library, no public call or
+   record moved, no golden but the new fixture's; to be released in 0.11.0
+   beside `KERNEL.8`'s sixth slice and `KERNEL.54`.
+
+*The `@` rule* (`calc::formulas`, `may_show_at`): Microsoft's page "Implicit
+intersection operator: @" read as a walk of the formula's parse in three
+readings: one value wanted (the top, an operator's operands, a parameter of
+one value, and `IFERROR`'s and `IFNA`'s arguments, forced so in a legacy
+formula even inside an array parameter, as `KERNEL.8`'s sixth slice found),
+handed whole (a parameter taking a reference, `SUM`'s, where a reference is
+not intersected but an operator inside still is), and inside an array
+parameter (`SUMPRODUCT`'s, a lookup's vector), where nothing is. Where one
+value is wanted it marks a reference of more than one cell, `:` between
+expressions, a defined name of more than one cell, and a call that may
+answer a reference of many (`INDEX`, `XLOOKUP`, a function the library does
+not hold, as Excel marks an add-in's). Anywhere but inside an array
+parameter it marks a call answering an array where a dynamic formula reads
+it and one value where a legacy formula does: an array function, and `ROW`,
+`COLUMN`, `ISFORMULA` or `FORMULATEXT` of many cells. The rule was first
+written to mark these only where one value is wanted; it was tightened at
+the build when `=SUM(ROW(A1:A6))`, 1 in Excel's save where a dynamic reading
+gives 21, showed that Microsoft's exception for a call wrapped in `SUM` is
+one answering a reference, whose meaning the two readings share. The rule
+may mark where Excel shows none, a label where a text would have agreed; it
+is not to miss one Excel shows.
+
+*Built.*
+- `vla-lang/src/calc/formulas.rs`, new: the two functions over one reading
+  of a call's argument, the text at a cell, its spellings and the `@` rule;
+  registered in `library::language`, whose header, the module list's and the
+  `Library`'s note a cell's formula as the one thing a function reads beside
+  its arguments and its cell, which only a write changes.
+- `core/src/excel.rs`: the subset's two rows, admitted on their fixture
+  alone as `IFS` was, Excel having added them in 2013, after both corpora
+  were gathered.
+- Tests: the module's nine (each kind of cell, the texts, a range, an
+  argument naming no cell, the spellings, the kinds, a name, the length, the
+  cycle), the library's names test with `KERNEL_53`, and
+  `vla-lang/tests/formula_reads.rs` through the machine's public calls: a
+  formula rewritten to the same value, a value over a formula and a formula
+  over a value read anew at the next frame, a fill's text, a twin's cells,
+  `SUMPRODUCT` counting, and a write of a cell reading its own formula
+  refused as `calc-cycle`, `ROW`'s beside it.
+- The fixture, `scripts/recalc/formulas.txt`: a Data sheet of the formulas
+  read, an Other sheet of one, and a Functions sheet of 63 probes, built into
+  `formulas.xlsx`, 93 formulas, 79 agreeing with the build and 14 labelled
+  (nine texts the rule marks, two spans of sheets, two cells reading their
+  own formulas, a function the language does not hold); `formulas_calc.vla`,
+  the census `shapes/formulas.vla` (68 lines), `prove.ps1`'s twentieth calc
+  row (60 passed), and oracle 12's amendment of 2026-10-21.
+- Twenty-five mutants (the scratchpad's `k53/mutants.pl`), each failing
+  named tests and each file put back byte for byte: six cases written before
+  the run for faults reading the tests found unheld (the lift handed whole to
+  `SUM` and to `COUNTA`, `IFERROR` forced inside an array parameter, an array
+  function and a lifting reference handed whole, `:` between expressions and
+  a sign over a range), one mutant's anchor rewritten to apply.
+- `run_checks` 58 of 58 in the worktree; clippy with warnings denied over
+  every target and with `c-abi`; rustfmt; `cargo test --workspace
+  --no-fail-fast` (the core's 196, the language's 357, its thirteen laws and
+  the machine's two); both wasm modules and their checks; the package's
+  checks; the memory runner's check mode, every program's bytes within its
+  ceilings, the two names held by nothing it weighs.
+- *Alonzo and Buffet over the slice*, copies of their `HEAD`s by a path:
+  Alonzo's (`3e3ad7a`) 79 tests and its doctest, every replay to its golden
+  and the describe goldens; `frames -- --check` every frame of its twelve
+  fixtures equal, and against the same copy over `HEAD`'s language
+  (`8586732`) the digests, the allocations and the reallocations the same to
+  the count, every grid 20 bytes more, the two names' letters. Buffet's
+  (`f5dcde1`), its pins of `alonzo` 0.2.0 and `vla-lang` 0.10.0 patched to
+  Alonzo's copy and the slice: its 38 and 54 tests.
+- *Moved onto `37306af` and `45f5b43`*, `KERNEL.50`'s first slice and
+  `KERNEL.49`'s second, committed while this waited: rebased in a worktree
+  by the slice's patch, two appended sections ordered after `KERNEL.50`'s,
+  every test and check run again (`run_checks` 58 of 58 there, the fixture
+  built again byte for byte the same). `KERNEL.49`'s session ran this item's
+  tests over its second slice, the module's 13, the machine's 2 and the
+  language's 366 with these 9 among them, `settle`'s whole frame after a
+  formula write unchanged; and the census `shapes/formulas.vla` was written
+  again by the door at `45f5b43`, four lines of 68 moving in their reads
+  alone, `lookup` to `slot`, that slice keeping every value by place
+  (`run_checks` 59 of 59 in the shared tree after it).
+
+*The hand test and Excel's save, the probes and the stop rule stated before
+the first save.* The owner opens `formulas.xlsx` in Excel 365, enters
+`Data!D1` again as a legacy array formula with Ctrl+Shift+Enter, computes
+the workbook whole and saves it as `formulas_saved.xlsx`, Excel's notice of
+a circular reference, if it shows one, being two probes (`A17`, `A52`). One
+save is planned, a second only to confirm what the first corrects:
+- The `@`: where Excel's text for a formula the rule marks holds none
+  (Functions `A31`, `A32`, `A34`, `A36`, `A40`, `A41`, `A45`, `A48` before
+  the braces, `A62`), the label goes for the reading that marked it; where
+  the text of one it does not mark holds one (`A23`, `A25` to `A30`, `A33`,
+  `A35`, `A37` to `A39`, `A42` to `A44`, `A46`, `A47`, `A49`, `A53`, `A63`),
+  the rule marks that reading; never a third save.
+- The braces (`A48`, `Data!D1` entered again): Excel's text decides them.
+- A range: `A3` and `A5` tell the first cell from the row's own, and `A18` to
+  `A20`, `A54`, `A55`, `A58`, `A60` and `A61` the lift from none; Excel's
+  answer folded.
+- A span of sheets (`A16`, `A50`): folded where Excel answers an error or the
+  first sheet's cell, else labelled.
+- A cell reading its own formula (`A17`, `A52`): the owner's decision stands
+  whatever Excel answers.
+- An answer Excel gives otherwise from one copy of a formula to another in
+  one save is labelled.
+
+*Excel's first save, 2026-10-22.* The owner's hand test held: the module's
+13 and the machine's 2, `run_checks` 59 of 59, the counts as built. The save,
+`formulas_saved.xlsx` (the scratchpad's `k53/saves/first.xlsx`), 93 formulas,
+the 79 the door computes all agreeing, among them the two texts Excel
+spells otherwise than the build wrote them, `=SUM(A1:A2)` for a target
+written in small letters and `=data!A1*3` with the sheet's own case, each
+as Excel saved its formula again. Its labelled rows answered the rest:
+- The `@`: Excel's text shows an `@` in every formula the rule marks (`=@C1:C3`,
+  `=@C1:C3*2`, `=@ROW(C1:C3)`, `=LEN(@C1:C3)`, `=SUM(@C1:C3*2)`,
+  `=IFERROR(@C1:C3,0)`, `=SUM(@ROW(C1:C3))`, and `SINGLE` as `=@C1:C3`) and
+  in none it does not (`=SUM(IF(A1>5,C1:C3,0))`, `=SUMPRODUCT(C1:C3*2)`,
+  `=SUMPRODUCT(ROW(C1:C3))` and the rest): the rule stands, its labels
+  kept.
+- A range: the first cell where one value is wanted (`A3` FALSE, `A5`
+  `#N/A`), each cell where read as arrays (`A54` `=A4+100`, `A58` 8), and the
+  first cell handed whole to `SUM` and `COUNTA` in a legacy formula (`A60`
+  0, `A61` 1), as built.
+- A span of sheets: `#VALUE!` for both functions, folded (`calc::formulas`'s
+  `of_cells`) and held to this save, `A16` and `A50` agreeing; its two
+  mutants, the span read at its first sheet and answered `#REF!`, each
+  failing the arguments test.
+- A cell reading its own formula: Excel computes both, TRUE and
+  `=FORMULATEXT(A52)`, with no notice of a cycle; the owner's decision
+  stands.
+- The braces: not witnessed. Excel's bar showed `Data!D1` with an `@`,
+  `=SUM(@C1:C3*2)`, the very display this item labels, so its
+  Ctrl+Shift+Enter made `{=SUM(@C1:C3*2)}`, whose `@` intersects inside the
+  array formula (2), and the save held D1 as written, a legacy formula. D1
+  is now `=SUM(C1:C3)`, which Excel shows with no `@`, for the second save.
+- Excel writes each `FORMULATEXT` cell with `ca="1"`, calculate always: its
+  own answer to a formula rewritten with no value changed, where the
+  machine's is the whole frame after a write that changes a formula.
+
+The fixture built again, 82 of its 93 formulas agreeing and 11 labelled,
+the door's verdict over the first save 81 agreeing and 0 differing. The
+second save, the stop rule's one, confirms the span's fold and witnesses
+the braces: where `A48` then shows `{=SUM(C1:C3)}` the braces stand, where
+it shows `=SUM(C1:C3)` they go, folded and held to that save; never a third.
+
+*Excel's second save, 2026-10-22*, the stop rule's last (the scratchpad's
+`k53/saves/second.xlsx`). `Data!D1`, shown `=SUM(C1:C3)` with no `@`, was
+entered again with Ctrl+Shift+Enter, `{=SUM(C1:C3)}`, and its `FORMULATEXT`
+was `{=SUM(C1:C3)}`, the braces as built; the span's `#VALUE!` agreed; no
+notice. `formulas_saved.xlsx` joins oracle 12's table at `no-differ`
+(`formulas_saved_calc.vla`): 93 formulas, the 82 the door computes agreeing
+with Excel's and 11 labelled (the eight texts Excel shows with an `@`, the
+two cells reading their own formulas, `FACT`), its goldens written by a door
+of `45f5b43` and this item alone and the same from the shared tree's; its
+census 68 lines, the build's but for the spelling Excel saved and D1 a
+legacy array formula; `prove.ps1`'s twenty-first calc row, 61 passed.
+
+*Found* (measured, unminted):
+1. A reference read for its place or its formula is an edge of the plan, so
+   that `=ROW(A1)`, `=ISFORMULA(A1)` and `=FORMULATEXT(A1)` in `A1` are
+   cycles where Excel computes `FORMULATEXT`'s (Microsoft's page); a rule of
+   every planner (`graph::reads` reads the text, not the parse), which
+   `KERNEL.49` rebuilds.
+2. A workbook saved in R1C1 style: Excel's bar, and so `FORMULATEXT`,
+   spells R1C1; the reader does not read the style (`calcPr`'s `refMode`),
+   so the text answers A1 there.
+3. A locale: Excel's bar shows its own language's names and separators; the
+   text is the English the file holds.
+4. A sheet's protection hiding a formula: Excel answers `#N/A`; the reader
+   reads neither a cell's hidden flag nor a sheet's protection.
+5. The writer writes both as legacy formulas, an array-capable call being
+   its rule for a dynamic one (`xlfn.rs`'s `ARRAY_CAPABLE`); whether Excel's
+   `Formula2` makes `FORMULATEXT(A1:A3)` dynamic is `KERNEL.55`'s writer
+   rule.
+6. `FORMULATEXT` of a fill's cell walks its sheet for the fill's master
+   (`sheet::shared_masters`) at every evaluation, as the record's view does,
+   so that a frame reading many such cells pays a walk each, which
+   `KERNEL.49`'s third slice, answering from the shape, takes out.
+
+**Closed ✅ and committed 2026-10-22 at the owner's word**, its roadmap line
+moved to the closed ledger; to be released in 0.11.0 beside `KERNEL.8`'s
+sixth slice, `KERNEL.54` and `KERNEL.49`'s second. What it leaves: a level of
+Naught may now hold a person's gate to its set by a formula of its own
+(Alonzo's `CART.9`, its decision 20, Alonzo's to take), and the *Found*
+above, unminted.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -48607,6 +48882,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.48 — a frame's own count: the formula cells whose values the last complete frame changed, read in constant time on `vla-lang`'s `Machine`, so that a host steps a grid again while a cascade still moves and stops when it has settled.** Minted 2026-10-18 at the owner's word, from Alonzo's `CART.12` (the large board at rate zero, a cascade settled inside an edit); scoped, approved, built, owner-tested and committed the same day. `Machine::changed` answers how many formula cells the last complete frame changed the value of, to the bit as the frame keeps a value (a first value, a 0 turned to -0 and a reason turned to another counted, a value cell never), `Machine::changed_on` how many of them stand on a sheet by its index, and `Machine::reached` how many formula cells the frame computed: each a field's read, 0 before the first frame, the last complete frame's during a yield and after a write. A frame that changed nothing, with no write before it, is a fixed point, the next frame with none before it changing nothing; so a host settles a grid by stepping again while the last frame changed a formula's value or had a write before it, the frame right after a write never the proof, since a formula reading a written cell's twin sees it a frame later (the scoping's stronger clause corrected in the build). Each sheet's share is counted in the copy's loop at the frame's end, where a pass over the list had cost Life's board of 1280 by 800 2% of its frame: a frame costs what it cost, natively and in wasm, and the recalculation floors are as they were. Held by a twelfth law over four families (the counts against every formula's value read to the bit, stepped whole and in slices, across writes, and the fixed point wherever its condition held), unit tests with each of the machine's paths turned off, and twenty-one mutants, each failing named tests once a survivor's blind spot, the counts across a write, was held; Alonzo over it by path, its tests and every frame equal; the owner's hand test a board of 512 by 512 settled after a click, 342 frames, the frame past it still. Additive: no call, record, export or golden moved. Alonzo's half, the page's version 6 and its `(settle K)`, is `CART.12`'s. To be released in 0.10.1. `~days`, taken in a day. *(more: the scoping and the build's record, under the KERNEL line)*
 - ✅ **KERNEL.8 — recalculation, slice 2: dates, text, lookups and spills.** Scoped 2026-10-18 at the owner's word, its ten decisions approved whole, and built in six slices, each at the owner's word and committed before the next, 2026-10-19 to 2026-10-21, each held to Excel 365's own saves of its fixture, every cell the door computes agreeing: the lookups on an index (`e437b60`: thirteen functions in the language, a range searched again and again answering from an index exact by construction, both planners linear); implicit intersection and a formula's kind (`7056927`: a legacy formula's range where one value is wanted met at its cell, a dynamic-array formula told by the reader, `SINGLE` computed, the twin defect removed); the text functions (`3c74f39`: twenty-five, a text counted by its characters as Excel counts it, Excel's order of texts, dates and times in a number format's code); the dates (`3d06abc`: seventeen functions over Excel's 1900 calendar, every day from 1900 to 2101 held to Excel's save); the aggregates by criteria (`5431d8e`: the `SUMIFS` family, `SUBTOTAL` and the database functions over one tally, answered from groups of their ranges, a hidden row read, oracle 12's agreement amended at the owner's decision to fifteen digits at most one unit apart); and arrays within a formula (the sixth: Excel's lift and its parameters' classes, a value forced in a legacy formula among them, array constants and `:` between expressions, twenty-one array functions and shapers, `#CALC!` read from the rich values Excel saves it as, a legacy array formula computed, and the break batched into 0.11.0). Each slice's saves ended under a stop rule stated before the first, an edge Excel answered unstably or no save could settle labelled, an array past the grid's limit among them at the owner's decision. `LET` and `LAMBDA` went to `KERNEL.29`; `KERNEL.51`, `KERNEL.52` and `PORT.14` were minted from the fifth slice's Found; spills, an array laid into the cells beside its anchor, went with the sixth slice's dynamic-array Found to `KERNEL.55`, minted after the close. To be released, the first five slices in 0.10.2 and the sixth, which changes the public surface, in 0.11.0. `~quarter`, taken in four days. *(more: the scoping and the six slices' records, under the KERNEL line)*
 - ✅ **KERNEL.54 — a change's cost set by the change: a far-apart shape's readers filed by its pieces, a write's extent grown by its own cells, and a frame passing from one marked cell to the next, so that an edit costs what it reaches and not the grid it lands in.** Minted and scoped 2026-10-21 at the owner's word, from Alonzo's `CART.9`, whose probe found three costs of `vla-lang` 0.10.1 growing with the grid where they should grow with the change; its ten decisions approved whole, and built in two slices the same day, each at the owner's word: the instrument (`d1f163e`: the netlist bench program, `CART.9`'s adder of 4,096 bits shuffled with its coincidences kept, written by its generator and held to an adder by hand, its census's head pinned and three costs counted as found) and the three costs (the second: a shape whose cells stand far apart cut into pieces by tiles of 32, a write's extent grown by its own cells and its range read by its own keys, and a frame passing from one mark to the next through each shape's stretches and its own lists; the counts turned, a thirteenth law, the index held to the unpieced scan, eleven mutants, Alonzo's and Buffet's tests and frames over it). The netlist's edit 70.4 ms to 7.44, its census `(most 496)` to `(most 13)`; the coincident adder of 65,536 bits a frame in 293 ms where it took 26.4 s; a value written into a sheet of 458,753 cells 5.8 µs where 5.3 ms; an idle frame over 391,168 cells alone 1.4 µs where 428; every program a few kilobytes heavier, the netlist 0.57%. To be released in 0.11.0. `~days`, taken in a day. *(more: the scoping and the two slices' records, under the KERNEL line)*
+- ✅ **KERNEL.53 — `FORMULATEXT` and `ISFORMULA` in `vla-lang`'s library: whether a cell holds a formula, and the formula's text, read by a formula from the cell's reference, so that a cartridge reads which formula a person wrote and not only what it computes.** Minted 2026-10-21 at the owner's word of 2026-10-20, from Alonzo's `SPEC.5` hand test, for Naught (`CART.9`, its decision 20); scoped at its build the same day at the owner's word, its two decisions with alternatives taken as recommended (a cell reading its own formula a cycle, as a `ROW` of its own cell is; a text Excel 365 may show with an `@` labelled, never guessed); built, owner-tested and committed 2026-10-22. Both compute in the language (`calc::formulas`), each answering an operand so that every path computes it as `Ctx` does: the text the view record's, a fill's cell its master's text moved to it, a legacy array formula in braces, past 8,192 characters `#N/A`; a reference of many cells its first cell's answer where one value is wanted and each cell's where read as arrays; a span of sheets `#VALUE!`; a legacy formula Excel 365 may show with an `@` labelled by a walk of its parse in three readings, `SINGLE` and `ANCHORARRAY` too. A formula rewritten to the value it had is read anew, the machine computing every cell at the frame after a write that changes a formula, held by a test through the public calls. Held to Excel 365's two saves of its fixture, the second joined at `no-differ` (82 computed agreeing, 11 labelled): the first confirmed an `@` in every text the rule marks and in none it does not and folded a span of sheets to `#VALUE!`, the second witnessed a legacy array formula's braces; twenty-seven mutants, each failing named tests; Alonzo and Buffet over it by path, every frame equal, each grid 20 bytes more. To be released in 0.11.0. `~days`, taken in a day. *(more: the record, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

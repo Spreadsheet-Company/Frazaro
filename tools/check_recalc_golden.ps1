@@ -223,6 +223,21 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # array past the grid's limit labelled (the owner kept the label). arrays
 # 210, its agree floor lowered by one: A214 a #CALC! answer that holds no
 # value, 198 agreeing.
+# 2026-10-21, KERNEL.53, a formula read by a formula: formulas 95, the
+# fixture built by the door (scripts/recalc/formulas.txt), its 93 formulas
+# 79 agreeing with the values it wrote and 14 labelled: nine texts Excel
+# 365 may show with an @, two spans of sheets, the two cells reading their
+# own formulas (two cycle rows, so 95 lines), and a function the language
+# does not hold. Pinned 'built' until the owner's save of it,
+# formulas_saved.xlsx, joins this table.
+# 2026-10-22, folded to Excel's first save of it (every computed row
+# agreeing, every @ the rule marks shown by Excel, none it does not): a span
+# of sheets #VALUE!, and D1 a sum Excel shows with no @, for the second
+# save's legacy array formula: formulas 95, 82 agreeing and 11 labelled.
+# Excel's second save, the stop rule's last, D1 entered again with
+# Ctrl+Shift+Enter: its FORMULATEXT {=SUM(C1:C3)}, the braces as built, and
+# the span's fold agreeing; formulas_saved joins this table, 95 at
+# no-differ, its 82 computed agreeing with Excel's and 11 labelled.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -249,7 +264,9 @@ $goldens = @(
     @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Golden = 'scripts/recalc/criteria_calc.vla';      Floor = 228;  Pin = 'built';    AgreeFloor = 225 },
     @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 },
     @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 210;  Pin = 'built';    AgreeFloor = 198 },
-    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 213;  Pin = 'no-differ'; AgreeFloor = 210 }
+    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 213;  Pin = 'no-differ'; AgreeFloor = 210 },
+    @{ Name = 'formulas';      Fixture = 'scripts/recalc/formulas.xlsx';      Golden = 'scripts/recalc/formulas_calc.vla';      Floor = 95;   Pin = 'built';    AgreeFloor = 82 },
+    @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Golden = 'scripts/recalc/formulas_saved_calc.vla'; Floor = 95;  Pin = 'no-differ'; AgreeFloor = 82 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

@@ -1992,3 +1992,51 @@ own could not draw them. A format now says them, each property said or not.
   dropped, `appearance_drawn.vla`, which a painter draws alike. The writer's
   half, a workbook's fonts, borders and alignments held to Excel's own
   reading of each, is the item's second slice.
+
+## Amendment of 2026-10-21: oracle 12's formulas read by a formula (`KERNEL.53`)
+
+**The functions.** `ISFORMULA(reference)` is TRUE where the cell holds a
+formula and FALSE where it holds a value or nothing; `FORMULATEXT(reference)`
+is the formula's text as Excel's formula bar shows it, `#N/A` for a cell
+holding none and for a text longer than Excel's 8,192 characters, its `=`
+aside. Each reads a reference and never a value: a value or an array given
+is `#VALUE!`, and so is a reference over a span of sheets, as Excel 365's
+save answers both functions there; an error the error; and a reference of
+many cells its first cell's answer where one value is wanted, as
+Microsoft's page on `FORMULATEXT` has it, and each of its cells' where the
+expression is read as arrays, as `ROW`'s is, so that
+`SUMPRODUCT(--ISFORMULA(A1:A9))` counts a range's formulas.
+
+**The text.** The text is the one the view record prints for the cell, an
+`=` before it: the formula as its file writes it, the file's prefixes
+dropped, a fill's cell its master's text moved to it, a legacy array formula
+in the braces the bar shows. Where the bar may spell a formula otherwise the
+text is labelled, never guessed: `(not-computed "a formula Excel shows with
+@")` for `SINGLE`, and for a legacy formula holding, where one value is
+wanted, a reference of more than one cell or a call that may answer one,
+which Microsoft's page on the `@` says Excel 365 marks; `(not-computed "a
+formula Excel shows with #")` for `ANCHORARRAY`; and a construct the
+language does not read by its own name, a table's reference and another
+workbook's among them.
+
+**Labelled.** A cell reading its own formula, `(not-computed cycle)`, as a
+reference to its own cell is everywhere (`=ROW(A1)` in `A1`), where Excel
+computes it: the owner's decision of 2026-10-21, a reference read for its
+place or its formula being an edge of the plan.
+
+**The fixture.** `scripts/recalc/formulas.txt`, built by the door into
+`formulas.xlsx`, holds 93 formulas: a Data sheet of the formulas read, every
+kind the text spells among them and the legacy formulas the bar may mark
+with an `@` beside those it does not, a fill, and a sum the owner enters
+again as a legacy array formula; an Other sheet of one; and a Functions
+sheet of 63, one a rule. `formulas_calc.vla` is the door's record of it: 82
+rows `agree` with the values the build wrote, and 11 labelled, the eight
+texts Excel may mark with an `@`, the two cells reading their own formulas,
+and a function the language does not hold. Excel 365's first save of it, on
+2026-10-22, agreed at every cell the door computes, showed an `@` in every
+text the rule marks and in none it does not, and answered a span of sheets
+`#VALUE!`, which the door then computed alike. Its second, the same day,
+with `Data!D1` entered again as a legacy array formula, showed its text in
+the braces as built. That save, `formulas_saved.xlsx`, joins the table at
+`no-differ` (`formulas_saved_calc.vla`): 93 formulas, the 82 the door
+computes agreeing with Excel's, and 11 labelled.

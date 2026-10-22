@@ -33,7 +33,10 @@
 //! seventeen date functions (its fourth), and the thirty-one aggregates,
 //! `SUBTOTAL`, `SUMIFS` and its family and the database functions (its
 //! fifth), `AVERAGE` moved down from this file with them, and the
-//! twenty-one array functions (its sixth).
+//! twenty-one array functions (its sixth); and `ISFORMULA` and
+//! `FORMULATEXT`, a cell's formula read by its reference (`KERNEL.53`),
+//! which enter on their fixture alone as `IFS` did, Excel having added them
+//! in 2013, after both corpora were gathered.
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -59,7 +62,8 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen and the hundred and eight `KERNEL.8` brought, then Excel's.
+/// fourteen, the hundred and eight `KERNEL.8` brought and the two
+/// `KERNEL.53` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -548,6 +552,14 @@ pub const SUBSET: &[Entry] = &[
     Entry {
         name: "EXPAND",
         evidence: "the arrays within a formula, KERNEL.8; scripts/recalc/arrays.txt",
+    },
+    Entry {
+        name: "ISFORMULA",
+        evidence: "a cell's formula read by its reference, KERNEL.53 for Alonzo's CART.9; scripts/recalc/formulas.txt",
+    },
+    Entry {
+        name: "FORMULATEXT",
+        evidence: "a cell's formula read by its reference, KERNEL.53 for Alonzo's CART.9; scripts/recalc/formulas.txt",
     },
     Entry {
         name: "ROUND",

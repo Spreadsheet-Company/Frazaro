@@ -1,0 +1,114 @@
+# The formulas read by a formula's fixture (KERNEL.53): a Data sheet whose column A holds a number, a text, an
+# empty cell and formulas of every kind FORMULATEXT spells (a plain one, a range read whole, a truth value, a text
+# holding a quote mark, spaces, small letters, a newer function the file prefixes, a function the language does
+# not hold), the legacy formulas Excel 365 may show with an @ beside those it does not, and a dynamic formula; a
+# fill over B1:B4; numbers in C1:C3; and in D1 a sum, which Excel shows with no @, for the owner to enter again
+# as a legacy array formula (its first formula, SUM(C1:C3*2), Excel's bar showed with an @, entered again with it). An
+# Other sheet holds one formula, so that Data:Other is a span of sheets. A Functions sheet holds one formula a
+# rule: ISFORMULA and FORMULATEXT of each kind of cell, a reference of many cells where one value is wanted (its
+# first cell or its own row's, A3 and A5 telling them apart), the same read as arrays (SUMPRODUCT, ROWS and a
+# dynamic INDEX) and handed whole to SUM and COUNTA in a legacy formula, a span of sheets, #REF!, a reference
+# through INDEX and IF, and each reading its own cell. Built
+# by frazaro into formulas.xlsx (each value it computes held). The owner enters Data!D1 again with Ctrl+Shift+Enter
+# in Excel and saves it as formulas_saved.xlsx.
+
+Work on sheet Data.
+Put 10 into cell A1.
+Put "x" into cell A2.
+Put formula "=A1*2" into cell A3.
+Put formula "=SUM(A1:A3)" into cell A5.
+Put formula "=TRUE" into cell A6.
+Put formula "=""a""""b""" into cell A7.
+Put formula "=A1 + 1" into cell A8.
+Put formula "=sum(a1:a2)" into cell A9.
+Put formula "=CONCAT(""a"",""b"")" into cell A10.
+Put formula "=C1:C3" into cell A11.
+Put formula "=C1:C3*2" into cell A12.
+Put formula "=INDEX(C1:C3,2)" into cell A13.
+Put formula "=ROW(C1:C3)" into cell A14.
+Put formula "=IF(A1>5,C1,C2)" into cell A15.
+Put formula "=SINGLE(C1:C3)" into cell A16.
+Put formula "=VLOOKUP(1,C1:C3,1,FALSE)" into cell A17.
+Put formula "=COUNTIF(C1:C3,"">1"")" into cell A18.
+Put formula "=SUM(FACT(3))" into cell A19.
+Put formula "=LEN(C1:C3)" into cell A20.
+Put formula "=SUM(C1:C3*2)" into cell A21.
+Put formula "=SUMPRODUCT(C1:C3*2)" into cell A22.
+Put formula "=SUM(IF(A1>5,C1:C3,0))" into cell A23.
+Put formula "=-C1" into cell A24.
+Put formula "=IFERROR(C1:C3,0)" into cell A25.
+Put formula "=SUM(ROW(C1:C3))" into cell A26.
+Put formula "=SUMPRODUCT(ROW(C1:C3))" into cell A27.
+Put formula "=A1+100" into range B1:B4.
+Put 1 into cell C1.
+Put 2 into cell C2.
+Put 3 into cell C3.
+Put formula "=SUM(C1:C3)" into cell D1.
+
+Work on sheet Other.
+Put formula "=Data!A1*3" into cell A1.
+
+Work on sheet Functions.
+Put formula "=ISFORMULA(Data!A1)" into cell A1.
+Put formula "=ISFORMULA(Data!A2)" into cell A2.
+Put formula "=ISFORMULA(Data!A1:A20)" into cell A3.
+Put formula "=ISFORMULA(Data!A3)" into cell A4.
+Put formula "=FORMULATEXT(Data!A1:A20)" into cell A5.
+Put formula "=ISFORMULA(Data!A4)" into cell A6.
+Put formula "=ISFORMULA(Data!A6)" into cell A7.
+Put formula "=ISFORMULA(Data!B1)" into cell A8.
+Put formula "=ISFORMULA(Data!B3)" into cell A9.
+Put formula "=ISFORMULA(Data!A13)" into cell A10.
+Put formula "=ISFORMULA(Data!D1)" into cell A11.
+Put formula "=ISFORMULA(Other!A1)" into cell A12.
+Put formula "=ISFORMULA(INDEX(Data!A1:A8,3))" into cell A13.
+Put formula "=ISFORMULA(IF(TRUE,Data!A3,Data!A1))" into cell A14.
+Put formula "=ISFORMULA(#REF!)" into cell A15.
+Put formula "=ISFORMULA(Data:Other!A1)" into cell A16.
+Put formula "=ISFORMULA(A17)" into cell A17.
+Put formula "=SUMPRODUCT(--ISFORMULA(Data!A1:A8))" into cell A18.
+Put formula "=SUMPRODUCT(--ISFORMULA(Data!A1:B4))" into cell A19.
+Put formula "=SUMPRODUCT(--ISFORMULA(Data!B:B))" into cell A20.
+Put formula "=NOT(ISFORMULA(Data!A1))" into cell A21.
+Put formula "=FORMULATEXT(Data!A1)" into cell A22.
+Put formula "=FORMULATEXT(Data!A3)" into cell A23.
+Put formula "=FORMULATEXT(Data!A4)" into cell A24.
+Put formula "=FORMULATEXT(Data!A5)" into cell A25.
+Put formula "=FORMULATEXT(Data!A6)" into cell A26.
+Put formula "=FORMULATEXT(Data!A7)" into cell A27.
+Put formula "=FORMULATEXT(Data!A8)" into cell A28.
+Put formula "=FORMULATEXT(Data!A9)" into cell A29.
+Put formula "=FORMULATEXT(Data!A10)" into cell A30.
+Put formula "=FORMULATEXT(Data!A11)" into cell A31.
+Put formula "=FORMULATEXT(Data!A12)" into cell A32.
+Put formula "=FORMULATEXT(Data!A13)" into cell A33.
+Put formula "=FORMULATEXT(Data!A14)" into cell A34.
+Put formula "=FORMULATEXT(Data!A15)" into cell A35.
+Put formula "=FORMULATEXT(Data!A16)" into cell A36.
+Put formula "=FORMULATEXT(Data!A17)" into cell A37.
+Put formula "=FORMULATEXT(Data!A18)" into cell A38.
+Put formula "=FORMULATEXT(Data!A19)" into cell A39.
+Put formula "=FORMULATEXT(Data!A20)" into cell A40.
+Put formula "=FORMULATEXT(Data!A21)" into cell A41.
+Put formula "=FORMULATEXT(Data!A22)" into cell A42.
+Put formula "=FORMULATEXT(Data!A23)" into cell A43.
+Put formula "=FORMULATEXT(Data!A24)" into cell A44.
+Put formula "=FORMULATEXT(Data!A25)" into cell A45.
+Put formula "=FORMULATEXT(Data!B1)" into cell A46.
+Put formula "=FORMULATEXT(Data!B3)" into cell A47.
+Put formula "=FORMULATEXT(Data!D1)" into cell A48.
+Put formula "=FORMULATEXT(Other!A1)" into cell A49.
+Put formula "=FORMULATEXT(Data:Other!A1)" into cell A50.
+Put formula "=FORMULATEXT(#REF!)" into cell A51.
+Put formula "=FORMULATEXT(A52)" into cell A52.
+Put formula "=FORMULATEXT(INDEX(Data!A1:A8,3))" into cell A53.
+Put formula "=INDEX(FORMULATEXT(Data!A3:B4),2,2)" into cell A54.
+Put formula "=INDEX(FORMULATEXT(Data!A3:A5),2)" into cell A55.
+Put formula "=LEN(FORMULATEXT(Data!A3))" into cell A56.
+Put formula "=ISNUMBER(SEARCH(""A1"",FORMULATEXT(Data!A3)))" into cell A57.
+Put formula "=ROWS(FORMULATEXT(Data!A1:A8))" into cell A58.
+Put formula "=FORMULATEXT(Data!A2)" into cell A59.
+Put formula "=SUM(--ISFORMULA(Data!A1:A8))" into cell A60.
+Put formula "=COUNTA(FORMULATEXT(Data!A1:A8))" into cell A61.
+Put formula "=FORMULATEXT(Data!A26)" into cell A62.
+Put formula "=FORMULATEXT(Data!A27)" into cell A63.

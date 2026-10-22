@@ -743,7 +743,10 @@ at `SUBTOTAL`'s 101 to 111 and its 1 to 11 over one showing `(not-computed
 `COLUMNS` and the shapers `CHOOSECOLS`, `CHOOSEROWS`, `TAKE`, `DROP`,
 `HSTACK`, `VSTACK`, `TOCOL`, `TOROW`, `WRAPROWS`, `WRAPCOLS`, `EXPAND`) on
 theirs, with array constants (`{1,2;3,4}`) and `:` between two expressions
-that answer references (`A1:INDEX(A:A,5)`), and the comparisons, the
+that answer references (`A1:INDEX(A:A,5)`), `ISFORMULA` and `FORMULATEXT`
+on theirs, a cell's formula read by its reference, a text Excel 365 may show
+with an `@` showing `(not-computed "a formula Excel shows with @")`, and the
+comparisons, the
 arithmetic, `&` and `%`, with Excel's coercions and its eight error values,
 `#CALC!` among them. A comparison and a criterion hold two numbers equal to
 fifteen significant digits equal, `=0.1+0.2=0.3` TRUE as in Excel, where a

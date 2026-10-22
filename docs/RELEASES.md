@@ -139,6 +139,20 @@
   whose cells a walk of a sheet visits; `Machine::workbook` lends a copy of
   the grid, its twins' cells made, from `&self`, where it made them in place
   behind `&mut self` (KERNEL.49).
+- **A formula reads another cell's formula.** `ISFORMULA(B5)` is TRUE where
+  `B5` holds a formula, and `FORMULATEXT(B5)` its text as Excel's formula
+  bar shows it, `#N/A` where it holds none, so that a game can hold a
+  person's formula to what a level allows, and
+  `=SUMPRODUCT(--ISFORMULA(A1:A9))` counts a range's formulas, as in Excel.
+  The text is the one the view
+  record prints, a filled cell's its first cell's moved to it, a legacy
+  array formula in its braces; where Excel 365 may show the formula with an
+  `@` it says not computed, `a formula Excel shows with @`, rather than
+  guess where Excel puts it. A formula changes only when a cell is written,
+  and the frame after a write that changes one computes every cell, so that
+  a formula rewritten to the same value is read anew. A cell reading its own
+  formula is a cycle, as a reference to its own cell always is in the
+  language (KERNEL.53).
 
 ## 0.10.2
 

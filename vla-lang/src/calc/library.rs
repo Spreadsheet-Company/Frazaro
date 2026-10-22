@@ -42,7 +42,7 @@ use super::eval::{finite, intersection, ranges, values, Arg, Ctx, Known, Library
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{ErrorKind, Value};
-use super::{aggregates, arrays, criteria, database, dates, lookups, texts};
+use super::{aggregates, arrays, criteria, database, dates, formulas, lookups, texts};
 
 // The classes of the language's functions' parameters (KERNEL.8, slice f),
 // each by its place from 0, as Excel's documentation of each function gives
@@ -153,7 +153,10 @@ fn joined(j: usize) -> Param {
 /// (`super::dates`), and since its fifth the aggregates and `SUBTOTAL`
 /// (`super::aggregates`, `AVERAGE` moved down from Excel's library),
 /// `SUMIFS` and its family (`super::criteria`) and the database functions
-/// (`super::database`), which a run calls at each cell.
+/// (`super::database`), which a run calls at each cell. Since KERNEL.53
+/// `ISFORMULA` and `FORMULATEXT` (`super::formulas`), a cell's formula read
+/// by its reference, each answering an operand so that every path computes
+/// it as `Ctx` does.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -258,6 +261,8 @@ pub fn language() -> Library {
     lib.register_classed("DVAR", database::dvar, criterion);
     lib.register_classed("DVARP", database::dvarp, criterion);
     arrays::register(&mut lib);
+    lib.register_arrayed("ISFORMULA", formulas::isformula, ranges);
+    lib.register_arrayed("FORMULATEXT", formulas::formulatext, ranges);
     lib
 }
 
@@ -385,6 +390,10 @@ const KERNEL_8: [&str; 108] = [
     "WRAPCOLS",
     "EXPAND",
 ];
+
+/// The functions KERNEL.53 brought: a cell's formula read by its reference.
+#[cfg(test)]
+const KERNEL_53: [&str; 2] = ["ISFORMULA", "FORMULATEXT"];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
@@ -1147,11 +1156,22 @@ mod tests {
     }
 
     #[test]
-    fn the_language_registers_the_day_one_list_and_kernel_8_s_exactly() {
+    fn the_language_registers_the_day_one_list_and_kernel_8_s_and_kernel_53_s_exactly() {
         let lib = language();
-        let mut want: Vec<&str> = NAMES.iter().chain(KERNEL_8.iter()).copied().collect();
+        let mut want: Vec<&str> = NAMES
+            .iter()
+            .chain(KERNEL_8.iter())
+            .chain(KERNEL_53.iter())
+            .copied()
+            .collect();
         want.sort_unstable();
         assert_eq!(lib.names(), want);
+        for name in KERNEL_53 {
+            assert!(
+                lib.arrayed(name).is_some(),
+                "{name} answers an operand, so that every path computes it as Ctx does"
+            );
+        }
         for name in ["INDEX", "XLOOKUP", "IFERROR", "IFNA"] {
             assert!(
                 lib.form(name).is_some(),
