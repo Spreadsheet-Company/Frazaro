@@ -33257,6 +33257,610 @@ out.
 pasted, so that the floors and the ceilings are the owner's run; the check
 then whole.
 
+**`KERNEL.50`, a format's appearance in the language: the scoping,
+2026-10-20.** Begun at the owner's word of 2026-10-19, from Alonzo's
+`CART.14`, Seiyaku (制約), the owner's number-placement puzzle, scoped and
+approved that day. Its scoping found that a format is a fill, a number
+format and a wrap and nothing else, so that its boxes are alternating fills,
+its givens Unicode's mathematical bold digits drawn by a fallback font, and
+its digits centered by figure spaces after them; its hand test added a
+text's size, the owner's note "Assigned digits should be twice as large as
+marks to more easily distinguish between the two." Alonzo minted `ENGINE.28`
+the same day for the painter's half, to be scoped after the `vla-lang`
+release that carries this item. Minted as the next free `KERNEL` ID and
+nothing else (the owner's word of 2026-10-16 on minting; the findings under
+*Found*), the scoping written here, the decisions with recommendations and
+the predictions before any number, then a stop for the owner's approval.
+Nothing is built. HEAD `3c74f39` (`KERNEL.8`'s third slice), three ahead of
+origin, not pushed. In the tree, uncommitted and untouched: a peer's fourth
+slice of `KERNEL.8`, in the language's calculation and machine, the core's
+readers, the door, the checks, the conformance text and the release notes;
+and a peer's `KERNEL.49` scoping in the three docs this entry shares
+(*Beside it*). Alonzo's HEAD `8ed1ea7` (`CART.14` closed), a peer's edits in
+its two docs, and Buffet's HEAD `f5dcde1`, a peer's edit in `OMAKASE.md`,
+read and never written.
+
+*What it stands on, read in the code.*
+- `vla-lang`'s `Style` (`sheet.rs`) is a fill (`Option<Rgb>`), a `NumFmt`
+  and a wrap, every field public, `Clone`, `Default`, `PartialEq` and `Eq`,
+  and nothing else: no font, no border, no alignment. `Styles` holds one a
+  format, deduplicated by `id` and put at the index a record names by `put`,
+  at most `FORMATS` (65,536) of them.
+- The loader (`machine/load.rs`) takes a `format` row of exactly four items,
+  `(format <index> <fill|none> general|text|"<code>" wrap|nowrap)`, anything
+  else `grid-row-malformed`; a format said twice alike, as a save repeats
+  format 0 in every record it joins, is taken. A `look` row maps a value,
+  spelled as a `cell` row spells it, to a format, the sheet's first look a
+  value meets winning. A `style` row names one cell, which an earlier row
+  wrote (`written_cell`, shared with the `sentence` row), and is refused as
+  malformed otherwise, where `cell` and `formula` rows take a range.
+- The record (`view.rs`) prints, after the `column` and `row` rows, format 0
+  and every format the window's columns, cells and looks use (`format_row`),
+  then the sheet's looks; a cell's `style` row is its format's index where
+  that is not 0. The `text` row (`KERNEL.47`) draws a value under its look's
+  format's code where a look meets it (`Coded::text`), so a look's number
+  format already stands in place of the cell's own.
+- The writer (`core/src/sheet/ooxml.rs`) writes one font, Calibri 11, one
+  empty border and `wrapText` as its only alignment, every cell format's
+  `fontId` and `borderId` 0. Into a model (`sheet/merge.rs`, `--into`) it
+  appends its fills, codes and cell formats at the ends of the model's
+  lists, their `fontId` and `borderId` 0, which are the model's own there. A
+  sheet's looks reach no file: the writer drops them, and no conditional
+  format is written or read.
+- The readers (`core/src/reflect/`) print no look: no width, height, fill,
+  format or style (`KERNEL.47`'s decision 8 and its *Found*).
+- The reference (`SD-18`): the shipped sentences set a font's weight, slant,
+  color, size and family, an underline, a strikethrough, a horizontal and a
+  vertical alignment (`Align cell A1 to the middle.` sets `xlCenter`, as the
+  ribbon's Middle Align calls it), an indent, a rotation, the wrap, and
+  borders around a range, on one of its edges and in a color, each through
+  the object model (`scripts/polyglotta/english.vla`, G-FORMAT). The core's
+  build refuses every one (`build-not-representable`), its walker writing a
+  cell's value and formula alone, and a format before a value asks for a
+  cell that keeps a format and no value, which the model cannot hold
+  (`Content` has no empty): those sentences are `KERNEL.16`'s, as
+  `KERNEL.47` found.
+- Alonzo at `8ed1ea7` (`web/viewport.js`): the viewport paints the record
+  and nothing of its own (`SD-32`). Every text is 13 px `system-ui` in one
+  ink, `#1d1d1b`; a number aligns right, a text left, a truth value or an
+  error centered; one line stands centered in its row and a wrapped text is
+  drawn from the cell's top; gridlines are drawn over fills. `readRow` reads
+  a `format` row's items 1 to 4 and a `look` row's 1 to 3 and checks no
+  length, so an item after a format's wrap is passed over. `formatOf` draws
+  a look's format in place of the cell's own whole, else the cell's own,
+  else, for an empty cell, its column's. A row's height is points at 96 dots
+  an inch (`POINT_PX`), a column's width Excel's characters at 7 px. Its
+  engine reads a cell's style index alone (`cartridge.rs`, `put`), and
+  neither it nor Buffet's oracle names `Style`, `Styles` or `NumFmt`.
+- The standing decisions that bind: `SD-23`, one model and many projections;
+  `SD-30`, nothing fails silently; `SD-32`, appearance declared and not
+  painted; `SD-36`, a built workbook opens in any host; `SD-37`, a refusal
+  is a lesson; and Alonzo's `AD-4`, whatever can be a golden is the
+  language's or Frazaro's and the draw is Alonzo's.
+
+*Measured at the scoping* (*measurement*, 2026-10-20, on the owner's
+machine; nothing in the tree run or built).
+- The looks the consumers declare today, by head in each expanded cartridge:
+  Seiyaku 112 `format` rows, 108 `look` rows and 99 `style` rows (81 on its
+  Board, each variable's own by its box's tint and a wrap; 18 on its keys,
+  `K1:L9`); the grid card 32, 24 and 13; Kairos 16, 16 and none;
+  Superposition 12, 12 and none; Buffet 1, 7 and 7 (format 1, Lovelace
+  Lavender, on its buttons by `style` rows and by looks keyed on the Trading
+  buttons' texts); Life, the gun, Sand and the test, input and sound cards
+  none. Seiyaku's 108 looks are six kinds by two box parities by nine
+  values, each repeating its box's tint, because a look's format is the
+  cell's whole format.
+- Two drawn records rest on a look's `none` fill and its `nowrap` standing
+  in place of the cell's own. Buffet's `(look "Exam" "" 0)`, by which an
+  option of the exam that has been emptied draws in the default format and
+  not in its button's lavender. And Seiyaku's digits' looks, `nowrap` over a
+  variable whose own format wraps its marks, so that a digit draws in one
+  line centered in its row and not from the cell's top.
+- The size of a format, by a scratch program mirroring the types (rustc
+  1.99, `size_of`): today's `Style` 24 bytes, as `KERNEL.47` measured it;
+  with decision 6's font (10 bytes), alignment (2) and border (20, four
+  edges of 5) inline, 56; with them boxed, 32, and 32 more on the heap for a
+  format that says any.
+- The literals that build a `Style`: 18, seven in `vla-lang` (the loader's
+  one and six in its tests) and eleven in `frazaro-core` (the build's three
+  and eight in the tests of `merge.rs` and `ooxml.rs`), eight of them with
+  `..Style::default()`; none in Alonzo's engine or Buffet's oracle.
+- Excel (*exhibit*): 512 fonts a workbook and 65,490 cell formats
+  (Microsoft's "Excel specifications and limits"); a font's size 1 to 409
+  points in its interface, and in a file "a double between 1 and 409.55
+  inclusive", Office converting the points to twips, twentieths of a point
+  ([MS-OI29500] 2.1.677, on ECMA-376 Part 1 §18.4.11, `sz`, which a style's
+  font shares); a conditional format sets no font family and no size, its
+  dialog greying both out (users' reports, not Microsoft's own page); a
+  border's line one of fourteen (ECMA-376 Part 1, `ST_BorderStyle`: none,
+  thin, medium, dashed, dotted, thick, double, hair, mediumDashed, dashDot,
+  mediumDashDot, dashDotDot, mediumDashDotDot and slantDashDot).
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The properties.* Recommended: Excel's own, the subset the consumers name
+   and the reference already sets:
+   - the font: its weight, bold or not; its slant, italic or not; its size
+     in points (decision 4); and its color, any six hex digits, as a fill is
+     spelled;
+   - the alignment: horizontal, `general`, `left`, `center` or `right`;
+     vertical, `top`, `middle` or `bottom`;
+   - the border: each of a cell's four edges, a line of Excel's fourteen,
+     `none` among them, and a color.
+   Seiyaku's box edges, its givens' weight, its digits' size and their
+   centering, and Buffet's white text on its buttons and burgundy glyph are
+   each one of these. Every line of the fourteen is taken, where the
+   consumers name three or four: the list is Excel's and closed, its names
+   cost a table, and a later reader then prints any workbook's borders as
+   written; how each draws is the painter's. Excel's other properties stay
+   out, each for its reason: a font's family (no consumer asks; a family the
+   reading machine lacks draws as another, and Excel's own default is
+   Calibri or Aptos by its version; the reference's `set-font-name` is
+   `KERNEL.16`'s with its other sentences); underline and strikethrough (no
+   consumer; each a word of the font's group when one asks, decision 2);
+   rotation, indent, shrink to fit, justify, distributed, fill and center
+   across a selection (no consumer, and the painter's hardest); the diagonal
+   (no consumer); a fill's pattern other than solid (no consumer);
+   protection (no appearance). *Declined:* the six lines the prompt named,
+   thin, medium, thick, dotted, dashed and double (a later reader would
+   refuse a workbook's hair or dash-dot line, or draw another); the family
+   now (a name the record carries that no draw can honor on every machine,
+   `SD-30`).
+
+2. *The spelling in the record.* Recommended: groups after the wrap, each a
+   list headed by its name, each optional and given at most once, printed in
+   a fixed order, `font`, `align`, `border`, and read in any:
+   - `(font bold italic 22 "FFFFFF")`: a weight, `bold` or `not-bold`; a
+     slant, `italic` or `not-italic`; a size, the group's one number; a
+     color, its one text, six hex digits in quotes; each at most once,
+     printed in that order;
+   - `(align center middle)`: a horizontal word and a vertical word, the two
+     lists disjoint so that either stands alone, printed horizontal first;
+     `middle` is the vertical center, as the ribbon's Middle Align and the
+     reference's `align-middle` call it, where Excel's file and its object
+     model say `center`;
+   - `(border (left thin) (top medium "6B4FC8"))`: an edge, `left`, `right`,
+     `top` or `bottom`, its line, and its color where one is said; each edge
+     at most once, printed left, right, top, bottom, as the file writes
+     them.
+   A format holding no group prints as it prints today, byte for byte
+   (`KERNEL.47`'s rule), so no record, golden or cartridge of today moves;
+   and a released viewport, which reads a format row's first four items,
+   draws a row with groups by its fill, number format and wrap, as before,
+   passing over the groups. Seiyaku's given 1 would read
+   `(format 3 none "\"1\"" nowrap (font bold 22))` and its box's top-left
+   variable
+   `(format 1 none general wrap (align center middle) (border (left medium) (top medium)))`;
+   Buffet's button
+   `(format 1 "6B4FC8" general nowrap (font bold "FFFFFF") (align center))`.
+   *Declined:* fields after the wrap by their places (a property never said
+   cannot be left out, every format prints them all, and a later property
+   can only ever go last); rows of their own naming a format's index,
+   `(font 3 bold 22)` and `(border 3 left thin)` (the format row untouched
+   and a released viewport counting them unknown, but a format becomes
+   several rows the loader must hold together, a row naming no format needs
+   a rule of its own, and "a format said twice alike" compares rows across a
+   record); keywords inside each group, `(font (weight bold) (size 22))`
+   (longer, with no ambiguity to remove).
+
+3. *A look over a cell's own format.* The item's key decision. Recommended:
+   a format says what its row spells, and a look draws a cell with what its
+   format says and, for each property of a font, an alignment or a border
+   its format does not say, the cell's own. Every format row spells a fill
+   or `none`, a number format and a wrap, so a look's fill, number format
+   and wrap stand in place of the cell's own, as today; its groups say what
+   they spell and no more. So:
+   - every look of today, whose format spells nothing past its wrap, still
+     replaces the cell's own format whole, and every drawn record stands,
+     Buffet's emptied options and Seiyaku's digits among them (the
+     measurement above);
+   - Seiyaku's box edges and centering, said once a variable by its own
+     format, stand under the looks that say its value's digit, weight and
+     size, which no look keyed on a value could say for a property of the
+     cell's place;
+   - a property said is said whatever its value, so that `not-bold`,
+     `not-italic`, `general`, `bottom` and an edge's `none` take a cell's
+     own bold, alignment or edge back under a look; as a cell's own format a
+     said default draws as the default, and the writer writes it as Excel's
+     default (decision 7).
+   The rule is the language's (`AD-4`): a pure function,
+   `Style::over(&self, own: &Style) -> Style`, the format a cell draws with
+   under a look, held by the language's tests and mirrored by `ENGINE.28`'s
+   painter, whose oracle takes a fixture the language writes (decision 11).
+   The record stays declarative, its format table, its looks and each cell's
+   style as today, and no row prints a drawn format. *Declined:*
+   - (a) replace whole, as today: a property of a cell's place cannot stand
+     under a look of its value, so Seiyaku's boxes stay fills and its 108
+     looks each say a box's tint;
+   - (b) merge every property, as Excel applies a conditional format's
+     differential format: a look's `none` fill, `general` and `nowrap`
+     become unsaid, which moves the two drawn records above, Buffet's
+     emptied options keeping their lavender and Seiyaku's digits drawn from
+     the cell's top; and the fill's slot has no spelling for unsaid;
+   - (c) either, by a word on the `look` row, `(look "Board" 101 3 over)`:
+     two meanings of one row, every reader and painter holding both, for no
+     consumer of the second;
+   - (d) borders as a layer of their own,
+     `(border "Board" "A1:C3" outline medium)`, standing under every look by
+     construction: Excel keeps an edge in a cell's format (its `borderId`),
+     so the writer and any reader would translate between two models, and no
+     look could move an edge.
+   The rule leaves one step open: a format of groups alone,
+   `(format 4 (font "800020"))`, saying no fill, number format or wrap, so
+   that a look of it colors a text over whatever fill a cell has. A format
+   row without its three is refused today, so that spelling can mean exactly
+   that later without moving any record (*Found*).
+
+4. *The size.* Recommended: points, as Excel's font size, held as a whole
+   number of twentieths of a point from 20 to 8,191, 1 to 409.55 points,
+   Office's own unit and bounds ([MS-OI29500]); spelled at its shortest,
+   `22`, `10.5`, `409.55`, a number that is no whole twentieth refused, so
+   that what a file holds the record holds exactly. It stands in the font's
+   group beside weight, slant and color, as Excel's font holds them, and a
+   look says it as it says any of them (decision 3): Seiyaku's digits, drawn
+   through a look a value, `(font 22)`, beside its marks, drawn by the
+   variable's own format with no size. Unsaid, a size is the workbook's
+   default, which the writer's font makes 11. A record holding no size
+   prints as before (decision 2). The rule to pixels is the painter's,
+   `ENGINE.28`'s; recommended there: the painter's default text for 11
+   points and a size scaled by it, 13/11 px a point, so that a said 11 draws
+   as an unsized text and 22 twice it, where 96 dots an inch, the rule a
+   row's height takes, 4/3 px a point, would draw a said 11 at 14.7 px
+   beside an unsized 13. Excel's interface may round a typed size, to halves
+   by third parties' documentation, which the golden shows (decision 11).
+   *Declined:* halves of a point (narrower than a file holds); a size
+   relative to the default, `(font x2)` (no spreadsheet's, and the writer
+   would turn it into points anyway); pixels (the painter's unit, not a
+   workbook's).
+
+5. *A style row over a range.* Recommended:
+   `(style "<sheet>" "<cell or range>" <format>)`, as `cell` and `formula`
+   rows take a range: every cell of the range takes the format, each written
+   by an earlier row, and a range holding a cell no earlier row wrote is
+   refused naming that cell (decision 10). The record still prints one
+   `style` row a cell, so a save and every view stand, and the range is a
+   source's spelling the load takes, as Alonzo's range `cell` row is (its
+   `SPEC.md` §7.3). Seiyaku's 81 `style` rows by its boxes' tints become 9,
+   and its keys' 18 become 4; but its box edges hang on a variable's place
+   in its box, nine places, none a rectangle, so a bordered board keeps 81
+   one-cell rows, a walk of its source. Buffet's bands of `FRONT.2`'s second
+   slice are a row a band. The `sentence` row stays one cell, unasked.
+   *Declined:* one cell, as today (the source's walk writes the rows); a
+   range's written cells alone, the rest skipped (an author's band left with
+   holes and nothing said, `SD-30`); every cell of a range, an unwritten one
+   keeping a format and no value (the model holds none: *Found*, shared with
+   `KERNEL.46`'s and `KERNEL.16`'s).
+
+6. *The model's types, the API and the release.* Recommended: `Style` gains
+   three fields, `font: Font`, `align: Align` and `border: Border`, each a
+   small struct of `Option`s, unsaid `None`: `Font` a weight and a slant
+   (`Option<bool>`), a size (`Option<FontSize>`, its twentieths) and a color
+   (`Option<Rgb>`); `Align` a `Horizontal` and a `Vertical`; `Border` four
+   `Option<Edge>`, each a `Line` of the fourteen and an `Option<Rgb>`. Held
+   inline, 56 bytes a format where it is 24 (measured above; boxed, 32 and
+   32 more on the heap, a saving no grid's table of a few hundred formats
+   needs). `Style` and the new types become `#[non_exhaustive]`, their
+   fields public and `Default` kept, so that a later property, an underline,
+   a family or an indent, is added without a break, and a caller in another
+   crate writes `Style::default()` and sets fields where it wrote a literal;
+   and `Style::over` (decision 3). This breaks the public surface: a field
+   added to a struct whose fields are all public, `#[non_exhaustive]`
+   itself, and the core's `cellxfs_fragment`, which takes the first ids of
+   this build's fonts and borders in a model (decision 7). The break moves
+   no line downstream (measured above): Alonzo's engine and Buffet's oracle
+   build no `Style`, and Alonzo's reads a cell's style index alone. Its cost
+   is the version: the release that carries it is 0.11.0, the notes under
+   `## 0.10.2` folded in as 0.9.5's were into 0.10.0, and Alonzo's next
+   release after its pin's move a minor too, its `Cartridge::machine()`
+   exposing the language's `Machine` (`KERNEL.47`'s finding). *Declined, the
+   route that keeps the surface:* `Style` untouched and the new properties
+   in a table of `Styles`' own beside it, one an index (`Styles::look`,
+   `Styles::id_with`), released in 0.10.2: every reader of a format reads
+   two tables, and `Styles::id`, which the core's build calls, would take
+   two formats differing only in a font or an edge for one, a trap for any
+   caller; `KERNEL.47` declined the same route (its decision 6).
+
+7. *The writer.* Recommended: the styles part as Excel writes one, each list
+   in the order the table first uses its entries, every same font and border
+   once:
+   - `<fonts>`: font 0 the default, Calibri 11, as today, then each other
+     font a format draws with, the default's family and size with what it
+     says, `<b/>`, `<i/>`, `<sz val>` and `<color rgb>`, in Excel's order; a
+     font that says only defaults is font 0;
+   - `<borders>`: border 0 empty, as today, then each other border, each
+     edge said with its line, `<left style="medium">`, and its color,
+     `<color rgb>`, or Excel's automatic where none is said,
+     `<color indexed="64"/>` (*prediction*, the golden's to show); the
+     diagonal empty;
+   - each cell format's `fontId` and `borderId`, `applyFont` and
+     `applyBorder` where not 0, and one `<alignment>` holding its horizontal
+     and vertical where they are not Excel's defaults and its `wrapText`,
+     with `applyAlignment`;
+   - a model holding no font, alignment or border writes the bytes it writes
+     today, so that the build goldens stand.
+   Into a model (`--into`), this build's fonts and borders appended at the
+   ends of the model's lists and their counts raised, its cell formats
+   pointing past the model's own; a font of this build takes, for what it
+   leaves unsaid, the model's own default font, its family and size (the
+   first `<font>` of its list, its own properties replaced), so that a bold
+   cell of ours in a workbook set in Aptos is Aptos bold; a self-closing
+   `<fonts/>` or `<borders/>` refused, as a self-closing fills or cell
+   formats list is. *Declined:* a font and a border for every format
+   (Seiyaku's 112 formats would near Excel's 512 fonts a workbook); this
+   build's fonts in Calibri inside a model (a cell drawn in another family
+   than its neighbors').
+
+8. *The readers, and which rows `reflect` gains.* Recommended: not in this
+   item; an item of its own, the owner's to mint. The readers print no look
+   today, and reading this item's properties back is reading every look as
+   rows, for both formats (`PORT.8`'s 8e rule, one spelling for both):
+   widths, heights, a column's format and each cell's, fills, codes, fonts,
+   borders and alignments; a color held as a slot of the workbook's theme
+   with a tint, or as an index of Excel's palette, resolved to the record's
+   six digits through its theme part; a code the language does not draw;
+   Excel's cell styles; and the OpenDocument file's cell, text and paragraph
+   properties and its data styles. That is weeks, with a golden of its own,
+   Excel's save of a styled fixture, and a decision of its own on where the
+   rows print: in `reflect`'s relations (every relations golden of a styled
+   file moves, and `diff` reports a format's change, the question of
+   `SD-26`'s review mode on which `KERNEL.47` declined it) or behind a flag,
+   `reflect --looks` (the relations unmoved, appearance kept apart from
+   logic as `SD-32` keeps it, and `SPEC.md` §7.4's road taking a workbook
+   behind a manifest as a cartridge with its looks), which this scoping
+   would recommend there. Until it, a reflected workbook loses its borders,
+   fonts and alignments, as it loses its fills, codes and widths today. This
+   item's writer is held instead to Excel's own reading of each property
+   (decision 11). *Declined:* this item's third slice, `reflect --looks` for
+   both formats (weeks more, the release after it, and `ENGINE.28` and both
+   consumers waiting on a half no consumer asks); the package reader alone
+   (8e's rule).
+
+9. *The order, against `KERNEL.49` and `KERNEL.8`.* Recommended: this item
+   built before `KERNEL.49`, whenever the owner takes it among `KERNEL.8`'s
+   slices, none of whose files it touches but shared texts (the docs, the
+   conformance text, the language's README, the release notes); its release
+   0.11.0, carrying `KERNEL.8`'s committed slices; `KERNEL.49` after it, its
+   own break, 0.12.0. The two meet in three places, the loader's `format`
+   and `style` rows and the record's `format_row`, where `KERNEL.49`
+   rewrites the draft as records and the record's walk around them (its
+   decisions 1 and 8) and leaves `sheet::Workbook` and its `Style`, the file
+   model, untouched (its decision 1). This item is days and `KERNEL.49`
+   weeks; two consumers wait on this one, and `ENGINE.28` on its release;
+   and a second break moves Alonzo's and Buffet's pins and nothing else of
+   theirs (decision 6). *Declined, the owner's to weigh:* one break for
+   both, this item built now and its release held for `KERNEL.49`'s 0.11.0,
+   weeks later, `ENGINE.28` waiting with it; or `KERNEL.49` first and this
+   item over its records, the range row then a record of the draft's, the
+   same release.
+
+10. *The refusals.* Recommended: two ids, each entered in
+    `src/VLA_Messages.bas` (`VLA_MESSAGES_VERSION` `KERNEL.50`) and
+    exported:
+    - `grid-format-property`, "The format {index}'s {group} holds {what},
+      which a format does not take; {fix}.": `{what}` the item met, a word,
+      a number, a text, a second weight, an edge named twice, nothing at
+      all; `{fix}` what the group takes (a font: `bold`, `not-bold`,
+      `italic`, `not-italic`, a size in points from 1 to 409.55 in
+      twentieths, a color of six hex digits in quotes; an alignment:
+      `general`, `left`, `center`, `right`, `top`, `middle`, `bottom`; a
+      border: an edge, `left`, `right`, `top` or `bottom`, its line and a
+      color where wanted, the lines named);
+    - `grid-cell-unwritten`, "The row {row} names {cell}, which no row
+      before it wrote; a {kind} row follows the row that writes its cell.",
+      for a `style` row's first unwritten cell, of a range or of one cell,
+      and for a `sentence` row's, which share `written_cell` and today say
+      only that the row is not in its shape;
+    - a group's head that is none of the three, a group given twice, or a
+      format with no wrap before its groups: `grid-row-malformed`, its shape
+      for the row naming the groups,
+      `(format <index> "<RRGGBB>"|none general|text|"<code>" wrap|nowrap [(font ...)] [(align ...)] [(border ...)])`.
+    *Declined:* the malformed row alone (a row of the right shape whose word
+    is wrong learns nothing of the word, and a range's unwritten cell goes
+    unnamed, `SD-37`); an id for each group (three ids for one sentence).
+
+11. *The oracle.* Recommended, in the house's shape:
+    - *The record* (oracle 11): every golden byte for byte, no record of
+      today holding a group; the language's laws over grids whose formats
+      hold every group and whose looks map to them, the dressed grids
+      (`tests/laws.rs`, `dressed`) gaining formats with groups and range
+      `style` rows: law 3, a grid viewed, loaded and viewed again the same
+      record; laws 9 and 11, the values and the changes. Unit tests: each
+      property and each refusal by name; a format said twice alike in
+      another order taken; a range row and its first unwritten cell;
+      `Style::over` over every property said and unsaid, each default said.
+    - *The look's rule, for the painter:* a fixture the language writes, a
+      record of a sheet whose looks fall over cells with groups of their own
+      and, beside it, each cell's drawn format as `Style::over` gives it, in
+      `vla-lang/testdata/view/`, written again by the bless and held by its
+      test, for `ENGINE.28`'s render oracle to vendor as `web/fixtures/`
+      vendors the view goldens.
+    - *Excel's reading* (the reference's part, `SD-18`):
+      `scripts/appearance.txt` holds cases, each a format's groups.
+      `VlaWriteAppearanceGolden` (`src/VLA_Tests.bas`, `VLA_TESTS_VERSION`
+      `KERNEL.50`) sets each case on a cell of a workbook it adds, through
+      the object model (`Font.Bold`, `.Italic`, `.Size` and `.Color`;
+      `HorizontalAlignment` and `VerticalAlignment`; each edge's
+      `LineStyle`, `Weight` and `Color`, the object model spelling a line as
+      a style and a weight), reads each back, and writes
+      `scripts/appearance_golden.txt`, each case and Excel's reading in the
+      record's spelling, its lines CRLF as `formats_golden.txt`'s are. It
+      saves that workbook as `scripts/appearance_saved.xlsx`, Excel's own
+      styles part; and it opens `scripts/appearance_written.xlsx`, the same
+      cases as the core's writer writes them (a test of the core's writes it
+      where `FRAZARO_WRITE_APPEARANCE` names a path, and holds it byte for
+      byte as a build golden is held), and reads each of its cells back too.
+      The language's test holds each case's parse and print to Excel's
+      reading; the core's test holds the writer's font, border and alignment
+      for each case to the ones Excel saved, property by property (a narrow
+      reading of the saved styles part inside the test, its colors as rgb,
+      which is how the golden's writer sets them); and the golden holds
+      Excel's reading of the core's file equal to its reading of its own.
+      `tools/check_appearance_golden.ps1` holds the pair's shape and, as a
+      floor, the properties its cases reach, with a control;
+      `run_checks.ps1`'s floor rises to 59; `check_crate_data` holds the
+      crate's copies.
+    - *The hosts* (`SD-36`): the owner opens the core's written workbook, a
+      case a row, the record's spelling beside its cell, in Excel and in
+      LibreOffice Calc.
+    - *The neighbors:* Alonzo over the build by a path, its tests,
+      `frames --check` every frame equal, its describe goldens, replays and
+      digests unmoved; Buffet's describe golden unmoved.
+    - *Mutants*, each caught by a named test: a look's said property
+      dropped; a look's unsaid property taken from the look; `not-bold` read
+      as unsaid; an edge's color dropped; a size's twentieths rounded to
+      halves; `middle` written as Excel's `bottom`; two fonts of different
+      colors written as one; a font of the model's own reused by an id of
+      ours; a range row's last row or column skipped; a format with no group
+      printed otherwise.
+    *Declined:* the build golden alone (no program the build makes holds a
+    group, the sentences being `KERNEL.16`'s); the owner's eye alone (no
+    witness a test holds); a fixture saved by Excel and reflected (the
+    readers', decision 8).
+
+12. *Alonzo's half, named here and built there* (`ENGINE.28`, minted
+    2026-10-19): a format row's groups read from its fifth item on, and the
+    look's rule as `Style::over` gives it; a size's pixels (decision 4's
+    recommendation); a vertical alignment, a wrapped text's among it
+    (`CART.14`'s *Found*); an edge crisp at the machine's ratio and drawn
+    once where two cells share it, which Excel keeps twice; the painter's
+    repaint bands (`ENGINE.20`) holding an edge of a patched cell; whether
+    the page's version moves; `fake.js`; the render oracle over decision
+    11's fixture; Seiyaku's look moved onto them (its looks 108 to 54, or 72
+    if its satisfied board keeps two lavenders by box; its boxes by edges
+    and its gridlines off; its digits centered and twice its marks' size)
+    and Buffet's buttons and glyphs. Its pin moves first, to the release
+    that carries this item.
+
+13. *The slices.* Recommended: two, each a commit at the owner's word.
+    - *The language:* the model's types and `Style::over`; the loader's
+      groups and range `style` rows; `format_row`; the two refusals in the
+      reference's catalogue and their export; the tests, the laws' dressed
+      grids and the painter's fixture; oracle 11's amendment in
+      `conformance/README.md`; the README's rows. Alonzo and Buffet over it
+      by a path.
+    - *The writer and Excel's golden:* `ooxml.rs` and `merge.rs`; the core's
+      test writing `appearance_written.xlsx`; `scripts/appearance.txt` and
+      the golden's writer; the owner's run in Excel and the opens in Excel
+      and Calc; the golden's tests, its check and its copies; the release
+      notes.
+    The release after the second, at the owner's word (`tools/release.ps1`),
+    then Alonzo's pin and `ENGINE.28` there. *Declined:* one slice (both
+    halves held for one Excel run); the writer first (no model to write).
+
+*Prediction,* written before any build or measurement:
+- No golden of today moves: Frazaro's view, build, reflect, diff, audit,
+  recalc, census, formats, refusal, expand, refers, egress, formula syntax
+  and token goldens; Alonzo's describe goldens, replays and digests;
+  Buffet's describe golden. The writer's styles part for a model with no
+  group is the same bytes. The catalogue's export gains two lines; the words
+  of `grid-row-malformed`'s `format` shape change, and any of the loader's
+  tests pinning a `style` or `sentence` row before its cell move to
+  `grid-cell-unwritten`.
+- A record whose formats hold no group costs what it costs, within the
+  noise, natively and in wasm, at every view, frame and change: `format_row`
+  asks three empty groups.
+- A format row holding every group prints in 1 to 3 µs natively (a `cell`
+  row 0.84, `KERNEL.47`'s measure) and loads in 2 to 5 µs more than one
+  without. Seiyaku's Board after its move, 65 to 83 formats with groups: 50
+  to 150 µs more a whole view, and nothing at a frame between acts, a
+  frame's changes printing no format row.
+- Memory, 32 bytes more a format (measured above): Kairos 544 bytes more,
+  Seiyaku before its move 3,616, a grid of one format 32; Alonzo's memory
+  ceilings move at the pin by these.
+- Size: `vla-lang` 700 to 1,000 lines more (the types and `Style::over` 200
+  to 300, the loader 150 to 250, the printer 50 to 100, the tests and laws
+  300 to 400); `frazaro-core` 300 to 500 (the writer 150 to 250, the merge
+  80 to 150, their tests and the golden's reading 150 to 250); the golden's
+  writer 200 to 300 lines of VBA; the check 150 to 250; the engine's module
+  8 to 15 KB larger.
+- Excel's golden: every case as said, four to watch: a size that is no half
+  (10.25, 10.3), which Excel's interface may round where its file keeps
+  twentieths; a line whose style and weight the object model maps otherwise
+  (`double`, `hair`, `slant-dash-dot`); an edge's automatic color, saved as
+  `indexed="64"`; and `general` and `bottom`, read back as Excel's defaults,
+  nothing in the file. Where one disagrees, the language follows Excel's
+  reading.
+- Seiyaku after its move (`ENGINE.28`'s to build): its looks 108 to 54 or
+  72; its formats 112 to 65 or 83; its `style` rows 99 to 85, 81 by place
+  and its keys' four.
+
+**What Alonzo must change** at its pin's move to the release, and Buffet
+after it: no line of code, neither naming a `Style`; the memory ceilings, by
+decision 6's bytes, 32 a format; every frame, golden, replay and digest
+equal; Alonzo's next release a minor. At `ENGINE.28`, the painter, `SPEC.md`
+and the two games' sources.
+
+**What it touches.** `vla-lang`: `src/sheet.rs` (the types, `Style::over`),
+`src/machine/load.rs` (the groups, the range row, `written_cell`, the
+shapes), `src/view.rs` (`format_row`, the header's table), `tests/laws.rs`,
+`testdata/` (the painter's fixture, the golden's copies),
+`data/messages.vla` (exported), `README.md`. `frazaro-core`:
+`src/sheet/ooxml.rs` and `src/sheet/merge.rs`, and its eleven literals
+(`build.rs`, the tests). The reference: `src/VLA_Messages.bas` and
+`src/VLA_Tests.bas`, their versions. `scripts/appearance.txt`, its golden
+and the saved and written workbooks; `tools/check_appearance_golden.ps1`,
+`run_checks.ps1`'s floor and `check_crate_data.ps1`'s list; oracle 11's
+amendment in `conformance/README.md`; `docs/RELEASES.md`; the roadmap's
+line, this record, the registry; `Delta/CLAUDE.md`'s lines for the check and
+the golden.
+
+**Beside it.**
+- `KERNEL.16`, the format sentences in the build: after this item the model
+  holds a weight, a size, a color, an alignment and an edge, so
+  `Make cell A1 bold.` has a place to land; a format before its value still
+  asks for a cell that keeps a format and no value (*Found*).
+- `KERNEL.46`, a write that empties a cell, asks whether a cell's format
+  stays when its value goes: the same cell.
+- `KERNEL.49` (decision 9), and `KERNEL.8`'s slices, read in the tree and
+  untouched.
+- `KERNEL.47`'s *Found*, a code's colors: `[Red]` and its kin are a text's
+  color by section, spellable after this item as a font color in a code's
+  `text` row.
+- Buffet's `MISE.6` row for a text color and its `FRONT.2` second slice;
+  Alonzo's `CART.14`, its look's second half.
+
+**Found,** read, not minted:
+- *A file's looks as rows* (decision 8; `KERNEL.47`'s *Found*, grown by this
+  item's properties): the readers printing widths, heights, fills, codes,
+  fonts, borders and alignments for both formats, behind `--looks`, theme
+  and palette colors resolved, Excel's save of a styled fixture its golden.
+- *A format of groups alone* (decision 3): `(format 4 (font "800020"))`,
+  saying no fill, number format or wrap, so that a look colors a text over
+  whatever fill a cell has; refused today, so additive.
+- *A cell that keeps a format and no value* (decision 5): `Content` has no
+  empty, so a range row cannot reach a band's empty cells, a format sentence
+  cannot come before its value (`KERNEL.16`), and `KERNEL.46`'s emptied cell
+  cannot keep its format. Excel holds one, `<c r="A1" s="3"/>`, and
+  `KERNEL.49`'s machine keeps formats by place apart from values (its
+  decision 1).
+- *A look reaches no file:* the writer drops a sheet's looks. Their twin in
+  a file is a conditional format, a cell-value rule and a differential
+  format, which holds no font family or size, so a look of a size would lose
+  it there.
+- *Excel's 512 fonts a workbook* (*exhibit*), against the record's 65,536
+  formats; a written file past it unmeasured.
+
+*Scoped 2026-10-20; the thirteen decisions await the owner, and nothing is
+built.*
+
+*Approved 2026-10-21* at the owner's word, "KERNEL.8 is built and committed,
+and KERNEL.49 committed slice 1 and is working on its second slice now.
+Recommendations approved; proceed with implementing KERNEL.50 as scoped.":
+the thirteen decisions as recommended. HEAD `8586732` (`KERNEL.54` closed),
+twelve ahead of origin. Since the scoping `KERNEL.8` closed in six slices,
+its sixth (`72e6fb8`) marking `Content` and four other types
+`#[non_exhaustive]` and naming the next release 0.11.0, so that decision 6's
+break rides a release that breaks already; `KERNEL.49` was scoped, approved
+and its first slice committed (`bb30b92`, `c9f225c`); `KERNEL.51`,
+`KERNEL.52`, `KERNEL.54` and `KERNEL.55` were minted, and `KERNEL.54`
+closed; in the tree, uncommitted beside this item's three documents, a
+peer's `KERNEL.53` mint. The owner asked the same hour whether decision 8's
+readers could be folded into this item; answered in chat with decision 8's
+reasons, every look and both formats, decisions of their own, and the
+critical path, and with a starting prompt for a session to mint and scope
+them, to build after this item's second slice. The roadmap's line 🟡, the
+first slice first.
+
 **`KERNEL.54`, a change's cost set by the change: the scoping,
 2026-10-21.** Begun at the owner's word, the prompt relayed from Alonzo's
 `CART.9` (*Naught: Vel et Aut*), whose scoping probe found three costs in

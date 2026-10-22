@@ -285,6 +285,12 @@ held as what a person wrote: a fill one record, every value by place in
 nine bytes, a twin kept only where a formula reads it, and the plan by
 fills and levels, so that a formula cell costs bytes and a load its rows.
 `KERNEL.50` is next free.
+`KERNEL.50` was minted 2026-10-20 at the owner's word of 2026-10-19, from
+Alonzo's `CART.14` (Seiyaku, whose scoping found a format to be a fill, a
+number format and a wrap, and whose hand test asked for a text's size), for
+a format's appearance in the language: a cell's borders, its text's weight,
+color and size, and its alignment, held by `vla-lang`'s model and the
+record, and written and read by `frazaro-core`. `KERNEL.51` is next free.
 `KERNEL.51` was minted 2026-10-20 at the owner's word, from `KERNEL.8`'s
 fifth slice (Excel 365's first save of its criteria fixture, which cut a
 formula's literals of sixteen digits to fifteen), for such a literal read
