@@ -22,9 +22,16 @@
 //! formula reads, makes the next frame whole); and the frame after the
 //! fixture's edit, as Excel's `Calculate` after the cell is written. For
 //! Life, the edit is the frame: the clock advanced, the previous frame being
-//! the machine's twin where Excel copies it into a sheet of its own. Beside
-//! them, printed and not floored: the load, the first frame, and `Calc`, the
-//! reference evaluator the doors compute with (`view`, `build`, `calc`).
+//! the machine's twin where Excel copies it into a sheet of its own. And for
+//! a fixture whose comments name a type (`KERNEL.56`), a value typed into a
+//! fresh cell, one the grid has never held, down a column from the cell the
+//! comment names, a cell further down each time, timed with its write and
+//! the frames to the grid's stillness, as Excel's half times the same value
+//! written into the same cell and its `Calculate`: a frame after a write
+//! proves nothing, so the frames go on until one with no write before it
+//! changes nothing (`KERNEL.48`). Beside them, printed and not floored: the
+//! load, the first frame, and `Calc`, the reference evaluator the doors
+//! compute with (`view`, `build`, `calc`).
 //!
 //! **What is held before any number is printed**, since a fast wrong answer
 //! is no floor: every formula's value in the first frame equal to the value
@@ -87,10 +94,16 @@ const FIXTURES: [&str; 7] = [
     "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
 ];
 
-/// The steps timed: whole frames, edits, and the reference's runs.
+/// The steps timed: whole frames, edits, types, and the reference's runs.
 const WHOLE: usize = 11;
 const EDITS: usize = 21;
+const TYPES: usize = 21;
 const CALCS: usize = 3;
+
+/// The most frames a type's grid takes to be still, past which the runner
+/// stops: two where nothing reads the typed cell, a frame after the write
+/// and one that proves it.
+const STILL_WITHIN: usize = 8;
 
 /// The rounds a fixture is measured in, each a fresh machine.
 const ROUNDS: usize = 3;
@@ -273,6 +286,9 @@ struct Fixture {
     program: String,
     change: Change,
     sum: At,
+    /// The first cell typed into, a fresh one each time down its column
+    /// (`KERNEL.56`); none for a fixture whose comments name no type.
+    typed: Option<At>,
 }
 
 fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
@@ -283,6 +299,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
         .map_err(|e| format!("{}: cannot be read: {e}", path.display()))?;
     let mut change = None;
     let mut sum = None;
+    let mut typed = None;
     for line in program.lines() {
         let Some(rest) = line.trim().strip_prefix("# bench:") else {
             continue;
@@ -306,6 +323,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
                 })
             }
             ["sum", area] => sum = Some(at(area).ok_or_else(bad)?),
+            ["type", cell] => typed = Some(at(cell).ok_or_else(bad)?),
             _ => return Err(bad()),
         }
     }
@@ -314,6 +332,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
         program,
         change: change.ok_or_else(|| format!("{name}: no bench comment says what changes"))?,
         sum: sum.ok_or_else(|| format!("{name}: no bench comment names the sum"))?,
+        typed,
     })
 }
 
@@ -500,6 +519,9 @@ struct Run {
     edit_rounds: Vec<f64>,
     whole: Vec<f64>,
     edits: Vec<f64>,
+    /// Each round's median of its types and every type's time (KERNEL.56).
+    type_rounds: Vec<f64>,
+    types: Vec<f64>,
     calcs: Vec<f64>,
     clocks: Vec<f64>,
     sums: Option<(f64, f64)>,
@@ -672,6 +694,29 @@ fn round(
             ))
         }
     }
+    // The type (KERNEL.56): 1 written into a fresh cell, a row further down
+    // each time, and the frames to the grid's stillness, timed with the
+    // write; held to `Calc` after each type in the check.
+    if let Some(t) = &fx.typed {
+        let type_n = if check { 3 } else { TYPES };
+        let mut types = Vec::with_capacity(type_n);
+        for k in 0..type_n {
+            let addr = vla_lang::sheet::cell_ref(t.area.top + k as u32, t.area.left);
+            let w = format!("(cell \"{}\" \"{addr}\" 1)", t.sheet);
+            if !check {
+                r.clocks.push(probe.read());
+            }
+            let (still, ms) = timed(|| typed(&mut m, &w));
+            still.map_err(|e| format!("{name}: typing {}!{addr}: {e}", t.sheet))?;
+            types.push(ms);
+            if check {
+                r.held += held_to_calc(&m, &excel::library())
+                    .map_err(|e| format!("{name}: after typing {}!{addr}: {e}", t.sheet))?;
+            }
+        }
+        r.type_rounds.push(median(&types));
+        r.types.extend(types);
+    }
     for k in 0..whole_n {
         m.write(&format!("(formula \"Frazaro\" \"E1\" \"={}\")", k % 2))
             .map_err(|e| format!("{name}: {}", e.refusal.text))?;
@@ -694,6 +739,23 @@ fn round(
     r.whole.extend(whole);
     r.edits.extend(edits);
     Ok(())
+}
+
+/// A type's write and its frames to the grid's stillness (KERNEL.56): the
+/// frame after a write proves nothing, a write before it, so the frames go on
+/// until one changes nothing, within [`STILL_WITHIN`].
+fn typed(m: &mut Machine, write: &str) -> Result<usize, String> {
+    m.write(write).map_err(|e| e.refusal.text)?;
+    for frame in 1..=STILL_WITHIN {
+        let s = m.step(0);
+        if !s.done {
+            return Err(format!("frame {frame} answered {}", s.row()));
+        }
+        if frame > 1 && m.changed() == 0 {
+            return Ok(frame);
+        }
+    }
+    Err(format!("the grid not still within {STILL_WITHIN} frames"))
 }
 
 /// The machine's plane of Life's sheet equal to the hand-written Life's.
@@ -873,6 +935,8 @@ fn main() -> ExitCode {
                     edit_rounds: Vec::new(),
                     whole: Vec::new(),
                     edits: Vec::new(),
+                    type_rounds: Vec::new(),
+                    types: Vec::new(),
                     calcs: Vec::new(),
                     clocks: Vec::new(),
                     sums: None,
@@ -978,6 +1042,15 @@ fn main() -> ExitCode {
             ehi,
             median(&r.calcs)
         );
+        if !r.type_rounds.is_empty() {
+            let typed = median(&r.type_rounds);
+            let (tlo, thi) = range(&r.types);
+            println!(
+                "  the type: a value written into a fresh cell and the frames to the grid's stillness, {typed:.3} ms, the median of the rounds' {} ({tlo:.3} to {thi:.3}), {:.1} a second",
+                rounds_text(&r.type_rounds),
+                1e3 / typed
+            );
+        }
         println!(
             "  the clock: the hand-written Life {clock:.3} ms a generation beside every timed frame, spread {sp:.1}%, {dr:+.1}% from {start_clock:.3} at the start"
         );
@@ -1002,8 +1075,16 @@ fn main() -> ExitCode {
         let whole = median(&r.whole_rounds);
         let edit = median(&r.edit_rounds);
         let (built, edited) = r.sums.unwrap_or_default();
+        // A typed fixture's type and its rate (KERNEL.56), beside its edit's.
+        let typed = match r.type_rounds.is_empty() {
+            true => String::new(),
+            false => {
+                let t = median(&r.type_rounds);
+                format!(" Type = {t:.3}; TypesPerSecond = {:.1};", 1e3 / t)
+            }
+        };
         println!(
-            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1}; SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
+            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1};{typed} SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
             r.name,
             r.formulas,
             r.sha,

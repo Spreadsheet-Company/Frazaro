@@ -136,13 +136,16 @@ pub fn program() -> String {
         "# their own cells C2:G4097 by a fixed seed, so that each gate's formula is a text of its own but for",
         "# the few that happen to share a far-off gate's, as formulas pasted where they are needed do. The",
         "# switches a, A2:A4097, are all 1 and b, B2:B4097, all 0; the edit is the carry-in F1, from 0 to 1,",
-        "# which ripples through every bit, the deepest cone. Written by core/examples/recalc.rs --netlist",
-        "# (bench/netlist.rs) and held to it by --check: never edit it by hand.",
+        "# which ripples through every bit, the deepest cone. The type (KERNEL.56) is a value written into",
+        "# A4098, a cell no formula reads below the switches, and into the cell below it each time after.",
+        "# Written by core/examples/recalc.rs --netlist (bench/netlist.rs) and held to it by --check: never",
+        "# edit it by hand.",
     ] {
         s.push_str(line);
         s.push('\n');
     }
     s.push_str("# bench: edit Output!F1 0 1\n");
+    s.push_str(&format!("# bench: type Output!A{}\n", last + 1));
     s.push_str(&format!("# bench: sum Output!C2:G{last}\n\n"));
     s.push_str(&format!("Put 1 into range A2:A{last}.\n"));
     s.push_str(&format!("Put 0 into range B2:B{last}.\n"));

@@ -36194,6 +36194,45 @@ recommended, this item before `KERNEL.49`'s third slice (decision 7),
 `KERNEL.53` committed since (`fccf752`). The build begun the same day on
 `fccf752`, its instrument first (decision 6).
 
+*The first slice built 2026-10-22*, decision 6's bench row, nothing of the
+language touched:
+
+- `core/examples/bench/netlist.rs` writes the netlist with a row
+  `# bench: type Output!A4098`, a cell no formula reads below the switches,
+  and a line of its comment saying so; the program written again, its
+  SHA-256 over LF `31CA9658…` where it was `6ACCDAE8…`.
+- `core/examples/recalc.rs` reads a fixture's `type` row and, after its
+  edits, writes the value 1 into the cell and each fresh cell below it, 21
+  times (3 in check mode, each frame after each write held to `Calc`), each
+  write and the frames until the grid is still timed together, their median
+  the row's `Type` and `TypesPerSecond`.
+- `tools/bench_recalc_excel.ps1` writes the same value into the same fresh
+  cells and times `Calculate`, the range cleared after; `tools/bench_recalc.ps1`
+  writes the floors' entry's `'netlist type'`; `tools/check_recalc_floors.ps1`
+  pins the netlist's new program and wants both halves' `Type` for a typed
+  fixture and its floor, its control holding four mutants of them and a clean
+  case. The check fails by name until the owner's runs are pasted, the
+  program's hash moved.
+- *Measured:* the runner's check mode holds the seven programs, the netlist's
+  three typed cells among them; the memory runner's holds every program at
+  its ceiling of 2026-10-22 to the byte but the netlist, 1,222 bytes held
+  more and 2,026 at its peak, its program two lines longer and each line a
+  text cell of the Frazaro sheet a build writes, a ceiling raised at the
+  owner's word with its reason.
+
+*The owner's runs, 2026-10-22*, both halves of the bench on a quiet machine,
+the native half in the shared tree over `HEAD` with this slice, Excel's
+after it, their blocks pasted from `target/bench_recalc.txt` and
+`target/bench_recalc_excel.txt` (a peer's uncommitted reader and writer of
+`KERNEL.57` beside the slice in that tree, which moved no byte the runners
+weigh: every memory row is this session's weighing of `HEAD` with the slice
+alone, to the byte). A value written into a fresh cell of the netlist, the
+write and the frames until the grid is still, 6.911 ms, 144.7 a second,
+against Excel's 0.495 ms on 20 threads and 0.527 on one: the two whole
+frames after it, the cost the second slice is for. Its floor 122 types a
+second; every other floor held or raised by the run; the netlist's ceilings
+raised at the owner's word, with their reason in the history.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

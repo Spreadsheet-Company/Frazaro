@@ -11,7 +11,9 @@ KERNEL.20's slices made faster; this script runs core/examples/recalc.rs,
 which builds each fixture through the core's own surface as frazaro build
 builds it, writes it to target/bench/ for Excel's half to open, loads it
 into the machine under Excel's library, holds every value before it prints
-a number, and times a whole frame and the frame after the fixture's edit.
+a number, and times a whole frame and the frame after the fixture's edit,
+and for a fixture whose program names a type (KERNEL.56), a value written
+into a fresh cell with the frames to the grid's stillness.
 
 THE TRAPS IT IS BUILT AROUND, both measured for Alonzo's CART.1 on this
 machine and its instrument tools/bench_frames.ps1, whose discipline this is:
@@ -272,6 +274,9 @@ foreach ($r in $rows) {
     $f = Get-Field $r 'Fixture'
     $floors.Add(("'{0} whole' = {1}" -f $f, (Get-KeptFloor "$f whole" (Get-Floor ([double](Get-Field $r 'WholePerSecond'))))))
     $floors.Add(("'{0} edit' = {1}" -f $f, (Get-KeptFloor "$f edit" (Get-Floor ([double](Get-Field $r 'EditsPerSecond'))))))
+    # A typed fixture's types a second (KERNEL.56), where its row names them.
+    $types = Get-Field $r 'TypesPerSecond'
+    if ($types -ne '') { $floors.Add(("'{0} type' = {1}" -f $f, (Get-KeptFloor "$f type" (Get-Floor ([double]$types))))) }
 }
 # The fixtures of rows' loads, formulas loaded a second (KERNEL.49).
 foreach ($r in $memoryRows) {

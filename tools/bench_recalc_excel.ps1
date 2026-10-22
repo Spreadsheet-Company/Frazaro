@@ -39,7 +39,11 @@ WHAT IT DOES:
      from the frame, and the clock advanced; the copy is made by the first of
      four ways that Excel accepts and holds equal cell for cell: the range
      handed over, Excel's own copy and paste of values, which goes through
-     the clipboard, and the array of values as it came and from 0), the sum read after; CalculateFull timed 11 times;
+     the clipboard, and the array of values as it came and from 0), the sum read after;
+     for a fixture whose comments name a type (KERNEL.56), 1 written into a
+     fresh cell, a row further down each time, 21 times, the write and its
+     Calculate timed together, the typed cells cleared after so that the
+     second mode types into cells as fresh; CalculateFull timed 11 times;
      CalculateFullRebuild timed 5 times; and a Calculate with nothing to
      compute, timed 21 times, the floor of what a COM call adds to each;
   4. Excel's multi-threaded setting put back as it was (Excel saves it in
@@ -70,6 +74,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $bench = Join-Path $repoRoot 'target/bench'
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
 $edits = 21
+$types = 21
 $wholeRuns = 11
 $rebuildRuns = 5
 $floorRuns = 21
@@ -135,7 +140,7 @@ function Get-PerformanceMask {
 # A fixture's "# bench:" comments, as the runner reads them.
 function Read-Bench([string]$name) {
     $path = Join-Path $repoRoot "scripts/recalc/bench/$name.txt"
-    $b = @{ Name = $name; Kind = ''; Sheet = ''; Cell = ''; Built = ''; Other = ''; Count = 0; Twin = ''; SumSheet = ''; SumArea = '' }
+    $b = @{ Name = $name; Kind = ''; Sheet = ''; Cell = ''; Built = ''; Other = ''; Count = 0; Twin = ''; SumSheet = ''; SumArea = ''; TypeSheet = ''; TypeCell = '' }
     foreach ($line in [System.IO.File]::ReadAllLines($path)) {
         $t = $line.Trim()
         if (-not $t.StartsWith('# bench:')) { continue }
@@ -146,6 +151,8 @@ function Read-Bench([string]$name) {
             $b.Kind = 'frames'; $b.Sheet, $b.Cell = $w[1] -split '!', 2; $b.Count = [int]$w[2]; $b.Twin = $w[4]
         } elseif ($w[0] -eq 'sum' -and $w.Count -eq 2) {
             $b.SumSheet, $b.SumArea = $w[1] -split '!', 2
+        } elseif ($w[0] -eq 'type' -and $w.Count -eq 2) {
+            $b.TypeSheet, $b.TypeCell = $w[1] -split '!', 2
         } else { throw "$name.txt: a bench comment this script does not read: $t" }
     }
     if ($b.Kind -eq '' -or $b.SumArea -eq '') { throw "$name.txt: its bench comments do not say what changes and what is summed" }
@@ -245,6 +252,8 @@ function New-FakeRange([hashtable]$cells, [string]$key) {
     }
     $r | Add-Member -MemberType ScriptMethod -Name Copy -Value { return $true }
     $r | Add-Member -MemberType ScriptMethod -Name PasteSpecial -Value { param($how) return $true }
+    # Typed cells cleared after a fixture's types (KERNEL.56).
+    $r | Add-Member -MemberType ScriptMethod -Name ClearContents -Value { return $true }
     return $r
 }
 function New-FakeExcel {
@@ -425,6 +434,25 @@ try {
                 }
                 $step = "reading its sum edited, $mode thread(s)"
                 $sumEdited = Get-Number ($xl.WorksheetFunction.Sum($sumSheet.Range($b.SumArea)))
+                # The type (KERNEL.56): 1 written into a fresh cell, a row
+                # further down each time, the write and its Calculate timed
+                # together, as the runner times the write and its frames; the
+                # typed cells cleared after, so the next mode types into
+                # cells as fresh.
+                $typing = New-Object System.Collections.Generic.List[double]
+                if ($b.TypeCell -ne '') {
+                    $typeWs = $wb.Worksheets.Item($b.TypeSheet)
+                    $typeColumn = $b.TypeCell -replace '\d', ''
+                    $typeRow = [int]($b.TypeCell -replace '\D', '')
+                    for ($k = 0; $k -lt $types; $k++) {
+                        $step = "type $($k + 1), $mode thread(s)"
+                        $typeAt = $typeWs.Range("$typeColumn$($typeRow + $k)")
+                        $typing.Add((Measure-Call { $typeAt.Value2 = 1.0; $xl.Calculate() }))
+                    }
+                    $step = "clearing the typed cells, $mode thread(s)"
+                    [void]$typeWs.Range(("{0}{1}:{0}{2}" -f $typeColumn, $typeRow, ($typeRow + $types - 1))).ClearContents()
+                    [void](Measure-Call { $xl.Calculate() })
+                }
                 $step = "CalculateFull, $mode thread(s)"
                 $whole = New-Object System.Collections.Generic.List[double]
                 for ($k = 0; $k -lt $wholeRuns; $k++) { $whole.Add((Measure-Call { $xl.CalculateFull() })) }
@@ -446,7 +474,8 @@ try {
                     $copyField = "; CopyWay = '$($script:copyWay)'"
                     if ($script:copyRefused.Count -gt 0) { $copyField += "; CopyRefused = '$($script:copyRefused -join ' | ')'" }
                 }
-                $rows.Add(("    @{{ Half = 'excel'; Fixture = '{0}'; Threads = '{1}'; ThreadCount = {2}; Sha256 = '{3}'; Open = {4:F1}; Whole = {5:F3}; Rebuild = {6:F3}; Edit = {7:F3}; Copy = {8:F1}; ComFloor = {9:F3}; SumBuilt = {10}; SumEdited = {11}{12} }}" -f $name, $mode, $threads, $sha, $open, (Get-Median $whole.ToArray()), (Get-Median $rebuild.ToArray()), (Get-Median $changes.ToArray()), $copy, (Get-Median $floor.ToArray()), $sumBuilt, $sumEdited, $copyField))
+                $typeField = if ($typing.Count -gt 0) { '; Type = {0:F3}' -f (Get-Median $typing.ToArray()) } else { '' }
+                $rows.Add(("    @{{ Half = 'excel'; Fixture = '{0}'; Threads = '{1}'; ThreadCount = {2}; Sha256 = '{3}'; Open = {4:F1}; Whole = {5:F3}; Rebuild = {6:F3}; Edit = {7:F3}{13}; Copy = {8:F1}; ComFloor = {9:F3}; SumBuilt = {10}; SumEdited = {11}{12} }}" -f $name, $mode, $threads, $sha, $open, (Get-Median $whole.ToArray()), (Get-Median $rebuild.ToArray()), (Get-Median $changes.ToArray()), $copy, (Get-Median $floor.ToArray()), $sumBuilt, $sumEdited, $copyField, $typeField))
                 $done[$mode] = $true
             }
             $step = 'closing it'
