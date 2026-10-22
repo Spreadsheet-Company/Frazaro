@@ -7,13 +7,34 @@
 # the ratchets before a human reads it. tools/release.ps1 runs the same
 # scripts locally before it will tag a release.
 #
-# Since 2026-10-01 (PORT.4) a second job builds the Cargo workspace: the
+# Since 2026-10-01 (PORT.4) the Cargo workspace is built here too: the
 # host-free core and its command-line door (docs/HORIZON.md section 12).
 # The VBA reference cannot run here and never will; it testifies through
 # the goldens it produced, and tools/prove.ps1 is the runner that holds any
 # other implementation to them (conformance/README.md). The wasm build's
 # import section is read on the artifact itself, so SD-13 is checked on
 # the file, not taken on faith.
+#
+# Since 2026-10-21 (AS.10) the work is six jobs side by side, where the
+# workspace's was one job of about eight minutes, every step after the
+# last:
+# - ratchets runs tools/run_checks.ps1 under Windows PowerShell 5.1, the
+#   checks side by side and their count held to its floor, every check's
+#   output kept in the log;
+# - test builds, format-checks, lints and tests the workspace, its tests
+#   optimized by the dev profile of Cargo.toml (opt-level 1, its debug
+#   assertions and overflow checks on);
+# - package runs the language's published package's own tests from its
+#   tarball, whose manifest carries no profile of the workspace's, so the
+#   same optimization is given it here;
+# - wasm builds the two modules in the release profile, reads their imports
+#   and exports off the files, and builds the page from the core's;
+# - door builds the door and holds it to the treaty's goldens and the
+#   census, the door optimized as the tests are (the census of the bench
+#   programs took a minute and a half through an unoptimized door);
+# - floors builds the recalculation floors' two runners in the dev profile,
+#   whose check modes print what the release profile's print byte for byte,
+#   and holds their values and bytes.
 name: checks
 on:
   push:
@@ -24,26 +45,17 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: run every tools/check_*.ps1
+      - name: run every tools/check_*.ps1, side by side, their count held to its floor (AS.10)
         shell: pwsh
         run: |
-          $failed = @()
-          foreach ($chk in Get-ChildItem tools -Filter 'check_*.ps1' | Sort-Object Name) {
-            Write-Host "::group::$($chk.Name)"
-            & powershell -NoProfile -ExecutionPolicy Bypass -File $chk.FullName
-            $code = $LASTEXITCODE
-            Write-Host "::endgroup::"
-            if ($code -ne 0) { $failed += "$($chk.Name) (exit $code)" }
-          }
-          if ($failed.Count -gt 0) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
-          Write-Host "all ratchets clean"
-  core:
+          & powershell -NoProfile -ExecutionPolicy Bypass -File tools/run_checks.ps1 -ShowAll
+          exit $LASTEXITCODE
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
           components: clippy, rustfmt
       - name: build, format-check, lint and test the workspace
         run: |
@@ -52,13 +64,28 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
           cargo clippy -p vla-lang --all-targets --features c-abi -- -D warnings
           cargo test --workspace
-      - name: the language's published package runs its own tests, outside this repository (VLA.1)
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: the language's published package runs its own tests, outside this repository (VLA.1), optimized as the workspace's tests are (AS.10)
+        env:
+          CARGO_PROFILE_DEV_OPT_LEVEL: '1'
+          CARGO_PROFILE_DEV_DEBUG: 'line-tables-only'
         run: |
           cargo package -p vla-lang --locked
           version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "vla-lang") | .version')
           mkdir -p "$RUNNER_TEMP/vla-lang-package"
           tar -xzf "target/package/vla-lang-$version.crate" -C "$RUNNER_TEMP/vla-lang-package"
           cargo test --locked --manifest-path "$RUNNER_TEMP/vla-lang-package/vla-lang-$version/Cargo.toml"
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - name: build the wasm core
         run: cargo build --release -p frazaro-core --target wasm32-unknown-unknown
       - name: build the wasm language crate, with the machine's C surface (PORT.12; KERNEL.22)
@@ -71,6 +98,28 @@ jobs:
         run: |
           pwsh -NoProfile -File tools/check_wasm_exports.ps1
           pwsh -NoProfile -File tools/check_wasm_exports.ps1 -Control
+      - name: build the web page from the wasm core (PORT.6, slice 6h)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/build_web.ps1 -NoBuild
+          pwsh -NoProfile -File tools/check_web_offline.ps1
+      - name: keep the wasm core
+        uses: actions/upload-artifact@v4
+        with:
+          name: frazaro_core.wasm
+          path: target/wasm32-unknown-unknown/release/frazaro_core.wasm
+      - name: keep the web page
+        uses: actions/upload-artifact@v4
+        with:
+          name: index.html
+          path: web/index.html
+  door:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: build the door, optimized as the workspace's tests are (AS.10)
+        run: cargo build -p frazaro
       - name: the conformance runner proves itself
         shell: pwsh
         run: pwsh -NoProfile -File tools/prove.ps1 -Control
@@ -109,24 +158,15 @@ jobs:
         run: |
           pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Impl target/debug/frazaro
           pwsh -NoProfile -File tools/check_shapes_golden.ps1 -Control
+  floors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: build the recalculation floors' two runners, in the dev profile (AS.10)
+        run: cargo build -p frazaro-core --example recalc --example memory
       - name: the machine's values held on the fixtures the recalculation floors were measured on (KERNEL.20), and its bytes under their ceilings (KERNEL.49)
         shell: pwsh
         run: |
-          cargo build --release -p frazaro-core --example recalc --example memory
-          pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Runner target/release/examples/recalc -MemoryRunner target/release/examples/memory
+          pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Runner target/debug/examples/recalc -MemoryRunner target/debug/examples/memory
           pwsh -NoProfile -File tools/check_recalc_floors.ps1 -Control
-      - name: build the web page from the wasm core (PORT.6, slice 6h)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File tools/build_web.ps1 -NoBuild
-          pwsh -NoProfile -File tools/check_web_offline.ps1
-      - name: keep the wasm core
-        uses: actions/upload-artifact@v4
-        with:
-          name: frazaro_core.wasm
-          path: target/wasm32-unknown-unknown/release/frazaro_core.wasm
-      - name: keep the web page
-        uses: actions/upload-artifact@v4
-        with:
-          name: index.html
-          path: web/index.html

@@ -83,7 +83,7 @@ output:
 | Prefix | Highest today | Next free |
 |---|---|---|
 | AC | AC.4 | AC.5 |
-| AS | AS.9 | AS.10 |
+| AS | AS.10 | AS.11 |
 | AXM | AXM.13 | AXM.14 |
 | CO | CO.5 | CO.6 |
 | DI | DI.5 | DI.6 |

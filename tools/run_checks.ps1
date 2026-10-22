@@ -25,11 +25,26 @@ with a plain pass/fail scan would hide what each one actually asserts.
 -WithExtras runs the hardcoded list of them below, each with the arguments
 it needs, and says so separately.
 
+SIDE BY SIDE (AS.10, 2026-10-21): the checks run at once, as many as the
+machine has logical processors (-Throttle to choose), each still in a
+powershell.exe of its own, so a check sees what it saw when they ran one
+after another. The report is the same: a line a check, in the order of
+their names, each printed once it and every check before it are done, then
+the total, which gives how many ran at once and the wall time. One after
+another they took 133 s on the owner's machine that day, side by side the
+longest check. -Throttle 1 runs them one after another, as before. -Control
+proves the gathering: fake checks, one slow and first by name, one failing,
+one writing to stderr, run three at a time against a folder of their own,
+must report in the order of their names, the failure with its tail and the
+exit code 1, and a floor not met must fail.
+
 Usage:
   powershell -File tools\run_checks.ps1
   powershell -File tools\run_checks.ps1 -Filter prolog      # only matching names
   powershell -File tools\run_checks.ps1 -ShowAll            # print passing output too
   powershell -File tools\run_checks.ps1 -WithExtras         # also the named verifiers
+  powershell -File tools\run_checks.ps1 -Throttle 1         # one at a time
+  powershell -File tools\run_checks.ps1 -Control            # the gathering proved
 
 Exit code: 0 if every check passed AND at least the floor were found;
 1 otherwise.
@@ -44,7 +59,11 @@ param(
     # make THIS script testable: a runner that cannot be pointed at a broken
     # tree cannot be shown to go red, and an unverified runner reporting
     # "ALL GREEN" is worse than no runner.
-    [string]$ToolsDir = ''
+    [string]$ToolsDir = '',
+    # How many scripts run at once (AS.10): every logical processor unless
+    # given; 1 runs them one after another.
+    [int]$Throttle = 0,
+    [switch]$Control
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,36 +162,109 @@ $extras = @(
     @{ Script = 'check_wasm_exports.ps1';  Args = @('-Control');    What = 'KERNEL.22 export reader: a module reads as its names, a list one short or one long is reported' },
     @{ Script = 'check_crate_package.ps1'; Args = @('-Control');    What = 'VLA.1 package reader: the clean crates pass; a test include leaving vla-lang, an integration test reaching out, a core include leaving its crate and a respelled include each fail' },
     @{ Script = 'check_expand_golden.ps1'; Args = @('-Control');    What = 'VLA.3 expand golden: the real set passes; a misspelt tag, a dropped case, an unknown id, a broken reference Select and a renamed primitive each fail' },
-    @{ Script = 'check_recalc_floors.ps1'; Args = @('-Control');    What = 'KERNEL.20 recalculation floors: a clean baseline passes; fifteen mutants, two pasted histories and three fake runners each fail' },
+    @{ Script = 'check_recalc_floors.ps1'; Args = @('-Control');    What = 'KERNEL.20 recalculation floors: a clean baseline passes; its mutants, pasted histories and fake runners each fail; the runners found, run side by side and kept (AS.10)' },
     @{ Script = 'check_shapes_golden.ps1'; Args = @('-Control');    What = 'KERNEL.30 census goldens: a clean fake door passes, the second pass from its cache; a mutant door and six broken goldens each fail' },
-    @{ Script = 'check_formats_golden.ps1'; Args = @('-Control');   What = 'KERNEL.47 formats golden: the real set passes; a misspelt tag, a dropped case, a value echoed otherwise, an exponent and the backslashes taken out each fail' }
+    @{ Script = 'check_formats_golden.ps1'; Args = @('-Control');   What = 'KERNEL.47 formats golden: the real set passes; a misspelt tag, a dropped case, a value echoed otherwise, an exponent and the backslashes taken out each fail' },
+    @{ Script = 'run_checks.ps1';          Args = @('-Control');    What = 'AS.10 this runner: fake checks side by side and one at a time report in the order of their names; a failure and a floor not met each fail' }
 )
 
-function Invoke-OneScript {
+# One script in a powershell.exe of its own, its output merged in the order
+# it printed it. The block runs in a runspace of the pool below (AS.10), so
+# that scripts run at once while each still runs alone in its own process.
+# The runspace's $ErrorActionPreference is 'Continue', not this script's
+# 'Stop', and must stay so: a CHECK writing to stderr is this script's
+# ordinary business, not an error in it. In Windows PowerShell 5.1, `2>&1` on
+# a native executable wraps each stderr line in a NativeCommandError, which
+# under 'Stop' TERMINATES the runner - so a check that failed loudly would
+# kill the run instead of being reported as FAIL, and the total would never
+# print. Found by trying to make this script go red, which is the whole
+# reason for trying.
+$runOne = {
     param([string]$Path, [string[]]$Arguments)
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    # $ErrorActionPreference is 'Stop' for this script's own mistakes, but a
-    # CHECK writing to stderr is this script's ordinary business, not an
-    # error in it. In Windows PowerShell 5.1, `2>&1` on a native executable
-    # wraps each stderr line in a NativeCommandError, which under 'Stop'
-    # TERMINATES the runner - so a check that failed loudly would kill the
-    # run instead of being reported as FAIL, and the total would never
-    # print. Found by trying to make this script go red, which is the whole
-    # reason for trying.
-    $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try {
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Path @Arguments 2>&1
-        $code = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $prev
-    }
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Path @Arguments 2>&1
+    $code = $LASTEXITCODE
     $sw.Stop()
-    return [pscustomobject]@{
-        Code    = $code
-        Output  = $out
-        Seconds = $sw.Elapsed.TotalSeconds
-    }
+    [pscustomobject]@{ Code = $code; Output = @($out | ForEach-Object { "$_" }); Seconds = $sw.Elapsed.TotalSeconds }
+}
+
+# ------------------------------------------------------------------ -Control
+# Fake checks in a folder of their own, gathered by this script run again
+# over it: the order of the report, a failure's tail, the exit code, the
+# floor, a filter, and side by side against one at a time, read off the times
+# each fake writes as it starts and ends.
+if ($Control) {
+    $failures = New-Object System.Collections.Generic.List[string]
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('run_checks_control_' + [System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $tmp | Out-Null
+    try {
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        $stamp = { param([string]$who, [string]$body) "Add-Content -LiteralPath (Join-Path `$PSScriptRoot '$who.time') ('start ' + [DateTime]::UtcNow.Ticks)`r`n$body`r`nAdd-Content -LiteralPath (Join-Path `$PSScriptRoot '$who.time') ('end ' + [DateTime]::UtcNow.Ticks)`r`nexit `$code`r`n" }
+        $fakes = [ordered]@{
+            'check_a_slow'   = "Start-Sleep -Milliseconds 2500`r`nWrite-Output 'a: slow and first by name'`r`n`$code = 0"
+            'check_b_fails'  = "Write-Output 'b: one line'`r`nWrite-Output 'b: the reason it fails'`r`n`$code = 1"
+            'check_c_stderr' = "[Console]::Error.WriteLine('c: a line on stderr')`r`nWrite-Output 'c: passes'`r`n`$code = 0"
+            'check_d_quick'  = "Write-Output 'd: quick'`r`n`$code = 0"
+        }
+        foreach ($k in $fakes.Keys) { [System.IO.File]::WriteAllText((Join-Path $tmp "$k.ps1"), (& $stamp $k $fakes[$k]), $utf8) }
+        $times = {
+            $t = @{}
+            foreach ($k in $fakes.Keys) {
+                $p = Join-Path $tmp "$k.time"
+                if (Test-Path -LiteralPath $p) {
+                    $l = @(Get-Content -LiteralPath $p)
+                    $t[$k] = @{ Start = [long](($l | Where-Object { $_ -like 'start *' } | Select-Object -First 1) -replace '^start ', ''); End = [long](($l | Where-Object { $_ -like 'end *' } | Select-Object -First 1) -replace '^end ', '') }
+                    Remove-Item -LiteralPath $p
+                }
+            }
+            $t
+        }
+        $gather = {
+            param([string[]]$More)
+            $prev = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try { $o = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -ToolsDir $tmp @More 2>&1 | ForEach-Object { "$_" }; $c = $LASTEXITCODE } finally { $ErrorActionPreference = $prev }
+            @{ Lines = @($o); Code = $c }
+        }
+        # Three at a time: the report in the order of the names, though the
+        # first by name ends last; the failure's tail; stderr kept; exit 1.
+        $r = & $gather @('-Throttle', '3', '-Floor', '4', '-ShowAll')
+        $t = & $times
+        $order = @($r.Lines | Where-Object { $_ -match '^  (ok  |FAIL)  check_' } | ForEach-Object { ($_ -split '\s+')[2] })
+        if (($order -join ',') -ne 'check_a_slow.ps1,check_b_fails.ps1,check_c_stderr.ps1,check_d_quick.ps1') { $failures.Add("three at a time: the report's order was $($order -join ', ')") }
+        $tags = @($r.Lines | Where-Object { $_ -match '^  (ok  |FAIL)  check_' } | ForEach-Object { $_.Substring(2, 4).Trim() })
+        if (($tags -join ',') -ne 'ok,FAIL,ok,ok') { $failures.Add("three at a time: the verdicts were $($tags -join ', ')") }
+        if ($r.Code -ne 1) { $failures.Add("three at a time, one failing: exit $($r.Code), not 1") }
+        $at = [array]::IndexOf($r.Lines, '--- check_b_fails.ps1 ---')
+        if ($at -lt 0 -or $r.Lines[$at + 2] -ne '  b: the reason it fails') { $failures.Add('three at a time: the failure''s tail was not printed under its name') }
+        if (-not ($r.Lines -contains '  c: a line on stderr')) { $failures.Add('three at a time: the line on stderr was not kept in its check''s output') }
+        if (-not ($r.Lines | Where-Object { $_ -match '^=== 4 checks: 3 passed, 1 failed, 3 at a time in ' })) { $failures.Add('three at a time: no total naming 4 checks, 3 at a time') }
+        if ($t.Count -ne 4) { $failures.Add("three at a time: $($t.Count) fakes wrote their times, not 4") }
+        elseif (-not ($t['check_d_quick'].Start -lt $t['check_a_slow'].End -and $t['check_a_slow'].Start -lt $t['check_d_quick'].End)) { $failures.Add('three at a time: the quick fake did not run while the slow one ran') }
+        else { Write-Output '  control: three at a time: the slow fake ran beside the quick one, the report in the order of the names, the failure''s tail under its name, stderr kept, exit 1' }
+        # One at a time: none overlaps the next.
+        $r = & $gather @('-Throttle', '1', '-Floor', '4')
+        $t = & $times
+        $keys = @($fakes.Keys)
+        $overlap = $false
+        for ($i = 1; $i -lt $keys.Count; $i++) { if ($t.ContainsKey($keys[$i - 1]) -and $t.ContainsKey($keys[$i]) -and $t[$keys[$i]].Start -lt $t[$keys[$i - 1]].End) { $overlap = $true } }
+        if ($t.Count -ne 4 -or $overlap) { $failures.Add("one at a time: $($t.Count) fakes wrote their times, and one began before the one before it ended: $overlap") }
+        elseif ($r.Code -ne 1) { $failures.Add("one at a time, one failing: exit $($r.Code), not 1") }
+        else { Write-Output '  control: one at a time: each fake began after the one before it ended, exit 1' }
+        # A floor not met.
+        $r = & $gather @('-Floor', '5')
+        if ($r.Code -ne 1 -or -not ($r.Lines | Where-Object { $_ -like 'FLOOR: 4 check(s) found, but 5 were expected*' })) { $failures.Add("a floor of 5 over 4 checks: exit $($r.Code), and no FLOOR line") }
+        else { Write-Output '  control: a floor of 5 over 4 checks fails by name' }
+        $null = & $times
+        # A filter.
+        $r = & $gather @('-Filter', 'quick')
+        if ($r.Code -ne 0 -or -not ($r.Lines | Where-Object { $_ -like "=== 1 check(s) matching 'quick': 1 passed, 0 failed*" })) { $failures.Add("a filter: exit $($r.Code), and no total of the one matching check") }
+        else { Write-Output '  control: a filter runs the one check it matches, exit 0' }
+    } finally { Remove-Item -Recurse -Force -LiteralPath $tmp -ErrorAction SilentlyContinue }
+    if ($failures.Count -gt 0) { foreach ($f in $failures) { Write-Output "FAIL: $f" }; exit 1 }
+    Write-Output 'OK: run_checks -Control: side by side and one at a time, the report in the order of the names, a failure and a floor each fail'
+    exit 0
 }
 
 $scripts = @(Get-ChildItem -Path (Join-Path $toolsDir 'check_*.ps1') -File |
@@ -183,74 +275,108 @@ if ($Filter -ne '') {
     $scripts = @($scripts | Where-Object { $_.Name -like "*$Filter*" })
 }
 
+# Every script to run, the checks and then, with -WithExtras, the other
+# verifiers, each started in the pool in that order and reported in it.
+$work = New-Object System.Collections.Generic.List[object]
+foreach ($s in $scripts) {
+    $work.Add([pscustomobject]@{ Extra = $false; Name = $s.Name; Path = $s.FullName; Arguments = @(); What = ''; Missing = $false })
+}
+if ($WithExtras) {
+    foreach ($e in $extras) {
+        $path = Join-Path $toolsDir $e.Script
+        $work.Add([pscustomobject]@{ Extra = $true; Name = ($e.Script + ' ' + ($e.Args -join ' ')).Trim(); Path = $path; Arguments = @($e.Args); What = $e.What; Missing = -not (Test-Path -LiteralPath $path) })
+    }
+}
+
+$atOnce = if ($Throttle -gt 0) { $Throttle } else { [Math]::Max(1, [Environment]::ProcessorCount) }
+$wall = [System.Diagnostics.Stopwatch]::StartNew()
+$pool = [runspacefactory]::CreateRunspacePool(1, $atOnce)
+$pool.Open()
+$tasks = New-Object System.Collections.Generic.List[object]
+foreach ($w in $work) {
+    if ($w.Missing) { $tasks.Add([pscustomobject]@{ Work = $w; Shell = $null; Handle = $null }); continue }
+    $shell = [powershell]::Create()
+    $shell.RunspacePool = $pool
+    [void]$shell.AddScript($runOne.ToString()).AddArgument($w.Path).AddArgument([string[]]$w.Arguments)
+    $tasks.Add([pscustomobject]@{ Work = $w; Shell = $shell; Handle = $shell.BeginInvoke() })
+}
+
 Write-Output '=== ALL STATIC CHECKS ==='
 Write-Output ''
 
 $results = New-Object System.Collections.Generic.List[object]
-foreach ($s in $scripts) {
-    $r = Invoke-OneScript -Path $s.FullName -Arguments @()
-    $results.Add([pscustomobject]@{
-        Name = $s.Name; Code = $r.Code; Output = $r.Output; Seconds = $r.Seconds
-    })
+$extraResults = New-Object System.Collections.Generic.List[object]
+$headed = $false
+foreach ($t in $tasks) {
+    $w = $t.Work
+    if ($w.Extra -and -not $headed) {
+        Write-Output ''
+        Write-Output '=== THE OTHER VERIFIERS ==='
+        Write-Output ''
+        $headed = $true
+    }
+    if ($w.Missing) {
+        $extraResults.Add([pscustomobject]@{ Name = $w.Name; Code = 1; Output = @("not found at $($w.Path)"); Seconds = 0 })
+        '  {0}  {1,-44} {2}' -f 'FAIL', $w.Name, 'NOT FOUND' | Write-Output
+        continue
+    }
+    # The next in the order, waited for while the rest run on.
+    [void]$t.Handle.AsyncWaitHandle.WaitOne()
+    try {
+        $got = $t.Shell.EndInvoke($t.Handle)
+        $r = if ($got.Count -gt 0) { $got[$got.Count - 1] } else { [pscustomobject]@{ Code = 1; Output = @($t.Shell.Streams.Error | ForEach-Object { "$_" }); Seconds = 0 } }
+    } catch {
+        $r = [pscustomobject]@{ Code = 1; Output = @("the runner could not run it: $($_.Exception.Message)"); Seconds = 0 }
+    }
+    $t.Shell.Dispose()
     $tag = if ($r.Code -eq 0) { 'ok  ' } else { 'FAIL' }
-    '  {0}  {1,-44} {2,6:N1}s' -f $tag, $s.Name, $r.Seconds | Write-Output
+    if ($w.Extra) {
+        $extraResults.Add([pscustomobject]@{ Name = $w.Name; Code = $r.Code; Output = $r.Output; Seconds = $r.Seconds })
+        '  {0}  {1,-44} {2,6:N1}s   {3}' -f $tag, $w.Name, $r.Seconds, $w.What | Write-Output
+    } else {
+        $results.Add([pscustomobject]@{ Name = $w.Name; Code = $r.Code; Output = $r.Output; Seconds = $r.Seconds })
+        '  {0}  {1,-44} {2,6:N1}s' -f $tag, $w.Name, $r.Seconds | Write-Output
+    }
 }
+$pool.Close()
+$pool.Dispose()
+$wall.Stop()
 
 $passed = @($results | Where-Object { $_.Code -eq 0 })
 $failed = @($results | Where-Object { $_.Code -ne 0 })
-
-$extraResults = New-Object System.Collections.Generic.List[object]
-if ($WithExtras) {
-    Write-Output ''
-    Write-Output '=== THE OTHER VERIFIERS ==='
-    Write-Output ''
-    foreach ($e in $extras) {
-        $path = Join-Path $toolsDir $e.Script
-        if (-not (Test-Path -LiteralPath $path)) {
-            $extraResults.Add([pscustomobject]@{
-                Name = $e.Script; Code = 1; Output = @("not found at $path"); Seconds = 0
-            })
-            '  {0}  {1,-44} {2}' -f 'FAIL', ($e.Script + ' ' + ($e.Args -join ' ')), 'NOT FOUND' | Write-Output
-            continue
-        }
-        $r = Invoke-OneScript -Path $path -Arguments $e.Args
-        $extraResults.Add([pscustomobject]@{
-            Name = ($e.Script + ' ' + ($e.Args -join ' ')).Trim()
-            Code = $r.Code; Output = $r.Output; Seconds = $r.Seconds
-        })
-        $tag = if ($r.Code -eq 0) { 'ok  ' } else { 'FAIL' }
-        '  {0}  {1,-44} {2,6:N1}s   {3}' -f $tag, ($e.Script + ' ' + ($e.Args -join ' ')).Trim(), $r.Seconds, $e.What | Write-Output
-    }
-}
-
 $extraFailed = @($extraResults | Where-Object { $_.Code -ne 0 })
 
 # Anything that failed prints its own tail, so the answer does not need a
-# second run to be actionable.
+# second run to be actionable; in GitHub's runner, the whole of it.
+$onActions = $env:GITHUB_ACTIONS -eq 'true'
+$tailLength = if ($onActions) { [int]::MaxValue } else { 20 }
 foreach ($f in ($failed + $extraFailed)) {
     Write-Output ''
     Write-Output ("--- $($f.Name) ---")
-    $tail = @($f.Output) | Select-Object -Last 20
+    $tail = @($f.Output) | Select-Object -Last $tailLength
     foreach ($ln in $tail) { Write-Output "  $ln" }
 }
 
 if ($ShowAll) {
     foreach ($p in $passed) {
         Write-Output ''
+        if ($onActions) { Write-Output ("::group::$($p.Name)") }
         Write-Output ("--- $($p.Name) ---")
         foreach ($ln in @($p.Output)) { Write-Output "  $ln" }
+        if ($onActions) { Write-Output '::endgroup::' }
     }
 }
 
 Write-Output ''
 $total = $results.Count
 $short = ($Filter -eq '') -and ($total -lt $expectedAtLeast)
+$howRun = if ($atOnce -eq 1) { 'one at a time' } else { "$atOnce at a time" }
 
 if ($Filter -ne '') {
-    Write-Output ("=== {0} check(s) matching '{1}': {2} passed, {3} failed ===" -f $total, $Filter, $passed.Count, $failed.Count)
+    Write-Output ("=== {0} check(s) matching '{1}': {2} passed, {3} failed, {4} in {5:N1} s ===" -f $total, $Filter, $passed.Count, $failed.Count, $howRun, $wall.Elapsed.TotalSeconds)
     Write-Output '    (a filtered run does not test the floor - run it unfiltered for that)'
 } else {
-    Write-Output ("=== {0} checks: {1} passed, {2} failed ===" -f $total, $passed.Count, $failed.Count)
+    Write-Output ("=== {0} checks: {1} passed, {2} failed, {3} in {4:N1} s ===" -f $total, $passed.Count, $failed.Count, $howRun, $wall.Elapsed.TotalSeconds)
 }
 if ($WithExtras) {
     Write-Output ("=== {0} other verifier(s): {1} passed, {2} failed ===" -f $extraResults.Count, ($extraResults.Count - $extraFailed.Count), $extraFailed.Count)

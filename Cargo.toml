@@ -41,9 +41,24 @@ frazaro-core = { path = "core", version = "=0.10.1" }
 # tools/check_version_twin.ps1 holds this pin equal too.
 vla-lang = { path = "vla-lang", version = "=0.10.1" }
 
+[profile.dev]
+# Optimized a little, its debug assertions and overflow checks still on
+# (AS.10, 2026-10-21): the tests, the door the checks run
+# (target/debug/frazaro) and the runners `cargo test` builds for the
+# recalculation floors' check (target/debug/examples) are built here, and
+# that check reads the runners' output here byte for byte as the release
+# profile's. On the owner's machine, `cargo test --workspace` after a
+# one-line edit took 54.4 s unoptimized and 22.0 s so, the tests themselves
+# 50.7 s and 13.0 s, a build from nothing 16.7 s and 20.4 s; opt-level 2 and
+# 3 ran the tests no faster and built them slower. Line tables are the debug
+# information a panic's backtrace reads.
+opt-level = 1
+debug = "line-tables-only"
+
 [profile.release]
 # Small, deterministic, and without an unwinder: a panic aborts, so the wasm
-# module imports nothing to unwind with and nothing to print with.
+# module imports nothing to unwind with and nothing to print with. The
+# bench's runners and the wasm modules are built here (AS.10).
 panic = "abort"
 lto = true
 codegen-units = 1

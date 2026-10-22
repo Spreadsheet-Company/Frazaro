@@ -10406,6 +10406,139 @@ re-derive the connection.
   the closed ledger. Per decision 2, `AS.5` folds in here and leaves the
   roadmap, and `AS.4` keeps its English half.
 
+- ✅ **AS.10 — the checks, the tests and CI answer in a minute or less: the
+  checks side by side, the tests and the door optimized, the floors'
+  runners kept while they are unchanged, and CI in six jobs.** *Minted and
+  built 2026-10-21 at the owner's word, during `KERNEL.49`.* The owner asked,
+  "Is there any way to cut down the testing loop from 10-20 minutes back
+  down to single-digit minutes, or even sub-minute testing?" The answer
+  measured where the time went and suggested three fixes, and the owner said
+  "Implement the suggested tooling fixes to reduce testing times before
+  proceeding with slice 2 of KERNEL.49."
+
+  *Where the time went.* Measured on the owner's machine (Core Ultra 7
+  265KF, 20 logical processors), each in a copy of HEAD with a build
+  directory of its own, but the first `run_checks.ps1`, which is the shared
+  tree's as the owner runs it:
+
+  | the step | before | after |
+  |---|---|---|
+  | `cargo test --workspace` after a one-line edit of the machine | 54.4 s: 3.7 to build, 50.7 of tests | 22.0 s |
+  | the same from nothing | 67.4 s | 33.5 s |
+  | `run_checks.ps1`, the runners built | 133 s one at a time, 59.5 of it the floors' two runners one after the other | 49.5 s side by side, the runners run; 17.5 s with their output kept |
+  | the same with every other verifier | not measured | 33.0 s |
+  | the census of the bench programs through the door, nothing kept | about a minute (CI's step, 1 min 35 s) | 19.7 s |
+  | CI | 8 min 11 s, the workspace's job one step after another | measured at the next push |
+
+  The 10 to 20 minutes were mostly not the tests. Every step of a pass one
+  after another took about four minutes; the rest was commands that stalled
+  or ran away, among them a script of this session's own that looped for 58
+  minutes before it was caught, and other sessions' transcripts hold single
+  commands of ten minutes to over two hours where the same step takes one
+  or two.
+
+  *What was built.*
+
+  1. **The dev profile optimized**, `opt-level = 1` and
+     `debug = "line-tables-only"` in the workspace's `Cargo.toml`, its debug
+     assertions and overflow checks on as before. `cargo test --workspace`
+     by opt-level, its tests alone, a one-line edit and its tests, and a
+     build from nothing: 0, 50.7, 54.4 and 16.7 s; 1, 12.7, 22.3 and 30.0;
+     2, 12.5, 22.8 and 31.7; 3, 13.4, 27.6 and 35.8; line tables in place of
+     the full debug information took opt-level 1's build from nothing to 20.4
+     s and its edit to 22.0, and opt-level 3's to 30.7 and 24.9. The
+     suggestion had been a third profile, `fast`, the release profile without
+     its LTO, for the tests, the door and the runners. The dev profile
+     optimized serves all three, keeps the debug assertions and overflow
+     checks a profile inherited from release would drop, and asks for no new
+     command: `cargo test --workspace` builds the runners as it always did,
+     and the door the checks run is `target/debug/frazaro` as before. The
+     release profile is unchanged, the bench's runners and the wasm built
+     there: a runner without LTO rebuilt in 3.3 s where LTO's took 40.3, but
+     the bench measures LTO's.
+  2. **The runners print the same in both profiles, byte for byte.** Over
+     HEAD (`8586732`) the memory runner's and the recalc runner's check modes
+     printed the same bytes built in the release profile and in the dev
+     profile at opt-level 1 and at 3: every fixture's bytes held and at the
+     peak, every row. The counting allocator counts what the code asks, and
+     the code has no branch on `debug_assertions`. Their times: the memory
+     runner 26.4 s in release and 30.1 at opt-level 1, the recalc runner 43.4
+     and 46.0.
+  3. **`run_checks.ps1` runs the checks side by side**, a runspace pool as
+     wide as the machine has logical processors (`-Throttle` to choose, 1
+     one at a time as before), each check still in a `powershell.exe` of its
+     own, so that it sees what it saw alone. The report is the same: a line a
+     check in the order of their names, each printed once it and every check
+     before it are done; the total adds how many ran at once and the wall
+     time. In GitHub's runner a failing check prints its whole output, and
+     with `-ShowAll` each passing one prints in a group of its own. Its
+     `-Control`, new, one of the other verifiers: four fake checks, the
+     first by name sleeping, one failing and one writing to stderr, run three
+     at a time and then one at a time against a folder of their own; the
+     order of the report, the failure's tail under its name, the line on
+     stderr kept, the exit code, a floor not met and a filter are each held,
+     and side by side against one at a time is read off the times each fake
+     writes as it starts and ends.
+  4. **The recalculation floors' runners** (`check_recalc_floors.ps1`).
+     Each is found as the newer of `target/debug/examples/` (`cargo test`'s)
+     and `target/release/examples/` (the bench's). A runner found and not
+     named, older than a file it is built from (the two crates' sources,
+     data and examples, and the manifests), is SKIPPED by name, where it was
+     run before and vouched for a tree no longer there. The two run side by
+     side. Each one's output is kept under `target/recalc_floors/` with the
+     SHA-256 of the runner and of every file it reads (`scripts/recalc/bench/`,
+     the prelude, `english.vla` and the build golden's fixture) and reused
+     while both are byte for byte the ones it came from, the lines judged
+     against the baseline every time, as `check_shapes_golden.ps1` has kept
+     the door's census since `KERNEL.30`. Only output that passed is kept.
+     Its control gained the finding, the staleness, the two at once and six
+     steps of a fake runner counting its runs: a clean output kept and read
+     back without a run, then a run for inputs of other bytes, for a runner
+     of other bytes and for an output that failed, twice.
+  5. **CI in six jobs side by side**, where the workspace's was one job:
+     `ratchets` runs `run_checks.ps1 -ShowAll` under Windows PowerShell 5.1,
+     so the count's floor is held there too; `test`; `package`, whose
+     tarball's manifest carries no profile of the workspace's, given the
+     same by `CARGO_PROFILE_DEV_OPT_LEVEL` and `CARGO_PROFILE_DEV_DEBUG`;
+     `wasm`, the modules, their imports and exports, and the page; `door`,
+     the treaty's goldens and the census through the optimized door; and
+     `floors`, the runners built in the dev profile. Every command of the
+     one job's is in one of the six but the runners' build and paths, now
+     the dev profile's.
+
+  *Verified* in a copy of HEAD with this item's four files and a build
+  directory of its own: `cargo test --workspace` from nothing, 33.5 s; the
+  census, nothing kept, 19.7 s; `run_checks.ps1` 58 of 58, side by side in
+  49.5 s with the runners run (the floors' check 47.0 s of it) and 17.5 s
+  with their output kept, one at a time 71.2 s; `-WithExtras` 58 and 16 in
+  33.0 s; both controls passing under Windows PowerShell 5.1. pwsh is not on
+  the machine, so the floors' check under pwsh runs first in CI.
+
+  *Found.*
+  - In the shared tree that day a peer's uncommitted `KERNEL.50`
+    (`vla-lang/src/appearance.rs`, `sheet.rs`, `view.rs`, `load.rs`) read 32
+    bytes heavier a sheet in the memory runner, Superposition's sixteen
+    sheets 512, over the ceilings. That is the item's to weigh and write
+    down when it lands, with a ceiling's reason; HEAD and this item's files
+    alone held every ceiling.
+  - `tools/release.ps1` runs the checks one at a time in a loop of its own,
+    about a minute and a half; calling `run_checks.ps1` would make it the
+    same gate, with the floor.
+  - The tests' 13 s are bounded by a few of `vla-lang`'s 348 unit tests (7
+    s of their run) and by the integration tests' binaries run one after
+    another.
+  - The runners' check modes take 26 and 43 s optimized. Where the time goes
+    is not measured apart: building the bench programs through the door,
+    and the netlist's checks. While nothing changes, the cache spares it.
+
+  *Owner-tested and committed 2026-10-21 at the owner's word.* The owner's
+  runs of `run_checks.ps1` in the shared tree: 58 of 58 side by side in
+  13.4 s, again in 12.4 s, and one at a time in 64.7 s.
+
+  *Pins:* none. *Floors:* none moved; `run_checks.ps1`'s count stays at 58,
+  and its other verifiers gain its own control. *Docs:* this record and its
+  ledger line, and the registry's `AS` row. `~hours`
+
 ---
 
 # 🗣 LANGUAGE · COMPATIBILITY
@@ -47531,3 +47664,4 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **VLA.1 — the language tests itself: its fixtures travel with the crate, its laws hold on generated programs, and text a stranger wrote is refused by name, never a crash.** Scoped, built, owner-tested and committed 2026-10-10, the `VLA` family's first item. The nine fixtures vla-lang's tests read travel under `vla-lang/testdata/`, held byte for byte to `scripts/` by `check_crate_data`; `check_crate_package` holds vla-lang's test includes inside the crate. CI tests the unpacked package, which compiled none of its tests before. Six laws hold over generated programs and grids (`tests/laws.rs`). A harness of six doors runs 1,900 cases in the suite and 300,000 on request, none failing (`tests/strangers.rs`, nine kept cases). Four refusals replace the crashes and the hang the probe found. Lists nested past 64 are refused in both implementations (`vla-form-too-deep`). So is a formula past Excel's 64 levels or 8,192 characters (`calc-formula-too-deep`, `calc-formula-too-long`). In the port, which copies a macro's arguments, so is one application writing more than a million forms (`vla-macro-expansion-too-large`). Each limit is pinned on a 1 MiB debug stack. A chain of operators now evaluates in a loop, and the plan's walk keeps its own stack. The owner's first pass caught a size budget summed over a program, which refused the reference's own scale walks: the limit became one application's result, and the reference's weighing was withdrawn. The second pass: pure 1949/1949, host 333/333, goldens PASS, VerifyReports 371/371. `AS.5` folded in; `AS.4` keeps its English half. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang. Folded into `VLA.1` and closed with it, 2026-10-10: every door of the language is knocked with mutated text and answers or refuses by name, and the reference's reader refuses past the same depth. *(more: the full entry, earlier in this file)*
+- ✅ **AS.10 — the checks, the tests and CI answer in a minute or less.** Minted and built 2026-10-21 at the owner's word, during `KERNEL.49`. The dev profile is optimized (opt-level 1, line tables, its debug assertions and overflow checks on): `cargo test --workspace` after a one-line edit takes 22.0 s, where it took 54.4. `run_checks.ps1` runs the checks side by side, its report unchanged: 49.5 s with the floors' runners run, 17.5 s with their output kept, where one at a time took 133. Those runners are the newer of the dev and release builds, skipped by name when older than a source, run side by side, and their output is kept while the runner and its inputs are unchanged. CI is six jobs side by side. *(more: the full entry, earlier in this file)*

@@ -80,7 +80,8 @@ WHAT IT HOLDS, from the baseline pasted below:
     a measurement, not gated, since Excel's numbers move with its version.
 An empty baseline fails: a floor with no number is no floor.
 
-WITH A BUILT RUNNER (target/release/examples/recalc, or -Runner): its check
+WITH A BUILT RUNNER (target/debug/examples/recalc or
+target/release/examples/recalc, the newer, or -Runner): its check
 mode, every value held (each fixture's first frame to the values its build
 folded, its edited state to Calc, every frame of Life to a Life written by
 hand, every gate of the netlist to its adder by hand, and the netlist's
@@ -88,10 +89,25 @@ program its generator's), and each fixture's sums equal to the baseline's,
 so the values measured are the values computed today. A file's bytes may
 move with the stamp (a phrasebook or the prelude edited) while its values
 do not; that is printed and not failed. SKIPPED without a runner: the ratchets job builds
-none. WITH A BUILT MEMORY RUNNER (target/release/examples/memory, or
--MemoryRunner): its check mode, every fixture's bytes, exact, at most its
+none. WITH A BUILT MEMORY RUNNER (target/debug/examples/memory or
+target/release/examples/memory, the newer, or -MemoryRunner): its check
+mode, every fixture's bytes, exact, at most its
 latest ceilings, and its formulas the baseline's; bytes under a ceiling
 printed, so that a new entry may lower it. SKIPPED without one.
+
+THE RUNNERS SINCE AS.10 (2026-10-21): `cargo test --workspace` builds both
+in the dev profile, optimized since that day, and their check modes print
+there what the release profile's print, byte for byte. A runner found, not
+named, and older than a file it is built from (the two crates' sources,
+data and examples, and the manifests) is SKIPPED by name, since it would
+check a tree that is no longer here. The two run side by side. Each one's
+output is kept under target/recalc_floors/ with the SHA-256 of the runner
+and of every file it reads (scripts/recalc/bench/, the prelude, english.vla
+and the build golden's fixture), and reused while both are byte for byte
+the ones it came from: the runner reads no clock and draws no chance, so it
+would print the same lines, which are judged against this baseline again
+every time. Only output that passed is kept. Delete the folder to run them
+again.
 
 -Control proves the judgment: a clean baseline passes, and so does one
 with a floor lowered for a written reason, and one with a ceiling raised for
@@ -113,7 +129,12 @@ fake runners: a clean one passes, and one whose values differ, one whose
 sums differ and one that leaves out a fixture must each fail; and fake
 memory runners: a clean one passes, and one over a ceiling, one whose
 formulas differ, one that leaves out a fixture and one that failed must
-each fail.
+each fail. Then the runners' finding, running and keeping (AS.10): of two
+built, the newer is found; a runner older than a source is named stale and
+one newer is not; two fake runners started together run at once, read off
+the times each writes; a clean output kept is read back from the cache
+with the runner not run again, while a runner of other bytes, inputs of
+other bytes and an output that failed each run it again.
 
 House style (tools/check_*.ps1): PowerShell 5.1 and pwsh alike, host-free,
 no network; a hardcoded, reviewable baseline; exit 0 clean, exit 1 with
@@ -216,7 +237,8 @@ $floorHistory = @(
 $ceilingHistory = @(
     @{ Date = '2026-10-21'; Reason = ''; Ceilings = @{ 'column held' = 29102875; 'column peak' = 62909797; 'chain held' = 15909993; 'chain peak' = 37447954; 'sums held' = 11888295; 'sums peak' = 31769224; 'life held' = 55883911; 'life peak' = 283714012; 'lookups held' = 77776017; 'lookups peak' = 155549356; 'criteria held' = 28977401; 'criteria peak' = 51926531; 'superposition held' = 320715071; 'superposition peak' = 338673647; 'life-x16 held' = 405270455; 'life-x16 peak' = 480767927 } },
     @{ Date = '2026-10-21'; Reason = ''; Ceilings = @{ 'column held' = 29102875; 'column peak' = 62909797; 'chain held' = 15909993; 'chain peak' = 37447954; 'sums held' = 11888295; 'sums peak' = 31769224; 'life held' = 55883911; 'life peak' = 283714012; 'lookups held' = 77776017; 'lookups peak' = 155549356; 'criteria held' = 28977401; 'criteria peak' = 51926531; 'netlist held' = 69154762; 'netlist peak' = 96352009; 'superposition held' = 320715071; 'superposition peak' = 338673647; 'life-x16 held' = 405270455; 'life-x16 peak' = 480767927 } },
-    @{ Date = '2026-10-21'; Reason = 'KERNEL.54''s second slice, at the owner''s word: every program''s bytes held, and four programs'' peaks, raised by what the slice keeps, each shape''s stretches of the order (8 bytes each and 4 a shape), the frame''s lists given room at the plan so that no frame allocates (4 bytes a shape made whole, 4 a shape with parts, 4 a word of the marks) and the netlist''s 992 pieces; held, the column 3,808 bytes more, the chain 2,556, the sums 1,828, Life 3,984, the lookups 8,868, the criteria 3,952, the netlist 393,908 (0.57%), the board 50,664 and Life x16 63,792 (0.016%); at the peak the criteria 192 more, the netlist, the board and Life x16 as much as they hold more, the others the same (docs/BETA_REARVIEW.md, KERNEL.54)'; Ceilings = @{ 'column held' = 29106683; 'column peak' = 62909797; 'chain held' = 15912549; 'chain peak' = 37447954; 'sums held' = 11890123; 'sums peak' = 31769224; 'life held' = 55887895; 'life peak' = 283714012; 'lookups held' = 77784885; 'lookups peak' = 155549356; 'criteria held' = 28981353; 'criteria peak' = 51926723; 'netlist held' = 69548670; 'netlist peak' = 96745917; 'superposition held' = 320765735; 'superposition peak' = 338724311; 'life-x16 held' = 405334247; 'life-x16 peak' = 480831719 } }
+    @{ Date = '2026-10-21'; Reason = 'KERNEL.54''s second slice, at the owner''s word: every program''s bytes held, and four programs'' peaks, raised by what the slice keeps, each shape''s stretches of the order (8 bytes each and 4 a shape), the frame''s lists given room at the plan so that no frame allocates (4 bytes a shape made whole, 4 a shape with parts, 4 a word of the marks) and the netlist''s 992 pieces; held, the column 3,808 bytes more, the chain 2,556, the sums 1,828, Life 3,984, the lookups 8,868, the criteria 3,952, the netlist 393,908 (0.57%), the board 50,664 and Life x16 63,792 (0.016%); at the peak the criteria 192 more, the netlist, the board and Life x16 as much as they hold more, the others the same (docs/BETA_REARVIEW.md, KERNEL.54)'; Ceilings = @{ 'column held' = 29106683; 'column peak' = 62909797; 'chain held' = 15912549; 'chain peak' = 37447954; 'sums held' = 11890123; 'sums peak' = 31769224; 'life held' = 55887895; 'life peak' = 283714012; 'lookups held' = 77784885; 'lookups peak' = 155549356; 'criteria held' = 28981353; 'criteria peak' = 51926723; 'netlist held' = 69548670; 'netlist peak' = 96745917; 'superposition held' = 320765735; 'superposition peak' = 338724311; 'life-x16 held' = 405334247; 'life-x16 peak' = 480831719 } },
+    @{ Date = '2026-10-21'; Reason = 'KERNEL.50''s first slice, at the owner''s word: every program''s bytes held, and the criteria''s, the netlist''s, the board''s and Life x16''s peaks, raised by a format''s appearance, 32 bytes more a slot of a grid''s style table (a Style 56 bytes where it was 24, its font, alignment and four edges each said or not); held, every program and Life x16 32 bytes more, a table of one slot, and the board 512, its 13 formats in 16 slots; at the peak the criteria, the netlist, the board and Life x16 as much as they hold more, the others the same (docs/BETA_REARVIEW.md, KERNEL.50)'; Ceilings = @{ 'column held' = 29106715; 'column peak' = 62909797; 'chain held' = 15912581; 'chain peak' = 37447954; 'sums held' = 11890155; 'sums peak' = 31769224; 'life held' = 55887927; 'life peak' = 283714012; 'lookups held' = 77784917; 'lookups peak' = 155549356; 'criteria held' = 28981385; 'criteria peak' = 51926755; 'netlist held' = 69548702; 'netlist peak' = 96745949; 'superposition held' = 320766247; 'superposition peak' = 338724823; 'life-x16 held' = 405334279; 'life-x16 peak' = 480831751 } }
 )
 
 # --- the programs measured, each one's SHA-256 over LF bytes ---
@@ -516,18 +538,108 @@ function Test-MemoryRunner([string[]]$lines, $rows, $ceilings) {
     return @{ Problems = $problems; Info = $info }
 }
 
+# A runner's check mode started, its output read as it comes and its stderr
+# let go; a .ps1 is a fake runner of the control, run by the shell. Started
+# first and waited for after, so that the two runners run side by side (AS.10).
+function Start-Runner([string]$exe) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    if ($exe.EndsWith('.ps1')) {
+        $psi.FileName = if (Get-Command powershell -ErrorAction SilentlyContinue) { 'powershell' } else { 'pwsh' }
+        $psi.Arguments = ('-NoProfile -ExecutionPolicy Bypass -File "{0}" --check' -f $exe)
+    } else {
+        $psi.FileName = $exe
+        $psi.Arguments = '--check'
+    }
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $p = [System.Diagnostics.Process]::Start($psi)
+    return @{ Process = $p; Out = $p.StandardOutput.ReadToEndAsync(); Err = $p.StandardError.ReadToEndAsync() }
+}
+
+function Wait-Runner($started) {
+    $started.Process.WaitForExit()
+    $text = $started.Out.Result
+    $null = $started.Err.Result
+    $started.Process.Dispose()
+    $lines = @($text -split "`r?`n")
+    if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') { $lines = @($lines | Select-Object -First ($lines.Count - 1)) }
+    return $lines
+}
+
 function Invoke-Runner([string]$exe) {
-    $old = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        if ($exe.EndsWith('.ps1')) {
-            $shell = if (Get-Command powershell -ErrorAction SilentlyContinue) { 'powershell' } else { 'pwsh' }
-            $out = & $shell -NoProfile -ExecutionPolicy Bypass -File $exe --check 2>$null
-        } else {
-            $out = & $exe --check 2>$null
+    return @(Wait-Runner (Start-Runner $exe))
+}
+
+# The newest built runner of a name under a root, the dev profile's or the
+# release profile's, or '' (AS.10).
+function Find-Runner([string]$root, [string]$name) {
+    $suffix = if ($onWindows) { '.exe' } else { '' }
+    $found = @(@('target/debug/examples', 'target/release/examples') | ForEach-Object { Join-Path $root "$_/$name$suffix" } | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object { Get-Item -LiteralPath $_ } | Sort-Object LastWriteTimeUtc -Descending)
+    if ($found.Count -eq 0) { return '' }
+    return $found[0].FullName
+}
+
+# The files a runner is built from, and the files it reads as it runs.
+$runnerSources = @('vla-lang/src', 'vla-lang/data', 'vla-lang/Cargo.toml', 'core/src', 'core/data', 'core/examples', 'core/Cargo.toml', 'Cargo.toml', 'Cargo.lock')
+$runnerInputs = @('scripts/recalc/bench', 'scripts/prelude.vla', 'scripts/polyglotta/english.vla', 'scripts/build/fixture.txt')
+
+# The newest of a runner's sources when it is newer than the runner, its
+# path from the root; else ''.
+function Get-StaleSource([string]$exe, [string]$root, [string[]]$sources) {
+    $built = (Get-Item -LiteralPath $exe).LastWriteTimeUtc
+    $full = (Resolve-Path -LiteralPath $root).Path
+    $newest = $null
+    foreach ($s in $sources) {
+        $p = Join-Path $full $s
+        if (-not (Test-Path -LiteralPath $p)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $p -Recurse -File -ErrorAction SilentlyContinue)) {
+            if ($null -eq $newest -or $f.LastWriteTimeUtc -gt $newest.LastWriteTimeUtc) { $newest = $f }
         }
-    } finally { $ErrorActionPreference = $old }
-    return @($out | ForEach-Object { [string]$_ })
+    }
+    if ($null -ne $newest -and $newest.LastWriteTimeUtc -gt $built) { return $newest.FullName.Substring($full.Length).TrimStart('\', '/').Replace('\', '/') }
+    return ''
+}
+
+# One SHA-256 over every file a runner reads, each by its path and its own.
+function Get-InputsDigest([string]$root, [string[]]$inputs) {
+    $full = (Resolve-Path -LiteralPath $root).Path
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($s in $inputs) {
+        $p = Join-Path $full $s
+        if (-not (Test-Path -LiteralPath $p)) { $lines.Add("$s absent"); continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $p -Recurse -File | Sort-Object FullName)) {
+            $lines.Add(('{0} {1}' -f $f.FullName.Substring($full.Length).Replace('\', '/'), (Get-FileHash -Algorithm SHA256 -LiteralPath $f.FullName).Hash))
+        }
+    }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(($lines -join "`n")))) -replace '-', '') } finally { $sha.Dispose() }
+}
+
+# A runner's output kept (AS.10): its stamp, the runner's SHA-256 and its
+# inputs', and the lines when the cache holds them under that stamp.
+function Get-RunnerKept([string]$exe, [string]$kind, [string]$cache, [string]$inputs) {
+    $stamp = "runner $((Get-FileHash -Algorithm SHA256 -LiteralPath $exe).Hash) inputs $inputs"
+    $stampPath = Join-Path $cache "$kind.stamp"
+    $outPath = Join-Path $cache "$kind.check"
+    if ((Test-Path -LiteralPath $stampPath) -and (Test-Path -LiteralPath $outPath) -and ([System.IO.File]::ReadAllText($stampPath) -eq $stamp)) {
+        return @{ Stamp = $stamp; Lines = @([System.IO.File]::ReadAllLines($outPath)) }
+    }
+    return @{ Stamp = $stamp; Lines = $null }
+}
+
+# Output that passed, kept: the lines first and the stamp after, each
+# written beside its place and moved in, so that a stamp is never read over
+# lines it did not come with.
+function Save-RunnerKept([string]$kind, [string]$cache, [string]$stamp, [string[]]$lines) {
+    if (-not (Test-Path -LiteralPath $cache)) { New-Item -ItemType Directory -Path $cache -Force | Out-Null }
+    $outPath = Join-Path $cache "$kind.check"
+    $stampPath = Join-Path $cache "$kind.stamp"
+    [System.IO.File]::WriteAllLines("$outPath.$PID.tmp", $lines)
+    Move-Item -LiteralPath "$outPath.$PID.tmp" -Destination $outPath -Force
+    [System.IO.File]::WriteAllText("$stampPath.$PID.tmp", $stamp)
+    Move-Item -LiteralPath "$stampPath.$PID.tmp" -Destination $stampPath -Force
 }
 
 # ------------------------------------------------------------------ -Control
@@ -679,6 +791,80 @@ if ($Control) {
             elseif (-not $fake.Clean -and $n -eq 0) { $failures.Add("control: $($fake.What) should fail and passes") }
             else { Write-Output ("  control: {0}: {1}" -f $fake.What, $(if ($fake.Clean) { 'passes' } else { "fails ($n)" })) }
         }
+        # The runners found, run side by side and kept (AS.10).
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        $place = Join-Path $tmp 'root'
+        $suffix = if ($onWindows) { '.exe' } else { '' }
+        foreach ($d in @('target/debug/examples', 'target/release/examples', 'src')) { New-Item -ItemType Directory -Path (Join-Path $place $d) -Force | Out-Null }
+        $devExe = Join-Path $place "target/debug/examples/recalc$suffix"
+        $releaseExe = Join-Path $place "target/release/examples/recalc$suffix"
+        $source = Join-Path $place 'src/lib.rs'
+        foreach ($f in @($devExe, $releaseExe, $source)) { [System.IO.File]::WriteAllText($f, 'x') }
+        $then = [DateTime]::UtcNow.AddHours(-3)
+        (Get-Item -LiteralPath $releaseExe).LastWriteTimeUtc = $then.AddHours(1)
+        (Get-Item -LiteralPath $devExe).LastWriteTimeUtc = $then.AddHours(2)
+        (Get-Item -LiteralPath $source).LastWriteTimeUtc = $then
+        $found = Find-Runner $place 'recalc'
+        if ($found -ne (Get-Item -LiteralPath $devExe).FullName) { $failures.Add("control: of two runners built, the newer was not found: $found") }
+        else { Write-Output '  control: of two runners built, the newer is found' }
+        (Get-Item -LiteralPath $releaseExe).LastWriteTimeUtc = $then.AddHours(2.5)
+        $found = Find-Runner $place 'recalc'
+        if ($found -ne (Get-Item -LiteralPath $releaseExe).FullName) { $failures.Add("control: of two runners built, the newer, the release one, was not found: $found") }
+        $fresh = Get-StaleSource $devExe $place @('src')
+        (Get-Item -LiteralPath $source).LastWriteTimeUtc = $then.AddHours(2.25)
+        $stale = Get-StaleSource $devExe $place @('src')
+        if ($fresh -ne '') { $failures.Add("control: a runner newer than its source was named stale: $fresh") }
+        elseif ($stale -ne 'src/lib.rs') { $failures.Add("control: a runner older than its source was not named stale: '$stale'") }
+        else { Write-Output '  control: a runner older than a source is named stale, and one newer is not' }
+        foreach ($who in @('one', 'two')) {
+            $body = "Add-Content -LiteralPath (Join-Path `$PSScriptRoot '$who.time') ('start ' + [DateTime]::UtcNow.Ticks)`r`nStart-Sleep -Milliseconds 1500`r`nAdd-Content -LiteralPath (Join-Path `$PSScriptRoot '$who.time') ('end ' + [DateTime]::UtcNow.Ticks)`r`nWrite-Output '($who done)'`r`n"
+            [System.IO.File]::WriteAllText((Join-Path $tmp "side_$who.ps1"), $body, $utf8)
+        }
+        $first = Start-Runner (Join-Path $tmp 'side_one.ps1')
+        $second = Start-Runner (Join-Path $tmp 'side_two.ps1')
+        $linesOne = @(Wait-Runner $first)
+        $linesTwo = @(Wait-Runner $second)
+        $timesOne = @(Get-Content -LiteralPath (Join-Path $tmp 'one.time'))
+        $timesTwo = @(Get-Content -LiteralPath (Join-Path $tmp 'two.time'))
+        $startOne = [long]($timesOne[0] -replace '^start ', ''); $endOne = [long]($timesOne[1] -replace '^end ', '')
+        $startTwo = [long]($timesTwo[0] -replace '^start ', ''); $endTwo = [long]($timesTwo[1] -replace '^end ', '')
+        if (-not ($startOne -lt $endTwo -and $startTwo -lt $endOne)) { $failures.Add('control: two runners started together did not run at once') }
+        elseif ($linesOne.Count -ne 1 -or $linesOne[0] -ne '(one done)' -or $linesTwo.Count -ne 1 -or $linesTwo[0] -ne '(two done)') { $failures.Add("control: the two runners' lines were not each their own: $($linesOne -join ' ') / $($linesTwo -join ' ')") }
+        else { Write-Output '  control: two runners started together run at once, each with its own lines' }
+        # Kept: a fake runner that counts its runs in a file beside it.
+        $cache = Join-Path $tmp 'kept'
+        $counter = Join-Path $tmp 'runs.txt'
+        $counting = Join-Path $tmp 'counting.ps1'
+        $failing = Join-Path $tmp 'failing.ps1'
+        $count = "Add-Content -LiteralPath (Join-Path `$PSScriptRoot 'runs.txt') 'ran'`r`n"
+        [System.IO.File]::WriteAllText($counting, $count + (($good.ToArray() | ForEach-Object { "Write-Output '" + ($_ -replace "'", "''") + "'" }) -join "`r`n") + "`r`n", $utf8)
+        [System.IO.File]::WriteAllText($failing, $count + "Write-Output '(recalc-differs ""chain: Output!R5C2: the machine holds 1, Calc 2"")'`r`n", $utf8)
+        $judgeKept = {
+            param([string]$exe, [string]$inputs)
+            $k = Get-RunnerKept $exe 'recalc' $cache $inputs
+            if ($null -ne $k.Lines) { return @{ From = 'kept'; Problems = @((Test-Runner $k.Lines $clean.Rows).Problems) } }
+            $lines = @(Invoke-Runner $exe)
+            $j = Test-Runner $lines $clean.Rows
+            if ($j.Problems.Count -eq 0) { Save-RunnerKept 'recalc' $cache $k.Stamp $lines }
+            return @{ From = 'run'; Problems = @($j.Problems) }
+        }
+        $runs = { if (Test-Path -LiteralPath $counter) { @(Get-Content -LiteralPath $counter).Count } else { 0 } }
+        $steps = @(
+            @{ What = 'a clean output, its first pass'; Exe = $counting; Inputs = 'X'; From = 'run'; Runs = 1; Clean = $true },
+            @{ What = 'a clean output kept, read back'; Exe = $counting; Inputs = 'X'; From = 'kept'; Runs = 1; Clean = $true },
+            @{ What = 'inputs of other bytes'; Exe = $counting; Inputs = 'Y'; From = 'run'; Runs = 2; Clean = $true },
+            @{ What = 'a runner of other bytes'; Exe = $counting; Inputs = 'Y'; From = 'run'; Runs = 3; Clean = $true; Edit = $true },
+            @{ What = 'an output that failed, its first pass'; Exe = $failing; Inputs = 'Y'; From = 'run'; Runs = 4; Clean = $false },
+            @{ What = 'an output that failed, not kept'; Exe = $failing; Inputs = 'Y'; From = 'run'; Runs = 5; Clean = $false }
+        )
+        foreach ($step in $steps) {
+            if ($step.ContainsKey('Edit')) { [System.IO.File]::AppendAllText($counting, "# another runner`r`n", $utf8) }
+            $got = & $judgeKept $step.Exe $step.Inputs
+            $n = & $runs
+            $isClean = $got.Problems.Count -eq 0
+            if ($got.From -ne $step.From -or $n -ne $step.Runs -or $isClean -ne $step.Clean) { $failures.Add("control: kept, $($step.What): $($got.From) after $n runs, clean $isClean, where $($step.From) after $($step.Runs), clean $($step.Clean)") }
+            else { Write-Output ("  control: kept, {0}: {1}, {2} run(s) in all" -f $step.What, $(if ($got.From -eq 'kept') { 'read from the cache, not run' } else { 'run' }), $n) }
+        }
     } finally { Remove-Item -Recurse -Force -LiteralPath $tmp -ErrorAction SilentlyContinue }
     if ($failures.Count -gt 0) { foreach ($f in $failures) { Write-Output "FAIL: $f" }; exit 1 }
     Write-Output 'OK: check_recalc_floors -Control: every clean case passes and every mutant fails'
@@ -717,26 +903,51 @@ if ($git) {
     } else { $appended = 'SKIPPED (not in the last commit yet)' }
 }
 
-# The runner's check mode.
-$runnerWord = ''
+# The two runners' check modes (the memory runner's since KERNEL.49): each
+# named or found, a found one older than its sources skipped by name, its
+# output from the cache while it and its inputs are unchanged, and the rest
+# run side by side (AS.10).
+$cacheDir = Join-Path $Root 'target/recalc_floors'
+$inputsDigest = $null
+$halves = @(
+    @{ Kind = 'recalc'; Given = $Runner; Who = 'the runner' },
+    @{ Kind = 'memory'; Given = $MemoryRunner; Who = 'the memory runner' }
+)
+foreach ($h in $halves) {
+    $h.Exe = if ($h.Given -ne '') { $h.Given } else { Find-Runner $Root $h.Kind }
+    $h.Skip = ''
+    if ($h.Exe -eq '' -or -not (Test-Path -LiteralPath $h.Exe)) { $h.Skip = 'none built'; continue }
+    $h.Exe = (Resolve-Path -LiteralPath $h.Exe).Path
+    if ($h.Given -eq '') {
+        $stale = Get-StaleSource $h.Exe $Root $runnerSources
+        if ($stale -ne '') { $h.Skip = "$($h.Exe) was built before $stale last changed: build it again, cargo test --workspace or cargo build -p frazaro-core --example $($h.Kind)"; continue }
+    }
+    if ($null -eq $inputsDigest) { $inputsDigest = Get-InputsDigest $Root $runnerInputs }
+    $kept = Get-RunnerKept $h.Exe $h.Kind $cacheDir $inputsDigest
+    $h.Stamp = $kept.Stamp
+    if ($null -ne $kept.Lines) { $h.Lines = $kept.Lines; $h.From = 'from the cache, the runner and its inputs unchanged' }
+    else { $h.Started = Start-Runner $h.Exe; $h.From = 'run' }
+}
+foreach ($h in $halves) { if ($h.ContainsKey('Started')) { $h.Lines = @(Wait-Runner $h.Started) } }
+
 $info = @()
-if ($Runner -eq '') { $Runner = Join-Path $Root ('target/release/examples/recalc' + $(if ($onWindows) { '.exe' } else { '' })) }
-if (Test-Path -LiteralPath $Runner) {
-    $judged = Test-Runner (Invoke-Runner $Runner) $baseline
+$recalcHalf = $halves[0]
+if ($recalcHalf.Skip -eq '') {
+    $judged = Test-Runner $recalcHalf.Lines $baseline
     foreach ($p in $judged.Problems) { $problems.Add($p) }
     $info = @($judged.Info)
-    $runnerWord = 'the runner''s check mode: every value held, the sums the measured ones'
-} else { $runnerWord = 'SKIPPED the runner (none built)' }
+    if ($judged.Problems.Count -eq 0 -and $recalcHalf.From -eq 'run') { Save-RunnerKept $recalcHalf.Kind $cacheDir $recalcHalf.Stamp $recalcHalf.Lines }
+    $runnerWord = "the runner's check mode, $($recalcHalf.From): every value held, the sums the measured ones"
+} else { $runnerWord = "SKIPPED the runner ($($recalcHalf.Skip))" }
 
-# The memory runner's check mode (KERNEL.49).
-$memoryWord = ''
-if ($MemoryRunner -eq '') { $MemoryRunner = Join-Path $Root ('target/release/examples/memory' + $(if ($onWindows) { '.exe' } else { '' })) }
-if (Test-Path -LiteralPath $MemoryRunner) {
-    $judged = Test-MemoryRunner (Invoke-Runner $MemoryRunner) $baseline $ceilingHistory
+$memoryHalf = $halves[1]
+if ($memoryHalf.Skip -eq '') {
+    $judged = Test-MemoryRunner $memoryHalf.Lines $baseline $ceilingHistory
     foreach ($p in $judged.Problems) { $problems.Add($p) }
     $info = @($info) + @($judged.Info)
-    $memoryWord = 'the memory runner''s check mode: every fixture''s bytes at most its ceilings'
-} else { $memoryWord = 'SKIPPED the memory runner (none built)' }
+    if ($judged.Problems.Count -eq 0 -and $memoryHalf.From -eq 'run') { Save-RunnerKept $memoryHalf.Kind $cacheDir $memoryHalf.Stamp $memoryHalf.Lines }
+    $memoryWord = "the memory runner's check mode, $($memoryHalf.From): every fixture's bytes at most its ceilings"
+} else { $memoryWord = "SKIPPED the memory runner ($($memoryHalf.Skip))" }
 
 # The bar: Excel beside the machine.
 $rows = @($baseline | Where-Object { $null -ne $_ })
