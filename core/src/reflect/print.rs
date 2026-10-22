@@ -3,4 +3,4 @@
 //! `reflect::print::line`, `datum`, `target`, `quoted` and the `Printer`
 //! sink are what they were for the reader, the door and the view.
 
-pub use vla_lang::rows::{datum, line, quoted, target, Printer};
+pub use vla_lang::rows::{datum, line, quoted, record_line, target, Printer};

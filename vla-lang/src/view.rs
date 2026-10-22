@@ -89,11 +89,11 @@ use crate::calc::{self, Extent, Values};
 use crate::machine::load::Datum;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
-use crate::rows::{line as relation, quoted};
+use crate::rows::{line as relation, quoted, record_line, Record};
 use crate::rows::{Row, Value};
 use crate::sheet::{
-    cell_ref, column_letters, formula_text, number_text, parse_a1_range, shared_masters, A1Range,
-    Cell, Column, Content, NumFmt, Sheet, Style, Styles, Workbook,
+    cell_ref, formula_text, number_text, parse_a1_range, shared_masters, A1Range, Cell, Column,
+    Content, NumFmt, Sheet, Styles, Workbook,
 };
 
 /// The grid: the view record of one window, the first projection. With the
@@ -189,11 +189,10 @@ impl Grid<'_> {
             Some(e) => out(&format!("(extent {} {})", quoted(name), quoted(&e.text()))),
             None => out(&format!("(extent {} none)", quoted(name))),
         }
-        out(&format!(
-            "(gridlines {} {})",
-            quoted(name),
-            if sheet.gridlines { "on" } else { "off" }
-        ));
+        out(&record_line(&Record::Gridlines {
+            sheet: name,
+            on: sheet.gridlines,
+        }));
         let mut columns: Vec<&Column> = sheet
             .columns
             .iter()
@@ -203,40 +202,22 @@ impl Grid<'_> {
         let mut used: BTreeSet<u32> = BTreeSet::new();
         used.insert(0);
         for c in &columns {
-            let width = c
-                .width
-                .and_then(number_text)
-                .unwrap_or_else(|| "none".to_string());
-            let style = match c.style {
-                Some(s) => {
-                    used.insert(s);
-                    s.to_string()
-                }
-                None => "none".to_string(),
-            };
-            out(&format!(
-                "(column {} {} {} {} {})",
-                quoted(name),
-                quoted(&column_letters(c.index)),
-                width,
-                if c.hidden { "hidden" } else { "shown" },
-                style
-            ));
+            if let Some(s) = c.style {
+                used.insert(s);
+            }
+            out(&record_line(&Record::Column {
+                sheet: name,
+                column: c,
+            }));
         }
         // The rows of the window with settings, the column rows' twins
         // (KERNEL.22; Alonzo/SPEC.md decision 19).
         for (n, r) in sheet.rows.range(range.top..=range.bottom) {
-            let height = r
-                .height
-                .and_then(number_text)
-                .unwrap_or_else(|| "none".to_string());
-            out(&format!(
-                "(row {} {} {} {})",
-                quoted(name),
-                n,
-                height,
-                if r.hidden { "hidden" } else { "shown" }
-            ));
+            out(&record_line(&Record::Row {
+                sheet: name,
+                number: *n,
+                settings: r,
+            }));
         }
         // The window's cells: the model's, or those the values hold for a
         // sheet that keeps none in the model, an engine's twin (KERNEL.49).
@@ -257,7 +238,11 @@ impl Grid<'_> {
             used.insert(*index);
         }
         for index in used {
-            out(&format_row(index, model.styles.xfs().get(index as usize)));
+            out(&record_line(&Record::Format {
+                index,
+                style: model.styles.xfs().get(index as usize),
+                code: None,
+            }));
         }
         // The sheet's look map, a value to the format a cell holding it draws
         // with (KERNEL.22; Alonzo/SPEC.md decision 19).
@@ -382,12 +367,11 @@ impl Grid<'_> {
                 };
                 let mut shown = None;
                 if let Some(computed) = computed.filter(|_| held) {
-                    out(&format!(
-                        "(value {} {} {})",
-                        quoted(name),
-                        quoted(&addr),
-                        computed.spell()
-                    ));
+                    out(&record_line(&Record::Value {
+                        sheet: name,
+                        addr: &addr,
+                        value: &computed.spell(),
+                    }));
                     // The value as the row spells it: an empty result is 0.
                     if let calc::Computed::Value(v) = computed {
                         shown = Some(v.clone().settled());
@@ -410,12 +394,11 @@ impl Grid<'_> {
             }
         }
         if cell.style != 0 {
-            out(&format!(
-                "(style {} {} {})",
-                quoted(name),
-                quoted(&addr),
-                cell.style
-            ));
+            out(&record_line(&Record::Style {
+                sheet: name,
+                addr: &addr,
+                index: cell.style,
+            }));
         }
         if let Some(r) = sheet.sentences.get(&(row, col)) {
             out(&format!(
@@ -427,32 +410,6 @@ impl Grid<'_> {
         }
         true
     }
-}
-
-/// A `format` row: the index, the fill as six hex digits or `none`, the
-/// number format, `general`, `text` or a code quoted (KERNEL.47), whether
-/// text wraps, and the groups of what it says of a font, an alignment and a
-/// border (KERNEL.50). An index the style table does not hold reads as the
-/// default format.
-fn format_row(index: u32, style: Option<&Style>) -> String {
-    let default = Style::default();
-    let s = style.unwrap_or(&default);
-    let fill = match s.fill {
-        Some(rgb) => quoted(&format!("{:02X}{:02X}{:02X}", rgb.0, rgb.1, rgb.2)),
-        None => "none".to_string(),
-    };
-    let num = match &s.num_fmt {
-        NumFmt::General => "general".to_string(),
-        NumFmt::Text => "text".to_string(),
-        NumFmt::Code(code) => quoted(code.as_str()),
-    };
-    // What it says of a font, an alignment and a border (KERNEL.50), after
-    // its wrap; nothing for a format that says none of them.
-    let groups = crate::appearance::groups_text(&s.font, &s.align, &s.border);
-    format!(
-        "(format {index} {fill} {num} {}{groups})",
-        if s.wrap { "wrap" } else { "nowrap" }
-    )
 }
 
 /// What a record needs for a cell's `text` row (KERNEL.47): the style table
@@ -714,7 +671,7 @@ pub(crate) fn changes_text(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sheet::{Rgb, Styles};
+    use crate::sheet::{Rgb, Style, Styles};
 
     fn range(text: &str) -> A1Range {
         parse_a1_range(text).unwrap()

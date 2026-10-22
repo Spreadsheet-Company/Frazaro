@@ -37,6 +37,20 @@
 //! distinct target, sorted by the target as printed (slice 8b, through
 //! `crate::refers`, the port of `VLA_Refers.bas`). `print.rs` has the
 //! spelling; `cone.rs` sizes a cell's cone through an index of the walk.
+//!
+//! The looks (KERNEL.57, `frazaro reflect --looks`): a workbook printed as
+//! the record prints each of its sheets whole (oracle 11), so that a
+//! reflected workbook keeps its looks and loads as the record loads. The
+//! header as above; then sheet by sheet its `gridlines` row, the `column`
+//! and `row` rows of its extent that have settings, format 0 and every
+//! format its printed cells and columns use, ascending, then its cells as
+//! the relations print them, but for a formula's saved value, the record's
+//! `value` row after the formula, and a date, its serial, each cell's
+//! `style` row after them and its `refers` rows last. A walk with the looks
+//! reads a sheet's part twice, a first pass finding the extent, the formats
+//! and the rows; the relations read it once, as before. `looks.rs` has what
+//! the readers share: the colors, Excel's built-in number formats, a
+//! format's record and the counts of what the record cannot hold.
 
 pub mod audit;
 pub mod calc;
@@ -44,6 +58,7 @@ pub mod cone;
 pub mod cursor;
 pub mod diff;
 pub mod histogram;
+pub mod looks;
 pub mod odf;
 pub mod ooxml;
 pub mod print;
@@ -51,10 +66,11 @@ pub mod print;
 use std::collections::HashSet;
 
 use crate::intrinsics::fold;
-use crate::messages::Refusal;
+use crate::messages::{raise, Refusal};
 use crate::refers::{self, Kind};
 
-pub use vla_lang::rows::{sheet_prefix, ArrayKind, RefersTo, Row, Sink, Value, Visibility};
+pub use looks::LooksStats;
+pub use vla_lang::rows::{sheet_prefix, ArrayKind, Record, RefersTo, Row, Sink, Value, Visibility};
 
 /// The cap on the sets of distinct R1C1 formulas `--counts` keeps, a
 /// sheet's and the workbook's.
@@ -169,6 +185,32 @@ pub trait Source: std::fmt::Debug {
         self.walk_sheet_with(index, sink, &mut HashSet::new())
     }
 
+    /// One sheet as the record prints it whole, with its looks (KERNEL.57):
+    /// the sheet's own rows of the record through the sink's `record`, then
+    /// its cells as [`Source::walk_sheet_with`] gives them, but for a
+    /// formula's saved value, a `value` record after its formula, and a
+    /// date, its serial; what the walk counted comes back, with the looks'
+    /// counts beside. A reader that reads no looks refuses by name.
+    fn walk_sheet_looks(
+        &self,
+        index: usize,
+        sink: &mut dyn Sink,
+        book_distinct: &mut HashSet<String>,
+    ) -> Result<(SheetStats, LooksStats), Refusal> {
+        let _ = (index, sink, book_distinct);
+        Err(raise(
+            "reflect-unsupported",
+            &[
+                ("path", self.label()),
+                ("part", "its looks"),
+                (
+                    "why",
+                    "which this version reads from a package, an .xlsx file, alone",
+                ),
+            ],
+        ))
+    }
+
     /// A `name` row's first field: the name, a sheet-scoped one behind its
     /// sheet as a reference quotes it (`Model!Local`). The key `diff` and
     /// `audit` match names by.
@@ -246,8 +288,40 @@ pub(crate) fn emit_formula(
     sheet_distinct: &mut HashSet<String>,
     book_distinct: &mut HashSet<String>,
 ) {
+    emit_formula_with(
+        sink,
+        sheet,
+        addr,
+        text,
+        row,
+        col,
+        stats,
+        sheet_distinct,
+        book_distinct,
+        &mut |_| {},
+    );
+}
+
+/// [`emit_formula`] with what `between` gives the sink after the `formula`
+/// row and before its `refers` rows: under the looks (KERNEL.57) the
+/// formula's `value` and `style` rows, so that a cell's rows of the record
+/// stand together.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn emit_formula_with(
+    sink: &mut dyn Sink,
+    sheet: &str,
+    addr: &str,
+    text: &str,
+    row: u32,
+    col: u32,
+    stats: &mut SheetStats,
+    sheet_distinct: &mut HashSet<String>,
+    book_distinct: &mut HashSet<String>,
+    between: &mut dyn FnMut(&mut dyn Sink),
+) {
     stats.formulas += 1;
     sink.row(&Row::Formula { sheet, addr, text });
+    between(sink);
     let found = refers::scan(text);
     stats.unreadable += found.iter().filter(|r| r.kind == Kind::Unreadable).count() as u64;
     let mut targets: Vec<RefersTo> = found.iter().map(|r| RefersTo::of(r, sheet)).collect();
@@ -275,4 +349,26 @@ pub fn reflect_text(bytes: &[u8], label: &str) -> Result<String, Refusal> {
         source.walk_sheet(i, &mut printer)?;
     }
     Ok(printer.out)
+}
+
+/// A workbook as the record prints each of its sheets whole, with its looks
+/// (KERNEL.57, `reflect --looks`), one row a line in the fixed order, and
+/// the looks' counts summed over its sheets, for the note that says what
+/// the record could not hold.
+pub fn reflect_looks(bytes: &[u8], label: &str) -> Result<(String, LooksStats), Refusal> {
+    let source = open(bytes, label)?;
+    let mut printer = print::Printer::default();
+    source.header_rows(&mut printer);
+    let mut distinct: HashSet<String> = HashSet::new();
+    let mut total = LooksStats::default();
+    for i in 0..source.sheets().len() {
+        let (_, looks) = source.walk_sheet_looks(i, &mut printer, &mut distinct)?;
+        total.add(&looks);
+    }
+    Ok((printer.out, total))
+}
+
+/// [`reflect_looks`]'s text alone.
+pub fn reflect_looks_text(bytes: &[u8], label: &str) -> Result<String, Refusal> {
+    reflect_looks(bytes, label).map(|(text, _)| text)
 }

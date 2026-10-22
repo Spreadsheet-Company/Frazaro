@@ -110,8 +110,10 @@ fn month_of(count: i64) -> (i64, i64) {
 /// The serial of a year, a month and a day as `DATE` carries them: the
 /// months past twelve or below one into the years, the days past the
 /// month's end or below its first into the months, by counting from the
-/// month's first day. February 1900 holds its 29th.
-pub(crate) fn serial_of(year: i64, month: i64, day: i64) -> i64 {
+/// month's first day. February 1900 holds its 29th. Public since KERNEL.57,
+/// so that a reader spells a file's ISO date as the record's number by the
+/// language's one calendar.
+pub fn serial_of(year: i64, month: i64, day: i64) -> i64 {
     let (y, m) = month_of(year * 12 + month - 1);
     first_of_month(y, m) + day - 1
 }

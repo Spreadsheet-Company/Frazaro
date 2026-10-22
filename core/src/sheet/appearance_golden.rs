@@ -336,3 +336,69 @@ fn excel_saves_each_case_with_the_font_fill_border_and_alignment_the_writer_writ
         .any(|d| d.edges.iter().any(|e| e.2.as_deref() == Some("00B050"))));
     assert!(drawn.iter().any(|d| d.vertical == "center"));
 }
+
+/// The reader's half (KERNEL.57): `reflect --looks` of Excel's own save of
+/// the cases, and of the core's written workbook, reads each case's cell as
+/// Excel's object model read it, the golden's `EXCEL` and `WRITTEN` lines,
+/// for every case the language takes: the scoping's prototype, 44 of 44 in
+/// each, held.
+#[test]
+fn the_looks_read_each_case_as_excel_read_it() {
+    const GOLDEN: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../scripts/appearance_golden.txt"
+    );
+    let golden = std::fs::read_to_string(GOLDEN)
+        .expect("scripts/appearance_golden.txt")
+        .replace("\r\n", "\n");
+    // Each case's two readings, in the fixture's order.
+    let mut readings: Vec<(String, String, String)> = Vec::new();
+    for line in golden.lines() {
+        if let Some(name) = line.strip_prefix("=== ") {
+            readings.push((name.to_string(), String::new(), String::new()));
+        } else if let Some((which, reading)) = line.split_once('\t') {
+            let Some(last) = readings.last_mut() else {
+                continue;
+            };
+            match which {
+                "EXCEL" => last.1 = reading.to_string(),
+                "WRITTEN" => last.2 = reading.to_string(),
+                _ => {}
+            }
+        }
+    }
+    assert_eq!(readings.len(), cases().len(), "a reading a case");
+    for (path, excel) in [(SAVED, true), (WRITTEN, false)] {
+        let bytes = std::fs::read(path).unwrap();
+        let text = crate::reflect::reflect_looks_text(&bytes, path).unwrap();
+        let mut formats: std::collections::HashMap<u32, String> = Default::default();
+        let mut styles: std::collections::HashMap<String, u32> = Default::default();
+        for line in text.lines() {
+            if let Some(rest) = line.strip_prefix("(format ") {
+                let (index, rest) = rest.split_once(' ').unwrap();
+                let rest = rest.strip_suffix(')').unwrap();
+                formats.insert(index.parse().unwrap(), rest.to_string());
+            } else if let Some(rest) = line.strip_prefix("(style \"Appearance\" \"") {
+                let (address, index) = rest.split_once("\" ").unwrap();
+                let index = index.strip_suffix(')').unwrap();
+                styles.insert(address.to_string(), index.parse().unwrap());
+            }
+        }
+        let mut read = 0;
+        for (k, (name, by_excel, by_writer)) in readings.iter().enumerate() {
+            let want = if excel { by_excel } else { by_writer };
+            if want.starts_with("REFUSED") {
+                continue;
+            }
+            let address = format!("B{}", 2 * (k + 1));
+            let index = styles.get(&address).copied().unwrap_or(0);
+            assert_eq!(
+                formats.get(&index),
+                Some(want),
+                "{path}: {name}, the cell {address} at format {index}"
+            );
+            read += 1;
+        }
+        assert_eq!(read, 44, "{path}: the cases read");
+    }
+}

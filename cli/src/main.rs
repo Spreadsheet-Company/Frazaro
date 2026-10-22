@@ -63,7 +63,7 @@ usage:
                          the files given, the build done again and compared
                          whole: one line, yes (exit 0) or no with why (exit
                          1); a file that is not a build is refused (slice 7c)
-  frazaro reflect <file.xlsx|.ods> [--counts] [--functions] [--cone <Sheet!A1> ...]
+  frazaro reflect <file.xlsx|.ods> [--looks] [--counts] [--functions] [--cone <Sheet!A1> ...]
                          the reader (PORT.8, slices 8a and 8b; an
                          OpenDocument .ods file reads the same from slice
                          8e, its formulas spelled as the formula bar shows
@@ -83,9 +83,19 @@ usage:
                          and where it is blind; with --functions, one row
                          per function the formulas call with the number of
                          cells calling it, most called first, counts alone
-                         (KERNEL.6's instrument); a file that is not a
-                         workbook, a part with a DOCTYPE, or a shape this
-                         version does not read is refused by name
+                         (KERNEL.6's instrument); with --looks (KERNEL.57),
+                         the workbook as the record prints each sheet whole,
+                         so that it loads as a cartridge's rows: each
+                         sheet's gridlines, the columns and rows of its
+                         extent that have settings and the formats its cells
+                         use before its cells, a formula's saved value as a
+                         value row after it, a date as its serial, each
+                         cell's style row after its rows; what the record
+                         cannot hold is left out and said on stderr, and
+                         --looks --counts counts it (an .xlsx package alone
+                         in this version); a file that is not a workbook, a
+                         part with a DOCTYPE, or a shape this version does
+                         not read is refused by name
   frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]
                          the difference between two workbooks (PORT.8, slice
                          8c), read as reflect reads them: the sheets in one
@@ -901,7 +911,7 @@ fn ms_since(since: std::time::Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1000.0
 }
 
-/// `frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]`
+/// `frazaro reflect <file.xlsx> [--looks] [--counts] [--cone <Sheet!A1> ...]`
 /// (PORT.8, slices 8a and 8b): the workbook's relations to stdout in the
 /// fixed order, streamed sheet by sheet through the core's reader, which
 /// holds no model of the workbook. With --counts, counts and times alone:
@@ -912,17 +922,20 @@ fn ms_since(since: std::time::Instant) -> f64 {
 /// calls are among them. With --cone, the one exception to streaming: an
 /// index of every formula is built in one walk and each root's cone is
 /// sized through it, counts alone, the root being the one address printed
-/// because the caller typed it. A refusal goes to stderr with exit 1; the
+/// because the caller typed it. With --looks (KERNEL.57), the workbook as
+/// the record prints each sheet whole, its looks among its rows, and on
+/// stderr what the record could not hold; with --counts beside it, each
+/// line gains its looks' counts. A refusal goes to stderr with exit 1; the
 /// rows printed before it stand, since the read streams.
 fn reflect(args: &[String]) -> ExitCode {
-    const USAGE_LINE: &str =
-        "usage: frazaro reflect <file.xlsx|.ods> [--counts] [--functions] [--cone <Sheet!A1> ...]";
+    const USAGE_LINE: &str = "usage: frazaro reflect <file.xlsx|.ods> [--looks] [--counts] [--functions] [--cone <Sheet!A1> ...]";
     let Some(file) = args.first() else {
         eprintln!("{USAGE_LINE}");
         return ExitCode::from(2);
     };
     let counts = args.iter().any(|a| a == "--counts");
     let functions = args.iter().any(|a| a == "--functions");
+    let looks = args.iter().any(|a| a == "--looks");
     let mut cones: Vec<String> = Vec::new();
     let mut at = 1;
     while at < args.len() {
@@ -938,6 +951,12 @@ fn reflect(args: &[String]) -> ExitCode {
         } else {
             at += 1;
         }
+    }
+    // The looks are the record's rows; a cone or a histogram reads none.
+    if looks && (functions || !cones.is_empty()) {
+        eprintln!("{USAGE_LINE}");
+        eprintln!("frazaro: --looks prints the rows or, with --counts, their counts; --cone and --functions read no look");
+        return ExitCode::from(2);
     }
     if !is_file(file) {
         return refuse_missing("vla-file-not-found", file);
@@ -976,22 +995,36 @@ fn reflect(args: &[String]) -> ExitCode {
             (0u64, 0u64, 0u64, 0u64, 0usize);
         let mut book_distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut read_ms = 0.0f64;
+        let mut book_looks = frazaro_core::reflect::LooksStats::default();
         for i in 0..package.sheets().len() {
             let started = std::time::Instant::now();
-            let s = match package.walk_sheet_with(
-                i,
-                &mut frazaro_core::reflect::Discard,
-                &mut book_distinct,
-            ) {
-                Ok(s) => s,
+            let walked = if looks {
+                package
+                    .walk_sheet_looks(i, &mut frazaro_core::reflect::Discard, &mut book_distinct)
+                    .map(|(s, l)| (s, Some(l)))
+            } else {
+                package
+                    .walk_sheet_with(i, &mut frazaro_core::reflect::Discard, &mut book_distinct)
+                    .map(|s| (s, None))
+            };
+            let (s, sheet_looks) = match walked {
+                Ok(walked) => walked,
                 Err(refusal) => {
                     eprintln!("{refusal}");
                     return ExitCode::from(1);
                 }
             };
             let took = ms_since(started);
+            // KERNEL.57: under --looks, the sheet's looks' counts.
+            let looks_line = match &sheet_looks {
+                Some(l) => {
+                    book_looks.add(l);
+                    format!(" {}", l.line())
+                }
+                None => String::new(),
+            };
             println!(
-                "sheet {}: cells {} formulas {} distinct-r1c1 {} unreadable {} arrays {} rows {} columns {} bytes {} read {took:.1} ms",
+                "sheet {}: cells {} formulas {} distinct-r1c1 {} unreadable {} arrays {} rows {} columns {} bytes {}{looks_line} read {took:.1} ms",
                 i + 1,
                 s.cells,
                 s.formulas,
@@ -1010,8 +1043,13 @@ fn reflect(args: &[String]) -> ExitCode {
             read_ms += took;
         }
         let summary = package.summary();
+        let looks_line = if looks {
+            format!(" {}", book_looks.line())
+        } else {
+            String::new()
+        };
         println!(
-            "workbook: sheets {} cells {cells} formulas {formulas} distinct-r1c1 {} unreadable {unreadable} arrays {arrays} names {} placeholders {} tables {} books {} strings {} bytes {part_bytes} string-bytes {} open {open_ms:.1} ms read {read_ms:.1} ms",
+            "workbook: sheets {} cells {cells} formulas {formulas} distinct-r1c1 {} unreadable {unreadable} arrays {arrays} names {} placeholders {} tables {} books {} strings {} bytes {part_bytes} string-bytes {}{looks_line} open {open_ms:.1} ms read {read_ms:.1} ms",
             package.sheets().len(),
             book_distinct.len(),
             summary.names,
@@ -1063,11 +1101,28 @@ fn reflect(args: &[String]) -> ExitCode {
         fn row(&mut self, row: &frazaro_core::reflect::Row<'_>) {
             let _ = writeln!(self.0, "{}", frazaro_core::reflect::print::line(row));
         }
+
+        fn record(&mut self, record: &frazaro_core::reflect::Record<'_>) {
+            let _ = writeln!(
+                self.0,
+                "{}",
+                frazaro_core::reflect::print::record_line(record)
+            );
+        }
     }
     let mut out = Lines(std::io::BufWriter::new(std::io::stdout().lock()));
     package.header_rows(&mut out);
+    let mut book_distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut left = frazaro_core::reflect::LooksStats::default();
     for i in 0..package.sheets().len() {
-        if let Err(refusal) = package.walk_sheet(i, &mut out) {
+        let walked = if looks {
+            package
+                .walk_sheet_looks(i, &mut out, &mut book_distinct)
+                .map(|(_, l)| left.add(&l))
+        } else {
+            package.walk_sheet(i, &mut out).map(|_| ())
+        };
+        if let Err(refusal) = walked {
             let _ = out.0.flush();
             eprintln!("{refusal}");
             return ExitCode::from(1);
@@ -1075,6 +1130,11 @@ fn reflect(args: &[String]) -> ExitCode {
     }
     if out.0.flush().is_err() {
         return ExitCode::from(2);
+    }
+    // KERNEL.57: what the record could not hold, said beside the rows
+    // (SD-30), the rows on stdout loading unchanged.
+    if let Some(note) = left.note() {
+        eprintln!("frazaro: {note}");
     }
     ExitCode::SUCCESS
 }

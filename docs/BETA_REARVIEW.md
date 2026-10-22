@@ -37217,6 +37217,151 @@ recommended. HEAD `2473e5b`, unmoved since the scoping; in the tree the
 peer's `KERNEL.56` under construction, its build in worktrees of its own.
 The roadmap's line 🟡, the first slice, the package, first.
 
+*The first slice built 2026-10-22*, the package (decisions 1 to 10 for a
+package, 12's oracles in the tree, 13's API and 15's first), over
+`2473e5b`, in a worktree of its own beside the peer's `KERNEL.56`, built
+and held in a target of its own, then moved into the shared tree whole,
+each of its files untouched there since `HEAD`. It stops at the owner's
+eye over the six goldens, Excel's part of this slice.
+
+*What landed.*
+1. The language: `rows::Record`, the record's own rows (gridlines, a
+   column, a row, a format, a value, a style; `#[non_exhaustive]`),
+   `rows::record_line` their one spelling, and `Sink::record`, a default
+   body keeping nothing, which the `Printer` prints; `view.rs` printing
+   those rows through it, `format_row` moved out, every record byte for
+   byte; `calc::dates::serial_of` public, so that a reader spells an ISO
+   date by the language's one calendar.
+2. The core's looks, `core/src/reflect/looks.rs`, new: a color as a file
+   names it and resolved (`Colors::resolve`, Excel's count of a theme's
+   slots `THEME_SLOTS`, the default palette `PALETTE`, a tint in HLS
+   `tinted`); Excel's built-in codes by id (`builtin_code`); a format as the
+   record says it (`Look`, a code the language does not draw kept as
+   written); a font's size in twentieths; a width by Excel's rule of whole
+   pixels (`width_chars`); an ISO date as a serial (`iso_serial`); and the
+   counts and the note (`LooksStats`).
+3. The package reader, `ooxml.rs`: the styles and the theme parts found at
+   the open by the workbook's relationships and read the first time a walk
+   asks (`style_table`), each `cellXfs` entry a `Look` against the Normal
+   style's font, its `apply` flags and cell style passed over, the
+   differential formats and the extensions skipped; one `<c>` reader for
+   both passes (`read_c`, `CellRead`), the relations' walk printing what it
+   printed; `walk_sheet_looks`, its first pass (`first_pass`, `Scan`) and
+   the sheet's own rows of the record before its cells; a value as the
+   record spells it (`record_value`); the shared strings' rich text marked at
+   the open; a cell or a column naming a format past the styles part's list
+   refused by name, `reflect-unsupported`.
+4. The reader's surface, `reflect/mod.rs`: `Source::walk_sheet_looks`, its
+   default refusing by name, the OpenDocument reader's until the third
+   slice; `emit_formula_with`, a formula's `value` and `style` rows before
+   its `refers` rows; `reflect_looks` and `reflect_looks_text`.
+5. The writer, `sheet/ooxml.rs`: a row's height and its hidden on its
+   element, a row of settings with no cell an element of its own; and a
+   sheet's state, `hidden` and `veryHidden`, which the round trip found it
+   dropping (below); each written only where a model holds one, so that no
+   build golden moves.
+6. The door: `reflect --looks`, with `--counts` the looks' counts on each
+   line, the note on stderr, refused beside `--cone` and `--functions`;
+   `USAGE` and `cli/README.md` with it.
+7. The goldens: six `<name>_looks.vla` beside the package fixtures'
+   relations, the door's output; `tools/check_reflect_golden.ps1` holding
+   them whole, at their floors, with an order pin of their own, its control
+   catching a format row moved below a cell row.
+8. The tests, sixteen: `looks.rs`'s eight, the round trip among them; the
+   package reader's five over hand-made packages (every look and every
+   thing the record cannot hold in one, read whole, its counts exact; no
+   theme, and no styles part; a palette of its own and a Normal style's font
+   that is not font 0; a format past the list; an OpenDocument file's looks
+   refused) and one over the tree's 26 packages, the first pass's extent the
+   printed cells' rectangle and the cells the walk's; the free oracle
+   extended (`api.rs`); and Excel's save of `KERNEL.50`'s cases
+   (`appearance_golden.rs`).
+9. The texts: oracle 8's amendment in `conformance/README.md`; the 0.11.0
+   note; this record; the roadmap's line.
+
+*Held.* `cargo test --workspace`: the language's 366 (1 ignored) and its
+integration tests, the thirteen laws among them; the core's 217 (3
+ignored); `cargo fmt --check` and both clippies at `-D warnings` clean;
+`run_checks.ps1` 59 of 59 over the worktree; `check_reflect_golden.ps1`'s
+control. Nineteen mutants, each applied alone and each caught by a named
+test: the theme's first pair unswapped; a tint applied to each channel; a
+workbook's palette passed over; a fitted height printed; a width read
+without its whole pixel; a default size printed; a `style` row before its
+cell's; a format no printed cell uses printed; a saved value dropped under
+the flag; a date left a date; a code respelled; a formatted empty cell
+taken as printed; the formats' indices collapsed; an undrawn code printed
+`general`; a rich string not counted; the default font font 0 where the
+Normal style's is another; the writer's row height and its sheet state
+dropped; the record's hidden column spelled shown (the view's own test).
+
+*Found by the round trip, and written:* the writer wrote every sheet
+visible, a record's hidden sheet coming back shown. It writes a sheet's
+state now, beside the rows' heights decision 10 named; every sheet a build
+makes is visible and writes the bytes it wrote. This is the one line of the
+slice past the scoping's words.
+
+*Over the fixtures.* Every package fixture read under the flag loads
+through the language's loader and machine, but `fixture.xlsx` and
+`changed.xlsx`, which stop at `INDIRECT`, the machine's own refusal as
+designed; the build golden and Excel's save of it read the same rows but
+for the build stamp's name, Excel's respelled widths read as the model's.
+
+*Against the prediction:* no golden of today moved, as predicted.
+`saved.xlsx`'s `Frazaro` sheet read as `scripts/view/fixture_frazaro.vla`
+prints the build's, line for line, its widths 72 and 60 off Excel's
+72.7265625 and 60.7265625, as predicted. `fixture.xlsx`'s date at
+`"m/d/yyyy"` and its formatted empty cell counted, as predicted, and one
+look the record has no word for beside it, `A4`'s bold run, which the
+prediction did not name. The 44 cases, 44 of 44 in each workbook, as the
+prototype read them. The cost, predicted 1.3 to 2.0 times the relations'
+walk: `texts.xlsx` 3.9 to 5.5 ms and `criteria.xlsx` 3.0 to 4.2, 1.4 times;
+`dates.xlsx` 12.2 to 13.9, 1.14 times; `appearance_saved.xlsx` 0.2 to 0.5,
+2.5 times, the styles and theme parts read once a fixed cost beside a small
+sheet (the dev profile's door, the median of five rounds alternated). The
+size: the core's source about 1,670 lines for this slice (`looks.rs` 510,
+`ooxml.rs` 1,163), where this slice's share of the prediction was 660 to
+1,020, over by the styles part's reader and the walk's one `<c>` reader;
+its tests about 800, the item's whole prediction 700 to 1,000; the
+language's `rows.rs` 143 lines more and `view.rs` 78 fewer, as predicted.
+The tint: exact HLS rounded at the end; a comparison in the scratchpad with
+twenty-five tints of Excel's palette as they are published, taken from
+memory and so no witness, found no rounding of ECMA's rule that gives all
+of them, the grays alike and the accents a unit or two a channel apart, so
+that the tint's rounding is Excel's golden's, the second slice's fold.
+
+*Left for the owner:* the eye over the six goldens with their fixtures open
+in Excel, as 8a's goldens were blessed; then the commit at the owner's word,
+this slice's files and its hunks of the shared documents alone.
+
+*The owner's eye, 2026-10-22:* "All as the goldens say", with four
+screenshots: `saved.xlsx`'s `Frazaro` sheet with no gridlines, its B column
+lavender and its C column green above and gray below, as the format and
+column rows say; `fixture.xlsx`'s `Model!A6` 9/30/2025 under the locale's
+short date, `*3/14/2012`, built-in 14's `m/d/yyyy`, and `A4`'s bold run;
+`model.xlsx`'s bold `A1:A3`. Each Column Width dialog read 72.09, 60.09 and
+12.09, where the hand test said 72, 60 and 12. The machine runs at 144 dots
+an inch (150%), where Excel's rule counts a digit 11 pixels and its padding
+7, and the files' widths, 72.7265625, 60.7265625 and 12.7109375, are 800,
+668 and 140 pixels there, 72.09, 60.09 and 12.09 characters; at 96, a digit
+7 pixels and the padding 5, they are 509, 425 and 89 pixels, 72, 60 and 12
+(*measurement*, the arithmetic fitting all three). Excel's dialog counts
+characters at the screen's own pixels, and the record, the writer and
+Alonzo's viewport count them at 96, so the goldens stand and the step's
+words were 96's. *Found*, for the second slice: `ColumnWidth` read through
+the object model on a screen of another scale is not the record's width,
+so Excel's golden reads its widths at 100% scaling, or holds them by its
+saved file's own widths, a choice for that slice's hand-off.
+
+*Committed 2026-10-22* at the owner's word, "Commit, then proceed with
+slice 2.": two commits, the mint, the scoping and the approval first, then
+this slice, each of this item's hunks alone, the shared documents rebuilt
+as `HEAD` and this item's lines. The slice was built over `2473e5b`, and
+`HEAD` moved twice beneath it with the peer's `KERNEL.56` (`615ff82`, then
+`8e01a33`, the item closed), touching none of this slice's files; the tree
+of `8e01a33` and this slice was verified alone before it was written, the
+workspace's tests (the language's 371, the core's 217) and `run_checks.ps1`
+59 of 59. Not pushed.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

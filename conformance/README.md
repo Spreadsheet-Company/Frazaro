@@ -2069,3 +2069,60 @@ with `Data!D1` entered again as a legacy array formula, showed its text in
 the braces as built. That save, `formulas_saved.xlsx`, joins the table at
 `no-differ` (`formulas_saved_calc.vla`): 93 formulas, the 82 the door
 computes agreeing with Excel's, and 11 labelled.
+
+## Amendment of 2026-10-22: oracle 8's looks, a workbook read as the record prints it (`KERNEL.57`)
+
+The readers printed the relations and no look, so a reflected workbook
+lost every width, height, fill and number format, every font, alignment
+and border; and what `reflect` printed did not load, a formula's saved
+value being a `cell` row before its formula, which the record's inverse
+refuses as a cell written twice. Behind a flag, the reader now prints a
+workbook as oracle 11 prints each of its sheets whole.
+
+- **The flag.** `<impl> reflect <file> --looks`. Without it the relations
+  are as before, byte for byte, and `diff` and `audit` read no look.
+- **The order and the spelling.** The `sheet`, `name` and `table` rows as
+  oracle 8 prints them; then sheet by sheet in tab order: the sheet's
+  `(gridlines "<sheet>" on|off)`; the `column` rows of its extent that have
+  settings, ascending; its `row` rows, ascending; format 0 and every format
+  its printed cells and columns use, ascending; then cell by cell in row
+  order the cell's `cell` or `formula` row, a formula's saved value as
+  oracle 11's `(value "<sheet>" "<addr>" <value>)` after its formula, a
+  date as its serial in the workbook's calendar, the cell's `style` row
+  where its format is not 0, and its `refers` rows. Each row is spelled as
+  oracle 11 spells it, by the language's one spelling of the record's rows
+  (`vla_lang::rows::record_line`).
+- **What a row says.** A format is the file's own cell format at its own
+  index, its own font, fill, border, alignment and number format, whatever
+  its `apply` flags and its cell style say. A property the workbook's
+  default font, the Normal style's, has is unsaid, and so is Excel's
+  automatic color. A color is resolved to six hex digits through the
+  workbook's theme, its slots counted as Excel counts them, a tint in HLS,
+  and the palette, the workbook's own where it has one. A number format is
+  the file's code as written, a built-in id by Excel's English reading of
+  it, and a code the language does not draw is printed all the same, for a
+  load to refuse by name (`grid-format-code`). A column's width is read as
+  Excel reads it, to whole pixels at the record's 7 a character, then to
+  characters in hundredths, Excel's default of 64 pixels `none`; a row's
+  height is the one a person set (`customHeight`). What the record cannot
+  hold is left out of its row and counted, and the door says so on stderr:
+  a cell that keeps a format and no value, a look the record has no word
+  for, a merged range, a conditional format, a row's own format.
+- **The oracle.** Oracle 8 gains a row kind: each package fixture's
+  `reflect --looks` is its `<name>_looks.vla` beside its relations, six of
+  them, held whole and at their floors by `tools/check_reflect_golden.ps1`,
+  with an order of their own. Oracle 11's free oracle reaches the looks: a
+  built model's sheet viewed whole, its values computed, is
+  `reflect --looks`'s reading of the file the writer writes from it, its
+  `gridlines`, `column`, `row`, `format`, `cell`, `formula`, `value` and
+  `style` rows row for row. A round trip holds the writer to it too: a
+  record holding every look the writer writes, written, read and loaded,
+  is each sheet's record again, byte for byte, the writer now writing a
+  row's height and hidden and a sheet's state, which it dropped. Excel 365's
+  own save of the build golden reads as the build's record, its widths
+  respelled by Excel read as the model's, and its save of `KERNEL.50`'s
+  cases as Excel's object model read each, 44 of 44.
+- **Not yet.** An OpenDocument file's looks are refused by name, the item's
+  third slice's; Excel's reading of what its own writer never writes, a
+  theme's slots and tints, the palette, the built-ins by id, the `apply`
+  flags off, is its second slice's golden.

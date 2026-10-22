@@ -162,6 +162,27 @@
   a formula rewritten to the same value is read anew. A cell reading its own
   formula is a cycle, as a reference to its own cell always is in the
   language (KERNEL.53).
+- **A workbook read with its looks.** `frazaro reflect book.xlsx --looks`
+  prints the workbook as the view record prints each of its sheets whole:
+  its gridlines, its columns' widths, hidden and formats, the heights a
+  person set and the hidden of its rows, and each cell's format, its fill,
+  its number format, its wrap, its text's weight, slant, size and color,
+  its alignment and its borders, every color read through the workbook's
+  theme, tints and palette to six hex digits, so that a reflected workbook
+  keeps its looks. Its rows load as an engine's: a formula's saved value is
+  a `value` row after the formula and a date its serial number, where the
+  relations' rows, unchanged without the flag, are refused at the first
+  formula as a cell written twice. What the record cannot hold, a cell with
+  a format and no value, a merged range, a conditional format, a font's
+  family, a pattern, is left out and said on stderr, and
+  `--looks --counts` counts it; a number format the language does not draw
+  is printed as the file holds it, and a load refuses it by name. A
+  workbook the core writes now keeps a row's height and its hidden and a
+  sheet's hidden, which it dropped. This version reads an `.xlsx` package's
+  looks; an OpenDocument file's are refused by name. For a reader of the
+  language: `rows::Record`, `rows::record_line` and `Sink::record` spell
+  and carry the record's own rows, and `calc::dates::serial_of` is public
+  (KERNEL.57).
 - **A value typed into an empty cell costs the formulas that read it.** In
   an engine's machine, a value written into a cell the grid did not hold made
   the next two frames compute every formula. An added value cell is now

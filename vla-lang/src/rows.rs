@@ -13,10 +13,17 @@
 //! never a float round trip; a truth value is `true` or `false`; an error is
 //! `(error "#DIV/0!")`; an ISO date cell is `(date "2026-10-03")`; a sheet's
 //! state is `visible`, `hidden` or `very-hidden`.
+//!
+//! The record's own rows (KERNEL.57): a sheet's gridlines, a column's and a
+//! row's settings, a format, a formula's value and a cell's format, which the
+//! relations do not print, are spelled here too ([`Record`], [`record_line`]),
+//! so that the view record and a reader printing a workbook as the record
+//! prints it (`frazaro reflect --looks`) print them alike.
 
 use crate::form::Form;
 use crate::printer::write_datum;
 use crate::refers::{self, FormulaRef, Kind};
+use crate::sheet::{column_letters, number_text, Column, NumFmt, RowSettings, Style};
 
 /// A cell's value as the file holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -108,6 +115,132 @@ pub enum Row<'r> {
     },
 }
 
+/// One of the record's own rows (KERNEL.57), which the relations do not
+/// print: the view record prints them (`crate::view`), and a reader printing
+/// a workbook as the record prints a sheet whole hands them to its sink's
+/// [`Sink::record`], so that both spell them by [`record_line`]. A list that
+/// may grow.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Record<'r> {
+    /// `(gridlines "<sheet>" on|off)`.
+    Gridlines { sheet: &'r str, on: bool },
+    /// `(column "<sheet>" "<letters>" <width>|none shown|hidden <format>|none)`.
+    Column { sheet: &'r str, column: &'r Column },
+    /// `(row "<sheet>" <number> <height>|none shown|hidden)`.
+    Row {
+        sheet: &'r str,
+        number: u32,
+        settings: &'r RowSettings,
+    },
+    /// `(format <index> <fill> <number format> wrap|nowrap <groups>)`: the
+    /// format at `index`, the default format where `style` is `None`; and
+    /// `code`, where given, the number format as a file holds it, printed in
+    /// quotes in place of the style's own, a code the language may not draw
+    /// (KERNEL.57: a reader prints it as written, and a load refuses it by
+    /// name).
+    Format {
+        index: u32,
+        style: Option<&'r Style>,
+        code: Option<&'r str>,
+    },
+    /// `(value "<sheet>" "<addr>" <value>)`: a formula's value, spelled as a
+    /// `cell` row spells one, or the label of a formula not computed.
+    Value {
+        sheet: &'r str,
+        addr: &'r str,
+        value: &'r str,
+    },
+    /// `(style "<sheet>" "<addr>" <format>)`: the cell's format, where it is
+    /// not 0.
+    Style {
+        sheet: &'r str,
+        addr: &'r str,
+        index: u32,
+    },
+}
+
+/// A record's row as its line, without the line break.
+pub fn record_line(record: &Record<'_>) -> String {
+    match record {
+        Record::Gridlines { sheet, on } => {
+            format!(
+                "(gridlines {} {})",
+                quoted(sheet),
+                if *on { "on" } else { "off" }
+            )
+        }
+        Record::Column { sheet, column } => {
+            let width = column
+                .width
+                .and_then(number_text)
+                .unwrap_or_else(|| "none".to_string());
+            let format = column
+                .style
+                .map_or_else(|| "none".to_string(), |s| s.to_string());
+            format!(
+                "(column {} {} {} {} {})",
+                quoted(sheet),
+                quoted(&column_letters(column.index)),
+                width,
+                if column.hidden { "hidden" } else { "shown" },
+                format
+            )
+        }
+        Record::Row {
+            sheet,
+            number,
+            settings,
+        } => {
+            let height = settings
+                .height
+                .and_then(number_text)
+                .unwrap_or_else(|| "none".to_string());
+            format!(
+                "(row {} {} {} {})",
+                quoted(sheet),
+                number,
+                height,
+                if settings.hidden { "hidden" } else { "shown" }
+            )
+        }
+        Record::Format { index, style, code } => format_text(*index, *style, *code),
+        Record::Value { sheet, addr, value } => {
+            format!("(value {} {} {})", quoted(sheet), quoted(addr), value)
+        }
+        Record::Style { sheet, addr, index } => {
+            format!("(style {} {} {})", quoted(sheet), quoted(addr), index)
+        }
+    }
+}
+
+/// A `format` row: the index, the fill as six hex digits or `none`, the
+/// number format, `general`, `text` or a code quoted (KERNEL.47), whether
+/// text wraps, and the groups of what it says of a font, an alignment and a
+/// border (KERNEL.50). An index the style table does not hold reads as the
+/// default format; a code given is printed in place of the style's own.
+fn format_text(index: u32, style: Option<&Style>, code: Option<&str>) -> String {
+    let default = Style::default();
+    let s = style.unwrap_or(&default);
+    let fill = match s.fill {
+        Some(rgb) => quoted(&rgb.hex()),
+        None => "none".to_string(),
+    };
+    let num = match (code, &s.num_fmt) {
+        (Some(code), _) => quoted(code),
+        (None, NumFmt::General) => "general".to_string(),
+        (None, NumFmt::Text) => "text".to_string(),
+        (None, NumFmt::Code(code)) => quoted(code.as_str()),
+    };
+    // What it says of a font, an alignment and a border (KERNEL.50), after
+    // its wrap; nothing for a format that says none of them.
+    let groups = crate::appearance::groups_text(&s.font, &s.align, &s.border);
+    format!(
+        "(format {index} {fill} {num} {}{groups})",
+        if s.wrap { "wrap" } else { "nowrap" }
+    )
+}
+
 /// An array formula's kind, as the reader finds it beside its anchor's
 /// `formula` row (KERNEL.8, slice b).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,6 +272,11 @@ pub trait Sink {
     /// hidden row by. Nothing, unless a sink says otherwise: the printer
     /// ignores it.
     fn hidden_row(&mut self, _sheet: &str, _row: u32) {}
+
+    /// One of the record's own rows (KERNEL.57), from a walk that prints a
+    /// workbook as the record prints a sheet whole. Nothing, unless a sink
+    /// says otherwise: the printer prints it.
+    fn record(&mut self, _record: &Record<'_>) {}
 }
 
 /// A sheet's name as a reference spells it in front of `!`: the one quoting
@@ -221,6 +359,11 @@ pub struct Printer {
 impl Sink for Printer {
     fn row(&mut self, row: &Row<'_>) {
         self.out.push_str(&line(row));
+        self.out.push('\n');
+    }
+
+    fn record(&mut self, record: &Record<'_>) {
+        self.out.push_str(&record_line(record));
         self.out.push('\n');
     }
 }

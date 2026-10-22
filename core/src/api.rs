@@ -583,4 +583,82 @@ mod tests {
             assert!(seen > 10, "{label}: the comparison covered {seen} rows");
         }
     }
+
+    /// The free oracle extended to the looks (KERNEL.57): a built model's
+    /// sheet viewed whole with its values computed is `reflect --looks`'s
+    /// reading of the file the writer writes from it, its gridlines,
+    /// columns, rows, formats, cells, formulas, values and styles row for
+    /// row, each sheet's rows told apart by the `gridlines` row that begins
+    /// them, so that the reading's order is held too. A formula the build
+    /// does not compute holds no value in the file, and its `value` row's
+    /// label is left out of the view's side.
+    #[test]
+    fn the_view_of_a_built_model_is_the_looks_of_its_file() {
+        use crate::kernel::Window;
+        use crate::view::{view_text_valued, whole};
+        const KINDS: [&str; 8] = [
+            "(gridlines ",
+            "(column ",
+            "(row ",
+            "(format ",
+            "(cell ",
+            "(formula ",
+            "(value ",
+            "(style ",
+        ];
+        let kept =
+            |l: &&str| KINDS.iter().any(|k| l.starts_with(k)) && !l.contains("(not-computed");
+        for (program, label) in [(FIXTURE, "fixture.txt"), (INTO, "into.txt")] {
+            let vla = english_translate_text_to_vla(program, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{label}: {}", r.refusal));
+            let model = crate::build::build_workbook(program, &vla, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{label}: {r}"));
+            let library = crate::excel::library();
+            let calc = vla_lang::calc::Calc::run(&model, &library);
+            let bytes = crate::sheet::ooxml::workbook_bytes_valued(&model, &calc).unwrap();
+            let reflected = crate::reflect::reflect_looks_text(&bytes, label).unwrap();
+            // The reading's rows by the sheet whose `gridlines` row began them.
+            let mut by_sheet: Vec<(String, Vec<&str>)> = Vec::new();
+            for line in reflected.lines() {
+                if line.starts_with("(gridlines ") {
+                    let forms = vla_lang::reader::read_forms(line).unwrap();
+                    let name = match forms[0].as_list().map(|l| l.items.as_slice()) {
+                        Some([_, vla_lang::form::Form::Str(name), _]) => name.clone(),
+                        _ => panic!("{label}: a gridlines row out of its shape: {line}"),
+                    };
+                    by_sheet.push((name, Vec::new()));
+                }
+                if let Some((_, rows)) = by_sheet.last_mut() {
+                    if kept(&line) {
+                        rows.push(line);
+                    }
+                }
+            }
+            let mut seen = 0;
+            for sheet in &model.sheets {
+                let view = view_text_valued(
+                    &model,
+                    &Window {
+                        sheet: sheet.name.clone(),
+                        range: whole(sheet),
+                    },
+                    &calc,
+                );
+                let body: Vec<&str> = view.lines().filter(kept).collect();
+                let read = &by_sheet
+                    .iter()
+                    .find(|(name, _)| *name == sheet.name)
+                    .unwrap_or_else(|| panic!("{label}: no rows read for {}", sheet.name))
+                    .1;
+                assert_eq!(&body, read, "{label}: sheet {}", sheet.name);
+                seen += body.len();
+            }
+            assert_eq!(
+                by_sheet.len(),
+                model.sheets.len(),
+                "{label}: a block a sheet"
+            );
+            assert!(seen > 20, "{label}: the comparison covered {seen} rows");
+        }
+    }
 }

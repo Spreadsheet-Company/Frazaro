@@ -223,7 +223,7 @@ byte:
 | `frazaro translate-vba <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...]` | the VBA the add-in would write into a module |
 | `frazaro build <program.txt> [--prelude ...] [--phrasebook ...] --out <file.xlsx> [--into <model.xlsx>] [--replace]` | one line, the workbook's size and digest; the file is written |
 | `frazaro rebuild <file.xlsx> [--prelude ...] [--phrasebook ...]` | one line: yes, this is that build, or no with why |
-| `frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]` | the workbook as relations, or counts alone |
+| `frazaro reflect <file.xlsx|.ods> [--looks] [--counts] [--cone <Sheet!A1> ...]` | the workbook as relations, or with its looks as the record prints it, or counts alone |
 | `frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]` | what differs between two workbooks |
 | `frazaro audit <file.xlsx|.ods> [--counts]` | where the risks are, one finding a line |
 | `frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude ...] [--phrasebook ...]` | one window of the program's build as the view record, the lines a viewport draws from |
@@ -375,7 +375,7 @@ gap: a workbook anyone has saved is no longer the build.
 ### `frazaro reflect`
 
 ```text
-frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]
+frazaro reflect <file.xlsx|.ods> [--looks] [--counts] [--cone <Sheet!A1> ...]
 ```
 
 The workbook's file is read, never Excel: its sheets, names and Tables, then
@@ -480,6 +480,46 @@ does not. The root is the one address printed, because you typed it. A root
 that is not a cell as `Sheet!A1` or `'Q1 Data'!A1`, or one naming no sheet,
 exits 2.
 
+With `--looks` (KERNEL.57), the workbook is printed as the view record
+prints each of its sheets whole, so that a reflected workbook keeps its
+looks and its rows load as a machine's or, behind a manifest, as a
+cartridge's: the sheet, name and Table rows as above, then sheet by sheet a
+block its `gridlines` row begins, the `column` rows of the sheet's extent
+that have settings (a width as Excel reads it, in characters, `none` for
+Excel's default; `hidden`; a format), its `row` rows (a height a person
+set, in points, and `hidden`; a height Excel fitted to its text is none),
+format 0 and every format its cells and columns use, then each cell's rows.
+A format is the file's own cell format at its own index, spelled as the
+record spells one, a property the workbook's default font has left unsaid,
+each color resolved to six hex digits through the workbook's theme, its
+tints and its palette, a number format as the file holds it and a built-in
+one as Excel reads it in English. A formula's saved value is a `value` row
+after the formula and a date its serial number, as the record spells them,
+and a cell's `style` row follows its rows, its `refers` rows last:
+
+```text
+(gridlines "Frazaro" off)
+(column "Frazaro" "B" 72 shown 1)
+(format 0 none general nowrap)
+(format 1 "F7F4FC" text nowrap)
+(cell "Frazaro" "B1" "Put 5 into cell B2.")
+(style "Frazaro" "B1" 1)
+(formula "Output" "B3" "=B2*2")
+(value "Output" "B3" 10)
+(refers "Output!B3" "Output!B2")
+```
+
+What the record cannot hold is left out of its row, the rest of the row
+printed, and one line on stderr says how much was: a cell that keeps a
+format and no value, a look the record has no word for (a font's family,
+an underline, a pattern, a rotation, an indent, a diagonal, a run of rich
+text), a merged range, a conditional format, a row formatted whole. A
+number format the language does not draw is printed as the file holds it,
+and a load refuses it by name. With `--counts` beside it, each line gains
+the looks' counts, the formats, the cells styled and each kind left out.
+This version reads the looks of a package (`.xlsx`) alone; an OpenDocument
+file's are refused by name.
+
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,
 zip64, no workbook part, a damaged part, or an OpenDocument file that is
@@ -488,8 +528,9 @@ not a spreadsheet); a part this version refuses to read
 reader never expands, or markup that never closes); a shape this version
 does not read, named with its part and cell (`reflect-unsupported`: a
 data-table formula, a shared formula whose first cell is missing, a string
-index past the table). The reader streams, so the rows printed before a
-refusal stand on stdout.
+index past the table; under `--looks`, a cell or a column naming a cell
+format past the styles part's list, and an OpenDocument file's looks). The
+reader streams, so the rows printed before a refusal stand on stdout.
 
 ### `frazaro diff`
 

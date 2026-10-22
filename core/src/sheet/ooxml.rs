@@ -60,11 +60,12 @@ use super::xml;
 use super::zip;
 use super::{
     cell_ref, column_width_attr, number_text, shared_masters, Border, Content, Font, Horizontal,
-    Line, NumFmt, Sheet, Style, Vertical, Workbook,
+    Line, NumFmt, RowSettings, Sheet, Style, Vertical, Workbook,
 };
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
 use vla_lang::numfmt::Code;
+use vla_lang::rows::Visibility;
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -236,8 +237,15 @@ fn workbook_xml(wb: &Workbook) -> String {
     ));
     s.push_str("<sheets>\n");
     for (i, sheet) in wb.sheets.iter().enumerate() {
+        // A sheet's state, which a record says and a reader reads back
+        // (KERNEL.57); every sheet a build makes is visible and says none.
+        let state = match sheet.visibility {
+            Visibility::Visible => "",
+            Visibility::Hidden => " state=\"hidden\"",
+            Visibility::VeryHidden => " state=\"veryHidden\"",
+        };
         s.push_str(&format!(
-            "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"{}\"/>\n",
+            "<sheet name=\"{}\" sheetId=\"{}\"{state} r:id=\"{}\"/>\n",
             xml::attr(&sheet.name),
             i + 1,
             sheet_rid(i + 1)
@@ -872,13 +880,34 @@ fn sheet_text(
     let file_si: std::collections::HashMap<u32, u32> =
         kept.iter().zip(0u32..).map(|(si, k)| (*si, k)).collect();
     let numbered = |si: &u32| file_si.get(si).copied().unwrap_or(*si);
+    // A row's settings, its height and its hidden (KERNEL.57), written on
+    // the row's element, and a row of settings with no cell an element of
+    // its own in its place, so that a reader reads them back; a sheet with
+    // no row of settings writes the rows it wrote before.
+    let mut settings_alone = sheet
+        .rows
+        .iter()
+        .filter(|(n, _)| {
+            sheet
+                .cells
+                .range((**n, 0)..=(**n, u32::MAX))
+                .next()
+                .is_none()
+        })
+        .peekable();
     let mut current_row: Option<u32> = None;
     for (&(row, col), cell) in &sheet.cells {
         if current_row != Some(row) {
             if current_row.is_some() {
                 s.push_str("</row>\n");
             }
-            s.push_str(&format!("<row r=\"{row}\">"));
+            while let Some((n, settings)) = settings_alone.next_if(|(n, _)| **n < row) {
+                s.push_str(&format!("<row r=\"{n}\"{}/>\n", row_attrs(settings)));
+            }
+            match sheet.rows.get(&row) {
+                Some(settings) => s.push_str(&format!("<row r=\"{row}\"{}>", row_attrs(settings))),
+                None => s.push_str(&format!("<row r=\"{row}\">")),
+            }
             current_row = Some(row);
         }
         let r = cell_ref(row, col);
@@ -955,9 +984,25 @@ fn sheet_text(
     if current_row.is_some() {
         s.push_str("</row>\n");
     }
+    for (n, settings) in settings_alone {
+        s.push_str(&format!("<row r=\"{n}\"{}/>\n", row_attrs(settings)));
+    }
     s.push_str("</sheetData>\n");
     s.push_str("</worksheet>\n");
     s
+}
+
+/// A row's settings as its element's attributes (KERNEL.57): a height in
+/// points, a person's, `customHeight="1"`, and `hidden="1"`.
+fn row_attrs(settings: &RowSettings) -> String {
+    let mut a = String::new();
+    if let Some(h) = settings.height.and_then(number_text) {
+        a.push_str(&format!(" ht=\"{h}\" customHeight=\"1\""));
+    }
+    if settings.hidden {
+        a.push_str(" hidden=\"1\"");
+    }
+    a
 }
 
 #[cfg(test)]
