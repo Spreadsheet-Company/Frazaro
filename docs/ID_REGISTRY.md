@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.55 | KERNEL.56 |
+| KERNEL | KERNEL.56 | KERNEL.57 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -318,6 +318,11 @@ their own), for the dynamic-array behaviours it left: a spill laid into
 the cells beside its formula, a legacy array formula over many cells
 computed at each, a formula written dynamic as Excel 365 stores one typed,
 and a dynamic shape lowered to its program. `KERNEL.56` is next free.
+`KERNEL.56` was minted 2026-10-21 at the owner's word, from `KERNEL.54`'s
+scoping (its Found, and its second slice's probe), for a value written into
+a cell the grid does not hold costing its write and its readers: today the
+write refits the frame to the grid and the next two frames compute every
+formula. `KERNEL.57` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

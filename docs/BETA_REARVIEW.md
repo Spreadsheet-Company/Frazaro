@@ -35588,6 +35588,612 @@ Naught may now hold a person's gate to its set by a formula of its own
 (Alonzo's `CART.9`, its decision 20, Alonzo's to take), and the *Found*
 above, unminted.
 
+**`KERNEL.56`, a value written into an empty cell: the scoping,
+2026-10-22.** Begun at the owner's word, the prompt relayed from the
+`KERNEL.54` session (2026-10-21), whose scoping found under *Found* that a
+value written into a cell the grid does not hold costs two whole frames and a
+write the grid's size, and whose second slice's probe measured it again after
+the build ("*The probe at the build*", above). Minted as the next free
+`KERNEL` ID and nothing else: the registry read first, `KERNEL.55` the
+highest and `KERNEL.56` next free in `HEAD`'s table and the tree's, no peer's
+worktree holding another; the registry's row and sentence and the roadmap's
+line claimed before anything was measured. The scoping written here: the
+predictions before any number, the instrument first, two prototypes in a copy
+of the language, measured against `HEAD` and held to `Calc` at every frame;
+the decisions with recommendations, then a stop for the owner's approval.
+Nothing is built. `HEAD` `d3dcc3f` (`AS.10`), thirteen ahead of origin, not
+pushed. In the tree, uncommitted and untouched: a peer's `KERNEL.50` build
+(the language's `sheet.rs`, `load.rs`, `view.rs`, its messages and
+`appearance.rs`, the core's writer) and its docs, and a peer's `KERNEL.53`
+mint, in the docs this entry shares; in a peer's worktree off `HEAD`,
+`KERNEL.49`'s second slice under way (`calc/dense.rs`, `calc/vector.rs` and
+`machine/mod.rs`; *Beside it*). Alonzo's `HEAD` `3e3ad7a` and Buffet's
+`f5dcde1` read and never written.
+
+*What it stands on, read in the code at `d3dcc3f`.*
+- *The write* (`machine/mod.rs`, `put_values`): a value into a cell the
+  sheet does not hold counts `log.added`; the extent grows by the written
+  cells at `settle` (`KERNEL.54`). Then `settle`, for `formula_changed ||
+  log.added > 0`, does four things. It sets `every_next`, so the next frame
+  computes every cell. It sets `reshaped`, so the changes answer whole until
+  the next frame's end and at it (`KERNEL.42`). It calls `fit`, which refits
+  the marks to the order (a word for 64 places), the shapes' two flags, the
+  lists' room, and the shapes' parts, *emptying* them: the values of the
+  parts the same at every cell, kept for the next frame's start, which a
+  value cell moves none of. And it calls `own_made`, which writes the written
+  cells' slots in each frame's own array that still stands over its sheet's
+  extent and makes any other again from the sheet's cells, its B-tree walked
+  and each formula's value looked up. Every write also drops the plane of
+  each sheet it wrote (`KERNEL.24`), whatever it wrote.
+- *The readers* (`calc/reach.rs`): a changed cell's readers are found by its
+  place, a whole column's reader at every row (`Dim::Whole`), whether or not
+  the cell held a value; a written value cell reaches the next frame through
+  `written`, as a changed one does. So nothing about an added value cell's
+  readers needs the whole grid.
+- *The frame's end* (`snapshot`, `copy`, `walk`): the copy declines a twin
+  cell that would gain or lose a value (`Twins::put`, whose match answers
+  `false` for a cell on one side only; `put_behind`, whose slot says so), and
+  the walk overwrites the twin in place while each twin cell lies where the
+  sheet's next valued cell lies; at the first that does not, it makes the twin
+  again from the sheet's cells, recomputes the twin's extent and sets
+  `every_next`, the second whole frame. A copy that declines partway leaves
+  the walk to name the changes, and the walk finds the cells the copy already
+  wrote unchanged: safe today only because a declined copy always ends in
+  `every_next`.
+- *What reads an extent*, by every caller of `Env::extent` and `kept_extent`:
+  the evaluator clamps each walk of an area to its sheet's extent (`cells_in`,
+  `places`, `area_array`, the programs), a function of the cells read, since
+  no cell stands outside it; an index sizes itself by it (`slots_of`, a
+  cost); the record prints it (`(extent "<sheet>" "<range>")`, `KERNEL.37`);
+  and two families of functions read the extent itself. An approximate
+  match's bisection (`index::bisect`, `next_of_kind`) sets low and high at
+  the first and the last place of the vector inside its sheet's extent, so on
+  a vector not sorted its answer moves with the extent: `MATCH`'s 1,
+  `VLOOKUP` and `HLOOKUP` approximately, `LOOKUP`, `XMATCH`'s and
+  `XLOOKUP`'s binary searches. And a database's records end with its sheet's
+  last cell (`database::last_row`), Excel's own rule, settled by its save of
+  the criteria fixture (`functions!A208`, `A211`, `A213`), so a criteria row
+  a blank meets counts records the extent decides: `DCOUNT` and `DCOUNTA` with
+  the field left out, and `DGET`'s one record. A value written beyond the
+  extent, which no such formula reads by place, moves both; today the frame
+  after any added cell computes every cell, which is the only reason they hold.
+- *The changes* (`KERNEL.42`): a window's values record names its sheet's
+  extent in its head, and Alonzo's host lays a changes answer's rows on the
+  record it holds with the head untouched (`web/host.js`, `patchRecord`), so a
+  moved extent is a change no cell's row carries. A window asked of the
+  extent (Alonzo's device sheets, an empty window) names the extent as its
+  range, and the host reads a range that moved as whole (`decide`).
+
+*The instrument, built first, in the session's scratchpad (`k56/`).* The
+language at `d3dcc3f` taken twice by `git archive`: copy A as it stands,
+copy B for the prototypes; in both, counters raised only under a feature of
+their own, of `fit`'s calls and what it clears, the frame's own arrays made
+again and the cells they walked, a frame's end's walks and the cells they
+swept, the twins made again and their cells, the frames that computed every
+cell, the copies, the arrays and planes grown and their slots, the twin cells
+put in, and the shapes made whole for an extent's readers; every timed build
+without it. A scratch probe over each, built under Alonzo's release profile
+and run as `KERNEL.54`'s was (opted out of throttling, at high priority, on
+the eight performance cores), loads rows into `Machine::load` under the
+language's library. The grids: `KERNEL.54`'s adder, its generator taken
+whole, at 1,024, 4,096, 16,384 and 65,536 bits, by fill (*F*, five shapes)
+and shuffled with every coincidence traded away (*U*, every gate its own
+shape), its 7n + 1 cells over A1:G(n + 1); and the two fixtures of rows
+`KERNEL.49`'s memory floors keep, Superposition (798,731 formula cells in 44
+shapes) and Life x16 (1,019,844 of one shape, its board still, the probe
+writing no Clock). Each grid stepped to stillness, then three placements,
+five fresh cells of each written one at a time with the value 7: a hole
+inside the extent (the adder's `A1` to `E1`; `Commands!C2` to `C5` and
+`Camera!C1`; `Input!C11` to `C15`), a row below it (`A(n + 2)` on; `Lab!A3`
+on; `Palette!A17` on), and columns to its right (`L1` on, `KERNEL.54`'s
+place; `Constants!C1` on; `Input!F1` on); after each, three frames, then
+the same cell written again and its frame. A variant loads one formula more,
+`G1`, the sum of every cell the placements write, so that each write has
+exactly one reader. A check mode holds every frame after every write to
+`Calc` over the grid as the frame began, twins as sheets (`KERNEL.34`'s
+oracle), every formula cell of the rows' sheets; and a law mode holds the
+extent's readers: `MATCH(4,A:A,1)`, `LOOKUP(4,A:A)` and `SUM(C:C)` over a
+column A of 1, 5, 2 and 3, `MATCH(4,S.last!A:A,1)` over its twin, and on a
+second sheet `DCOUNTA(A:A,,D1:D2)` over a database of a name and two records,
+its criteria a name and a blank row, and the same over the twin's criteria;
+three frames, then a value written into `C8` of each sheet, which no formula
+reads, and three frames, each held to `Calc`. Three rounds, the two copies
+alternated within each; times are medians of the rounds' medians (each round
+a median of five cells), the first cell's apart where a store grows; the
+counts from one run with the counters, exact.
+
+*Predictions* (`k56/PREDICTIONS.md`, written before any run of this
+session), with what came:
+1. Every placement, with a reader or without, at every size: the two frames
+   after the write each compute every formula cell. *Held*, every placement,
+   every size, both layouts and both fixtures.
+2. The write inside the extent `fit`'s alone, 3 to 20 µs by fill, 10 µs to 2
+   ms shuffled. *Held*, 2.0 to 13.5 µs by fill and 4.3 to 449 µs shuffled.
+3. The write beyond the extent by fill the frame's own array made again,
+   150 µs to 25 ms. *Held*, 58 µs to 17.7 ms (a column to the right dearer
+   than a row below, 7 columns becoming 12).
+4. The first frame after a whole frame plus the walk and the twin made again,
+   0.8 to 100 ms by fill and 1.3 to 300 ms shuffled, the placements within
+   10% of each other. *Held*, 0.62 to 74.9 ms and 0.93 to 290 ms.
+5. The second frame every cell, about 8 ms by fill and 200 ms shuffled at
+   65,536 bits. *Held*, 7.8 to 9.0 and 203 to 209.
+6. The fixtures' first frame near a first frame after a load, 150 to 220 ms,
+   the second near a whole frame. *Missed:* 60 to 62 ms for Superposition
+   and 70 for Life x16, against the first frame after a load, 177 and 170
+   ms, which I had taken for its measure; the second, 32 and 34 ms, held.
+7. The prototype, a hole: the write 1 to 8 µs, both frames reaching nothing,
+   each within twice an idle frame. *Held*: 1.2 to 9 µs; 0.3 to 8 µs and 0.1
+   to 3.3 µs, the second frame the idle frame.
+8. With the reader, the first frame reaching 1 and the second 0. *Held*.
+9. Beyond the extent, the arrays taken over it by moving their slots, 0.3 to
+   0.5 times today's write. *Held* for a column to the right (12.3 against
+   17.7 ms at 65,536 by fill); a row below beat it by three orders (6 µs,
+   the rows added in place).
+10. Every value and twin the same as a fresh load's, the tests holding but the
+   pins on an added cell's whole frames. *Held*, five tests' pins moved
+   (*The prototypes, held*).
+11. The extent's readers changing value when a cell elsewhere grows the
+   extent, the prototype failing without them and holding with them. *Held*
+   (*The extent's readers, measured*).
+
+*Measured at `HEAD` and with the prototype*, the write, the first frame and
+the second, medians, µs where no unit is named:
+
+| grid, placement | `HEAD`: write, frame 1, frame 2 | prototype: write, frame 1, frame 2 |
+|---|---|---|
+| adder 1,024 F, inside | 2.0, 642, 101 | 1.5, 0.3, 0.1 |
+| adder 1,024 F, below | 58.0, 660, 100 | 1.3, 4.0, 0.1 |
+| adder 1,024 F, right | 86.2, 615, 104 | 191, 139, 0.1 |
+| adder 1,024 U, inside / below / right | 4.3, 1,003, 572 (each within 8%) | 1.2, 0.3 / 4.0 / 44.7, 0.1 |
+| adder 4,096 F, inside | 2.8, 2,763, 442 | 1.9, 0.4, 0.1 |
+| adder 4,096 F, below | 286, 2,862, 430 | 2.0, 14.7, 0.1 |
+| adder 4,096 F, right | 502, 2,826, 452 | 696, 597, 0.2 |
+| adder 16,384 F, inside | 9.5, 17.0 ms, 1,940 | 3.8, 0.9, 0.3 |
+| adder 16,384 F, below | 3,115, 18.3 ms, 1,935 | 3.8, 59.1, 0.3 |
+| adder 16,384 F, right | 3,931, 17.9 ms, 2,206 | 3,331, 2,523, 3.3 |
+| adder 16,384 U, each | 114 to 125, 54 to 57 ms, 40 to 41 ms | 2.7 to 3.4; 1.0 / 59 / 2,418; 0.3 to 1.3 |
+| adder 65,536 F, inside | 13.5, 71.1 ms, 7.9 ms | 6.0, 4.2, 1.1 |
+| adder 65,536 F, below | 13.6 ms, 74.9 ms, 7.8 ms | 6.1, 245, 1.2 |
+| adder 65,536 F, right | 17.7 ms, 70.9 ms, 9.0 ms | 12.3 ms, 11.5 ms, 6.7 |
+| adder 65,536 U, inside | 422, 275 ms, 202 ms | 8.9, 7.7, 1.1 |
+| adder 65,536 U, below | 376, 290 ms, 209 ms | 6.6, 248, 1.3 |
+| adder 65,536 U, right | 375, 275 ms, 203 ms | 7.8, 11.0 ms, 6.2 |
+| Superposition, each | 4.8 to 5.5, 60.5 to 61.5 ms, 32.0 to 32.3 ms | 1.2 to 3.2, 2.9 to 3.3, 2.6 to 2.7 |
+| Life x16, each | 4.6 to 5.8, 69.6 to 70.1 ms, 33.7 to 33.9 ms | 1.5 to 3.7, 3.4 to 4.1, 3.2 to 3.3 |
+
+The idle frame between, at 65,536 bits, 1.1 µs at both builds; the
+fixtures', 2.6 and 3.2. A cell's first growth beyond the extent, at 65,536
+bits, is the dear one, the median the rows after it: a row below by fill,
+the write 4.7 to 5.0 ms and its first frame 3.6 to 3.8 ms, where both arrays
+reallocate their rows' room, against 17.9 to 18.1 ms and 78.7 to 80.0 ms at
+`HEAD`; shuffled, which keeps no frame's own array, 8.7 to 15.5 µs and 3.6 to
+4.7 ms; a column to the right, 10.2 to 10.9 ms and 8.9 to 9.6 ms by fill.
+With the reader, the prototype's first frame reaches exactly the reader at
+every placement, at 1,024 and 4,096 bits by fill and shuffled, and its second
+nothing; `HEAD`'s reach every formula cell at both frames, as without it (at
+1,024 bits shuffled).
+
+*Counted at 65,536 bits by fill*, one write of each placement and its two
+frames. `HEAD`: the write refits 5,130 words and flags (660,480 shuffled,
+every gate a shape), and beyond the extent makes the frame's own array again
+from 458,759 cells; the first frame computes every formula, and its end walks
+458,754 cells and makes the twin again from as many; the second computes every
+formula and copies. Superposition's first frame's end sweeps 798,852 cells,
+every sheet's, to make again a twin of 17. The prototype: a hole, the write
+touching no store, each frame's end a copy putting one twin cell in; a row
+below, the own array grown by a row in place (458,766 slots) at the write and
+the twin's at the first frame's end; a column to the right, both re-laid over
+786,504 slots; never a walk, a twin made again, or a frame computing every
+cell.
+
+*The first frames after a load*, the prototype's walk bounding the cells a
+twin gains in place by its own count and 64 (below): Superposition's 177.0
+ms at `HEAD`, 179.4 with the prototype; Life x16's 169.6 and 168.0 (four
+rounds alternated); the second frame after the load whole at both, 32 to 35
+and 34 to 38 ms, each formula sheet gaining more first values than its twin
+holds cells and 64. Without that bound the walk put one sheet's first values in
+one by one where they fitted the room, and Superposition's first frame took
+197.3 ms; with it, the load's twins are made again by a collect, as today.
+
+*The extent's readers, measured* (the law mode). At `HEAD`, the value written
+into `S!C8` and `T!C8`, which no formula reads, moves `MATCH(4,A:A,1)` from 1
+to 4 at the next frame, `LOOKUP(4,A:A)` from 1 to 3 and `DCOUNTA(A:A,,D1:D2)`
+from 2 to 7, and the two reading a twin a frame later, as the twin's extent
+grows; `SUM(C:C)` reads the cell by its place, 0 to 1. Every frame held to
+`Calc`: `HEAD` by computing every cell, the prototype by the extent's readers
+computed whole; the prototype without them answers `MATCH`'s 1 where `Calc`
+answers 4 at the first frame after the write (*Mutants*).
+
+*The prototypes, in copy B,* each held by the check mode, the law mode and
+the language's own tests before it was timed:
+- *A*, the plan kept: `settle` setting no `every_next` and calling no `fit`
+  for a value cell added, `reshaped` only where an extent moved, the sheets
+  whose extent moved listed; the copy putting in a twin cell gained where its
+  twin's array and kept plane hold it, the twin's extent grown; the walk
+  putting in after its pass each cell it gained while the room for the
+  changes holds them, and keeping the changes a copy noted before it gave way
+  to the walk; each shape calling one of the eighteen functions filed by the
+  sheets it reads (`calc/reach.rs`), and a sheet whose extent moved having
+  them made whole at the next frame's start; a frame's end that grew a
+  twin's extent answering its changes whole. A hole cost microseconds at
+  once (frames of 0.3 to 8 µs); a cell beyond the extent still paid the grid,
+  the own array made again at the write (13.2 to 16.6 ms at 65,536 bits by
+  fill) and, at the first frame's end, a walk of every sheet (17.5 to 28.7 ms
+  on the adder, 29.4 on Superposition, 37.7 on Life x16, where the sheet that
+  grew was the Lab's of four cells or the Palette's of 48).
+- *B*, A and the stores grown where they stand: `Dense::regrow` (the store's
+  slots and the numbers beside them moved to their places over an extent
+  holding the old one, a store whose bottom alone moved extended in place)
+  and `Raster::regrow` the same for a plane's bytes; `own_made` regrowing an
+  array the write outgrew where it still fits its limit, where it made it
+  again; a write keeping a sheet's plane, each changed cell's byte set, where
+  it dropped it; the copy taking a written cell's gain outside its twin's
+  array by regrowing that array, the bits of the twin cells behind their
+  slots moved with them, and leaving a formula's first value to the walk, as
+  today; the walk putting a twin's gains in place only while they are no more
+  than the cells it holds and 64. The numbers above are B's.
+
+*The prototypes, held.* B over the language's own tests: the library's 348
+passed, and the thirteen laws, the expand, formats and formula-syntax
+goldens, the limits, the strangers and the walks; five tests moved, each a
+pin of what the item changes:
+- `a_frame_computes_the_cells_a_change_reaches_and_no_other`: the second
+  frame after the load computes 11 cells where it computed 41, the cells
+  reading the twins the first frame's values filled and the name's; its sheet
+  holds ten values, so its twin holds them and gains its 41 in place.
+- `a_kept_plane_is_the_walk_after_every_step_and_every_write`: a plane kept
+  through each of five writes, every byte the walk's, where each write
+  dropped it (`KERNEL.24`).
+- `a_frame_s_array_keeps_a_cell_not_reached_and_takes_each_write`: an array
+  regrown over a cell past its extent, `(2, 0)` kept and made again where it
+  was `(1, 1)` (`KERNEL.31`).
+- `a_walk_after_copied_frames_makes_each_cell_behind_its_slot_where_it_passes`
+  and `a_frame_s_end_copied_is_the_walk_bit_for_bit` (`KERNEL.36`): each
+  forced its walks after copies by a write to a sheet viewed as a plane and a
+  cell added past the extent, which no longer walk; each forces them by a
+  formula written into an empty cell, whose first value the copy leaves to
+  the walk, and holds as before, each test's floors met.
+Over Alonzo at `3e3ad7a` by a path, against the same Alonzo over copy A:
+its 79 and 1 tests passing over both; `frames --check` over both, every
+frame of its twelve fixtures equal, and each fixture's allocations and
+reallocations at frame 2 the same (Life 80, its boards of four and sixteen
+times 82, the gun's 80, 82 and 82, Sand 491, Superposition 22, its act 346
+and cascade 3,948, Naught's 22 and 22); its high-water mark of memory 216 to
+2,824 bytes higher a fixture, of 23 to 481 MB. A variant making a load's
+twins by its collect, as today, and keeping the extent's readers as one list
+of pairs, empty where no shape reads an extent, brings eight fixtures' marks
+to `HEAD`'s to the byte and the other four within 32 bytes, not traced. Over
+Buffet at `f5dcde1`, the prototype taken as 0.10.0 by a `[patch.crates-io]`:
+its 92 tests passing (38 and 54).
+
+*Mutants,* each one change to the final prototype, proved applied by its
+file's hash, then the language's tests and the law mode. The extent's
+readers never filed: every test of the language passes, the law mode alone
+failing (`MATCH` 1 where `Calc` 4, at the first frame), so no test holds them
+yet and the build's law must. The walk dropping the changes a copy noted
+before giving way to it: three fail, the bit-for-bit and walk-after-copies
+tests among them. A gained cell not growing its twin's extent: four, and the
+law (the twin's `MATCH` 1 where 4, at the second frame). A moved extent not
+answering the changes whole: `KERNEL.42`'s test, whose cell is added past the
+extent. A regrown array not moving the bits of its twin's cells behind their
+slots: five. A write not setting its kept plane's byte: `KERNEL.24`'s kept
+plane. The walk not putting in what it gained: 34, and laws 10 and 11. A
+twin's growth not answering the changes whole: law 11.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *A value cell added plans nothing.* Recommended: a write whose rows add
+   value cells and change no formula sets no `every_next` and calls no
+   `fit`; it grows only the room kept for the twin cells' changes (half the
+   cells and 64, as `fit` keeps it), and each added cell reaches the next
+   frame through `written` and its readers by its place, as a changed value
+   does. `fit` stays a formula's: it empties the shapes' parts, so a write
+   that refitted would make whole, at the next frame's start, every shape
+   whose parts a change rechecks (Life's `Clock!$B$1=1`, whose shape is the
+   board). *Declined:* today's, two frames computing every cell;
+   `every_next` dropped and `fit` kept, its own cost the shapes' (375 to 449
+   µs a write of the shuffled adder at 65,536 bits) and the parts emptied.
+
+2. *A twin cell gained, without a whole frame.* Recommended: a twin that
+   gains a cell at a frame's end takes it where it stands. On today's grid,
+   the prototype's: the copy puts a written cell's twin cell in as it
+   overwrites a changed one, its slot and its byte written and the twin's
+   extent grown, kept among the changes; a formula's first value, and any
+   gain the copy cannot hold, are the walk's, which puts in after its pass
+   each cell it gained while the room for the changes holds them, kept
+   among the changes, no more than the cells the twin holds and 64 (past
+   that a collect is cheaper than as many put in one by one), and makes the
+   twin again, the next frame computing every cell, only past that or where
+   a twin cell loses its value (a formula's value turned to a reason;
+   `KERNEL.46`'s emptied cell, its own decision). A load's walk makes its
+   twins by the collect, as today. A copy that gives way to the walk keeps
+   the changes it noted, the walk naming the rest. On `KERNEL.49`'s stores,
+   a gain is a slot written into the twin's store: its slice tells a gain or
+   a loss cell by cell, in `changed_to` against the slot before it is
+   overwritten and at the frame's end against the cells a write changed
+   since, and sets `every_next` for either, as `HEAD` does, the twin's
+   extent made again (its session's word, 2026-10-22, its third phase built
+   and uncommitted); a twin no formula reads keeps no store, made from its
+   sheet's when a view asks. This decision lifts that `every_next` for a
+   gain, and is only that no whole frame follows it. *Declined:* the copy
+   alone (a frame's end that walks still makes an added cell's next frame
+   whole); the
+   copy putting in formulas' first values too (a load's first frame ends
+   with every formula's; prototype A did, one at a time in ascending order,
+   its first frame within 2.4% of today's, but the walk's one pass is the
+   simpler home for them); the walk's gains bounded by the room alone (one
+   sheet's first values put in one by one at a load, Superposition's first
+   frame 178.7 to 197.3 ms); losses taken in place too (the twin's extent
+   shrunk, a scan where the lost cell stood on its edge: `KERNEL.46`'s
+   question).
+
+3. *The extent's readers.* The extent is an input of two families of the
+   language's functions (*What it stands on*), and a value written beyond
+   it moves their answers with no cell they read changed (*The extent's
+   readers, measured*). Recommended: the plan files, by sheet, every shape
+   that calls such a function, under each sheet it reads, in one list of
+   pairs, empty for a grid where none does, so that such a grid holds not a
+   byte more; a sheet whose extent moved (a rows' sheet at the write that
+   grew it, a twin at the frame's end that grew it) has them computed whole
+   at the next frame's start. No test of the language holds them today (the
+   mutant that never files them passes every one), so the build's law holds
+   them (decision 6). Which functions read an extent is the library's to
+   say, at registration, the language's eighteen declared (`MATCH`, `VLOOKUP`,
+   `HLOOKUP`, `LOOKUP`, `XMATCH`, `XLOOKUP` and the twelve database
+   functions), so that a host's own function that reads `Env::extent`
+   declares it too: an addition to `Library`, no signature changed.
+   *Declined:* a list of the language's names in the plan (the prototype's;
+   a host's function reading the extent would go unseen, where today's
+   whole frame covers it); the functions changed to read no extent (the
+   bisection bounded by the vector's own last cell, which moves today's
+   answers over unsorted vectors and perhaps Excel's; the database's rows
+   ended otherwise than Excel's save settled); every reader of a range of
+   the sheet computed whole when its extent moves (every `SUM(A:A)`); none
+   (an approximate match over an unsorted whole column, or a database
+   function counting the records a blank row meets, keeping the answer the
+   old extent gave, as Excel does until it calculates fully, and a frame no
+   longer a fresh load's). *Finer, not recommended now:* a reader filed by
+   its area and reached only where the extent moved past it (a lookup over
+   `A1:A100` inside the data reads no extent that grew elsewhere). *Settled
+   beside `KERNEL.49`, 2026-10-22:* which extent a twin's reader reads. An
+   early build of that item's second slice read a twin's extent as its
+   sheet's (`Env::extent`), for a walk of a twin to meet a reason where its
+   sheet's does; the law mode built over its worktree then parted the
+   machine from `Calc` at the first frame after a value written beyond the
+   extent, `MATCH(4,S.last!A:A,1)` 4 in the machine and 1 in `Calc`, the
+   twin not yet holding the cell its sheet's extent already counted.
+   Raised with its session, which put a twin's extent back to its own
+   cells' rectangle for every reader, as `Calc` reads a twin as a sheet,
+   clamped every walk of an array to it, and holds the case in a test of its
+   own (`a_twin_s_extent_is_the_rectangle_of_its_cells_to_every_reader`);
+   the law mode then held over its worktree. So this decision files a twin's
+   readers under the twin, whose extent moves only at a frame's end that
+   gains or loses a twin cell, never at a write: they are made whole at the
+   frame after that end.
+
+4. *The arrays and the planes over an extent a write moved.* Recommended: a
+   frame's own sheet's array, a twin's array and a kept plane each take a
+   cell where it stands: its slot or byte written inside the extent; over an
+   extent the write grew, its slots moved to their places in the new rows
+   and no cell of the sheet walked, and where only the bottom moved, rows
+   added in place (a typed row below the data, the commonest growth); an
+   extent past the array's limit drops it, as today. A write keeps a plane,
+   its changed cells' bytes set, where today every write to a sheet an engine
+   views drops the plane and makes the next frame's end walk every sheet.
+   On `KERNEL.49`'s stores, its `Store::moved` re-lays a store by place, a
+   kept twin's store is made again from its sheet's (a clone) where its
+   layout no longer stands beside the sheet's, and a write still drops a
+   plane, the next frame's end making it again from that sheet alone (its
+   session's word, 2026-10-22, its third phase built and uncommitted); this
+   decision adds the rows in place, the sheet's store's and the twin's, and
+   the plane kept through a write. *Declined:* today's,
+   each array made again from the sheet's cells at the write and the twin's
+   by the walk of every sheet at the frame's end; slack kept around each
+   array (a cell beyond it amortized to nothing, at up to twice the memory
+   and with `stands_over`'s exact meaning, which the walk and `KERNEL.49`'s
+   stores read, loosened).
+
+5. *The changes after a cell added.* Recommended: whole only where an
+   extent moved, which every window's record names in its head and a host's
+   patch leaves as it was: a rows' sheet's at the write that grew it, a
+   twin's at the frame's end that grew it; a cell added inside the extent is
+   named among the changes as any changed cell is. *Declined:* today's,
+   whole after any cell added, which Alonzo's host answers by reading every
+   window again. *Finer, not recommended now:* whole by sheet, the windows
+   of the sheet whose extent moved and no other (one flag today for every
+   sheet; *Found*).
+
+6. *The instrument and the floor.* Recommended: a counted test in the
+   house's form, as `KERNEL.36`'s
+   `a_frame_s_end_visits_the_cells_it_changed_and_not_the_grid` counts: a
+   value written into an empty cell at each of the three placements, over a
+   grid holding a sheet kept as an array, a sparse one, a sheet viewed as a
+   plane and a twin a formula reads, the cells each of the
+   next two frames computes and the cells the write and each frame's end
+   walk counted exactly; the law over the machine's generated grids
+   extended, writes into empty cells at the three placements between frames
+   and approximate lookups and database functions over whole columns among
+   the formulas, every frame held to `Calc` over the grid as it began and to
+   the same grid computing every cell; and a bench row, `# bench: type
+   <sheet>!<cell>`, a fresh cell typed each time down the first column past
+   a fixture's data, the write and the frames until the grid is still timed
+   together, and Excel's half the same value written into the same fresh
+   cell and `Calculate` timed (`tools/bench_recalc_excel.ps1` a new kind
+   beside `edit`, `check_recalc_floors.ps1` a column; a program's rows are
+   part of the text its hash pins, so the program the row joins is pasted
+   again), the owner's run of both halves at today's numbers its first
+   slice, as `KERNEL.54`'s netlist was. *Declined:* the bench row alone (a
+   timed floor for what the counts pin exactly); the counted test alone (no
+   number beside Excel's).
+
+7. *The order beside `KERNEL.49`'s second slice.* Recommended: after it,
+   `KERNEL.56` built on its stores, which is its session's preference
+   (asked 2026-10-22, when phases 3 and 4 remained, the twins as stores kept
+   only where read and the change lists as bitsets, then the owner's hand
+   test; the third built in its worktree later that day, uncommitted; its
+   message: "it deletes most of what your prototype touches, so
+   KERNEL.56 after it, rebuilt on the stores, is the smaller job for both of
+   us"). Its `settle` keeps `every_next` for an added cell, so the extent's
+   readers stay right until this item lifts it. This item's build is then
+   decisions 1, 3 and 5, the plane's half of 4 and the instrument, the
+   stores' rows added in place and a twin store's gain with no whole frame
+   (2, 4) on the stores. The instrument's slice touches no file of the
+   language and may land before. *Declined:* this item first on today's
+   grid (the prototype's 456 lines of code, the twin's part of which the
+   slice's third phase deletes, and a slice under way rebased over them).
+   *Since, 2026-10-22:* that slice is committed (`45f5b43`; *After the
+   scoping*, below), so the order now stands between this item and
+   `KERNEL.49`'s third slice, the grid and the draft, the slice rewriting
+   the grid under what this item lays on it, which its session has put to
+   the owner, recommending this item first for the reasons below (its word,
+   2026-10-22). Recommended: this item next, before that slice. Its changes
+   lie in `settle`'s flags, the frame's end's `regrown`, the reach, the
+   changes' rule, the plane and `Store::moved`, which the third slice
+   leaves; the write's own path (`put_values`, `log.added`), which the third
+   slice rewrites, this item reads and does not change; and its counted
+   test and law, the extent's readers among them, which no test holds
+   today, then guard that rewrite. *Declined:* after the third slice (the
+   two whole frames, 30 to 118 ms each at `45f5b43`, stand until then, and
+   this item's decisions build the same on either grid).
+
+8. *The API and the version.* Recommended: no signature changes; under
+   decision 3 one addition to `Library`, a function declared to read an
+   extent; released with `KERNEL.49`'s break in 0.11.0, or after it. What a
+   host sees: a changes answer naming the cells an added cell changed where
+   it answered whole; fewer cells computed (`Machine::reached`); a load's
+   second frame computing only what its first frame's values reach where
+   each sheet gains no more first values than its twin holds cells and 64;
+   a plane kept through a write; and a host's own function that reads
+   `Env::extent` declaring it, or computed
+   stale until a cell it reads changes. *Declined:* a new version for this
+   item alone.
+
+**What it touches**, built after `KERNEL.49`'s second slice (decision 7),
+read against that slice's plan as its session described it: `vla-lang`'s
+`src/machine/mod.rs` (`settle`'s added cell; the sheets whose extent moved;
+a twin store's gain at a frame's end with no whole frame; the planes at a
+write; the module's account of when a frame computes every cell and when the
+changes answer whole), `src/machine/store.rs` (`KERNEL.49`'s, rows added in
+place where only the bottom moved, where its `Store::moved` lacks it),
+`src/machine/plane.rs` (`Raster::regrow` and `holds`), `src/calc/reach.rs`
+and `src/calc/shape.rs` (the extent's readers filed, from a shape's calls
+and the library), `src/calc/eval.rs` (`Library`'s declaration, and the
+eighteen declared in `library.rs`), and the tests (decision 6, the pins of
+*The prototypes, held* as they stand after that slice); `frazaro-core` and
+the door, nothing; `core/examples/recalc.rs`, `tools/bench_recalc_excel.ps1`
+and `tools/check_recalc_floors.ps1`, the `type` row (decision 6). Docs: this
+entry, the roadmap's line, `RELEASES.md`. Alonzo changes nothing: its host
+patches a window's record by the changes' cells and reads a moved range as
+whole already (`ENGINE.19`); its frame floors and describe goldens over the
+build by a path. Size: `vla-lang` 250 to 400 lines (the prototype's 456
+lines of code against `HEAD`'s, 301 of them in `machine/mod.rs` and 155 in
+`dense.rs`, `plane.rs` and `reach.rs`, the twin's part of them gone on the
+stores), the tests 150 to 250, the bench row 60 to 120 across the runner and
+the two scripts.
+
+**Beside it.**
+- `KERNEL.49` (approved; its second slice under way in a peer's worktree):
+  its third phase, built in its worktree on 2026-10-22 and uncommitted,
+  takes the twins' B-trees, the copy and the walk away, so a gain here
+  becomes a slot written into a twin's store, still followed by a whole
+  frame as at `HEAD`; its `settle` keeps `every_next` for an added cell,
+  which keeps the extent's readers right until this item lifts it; its
+  `Store::moved` re-lays a store by place where a write moves its sheet's
+  extent, decision 4's question for its store; and a twin's extent stays its
+  own cells' rectangle for every reader, held by a test of its own since
+  this scoping's law mode found an early build reading it as its sheet's
+  (decision 3). Settled with its session (decision 7): this item after it.
+- `KERNEL.46` (open): the inverse, a cell emptied. Its twin cell is lost,
+  which stays a twin made again and a whole frame here (decision 2), and its
+  extent may shrink, which moves the extent's readers as a growth does
+  (decision 3's list read for either) and every window's record (decision
+  5). Its own decisions stand: whether an extent shrinks, and how a store
+  takes a loss.
+- `KERNEL.54` (closed): the extent grown by a write's own cells is what
+  decision 3 reads as a moved extent; the frame from mark to mark and its
+  lists are what an added cell's frame now walks, its idle cost the frame's.
+- `KERNEL.42`'s whole answers, `KERNEL.36`'s copy and walk, `KERNEL.31`'s
+  arrays and `KERNEL.24`'s plane each lose a case where they gave way to the
+  grid; their tests' pins move as *The prototypes, held* lists.
+- `KERNEL.53` (open, `FORMULATEXT`): a formula reading which formula a cell
+  holds reads no extent and is no extent's reader.
+- Alonzo: an added cell is a person's edit, a cartridge's Write sheet
+  writing a cell it never wrote, or a row a rebuilt source adds under edit
+  and continue (`ENGINE.7`); the engine's own writes to its device sheets
+  overwrite cells its load wrote (`make_own_sheets` writes every one) and
+  never add one.
+
+*Predictions for the build,* on `KERNEL.49`'s stores, with the decisions as
+recommended: a hole, a row below and a column right at every size of the
+adder and on both fixtures, the two frames after the write computing no
+formula but the cell's readers and the extent's readers its growth moved; a
+hole and a row below within 2 µs and 10 µs of an idle frame at 65,536 bits
+after the first row's growth; a column to the right a re-lay of nine bytes a
+slot where the prototype's moved 33, 3 to 6 ms at the write and as much at
+the frame's end where the prototype's are 12.3 and 11.5 (*derived*: its
+786,504 slots at nine bytes, about 3.4 ms, and the allocation beside); the
+first frame after a load level with the slice's; every recalc floor,
+Alonzo's frame floors, its frame-2 allocations and both memory floors held;
+the counted test's counts exact on every run.
+
+**Found,** read and measured, not minted:
+- *A load's second frame computes every cell* wherever a sheet's formulas
+  gain more first values than its twin holds cells and 64, the first frame's
+  end making that twin again by its collect: Superposition's 32 ms and Life
+  x16's 34, at every load, at both builds. That frame need compute only the
+  shapes that read a twin and those the plan does not follow.
+- *A twin cell lost*, a formula's value turned to a reason, still makes its
+  twin again and the next frame whole (`KERNEL.46`'s question shared).
+- *The changes answer whole for every sheet at once* where any sheet's
+  extent moved, one flag for all; by sheet would leave the others' windows
+  their cells.
+- *Whether Excel bounds a bisection by its used range* over a whole column
+  is not known: the lookups fixture's unsorted vectors were ranges of
+  eight cells (`Table!F1:F8`), no whole column among them. The language
+  bounds it by the sheet's extent, which decision 3 holds to; an Excel save
+  of an unsorted whole column with a cell beyond it in another column would
+  say whether Excel's answer moves too (the owner's run, if ever wanted).
+
+*After the scoping, 2026-10-22: `KERNEL.49`'s second slice committed*
+(`45f5b43`, on `37306af`, not pushed; its session's message). Read in its
+code: `settle` still sets `every_next` and `reshaped` and calls `fit` for any
+added cell; a frame's end that finds a twin cell gained or lost sets
+`regrown` for its sheet, which sets `every_next` and makes the twin's extent
+again by a walk of every cell of its sheet (`twin_extent`); a write that
+moves a sheet's extent re-lays its store by place (`Store::moved`), every
+sheet now keeping one, the shuffled adder's among them; a write still drops
+a plane, made again from its sheet at the next frame's end. Measured at it,
+the probe adapted to its owned `computed`, three rounds, medians, the write,
+the first frame and the second:
+
+| grid, placement | at `45f5b43` |
+|---|---|
+| Superposition, each | 25 to 27 µs, 30.0 to 30.1 ms, 30.1 ms |
+| Life x16, each | 21 to 43 µs, 33.5 to 33.8 ms, 33.4 to 33.8 ms |
+| adder 16,384 F, inside / below / right | 6.9 µs / 3.8 ms / 4.1 ms; 3.8 ms; 1.7 ms |
+| adder 16,384 U, inside / below / right | 112 µs / 3.9 ms / 4.3 ms; 21.9 to 23.5 ms; 19.5 to 22.8 ms |
+| adder 65,536 F, inside / below / right | 17 µs / 16.6 ms / 17.9 ms; 15.6 to 16.2 ms; 7.2 to 7.9 ms |
+| adder 65,536 U, inside / below / right | 429 µs / 17.2 ms / 18.4 ms; 114 to 118 ms; 104 to 111 ms |
+
+Both frames after the write still compute every formula cell at every
+placement, the idle frame 0.2 to 1.3 µs. The slice halved the first of the
+two frames on the fixtures (Superposition's 61 ms to 30, Life x16's 70 to
+34), each now one whole frame's evaluation. A write beyond the extent of
+the shuffled adder now pays its sheet's store re-laid at the write, 17.2 ms
+at 65,536 bits, where at `d3dcc3f`, which kept that sheet no frame's own
+array, it paid 376 µs; the frames after it are within the rounds' noise of a
+hole's at both (275 to 290 ms against 275 to 282 at `d3dcc3f`, 114 to 118
+against 118 at `45f5b43`), so what the twin's array made again over the new
+extent cost `d3dcc3f`'s frame is below what three rounds resolve. That
+slice's record names the re-lay and leaves it to this item or its third
+slice; decision 4's rows in place take it out. Nothing in the decisions
+changes but decision 7's order, now beside `KERNEL.49`'s third slice.
+
+**Approved 2026-10-22 at the owner's word**, the eight decisions as
+recommended, this item before `KERNEL.49`'s third slice (decision 7),
+`KERNEL.53` committed since (`fccf752`). The build begun the same day on
+`fccf752`, its instrument first (decision 6).
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
