@@ -32911,6 +32911,14 @@ words in its catalogue, if decision 11 is approved, by the owner's pass and
   far, which is that item's case.
 - Alonzo's `SPEC.md` §10 keeps the cap, `CELLS`, at 1,048,576 cells beside
   the twins; this item moves no limit (*Found*).
+- `KERNEL.54`, scoped 2026-10-21 (below, after `KERNEL.50`): decision 7
+  keeps `Reach`'s readers as patterns over a shape's stand, its cells' box,
+  so the quadratic Alonzo's `CART.9` measured where far-apart cells share
+  one text stands after this item; `KERNEL.54` cuts such a shape into
+  pieces, this item's nodes at their finest, and keeps each shape's
+  stretches of the order, this item's blocks by another name. Whichever
+  lands second keys the other's by its own; that scoping recommends itself
+  first.
 
 **Found,** read, not minted:
 - *The cap.* Alonzo's `SPEC.md` §10 states 1,048,576 cells beside the twins,
@@ -33115,6 +33123,645 @@ out.
 *The hand test, the owner's:* the bench on a quiet machine and its block
 pasted, so that the floors and the ceilings are the owner's run; the check
 then whole.
+
+**`KERNEL.54`, a change's cost set by the change: the scoping,
+2026-10-21.** Begun at the owner's word, the prompt relayed from Alonzo's
+`CART.9` (*Naught: Vel et Aut*), whose scoping probe found three costs in
+`vla-lang` 0.10.1 that grow with the grid where they should grow with the
+change (Alonzo's `docs/REARVIEW.md`, the `CART.9` entry, "The
+measurements" and its *Found* 1 to 3). Minted as the next free `KERNEL` ID
+and nothing else (the owner's word of 2026-10-16 on minting): the registry
+read first, `KERNEL.50` to `KERNEL.52` taken since the prompt was written
+and `KERNEL.53` free; a peer session minted `KERNEL.53` during this
+scoping, uncommitted (`FORMULATEXT` and `ISFORMULA`, from Alonzo's `SPEC.5`
+hand test), so this item took `KERNEL.54`, its predictions written under the
+number it first read. The findings beside the three are under *Found*, the
+scoping written here: the predictions before any number, the instrument
+first, the three designs prototyped in a copy and measured, the decisions
+with recommendations, then a stop for the owner's approval. Nothing is
+built. HEAD `5431d8e` (`KERNEL.8`'s fifth slice), five ahead of origin, not
+pushed. In the tree, uncommitted and untouched: a peer's sixth slice of
+`KERNEL.8`, staged (`reach.rs`, `shape.rs` and `machine/mod.rs` among its
+files); a peer's `KERNEL.49` and `KERNEL.50` scopings and a peer's
+`KERNEL.53` mint in the docs this entry shares (*Beside it*). Alonzo's HEAD
+`78fe570`, a peer's third slice of `CART.9` uncommitted in its tree, and
+Buffet's `f5dcde1`, read and never written.
+
+*What it stands on, read in the code at `5431d8e`.*
+- *A shape's stand is its cells' box* (`calc/reach.rs`, `Reach::of`): the
+  anchor and the least and the most offsets of every cell the shape holds,
+  wherever they stand, and the sheets they are on. Plain formulas of one R1C1
+  text are one shape wherever they stand (`KERNEL.34`'s `by_r1c1`), so two
+  cells of one text a thousand rows apart make a stand a thousand rows tall.
+- *A reader's footprint is read over that box* (`footprint`, `Dim::reach`):
+  what a moving reference reads from any offset between the least and the
+  most. `Bands::of` files a reader whose footprint spans more than `WIDE`
+  (64) bands of the axis in the list checked always, and `Index::each`
+  checks that list against every changed cell of the sheet, then the
+  changed cell's band. `check` is exact, so nothing is computed wrongly: a
+  far-apart shape's reader is checked by every change and reaches nothing
+  from most of them.
+- *Which readers are wide.* The index takes the axis whose bands a changed
+  cell meets fewer of on average (`Index::of`, `mean`): for the shuffled
+  adder, the rows, each gate's reader a row or two tall and its columns
+  crowded. A coincident shape's footprint spans the rows between its cells,
+  so on that axis it is wide, and every coincident shape adds one reader to
+  every changed cell's checks: 2.5% of the gates coincide, so the wide list
+  grows as the grid, and a frame's checks as the grid times its changes.
+- *A write's extent* (`machine/mod.rs`, `settle`): each written sheet's
+  `self.extents[s] = self.book.sheets[s].extent()`, and `Sheet::extent`
+  (`sheet.rs`) walks every key of the sheet's B-tree for its least and most
+  column. No write empties a cell in 0.10.1 (`settle`'s own comment), so the
+  extent only grows. `undo` walks again after a refused write.
+- *A write's range read by its rows* (`write_row`'s count of the cells
+  present and `derived`'s formula test, `release_masters`' search for
+  masters): each takes the B-tree's range from the range's first row to its
+  last and filters every cell of those rows by column, so a cell written
+  into a row of 1,500 cells reads 1,500.
+- *The step's cells alone* (`step`): the runs walked in order (`run_span`,
+  `KERNEL.44`), and between two runs every position asked `wants`, whether
+  the frame computes every cell, the cell's shape is whole, or its bit is
+  marked; a run's marked cells are found 64 at a time (`next_marked`), a
+  cell alone one at a time, and every run is visited, marked or not.
+- *A frame's start and end* (`begin`, `snapshot`): `begin` loops over every
+  shape for the parts a change rechecked (`recheck[s]`), and `snapshot`
+  clears `marked` (a bit a position), `whole` and `recheck` (a byte a shape)
+  whole, whatever the frame touched.
+
+*The instrument, built first, in the session's scratchpad (`k53/`).* `vla-lang`
+at `HEAD` taken twice by `git archive`: copy A as it stands; copy B with the
+three designs below chosen by an environment variable (`K53` holding P, E and
+W in any mix) and counters raised only where `K53C` is set. A scratch binary
+over each, built under Alonzo's release profile (opt-level 3, one codegen
+unit), loads rows straight into `Machine::load` under the
+language's library, its process opted out of power throttling, at high
+priority and on the eight performance cores (`0xC03C3`). The circuits are
+`CART.9`'s, rebuilt from its construction: an n-bit ripple adder of five
+gates a bit (`AUT =MOD(a+b,2)`, `ET =a*b`, `VEL =MAX(a,b)`; the switches in
+A and B, the carry-in at `F1`, the gates in `C:G`), at 1,024, 4,096, 16,384
+and 65,536 bits; and the n by n array multiplier at 128 and 256. Each laid
+three ways in the same cells: *F*, by fill, each role a rectangle of one
+R1C1 text; *U*, the gates permuted among F's cells by a fixed seed and every
+coincidence traded away, every gate its own shape; *C*, the same permutation
+with the coincidences kept, `CART.9`'s natural shuffle, 2.5 to 2.6% of the
+adder's gates sharing a text with a far-off gate (the multiplier's shuffle
+coincides once, so its C is its U). Each instance, one process: the load and
+the first frame; every switch written at random in one write, and its frame;
+51 idle frames; 101 flips of one switch drawn from the seed, the write
+and the frame apart; 21 steady frames, every switch written at random and
+the frame timed (21, 31 and 7 for the 65,536-bit adders, the 256
+multipliers and C at 16,384 bits, whose steady frames are 5, and 2 at
+65,536); the deepest cone, a = all ones, b = 0, the carry-in flipped; a
+value written into an empty cell no formula reads, its frame, the same cell
+written again and its frame; by fill, a value over a fill's first cell. Every
+gate held to the netlist evaluated by hand after the first frame, every
+switch written, every 25th flip, every fifth steady frame and the deepest
+cone, and the outputs to integer + and x after every flip and steady frame:
+every value of every run agreed. Three rounds, each spec under copy A, copy B
+with no design (the control: its counters' branches and nothing else) and
+copy B with all three, alternated within the round; times are medians of the
+rounds' medians. The counts, one round with `K53C`, are exact and the same
+on every run.
+
+*The three designs, prototyped in copy B.*
+- *P, finding 1:* a shape whose cells' box spans more than `WIDE` rows or
+  columns and whose cells fill less than half of it is cut into pieces, its
+  cells bucketed by tiles of 32 by 32 a sheet, each piece the box of its
+  cells; each moving reference is a reader a piece, filed by and checked
+  within the piece's box; held and parts readers stay one a shape.
+- *E, finding 2:* `settle` grows each written sheet's extent by the cells the
+  write changed; `write_row`'s count and `release_masters`' search read the
+  range's own keys a row at a time.
+- *W, finding 3:* the shapes made whole, the shapes rechecked and the marked
+  words touched kept in lists and cleared by them; each shape's stretches of
+  the order kept with the plan (`keep` sees each), a shape made whole marking
+  its cells a word at a time; the step passing from one marked position to
+  the next, a run's cells gathered from the first marked among them.
+- Two parts came from the probe's own first numbers: W's step passing runs
+  by their marks too, after a first smoke run idled the multiplier by fill
+  at 2.7 µs, its every run visited (before the three rounds); and E's rows'
+  keys, after the three rounds showed the multiplier's writes still paying
+  for its rows. The counts and two further sets ran on the final copy: W
+  alone against the control over five rounds on the busy frames, and each
+  design alone over three.
+
+*Predictions,* written 2026-10-21 03:31, before the probe existed (the
+scratchpad's `k53/PREDICTIONS.md`), under this item's working number
+`KERNEL.53`, which a peer's mint took during the scoping:
+1. C at `HEAD` repeats `CART.9`'s quadratic within a factor of two: the
+   steady frame about 3 / 55 / 1,000 ms at 1,024 / 4,096 / 16,384 bits, the
+   deepest cone about 3 / 60 / 1,050.
+2. The readers a changed cell of C is checked against grow as n, about n/16
+   (64 / 256 / 1,024 / 4,096) and a band's 2 to 5; U and F 2 to 6 at every
+   size.
+3. With P, C's steady frame and deepest cone within 1.15 times U's at every
+   size, its checks a changed cell within 1.5 times.
+4. P moves nothing on F and U.
+5. P's plan under 1% of a load, about two pieces a coincident shape.
+6. A one-switch write at `HEAD` about 10 / 47 / 300 / 5,000 µs.
+7. With E, 2 to 6 µs at every size, flat within 1.5 times.
+8. The write of every switch, with E, linear in its 2n cells alone.
+9. The idle frame at `HEAD`: F's adder at 65,536 bits about 140 µs, U's 350,
+   the multiplier at 256 by fill 26 and U's 430.
+10. With W, every idle frame under 10 µs, flat within 3 times.
+11. A one-switch cone, U's adder at 65,536 bits, about 460 µs to 10 to 30.
+12. W moves no whole frame beyond 3%.
+13. W's stretches 8 bytes each: about 8 a formula cell for U.
+14. A value into an empty cell makes the next frame compute every formula.
+15. A value over a fill's first cell walks the sheet for the release, about
+    5 ms at 65,536 bits by fill.
+
+*Measured, 2026-10-21, natively:* medians of three rounds, `HEAD` (copy A)
+and the three designs together (copy B), times in milliseconds where no unit
+is named.
+
+*Finding 1, far-apart shapes.* The adder's steady frame (every switch
+written at random, then the frame) and its deepest cone, the coincidences
+kept (C) and traded away (U):
+
+| bits | C steady, `HEAD` | C steady, after | U steady, `HEAD` / after | C deepest cone, `HEAD` | after | U, `HEAD` / after | C's `(most k)`, `HEAD` / after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1,024 | 3.27 | 1.26 | 1.20 / 0.97 | 2.67 | 0.83 | 0.74 / 0.72 | 117 / 15 |
+| 4,096 | 61.7 | 9.86 | 9.04 / 9.47 | 56.8 | 6.81 | 6.83 / 8.24 | 496 / 13 |
+| 16,384 | 1,050 | 50.1 | 61.5 / 59.2 | 1,004 | 52.2 | 56.9 / 51.5 | 1,956 / 13 |
+| 65,536 | 27,840 | 308 | 357 / 371 | 22,158 | 299 | 339 / 362 | 7,800 / 13 |
+
+The readers checked a changed cell, counted in the deepest cone (3n cells
+changed): C at `HEAD` 111 / 491 / 1,951 / 7,795, within a few of the
+census's `(most k)`, so nearly every change meets the whole wide list;
+after, 8.5 / 7.9 / 7.8 / 7.8; U 7.8 at every size, F 7.0. Each design alone, three more
+rounds: P alone takes C's steady frame from 3.61 / 64.2 / 1,114 to 1.02 /
+9.04 / 47.3 (so 1,024 bits' 1.26 above is the rounds' spread), and W or E
+alone leave it where it was. With the pieces C's readers grew by 1.4 to 1.6%
+(110 at 1,024 bits; `(readers "Bench" 516145)` to 524,268 at 65,536), a
+coincident shape's moving reference a reader for each of its two pieces, and
+its load by nothing beyond the rounds' spread (3,175 ms to 3,233). F and U
+hold no sparse shape: their census rows, plans and frames are untouched by
+construction.
+
+*Finding 2, a write.* One switch written, the write's median of 101 (31 for
+the largest), µs, into the adder's Bench of 7,169 / 28,673 / 114,689 /
+458,753 cells, and into the multiplier's of 97,536 and 391,680, its rows
+about 770 and 1,540 cells wide:
+
+| | add-1024 | add-4096 | add-16384 | add-65536 | mul-128 | mul-256 |
+|---|---:|---:|---:|---:|---:|---:|
+| by fill, `HEAD` | 9.2 | 43.4 | 277 | 5,234 | 442 | 5,927 |
+| by fill, after | 1.3 | 1.7 | 3.3 | 5.3 | 4.1 | 9.8 |
+| shuffled, `HEAD` | 9.7 | 53.4 | 411 | 6,358 | 1,232 | 5,554 |
+| shuffled, after | 1.3 | 1.5 | 3.3 | 8.8 | 11.9 | 38.5 |
+
+The multiplier's columns by fill are three further rounds, E alone against
+the control (`HEAD`'s path in copy B), the range's keys read a row at a time
+among E; its shuffled columns are the first rounds', before the rows' keys
+were added, the extent alone. Counted: the cells walked for
+an extent, 7,169 to 458,753 a write, every cell of the sheet, to none. What
+stays at the largest grids is the B-tree's depth, a few lookups a write.
+
+*Finding 3, the frame's walk.* The idle frame and one switch's cone (5.5 to
+6.3 cells reached at the median), µs:
+
+| | idle, `HEAD` | idle, after | cone, `HEAD` | cone, after |
+|---|---:|---:|---:|---:|
+| add-1024, F / U | 2.1 / 4.7 | 0.1 / 0.1 | 3.1 / 8.6 | 1.0 / 3.3 |
+| add-4096, F / U | 8.3 / 19.2 | 0.1 / 0.1 | 10.2 / 27.8 | 1.5 / 6.8 |
+| add-16384, F / U | 33.2 / 79.8 | 0.3 / 0.3 | 37.4 / 103.0 | 3.4 / 14.7 |
+| add-65536, F / U | 132.6 / 363.9 | 1.1 / 1.1 | 186.4 / 463.4 | 7.9 / 30.3 |
+| mul-128, F / U | 11.2 / 97.3 | 0.4 / 0.3 | | |
+| mul-256, F / U | 22.5 / 429.9 | 1.3 / 1.3 | | |
+
+Counted, a frame: at `HEAD` the idle frame and the cone visit every cell
+alone (3n by fill, every gate shuffled: 327,680 at 65,536 bits), loop over
+every shape at the start (327,680) and clear every shape's two flags and
+every word of the marks at the end (660,480); after, an idle frame visits,
+loops over and clears nothing, and a cone visits its 6 marked cells and
+clears the 3 words they touched. The multiplier's cone reaches thousands of
+cells and moves with its evaluation, not the walk: its positions visited
+391,168 to 48,968 a flip at 256 shuffled, its time 56.7 to 50.2 ms. The
+idle frame's rest is the search for a mark, a word for 64 positions: 1.1 to
+1.3 µs at 327,680 to 391,168 positions, a 64th of the walk.
+
+*Whole frames, loads and busy frames.* By fill, the first frame, every
+switch's frame, the steady frame and the deepest cone within 5% of the
+control at every size, in both directions; the loads within 2%. Shuffled,
+the busy frames moved between processes by up to 40% with the same code
+(add-4096 U's deepest cone 6.83 ms in copy A, 5.73 in the control), so W
+alone was run against the control over five more rounds, alternated, at
+4,096, 16,384 and 65,536 bits shuffled, 65,536 by fill and the multiplier
+at 256: every busy frame's median within -4% and +7% of the control's, the
+rounds' own spread 8 to 15%, in no direction. The control itself, copy B
+with no design against `HEAD`, the counters' branches alone: idle 2.5
+against 2.1 µs at add-1024 by fill, 145.8 against 132.6 at add-65536, the
+writes and the cones within the spread.
+
+*The empty cell, beside* (*Found*): a value written into an empty cell no
+formula reads, and the frames after it, `HEAD`:
+
+| | add-1024 F / U | add-4096 F / U | add-16384 F / U | add-65536 F / U |
+|---|---:|---:|---:|---:|
+| the write, µs | 209 / 22 | 955 / 212 | 6,491 / 1,959 | 28,358 / 7,618 |
+| the frame after | 0.90 / 1.35 | 4.55 / 10.4 | 22.9 / 59.0 | 94.1 / 282 |
+| the next, its cell written again | 0.11 / 0.57 | 0.47 / 5.95 | 2.07 / 36.6 | 8.15 / 203 |
+
+Both frames compute every formula (`reached` every cell, each run).
+
+*Held, every run:* every gate to the hand at every held frame, every output
+to integer + and x; `vla-lang`'s own tests over the final prototype, every
+unit test and the twelve laws, 351 passed; Frazaro's 22 census goldens
+through the door built over it (`check_shapes_golden` with its cache
+cleared); Alonzo's 76 tests at `78fe570` over it, every replay to its golden
+and every describe golden; Buffet's 92 at `f5dcde1`, its describe golden
+among them. The door's own census of the netlist built as a bench program
+reads what the probe reads: `(readers "Output" 32243 (most 496))` at 4,096
+bits by `HEAD`'s path, `(readers "Output" 32752 (most 13))` with the pieces.
+
+*Against the predictions:*
+- *Held:* the quadratic repeated, C at `HEAD` within 1.15 times of
+  `CART.9`'s at every size (steady 3.27 / 61.7 / 1,050 / 27,840 against
+  2.98 / 56.5 / 1,067 / 25,833; the deepest cone 2.67 / 56.8 / 1,004 /
+  22,158 against 3.11 / 59.7 / 1,048 / 23,681); C with the pieces within
+  1.05 times of every gate its own shape at every size (P alone 1.02 ms
+  against 0.97 to 1.20 at 1,024 bits), and faster at 16,384 and 65,536,
+  holding 2.5% fewer shapes, its checks a changed cell 1.09 times U's at
+  most; F and U untouched by P; the pieces' cost inside the spread; a write
+  at `HEAD` (9.2 / 43.4 / 277 / 5,234 µs against `CART.9`'s 9.9 / 47 / 299
+  / 4,959); the write of every switch, its walk once a write and its cells
+  the rest (by fill 2.07 / 9.10 / 44.8 / 193 ms at `HEAD`, 2.06 / 9.19 /
+  43.8 / 186 after); the idle frame at `HEAD` (132.6 / 363.9 / 22.5 / 429.9
+  µs against 137.7 / 352.3 / 25.6 / 434), and after it under 10 µs
+  everywhere (0.1 to 1.3); the cone, 463 µs to 30.3 for six cells
+  (predicted 10 to 30); the stretches, 12 bytes a formula cell for U with
+  its shape's offset, where 8 was written for the stretch alone.
+- *Missed:*
+  - the slope of the readers met: they grow as the grid, as written, but
+    at twice the slope guessed, 111 to 7,795 a changed cell, about n/8.5
+    where n/16 was written; nearly every change meets the whole wide list;
+  - a write with the extent grown, flat within 1.5 times: 1.3 µs at 7,169
+    cells to 5.3 at 458,753 by fill and 8.8 shuffled, the B-tree's depth, a
+    few lookups a write, each a cache miss at that size; and the
+    multiplier's rows, which kept 9.6 and 36.7 µs with the extent alone, a
+    cost no prediction knew, found here and added to decision 4;
+  - the idle frame flat within 3 times: 0.1 to 1.3 µs, the search for a mark
+    a 64th of the walk;
+  - the frames by fill within 3%: within 5% of the control, in both
+    directions, and the shuffled ones within their own spread of 8 to 15%;
+  - the empty cell: two whole frames and not one, and the write itself 0.2
+    to 28 ms by fill (*Found*);
+  - the release's walk: a value over a fill's first cell is a formula
+    changed, so its write is the re-plan (1.1 / 4.4 / 22 / 128 ms by fill),
+    the walk inside it unmeasurable; prediction 15 priced the wrong cost.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The item's reach: the three costs, each set by its change.* Recommended:
+   a far-apart shape's readers (finding 1), a write's extent and its range's
+   rows (finding 2), and a frame's walk of its runs, its cells alone and its
+   shapes (finding 3); each cost after the item the change's: the readers a
+   changed cell can reach, the cells a write writes, the cells a frame
+   marks. Left out, each measured or read and named under *Beside it* or
+   *Found*: a value written into an empty cell, whose next two frames
+   compute every formula (*Found*); a formula's write re-planning the grid
+   (`CART.9`'s *Found* 5, `KERNEL.34`'s plan); a shape's 2.2 KB and its cold
+   cells (`CART.9`'s *Found* 4, `KERNEL.49`'s ground, its session holding
+   the addendum); a call answering a truth value left to the walk
+   (`CART.9`'s *Found* 7, `KERNEL.44`'s guard). The irregular bench program
+   (`CART.9`'s *Found* 6) is this item's instrument (decision 6).
+   *Declined:* the empty cell folded in (its second frame comes from the twin
+   a frame's end makes again, the ground of `KERNEL.49`'s decisions 3 and 5,
+   a store a sheet and no twin cell); finding 1 alone, the measured
+   quadratic (findings 2 and 3 cost a large grid milliseconds at every write
+   and frame, and their designs are small).
+
+2. *A far-apart shape: its readers by its pieces.* Recommended: a shape
+   whose cells' box spans more than `WIDE` rows or columns and whose cells
+   fill less than half of it is cut into pieces, its cells bucketed by tiles
+   of 32 rows by 32 columns of each sheet, each piece the box of the cells it
+   holds; each moving reference of the shape is filed and checked once a
+   piece, its footprint read over the piece's box and its cells found within
+   it; a held rectangle's reader and a part's stay one a shape, their
+   footprints read over no cell. A fill, and any shape whose cells fill half
+   its box, is one piece as today. Measured (*Measured*): the coincident
+   adder's steady frame 3.27 / 61.7 / 1,050 / 27,840 ms to 1.26 / 9.86 /
+   50.1 / 308 with all three designs, and with the pieces alone 3.61 / 64.2
+   / 1,114 to 1.02 / 9.04 / 47.3, every gate its own shape's 0.97 to 1.20 /
+   9.04 to 9.47 / 59 to 62 / 357 to 371; the readers a changed cell is
+   checked against 111 / 491 / 1,951 / 7,795 to 8.5 / 7.9 / 7.8 / 7.8,
+   unique shapes' 7.8; its census's `(most k)` 117 / 496 / 1,956 / 7,800 to
+   15 / 13 / 13 / 13; its readers 1.4 to 1.6% more and its load inside the
+   spread. Tiles of 32 keep a piece's footprint, its box and a reference's
+   reach, inside `WIDE` for a reference reaching 32 cells or fewer either
+   way; half the box is the line between a fill with holes and cells that
+   only share a text. No shape of Life, Sand, Superposition, the recalc
+   fixtures, Alonzo's cartridges or Buffet is cut: every census golden,
+   describe golden and replay of the three repositories held over the
+   prototype. *Declined:*
+   - one reader a shape filed by the union of its cells' footprints, a list
+     of spans: two far cells file narrowly, but a text that recurs at more
+     than 64 scattered rows is wide again, and such texts grow with a
+     model's size (a template's formulas pasted once a block);
+   - far-apart cells never one shape, the plan's key a text and a cluster:
+     one parse and one program a cluster where there is one a text, the
+     2.2 KB a shape `CART.9` measured paid again by every copy, and
+     `KERNEL.34`'s rule that one text is one shape moved;
+   - a piece a cell for a far-apart shape: the finest, and a template's
+     copies each a reader, where tiles bound the readers by the area the
+     cells stand on;
+   - bands at several widths (rows by ones, by 64s and by 4,096s): a wide
+     reader checked near itself only, which helps a long held rectangle and
+     not a far-apart shape, whose box still spans its far cells;
+   - `KERNEL.49` first: its decision 7 keeps `Reach`'s readers as patterns
+     over a shape's stand ("`Reach` already reads a changed cell's readers
+     by pattern"), so finding 1 stands after it (*Beside it*).
+
+3. *The census: the readers as a scan checks them.* Recommended:
+   `(readers "<sheet>" n (most k))` keeps its form; `n` counts the readers
+   filed, a far-apart shape's moving reference once a piece, which is what a
+   changed cell of an unindexed sheet is checked against (the row's meaning
+   since `KERNEL.35`), and `INDEX_FROM` counts the same, so that a sheet
+   whose pieces make it many is indexed; `k` as today. Measured over the
+   prototype: Frazaro's 22 census goldens, Alonzo's describe goldens and
+   Buffet's held, no committed grid holding a shape the pieces cut; the
+   netlist's row reads `(readers "Output" 32752 (most 13))` against
+   `HEAD`'s `32243 (most 496)` at 4,096 bits. *Declined:* `n` counting a
+   reference once however many pieces (a second count kept for the census
+   alone, and the scan's work unsaid on an unindexed sheet); a
+   `(pieces m)` field (a new form for a figure the two carry).
+
+4. *A write's extent grown by its own cells, and its range read by its own
+   keys.* Recommended: `settle` grows each written sheet's extent by the
+   cells the write changed, no write emptying a cell; `undo` puts back the
+   extents the write found, kept when it began; `write_row`'s count of the
+   cells present and `derived`'s formula test, and `release_masters`'
+   search for masters, each read the range's own keys a row at a time
+   (the B-tree's `(row, left)..=(row, right)`), where each read every cell of
+   the range's rows. Measured: one value written, 9.2 / 43.4 / 277 / 5,234
+   µs by fill into sheets of 7,169 / 28,673 / 114,689 / 458,753 cells, to
+   1.3 / 1.7 / 3.3 / 5.3, and 6,358 to 8.8 shuffled at the largest; into
+   the multiplier's rows of about 770 and 1,540 cells, 442 and 5,927 µs to
+   4.1 and 9.8;
+   the cells walked for an extent, the sheet's every cell a write, to none.
+   What stays is the B-tree's depth, a few lookups a write. `KERNEL.46`, a
+   write that empties a cell, then decides an extent's shrink: an emptied
+   cell on the extent's edge walks that edge's row or column, or the sheet,
+   its own decision (*Beside it*). *Declined:* the extent kept in `Sheet` (a
+   public field's meaning cached, stale wherever a door writes `cells`
+   itself); the rows from the B-tree's first and last keys and the columns
+   by a walk (half the walk kept); the walk kept and counted (the cost
+   stands).
+
+5. *A frame's lists, and the step from one mark to the next.* Recommended:
+   - the shapes made whole, the shapes rechecked and the words of the
+     marks touched, each listed as it is first set and cleared by its list
+     at the frame's end, where `snapshot` cleared every shape's flags and
+     every word;
+   - a frame's start computing the parts of the shapes on its list alone,
+     where it asked every shape;
+   - each shape's stretches kept with the plan (a stretch: its cells at one
+     place of the order, which lays them by level, shape and cell, a run or
+     cells alone), so that a shape made whole marks its cells, a word at a
+     time;
+   - the step passing from one marked position to the next
+     (`next_marked`), a run's cells gathered from the first marked among
+     them, where it visited every run and asked every cell alone.
+   A frame that computes every cell walks every position as today.
+   Measured: the idle frame 2.1 to 430 µs to 0.1 to 1.3; one switch's cone
+   at 65,536 bits 463 µs to 30 shuffled and 186 to 7.9 by fill; the
+   positions a cone visits, every cell alone (327,680), to its marks (6);
+   the shapes and flags an idle frame touches, 327,680 at its start and
+   660,480 at its end, to none; the busy frames level, W alone against the
+   control over five alternated rounds within their spread (the medians -4%
+   to +7%, the spread itself 8 to 15% between processes on the shuffled
+   grids). The stretches cost 8 bytes each and 4 a shape: 12 bytes a formula
+   cell where every cell is its own shape, 4.8 by fill for the adder's cells
+   alone, one stretch for a fill at one level, Life's. *Declined:*
+   - the words skipped only while no shape with cells alone is whole, no
+     stretch kept: any frame of a grid holding a defined name, a span of
+     sheets, or a held rectangle a change reaches walks the grid again;
+   - a second level of bits, a word for every 64 words, so that the search
+     costs the words touched and not a 64th of the grid: 1.1 to 1.3 µs at
+     327,680 to 391,168 positions, a cost `KERNEL.49`'s bitsets share
+     (*Found*);
+   - `KERNEL.49`'s blocks first, the order as blocks of a shape, a sheet and
+     a level (its decision 7): the same stretches by another name, weeks
+     away; whichever lands second keys them by the other (*Beside it*).
+
+6. *The instrument: a netlist bench program, its census a ceiling, and the
+   probe's table.* Recommended:
+   - *A seventh bench program,* `scripts/recalc/bench/netlist.txt`: the
+     adder of `CART.9` at 4,096 bits, its gates shuffled among their own
+     cells with the coincidences kept, the natural shuffle, irregular and
+     coincident at once; a gate a sentence (`Put formula "=MOD(A323+B323,2)"
+     into cell C2.`), 20,480 formulas over 8,193 levels; its switches a = all
+     ones and b = 0 and its carry-in `F1` the edit, 0 to 1 and back, the
+     deepest cone (`# bench: edit Output!F1 0 1`); its sum the gates,
+     8,192 built and 12,288 edited. Measured through the door over the
+     prototype: 20,487 lines, 963 KB, built in 0.7 s into 5.9 MB. Built and
+     timed like the six by `core/examples/recalc.rs`, its values held to
+     `Calc` and its sums to an adder written there by hand; its floors from
+     the owner's runs of both halves, Excel's half the first measure of an
+     irregular graph beside the machine; its program written by a
+     generator kept with the runner and held by `--check`, and by its
+     SHA-256 in `check_recalc_floors`.
+   - *Its census a ceiling:* `check_shapes_golden` holds every bench
+     program's census, so the netlist's golden pins `(readers "Output" n
+     (most k))`: `(most 496)` at the first slice, `(most 13)` after the
+     item.
+   - *Counted, not timed,* in the language's tests, each at two sizes, the
+     count the same at both: the readers a changed cell is checked against
+     on a grid of far-apart cells of one text (`reach::checked`), at most
+     unique shapes'; the cells a value's write walks for an extent
+     (`sheet::work`'s `extents`), none; the positions an idle frame visits
+     and the shapes it touches, none; a one-cell cone's, its marks.
+   - *The probe,* this scoping's, run again at the build for the record:
+     the three placements at four sizes, alternated with `HEAD`.
+   *Declined:* the three placements as three bench programs (six rows of
+   Excel for one finding, the fill's adder a chain the floors hold already,
+   and the traded shuffle the natural one less its coincidences); 2,048
+   bits (473 KB, the quadratic about four times at `HEAD`, *derived*,
+   where 4,096's is eight); the program generated at each run into
+   `target/` (nothing committed, but the census check and the floors'
+   program SHA then read a program no file holds); the instrument in tests
+   alone (no floor, no Excel beside it).
+
+7. *The oracle.* Recommended, in the house's shape:
+   - *Bit for bit.* A thirteenth law in `tests/laws.rs`: a generated grid
+     whose formulas stand at far-apart cells, a few texts each copied to
+     scattered places over a value sheet, gives the same frames, value for
+     value through value writes, as the same grid with every copy given a
+     text of its own (`+0*k`, `KERNEL.35`'s spelling), so that pieces are
+     held to shapes never pieced. `KERNEL.35`'s differential,
+     `the_index_reaches_what_the_scan_reaches`, gains far-apart shapes and a
+     test-only switch building the reach unpieced, the pieced index held to
+     the unpieced scan at every cell of every sheet. `KERNEL.20`'s law, a
+     frame computing what changed is the frame computed whole, over grids
+     holding held rectangles a change reaches, parts and defined names,
+     every frame's marks through the lists; `KERNEL.34`'s, a write is a load,
+     the stretches and the pieces spelled with the plan.
+   - *Counted, not timed:* decision 6's tests.
+   - *The mutants,* each alone in a fresh copy after a control that passes,
+     each failing a named test: a piece's box not grown past its first
+     cell; a tile's key off by one; the density line reversed; a held
+     reader filed by pieces; the extent not grown by the write's last cell;
+     `undo` leaving the grown extent; a row's last key left out of a range;
+     a stretch's last word left unmarked; the touched words not cleared; a
+     rechecked shape left off its list; the step's search starting one past
+     its mark.
+   - *Alonzo and Buffet*, over copies of their `HEAD`s with the slice by a
+     path: `cargo test`, every replay to its golden, the describe goldens;
+     Alonzo's `frames -- --check`, every frame equal and the allocations
+     exact; Naught's bench by fill and shuffled, the natural shuffle beside.
+   - *Measured,* alternated with `HEAD`, three rounds: the probe's table;
+     the recalc floors' seven programs, the owner's run pasted; Alonzo's
+     floors, the owner's run.
+   - *All green:* `cargo fmt --check`, clippy `-D warnings` and with
+     `c-abi`, `cargo test --workspace --no-fail-fast`, both wasm builds,
+     `run_checks.ps1`.
+
+8. *The order, against `KERNEL.49`, `KERNEL.50` and `KERNEL.8`.*
+   Recommended: after `KERNEL.8`'s sixth slice commits (its files include
+   `reach.rs`, `shape.rs` and `machine/mod.rs`), and before `KERNEL.49`:
+   this item is days and touches the reach's pieces, the plan's stretches,
+   the step and the write; `KERNEL.49` is weeks, rebuilds the plan by blocks
+   and the stores by place, and takes this item's stretches as its blocks
+   and its pieces as its nodes, where built second it would take neither.
+   `KERNEL.50` and the peer's `KERNEL.53` share no code with it.
+   *Declined:* `KERNEL.49` first (finding 1 stands after it, and findings 2
+   and 3 wait weeks).
+
+9. *The release.* Recommended: no public signature changes: `Reach`, its
+   pieces and the plan's stretches are the crate's own, the census keeps its
+   rows' forms, and the machine's fields are private. It ships in the next
+   release, 0.11.0 if it follows `KERNEL.8`'s sixth slice's break; a 0.10.2
+   before it, the owner's call.
+
+10. *The slices.* Recommended: two, each a commit at the owner's word.
+    - *The instrument:* the netlist program and its generator, the runner's
+      hand and fixture, the floors' rows from the owner's runs of both
+      halves, its census golden, and decision 6's counted tests pinning
+      today's counts as found.
+    - *The three costs:* decisions 2 to 5, the counted tests and the census
+      golden turned to the change's counts, the thirteenth law and the
+      differential, the floors raised from the owner's run.
+    *Declined:* a slice a cost (three hand tests for one design's three
+    parts); one slice (no floor stands before the change it measures).
+
+**What it touches.** `vla-lang`: `src/calc/reach.rs` (a shape's pieces,
+the readers filed by them, `check` within a piece), `src/calc/shape.rs` (the
+stretches kept with the order), `src/calc/census.rs` (decision 3),
+`src/machine/mod.rs` (`settle`, `undo`, `write_row`, `release_masters`,
+`begin`, `step`, `changed_to`, `snapshot`, `fit`; the tests),
+`tests/laws.rs` (the thirteenth law), the README's machine paragraph.
+`frazaro-core`: `examples/recalc.rs` (the seventh program's hand and its
+generator). `scripts/recalc/bench/netlist.txt` and
+`scripts/recalc/shapes/netlist.vla`; `tools/bench_recalc.ps1`,
+`tools/bench_recalc_excel.ps1`, `tools/check_recalc_floors.ps1` and
+`tools/check_shapes_golden.ps1` (the seventh program) and its census golden,
+no other golden moving (decision 3); `docs/RELEASES.md`'s note, the
+roadmap's line, this record, `docs/ID_REGISTRY.md`; `Delta/CLAUDE.md`'s
+bench line. No VBA: the machine
+has no reference. No crate, dependency or folder added.
+
+**Beside it.**
+- `KERNEL.49`, scoped and awaiting the owner: its decision 7 plans by nodes,
+  a fill's rectangle or a formula alone, and finds a shape's cells reached
+  by a changed cell through its blocks, a shape, a sheet and a level each;
+  it keeps `Reach`'s readers as patterns over a shape's stand, so a
+  far-apart shape's footprint is still its box and finding 1 stands after
+  it. Its nodes are this item's pieces at their finest, its blocks this
+  item's stretches by another name, and its decision 6's bitsets cost a
+  64th of the grid a frame, as this item's marks do (*Found*). Recommended
+  (decision 8): this item first, `KERNEL.49`'s plan then keying the pieces
+  by its nodes and the stretches by its blocks. The overlap is named in its
+  scoping's *Beside it* too, a line added there.
+- `KERNEL.8`'s sixth slice, staged in the tree and awaiting its hand test:
+  it changes `reach.rs` (a `:` between expressions and its reach),
+  `shape.rs` and `machine/mod.rs`; this item builds after it commits.
+- `KERNEL.53`, a peer's, minted during this scoping (`FORMULATEXT` and
+  `ISFORMULA`): the library's, no code shared.
+- `KERNEL.46`, open, a write that empties a cell: after decision 4 an
+  extent grows by a write's cells, and an emptying write's shrink is its
+  decision.
+- `KERNEL.45`, open, a shape whose changed reads reach most of it computed
+  whole and its readers not marked: it would mark a whole shape through
+  decision 5's stretches.
+- `KERNEL.38`, open, fills of one R1C1 text one shape: one formula written
+  as fills far apart is then one shape of a sparse box, pieced by decision
+  2, each piece a tile of its fill.
+- `KERNEL.36`'s half and `KERNEL.42`'s lists: a frame that changes more than
+  half the cells makes the next compute every cell, the cliff `KERNEL.49`'s
+  decision 6 declines lists for; seen beside in the probe (*Found*).
+- Alonzo's `CART.9`: its first slice's floors trade the coincidences away,
+  so the quadratic lives in this item's program alone; after this item a
+  natural shuffle costs what the traded one does, Naught's choice to weigh.
+- `CART.9`'s *Found* 4, 5 and 7: a shape's 2.2 KB, `KERNEL.49`'s ground,
+  where its session took the addendum; a formula's write re-planning,
+  `KERNEL.34`'s plan, measured beside here (a gate placed: 0.9 to 123 ms by
+  fill, 9.4 to 982 shuffled, `CART.9`'s); a truth value left to the walk,
+  `KERNEL.44`'s guard.
+
+*Predictions for the build,* with the decisions as recommended:
+- The coincident adder's steady frame and deepest cone within 1.1 times of
+  every gate its own shape at every size from 1,024 bits to 65,536, and its
+  census's `(most k)` and its checks a changed cell within 1.2 times of
+  theirs; the netlist program's edit 7 to 10 ms at 4,096 bits, `HEAD`'s
+  about 57.
+- One value written into any sheet of the probe, by fill and shuffled, the
+  multiplier's included, 1 to 10 µs.
+- The idle frame at most 2 µs at every size; one switch's cone within 2
+  times of its cells' evaluation.
+- The recalc floors' six programs, Alonzo's floors fixtures and Buffet's
+  frames: whole frames, loads and plans within their spread, every census,
+  describe golden and replay unmoved, Alonzo's allocations exact.
+- Memory: the stretches 8 bytes each and 4 a shape, the pieces 50 to 100
+  bytes each, none for a grid without a far-apart shape.
+- Size: `vla-lang` 500 to 800 lines more (the pieces 120 to 180, the
+  stretches and the frame's lists and step 150 to 250, the write 40 to 80,
+  the tests and the law 250 to 350); the runner 150 to 250 (the generator
+  and the hand); the tools 30 to 60.
+
+**Found,** measured, the owner's to mint:
+- *A value written into an empty cell costs two whole frames, and its write
+  the grid* (*Measured*, the empty cell): `settle` sets `every_next` for a
+  cell added and refits every list and array to the grid (`fit`,
+  `own_made`), 0.2 to 28 ms by fill, 22 µs to 7.6 ms shuffled; the frame
+  after computes every formula (94 ms by fill at 65,536 bits, 282
+  shuffled); and its end, the twin gaining a cell, makes the twin again,
+  which sets `every_next` once more, so the frame after that computes every
+  formula too (8.2 and 203 ms), against a cone of 7.9 and 30 µs. Typing into
+  an empty cell is among a spreadsheet's commonest edits. The second
+  frame's cause is the twin's own cells, which `KERNEL.49`'s decisions 3
+  and 5 replace by a store a sheet; the first's is the write's. It seems
+  to want an item of its own, or a decision in `KERNEL.49`'s scoping.
+- *A frame that changes more than half the cells makes the next compute
+  every cell* (`KERNEL.36`'s half and `KERNEL.42`'s lists): the
+  multiplier's probe, every switch written at once and its frame changing
+  most of the grid, computed every formula in the frame after (the deepest
+  cone's, 97,280 and 391,168 cells at 128 and 256; the half the cause,
+  *derived*, the frame before not counted); `KERNEL.49`'s decision 6
+  declines bounded lists for that cliff.
+- *A 64th of the grid a frame:* after decision 5 the search for a mark reads
+  a word for every 64 positions, 1.1 to 1.3 µs at 327,680 to 391,168;
+  `KERNEL.49`'s bitset change lists, walked by words, cost the same. A word
+  of summary for every 64 words would carry both to the words touched.
+- *The release's walk* (`release_masters`, a walk of the sheet for each
+  released fill's first cell left): every release is a formula changed, so
+  the re-plan hides it (a value over a fill's first cell, 1.1 to 128 ms by
+  fill); decision 4 reads its search for masters by the range's keys, and
+  the walk for a fill's first cell left stays, `KERNEL.49`'s fills as
+  records its remedy.
+
+*Scoped 2026-10-21; the ten decisions await the owner, and nothing is
+built.*
+
+*Approved 2026-10-21* at the owner's word, "KERNEL.8 is finished and
+comitted, and slice 1 of KERNEL.49 is committed and requested that KERNEL.54
+be completed before slice 2 of KERNEL.49 proceeds. Your scoped
+recommendations are approved; proceed with implementing KERNEL.54.": the ten
+decisions as recommended. HEAD `c9f225c` (`KERNEL.49`'s first slice), nine
+ahead of origin; since the scoping `KERNEL.8` closed (`72e6fb8`) and
+`KERNEL.55` was minted (`67ad47e`); in the tree, uncommitted beside this
+item's three documents, peers' `KERNEL.50` scoping and `KERNEL.53` mint. The
+roadmap's line 🟡, the first slice first.
 
 ---
 

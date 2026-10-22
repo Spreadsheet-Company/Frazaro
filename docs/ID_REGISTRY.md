@@ -293,6 +293,12 @@ as Excel reads it, or kept whole and named where Excel would cut it.
 owner's word, from the same slice's labelled rows, for Excel's computed
 criteria: a database function's formula computed at each record with its
 relative references moved there. `KERNEL.53` is next free.
+`KERNEL.54` was minted 2026-10-21 at the owner's word, from Alonzo's
+`CART.9` (Naught, whose scoping probe measured three costs of `vla-lang`
+that grow with the grid where they should grow with the change), for a
+change's cost its change's: a far-apart shape's readers filed by its pieces,
+a write's extent grown by its own cells, and a frame passing from one marked
+cell to the next. `KERNEL.55` is next free.
 `KERNEL.55` was minted 2026-10-21 at the owner's word, from `KERNEL.8`'s
 sixth slice (its Found, and the spills its scoping left to an item of
 their own), for the dynamic-array behaviours it left: a spill laid into
