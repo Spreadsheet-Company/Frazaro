@@ -162,6 +162,45 @@
   a formula rewritten to the same value is read anew. A cell reading its own
   formula is a cycle, as a reference to its own cell always is in the
   language (KERNEL.53).
+- **A value typed into an empty cell costs the formulas that read it.** In
+  an engine's machine, a value written into a cell the grid did not hold made
+  the next two frames compute every formula. An added value cell is now
+  followed as a changed one is, the next frame computing the formulas that
+  read it by its place, and the frame after the formulas that read its twin.
+  One value typed into an empty cell of the large board costs its next two
+  frames 0.7 and 0.6 µs where they took 30.3 ms each, Life at sixteen times
+  its window 0.8 and 0.6 µs where 33.8, and `CART.9`'s adder of 65,536 bits
+  shuffled 2.0 and 0.3 µs where 107 and 100 ms; on the recalc floors'
+  netlist, a value typed into a fresh cell and the frames until the grid is
+  still take 3.5 µs where they took 6.9 ms. A sheet a write grows below
+  takes its new rows where it stands, a row typed below the adder's 458,753
+  cells 6.0 µs where it took 16.5 ms; one grown to the right moves its
+  values row by row, 1.8 ms where 18.0; a twin's store follows its sheet's
+  at the frame's end the same way; and a plane an engine views is kept
+  through every write, each cell written given its byte, where every write
+  dropped it until the frame's end drew it again from every cell of its
+  sheet. A twin cell a formula's first value gains no longer makes the next
+  frame compute every cell either, and the first frame after a load no longer
+  walks each sheet for its twin's extent: the large board's 88 ms where 104,
+  Life x16's 55 where 74. Two kinds of function read a sheet's extent itself
+  beside the cells they read: an approximate match, which bisects its vector
+  between the extent's first and last places along it, and a database
+  function, whose records end at its sheet's last row. A value written beyond
+  the extent moves their answers though no cell they read changed
+  (`=MATCH(4,A:A,1)` over a column of 1, 5, 2 and 3 answers 1, and 4 once a
+  value is written into `C8`), so a sheet whose extent moved has every formula
+  calling one computed at the next frame, and a twin's at the frame after.
+  Every value is the same to the bit. For an engine:
+  `Library::declare_reads_extent` declares a function that reads `Env::extent`
+  itself, and `Library::reads_extent` asks whether one is; the language
+  declares `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`, `LOOKUP`, `XLOOKUP` and its
+  twelve database functions, a registration takes a name's declaration away,
+  and a function of one's own that reads the extent and is not declared keeps
+  its answer until a cell it reads changes. A window's changes after a write
+  that added a cell name the cells they changed, where they answered whole,
+  and answer whole where a sheet's extent moved, which the record names in its
+  head. Each grid holds 20 bytes more a sheet, and its library 1,065, the
+  eighteen names declared (KERNEL.56).
 
 ## 0.10.2
 

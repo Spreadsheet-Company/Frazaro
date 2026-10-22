@@ -36233,6 +36233,284 @@ frames after it, the cost the second slice is for. Its floor 122 types a
 second; every other floor held or raised by the run; the netlist's ceilings
 raised at the owner's word, with their reason in the history.
 
+*The second slice built 2026-10-22*, decisions 1 to 5 and decision 6's tests,
+on `fccf752` in the session's worktree; `HEAD` `2473e5b` since (`KERNEL.50`'s
+writer), which leaves every file this item touches as `fccf752` left it.
+
+- *A value cell added plans nothing* (decision 1; `machine/mod.rs`,
+  `settle`): a write that changes no formula sets no `every_next` and calls
+  no `fit` for the cells it adds, and grows the room kept for the twin cells'
+  changes to half the cells and 64, as `fit` keeps it. `reshaped` is a
+  formula changed or a sheet's extent moved, each written sheet's extent as
+  the write found it (`Log::sheets`, `KERNEL.54`'s) told against its extent
+  now, and each sheet whose extent moved is named for the next frame
+  (`extent_moved`, each once).
+- *A twin cell gained* (decision 2): `regrown`, one flag a sheet, is two:
+  `lost`, a twin cell that lost its value in the frame, which makes the twin's
+  extent again from its sheet at the frame's end and the next frame compute
+  every cell, as before; and `gained`, the rectangle of the twin cells that
+  gained one, by which the end grows the twin's extent and, where it moved,
+  names the twin. `changed_to` tells a gain from a loss against the slot
+  before it is overwritten, and the end's `told` and `told_cell` against the
+  twin as a write found it (`Grew`).
+- *The extent's readers* (decision 3): `Library::declare_reads_extent` and
+  `Library::reads_extent` (`calc/eval.rs`), a declaration that a registration
+  of the name takes away; the language declares its eighteen
+  (`calc/library.rs`, `READS_EXTENT`). `Shape::reads_extent`, read once a
+  shape from its calls as `missing` is (`calc/shape.rs`), and the plan's
+  spelled form prints it; `Reach::extent_readers` (`calc/reach.rs`), a sorted
+  list of pairs of a sheet and a shape, each shape calling a declared function
+  filed by every sheet it reads, its own sheet's as its cells stand, empty
+  where no shape calls one; `begin` makes them whole for every sheet named
+  since the last frame began, a rows' sheet's at a write and a twin's at a
+  frame's end.
+- *The arrays and the plane* (decision 4): `Dense::regrow` (`calc/dense.rs`)
+  takes an array over an extent that holds its own, rows added in place where
+  the bottom alone moved, else its numbers and kinds moved row by row and each
+  row's count of slots holding no number grown by the columns added, its texts
+  and reasons kept where they stand; `Store::moved` grows an array within its
+  limit so, where it read out every slot and put each again; `Store::follows`,
+  a twin's array taken over its sheet's the same way at the frame's end, where
+  it was made again from the sheet's whole (`beside` kept for the tests);
+  `Raster::regrow` (`machine/plane.rs`) the same for a plane's bytes, and
+  `settle` keeps a plane through a write, each changed cell's byte set from
+  its content or its slot.
+- *The changes* (decision 5): `end_twins` answers whether it grew a twin's
+  extent, which makes the changes whole beside a write's `reshaped`; a cell
+  added inside the extent is named among the changes as any changed cell is.
+- *Found by the law and fixed:* a formula with no value yet that meets a
+  reason, at a load's first frame, was named among its twin's changes, which
+  the twin's record spells as nothing either side;
+  `a_window_s_values_patched_by_its_changes_are_its_values_now` failed at its
+  first seed once that frame's changes no longer answered whole, the twin's
+  gains having made them so. `changed_alike` spells the twin's record alike
+  for it. The same arms of `told`, a written formula's, are left: a formula
+  written makes the changes whole, so they are never read (a mutant of them
+  is equivalent, below).
+- *A counter*, the tests': `sheet::work::relaid`, the slots a store and the
+  bytes a plane moved to their places over another extent.
+- *The tests* (decision 6). New:
+  `the_extent_s_readers_compute_again_where_a_write_moved_the_extent` (the
+  scoping's law mode, every frame held to `Calc` and to the grid computing
+  every cell, `MATCH`'s 1 to 4, `LOOKUP`'s 1 to 3 and `DCOUNTA`'s 2 to 7 at
+  the first frame after the write, the twin's readers at the second, five
+  cells computed and then two, a hole's reader alone);
+  `a_value_written_into_an_empty_cell_costs_its_readers_and_not_the_grid`
+  (the counted test: a sheet kept as an array and viewed as a plane and a
+  sparse one, each twin read, six placements, the cells each of the next two
+  frames computes, 1 and 0 for a hole, 2 and 1 for a row below and a column
+  to the right, what the write walked and moved, nothing but a column's 505
+  slots and 505 bytes, and each frame's end, nothing swept and the twin's 505
+  slots moved at a column's);
+  `a_frame_after_cells_written_into_empty_places_is_the_frame_computed_whole`
+  (the law: sixty generated grids beside a sheet of twelve extent readers,
+  approximate lookups and database functions over whole columns of the
+  grids' value cells, their twins and a database of its own, ten frames each,
+  a write between of a row below, a column right or a hole one time in four
+  and the law's writes else; every frame held to the grid computing every
+  cell and the extent's readers, which read value cells alone, to `Calc`,
+  since a generated formula's reason in a twin is one `Calc` reading the twin
+  as a sheet does not see: 600 frames, 446 following what changed, 149 cells
+  placed, 150 readers moved in frames that followed);
+  `the_language_declares_the_functions_that_read_an_extent_and_no_other`;
+  `a_store_regrown_keeps_every_slot_at_its_place` (each side, every slot and
+  every row's count). Moved, each a pin of what the item changes:
+  `a_frame_computes_the_cells_a_change_reaches_and_no_other` (the second
+  frame 11 cells where 41, the prototype's); `a_run_s_few_cells_are_evaluated_by_its_program`
+  (the second frame's programs 0 where 10); `a_step_walks_the_runs_beside_the_positions`
+  (the runs whole at the first and third frames, the second computing `D1`
+  alone); `a_kept_plane_is_the_walk_after_every_step_and_every_write` (kept
+  through every write, a write below the extent beside the five);
+  `a_twin_cell_gaining_or_losing_a_value_makes_its_extent_again`, now
+  `a_twin_cell_lost_makes_its_extent_again_and_one_gained_grows_it` (its
+  cell a number two frames and a reason two, so that a gain stands alone,
+  a whole frame at a loss alone); `a_frame_s_end_makes_again_what_a_write_moved_and_copies_after`,
+  now `a_frame_s_end_takes_what_a_write_grew_and_makes_again_what_it_turned`
+  (the plane and the twin's store taken through the writes that made them
+  again, a write turning the sheet sparse the one made again);
+  `a_twin_s_store_is_made_again_over_an_extent_a_reason_grew`, now
+  `a_twin_s_store_follows_its_sheet_s_over_an_extent_a_reason_grew` (300
+  slots moved); `a_frame_s_end_copied_is_the_end_made_again_bit_for_bit`
+  (frames after the first that make again, 10 of 600, a twin cell lost, its
+  floor 8 where 60 counted the first frames' planes);
+  `a_frame_s_array_keeps_a_cell_not_reached_and_takes_each_write` (24 slots
+  moved, then a row below in place); the changes law's measured windows
+  written again, its floors held.
+
+*The probe at the build,* the scoping's, built over the language at `HEAD`
+(`2473e5b`, whose machine is `fccf752`'s) and over the build, each run
+opted out of power throttling, at high priority and on the performance
+cores, the two alternated within each of three rounds; medians of the
+rounds' medians of five cells, µs where no unit is named, the write, the
+first frame and the second:
+
+| grid, placement | `HEAD` | the build |
+|---|---|---|
+| adder 1,024 F, inside / below / right | 1.6, 119, 100 / 249, 123, 100 / 291, 124, 100 | 1.5, 0.2, 0.1 / 1.4, 0.2, 0.1 / 15.4, 0.2, 0.1 |
+| adder 4,096 F, inside / below / right | 3.1, 549, 420 / 890, 600, 419 / 892, 602, 424 | 2.4, 0.2, 0.1 / 1.8, 0.2, 0.0 / 160, 0.2, 0.0 |
+| adder 4,096 U, inside / below / right | 19.7, 1.9 ms, 1.4 ms / 686, 2.1 ms, 1.4 ms / 761, 2.3 ms, 1.5 ms | 1.4, 0.2, 0.1 / 1.7, 0.2, 0.0 / 140, 0.2, 0.0 |
+| adder 16,384 F, inside / below / right | 6.8, 3.7 ms, 1.8 ms / 3.6 ms, 3.8 ms, 1.7 ms / 4.1 ms, 3.8 ms, 1.8 ms | 3.5, 0.3, 0.1 / 2.1, 0.3, 0.1 / 421, 0.5, 0.1 |
+| adder 16,384 U, inside / below / right | 110, 23.6 ms, 20.4 ms / 3.9 ms, 21.3 ms, 19.9 ms / 4.3 ms, 24.4 ms, 22.2 ms | 2.1, 0.3, 0.1 / 2.1, 0.3, 0.1 / 413, 0.8, 0.1 |
+| adder 65,536 F, inside / below / right | 18.4, 15.8 ms, 7.3 ms / 16.5 ms, 15.8 ms, 7.2 ms / 18.0 ms, 16.5 ms, 8.1 ms | 7.1, 1.2, 0.3 / 6.0, 1.4, 0.3 / 1.8 ms, 3.7, 0.3 |
+| adder 65,536 U, inside / below / right | 418, 107 ms, 99.5 ms / 16.9 ms, 109 ms, 102 ms / 18.1 ms, 112 ms, 104 ms | 6.7, 2.0, 0.3 / 7.8, 1.7, 0.3 / 1.6 ms, 5.0, 0.3 |
+| Superposition, inside / below / right | 23.5, 30.3 ms, 30.3 ms / 28.5, 30.0 ms, 30.1 ms / 27.1, 30.1 ms, 30.1 ms | 3.2, 0.7, 0.6 / 1.4, 0.7, 0.6 / 1.5, 0.6, 0.6 |
+| Life x16, inside / below / right | 21.5, 33.8 ms, 33.8 ms / 34.3, 33.9 ms, 34.0 ms / 33.6, 33.9 ms, 33.8 ms | 2.6, 0.8, 0.6 / 1.6, 0.7, 0.6 / 2.1, 0.7, 0.6 |
+
+The adder at 1,024 bits shuffled, each placement: `HEAD` 3.6 to 95 µs, 242
+to 262 and 224 to 227; the build 1.3 to 16.8, 0.1 and 0.1. At `HEAD` both
+frames after every write compute every formula cell (327,680 at 65,536 bits,
+798,731 on the board, 1,019,844 on Life x16); at the build, with no reader,
+neither computes one, the idle frame beside them 0.2 to 0.3 µs on the adder
+and 0.5 to 0.6 on the fixtures. A store's first growth is the dear one, the
+median the cells after it: at 65,536 bits a row below's first write 1.1 to
+1.2 ms, the store's room for its rows grown, and a column's 1.4 to 1.5 ms.
+The first frame after a load, three rounds' medians: the board's 103.9 ms
+at `HEAD` and 88.1 at the build, Life x16's 73.9 and 54.7, the end growing
+each twin's extent by the cells its first values gained where it walked every
+cell of the sheet for it; the second frame whole at both, 30.3 and 33.9 ms,
+its changes past the room kept for them; the loads level (578.7 and 581.8 ms,
+528.3 and 523.2).
+
+*Against the predictions for the build:*
+- The two frames after a write computing no formula but the cell's readers
+  and the readers of the extents it moved: *held* at every placement, every
+  size and both fixtures; with one reader, exactly it at the first frame and
+  none at the second, every adder's size and both layouts, each frame held to
+  `Calc`.
+- A hole and a row below within 2 and 10 µs of an idle frame at 65,536 bits:
+  *held*, their first frames 1.2 to 2.0 µs and 1.4 to 1.7 against an idle
+  frame of 0.2 to 0.3, their writes 6.0 to 7.8 µs.
+- A column to the right 3 to 6 ms at the write and as much at the frame's
+  end: *better*, 1.6 to 1.8 ms at the write and 3.7 to 5.0 µs at its first
+  frame, the adder's twin read by no formula and kept as no store, so no
+  frame's end moves its slots (the counted test's 505 where one is kept).
+- The first frame after a load level with the slice's: *better*, 15% and 26%
+  faster, the walk of a sheet for its twin's extent gone.
+- Every recalc floor, Alonzo's frame floors, its frame-2 allocations and both
+  memory floors held: the frame-2 allocations *held*; the memory *missed*, the
+  bytes of the state above and the netlist's two lines (*Memory*, above), each
+  a ceiling raised; the recalc floors *held*, every one met by the owner's
+  run (below); Alonzo's frame floors its own run's when it pins the release.
+- The counted test's counts exact on every run: *held*, deterministic.
+
+*Mutants,* each one change to a copy of the built language, proved applied
+by its file's hash, then every test of the language: 24 written, 23 applied
+to the final language (the twenty-fourth's arms reverted, below), of which 22
+fail named tests. Never filing the extent's readers, skipping them at a frame's
+start, a write or a frame's end not naming a moved extent, a moved extent
+not answering the changes whole, a twin's growth not answering them whole,
+a gain growing no extent, a frame's or a write's gain not told, a plane's
+byte not set at a write, a plane dropped at a write, a store's rows added
+with no count of their slots, a re-lay's counts not grown, a twin's array
+claimed beside an array it did not follow, a reason met with no value not
+spelled alike, an added cell made whole again, the own sheet's readers not
+filed, the language declaring none, a shape reading no extent, a
+registration keeping a declaration, a store never grown in place, and a
+loss not made again: 2 to 24 tests each, the new tests and the laws among
+them; a re-lay's counts not grown are caught by the store's own test, and in
+the library's whole run first by an overflow of those counts under the C
+surface's test, whose panic cannot unwind out of a C function and aborts the
+run before any test reports. One is equivalent: the
+room for the twin cells' changes not grown with the cells added, which only
+brings a whole frame sooner. A written formula's reason not spelled alike,
+whose frame always answers whole, survived the first run and its arms were
+reverted, which no test reads.
+
+*Memory,* weighed by the memory runner's check mode over `HEAD` with the
+first slice alone and with both, each program built as `frazaro build`
+builds it: with the first slice alone every program is at its ceiling of
+2026-10-22 to the byte but the netlist, 1,222 bytes held more and 2,026 at
+its peak, its program two lines longer (the type row and a line of its
+comment), each line a text cell of the Frazaro sheet a build writes. The
+second slice holds at the load each rows' sheet's rectangle of twin cells
+gained, 20 bytes a sheet (40 for a program of two sheets, its Frazaro sheet
+and its output, 60 for Life's three, 120 for Life x16's six and 320 for the
+board's sixteen), and the lookups' four readers of an extent, 32 bytes of
+pairs; after the frames the list of sheets whose extent moved, given room
+at the first frame's end that grew a twin, 32 bytes (128 for the board's):
+held, 72 bytes more a program of two sheets, 92 Life, 104 the lookups, 152
+Life x16 and 448 the board; at the peak 24 more for the criteria, the
+netlist, the board and Life x16, the rest the same. The library's
+declarations, eighteen names, 1,065 bytes a library (Alonzo's frames
+measure them; the memory runner builds its library before it counts). Each
+is a ceiling raised, the owner's word with its reason in the history.
+
+*Alonzo* (`3e3ad7a`), two copies pinned by a path, one to the language at
+`fccf752` and one to the build, their ten reads of a computed value matched
+by reference as `KERNEL.49`'s second slice's were, the describe goldens
+written again over the first and held over the second: 79 tests and the
+doctest passing over both; `frames -- --check` over both, every frame of the
+twelve fixtures equal and the digests the same, the second frame's
+allocations and reallocations the same (Life's and the gun's 23, Sand's 427,
+the board's 22, its act's 345 and its cascade's 3,946, Naught's 22), and
+every grid 1,065 bytes larger, the eighteen names the library declares.
+*Buffet* (`f5dcde1`), two copies with `vla-lang` patched from crates.io to
+each language taken as 0.10.0, its describe golden written again over the
+first and held over the second: its 92 tests (38 and 54) over both.
+
+*The owner's run, 2026-10-22*, the native half of the bench on the same
+quiet machine and in the same sitting as the first slice's runs, in the
+session's worktree of `HEAD` (`2473e5b`) with both slices, its block pasted
+from that worktree's `target/bench_recalc.txt`. A value written into a fresh
+cell of the netlist and the frames until the grid is still: 0.004 ms at the
+runner's three places, 285,714.3 a second (3.5 µs), where the first slice's
+run took 6.911 ms, some 2,000 times faster, and Excel's 0.495 ms on 20
+threads. Each program's first frame after its load faster, its end no longer
+walking a sheet for a twin's extent: the column's 1.33 ms where 2.40, the
+chain's 1.16 where 1.64, Life's 3.92 where 5.07, the lookups' 12.3 where 15.5
+and the netlist's 5.35 where 6.19. Every whole frame within 2.2% of the first
+slice's run, the netlist's 4.6% faster; every edit 1.3 to 2.8% slower and the
+netlist's 7.7% (6.41 ms against 5.95), each within its floor (*Found*, below).
+The run's floors' entry, measured over a history without the first slice's
+entry, pasted as the bench would have written it after that entry, each
+floor the higher of the two: the netlist's type 242,000 types a second, its
+whole frame 4,250,000 formulas a second and the column's 103,000,000 raised
+by the run, every other floor kept. The ceilings' entry, which the bench
+keeps where a run is heavier, raised by hand to the run's bytes at the
+owner's word, its reason written (*Memory*, above). The check read the
+type's 0.004 ms and its 285,714.3 a second as disagreeing, the time printed
+to three places of a millisecond: it now reads a type's time and rate within
+half that last place beside its tolerance, a clean case of it in its control
+and a disagreeing rate still caught.
+
+*Held,* over the commit's own tree, `HEAD` and this slice with the peer's
+uncommitted work left out: `cargo build --workspace`, rustfmt over the
+workspace, clippy with warnings denied over every target and over the
+language with `c-abi`, and `cargo test --workspace --no-fail-fast` (the
+core's 201, the language's 371 and its thirteen laws, every other suite);
+`run_checks.ps1` 59 of 59 with the run pasted, its runners built from the
+tree, the floors' control passing. Over the same code in the session's
+worktree: the recalc runner's check mode over the seven programs, the
+netlist's typed cells among them; the probe's check mode over the adder at
+1,024, 4,096, 16,384 and 65,536 bits by fill and to 16,384 shuffled, each
+placement with its reader, every frame after every write held to `Calc` over
+the grid as it began, and its law mode; the board's hole placement held so,
+its other placements and Life x16's left after 40 minutes of a reference pass
+of some 80 s a frame, the two fixtures held by Alonzo's frames over the build
+and by its hands.
+
+**Closed ✅ and committed 2026-10-22 at the owner's word**, the second
+slice's commit the item's last, its roadmap line moved to the closed ledger;
+to be released in 0.11.0 beside `KERNEL.49`'s break (decision 8). What it
+leaves: `KERNEL.49`'s third slice, which waited for it, rewrites the write's
+path and the grid under what this item lays on them, with this item's
+counted test, its law over empty-cell writes and its extent readers' tests
+to keep; `KERNEL.46`'s emptied cell, a twin cell lost still a whole frame and
+its extent made again by a walk; a load's second frame still whole where its
+first changes more cells than the room kept for the changes, the board's and
+Life x16's (the scoping's *Found*); and whether Excel bounds a bisection by
+its used range.
+
+*Found in the build,* measured, not minted:
+- *Edits in the build's run 1.3 to 7.7% slower than in the first slice's*,
+  every one within its floor. The code an edit runs differs by a branch a
+  changed formula and a sheet's flags at a frame's end, and the two runs, ten
+  minutes apart and not alternated, do not say whether the difference is the
+  build's or the machine's; an alternated run of both trees' runners would.
+- *A type of microseconds prints as 0.004* at the runner's three places of a
+  millisecond, its rate exact beside it: read so by the check now, the
+  runner's format left as the owner's runs printed it.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -49715,6 +49993,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.54 — a change's cost set by the change: a far-apart shape's readers filed by its pieces, a write's extent grown by its own cells, and a frame passing from one marked cell to the next, so that an edit costs what it reaches and not the grid it lands in.** Minted and scoped 2026-10-21 at the owner's word, from Alonzo's `CART.9`, whose probe found three costs of `vla-lang` 0.10.1 growing with the grid where they should grow with the change; its ten decisions approved whole, and built in two slices the same day, each at the owner's word: the instrument (`d1f163e`: the netlist bench program, `CART.9`'s adder of 4,096 bits shuffled with its coincidences kept, written by its generator and held to an adder by hand, its census's head pinned and three costs counted as found) and the three costs (the second: a shape whose cells stand far apart cut into pieces by tiles of 32, a write's extent grown by its own cells and its range read by its own keys, and a frame passing from one mark to the next through each shape's stretches and its own lists; the counts turned, a thirteenth law, the index held to the unpieced scan, eleven mutants, Alonzo's and Buffet's tests and frames over it). The netlist's edit 70.4 ms to 7.44, its census `(most 496)` to `(most 13)`; the coincident adder of 65,536 bits a frame in 293 ms where it took 26.4 s; a value written into a sheet of 458,753 cells 5.8 µs where 5.3 ms; an idle frame over 391,168 cells alone 1.4 µs where 428; every program a few kilobytes heavier, the netlist 0.57%. To be released in 0.11.0. `~days`, taken in a day. *(more: the scoping and the two slices' records, under the KERNEL line)*
 - ✅ **KERNEL.53 — `FORMULATEXT` and `ISFORMULA` in `vla-lang`'s library: whether a cell holds a formula, and the formula's text, read by a formula from the cell's reference, so that a cartridge reads which formula a person wrote and not only what it computes.** Minted 2026-10-21 at the owner's word of 2026-10-20, from Alonzo's `SPEC.5` hand test, for Naught (`CART.9`, its decision 20); scoped at its build the same day at the owner's word, its two decisions with alternatives taken as recommended (a cell reading its own formula a cycle, as a `ROW` of its own cell is; a text Excel 365 may show with an `@` labelled, never guessed); built, owner-tested and committed 2026-10-22. Both compute in the language (`calc::formulas`), each answering an operand so that every path computes it as `Ctx` does: the text the view record's, a fill's cell its master's text moved to it, a legacy array formula in braces, past 8,192 characters `#N/A`; a reference of many cells its first cell's answer where one value is wanted and each cell's where read as arrays; a span of sheets `#VALUE!`; a legacy formula Excel 365 may show with an `@` labelled by a walk of its parse in three readings, `SINGLE` and `ANCHORARRAY` too. A formula rewritten to the value it had is read anew, the machine computing every cell at the frame after a write that changes a formula, held by a test through the public calls. Held to Excel 365's two saves of its fixture, the second joined at `no-differ` (82 computed agreeing, 11 labelled): the first confirmed an `@` in every text the rule marks and in none it does not and folded a span of sheets to `#VALUE!`, the second witnessed a legacy array formula's braces; twenty-seven mutants, each failing named tests; Alonzo and Buffet over it by path, every frame equal, each grid 20 bytes more. To be released in 0.11.0. `~days`, taken in a day. *(more: the record, under the KERNEL line)*
 - ✅ **KERNEL.50 — a format's appearance in the language: a cell's borders, its text's weight, color and size, and its alignment, held by `vla-lang`'s model and the record, and written and read by `frazaro-core`.** Minted 2026-10-20 at the owner's word of 2026-10-19, from Alonzo's `CART.14` (Seiyaku) and its hand test's note on a text's size; scoped the same day, its thirteen decisions approved whole 2026-10-21, and built in two slices, each at the owner's word and committed before the next: the language (`37306af`: what a format says of a font, a weight, a slant, a size in twentieths of a point from 1 to 409.55 and a color, of an alignment, horizontal and vertical, `middle` written as Excel's `center`, and of a border, four edges each a line of Excel's fourteen and a color, each property said or not; the record's groups after a format's wrap, a format that says none printing as before, byte for byte; a look drawing what its format says over a cell's own, `Style::over`, so that a board's box edges stand under the looks that draw its digits; a `style` row over a range; `grid-format-property` and `grid-cell-unwritten`; `Style` `#[non_exhaustive]`, 32 bytes more a slot of a grid's style table) and the writer and Excel's golden (the second: each font and border a workbook's formats draw with written once over the workbook's first, an edge's automatic color, an alignment and the `apply` flags, the same at the ends of a host's lists for `--into`, a table whose formats say none of them writing the bytes it wrote; 46 cases set through Excel's object model by `VlaWriteAppearanceGolden` and read back of its own cells and of the core's written workbook, every case as the record spells it, its object model taking sizes to 409.55 where 409 was predicted; and Excel's own save of the cases held to the writer's property by property). Held by the laws over grids whose formats say every group, the painter's fixture, the golden's tests and its check, twenty-four mutants over the two slices, each caught, Alonzo and Buffet over the first by a path (every frame equal), and the written workbook the owner opened in Excel and in LibreOffice Calc. A file's looks as rows, the readers', left to an item of their own (decision 8), its starting prompt given; `ENGINE.28`, Alonzo's half, after the release. To be released in 0.11.0. `~days`, taken in three days. *(more: the scoping and the two slices' records, under the KERNEL line)*
+- ✅ **KERNEL.56 — a value written into an empty cell costs its write and its readers: the cell taken where it stands by its sheet's store, its twin's and its plane, a twin's gain kept with no whole frame, and the extent's readers computed where an extent moved, so that typing into a fresh cell, or a cartridge writing a cell it never wrote, computes no frame whole.** Minted 2026-10-21 at the owner's word, from `KERNEL.54`'s scoping (its *Found*, and its second slice's probe); scoped 2026-10-22, its eight decisions approved whole, this item before `KERNEL.49`'s third slice, and built in two slices the same day, each at the owner's word: the bench's type row (`615ff82`: a value written into a fresh cell of the netlist and the frames until the grid is still, timed against Excel's, the owner's runs of both halves at today's numbers, 6.911 ms against Excel's 0.495) and the language (the second: a value cell added planning nothing, a twin's gain growing its extent with no whole frame, the extent's readers declared by the library and filed by the plan, a store's and a plane's growth taken where they stand, the changes whole only where an extent moved; a counted test, a law over generated grids with empty-cell writes and the extent's readers, twenty-three mutants, Alonzo's and Buffet's tests and frames over it). One value typed into an empty cell of the large board costs its next two frames 0.7 and 0.6 µs where they took 30.3 ms each, Life x16's 0.8 and 0.6 where 33.8, and the shuffled adder of 65,536 bits 2.0 and 0.3 µs where 107 and 100 ms; the netlist's type 3.5 µs where 6.911 ms; a row typed below 458,753 cells 6.0 µs where 16.5 ms; the first frame after a load 15 to 26% faster; every grid 20 bytes a sheet heavier and its library 1,065. To be released in 0.11.0. `~days`, taken in two days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

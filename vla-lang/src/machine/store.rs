@@ -143,14 +143,23 @@ impl Store {
     /// runs planned over the cells held: what a write leaves when it moves a
     /// sheet's extent, each slot moved by its place. An array that stands
     /// over the extent, and a sparse sheet that is sparse still, stay as they
-    /// are, a cell outside a run's rows kept loose.
-    pub(crate) fn moved(self, extent: Extent, limit: u64) -> Store {
-        match &self {
-            Store::Array(d) if d.stands_over(extent) => return self,
-            Store::Sparse(_) if !dense::fits(extent, limit) => return self,
-            _ => {}
+    /// are, a cell outside a run's rows kept loose; an array within the limit
+    /// over an extent that holds its own is taken over it where it stands,
+    /// rows added below it in place (KERNEL.56, [`Dense::regrow`]), where
+    /// every slot it held was read out and put again.
+    pub(crate) fn moved(mut self, extent: Extent, limit: u64) -> Store {
+        let stands = match &mut self {
+            Store::Array(d) => {
+                d.stands_over(extent) || (dense::fits(extent, limit) && d.regrow(extent))
+            }
+            Store::Sparse(_) => !dense::fits(extent, limit),
+        };
+        if stands {
+            return self;
         }
         let held = self.held();
+        #[cfg(test)]
+        crate::sheet::work::relaid(held.len());
         let mut next = Store::over(extent, limit, held.iter().map(|&(at, _)| at));
         for ((row, col), slot) in &held {
             next.put_slot(*row, *col, slot.slot());
@@ -206,13 +215,17 @@ impl Store {
         twin
     }
 
-    /// Whether a twin's store holds its slots where this store holds them
-    /// (KERNEL.49): two arrays over one extent, or two sparse sheets' stores,
-    /// each written by place; so that a frame's end copies a changed cell's
-    /// slot into the twin's, where a store over another extent is made again.
-    pub(crate) fn beside(&self, other: &Store) -> bool {
-        match (self, other) {
-            (Store::Array(a), Store::Array(b)) => a.same_extent(b),
+    /// Whether a twin's store holds its slots where its sheet's store holds
+    /// them (KERNEL.49), two arrays over one extent or two sparse sheets'
+    /// stores, each written by place, so that a frame's end copies a changed
+    /// cell's slot into the twin's, where a store over another extent is made
+    /// again; a twin's array taken over its sheet's first where a write grew
+    /// the sheet's over an extent holding the twin's own (KERNEL.56), its
+    /// slots moved to their places and rows added below in place as the
+    /// sheet's were, where the twin was made again from the sheet's whole.
+    pub(crate) fn follows(&mut self, sheet: &Store) -> bool {
+        match (self, sheet) {
+            (Store::Array(t), Store::Array(d)) => t.same_extent(d) || t.regrow(d.extent()),
             (Store::Sparse(_), Store::Sparse(_)) => true,
             _ => false,
         }
@@ -326,6 +339,16 @@ impl Store {
 
 #[cfg(test)]
 impl Store {
+    /// Whether two stores hold their slots by the same places, two arrays
+    /// over one extent or two sparse sheets' stores (KERNEL.49): the tests'.
+    pub(crate) fn beside(&self, other: &Store) -> bool {
+        match (self, other) {
+            (Store::Array(a), Store::Array(b)) => a.same_extent(b),
+            (Store::Sparse(_), Store::Sparse(_)) => true,
+            _ => false,
+        }
+    }
+
     /// Whether two stores hold the same slots by place, a number to the bit,
     /// wherever and however each keeps them (KERNEL.49): the tests'.
     pub(crate) fn same(&self, other: &Store) -> bool {

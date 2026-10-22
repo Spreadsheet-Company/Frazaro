@@ -156,7 +156,8 @@ fn joined(j: usize) -> Param {
 /// (`super::database`), which a run calls at each cell. Since KERNEL.53
 /// `ISFORMULA` and `FORMULATEXT` (`super::formulas`), a cell's formula read
 /// by its reference, each answering an operand so that every path computes
-/// it as `Ctx` does.
+/// it as `Ctx` does. Since KERNEL.56 the functions that read a sheet's
+/// extent itself are declared so ([`READS_EXTENT`]).
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -263,8 +264,25 @@ pub fn language() -> Library {
     arrays::register(&mut lib);
     lib.register_arrayed("ISFORMULA", formulas::isformula, ranges);
     lib.register_arrayed("FORMULATEXT", formulas::formulatext, ranges);
+    for name in READS_EXTENT {
+        lib.declare_reads_extent(name);
+    }
     lib
 }
+
+/// The language's functions whose answer the extent of a sheet they read
+/// decides beside its cells (KERNEL.56), each declared so
+/// ([`Library::declare_reads_extent`]): the lookups whose approximate match
+/// bisects a vector bounded by its sheet's extent (`super::index`), over a
+/// vector not sorted answering by where the extent ends; and the database
+/// functions, whose records end at their sheet's last row
+/// (`super::database`), as Excel's save settled it. No other function of
+/// the language reads an extent but to clamp a walk of the cells it reads,
+/// none of which stands outside it.
+pub(crate) const READS_EXTENT: [&str; 18] = [
+    "MATCH", "XMATCH", "VLOOKUP", "HLOOKUP", "LOOKUP", "XLOOKUP", "DSUM", "DAVERAGE", "DCOUNT",
+    "DCOUNTA", "DGET", "DMAX", "DMIN", "DPRODUCT", "DSTDEV", "DSTDEVP", "DVAR", "DVARP",
+];
 
 /// The day-one list the language's library began with (KERNEL.7), the
 /// functions `Alonzo/SPEC.md` section 13 named. A fixed array whose length is
@@ -1153,6 +1171,34 @@ mod tests {
     fn a_rule_s_items_of_numbers_and_truth_values_are_its_given_and_ranged() {
         items_agree::<OverNumbers>(|a, b| a.to_bits() == b.to_bits());
         items_agree::<OverTruths>(|a, b| a == b);
+    }
+
+    #[test]
+    fn the_language_declares_the_functions_that_read_an_extent_and_no_other() {
+        // KERNEL.56: the lookups that bisect and the database functions are
+        // declared to read a sheet's extent, each a function the language
+        // holds, without case; no other is; a host's own function is
+        // declared once registered, and registered again it declares what it
+        // reads of its own.
+        let lib = language();
+        for name in lib.names() {
+            assert_eq!(
+                lib.reads_extent(name),
+                READS_EXTENT.contains(&name),
+                "{name}"
+            );
+        }
+        assert!(READS_EXTENT.iter().all(|name| lib.has(name)));
+        assert!(lib.reads_extent("dcounta") && lib.reads_extent("XLookup"));
+        let mut lib = language();
+        lib.register("LAST", |_, _| Ok(Value::Empty));
+        assert!(!lib.reads_extent("LAST"));
+        lib.declare_reads_extent("last");
+        assert!(lib.reads_extent("LAST"));
+        lib.register("LAST", |_, _| Ok(Value::Empty));
+        assert!(!lib.reads_extent("LAST"), "registered again");
+        lib.register("MATCH", |_, _| Ok(Value::Empty));
+        assert!(!lib.reads_extent("MATCH"), "the language's replaced");
     }
 
     #[test]

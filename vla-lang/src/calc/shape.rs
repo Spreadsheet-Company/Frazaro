@@ -100,6 +100,11 @@ pub struct Shape {
     /// among them, since a lane holds one value a cell; and a shape of dynamic
     /// formulas or legacy array formulas, read as arrays.
     arrayed: bool,
+    /// Whether the text calls a function the library declares to read a
+    /// sheet's extent itself (KERNEL.56, [`Library::reads_extent`]), read
+    /// once a shape as `missing` is: the reach files the shape by every sheet
+    /// it reads, for a moved extent to have it computed whole.
+    pub(crate) reads_extent: bool,
 }
 
 impl Shape {
@@ -468,8 +473,11 @@ impl Shapes {
             find_sheets(e, model);
         }
         // The calls as the text's tokens hold them, parsed or not, as
-        // `Calc::missing_functions` reads them.
-        let mut missing: Vec<String> = formula::calls(&text)
+        // `Calc::missing_functions` reads them; and whether one reads an
+        // extent (KERNEL.56).
+        let calls = formula::calls(&text);
+        let reads_extent = calls.iter().any(|name| library.reads_extent(name));
+        let mut missing: Vec<String> = calls
             .into_iter()
             .filter(|name| !library.has(name))
             .collect();
@@ -484,6 +492,7 @@ impl Shapes {
         let kind_reads_arrays =
             super::is_dynamic(model, anchor) || super::is_array_formula(model, anchor);
         let s = self.push(text, expr, anchor, missing, risky, library);
+        self.shapes[s].reads_extent = reads_extent;
         if kind_reads_arrays {
             // A program lowered for such a shape would read its ranges as a
             // legacy formula does; one already left to `Ctx` keeps its reason.
@@ -537,6 +546,7 @@ impl Shapes {
             fill: None,
             lowered,
             arrayed,
+            reads_extent: false,
         });
         self.shapes.len() - 1
     }
@@ -877,8 +887,17 @@ impl Shapes {
         for (k, s) in self.shapes.iter().enumerate() {
             let _ = writeln!(
                 out,
-                "shape {k} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-                s.anchor, s.fill, s.text, s.expr, s.missing, s.risky, s.holds, s.repeats, s.lowered
+                "shape {k} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+                s.anchor,
+                s.fill,
+                s.text,
+                s.expr,
+                s.missing,
+                s.risky,
+                s.holds,
+                s.repeats,
+                s.lowered,
+                s.reads_extent
             );
         }
         let mut places: Vec<(&CellId, &Place)> = self.places.iter().collect();

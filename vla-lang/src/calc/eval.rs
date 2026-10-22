@@ -21,7 +21,7 @@
 use std::borrow::Cow;
 use std::cell::Cell as Counter;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::rows::quoted;
 use crate::sheet::{Sheet, Workbook};
@@ -361,7 +361,11 @@ impl Known {
 /// differently over the same arguments would be computed once and kept.
 /// `ISFORMULA` and `FORMULATEXT` (KERNEL.53) read the formula a cell their
 /// reference names holds, which only a write changes, and a write that
-/// changes a formula has the next frame compute every cell.
+/// changes a formula has the next frame compute every cell. A function that
+/// reads a sheet's extent itself ([`Env::extent`]), beside the cells it
+/// reads, is declared so ([`Library::declare_reads_extent`], KERNEL.56): a
+/// value written beyond the extent, which it reads by no place, has it
+/// computed again at the next frame.
 #[derive(Clone, Default)]
 pub struct Library {
     /// Each strict function, whether it is one an evaluation of many cells at
@@ -374,6 +378,8 @@ pub struct Library {
     /// Each function answering an operand, and its classes (KERNEL.8, slice
     /// f).
     arrayed: BTreeMap<String, (Arrayed, Classes)>,
+    /// The functions declared to read a sheet's extent itself (KERNEL.56).
+    extent: BTreeSet<String>,
 }
 
 impl Library {
@@ -383,12 +389,14 @@ impl Library {
     }
 
     /// The name as a key, every other kind's registration of it removed, so
-    /// that a name holds one kind.
+    /// that a name holds one kind, and its declaration with them: a function
+    /// registered again declares what it reads of its own.
     fn claim(&mut self, name: &str) -> String {
         let key = name.to_ascii_uppercase();
         self.strict.remove(&key);
         self.forms.remove(&key);
         self.arrayed.remove(&key);
+        self.extent.remove(&key);
         key
     }
 
@@ -438,6 +446,25 @@ impl Library {
     ) {
         let key = self.claim(name);
         self.strict.insert(key, (f, Some(known), classes));
+    }
+
+    /// Declare that the function registered under that name reads a sheet's
+    /// extent itself, as [`Env::extent`] answers it, beside the cells it
+    /// reads (KERNEL.56): the language's approximate lookups, whose
+    /// bisection is bounded by the extent, and its database functions, whose
+    /// records end at the sheet's last row. An engine's machine computes a
+    /// formula calling it again when the extent of a sheet the formula reads
+    /// moves, which no cell it reads tells; one undeclared keeps its answer
+    /// until a cell it reads changes. A registration of the name takes the
+    /// declaration away, so a function is declared once it is registered.
+    pub fn declare_reads_extent(&mut self, name: &str) {
+        self.extent.insert(name.to_ascii_uppercase());
+    }
+
+    /// Whether the function of that name, without case, is declared to read
+    /// a sheet's extent itself (KERNEL.56).
+    pub fn reads_extent(&self, name: &str) -> bool {
+        self.extent.contains(&*key(name))
     }
 
     /// The known function registered under that name, without case: a form

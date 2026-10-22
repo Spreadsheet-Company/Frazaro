@@ -71,6 +71,15 @@
 //! piece's box and its cells found within it. A piece's cells are its
 //! shape's, so what the readers of all its pieces reach is what the shape's
 //! one reader reached.
+//!
+//! A few functions read a sheet's extent itself beside the cells they read
+//! (KERNEL.56; the library declares them, `Library::reads_extent`): an
+//! approximate match bisects its vector between the extent's first and last
+//! places along it, and a database's records end at its sheet's last row. A
+//! value written beyond the extent changes no cell such a formula reads and
+//! still moves its answer, so every shape calling one is filed by each sheet
+//! it reads, in one list of pairs, empty where no shape calls one; a sheet
+//! whose extent moved has them computed whole.
 
 use std::collections::hash_map::Entry;
 
@@ -878,6 +887,12 @@ pub(crate) struct Reach {
     index: Vec<Option<Index>>,
     /// The shapes no change is followed to, computed every frame.
     unfollowed: Vec<usize>,
+    /// The shapes that read a sheet's extent itself (KERNEL.56), each by
+    /// every sheet it reads, as pairs of the sheet and the shape, sorted and
+    /// each once: a shape calling a function the library declares to read
+    /// one, whose answer a value written beyond the extent moves where no cell
+    /// it reads changed.
+    extent_readers: Vec<(u32, u32)>,
     /// Every shape's parts the same at every cell that are computed at a
     /// frame's start; a shape's are `parts[firsts[s]..firsts[s + 1]]`.
     parts: Vec<Expr>,
@@ -928,6 +943,7 @@ impl Reach {
         }
         let pieces = pieces(&mut stands, &cells, order, &shape_at);
         let mut readers: Vec<Vec<Reader>> = vec![Vec::new(); model.sheets.len()];
+        let mut extent_readers: Vec<(u32, u32)> = Vec::new();
         let mut unfollowed = Vec::new();
         let mut parts = Vec::new();
         let mut firsts = Vec::with_capacity(shapes.len() + 1);
@@ -966,6 +982,20 @@ impl Reach {
                     found.remove(k);
                 } else {
                     k += 1;
+                }
+            }
+            // A shape calling a function that reads an extent, filed by every
+            // sheet it reads (KERNEL.56), its own sheet's as its cells stand.
+            if shape.reads_extent {
+                for &(on, _) in &found {
+                    match on {
+                        On::Sheet(x) => extent_readers.push((x as u32, s as u32)),
+                        On::Own => {
+                            for &y in &stand.sheets {
+                                extent_readers.push((y as u32, s as u32));
+                            }
+                        }
+                    }
                 }
             }
             // Single cells the shape reads side by side in one row, each
@@ -1027,6 +1057,8 @@ impl Reach {
             }
         }
         firsts.push(parts.len());
+        extent_readers.sort_unstable();
+        extent_readers.dedup();
         let index = readers
             .iter()
             .map(|list| Index::of(list, &stands))
@@ -1036,6 +1068,7 @@ impl Reach {
             readers,
             index,
             unfollowed,
+            extent_readers,
             parts,
             firsts,
             positions: Positions::of(order, model.sheets.len()),
@@ -1153,6 +1186,16 @@ impl Reach {
         &self.unfollowed
     }
 
+    /// The shapes that read a sheet's extent itself (KERNEL.56), each once.
+    pub(crate) fn extent_readers(&self, sheet: usize) -> impl Iterator<Item = usize> + '_ {
+        let x = sheet as u32;
+        let from = self.extent_readers.partition_point(|p| p.0 < x);
+        self.extent_readers[from..]
+            .iter()
+            .take_while(move |p| p.0 == x)
+            .map(|p| p.1 as usize)
+    }
+
     /// A shape's parts computed at a frame's start, by their indices.
     pub(crate) fn parts(&self, shape: usize) -> std::ops::Range<usize> {
         match (self.firsts.get(shape), self.firsts.get(shape + 1)) {
@@ -1183,8 +1226,14 @@ impl Reach {
             .filter_map(|(s, x)| Some(format!("{s} {}", x.as_ref()?.spelled())))
             .collect();
         format!(
-            "stands {:?}\nreaders {:?}\nindex {index:?}\nunfollowed {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
-            self.stands, self.readers, self.unfollowed, self.parts, self.firsts, self.shape_at
+            "stands {:?}\nreaders {:?}\nindex {index:?}\nunfollowed {:?}\nextent readers {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
+            self.stands,
+            self.readers,
+            self.unfollowed,
+            self.extent_readers,
+            self.parts,
+            self.firsts,
+            self.shape_at
         )
     }
 

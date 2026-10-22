@@ -569,6 +569,9 @@ pub(crate) mod work {
         /// The cells a view visited: each cell of a window its values print,
         /// each cell its changes name (KERNEL.42).
         pub(crate) viewed: u64,
+        /// The slots a store and the bytes a plane moved to their places over
+        /// another extent, each one a re-lay read out and put again (KERNEL.56).
+        pub(crate) relaid: u64,
     }
 
     thread_local! {
@@ -583,6 +586,7 @@ pub(crate) mod work {
                 copied: 0,
                 swept: 0,
                 viewed: 0,
+                relaid: 0,
             })
         };
     }
@@ -648,6 +652,12 @@ pub(crate) mod work {
     /// A view visiting `cells` cells (KERNEL.42).
     pub(crate) fn viewed(cells: usize) {
         add(|w| w.viewed += cells as u64);
+    }
+
+    /// `slots` slots or bytes moved to their places over another extent
+    /// (KERNEL.56).
+    pub(crate) fn relaid(slots: usize) {
+        add(|w| w.relaid += slots as u64);
     }
 }
 

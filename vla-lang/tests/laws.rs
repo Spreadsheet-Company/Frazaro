@@ -1297,7 +1297,11 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
     // Measured 2026-10-15: patched 1,442, 7,833, 2,282 and 1,060, of which
     // still 670, 3,240, 1,924 and 135; whole 4,262, 4,343, 2,198 and 700.
     // The first family measured again 2026-10-17, its grids dressed with
-    // codes (KERNEL.47): patched 1,851, still 834, whole 3,989.
+    // codes (KERNEL.47): patched 1,851, still 834, whole 3,989. All four
+    // measured again 2026-10-22, a cell added and a twin cell gained no
+    // longer answering whole (KERNEL.56): patched 1,911, 9,535, 3,114 and
+    // 1,060, of which still 813, 3,950, 2,585 and 398; whole 3,929, 2,641,
+    // 1,366 and 700; 338 text rows.
     for (family, h) in ["grids", "churning", "fills", "spelled"].iter().zip(&held) {
         assert!(
             h.patched - h.still >= 150 && h.still >= 60 && h.whole >= 300,

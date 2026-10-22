@@ -304,6 +304,65 @@ impl Dense {
         })
     }
 
+    /// The store taken over an extent that holds its own (KERNEL.56), each
+    /// slot moved to its cell's place in the new rows and every new place
+    /// empty, the texts and the reasons its slots name kept where they are; a
+    /// store whose bottom alone moved, a row typed below its sheet's data,
+    /// extended where it stands. A store re-laid by place walked every slot
+    /// and moved each value it held one at a time. `false`, the store
+    /// untouched, for an extent that does not hold its own.
+    pub(crate) fn regrow(&mut self, extent: Extent) -> bool {
+        let Some(((top, left), (bottom, right))) = extent else {
+            return false;
+        };
+        let (old_bottom, old_right) = (
+            self.top + (self.height as u32 - 1),
+            self.left + (self.width as u32 - 1),
+        );
+        if top > self.top || left > self.left || bottom < old_bottom || right < old_right {
+            return false;
+        }
+        let width = (right - left + 1) as usize;
+        let height = (bottom - top + 1) as usize;
+        if (top, left, width) == (self.top, self.left, self.width) {
+            let n = width * height;
+            self.numbers.resize(n, 0.0);
+            self.kinds.resize(n, EMPTY);
+            self.odd.resize(height, width as u32);
+            self.height = height;
+            return true;
+        }
+        let (dr, dc) = ((self.top - top) as usize, (self.left - left) as usize);
+        #[cfg(test)]
+        crate::sheet::work::relaid(self.kinds.len());
+        let mut numbers = vec![0.0; width * height];
+        let mut kinds = vec![EMPTY; width * height];
+        let mut odd = vec![width as u32; height];
+        let added = (width - self.width) as u32;
+        for r in 0..self.height {
+            let (from, to) = (r * self.width, (r + dr) * width + dc);
+            numbers[to..to + self.width].copy_from_slice(&self.numbers[from..from + self.width]);
+            kinds[to..to + self.width].copy_from_slice(&self.kinds[from..from + self.width]);
+            odd[r + dr] = self.odd[r] + added;
+        }
+        (self.top, self.left, self.width, self.height) = (top, left, width, height);
+        self.numbers = numbers;
+        self.kinds = kinds;
+        self.odd = odd;
+        true
+    }
+
+    /// The extent the store stands over.
+    pub(crate) fn extent(&self) -> Extent {
+        Some((
+            (self.top, self.left),
+            (
+                self.top + (self.height as u32 - 1),
+                self.left + (self.width as u32 - 1),
+            ),
+        ))
+    }
+
     /// One cell's slot overwritten with a value; `false` for a cell outside
     /// the extent, which a store made over its sheet's own extent never
     /// meets. The tests'; the walk finds a slot's index first, to read the bit
@@ -965,6 +1024,95 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn a_store_regrown_keeps_every_slot_at_its_place() {
+        // KERNEL.56: a store of every kind of slot, a reason among them,
+        // taken over extents that hold its own, below it alone (rows added in
+        // place), then above and to its left, to its right, and on every side:
+        // every slot it held where it stood, every new place empty, every
+        // row's count of slots holding no number the count read off its
+        // slots, every slice of a row as its slots say, and every text named
+        // once; an extent that does not hold its own leaves it untouched.
+        let values = [
+            Value::Number(2.0),
+            Value::Number(-0.0),
+            Value::Text("x".to_string()),
+            Value::Bool(true),
+            Value::Error(ErrorKind::NA),
+            Value::Empty,
+            Value::Number(7.5),
+        ];
+        let mut d = Dense::over(Some(((3, 4), (6, 7))), 1000, None).unwrap();
+        let mut held: Vec<((u32, u32), Value)> = Vec::new();
+        for row in 3..=6u32 {
+            for col in 4..=7u32 {
+                let v = values[((row * 3 + col) % values.len() as u32) as usize].clone();
+                assert!(d.set(row, col, v.clone()));
+                held.push(((row, col), v));
+            }
+        }
+        let reason = Reason::Construct("A1:A2".to_string());
+        let at = d.index(5, 6).unwrap();
+        d.put_reason(at, &reason);
+        held.retain(|&(at, _)| at != (5, 6));
+        let check = |d: &Dense, when: &str| {
+            let (top, left) = (d.top, d.left);
+            for r in 0..d.height as u32 {
+                for c in 0..d.width as u32 {
+                    let at = (top + r, left + c);
+                    let slot = d.slot_of(at.0, at.1).expect("inside");
+                    match held.iter().find(|(h, _)| *h == at) {
+                        Some((_, v)) => {
+                            let same = match (slot.value(), v) {
+                                (Value::Number(x), Value::Number(y)) => x.to_bits() == y.to_bits(),
+                                (got, want) => got == *want,
+                            };
+                            assert!(same, "{when}: {at:?} {slot:?} for {v:?}");
+                        }
+                        None if at == (5, 6) => {
+                            assert!(matches!(slot, Slot::Reason(r) if *r == reason), "{when}")
+                        }
+                        None => assert!(slot.is_empty(), "{when}: {at:?} new, {slot:?}"),
+                    }
+                }
+                let row = top + r;
+                let odd = (0..d.width as u32)
+                    .filter(|&c| !matches!(d.slot_of(row, left + c), Some(Slot::Number(_))))
+                    .count();
+                assert_eq!(d.odd[r as usize] as usize, odd, "{when}: row {row}");
+                for col in left..left + d.width as u32 {
+                    for n in 1..=(left + d.width as u32 - col) as usize {
+                        let got = d.numbers_in_row(row, col, n).map(<[f64]>::to_vec);
+                        let want = slice_of(d, row, col, n);
+                        let bits = |s: &Option<Vec<f64>>| {
+                            s.as_ref()
+                                .map(|v| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>())
+                        };
+                        assert_eq!(bits(&got), bits(&want), "{when}: ({row}, {col}) by {n}");
+                    }
+                }
+            }
+            let named = d.kinds.iter().filter(|&&k| k == TEXT).count();
+            assert_eq!(named + d.free.len(), d.texts_held(), "{when}: the texts");
+        };
+        check(&d, "as written");
+        for (when, extent) in [
+            ("below", ((3, 4), (9, 7))),
+            ("above and left", ((1, 2), (9, 7))),
+            ("right", ((1, 2), (9, 12))),
+            ("every side", ((0, 1), (12, 14))),
+        ] {
+            assert!(d.regrow(Some(extent)), "{when}");
+            assert!(d.stands_over(Some(extent)), "{when}");
+            assert_eq!(d.extent(), Some(extent), "{when}");
+            check(&d, when);
+        }
+        let before = d.clone();
+        assert!(!d.regrow(Some(((2, 1), (12, 14)))), "a top that moved down");
+        assert!(!d.regrow(None), "no extent");
+        assert_eq!(d, before, "untouched");
     }
 
     #[test]

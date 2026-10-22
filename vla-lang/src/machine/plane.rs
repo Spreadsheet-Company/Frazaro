@@ -19,10 +19,12 @@
 //! same values to fill the twins, so a sheet an engine views as a plane has
 //! its bytes kept there, over its extent, a [`Raster`]; a view of it is a
 //! copy. The walk stays the reference: it answers whenever no raster stands
-//! (before the first frame's end after a sheet is first viewed, after a
-//! write to the sheet until the next frame's end, a twin, a sheet past the
-//! limit), and it keeps its own spelling of the rule for a cell, so that a
-//! test holding the two equal compares two readings and never one twice.
+//! (before the first frame's end after a sheet is first viewed, a twin, a
+//! sheet past the limit), and it keeps its own spelling of the rule for a
+//! cell, so that a test holding the two equal compares two readings and never
+//! one twice. A write keeps the raster (KERNEL.56), each cell it changed
+//! given its byte, the raster taken over an extent the write grew; it dropped
+//! it, the next frame's end making it again from every cell of its sheet.
 
 use crate::calc::dense::Slot;
 use crate::calc::graph::Extent;
@@ -136,6 +138,45 @@ impl Raster {
             return false;
         }
         self.bytes[r * self.width + c] = byte;
+        true
+    }
+
+    /// The raster over an extent that holds its own, within `limit` cells
+    /// (KERNEL.56): as it stands where the extent is its own, else each byte
+    /// moved to its cell's place and every new place 0, a raster whose bottom
+    /// alone moved extended where it stands; `false`, the raster untouched,
+    /// for an extent past the limit or one that does not hold its own.
+    pub(crate) fn regrow(&mut self, extent: Extent, limit: u64) -> bool {
+        if !fits(extent, limit) {
+            return false;
+        }
+        let Some(((top, left), (bottom, right))) = extent else {
+            return false;
+        };
+        let (old_bottom, old_right) = (
+            self.top + (self.height as u32 - 1),
+            self.left + (self.width as u32 - 1),
+        );
+        if top > self.top || left > self.left || bottom < old_bottom || right < old_right {
+            return false;
+        }
+        let width = (right - left + 1) as usize;
+        let height = (bottom - top + 1) as usize;
+        if (top, left, width) == (self.top, self.left, self.width) {
+            self.bytes.resize(width * height, 0);
+            self.height = height;
+            return true;
+        }
+        let (dr, dc) = ((self.top - top) as usize, (self.left - left) as usize);
+        #[cfg(test)]
+        crate::sheet::work::relaid(self.bytes.len());
+        let mut bytes = vec![0u8; width * height];
+        for r in 0..self.height {
+            let (from, to) = (r * self.width, (r + dr) * width + dc);
+            bytes[to..to + self.width].copy_from_slice(&self.bytes[from..from + self.width]);
+        }
+        (self.top, self.left, self.width, self.height) = (top, left, width, height);
+        self.bytes = bytes;
         true
     }
 
