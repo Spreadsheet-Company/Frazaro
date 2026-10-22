@@ -1989,9 +1989,38 @@ own could not draw them. A format now says them, each property said or not.
   `vla-lang/testdata/appearance/`, is a record whose looks fall over cells
   that say their own font, alignment and borders, `appearance.vla`, beside
   the same window with every look applied by `Style::over` and its looks
-  dropped, `appearance_drawn.vla`, which a painter draws alike. The writer's
-  half, a workbook's fonts, borders and alignments held to Excel's own
-  reading of each, is the item's second slice.
+  dropped, `appearance_drawn.vla`, which a painter draws alike.
+- **The writer.** `frazaro-core`'s styles part writes each font and border
+  its formats draw with once, after the workbook's first, Calibri 11 and an
+  empty border, in the order the style table first uses it. A font is the
+  workbook's first with what its format says in its place, so that a font
+  saying only `bold` keeps the first's family and size; an edge with no
+  color is Excel's automatic, `indexed="64"`. A format's alignment is
+  written where it says a horizontal other than `general` or a vertical
+  other than `bottom`, `middle` as Excel's `center`, beside its wrap, each
+  part with the `apply` flag Excel writes beside it. A build into a host's
+  workbook (`--into`) builds its fonts over the host's first font and adds
+  its fonts and borders at the ends of the host's lists. A table whose
+  formats say no font, alignment or border writes the part it wrote before,
+  byte for byte, so that no golden of the writer moves.
+- **Excel's reading.** `scripts/appearance.txt` holds 46 cases, each a
+  format as the record spells it, two of them refused by the language.
+  `VlaWriteAppearanceGolden` (`src/VLA_Tests.bas`) has Excel set each case
+  on a cell through its object model and read it back, saves that workbook
+  as `scripts/appearance_saved.xlsx`, and reads back each cell of
+  `scripts/appearance_written.xlsx`, the cases as the core's writer writes
+  them, a case every other row so that no two cells share an edge; it writes
+  `scripts/appearance_golden.txt`, each reading in the record's spelling
+  with Excel's defaults left out. The language's
+  `tests/appearance_golden.rs` holds each case's print and both readings to
+  the case; the core's tests hold the written workbook byte for byte, and
+  each case's font, fill, border and alignment in Excel's own save of the
+  cases, `scripts/appearance_saved.xlsx`, property by property to the
+  writer's; and `tools/check_appearance_golden.ps1` holds the golden's shape
+  and the properties its cases reach. Excel's reading, 2026-10-22: every
+  case as the record spells it. Its object model takes a size from 1 to
+  409.55 points by twentieths, the language's own bounds and its file's,
+  past the 409 its font box allows, and keeps a size that is no half whole.
 
 ## Amendment of 2026-10-21: oracle 12's formulas read by a formula (`KERNEL.53`)
 

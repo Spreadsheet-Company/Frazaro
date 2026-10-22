@@ -34213,6 +34213,192 @@ scoping first and this slice second, each of this item's hunks alone beside
 the peer's `KERNEL.53` mint in the three docs; then the second slice, the
 writer and Excel's golden.
 
+*The first slice committed 2026-10-22* at the owner's word, "Commit, then
+proceed with slice 2.": `64f8cc4`, the mint, the scoping and the approval,
+and `37306af`, the language, each of this item's hunks alone beside a
+peer's uncommitted `KERNEL.53` and `KERNEL.56` mints, each tree built and
+tested in a scratch extraction before it was written. Not pushed.
+
+*The second slice built 2026-10-22*, the writer and Excel's golden
+(decision 7, decision 11's reading of Excel, decision 13's second), over
+`37306af`, in the shared tree beside a peer's `KERNEL.53` build (the
+calculator's files, `tools/prove.ps1`, two checks and this file's
+neighbors), its hunks untouched; built and held in a target of its own.
+It stops at the reference's run, which only the owner makes.
+
+*What landed.*
+1. `core/src/sheet/ooxml.rs`: `Looks`, a style table's fonts and borders
+   each once, after the workbook's first (`DEFAULT_FONT`, Calibri 11, and
+   `EMPTY_BORDER`), in the order its formats first draw with them, and each
+   format's place among them; `font_element`, a format's font built over a
+   base font, what it says in place of the base's own and the rest kept in
+   the order Excel writes a font (a weight, a slant, the base's strike to
+   vertAlign, a size, a color, the base's name, family, charset and
+   scheme); `border_element`, each edge by Excel's name of its line and its
+   color, Excel's automatic, `indexed="64"`, where it says none, and an edge
+   said `none` empty; `alignment`, a horizontal other than `general` and a
+   vertical other than `bottom` (`middle` as `center`) beside the wrap; the
+   `apply` flags for a font and a border beside the number format's, the
+   fill's and the alignment's; `styles_xml` writing the lists, a table whose
+   formats say none of them the same bytes as before; `cellxfs_fragment`
+   taking `Joined`, the looks and the ids at which they join a host's lists.
+2. `core/src/sheet/merge.rs`: a host's fonts and borders counted and its
+   first font read (`Model::read`); this build's fonts built over the
+   host's first font and appended with its borders at the ends of the
+   host's lists, their counts raised (`append_list`), a list missing or
+   closed on itself refused only where the build has something to add to it.
+3. The fixture and its golden: `scripts/appearance.txt`, 46 cases, each a
+   format as the record spells it, every property and line reached and two
+   sizes the language refuses, 409.6 and 0.5;
+   `scripts/appearance_golden.txt`, written as the prediction ahead of the
+   reference's first run (below); the crate's copies under
+   `vla-lang/testdata/`, which `check_crate_data` holds (22 pairs to 24);
+   the written and the saved workbooks excepted from `.gitignore`'s
+   `*.xlsx`, as `scripts/recalc/`'s are.
+4. `vla-lang/tests/appearance_golden.rs`, two tests: every case printed as
+   the record prints it, or refused as its header says; and Excel's reading
+   of each written cell exactly the case with its defaults left out, and of
+   its own cell the same, but where the object model takes no size past 409
+   points, its interface's most.
+5. `core/src/sheet/appearance_golden.rs`, test-only: the cases written as
+   `scripts/appearance_written.xlsx` through the record, the language's
+   loader and the writer, a case every other row so that no two cells share
+   an edge (Excel keeps an edge on each of two cells and draws one; which
+   cell its object model reads it from is not measured, and no reading
+   depends on it), held byte for byte, 20,974 bytes, 16 fonts, 19 borders
+   and 45 cell formats, which `FRAZARO_BLESS=1` writes again (the scoping
+   named a path variable; the file has one home). The test reads the
+   fixture and the workbook at run time: an `include_str!` reaching
+   `scripts/` failed `check_crate_package`, the core's tests reading
+   `scripts/` at run time on purpose.
+6. `VlaWriteAppearanceGolden` (`src/VLA_Tests.bas`, `VLA_TESTS_VERSION`
+   `KERNEL.50`) and eleven helpers: each case set through the object model,
+   a line as the style and the weight Excel's macro recorder writes for it;
+   each cell read back in the record's spelling, a value the record has no
+   word for read as its number, so that the golden shows it and the check
+   names it; Excel's workbook saved as `scripts/appearance_saved.xlsx` with
+   its personal information removed; the written workbook's rows checked
+   against the cases' names before any is read.
+7. `tools/check_appearance_golden.ps1`: the golden's headers and records
+   against its fixture, every reading in the record's spelling with no
+   default said, the refusal's id, the written workbook there, and, as a
+   floor, the 40 properties the taken cases reach, with a control of six
+   mutants; `run_checks.ps1`'s floor 58 to 59 and the control among
+   `-WithExtras`; `check_crate_package.ps1`'s test includes 33 to 35.
+8. The texts: oracle 11's amendment, its writer's and Excel's reading's
+   bullets; the 0.11.0 note; `Delta/CLAUDE.md`'s lines for the check, the
+   golden and the reference's run.
+
+*Held.* `cargo test --workspace`: the language's 361 (1 ignored) and its
+two new, the core's 200 (3 ignored), its four new among them; `cargo fmt
+--check` and both clippies at `-D warnings` clean, once a closure of three
+char comparisons was an array; the language's package tested from its own
+tarball, the golden's test and copies in it. `run_checks.ps1` 59 of 59, and
+with `-WithExtras` 17 verifiers of 17, the new control among them, over the
+tree with the peer's work in it. `check_test_assertion_safety` read the
+first draft's `nCases > 0 And Len(lines(i)) > 0` as an assertion VBA's
+`And` does not guard; the test is nested now. `check_build_golden` holds
+the writer's goldens unmoved: a table saying no group writes the same
+bytes. Eleven mutants, each applied alone to a scratch copy, each caught by
+a named test of the writer or the merge, the written workbook's among
+them: `middle` written as Excel's `bottom`; two fonts of different colors
+written as one; an edge's color dropped; an `apply` flag missing; a size's
+twentieths rounded to halves; a format with no group writing an alignment;
+a format with no border given one of its own; a font not built over its
+base's family; a font of the host's own reused by an id of this build's; a
+build's fonts built over Calibri in a workbook of another family; and the
+host's fonts count not raised.
+
+*The neighbors:* the slice moves no line of `vla-lang`'s source, its tests
+and test data alone, and Alonzo consumes `vla-lang` and never
+`frazaro-core`, so neither Alonzo nor Buffet is touched.
+
+*Against the prediction:* no golden moved, as predicted. The core's lines,
+predicted 300 to 500: 366 of source (the writer 285, the merge 81) and 254
+of tests (the writer's 110, the merge's 47, the written workbook's 97), 620
+in all, over by the tests. The golden's writer, predicted 200 to 300 lines
+of VBA: 396 with their comments. The check, predicted 150 to 250: 348.
+Excel's reading, below.
+
+*Found* (unminted): *A record's rows' heights are never written.* A
+sheet's `row` rows are the record's (`KERNEL.22`), and the writer writes
+widths and no height, so a written workbook's tall text takes its row's
+height from Excel's own fit; the readers' item (decision 8) reads both.
+
+*Left for the owner:* the reference's run in Excel, `VlaDevReload`, the
+Debug menu's Compile, `? VlaWriteAppearanceGolden()` and `git diff
+scripts\appearance_golden.txt`, where an empty diff is the prediction held;
+then the fold: where a reading differs, the language follows Excel's
+(decision 11), and the core's test of the saved styles part, each case's
+font, border and alignment held property by property to Excel's own; the
+written workbook opened in Excel and in LibreOffice Calc (`SD-36`); the
+commit at the owner's word.
+
+*The owner's run and hand test, 2026-10-22.* `run_checks.ps1` 59 of 59;
+`check_appearance_golden.ps1 -Control`, its six mutants failing; the
+language's golden tests, 2, and the core's sheet tests, 36; the VBA pass,
+`VlaDevReload`, the Debug menu's Compile and `VlaSelfTests`, pure 2,033 of
+2,033 and host 333 of 333; and `VlaWriteAppearanceGolden`: 46 cases, 2
+Excel refused, 44 written cells read, Excel's workbook saved. The hand
+test's witness was wrong: `git diff` of the golden printed nothing because
+the golden is a new file, which git does not track, so it compared nothing.
+The run's own count, 2 refused where 3 were predicted, showed the miss, and
+`git diff --no-index` against the crate's copy, which still held the
+prediction, found it, one line of 138. A new golden's witness is its
+prediction kept apart, never `git diff`.
+
+*Against the prediction:* every case as predicted but one. Excel's object
+model takes a size of 409.55 and reads it back, where it was predicted to
+refuse anything past 409, its font box's most; it refuses 409.6 and 0.5, so
+its sizes are the language's, 1 to 409.55 by twentieths, and its file's. Of
+the four to watch: no size that is no half was rounded, 10.25 and 9.3 read
+back whole (Excel's save writes 9.3 as `9.3000000000000007`, the double it
+holds); each line set as the style and the weight Excel's macro recorder
+writes read back as its word, `double`, `hair` and `slant-dash-dot` among
+them; an edge's automatic color saved as `indexed="64"`, as the writer
+writes it; and `general` and `bottom` read as Excel's defaults and saved as
+nothing. Excel read the core's written workbook exactly as it read its own
+cells, case for case. Its save holds 16 fonts and 19 borders, as the
+writer's does, and 43 cell formats to the writer's 45, Excel sharing one
+format among cases that say the same (a font's defaults said and a size of
+11 said; `general` and `bottom` said); its first font is Aptos Narrow 11 in
+its theme's ink, where the writer's is Calibri 11 with none; and it carries
+no personal information, its creator, last author and company empty.
+*The opens:* the written workbook opened in Excel with no repair, and in
+LibreOffice Calc, each cell drawn as its name says: the weights, the slants
+and the sizes (the least a mark, 409 and 409.55 past the screen's edge),
+the inks, the lavender button, the alignments, the fourteen lines, the
+colored edges, and the board's corner and given digit.
+
+*The fold*, the same day. `scripts/appearance_golden.txt` is Excel's, and
+the crate's copy with it. The language's golden test holds Excel's own cell
+to every case the language takes, its allowance past 409 points dropped.
+The core's second test,
+`excel_saves_each_case_with_the_font_fill_border_and_alignment_the_writer_writes`,
+reads Excel's save and the writer's workbook with a narrow reader of its
+own (a part inflated as Excel deflates it, a styles part's lists and a
+cell's format), and holds each of the 46 cells alike property by property:
+the weight, the slant, the size in twentieths and an ink of its own, the
+fill, each edge's line and color of its own, and the alignment and the
+wrap; the font's family is a workbook's and no case's, and Excel's theme
+ink and the writer's none are each the automatic.
+`scripts/appearance_saved.xlsx` joins the repository. The writer's eleven
+mutants again, and a twelfth, `hair` written under Excel's name for
+`thin`, each applied alone to a scratch copy and each caught. Excel's
+save, held by property, caught five of them: `middle` written as Excel's
+`bottom`, two fonts of different colors written as one, an edge's color
+dropped, a size's twentieths rounded to halves, and `hair` written as
+`thin`, which no test but the two goldens' caught. The other seven are
+what a save cannot show, the `apply` flags, the ids and a host's lists,
+and the writer's and the merge's own tests hold them.
+
+*Committed 2026-10-22* at the owner's word, "If KERNEL.50 is complete,
+then close it out and commit.": this slice's files alone, the shared
+documents staged as `HEAD` and this item's lines, nothing of a peer's in
+them; the tree verified alone, its tests and `run_checks.ps1` 59 of 59. The
+item closed with it; its line left the roadmap for the closed ledger. Not
+pushed.
+
 **`KERNEL.54`, a change's cost set by the change: the scoping,
 2026-10-21.** Begun at the owner's word, the prompt relayed from Alonzo's
 `CART.9` (*Naught: Vel et Aut*), whose scoping probe found three costs in
@@ -48883,6 +49069,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.8 — recalculation, slice 2: dates, text, lookups and spills.** Scoped 2026-10-18 at the owner's word, its ten decisions approved whole, and built in six slices, each at the owner's word and committed before the next, 2026-10-19 to 2026-10-21, each held to Excel 365's own saves of its fixture, every cell the door computes agreeing: the lookups on an index (`e437b60`: thirteen functions in the language, a range searched again and again answering from an index exact by construction, both planners linear); implicit intersection and a formula's kind (`7056927`: a legacy formula's range where one value is wanted met at its cell, a dynamic-array formula told by the reader, `SINGLE` computed, the twin defect removed); the text functions (`3c74f39`: twenty-five, a text counted by its characters as Excel counts it, Excel's order of texts, dates and times in a number format's code); the dates (`3d06abc`: seventeen functions over Excel's 1900 calendar, every day from 1900 to 2101 held to Excel's save); the aggregates by criteria (`5431d8e`: the `SUMIFS` family, `SUBTOTAL` and the database functions over one tally, answered from groups of their ranges, a hidden row read, oracle 12's agreement amended at the owner's decision to fifteen digits at most one unit apart); and arrays within a formula (the sixth: Excel's lift and its parameters' classes, a value forced in a legacy formula among them, array constants and `:` between expressions, twenty-one array functions and shapers, `#CALC!` read from the rich values Excel saves it as, a legacy array formula computed, and the break batched into 0.11.0). Each slice's saves ended under a stop rule stated before the first, an edge Excel answered unstably or no save could settle labelled, an array past the grid's limit among them at the owner's decision. `LET` and `LAMBDA` went to `KERNEL.29`; `KERNEL.51`, `KERNEL.52` and `PORT.14` were minted from the fifth slice's Found; spills, an array laid into the cells beside its anchor, went with the sixth slice's dynamic-array Found to `KERNEL.55`, minted after the close. To be released, the first five slices in 0.10.2 and the sixth, which changes the public surface, in 0.11.0. `~quarter`, taken in four days. *(more: the scoping and the six slices' records, under the KERNEL line)*
 - ✅ **KERNEL.54 — a change's cost set by the change: a far-apart shape's readers filed by its pieces, a write's extent grown by its own cells, and a frame passing from one marked cell to the next, so that an edit costs what it reaches and not the grid it lands in.** Minted and scoped 2026-10-21 at the owner's word, from Alonzo's `CART.9`, whose probe found three costs of `vla-lang` 0.10.1 growing with the grid where they should grow with the change; its ten decisions approved whole, and built in two slices the same day, each at the owner's word: the instrument (`d1f163e`: the netlist bench program, `CART.9`'s adder of 4,096 bits shuffled with its coincidences kept, written by its generator and held to an adder by hand, its census's head pinned and three costs counted as found) and the three costs (the second: a shape whose cells stand far apart cut into pieces by tiles of 32, a write's extent grown by its own cells and its range read by its own keys, and a frame passing from one mark to the next through each shape's stretches and its own lists; the counts turned, a thirteenth law, the index held to the unpieced scan, eleven mutants, Alonzo's and Buffet's tests and frames over it). The netlist's edit 70.4 ms to 7.44, its census `(most 496)` to `(most 13)`; the coincident adder of 65,536 bits a frame in 293 ms where it took 26.4 s; a value written into a sheet of 458,753 cells 5.8 µs where 5.3 ms; an idle frame over 391,168 cells alone 1.4 µs where 428; every program a few kilobytes heavier, the netlist 0.57%. To be released in 0.11.0. `~days`, taken in a day. *(more: the scoping and the two slices' records, under the KERNEL line)*
 - ✅ **KERNEL.53 — `FORMULATEXT` and `ISFORMULA` in `vla-lang`'s library: whether a cell holds a formula, and the formula's text, read by a formula from the cell's reference, so that a cartridge reads which formula a person wrote and not only what it computes.** Minted 2026-10-21 at the owner's word of 2026-10-20, from Alonzo's `SPEC.5` hand test, for Naught (`CART.9`, its decision 20); scoped at its build the same day at the owner's word, its two decisions with alternatives taken as recommended (a cell reading its own formula a cycle, as a `ROW` of its own cell is; a text Excel 365 may show with an `@` labelled, never guessed); built, owner-tested and committed 2026-10-22. Both compute in the language (`calc::formulas`), each answering an operand so that every path computes it as `Ctx` does: the text the view record's, a fill's cell its master's text moved to it, a legacy array formula in braces, past 8,192 characters `#N/A`; a reference of many cells its first cell's answer where one value is wanted and each cell's where read as arrays; a span of sheets `#VALUE!`; a legacy formula Excel 365 may show with an `@` labelled by a walk of its parse in three readings, `SINGLE` and `ANCHORARRAY` too. A formula rewritten to the value it had is read anew, the machine computing every cell at the frame after a write that changes a formula, held by a test through the public calls. Held to Excel 365's two saves of its fixture, the second joined at `no-differ` (82 computed agreeing, 11 labelled): the first confirmed an `@` in every text the rule marks and in none it does not and folded a span of sheets to `#VALUE!`, the second witnessed a legacy array formula's braces; twenty-seven mutants, each failing named tests; Alonzo and Buffet over it by path, every frame equal, each grid 20 bytes more. To be released in 0.11.0. `~days`, taken in a day. *(more: the record, under the KERNEL line)*
+- ✅ **KERNEL.50 — a format's appearance in the language: a cell's borders, its text's weight, color and size, and its alignment, held by `vla-lang`'s model and the record, and written and read by `frazaro-core`.** Minted 2026-10-20 at the owner's word of 2026-10-19, from Alonzo's `CART.14` (Seiyaku) and its hand test's note on a text's size; scoped the same day, its thirteen decisions approved whole 2026-10-21, and built in two slices, each at the owner's word and committed before the next: the language (`37306af`: what a format says of a font, a weight, a slant, a size in twentieths of a point from 1 to 409.55 and a color, of an alignment, horizontal and vertical, `middle` written as Excel's `center`, and of a border, four edges each a line of Excel's fourteen and a color, each property said or not; the record's groups after a format's wrap, a format that says none printing as before, byte for byte; a look drawing what its format says over a cell's own, `Style::over`, so that a board's box edges stand under the looks that draw its digits; a `style` row over a range; `grid-format-property` and `grid-cell-unwritten`; `Style` `#[non_exhaustive]`, 32 bytes more a slot of a grid's style table) and the writer and Excel's golden (the second: each font and border a workbook's formats draw with written once over the workbook's first, an edge's automatic color, an alignment and the `apply` flags, the same at the ends of a host's lists for `--into`, a table whose formats say none of them writing the bytes it wrote; 46 cases set through Excel's object model by `VlaWriteAppearanceGolden` and read back of its own cells and of the core's written workbook, every case as the record spells it, its object model taking sizes to 409.55 where 409 was predicted; and Excel's own save of the cases held to the writer's property by property). Held by the laws over grids whose formats say every group, the painter's fixture, the golden's tests and its check, twenty-four mutants over the two slices, each caught, Alonzo and Buffet over the first by a path (every frame equal), and the written workbook the owner opened in Excel and in LibreOffice Calc. A file's looks as rows, the readers', left to an item of their own (decision 8), its starting prompt given; `ENGINE.28`, Alonzo's half, after the release. To be released in 0.11.0. `~days`, taken in three days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

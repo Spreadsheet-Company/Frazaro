@@ -1,0 +1,113 @@
+The appearance fixture (KERNEL.50). Each case sits under a line
+"=== <name>" and is the one line after it: a format as the record spells it
+after its index, its fill, number format and wrap, then what it says of a
+font, an alignment and a border, (font ...) (align ...) (border ...),
+written as the record prints it; these lines before the first header are
+ignored. A header that ends "!refused <words>" names a format the language
+refuses, the words being ones its refusal names (grid-format-property).
+VlaWriteAppearanceGolden (VLA_Tests.bas) has Excel apply every case to the
+cell beside its name in a workbook it adds, through the object model, and
+read it back; saves that workbook beside this file as appearance_saved.xlsx,
+Excel's own styles part; opens appearance_written.xlsx beside it, the same
+cases as frazaro-core's writer writes them, row for row, and reads its
+cells back; and writes appearance_golden.txt: the header, then
+"EXCEL<TAB><its own cell read back>" or "EXCEL<TAB>REFUSED <Excel's error
+number>", then "WRITTEN<TAB><the written cell read back>", or
+"WRITTEN<TAB>REFUSED" for a case the language refuses, each read in the
+record's spelling with every property at Excel's default left out.
+vla-lang's tests/appearance_golden.rs holds the language to that file over
+the crate's copies, frazaro-core's tests hold the writer to it, and
+tools/check_appearance_golden.ps1 holds the pair's shape and the properties
+the cases reach.
+=== bold
+none general nowrap (font bold)
+=== italic
+none general nowrap (font italic)
+=== bold and italic
+none general nowrap (font bold italic)
+=== not bold and not italic, defaults said
+none general nowrap (font not-bold not-italic)
+=== a size of 22
+none general nowrap (font 22)
+=== a size of 10.5
+none general nowrap (font 10.5)
+=== a size no half, 10.25
+none general nowrap (font 10.25)
+=== a size no half, 9.3
+none general nowrap (font 9.3)
+=== the least size
+none general nowrap (font 1)
+=== the interface's most size
+none general nowrap (font 409)
+=== the file's most size
+none general nowrap (font 409.55)
+=== a size of 11, the default said
+none general nowrap (font 11)
+=== a red ink
+none general nowrap (font "FF0000")
+=== a burgundy ink
+none general nowrap (font "800020")
+=== a white ink on the deep lavender, a button
+"6B4FC8" general nowrap (font bold "FFFFFF") (align center)
+=== all a font says
+none general nowrap (font bold italic 14 "6B4FC8")
+=== left
+none general nowrap (align left)
+=== center
+none general nowrap (align center)
+=== right
+none general nowrap (align right)
+=== general, the default said
+none general nowrap (align general)
+=== top
+none general nowrap (align top)
+=== middle
+none general nowrap (align middle)
+=== bottom, the default said
+none general nowrap (align bottom)
+=== center and middle, wrapped
+none general wrap (align center middle)
+=== right and top
+none general nowrap (align right top)
+=== a thin left edge
+none general nowrap (border (left thin))
+=== a medium left edge
+none general nowrap (border (left medium))
+=== a thick left edge
+none general nowrap (border (left thick))
+=== a double left edge
+none general nowrap (border (left double))
+=== a hair left edge
+none general nowrap (border (left hair))
+=== a dotted left edge
+none general nowrap (border (left dotted))
+=== a dashed left edge
+none general nowrap (border (left dashed))
+=== a dash-dot left edge
+none general nowrap (border (left dash-dot))
+=== a dash-dot-dot left edge
+none general nowrap (border (left dash-dot-dot))
+=== a medium-dashed left edge
+none general nowrap (border (left medium-dashed))
+=== a medium-dash-dot left edge
+none general nowrap (border (left medium-dash-dot))
+=== a medium-dash-dot-dot left edge
+none general nowrap (border (left medium-dash-dot-dot))
+=== a slant-dash-dot left edge
+none general nowrap (border (left slant-dash-dot))
+=== the left edge none, the default said
+none general nowrap (border (left none))
+=== each edge
+none general nowrap (border (left thin) (right medium) (top thick) (bottom double))
+=== a colored edge
+none general nowrap (border (left thin "FF0000"))
+=== two colored edges
+none general nowrap (border (top medium "6B4FC8") (bottom dashed "00B050"))
+=== a box's corner on a board
+none general wrap (align center middle) (border (left medium) (top medium))
+=== a given digit on a board
+none general nowrap (font bold 22) (align center middle) (border (right medium))
+=== a size past the file's most !refused 409.6
+none general nowrap (font 409.6)
+=== a size under the least !refused 0.5
+none general nowrap (font 0.5)

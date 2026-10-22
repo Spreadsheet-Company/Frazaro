@@ -41,6 +41,14 @@
 //! as Excel numbers its own, so that a cell holding 1 under `0.00` draws
 //! `1.00` in any host.
 //!
+//! Since `KERNEL.50` (2026-10-22) a format may say its text's font, its
+//! alignment and its borders (`vla_lang::appearance`): each font a format
+//! draws with is written once, Calibri 11 with what the format says in
+//! place of its own, each border once, and a format's alignment beside its
+//! wrap, as Excel writes them, so that a bold cell drawn with a box's edge
+//! is bold and edged in any host; a style table whose formats say none of
+//! them writes the styles part it wrote before, byte for byte.
+//!
 //! Every name here is fixed and every order is fixed, so that the same model
 //! gives the same bytes: the parts in the order [`parts`] lists them, a
 //! sheet's rows and cells in row-then-column order (the model's map), the
@@ -51,7 +59,8 @@ use std::collections::HashSet;
 use super::xml;
 use super::zip;
 use super::{
-    cell_ref, column_width_attr, number_text, shared_masters, Content, NumFmt, Sheet, Workbook,
+    cell_ref, column_width_attr, number_text, shared_masters, Border, Content, Font, Horizontal,
+    Line, NumFmt, Sheet, Style, Vertical, Workbook,
 };
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
@@ -323,13 +332,240 @@ pub fn numfmts_fragment(codes: &[(Code, u32)]) -> String {
     s
 }
 
+/// A fresh workbook's first font, Calibri 11: the font of every cell format
+/// that says nothing of one.
+pub const DEFAULT_FONT: &str =
+    "<font><sz val=\"11\"/><name val=\"Calibri\"/><family val=\"2\"/></font>";
+
+/// A styles part's first border, which draws no edge.
+pub const EMPTY_BORDER: &str = "<border><left/><right/><top/><bottom/><diagonal/></border>";
+
+/// What a style table's formats draw with beyond a workbook's first font and
+/// its first border (KERNEL.50): each other font and border once, in the
+/// order the table first uses it, and for each format, 0 where it draws
+/// with the workbook's first and else its place in these lists from 1.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Looks {
+    pub fonts: Vec<String>,
+    pub borders: Vec<String>,
+    fonts_of: Vec<u32>,
+    borders_of: Vec<u32>,
+}
+
+impl Looks {
+    /// A style table's fonts and borders, each format's font built over
+    /// `base`, the workbook's first font, whose family and size it keeps
+    /// where it says none (a fresh workbook's [`DEFAULT_FONT`], or a model's
+    /// own first font for `--into`).
+    pub fn of(styles: &super::Styles, base: &str) -> Looks {
+        let first_font = font_element(base, &Font::default());
+        let mut looks = Looks::default();
+        for xf in styles.xfs() {
+            let font = font_element(base, &xf.font);
+            looks
+                .fonts_of
+                .push(place(&mut looks.fonts, font, &first_font));
+            let border = border_element(&xf.border);
+            looks
+                .borders_of
+                .push(place(&mut looks.borders, border, EMPTY_BORDER));
+        }
+        looks
+    }
+
+    /// The font id of format `index`, the fonts of these looks numbered
+    /// from `first` in the styles part they join.
+    pub fn font_id(&self, index: usize, first: u32) -> u32 {
+        id_from(self.fonts_of.get(index).copied().unwrap_or(0), first)
+    }
+
+    /// The border id of format `index`, these looks' borders numbered from
+    /// `first`.
+    pub fn border_id(&self, index: usize, first: u32) -> u32 {
+        id_from(self.borders_of.get(index).copied().unwrap_or(0), first)
+    }
+}
+
+/// An element's place in a list of the elements after a workbook's first:
+/// 0 for the first itself, else its place from 1, added when it is new.
+fn place(list: &mut Vec<String>, element: String, first: &str) -> u32 {
+    if element == first {
+        return 0;
+    }
+    match list.iter().position(|e| *e == element) {
+        Some(i) => i as u32 + 1,
+        None => {
+            list.push(element);
+            list.len() as u32
+        }
+    }
+}
+
+/// An id from a place: 0 the workbook's first, else `first` and up.
+fn id_from(place: u32, first: u32) -> u32 {
+    match place {
+        0 => 0,
+        k => first + k - 1,
+    }
+}
+
+/// The name of an element's opening tag: `sz` of `<sz val="11"/>`.
+fn tag_name(tag: &str) -> &str {
+    tag.trim_start_matches('<')
+        .split([' ', '/', '>'])
+        .next()
+        .unwrap_or("")
+}
+
+/// The child elements of an element written as Excel writes a font, each
+/// whole, in their order: none for an element closed on itself.
+fn children(element: &str) -> Vec<&str> {
+    let Some(open) = element.find('>') else {
+        return Vec::new();
+    };
+    if element[..open].ends_with('/') {
+        return Vec::new();
+    }
+    let body = &element[open + 1..element.rfind("</").unwrap_or(element.len())];
+    let mut out = Vec::new();
+    let mut at = 0;
+    while let Some(lt) = body[at..].find('<').map(|i| at + i) {
+        let Some(gt) = body[lt..].find('>').map(|i| lt + i + 1) else {
+            break;
+        };
+        let tag = &body[lt..gt];
+        if tag.ends_with("/>") {
+            out.push(tag);
+            at = gt;
+            continue;
+        }
+        let close = format!("</{}>", tag_name(tag));
+        let Some(end) = body[gt..].find(&close).map(|i| gt + i + close.len()) else {
+            break;
+        };
+        out.push(&body[lt..end]);
+        at = end;
+    }
+    out
+}
+
+/// A `<font>`: `base`'s, with what `font` says in place of its own (a
+/// weight, a slant, a size and a color), its children in the order Excel
+/// writes them, so that a font that says nothing is `base` as Excel would
+/// have written it.
+pub fn font_element(base: &str, font: &Font) -> String {
+    let kids = children(base);
+    let named = |name: &str| kids.iter().find(|k| tag_name(k) == name).copied();
+    let on = |name: &str| {
+        named(name).is_some_and(|k| !(k.contains("val=\"0\"") || k.contains("val=\"false\"")))
+    };
+    let mut s = String::from("<font>");
+    if font.bold.unwrap_or_else(|| on("b")) {
+        s.push_str("<b/>");
+    }
+    if font.italic.unwrap_or_else(|| on("i")) {
+        s.push_str("<i/>");
+    }
+    for k in &kids {
+        if matches!(
+            tag_name(k),
+            "strike" | "condense" | "extend" | "outline" | "shadow" | "u" | "vertAlign"
+        ) {
+            s.push_str(k);
+        }
+    }
+    match font.size {
+        Some(size) => s.push_str(&format!("<sz val=\"{}\"/>", size.spell())),
+        None => s.push_str(named("sz").unwrap_or("")),
+    }
+    match font.color {
+        Some(color) => s.push_str(&format!("<color rgb=\"{}\"/>", color.argb_hex())),
+        None => s.push_str(named("color").unwrap_or("")),
+    }
+    for k in &kids {
+        if matches!(tag_name(k), "name" | "family" | "charset" | "scheme") {
+            s.push_str(k);
+        }
+    }
+    s.push_str("</font>");
+    s
+}
+
+/// A `<border>`: each edge a format says, by Excel's name of its line and
+/// its color, Excel's automatic, indexed 64, where it says none; an edge
+/// said `none` or not said, empty; the diagonal empty.
+pub fn border_element(border: &Border) -> String {
+    let mut s = String::from("<border>");
+    for (side, edge) in border.edges() {
+        match edge {
+            Some(e) if e.line != Line::None => {
+                s.push_str(&format!("<{side} style=\"{}\">", e.line.excel()));
+                match e.color {
+                    Some(c) => s.push_str(&format!("<color rgb=\"{}\"/>", c.argb_hex())),
+                    None => s.push_str("<color indexed=\"64\"/>"),
+                }
+                s.push_str(&format!("</{side}>"));
+            }
+            _ => s.push_str(&format!("<{side}/>")),
+        }
+    }
+    s.push_str("<diagonal/></border>");
+    s
+}
+
+/// A format's `<alignment>`: its horizontal and vertical alignment where it
+/// says one that is not Excel's default, `general` and `bottom`, and its
+/// wrap; `None` where none of them is there to write.
+fn alignment(xf: &Style) -> Option<String> {
+    let mut a = String::new();
+    if let Some(h) = xf.align.horizontal.filter(|h| *h != Horizontal::General) {
+        a.push_str(&format!(" horizontal=\"{}\"", h.excel()));
+    }
+    if let Some(v) = xf.align.vertical.filter(|v| *v != Vertical::Bottom) {
+        a.push_str(&format!(" vertical=\"{}\"", v.excel()));
+    }
+    if xf.wrap {
+        a.push_str(" wrapText=\"1\"");
+    }
+    (!a.is_empty()).then(|| format!("<alignment{a}/>"))
+}
+
+/// One cell format as an `<xf>` element, with the `apply` flags Excel
+/// writes beside each part a format does not take from the cell style.
+fn xf_element(xf: &Style, num_fmt_id: u32, font_id: u32, fill_id: u32, border_id: u32) -> String {
+    let mut s = format!(
+        "<xf numFmtId=\"{num_fmt_id}\" fontId=\"{font_id}\" fillId=\"{fill_id}\" borderId=\"{border_id}\" xfId=\"0\""
+    );
+    if num_fmt_id != 0 {
+        s.push_str(" applyNumberFormat=\"1\"");
+    }
+    if font_id != 0 {
+        s.push_str(" applyFont=\"1\"");
+    }
+    if xf.fill.is_some() {
+        s.push_str(" applyFill=\"1\"");
+    }
+    if border_id != 0 {
+        s.push_str(" applyBorder=\"1\"");
+    }
+    match alignment(xf) {
+        Some(a) => s.push_str(&format!(" applyAlignment=\"1\">{a}</xf>")),
+        None => s.push_str("/>"),
+    }
+    s
+}
+
 /// The styles part: the number formats the style table defines (KERNEL.47),
-/// one font, the two fills the format requires first (none and gray125)
-/// then each fill the model uses, one empty border, and one cell format per
-/// entry of the style table, in its order.
+/// the fonts its formats draw with, Calibri 11 first (KERNEL.50), the two
+/// fills the format requires first (none and gray125) then each fill the
+/// model uses, the borders its formats draw with, an empty one first
+/// (KERNEL.50), and one cell format per entry of the style table, in its
+/// order. A table whose formats say no font, alignment or border writes the
+/// part it wrote before them, byte for byte.
 fn styles_xml(wb: &Workbook) -> String {
     let fills = wb.styles.fills();
     let codes = code_ids(&wb.styles, FIRST_CODE_ID);
+    let looks = Looks::of(&wb.styles, DEFAULT_FONT);
     let mut s = String::from(XML_HEAD);
     s.push_str(&format!("<styleSheet xmlns=\"{NS_MAIN}\">\n"));
     if !codes.is_empty() {
@@ -339,9 +575,11 @@ fn styles_xml(wb: &Workbook) -> String {
             numfmts_fragment(&codes)
         ));
     }
-    s.push_str(
-        "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/><family val=\"2\"/></font></fonts>\n",
-    );
+    s.push_str(&format!(
+        "<fonts count=\"{}\">{DEFAULT_FONT}{}</fonts>\n",
+        looks.fonts.len() + 1,
+        looks.fonts.concat()
+    ));
     s.push_str(&format!("<fills count=\"{}\">\n", fills.len() + 2));
     s.push_str("<fill><patternFill patternType=\"none\"/></fill>\n");
     s.push_str("<fill><patternFill patternType=\"gray125\"/></fill>\n");
@@ -352,33 +590,28 @@ fn styles_xml(wb: &Workbook) -> String {
         ));
     }
     s.push_str("</fills>\n");
-    s.push_str(
-        "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\n",
-    );
+    s.push_str(&format!(
+        "<borders count=\"{}\">{EMPTY_BORDER}{}</borders>\n",
+        looks.borders.len() + 1,
+        looks.borders.concat()
+    ));
     s.push_str(
         "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>\n",
     );
     s.push_str(&format!("<cellXfs count=\"{}\">\n", wb.styles.xfs().len()));
-    for xf in wb.styles.xfs() {
+    for (i, xf) in wb.styles.xfs().iter().enumerate() {
         let fill_id = match xf.fill {
-            Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) + 2,
+            Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) as u32 + 2,
             None => 0,
         };
-        let num_fmt_id = num_fmt_id(&xf.num_fmt, &codes);
-        s.push_str(&format!(
-            "<xf numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"{fill_id}\" borderId=\"0\" xfId=\"0\""
+        s.push_str(&xf_element(
+            xf,
+            num_fmt_id(&xf.num_fmt, &codes),
+            looks.font_id(i, 1),
+            fill_id,
+            looks.border_id(i, 1),
         ));
-        if num_fmt_id != 0 {
-            s.push_str(" applyNumberFormat=\"1\"");
-        }
-        if xf.fill.is_some() {
-            s.push_str(" applyFill=\"1\"");
-        }
-        if xf.wrap {
-            s.push_str(" applyAlignment=\"1\"><alignment wrapText=\"1\"/></xf>\n");
-        } else {
-            s.push_str("/>\n");
-        }
+        s.push('\n');
     }
     s.push_str("</cellXfs>\n");
     s.push_str(
@@ -401,33 +634,41 @@ pub fn fills_fragment(styles: &super::Styles) -> String {
     s
 }
 
+/// Where this build's fonts and borders join a workbook's own lists (KERNEL.50):
+/// the build's looks, and the counts of fonts and borders the workbook has
+/// before them, each the id its first of this build's takes.
+#[derive(Clone, Copy, Debug)]
+pub struct Joined<'l> {
+    pub looks: &'l Looks,
+    pub font_base: u32,
+    pub border_base: u32,
+}
+
 /// This build's cell formats after the default, as `<xf>` elements whose
 /// fills start at `fill_base` (the number of fills the workbook has before
-/// this build's) and whose codes take the ids `codes` gives them in that
-/// workbook (KERNEL.47), for appending to a workbook's `<cellXfs>`.
-pub fn cellxfs_fragment(styles: &super::Styles, fill_base: u32, codes: &[(Code, u32)]) -> String {
+/// this build's), whose codes take the ids `codes` gives them in that
+/// workbook (KERNEL.47), and whose fonts and borders take the ids `joined`
+/// gives them (KERNEL.50), for appending to a workbook's `<cellXfs>`.
+pub fn cellxfs_fragment(
+    styles: &super::Styles,
+    fill_base: u32,
+    codes: &[(Code, u32)],
+    joined: Joined<'_>,
+) -> String {
     let fills = styles.fills();
     let mut s = String::new();
-    for xf in styles.xfs().iter().skip(1) {
+    for (i, xf) in styles.xfs().iter().enumerate().skip(1) {
         let fill_id = match xf.fill {
             Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) as u32 + fill_base,
             None => 0,
         };
-        let num_fmt_id = num_fmt_id(&xf.num_fmt, codes);
-        s.push_str(&format!(
-            "<xf numFmtId=\"{num_fmt_id}\" fontId=\"0\" fillId=\"{fill_id}\" borderId=\"0\" xfId=\"0\""
+        s.push_str(&xf_element(
+            xf,
+            num_fmt_id(&xf.num_fmt, codes),
+            joined.looks.font_id(i, joined.font_base),
+            fill_id,
+            joined.looks.border_id(i, joined.border_base),
         ));
-        if num_fmt_id != 0 {
-            s.push_str(" applyNumberFormat=\"1\"");
-        }
-        if xf.fill.is_some() {
-            s.push_str(" applyFill=\"1\"");
-        }
-        if xf.wrap {
-            s.push_str(" applyAlignment=\"1\"><alignment wrapText=\"1\"/></xf>");
-        } else {
-            s.push_str("/>");
-        }
     }
     s
 }
@@ -953,10 +1194,119 @@ mod tests {
             fills_fragment(&wb.styles),
             "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF7F4FC\"/><bgColor indexed=\"64\"/></patternFill></fill>"
         );
+        let looks = Looks::of(&wb.styles, DEFAULT_FONT);
+        let joined = Joined {
+            looks: &looks,
+            font_base: 4,
+            border_base: 2,
+        };
         assert_eq!(
-            cellxfs_fragment(&wb.styles, 3, &[]),
+            cellxfs_fragment(&wb.styles, 3, &[], joined),
             "<xf numFmtId=\"49\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"
         );
+    }
+
+    #[test]
+    fn a_format_s_font_border_and_alignment_are_written_once_each_as_excel_writes_them() {
+        // KERNEL.50: a font and a border once however many formats draw with
+        // them, each format pointing at its own, the apply flags Excel writes
+        // beside them, and an alignment beside the wrap.
+        use crate::sheet::{Edge, FontSize};
+        let mut wb = a_workbook();
+        let lavender = Rgb(0x6B, 0x4F, 0xC8);
+        let mut button = Style::new(Some(lavender), NumFmt::General, false);
+        button.font.bold = Some(true);
+        button.font.color = Some(Rgb(255, 255, 255));
+        button.align.horizontal = Some(Horizontal::Center);
+        let b = wb.styles.id(button.clone());
+        let mut bare = button;
+        bare.fill = None;
+        let s = wb.styles.id(bare);
+        let mut boxed = Style::default();
+        boxed.border.left = Some(Edge::new(Line::Medium, None));
+        boxed.border.top = Some(Edge::new(Line::Thin, Some(lavender)));
+        boxed.align.vertical = Some(Vertical::Middle);
+        boxed.wrap = true;
+        let x = wb.styles.id(boxed);
+        // Defaults said write nothing: the first font and border, no alignment.
+        let mut plain = Style::default();
+        plain.font.bold = Some(false);
+        plain.font.size = FontSize::from_twentieths(220);
+        plain.align.horizontal = Some(Horizontal::General);
+        plain.align.vertical = Some(Vertical::Bottom);
+        plain.border.right = Some(Edge::new(Line::None, None));
+        let p = wb.styles.id(plain);
+        assert_eq!((b, s, x, p), (2, 3, 4, 5));
+        let st = styles_xml(&wb);
+        assert!(st.contains("<fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/><family val=\"2\"/></font><font><b/><sz val=\"11\"/><color rgb=\"FFFFFFFF\"/><name val=\"Calibri\"/><family val=\"2\"/></font></fonts>\n"), "{st}");
+        assert!(st.contains("<borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style=\"medium\"><color indexed=\"64\"/></left><right/><top style=\"thin\"><color rgb=\"FF6B4FC8\"/></top><bottom/><diagonal/></border></borders>\n"), "{st}");
+        let xfs: Vec<&str> = st.lines().filter(|l| l.starts_with("<xf ")).collect();
+        assert_eq!(
+            &xfs[2..],
+            [
+                "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\"/></xf>",
+                "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\"/></xf>",
+                "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\" wrapText=\"1\"/></xf>",
+                "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>",
+            ],
+            "{st}"
+        );
+        // A table whose formats say none of them writes the part it wrote.
+        let before = styles_xml(&a_workbook());
+        assert!(before.contains(&format!(
+            "<fonts count=\"1\">{DEFAULT_FONT}</fonts>\n<fills"
+        )));
+        assert!(before.contains(&format!(
+            "<borders count=\"1\">{EMPTY_BORDER}</borders>\n<cellStyleXfs"
+        )));
+    }
+
+    #[test]
+    fn a_font_keeps_its_base_s_family_and_size_where_it_says_none() {
+        // KERNEL.50: a font over a model's own first, Excel's own spelling of
+        // Aptos Narrow 11, its theme's ink: what the format says replaces,
+        // what it does not say stays, in the order Excel writes a font.
+        use crate::sheet::FontSize;
+        let base = "<font><sz val=\"11\"/><color theme=\"1\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>";
+        assert_eq!(font_element(base, &Font::default()), base);
+        let mut f = Font::default();
+        f.bold = Some(true);
+        assert_eq!(
+            font_element(base, &f),
+            "<font><b/><sz val=\"11\"/><color theme=\"1\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>"
+        );
+        f.size = FontSize::from_twentieths(205);
+        f.color = Some(Rgb(0x80, 0, 0x20));
+        assert_eq!(
+            font_element(base, &f),
+            "<font><b/><sz val=\"10.25\"/><color rgb=\"FF800020\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>"
+        );
+        // A bold base, a font saying not-bold and not-italic over it.
+        let bold = "<font><b/><i val=\"0\"/><sz val=\"10\"/><name val=\"Arial\"/></font>";
+        let mut plain = Font::default();
+        plain.bold = Some(false);
+        assert_eq!(
+            font_element(bold, &plain),
+            "<font><sz val=\"10\"/><name val=\"Arial\"/></font>"
+        );
+        assert_eq!(
+            font_element(bold, &Font::default()),
+            "<font><b/><sz val=\"10\"/><name val=\"Arial\"/></font>"
+        );
+        assert_eq!(
+            font_element("<font/>", &f),
+            "<font><b/><sz val=\"10.25\"/><color rgb=\"FF800020\"/></font>"
+        );
+        // Every line by Excel's name, and the empty border for none.
+        for line in Line::all() {
+            let mut b = Border::default();
+            b.bottom = Some(crate::sheet::Edge::new(line, None));
+            let want = match line {
+                Line::None => EMPTY_BORDER.to_string(),
+                l => format!("<border><left/><right/><top/><bottom style=\"{}\"><color indexed=\"64\"/></bottom><diagonal/></border>", l.excel()),
+            };
+            assert_eq!(border_element(&b), want);
+        }
     }
 
     #[test]

@@ -6,6 +6,8 @@
 //! re-exported here whole, so that `crate::sheet::Workbook` and every
 //! other name the writer, the readers and the tests use are what they were.
 
+#[cfg(test)]
+mod appearance_golden;
 pub mod inflate;
 pub mod merge;
 pub mod ooxml;

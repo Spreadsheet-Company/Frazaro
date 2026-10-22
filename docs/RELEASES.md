@@ -109,8 +109,17 @@
   gains `font`, `align` and `border` (`vla_lang::appearance`'s `Font`,
   `Align` and `Border`) and is marked `#[non_exhaustive]`, with `Style::new`
   for a fill, a number format and a wrap and `Style::over` for a look over a
-  cell's own; every grid holds 32 bytes more a slot of its style table
-  (KERNEL.50).
+  cell's own; every grid holds 32 bytes more a slot of its style table.
+  `frazaro-core`'s writer writes what a format says: each font and border
+  once, a font over the workbook's first so that a bold cell keeps its
+  family and size, an edge with no color in Excel's automatic, and an
+  alignment where it is not Excel's default; a build into a workbook
+  (`--into`) adds its own at the ends of that workbook's lists, over its
+  first font. A workbook whose formats say none of them is written byte for
+  byte as before. Excel's own reading of each property, set through its
+  object model and read back from a written workbook, holds the language
+  and the writer, and Excel's own save of each holds the writer's styles
+  part property by property (KERNEL.50).
 - **An engine's grid holds its values by place, and a twin only where a
   formula reads it.** Every value a sheet's cells hold, a value cell's and
   each formula's of the frame, is kept once, by place, nine bytes a cell:

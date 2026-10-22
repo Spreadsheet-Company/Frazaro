@@ -64,6 +64,13 @@ tools/bench_view.html
 # one formula per function the declared subset computes, and the owner's
 # save of it from Excel 365 beside it, whose cached values are the oracle.
 !scripts/recalc/*.xlsx
+# KERNEL.50 (a format's appearance): the appearance golden's two workbooks,
+# by the same rule - scripts/appearance_written.xlsx, the core's writing of
+# the cases of scripts/appearance.txt, held byte for byte by its test, and
+# scripts/appearance_saved.xlsx, Excel's own setting of them, which
+# VlaWriteAppearanceGolden saves; each opened by the owner in Excel.
+!scripts/appearance_written.xlsx
+!scripts/appearance_saved.xlsx
 # The dev workbook VLA.xlsm is deliberately NOT tracked (untracked at the
 # 0.5.0 public import; it was the tracked "lab bench" before). It is a
 # blank workbook plus the imported modules - rebuilt from nothing in three

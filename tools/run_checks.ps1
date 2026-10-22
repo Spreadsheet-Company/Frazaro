@@ -143,7 +143,11 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-17, KERNEL.47: 58 - check_formats_golden.ps1 (the formats golden,
 # Excel's text of each value under each code, its shape held to its fixture
 # and every construct the language draws reached).
-$expectedAtLeast = 58
+# 2026-10-22, KERNEL.50: 59 - check_appearance_golden.ps1 (the appearance
+# golden, Excel's reading of each format's font, alignment and border, set
+# through its object model and read from the core's written workbook, its
+# shape held to its fixture and every property a format says reached).
+$expectedAtLeast = 59
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -165,6 +169,7 @@ $extras = @(
     @{ Script = 'check_recalc_floors.ps1'; Args = @('-Control');    What = 'KERNEL.20 recalculation floors: a clean baseline passes; its mutants, pasted histories and fake runners each fail; the runners found, run side by side and kept (AS.10)' },
     @{ Script = 'check_shapes_golden.ps1'; Args = @('-Control');    What = 'KERNEL.30 census goldens: a clean fake door passes, the second pass from its cache; a mutant door and six broken goldens each fail' },
     @{ Script = 'check_formats_golden.ps1'; Args = @('-Control');   What = 'KERNEL.47 formats golden: the real set passes; a misspelt tag, a dropped case, a value echoed otherwise, an exponent and the backslashes taken out each fail' },
+    @{ Script = 'check_appearance_golden.ps1'; Args = @('-Control'); What = 'KERNEL.50 appearance golden: the real set passes; a misspelt tag, a dropped case, a word of none, a default said, a taken case refused and a line not reached each fail' },
     @{ Script = 'run_checks.ps1';          Args = @('-Control');    What = 'AS.10 this runner: fake checks side by side and one at a time report in the order of their names; a failure and a floor not met each fail' }
 )
 

@@ -61,7 +61,7 @@ $sep = [System.IO.Path]::DirectorySeparatorChar
 $expectedMembers  = 3   # vla-lang, core, cli (PORT.4; PORT.12 added the language, 2026-10-08)
 $includeFloor     = 7   # vla-lang/src: headtable.vla, messages.vla (PORT.12); core/src: messages.vla, words.vla, names.vla (PORT.5, PORT.6); cli/src: prelude.vla, english.vla (2026-10-05, the door's built-in pair)
 $selfTesting      = @('vla-lang')   # VLA.1: the crates whose own package runs their tests
-$testIncludeFloor = 33  # VLA.1, 2026-10-10: vla-lang's test includes, each inside the crate - in src/, expand.rs 2, reader.rs 2, refers.rs 2, machine/mod.rs 6; in tests/, laws.rs 2, strangers.rs 8; VLA.3: expand_golden.rs 3; VLA.2: walks.rs 1; KERNEL.47: formats_golden.rs 2; VLA.4: formula_syntax.rs 3; KERNEL.50: appearance.rs 2
+$testIncludeFloor = 35  # VLA.1, 2026-10-10: vla-lang's test includes, each inside the crate - in src/, expand.rs 2, reader.rs 2, refers.rs 2, machine/mod.rs 6; in tests/, laws.rs 2, strangers.rs 8; VLA.3: expand_golden.rs 3; VLA.2: walks.rs 1; KERNEL.47: formats_golden.rs 2; VLA.4: formula_syntax.rs 3; KERNEL.50: appearance.rs 2, appearance_golden.rs 2
 $requiredKeys     = @('description', 'readme', 'license', 'repository')
 $includePattern   = 'include_(?:str|bytes)!\(\s*"([^"]+)"\s*\)'
 

@@ -1,0 +1,138 @@
+=== bold
+EXCEL	none general nowrap (font bold)
+WRITTEN	none general nowrap (font bold)
+=== italic
+EXCEL	none general nowrap (font italic)
+WRITTEN	none general nowrap (font italic)
+=== bold and italic
+EXCEL	none general nowrap (font bold italic)
+WRITTEN	none general nowrap (font bold italic)
+=== not bold and not italic, defaults said
+EXCEL	none general nowrap
+WRITTEN	none general nowrap
+=== a size of 22
+EXCEL	none general nowrap (font 22)
+WRITTEN	none general nowrap (font 22)
+=== a size of 10.5
+EXCEL	none general nowrap (font 10.5)
+WRITTEN	none general nowrap (font 10.5)
+=== a size no half, 10.25
+EXCEL	none general nowrap (font 10.25)
+WRITTEN	none general nowrap (font 10.25)
+=== a size no half, 9.3
+EXCEL	none general nowrap (font 9.3)
+WRITTEN	none general nowrap (font 9.3)
+=== the least size
+EXCEL	none general nowrap (font 1)
+WRITTEN	none general nowrap (font 1)
+=== the interface's most size
+EXCEL	none general nowrap (font 409)
+WRITTEN	none general nowrap (font 409)
+=== the file's most size
+EXCEL	none general nowrap (font 409.55)
+WRITTEN	none general nowrap (font 409.55)
+=== a size of 11, the default said
+EXCEL	none general nowrap
+WRITTEN	none general nowrap
+=== a red ink
+EXCEL	none general nowrap (font "FF0000")
+WRITTEN	none general nowrap (font "FF0000")
+=== a burgundy ink
+EXCEL	none general nowrap (font "800020")
+WRITTEN	none general nowrap (font "800020")
+=== a white ink on the deep lavender, a button
+EXCEL	"6B4FC8" general nowrap (font bold "FFFFFF") (align center)
+WRITTEN	"6B4FC8" general nowrap (font bold "FFFFFF") (align center)
+=== all a font says
+EXCEL	none general nowrap (font bold italic 14 "6B4FC8")
+WRITTEN	none general nowrap (font bold italic 14 "6B4FC8")
+=== left
+EXCEL	none general nowrap (align left)
+WRITTEN	none general nowrap (align left)
+=== center
+EXCEL	none general nowrap (align center)
+WRITTEN	none general nowrap (align center)
+=== right
+EXCEL	none general nowrap (align right)
+WRITTEN	none general nowrap (align right)
+=== general, the default said
+EXCEL	none general nowrap
+WRITTEN	none general nowrap
+=== top
+EXCEL	none general nowrap (align top)
+WRITTEN	none general nowrap (align top)
+=== middle
+EXCEL	none general nowrap (align middle)
+WRITTEN	none general nowrap (align middle)
+=== bottom, the default said
+EXCEL	none general nowrap
+WRITTEN	none general nowrap
+=== center and middle, wrapped
+EXCEL	none general wrap (align center middle)
+WRITTEN	none general wrap (align center middle)
+=== right and top
+EXCEL	none general nowrap (align right top)
+WRITTEN	none general nowrap (align right top)
+=== a thin left edge
+EXCEL	none general nowrap (border (left thin))
+WRITTEN	none general nowrap (border (left thin))
+=== a medium left edge
+EXCEL	none general nowrap (border (left medium))
+WRITTEN	none general nowrap (border (left medium))
+=== a thick left edge
+EXCEL	none general nowrap (border (left thick))
+WRITTEN	none general nowrap (border (left thick))
+=== a double left edge
+EXCEL	none general nowrap (border (left double))
+WRITTEN	none general nowrap (border (left double))
+=== a hair left edge
+EXCEL	none general nowrap (border (left hair))
+WRITTEN	none general nowrap (border (left hair))
+=== a dotted left edge
+EXCEL	none general nowrap (border (left dotted))
+WRITTEN	none general nowrap (border (left dotted))
+=== a dashed left edge
+EXCEL	none general nowrap (border (left dashed))
+WRITTEN	none general nowrap (border (left dashed))
+=== a dash-dot left edge
+EXCEL	none general nowrap (border (left dash-dot))
+WRITTEN	none general nowrap (border (left dash-dot))
+=== a dash-dot-dot left edge
+EXCEL	none general nowrap (border (left dash-dot-dot))
+WRITTEN	none general nowrap (border (left dash-dot-dot))
+=== a medium-dashed left edge
+EXCEL	none general nowrap (border (left medium-dashed))
+WRITTEN	none general nowrap (border (left medium-dashed))
+=== a medium-dash-dot left edge
+EXCEL	none general nowrap (border (left medium-dash-dot))
+WRITTEN	none general nowrap (border (left medium-dash-dot))
+=== a medium-dash-dot-dot left edge
+EXCEL	none general nowrap (border (left medium-dash-dot-dot))
+WRITTEN	none general nowrap (border (left medium-dash-dot-dot))
+=== a slant-dash-dot left edge
+EXCEL	none general nowrap (border (left slant-dash-dot))
+WRITTEN	none general nowrap (border (left slant-dash-dot))
+=== the left edge none, the default said
+EXCEL	none general nowrap
+WRITTEN	none general nowrap
+=== each edge
+EXCEL	none general nowrap (border (left thin) (right medium) (top thick) (bottom double))
+WRITTEN	none general nowrap (border (left thin) (right medium) (top thick) (bottom double))
+=== a colored edge
+EXCEL	none general nowrap (border (left thin "FF0000"))
+WRITTEN	none general nowrap (border (left thin "FF0000"))
+=== two colored edges
+EXCEL	none general nowrap (border (top medium "6B4FC8") (bottom dashed "00B050"))
+WRITTEN	none general nowrap (border (top medium "6B4FC8") (bottom dashed "00B050"))
+=== a box's corner on a board
+EXCEL	none general wrap (align center middle) (border (left medium) (top medium))
+WRITTEN	none general wrap (align center middle) (border (left medium) (top medium))
+=== a given digit on a board
+EXCEL	none general nowrap (font bold 22) (align center middle) (border (right medium))
+WRITTEN	none general nowrap (font bold 22) (align center middle) (border (right medium))
+=== a size past the file's most !refused 409.6
+EXCEL	REFUSED 1004
+WRITTEN	REFUSED
+=== a size under the least !refused 0.5
+EXCEL	REFUSED 1004
+WRITTEN	REFUSED

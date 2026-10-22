@@ -73,6 +73,9 @@ $pairs = @(
     # KERNEL.47: the number formats fixture and the reference's golden of it
     @{ Copy = 'vla-lang/testdata/formats.txt'; Source = 'scripts/formats.txt' },
     @{ Copy = 'vla-lang/testdata/formats_golden.txt'; Source = 'scripts/formats_golden.txt' },
+    # KERNEL.50: the appearance fixture and the reference's golden of it
+    @{ Copy = 'vla-lang/testdata/appearance.txt'; Source = 'scripts/appearance.txt' },
+    @{ Copy = 'vla-lang/testdata/appearance_golden.txt'; Source = 'scripts/appearance_golden.txt' },
     # 2026-10-14: the licence texts and the NOTICE, in every package
     @{ Copy = 'vla-lang/LICENSE'; Source = 'LICENSE' },
     @{ Copy = 'vla-lang/NOTICE'; Source = 'NOTICE' },
@@ -82,7 +85,7 @@ $pairs = @(
     @{ Copy = 'cli/NOTICE'; Source = 'NOTICE' },
     @{ Copy = 'cli/LICENSE-MPL'; Source = 'LICENSES/MPL-2.0.txt' }
 )
-$expectedPairs = 22   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10), 2 for the expand golden (VLA.3), 7 for the licence files (2026-10-14), 2 for the formats golden (KERNEL.47)
+$expectedPairs = 24   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10), 2 for the expand golden (VLA.3), 7 for the licence files (2026-10-14), 2 for the formats golden (KERNEL.47), 2 for the appearance golden (KERNEL.50)
 
 $failures = New-Object System.Collections.Generic.List[string]
 if ($pairs.Count -ne $expectedPairs) { $failures.Add("the table holds $($pairs.Count) pair(s), not the $expectedPairs pinned here") }

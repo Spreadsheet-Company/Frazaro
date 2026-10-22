@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.8"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.50"
+' KERNEL.50: VlaWriteAppearanceGolden, dev-only, which has Excel set every
+' case of scripts/appearance.txt, a format's fill, number format, wrap,
+' font, alignment and border as the record spells them, on a cell of a
+' workbook it adds, through the object model, and read it back; saves that
+' workbook as scripts/appearance_saved.xlsx, Excel's own styles part; reads
+' back each cell of scripts/appearance_written.xlsx, the same cases as
+' frazaro-core's writer writes them; and writes
+' scripts/appearance_golden.txt, the golden vla-lang's appearance and
+' frazaro-core's writer are held to.
+'
 ' KERNEL.8, SLICE F: TestFormulaSyntax writes an array constant, a row and
 ' rows, `{1,2}` and `{1,"a";TRUE,#N/A}`, where it held one refused,
 ' refuses one whose rows differ in length, and writes `:` between two
@@ -3403,6 +3413,403 @@ Private Function FormatsDrawn(ByVal target As Range, ByVal fmtCode As String, _
         target.Value2 = Val(valueLine)
     End If
     FormatsDrawn = CStr(target.Text)
+End Function
+
+' KERNEL.50: the appearance golden. scripts/appearance.txt holds cases,
+' each the one line under a line "=== <name>": a format as the record
+' spells it after its index, its fill, number format and wrap, then what it
+' says of a font, an alignment and a border. This has Excel set every case
+' on the cell beside its name in a workbook it adds, through the object
+' model, and read the cell back; saves that workbook beside the fixture as
+' appearance_saved.xlsx, Excel's own styles part, with no personal
+' information; opens appearance_written.xlsx beside it, the same cases as
+' frazaro-core's writer writes them, row for row, and reads each of its
+' cells back; and writes appearance_golden.txt: the header, then
+' EXCEL<TAB><its own cell read back>, or EXCEL<TAB>REFUSED <Excel's error
+' number> where the object model takes no such property, then
+' WRITTEN<TAB><the written cell read back>, or WRITTEN<TAB>REFUSED for a
+' case the language refuses (a header ending "!refused <words>"). Each
+' reading is in the record's spelling, every property at Excel's default
+' left out. vla-lang's tests/appearance_golden.rs holds the language to
+' this file, and tools/check_appearance_golden.ps1 its shape and the
+' properties its cases reach. Dev-only, like VlaWriteFormatsGolden: run it,
+' then git diff. It adds and opens workbooks, which can move the VBE's
+' project, so click a module's code window before the next Immediate
+' command.
+Public Function VlaWriteAppearanceGolden(Optional ByVal fixturePath As String = "") As Boolean
+    Dim ownWb As Workbook, writtenWb As Workbook
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("appearance.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Dim folder As String, writtenPath As String, savedPath As String
+    folder = Left$(fixturePath, InStrRev(fixturePath, Application.PathSeparator))
+    writtenPath = folder & "appearance_written.xlsx"
+    savedPath = folder & "appearance_saved.xlsx"
+    If Len(Dir$(writtenPath)) = 0 Then Err.Raise 53, "VLA_Tests", "the written workbook not found: " & writtenPath
+    Debug.Print "===== WRITE APPEARANCE GOLDEN ====="
+    ' The cases: each header's name and the one line under it.
+    Dim lines() As String, caseNames() As String, caseBodies() As String
+    Dim nCases As Long, i As Long
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    ReDim caseNames(1 To UBound(lines) + 1)
+    ReDim caseBodies(1 To UBound(lines) + 1)
+    For i = LBound(lines) To UBound(lines)
+        If Left$(lines(i), 4) = "=== " Then
+            nCases = nCases + 1
+            caseNames(nCases) = Mid$(lines(i), 5)
+        ElseIf nCases > 0 Then
+            If Len(lines(i)) > 0 Then
+                If Len(caseBodies(nCases)) > 0 Then Err.Raise 5, "VLA_Tests", "a case of two lines: " & caseNames(nCases)
+                caseBodies(nCases) = lines(i)
+            End If
+        End If
+    Next i
+    If nCases = 0 Then Err.Raise 5, "VLA_Tests", "no case in " & fixturePath
+    ' Excel's own cells, laid out as the written workbook's are: a case every
+    ' other row, so that no two of its cells share an edge, which the object
+    ' model reads as either cell's.
+    Set ownWb = Workbooks.Add
+    Dim ws As Worksheet
+    Set ws = ownWb.Worksheets(1)
+    ws.Name = "Appearance"
+    ws.Columns(1).ColumnWidth = 44
+    ws.Columns(2).ColumnWidth = 30
+    ws.Cells(1, 1).Value2 = "case"
+    ws.Cells(1, 2).Value2 = "drawn"
+    Dim ownReads() As String, target As Range
+    Dim k As Long, refusedNo As Long, nRefused As Long
+    ReDim ownReads(1 To nCases)
+    For k = 1 To nCases
+        ws.Cells(2 * k, 1).Value2 = caseNames(k)
+        Set target = ws.Cells(2 * k, 2)
+        target.Value2 = "Aa 123"
+        refusedNo = AppearanceApply(target, VLA.VlaReadForms(caseBodies(k)))
+        If refusedNo = 0 Then
+            ownReads(k) = AppearanceRead(target)
+        Else
+            ownReads(k) = "REFUSED " & CStr(refusedNo)
+            nRefused = nRefused + 1
+            target.Clear
+            target.Value2 = "refused"
+        End If
+    Next k
+    ownWb.RemovePersonalInformation = True
+    Application.DisplayAlerts = False
+    ownWb.SaveAs savedPath, FileFormat:=51
+    Application.DisplayAlerts = True
+    ownWb.Close SaveChanges:=False
+    Set ownWb = Nothing
+    ' The written workbook's cells, read back in the same order.
+    Set writtenWb = Workbooks.Open(writtenPath, ReadOnly:=True)
+    Dim wsWritten As Worksheet
+    Set wsWritten = writtenWb.Worksheets("Appearance")
+    Dim outText As String, nWritten As Long
+    For k = 1 To nCases
+        If CStr(wsWritten.Cells(2 * k, 1).Value2) <> caseNames(k) Then
+            Err.Raise 5, "VLA_Tests", "appearance_written.xlsx's row " & (2 * k) & " is not the case """ & _
+                      caseNames(k) & """: FRAZARO_BLESS=1 and frazaro-core's tests write it again"
+        End If
+        outText = outText & "=== " & caseNames(k) & vbCrLf & "EXCEL" & vbTab & ownReads(k) & vbCrLf
+        If InStr(caseNames(k), " !refused ") > 0 Then
+            outText = outText & "WRITTEN" & vbTab & "REFUSED" & vbCrLf
+        Else
+            outText = outText & "WRITTEN" & vbTab & AppearanceRead(wsWritten.Cells(2 * k, 2)) & vbCrLf
+            nWritten = nWritten + 1
+        End If
+    Next k
+    writtenWb.Close SaveChanges:=False
+    Set writtenWb = Nothing
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & nCases & " cases, " & nRefused & " Excel refused, " & nWritten & " written cells read -> " & goldenPath
+    Debug.Print "  Excel's own workbook saved -> " & savedPath
+    Debug.Print "  (git diff is the witness: empty = the prediction held)"
+    Debug.Print "===== APPEARANCE GOLDEN WRITTEN ====="
+    VlaWriteAppearanceGolden = True
+    Exit Function
+failed:
+    Dim failNo As Long, failWords As String
+    failNo = Err.Number
+    failWords = Err.Description
+    On Error Resume Next
+    Application.DisplayAlerts = True
+    If Not ownWb Is Nothing Then ownWb.Close SaveChanges:=False
+    If Not writtenWb Is Nothing Then writtenWb.Close SaveChanges:=False
+    On Error GoTo 0
+    Debug.Print "  APPEARANCE GOLDEN FAILED: " & failWords & " (" & failNo & ")"
+End Function
+
+' A case's format set on a cell through Excel's object model: 0, or Excel's
+' error number where the object model takes no such property. A word the
+' fixture should not hold is raised to the caller, never answered as a
+' refusal of Excel's.
+Private Function AppearanceApply(ByVal target As Range, ByVal caseForms As Collection) As Long
+    Dim fillAtom As String, numAtom As String, i As Long, grp As Object
+    On Error GoTo refused
+    fillAtom = AppearanceAtom(caseForms, 1)
+    If fillAtom = "none" Then
+        target.Interior.Pattern = xlNone
+    Else
+        target.Interior.Color = AppearanceRgb(fillAtom)
+    End If
+    numAtom = AppearanceAtom(caseForms, 2)
+    Select Case numAtom
+    Case "general": target.NumberFormat = "General"
+    Case "text": target.NumberFormat = "@"
+    Case Else
+        If Left$(numAtom, 1) <> Chr$(34) Then Err.Raise 5, "VLA_Tests", "appearance.txt: no number format: " & numAtom
+        target.NumberFormat = Mid$(numAtom, 2)
+    End Select
+    Select Case AppearanceAtom(caseForms, 3)
+    Case "wrap": target.WrapText = True
+    Case "nowrap": target.WrapText = False
+    Case Else: Err.Raise 5, "VLA_Tests", "appearance.txt: no wrap: " & AppearanceAtom(caseForms, 3)
+    End Select
+    For i = 4 To caseForms.Count
+        If Not IsObject(caseForms.Item(i)) Then Err.Raise 5, "VLA_Tests", "appearance.txt: a group that is no list"
+        Set grp = caseForms.Item(i)
+        Select Case AppearanceAtom(grp, 1)
+        Case "font": AppearanceFont target, grp
+        Case "align": AppearanceAlign target, grp
+        Case "border": AppearanceBorders target, grp
+        Case Else: Err.Raise 5, "VLA_Tests", "appearance.txt: a group of no such head: " & AppearanceAtom(grp, 1)
+        End Select
+    Next i
+    Exit Function
+refused:
+    Dim n As Long, src As String, d As String
+    n = Err.Number
+    src = Err.Source
+    d = Err.Description
+    If src = "VLA_Tests" Then Err.Raise n, src, d
+    AppearanceApply = n
+End Function
+
+' The i-th item of a case's list, an atom: a word, or a string after the
+' opening quote the reader keeps.
+Private Function AppearanceAtom(ByVal lst As Object, ByVal i As Long) As String
+    If i > lst.Count Then Err.Raise 5, "VLA_Tests", "appearance.txt: a list short of its items"
+    If IsObject(lst.Item(i)) Then Err.Raise 5, "VLA_Tests", "appearance.txt: a list where a word belongs"
+    AppearanceAtom = CStr(lst.Item(i))
+End Function
+
+' A color the record spells "RRGGBB", as the object model takes it.
+Private Function AppearanceRgb(ByVal atom As String) As Long
+    If Left$(atom, 1) <> Chr$(34) Or Len(atom) <> 7 Then Err.Raise 5, "VLA_Tests", "appearance.txt: no color: " & atom
+    AppearanceRgb = RGB(CLng("&H" & Mid$(atom, 2, 2)), CLng("&H" & Mid$(atom, 4, 2)), CLng("&H" & Mid$(atom, 6, 2)))
+End Function
+
+' A font group: bold, not-bold, italic, not-italic, a size in points (Val
+' reads the point whatever the machine) and a color.
+Private Sub AppearanceFont(ByVal target As Range, ByVal grp As Object)
+    Dim i As Long, w As String
+    For i = 2 To grp.Count
+        w = AppearanceAtom(grp, i)
+        Select Case w
+        Case "bold": target.Font.Bold = True
+        Case "not-bold": target.Font.Bold = False
+        Case "italic": target.Font.Italic = True
+        Case "not-italic": target.Font.Italic = False
+        Case Else
+            If Left$(w, 1) = Chr$(34) Then
+                target.Font.Color = AppearanceRgb(w)
+            ElseIf w Like "#*" Then
+                target.Font.Size = Val(w)
+            Else
+                Err.Raise 5, "VLA_Tests", "appearance.txt: a font of no such word: " & w
+            End If
+        End Select
+    Next i
+End Sub
+
+' An align group: a horizontal and a vertical, middle being the object
+' model's vertical center.
+Private Sub AppearanceAlign(ByVal target As Range, ByVal grp As Object)
+    Dim i As Long
+    For i = 2 To grp.Count
+        Select Case AppearanceAtom(grp, i)
+        Case "general": target.HorizontalAlignment = xlGeneral
+        Case "left": target.HorizontalAlignment = xlLeft
+        Case "center": target.HorizontalAlignment = xlCenter
+        Case "right": target.HorizontalAlignment = xlRight
+        Case "top": target.VerticalAlignment = xlTop
+        Case "middle": target.VerticalAlignment = xlCenter
+        Case "bottom": target.VerticalAlignment = xlBottom
+        Case Else: Err.Raise 5, "VLA_Tests", "appearance.txt: an alignment of no such word: " & AppearanceAtom(grp, i)
+        End Select
+    Next i
+End Sub
+
+' A border group: each edge (side line [color]), the line set as the object
+' model spells it, a style and a weight, in the pairs Excel's macro
+' recorder writes for its thirteen lines.
+Private Sub AppearanceBorders(ByVal target As Range, ByVal grp As Object)
+    Dim i As Long, edgeList As Object, b As Excel.Border
+    For i = 2 To grp.Count
+        If Not IsObject(grp.Item(i)) Then Err.Raise 5, "VLA_Tests", "appearance.txt: an edge that is no list"
+        Set edgeList = grp.Item(i)
+        Set b = target.Borders(AppearanceEdgeIndex(AppearanceAtom(edgeList, 1)))
+        Select Case AppearanceAtom(edgeList, 2)
+        Case "none": b.LineStyle = xlLineStyleNone
+        Case "thin": b.LineStyle = xlContinuous: b.Weight = xlThin
+        Case "medium": b.LineStyle = xlContinuous: b.Weight = xlMedium
+        Case "thick": b.LineStyle = xlContinuous: b.Weight = xlThick
+        Case "double": b.LineStyle = xlDouble: b.Weight = xlThick
+        Case "hair": b.LineStyle = xlContinuous: b.Weight = xlHairline
+        Case "dotted": b.LineStyle = xlDot: b.Weight = xlThin
+        Case "dashed": b.LineStyle = xlDash: b.Weight = xlThin
+        Case "dash-dot": b.LineStyle = xlDashDot: b.Weight = xlThin
+        Case "dash-dot-dot": b.LineStyle = xlDashDotDot: b.Weight = xlThin
+        Case "medium-dashed": b.LineStyle = xlDash: b.Weight = xlMedium
+        Case "medium-dash-dot": b.LineStyle = xlDashDot: b.Weight = xlMedium
+        Case "medium-dash-dot-dot": b.LineStyle = xlDashDotDot: b.Weight = xlMedium
+        Case "slant-dash-dot": b.LineStyle = xlSlantDashDot: b.Weight = xlMedium
+        Case Else: Err.Raise 5, "VLA_Tests", "appearance.txt: a line of no such word: " & AppearanceAtom(edgeList, 2)
+        End Select
+        If edgeList.Count >= 3 Then b.Color = AppearanceRgb(AppearanceAtom(edgeList, 3))
+    Next i
+End Sub
+
+' An edge's side as the object model numbers it.
+Private Function AppearanceEdgeIndex(ByVal side As String) As Long
+    Select Case side
+    Case "left": AppearanceEdgeIndex = xlEdgeLeft
+    Case "right": AppearanceEdgeIndex = xlEdgeRight
+    Case "top": AppearanceEdgeIndex = xlEdgeTop
+    Case "bottom": AppearanceEdgeIndex = xlEdgeBottom
+    Case Else: Err.Raise 5, "VLA_Tests", "appearance.txt: an edge of no such side: " & side
+    End Select
+End Function
+
+' A cell's format read back in the record's spelling, every property at
+' Excel's default left out: its fill, number format and wrap; then (font
+' ...) for a weight, a slant, a size other than 11 and a color other than
+' the automatic or black; (align ...) for a horizontal other than general
+' and a vertical other than bottom; (border ...) for each edge with a line,
+' its color where it is not the automatic. A value the record has no word
+' for is read as its number, so that the golden shows it.
+Private Function AppearanceRead(ByVal target As Range) As String
+    Dim s As String, said As String, j As Long, sides As Variant
+    If target.Interior.Pattern = xlNone Then
+        s = "none"
+    Else
+        s = Chr$(34) & AppearanceHex(target.Interior.Color) & Chr$(34)
+    End If
+    Select Case CStr(target.NumberFormat)
+    Case "General": s = s & " general"
+    Case "@": s = s & " text"
+    Case Else
+        s = s & " " & Chr$(34) & Replace(Replace(CStr(target.NumberFormat), "\", "\\"), Chr$(34), "\" & Chr$(34)) & Chr$(34)
+    End Select
+    If target.WrapText Then s = s & " wrap" Else s = s & " nowrap"
+    said = ""
+    If target.Font.Bold Then said = said & " bold"
+    If target.Font.Italic Then said = said & " italic"
+    If target.Font.Size <> 11 Then said = said & " " & AppearanceSize(target.Font.Size)
+    If target.Font.ColorIndex <> xlColorIndexAutomatic And target.Font.Color <> 0 Then
+        said = said & " " & Chr$(34) & AppearanceHex(target.Font.Color) & Chr$(34)
+    End If
+    If Len(said) > 0 Then s = s & " (font" & said & ")"
+    said = ""
+    Select Case target.HorizontalAlignment
+    Case xlGeneral
+    Case xlLeft: said = " left"
+    Case xlCenter: said = " center"
+    Case xlRight: said = " right"
+    Case Else: said = " horizontal=" & CStr(target.HorizontalAlignment)
+    End Select
+    Select Case target.VerticalAlignment
+    Case xlBottom
+    Case xlTop: said = said & " top"
+    Case xlCenter: said = said & " middle"
+    Case Else: said = said & " vertical=" & CStr(target.VerticalAlignment)
+    End Select
+    If Len(said) > 0 Then s = s & " (align" & said & ")"
+    said = ""
+    sides = Array("left", "right", "top", "bottom")
+    For j = 0 To 3
+        said = said & AppearanceEdgeRead(target.Borders(AppearanceEdgeIndex(CStr(sides(j)))), CStr(sides(j)))
+    Next j
+    If Len(said) > 0 Then s = s & " (border" & said & ")"
+    AppearanceRead = s
+End Function
+
+' One edge read back: nothing where it has no line, else " (side line)",
+' its color after the line where it is not the automatic. A style and a
+' weight that are none of Excel's thirteen pairs read as both numbers.
+Private Function AppearanceEdgeRead(ByVal b As Excel.Border, ByVal side As String) As String
+    Dim ls As Long, wt As Long, lineWord As String
+    ls = b.LineStyle
+    If ls = xlLineStyleNone Then Exit Function
+    wt = b.Weight
+    Select Case ls
+    Case xlContinuous
+        Select Case wt
+        Case xlHairline: lineWord = "hair"
+        Case xlThin: lineWord = "thin"
+        Case xlMedium: lineWord = "medium"
+        Case xlThick: lineWord = "thick"
+        End Select
+    Case xlDouble
+        If wt = xlThick Then lineWord = "double"
+    Case xlDot
+        If wt = xlThin Then lineWord = "dotted"
+    Case xlDash
+        Select Case wt
+        Case xlThin: lineWord = "dashed"
+        Case xlMedium: lineWord = "medium-dashed"
+        End Select
+    Case xlDashDot
+        Select Case wt
+        Case xlThin: lineWord = "dash-dot"
+        Case xlMedium: lineWord = "medium-dash-dot"
+        End Select
+    Case xlDashDotDot
+        Select Case wt
+        Case xlThin: lineWord = "dash-dot-dot"
+        Case xlMedium: lineWord = "medium-dash-dot-dot"
+        End Select
+    Case xlSlantDashDot
+        If wt = xlMedium Then lineWord = "slant-dash-dot"
+    End Select
+    If Len(lineWord) = 0 Then lineWord = "style=" & CStr(ls) & " weight=" & CStr(wt)
+    AppearanceEdgeRead = " (" & side & " " & lineWord
+    If b.ColorIndex <> xlColorIndexAutomatic Then
+        AppearanceEdgeRead = AppearanceEdgeRead & " " & Chr$(34) & AppearanceHex(b.Color) & Chr$(34)
+    End If
+    AppearanceEdgeRead = AppearanceEdgeRead & ")"
+End Function
+
+' A size in points as the record spells it, from its twentieths: whole,
+' then a point and one or two digits where it has a part (22, 10.5,
+' 10.25); a size that is no whole number of twentieths read as Str$ reads
+' it, so that the golden shows it.
+Private Function AppearanceSize(ByVal points As Double) As String
+    Dim tw As Long, h As Long
+    tw = CLng(points * 20)
+    If Abs(points * 20 - tw) > 0.001 Then
+        AppearanceSize = "size=" & Trim$(Str$(points))
+        Exit Function
+    End If
+    h = (tw Mod 20) * 5
+    If h = 0 Then
+        AppearanceSize = CStr(tw \ 20)
+    ElseIf h Mod 10 = 0 Then
+        AppearanceSize = CStr(tw \ 20) & "." & CStr(h \ 10)
+    Else
+        AppearanceSize = CStr(tw \ 20) & "." & Format$(h, "00")
+    End If
+End Function
+
+' A color as the object model gives it, red in the low byte, as the record
+' spells it: RRGGBB in capitals.
+Private Function AppearanceHex(ByVal bgr As Long) As String
+    AppearanceHex = Right$("0" & Hex$(bgr And &HFF&), 2) & Right$("0" & Hex$((bgr \ &H100&) And &HFF&), 2) & _
+                    Right$("0" & Hex$((bgr \ &H10000) And &HFF&), 2)
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and

@@ -84,6 +84,12 @@ pub struct Model {
     rel_ns_declared: bool,
     fills_count: u32,
     cellxfs_count: u32,
+    // KERNEL.50: its fonts' and borders' counts, where it has those lists,
+    // and its first font, which a font of this build takes for what it
+    // leaves unsaid.
+    fonts_count: Option<u32>,
+    borders_count: Option<u32>,
+    first_font: String,
     dynamic_cm: Option<u32>,
     stripped: Vec<String>,
 }
@@ -162,6 +168,42 @@ fn insert_before(text: &str, marker: &str, insertion: &str) -> Option<String> {
 fn insert_after(text: &str, marker: &str, insertion: &str) -> Option<String> {
     let i = text.find(marker)? + marker.len();
     Some(format!("{}{}{}", &text[..i], insertion, &text[i..]))
+}
+
+/// The first `<name>` element of a part, whole, as it stands there.
+fn first_element(text: &str, name: &str) -> Option<String> {
+    let (s, e) = *tags(text, name).first()?;
+    if text[s..e].ends_with("/>") {
+        return Some(text[s..e].to_string());
+    }
+    let close = format!("</{name}>");
+    let end = text[e..].find(&close)? + e + close.len();
+    Some(text[s..end].to_string())
+}
+
+/// This build's `elements` appended to a model's `<list>` and its count
+/// raised (KERNEL.50), answering the id the first of them takes: the
+/// model's count. Nothing to add asks nothing of the list; something to
+/// add to a list missing or closed on itself is refused.
+fn append_list(
+    styles: &mut String,
+    label: &str,
+    list: &str,
+    count: Option<u32>,
+    elements: &[String],
+) -> Result<u32, Refusal> {
+    if elements.is_empty() {
+        return Ok(count.unwrap_or(0));
+    }
+    let close = format!("</{list}>");
+    let Some(count) = count.filter(|_| styles.contains(&close)) else {
+        let why = format!("it has no {list} list to add to, or one closed on itself");
+        return Err(unsupported(label, STYLES, &why));
+    };
+    let too_large = || raise("build-workbook-too-large", &[]);
+    let added = insert_before(styles, &close, &elements.concat()).ok_or_else(too_large)?;
+    *styles = bump_count(&added, list, elements.len() as u32).ok_or_else(too_large)?;
+    Ok(count)
 }
 
 /// The `count` attribute of the first `<element ...>` tag.
@@ -381,6 +423,9 @@ impl Model {
         };
         let fills_count = count_of(&styles, "fills")
             .ok_or_else(|| unsupported(label, STYLES, "it has no fills list"))?;
+        let fonts_count = count_of(&styles, "fonts");
+        let borders_count = count_of(&styles, "borders");
+        let first_font = first_element(&styles, "font").unwrap_or_default();
         let cellxfs_count = count_of(&styles, "cellXfs")
             .ok_or_else(|| unsupported(label, STYLES, "it has no cellXfs list"))?;
         if !styles.contains("</fills>") || !styles.contains("</cellXfs>") {
@@ -409,6 +454,9 @@ impl Model {
             rel_ns_declared,
             fills_count,
             cellxfs_count,
+            fonts_count,
+            borders_count,
+            first_font,
             dynamic_cm,
             stripped,
         })
@@ -759,11 +807,43 @@ pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal
             .ok_or_else(too_large)?;
         styles = bump_count(&styles, "fills", fills.len() as u32).ok_or_else(too_large)?;
     }
+    // This build's fonts and borders (KERNEL.50) at the ends of the model's
+    // lists, each font over the model's own first, so that a bold cell of
+    // ours in a workbook set in another family is that family's bold.
+    let base = if model.first_font.is_empty() {
+        ooxml::DEFAULT_FONT
+    } else {
+        model.first_font.as_str()
+    };
+    let looks = ooxml::Looks::of(&ours.styles, base);
+    let font_base = append_list(
+        &mut styles,
+        &model.label,
+        "fonts",
+        model.fonts_count,
+        &looks.fonts,
+    )?;
+    let border_base = append_list(
+        &mut styles,
+        &model.label,
+        "borders",
+        model.borders_count,
+        &looks.borders,
+    )?;
     if own_xfs > 0 {
         styles = insert_before(
             &styles,
             "</cellXfs>",
-            &ooxml::cellxfs_fragment(&ours.styles, model.fills_count, &codes),
+            &ooxml::cellxfs_fragment(
+                &ours.styles,
+                model.fills_count,
+                &codes,
+                ooxml::Joined {
+                    looks: &looks,
+                    font_base,
+                    border_base,
+                },
+            ),
         )
         .ok_or_else(too_large)?;
         styles = bump_count(&styles, "cellXfs", own_xfs).ok_or_else(too_large)?;
@@ -1010,6 +1090,53 @@ mod tests {
             })
             .collect();
         zip::write_stored(&parts).unwrap()
+    }
+
+    #[test]
+    fn a_build_s_fonts_and_borders_follow_the_model_s_own() {
+        // KERNEL.50: this build's fonts and borders at the ends of the
+        // model's lists, its formats pointing past the model's own, each font
+        // over the model's own first, and a list closed on itself refused only
+        // where this build has something to add to it.
+        use crate::sheet::{Edge, Line, Rgb, Style};
+        let styles_of = |bytes: &[u8]| {
+            let entries = zip::entries(bytes).unwrap();
+            let e = entries.iter().find(|e| e.name == STYLES).unwrap();
+            String::from_utf8(zip::stored_data(bytes, e).unwrap().to_vec()).unwrap()
+        };
+        let mut wb = ours();
+        let mut bold = Style::default();
+        bold.font.bold = Some(true);
+        bold.font.color = Some(Rgb(255, 255, 255));
+        bold.border.bottom = Some(Edge::new(Line::Double, Some(Rgb(0x80, 0, 0x20))));
+        wb.styles.id(bold);
+        let model_font = "<fonts count=\"2\"><font><sz val=\"10\"/><name val=\"Aptos Narrow\"/></font><font><b/><sz val=\"10\"/></font></fonts>";
+        let model = Model::read(
+            with_styles(|s| {
+                let i = s.find("<fonts").unwrap();
+                let j = s.find("</fonts>").unwrap() + "</fonts>".len();
+                format!("{}{model_font}{}", &s[..i], &s[j..])
+            }),
+            "model.xlsx",
+        )
+        .unwrap();
+        let st = styles_of(&write(&model, &wb, 1).unwrap());
+        assert!(st.contains("<fonts count=\"3\"><font><sz val=\"10\"/><name val=\"Aptos Narrow\"/></font><font><b/><sz val=\"10\"/></font><font><b/><sz val=\"10\"/><color rgb=\"FFFFFFFF\"/><name val=\"Aptos Narrow\"/></font></fonts>"), "{st}");
+        assert!(st.contains("<borders count=\"2\"><border/><border><left/><right/><top/><bottom style=\"double\"><color rgb=\"FF800020\"/></bottom><diagonal/></border></borders>"), "{st}");
+        let own = st.split("</cellXfs>").next().unwrap();
+        assert!(own.ends_with("<xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\"/>"), "{st}");
+        // A build that adds no font asks nothing of a fonts list closed on
+        // itself; one that adds a font is refused.
+        let closed = with_styles(|s| {
+            let i = s.find("<fonts").unwrap();
+            let j = s.find("</fonts>").unwrap() + "</fonts>".len();
+            format!("{}<fonts count=\"0\"/>{}", &s[..i], &s[j..])
+        });
+        let model = Model::read(closed, "closed.xlsx").unwrap();
+        assert!(write(&model, &ours(), 1).is_ok());
+        let r = write(&model, &wb, 1).unwrap_err();
+        assert_eq!(r.id, "build-into-unsupported");
+        assert!(r.text.contains("fonts list"), "{}", r.text);
     }
 
     #[test]
