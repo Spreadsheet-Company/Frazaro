@@ -33763,6 +33763,80 @@ ahead of origin; since the scoping `KERNEL.8` closed (`72e6fb8`) and
 item's three documents, peers' `KERNEL.50` scoping and `KERNEL.53` mint. The
 roadmap's line 🟡, the first slice first.
 
+*The first slice built 2026-10-21*, decision 6, nothing of the machine
+touched but a test-only counter:
+
+- `core/examples/bench/netlist.rs`, the generator and its hand, beside
+  `common.rs`: `CART.9`'s adder of 4,096 bits, its gates shuffled by
+  `CART.9`'s seed with the coincidences kept, written as a program, a gate a
+  sentence in the order of its cells; and the netlist evaluated in the order
+  its gates were made, each gate's cell and value for a carry-in.
+- `scripts/recalc/bench/netlist.txt`, 963,245 bytes and 20,493 lines, written
+  by `cargo run --release -p frazaro-core --example recalc -- --netlist`, its
+  body, line for line, the scoping probe's, whose census and times the
+  scoping measured. The runner's check mode holds the file to its generator
+  and fails by name where they part.
+- `core/examples/recalc.rs`: the seventh fixture, timed as the six, its
+  values held to the file at the first frame and to `Calc` after its edits,
+  and every gate to the adder by hand at each edit's carry-in (163,840 values
+  in check mode); its sums 8,192 as built and 12,288 edited.
+  `core/examples/memory.rs`: the seventh program weighed, 69,154,762 bytes
+  held after two frames, 3,377 a formula, nearly every gate a shape of its
+  own (`KERNEL.49`'s addendum, its second point, the irregular grid's
+  ceiling), and 96,352,009 at the peak; the eight others the same to the
+  byte.
+- `tools/bench_recalc.ps1` and `tools/bench_recalc_excel.ps1` time it, both
+  halves; `tools/check_recalc_floors.ps1` pins its program's SHA-256 and
+  wants its rows, its floors' entry and its ceilings', the owner's runs. Its
+  control's synthetic rows, keyed by fixture, gained the seventh: without it
+  the control stopped on a null array, as it did at the sixth.
+- *The census, its head* (decision 6, a choice made at the build):
+  `tools/check_shapes_golden.ps1` holds the netlist's census as a head of two
+  lines, its plan row and `(readers "Output" 32243 (most 496))`, the door's
+  first lines held to it. The whole census prints a row a shape, 19,957 lines
+  and 2.69 MB, six times the 23 goldens before it together, and would move
+  whole at every respelling of a shape row, `KERNEL.49`'s read kinds among
+  them, where its readers row is what it pins. A head golden's lines are its
+  plan row and its readers rows alone, their forms held and no totals
+  summed; the control's mutant door changes a head's plan row where it prints
+  no shape row, and a head holding a shape row fails its own checks.
+- *Counted, as found* (decision 6), in `vla-lang`'s machine tests, each at
+  two sizes, each for the second slice to turn:
+  `far_apart_cells_of_one_text_are_checked_by_every_change_as_found`, 32
+  and 64 pairs of cells of one text 1,000 rows apart (a frame's six changed
+  cells each checked against every pair's reader, 192 and 384; the sheet
+  unindexed, `(readers "S" 32)` and `64`, an index not halving readers too
+  wide to file); `a_value_written_walks_its_sheet_for_its_extent_as_found`,
+  one value written into sheets of 200 and 2,000 cells walking all of them
+  for the extent; `an_idle_frame_visits_every_cell_alone_and_every_shape_as_found`,
+  64 and 128 cells alone beside a run (an idle frame asks 64 and 128
+  positions, visits the run, asks 65 and 129 shapes and clears 132 and 262
+  flags and words), through a test-only counter, `machine::walk`, beside
+  `reach::checked` and `sheet::work`.
+- `Delta/CLAUDE.md`'s map: the netlist program, written by its generator and
+  never by hand, and what holds it.
+
+*The owner's runs, 2026-10-21*, both halves of the bench on a quiet
+machine, the native half first, their blocks pasted from
+`target/bench_recalc.txt` and `target/bench_recalc_excel.txt`: the netlist a
+whole frame in 6.94 ms against Excel's 4.20 on 20 threads and 1.48 on one,
+and an edit, its carry-in flipped and every carry and sum moving, in 70.4 ms
+against Excel's 3.70 and 1.54, nineteen and 46 times slower, the cost the
+second slice is for. Excel computes the adder faster on one thread than on
+twenty, its carries a chain of 8,193 levels. Its floors 2,500,000 formulas a
+second a whole frame and 12 edits a second, its ceilings 69,154,762 bytes
+held and 96,352,009 at the peak; the six programs before it within their
+floors, `criteria edit` raised by the run from 109 to 111.
+
+*Held:* `run_checks.ps1` 58 of 58 with the runs pasted (57 before them,
+`check_recalc_floors` failing by name for the netlist's rows alone), the
+floors' control passing; `cargo test --workspace --no-fail-fast` (the core's
+196, the language's 346 and its twelve laws), clippy with warnings denied
+over every target and rustfmt over the workspace clean; the recalc runner's
+check mode over the seven programs, every value held and the netlist's
+program its generator's, and the memory runner's over the nine;
+`check_shapes_golden` and its control.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

@@ -1,6 +1,6 @@
 <#
 bench_recalc.ps1 - the recalculation floors' native half: the machine timed
-on the six fixtures of scripts/recalc/bench/ on the owner's machine, and
+on the seven programs of scripts/recalc/bench/ on the owner's machine, and
 printed as one block to paste into tools/check_recalc_floors.ps1, beside
 the block tools/bench_recalc_excel.ps1 prints for Excel.
 
@@ -40,7 +40,8 @@ WHAT IT DOES:
   1. builds the two runners, unless -NoBuild: cargo build --release -p
      frazaro-core --example recalc --example memory;
   2. runs each, opted out and on the performance cores, and reads its rows,
-     the recalc runner's six and the memory runner's eight;
+     the recalc runner's seven and the memory runner's nine (the netlist
+     the seventh program since KERNEL.54's first slice);
   3. prints the block: the date, the environment, the rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
@@ -68,7 +69,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $margin = 0.15
-$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria')
+$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
 # The memory runner's fixtures, and those whose loads are floored (KERNEL.49).
 $loadFloored = @('superposition', 'life-x16')
 $weighed = @($fixtures) + @($loadFloored)

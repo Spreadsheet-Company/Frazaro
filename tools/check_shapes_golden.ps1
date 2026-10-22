@@ -24,6 +24,10 @@ CRLF, over oracle 12's ten fixtures (the files check_recalc_golden.ps1
 computes) and the five programs of scripts/recalc/bench/, which the door
 builds first, as `frazaro build` builds any program, into target/shapes/;
 the lookups' program is named lookups_bench, beside the lookups' fixture.
+A golden with a Head holds the census's first lines alone, the plan row and
+the readers rows, and the door's first lines are held to it (KERNEL.54: the
+netlist program's 19,955 shapes would print 2.7 MB of shape rows, where its
+readers row, `(most k)`, is what it pins).
 
 THE CACHE: a bench program's workbook and its census are kept under
 target/shapes/ with the SHA-256 of the door and of the program they came
@@ -61,7 +65,9 @@ either way.
 -Control proves the check on fakes and copies in a scratch directory: a fake
 door that prints each fixture's golden (every golden must pass, the cache
 written and then reused); one that adds a cell to the first shape row it
-prints (every golden must fail, naming its first shape row); and copies of a
+prints, or to the plan row's formulas where it prints no shape row (every
+golden must fail, naming its first shape row or its plan row); a head golden
+holding a shape row (its own checks must fail); and copies of a
 golden broken one way each - a total, the order of two shape rows, a readers
 row after a shape row, a (same k) pointing at a later row, the kinds out of
 their order, a run under four cells, and an (unlowered ...) on a shape with
@@ -131,6 +137,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # added for its second: 212 lines. The owner's second Excel save of it, a
 # nineteenth: 215 lines, the build's 210 formulas and the three legacy
 # array formulas typed into K1:K3.
+# 2026-10-21, KERNEL.54's first slice: the netlist program, a sixth bench
+# program, its golden a head of two lines, the plan row and its readers row,
+# `(most 496)` as found: nearly every change of its sheet meets every
+# far-apart shape's reader, filed too wide to band.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -155,7 +165,8 @@ $goldens = @(
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },
     @{ Name = 'life';          Program = 'scripts/recalc/bench/life.txt';     Floor = 4 },
-    @{ Name = 'lookups_bench'; Program = 'scripts/recalc/bench/lookups.txt';  Floor = 9 }
+    @{ Name = 'lookups_bench'; Program = 'scripts/recalc/bench/lookups.txt';  Floor = 9 },
+    @{ Name = 'netlist';       Program = 'scripts/recalc/bench/netlist.txt';  Floor = 2; Head = 2 }
 )
 $goldenDir = Join-Path $repoRoot 'scripts/recalc/shapes'
 $cacheDir = Join-Path $repoRoot 'target/shapes'
@@ -183,8 +194,10 @@ $shapeRow = '^\(shape (\d+) ' + $q + ' ' + $q + ' ' + $q + ' \(cells (\d+)\) \(l
     '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep|array)\))?\)$'
 
 # The order, the forms and the totals read off a golden's lines: problems,
-# empty when they hold, and what was counted.
-function Test-Census($lines) {
+# empty when they hold, and what was counted. A head golden's lines are its
+# plan row and its readers rows alone, their forms held and no totals summed
+# (KERNEL.54).
+function Test-Census($lines, [bool]$head = $false) {
     $problems = New-Object System.Collections.Generic.List[string]
     $sum = @{ shapes = 0; texts = 0; formulas = 0; runs = 0; lanes = 0; alone = 0; every = 0; cycles = 0; deepest = -1; widestCount = 0 }
     if ($lines.Count -eq 0) { $problems.Add('an empty census'); return @{ Problems = $problems; Sum = $sum } }
@@ -212,6 +225,7 @@ function Test-Census($lines) {
         }
         $m = [regex]::Match($line, $shapeRow)
         if (-not $m.Success) { $problems.Add("line ${n}: not a row of the census: $line"); continue }
+        if ($head) { $problems.Add("line ${n}: a shape row in a head golden, which holds the plan row and the readers rows alone: $line"); continue }
         $seenShape = $true
         $g = $m.Groups
         $number = [int]$g[1].Value
@@ -271,6 +285,10 @@ function Test-Census($lines) {
     }
     $p = $plan.Groups
     $stated = [ordered]@{ shapes = [int]$p[1].Value; texts = [int]$p[2].Value; formulas = [int]$p[3].Value; runs = [int]$p[5].Value; lanes = [int]$p[6].Value; alone = [int]$p[7].Value; every = [int]$p[8].Value; cycles = [int]$p[9].Value }
+    if ($head) {
+        foreach ($key in $stated.Keys) { $sum[$key] = $stated[$key] }
+        return @{ Problems = $problems; Sum = $sum }
+    }
     foreach ($key in $stated.Keys) {
         if ($stated[$key] -ne $sum[$key]) { $problems.Add("the plan row states $key $($stated[$key]), the shape rows sum to $($sum[$key])") }
     }
@@ -348,6 +366,15 @@ function Measure-Door([string]$door, $g, [string]$cache, [string]$dir) {
     if ($problems.Count -gt 0) { return @{ Problems = $problems; From = '' } }
     $want = Get-Lines ([System.IO.File]::ReadAllText((Join-Path $dir "$($g.Name).vla")))
     $have = Get-Lines $got.Text
+    # A head golden holds the door's first lines (KERNEL.54).
+    if ($g.ContainsKey('Head')) {
+        $h = [int]$g.Head
+        if ($have.Count -lt $h) {
+            $problems.Add("$($g.Name): the door printed $($have.Count) lines, fewer than the head's $h")
+            return @{ Problems = $problems; From = $got.From }
+        }
+        $have = $have.GetRange(0, $h)
+    }
     $n = [Math]::Min($want.Count, $have.Count)
     for ($i = 0; $i -lt $n; $i++) {
         if ($want[$i] -ne $have[$i]) {
@@ -375,11 +402,20 @@ function Test-Goldens([string]$dir) {
         } else {
             $lines.Add("  $($g.Name): $($g.Floor) lines, at its floor")
         }
-        $t = Test-Census $rows
+        $isHead = $g.ContainsKey('Head')
+        if ($isHead -and $rows.Count -ne [int]$g.Head) {
+            $problems.Add("$($g.Name): a head golden of $($rows.Count) lines, its head $($g.Head)")
+            $lines.Add("  $($g.Name): $($rows.Count) lines, not its head of $($g.Head)  FAIL")
+        }
+        $t = Test-Census $rows $isHead
         foreach ($p in $t.Problems) { $problems.Add("$($g.Name): $p"); $lines.Add("  $($g.Name): $p  FAIL") }
         if ($t.Problems.Count -eq 0) {
             $s = $t.Sum
-            $lines.Add("  $($g.Name): the order and the totals hold; $($s.shapes) shapes of $($s.texts) texts over $($s.formulas) cells, $($s.runs) runs")
+            if ($isHead) {
+                $lines.Add("  $($g.Name): the head holds, its plan row and readers rows; $($s.shapes) shapes of $($s.texts) texts over $($s.formulas) cells, as its plan row states")
+            } else {
+                $lines.Add("  $($g.Name): the order and the totals hold; $($s.shapes) shapes of $($s.texts) texts over $($s.formulas) cells, $($s.runs) runs")
+            }
         }
     }
     return @{ Problems = $problems; Lines = $lines }
@@ -402,7 +438,9 @@ if ($Control) {
         $clean = Join-Path $tmp 'clean.ps1'
         [System.IO.File]::WriteAllText($clean, $common + "`$lines | ForEach-Object { `$_ }`n")
         $mutant = Join-Path $tmp 'mutant.ps1'
-        [System.IO.File]::WriteAllText($mutant, $common + "`$done = `$false; `$lines | ForEach-Object { if (-not `$done -and `$_ -match '^\(shape ') { `$done = `$true; `$_ -replace '\(cells (\d+)\)', '(cells 999999)' } else { `$_ } }`n")
+        # The first shape row's cells, or where the census holds no shape
+        # row, a head golden's, the plan row's formulas (KERNEL.54).
+        [System.IO.File]::WriteAllText($mutant, $common + "`$hasShape = @(`$lines | Where-Object { `$_ -match '^\(shape ' }).Count -gt 0; `$done = `$false; `$lines | ForEach-Object { if (-not `$done -and ((`$hasShape -and `$_ -match '^\(shape ') -or (-not `$hasShape -and `$_ -match '^\(plan '))) { `$done = `$true; `$_ -replace '\(cells (\d+)\)', '(cells 999999)' -replace '\(formulas (\d+)\)', '(formulas 999999)' } else { `$_ } }`n")
         $cache = Join-Path $tmp 'cache'
 
         foreach ($g in $goldens) {
@@ -459,6 +497,14 @@ if ($Control) {
             $t = Test-Census $copy
             if ($t.Problems.Count -eq 0) { $failures.Add("broken copy 'a most above its readers': passed the golden's own checks") }
         }
+        # KERNEL.54: the netlist's head golden with a shape row after its
+        # readers row.
+        $headLines = Get-Lines ([System.IO.File]::ReadAllText((Join-Path $goldenDir 'netlist.vla')))
+        $copy = New-Object System.Collections.Generic.List[string]
+        foreach ($l in $headLines) { $copy.Add($l) }
+        $copy.Add($columnLines[2])
+        $t = Test-Census $copy $true
+        if ($t.Problems.Count -eq 0) { $failures.Add("broken copy 'a shape row in a head golden': passed the golden's own checks") }
     } finally {
         Remove-Item -Recurse -Force -LiteralPath $tmp -ErrorAction SilentlyContinue
     }
@@ -467,7 +513,7 @@ if ($Control) {
         $failures | ForEach-Object { Write-Output "  $_" }
         exit 1
     }
-    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; seven broken copies of the column golden and one of the subset golden each fail the golden's own checks"
+    Write-Output "check_shapes_golden -Control: OK - the clean fake passes all $($goldens.Count) goldens, the second pass from the cache; the mutant fake fails each, naming its line; seven broken copies of the column golden, one of the subset golden and one of the netlist's head each fail the golden's own checks"
     exit 0
 }
 

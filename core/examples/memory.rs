@@ -120,7 +120,9 @@ fn peak() -> usize {
 
 /// The bench programs, built through the door, in the order the recalc runner
 /// prints them; and the fixtures of rows after them.
-const PROGRAMS: [&str; 6] = ["column", "chain", "sums", "life", "lookups", "criteria"];
+const PROGRAMS: [&str; 7] = [
+    "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
+];
 const ROWS: [&str; 2] = ["superposition", "life-x16"];
 
 /// The rounds a load is timed in, each a fresh machine.

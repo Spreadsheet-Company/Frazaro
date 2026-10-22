@@ -999,6 +999,8 @@ impl Machine {
             match next {
                 Some((from, after, shape)) if from <= i => {
                     let to = after.min(end);
+                    #[cfg(test)]
+                    walk::run();
                     self.evaluate_run(shape, i, to, keep);
                     i = to;
                     k += 1;
@@ -1006,6 +1008,8 @@ impl Machine {
                 _ => {
                     let stop = next.map_or(end, |(from, _, _)| from.min(end));
                     while i < stop {
+                        #[cfg(test)]
+                        walk::visited(1);
                         if self.wants(i) {
                             self.evaluate_alone(i, keep);
                         }
@@ -1083,6 +1087,8 @@ impl Machine {
         // one computed whole already, so that what is kept is what its cells
         // were computed with: a part kept from an earlier frame would let a
         // later change back to it pass unseen.
+        #[cfg(test)]
+        walk::shapes(self.shapes.shapes() as u64);
         for s in 0..self.shapes.shapes() {
             if self.recheck[s] && self.parts_moved(s) {
                 self.whole[s] = true;
@@ -1347,6 +1353,8 @@ impl Machine {
     /// frame's end (KERNEL.48): each sheet's share counted by the copy as it
     /// copies each changed cell, or over the list where the end walked.
     fn snapshot(&mut self) {
+        #[cfg(test)]
+        walk::cleared((self.marked.len() + self.whole.len() + self.recheck.len()) as u64);
         self.marked.fill(0);
         self.whole.fill(false);
         self.recheck.fill(false);
@@ -3131,6 +3139,84 @@ fn value_content(v: &Value) -> Content {
         Value::Bool(b) => Content::Bool(*b),
         Value::Error(k) => Content::Error(k.text().to_string()),
         Value::Empty => Content::Number(0.0),
+    }
+}
+
+/// What a frame touched beside the cells it computed, counted in a test
+/// (KERNEL.54's oracle), as `crate::calc::reach::checked` counts the readers
+/// checked: the positions of cells alone the step asked or passed, the runs it
+/// visited, the shapes a frame's start asked for their parts, and the flags
+/// and words a frame's end cleared. Counted on the thread that asked, between
+/// [`walk::begin`] and [`walk::end`], and only in a test build.
+#[cfg(test)]
+pub(crate) mod walk {
+    use std::cell::Cell;
+
+    /// What the frames since [`begin`] touched.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    pub(crate) struct Walk {
+        /// The positions of cells alone the step asked or passed.
+        pub(crate) visited: u64,
+        /// The runs the step visited.
+        pub(crate) runs: u64,
+        /// The shapes a frame's start asked for their parts.
+        pub(crate) shapes: u64,
+        /// The flags and words a frame's end cleared.
+        pub(crate) cleared: u64,
+    }
+
+    thread_local! {
+        static ON: Cell<bool> = const { Cell::new(false) };
+        static DONE: Cell<Walk> = const {
+            Cell::new(Walk {
+                visited: 0,
+                runs: 0,
+                shapes: 0,
+                cleared: 0,
+            })
+        };
+    }
+
+    /// Counting begins on this thread, from nothing.
+    pub(crate) fn begin() {
+        ON.with(|on| on.set(true));
+        DONE.with(|done| done.set(Walk::default()));
+    }
+
+    /// What was counted since [`begin`]; counting ends.
+    pub(crate) fn end() -> Walk {
+        ON.with(|on| on.set(false));
+        DONE.with(Cell::get)
+    }
+
+    fn add(f: impl FnOnce(&mut Walk)) {
+        if ON.with(Cell::get) {
+            DONE.with(|done| {
+                let mut walk = done.get();
+                f(&mut walk);
+                done.set(walk);
+            });
+        }
+    }
+
+    /// Positions of cells alone asked or passed.
+    pub(crate) fn visited(n: u64) {
+        add(|w| w.visited += n);
+    }
+
+    /// One run visited.
+    pub(crate) fn run() {
+        add(|w| w.runs += 1);
+    }
+
+    /// Shapes asked for their parts.
+    pub(crate) fn shapes(n: u64) {
+        add(|w| w.shapes += n);
+    }
+
+    /// Flags and words cleared.
+    pub(crate) fn cleared(n: u64) {
+        add(|w| w.cleared += n);
     }
 }
 
@@ -9409,6 +9495,117 @@ mod tests {
                     "{how:?} at {n} rows: the readers checked, through the index and by the scan"
                 );
             }
+        }
+    }
+
+    // ---- KERNEL.54: a change's cost set by the change ----
+
+    /// `p` pairs of cells of one text standing far apart (KERNEL.54): on sheet
+    /// S, values in column A, and for each `i` from 1 to `p` a formula reading
+    /// A `i` rows below its own cell, written at `C{i}` and again 1,000 rows
+    /// lower, so that each pair is one shape (`KERNEL.34`'s rule, one text one
+    /// shape) whose cells' box is 1,001 rows tall.
+    fn far_apart(p: u32) -> String {
+        let gap = 1000;
+        let rows = 2 * p + gap + 1;
+        let mut s = format!("(cell \"S\" \"A1:A{rows}\" 1)\n");
+        for i in 1..=p {
+            for at in [i, i + gap] {
+                s.push_str(&format!("(formula \"S\" \"C{at}\" \"=A{}\")\n", at + i));
+            }
+        }
+        s
+    }
+
+    #[test]
+    fn far_apart_cells_of_one_text_are_checked_by_every_change_as_found() {
+        // KERNEL.54, counted and not timed, as found: three value cells
+        // written, each read by the first cell of one pair, and the frame's
+        // six changed cells, those three and the three formulas reading them,
+        // each checked against every pair's reader: a reader's footprint is
+        // read over its shape's box, 1,001 rows, too wide to file, so the
+        // sheet's index would not halve them and every change scans them all,
+        // six times the pairs at 32 pairs and at 64.
+        use crate::calc::reach::checked;
+        for p in [32u32, 64] {
+            let mut m = load(&far_apart(p));
+            assert!(m.step(0).done && m.step(0).done);
+            for i in [1u32, 2, 3] {
+                assert_eq!(m.write(&format!("(cell \"S\" \"A{}\" 2)", 2 * i)), Ok(1));
+            }
+            checked::begin();
+            assert!(m.step(0).done);
+            let frame = checked::end();
+            assert_eq!(m.changed(), 3, "{p} pairs: the formulas the frame changed");
+            assert_eq!(frame, 6 * u64::from(p), "{p} pairs: the readers checked");
+            let census = m.census();
+            assert!(
+                census.contains(&format!("(readers \"S\" {p})\n")),
+                "{p} pairs: {census}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_value_written_walks_its_sheet_for_its_extent_as_found() {
+        // KERNEL.54, counted, as found: one value written into a sheet of
+        // `2n` cells walks every one of them for the sheet's extent
+        // (`Sheet::extent`, from `settle`), at 100 rows and at 1,000.
+        for n in [100u32, 1000] {
+            let mut m = load(&format!(
+                "(cell \"S\" \"A1:A{n}\" 1)\n(formula \"S\" \"B1:B{n}\" \"=A1*2\")\n"
+            ));
+            assert!(m.step(0).done);
+            crate::sheet::work::begin();
+            assert_eq!(m.write("(cell \"S\" \"A5\" 3)"), Ok(1));
+            let work = crate::sheet::work::end();
+            assert_eq!(
+                work.extents,
+                2 * u64::from(n),
+                "{n} rows: the cells walked for the extent"
+            );
+        }
+    }
+
+    /// `n` cells alone, each a shape of its own reading the value beside it
+    /// (`=A{r}+{r}`), and a fill of `n` cells reading the same values, one run
+    /// (KERNEL.54).
+    fn alone_and_a_run(n: u32) -> String {
+        let mut s = format!("(cell \"S\" \"A1:A{n}\" 1)\n(formula \"S\" \"C1:C{n}\" \"=A1*2\")\n");
+        for r in 1..=n {
+            s.push_str(&format!("(formula \"S\" \"B{r}\" \"=A{r}+{r}\")\n"));
+        }
+        s
+    }
+
+    #[test]
+    fn an_idle_frame_visits_every_cell_alone_and_every_shape_as_found() {
+        // KERNEL.54, counted, as found: a frame that computes nothing asks
+        // each of its `n` cells alone whether to compute it, visits its run,
+        // asks each of its `n + 1` shapes for its parts, and clears every
+        // shape's two flags and every word of its marks, at 64 cells alone and
+        // at 128.
+        for n in [64u32, 128] {
+            let mut m = load(&alone_and_a_run(n));
+            for _ in 0..3 {
+                assert!(m.step(0).done);
+            }
+            walk::begin();
+            assert!(m.step(0).done);
+            let w = walk::end();
+            assert_eq!(m.reached(), 0, "{n}: the frame computed nothing");
+            let shapes = u64::from(n) + 1;
+            let words = u64::from(2 * n).div_ceil(64);
+            assert_eq!(
+                w,
+                walk::Walk {
+                    visited: u64::from(n),
+                    runs: 1,
+                    shapes,
+                    cleared: words + 2 * shapes,
+                },
+                "{n} cells alone: what an idle frame touched"
+            );
         }
     }
 

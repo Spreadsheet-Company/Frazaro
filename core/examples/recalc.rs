@@ -9,7 +9,12 @@
 //! ```text
 //! cargo run --release -p frazaro-core --example recalc               # every fixture, the baseline rows
 //! cargo run --release -p frazaro-core --example recalc -- --check    # nothing timed: the fixtures and their values held
+//! cargo run --release -p frazaro-core --example recalc -- --netlist  # the netlist program written by its generator
 //! ```
+//!
+//! The netlist program, `scripts/recalc/bench/netlist.txt`, is the one
+//! fixture no person writes: its generator is `bench/netlist.rs`, `--netlist`
+//! writes the file, and `--check` holds the file to it, line for line.
 //!
 //! **What is timed**, each one `step` with no budget, timed alone: a whole
 //! frame, every formula computed, as Excel's `CalculateFull` computes every
@@ -35,7 +40,9 @@
 //! (`KERNEL.8`, a third lineage beside `Calc` and the machine, as Life's);
 //! and every cell of the criteria fixture's summary, its `SUMIFS` and its
 //! `COUNTIFS`, equal to the summary written here by hand, the ledger added
-//! up by account and month in an array (`KERNEL.8`, its fifth slice).
+//! up by account and month in an array (`KERNEL.8`, its fifth slice); and
+//! every gate of the netlist fixture equal to the adder evaluated by hand,
+//! gate by gate in the order they were made (`KERNEL.54`, `bench/netlist.rs`).
 //! Each fixture's checksum, the sum of a range its program names,
 //! is printed as built and as edited for Excel's half to equal: every value
 //! the fixtures compute is a whole number, so the sums are exact.
@@ -76,7 +83,9 @@ use vla_lang::machine::Machine;
 use vla_lang::sheet::{parse_a1_range, A1Range, Content};
 
 /// The fixtures in the order the block prints them.
-const FIXTURES: [&str; 6] = ["column", "chain", "sums", "life", "lookups", "criteria"];
+const FIXTURES: [&str; 7] = [
+    "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
+];
 
 /// The steps timed: whole frames, edits, and the reference's runs.
 const WHOLE: usize = 11;
@@ -94,6 +103,10 @@ use common::{
     drift, generation, median, range, rows_for_machine, soup, spread, thousands, Probe,
     CLOCK_SPREAD_MAX, H, START_READINGS, W,
 };
+
+// The netlist fixture's generator and its hand (`KERNEL.54`).
+#[path = "bench/netlist.rs"]
+mod netlist;
 
 // ---- the reference: the lookups by hand ------------------------------------
 
@@ -192,6 +205,31 @@ fn held_criteria(m: &Machine, p1: &str) -> Result<usize, String> {
         }
     }
     Ok(ACCOUNTS * 13)
+}
+
+// ---- the reference: the netlist by hand -------------------------------------
+
+/// Every gate of the netlist fixture equal to the adder evaluated by hand for
+/// the carry-in `cin` (`KERNEL.54`, `bench/netlist.rs`).
+fn held_netlist(m: &Machine, cin: &str) -> Result<usize, String> {
+    let cin: u8 = cin
+        .parse()
+        .ok()
+        .filter(|&c| c <= 1)
+        .ok_or_else(|| format!("the carry-in {cin} is neither 0 nor 1"))?;
+    let si = m.find_sheet("Output").ok_or("no sheet Output")?;
+    let gates = netlist::by_hand(cin);
+    for &((row, col), v) in &gates {
+        match m.computed((si, row, col)) {
+            Some(Computed::Value(Value::Number(n))) if *n == f64::from(v) => {}
+            got => {
+                return Err(format!(
+                    "Output!R{row}C{col}, with the carry-in {cin}: the machine holds {got:?}, the adder by hand {v}"
+                ))
+            }
+        }
+    }
+    Ok(gates.len())
 }
 
 // ---- a fixture: its program and what its comments say ---------------------
@@ -533,12 +571,14 @@ fn round(
         ));
     }
     r.held += held;
-    // The lookups' fixture held to its lookups by hand as well, and the
-    // criteria's to its summary by hand (KERNEL.8).
+    // The lookups' fixture held to its lookups by hand as well, the
+    // criteria's to its summary by hand (KERNEL.8), and the netlist's to its
+    // adder by hand (KERNEL.54).
     let by_hand = |m: &Machine, p1: &str| -> Result<usize, String> {
         match name.as_str() {
             "lookups" => held_lookups(m, p1).map_err(|e| format!("{name}: {e}")),
             "criteria" => held_criteria(m, p1).map_err(|e| format!("{name}: {e}")),
+            "netlist" => held_netlist(m, p1).map_err(|e| format!("{name}: {e}")),
             _ => Ok(0),
         }
     };
@@ -742,11 +782,47 @@ fn write_flag_variants(
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let check = args.iter().any(|a| a == "--check");
-    if let Some(a) = args.iter().find(|a| a.as_str() != "--check") {
+    let write_netlist = args.iter().any(|a| a == "--netlist");
+    if let Some(a) = args
+        .iter()
+        .find(|a| !matches!(a.as_str(), "--check" | "--netlist"))
+    {
         eprintln!("recalc: an unknown argument, {a}");
         return ExitCode::from(2);
     }
     let root: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    // The netlist program, written by its generator or held to it (KERNEL.54).
+    let netlist_path = root.join("scripts/recalc/bench/netlist.txt");
+    if write_netlist {
+        let text = netlist::program();
+        if let Err(e) = std::fs::write(&netlist_path, &text) {
+            eprintln!("recalc: {}: {e}", netlist_path.display());
+            return ExitCode::FAILURE;
+        }
+        println!(
+            "recalc: wrote {}: {} bytes, {} lines",
+            netlist_path.display(),
+            thousands(text.len() as u64),
+            thousands(text.lines().count() as u64)
+        );
+        return ExitCode::SUCCESS;
+    }
+    if check {
+        match std::fs::read_to_string(&netlist_path) {
+            Ok(have) if have.replace("\r\n", "\n") == netlist::program() => {}
+            Ok(_) => {
+                println!("(recalc-differs \"netlist: scripts/recalc/bench/netlist.txt is not its generator's program; write it again with --netlist\")");
+                return ExitCode::FAILURE;
+            }
+            Err(e) => {
+                println!(
+                    "(recalc-differs \"netlist: {}: {e}\")",
+                    netlist_path.display()
+                );
+                return ExitCode::FAILURE;
+            }
+        }
+    }
     let out = root.join("target").join("bench");
     if let Err(e) = std::fs::create_dir_all(&out) {
         eprintln!("recalc: {}: {e}", out.display());

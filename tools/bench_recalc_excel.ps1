@@ -1,5 +1,5 @@
 <#
-bench_recalc_excel.ps1 - the recalculation floors' Excel half: the six
+bench_recalc_excel.ps1 - the recalculation floors' Excel half: the seven
 fixtures the native runner built, opened in Excel and timed doing the work
 the machine was timed doing, and the flag's three files read; printed as one
 block to paste into tools/check_recalc_floors.ps1 beside the native half's.
@@ -68,7 +68,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $bench = Join-Path $repoRoot 'target/bench'
-$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria')
+$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
 $edits = 21
 $wholeRuns = 11
 $rebuildRuns = 5
