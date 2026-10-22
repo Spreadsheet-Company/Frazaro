@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.56 | KERNEL.57 |
+| KERNEL | KERNEL.57 | KERNEL.58 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -323,6 +323,13 @@ scoping (its Found, and its second slice's probe), for a value written into
 a cell the grid does not hold costing its write and its readers: today the
 write refits the frame to the grid and the next two frames compute every
 formula. `KERNEL.57` is next free.
+`KERNEL.57` was minted 2026-10-22 at the owner's word of 2026-10-21, from
+`KERNEL.50`'s scoping (its decision 8, approved with it: the readers' half
+left to an item of its own) and `KERNEL.47`'s *Found*, for a file's looks
+as rows: `frazaro reflect` printing a workbook's gridlines, its columns'
+widths and formats, its rows' heights and each cell's format, for `.xlsx`
+and `.ods` alike, so that a reflected workbook keeps its looks and, behind
+a manifest, loads as a cartridge with them. `KERNEL.58` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

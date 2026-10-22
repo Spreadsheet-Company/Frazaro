@@ -36511,6 +36511,712 @@ its used range.
   millisecond, its rate exact beside it: read so by the check now, the
   runner's format left as the owner's runs printed it.
 
+**`KERNEL.57`, a file's looks as rows: the scoping, 2026-10-22.** Begun at
+the owner's word of 2026-10-21, from `KERNEL.50`'s scoping (its decision 8,
+approved with it: the readers' half left to an item of its own) and
+`KERNEL.47`'s *Found*, "A file's looks as rows", the starting prompt given
+in chat at `KERNEL.50`'s approval. Minted as the next free `KERNEL` ID and
+nothing else (the owner's word of 2026-10-16 on minting; the findings
+under *Found*): the registry read first, `KERNEL.56` a peer's uncommitted
+mint and `KERNEL.57` free. The scoping is written here, the decisions with
+recommendations and the predictions before any number of the build, then
+a stop for the owner's approval. Nothing is built. HEAD `2473e5b`
+(`KERNEL.50` closed), eighteen ahead of origin, not pushed. In the tree,
+uncommitted and untouched: a peer's `KERNEL.56`, approved and under
+construction, its record above, its roadmap line and registry row, and its
+instrument's files (`core/examples/`, `scripts/recalc/bench/netlist.txt`
+and three tools). Alonzo's HEAD `3e3ad7a`, its tree clean, read and never
+written. Every measurement below was made in the scratchpad, against the
+shared tree's sources by path and in a target of its own; nothing in the
+tree was built, and nothing run but the door already built.
+
+*What it stands on, read in the code.*
+- The readers (`core/src/reflect/`): one `Source`, two readers, one shape
+  and one spelling for both formats (`PORT.8`'s 8e rule). They stream: a
+  sheet's part is inflated whole (an OpenDocument file's `content.xml` held
+  whole), walked once by the cursor and dropped. The fixed order is the
+  header, the `sheet`, `name` and `table` rows, then sheet by sheet the
+  cells in document order, each its `cell` row, its `formula` row and its
+  `refers` rows, so that a formula with a saved value prints its `cell` row
+  first. The package reader reads the workbook part, its relationships, the
+  shared strings, the Tables, the metadata and the external links, and
+  never the styles part or the theme. Its walk stops at `</sheetData>`, so
+  `<sheetViews>`, `<sheetFormatPr>` and `<cols>` before it are passed over
+  and `<mergeCells>` and `<conditionalFormatting>` after it never reached;
+  a cell's `s` is never read, and a hidden row is told to the sink
+  (`hidden_row`, `KERNEL.8`'s fifth slice) and printed by none. The
+  OpenDocument reader reads `content.xml`'s automatic styles for a table
+  style's `display` alone, passes over `table:table-column`, and reads no
+  `styles.xml` and no `settings.xml`. The treaty, oracle 8: "A formatted
+  cell with no value has no row."
+- The record (`vla-lang/src/view.rs`), a window's rows in their fixed
+  order: the `sheet` rows, `window`, `extent`, `gridlines`, the window's
+  `column` rows (a width or `none`, `shown` or `hidden`, a format or
+  `none`) and `row` rows (a height or `none`, `shown` or `hidden`, no
+  format), format 0 and every format the window's columns, cells and looks
+  use, ascending (`format_row`, private), the `look` rows, then each cell's
+  `cell` or `formula` row, its `value` row once values exist, and its
+  `text`, `style` and `sentence` rows. A sheet whole is the window of its
+  extent, so a column or a row outside the cells' rectangle prints no row,
+  and no record prints a `name` row. The `gridlines`, `column`, `row`,
+  `value` and `style` rows are spelled by `format!` strings inside
+  `Grid::rows` and `cell_rows`.
+- The loader (`machine/load.rs`), by its own doc the inverse "of the
+  printers in `crate::rows` and `crate::view`": one write a cell, a cell
+  two rows write refused (`grid-cell-written-twice`), a `value` row after
+  its formula; a `style` row after the row that writes its cell
+  (`grid-cell-unwritten`, `KERNEL.50`); a format said twice alike taken;
+  `window`, `extent`, `refers`, `table` and `text` skipped by name; a value
+  a number, a text, `true`, `false` or an error, so that a `(date ...)` is
+  out of the row's shape; a sheet's name at most 26 characters, so that its
+  twin's fits Excel's 31.
+- The model (`sheet.rs`, `appearance.rs`): a `Style` is a fill, a `NumFmt`
+  (`general`, `text` or a `Code`) and a wrap, and since `KERNEL.50` a
+  `Font` (a weight, a slant, a size in twentieths, a color), an `Align` (a
+  horizontal and a vertical) and a `Border` (four edges, each a `Line` of
+  fourteen and a color), each property said or not, `Style::over` a look's
+  rule; `Line::from_excel`, `Vertical::excel` and `FontSize::parse` already
+  read and write a file's spellings. A `Column` is an index, a width in
+  characters, a hidden and a format; a `RowSettings` a height in points and
+  a hidden; a sheet has its `gridlines`. No cell keeps a format without a
+  value (`Content` has no empty; `KERNEL.50`'s *Found*).
+- The writer (`core/src/sheet/ooxml.rs`): one cell format an entry of the
+  style table, in its order, so that a fresh build's `cellXfs` index is the
+  model's; fonts over Calibri 11 and borders each once, an edge's automatic
+  color `indexed="64"`; the alignment and the `apply` flags;
+  `showGridLines="0"`; `<cols>`, a width by `column_width_attr` (the
+  record's characters at 7 pixels with Excel's padding of 5, so that 72 is
+  written 72.7109375), a hidden column 0 wide, a column's `style`; each
+  `<row r>` with no attribute, so that a row's height and hidden are never
+  written (`KERNEL.50`'s *Found*); a sheet's looks dropped.
+- The door (`cli/src/main.rs`): `reflect <file> [--counts] [--functions]
+  [--cone ...]`, `--counts` a line a sheet and one for the workbook, counts
+  and times alone (`AXM.1`'s discipline). The C-ABI's `frazaro_reflect` and
+  the page's Reflect pane (its Show list: the relations, the audit, what
+  changed) print what the door prints. `frazaro calc`'s sink
+  (`reflect/calc.rs`) already reads the relations' pair, "a `formula` row
+  the formula with the `cell` row before it kept aside as the host's cached
+  value".
+- The standing decisions that bind: `SD-23`, one model and many
+  projections; `SD-26`, the review mode; `SD-30`, nothing fails silently;
+  `SD-32`, appearance declared and not painted; `SD-36`, a built workbook
+  opens in any host; `SD-37`, a refusal is a lesson; Alonzo's `AD-1`
+  (`alonzo` never depends on `frazaro-core`) and `AD-4`; and `KERNEL.8`'s
+  decision that a code's names are English, the owner's Excel's.
+- Alonzo at `3e3ad7a`, read: `SPEC.md` §7.3, "the rows are the relation
+  rows `reflect` and `view` print, so that what a door prints, the engine
+  loads", its table naming `(column ...)`, `(format ...)`, `(style ...)`
+  and `(gridlines ...)` "as the record prints them", and one write a cell
+  (its decision 23); §7.4, "`frazaro reflect book.xlsx` prints its sheets
+  as rows, and a manifest in front of them is a cartridge". Its engine pins
+  `vla-lang` 0.10.1, whose loader takes a `format` row of four items and no
+  group.
+
+*Measured at the scoping* (*measurement*, 2026-10-22, in the scratchpad).
+- *What `reflect` prints does not load.* A probe of the language's loader
+  by path, `read_rows` and then `Machine::new` under the core's library,
+  over oracle 8's eight fixtures reflected: each refused at its first
+  formula with a saved value, `grid-cell-written-twice` ("Model!C1 was
+  already written by line 16"). With each `cell` row directly before its
+  `formula` row written as the `formula` row and a `value` row after it,
+  the record's spelling: `saved.xlsx` (Excel 365's save of the build
+  golden), both build goldens and `model.xlsx` load whole; `fixture.xlsx`
+  and `changed.xlsx` stop at `Machine::new`, `calc-function-not-computed`
+  for `INDIRECT`, the machine's refusal as designed ("the engine's `load`
+  is where they refuse"); and the two OpenDocument twins at their
+  `(cell "Model" "A6" (date "2025-09-30"))`, `grid-row-malformed`.
+  `KERNEL.50`'s two appearance workbooks, which hold no formula, load.
+- *Excel's saves' looks*, a scan of the packages. `saved.xlsx` keeps the
+  build's four cell formats at their indices (the fills `F7F4FC`, `F2F2F2`
+  and `DDEBDD`, `text`, the wrap) and its one font, Calibri 11, and
+  respells the writer's widths 72.7109375 and 60.7109375 as 72.7265625 and
+  60.7265625. `appearance_saved.xlsx`, Excel's own save of `KERNEL.50`'s
+  cases: 16 fonts, each with a color, twelve the default ink `theme="1"`
+  and four `rgb`, its first Aptos Narrow 11; 19 borders, their edges'
+  colors `indexed="64"` twenty times and `rgb` three; 43 cell formats each
+  naming `xfId="0"`, Normal its one cell style, every `apply` flag it
+  writes `1`; `defaultRowHeight="14.5"`; and ten rows whose `ht` Excel
+  fitted to their text or their thick edges (28.5 for a size of 22, 409.6
+  for 409), none `customHeight`. The theme part lists its slots `dk1`
+  (`windowText`) first and `lt1` (`window`) second. Excel's `.ods` save
+  (`opendocument_saved.ods`) writes each column's width in centimeters
+  (1.69333333333333cm, 64 pixels), each row's height in points with
+  `use-optimal-row-height="true"`, its data styles and a `Default` cell
+  style in `styles.xml`, colors as `#RRGGBB`, and no `settings.xml`.
+- *A prototype of the reading* (Python), decisions 4 and 5's rules over the
+  two workbooks that hold `KERNEL.50`'s cases, each case's cell read in the
+  record's spelling and compared with Excel's object-model reading of it in
+  `scripts/appearance_golden.txt`: Excel's own save, 44 alike of the 44
+  cases the language takes; the core's written workbook, 44 of 44. Neither
+  file holds a tint, a palette's index, an `apply` flag off or a cell
+  style but Normal, so those rules stay predictions.
+- *The width's rule by its arithmetic* (ECMA-376 Part 1 §18.3.1.13's two
+  formulas at 7 pixels a character): the writer's 72.7109375 and Excel's
+  72.7265625 are both 509 pixels and read 72; 60.7265625 is 425 pixels and
+  reads 60; 11.2109375, the writer's spelling of 10.5, is 78 pixels and
+  reads 10.43.
+- *The relations' walk today*, the door built in the dev profile:
+  `scripts/recalc/dates.xlsx`, 2,223 cells, 12.1 ms; `texts.xlsx`, 1,630
+  cells, 3.5 ms; `fixture.xlsx`, 57 cells, 0.3 ms; each opened in 0.1 to
+  0.2 ms.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *Where the rows print.* Recommended: behind a flag, `frazaro reflect
+   <file> --looks`. Without it the reader prints the relations as today,
+   byte for byte, so that every golden of oracles 8, 9 and 10 stands,
+   `diff` and `audit` read no look, and a format's change is no change of a
+   workbook's logic, as `SD-32` keeps appearance apart from it (`SD-26`'s
+   question, whether the review mode shows a look's change, is not asked).
+   The flag is taken with `--counts` (decision 8) and refused as a usage
+   error beside `--cone` and `--functions`, whose counts read no look.
+   *Declined:* (a) the looks in the relations by default (every relations
+   golden of a styled file moves, `saved.xlsx`'s and the build goldens'
+   among them, and `diff` reports a fill's change beside a formula's, for
+   no consumer that asks); (b) a door of its own, `frazaro looks` (the
+   looks are read in the same walk, beside the same rows); (c) `frazaro
+   view` over a file, read into a model and viewed (`PORT.8`'s reader
+   streams and holds no model, and `view` is a program's door).
+
+2. *What `--looks` prints, and in which order.* Recommended: each sheet as
+   the record prints a sheet whole (oracle 11, the window of its extent),
+   around the relations' rows. The header as today, the `sheet`, `name`
+   and `table` rows; then sheet by sheet in tab order:
+   `(gridlines "<sheet>" on|off)`; the `column` rows of the extent's
+   columns that have settings, ascending; its `row` rows likewise; format 0
+   and every format the sheet's printed cells and columns use, ascending;
+   then cell by cell in document order, each cell's `cell` or `formula`
+   row, its `value` row (decision 3), its `style` row where its format is
+   not 0, and then its `refers` rows. A `style` row so follows the row that
+   writes its cell, as the loader asks (`grid-cell-unwritten`), and a
+   format said again for a later sheet is said alike, which it takes. A
+   file the writer wrote from a model then reads as that model's record,
+   row for row (decision 12). To print a sheet's formats and rows before
+   its cells, the walk under the flag reads the sheet's part twice, a first
+   pass for the extent, the formats its cells use and its rows' settings,
+   over the part already held whole (8a's bound), so that the reader still
+   streams and holds no model; the relations without the flag read each
+   part once, as today. *Declined:* (a) every format of the file's list
+   once, in the header (no first pass, but a format no cell uses prints, a
+   workbook bloated by copying prints thousands, and a sheet's rows are no
+   record's); (b) the formats and rows after each sheet's cells (no first
+   pass, and a load takes it, but the reading is not the record's order,
+   so decision 12's free oracle compares sets); (c) a sheet's rows held and
+   printed at its end (the memory of the sheet's text, where the part is
+   held already).
+
+3. *A value as the record spells it.* The block measured above.
+   Recommended: under `--looks`, a formula's saved value prints as the
+   record's `(value "<sheet>" "<addr>" <value>)` after its `formula` row,
+   where the relations print a `cell` row before it; and a date, a
+   package's `t="d"` cell or an OpenDocument date or time, prints as its
+   serial number in Excel's calendar (1900, or 1904 where the workbook says
+   `date1904`; the language's `calc::dates`), a time as its fraction of a
+   day and a duration as its days, the cell's format holding its date code,
+   as a package holds a date. So that every row the flag prints loads, the
+   machine's own refusals apart (a function the library does not compute,
+   a cycle), and `saved.xlsx` loads whole, as the respelled probe measured.
+   *Declined:* (a) the loader taking the relations' pair, a `cell` row and
+   directly after it the `formula` row of the same cell, as the formula and
+   its saved value, as `frazaro calc`'s sink reads them (the loader's doc
+   names it the inverse of both printers, and every reflected file would
+   load without a flag; but one write a cell, Alonzo's decision 23, gains
+   an exception for every cartridge, an author's mistaken pair loading
+   quietly, and Alonzo's §7.3 moves with the language's loader); (b) a
+   second flag, `--values` (two flags the road always takes together);
+   (c) the relations respelled for every reading (every golden of oracles 8
+   to 10 moves).
+
+4. *A format's index.* Recommended: the file's own. A package's cell
+   format is the `cellXfs` entry its `s` names, 0 where it names none, so
+   that a `style` row says the file's own number, a file the writer wrote
+   from a model reads at the model's indices (its formats written one an
+   entry, in order; measured, `saved.xlsx` keeps the build's four at
+   theirs), and two readings of one file agree whatever its cells. An
+   OpenDocument file's formats are numbered by its cell styles in the
+   order the document declares them (decision 11). Two entries that print
+   alike print twice, as the file holds them twice. An index past the
+   file's list, or past the 65,536 formats a grid holds, is refused by name
+   (`reflect-unsupported`, naming the cell and the index); a package with
+   no styles part reads every cell at format 0. *Declined:* formats
+   renumbered by their first use (every format renumbered when a cell
+   moves); formats merged by what the record says (the writer's lists are,
+   but the file's number is lost, and with it a format's identity across
+   two readings).
+
+5. *A format read, and against what.* Recommended:
+   - *The cell's own entry.* A cell's format is its `cellXfs` entry's: its
+     `numFmtId`, `fontId`, `fillId` and `borderId` and its `<alignment>`,
+     whatever its `apply` flags and its cell style (`xfId`) say, as Excel
+     draws a cell (*prediction*: decision 12's fixture sets each flag off,
+     and a cell style that says otherwise, to show it).
+   - *Said where it differs.* A property the workbook's default font has,
+     the Normal cell style's font (`cellStyles`' `builtinId="0"`, its
+     `xfId` into `cellStyleXfs`, that entry's `fontId`; font 0 where the
+     file names none), is unsaid: a weight, a slant or a size the default's,
+     a color whose element is the default's own (Excel's `theme="1"` beside
+     font 0's `theme="1"`) or Excel's automatic (`auto`, `indexed="64"`);
+     so that a cell's format prints what it changes, as a said default of a
+     cell's own format draws as the default (`KERNEL.50`, decision 3).
+     Measured in the prototype: under these rules Excel's own save of
+     `KERNEL.50`'s cases and the core's written workbook each read as
+     Excel's object model read every cell, 44 of 44.
+   - *The default font itself* is the workbook's: its family and its size
+     are no row's, so that a reflected workbook set in Arial 10 prints its
+     unsized cells unsized, the record's unsaid size being "the workbook's
+     default" (`Font::size`); a row for it is *Found*.
+   - *The rest.* A fill is a solid pattern's foreground color, `none` for
+     none; a horizontal alignment `left`, `center` or `right` (`general`
+     unsaid) and a vertical `top`, or `middle` for Excel's `center`
+     (`bottom` unsaid), the wrap Excel's `wrapText`; an edge each side
+     with a line, by `Line::from_excel`, its color resolved (decision 6); a
+     number format by decision 7, and what the record has no word for by
+     decision 8.
+   *Declined:* (a) the `apply` flags honored, a property whose flag is off
+   taken from the cell style (the standard's reading; should Excel's run
+   show that Excel draws by them, this follows Excel, the fixture holding
+   both); (b) every property said (each format of an Excel save saying
+   `(font 11 ...)`, its default, and no record of the writer's reading back
+   as itself); (c) a size against the record's own default, Calibri's 11
+   points (every format of a workbook in 10 points says 10, format 0 among
+   them, so that its format 0 is said otherwise than every record's).
+
+6. *Colors.* Recommended: every kind a package names, resolved to the
+   record's six hex digits:
+   - `rgb`: its last six digits, the alpha passed over, as Excel draws a
+     color opaque (*prediction*);
+   - `theme`, no tint: the slot of the workbook's theme part (its
+     relationship's target, `xl/theme/theme1.xml`'s `clrScheme`), counted
+     as Excel counts it: 0 `lt1`, 1 `dk1`, 2 `lt2`, 3 `dk2`, 4 to 9 the
+     accents, 10 `hlink` and 11 `folHlink`, where the part lists `dk1`
+     first. The first pair's swap is measured by inference, Excel's save
+     writing its default ink `theme="1"` beside a part whose first slot is
+     `dk1`, `windowText`, and whose second is `lt1`, `window`; the second
+     pair's swap is a *prediction*. A system color by its `lastClr`;
+   - `theme` with a tint: the slot's color in HLS, its luminance moved by
+     ECMA-376's rule (Part 1 §18.8.19, `fgColor`: a darkening to
+     `L·(1 + tint)`, a lightening to
+     `L·(1 − tint) + (HLSMAX − HLSMAX·(1 − tint))`, HLSMAX 255), converted
+     back and rounded as Excel rounds (*prediction*; Excel's reading the
+     oracle, its rounding the fold's);
+   - `indexed`: the workbook's own `<colors><indexedColors>` where it has
+     one, else Excel's default palette of 64 (ECMA-376 Part 1 §18.8.27);
+     64 and 65, the system's ink and paper, automatic;
+   - `auto`: automatic.
+   Automatic is unsaid for a font's color and an edge's, the record's
+   "Excel's automatic"; a solid fill of it reads as Excel draws it
+   (*prediction*, the fixture's probe). A theme color in a workbook with no
+   theme part is unsaid and counted (decision 8), Excel's own theme being
+   its version's, which the fixture's probe shows. *Declined:* (a) a theme
+   slot printed as itself, `(font (theme 4 0.4))` (a spelling the record,
+   the loader, every painter and the writer would each resolve, for a
+   theme no record carries; `SD-32` declares a color and paints none);
+   (b) tints left unsaid until Excel's golden (every workbook colored from
+   the ribbon's palette uses them).
+
+7. *A number format.* Recommended: as the file holds it. `general` for 0
+   and `text` for 49; a `numFmtId` the styles part defines, its
+   `formatCode` as written, its XML entities read; a built-in id it does
+   not define, by Excel's own reading of it in English (`KERNEL.8`'s
+   decision: a code's names are `en-US`'s, the owner's Excel's), ECMA-376's
+   list (Part 1 §18.8.30) for the ids Excel draws alike everywhere and,
+   for the locale's ids (5 to 8, 14, 22, 27 to 36, 41 to 44, 50 and up),
+   Excel's reading of each (*prediction*: 14 `m/d/yyyy`, 22
+   `m/d/yyyy h:mm`; the fixture's built-ins read back the oracle). A code
+   the language does not draw (`numfmt::Code::parse` refuses it: a color,
+   a condition, a locale, an exponent, a fraction, a width or a fill)
+   prints as written all the same, and a load refuses it by name,
+   `grid-format-code`, saying what draws instead: the reading is the
+   file's, the lesson the cartridge's author's (`SD-37`), and a later
+   language that draws more reads the same rows further. `--looks
+   --counts` counts the cells whose code the language does not draw.
+   *Declined:* (a) such a code printed `general` with a note (a reading
+   that is not the file's, which a language that draws the code would
+   never see); (b) a row of its own (a row kind every loader must skip,
+   saying what the refusal names).
+
+8. *What the record cannot hold.* Recommended: left out of its row, the
+   rest of the format printed, counted under `--looks --counts`, and said:
+   one line on stderr where a reading left anything out, naming the kinds
+   and their counts and `--counts` beside them, so that the rows on stdout
+   load unchanged and nothing is left silently (`SD-30`). The kinds: a cell
+   that keeps a format and no value (`<c r="B2" s="3"/>`; the model holds
+   none, `KERNEL.50`'s *Found*); a format saying what the record has no
+   word for, a font's family other than the default's, an underline, a
+   strike, a superscript or a subscript, a pattern other than solid or a
+   gradient, a horizontal `fill`, `justify`, `centerContinuous` or
+   `distributed`, a vertical `justify` or `distributed`, an indent, a
+   rotation, shrink to fit, a diagonal, a run of rich text, a theme color
+   with no theme part; a row's own format (`<row s customFormat>`); a
+   sheet's own default width (`defaultColWidth`, `baseColWidth`) and its
+   custom default height; a merged range; a conditional format (decision
+   9); a Table's style. Each sheet's `--counts` line gains its looks, `looks
+   formats <n> styled <n> formatted-empty <n> unheld <n> undrawn <n> merged
+   <n> conditional <n> row-formats <n>`, and the workbook's line their
+   sums, counts alone; `--counts` without the flag prints as today. A cell
+   style's name and a cell's protection are no look and neither is
+   counted. *Declined:* (a) a note in the rows, a comment line where
+   something was left (`; Model!B2:B9 keep a format and no value`: a second
+   channel in a text that is rows everywhere else, which the loader and
+   `diff` pass over); (b) a refusal (no workbook with a merged title would
+   read); (c) the nearest look printed in its place, a pattern as its
+   foreground's solid, `centerContinuous` as `center` (a reading that says
+   what the file does not).
+
+9. *Conditional formats, the looks' twin.* Recommended: counted, not read.
+   The record's `look` row is a sheet's map from a value to a format whose
+   fill, number format and wrap replace the cell's own (`KERNEL.50`,
+   decision 3), where a conditional format is a range, a rule and a
+   differential format saying only what it says. An exact twin is rare, a
+   rule `cellIs` `equal` to a constant over the whole sheet whose format
+   says a fill, a number format and a wrap, and the writer writes no look
+   (`KERNEL.50`'s *Found*, "A look reaches no file"), so that no round trip
+   would hold one. The looks' twin in a file is one item for the writer
+   and the reader together, after "a format of groups alone" (`KERNEL.50`'s
+   *Found*) gives a partial look its spelling. *Declined:* (a) the exact
+   twin read as a `look` row (a reader of one rare shape, held by no writer
+   and no golden); (b) every cell-value rule read as a look (a range
+   widened to its sheet, and a format's unsaid fill read as `none`).
+
+10. *Columns, rows and gridlines.* Recommended:
+    - *A column's width as Excel reads it:* the file's width to whole
+      pixels by Excel's rule at the record's 7 pixels a character,
+      `Truncate(((256·w + Truncate(128/7))/256)·7)`, then to characters in
+      hundredths, `Truncate((px − 5)/7·100 + 0.5)/100` (ECMA-376 Part 1
+      §18.3.1.13), so that the writer's 72.7109375 and Excel 365's
+      respelling of it, 72.7265625, both read 72, the build model's
+      (measured); a width that draws Excel's default 64 pixels, 8.43,
+      `none`; a column hidden (`hidden="1"`, or a width of 0) `hidden`, its
+      width `none`, as the writer writes a hidden column 0 wide; its `style`
+      its format; a `<col min max>` span one row a column of the extent;
+      a column outside the extent no row (the record of a sheet whole).
+    - *A row's height where a person set it,* `customHeight="1"`, in
+      points as the file holds them; a height Excel fitted to its text
+      (`ht` alone) `none`, the host's to fit at the open as Excel fits it
+      (`ENGINE.28`'s painter, decision 14); `hidden="1"` hidden; a row
+      outside the extent no row.
+    - *Gridlines* `off` where the sheet's first view says
+      `showGridLines="0"`, `on` otherwise.
+    - *The writer writes what it drops today:* a row's height, `ht` and
+      `customHeight="1"`, and its `hidden="1"`, and a row of settings with
+      no cell among them, so that the round trip holds them (`KERNEL.50`'s
+      *Found*, "A record's rows' heights are never written"); a built model
+      holds no row of settings, so no build golden moves.
+    *Declined:* (a) a fitted height printed (an Excel save of any wrapped
+    or larger text prints a `row` row for each such row, which no file of
+    the writer's holds, so no round trip; and an OpenDocument twin carries
+    a fitted height on every row); (b) a width as the file's own number
+    (one column three spellings, 72, 72.7109375 and 72.7265625).
+
+11. *OpenDocument.* Recommended: the same rows from an `.ods` as from its
+    package twin (`PORT.8`'s 8e rule), read from `content.xml`,
+    `styles.xml` and `settings.xml`:
+    - a cell's style its `table:style-name`, else its row's
+      `table:default-cell-style-name`, else its column's, resolved up its
+      chain, an automatic style of `content.xml` to its
+      `style:parent-style-name` among `styles.xml`'s named styles and on to
+      the family's default style; what the default cell style says is the
+      default, as the Normal style's font is a package's;
+    - its properties as the record's: `fo:background-color` (`transparent`
+      none); `fo:font-weight` (`bold`, or 600 and up), `fo:font-style`
+      (`italic` or `oblique`), `fo:font-size` in points and `fo:color`
+      (`style:use-window-font-color` automatic); `fo:text-align` with
+      `style:text-align-source` (`value-type` general; `start` and `end`
+      left and right), `style:vertical-align` (`automatic` bottom) and
+      `fo:wrap-option`; `fo:border` and its four sides, a width, a style
+      and a color, as Excel's lines (the mapping LibreOffice's save shows);
+    - its data style (`style:data-style-name`) as a code in Excel's syntax:
+      the number, percentage, currency, date, time, text and boolean styles
+      and their parts, a style's `style:map` a condition, as a code's is;
+    - columns' and rows' styles: `style:column-width` in any unit to pixels
+      at 96 to the inch, then to characters as decision 10;
+      `style:row-height` in points where `style:use-optimal-row-height` is
+      `false`; `table:visibility` `collapse` or `filter` hidden;
+    - gridlines from `settings.xml`'s `ShowGrid` for the sheet, else the
+      document's, else `on` (Excel's `.ods` save writes no `settings.xml`,
+      measured);
+    - format 0 the default cell style, then each cell style the sheets'
+      cells, rows and columns name, numbered in the order the document
+      declares them, `content.xml`'s automatic styles then `styles.xml`'s
+      named ones (decision 4).
+    The oracle is LibreOffice's own save of decision 12's fixture, read
+    under the flag as its package is, every difference the format's gap
+    and named, its stop rule written before the save. *Declined:* the
+    package reader alone (8e's rule, two formats one reading); the `.ods`
+    held to Excel's save alone (Excel's OpenDocument writer writes a subset
+    and no `settings.xml`).
+
+12. *The oracle.* Recommended, in the house's shape:
+    - *The round trip* (the core's tests, no host): records holding every
+      look the writer writes, gridlines, columns with widths on whole
+      pixels, hidden and with formats, rows with heights and hidden,
+      formats with fills, codes and every group, styled cells, formulas
+      with their values and numbers under date codes, built into workbooks
+      by the writer with their values, read under `--looks`, loaded by the
+      language's machine and viewed whole, each sheet's record the
+      original's with its said defaults left out. And oracle 11's free
+      oracle extended: a built model's sheet viewed whole, its values
+      computed, is `reflect --looks`'s reading of the file the writer
+      writes from it, its `gridlines`, `column`, `row`, `format`, `cell`,
+      `formula`, `value` and `style` rows row for row
+      (`the_view_of_a_built_model_is_the_reflect_of_its_file`, `api.rs`,
+      extended), over the fresh build's fixture; a build into a host reads
+      at the host's indices, held by each cell's format.
+    - *Excel's own, in the tree already:* Excel's save of `KERNEL.50`'s
+      cases and the core's written workbook, each case's cell read under
+      the flag as `scripts/appearance_golden.txt` records Excel's object
+      model reading it (the prototype's 44 of 44, then the reader's test);
+      `scripts/reflect/saved.xlsx`, Excel's save of the build golden, read
+      as the build model's record.
+    - *Excel's reading of what Excel's writer and the core's never write*
+      (the reference's part, `SD-18`): two fixtures written by a test-only
+      builder of the core's, held byte for byte (`FRAZARO_BLESS=1` writes
+      them again), `scripts/reflect/looks.xlsx` and `looks_book.xlsx`, a
+      case a row, a case's cells beside its name, no two cells sharing an
+      edge. `looks.xlsx`: each of the twelve theme slots, untinted, at each
+      of Excel's palette tints and at two no palette makes, as a fill, a
+      font's color and an edge's; each index of the default palette; an
+      alpha; `auto`; every built-in id from 0 to 49 and the locale's ids
+      past it, with no definition; codes the language refuses; each
+      `apply` flag off over a property, and a cell style whose font, fill
+      and border differ from the cell's own entry; each property decision 8
+      names; widths on whole pixels and off them, and Excel's own; heights
+      custom and fitted; a row's format; formatted empty cells; a merge; a
+      conditional format. `looks_book.xlsx`, the cases a workbook says
+      once: a palette of its own, no theme part, a default font of Arial
+      10. `VlaWriteLooksGolden` (`src/VLA_Tests.bas`) opens each in Excel,
+      reads every case's cells back through the object model
+      (`Interior.Color`; `Font.Bold`, `.Italic`, `.Size` and `.Color`;
+      `HorizontalAlignment`, `VerticalAlignment` and `WrapText`;
+      `NumberFormat`; each edge's `LineStyle`, `Weight` and `Color`;
+      `ColumnWidth`, `RowHeight` and `Hidden`; the window's
+      `DisplayGridlines`) in the record's spelling with the workbook's
+      defaults left out, a value the record has no word for as its number,
+      writes `scripts/reflect/looks_golden.txt`, and saves each as Excel's
+      own, `looks_saved.xlsx` and `looks_book_saved.xlsx`, its personal
+      information removed. The reader's test holds its reading of each
+      fixture and of Excel's save of it to the golden, case by case;
+      `tools/check_looks_golden.ps1` holds the golden's shape and, as a
+      floor, the cases it reaches, with a control, and `run_checks.ps1`'s
+      floor rises from 59 to 60. The prediction is written before the run
+      and kept apart from the golden, its witness `git diff --no-index`
+      (`KERNEL.50`'s lesson: git compares nothing for a file it does not
+      track). Two runs at most, the second only to confirm what the first
+      corrected; an edge Excel answers unstably is labelled, never chased
+      (the owner's rule of 2026-10-20).
+    - *LibreOffice's:* the owner opens `looks.xlsx` in Calc (`SD-36`) and
+      saves it as `scripts/reflect/looks_calc.ods`, the OpenDocument
+      reader's golden (decision 11).
+    - *The goldens of today* byte for byte, and a new row kind of oracle
+      8: `reflect --looks` over the reader's fixtures, `<name>_looks.vla`
+      beside each `<name>_relations.vla`, written by the door and read by
+      the owner's eye with each fixture open in Excel, as 8a's goldens were
+      blessed, and held by `check_reflect_golden.ps1` with an order pin of
+      their own.
+    - *Mutants*, each caught by a named test: the theme's first pair
+      unswapped; a tint applied in RGB; a workbook's palette passed over; a
+      fitted height printed; a width read without its whole pixel; a
+      default property printed; an `apply` flag honored, or ignored, by
+      Excel's answer; a `style` row before its cell's; a format no printed
+      cell uses printed; a saved value printed as a `cell` row under the
+      flag; a date left a date; a code respelled; a formatted empty cell
+      printed; a format's index renumbered; the writer's row height
+      dropped.
+    *Declined:* a fixture made in Excel and saved (Excel's writer never
+    writes an index, an alpha, a flag off or a color with no theme, so the
+    readings other writers' files need would go untested); the round trip
+    alone (no witness of Excel's).
+
+13. *The API, the page and the release.* Recommended: additive only.
+    `vla_lang::rows` gains the record's own rows, `Record<'r>`
+    (`#[non_exhaustive]`: gridlines, column, row, format, value, style),
+    `record_line` their spelling and `Sink::record`, a default body that
+    keeps nothing, as `array` and `hidden_row` are; `view.rs` prints its
+    rows through the same spelling, moved out of `Grid::rows`, `cell_rows`
+    and `format_row`, so that one spelling serves both and every view golden
+    stands byte for byte. `frazaro-core`'s `Source` gains
+    `walk_sheet_looks` beside `walk_sheet_with`, and `reflect_looks_text`,
+    `api::reflect_looks` and the C-ABI's `frazaro_reflect_looks` stand
+    beside their relations' twins, `check_wasm_exports`' baseline one name
+    longer; the door's `--looks`, in `USAGE` and `cli/README.md`; the
+    page's Reflect pane a fourth choice in its Show list, "the relations
+    with their looks", reached from the keyboard as its three siblings are
+    (Tab to Show, then the arrows), so that the flag adds no act the
+    keyboard cannot reach, its status line saying decision 8's note. No
+    public signature changes, so the item rides whichever release follows
+    its last slice, 0.11.0 if before it and 0.11.1 after. *Declined:*
+    `Row` gaining variants (a break of a public enum every sink matches,
+    which no consumer outside the workspace matches, but which the version
+    counts); a flag argument to `frazaro_reflect` (a C signature changed);
+    the page left out (the page prints what the door prints, since
+    `PORT.8`'s 8f).
+
+14. *Alonzo's half, named here and built there.* `SPEC.md` §7.4's road with
+    its looks: Alonzo's pin moved to the release that carries this item, at
+    least 0.11.0, whose loader takes a format's groups (0.10.1's refuses a
+    `format` row of more than four items); a cartridge of a manifest and
+    `reflect --looks`'s reading of a workbook loaded by its engine and
+    drawn, `saved.xlsx` the first, its fills, widths and gridlines; §7.3's
+    table naming the flag as the road's door; `ENGINE.28`'s painter
+    fitting a row of no height to its tallest text, as Excel fits one at
+    the open (decision 10). Alonzo's to mint.
+
+15. *The slices and the order.* Recommended: four, each a commit at the
+    owner's word.
+    - *The package:* the language's `Record` and its spelling, `view.rs`
+      printing by it; the package reader under `--looks` (the first pass,
+      the styles and theme parts, every color kind and the built-ins as
+      predicted, the columns, rows and gridlines, the values as the record
+      spells them); the door's flag, its counts and its note; the writer's
+      rows; the round trip, the free oracle and Excel's two saves in the
+      tree; the `<name>_looks.vla` goldens for the owner's eye; oracle 8's
+      amendment; the release's note.
+    - *Excel's golden:* the two fixtures and their builder;
+      `VlaWriteLooksGolden`; the owner's run in Excel; the fold, where
+      Excel's reading moves a rule; the golden's test, its check and the
+      floor.
+    - *OpenDocument:* `odf.rs`'s styles, data styles, columns, rows and
+      settings; LibreOffice's save of the fixture, the owner's; the reading
+      held to the package's, the format's gap named.
+    - *The page:* `frazaro_reflect_looks` and the Reflect pane's choice, the
+      owner's look in a browser.
+    The order: beside `KERNEL.56`, under construction in the tree, whose
+    files are the machine's, the calculation's and its bench's, none of this
+    item's but the docs; before or after `KERNEL.49`'s third slice, which
+    rewrites the draft and the record's walk around it, `view.rs` the one
+    file both touch, the spelling's move a small hunk for whichever lands
+    second. *Declined:* theme and palette colors a slice after the package
+    (every Excel save names its default ink by `theme="1"`, so a package
+    reader without the theme reads no Excel file whole, and a tint's
+    rounding is what Excel's golden settles, in its fold); one slice (every
+    half held for three runs, Excel's, LibreOffice's and a browser's); the
+    page with the package (a browser's check at each slice).
+
+*Prediction,* written before any build:
+- No golden of today moves: the relations, diff and audit goldens without
+  the flag (oracles 8 to 10); the view goldens (oracle 11, the spelling
+  moved and not changed); the build goldens (oracle 7: no built model holds
+  a row of settings); the calc, census, formats, appearance, refusal,
+  expand, refers, egress, formula syntax and token goldens; Alonzo's
+  describe goldens, replays and digests and Buffet's describe golden, no
+  behavior of `vla-lang`'s moving.
+- `reflect --looks scripts/reflect/saved.xlsx` prints its `Frazaro` sheet
+  as `scripts/view/fixture_frazaro.vla` prints the build's, its
+  `gridlines`, `column`, `format`, `cell` and `style` rows line for line,
+  the widths 72 and 60 read off Excel's 72.7265625 and 60.7265625 and the
+  hidden column A outside the extent, as in the golden; the build golden,
+  `fixture_golden.xlsx`, the same.
+- `reflect --looks scripts/reflect/fixture.xlsx`: its date cell `Model!A6`
+  at a format of `"m/d/yyyy"`, built-in 14; its formatted empty cell
+  counted and said on stderr.
+- Under the flag, each of the 44 cases of `KERNEL.50`'s two workbooks reads
+  as `appearance_golden.txt` reads it, and each workbook loads.
+- Cost: a sheet's walk under the flag 1.3 to 2.0 times the relations', the
+  first pass and the rows, so that `dates.xlsx`'s 12.1 ms is 16 to 24 ms;
+  the styles and theme parts read at the open in under a millisecond for
+  every workbook in the tree; the relations without the flag as before,
+  within the noise.
+- Size: `frazaro-core` 1,100 to 1,700 lines of source (the package's looks
+  450 to 650, OpenDocument's 450 to 700, what both share, the colors, the
+  built-ins, a format's record and the counts, 150 to 250, the door, the
+  API and the C-ABI 60 to 120) and 700 to 1,000 of tests; `vla-lang` 80 to
+  150 more in `rows.rs` and about as many fewer in `view.rs`; the writer's
+  rows 20 to 40; the golden's writer 300 to 450 lines of VBA; the
+  fixtures' builder 400 to 600; the check 150 to 250; the core's module 25
+  to 45 KB larger.
+- Excel's golden, to watch: the theme's two pairs swapped; each tint within
+  one unit a channel of ECMA's rule, the rounding the fold's; an alpha
+  passed over; the palette's first eight the next eight's, 64 and 65
+  automatic, a workbook's own honored; every `apply` flag off drawn as its
+  entry's ids say, and a cell style's font not drawn over the entry's own;
+  built-in 14 read `m/d/yyyy` and 22 `m/d/yyyy h:mm`; 11.2109375 read
+  10.43; a fitted height read as Excel's own fit and not as the file's
+  `ht`; a theme color with no theme part drawn in Excel's own theme. Where
+  one disagrees, the reader follows Excel's reading.
+- LibreOffice's save: every look the package's but where its format cannot
+  say one, to watch the dash-dot lines and the hair, a tint's exact color
+  and a code respelled; every width within a hundredth.
+
+**What it touches.**
+- `vla-lang`: `src/rows.rs` (`Record`, `record_line`, `Sink::record`, the
+  `Printer`), `src/view.rs` (its rows printed through them), `README.md`.
+- `frazaro-core`: `src/reflect/mod.rs` (`walk_sheet_looks`,
+  `reflect_looks_text`); `ooxml.rs` (the styles and theme parts at the
+  open, the first pass, a sheet's views, columns and rows, a cell's
+  format); `odf.rs` (styles, data styles and settings); a new
+  `src/reflect/looks.rs`, what both readers share (the colors, the
+  built-ins, a format's record, the counts); the fixtures' builder,
+  test-only; `src/sheet/ooxml.rs` (a row's height and hidden);
+  `src/api.rs` (`reflect_looks`, the free oracle's test); `src/abi.rs`
+  (`frazaro_reflect_looks`). `cli/src/main.rs` (`--looks`) and
+  `cli/README.md`.
+- The reference: `src/VLA_Tests.bas` (`VlaWriteLooksGolden`,
+  `VLA_TESTS_VERSION` `KERNEL.57`).
+- `scripts/reflect/`: the `<name>_looks.vla` goldens; `looks.xlsx`,
+  `looks_book.xlsx` and Excel's saves of them, `looks_golden.txt` and
+  `looks_calc.ods`, each excepted from `.gitignore`'s `*.xlsx` as
+  `scripts/recalc/`'s are.
+- `tools/`: `check_reflect_golden.ps1` (the looks' rows),
+  `check_looks_golden.ps1` (new) and `run_checks.ps1`'s floor,
+  `check_wasm_exports.ps1`'s baseline.
+- `web/index.template.html` (the Show list).
+- `conformance/README.md`: oracle 8's amendment (the looks, their order and
+  their spelling behind the flag) and oracle 11's free oracle extended.
+- `docs/RELEASES.md`, the roadmap's line, this record and the registry;
+  `Delta/CLAUDE.md`'s lines for the flag, the golden and its check.
+
+**Beside it.**
+- `KERNEL.56`, approved and under construction in this tree: `vla-lang`'s
+  machine and calculation and its bench's files, none of this item's; the
+  docs shared.
+- `KERNEL.49`'s third slice: the draft as records and the record's walk
+  around them (`machine/load.rs`, `view.rs`), decision 15's one shared
+  file.
+- `KERNEL.55`: a spill's cells, which the flag prints as the relations do,
+  values the file cached.
+- `KERNEL.16`, the build's format sentences, whose workbook the flag reads
+  back; with `KERNEL.46`, the cell that keeps a format and no value
+  (decision 8).
+- `ENGINE.28`, Alonzo's painter: a row of no height fitted (decision 14).
+- `AXM.13`, the real model's counts: `--looks --counts` its looks' line.
+
+**Found,** read, not minted:
+- *A cell that keeps a format and no value* (`KERNEL.50`'s *Found*, met
+  here at every bordered form and banded row of a real workbook): decision
+  8 counts it, and the record holds it only when the model does.
+- *A row's own format*, `<row s customFormat>`: the record's `row` row has
+  no format, and a `row` row of five items is refused today, so that its
+  spelling would be additive.
+- *A sheet's own default width and height*: no row of the record says
+  either.
+- *The workbook's default font* (decision 5): its family and its size are
+  no row's.
+- *A look's twin in a file* (decision 9, and `KERNEL.50`'s *Found*):
+  conditional formats written and read together.
+- *A merged range, a Table's style, a rich text's runs, frozen panes*:
+  looks no row says.
+- *Two spellings of a formula's saved value* (decision 3): oracle 8's `cell`
+  row before the formula and oracle 11's `value` row after it; the loader's
+  doc calls it the inverse of both printers, which it is not for this pair,
+  and `frazaro calc`'s sink reads the first.
+- *A sheet's name of 27 to 31 characters*: Excel takes 31, a grid 26 (its
+  twin's `.last`), so that such a workbook loads behind no manifest; the
+  road's to weigh.
+- *A save of views loses a cartridge's names*: the record prints no `name`
+  row, so that a save made of each sheet's view (`SPEC.md` §7.5,
+  `ENGINE.5`'s) would drop a cartridge's defined names; Alonzo's to weigh.
+- *`diff` and `audit` of looks*: a fill's change as a change, `SD-26`'s
+  review mode, when one asks.
+
+*Scoped 2026-10-22; the fifteen decisions await the owner, and nothing is
+built.*
+
+*Approved 2026-10-22* at the owner's word, "Recommendations approved;
+proceed with implementing KERNEL.57 as scoped.": the fifteen decisions as
+recommended. HEAD `2473e5b`, unmoved since the scoping; in the tree the
+peer's `KERNEL.56` under construction, its build in worktrees of its own.
+The roadmap's line 🟡, the first slice, the package, first.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
