@@ -726,11 +726,9 @@ mod tests {
 
     fn a_workbook() -> Workbook {
         let mut wb = Workbook::new();
-        let lavender = wb.styles.id(Style {
-            fill: Some(Rgb(247, 244, 252)),
-            num_fmt: NumFmt::Text,
-            wrap: false,
-        });
+        let lavender = wb
+            .styles
+            .id(Style::new(Some(Rgb(247, 244, 252)), NumFmt::Text, false));
         let mut sh = Sheet::new("Fra & zaro");
         sh.gridlines = false;
         sh.active_cell = (1, 2);
@@ -829,24 +827,18 @@ mod tests {
         // other once, from 164, in the order the style table first uses it.
         let code = |text: &str| NumFmt::Code(Code::parse(text).unwrap());
         let mut wb = a_workbook();
-        let two = wb.styles.id(Style {
-            num_fmt: code("0.00"),
-            ..Style::default()
-        });
-        let glyph = wb.styles.id(Style {
-            num_fmt: code("▲0.00;▼0.00;=0.00"),
-            ..Style::default()
-        });
-        let kg = wb.styles.id(Style {
-            fill: Some(Rgb(1, 2, 3)),
-            num_fmt: code("0.00\" kg & <g>\""),
-            wrap: false,
-        });
-        let again = wb.styles.id(Style {
-            num_fmt: code("▲0.00;▼0.00;=0.00"),
-            wrap: true,
-            ..Style::default()
-        });
+        let two = wb.styles.id(Style::new(None, code("0.00"), false));
+        let glyph = wb
+            .styles
+            .id(Style::new(None, code("▲0.00;▼0.00;=0.00"), false));
+        let kg = wb.styles.id(Style::new(
+            Some(Rgb(1, 2, 3)),
+            code("0.00\" kg & <g>\""),
+            false,
+        ));
+        let again = wb
+            .styles
+            .id(Style::new(None, code("▲0.00;▼0.00;=0.00"), true));
         assert_eq!((two, glyph, kg, again), (2, 3, 4, 5));
         let st = styles_xml(&wb);
         assert!(st.contains("<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"▲0.00;▼0.00;=0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.00&quot; kg &amp; &lt;g&gt;&quot;\"/></numFmts>\n<fonts"), "{st}");
@@ -898,10 +890,7 @@ mod tests {
             let row = i as u32 + 1;
             let code = Code::parse(text).unwrap();
             let drawn = code.text(&Value::Number(*x)).unwrap();
-            let style = wb.styles.id(Style {
-                num_fmt: NumFmt::Code(code),
-                ..Style::default()
-            });
+            let style = wb.styles.id(Style::new(None, NumFmt::Code(code), false));
             let cells = [
                 (1, Content::Text(text.to_string()), 0),
                 (2, Content::Number(*x), style),

@@ -858,11 +858,11 @@ mod tests {
 
     fn ours() -> Workbook {
         let mut wb = Workbook::new();
-        let st = wb.styles.id(crate::sheet::Style {
-            fill: Some(crate::sheet::Rgb(1, 2, 3)),
-            num_fmt: crate::sheet::NumFmt::Text,
-            wrap: false,
-        });
+        let st = wb.styles.id(crate::sheet::Style::new(
+            Some(crate::sheet::Rgb(1, 2, 3)),
+            crate::sheet::NumFmt::Text,
+            false,
+        ));
         let mut a = Sheet::new("Frazaro");
         a.set(
             1,
@@ -1020,10 +1020,8 @@ mod tests {
         let code = |text: &str| crate::sheet::NumFmt::Code(Code::parse(text).unwrap());
         let mut wb = ours();
         for text in ["0.00", "▲0.00;▼0.00;=0.00", "0.00\" kg\""] {
-            wb.styles.id(crate::sheet::Style {
-                num_fmt: code(text),
-                ..crate::sheet::Style::default()
-            });
+            wb.styles
+                .id(crate::sheet::Style::new(None, code(text), false));
         }
         let styles_of = |bytes: &[u8]| {
             let entries = zip::entries(bytes).unwrap();

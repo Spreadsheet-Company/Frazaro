@@ -42,6 +42,7 @@
 //! leads them; its tests read them from their test modules.
 
 pub mod abi;
+pub mod appearance;
 pub mod calc;
 pub mod expand;
 pub mod form;

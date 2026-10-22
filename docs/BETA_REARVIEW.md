@@ -33861,6 +33861,147 @@ critical path, and with a starting prompt for a session to mint and scope
 them, to build after this item's second slice. The roadmap's line 🟡, the
 first slice first.
 
+*The first slice built 2026-10-21*, the language (decisions 1 to 6 and 10,
+decision 11's record and fixture, decision 13's first), over `8586732`, in
+the shared tree beside a peer's AS.10 (`tools/run_checks.ps1` and
+`tools/check_recalc_floors.ps1`, checks run side by side) and the peer's
+`KERNEL.53` mint, their hunks untouched. Built and held in a target of its
+own, since a peer's run held the shared target's `recalc.exe` open.
+
+*What landed.*
+1. `vla-lang/src/appearance.rs`, new: `Font`, a weight and a slant
+   (`Option<bool>`), a size (`FontSize`, twentieths of a point from 20 to
+   8,191, read exactly in hundredths and spelled at its shortest) and a
+   color; `Align`, a `Horizontal` and a `Vertical`, `middle` written as
+   Excel's `center` by `Vertical::excel`; `Border`, four `Option<Edge>`,
+   each a `Line` of the fourteen and a color, each line's record word and
+   Excel's name; each with `over`, its said properties and the cell's own
+   for the rest; the groups read in any order and printed in one
+   (`read_groups`, `groups_text`, crate-private), a format that says nothing
+   asking nothing more.
+2. `sheet.rs`: `Style` gains `font`, `align` and `border` and is
+   `#[non_exhaustive]`; `Style::new`, `Style::says_appearance` and
+   `Style::over`; `Rgb::hex` and `Rgb::from_hex`, the loader's own hex
+   reading moved there; the new types re-exported from `sheet`, so that the
+   core's `sheet` holds them too.
+3. The loader (`machine/load.rs`): a `format` row's groups after its wrap,
+   refused by `grid-format-property` naming what a group holds, and by
+   `grid-row-malformed` for a group twice or a head that is none of the
+   three; a `style` row over a range, every cell of it written by an earlier
+   row, each cell's format said once and a second alike taken;
+   `grid-cell-unwritten` for a `style` or `sentence` row's first cell that
+   no earlier row wrote, where `grid-row-malformed` stood; both rows'
+   shapes.
+4. The record (`view.rs`): `format_row` prints the groups after the wrap.
+5. The reference's catalogue: `grid-format-property` and
+   `grid-cell-unwritten` in `src/VLA_Messages.bas` (`VLA_MESSAGES_VERSION`
+   `KERNEL.50`), exported, two lines of `vla-lang/data/messages.vla`; the
+   grid family fourteen ids, the catalogue's test moved with it
+   (`messages.rs`).
+6. The core: its eleven `Style` literals each a `Style::new`, `build.rs`'s
+   three and eight in the tests of `merge.rs` and `ooxml.rs`; its writer
+   untouched, the second slice's.
+7. The tests: `appearance.rs`'s four; `vla-lang/tests/appearance.rs`'s six,
+   through the public API (each group printed as said and loaded back, a
+   format said twice alike in another order, each refusal by name with its
+   line, the range row and its record, the unwritten cell named for a range,
+   one cell, a sheet no row made and a `sentence` row); the laws' dressed
+   grids, formats 1 and 2 saying a font, an alignment and borders, the
+   generator's draws unmoved, law 3 counting the format rows with groups it
+   met, 126, its floor 60; and the painter's fixture,
+   `vla-lang/testdata/appearance/appearance.vla` (89 lines) and
+   `appearance_drawn.vla` (84), the same window with its looks applied by
+   `Style::over`, which
+   `VLA_BLESS=1 cargo test -p vla-lang --test appearance` writes again.
+8. The floors: `check_crate_package.ps1`'s test includes 31 to 33
+   (`appearance.rs`'s two), its control failing its respelled include at 32;
+   `check_recalc_floors.ps1`'s ceilings, a dated entry with its reason, the
+   memory runner's bytes exactly (below).
+9. The texts: oracle 11's amendment in `conformance/README.md`; the
+   language's README; the 0.11.0 note in `docs/RELEASES.md`;
+   `Delta/CLAUDE.md`'s lines for the module and its fixture.
+
+*Held.* `cargo test --workspace`: the language's 352 (1 ignored), the core's
+196 (3 ignored), the six new, the thirteen laws and the rest;
+`cargo fmt --check` and both clippies at `-D warnings` clean; the language's
+package tested from its own tarball, its 87 files the fixture's among them;
+both wasm modules importing nothing (`check_core_imports` over this slice's
+build). `run_checks.ps1` read 57 of 58 at first: `check_recalc_floors`
+failed every bench program's exact ceiling by 32 bytes and Superposition's
+by 512, decision 6's measure, a `Style` 56 bytes where it was 24 in each
+slot of a grid's style table, a table holding its formats in slots grown by
+doubling, the board's 13 in 16. The file's rule raises a ceiling by a dated
+entry giving its reason, as `KERNEL.54`'s did the same morning; with it, 58
+of 58. The checks the slice trips, one by one, clean: `check_crate_package`
+and its control, `check_data_exports`, `check_message_slots`,
+`check_raise_ratchet`, `check_no_vba_advice`, `check_crate_data`,
+`check_spdx`, `check_id_registry` and `check_module_heads`. Twelve mutants,
+each applied alone to a scratch copy and each caught by a named test: a
+look's said property dropped where the cell's own says one, its unsaid
+property taken from the look, `not-bold` read as unsaid, an edge's color
+dropped, a size's twentieths rounded to halves, the vertical center written
+as Excel's `middle`, the groups printed alignment first, a format that says
+nothing printed with a space (the view goldens' load test among its
+catchers), a look's fill the cell's own, a range row's last row skipped, a
+range's first cell alone checked as written, and an unwritten cell refused
+as out of its shape.
+
+*Over the neighbors, by a path*, in scratch copies, Frazaro's `HEAD` and the
+same with this slice, each with Alonzo's `87e06a5` and Buffet's `f5dcde1`
+over it, every build in a target of its own: Alonzo's tests, 79 and 1, and
+Buffet's, 38 and 54, pass alike over both; `frames --check` equal at every
+frame, every digest, allocation and reallocation the same, the memory held
+32 bytes more a cartridge of one format, 128 more Naught's and 512 more
+Superposition's. No code of either names a `Style`.
+
+*Measured*, natively, a scratch bench over both languages in release, four
+rounds alternated on a machine shared with peers' builds:
+- A view of a record of 201 formats saying none and 200 cells: `HEAD` 206 to
+  214 µs, this slice 205 to 218, level. The first build read 2.5 to 4.4%
+  slower, 5 to 9 µs a view, `groups_text` building three empty lists for
+  every format; it now returns at once for a format that says nothing.
+- The same 201 formats each saying every group: 551 to 575 µs a view, 1.7 µs
+  more a format row.
+- Its load: 0 to 8% slower with no group, 4% at the median, the larger
+  `Style` copied into the loader's map of formats said (*Found*); 1.5 to 2.3
+  µs more a format row saying every group.
+- Alonzo's module 1,504,387 to 1,521,620 bytes, 17.2 KB more (1.1%).
+
+*Against the prediction:* no golden moved, as predicted. A record holding no
+group costs what it did, as predicted once mended; the first build's 25 to
+45 ns a format row had missed it. A format row saying every group, predicted
+1 to 3 µs to print and 2 to 5 µs more to load, measured about 2.7 µs to
+print (its share of the view without groups, 1.0, and 1.7 more) and 1.5 to
+2.3 more to load. Memory, predicted 32 bytes a format, measured 32 a slot of
+the style table, which holds more slots than formats. The module, predicted
+8 to 15 KB, 17.2. The language's lines, predicted 700 to 1,000, about 1,320:
+its source about 700 (`appearance.rs` 564 with its documentation, holding
+the reading and the printing priced under the loader and the printer; the
+loader 64 more; `sheet.rs` 61), and its tests about 620 (the integration
+test 419, the module's own 180, the laws 14, the catalogue's 1), over by the
+tests, the painter's fixture's among them.
+
+*Found* (unminted): *The loader keeps a copy of each format said*
+(`Reader::formats`, for the rule that a format said twice alike is taken),
+so a larger `Style` is copied twice at a load, a load of 201 formats and 200
+cells 4% slower at the median for it; the map could keep a format's line
+alone and compare with the table. `KERNEL.49`'s draft as records (its
+decision 8) rewrites the reader.
+
+*The owner's hand test, 2026-10-21 and 2026-10-22.* `run_checks.ps1` 58 of
+58, ALL GREEN, over the tree after the AS.10 session's commit (`d3dcc3f`),
+which took `tools/check_recalc_floors.ps1` whole and this slice's ceilings
+entry with it, so that the entry stands in HEAD before the code it answers
+for, each grid's bytes there 32 a slot under its ceiling;
+`cargo test -p vla-lang --test appearance --test laws`, 6 and 13; and the
+VBA pass over the catalogue, `VlaDevReload`, the Debug menu's Compile and
+`VlaSelfTests`, pure 2,033 of 2,033 and host 333 of 333.
+
+*Left for the owner:* the commits at the owner's word, the mint and the
+scoping first and this slice second, each of this item's hunks alone beside
+the peer's `KERNEL.53` mint in the three docs; then the second slice, the
+writer and Excel's golden.
+
 **`KERNEL.54`, a change's cost set by the change: the scoping,
 2026-10-21.** Begun at the owner's word, the prompt relayed from Alonzo's
 `CART.9` (*Naught: Vel et Aut*), whose scoping probe found three costs in

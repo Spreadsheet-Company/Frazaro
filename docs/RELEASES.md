@@ -94,6 +94,23 @@
   stretches of the order, 8 bytes each and 4 a shape, and a frame's lists 4
   bytes a shape and 4 a word of 64 cells: the netlist holds 0.57% more, the
   large board 0.016% (KERNEL.54).
+- **A format says how its cell looks.** A format in the record may say its
+  text's weight, slant, size and color, where its text sits across its cell
+  and down it, and each of the cell's four edges, a line of Excel's fourteen
+  and a color:
+  `(format 1 "6B4FC8" general nowrap (font bold "FFFFFF") (align center))`,
+  white bold text centered on Lovelace Lavender's deep shade. A look draws a
+  cell with what its format says and keeps the cell's own for the rest, so
+  that a board's box edges, set once a cell, stand under the looks that draw
+  its digits by value, bold and twice the size of its marks. A format that
+  says none of them reads and prints as before. A `style` row may name a
+  range of written cells, and a `style` or `sentence` row naming a cell no
+  row before it wrote is refused naming that cell. For an engine: `Style`
+  gains `font`, `align` and `border` (`vla_lang::appearance`'s `Font`,
+  `Align` and `Border`) and is marked `#[non_exhaustive]`, with `Style::new`
+  for a fill, a number format and a wrap and `Style::over` for a look over a
+  cell's own; every grid holds 32 bytes more a slot of its style table
+  (KERNEL.50).
 
 ## 0.10.2
 

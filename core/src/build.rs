@@ -77,21 +77,9 @@ const MAX_INLINE_DEPTH: u32 = 32;
 /// is not blank. Blank is `Len(Trim$(...)) = 0`, and VBA's `Trim$` trims
 /// spaces only, so a line of tabs is marked and a line of spaces is not.
 pub fn frazaro_sheet(program_text: &str, styles: &mut Styles) -> Sheet {
-    let sentence = styles.id(Style {
-        fill: Some(LAVENDER),
-        num_fmt: NumFmt::Text,
-        wrap: false,
-    });
-    let result = styles.id(Style {
-        fill: Some(RESULT_GRAY),
-        num_fmt: NumFmt::General,
-        wrap: true,
-    });
-    let ok = styles.id(Style {
-        fill: Some(OK_GREEN),
-        num_fmt: NumFmt::General,
-        wrap: true,
-    });
+    let sentence = styles.id(Style::new(Some(LAVENDER), NumFmt::Text, false));
+    let result = styles.id(Style::new(Some(RESULT_GRAY), NumFmt::General, true));
+    let ok = styles.id(Style::new(Some(OK_GREEN), NumFmt::General, true));
     let mut sheet = Sheet::new(FRAZARO_SHEET);
     sheet.gridlines = false;
     sheet.active_cell = (1, 2);

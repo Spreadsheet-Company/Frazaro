@@ -10,7 +10,13 @@
 //! `format`, `look`, `style` and `sentence`; a `format` row's number format
 //! is `general`, `text` or, since KERNEL.47, a code of Excel's in quotes,
 //! refused by `grid-format-code` naming what it holds that this version
-//! does not draw (`crate::numfmt`). Skipped by name, being a view's or a
+//! does not draw (`crate::numfmt`), and since KERNEL.50 its wrap is followed
+//! by what it says of a font, an alignment and a border, each a group
+//! (`crate::appearance`), refused by `grid-format-property` naming what a
+//! group holds that a format does not take. A `style` row names a cell or,
+//! since KERNEL.50, a range, every cell of it written by an earlier row, as
+//! a `sentence` row's cell is; a cell no earlier row wrote is refused by
+//! `grid-cell-unwritten`, naming it. Skipped by name, being a view's or a
 //! reader's own derivation or a thing no model holds before `KERNEL.8`:
 //! `window`, `extent`, `refers`, `table` and `text`, a number's text under
 //! its code, which a save prints and the code makes again. A `sheet` row
@@ -28,6 +34,7 @@
 
 use std::collections::HashMap;
 
+use crate::appearance::{self, Wrong};
 use crate::calc::{CellId, Computed, ErrorKind, Reason, Value};
 use crate::form::Form;
 use crate::intrinsics::fold;
@@ -36,8 +43,8 @@ use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
 use crate::rows::{quoted, Visibility};
 use crate::sheet::{
-    number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb, RowSettings, Style,
-    Workbook, MAX_COLUMN, MAX_ROW,
+    cell_ref, number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb,
+    RowSettings, Style, Workbook, MAX_COLUMN, MAX_ROW,
 };
 
 use super::{LineRefusal, CELLS};
@@ -189,9 +196,9 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "gridlines" => "(gridlines \"<sheet>\" on|off)",
         "column" => "(column \"<sheet>\" \"<letters>\" <width>|none shown|hidden <format>|none)",
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
-        "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap)",
+        "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)])",
         "look" => "(look \"<sheet>\" <value> <format>)",
-        "style" => "(cell \"<sheet>\" \"<cell>\" <value>) (style \"<sheet>\" \"<cell>\" <format>)",
+        "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
         "sentence" => {
             "(cell \"<sheet>\" \"<cell>\" <value>) (sentence \"<sheet>\" \"<cell>\" <row>)"
         }
@@ -225,6 +232,51 @@ pub(crate) fn format_code(line: u32, code: &str, unsupported: &Unsupported) -> L
                 ("code", &quoted(code)),
                 ("what", &unsupported.what),
                 ("fix", &unsupported.fix),
+            ],
+        ),
+    }
+}
+
+/// `grid-format-property` for a `format` row's group that holds what a
+/// format does not take (KERNEL.50), with what the group takes.
+pub(crate) fn format_property(
+    line: u32,
+    index: &str,
+    group: &str,
+    what: &str,
+    fix: &str,
+) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-format-property",
+            &[
+                ("index", index),
+                ("group", group),
+                ("what", what),
+                ("fix", fix),
+            ],
+        ),
+    }
+}
+
+/// `grid-cell-unwritten` for a `style` or `sentence` row naming a cell that
+/// no row before it wrote (KERNEL.50), the cell named.
+pub(crate) fn unwritten(
+    line: u32,
+    form: &Form,
+    kind: &str,
+    sheet: &str,
+    (row, col): (u32, u32),
+) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-cell-unwritten",
+            &[
+                ("row", &write_datum(form)),
+                ("cell", &format!("{sheet}!{}", cell_ref(row, col))),
+                ("kind", kind),
             ],
         ),
     }
@@ -686,7 +738,7 @@ impl Reader {
     }
 
     fn format(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
-        let [Form::Sym(index), fill, num, Form::Sym(wrap)] = items else {
+        let [Form::Sym(index), fill, num, Form::Sym(wrap), groups @ ..] = items else {
             return Err(malformed(line, form, "format"));
         };
         let index = match index.parse::<u32>() {
@@ -695,7 +747,7 @@ impl Reader {
         };
         let fill = match fill {
             Form::Sym(f) if f == "none" => None,
-            Form::Str(hex) => match rgb(hex) {
+            Form::Str(hex) => match Rgb::from_hex(hex) {
                 Some(c) => Some(c),
                 None => return Err(malformed(line, form, "format")),
             },
@@ -717,11 +769,21 @@ impl Reader {
             "nowrap" => false,
             _ => return Err(malformed(line, form, "format")),
         };
-        let style = Style {
-            fill,
-            num_fmt,
-            wrap,
-        };
+        let mut style = Style::new(fill, num_fmt, wrap);
+        // What its groups say of a font, an alignment and a border
+        // (KERNEL.50), a group holding what a format does not take refused
+        // naming it.
+        match appearance::read_groups(groups) {
+            Ok(said) => {
+                style.font = said.font;
+                style.align = said.align;
+                style.border = said.border;
+            }
+            Err(Wrong::Shape) => return Err(malformed(line, form, "format")),
+            Err(Wrong::Property { group, what, fix }) => {
+                return Err(format_property(line, &index.to_string(), group, &what, fix))
+            }
+        }
         if let Some((said, first)) = self.formats.get(&index) {
             if *said != style {
                 return Err(twice(line, &format!("(format {index})"), *first));
@@ -760,32 +822,35 @@ impl Reader {
         Ok(())
     }
 
-    /// The cell a `style` or `sentence` row names, which an earlier row wrote.
-    fn written_cell(
+    /// The sheet of the cells a `style` or `sentence` row names, each of
+    /// which an earlier row wrote; the first, in row-major order, that none
+    /// did refused by name (KERNEL.50).
+    fn written(
         &self,
         form: &Form,
         kind: &str,
         sheet: &str,
-        addr: &str,
+        range: A1Range,
         line: u32,
-    ) -> Result<CellId, LineRefusal> {
-        let range = parse_a1_range(addr)
-            .filter(|r| r.cells() == 1)
-            .ok_or_else(|| malformed(line, form, kind))?;
-        let si = self
-            .draft
-            .workbook
-            .find_sheet(sheet)
-            .ok_or_else(|| malformed(line, form, kind))?;
-        if !self.draft.workbook.sheets[si]
-            .cells
-            .contains_key(&(range.top, range.left))
-        {
-            return Err(malformed(line, form, kind));
+    ) -> Result<usize, LineRefusal> {
+        let first = (range.top, range.left);
+        let Some(si) = self.draft.workbook.find_sheet(sheet) else {
+            return Err(unwritten(line, form, kind, sheet, first));
+        };
+        let cells = &self.draft.workbook.sheets[si].cells;
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                if !cells.contains_key(&(row, col)) {
+                    return Err(unwritten(line, form, kind, sheet, (row, col)));
+                }
+            }
         }
-        Ok((si, range.top, range.left))
+        Ok(si)
     }
 
+    /// A `style` row: a cell's format, or since KERNEL.50 every cell of a
+    /// range's, as `cell` and `formula` rows take a range; each cell's format
+    /// said once, a second alike taken.
     fn style(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
         let [Form::Str(sheet), Form::Str(addr), Form::Sym(index)] = items else {
             return Err(malformed(line, form, "style"));
@@ -794,20 +859,24 @@ impl Reader {
             Ok(i) if i < FORMATS => i,
             _ => return Err(malformed(line, form, "style")),
         };
-        let id = self.written_cell(form, "style", sheet, addr, line)?;
-        if let Some((said, first)) = self.styles.get(&id) {
-            if *said != index {
-                let what = format!("(style {} {})", quoted(sheet), quoted(addr));
-                return Err(twice(line, &what, *first));
+        let range = parse_a1_range(addr).ok_or_else(|| malformed(line, form, "style"))?;
+        let si = self.written(form, "style", sheet, range, line)?;
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                let id = (si, row, col);
+                if let Some((said, first)) = self.styles.get(&id) {
+                    if *said != index {
+                        let what =
+                            format!("(style {} {})", quoted(sheet), quoted(&cell_ref(row, col)));
+                        return Err(twice(line, &what, *first));
+                    }
+                    continue;
+                }
+                self.styles.insert(id, (index, line));
+                if let Some(cell) = self.draft.workbook.sheets[si].cells.get_mut(&(row, col)) {
+                    cell.style = index;
+                }
             }
-            return Ok(());
-        }
-        self.styles.insert(id, (index, line));
-        if let Some(cell) = self.draft.workbook.sheets[id.0]
-            .cells
-            .get_mut(&(id.1, id.2))
-        {
-            cell.style = index;
         }
         Ok(())
     }
@@ -820,7 +889,11 @@ impl Reader {
             Ok(n) if n > 0 => n,
             _ => return Err(malformed(line, form, "sentence")),
         };
-        let id = self.written_cell(form, "sentence", sheet, addr, line)?;
+        let range = parse_a1_range(addr)
+            .filter(|r| r.cells() == 1)
+            .ok_or_else(|| malformed(line, form, "sentence"))?;
+        let si = self.written(form, "sentence", sheet, range, line)?;
+        let id = (si, range.top, range.left);
         if let Some((said, first)) = self.sentences.get(&id) {
             if *said != n {
                 let what = format!("(sentence {} {})", quoted(sheet), quoted(addr));
@@ -868,13 +941,4 @@ fn column_index(letters: &str) -> Option<u32> {
         n = n * 26 + (c.to_ascii_uppercase() as u32 - 'A' as u32 + 1);
     }
     (1..=MAX_COLUMN).contains(&n).then_some(n)
-}
-
-/// Six hex digits as a colour.
-fn rgb(hex: &str) -> Option<Rgb> {
-    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        return None;
-    }
-    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
-    Some(Rgb(byte(0)?, byte(2)?, byte(4)?))
 }

@@ -22,7 +22,11 @@
 //!                                    height or none, shown or hidden
 //! (format 1 "F7F4FC" text nowrap)    format 0 and every format the window uses:
 //!                                    fill or none, general, text or a code of
-//!                                    Excel's in quotes (KERNEL.47), wrap or nowrap
+//!                                    Excel's in quotes (KERNEL.47), wrap or nowrap,
+//!                                    then what it says of a font, an alignment
+//!                                    and a border, (font ...) (align ...)
+//!                                    (border ...), where it says any (KERNEL.50;
+//!                                    `crate::appearance`)
 //! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
 //!                                    holding the value draws with the format
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
@@ -426,8 +430,9 @@ impl Grid<'_> {
 }
 
 /// A `format` row: the index, the fill as six hex digits or `none`, the
-/// number format, `general`, `text` or a code quoted (KERNEL.47), and
-/// whether text wraps. An index the style table does not hold reads as the
+/// number format, `general`, `text` or a code quoted (KERNEL.47), whether
+/// text wraps, and the groups of what it says of a font, an alignment and a
+/// border (KERNEL.50). An index the style table does not hold reads as the
 /// default format.
 fn format_row(index: u32, style: Option<&Style>) -> String {
     let default = Style::default();
@@ -441,8 +446,11 @@ fn format_row(index: u32, style: Option<&Style>) -> String {
         NumFmt::Text => "text".to_string(),
         NumFmt::Code(code) => quoted(code.as_str()),
     };
+    // What it says of a font, an alignment and a border (KERNEL.50), after
+    // its wrap; nothing for a format that says none of them.
+    let groups = crate::appearance::groups_text(&s.font, &s.align, &s.border);
     format!(
-        "(format {index} {fill} {num} {})",
+        "(format {index} {fill} {num} {}{groups})",
         if s.wrap { "wrap" } else { "nowrap" }
     )
 }
@@ -711,16 +719,8 @@ mod tests {
     fn a_model() -> Workbook {
         let mut wb = Workbook::new();
         let mut styles = Styles::new();
-        let lavender = styles.id(Style {
-            fill: Some(Rgb(247, 244, 252)),
-            num_fmt: NumFmt::Text,
-            wrap: false,
-        });
-        let gray = styles.id(Style {
-            fill: Some(Rgb(242, 242, 242)),
-            num_fmt: NumFmt::General,
-            wrap: true,
-        });
+        let lavender = styles.id(Style::new(Some(Rgb(247, 244, 252)), NumFmt::Text, false));
+        let gray = styles.id(Style::new(Some(Rgb(242, 242, 242)), NumFmt::General, true));
         wb.styles = styles;
         let mut model = Sheet::new("Model");
         model.gridlines = false;

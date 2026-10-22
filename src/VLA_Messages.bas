@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.47"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.50"
+' KERNEL.50: grid-format-property under VLA-Grid - a format row's font,
+' alignment or border group holding what a format does not take (a
+' word, a size, a color, a second weight, an edge twice), named with what
+' the group takes; and grid-cell-unwritten - a style or sentence row
+' naming a cell that no row before it wrote, the cell named, since a
+' style row may now name a range. Raised by the language's loader alone;
+' no VBA site raises them, the add-in's formats being Excel's own.
+'
 ' KERNEL.47: grid-format-code under VLA-Grid - a format row's number format
 ' may be a code of Excel's in quotes, such as "0.00", and a code holding
 ' what this version does not draw (a color, a date's letter, an exponent,
@@ -1607,7 +1615,11 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "grid-row-malformed", 5, "VLA-Grid", "The row {row} is not in its shape, {shape}. In a shape, <value> is a number, a text in quotes, true, false or an error such as (error ""#N/A"")."
     ' KERNEL.47 - a format row's code of Excel's, the construct it holds that this version does not draw named, and what draws instead.
     AddMsg m, "grid-format-code", 5, "VLA-Grid", "The format code {code} holds {what}, which this version does not draw; {fix}."
+    ' KERNEL.50 - a format row's font, alignment or border group holding what a format does not take, named with what the group takes.
+    AddMsg m, "grid-format-property", 5, "VLA-Grid", "The format {index}'s {group} holds {what}, which a format does not take; {fix}."
     AddMsg m, "grid-cell-written-twice", 5, "VLA-Grid", "{what} was already written by line {first}; a grid's rows say one thing about each cell and each setting, so write it once."
+    ' KERNEL.50 - a style or sentence row naming a cell no row before it wrote, the cell named.
+    AddMsg m, "grid-cell-unwritten", 5, "VLA-Grid", "The row {row} names {cell}, which no row before it wrote; a {kind} row follows the row that writes its cell."
     AddMsg m, "grid-sheet-name-invalid", 5, "VLA-Grid", "A grid cannot hold a sheet named {name}. A sheet's name is 1 to 26 characters, so that the name of its twin, the previous frame, fits Excel's 31; it holds none of \ / ? * [ ] : and no apostrophe at either end; and a name ending in .last is a twin's own."
     AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "A write cannot go into {target}: the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."
     AddMsg m, "grid-write-last", 5, "VLA-Grid", "{target} is a cell of {sheet}, the previous frame, which is read-only: write {source}, and the end of the next step copies it there."

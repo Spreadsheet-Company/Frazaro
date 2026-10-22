@@ -1945,3 +1945,50 @@ with three legacy array formulas typed in and 15 rows of the folds' reach
 the table at `no-differ` (`arrays_saved_calc.vla`): 213 formulas, the 210
 the door computes agreeing with Excel's, the legacy array formulas among
 them, and 3 labelled, the two spills and the grid's limit.
+
+## Amendment of 2026-10-21: oracle 11's appearance, a format's font,
+alignment and border (`KERNEL.50`)
+
+A format was a fill, a number format and a wrap, so a record could not say a
+cell's borders, its text's weight, slant, size or color, or where its text
+sits in its cell, and a viewport that paints the record and nothing of its
+own could not draw them. A format now says them, each property said or not.
+
+- **The groups.** A `format` row's wrap may be followed by what the format
+  says of a font, an alignment and a border, each a group given at most
+  once, printed in this order and read in any.
+  `(font bold italic 22 "FFFFFF")`: a weight, `bold` or `not-bold`; a slant,
+  `italic` or `not-italic`; a size in points from 1 to 409.55 by twentieths,
+  as Office keeps one; a color of six hex digits. `(align center middle)`: a
+  horizontal alignment, `general`, `left`, `center` or `right`, and a
+  vertical, `top`, `middle` or `bottom`.
+  `(border (left thin) (top medium "6B4FC8"))`: each of a cell's four edges
+  said whole, its line one of Excel's fourteen, `none` among them, and its
+  color, Excel's automatic where none is said. A group holding what a format
+  does not take is refused by name with what the group takes
+  (`grid-format-property`); a group given twice, or a head that is none of
+  the three, is out of the row's shape. A format that says none of them
+  prints as it did, byte for byte, so that no golden of oracle 11 moves.
+- **A look over a cell's own format.** A format says what its row spells. A
+  look draws a cell with its format's fill, number format and wrap, which
+  every format row spells, as before, and with what its format says of a
+  font, an alignment and a border, the cell's own format giving the rest
+  (`Style::over`). So every look of a record whose formats say no group
+  draws as it did, and a property of a cell's place, a box's edge, stands
+  under a look of its value. A said default, `not-bold`, `not-italic`,
+  `general`, `bottom` or an edge's `none`, takes the cell's own back.
+- **A style row over a range.** A `style` row may name a range, every cell
+  of it written by an earlier row, as `cell` and `formula` rows may; the
+  record prints one `style` row a cell, as before. A `style` or `sentence`
+  row naming a cell no earlier row wrote is refused naming that cell
+  (`grid-cell-unwritten`), where it was refused as out of its shape.
+- **The oracle.** The language's third, ninth and eleventh laws hold over
+  grids whose formats say a font, an alignment and borders
+  (`vla-lang/tests/laws.rs`), and `vla-lang/tests/appearance.rs` holds each
+  group, each refusal and the range row. The painter's fixture,
+  `vla-lang/testdata/appearance/`, is a record whose looks fall over cells
+  that say their own font, alignment and borders, `appearance.vla`, beside
+  the same window with every look applied by `Style::over` and its looks
+  dropped, `appearance_drawn.vla`, which a painter draws alike. The writer's
+  half, a workbook's fonts, borders and alignments held to Excel's own
+  reading of each, is the item's second slice.

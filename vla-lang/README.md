@@ -67,6 +67,17 @@ refused in the same words.
   minute, the second and its decimals, an elapsed time and a twelve-hour
   clock, over Excel's 1900 calendar. A style's `sheet::NumFmt` is `General`,
   `Text` or a `Code`.
+- **Says how a cell looks.** A style (`sheet::Style`) is a fill, a number
+  format and a wrap, and what it says of its text's font, its alignment and
+  its borders (`appearance`): a weight, a slant, a size in points from 1 to
+  409.55 by twentieths, as Office keeps one, and a color; a horizontal and a
+  vertical alignment; and each of a cell's four edges, a line of Excel's
+  fourteen and a color, each said or not. The view record prints what a
+  format says after its wrap, `(font bold 22 "FFFFFF")`,
+  `(align center middle)` and `(border (left medium))`, and the loader reads
+  it back. `Style::over` is the format a cell draws with under a look: the
+  look's fill, number format and wrap, what it says of a font, an alignment
+  and a border, and the cell's own format for the rest.
 - **Reads references.** `refers::scan` finds every reference inside a
   formula's text, cells, ranges, columns, rows, names, Tables, external
   books and 3D spans, and names the calls it cannot read; `refers::r1c1`

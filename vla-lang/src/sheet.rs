@@ -20,6 +20,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+pub use crate::appearance::{Align, Border, Edge, Font, FontSize, Horizontal, Line, Vertical};
 use crate::numfmt::Code;
 use crate::rows::Visibility;
 
@@ -31,6 +32,20 @@ impl Rgb {
     /// The file's spelling: opaque alpha, then the three bytes in hex.
     pub fn argb_hex(self) -> String {
         format!("FF{:02X}{:02X}{:02X}", self.0, self.1, self.2)
+    }
+
+    /// The record's spelling: the three bytes in hex, upper case.
+    pub fn hex(self) -> String {
+        format!("{:02X}{:02X}{:02X}", self.0, self.1, self.2)
+    }
+
+    /// Six hex digits, in either case, as a colour; `None` for anything else.
+    pub fn from_hex(hex: &str) -> Option<Rgb> {
+        if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+        Some(Rgb(byte(0)?, byte(2)?, byte(4)?))
     }
 }
 
@@ -61,12 +76,58 @@ impl NumFmt {
 }
 
 /// One cell format: a solid fill or none, a number format, wrapped text or
-/// not. Index 0 of a [`Styles`] table is this type's default.
+/// not, and since KERNEL.50 (2026-10-21) what it says of its text's font,
+/// its alignment and its borders (`crate::appearance`), each unsaid where
+/// `None`. Index 0 of a [`Styles`] table is this type's default. A list
+/// that may grow (`#[non_exhaustive]`): another crate builds one by
+/// [`Style::new`] or `Style::default()` and sets its fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Style {
     pub fill: Option<Rgb>,
     pub num_fmt: NumFmt,
     pub wrap: bool,
+    pub font: Font,
+    pub align: Align,
+    pub border: Border,
+}
+
+impl Style {
+    /// A format of a fill, a number format and a wrap, saying nothing of a
+    /// font, an alignment or a border.
+    pub fn new(fill: Option<Rgb>, num_fmt: NumFmt, wrap: bool) -> Style {
+        Style {
+            fill,
+            num_fmt,
+            wrap,
+            ..Style::default()
+        }
+    }
+
+    /// Whether the format says anything of a font, an alignment or a
+    /// border (KERNEL.50).
+    pub fn says_appearance(&self) -> bool {
+        self.font != Font::default()
+            || self.align != Align::default()
+            || self.border != Border::default()
+    }
+
+    /// The format a cell draws with under a look whose format this is
+    /// (KERNEL.50): this one's fill, number format and wrap, which every
+    /// format row spells, and of a font, an alignment and a border what
+    /// this one says, the cell's own `own` for the rest. A look of a format
+    /// that says none of them draws with this format whole, as a look did
+    /// before.
+    pub fn over(&self, own: &Style) -> Style {
+        Style {
+            fill: self.fill,
+            num_fmt: self.num_fmt.clone(),
+            wrap: self.wrap,
+            font: self.font.over(&own.font),
+            align: self.align.over(&own.align),
+            border: self.border.over(&own.border),
+        }
+    }
 }
 
 /// The workbook's cell formats, each once; a cell or a column names one by
