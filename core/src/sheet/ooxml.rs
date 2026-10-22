@@ -646,7 +646,7 @@ fn sheet_text(
             Some(Computed::Value(x)) => Some(x),
             _ => None,
         });
-        let (kind, held) = cached(value);
+        let (kind, held) = cached(value.as_ref());
         match &cell.content {
             Content::Text(t) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
@@ -1035,8 +1035,8 @@ mod tests {
     struct Held(std::collections::HashMap<crate::calc::CellId, Computed>);
 
     impl Values for Held {
-        fn computed(&self, id: crate::calc::CellId) -> Option<&Computed> {
-            self.0.get(&id)
+        fn computed(&self, id: crate::calc::CellId) -> Option<Computed> {
+            self.0.get(&id).cloned()
         }
     }
 

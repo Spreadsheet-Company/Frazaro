@@ -17,7 +17,7 @@
 (shape 11 "Model" "E3" "=R[-2]C[-3]:R[-1]C[-3]*2" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (unlowered range))
 (shape 12 "Model" "B4" "=R[-1]C*Rate" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (every-frame name))
 (shape 13 "Model" "D4" "=SUM(Model:Scratch!R[-3]C[-2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup) (calls "SUM") (every-frame span))
-(shape 14 "Model" "D5" "='Q1 Data'!R[-3]C[-2]+'It''s'!R[-4]C[-3]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))
+(shape 14 "Model" "D5" "='Q1 Data'!R[-3]C[-2]+'It''s'!R[-4]C[-3]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot))
 (shape 15 "Model" "E5" "=1/0" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 16 "Review" "C1" "=RC[-2]+1" (cells 4) (levels 0 0 1 4) (runs 1 4 4 4) (alone 0) (reads stride))
 (shape 17 "Review" "D1" "=R[8]C[22]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot))

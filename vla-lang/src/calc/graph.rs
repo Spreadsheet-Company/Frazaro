@@ -248,10 +248,27 @@ pub fn areas_at(
     Ok(Areas::from((a..=b).map(area).collect::<Vec<Area>>()))
 }
 
+/// An area clamped to a sheet's extent, as a walk of the sheet's cells
+/// clamps it ([`cells_in`]); `None` where the two meet nowhere. A walk of a
+/// sheet's array clamps an area by it (KERNEL.49), so that a twin's array,
+/// kept over its sheet's extent, is walked over the twin's own, the
+/// rectangle of its cells, as `Calc` walks the twin read as a sheet.
+pub(crate) fn clamped(area: &Area, extent: Extent) -> Option<Area> {
+    let ((top, left), (bottom, right)) = extent?;
+    let a = Area {
+        sheet: area.sheet,
+        top: area.top.max(top),
+        left: area.left.max(left),
+        bottom: area.bottom.min(bottom),
+        right: area.right.min(right),
+    };
+    (a.top <= a.bottom && a.left <= a.right).then_some(a)
+}
+
 /// Every place of an area inside a sheet's extent, held or not, in
-/// row-major order (KERNEL.8, slice b): the walk of a sheet that holds
-/// reasons beside its cells (`Env::reasons_beside`), each place read
-/// through the environment, which answers the reason where one stands.
+/// row-major order (KERNEL.8, slice b): a range's array made from a sheet
+/// kept as an array, each place read through the environment, which answers
+/// the reason where one stands.
 pub(crate) fn places(extent: Extent, area: &Area) -> impl Iterator<Item = (u32, u32)> {
     let (top, left, bottom, right) = match extent {
         Some(((e_top, e_left), (e_bottom, e_right))) => (

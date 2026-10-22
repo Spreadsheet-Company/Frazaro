@@ -33257,6 +33257,217 @@ out.
 pasted, so that the floors and the ceilings are the owner's run; the check
 then whole.
 
+*The second slice built 2026-10-22*, decisions 3, 4, 5 and 6, with the
+addendum `KERNEL.54`'s session sent at its close weighed beside them (its
+summary word, its laws and tests kept green, its eleven mutants), the grid's
+B-tree still holding the rows' cells:
+
+- *A slot* (decision 4, `calc/dense.rs`): a number of eight bytes and a kind
+  of one, a number, nothing, a text, a truth value, an error by its kind, a
+  formula's reason or a formula with no value yet; a text's string kept
+  beside in blocks of 8 doubling to 512 and then of 512, never moved, and a
+  reason among a few beside; each row's count of slots holding no number
+  (`KERNEL.43`). Nine bytes a slot, where a `Value` and the numbers kept
+  beside it were 33. A walk of an array meets a reason where it stands, as a
+  walk of the cells meets it.
+- *Values by place* (decision 3, `machine/store.rs`, new): each rows' sheet
+  keeps every value its cells hold in one store, a value cell's written at
+  the write that changes it and a formula's where the frame computes one
+  that differs: an array over the sheet's extent by the rule the arrays have
+  kept since `KERNEL.20`, four slots a cell, else a sparse sheet's store. The
+  machine's `values` by position, `KERNEL.31`'s own arrays and their reasons
+  aside, and the frame's values moved at a plan made again (`KERNEL.26`) go;
+  a value is kept once. *Departed from the scoping:* a sparse sheet keeps
+  each column of eight cells or more standing four slots a cell or closer
+  down it as a run, an array down the column, and every other cell by place
+  in an ordered map, where the scoping had an ordered map of every cell: the
+  criteria bench's sheet, 61,371 cells over 600,030 places, read 59% slower
+  through the map and held 2.8 MB more, and reads as fast as an array through
+  its runs.
+- *A twin kept only where read* (decision 5): no twin keeps a cell of its
+  own. A twin a formula reads, a shape's reference or a part's, or every twin
+  while a shape is not followed (a name read, a span of sheets), keeps a store
+  beside its sheet's, its sheet's store's twin as the last frame's end left
+  it, a formula with no value holding nothing; any other twin is made from
+  its sheet's store when a view, the grid lent or a read asks, each cell a
+  write changed since as the write found it (`written_before`) and each value
+  a yielded frame overwrote from beside it. A frame's end tells each formula
+  it changed and each cell written since against its twin as the last end
+  left it, the twin cells changed, the records that spell a change alike
+  (`KERNEL.42`) and a twin cell gained or lost told at the slot before it is
+  overwritten, and copies it into the twin's store where one is kept and into
+  its sheet's plane where one is kept; a store whose sheet's store a write
+  moved to another extent, and a plane a write gave up, are made again from
+  the sheet. `KERNEL.27`'s twin cells left behind their slots and
+  `KERNEL.36`'s walk of every sheet go with the twins' B-trees. A plan made
+  again keeps the stores of the twins it reads, making one from its sheet,
+  and gives up the others. A twin cell gained or lost makes the next frame
+  compute every cell as it did, `KERNEL.56`'s to change.
+- *A twin's extent* stays the rectangle of its cells, as `Calc` reads a twin
+  as a sheet, for every reader; every walk of an array is clamped to its
+  sheet's extent (`graph::clamped`), a no-op for a rows' sheet, whose array
+  is its extent: so that a reason past a twin's cells, which its array now
+  holds, is skipped by a range as at `HEAD` and read where its cell is read.
+  *Found by `KERNEL.56`'s law probe* (a peer's, 2026-10-22): with a twin's
+  walk clamped to its sheet's extent instead, an approximate `MATCH` over a
+  twin bisected another rectangle than `Calc`'s at the frame after a write
+  that grew the sheet; held now by
+  `a_twin_s_extent_is_the_rectangle_of_its_cells_to_every_reader`, every
+  reader of a range over a twin against `Calc` at every frame, by programs
+  and runs, by runs alone and by `Ctx`, the twin an array and a sparse
+  sheet's store.
+- *A reason* is a slot's kind on every store, a twin's included:
+  `Env::reasons_beside` (`KERNEL.8`'s second slice) goes, and `Env::walked`
+  names the sheet a walk of a sheet's cells visits, a twin's sheet for a
+  twin.
+- *The change lists* (decision 6, `machine/bits.rs`, new): the order's
+  positions a bit each, with a summary bit for each word of 64 that holds any
+  (the addendum's summary word): the cells a frame computes, `KERNEL.54`'s
+  list of the words touched going with it; the formula cells it changed,
+  where a list held room for every formula cell; the twin cells its end
+  changed, a formula's by its position and a value cell written since by its
+  place, where a list held room for half the cells. *Departed from the
+  scoping:* a bit a position of the order, not a slot of each sheet's store
+  and each twin's, a twin no formula reads keeping no store, and an eighth of
+  a byte a formula cell; the room of half the cells, past which the next frame
+  computes every cell, kept as a count, so that no frame computes otherwise
+  than it did.
+- *The public surface* (decision 10, the break begun): `Values::computed`
+  answers an owned `Computed`; `Values::lags` and `Values::content` go, and
+  `Values::cells` lends the cells of a sheet the values hold and the model
+  does not, an engine's twin's; `Env::reasons_beside` goes and `Env::walked`
+  comes; `Machine::workbook` lends a copy, its twins made, from `&self`. The
+  core's writer and the recalc runner follow, and the four
+  `workbook().clone()` of the tests drop their copy.
+- *The census* (`Shapes::keeps_array`): a sheet whose cells stand close
+  enough together for an array is read as one by every census, the door's and
+  the machine's, where the door's named a sheet the plan read by a range or a
+  run's moving cell alone; a twin is named by how its store keeps it.
+
+*Measured,* the memory runner (exact, on this tree, `37306af`'s base): bytes
+held after the load and two frames, and at the peak, against the ceilings
+this slice began under:
+
+| fixture | formulas | held, the ceiling | held now | a formula | at the peak, the ceiling | at the peak now |
+|---|---|---|---|---|---|---|
+| column | 60,000 | 29,106,715 | 17,220,986 | 287.0 | 62,909,797 | the same |
+| chain | 39,999 | 15,912,581 | 10,674,075 | 266.9 | 37,447,954 | the same |
+| sums | 28,014 | 11,890,155 | 7,144,895 | 255.0 | 31,769,224 | the same |
+| life | 62,964 | 55,887,927 | 47,510,443 | 754.6 | 283,714,012 | the same |
+| lookups | 140,000 | 77,784,917 | 45,870,596 | 327.6 | 155,549,356 | the same |
+| criteria | 61,370 | 28,981,385 | 22,549,734 | 367.4 | 51,926,755 | 51,926,639 |
+| netlist | 20,480 | 69,548,702 | 62,156,189 | 3,035.0 | 96,745,949 | 90,269,686 |
+| superposition | 798,731 | 320,766,247 | 188,069,711 | 235.5 | 338,724,823 | 331,719,923, 415.3 a formula |
+| life-x16 | 1,019,844 | 405,334,279 | 269,575,847 | 264.3 | 480,831,751 | 430,814,741, 422.4 a formula |
+
+The prediction for the slice, 230 to 240 bytes a formula cell held and 410
+to 420 at the peak for the board, 260 to 270 and 415 to 425 for Life x16, is
+met on all four; the peaks that stand still are the load's, inside the plan,
+which slice 4 takes out. The phases weighed apart (the board's bytes held a
+formula cell): the slot, 359.6; values by place, 327.7; the twins kept where
+read, 247.3; the change lists as bits, 235.5.
+
+*Timed,* the bench's native runner (`bench_recalc.ps1`), this slice against
+`HEAD` in release builds of each, run alternately twice each on this
+machine, the means:
+
+| fixture | first frame | a whole frame | an edit | the load |
+|---|---|---|---|---|
+| column | 7.73 to 2.41 ms | 0.624 to 0.513 | 1.715 to 1.111 | 0.96 |
+| chain | 5.66 to 1.81 | 0.571 to 0.583 | 1.430 to 1.284 | 1.00 |
+| sums | 3.43 to 1.50 | 0.932 to 0.810 | 1.508 to 1.262 | 0.99 |
+| life | 10.22 to 4.95 | 2.026 to 1.780 | 2.476 to 2.322 | 1.00 |
+| lookups | 32.80 to 15.10 | 10.473 to 9.393 | 12.607 to 10.421 | 0.96 |
+| criteria | 18.74 to 13.00 | 12.165 to 10.736 | 7.980 to 5.652 | 0.99 |
+| netlist | 13.23 to 5.85 | 6.828 to 4.160 | 7.699 to 5.819 | 0.96 |
+
+A first frame two to three times faster, its end no longer making every
+twin's B-tree again; every whole frame and edit faster but the chain's whole
+frame, 2% slower in this pair and 2% faster in the pair after phase 3, inside
+the spread of `HEAD`'s own runs between the two (0.571 to 0.591 ms). The
+memory runner's loads 0.96 to 1.02 of `HEAD`'s.
+
+*The tests:* the language's 357 library tests (four of them `KERNEL.50`'s
+since this slice began), its laws and its other suites, the core's 196, the
+door's; clippy with warnings denied in both configurations and rustfmt
+clean; `run_checks` 58 of 58, the floors' check with both runners run, every
+value held and every fixture's bytes under its ceilings. *New:*
+`a_twins_store_is_its_sheet_as_the_last_frame_left_it` (every twin read and
+walked against a reference taken from its sheet at each frame's end, through
+writes of every kind, a refused write, a yield, a frame count set and a save
+loaded, keeping a store for the twins read alone and for every twin);
+`a_twin_made_from_its_sheet_is_the_twin_kept` (eighty generated grids beside
+a sheet no formula reads, and Life's soups, whose Clock none reads, against
+the same grids keeping every twin's store: views after a write and during a
+yield, every value, twin cell, reason, extent, store and plane, the grids
+lent); `a_frame_s_end_copied_is_the_end_made_again_bit_for_bit` and the
+copies' tests at any share (the twin cells changed held to the references
+taken at both ends); `a_twin_no_formula_reads_keeps_no_store`;
+`a_twin_s_extent_is_the_rectangle_of_its_cells_to_every_reader`; the
+store's and the bits' own. *Retired with what they held:* `KERNEL.27`'s twin
+cells made when read against the cells copied, and `KERNEL.36`'s walk past
+half the cells. The census test's grids are made sparse every other seed, a
+lookup and a walk of cells otherwise taken nowhere. *The census goldens:*
+written again with the door, 52 lines of 8 moved, each in its reads alone
+(`lookup` to `slot` 49, a range's reads to `array` 3, and with them the calls
+of `SUM` twice and `OR` once, folded instead), every line count as it was, the netlist's head
+unmoved.
+
+*The mutants,* each alone in this tree, the language's tests run: the three
+of `KERNEL.54`'s eleven whose code the slice rewrote, re-expressed on it (a
+stretch's last word unmarked, the words not cleared, the step's search one
+past its mark), each failing 20 to 34 tests; and seventeen of the slice's
+own, the summary skipping a word and left unset, a written formula's twin and
+a written value cell's never told changed, a value cell's twin cell gained
+untold, a formula's gain or loss untold, a written formula not remembered, a
+twin no formula reads kept, a written cell not copied, a write and a yield
+ignored by a twin made from its sheet, a twin change not noted, the room never
+running out, a twin's extent its sheet's, and the walks of an evaluator's
+range, a lookup's and a run's fold unclamped, each failing named tests. Two
+stand, each equivalent: a twin's slot keeping a formula's lack of a value,
+which no frame's end meets, every formula computed at the frame after a load
+or a write that changed one; and a program's walk unclamped, whose guard hands
+any reason it meets to `Ctx`, whose walk is clamped.
+
+*Alonzo* (`3e3ad7a`), a copy pinned to this tree by a path, its ten reads of
+a computed value matched by reference: its 79 tests and its doctest, its six
+describe goldens written again, 70 lines, each moved in its reads alone (the
+census's); `frames -- --check` every frame of its twelve fixtures equal,
+against the same copy pinned to `37306af`'s language: the allocations at the
+second frame at most the same, Life's and the gun's 80 and 82 to 23, Sand's
+491 to 427, the board's act's and cascade's 346 and 3,948 to 345 and 3,946,
+the rest the same; the heap at the peak 10.4% to 10.8% lower for Life, the gun
+and Naught by fill, 2.1% for the board, 1.0% for Sand, Naught shuffled's the
+same, its peak inside the load's plan.
+
+*Beside it:* `KERNEL.53`'s uncommitted work (`ISFORMULA`, `FORMULATEXT`) with
+this slice, in this tree: its tests and the language's, 366, pass; its census
+golden, `formulas`, moves with this slice's census, and whichever commits
+second writes it again. `KERNEL.56`'s session confirmed its law probe over
+this slice, and files a twin's extent readers under the twin's own extent.
+
+*Found in the build:* the memory of a write copied a written text's old
+content, and the frame's end its new one to tell the twin's change, an
+allocation each, which the board's act and cascade counted at their second
+frame, one more than at `HEAD`: the old content is now moved out of the
+write's log, which no undo needs past the plan's refusal, and the new told
+where it stands. The door's `Calc`, which this slice leaves but for a
+call in its walks, measured 1 to 4% slower on five of the seven programs in
+both pairs and faster on two, which this record does not explain; it keeps no
+floor. A store moved to another extent by a write lays every slot again by
+place (`KERNEL.56`'s measure, 12 ms for the netlist's sheet grown by five
+columns), where a sheet grown below alone could be grown in place; left to
+`KERNEL.56` or the third slice. A reason past a twin's cells is skipped by a
+range over the twin as `Calc` skips it, and read where its cell is read; a
+reason inside them is met by the range, `KERNEL.8`'s second slice's, where
+`Calc`, reading the twin as a sheet, meets none. And
+`a_twin_made_from_its_sheet_is_the_twin_kept` takes 6.8 s, the library's
+longest test, its views and states compared at every frame.
+
+*The hand test, the owner's:* the bench on a quiet machine and its block
+pasted (the ceilings' new entry, every held figure lower and four peaks), so
+that the floors and the ceilings are the owner's run; the check then whole.
+
 **`KERNEL.50`, a format's appearance in the language: the scoping,
 2026-10-20.** Begun at the owner's word of 2026-10-19, from Alonzo's
 `CART.14`, Seiyaku (制約), the owner's number-placement puzzle, scoped and

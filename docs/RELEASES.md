@@ -111,6 +111,34 @@
   for a fill, a number format and a wrap and `Style::over` for a look over a
   cell's own; every grid holds 32 bytes more a slot of its style table
   (KERNEL.50).
+- **An engine's grid holds its values by place, and a twin only where a
+  formula reads it.** Every value a sheet's cells hold, a value cell's and
+  each formula's of the frame, is kept once, by place, nine bytes a cell:
+  an array over the sheet's extent where its cells stand close enough
+  together, and where they do not, arrays down its dense columns and every
+  other cell by place; a formula's reason, and a formula with no value yet,
+  is a slot's kind. A sheet's `.last` twin keeps no cell of its own: where a
+  formula reads it, its values stand in a store beside its sheet's, copied
+  at each frame's end; any other twin is made from its sheet when a view or
+  the grid lent reads it. The large board of 798,731 formula cells holds
+  188 MB after two frames where it held 321, 235 bytes a formula cell where
+  401, and Life at sixteen times its window 270 MB where 405; a first frame
+  is two to three times faster, its end no longer making every twin's
+  cells, a whole frame up to 39% faster (the netlist's) and an edit up to
+  35% (the column's), the chain's whole frame as fast as it was; Alonzo's
+  frames allocate no more, Life's second 23 times where 80. Every value is
+  the same to the bit. A twin's extent is the rectangle of its cells, as
+  before, and a range over a twin is walked there. The census names a
+  sheet kept as an array the same in the door and in an engine: a cell of
+  it read alone is `slot` where it was `lookup`, and its range `array`. For
+  an engine: `Values::computed` answers an owned `Computed`, where it lent
+  one; `Values::lags` and `Values::content` are gone, and `Values::cells`
+  lends the cells of a sheet the values hold and the model does not, as an
+  engine's machine holds its twins; `Env::reasons_beside` is gone, a reason
+  being a slot's kind, and `Env::walked`, a provided method, names the sheet
+  whose cells a walk of a sheet visits; `Machine::workbook` lends a copy of
+  the grid, its twins' cells made, from `&self`, where it made them in place
+  behind `&mut self` (KERNEL.49).
 
 ## 0.10.2
 

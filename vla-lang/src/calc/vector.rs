@@ -70,18 +70,17 @@
 //! paths runs take ([`taken`]).
 
 use std::cell::{Cell, OnceCell, RefCell};
-use std::convert::Infallible;
 use std::hash::Hasher;
 
 use crate::refers::Shape as Part;
 
-use super::dense::Dense;
+use super::dense::{Dense, Slot};
 use super::eval::{
     arithmetic, compare_numbers, compares, finite, intersection, may_merge, near_bounds, numeric,
     operate, Arg, Computed, Ctx, Env, Known, Library, Param, Reason, Strict,
 };
 use super::formula::{BinOp, Expr, RefExpr};
-use super::graph::{Area, CellId};
+use super::graph::{clamped, Area, CellId};
 use super::library::{self, Axis, Fold, Ranged, Rule};
 use super::lookups;
 use super::value::{ErrorKind, Value};
@@ -1398,9 +1397,11 @@ impl<'a> Many<'a> {
             let Some((row, col, _, _)) = r.moved(d_row, d_col) else {
                 return Err(Ok(Value::Error(ErrorKind::Ref)));
             };
-            match dense.and_then(|d| d.get(row, col)) {
-                Some(Value::Number(n)) => Ok(*n),
-                Some(v) if !matches!(v, Value::Empty) => Err(Ok(v.clone())),
+            match dense.and_then(|d| d.slot_of(row, col)) {
+                Some(Slot::Number(n)) => Ok(n),
+                // Any other kind as a read answers it, a formula's reason
+                // among them (KERNEL.49).
+                Some(slot) if !slot.is_empty() => Err(slot.read()),
                 _ => match self.env.read((sheet, row, col)) {
                     Ok(Value::Number(n)) => Ok(n),
                     got => Err(got),
@@ -2583,18 +2584,26 @@ impl<'a> Many<'a> {
                 }
                 continue;
             };
+            // A formula's reason in the range answers where it stands, past
+            // any error before it, as the evaluator's walk of the cells meets
+            // it (KERNEL.49: a reason is a slot's kind); the range clamped to
+            // the sheet's extent, as that walk clamps it.
             let mut err: Option<ErrorKind> = None;
-            let walked = array.each_ref::<Infallible, _>(&area, |v| {
-                match F::Rule::ranged(v) {
-                    Ranged::Counts(item) => fold.add(item),
-                    Ranged::Error(e) => {
-                        err.get_or_insert(e);
+            if let Some(area) = clamped(&area, self.env.extent(area.sheet)) {
+                array.each_read(&area, |_, _, read| {
+                    match read {
+                        Ok(v) => match F::Rule::ranged(v) {
+                            Ranged::Counts(item) => fold.add(item),
+                            Ranged::Error(e) => {
+                                err.get_or_insert(e);
+                            }
+                            Ranged::Skipped => {}
+                        },
+                        Err(r) => return Err(r.clone()),
                     }
-                    Ranged::Skipped => {}
-                }
-                Ok(())
-            });
-            let Ok(()) = walked;
+                    Ok(())
+                })?;
+            }
             if let Some(e) = err {
                 return Ok(Value::Error(e));
             }

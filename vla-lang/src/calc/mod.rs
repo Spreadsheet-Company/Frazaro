@@ -92,7 +92,7 @@ use std::collections::HashMap;
 
 use crate::messages::{raise, Refusal};
 use crate::refers::quote_sheet;
-use crate::sheet::{cell_ref, formula_text, shared_masters, Content, Workbook};
+use crate::sheet::{cell_ref, formula_text, shared_masters, A1Range, Cell, Content, Workbook};
 
 pub use array::Array;
 pub use dense::Dense;
@@ -342,22 +342,19 @@ impl<'m> Calc<'m> {
 /// computed value, or `None` for a value cell or a formula with no value
 /// yet. [`Calc`] answers it, and so does an engine's machine, whose values
 /// outlive any one recalculation; the view record prints its `value` rows
-/// from either.
+/// from either. The value is the answer's own (KERNEL.49): a machine keeps a
+/// formula's value as nine bytes in its sheet's store and holds no
+/// [`Computed`] to lend.
 pub trait Values: std::fmt::Debug {
-    fn computed(&self, id: CellId) -> Option<&Computed>;
+    fn computed(&self, id: CellId) -> Option<Computed>;
 
-    /// Whether some of a sheet's cells hold content newer than the model's
-    /// (KERNEL.27): an engine's machine makes a twin's cells from its array
-    /// only when a reader of the twin as a sheet asks, and the record and the
-    /// plane read such a sheet's cells through [`Values::content`]. No sheet,
-    /// for any other.
-    fn lags(&self, _sheet: usize) -> bool {
-        false
-    }
-
-    /// A cell's content where it is newer than the model's, on a sheet that
-    /// [`Values::lags`]; `None` for the model's own.
-    fn content(&self, _id: CellId) -> Option<Content> {
+    /// A sheet's cells inside a window, row by row, where the values hold
+    /// them and the model holds none (KERNEL.49): an engine's machine keeps
+    /// a `.last` twin's values in a store and no cell, and makes the twin's
+    /// cells when the record or the plane reads them, each its content as a
+    /// value cell holds it, in the default format. `None`, the model's own
+    /// cells, for any other.
+    fn cells(&self, _sheet: usize, _window: &A1Range) -> Option<Vec<((u32, u32), Cell)>> {
         None
     }
 
@@ -373,8 +370,8 @@ pub trait Values: std::fmt::Debug {
 }
 
 impl Values for Calc<'_> {
-    fn computed(&self, id: CellId) -> Option<&Computed> {
-        Calc::computed(self, id)
+    fn computed(&self, id: CellId) -> Option<Computed> {
+        Calc::computed(self, id).cloned()
     }
 
     fn kept_extent(&self, sheet: usize) -> Option<Extent> {

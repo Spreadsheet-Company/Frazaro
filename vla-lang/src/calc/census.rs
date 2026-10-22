@@ -543,7 +543,9 @@ mod tests {
     fn a_running_balance_s_census_is_one_cell_a_level() {
         // Each balance reads the one above it: nineteen levels of one cell,
         // every one alone; the entries beside them one run at the first
-        // level, with the first balance, a shape of its own.
+        // level, with the first balance, a shape of its own. The sheet keeps
+        // its values as an array, every sheet of the rows dense enough does
+        // (KERNEL.49), so each balance reads its cells by their slots.
         let m = machine(
             concat!(
                 "(sheet \"Output\" visible)\n",
@@ -559,9 +561,9 @@ mod tests {
             concat!(
                 "(plan (shapes 3) (texts 3) (formulas 39) (levels 20) (runs 1) (lanes 19) (alone 20) (every-frame 0) (cycles 0))\n",
                 "(readers \"Output\" 3)\n",
-                "(shape 0 \"Output\" \"B1\" \"=RC[-1]\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup))\n",
+                "(shape 0 \"Output\" \"B1\" \"=RC[-1]\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot))\n",
                 "(shape 1 \"Output\" \"A2\" \"=MOD(ROW()*7,13)\" (cells 19) (levels 0 0 1 19) (runs 1 19 19 19) (alone 0) (reads))\n",
-                "(shape 2 \"Output\" \"B2\" \"=R[-1]C+RC[-1]\" (cells 19) (levels 1 19 19 1) (runs 0 0 0 0) (alone 19) (reads lookup))\n",
+                "(shape 2 \"Output\" \"B2\" \"=R[-1]C+RC[-1]\" (cells 19) (levels 1 19 19 1) (runs 0 0 0 0) (alone 19) (reads slot))\n",
             )
         );
     }
@@ -833,7 +835,7 @@ mod tests {
             "(shape 5 \"Model\" \"G1\" \"=RC[-6] R[1]C[-6]\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (every-frame unread))",
             "(shape 6 \"Model\" \"H1\" \"=SUM(Jan:Feb!RC[-7])\" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads lookup) (calls \"SUM\") (every-frame span))",
             "(shape 7 \"Model\" \"D3\" \"=RC[-3]*2\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot) (same 2))",
-            "(shape 8 \"Jan\" \"B1\" \"=RC[-1]+1\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads lookup) (sheets 2))",
+            "(shape 8 \"Jan\" \"B1\" \"=RC[-1]+1\" (cells 2) (levels 0 0 1 2) (runs 0 0 0 0) (alone 2) (reads slot) (sheets 2))",
         ] {
             assert!(lines.contains(&row), "no row {row} in\n{census}");
         }

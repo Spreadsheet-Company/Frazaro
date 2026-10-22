@@ -52,7 +52,7 @@ use crate::machine::CELLS;
 use super::aggregates::{Stat, Tally};
 use super::criteria::{cells_of, criterion_wildcard, Criterion, Target};
 use super::eval::{exact_order, finite, Ctx, Reason};
-use super::graph::{cells_in, places, Area, CellId};
+use super::graph::{cells_in, clamped, Area, CellId};
 use super::order;
 use super::value::{round15, text_to_number, ErrorKind, Value};
 
@@ -121,23 +121,25 @@ pub(crate) type Read<'v> = Result<&'v Value, &'v Reason>;
 
 /// Each cell an area holds, row by row, its row, its column and its value
 /// lent or its reason, to `f`, as `Ctx::each` walks an area: a sheet the
-/// environment keeps as an array by index, its empty slots passed by; a
-/// sheet holding reasons beside its cells at every place (KERNEL.8, slice
-/// b); any other through its cells, each read through the environment, a
-/// cell that reads as nothing passed by. `f` answers whether to go on.
+/// environment keeps as an array by index over the sheet's extent, its empty
+/// slots passed by and a reason met where it stands (KERNEL.49); any other
+/// through the cells the environment walks for it ([`super::Env::walked`]),
+/// each read through the environment, a cell that reads as nothing passed
+/// by. `f` answers whether to go on.
 pub(crate) fn walk<F>(ctx: &Ctx<'_>, area: &Area, mut f: F)
 where
     F: FnMut(u32, u32, Read<'_>) -> bool,
 {
     if let Some(kept) = ctx.env.dense(area.sheet) {
-        let _ = kept.each_at(
-            area,
-            |row, col, v| if f(row, col, Ok(v)) { Ok(()) } else { Err(()) },
-        );
+        if let Some(area) = clamped(area, ctx.env.extent(area.sheet)) {
+            let _ = kept.each_read(
+                &area,
+                |row, col, read| if f(row, col, read) { Ok(()) } else { Err(()) },
+            );
+        }
         return;
     }
-    let model = ctx.env.model();
-    let Some(sheet) = model.sheets.get(area.sheet) else {
+    let Some(sheet) = ctx.env.walked(area.sheet) else {
         return;
     };
     let extent = ctx.env.extent(area.sheet);
@@ -148,14 +150,6 @@ where
             Err(r) => f(row, col, Err(&r)),
         }
     };
-    if ctx.env.reasons_beside(area.sheet) {
-        for (row, col) in places(extent, area) {
-            if !visit(row, col) {
-                return;
-            }
-        }
-        return;
-    }
     for ((row, col), _) in cells_in(sheet, extent, area) {
         if !visit(row, col) {
             return;

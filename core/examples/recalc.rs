@@ -148,7 +148,7 @@ fn held_lookups(m: &Machine, p1: &str) -> Result<usize, String> {
         for (j, w) in want.iter().enumerate() {
             let col = 4 + j as u32;
             match m.computed((si, row, col)) {
-                Some(Computed::Value(Value::Number(n))) if n == w => {}
+                Some(Computed::Value(Value::Number(n))) if n == *w => {}
                 got => {
                     return Err(format!(
                         "Output!R{row}C{col}, with P1 {p1}: the machine holds {got:?}, the lookups by hand {w}"
@@ -195,7 +195,7 @@ fn held_criteria(m: &Machine, p1: &str) -> Result<usize, String> {
         for (j, w) in want.iter().enumerate() {
             let col = 18 + j as u32;
             match m.computed((si, row, col)) {
-                Some(Computed::Value(Value::Number(n))) if *n == *w as f64 => {}
+                Some(Computed::Value(Value::Number(n))) if n == *w as f64 => {}
                 got => {
                     return Err(format!(
                         "Output!R{row}C{col}, with P1 {p1}: the machine holds {got:?}, the criteria by hand {w}"
@@ -221,7 +221,7 @@ fn held_netlist(m: &Machine, cin: &str) -> Result<usize, String> {
     let gates = netlist::by_hand(cin);
     for &((row, col), v) in &gates {
         match m.computed((si, row, col)) {
-            Some(Computed::Value(Value::Number(n))) if *n == f64::from(v) => {}
+            Some(Computed::Value(Value::Number(n))) if n == f64::from(v) => {}
             got => {
                 return Err(format!(
                     "Output!R{row}C{col}, with the carry-in {cin}: the machine holds {got:?}, the adder by hand {v}"
@@ -325,15 +325,14 @@ fn same(a: &Value, b: &Value) -> bool {
 }
 
 /// The cells of one sheet within an area, by place, each with the number it
-/// holds as a value cell. The grid is read before the machine's values are
-/// asked, since the machine lends its grid only to a caller that may change
-/// it: lending it makes a twin's cells from its array (`KERNEL.27`).
+/// holds as a value cell, read from the grid the machine lends, a copy whose
+/// twins it makes from their sheets (`KERNEL.49`).
 struct Cells {
     sheet: usize,
     places: Vec<((u32, u32), Option<f64>)>,
 }
 
-fn cells_within(m: &mut Machine, sheet: &str, a: &A1Range) -> Result<Cells, String> {
+fn cells_within(m: &Machine, sheet: &str, a: &A1Range) -> Result<Cells, String> {
     let si = m
         .find_sheet(sheet)
         .ok_or_else(|| format!("no sheet {sheet}"))?;
@@ -356,7 +355,7 @@ fn cells_within(m: &mut Machine, sheet: &str, a: &A1Range) -> Result<Cells, Stri
 /// the number it holds as a value cell, `own`.
 fn number_at(m: &Machine, id: CellId, own: Option<f64>) -> Option<f64> {
     if let Some(Computed::Value(Value::Number(n))) = m.computed(id) {
-        return Some(*n);
+        return Some(n);
     }
     own
 }
@@ -409,7 +408,7 @@ fn held_to_file(
             ));
         };
         match m.computed((mi, row, col)) {
-            Some(Computed::Value(got)) if same(got, &want) => held += 1,
+            Some(Computed::Value(got)) if same(&got, &want) => held += 1,
             got => {
                 return Err(format!(
                     "{name}!R{row}C{col}: the machine holds {got:?}, the file {want:?}"
@@ -420,12 +419,12 @@ fn held_to_file(
     Ok(held)
 }
 
-/// Every formula of the machine's grid equal to `Calc` over the same grid.
-/// `Calc` borrows the grid, which the machine lends only to a caller that may
-/// change it, so its values are taken before the machine's are asked.
-fn held_to_calc(m: &mut Machine, lib: &vla_lang::calc::Library) -> Result<usize, String> {
+/// Every formula of the machine's grid equal to `Calc` over the same grid,
+/// the copy the machine lends, its twins made from their sheets (`KERNEL.49`).
+fn held_to_calc(m: &Machine, lib: &vla_lang::calc::Library) -> Result<usize, String> {
     let wants: Vec<(CellId, Option<Computed>)> = {
-        let calc = Calc::run(m.workbook(), lib);
+        let book = m.workbook();
+        let calc = Calc::run(&book, lib);
         calc.formula_cells()
             .into_iter()
             .map(|id| (id, calc.computed(id).cloned()))
@@ -437,7 +436,7 @@ fn held_to_calc(m: &mut Machine, lib: &vla_lang::calc::Library) -> Result<usize,
             continue;
         }
         match (m.computed(id), want.as_ref()) {
-            (Some(Computed::Value(a)), Some(Computed::Value(b))) if same(a, b) => held += 1,
+            (Some(Computed::Value(a)), Some(Computed::Value(b))) if same(&a, b) => held += 1,
             (got, want) => {
                 return Err(format!(
                     "{}!R{}C{}: the machine holds {got:?}, Calc {want:?}",
@@ -612,21 +611,21 @@ fn round(
                 // hide a machine that stopped following them: its last frame
                 // computed would equal the state the edits came back to.
                 if check {
-                    r.held += held_to_calc(&mut m, &excel::library())
+                    r.held += held_to_calc(&m, &excel::library())
                         .map_err(|e| format!("{name}: after edit {}: {e}", k + 1))?;
                     r.held += by_hand(&m, v)?;
                 }
             }
             if !check {
                 r.held +=
-                    held_to_calc(&mut m, &excel::library()).map_err(|e| format!("{name}: {e}"))?;
+                    held_to_calc(&m, &excel::library()).map_err(|e| format!("{name}: {e}"))?;
                 r.held += by_hand(&m, other)?;
             }
         }
         Change::Frames {
             cell, count, seed, ..
         } => {
-            let seeds = cells_within(&mut m, &seed.sheet, &seed.area)
+            let seeds = cells_within(&m, &seed.sheet, &seed.area)
                 .map_err(|e| format!("{name}: {e} for the seed"))?;
             let seed = seeds
                 .places
@@ -641,7 +640,7 @@ fn round(
                 right: W as u32,
             };
             let screen =
-                cells_within(&mut m, &fx.sum.sheet, &extent).map_err(|e| format!("{name}: {e}"))?;
+                cells_within(&m, &fx.sum.sheet, &extent).map_err(|e| format!("{name}: {e}"))?;
             held_plane(&m, &screen, &want, 1).map_err(|e| format!("{name}: {e}"))?;
             let last = *count;
             for f in 2..=last {

@@ -24,12 +24,12 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use crate::rows::quoted;
-use crate::sheet::Workbook;
+use crate::sheet::{Sheet, Workbook};
 
 use super::array::{self, Array, Lifted};
 use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RangeExpr, RefExpr};
-use super::graph::{areas_at, cells_in, places, Area, Areas, CellId, Extent, Names};
+use super::graph::{areas_at, cells_in, clamped, places, Area, Areas, CellId, Extent, Names};
 use super::index::Indexes;
 use super::value::{round15, text_to_number, ErrorKind, Value};
 
@@ -232,15 +232,15 @@ pub trait Env {
         false
     }
 
-    /// Whether reasons stand on a sheet beside its cells, at places no cell
-    /// of it holds (KERNEL.8, slice b: an engine's machine, whose `.last`
-    /// twin holds no cell for a formula not computed, its reason beside):
-    /// a walk of an area of such a sheet reads every place of the area
-    /// inside the sheet's extent, so that it meets a reason where a walk of
-    /// the sheet the twin copies meets it. `false`, unless an environment
-    /// says otherwise.
-    fn reasons_beside(&self, _sheet: usize) -> bool {
-        false
+    /// The sheet whose cells a walk of an area of a sheet visits, each read
+    /// through the environment (KERNEL.49): the sheet itself, unless an
+    /// environment says otherwise. An engine's machine keeps no cell in a
+    /// `.last` twin, whose values stand in a store of its own, and answers
+    /// the sheet the twin copies, at every cell of which the twin holds a
+    /// value, a formula's reason or nothing; so that a walk of a twin meets a
+    /// reason where a walk of its sheet meets it.
+    fn walked(&self, sheet: usize) -> Option<&Sheet> {
+        self.model().sheets.get(sheet)
     }
 }
 
@@ -749,11 +749,11 @@ impl<'a> Ctx<'a> {
             values[((row - a.top) as usize) * width + (col - a.left) as usize] = v;
         };
         let extent = self.env.extent(a.sheet);
-        if self.env.dense(a.sheet).is_some() || self.env.reasons_beside(a.sheet) {
+        if self.env.dense(a.sheet).is_some() {
             for (row, col) in places(extent, a) {
                 put(row, col, self.env.read((a.sheet, row, col))?);
             }
-        } else if let Some(sheet) = self.env.model().sheets.get(a.sheet) {
+        } else if let Some(sheet) = self.env.walked(a.sheet) {
             for ((row, col), _) in cells_in(sheet, extent, a) {
                 put(row, col, self.env.read((a.sheet, row, col))?);
             }
@@ -946,31 +946,24 @@ impl<'a> Ctx<'a> {
     /// a cell nothing holds is skipped, as Excel skips it in a range. `f` is
     /// a type of its own and not a pointer, so that an aggregate's fold is
     /// compiled into the walk (KERNEL.25). A sheet the environment keeps as
-    /// an array is walked by index, the same values in the same order
-    /// (KERNEL.20); a sheet holding reasons beside its cells, at every place,
-    /// so that a reason answers where it stands (KERNEL.8, slice b).
+    /// an array is walked by index over the sheet's extent, the same values
+    /// in the same order (KERNEL.20), a reason answering where it stands
+    /// (KERNEL.49); any other through the cells the environment walks for it
+    /// ([`Env::walked`]).
     pub fn each<F>(&self, areas: &[Area], mut f: F) -> Result<(), Reason>
     where
         F: FnMut(Value) -> Result<(), Reason>,
     {
-        let model = self.env.model();
         for a in areas {
             if let Some(kept) = self.env.dense(a.sheet) {
-                kept.each(a, &mut f)?;
-                continue;
-            }
-            let Some(sheet) = model.sheets.get(a.sheet) else {
-                continue;
-            };
-            if self.env.reasons_beside(a.sheet) {
-                for (row, col) in places(self.env.extent(a.sheet), a) {
-                    let v = self.env.read((a.sheet, row, col))?;
-                    if v != Value::Empty {
-                        f(v)?;
-                    }
+                if let Some(a) = clamped(a, self.env.extent(a.sheet)) {
+                    kept.each(&a, &mut f)?;
                 }
                 continue;
             }
+            let Some(sheet) = self.env.walked(a.sheet) else {
+                continue;
+            };
             for ((row, col), _) in cells_in(sheet, self.env.extent(a.sheet), a) {
                 let v = self.env.read((a.sheet, row, col))?;
                 if v != Value::Empty {

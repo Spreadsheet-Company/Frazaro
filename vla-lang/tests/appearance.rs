@@ -369,9 +369,9 @@ fn looks_applied(mut wb: Workbook, sheet: &str) -> Workbook {
 
 #[test]
 fn the_painter_s_fixture_is_the_language_s() {
-    let mut m = load(&fixture_rows());
+    let m = load(&fixture_rows());
     let record = grid(&m, "Look");
-    let wb = looks_applied(m.workbook().clone(), "Look");
+    let wb = looks_applied(m.workbook(), "Look");
     let window = window_of(&wb, "Look", None).expect("the window");
     let drawn = view_text(&wb, &window);
     if std::env::var("VLA_BLESS").as_deref() == Ok("1") {

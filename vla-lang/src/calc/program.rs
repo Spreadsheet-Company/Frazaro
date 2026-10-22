@@ -54,7 +54,7 @@ use super::eval::{
     arithmetic, compare_numbers, compares, finite, Arg, Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{moved_at, BinOp, Corners, Expr, RefExpr};
-use super::graph::{cells_in, Area, Areas, CellId};
+use super::graph::{cells_in, clamped, Area, Areas, CellId};
 use super::library::{self, All, Axis, Fold, Least, Most, Rule, Some_, Sum};
 use super::lookups;
 use super::value::{ErrorKind, Value};
@@ -639,17 +639,19 @@ impl Program {
 }
 
 /// A range's cells walked as `Ctx::each` walks them, a sheet kept as an
-/// array by index and any other through the cells it holds, each number to
-/// `f` as the rule reads a number in a range, an empty slot and a cell not
-/// held skipped by the walks themselves; the guard fails at any other value
-/// and at a reason, a held cell read as nothing among them (a formula with no
-/// place, which the machine never leaves, and which `Ctx` skips), and on a
-/// sheet holding reasons beside its cells, which `Ctx` walks place by place
-/// (KERNEL.8, slice b).
+/// array by index over the sheet's extent and any other through the cells
+/// the environment walks for it, each number to `f` as the rule reads a
+/// number in a range, an empty slot and a cell not held skipped by the walks
+/// themselves; the guard fails at any other value and at a reason, a held
+/// cell read as nothing among them (a formula with no place, which the
+/// machine never leaves, and which `Ctx` skips).
 fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> Option<()> {
     if let Some(kept) = src.dense(a.sheet) {
-        let walked = kept.each_ref(a, |v| match v {
-            Value::Number(n) => {
+        let Some(a) = clamped(a, src.extent(a.sheet)) else {
+            return Some(());
+        };
+        let walked = kept.each_read(&a, |_, _, read| match read {
+            Ok(Value::Number(n)) => {
                 f(R::ranged_number(*n));
                 Ok(())
             }
@@ -660,12 +662,9 @@ fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> 
             Err(()) => guard(guarded::RANGE),
         };
     }
-    let Some(sheet) = src.model().sheets.get(a.sheet) else {
+    let Some(sheet) = src.walked(a.sheet) else {
         return Some(());
     };
-    if src.reasons_beside(a.sheet) {
-        return guard(guarded::RANGE);
-    }
     for ((row, col), _) in cells_in(sheet, src.extent(a.sheet), a) {
         match src.read((a.sheet, row, col)) {
             Ok(Value::Number(n)) => f(R::ranged_number(n)),

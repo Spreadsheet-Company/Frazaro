@@ -529,7 +529,7 @@ fn a_grid_written_between_frames_is_planned_as_a_load_of_it() {
             written += 1;
             assert!(m.step(0).done);
             let sheets = m.sheets();
-            let mut workbook = m.workbook().clone();
+            let mut workbook = m.workbook();
             workbook.sheets.truncate(sheets);
             let cells = workbook.sheets.iter().map(|s| s.cells.len()).sum();
             let draft = Draft {
@@ -831,7 +831,7 @@ fn values_held(m: &mut Machine, when: &str) -> usize {
             }
         }
     }
-    let book = m.workbook().clone();
+    let book = m.workbook();
     for (name, grid) in names.iter().zip(&wholes) {
         let w = window_of(&book, name, None).expect("a sheet the machine holds");
         let walked = view_text(&book, &w);

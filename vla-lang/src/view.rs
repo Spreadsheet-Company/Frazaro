@@ -238,11 +238,18 @@ impl Grid<'_> {
                 if r.hidden { "hidden" } else { "shown" }
             ));
         }
-        let cells: Vec<(&(u32, u32), &Cell)> = sheet
-            .cells
-            .range((range.top, 0)..=(range.bottom, u32::MAX))
-            .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
-            .collect();
+        // The window's cells: the model's, or those the values hold for a
+        // sheet that keeps none in the model, an engine's twin (KERNEL.49).
+        let held = self.values.and_then(|v| v.cells(i, &range));
+        let cells: Vec<((u32, u32), &Cell)> = match &held {
+            Some(held) => held.iter().map(|(at, cell)| (*at, cell)).collect(),
+            None => sheet
+                .cells
+                .range((range.top, 0)..=(range.bottom, u32::MAX))
+                .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
+                .map(|(at, cell)| (*at, cell))
+                .collect(),
+        };
         for (_, cell) in &cells {
             used.insert(cell.style);
         }
@@ -262,19 +269,15 @@ impl Grid<'_> {
         // a child's text from its master; the values ask only whether a
         // child with no value has one.
         let mut masters = None;
-        // A sheet whose cells are newer where its values say (KERNEL.27): an
-        // engine's twin, read through its values' own content.
-        let lags = self.values.filter(|v| v.lags(i));
         let coded = Coded::of(model, sheet);
         #[cfg(test)]
         crate::sheet::work::viewed(cells.len());
-        for (&(row, col), cell) in cells {
+        for ((row, col), cell) in cells {
             self.cell_rows(
                 sheet,
                 i,
                 (row, col),
                 cell,
-                lags,
                 formulas,
                 &mut masters,
                 coded.as_ref(),
@@ -288,9 +291,8 @@ impl Grid<'_> {
     /// `formula` row where the record has them and its `value` row once it
     /// has one, then its `text` row where its value draws under a code
     /// (KERNEL.47), then its `style` and `sentence` rows; whether it printed
-    /// any. `lags` are the values of a sheet whose cells are newer where they
-    /// say, `masters` the sheet's shared formulas', found once, and `coded`
-    /// what a `text` row needs, where the style table holds a code.
+    /// any. `masters` are the sheet's shared formulas', found once, and
+    /// `coded` what a `text` row needs, where the style table holds a code.
     #[allow(clippy::too_many_arguments)]
     fn cell_rows<'s>(
         &self,
@@ -298,7 +300,6 @@ impl Grid<'_> {
         i: usize,
         (row, col): (u32, u32),
         cell: &Cell,
-        lags: Option<&dyn Values>,
         formulas: bool,
         masters: &mut Option<HashMap<u32, (&'s str, u32, u32)>>,
         coded: Option<&Coded<'_>>,
@@ -306,9 +307,8 @@ impl Grid<'_> {
     ) -> bool {
         let name = sheet.name.as_str();
         let addr = cell_ref(row, col);
-        let newer = lags.and_then(|v| v.content((i, row, col)));
         // Whether the cell printed a row, and the value a code draws.
-        let (printed, shown) = match newer.as_ref().unwrap_or(&cell.content) {
+        let (printed, shown) = match &cell.content {
             Content::Text(t) => {
                 let value = Value::Text(t.clone());
                 out(&relation(&Row::Cell {
@@ -668,7 +668,6 @@ pub(crate) fn changes_text(
     #[cfg(test)]
     crate::sheet::work::viewed(cells.len());
     let grid = Grid::valued(values);
-    let lags = Some(values).filter(|v| v.lags(i));
     let coded = Coded::of(model, sheet);
     let mut masters = None;
     let mut push = |line: &str| {
@@ -676,13 +675,25 @@ pub(crate) fn changes_text(
         out.push('\n');
     };
     for &(row, col) in cells {
-        let printed = sheet.cells.get(&(row, col)).is_some_and(|cell| {
+        // The cell the model holds, or the one the values hold for a sheet
+        // that keeps none in the model, an engine's twin (KERNEL.49).
+        let one = A1Range {
+            top: row,
+            left: col,
+            bottom: row,
+            right: col,
+        };
+        let held = values.cells(i, &one);
+        let cell = match &held {
+            Some(held) => held.first().map(|(_, cell)| cell),
+            None => sheet.cells.get(&(row, col)),
+        };
+        let printed = cell.is_some_and(|cell| {
             grid.cell_rows(
                 sheet,
                 i,
                 (row, col),
                 cell,
-                lags,
                 false,
                 &mut masters,
                 coded.as_ref(),

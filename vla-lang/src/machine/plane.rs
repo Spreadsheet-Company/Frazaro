@@ -24,6 +24,7 @@
 //! limit), and it keeps its own spelling of the rule for a cell, so that a
 //! test holding the two equal compares two readings and never one twice.
 
+use crate::calc::dense::Slot;
 use crate::calc::graph::Extent;
 use crate::calc::{Computed, Value, Values};
 use crate::projection::Window;
@@ -38,31 +39,36 @@ pub fn bytes(model: &Workbook, values: &dyn Values, window: &Window) -> Vec<u8> 
     let Some(si) = model.find_sheet(&window.sheet) else {
         return out;
     };
-    // A sheet whose cells are newer where its values say, an engine's twin,
-    // read through its values' own content (KERNEL.27).
-    let lags = values.lags(si);
-    for (&(row, col), cell) in model.sheets[si]
-        .cells
-        .range((r.top, 0)..=(r.bottom, u32::MAX))
-    {
-        if col < r.left || col > r.right {
-            continue;
-        }
+    let mut put = |row: u32, col: u32, content: &Content| {
         let at = (row - r.top) as usize * width + (col - r.left) as usize;
-        let newer = if lags {
-            values.content((si, row, col))
-        } else {
-            None
-        };
-        out[at] = match newer.as_ref().unwrap_or(&cell.content) {
+        out[at] = match content {
             Content::Number(n) => byte(*n),
             Content::Text(_) | Content::Bool(_) | Content::Error(_) => 255,
             _ => match values.computed((si, row, col)) {
-                Some(Computed::Value(Value::Number(n))) => byte(*n),
+                Some(Computed::Value(Value::Number(n))) => byte(n),
                 Some(_) => 255,
                 None => 0,
             },
         };
+    };
+    // The cells the values hold for a sheet that keeps none in the model,
+    // an engine's twin (KERNEL.49), or the model's own.
+    match values.cells(si, &r) {
+        Some(held) => {
+            for ((row, col), cell) in &held {
+                put(*row, *col, &cell.content);
+            }
+        }
+        None => {
+            for (&(row, col), cell) in model.sheets[si]
+                .cells
+                .range((r.top, 0)..=(r.bottom, u32::MAX))
+            {
+                if col >= r.left && col <= r.right {
+                    put(row, col, &cell.content);
+                }
+            }
+        }
     }
     out
 }
@@ -169,6 +175,17 @@ pub(crate) fn kept_byte(content: &Content, value: Option<&Computed>) -> u8 {
         | Content::SharedChild { .. }
         | Content::DynamicFormula(_)
         | Content::ArrayFormula(_) => formula_byte(value),
+    }
+}
+
+/// A formula cell's byte from its slot (KERNEL.49): [`formula_byte`]'s rule
+/// read off the slot, a formula with no value 0, a number itself, and any
+/// other kind, nothing among them, 255.
+pub(crate) fn slot_byte(slot: Slot<'_>) -> u8 {
+    match slot {
+        Slot::Number(n) => byte(n),
+        Slot::Pending => 0,
+        _ => 255,
     }
 }
 
