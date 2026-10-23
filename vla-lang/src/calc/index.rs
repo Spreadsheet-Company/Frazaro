@@ -52,7 +52,7 @@ use crate::machine::CELLS;
 use super::aggregates::{Stat, Tally};
 use super::criteria::{cells_of, criterion_wildcard, Criterion, Target};
 use super::eval::{exact_order, finite, Ctx, Reason};
-use super::graph::{cells_in, clamped, Area, CellId};
+use super::graph::{clamped, Area, CellId};
 use super::order;
 use super::value::{round15, text_to_number, ErrorKind, Value};
 
@@ -123,7 +123,7 @@ pub(crate) type Read<'v> = Result<&'v Value, &'v Reason>;
 /// lent or its reason, to `f`, as `Ctx::each` walks an area: a sheet the
 /// environment keeps as an array by index over the sheet's extent, its empty
 /// slots passed by and a reason met where it stands (KERNEL.49); any other
-/// through the cells the environment walks for it ([`super::Env::walked`]),
+/// through the cells the environment walks for it ([`super::Env::walk`]),
 /// each read through the environment, a cell that reads as nothing passed
 /// by. `f` answers whether to go on.
 pub(crate) fn walk<F>(ctx: &Ctx<'_>, area: &Area, mut f: F)
@@ -139,10 +139,6 @@ where
         }
         return;
     }
-    let Some(sheet) = ctx.env.walked(area.sheet) else {
-        return;
-    };
-    let extent = ctx.env.extent(area.sheet);
     let mut visit = |row: u32, col: u32| -> bool {
         match ctx.env.read((area.sheet, row, col)) {
             Ok(Value::Empty) => true,
@@ -150,7 +146,7 @@ where
             Err(r) => f(row, col, Err(&r)),
         }
     };
-    for ((row, col), _) in cells_in(sheet, extent, area) {
+    for (row, col) in ctx.env.walk(area) {
         if !visit(row, col) {
             return;
         }

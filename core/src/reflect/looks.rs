@@ -575,8 +575,8 @@ mod tests {
         let forms = vla_lang::reader::read_forms(rows).unwrap();
         let draft = vla_lang::machine::read_rows(&forms)
             .unwrap_or_else(|r| panic!("line {}: {}", r.line, r.refusal));
-        let held = Drafted(draft.values.clone());
-        let book = &draft.workbook;
+        let held = Drafted(draft.values().clone());
+        let book = &draft.workbook();
         book.sheets
             .iter()
             .map(|sheet| {
@@ -641,8 +641,8 @@ mod tests {
         let before = records(rows);
         let forms = vla_lang::reader::read_forms(rows).unwrap();
         let draft = vla_lang::machine::read_rows(&forms).unwrap();
-        let held = Drafted(draft.values.clone());
-        let bytes = crate::sheet::ooxml::workbook_bytes_valued(&draft.workbook, &held).unwrap();
+        let held = Drafted(draft.values().clone());
+        let bytes = crate::sheet::ooxml::workbook_bytes_valued(&draft.workbook(), &held).unwrap();
         let (read, left) = crate::reflect::reflect_looks(&bytes, "law.xlsx").unwrap();
         assert_eq!(left.note(), None, "{left:?}");
         let after = records(&read);

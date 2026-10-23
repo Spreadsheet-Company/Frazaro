@@ -59,7 +59,7 @@
 //!     apart its cells stand, which the machine cuts into pieces, held to
 //!     shapes never cut (KERNEL.54).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use vla_lang::calc::graph::is_formula;
 use vla_lang::calc::library;
@@ -531,13 +531,7 @@ fn a_grid_written_between_frames_is_planned_as_a_load_of_it() {
             let sheets = m.sheets();
             let mut workbook = m.workbook();
             workbook.sheets.truncate(sheets);
-            let cells = workbook.sheets.iter().map(|s| s.cells.len()).sum();
-            let draft = Draft {
-                workbook,
-                values: HashMap::new(),
-                lines: HashMap::new(),
-                cells,
-            };
+            let draft = Draft::of_workbook(&workbook);
             let mut again = Machine::new(draft, library::language())
                 .unwrap_or_else(|e| panic!("{when}: line {}: {}", e.line, e.refusal.text));
             assert!(again.step(0).done);

@@ -118,7 +118,7 @@ fn named(id: &str, text: &str) -> Result<(), String> {
 fn door_census(text: &str) {
     let Ok(forms) = read_forms(text) else { return };
     let Ok(draft) = read_rows(&forms) else { return };
-    let wb = &draft.workbook;
+    let wb = &draft.workbook();
     let lib = library::language();
     let extents: Vec<Extent> = wb.sheets.iter().map(Sheet::extent).collect();
     let plan = Shapes::of(wb, wb.sheets.len(), &lib, &Names::of(wb), &extents);

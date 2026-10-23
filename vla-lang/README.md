@@ -170,7 +170,12 @@ refused in the same words.
   when nothing moves: a frame that changed nothing, with no write before
   it, is followed by frames that change nothing. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
-  text is the same) and evaluated at each cell's offset. `census` prints
+  text is the same) and evaluated at each cell's offset. The grid is the
+  machine's own: a filled formula held once, a rectangle and its text, cut
+  into pieces by a write into part of it, and every value once, by place,
+  nine bytes a cell, a twin keeping its own only where a formula reads it;
+  `Machine::workbook` lends it as a workbook, and `load::Draft` holds the
+  rows as records between `read_rows` and `Machine::new`. `census` prints
   the plan as rows before a frame runs: each shape's cells, the levels of
   the order it spans, the runs it is computed in and the path each of its
   reads takes, so that a grid's cost is read ahead (`calc::Shapes::census`

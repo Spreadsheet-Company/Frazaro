@@ -29,11 +29,22 @@
 use crate::calc::dense::Slot;
 use crate::calc::graph::Extent;
 use crate::calc::{Computed, Value, Values};
+use crate::grid::{Cells, Constant, Holds};
 use crate::projection::Window;
-use crate::sheet::{A1Range, Content, Workbook};
+use crate::sheet::{A1Range, Workbook};
 
 /// A window's bytes: its width times its height, row by row.
 pub fn bytes(model: &Workbook, values: &dyn Values, window: &Window) -> Vec<u8> {
+    bytes_in(model, values, window)
+}
+
+/// [`bytes`] over a grid, a workbook's or an engine's machine's, whose twins'
+/// cells it makes from their sheets (KERNEL.49).
+pub(crate) fn bytes_in<G: Cells + ?Sized>(
+    model: &G,
+    values: &dyn Values,
+    window: &Window,
+) -> Vec<u8> {
     let r = window.range;
     let width = (r.right - r.left + 1) as usize;
     let height = (r.bottom - r.top + 1) as usize;
@@ -41,37 +52,18 @@ pub fn bytes(model: &Workbook, values: &dyn Values, window: &Window) -> Vec<u8> 
     let Some(si) = model.find_sheet(&window.sheet) else {
         return out;
     };
-    let mut put = |row: u32, col: u32, content: &Content| {
+    model.cells(si, &r, &mut |(row, col), cell| {
         let at = (row - r.top) as usize * width + (col - r.left) as usize;
-        out[at] = match content {
-            Content::Number(n) => byte(*n),
-            Content::Text(_) | Content::Bool(_) | Content::Error(_) => 255,
-            _ => match values.computed((si, row, col)) {
+        out[at] = match cell.holds {
+            Holds::Constant(Constant::Number(n)) => byte(n),
+            Holds::Constant(_) => 255,
+            Holds::Formula(_) => match values.computed((si, row, col)) {
                 Some(Computed::Value(Value::Number(n))) => byte(n),
                 Some(_) => 255,
                 None => 0,
             },
         };
-    };
-    // The cells the values hold for a sheet that keeps none in the model,
-    // an engine's twin (KERNEL.49), or the model's own.
-    match values.cells(si, &r) {
-        Some(held) => {
-            for ((row, col), cell) in &held {
-                put(*row, *col, &cell.content);
-            }
-        }
-        None => {
-            for (&(row, col), cell) in model.sheets[si]
-                .cells
-                .range((r.top, 0)..=(r.bottom, u32::MAX))
-            {
-                if col >= r.left && col <= r.right {
-                    put(row, col, &cell.content);
-                }
-            }
-        }
-    }
+    });
     out
 }
 
@@ -203,38 +195,14 @@ impl Raster {
     }
 }
 
-/// A cell's byte as the kept plane reads it, from its content and, for a
-/// formula, its value of the last complete frame, `None` before the first:
-/// the rule [`bytes`] spells for itself, written a second time and naming
-/// every kind of content, so that a kind added later is decided here too.
-pub(crate) fn kept_byte(content: &Content, value: Option<&Computed>) -> u8 {
-    match content {
-        Content::Number(n) => byte(*n),
-        Content::Text(_) | Content::Bool(_) | Content::Error(_) => 255,
-        Content::Formula(_)
-        | Content::SharedMaster { .. }
-        | Content::SharedChild { .. }
-        | Content::DynamicFormula(_)
-        | Content::ArrayFormula(_) => formula_byte(value),
-    }
-}
-
-/// A formula cell's byte from its slot (KERNEL.49): [`formula_byte`]'s rule
-/// read off the slot, a formula with no value 0, a number itself, and any
-/// other kind, nothing among them, 255.
+/// A cell's byte from its slot (KERNEL.49): a number itself, as [`byte`]
+/// draws it, a formula with no value 0, and any other kind 255; a value
+/// cell's slot drawing the byte its content does, which the store keeps
+/// where it stands (KERNEL.49's third slice: the store is the cell).
 pub(crate) fn slot_byte(slot: Slot<'_>) -> u8 {
     match slot {
         Slot::Number(n) => byte(n),
         Slot::Pending => 0,
         _ => 255,
-    }
-}
-
-/// A formula cell's byte, from its value alone.
-pub(crate) fn formula_byte(value: Option<&Computed>) -> u8 {
-    match value {
-        Some(Computed::Value(Value::Number(n))) => byte(*n),
-        Some(_) => 255,
-        None => 0,
     }
 }

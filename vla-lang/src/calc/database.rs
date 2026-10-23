@@ -37,7 +37,6 @@ use super::graph::Area;
 use super::order;
 use super::texts::{answer, wrong, Fault};
 use super::value::{ErrorKind, Value};
-use crate::sheet::Content;
 
 /// `DSUM(database, field, criteria)`.
 pub(crate) fn dsum(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
@@ -152,7 +151,6 @@ fn tests_of(ctx: &Ctx<'_>, db: &Area, crit: &Area) -> Result<Vec<Vec<(u32, Crite
             _ => None,
         });
     }
-    let sheet = &ctx.env.model().sheets[crit.sheet];
     let mut rows = Vec::new();
     let last = last_row(ctx, crit);
     for row in crit.top + 1..=last {
@@ -165,15 +163,12 @@ fn tests_of(ctx: &Ctx<'_>, db: &Area, crit: &Area) -> Result<Vec<Vec<(u32, Crite
             match columns[k] {
                 Some(at) => tests.push((at, test_of(&v))),
                 None => {
-                    let formula = matches!(
-                        sheet.cells.get(&(row, col)).map(|c| &c.content),
-                        Some(
-                            Content::Formula(_)
-                                | Content::DynamicFormula(_)
-                                | Content::SharedMaster { .. }
-                                | Content::SharedChild { .. }
-                        )
-                    );
+                    // A legacy array formula's cell read as no field's,
+                    // as before (KERNEL.8).
+                    let formula = ctx
+                        .env
+                        .written((crit.sheet, row, col))
+                        .is_some_and(|w| !w.array());
                     return label(if formula {
                         "a computed criterion"
                     } else {
@@ -217,8 +212,7 @@ fn database(ctx: &Ctx<'_>, args: &[Arg], stat: Option<Stat>) -> Result<Value, Re
         let (Some(db), Some(crit)) = (one_area(Some(db)), one_area(Some(crit))) else {
             return wrong();
         };
-        let model = ctx.env.model();
-        if model.sheets.get(db.sheet).is_none() || model.sheets.get(crit.sheet).is_none() {
+        if db.sheet >= ctx.env.sheets() || crit.sheet >= ctx.env.sheets() {
             return Err(Fault::Error(ErrorKind::Ref));
         }
         let field = match ctx.one(field)? {

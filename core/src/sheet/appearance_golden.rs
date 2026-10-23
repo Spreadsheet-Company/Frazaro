@@ -87,8 +87,9 @@ fn rows() -> String {
 fn written() -> (super::Workbook, Vec<u8>) {
     let forms = read_forms(&rows()).expect("the rows read");
     let draft = read_rows(&forms).unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
-    let bytes = workbook_bytes(&draft.workbook).expect("the workbook's bytes");
-    (draft.workbook, bytes)
+    let book = draft.workbook();
+    let bytes = workbook_bytes(&book).expect("the workbook's bytes");
+    (book, bytes)
 }
 
 /// A part of a workbook as text, stored as the writer stores it or

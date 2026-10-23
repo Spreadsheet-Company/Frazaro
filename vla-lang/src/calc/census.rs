@@ -78,9 +78,10 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use crate::grid::Model;
 use crate::refers;
 use crate::rows::quoted;
-use crate::sheet::{cell_ref, Workbook};
+use crate::sheet::cell_ref;
 
 use super::eval::Library;
 use super::formula::Read;
@@ -206,9 +207,9 @@ pub(crate) struct Census {
 /// placed its shapes under, `arrays` whether the environment keeps a sheet
 /// as an array (a machine's twins, as its last frame's end left them, and
 /// the frame's own sheets its plan reads so, KERNEL.31).
-pub(crate) fn of(
+pub(crate) fn of<M: Model + ?Sized>(
     plan: &Shapes,
-    model: &Workbook,
+    model: &M,
     library: &Library,
     arrays: &dyn Fn(usize) -> bool,
 ) -> Census {
@@ -281,10 +282,7 @@ pub(crate) fn of(
         }
         let shape = &all[s];
         let (si, row, col) = shape.anchor;
-        x.sheet = model
-            .sheets
-            .get(si)
-            .map_or_else(String::new, |sh| sh.name.clone());
+        x.sheet = model.sheet_name(si).unwrap_or_default().to_string();
         x.first = cell_ref(row, col);
         x.r1c1 = format!("={}", refers::r1c1(&shape.text, row, col));
         x.sheets = on[s].len();
@@ -329,13 +327,11 @@ pub(crate) fn of(
         }
         shapes.push(x);
     }
-    let readers = model
-        .sheets
-        .iter()
-        .enumerate()
-        .filter_map(|(si, sheet)| {
+    let readers = (0..model.sheet_count())
+        .filter_map(|si| {
             let n = reach.readers_on(si);
-            (n > 0).then(|| (sheet.name.clone(), n, reach.most_on(si)))
+            let name = model.sheet_name(si).unwrap_or_default().to_string();
+            (n > 0).then(|| (name, n, reach.most_on(si)))
         })
         .collect();
     Census {
@@ -456,9 +452,9 @@ pub(crate) fn spell(c: &Census) -> String {
 }
 
 /// A plan's census as rows: [`of`], then [`spell`].
-pub(crate) fn rows(
+pub(crate) fn rows<M: Model + ?Sized>(
     plan: &Shapes,
-    model: &Workbook,
+    model: &M,
     library: &Library,
     arrays: &dyn Fn(usize) -> bool,
 ) -> String {
@@ -502,7 +498,7 @@ mod tests {
     fn door(rows: &str, lib: &Library) -> String {
         let forms = read_forms(rows).expect("reads");
         let draft = read_rows(&forms).unwrap_or_else(|e| panic!("{}", e.refusal.text));
-        let wb = &draft.workbook;
+        let wb = &draft.workbook();
         let extents: Vec<Extent> = wb.sheets.iter().map(Sheet::extent).collect();
         let plan = Shapes::of(wb, wb.sheets.len(), lib, &Names::of(wb), &extents);
         plan.census(wb, lib)

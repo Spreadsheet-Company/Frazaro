@@ -84,8 +84,9 @@
 use std::collections::hash_map::Entry;
 
 use crate::fx::FxHashMap;
+use crate::grid::Model;
 use crate::refers::Shape as Part;
-use crate::sheet::{Workbook, MAX_COLUMN, MAX_ROW};
+use crate::sheet::{MAX_COLUMN, MAX_ROW};
 
 use super::formula::{Expr, Read, RefExpr};
 use super::graph::CellId;
@@ -284,11 +285,11 @@ enum On {
 
 /// The sheet a reference to one sheet reads, as `graph::areas_at` finds it;
 /// `None` for a sheet the grid does not hold, which reads `#REF!`.
-fn on(model: &Workbook, r: &RefExpr) -> Option<On> {
+fn on(find: &dyn Fn(&str) -> Option<usize>, r: &RefExpr) -> Option<On> {
     match (r.found, &r.sheet) {
         (Some((first, _)), _) => Some(On::Sheet(usize::from(first))),
         (None, None) => Some(On::Own),
-        (None, Some(name)) => model.find_sheet(name).map(On::Sheet),
+        (None, Some(name)) => find(name).map(On::Sheet),
     }
 }
 
@@ -907,13 +908,14 @@ impl Reach {
     /// What the shapes read, against the grid they are placed in, and where
     /// their cells stand in it and in the order; `shape_at` is the shape of
     /// each cell of the order, and `formula` whether a cell holds a formula.
-    pub(crate) fn of(
-        model: &Workbook,
+    pub(crate) fn of<M: Model + ?Sized>(
+        model: &M,
         shapes: &[Shape],
         order: &[CellId],
         shape_at: Vec<u32>,
         formula: &dyn Fn(CellId) -> bool,
     ) -> Reach {
+        let find: &dyn Fn(&str) -> Option<usize> = &|name| model.find_sheet(name);
         let mut stands: Vec<Stand> = vec![Stand::default(); shapes.len()];
         let mut seen = vec![false; shapes.len()];
         let mut cells = vec![0u64; shapes.len()];
@@ -942,7 +944,7 @@ impl Reach {
             stand.sheets.sort_unstable();
         }
         let pieces = pieces(&mut stands, &cells, order, &shape_at);
-        let mut readers: Vec<Vec<Reader>> = vec![Vec::new(); model.sheets.len()];
+        let mut readers: Vec<Vec<Reader>> = vec![Vec::new(); model.sheet_count()];
         let mut extent_readers: Vec<(u32, u32)> = Vec::new();
         let mut unfollowed = Vec::new();
         let mut parts = Vec::new();
@@ -959,7 +961,7 @@ impl Reach {
             let followed = match &shape.expr {
                 Ok(e) if !shape.risky => {
                     let mut at = At {
-                        model,
+                        find,
                         single,
                         formula,
                         found: &mut found,
@@ -1071,7 +1073,7 @@ impl Reach {
             extent_readers,
             parts,
             firsts,
-            positions: Positions::of(order, model.sheets.len()),
+            positions: Positions::of(order, model.sheet_count()),
             shape_at,
         }
     }
@@ -1263,7 +1265,8 @@ impl Reach {
 
 /// One shape's parse being read.
 struct At<'a, 'p> {
-    model: &'a Workbook,
+    /// A sheet of the grid by name.
+    find: &'a dyn Fn(&str) -> Option<usize>,
     /// The one sheet the shape's cells are on, when they are on one.
     single: Option<usize>,
     formula: &'a dyn Fn(CellId) -> bool,
@@ -1360,7 +1363,7 @@ impl At<'_, '_> {
         }
         // A sheet the grid does not hold, or a reference moved off every
         // sheet, reads nothing.
-        let (Some(on), Some(rows), Some(cols)) = (on(self.model, r), Dim::rows(r), Dim::cols(r))
+        let (Some(on), Some(rows), Some(cols)) = (on(self.find, r), Dim::rows(r), Dim::cols(r))
         else {
             return true;
         };
@@ -1384,10 +1387,10 @@ impl At<'_, '_> {
     /// it reads reaches the whole shape.
     fn part(&mut self, u: &Expr) {
         let mut cells: Vec<(On, u32, u32)> = Vec::new();
-        let model = self.model;
+        let find = self.find;
         u.each_read(&mut |read| {
             if let Read::Ref(r) = read {
-                if let Some(on) = on(model, r) {
+                if let Some(on) = on(find, r) {
                     cells.push((on, r.top, r.left));
                 }
             }

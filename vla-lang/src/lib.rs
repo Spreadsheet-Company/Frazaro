@@ -48,6 +48,7 @@ pub mod expand;
 pub mod form;
 pub mod formula_syntax;
 mod fx;
+pub(crate) mod grid;
 pub mod headtable;
 pub mod intrinsics;
 pub mod machine;

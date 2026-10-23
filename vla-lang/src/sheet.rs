@@ -572,6 +572,8 @@ pub(crate) mod work {
         /// The slots a store and the bytes a plane moved to their places over
         /// another extent, each one a re-lay read out and put again (KERNEL.56).
         pub(crate) relaid: u64,
+        /// The fills read to make a sheet's masters (KERNEL.49).
+        pub(crate) masters: u64,
     }
 
     thread_local! {
@@ -587,6 +589,7 @@ pub(crate) mod work {
                 swept: 0,
                 viewed: 0,
                 relaid: 0,
+                masters: 0,
             })
         };
     }
@@ -658,6 +661,11 @@ pub(crate) mod work {
     /// (KERNEL.56).
     pub(crate) fn relaid(slots: usize) {
         add(|w| w.relaid += slots as u64);
+    }
+
+    /// A sheet's masters made from its `fills` fills (KERNEL.49).
+    pub(crate) fn masters(fills: usize) {
+        add(|w| w.masters += fills as u64);
     }
 }
 

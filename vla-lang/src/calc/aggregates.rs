@@ -33,13 +33,11 @@
 //! `row` rows, or the rows a reader reads hidden, an xlsx file's `hidden`
 //! and an OpenDocument file's `collapse` and `filter`, told as one.
 
-use std::collections::HashMap;
-
 use super::eval::{finite, Arg, Ctx, Reason};
+use super::graph::{Area, CellId};
 use super::index::walk;
 use super::texts::{answer, wrong, Fault};
 use super::value::{text_to_number, ErrorKind, Value};
-use crate::sheet::{shared_masters, Content, Sheet};
 
 /// What an aggregate computes, `SUBTOTAL`'s eleven.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -304,28 +302,17 @@ fn filtered() -> Reason {
     Reason::Construct("a row a filter may hide".to_string())
 }
 
-/// The shared formulas' masters of a sheet, found once a walk, at its first
-/// shared child.
-type Masters<'s> = Option<HashMap<u32, (&'s str, u32, u32)>>;
-
 /// Whether a cell's formula calls `SUBTOTAL`, which a `SUBTOTAL` over it
 /// passes by: the name read as a function's, a call's open bracket after
 /// it, outside every text in quotes. A shared formula's child, which an
 /// engine's formula written over a range makes, reads as its master's
 /// text, whose functions are its own.
-fn calls_subtotal<'s>(sheet: &'s Sheet, row: u32, col: u32, masters: &mut Masters<'s>) -> bool {
-    let text = match sheet.cells.get(&(row, col)).map(|c| &c.content) {
-        Some(Content::Formula(t) | Content::DynamicFormula(t)) => t.as_str(),
-        Some(Content::SharedMaster { text, .. }) => text.as_str(),
-        Some(Content::SharedChild { si }) => {
-            match masters.get_or_insert_with(|| shared_masters(sheet)).get(si) {
-                Some((text, _, _)) => text,
-                None => return false,
-            }
-        }
-        _ => return false,
-    };
-    calls(text, "SUBTOTAL")
+fn calls_subtotal(ctx: &Ctx<'_>, id: CellId) -> bool {
+    // A legacy array formula's cell is no `SUBTOTAL`'s to pass by.
+    match ctx.env.written(id) {
+        Some(w) if !w.array() => w.text.is_some_and(|text| calls(text, "SUBTOTAL")),
+        _ => false,
+    }
 }
 
 /// Whether a formula's text calls the function `name`, by its name without
@@ -379,35 +366,38 @@ pub(crate) fn subtotal(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
             _ => return wrong(),
         };
         let Some(stat) = stat else { return wrong() };
-        let model = ctx.env.model();
         let mut tally = Tally::new(stat);
         for r in references {
             let Arg::Area { areas, .. } = r else {
                 return wrong();
             };
             for area in areas.iter() {
-                let Some(sheet) = model.sheets.get(area.sheet) else {
+                if area.sheet >= ctx.env.sheets() {
                     return Err(Fault::Error(ErrorKind::Ref));
-                };
-                let hidden = |row: u32| sheet.rows.get(&row).is_some_and(|s| s.hidden);
+                }
+                let rows = ctx.env.rows(area.sheet);
+                let hidden = |row: u32| rows.is_some_and(|r| r.get(&row).is_some_and(|s| s.hidden));
                 // A hidden row holding no cell of the area is passed by or
                 // counted alike, and computes.
                 let holds = |row: u32| {
-                    let mut cells = sheet.cells.range((row, area.left)..=(row, area.right));
-                    cells.next().is_some()
+                    let line = Area {
+                        top: row,
+                        bottom: row,
+                        ..*area
+                    };
+                    ctx.env.walk(&line).next().is_some()
                 };
                 if !visible
-                    && sheet
-                        .rows
-                        .range(area.top..=area.bottom)
-                        .any(|(&row, s)| s.hidden && holds(row))
+                    && rows.is_some_and(|r| {
+                        r.range(area.top..=area.bottom)
+                            .any(|(&row, s)| s.hidden && holds(row))
+                    })
                 {
                     return Err(Fault::Reason(filtered()));
                 }
                 let mut stop: Option<Reason> = None;
-                let mut masters: Masters<'_> = None;
                 walk(ctx, area, |row, col, read| {
-                    if (visible && hidden(row)) || calls_subtotal(sheet, row, col, &mut masters) {
+                    if (visible && hidden(row)) || calls_subtotal(ctx, (area.sheet, row, col)) {
                         return true;
                     }
                     match read {

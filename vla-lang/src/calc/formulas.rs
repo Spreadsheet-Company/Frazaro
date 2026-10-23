@@ -30,14 +30,10 @@
 //! answer since KERNEL.8's sixth slice and as `SUMPRODUCT(--ISFORMULA(r))`
 //! counts a range's formulas.
 
-use std::collections::HashMap;
-
-use crate::sheet::{formula_text, shared_masters, Content};
-
 use super::array::{self, Array};
-use super::eval::{Arg, Ctx, Param, Reason};
+use super::eval::{Arg, Ctx, Param, Reason, Written};
 use super::formula::{self, Expr};
-use super::graph::{cells_in, is_formula, CellId};
+use super::graph::CellId;
 use super::value::{ErrorKind, Value};
 
 /// How deep a defined name may read a name before [`may_show_at`] gives up
@@ -49,8 +45,8 @@ const SHOWN_WITH_AT: &str = "a formula Excel shows with @";
 
 /// `ISFORMULA(reference)`: whether the cell holds a formula.
 pub(crate) fn isformula(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> {
-    of_cells(ctx, args, Value::Bool(false), |_, _, content| {
-        Ok(Value::Bool(is_formula(content)))
+    of_cells(ctx, args, Value::Bool(false), |_, _, _| {
+        Ok(Value::Bool(true))
     })
 }
 
@@ -60,8 +56,10 @@ pub(crate) fn formulatext(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static
     of_cells(ctx, args, Value::Error(ErrorKind::NA), text_at)
 }
 
-/// A function of the cells a reference names, `at` each cell held and
-/// `none` at a place no cell holds: the error a reference to no cell
+/// A function of the cells a reference names, `at` each cell holding a
+/// formula and `none` at every other place, which for both functions is a
+/// value cell's answer too (KERNEL.49: the grid answers a cell's formula, and
+/// a cell holding none is as no cell): the error a reference to no cell
 /// reaches it as (`#REF!`); `#VALUE!` for a value or an array, which name
 /// no cell, as for a call of more arguments or fewer, and for a reference
 /// over a span of sheets, as Excel 365's save of the fixture answers both
@@ -72,7 +70,7 @@ fn of_cells(
     ctx: &Ctx<'_>,
     args: &[Arg<'_>],
     none: Value,
-    at: fn(&Ctx<'_>, CellId, &Content) -> Result<Value, Reason>,
+    at: fn(&Ctx<'_>, CellId, &Written<'_>) -> Result<Value, Reason>,
 ) -> Result<Arg<'static>, Reason> {
     let areas = match args {
         [Arg::Area { areas, .. }] => areas,
@@ -84,12 +82,13 @@ fn of_cells(
         [] => return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
         _ => return Ok(Arg::Scalar(Value::Error(ErrorKind::Value))),
     };
-    let Some(sheet) = ctx.env.model().sheets.get(a.sheet) else {
+    if a.sheet >= ctx.env.sheets() {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref)));
-    };
+    }
     if a.is_cell() || !ctx.arrays() {
-        return Ok(Arg::Scalar(match sheet.cells.get(&(a.top, a.left)) {
-            Some(cell) => at(ctx, (a.sheet, a.top, a.left), &cell.content)?,
+        let id = (a.sheet, a.top, a.left);
+        return Ok(Arg::Scalar(match ctx.env.written(id) {
+            Some(w) => at(ctx, id, &w)?,
             None => none,
         }));
     }
@@ -103,9 +102,11 @@ fn of_cells(
     // so that a whole column is walked by its cells and not its places.
     let width = columns as usize;
     let mut values = vec![none; rows as usize * width];
-    for ((row, col), cell) in cells_in(sheet, ctx.env.extent(a.sheet), &a) {
-        values[(row - a.top) as usize * width + (col - a.left) as usize] =
-            at(ctx, (a.sheet, row, col), &cell.content)?;
+    for (row, col) in ctx.env.walk(&a) {
+        let id = (a.sheet, row, col);
+        if let Some(w) = ctx.env.written(id) {
+            values[(row - a.top) as usize * width + (col - a.left) as usize] = at(ctx, id, &w)?;
+        }
     }
     Ok(Arg::Array(Array::new(rows, columns, values)))
 }
@@ -116,26 +117,17 @@ fn of_cells(
 /// its `=` aside, as the parser counts them (`formula::LENGTH_LIMIT`); else
 /// the record's text with its `=`, in braces for a legacy array formula,
 /// labelled where Excel's bar spells it otherwise ([`spelled_alike`]).
-fn text_at(ctx: &Ctx<'_>, (sheet, row, col): CellId, content: &Content) -> Result<Value, Reason> {
-    if !is_formula(content) {
-        return Ok(Value::Error(ErrorKind::NA));
-    }
-    // A fill's cell reads its master's text, any other formula its own, so
-    // that the sheet is walked for its masters for a fill's cell alone.
-    let masters = match content {
-        Content::SharedChild { .. } => shared_masters(&ctx.env.model().sheets[sheet]),
-        _ => HashMap::new(),
-    };
-    let Some(text) = formula_text(content, row, col, &masters) else {
+fn text_at(ctx: &Ctx<'_>, (sheet, _, _): CellId, written: &Written<'_>) -> Result<Value, Reason> {
+    let Some(text) = written.text() else {
         return Ok(Value::Error(ErrorKind::NA));
     };
     if text.chars().count() > formula::LENGTH_LIMIT {
         return Ok(Value::Error(ErrorKind::NA));
     }
-    spelled_alike(ctx, content, sheet, &text)?;
-    Ok(Value::Text(match content {
-        Content::ArrayFormula(_) => format!("{{={text}}}"),
-        _ => format!("={text}"),
+    spelled_alike(ctx, written, sheet, &text)?;
+    Ok(Value::Text(match written.array() {
+        true => format!("{{={text}}}"),
+        false => format!("={text}"),
     }))
 }
 
@@ -143,7 +135,12 @@ fn text_at(ctx: &Ctx<'_>, (sheet, row, col): CellId, content: &Content) -> Resul
 /// may not: a construct the language does not read, by the name the parser
 /// gives it; `SINGLE` or `ANCHORARRAY` anywhere, which the bar shows as `@`
 /// and `#`; and in a legacy formula, an `@` Excel 365 may show there.
-fn spelled_alike(ctx: &Ctx<'_>, content: &Content, home: usize, text: &str) -> Result<(), Reason> {
+fn spelled_alike(
+    ctx: &Ctx<'_>,
+    written: &Written<'_>,
+    home: usize,
+    text: &str,
+) -> Result<(), Reason> {
     let e = formula::parse(text).map_err(Reason::Construct)?;
     let calls = formula::calls(text);
     if calls.iter().any(|name| name == "SINGLE") {
@@ -154,11 +151,7 @@ fn spelled_alike(ctx: &Ctx<'_>, content: &Content, home: usize, text: &str) -> R
             "a formula Excel shows with #".to_string(),
         ));
     }
-    let legacy = matches!(
-        content,
-        Content::Formula(_) | Content::SharedMaster { .. } | Content::SharedChild { .. }
-    );
-    if legacy && may_show_at(ctx, &e, home, 0) {
+    if written.legacy() && may_show_at(ctx, &e, home, 0) {
         return Err(Reason::Construct(SHOWN_WITH_AT.to_string()));
     }
     Ok(())
@@ -335,10 +328,9 @@ fn names_one(ctx: &Ctx<'_>, name: &str, sheet: Option<&str>, home: usize, depth:
     if depth >= NAME_DEPTH {
         return false;
     }
-    let model = ctx.env.model();
     let scope = match sheet {
         None => None,
-        Some(s) => match model.find_sheet(s) {
+        Some(s) => match ctx.env.find_sheet(s) {
             Some(i) => Some(i),
             None => return true,
         },

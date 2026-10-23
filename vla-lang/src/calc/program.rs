@@ -54,7 +54,7 @@ use super::eval::{
     arithmetic, compare_numbers, compares, finite, Arg, Ctx, Env, Known, Library, Reason, Strict,
 };
 use super::formula::{moved_at, BinOp, Corners, Expr, RefExpr};
-use super::graph::{cells_in, clamped, Area, Areas, CellId};
+use super::graph::{clamped, Area, Areas, CellId};
 use super::library::{self, All, Axis, Fold, Least, Most, Rule, Some_, Sum};
 use super::lookups;
 use super::value::{ErrorKind, Value};
@@ -662,10 +662,7 @@ fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> 
             Err(()) => guard(guarded::RANGE),
         };
     }
-    let Some(sheet) = src.walked(a.sheet) else {
-        return Some(());
-    };
-    for ((row, col), _) in cells_in(sheet, src.extent(a.sheet), a) {
+    for (row, col) in src.walk(a) {
         match src.read((a.sheet, row, col)) {
             Ok(Value::Number(n)) => f(R::ranged_number(n)),
             _ => return guard(guarded::RANGE),

@@ -66,8 +66,12 @@ pub(crate) fn fits(extent: Extent, limit: u64) -> bool {
 /// A slot's kind (KERNEL.49's decision 4): a number, which a read by slice
 /// reads; nothing; a text, its string among the store's texts; a truth
 /// value; a formula's reason, why it was not computed, among the store's
-/// reasons; a formula with no value yet; or an error, by its place in
-/// [`ERRORS`] past [`ERROR`].
+/// reasons; a formula with no value yet; an error a value cell holds by a
+/// text its kind does not spell (`#n/a`, `#SPILL!`), that text among the
+/// store's texts, read as its kind or as `#VALUE!` where it names none, as
+/// a read of the cell answers it, and kept for the record, which prints the
+/// cell's own (KERNEL.49's third slice: the store is the cell); or an
+/// error, by its place in [`ERRORS`] past [`ERROR`].
 const NUMBER: u8 = 0;
 const EMPTY: u8 = 1;
 const TEXT: u8 = 2;
@@ -75,6 +79,7 @@ const FALSE: u8 = 3;
 const TRUE: u8 = 4;
 const REASON: u8 = 5;
 const PENDING: u8 = 6;
+const ODD: u8 = 7;
 const ERROR: u8 = 8;
 
 /// The error kinds a slot holds, each at its place past [`ERROR`].
@@ -88,6 +93,18 @@ const ERRORS: [ErrorKind; 8] = [
     ErrorKind::NA,
     ErrorKind::Calc,
 ];
+
+/// The kind an error text names, as a read of a cell holding it answers:
+/// `#VALUE!` for one this version does not hold.
+pub(crate) fn error_named(text: &str) -> ErrorKind {
+    ErrorKind::parse(text).unwrap_or(ErrorKind::Value)
+}
+
+/// Whether an error text is its kind's own spelling, which a slot of the
+/// kind holds and spells back; any other is kept by its text ([`ODD`]).
+pub(crate) fn spells_kind(text: &str) -> bool {
+    ErrorKind::parse(text).is_some_and(|k| k.text() == text)
+}
 
 /// An error's kind as a slot holds it.
 #[inline]
@@ -396,6 +413,13 @@ impl Dense {
         self.index(row, col).map(|i| self.slot(i))
     }
 
+    /// Whether a cell's slot holds anything, as a walk meets it: inside the
+    /// extent, and not empty.
+    #[inline]
+    pub(crate) fn holds(&self, row: u32, col: u32) -> bool {
+        self.index(row, col).is_some_and(|i| self.kinds[i] != EMPTY)
+    }
+
     /// The text at a place among the store's texts.
     #[inline]
     fn text(&self, at: u64) -> &Value {
@@ -436,7 +460,47 @@ impl Dense {
             TRUE => Slot::Bool(true),
             REASON => Slot::Reason(&self.reasons[self.numbers[i].to_bits() as usize]),
             PENDING => Slot::Pending,
+            ODD => match self.text(self.numbers[i].to_bits()) {
+                Value::Text(t) => Slot::Error(error_named(t)),
+                _ => Slot::Error(ErrorKind::Value),
+            },
             k => Slot::Error(ERRORS[usize::from(k - ERROR)]),
+        }
+    }
+
+    /// The content of the value cell whose slot is at an index, exactly as
+    /// it was written (KERNEL.49's third slice, where the store is the cell):
+    /// a number to the bit, a text, a truth value, an error by its kind's
+    /// spelling or by the text it was written with; `None` for a slot holding
+    /// nothing, a formula's reason or a formula with no value yet.
+    pub(crate) fn content(&self, i: usize) -> Option<Content> {
+        match self.kinds[i] {
+            NUMBER => Some(Content::Number(self.numbers[i])),
+            TEXT => Some(Content::Text(self.text_at(i)?.to_string())),
+            ODD => Some(Content::Error(self.text_at(i)?.to_string())),
+            FALSE => Some(Content::Bool(false)),
+            TRUE => Some(Content::Bool(true)),
+            EMPTY | REASON | PENDING => None,
+            k => Some(Content::Error(
+                ERRORS[usize::from(k - ERROR)].text().to_string(),
+            )),
+        }
+    }
+
+    /// The text an error a value cell holds was written with, where it is not
+    /// its kind's own spelling ([`ODD`]); `None` for any other slot.
+    pub(crate) fn odd_text(&self, i: usize) -> Option<&str> {
+        match self.kinds[i] {
+            ODD => self.text_at(i),
+            _ => None,
+        }
+    }
+
+    /// The string a slot of a text, or of an error kept by its text, names.
+    fn text_at(&self, i: usize) -> Option<&str> {
+        match self.text(self.numbers[i].to_bits()) {
+            Value::Text(t) => Some(t),
+            _ => None,
         }
     }
 
@@ -448,7 +512,7 @@ impl Dense {
         if was == kind {
             return;
         }
-        if was == TEXT {
+        if was == TEXT || was == ODD {
             let at = self.numbers[i].to_bits() as usize;
             let (b, k) = block_of(at);
             self.texts[b][k] = Value::Empty;
@@ -487,8 +551,15 @@ impl Dense {
     /// The slot at an index overwritten with a text, kept where it stands
     /// when the slot holds it already and never copied again, so that a frame
     /// allocates no more than it did before the array (KERNEL.20).
-    fn put_text(&mut self, i: usize, t: &str) {
-        if self.kinds[i] == TEXT {
+    pub(crate) fn put_text(&mut self, i: usize, t: &str) {
+        self.put_texted(i, t, TEXT);
+    }
+
+    /// The slot at an index overwritten with a string of a kind that keeps
+    /// one, a text or an error kept by its text ([`ODD`]), the string's place
+    /// kept where the slot names one already.
+    fn put_texted(&mut self, i: usize, t: &str, kind: u8) {
+        if self.kinds[i] == TEXT || self.kinds[i] == ODD {
             let (b, k) = block_of(self.numbers[i].to_bits() as usize);
             if let Value::Text(held) = &mut self.texts[b][k] {
                 if held.as_str() != t {
@@ -496,9 +567,11 @@ impl Dense {
                     held.push_str(t);
                 }
             }
+            // Both kinds hold no number, so the row's count stands.
+            self.kinds[i] = kind;
             return;
         }
-        self.kind(i, TEXT);
+        self.kind(i, kind);
         let text = Value::Text(t.to_string());
         let at = match self.free.pop() {
             Some(at) => {
@@ -596,20 +669,22 @@ impl Dense {
         }
     }
 
-    /// The slot at an index overwritten with what a read of a cell's content
-    /// answers, nothing for a cell that keeps no value, as a twin's slot is
-    /// written from its cell (KERNEL.20): a value as it stands, an error text
-    /// as its kind (one this version does not hold as `#VALUE!`), nothing for
-    /// a formula or anything else.
+    /// The slot at an index overwritten with a value cell's content, nothing
+    /// for a cell that keeps no value, as a twin's slot is written from its
+    /// cell (KERNEL.20): a value as it stands, an error by its kind where its
+    /// text is its kind's spelling and else by its text, which a read answers
+    /// as its kind, `#VALUE!` for one this version does not hold (KERNEL.49's
+    /// third slice: the slot is the cell, and gives its content back
+    /// exactly); nothing for a formula or anything else.
     pub(crate) fn put_content(&mut self, i: usize, content: Option<&Content>) {
         match content {
             Some(Content::Text(t)) => self.put_text(i, t),
             Some(Content::Number(n)) => self.put_number(i, *n),
             Some(Content::Bool(b)) => self.put_value(i, &Value::Bool(*b)),
-            Some(Content::Error(e)) => self.put_value(
-                i,
-                &Value::Error(ErrorKind::parse(e).unwrap_or(ErrorKind::Value)),
-            ),
+            Some(Content::Error(e)) if spells_kind(e) => {
+                self.put_value(i, &Value::Error(error_named(e)));
+            }
+            Some(Content::Error(e)) => self.put_texted(i, e, ODD),
             _ => self.put_empty(i),
         }
     }
@@ -698,6 +773,27 @@ impl Dense {
         true
     }
 
+    /// The places of the cells the store holds inside an area, row by row,
+    /// the area clamped to its extent first: every slot but an empty one, a
+    /// formula's reason and a formula with no value yet among them
+    /// (KERNEL.49's third slice: an engine's store is its sheet's cells).
+    pub(crate) fn walk(&self, top: u32, left: u32, bottom: u32, right: u32) -> DenseWalk<'_> {
+        let (last_row, last_col) = (
+            self.top + (self.height as u32 - 1),
+            self.left + (self.width as u32 - 1),
+        );
+        let (top, left) = (top.max(self.top), left.max(self.left));
+        let (bottom, right) = (bottom.min(last_row), right.min(last_col));
+        DenseWalk {
+            d: self,
+            row: top,
+            col: left,
+            left,
+            right,
+            bottom: if left > right { 0 } else { bottom },
+        }
+    }
+
     /// The slot at an index, and its cell (KERNEL.27).
     pub(crate) fn at(&self, i: usize) -> (Slot<'_>, (u32, u32)) {
         let (r, c) = (i / self.width, i % self.width);
@@ -757,6 +853,38 @@ impl Dense {
             }
         }
         Ok(())
+    }
+}
+
+/// [`Dense::walk`]'s places, row by row.
+#[derive(Clone, Debug)]
+pub(crate) struct DenseWalk<'a> {
+    d: &'a Dense,
+    row: u32,
+    col: u32,
+    left: u32,
+    right: u32,
+    bottom: u32,
+}
+
+impl Iterator for DenseWalk<'_> {
+    type Item = (u32, u32);
+
+    #[inline]
+    fn next(&mut self) -> Option<(u32, u32)> {
+        while self.row <= self.bottom {
+            let base = (self.row - self.d.top) as usize * self.d.width;
+            while self.col <= self.right {
+                let col = self.col;
+                self.col += 1;
+                if self.d.kinds[base + (col - self.d.left) as usize] != EMPTY {
+                    return Some((self.row, col));
+                }
+            }
+            self.row += 1;
+            self.col = self.left;
+        }
+        None
     }
 }
 
@@ -968,6 +1096,91 @@ mod tests {
         // A text's place never reads as a number: the row holds texts.
         assert_eq!(d.numbers_in_row(1, 1, 3), None);
         assert_eq!(d.numbers_in_row(1, 1, 1), Some(&[3.0][..]));
+    }
+
+    #[test]
+    fn a_value_cell_s_content_reads_back_exactly_its_error_by_its_text() {
+        // KERNEL.49's third slice: the store is the cell, so a value cell's
+        // content comes back as it was written: an error its kind spells by
+        // its kind, one written otherwise by its text, read as the kind it
+        // names, or as #VALUE! where it names none, as a read of the cell
+        // answers it.
+        let mut d = Dense::over(Some(((1, 1), (2, 4))), 8, None).unwrap();
+        let contents = [
+            Content::Error("#N/A".to_string()),
+            Content::Error("#n/a".to_string()),
+            Content::Error("#SPILL!".to_string()),
+            Content::Text("t".to_string()),
+            Content::Number(-0.0),
+            Content::Bool(true),
+        ];
+        for (k, content) in contents.iter().enumerate() {
+            let i = d.index(1 + k as u32 / 4, 1 + k as u32 % 4).unwrap();
+            d.put_content(i, Some(content));
+        }
+        for (k, content) in contents.iter().enumerate() {
+            let i = d.index(1 + k as u32 / 4, 1 + k as u32 % 4).unwrap();
+            match (d.content(i), content) {
+                (Some(Content::Number(a)), Content::Number(b)) => {
+                    assert_eq!(a.to_bits(), b.to_bits(), "-0 to the bit");
+                }
+                (got, want) => assert_eq!(got.as_ref(), Some(want), "slot {k}"),
+            }
+        }
+        assert_eq!(d.odd_text(0), None, "#N/A by its kind");
+        assert_eq!(d.odd_text(1), Some("#n/a"));
+        assert_eq!(
+            d.get(1, 2),
+            Some(Value::Error(ErrorKind::NA)),
+            "read as its kind"
+        );
+        assert_eq!(
+            d.get(1, 3),
+            Some(Value::Error(ErrorKind::Value)),
+            "one held by none"
+        );
+        assert_eq!(
+            walk(&d, rect(1, 1, 1, 3)),
+            vec![
+                Value::Error(ErrorKind::NA),
+                Value::Error(ErrorKind::NA),
+                Value::Error(ErrorKind::Value),
+            ],
+            "a walk meets each as its kind"
+        );
+        // The texts' places: given up as any text's, and taken again; a text
+        // turned to an error kept by its text keeps the place it held.
+        assert_eq!(d.texts_held(), 3);
+        d.put_number(1, 5.0);
+        assert_eq!(d.free, vec![0], "#n/a's place given up");
+        let t = d.index(1, 4).unwrap();
+        d.put_content(t, Some(&Content::Error("#Odd".to_string())));
+        assert_eq!(
+            (d.texts_held(), d.free.len()),
+            (3, 1),
+            "the text's own place"
+        );
+        assert_eq!(d.content(t), Some(Content::Error("#Odd".to_string())));
+        d.put_content(t, Some(&Content::Text("back".to_string())));
+        assert_eq!(d.content(t), Some(Content::Text("back".to_string())));
+        // Every row's count of slots holding no number stands.
+        assert_eq!(
+            d.odd,
+            vec![3, 3],
+            "row 1: #N/A, #SPILL! and the text; row 2: true and two empty"
+        );
+        // Regrown, each keeps its content where it stands.
+        assert!(d.regrow(Some(((1, 1), (4, 4)))));
+        assert_eq!(
+            d.content(d.index(1, 3).unwrap()),
+            Some(Content::Error("#SPILL!".to_string()))
+        );
+        assert!(d.regrow(Some(((1, 1), (4, 6)))));
+        assert_eq!(
+            d.content(d.index(1, 3).unwrap()),
+            Some(Content::Error("#SPILL!".to_string()))
+        );
+        assert_eq!(d.content(d.index(2, 2).unwrap()), Some(Content::Bool(true)));
     }
 
     #[test]

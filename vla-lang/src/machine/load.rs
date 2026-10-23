@@ -2,6 +2,11 @@
 //! printers in `crate::rows` and `crate::view`, so that what a door prints
 //! the machine loads, and a sheet viewed whole and loaded again views the
 //! same (`Alonzo/SPEC.md` section 7.3, and its free oracle in section 13).
+//! Since KERNEL.49's third slice the rows are read into a draft of records,
+//! each row that writes cells its sheet, its rectangle, its line and its
+//! value or its formula's text, a range never made into its cells
+//! ([`Draft`]); a door's workbook is made from them whole when one is asked
+//! for ([`Draft::workbook`]), and a machine's grid without one.
 //!
 //! The rows taken: `sheet`, `cell` and `formula` over a cell or a range (a
 //! value fills the range, a formula fills it as a shared formula, moved as
@@ -26,29 +31,31 @@
 //!
 //! One write per cell (decision 23 of the page): a cell the rows write
 //! twice, by two rows or by a range and a row inside it, is refused naming
-//! both lines; a setting given twice, as a save repeats a sheet row and
+//! both lines, at the first such cell in row-major order, found by the
+//! records' rectangles and never by a cell; a setting given twice, as a save repeats a sheet row and
 //! format 0 in every record it concatenates, is taken when it says the same
 //! thing and refused when it does not. A grid holds at most [`CELLS`] cells
 //! beside its twins, so that one range row cannot ask for the seventeen
 //! billion of Excel's sheet.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::appearance::{self, Wrong};
-use crate::calc::{CellId, Computed, ErrorKind, Reason, Value};
+use crate::calc::{CellId, Computed, ErrorKind, Extent, Reason, Value};
 use crate::form::Form;
+use crate::grid::{overlap, Kind, Rects, RowMajor};
 use crate::intrinsics::fold;
 use crate::messages::raise;
 use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
+use crate::refers::{quote_sheet, shift_a1_references};
 use crate::rows::{quoted, Visibility};
 use crate::sheet::{
     cell_ref, number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb,
-    RowSettings, Style, Workbook, MAX_COLUMN, MAX_ROW,
+    RowSettings, Sheet, Style, Styles, Workbook, MAX_COLUMN, MAX_ROW,
 };
 
 use super::{LineRefusal, CELLS};
-use crate::calc::shape::spell_cell;
 
 /// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
@@ -58,18 +65,598 @@ pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, colum
 /// formats a workbook may hold, rounded to a power of two.
 pub const FORMATS: u32 = 65_536;
 
-/// The grid as the rows wrote it, before a machine takes it: an engine
-/// reads it between the two (its device layouts, its Clock), which is why
-/// the load is two calls, [`read_rows`] and `Machine::new`.
+/// The grid as the rows wrote it, before a machine takes it (KERNEL.49's
+/// decision 8): each sheet's name and settings, and each row that wrote
+/// cells as a record of its sheet, its rectangle, its line and its value or
+/// its formula's text, a range's never made into its cells and no line kept
+/// for a cell, so that what a load holds before the machine is the size of
+/// its rows. An engine reads it between the two calls, [`read_rows`] and
+/// `Machine::new` (its device layouts, its Clock): a sheet by name, made
+/// when new ([`Draft::find_sheet`], [`Draft::ensure_sheet`]); a cell's
+/// content ([`Draft::content`]); a sheet's cells walked ([`Draft::cells`]);
+/// every formula's text, once a record ([`Draft::formulas`]); a cell put or
+/// taken out, counted ([`Draft::put`], [`Draft::take`]); and a cell's line
+/// ([`Draft::line`]). A door's workbook is made from it whole
+/// ([`Draft::workbook`]).
 #[derive(Clone, Debug)]
 pub struct Draft {
-    pub workbook: Workbook,
+    pub(crate) sheets: Vec<DraftSheet>,
+    pub(crate) styles: Styles,
+    pub(crate) defined_names: Vec<(String, String)>,
     /// Each formula cell's last value, from its `value` row.
-    pub values: HashMap<CellId, Computed>,
-    /// The line of the row that wrote each cell, for a refusal's line.
-    pub lines: HashMap<CellId, u32>,
+    pub(crate) values: HashMap<CellId, Computed>,
     /// How many cells the rows wrote.
-    pub cells: usize,
+    pub(crate) cells: usize,
+}
+
+/// One sheet of a draft: its name and settings, and its records.
+#[derive(Clone, Debug)]
+pub(crate) struct DraftSheet {
+    /// Its name and settings as the file model's sheet holds them, its
+    /// sentences and its count of shared formulas among them; no cell.
+    pub(crate) sheet: Sheet,
+    /// Each record, in the order the rows wrote them; `None` where one was
+    /// taken out whole.
+    pub(crate) records: Vec<Option<Record>>,
+    /// The records of more than one cell, each by its rectangle.
+    ranges: Rects,
+    /// The records of one cell, by place.
+    ones: BTreeMap<(u32, u32), usize>,
+    /// Each cell's format, where it is not 0.
+    pub(crate) styles: BTreeMap<(u32, u32), u32>,
+}
+
+/// One row's cells: their rectangle, the row's line, and what they hold.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Record {
+    pub(crate) range: A1Range,
+    pub(crate) line: u32,
+    pub(crate) what: What,
+}
+
+/// What a record's cells hold: a value, every cell the same; or a formula,
+/// its text without its `=` at its first cell, `anchor`, each other cell's
+/// that text moved there; with the shared formula's index the row's range
+/// of more than one cell gave it and that range, which a workbook made
+/// from the draft names (a fill cut by a cell taken keeps all of it, its
+/// first cell left its anchor, as a machine's write leaves one, KERNEL.34);
+/// and its kind, which a row writes legacy and a workbook may say otherwise
+/// (KERNEL.8, slice f).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum What {
+    Value(Content),
+    Formula {
+        text: String,
+        anchor: (u32, u32),
+        si: Option<u32>,
+        written: A1Range,
+        kind: Kind,
+    },
+}
+
+/// A cell of a draft as a reader of it meets it (KERNEL.49's decision 8).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Drafted<'a> {
+    /// A value cell's content.
+    Value(&'a Content),
+    /// A formula cell: its formula's text without its `=` where its row
+    /// wrote it, at the first cell of its range, and the cell's distance
+    /// from there.
+    Formula { text: &'a str, moved: (i64, i64) },
+}
+
+impl Drafted<'_> {
+    /// Whether the cell holds a formula.
+    pub fn is_formula(&self) -> bool {
+        matches!(self, Drafted::Formula { .. })
+    }
+
+    /// The cell's content: a value as written, a formula as its own text,
+    /// moved to the cell.
+    pub fn content(&self) -> Content {
+        match *self {
+            Drafted::Value(content) => content.clone(),
+            Drafted::Formula {
+                text,
+                moved: (0, 0),
+            } => Content::Formula(text.to_string()),
+            Drafted::Formula {
+                text,
+                moved: (d_row, d_col),
+            } => Content::Formula(shift_a1_references(text, d_row, d_col)),
+        }
+    }
+}
+
+impl DraftSheet {
+    fn new(name: &str) -> DraftSheet {
+        DraftSheet {
+            sheet: Sheet::new(name),
+            records: Vec::new(),
+            ranges: Rects::default(),
+            ones: BTreeMap::new(),
+            styles: BTreeMap::new(),
+        }
+    }
+
+    /// The rectangle of its records' cells, as `Sheet::extent` walks a
+    /// sheet's cells for it, no cell walked (KERNEL.49).
+    pub(crate) fn extent(&self) -> Extent {
+        let mut out: Extent = None;
+        for r in self.records.iter().flatten() {
+            let x = r.range;
+            out = Some(match out {
+                None => ((x.top, x.left), (x.bottom, x.right)),
+                Some(((top, left), (bottom, right))) => (
+                    (top.min(x.top), left.min(x.left)),
+                    (bottom.max(x.bottom), right.max(x.right)),
+                ),
+            });
+        }
+        out
+    }
+
+    /// A record kept, by its first cell.
+    fn insert(&mut self, record: Record) -> usize {
+        let at = (record.range.top, record.range.left);
+        let k = self.records.len();
+        if record.range.cells() == 1 {
+            self.ones.insert(at, k);
+        } else {
+            // A record's index a `u32`, the cell cap holding the records far
+            // below it.
+            self.ranges.insert(record.range, k as u32);
+        }
+        self.records.push(Some(record));
+        k
+    }
+
+    /// A record given up: its keys gone and its place left empty.
+    fn remove(&mut self, k: usize) -> Option<Record> {
+        let record = self.records.get_mut(k)?.take()?;
+        let at = (record.range.top, record.range.left);
+        match record.range.cells() {
+            1 => self.ones.remove(&at),
+            _ => self.ranges.remove(&record.range).map(|k| k as usize),
+        };
+        Some(record)
+    }
+
+    /// The record holding a cell.
+    pub(crate) fn find(&self, row: u32, col: u32) -> Option<usize> {
+        if let Some(&k) = self.ones.get(&(row, col)) {
+            return Some(k);
+        }
+        self.ranges.at(row, col).map(|(_, k)| k as usize)
+    }
+
+    /// The first cell of a range, in row-major order, a record already
+    /// holds, and that record: each record meeting the range found by the
+    /// rows they share, its first cell there the corner they share.
+    fn first_written(&self, range: &A1Range) -> Option<((u32, u32), usize)> {
+        let mut first: Option<((u32, u32), usize)> = None;
+        let mut meet = |at: (u32, u32), k: usize| {
+            if !first.is_some_and(|(f, _)| at >= f) {
+                first = Some((at, k));
+            }
+        };
+        for (r, k) in self.ranges.meeting(*range) {
+            if let Some(shared) = overlap(&r, range) {
+                meet((shared.top, shared.left), k as usize);
+            }
+        }
+        // The cells written alone, by the rows the range spans where they are
+        // fewer than its rows, else row by row.
+        let rows = u64::from(range.bottom - range.top) + 1;
+        if (self.ones.len() as u64) < rows {
+            for (&(row, col), &k) in self.ones.range((range.top, 0)..=(range.bottom, u32::MAX)) {
+                if col >= range.left && col <= range.right {
+                    meet((row, col), k);
+                    break;
+                }
+            }
+        } else {
+            for row in range.top..=range.bottom {
+                let mut in_row = self.ones.range((row, range.left)..=(row, range.right));
+                if let Some((&at, &k)) = in_row.next() {
+                    meet(at, k);
+                    break;
+                }
+            }
+        }
+        first
+    }
+
+    /// The cell's content as the draft holds it.
+    fn drafted(&self, k: usize, (row, col): (u32, u32)) -> Option<Drafted<'_>> {
+        Some(match &self.records[k].as_ref()?.what {
+            What::Value(content) => Drafted::Value(content),
+            What::Formula { text, anchor, .. } => Drafted::Formula {
+                text,
+                moved: (
+                    i64::from(row) - i64::from(anchor.0),
+                    i64::from(col) - i64::from(anchor.1),
+                ),
+            },
+        })
+    }
+
+    /// One cell taken out of the record holding it, the rest of the record
+    /// kept as at most four (KERNEL.49's decision 2); a fill's cut at its
+    /// first cell given its first cell left, its text moved there, or each
+    /// of its cells its own text where the move would not keep the text
+    /// whole, as a machine's write leaves a fill (KERNEL.34). Whether a cell
+    /// was there.
+    fn cut_cell(&mut self, row: u32, col: u32) -> bool {
+        let Some(k) = self.find(row, col) else {
+            return false;
+        };
+        let record = self.remove(k).expect("found");
+        let out = A1Range {
+            top: row,
+            left: col,
+            bottom: row,
+            right: col,
+        };
+        let (pieces, _) = crate::grid::cut(record.range, &out);
+        for range in pieces {
+            self.insert(Record {
+                range,
+                line: record.line,
+                what: record.what.clone(),
+            });
+        }
+        if let What::Formula {
+            text,
+            anchor,
+            si: Some(si),
+            ..
+        } = &record.what
+        {
+            if *anchor == (row, col) {
+                self.anchor_again(*si, (row, col), text);
+            }
+        }
+        true
+    }
+
+    /// A fill whose first cell was taken out, given its first cell left as
+    /// its anchor, its text moved there, where the move keeps the text whole;
+    /// else each of its cells a formula of its own, its text moved there.
+    fn anchor_again(&mut self, si: u32, was: (u32, u32), text: &str) {
+        let pieces: Vec<usize> = self
+            .records
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| matches!(r, Some(Record { what: What::Formula { si: Some(s), .. }, .. }) if *s == si))
+            .map(|(k, _)| k)
+            .collect();
+        let Some(first) = pieces
+            .iter()
+            .filter_map(|&k| self.records[k].as_ref())
+            .map(|r| (r.range.top, r.range.left))
+            .min()
+        else {
+            return;
+        };
+        let at = (
+            i64::from(first.0) - i64::from(was.0),
+            i64::from(first.1) - i64::from(was.1),
+        );
+        if crate::refers::moves_whole(text, at, at) {
+            let moved = shift_a1_references(text, at.0, at.1);
+            for k in pieces {
+                if let Some(Record {
+                    what: What::Formula { text, anchor, .. },
+                    ..
+                }) = &mut self.records[k]
+                {
+                    text.clone_from(&moved);
+                    *anchor = first;
+                }
+            }
+            return;
+        }
+        for k in pieces {
+            let record = self.remove(k).expect("a piece");
+            for row in record.range.top..=record.range.bottom {
+                for col in record.range.left..=record.range.right {
+                    let own = shift_a1_references(
+                        text,
+                        i64::from(row) - i64::from(was.0),
+                        i64::from(col) - i64::from(was.1),
+                    );
+                    let cell = A1Range {
+                        top: row,
+                        left: col,
+                        bottom: row,
+                        right: col,
+                    };
+                    self.insert(Record {
+                        range: cell,
+                        line: record.line,
+                        what: What::Formula {
+                            text: own,
+                            anchor: (row, col),
+                            si: None,
+                            written: cell,
+                            kind: Kind::Plain,
+                        },
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Draft {
+    fn new() -> Draft {
+        Draft {
+            sheets: Vec::new(),
+            styles: Styles::new(),
+            defined_names: Vec::new(),
+            values: HashMap::new(),
+            cells: 0,
+        }
+    }
+
+    /// How many sheets the rows hold, the engine's own made since among them.
+    pub fn sheets(&self) -> usize {
+        self.sheets.len()
+    }
+
+    /// A sheet's name, by index.
+    pub fn sheet_name(&self, sheet: usize) -> Option<&str> {
+        self.sheets.get(sheet).map(|s| s.sheet.name.as_str())
+    }
+
+    /// A sheet's index by name, compared as Excel compares names
+    /// ([`Workbook::find_sheet`]).
+    pub fn find_sheet(&self, name: &str) -> Option<usize> {
+        self.sheets
+            .iter()
+            .position(|s| s.sheet.name.eq_ignore_ascii_case(name))
+    }
+
+    /// The sheet of that name, added last with the name as given when there
+    /// is none.
+    pub fn ensure_sheet(&mut self, name: &str) -> usize {
+        if let Some(i) = self.find_sheet(name) {
+            return i;
+        }
+        self.sheets.push(DraftSheet::new(name));
+        self.sheets.len() - 1
+    }
+
+    /// A cell as the rows wrote it; `None` for a cell no row wrote.
+    pub fn content(&self, sheet: usize, row: u32, col: u32) -> Option<Drafted<'_>> {
+        let s = self.sheets.get(sheet)?;
+        s.drafted(s.find(row, col)?, (row, col))
+    }
+
+    /// A sheet's cells, row by row, each as the rows wrote it: every cell
+    /// of a value's range and of a formula's, made one at a time as the walk
+    /// meets it and never kept.
+    pub fn cells(&self, sheet: usize) -> impl Iterator<Item = ((u32, u32), Drafted<'_>)> + '_ {
+        let rects = self.sheets.get(sheet).map_or_else(Vec::new, |s| {
+            s.records
+                .iter()
+                .enumerate()
+                .filter_map(|(k, r)| Some((r.as_ref()?.range, k as u32)))
+                .collect()
+        });
+        let s = self.sheets.get(sheet);
+        RowMajor::new(rects).filter_map(move |(row, col, k)| {
+            Some(((row, col), s?.drafted(k as usize, (row, col))?))
+        })
+    }
+
+    /// Every formula the rows wrote, once a record: its sheet and the first
+    /// cell of its range, its text without its `=` at its anchor, and its
+    /// row's line; by sheet and first cell, the order a walk of the cells
+    /// meets a fill's first cell in.
+    pub fn formulas(&self) -> impl Iterator<Item = (CellId, &str, u32)> + '_ {
+        let mut out: Vec<(CellId, &str, u32)> = Vec::new();
+        for (si, s) in self.sheets.iter().enumerate() {
+            for r in s.records.iter().flatten() {
+                if let What::Formula { text, .. } = &r.what {
+                    out.push(((si, r.range.top, r.range.left), text.as_str(), r.line));
+                }
+            }
+        }
+        out.sort_by_key(|&(id, _, _)| id);
+        out.into_iter()
+    }
+
+    /// A value written into one cell by the engine, as a `cell` row of one
+    /// cell writes it, at no line: the cell taken out of the record that
+    /// held it first, its format kept, and counted when it is new.
+    pub fn put(&mut self, sheet: usize, row: u32, col: u32, content: Content) {
+        if !self.sheets[sheet].cut_cell(row, col) {
+            self.cells += 1;
+        }
+        let one = A1Range {
+            top: row,
+            left: col,
+            bottom: row,
+            right: col,
+        };
+        self.sheets[sheet].insert(Record {
+            range: one,
+            line: 0,
+            what: What::Value(content),
+        });
+    }
+
+    /// One cell taken out of the draft, its format with it, and no longer
+    /// counted; whether the rows wrote it.
+    pub fn take(&mut self, sheet: usize, row: u32, col: u32) -> bool {
+        let Some(s) = self.sheets.get_mut(sheet) else {
+            return false;
+        };
+        if !s.cut_cell(row, col) {
+            return false;
+        }
+        s.styles.remove(&(row, col));
+        self.cells -= 1;
+        true
+    }
+
+    /// The line of the row that wrote a cell, 0 for one the engine put.
+    pub fn line(&self, sheet: usize, row: u32, col: u32) -> Option<u32> {
+        let s = self.sheets.get(sheet)?;
+        Some(s.records[s.find(row, col)?].as_ref()?.line)
+    }
+
+    /// How many cells the rows wrote, and the engine since.
+    pub fn count(&self) -> usize {
+        self.cells
+    }
+
+    /// Each formula cell's last value, from its `value` row.
+    pub fn values(&self) -> &HashMap<CellId, Computed> {
+        &self.values
+    }
+
+    /// The grid as a workbook, every cell of every record made, a formula
+    /// over a range a shared formula from its first cell, as the writer and
+    /// a door's view take it.
+    pub fn workbook(&self) -> Workbook {
+        let mut wb = Workbook::new();
+        wb.styles = self.styles.clone();
+        wb.defined_names = self.defined_names.clone();
+        for s in &self.sheets {
+            let mut sheet = s.sheet.clone();
+            for record in s.records.iter().flatten() {
+                let range = record.range;
+                for row in range.top..=range.bottom {
+                    for col in range.left..=range.right {
+                        let content = match &record.what {
+                            What::Value(content) => content.clone(),
+                            What::Formula {
+                                text,
+                                si: None,
+                                kind,
+                                ..
+                            } => match kind {
+                                Kind::Plain => Content::Formula(text.clone()),
+                                Kind::Dynamic => Content::DynamicFormula(text.clone()),
+                                Kind::Array => Content::ArrayFormula(text.clone()),
+                            },
+                            What::Formula {
+                                text,
+                                anchor,
+                                si: Some(si),
+                                written,
+                                ..
+                            } if *anchor == (row, col) => Content::SharedMaster {
+                                text: text.clone(),
+                                range: written.text(),
+                                si: *si,
+                            },
+                            What::Formula { si: Some(si), .. } => Content::SharedChild { si: *si },
+                        };
+                        let style = s.styles.get(&(row, col)).copied().unwrap_or(0);
+                        sheet.set(row, col, Cell { content, style });
+                    }
+                }
+            }
+            wb.sheets.push(sheet);
+        }
+        wb
+    }
+
+    /// A draft of a workbook's cells, each a record of its own at no line, a
+    /// fill's cells pieces of one fill as its master names it, a fill's cell
+    /// whose master the sheet has lost left out: what a door's workbook, or
+    /// the grid a machine lends ([`super::Machine::workbook`]), loads as, its
+    /// fills and its formulas' kinds kept (KERNEL.49).
+    pub fn of_workbook(workbook: &Workbook) -> Draft {
+        let mut draft = Draft::new();
+        draft.styles = workbook.styles.clone();
+        draft.defined_names = workbook.defined_names.clone();
+        for sheet in &workbook.sheets {
+            let mut s = DraftSheet::new(&sheet.name);
+            s.sheet = Sheet {
+                cells: BTreeMap::new(),
+                ..sheet.clone()
+            };
+            let masters = crate::sheet::shared_masters(sheet);
+            for (&(row, col), cell) in &sheet.cells {
+                let one = A1Range {
+                    top: row,
+                    left: col,
+                    bottom: row,
+                    right: col,
+                };
+                let own = |text: &String, kind: Kind| What::Formula {
+                    text: text.clone(),
+                    anchor: (row, col),
+                    si: None,
+                    written: one,
+                    kind,
+                };
+                let what = match &cell.content {
+                    Content::SharedMaster { text, range, si } => What::Formula {
+                        text: text.clone(),
+                        anchor: (row, col),
+                        si: Some(*si),
+                        written: parse_a1_range(range).unwrap_or(one),
+                        kind: Kind::Plain,
+                    },
+                    Content::SharedChild { si } => {
+                        let Some(&(text, m_row, m_col)) = masters.get(si) else {
+                            continue;
+                        };
+                        let written = match &sheet.cells[&(m_row, m_col)].content {
+                            Content::SharedMaster { range, .. } => {
+                                parse_a1_range(range).unwrap_or(one)
+                            }
+                            _ => one,
+                        };
+                        What::Formula {
+                            text: text.to_string(),
+                            anchor: (m_row, m_col),
+                            si: Some(*si),
+                            written,
+                            kind: Kind::Plain,
+                        }
+                    }
+                    Content::Formula(text) => own(text, Kind::Plain),
+                    Content::DynamicFormula(text) => own(text, Kind::Dynamic),
+                    Content::ArrayFormula(text) => own(text, Kind::Array),
+                    value => What::Value(value.clone()),
+                };
+                if cell.style != 0 {
+                    s.styles.insert((row, col), cell.style);
+                }
+                s.insert(Record {
+                    range: one,
+                    line: 0,
+                    what,
+                });
+                draft.cells += 1;
+            }
+            draft.sheets.push(s);
+        }
+        draft
+    }
+
+    /// A formula cell's kind said: a dynamic-array formula or a legacy array
+    /// formula, as a workbook may hold one and no row writes (a machine read
+    /// over either kind, the tests' own, KERNEL.8, slice f).
+    #[cfg(test)]
+    pub(crate) fn set_kind(&mut self, sheet: usize, row: u32, col: u32, to: Kind) {
+        let s = &mut self.sheets[sheet];
+        let k = s.find(row, col).expect("a cell");
+        if let Some(Record {
+            what: What::Formula { kind, .. },
+            ..
+        }) = &mut s.records[k]
+        {
+            *kind = to;
+        }
+    }
 }
 
 /// A value as a row spells it.
@@ -380,17 +967,12 @@ struct Reader {
     value_lines: HashMap<CellId, u32>,
 }
 
-/// The forms of a text of rows read into a grid, the inverse of the record:
+/// The forms of a text of rows read into a draft, the inverse of the record:
 /// every row taken or skipped by name, or the first refusal with its line.
 /// Nothing is computed and no twin is made: that is `Machine::new`'s.
 pub fn read_rows(forms: &[Form]) -> Result<Draft, LineRefusal> {
     let mut r = Reader {
-        draft: Draft {
-            workbook: Workbook::new(),
-            values: HashMap::new(),
-            lines: HashMap::new(),
-            cells: 0,
-        },
+        draft: Draft::new(),
         sheet_rows: HashMap::new(),
         twin_rows: Vec::new(),
         names: HashMap::new(),
@@ -409,7 +991,7 @@ pub fn read_rows(forms: &[Form]) -> Result<Draft, LineRefusal> {
     // A twin's declaration stands only beside the sheet it is the twin of.
     for (name, line) in &r.twin_rows {
         let base = twin_base(name).unwrap_or("");
-        if r.draft.workbook.find_sheet(base).is_none() {
+        if r.draft.find_sheet(base).is_none() {
             return Err(bad_name(*line, name));
         }
     }
@@ -451,7 +1033,7 @@ impl Reader {
         line: u32,
         addr: Option<&str>,
     ) -> Result<usize, LineRefusal> {
-        if let Some(i) = self.draft.workbook.find_sheet(name) {
+        if let Some(i) = self.draft.find_sheet(name) {
             return Ok(i);
         }
         if twin_base(name).is_some() {
@@ -463,7 +1045,12 @@ impl Reader {
         if !sheet_name_ok(name) {
             return Err(bad_name(line, name));
         }
-        Ok(self.draft.workbook.ensure_sheet(name))
+        Ok(self.draft.ensure_sheet(name))
+    }
+
+    /// A sheet's name and settings.
+    fn settings(&mut self, si: usize) -> &mut Sheet {
+        &mut self.draft.sheets[si].sheet
     }
 
     fn sheet(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
@@ -492,7 +1079,7 @@ impl Reader {
             return Ok(());
         }
         self.sheet_rows.insert(i, (visibility, line));
-        self.draft.workbook.sheets[i].visibility = visibility;
+        self.settings(i).visibility = visibility;
         Ok(())
     }
 
@@ -510,8 +1097,10 @@ impl Reader {
         Ok((i, range))
     }
 
-    /// The cells a range row writes, refused when one was written before or
-    /// when they would bring the grid past its cap.
+    /// The cells a range row writes, refused when one was written before,
+    /// the first such in row-major order named with its row's line, or when
+    /// they would bring the grid past its cap: found by the records the
+    /// range meets, and no cell of it made (KERNEL.49's decision 8).
     fn claim(
         &mut self,
         si: usize,
@@ -524,18 +1113,11 @@ impl Reader {
         if self.draft.cells as u64 + count > CELLS as u64 {
             return Err(too_many(line, sheet, addr, self.draft.cells as u64 + count));
         }
-        for row in range.top..=range.bottom {
-            for col in range.left..=range.right {
-                if let Some(first) = self.draft.lines.get(&(si, row, col)) {
-                    let what = spell_cell(&self.draft.workbook, (si, row, col));
-                    return Err(twice(line, &what, *first));
-                }
-            }
-        }
-        for row in range.top..=range.bottom {
-            for col in range.left..=range.right {
-                self.draft.lines.insert((si, row, col), line);
-            }
+        let s = &self.draft.sheets[si];
+        if let Some(((row, col), k)) = s.first_written(&range) {
+            let what = format!("{}!{}", quote_sheet(&s.sheet.name), cell_ref(row, col));
+            let first = s.records[k].as_ref().map_or(0, |r| r.line);
+            return Err(twice(line, &what, first));
         }
         self.draft.cells += count as usize;
         Ok(())
@@ -548,19 +1130,11 @@ impl Reader {
         let value = datum(v).ok_or_else(|| malformed(line, form, "cell"))?;
         let (si, range) = self.target(form, "cell", sheet, addr, line)?;
         self.claim(si, range, sheet, addr, line)?;
-        let s = &mut self.draft.workbook.sheets[si];
-        for row in range.top..=range.bottom {
-            for col in range.left..=range.right {
-                s.set(
-                    row,
-                    col,
-                    Cell {
-                        content: value.content(),
-                        style: 0,
-                    },
-                );
-            }
-        }
+        self.draft.sheets[si].insert(Record {
+            range,
+            line,
+            what: What::Value(value.content()),
+        });
         Ok(())
     }
 
@@ -573,7 +1147,20 @@ impl Reader {
         };
         let (si, range) = self.target(form, "formula", sheet, addr, line)?;
         self.claim(si, range, sheet, addr, line)?;
-        self.draft.workbook.sheets[si].set_formula(range, body, 0);
+        // A range's formula a shared formula, its index the sheet's next, as
+        // `Sheet::set_formula` numbers them.
+        let shared = self.settings(si).next_shared(range);
+        self.draft.sheets[si].insert(Record {
+            range,
+            line,
+            what: What::Formula {
+                text: body.to_string(),
+                anchor: (range.top, range.left),
+                si: shared,
+                written: range,
+                kind: Kind::Plain,
+            },
+        });
         Ok(())
     }
 
@@ -585,14 +1172,14 @@ impl Reader {
         let Some(range) = parse_a1_range(addr).filter(|r| r.cells() == 1) else {
             return Err(malformed(line, form, "value"));
         };
-        let Some(si) = self.draft.workbook.find_sheet(sheet) else {
+        let Some(si) = self.draft.find_sheet(sheet) else {
             return Err(malformed(line, form, "value"));
         };
         let id = (si, range.top, range.left);
-        let is_formula = self.draft.workbook.sheets[si]
-            .cells
-            .get(&(range.top, range.left))
-            .is_some_and(|c| crate::calc::graph::is_formula(&c.content));
+        let is_formula = self
+            .draft
+            .content(si, range.top, range.left)
+            .is_some_and(|c| c.is_formula());
         if !is_formula {
             return Err(malformed(line, form, "value"));
         }
@@ -620,10 +1207,7 @@ impl Reader {
             return Ok(());
         }
         self.names.insert(key, (text.clone(), line));
-        self.draft
-            .workbook
-            .defined_names
-            .push((name.clone(), text.clone()));
+        self.draft.defined_names.push((name.clone(), text.clone()));
         Ok(())
     }
 
@@ -648,7 +1232,7 @@ impl Reader {
             return Ok(());
         }
         self.gridlines.insert(si, (on, line));
-        self.draft.workbook.sheets[si].gridlines = on;
+        self.settings(si).gridlines = on;
         Ok(())
     }
 
@@ -688,7 +1272,8 @@ impl Reader {
             style,
         };
         if let Some(first) = self.columns.get(&(si, index)) {
-            let said = self.draft.workbook.sheets[si]
+            let said = self.draft.sheets[si]
+                .sheet
                 .columns
                 .iter()
                 .find(|c| c.index == index);
@@ -699,7 +1284,7 @@ impl Reader {
             return Ok(());
         }
         self.columns.insert((si, index), line);
-        self.draft.workbook.sheets[si].columns.push(column);
+        self.settings(si).columns.push(column);
         Ok(())
     }
 
@@ -727,13 +1312,13 @@ impl Reader {
         let si = self.sheet_index(sheet, line, None)?;
         let settings = RowSettings { height, hidden };
         if let Some(first) = self.row_settings.get(&(si, n)) {
-            if self.draft.workbook.sheets[si].rows.get(&n) != Some(&settings) {
+            if self.draft.sheets[si].sheet.rows.get(&n) != Some(&settings) {
                 return Err(twice(line, &format!("(row {} {n})", quoted(sheet)), *first));
             }
             return Ok(());
         }
         self.row_settings.insert((si, n), line);
-        self.draft.workbook.sheets[si].rows.insert(n, settings);
+        self.settings(si).rows.insert(n, settings);
         Ok(())
     }
 
@@ -791,7 +1376,7 @@ impl Reader {
             return Ok(());
         }
         self.formats.insert(index, (style.clone(), line));
-        self.draft.workbook.styles.put(index, style);
+        self.draft.styles.put(index, style);
         Ok(())
     }
 
@@ -818,7 +1403,7 @@ impl Reader {
             return Ok(());
         }
         self.looks.insert(key, (index, line));
-        self.draft.workbook.sheets[si].looks.push((spelled, index));
+        self.settings(si).looks.push((spelled, index));
         Ok(())
     }
 
@@ -834,13 +1419,13 @@ impl Reader {
         line: u32,
     ) -> Result<usize, LineRefusal> {
         let first = (range.top, range.left);
-        let Some(si) = self.draft.workbook.find_sheet(sheet) else {
+        let Some(si) = self.draft.find_sheet(sheet) else {
             return Err(unwritten(line, form, kind, sheet, first));
         };
-        let cells = &self.draft.workbook.sheets[si].cells;
+        let s = &self.draft.sheets[si];
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
-                if !cells.contains_key(&(row, col)) {
+                if s.find(row, col).is_none() {
                     return Err(unwritten(line, form, kind, sheet, (row, col)));
                 }
             }
@@ -873,9 +1458,11 @@ impl Reader {
                     continue;
                 }
                 self.styles.insert(id, (index, line));
-                if let Some(cell) = self.draft.workbook.sheets[si].cells.get_mut(&(row, col)) {
-                    cell.style = index;
-                }
+                let styles = &mut self.draft.sheets[si].styles;
+                match index {
+                    0 => styles.remove(&(row, col)),
+                    index => styles.insert((row, col), index),
+                };
             }
         }
         Ok(())
@@ -902,9 +1489,7 @@ impl Reader {
             return Ok(());
         }
         self.sentences.insert(id, (n, line));
-        self.draft.workbook.sheets[id.0]
-            .sentences
-            .insert((id.1, id.2), n);
+        self.settings(id.0).sentences.insert((id.1, id.2), n);
         Ok(())
     }
 }

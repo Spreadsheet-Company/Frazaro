@@ -93,17 +93,19 @@ pub mod value;
 pub(crate) mod vector;
 
 use std::cell::Cell as Slot;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::messages::{raise, Refusal};
 use crate::refers::quote_sheet;
-use crate::sheet::{cell_ref, formula_text, shared_masters, A1Range, Cell, Content, Workbook};
+use crate::sheet::{cell_ref, formula_text, shared_masters, Content, RowSettings, Workbook};
 
 pub use array::Array;
 pub use dense::Dense;
-pub use eval::{Arg, Arrayed, Classes, Computed, Ctx, Env, Form, Library, Param, Reason, Strict};
+pub use eval::{
+    Arg, Arrayed, Classes, Computed, Ctx, Env, Form, Library, Param, Reason, Strict, Written,
+};
 pub use formula::{calls, parse, Expr};
-pub use graph::{Area, Areas, CellId, Extent, Names, Plan};
+pub use graph::{Area, Areas, CellId, Extent, Names, Plan, Walked};
 pub use index::Indexes;
 pub use shape::{Place, Shape, Shapes};
 pub use value::{agrees, ErrorKind, Value};
@@ -353,16 +355,6 @@ impl<'m> Calc<'m> {
 pub trait Values: std::fmt::Debug {
     fn computed(&self, id: CellId) -> Option<Computed>;
 
-    /// A sheet's cells inside a window, row by row, where the values hold
-    /// them and the model holds none (KERNEL.49): an engine's machine keeps
-    /// a `.last` twin's values in a store and no cell, and makes the twin's
-    /// cells when the record or the plane reads them, each its content as a
-    /// value cell holds it, in the default format. `None`, the model's own
-    /// cells, for any other.
-    fn cells(&self, _sheet: usize, _window: &A1Range) -> Option<Vec<((u32, u32), Cell)>> {
-        None
-    }
-
     /// A sheet's extent where the values keep it (KERNEL.37), so that a view
     /// reads its `extent` row without walking every cell of the sheet: the
     /// extent itself, `Some(None)` for a sheet with no cell, or `None` to
@@ -395,8 +387,42 @@ impl std::fmt::Debug for Calc<'_> {
 }
 
 impl Env for Calc<'_> {
-    fn model(&self) -> &Workbook {
-        self.model
+    fn find_sheet(&self, name: &str) -> Option<usize> {
+        self.model.find_sheet(name)
+    }
+
+    fn sheet_name(&self, sheet: usize) -> Option<&str> {
+        self.model.sheets.get(sheet).map(|s| s.name.as_str())
+    }
+
+    fn sheets(&self) -> usize {
+        self.model.sheets.len()
+    }
+
+    fn rows(&self, sheet: usize) -> Option<&BTreeMap<u32, RowSettings>> {
+        self.model.sheets.get(sheet).map(|s| &s.rows)
+    }
+
+    fn walk(&self, area: &Area) -> Walked<'_> {
+        match self.model.sheets.get(area.sheet) {
+            Some(sheet) => Walked::cells(sheet, self.extent(area.sheet), area),
+            None => Walked::nothing(),
+        }
+    }
+
+    /// A cell's formula, its text the one the plan read off the grid, moved
+    /// and its prefixes dropped, so that no read walks a sheet for a fill's
+    /// master (KERNEL.49).
+    fn written(&self, id: CellId) -> Option<Written<'_>> {
+        let kind = match crate::grid::Model::formula(self.model, id)? {
+            crate::grid::Formula::Own(_, kind) => kind,
+            crate::grid::Formula::Fill(_) => crate::grid::Kind::Plain,
+        };
+        Some(Written {
+            text: self.texts.get(&id).map(String::as_str),
+            moved: (0, 0),
+            kind,
+        })
     }
 
     fn here(&self) -> CellId {

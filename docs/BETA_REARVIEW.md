@@ -33468,6 +33468,322 @@ longest test, its views and states compared at every frame.
 pasted (the ceilings' new entry, every held figure lower and four peaks), so
 that the floors and the ceilings are the owner's run; the check then whole.
 
+*The third slice built 2026-10-22*, decisions 1, 2 and 8 and the parts of
+decision 10 that ride them, on `b09c78a` (`KERNEL.57`'s first slice, over
+`KERNEL.56`'s close), and carried onto `a8e0884` (its second), which touches
+nothing of the language:
+
+- *The machine's grid* (decision 1, `machine/book.rs`, new): a sheet of the
+  machine is its name and settings as `Sheet` holds them, no cell among
+  them; its fills, each a formula written over a rectangle, by the shared
+  formula's index its sheet gave it, held as the pieces the writes into it
+  leave; its formulas alone, each a cell's own text and kind; and its cells'
+  formats by place. Its values stand in its store (the second slice), a
+  value cell's content there exactly, so that no cell of a fill is ever
+  made. `Machine::workbook` makes a `Workbook` from it when a door or a test
+  asks, a fill a shared formula at its first cell naming the range it was
+  written over. The plan, the record, the plane, the census and the
+  evaluator read either grid through `grid.rs` (new, crate-private):
+  `Model`, what the plan reads (the sheets by name and index, the names, a
+  cell's formula, a sheet's fills' masters, the formula cells of an area in
+  their order), and `Cells`, what the record and the plane read (a sheet's
+  settings, the formats, a window's cells in their order, a value's content
+  lent where it stands); a `Workbook` and the machine give both, so that
+  each record is printed by the code that printed it, and
+  `Projection::project` and the doors' functions keep their `&Workbook`.
+- *A value cell exact* (`calc/dense.rs`, `machine/store.rs`): the store
+  being the cell, an error a value cell holds by a text that is not its
+  kind's own spelling is a kind of its own, its text kept beside as a text's
+  is, so that `(error "#n/a")` views as written and reads as `#N/A`, as the
+  B-tree kept it; a sparse sheet's loose cell the same.
+- *A fill's holes cut* (decision 2, `grid::cut`, `Fills::cut`): a write into
+  part of a fill takes the written rectangle out of each piece it meets and
+  keeps the rest as at most four, the rows above, the cells to its left and
+  to its right in the rows the two share, and the rows below; a fill written
+  over whole is gone. A write over a fill's first cell gives the fill its
+  first cell left as its anchor, its text moved there where the move keeps
+  it whole, and else each of its cells its own text, as a write has released
+  one since `KERNEL.34`; so a fill's anchor is always its first cell. The
+  formulas alone and the fills a write changed are kept as it found them,
+  and a refused write puts them back.
+- *The draft as records* (decision 8, `machine/load.rs`): `read_rows` keeps
+  a record a row, its sheet, its rectangle, its line, and its value or its
+  formula's text; one write per cell is held by the records' rectangles, the
+  first cell written twice in row-major order refused with both lines, as
+  before; no line, no cell and no hashed entry is kept a cell.
+  `Machine::new` makes the grid from the records, each formula's text moved
+  out of its record, and lays each value range's value into its store by
+  place. *Departed from the scoping:* the records are kept by their first
+  cell in the class of their height, a power of two, each class searched as
+  far above an area as its own tallest can reach (`grid::Rects`), where the
+  scoping kept them by first row and searched as far above as the tallest
+  record reached: so kept, a column of 100,000 rows written beside 20,000
+  ranges of a row each loaded in 4.85 s, every claim reading every record
+  above it, where the base loaded the same rows in 0.16 s; it loads in 0.13
+  s now, and the same with the column a fill. A fill's pieces are kept the
+  same way.
+- *A walk gathers nothing*, `KERNEL.25`'s rule: a sparse sheet's store is
+  walked by its runs merged with its loose cells row by row
+  (`store::SparseWalk`), a row no run reaches skipped. The walk first
+  written gathered its places into a list and sorted it, an allocation a
+  walk, which Alonzo's frames check counted: Naught's netlists, a `MAX` of
+  two cells at each of their gates, made 16,150 allocations at the counted
+  frame where the base makes 22, and make 22 again.
+- *A cell's formula met where it stands*: a view's walk of a window and the
+  grid lent meet each cell's formula, format and sentence beside the store's
+  walk of its places, in its order (`grid::Beside`, `Page::formulas_iter`),
+  where the first build asked each cell's of the grid, a formula through
+  every class of its sheet's fills; a search of the classes passes by a
+  class holding none; and `Env::dynamic`, which the evaluator asks at every
+  evaluation that reads a range where one value is wanted, reads the
+  formulas alone, a fill being a plain formula, where it asked the grid,
+  fills and all. Measured on the first build, beside the base: the bench's
+  edits 1 to 3% slower (Life's 2.27 to 2.33 ms, the column's 1.10 to 1.13),
+  a whole sheet's values view 2 to 10% (the board's Field 209 to 224 ms) and
+  the grid lent 35% (123 to 167 ms).
+- *The module's size*: the engine's module grew 8.9% over the base's
+  (1,568,918 to 1,708,830 bytes) and the language's own 8.0% (1,164,829 to
+  1,257,593), by the slice's new code and the standard library's code made
+  for its new types; both modules built with their names kept and compared
+  function by function, Alonzo's 132 KB more code was its maps' B-trees
+  (34.7 KB), its sorts (27.3 KB), the write and the load (41.5 KB), and the
+  grid, the book and the store (25.5 KB). The row-major sweep and the
+  rectangles' index were generic over their tags, the sweep compiled three
+  times (30.6 KB) and the index twice (15 KB); each takes one tag now, a
+  `u32`, the engine's module 27,161 bytes smaller (1,681,669, 7.2% over the
+  base's) and the language's 9,219 (1,248,374), the core's the same, holding
+  neither. Beside the build before it, alternated twice, the loads the same (the board's 407 and 411 ms, Life x16's 329 and 328), every whole frame within 1.5% and Alonzo's frames the same. *Tried and reverted, at the owner's word:* the
+  grid's readers read through trait objects, each compiled once for a
+  workbook and a machine's grid, where it was compiled for each grid read:
+  the engine's module 6,455 bytes smaller and the language's 160, but the
+  core's 12,264 larger, its trivial reads no longer inlined, the loads the
+  same; the module's growth was never the readers'.
+- *The public surface* (decision 10): `Draft`'s four fields are methods, a
+  sheet by name or made (`find_sheet`, `ensure_sheet`), a cell's content and
+  line, a sheet's cells walked in order, every formula's text once a record,
+  a cell put or taken out and counted (`put`, `take`, `count`), the formulas'
+  saved values and the workbook made from the records; `Draft::of_workbook`
+  drafts a workbook's cells, a door's or the grid lent, which the laws and
+  the tests load again. `Env::model` goes: the evaluator asks a grid what it
+  reads, a sheet's index by name, its name, how many sheets, a sheet's rows'
+  settings (`SUBTOTAL`), a walk of an area's cells, and a cell's formula as a
+  formula reads it (`KERNEL.53`'s `ISFORMULA` and `FORMULATEXT`, and
+  `SUBTOTAL` passing over its own), which `Calc` answers from its workbook
+  and the machine from its grid, one fill's master by its index;
+  `Values::cells` and `Env::walked`, the second slice's, go again. The
+  core's three tests that read the draft's fields read its methods.
+
+*Measured,* the memory runner's check mode (exact, the dev runner, on this
+tree): bytes held after the load and two frames, and at the peak, against
+the ceilings the owner's run of the second slice set:
+
+| fixture | formulas | held, the ceiling | held now | a formula | at the peak, the ceiling | at the peak now |
+|---|---|---|---|---|---|---|
+| column | 60,000 | 17,221,058 | 13,697,921 | 228.3 | 62,909,797 | the same |
+| chain | 39,999 | 10,674,147 | 8,325,463 | 208.1 | 37,447,954 | the same |
+| sums | 28,014 | 7,144,967 | 5,499,027 | 196.3 | 31,769,224 | the same |
+| life | 62,964 | 47,510,535 | 43,811,180 | 695.8 | 283,714,012 | the same |
+| lookups | 140,000 | 45,870,700 | 37,652,887 | 268.9 | 155,549,356 | the same |
+| criteria | 61,370 | 22,549,806 | 18,944,123 | 308.7 | 51,926,663 | 50,294,479 |
+| netlist | 20,480 | 62,157,483 | 53,238,277 | 2,599.5 | 90,271,736 | 86,925,008 |
+| superposition | 798,731 | 188,070,159 | 76,952,156 | 96.3 | 331,719,947 | 194,408,556, 243.4 a formula |
+| life-x16 | 1,019,844 | 269,575,999 | 129,893,031 | 127.4 | 430,814,765 | 238,717,605, 234.1 a formula |
+
+The prediction for the slice, 95 to 105 bytes a formula cell held and 240 to
+250 at the peak for the board, 120 to 130 and 225 to 240 for Life x16, is
+met on all four. The door's five programs peak where they did, their peak
+the door's build of the workbook before the machine loads it.
+
+*Timed,* the bench's runners (`bench_recalc.ps1`), this slice against the
+base in release builds of each, run alternately twice each on this machine,
+the means:
+
+| fixture | first frame | a whole frame | an edit | the load |
+|---|---|---|---|---|
+| column | 1.46 to 1.33 ms | 0.493 to 0.484 | 1.097 to 1.110 | 1.00 |
+| chain | 1.15 to 1.15 | 0.571 to 0.581 | 1.273 to 1.275 | 1.02 |
+| sums | 1.22 to 1.20 | 0.797 to 0.795 | 1.248 to 1.259 | 1.01 |
+| life | 3.76 to 3.87 | 1.752 to 1.730 | 2.333 to 2.267 | 1.01 |
+| lookups | 12.06 to 11.34 | 9.393 to 8.438 | 10.126 to 9.322 | 1.01 |
+| criteria | 11.72 to 7.62 | 10.434 to 5.480 | 5.464 to 3.827 | 0.99 |
+| netlist | 5.19 to 5.03 | 4.042 to 4.019 | 4.877 to 4.522 | 1.00 |
+
+The criteria's frames 35 to 47% faster and its edit 30%, its sheet of 61,371
+cells over 600,030 places walked by the runs of the columns a range reads,
+where a walk of the base's cells read every cell of the rows the range
+spans; the lookups' whole frame and edit 8 to 10% faster; every other row
+within 3% of the base's, inside the base's own spread between its two runs
+(the column's whole frame 0.477 and 0.509 ms), the netlist's edit the widest
+(3.98 to 5.07 ms over the four runs). The memory runner's loads: the board
+0.39 s where 0.58, Life x16 0.33 where 0.63, beside the prediction's 0.49
+and 0.41; the door's programs, built through the door before the machine
+loads them, 0.98 to 1.02 of the base's.
+
+*The tests:* the language's 388 library tests, its laws and its other
+suites, the core's 219, the door's; clippy with warnings denied in both
+configurations and rustfmt clean; `run_checks` 60 of 60, the floors' check
+with both runners built from this tree and run, every value held and every
+fixture's bytes under its ceilings; both wasm modules built, importing
+nothing and exporting what they did. *New:*
+`fills_cut_by_writes_are_the_cells_the_same_writes_leave` (sixty generated
+grids of fills written over eight times each by values and formulas of
+every size, a fill's first cell among the cells written, each grid after
+every write held cell for cell to a grid of cells written the same way, its
+plan a load's; at least twenty first cells moved and five fills given their
+cells' own texts, or the test fails as too few);
+`one_write_per_cell_is_refused_at_the_first_cell_written_twice` (three
+hundred drafts of twelve rows over ranges and cells, each refusal's line
+and text a grid of cells' refusal, and where none is refused every cell's
+line, the count and the walk in order);
+`a_draft_s_workbook_is_the_one_its_rows_wrote_cell_by_cell` (a hundred and
+twenty drafts against a reader setting each cell as its row came, formats
+and sentences among them);
+`a_cell_put_into_a_draft_or_taken_out_is_cut_from_its_record_and_counted`;
+`a_value_cell_s_error_views_by_the_text_it_was_written_with`;
+`a_value_written_over_a_value_cell_is_a_write_unless_it_is_the_same`, every
+kind on an array's store and a sparse sheet's;
+`a_fill_s_cell_reads_its_formula_moved_from_its_first_cell_left`;
+`a_write_s_rows_count_the_cells_its_earlier_rows_added_against_the_cap`, a
+grid of 1,048,000 cells written near the cap;
+`a_sentence_whose_cell_a_draft_gave_up_leaves_the_rest_theirs`;
+`a_fill_s_cell_s_formula_is_read_by_its_fill_and_never_by_the_sheet_s_masters`
+(a `SUBTOTAL` over a fill and a `FORMULATEXT` of a fill's cell on a sheet of
+fifty fills, no sheet's masters made at the frame, where the first build
+made them at every cell read, 5,050 fills read a frame); the cut's, the
+sweep's and the classes' own in `grid.rs`
+(`rectangles_kept_by_height_are_found_by_every_area_they_meet`, 600
+rectangles a column of 5,000 rows among them, 400 areas against every
+rectangle, before and after a third are given up); the fills' in
+`book.rs`; the store's exact value cells and its sparse walk
+(`a_sparse_sheet_is_walked_row_by_row_gathering_nothing`, runs whose rows
+stand apart, loose cells between and beside them and slots emptied inside a
+run, fourteen areas against every place read in order).
+`a_steady_frame_s_values_walk_no_sheet` counts no walk at any frame now,
+of the values or of the grid, a fill's master being its fill's own, where
+the values walked the sheet once before the first frame and the grid at
+every view, for its masters. The cut law also writes the same grid lent and
+loaded again (`Draft::of_workbook`), whose fills come as pieces of a cell
+each.
+
+*The mutants,* each alone in this tree, the language's tests run: the
+slice's own thirty-seven, over the cut (the rows above dropped, the cells to
+the left and the rows below kept overlapping), the overlap open at the
+columns, the classes' search too short and blind to a rectangle's last row,
+the sweep (a rectangle let go a row early, a row's rectangles unsorted), a
+fill's cell's text moved a row too far, any text the same as any other, a
+fill's count never lowered, its first cell its last piece's, its rectangle
+not grown, its text not moved with its anchor, the page's formulas out of
+order, its formulas alone met in every column, one fill's master read at the
+corner it was written at, the draft's first cell written twice its last, its
+cells found in no range, a cell taken uncounted and one put counted again, a
+fill's anchor left where it was, the sparse walk's loose cell put after its
+row's runs, a row skipped and the columns left open, a value cell's error and
+a twin's losing their texts, a slot's emptiness unread, a release never whole,
+an undo leaving the fills cut or putting formulas back in the wrong order, a
+range's count forgetting an earlier row's cells, a twin's reason held as
+nothing, a new formula missed at the settle, a fill's cell's formula read
+unmoved, and `SUBTOTAL` hiding no row. Thirty-two failed named tests at once.
+Four stood, each a gap, and each fails now the test written for it: a text
+written over another counted the same
+(`a_value_written_over_a_value_cell_is_a_write_unless_it_is_the_same`), a
+fill come as pieces of a cell searched within its first (the cut law over
+the grid loaded again), one fill's master read at its corner
+(`a_fill_s_cell_reads_its_formula_moved_from_its_first_cell_left`), and a
+range's count forgetting an earlier row's cells against the cap
+(`a_write_s_rows_count_the_cells_its_earlier_rows_added_against_the_cap`).
+One stands, equivalent: a twin's kept store keeping a written value cell's
+error by its kind and not its text, which no reader takes, a twin's view
+being made from its sheet's store and a read of its error taking the kind.
+Nine more over the walks beside and the reads above: a step past what
+stands before a place dropped, the next entry taken whatever its place, the
+window's columns left open, the held classes passed by in place of the
+empty, the formulas' sweep out of order and its formulas alone met in every
+column, a dynamic formula read as a legacy array formula, a view's values
+dropped and the grid lent's formats lost. Seven failed named tests at once;
+the first stood, and fails now
+`a_sentence_whose_cell_a_draft_gave_up_leaves_the_rest_theirs` (a cell
+taken out of a draft leaves its sheet's sentence, which the walk must pass
+by); the columns left open is equivalent, an entry outside the window's
+columns standing before the next cell of the walk and passed by. Over one
+tag type, the nine that read the sweep, the index and their callers again
+(the index's search too short, blind to a last row, and passing the held
+classes by, the sweep's rectangle let go a row early and its row unsorted,
+the draft's first cell written twice its last and its cells found in no
+range, the fills' first cell their last piece's and their rectangle not
+grown), each failing named tests.
+
+*Alonzo* (`ea3a3f2`), a copy pinned to this tree by a path and its draft's
+reads moved to the methods (its device and palette checks over the draft's
+cells and formulas, its put and take, the Input sheet read through
+`Env::read`), beside the same copy pinned to the base: its doctest and 78
+of its 79 library tests pass in both, and its describe test fails in both
+at its first cartridge, the base already moving 70 lines of six of its
+eleven describe goldens, each in its reads alone, the second slice's own;
+written again in both, every describe of the slice is the base's byte for
+byte. `frames -- --check` every frame of its twelve
+fixtures equal and each digest the same; the allocations at the counted
+frame the base's but the board's act and cascade, one more each (345 to 346,
+3,946 to 3,947), the copy's read of the Input sheet's command run, a text,
+through `Env::read` (*Found*); the heap at the peak 44% lower for Life, the
+gun and their ladders, 41% for Sand and the board, 39% for Naught by fill,
+and Naught shuffled's the same, its peak inside the load's plan.
+
+*Beside it:* `KERNEL.53`'s reads of a cell's formula (`calc/formulas.rs`,
+`SUBTOTAL`) moved onto the grid, its tests and its census golden unmoved;
+`KERNEL.56`'s tests held throughout (an extent's readers computed again
+where a write moved it, a value written into an empty cell costing its
+readers, its law at sixty seeds, a store regrown in place); `KERNEL.57`'s
+second slice, in the shared tree, reads the draft's fields at the two sites
+this slice moves.
+
+*Found in the build:*
+
+- A whole sheet's values view through a machine costs 5 to 9% more than the
+  base's (the board's Field 221 against 209 ms, Life x16's Screen 522
+  against 496), the store's places and the window's formulas walked side by
+  side where the base walked one tree of cells; the door's values view of
+  the same workbook costs what it did (209 against 212 ms, 487 against
+  494), and the grid record, its texts moved a cell at a time, the same. The
+  grid lent costs 10 to 12% more (140 against 123 ms, 177 against 160), its
+  trees made from the machine's grid where the base copied its own. A host
+  draws a window and its changes, a sheet's thousandth.
+- Alonzo's one read of a cell outside the evaluator, its Input sheet's
+  rows read at each frame's release, becomes `Env::read`, an owned value: a
+  text's allocation a frame where the command run's cell holds one, which
+  its board's act counts. The machine lends no borrowed read of a cell now
+  that `Env::model` is gone; for the pin's move, or an item.
+- A formula write keeps its sheet's fills as the write found them, a copy
+  of the sheet's fill index, and searches a released fill's pieces within
+  the rectangle its pieces have stood in: costs of the sheet, inside the
+  cost every formula write pays at both commits, the plan copied whole and
+  made again (`Shapes`, a load's), which a value written over a fill's cell
+  pays too, 3 to 62 ms for programs of 2,000 to 20,000 fills on this
+  machine, the base and the slice alike; the fourth slice's plan by fills is
+  where a write's cost becomes its cells'.
+- A draft's fill whose first cell is taken (Alonzo's Clock and File cells)
+  finds its other records by a pass over the sheet's records, once a take.
+
+*The hand test, the owner's,* 2026-10-22: the bench on this machine, its
+block pasted from `target/bench_recalc.txt`: the floors' new entry, sums'
+whole 29,500,000, the lookups' whole 14,000,000 and edit 90, the
+criteria's whole 9,400,000 and edit 218, the netlist's whole 4,270,000,
+edit 155 and type 274,000, the board's load 1,670,000 and Life x16's
+2,660,000 raised, the rest kept from the entry before, this run under them;
+and the ceilings' entry, every program's bytes held lowered, the board's to
+76,952,156 and Life x16's to 129,893,031, and four peaks, the board's to
+194,408,556 and Life x16's to 238,717,605; the check then whole, 60 of 60
+over `a8e0884`.
+Alonzo's page built over the slice, beside the same page built over the
+base: the loop oracle's thirty cases, the replays of Sand, Kairos,
+Superposition, Seiyaku and Naught held to their hands among them; and
+`?frames=1` on both, every fixture's module memory lower (the board's
+263,454,720 to 171,048,960 bytes, Life x16's 334,495,744 to 205,258,752),
+every load faster (the board's 622 to 379 ms, Life x16's 750 to 454), every
+steady frame inside the page's spread of the base's; and read again, every
+first frame the base's (Life's 10.5 against 10.4 ms, the page's first row
+paying its warm-up on both pages; the board's 124.2 against 125.9), where
+the first reading had Life's 4.4 against 10.7.
+
 **`KERNEL.50`, a format's appearance in the language: the scoping,
 2026-10-20.** Begun at the owner's word of 2026-10-19, from Alonzo's
 `CART.14`, Seiyaku (制約), the owner's number-placement puzzle, scoped and

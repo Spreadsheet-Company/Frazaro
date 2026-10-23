@@ -20,6 +20,7 @@
 use std::collections::btree_map::Range;
 use std::collections::HashMap;
 
+use crate::grid::Model;
 use crate::intrinsics::fold;
 use crate::refers::{self, Kind};
 use crate::sheet::{Cell, Content, Sheet, Workbook};
@@ -126,8 +127,13 @@ struct NameEntry {
 impl Names {
     /// The workbook's names, read off `Workbook::defined_names`.
     pub fn of(model: &Workbook) -> Names {
+        Names::of_model(model)
+    }
+
+    /// A grid's names, a workbook's or an engine's machine's (KERNEL.49).
+    pub(crate) fn of_model<M: Model + ?Sized>(model: &M) -> Names {
         let entries = model
-            .defined_names
+            .defined_names()
             .iter()
             .map(|(printed, text)| {
                 let (scope, bare) = split_scope(model, printed);
@@ -185,7 +191,7 @@ impl Names {
 
 /// `Model!Local` or `'Q1 Data'!Local` as its scope and its bare name; a
 /// name with no `!` is the workbook's.
-fn split_scope<'a>(model: &Workbook, printed: &'a str) -> (Option<usize>, &'a str) {
+fn split_scope<'a, M: Model + ?Sized>(model: &M, printed: &'a str) -> (Option<usize>, &'a str) {
     let Some(bang) = printed.rfind('!') else {
         return (None, printed);
     };
@@ -219,16 +225,29 @@ pub fn areas_at(
     d_row: i64,
     d_col: i64,
 ) -> Result<Areas, ErrorKind> {
+    areas_found(|name| model.find_sheet(name), home, r, d_row, d_col)
+}
+
+/// [`areas_at`], a sheet named by the reference found by `find` (KERNEL.49):
+/// a grid's, a workbook's or an engine's machine's, or the evaluator's
+/// environment's, which keeps no workbook to lend.
+pub(crate) fn areas_found(
+    find: impl Fn(&str) -> Option<usize>,
+    home: usize,
+    r: &RefExpr,
+    d_row: i64,
+    d_col: i64,
+) -> Result<Areas, ErrorKind> {
     let (first, last) = match r.found {
         Some((first, last)) => (usize::from(first), usize::from(last)),
         None => {
             let first = match &r.sheet {
                 None => home,
-                Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
+                Some(name) => find(name).ok_or(ErrorKind::Ref)?,
             };
             let last = match &r.last_sheet {
                 None => first,
-                Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
+                Some(name) => find(name).ok_or(ErrorKind::Ref)?,
             };
             (first, last)
         }
@@ -292,6 +311,64 @@ pub fn cells_in<'a>(
     extent: Extent,
     area: &Area,
 ) -> impl Iterator<Item = ((u32, u32), &'a Cell)> + 'a {
+    walk_of(sheet, extent, area)
+}
+
+/// The places of the cells a walk of an area visits, row by row, the area
+/// clamped to its sheet's extent first, each read through the environment
+/// that walks it ([`super::Env::walk`], KERNEL.49): a workbook's sheet's
+/// cells, or an engine's machine's store's, which holds a cell at every
+/// place it keeps a value, a formula's reason or a formula with no value
+/// yet, and a twin's by its sheet's.
+pub struct Walked<'a>(Walking<'a>);
+
+enum Walking<'a> {
+    Nothing,
+    Cells(Walk<'a>),
+    Slots(super::dense::DenseWalk<'a>),
+    Sparse(crate::machine::SparseWalk<'a>),
+}
+
+impl<'a> Walked<'a> {
+    /// A walk visiting nothing.
+    pub(crate) fn nothing() -> Walked<'static> {
+        Walked(Walking::Nothing)
+    }
+
+    /// A walk of a workbook's sheet's cells inside an area, the area clamped
+    /// to `extent` first, as [`cells_in`] walks them.
+    pub(crate) fn cells(sheet: &'a Sheet, extent: Extent, area: &Area) -> Walked<'a> {
+        Walked(Walking::Cells(walk_of(sheet, extent, area)))
+    }
+
+    /// A walk of a store's array's slots holding a cell (KERNEL.49).
+    pub(crate) fn slots(walk: super::dense::DenseWalk<'a>) -> Walked<'a> {
+        Walked(Walking::Slots(walk))
+    }
+
+    /// A walk of a sparse sheet's store's cells, its runs and its loose
+    /// cells merged row by row (KERNEL.49).
+    pub(crate) fn sparse(walk: crate::machine::SparseWalk<'a>) -> Walked<'a> {
+        Walked(Walking::Sparse(walk))
+    }
+}
+
+impl Iterator for Walked<'_> {
+    type Item = (u32, u32);
+
+    #[inline]
+    fn next(&mut self) -> Option<(u32, u32)> {
+        match &mut self.0 {
+            Walking::Nothing => None,
+            Walking::Cells(walk) => walk.next().map(|(at, _)| at),
+            Walking::Slots(walk) => walk.next(),
+            Walking::Sparse(walk) => walk.next(),
+        }
+    }
+}
+
+/// [`cells_in`]'s walk, by its own type.
+fn walk_of<'a>(sheet: &'a Sheet, extent: Extent, area: &Area) -> Walk<'a> {
     let Some(((e_top, e_left), (e_bottom, e_right))) = extent else {
         return Walk::Done;
     };
@@ -399,11 +476,38 @@ pub fn dependencies(
     text: &str,
     out: &mut Vec<CellId>,
 ) {
+    dependencies_in(model, names, extents, home, text, out);
+}
+
+/// [`dependencies`] over a grid, a workbook's or an engine's machine's
+/// (KERNEL.49).
+pub(crate) fn dependencies_in<M: Model + ?Sized>(
+    model: &M,
+    names: &Names,
+    extents: &[Extent],
+    home: usize,
+    text: &str,
+    out: &mut Vec<CellId>,
+) {
     collect(model, names, extents, home, text, 0, out);
 }
 
-fn collect(
-    model: &Workbook,
+/// The formula cells inside each area to `out`, row by row.
+fn formulas_of<M: Model + ?Sized>(
+    model: &M,
+    extents: &[Extent],
+    areas: &Areas,
+    out: &mut Vec<CellId>,
+) {
+    for a in areas {
+        model.formulas_in(a, extents[a.sheet], &mut |row, col| {
+            out.push((a.sheet, row, col))
+        });
+    }
+}
+
+fn collect<M: Model + ?Sized>(
+    model: &M,
     names: &Names,
     extents: &[Extent],
     home: usize,
@@ -417,17 +521,10 @@ fn collect(
         match r.kind {
             Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
                 let Some(re) = ref_expr(&r) else { continue };
-                let Ok(areas) = areas_of(model, home, &re) else {
+                let Ok(areas) = areas_found(|n| model.find_sheet(n), home, &re, 0, 0) else {
                     continue;
                 };
-                for a in &areas {
-                    let sheet = &model.sheets[a.sheet];
-                    for ((row, col), cell) in cells_in(sheet, extents[a.sheet], a) {
-                        if is_formula(&cell.content) {
-                            out.push((a.sheet, row, col));
-                        }
-                    }
-                }
+                formulas_of(model, extents, &areas, out);
             }
             Kind::Name if depth < NAME_DEPTH => {
                 let scope = if r.sheet_name.is_empty() {
@@ -453,17 +550,10 @@ fn collect(
     // A range between expressions read by its reach, after the references
     // (KERNEL.8, slice f).
     for re in &reaches {
-        let Ok(areas) = areas_of(model, home, re) else {
+        let Ok(areas) = areas_found(|n| model.find_sheet(n), home, re, 0, 0) else {
             continue;
         };
-        for a in &areas {
-            let sheet = &model.sheets[a.sheet];
-            for ((row, col), cell) in cells_in(sheet, extents[a.sheet], a) {
-                if is_formula(&cell.content) {
-                    out.push((a.sheet, row, col));
-                }
-            }
-        }
+        formulas_of(model, extents, &areas, out);
     }
 }
 
@@ -487,8 +577,8 @@ impl Plan {
 /// What a formula's text reads, as [`plan`] keeps it: the formula cells it
 /// names one at a time, and each area of more than one cell it names,
 /// through its references and the names they resolve to.
-fn reads(
-    model: &Workbook,
+fn reads<M: Model + ?Sized>(
+    model: &M,
     names: &Names,
     home: usize,
     text: &str,
@@ -527,23 +617,19 @@ fn reads(
 
 /// One reference [`reads`] keeps: each formula cell it names alone, each area
 /// of more than one cell.
-fn read_ref(
-    model: &Workbook,
+fn read_ref<M: Model + ?Sized>(
+    model: &M,
     home: usize,
     re: &RefExpr,
     (cells, areas): (&mut Vec<CellId>, &mut Vec<Area>),
 ) {
-    let Ok(found) = areas_of(model, home, re) else {
+    let Ok(found) = areas_found(|n| model.find_sheet(n), home, re, 0, 0) else {
         return;
     };
     for a in &found {
         if !a.is_cell() {
             areas.push(*a);
-        } else if model.sheets[a.sheet]
-            .cells
-            .get(&(a.top, a.left))
-            .is_some_and(|c| is_formula(&c.content))
-        {
+        } else if model.formula((a.sheet, a.top, a.left)).is_some() {
             cells.push((a.sheet, a.top, a.left));
         }
     }
@@ -626,11 +712,10 @@ pub fn plan(
         let mut edges: Vec<usize> = cells.iter().filter_map(|d| index.get(d).copied()).collect();
         for a in &areas {
             let v = *vertices.entry(*a).or_insert_with(|| {
-                let sheet = &model.sheets[a.sheet];
-                let inside: Vec<usize> = cells_in(sheet, extents[a.sheet], a)
-                    .filter(|(_, cell)| is_formula(&cell.content))
-                    .filter_map(|((row, col), _)| index.get(&(a.sheet, row, col)).copied())
-                    .collect();
+                let mut inside: Vec<usize> = Vec::new();
+                model.formulas_in(a, extents[a.sheet], &mut |row, col| {
+                    inside.extend(index.get(&(a.sheet, row, col)).copied());
+                });
                 (!inside.is_empty()).then(|| {
                     adj.push(inside);
                     adj.len() - 1

@@ -83,17 +83,17 @@
 //! first frame, and replacing each named cell's rows with the rows given it,
 //! holds the window's values at the second, byte for byte.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use crate::calc::{self, Extent, Values};
+use crate::grid::{text_of, Cells, Constant, Formula, Held, Holds, Masters, Page};
 use crate::machine::load::Datum;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted, record_line, Record};
 use crate::rows::{Row, Value};
 use crate::sheet::{
-    cell_ref, formula_text, number_text, parse_a1_range, shared_masters, A1Range, Cell, Column,
-    Content, NumFmt, Sheet, Styles, Workbook,
+    cell_ref, number_text, parse_a1_range, A1Range, Column, NumFmt, Sheet, Styles, Workbook,
 };
 
 /// The grid: the view record of one window, the first projection. With the
@@ -159,12 +159,20 @@ impl Projection for ValueGrid<'_> {
 impl Grid<'_> {
     /// The record's rows of one window: every row the grid prints, or with
     /// `formulas` false every row but the `formula` rows, which is the values
-    /// (KERNEL.37).
-    fn rows(&self, model: &Workbook, window: &Window, formulas: bool, out: &mut dyn FnMut(&str)) {
-        for s in &model.sheets {
+    /// (KERNEL.37); over a grid, a workbook's or an engine's machine's, whose
+    /// twins' cells it makes from their sheets (KERNEL.49).
+    pub(crate) fn rows<G: Cells + ?Sized>(
+        &self,
+        model: &G,
+        window: &Window,
+        formulas: bool,
+        out: &mut dyn FnMut(&str),
+    ) {
+        for s in 0..model.sheet_count() {
+            let page = model.page(s);
             out(&relation(&Row::Sheet {
-                name: &s.name,
-                visibility: s.visibility,
+                name: page.name,
+                visibility: page.visibility,
             }));
         }
         let Some(i) = model.find_sheet(&window.sheet) else {
@@ -177,23 +185,23 @@ impl Grid<'_> {
             ));
             return;
         };
-        let sheet = &model.sheets[i];
-        let name = sheet.name.as_str();
+        let page = model.page(i);
+        let name = page.name;
         let range = window.range;
         out(&format!(
             "(window {} {})",
             quoted(name),
             quoted(&range.text())
         ));
-        match extent_in(sheet, i, self.values) {
+        match extent_in(model, i, self.values) {
             Some(e) => out(&format!("(extent {} {})", quoted(name), quoted(&e.text()))),
             None => out(&format!("(extent {} none)", quoted(name))),
         }
         out(&record_line(&Record::Gridlines {
             sheet: name,
-            on: sheet.gridlines,
+            on: page.gridlines,
         }));
-        let mut columns: Vec<&Column> = sheet
+        let mut columns: Vec<&Column> = page
             .columns
             .iter()
             .filter(|c| c.index >= range.left && c.index <= range.right)
@@ -212,56 +220,48 @@ impl Grid<'_> {
         }
         // The rows of the window with settings, the column rows' twins
         // (KERNEL.22; Alonzo/SPEC.md decision 19).
-        for (n, r) in sheet.rows.range(range.top..=range.bottom) {
+        for (n, r) in page.rows.range(range.top..=range.bottom) {
             out(&record_line(&Record::Row {
                 sheet: name,
                 number: *n,
                 settings: r,
             }));
         }
-        // The window's cells: the model's, or those the values hold for a
-        // sheet that keeps none in the model, an engine's twin (KERNEL.49).
-        let held = self.values.and_then(|v| v.cells(i, &range));
-        let cells: Vec<((u32, u32), &Cell)> = match &held {
-            Some(held) => held.iter().map(|(at, cell)| (*at, cell)).collect(),
-            None => sheet
-                .cells
-                .range((range.top, 0)..=(range.bottom, u32::MAX))
-                .filter(|((_, col), _)| *col >= range.left && *col <= range.right)
-                .map(|(at, cell)| (*at, cell))
-                .collect(),
-        };
+        // The window's cells, as the grid holds them, an engine's twin's
+        // made from its sheet (KERNEL.49).
+        let mut cells: Vec<((u32, u32), Held<'_>)> = Vec::new();
+        model.cells(i, &range, &mut |at, cell| cells.push((at, cell)));
         for (_, cell) in &cells {
             used.insert(cell.style);
         }
-        for (_, index) in &sheet.looks {
+        for (_, index) in page.looks {
             used.insert(*index);
         }
         for index in used {
             out(&record_line(&Record::Format {
                 index,
-                style: model.styles.xfs().get(index as usize),
+                style: model.styles().xfs().get(index as usize),
                 code: None,
             }));
         }
         // The sheet's look map, a value to the format a cell holding it draws
         // with (KERNEL.22; Alonzo/SPEC.md decision 19).
-        for (value, index) in &sheet.looks {
+        for (value, index) in page.looks {
             out(&format!("(look {} {} {})", quoted(name), value, index));
         }
-        // The sheet's shared formulas' masters, found by one walk of the
-        // sheet at the first cell that needs them (KERNEL.37): the grid moves
-        // a child's text from its master; the values ask only whether a
-        // child with no value has one.
+        // The sheet's fills' masters, found at the first cell that needs
+        // them (KERNEL.37): the grid moves a fill's cell's text from its
+        // master; the values ask only whether a cell with no value has one.
         let mut masters = None;
-        let coded = Coded::of(model, sheet);
+        let coded = Coded::of(model.styles(), page.looks);
         #[cfg(test)]
         crate::sheet::work::viewed(cells.len());
-        for ((row, col), cell) in cells {
+        for (at, cell) in &cells {
             self.cell_rows(
-                sheet,
+                model,
+                &page,
                 i,
-                (row, col),
+                *at,
                 cell,
                 formulas,
                 &mut masters,
@@ -276,34 +276,35 @@ impl Grid<'_> {
     /// `formula` row where the record has them and its `value` row once it
     /// has one, then its `text` row where its value draws under a code
     /// (KERNEL.47), then its `style` and `sentence` rows; whether it printed
-    /// any. `masters` are the sheet's shared formulas', found once, and
-    /// `coded` what a `text` row needs, where the style table holds a code.
+    /// any. `masters` are the sheet's fills', found once, and `coded` what a
+    /// `text` row needs, where the style table holds a code.
     #[allow(clippy::too_many_arguments)]
-    fn cell_rows<'s>(
+    fn cell_rows<'g, G: Cells + ?Sized>(
         &self,
-        sheet: &'s Sheet,
+        model: &'g G,
+        page: &Page<'_>,
         i: usize,
         (row, col): (u32, u32),
-        cell: &Cell,
+        cell: &Held<'_>,
         formulas: bool,
-        masters: &mut Option<HashMap<u32, (&'s str, u32, u32)>>,
+        masters: &mut Option<Masters<'g>>,
         coded: Option<&Coded<'_>>,
         out: &mut dyn FnMut(&str),
     ) -> bool {
-        let name = sheet.name.as_str();
+        let name = page.name;
         let addr = cell_ref(row, col);
         // Whether the cell printed a row, and the value a code draws.
-        let (printed, shown) = match &cell.content {
-            Content::Text(t) => {
-                let value = Value::Text(t.clone());
+        let (printed, shown) = match &cell.holds {
+            Holds::Constant(Constant::Text(t)) => {
+                let value = Value::Text(t.to_string());
                 out(&relation(&Row::Cell {
                     sheet: name,
                     addr: &addr,
                     value: &value,
                 }));
-                (true, Some(calc::Value::Text(t.clone())))
+                (true, Some(calc::Value::Text(t.to_string())))
             }
-            Content::Number(n) => {
+            Holds::Constant(Constant::Number(n)) => {
                 // What the writer puts in the file: the number's text,
                 // or Excel's #NUM! for one no cell can hold.
                 let value = match number_text(*n) {
@@ -317,7 +318,7 @@ impl Grid<'_> {
                 }));
                 (true, Some(calc::Value::Number(*n)))
             }
-            Content::Bool(b) => {
+            Holds::Constant(Constant::Bool(b)) => {
                 let value = Value::Bool(*b);
                 out(&relation(&Row::Cell {
                     sheet: name,
@@ -326,8 +327,8 @@ impl Grid<'_> {
                 }));
                 (true, None)
             }
-            Content::Error(e) => {
-                let value = Value::Error(e.clone());
+            Holds::Constant(Constant::Error(e)) => {
+                let value = Value::Error(e.to_string());
                 out(&relation(&Row::Cell {
                     sheet: name,
                     addr: &addr,
@@ -335,14 +336,14 @@ impl Grid<'_> {
                 }));
                 (true, None)
             }
-            other => {
+            Holds::Formula(formula) => {
                 let computed = self.values.and_then(|calc| calc.computed((i, row, col)));
-                // A formula with a text: every one but a shared formula's
-                // cell whose master the sheet has lost, which shows
-                // nothing in either record.
+                // A formula with a text: every one but a fill's cell whose
+                // master the sheet has lost, which shows nothing in either
+                // record.
                 let held = if formulas {
-                    let walked = masters.get_or_insert_with(|| shared_masters(sheet));
-                    match formula_text(other, row, col, walked) {
+                    let walked = masters.get_or_insert_with(|| model.masters(i));
+                    match text_of(*formula, (row, col), walked) {
                         Some(text) => {
                             let text = format!("={text}");
                             out(&relation(&Row::Formula {
@@ -355,12 +356,12 @@ impl Grid<'_> {
                         None => false,
                     }
                 } else {
-                    match other {
+                    match formula {
                         // A value is only ever computed for a formula with
-                        // a text, so a child with one has its master; a
-                        // child without one asks the sheet.
-                        Content::SharedChild { si } if computed.is_none() => masters
-                            .get_or_insert_with(|| shared_masters(sheet))
+                        // a text, so a fill's cell with one has its master;
+                        // one without asks the sheet.
+                        Formula::Fill(si) if computed.is_none() => masters
+                            .get_or_insert_with(|| model.masters(i))
                             .contains_key(si),
                         _ => true,
                     }
@@ -400,7 +401,7 @@ impl Grid<'_> {
                 index: cell.style,
             }));
         }
-        if let Some(r) = sheet.sentences.get(&(row, col)) {
+        if let Some(r) = cell.sentence {
             out(&format!(
                 "(sentence {} {} {})",
                 quoted(name),
@@ -431,12 +432,11 @@ enum Look {
 }
 
 impl<'m> Coded<'m> {
-    fn of(model: &'m Workbook, sheet: &Sheet) -> Option<Coded<'m>> {
-        if !model.styles.has_code() {
+    fn of(styles: &'m Styles, looks: &[(String, u32)]) -> Option<Coded<'m>> {
+        if !styles.has_code() {
             return None;
         }
-        let looks = sheet
-            .looks
+        let looks = looks
             .iter()
             .filter_map(|(spelled, index)| {
                 let forms = crate::reader::read_forms(spelled).ok()?;
@@ -448,10 +448,7 @@ impl<'m> Coded<'m> {
                 Some((look, *index))
             })
             .collect();
-        Some(Coded {
-            styles: &model.styles,
-            looks,
-        })
+        Some(Coded { styles, looks })
     }
 
     /// The text a value draws as in a cell of format `style`: under its
@@ -473,17 +470,17 @@ impl<'m> Coded<'m> {
     }
 }
 
-/// The sheet's used rectangle, or `None` for a sheet with no cell.
-fn extent_of(sheet: &Sheet) -> Option<A1Range> {
-    rectangle(sheet.extent())
-}
-
 /// The used rectangle of sheet `i`, read from the extent `values` keep
-/// where they keep one, else walked (KERNEL.37).
-fn extent_in(sheet: &Sheet, i: usize, values: Option<&dyn Values>) -> Option<A1Range> {
+/// where they keep one, else the grid's (KERNEL.37): a workbook's walked, a
+/// machine's as it keeps it.
+fn extent_in<G: Cells + ?Sized>(
+    model: &G,
+    i: usize,
+    values: Option<&dyn Values>,
+) -> Option<A1Range> {
     match values.and_then(|v| v.kept_extent(i)) {
         Some(kept) => rectangle(kept),
-        None => extent_of(sheet),
+        None => rectangle(model.extent(i)),
     }
 }
 
@@ -500,7 +497,7 @@ fn rectangle(extent: Extent) -> Option<A1Range> {
 /// The window over a whole sheet: its extent, or `A1` alone for a sheet
 /// with no cell.
 pub fn whole(sheet: &Sheet) -> A1Range {
-    or_a1(extent_of(sheet))
+    or_a1(rectangle(sheet.extent()))
 }
 
 /// A rectangle, or `A1` alone for none.
@@ -524,19 +521,18 @@ pub fn window_of(model: &Workbook, sheet: &str, range: Option<&str>) -> Result<W
     window_over(model, sheet, range, None)
 }
 
-/// [`window_of`], a whole sheet's extent read from the extent `values` keep
+/// [`window_of`] over a grid, a workbook's or an engine's machine's
+/// (KERNEL.49), a whole sheet's extent read from the extent `values` keep
 /// where they keep one (KERNEL.37): the window an engine's machine views.
-pub(crate) fn window_over(
-    model: &Workbook,
+pub(crate) fn window_over<G: Cells + ?Sized>(
+    model: &G,
     sheet: &str,
     range: Option<&str>,
     values: Option<&dyn Values>,
 ) -> Result<Window, Refusal> {
     let Some(i) = model.find_sheet(sheet) else {
-        let sheets = model
-            .sheets
-            .iter()
-            .map(|s| s.name.as_str())
+        let sheets = (0..model.sheet_count())
+            .filter_map(|s| model.sheet_name(s))
             .collect::<Vec<_>>()
             .join(", ");
         return Err(raise(
@@ -544,14 +540,13 @@ pub(crate) fn window_over(
             &[("name", sheet), ("sheets", &sheets)],
         ));
     };
-    let s = &model.sheets[i];
     let range = match range {
         Some(text) => parse_a1_range(text)
             .ok_or_else(|| raise("view-window-not-a-range", &[("text", text)]))?,
-        None => or_a1(extent_in(s, i, values)),
+        None => or_a1(extent_in(model, i, values)),
     };
     Ok(Window {
-        sheet: s.name.clone(),
+        sheet: model.sheet_name(i).unwrap_or_default().to_string(),
         range,
     })
 }
@@ -559,12 +554,7 @@ pub(crate) fn window_over(
 /// The view record of one window as text, each line ending in a line feed:
 /// the API's surface, the tests' and a door's that holds the text.
 pub fn view_text(model: &Workbook, window: &Window) -> String {
-    let mut out = String::new();
-    Grid::default().project(model, window, &mut |line| {
-        out.push_str(line);
-        out.push('\n');
-    });
-    out
+    record_text(model, window, None, true)
 }
 
 /// The view record with each formula's computed value after it: the record
@@ -572,20 +562,27 @@ pub fn view_text(model: &Workbook, window: &Window) -> String {
 /// the core's Excel library; an engine after a step). `values` must be over
 /// `model`.
 pub fn view_text_valued(model: &Workbook, window: &Window, values: &dyn Values) -> String {
-    let mut out = String::new();
-    Grid::valued(values).project(model, window, &mut |line| {
-        out.push_str(line);
-        out.push('\n');
-    });
-    out
+    record_text(model, window, Some(values), true)
 }
 
 /// The values record of one window (KERNEL.37): [`view_text_valued`]'s
 /// record with its `formula` lines left out, what an engine's host draws
 /// every frame. `values` must be over `model`.
 pub fn view_text_values(model: &Workbook, window: &Window, values: &dyn Values) -> String {
+    record_text(model, window, Some(values), false)
+}
+
+/// A window's record as text over a grid, a workbook's or an engine's
+/// machine's (KERNEL.49): the grid's, or with `formulas` false the values',
+/// each line ending in a line feed.
+pub(crate) fn record_text<G: Cells + ?Sized>(
+    model: &G,
+    window: &Window,
+    values: Option<&dyn Values>,
+    formulas: bool,
+) -> String {
     let mut out = String::new();
-    ValueGrid::valued(values).project(model, window, &mut |line| {
+    Grid { values }.rows(model, window, formulas, &mut |line| {
         out.push_str(line);
         out.push('\n');
     });
@@ -600,8 +597,8 @@ pub fn view_text_values(model: &Workbook, window: &Window, values: &dyn Values) 
 /// `whole` and no other. An engine's machine says which cells changed, and
 /// only it can (`crate::machine::Machine::view`); `values` must be over
 /// `model`, and `cells` inside the window, in row-major order.
-pub(crate) fn changes_text(
-    model: &Workbook,
+pub(crate) fn changes_text<G: Cells + ?Sized>(
+    model: &G,
     window: &Window,
     values: &dyn Values,
     (since, at): (u64, u64),
@@ -610,11 +607,11 @@ pub(crate) fn changes_text(
     let Some(i) = model.find_sheet(&window.sheet) else {
         return String::new();
     };
-    let sheet = &model.sheets[i];
+    let page = model.page(i);
     let head = |n: &str| {
         format!(
             "(changes {} {} {since} {at} {n})\n",
-            quoted(&sheet.name),
+            quoted(page.name),
             quoted(&window.range.text())
         )
     };
@@ -625,32 +622,22 @@ pub(crate) fn changes_text(
     #[cfg(test)]
     crate::sheet::work::viewed(cells.len());
     let grid = Grid::valued(values);
-    let coded = Coded::of(model, sheet);
+    let coded = Coded::of(model.styles(), page.looks);
     let mut masters = None;
     let mut push = |line: &str| {
         out.push_str(line);
         out.push('\n');
     };
     for &(row, col) in cells {
-        // The cell the model holds, or the one the values hold for a sheet
-        // that keeps none in the model, an engine's twin (KERNEL.49).
-        let one = A1Range {
-            top: row,
-            left: col,
-            bottom: row,
-            right: col,
-        };
-        let held = values.cells(i, &one);
-        let cell = match &held {
-            Some(held) => held.first().map(|(_, cell)| cell),
-            None => sheet.cells.get(&(row, col)),
-        };
-        let printed = cell.is_some_and(|cell| {
+        // The cell as the grid holds it, an engine's twin's made from its
+        // sheet (KERNEL.49).
+        let printed = model.cell(i, row, col).is_some_and(|cell| {
             grid.cell_rows(
-                sheet,
+                model,
+                &page,
                 i,
                 (row, col),
-                cell,
+                &cell,
                 false,
                 &mut masters,
                 coded.as_ref(),
@@ -660,7 +647,7 @@ pub(crate) fn changes_text(
         if !printed {
             push(&format!(
                 "(empty {} {})",
-                quoted(&sheet.name),
+                quoted(page.name),
                 quoted(&cell_ref(row, col))
             ));
         }
@@ -671,6 +658,7 @@ pub(crate) fn changes_text(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sheet::{Cell, Content};
     use crate::sheet::{Rgb, Style, Styles};
 
     fn range(text: &str) -> A1Range {

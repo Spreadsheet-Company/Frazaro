@@ -1375,7 +1375,7 @@ impl<'a> Many<'a> {
         let sheet = match (r.found, &r.sheet) {
             (Some((first, _)), _) => usize::from(first),
             (None, None) => self.cells[sel.at(0)].0,
-            (None, Some(name)) => match self.env.model().find_sheet(name) {
+            (None, Some(name)) => match self.env.find_sheet(name) {
                 Some(s) => s,
                 None => return Lane::Same(Ok(Value::Error(ErrorKind::Ref))),
             },
@@ -1865,7 +1865,7 @@ impl<'a> Many<'a> {
             let sheet = match (r.found, &r.sheet) {
                 (Some((first, _)), _) => Some(usize::from(first)),
                 (None, None) => Some(self.cells[0].0),
-                (None, Some(name)) => self.env.model().find_sheet(name),
+                (None, Some(name)) => self.env.find_sheet(name),
             };
             if let Some(s) = sheet {
                 kept[j] = Some((s, self.env.dense(s)?));
@@ -2182,7 +2182,7 @@ impl<'a> Many<'a> {
         let sheet = match (r.found, &r.sheet) {
             (Some((first, _)), _) => Some(usize::from(first)),
             (None, None) => Some(self.cells[sel.at(0)].0),
-            (None, Some(name)) => self.env.model().find_sheet(name),
+            (None, Some(name)) => self.env.find_sheet(name),
         };
         #[cfg(test)]
         if let Some(s) = sheet {
@@ -2918,7 +2918,7 @@ impl<'a> Many<'a> {
             // cell, its index shared by the run's cells (KERNEL.8).
             let found = match (r.found, &r.sheet) {
                 (Some(_), _) | (None, None) => true,
-                (None, Some(name)) => self.env.model().find_sheet(name).is_some(),
+                (None, Some(name)) => self.env.find_sheet(name).is_some(),
             };
             if found && known.is_some_and(|k| k.searches(j)) && held_whole(r) {
                 taken::note(taken::Path::Keyed);
@@ -2931,7 +2931,6 @@ impl<'a> Many<'a> {
                 (None, None) => Some(self.env.dense(self.cells[0].0).is_some()),
                 (None, Some(name)) => self
                     .env
-                    .model()
                     .find_sheet(name)
                     .map(|s| self.env.dense(s).is_some()),
             };
@@ -3046,9 +3045,9 @@ pub(crate) struct Paths {
 /// read a reference that moves with them by slices (KERNEL.43), where a cell
 /// alone reads it by index. The walk keeps its own stack, as every walk of a
 /// parse does, so that a chain as long as Excel holds costs it no depth.
-pub(crate) fn paths(
+pub(crate) fn paths<M: crate::grid::Model + ?Sized>(
     lib: &Library,
-    model: &crate::sheet::Workbook,
+    model: &M,
     e: &Expr,
     arrays: &dyn Fn(usize) -> bool,
     homes: &[usize],
@@ -3056,7 +3055,7 @@ pub(crate) fn paths(
 ) -> Paths {
     let mut walk = Walk {
         lib,
-        model,
+        find: &|name| model.find_sheet(name),
         arrays,
         homes,
         runs,
@@ -3081,7 +3080,8 @@ pub(crate) fn paths(
 /// One parse's walk.
 struct Walk<'a> {
     lib: &'a Library,
-    model: &'a crate::sheet::Workbook,
+    /// A sheet of the grid by name.
+    find: &'a dyn Fn(&str) -> Option<usize>,
     arrays: &'a dyn Fn(usize) -> bool,
     homes: &'a [usize],
     runs: bool,
@@ -3111,7 +3111,7 @@ impl Walk<'_> {
         match (r.found, &r.sheet) {
             (Some((first, _)), _) => Some(Some(usize::from(first))),
             (None, None) => Some(None),
-            (None, Some(name)) => self.model.find_sheet(name).map(Some),
+            (None, Some(name)) => (self.find)(name).map(Some),
         }
     }
 

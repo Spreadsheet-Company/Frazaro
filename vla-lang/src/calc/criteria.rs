@@ -354,7 +354,7 @@ pub(crate) fn countif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         return Ok(Value::Error(ErrorKind::Value));
     };
     let c = criterion(&ctx.one(&args[1])?);
-    if ctx.env.model().sheets.get(area.sheet).is_none() {
+    if area.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     if let Some(indexes) = ctx.env.indexes() {
@@ -371,7 +371,7 @@ pub(crate) fn countif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 /// The cells walked as an index's build walks them, by the array a sheet is
 /// kept as where it is one.
 pub(crate) fn scan_count(ctx: &Ctx<'_>, area: Area, c: &Criterion) -> Result<Value, Reason> {
-    if ctx.env.model().sheets.get(area.sheet).is_none() {
+    if area.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     let (mut count, mut present) = (0u64, 0u64);
@@ -437,7 +437,7 @@ pub(crate) fn sumif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         }
         Some(_) => return Ok(Value::Error(ErrorKind::Value)),
     };
-    if ctx.env.model().sheets.get(sums.sheet).is_none() {
+    if sums.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     if let Some(indexes) = ctx.env.indexes() {
@@ -481,7 +481,7 @@ pub(crate) fn scan_sum(
     sums: Area,
     c: &Criterion,
 ) -> Result<Value, Reason> {
-    if ctx.env.model().sheets.get(sums.sheet).is_none() {
+    if sums.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     let mut total = 0.0;
@@ -553,7 +553,7 @@ fn pairs(
         if want.is_some_and(|w| w != shape(&area)) {
             return Ok(Err(ErrorKind::Value));
         }
-        if ctx.env.model().sheets.get(area.sheet).is_none() {
+        if area.sheet >= ctx.env.sheets() {
             return Ok(Err(ErrorKind::Ref));
         }
         out.push((area, criterion(&ctx.one(&pair[1])?)));
@@ -712,7 +712,7 @@ fn ifs(ctx: &Ctx<'_>, args: &[Arg], stat: Stat) -> Result<Value, Reason> {
     let Some(values) = one_area(args.first()) else {
         return Ok(Value::Error(ErrorKind::Value));
     };
-    if ctx.env.model().sheets.get(values.sheet).is_none() {
+    if values.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     let pairs = match pairs(ctx, &args[1..], Some(shape(&values)))? {
@@ -771,8 +771,7 @@ pub(crate) fn averageif(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
         }
         Some(_) => return Ok(Value::Error(ErrorKind::Value)),
     };
-    let model = ctx.env.model();
-    if model.sheets.get(values.sheet).is_none() || model.sheets.get(area.sheet).is_none() {
+    if values.sheet >= ctx.env.sheets() || area.sheet >= ctx.env.sheets() {
         return Ok(Value::Error(ErrorKind::Ref));
     }
     aggregate_ifs(ctx, values, &[(area, c)], Stat::Average)

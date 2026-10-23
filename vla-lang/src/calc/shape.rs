@@ -45,15 +45,14 @@
 use std::collections::HashMap;
 
 use crate::fx::FxHashMap;
+use crate::grid::{Formula, Kind, Masters, Model};
 use crate::messages::{raise, Refusal};
 use crate::refers::{self, quote_sheet};
-use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Workbook};
+use crate::sheet::{cell_ref, strip_future_prefixes, Workbook};
 
 use super::eval::{unread_name, Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
-use super::graph::{
-    self, areas_at, cells_in, dependencies, is_formula, Area, CellId, Extent, Names,
-};
+use super::graph::{self, areas_found, dependencies_in, Area, CellId, Extent, Names};
 use super::program::{Program, Why};
 use super::reach::{Positions, Reach};
 use super::vector::{self, Lanes, Repeats};
@@ -228,14 +227,26 @@ impl Shapes {
         names: &Names,
         extents: &[Extent],
     ) -> Shapes {
+        Shapes::of_model(model, sheets, library, names, extents)
+    }
+
+    /// [`Shapes::of`] over a grid, a workbook's or an engine's machine's
+    /// (KERNEL.49), its formula cells placed row by row, sheet by sheet.
+    pub(crate) fn of_model<M: Model + ?Sized>(
+        model: &M,
+        sheets: usize,
+        library: &Library,
+        names: &Names,
+        extents: &[Extent],
+    ) -> Shapes {
         let mut s: Box<Shapes> = Box::default();
-        for (si, sheet) in model.sheets.iter().enumerate().take(sheets) {
-            let masters = shared_masters(sheet);
-            for (&(row, col), cell) in &sheet.cells {
-                s.place_with(model, (si, row, col), &cell.content, &masters, library);
-            }
+        for si in 0..sheets.min(model.sheet_count()) {
+            let masters = model.masters(si);
+            model.each_formula(si, &mut |(row, col), formula| {
+                s.place_with(model, (si, row, col), formula, &masters, library);
+            });
         }
-        s.plan(model, names, extents);
+        s.plan_model(model, names, extents);
         *s
     }
 
@@ -244,17 +255,11 @@ impl Shapes {
     pub fn replace(&mut self, model: &Workbook, id: CellId, library: &Library) {
         self.places.remove(&id);
         self.unread.remove(&id);
-        let Some(sheet) = model.sheets.get(id.0) else {
+        let Some(formula) = model.formula(id) else {
             return;
         };
-        let Some(cell) = sheet.cells.get(&(id.1, id.2)) else {
-            return;
-        };
-        if !is_formula(&cell.content) {
-            return;
-        }
-        let masters = shared_masters(sheet);
-        self.place_with(model, id, &cell.content, &masters, library);
+        let masters = model.masters(id.0);
+        self.place_with(model, id, formula, &masters, library);
     }
 
     /// Many cells placed after a write, as [`Shapes::replace`] places one,
@@ -263,7 +268,12 @@ impl Shapes {
     /// whole walked its sheet 62,964 times, 3.96 billion cells visited, in
     /// 13.3 s); then the plan made the one a load of the same grid makes
     /// ([`Shapes::as_loaded`]). The order waits for [`Shapes::plan`].
-    pub(crate) fn replace_many(&mut self, model: &Workbook, ids: &[CellId], library: &Library) {
+    pub(crate) fn replace_many<M: Model + ?Sized>(
+        &mut self,
+        model: &M,
+        ids: &[CellId],
+        library: &Library,
+    ) {
         for id in ids {
             self.places.remove(id);
             self.unread.remove(id);
@@ -272,16 +282,13 @@ impl Shapes {
         sheets.sort_unstable();
         sheets.dedup();
         for s in sheets {
-            let Some(sheet) = model.sheets.get(s) else {
+            if s >= model.sheet_count() {
                 continue;
-            };
-            let masters = shared_masters(sheet);
+            }
+            let masters = model.masters(s);
             for &id in ids.iter().filter(|id| id.0 == s) {
-                let Some(cell) = sheet.cells.get(&(id.1, id.2)) else {
-                    continue;
-                };
-                if is_formula(&cell.content) {
-                    self.place_with(model, id, &cell.content, &masters, library);
+                if let Some(formula) = model.formula(id) {
+                    self.place_with(model, id, formula, &masters, library);
                 }
             }
         }
@@ -300,7 +307,7 @@ impl Shapes {
     /// shape of its first cell even when that cell had been written over,
     /// and kept a shape no cell held, so that the census after a write was
     /// numbered and anchored otherwise than a load's.
-    fn as_loaded(&mut self, model: &Workbook, library: &Library) {
+    fn as_loaded<M: Model + ?Sized>(&mut self, model: &M, library: &Library) {
         // Each shape's first cell, the least of its places, found in one pass:
         // sorting the places to find them took a write into Sand 14 ms.
         let mut first: Vec<Option<CellId>> = vec![None; self.shapes.len()];
@@ -315,7 +322,7 @@ impl Shapes {
             .collect();
         order.sort_unstable_by_key(|&s| first[s]);
         // Each shape's first cell as a load anchors it, with its text there.
-        let mut masters: HashMap<usize, HashMap<u32, (&str, u32, u32)>> = HashMap::new();
+        let mut masters: HashMap<usize, Masters<'_>> = HashMap::new();
         let mut again: Vec<(usize, CellId, String)> = Vec::new();
         for &s in &order {
             let f = first[s].expect("a shape in the order has a first cell");
@@ -325,17 +332,15 @@ impl Shapes {
                     let sheet = shape.anchor.0;
                     let found = masters
                         .entry(sheet)
-                        .or_insert_with(|| shared_masters(&model.sheets[sheet]))
+                        .or_insert_with(|| model.masters(sheet))
                         .get(&index);
                     match found {
                         Some(&(text, row, col)) => ((sheet, row, col), text),
                         None => continue,
                     }
                 }
-                None => match model.sheets[f.0].cells.get(&(f.1, f.2)).map(|c| &c.content) {
-                    Some(
-                        Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t),
-                    ) => (f, t.as_str()),
+                None => match model.formula(f) {
+                    Some(Formula::Own(t, _)) => (f, t),
                     _ => continue,
                 },
             };
@@ -396,18 +401,18 @@ impl Shapes {
         }
     }
 
-    fn place_with(
+    fn place_with<M: Model + ?Sized>(
         &mut self,
-        model: &Workbook,
+        model: &M,
         id: CellId,
-        content: &Content,
-        masters: &HashMap<u32, (&str, u32, u32)>,
+        formula: Formula<'_>,
+        masters: &Masters<'_>,
         library: &Library,
     ) {
         let (si, row, col) = id;
-        let (shape, anchor) = match content {
-            Content::SharedMaster { si: index, .. } | Content::SharedChild { si: index } => {
-                let Some(&(text, m_row, m_col)) = masters.get(index) else {
+        let (shape, anchor) = match formula {
+            Formula::Fill(index) => {
+                let Some(&(text, m_row, m_col)) = masters.get(&index) else {
                     // A child whose master is gone has no text; the machine
                     // never leaves one (a write over a master makes the
                     // fill's first cell left its master, or gives each of its
@@ -415,28 +420,28 @@ impl Shapes {
                     return;
                 };
                 let anchor = (si, m_row, m_col);
-                let key = (si, *index);
+                let key = (si, index);
                 let shape = match self.by_shared.get(&key) {
                     Some(&s) => s,
                     None => {
                         let s = self.add(model, strip_future_prefixes(text), anchor, library);
-                        self.shapes[s].fill = Some(*index);
+                        self.shapes[s].fill = Some(index);
                         self.by_shared.insert(key, s);
                         s
                     }
                 };
                 (shape, anchor)
             }
-            Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t) => {
+            Formula::Own(t, kind) => {
                 let text = strip_future_prefixes(t);
                 let mut key = refers::r1c1(&text, row, col);
                 // A dynamic formula and a legacy array formula are read as
                 // arrays, a shape of their own beside a legacy formula of the
                 // same text (KERNEL.8, slice f).
-                match content {
-                    Content::DynamicFormula(_) => key.insert(0, '\u{1}'),
-                    Content::ArrayFormula(_) => key.insert(0, '\u{2}'),
-                    _ => {}
+                match kind {
+                    Kind::Dynamic => key.insert(0, '\u{1}'),
+                    Kind::Array => key.insert(0, '\u{2}'),
+                    Kind::Plain => {}
                 }
                 match self.by_r1c1.get(&key) {
                     Some(&s) => (s, self.shapes[s].anchor),
@@ -447,7 +452,6 @@ impl Shapes {
                     }
                 }
             }
-            _ => return,
         };
         let (d_row, d_col) = (
             i64::from(row) - i64::from(anchor.1),
@@ -467,7 +471,13 @@ impl Shapes {
         };
     }
 
-    fn add(&mut self, model: &Workbook, text: String, anchor: CellId, library: &Library) -> usize {
+    fn add<M: Model + ?Sized>(
+        &mut self,
+        model: &M,
+        text: String,
+        anchor: CellId,
+        library: &Library,
+    ) -> usize {
         let mut expr = formula::parse(&text);
         if let Ok(e) = expr.as_mut() {
             find_sheets(e, model);
@@ -489,8 +499,10 @@ impl Shapes {
         missing.dedup();
         // A shape of dynamic formulas or legacy array formulas, read as
         // arrays, is computed at each cell by `Ctx` (KERNEL.8, slice f).
-        let kind_reads_arrays =
-            super::is_dynamic(model, anchor) || super::is_array_formula(model, anchor);
+        let kind_reads_arrays = matches!(
+            model.formula(anchor),
+            Some(Formula::Own(_, Kind::Dynamic | Kind::Array))
+        );
         let s = self.push(text, expr, anchor, missing, risky, library);
         self.shapes[s].reads_extent = reads_extent;
         if kind_reads_arrays {
@@ -572,10 +584,21 @@ impl Shapes {
     /// edges, the same cells in every one. A hub stands for its cells and no
     /// more, which [`Shapes::order_and_runs`] reads through.
     pub fn plan(&mut self, model: &Workbook, names: &Names, extents: &[Extent]) {
+        self.plan_model(model, names, extents);
+    }
+
+    /// [`Shapes::plan`] over a grid, a workbook's or an engine's machine's
+    /// (KERNEL.49).
+    pub(crate) fn plan_model<M: Model + ?Sized>(
+        &mut self,
+        model: &M,
+        names: &Names,
+        extents: &[Extent],
+    ) {
         let mut ids: Vec<CellId> = self.places.keys().copied().collect();
         ids.sort_unstable();
-        let index = Positions::of(&ids, model.sheets.len());
-        let mut holds = vec![false; model.sheets.len()];
+        let index = Positions::of(&ids, model.sheet_count());
+        let mut holds = vec![false; model.sheet_count()];
         for id in &ids {
             holds[id.0] = true;
         }
@@ -627,7 +650,8 @@ impl Shapes {
                         let (fixed, hub) = held.entry(key).or_insert_with(|| {
                             let mut fixed = r.fixed.clone();
                             for re in &r.own {
-                                if let Ok(areas) = areas_at(model, id.0, re, 0, 0) {
+                                let found = |n: &str| model.find_sheet(n);
+                                if let Ok(areas) = areas_found(found, id.0, re, 0, 0) {
                                     for a in &areas {
                                         vertices.formulas_in(a, &mut fixed);
                                     }
@@ -647,7 +671,8 @@ impl Shapes {
                         }
                     }
                     for re in &r.moving {
-                        let Ok(areas) = areas_at(model, id.0, re, p.d_row, p.d_col) else {
+                        let found = |n: &str| model.find_sheet(n);
+                        let Ok(areas) = areas_found(found, id.0, re, p.d_row, p.d_col) else {
                             continue;
                         };
                         for a in &areas {
@@ -659,7 +684,7 @@ impl Shapes {
                             if let Read::Name { name, sheet } = r {
                                 let scope = sheet.and_then(|s| model.find_sheet(s));
                                 if let Some(t) = names.resolve(name, scope, id.0) {
-                                    dependencies(
+                                    dependencies_in(
                                         model,
                                         names,
                                         extents,
@@ -677,7 +702,7 @@ impl Shapes {
                 // cycle through it is still found.
                 _ => {
                     let moved = refers::shift_a1_references(&shape.text, p.d_row, p.d_col);
-                    dependencies(model, names, extents, id.0, &moved, &mut deps);
+                    dependencies_in(model, names, extents, id.0, &moved, &mut deps);
                 }
             }
             for d in &deps {
@@ -1119,8 +1144,18 @@ impl Shapes {
         model: &Workbook,
         only: Option<&[CellId]>,
     ) -> Option<(CellId, Refusal)> {
+        self.first_refusal_in(model, only)
+    }
+
+    /// [`Shapes::first_refusal`] over a grid, a workbook's or an engine's
+    /// machine's (KERNEL.49).
+    pub(crate) fn first_refusal_in<M: Model + ?Sized>(
+        &self,
+        model: &M,
+        only: Option<&[CellId]>,
+    ) -> Option<(CellId, Refusal)> {
         if let Some(cycle) = self.cycles.first() {
-            let cells: Vec<String> = cycle.iter().map(|id| spell_cell(model, *id)).collect();
+            let cells: Vec<String> = cycle.iter().map(|id| spell_at(model, *id)).collect();
             return Some((
                 cycle[0],
                 raise("calc-cycle", &[("cells", &cells.join(", "))]),
@@ -1140,7 +1175,7 @@ impl Shapes {
         // not read, and once a shape and a sheet, a name being resolved by
         // the sheet that reads it.
         let mut named: FxHashMap<(usize, usize), String> = FxHashMap::default();
-        let names = (!model.defined_names.is_empty()).then(|| Names::of(model));
+        let names = (!model.defined_names().is_empty()).then(|| Names::of_model(model));
         if let Some(names) = names.filter(Names::any_unread) {
             let mut asked: FxHashMap<(usize, usize), ()> = FxHashMap::default();
             for id in &ids {
@@ -1177,7 +1212,7 @@ impl Shapes {
                     *id,
                     raise(
                         "calc-function-not-computed",
-                        &[("cell", &spell_cell(model, *id)), ("function", name)],
+                        &[("cell", &spell_at(model, *id)), ("function", name)],
                     ),
                 ));
             }
@@ -1200,10 +1235,7 @@ impl Shapes {
                 (Ok(_), None) => unread_named(id),
             };
             if let Some(label) = label {
-                return Some((
-                    *id,
-                    formula::unread_refusal(&spell_cell(model, *id), &label),
-                ));
+                return Some((*id, formula::unread_refusal(&spell_at(model, *id), &label)));
             }
         }
         None
@@ -1280,8 +1312,8 @@ pub(crate) fn hubs_made() -> usize {
 /// A plan's formula cells as the vertices of its edges (KERNEL.33): each
 /// cell's position among the plan's sorted cells, and whether each sheet
 /// holds any formula.
-struct Vertices<'a> {
-    model: &'a Workbook,
+struct Vertices<'a, M: Model + ?Sized> {
+    model: &'a M,
     extents: &'a [Extent],
     index: &'a Positions,
     holds: &'a [bool],
@@ -1300,10 +1332,10 @@ struct ShapeReads<'e> {
     named: bool,
 }
 
-impl Vertices<'_> {
+impl<M: Model + ?Sized> Vertices<'_, M> {
     /// The formula cells inside an area, each by its vertex, to `out`: by
     /// the array where the sheet's formulas stand close enough together to
-    /// be held as one, else by the sheet's tree; none on a sheet holding no
+    /// be held as one, else by the grid's own; none on a sheet holding no
     /// formula, from which no edge comes.
     fn formulas_in(&self, a: &Area, out: &mut Vec<u32>) {
         if !self.holds.get(a.sheet).copied().unwrap_or(false) {
@@ -1316,15 +1348,12 @@ impl Vertices<'_> {
         {
             return;
         }
-        let sheet = &self.model.sheets[a.sheet];
         let extent = self.extents.get(a.sheet).copied().flatten();
-        for ((row, col), cell) in cells_in(sheet, extent, a) {
-            if is_formula(&cell.content) {
-                if let Some(v) = self.index.get(a.sheet, row, col) {
-                    out.push(vertex(v));
-                }
+        self.model.formulas_in(a, extent, &mut |row, col| {
+            if let Some(v) = self.index.get(a.sheet, row, col) {
+                out.push(vertex(v));
             }
-        }
+        });
     }
 
     /// A shape's references read off its parse once: each once, however
@@ -1362,7 +1391,8 @@ impl Vertices<'_> {
                     continue;
                 }
                 if every_dollar(re) {
-                    if let Ok(areas) = areas_at(self.model, sheet, re, 0, 0) {
+                    let found = |n: &str| self.model.find_sheet(n);
+                    if let Ok(areas) = areas_found(found, sheet, re, 0, 0) {
                         for a in &areas {
                             self.formulas_in(a, &mut reads.fixed);
                         }
@@ -1403,7 +1433,7 @@ fn every_dollar(r: &RefExpr) -> bool {
 /// the formula's own sheet, and one naming a sheet the grid does not hold,
 /// stay unfound and are found by name at each evaluation, as before. The
 /// walk keeps its own stack, so that a chain of operators costs it no depth.
-fn find_sheets(expr: &mut Expr, model: &Workbook) {
+fn find_sheets<M: Model + ?Sized>(expr: &mut Expr, model: &M) {
     let mut stack = vec![expr];
     while let Some(e) = stack.pop() {
         match e {
@@ -1441,7 +1471,7 @@ fn find_sheets(expr: &mut Expr, model: &Workbook) {
 /// first, and the last of a span or the first again; `None` when it names
 /// none, one the grid does not hold, or one past the 256th, which a byte
 /// cannot hold and the name finds as before.
-fn sheets_of(model: &Workbook, r: &RefExpr) -> Option<(u8, u8)> {
+fn sheets_of<M: Model + ?Sized>(model: &M, r: &RefExpr) -> Option<(u8, u8)> {
     let first = model.find_sheet(r.sheet.as_deref()?)?;
     let last = match &r.last_sheet {
         None => first,
@@ -1452,11 +1482,13 @@ fn sheets_of(model: &Workbook, r: &RefExpr) -> Option<(u8, u8)> {
 
 /// `Sheet!A1` for a cell, the sheet quoted as a reference quotes it.
 pub fn spell_cell(model: &Workbook, id: CellId) -> String {
-    let sheet = model
-        .sheets
-        .get(id.0)
-        .map(|s| s.name.as_str())
-        .unwrap_or("");
+    spell_at(model, id)
+}
+
+/// [`spell_cell`] in a grid, a workbook's or an engine's machine's
+/// (KERNEL.49).
+pub(crate) fn spell_at<M: Model + ?Sized>(model: &M, id: CellId) -> String {
+    let sheet = model.sheet_name(id.0).unwrap_or("");
     format!("{}!{}", quote_sheet(sheet), cell_ref(id.1, id.2))
 }
 

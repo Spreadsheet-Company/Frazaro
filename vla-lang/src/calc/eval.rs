@@ -23,13 +23,15 @@ use std::cell::Cell as Counter;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::grid::{Kind, Model};
+use crate::refers::shift_a1_references;
 use crate::rows::quoted;
-use crate::sheet::{Sheet, Workbook};
+use crate::sheet::{strip_future_prefixes, RowSettings};
 
 use super::array::{self, Array, Lifted};
 use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RangeExpr, RefExpr};
-use super::graph::{areas_at, cells_in, clamped, places, Area, Areas, CellId, Extent, Names};
+use super::graph::{areas_found, clamped, places, Area, Areas, CellId, Extent, Names, Walked};
 use super::index::Indexes;
 use super::value::{round15, text_to_number, ErrorKind, Value};
 
@@ -168,10 +170,30 @@ pub fn arrays(_: usize) -> Param {
     Param::Array
 }
 
-/// The grid as the cell being computed sees it.
+/// The grid as the cell being computed sees it: its reads of a grid, which
+/// a door's [`super::Calc`] answers from its workbook and an engine's machine
+/// from its own grid, which keeps no workbook to lend (KERNEL.49).
 pub trait Env {
-    /// The model.
-    fn model(&self) -> &Workbook;
+    /// A sheet's index by name, compared as Excel compares names, a twin's
+    /// included.
+    fn find_sheet(&self, name: &str) -> Option<usize>;
+    /// A sheet's name, by index.
+    fn sheet_name(&self, sheet: usize) -> Option<&str>;
+    /// How many sheets the grid holds, an engine's twins among them.
+    fn sheets(&self) -> usize;
+    /// A sheet's rows with settings of their own, by number, which say the
+    /// rows a filter may hide (`SUBTOTAL`, KERNEL.8).
+    fn rows(&self, sheet: usize) -> Option<&BTreeMap<u32, RowSettings>>;
+    /// The places of the cells a sheet holds inside an area, row by row, the
+    /// area clamped to the sheet's extent ([`Env::extent`]): what a walk of
+    /// the area visits, each cell then read through [`Env::read`]. An
+    /// engine's machine walks a `.last` twin by its sheet's cells, at every
+    /// one of which the twin holds a value, a formula's reason or nothing, so
+    /// that a walk of a twin meets a reason where a walk of its sheet meets it.
+    fn walk(&self, area: &Area) -> Walked<'_>;
+    /// A cell's formula as a formula reads it (KERNEL.53): `None` for a cell
+    /// holding none.
+    fn written(&self, id: CellId) -> Option<Written<'_>>;
     /// The cell being computed.
     fn here(&self) -> CellId;
     /// A cell's value now: a constant as it stands, a formula's computed
@@ -231,17 +253,67 @@ pub trait Env {
     fn array_formula(&self) -> bool {
         false
     }
+}
 
-    /// The sheet whose cells a walk of an area of a sheet visits, each read
-    /// through the environment (KERNEL.49): the sheet itself, unless an
-    /// environment says otherwise. An engine's machine keeps no cell in a
-    /// `.last` twin, whose values stand in a store of its own, and answers
-    /// the sheet the twin copies, at every cell of which the twin holds a
-    /// value, a formula's reason or nothing; so that a walk of a twin meets a
-    /// reason where a walk of its sheet meets it.
-    fn walked(&self, sheet: usize) -> Option<&Sheet> {
-        self.model().sheets.get(sheet)
+/// A formula as a formula reads it (KERNEL.53; KERNEL.49): its text where it
+/// was written, a fill's cell's the fill's at its first cell, the file's
+/// prefixes kept, and none for a fill's cell whose master its sheet has
+/// lost; the cell's distance from there; and its kind.
+#[derive(Clone, Copy, Debug)]
+pub struct Written<'a> {
+    pub(crate) text: Option<&'a str>,
+    pub(crate) moved: (i64, i64),
+    pub(crate) kind: Kind,
+}
+
+impl Written<'_> {
+    /// The text as the formula bar shows it, without its `=`: moved to the
+    /// cell first and its prefixes dropped after, as the reader does it
+    /// ([`crate::sheet::formula_text`]'s rule); `None` where it has none.
+    pub(crate) fn text(&self) -> Option<String> {
+        let text = self.text?;
+        Some(match self.moved {
+            (0, 0) => strip_future_prefixes(text),
+            (d_row, d_col) => strip_future_prefixes(&shift_a1_references(text, d_row, d_col)),
+        })
     }
+
+    /// Whether the formula is a legacy one, neither a dynamic-array formula
+    /// nor a legacy array formula (KERNEL.8, slice f).
+    pub(crate) fn legacy(&self) -> bool {
+        self.kind == Kind::Plain
+    }
+
+    /// Whether the formula is a legacy array formula, entered with
+    /// Ctrl+Shift+Enter.
+    pub(crate) fn array(&self) -> bool {
+        self.kind == Kind::Array
+    }
+}
+
+/// A grid's formula as [`Written`] gives it, its text found where it was
+/// written: a fill's cell's at the fill's first cell, by `masters`.
+pub(crate) fn written_in<'a, M: Model + ?Sized>(model: &'a M, id: CellId) -> Option<Written<'a>> {
+    Some(match model.formula(id)? {
+        crate::grid::Formula::Own(text, kind) => Written {
+            text: Some(text),
+            moved: (0, 0),
+            kind,
+        },
+        crate::grid::Formula::Fill(si) => {
+            let found = model.master(id.0, si);
+            Written {
+                text: found.map(|(text, _, _)| text),
+                moved: found.map_or((0, 0), |(_, row, col)| {
+                    (
+                        i64::from(id.1) - i64::from(row),
+                        i64::from(id.2) - i64::from(col),
+                    )
+                }),
+                kind: Kind::Plain,
+            }
+        }
+    })
 }
 
 /// The cell of an area a legacy formula reads where one value is wanted,
@@ -568,13 +640,19 @@ const NAME_DEPTH: u32 = 16;
 /// evaluation answers `#NAME?`. What a load refuses with the constructs
 /// (`calc-construct-not-read`), so that no cell of an engine's grid holds
 /// the reason [`Ctx`] would label it with at a step.
-pub(crate) fn unread_name(
-    model: &Workbook,
+pub(crate) fn unread_name<M: crate::grid::Model + ?Sized>(
+    model: &M,
     names: &Names,
     e: &Expr,
     home: usize,
 ) -> Option<String> {
-    fn go(model: &Workbook, names: &Names, e: &Expr, home: usize, depth: u32) -> Option<String> {
+    fn go<M: crate::grid::Model + ?Sized>(
+        model: &M,
+        names: &Names,
+        e: &Expr,
+        home: usize,
+        depth: u32,
+    ) -> Option<String> {
         let mut found = None;
         e.each_read(&mut |read| {
             let formula::Read::Name { name, sheet } = read else {
@@ -783,8 +861,8 @@ impl<'a> Ctx<'a> {
             for (row, col) in places(extent, a) {
                 put(row, col, self.env.read((a.sheet, row, col))?);
             }
-        } else if let Some(sheet) = self.env.walked(a.sheet) {
-            for ((row, col), _) in cells_in(sheet, extent, a) {
+        } else {
+            for (row, col) in self.env.walk(a) {
                 put(row, col, self.env.read((a.sheet, row, col))?);
             }
         }
@@ -839,8 +917,8 @@ impl<'a> Ctx<'a> {
         }
         .text();
         if span.sheet != self.env.here().0 {
-            if let Some(sheet) = self.env.model().sheets.get(span.sheet) {
-                written = format!("{}!{written}", crate::rows::sheet_prefix(&sheet.name));
+            if let Some(name) = self.env.sheet_name(span.sheet) {
+                written = format!("{}!{written}", crate::rows::sheet_prefix(name));
             }
         }
         Ok(Arg::Area {
@@ -979,7 +1057,7 @@ impl<'a> Ctx<'a> {
     /// an array is walked by index over the sheet's extent, the same values
     /// in the same order (KERNEL.20), a reason answering where it stands
     /// (KERNEL.49); any other through the cells the environment walks for it
-    /// ([`Env::walked`]).
+    /// ([`Env::walk`]).
     pub fn each<F>(&self, areas: &[Area], mut f: F) -> Result<(), Reason>
     where
         F: FnMut(Value) -> Result<(), Reason>,
@@ -991,10 +1069,7 @@ impl<'a> Ctx<'a> {
                 }
                 continue;
             }
-            let Some(sheet) = self.env.walked(a.sheet) else {
-                continue;
-            };
-            for ((row, col), _) in cells_in(sheet, self.env.extent(a.sheet), a) {
+            for (row, col) in self.env.walk(a) {
                 let v = self.env.read((a.sheet, row, col))?;
                 if v != Value::Empty {
                     f(v)?;
@@ -1007,7 +1082,7 @@ impl<'a> Ctx<'a> {
     pub(super) fn reference<'e>(&self, r: &'e RefExpr) -> Result<Arg<'e>, Reason> {
         let home = self.env.here().0;
         let (d_row, d_col) = self.offset.get();
-        match areas_at(self.env.model(), home, r, d_row, d_col) {
+        match areas_found(|name| self.env.find_sheet(name), home, r, d_row, d_col) {
             Ok(areas) => Ok(Arg::Area {
                 areas,
                 written: Cow::Borrowed(&r.written),
@@ -1021,11 +1096,10 @@ impl<'a> Ctx<'a> {
     /// an area it names carries its label owned, the parse being this
     /// call's own.
     fn named(&self, name: &str, sheet: Option<&str>) -> Result<Arg<'static>, Reason> {
-        let model = self.env.model();
         let home = self.env.here().0;
         let scope = match sheet {
             None => None,
-            Some(s) => match model.find_sheet(s) {
+            Some(s) => match self.env.find_sheet(s) {
                 Some(i) => Some(i),
                 None => return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
             },
