@@ -168,8 +168,10 @@
   person set and the hidden of its rows, and each cell's format, its fill,
   its number format, its wrap, its text's weight, slant, size and color,
   its alignment and its borders, every color read through the workbook's
-  theme, tints and palette to six hex digits, so that a reflected workbook
-  keeps its looks. Its rows load as an engine's: a formula's saved value is
+  theme, tints and palette to six hex digits as Excel draws it, and every
+  built-in number format as Excel reads it, held to Excel's own reading
+  of two workbooks of a case a row, so that a reflected workbook keeps its
+  looks. Its rows load as an engine's: a formula's saved value is
   a `value` row after the formula and a date its serial number, where the
   relations' rows, unchanged without the flag, are refused at the first
   formula as a cell written twice. What the record cannot hold, a cell with

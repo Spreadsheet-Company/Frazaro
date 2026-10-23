@@ -147,7 +147,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # golden, Excel's reading of each format's font, alignment and border, set
 # through its object model and read from the core's written workbook, its
 # shape held to its fixture and every property a format says reached).
-$expectedAtLeast = 59
+# 2026-10-22, KERNEL.57: 60 - check_looks_golden.ps1 (the looks golden,
+# Excel's reading of the core's two hand-made workbooks, each target in its
+# kind's spelling and every kind of look the reader's rules name reached).
+$expectedAtLeast = 60
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -170,7 +173,8 @@ $extras = @(
     @{ Script = 'check_shapes_golden.ps1'; Args = @('-Control');    What = 'KERNEL.30 census goldens: a clean fake door passes, the second pass from its cache; a mutant door and six broken goldens each fail' },
     @{ Script = 'check_formats_golden.ps1'; Args = @('-Control');   What = 'KERNEL.47 formats golden: the real set passes; a misspelt tag, a dropped case, a value echoed otherwise, an exponent and the backslashes taken out each fail' },
     @{ Script = 'check_appearance_golden.ps1'; Args = @('-Control'); What = 'KERNEL.50 appearance golden: the real set passes; a misspelt tag, a dropped case, a word of none, a default said, a taken case refused and a line not reached each fail' },
-    @{ Script = 'run_checks.ps1';          Args = @('-Control');    What = 'AS.10 this runner: fake checks side by side and one at a time report in the order of their names; a failure and a floor not met each fail' }
+    @{ Script = 'check_looks_golden.ps1'; Args = @('-Control');     What = 'KERNEL.57 looks golden: the real golden passes; a misspelt kind, a dropped case, a word of none, a default said, an unheld word of none and a source of none each fail' },
+    @{ Script = 'run_checks.ps1';         Args = @('-Control');    What = 'AS.10 this runner: fake checks side by side and one at a time report in the order of their names; a failure and a floor not met each fail' }
 )
 
 # One script in a powershell.exe of its own, its output merged in the order

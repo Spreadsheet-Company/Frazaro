@@ -1,0 +1,1322 @@
+source	excel 16.0 20430
+=== looks.xlsx!Colors!theme 0 (lt1)
+cell:C2	"FFFFFF" general nowrap
+cell:E2	none general nowrap (font "FFFFFF")
+cell:G2	none general nowrap (border (left thin "FFFFFF"))
+theme:C2	1 0
+=== looks.xlsx!Colors!theme 1 (dk1)
+cell:C4	"000000" general nowrap
+cell:E4	none general nowrap
+cell:G4	none general nowrap (border (left thin "000000"))
+theme:C4	2 0
+=== looks.xlsx!Colors!theme 2 (lt2)
+cell:C6	"E7E6E6" general nowrap
+cell:E6	none general nowrap (font "E7E6E6")
+cell:G6	none general nowrap (border (left thin "E7E6E6"))
+theme:C6	3 0
+=== looks.xlsx!Colors!theme 3 (dk2)
+cell:C8	"44546A" general nowrap
+cell:E8	none general nowrap (font "44546A")
+cell:G8	none general nowrap (border (left thin "44546A"))
+theme:C8	4 0
+=== looks.xlsx!Colors!theme 4 (accent1)
+cell:C10	"4472C4" general nowrap
+cell:E10	none general nowrap (font "4472C4")
+cell:G10	none general nowrap (border (left thin "4472C4"))
+theme:C10	5 0
+=== looks.xlsx!Colors!theme 5 (accent2)
+cell:C12	"ED7D31" general nowrap
+cell:E12	none general nowrap (font "ED7D31")
+cell:G12	none general nowrap (border (left thin "ED7D31"))
+theme:C12	6 0
+=== looks.xlsx!Colors!theme 6 (accent3)
+cell:C14	"A5A5A5" general nowrap
+cell:E14	none general nowrap (font "A5A5A5")
+cell:G14	none general nowrap (border (left thin "A5A5A5"))
+theme:C14	7 0
+=== looks.xlsx!Colors!theme 7 (accent4)
+cell:C16	"FFC000" general nowrap
+cell:E16	none general nowrap (font "FFC000")
+cell:G16	none general nowrap (border (left thin "FFC000"))
+theme:C16	8 0
+=== looks.xlsx!Colors!theme 8 (accent5)
+cell:C18	"5B9BD5" general nowrap
+cell:E18	none general nowrap (font "5B9BD5")
+cell:G18	none general nowrap (border (left thin "5B9BD5"))
+theme:C18	9 0
+=== looks.xlsx!Colors!theme 9 (accent6)
+cell:C20	"70AD47" general nowrap
+cell:E20	none general nowrap (font "70AD47")
+cell:G20	none general nowrap (border (left thin "70AD47"))
+theme:C20	10 0
+=== looks.xlsx!Colors!theme 10 (hlink)
+cell:C22	"0563C1" general nowrap
+cell:E22	none general nowrap (font "0563C1")
+cell:G22	none general nowrap (border (left thin "0563C1"))
+theme:C22	11 0
+=== looks.xlsx!Colors!theme 11 (folHlink)
+cell:C24	"954F72" general nowrap
+cell:E24	none general nowrap (font "954F72")
+cell:G24	none general nowrap (border (left thin "954F72"))
+theme:C24	12 0
+=== looks.xlsx!Colors!theme 0 (lt1) tint -4.9989318521683403E-2
+cell:C26	"F2F2F2" general nowrap
+cell:E26	none general nowrap (font "F2F2F2")
+cell:G26	none general nowrap (border (left thin "F2F2F2"))
+theme:C26	1 -4.99893185216834E-02
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.14999847407452621
+cell:C28	"D9D9D9" general nowrap
+cell:E28	none general nowrap (font "D9D9D9")
+cell:G28	none general nowrap (border (left thin "D9D9D9"))
+theme:C28	1 -0.149998474074526
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.249977111117893
+cell:C30	"BFBFBF" general nowrap
+cell:E30	none general nowrap (font "BFBFBF")
+cell:G30	none general nowrap (border (left thin "BFBFBF"))
+theme:C30	1 -0.249977111117893
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.34998626667073579
+cell:C32	"A6A6A6" general nowrap
+cell:E32	none general nowrap (font "A6A6A6")
+cell:G32	none general nowrap (border (left thin "A6A6A6"))
+theme:C32	1 -0.349986266670736
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.499984740745262
+cell:C34	"808080" general nowrap
+cell:E34	none general nowrap (font "808080")
+cell:G34	none general nowrap (border (left thin "808080"))
+theme:C34	1 -0.499984740745262
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.499984740745262
+cell:C36	"808080" general nowrap
+cell:E36	none general nowrap (font "808080")
+cell:G36	none general nowrap (border (left thin "808080"))
+theme:C36	2 0.499984740745262
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.34998626667073579
+cell:C38	"595959" general nowrap
+cell:E38	none general nowrap (font "595959")
+cell:G38	none general nowrap (border (left thin "595959"))
+theme:C38	2 0.349986266670736
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.249977111117893
+cell:C40	"404040" general nowrap
+cell:E40	none general nowrap (font "404040")
+cell:G40	none general nowrap (border (left thin "404040"))
+theme:C40	2 0.249977111117893
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.14999847407452621
+cell:C42	"262626" general nowrap
+cell:E42	none general nowrap (font "262626")
+cell:G42	none general nowrap (border (left thin "262626"))
+theme:C42	2 0.149998474074526
+=== looks.xlsx!Colors!theme 1 (dk1) tint 4.9989318521683403E-2
+cell:C44	"0D0D0D" general nowrap
+cell:E44	none general nowrap (font "0D0D0D")
+cell:G44	none general nowrap (border (left thin "0D0D0D"))
+theme:C44	2 4.99893185216834E-02
+=== looks.xlsx!Colors!theme 2 (lt2) tint -9.9978637043366805E-2
+cell:C46	"D0CECE" general nowrap
+cell:E46	none general nowrap (font "D0CECE")
+cell:G46	none general nowrap (border (left thin "D0CECE"))
+theme:C46	3 -9.99786370433668E-02
+=== looks.xlsx!Colors!theme 2 (lt2) tint -0.249977111117893
+cell:C48	"AEAAAA" general nowrap
+cell:E48	none general nowrap (font "AEAAAA")
+cell:G48	none general nowrap (border (left thin "AEAAAA"))
+theme:C48	3 -0.249977111117893
+=== looks.xlsx!Colors!theme 2 (lt2) tint -0.499984740745262
+cell:C50	"757171" general nowrap
+cell:E50	none general nowrap (font "757171")
+cell:G50	none general nowrap (border (left thin "757171"))
+theme:C50	3 -0.499984740745262
+=== looks.xlsx!Colors!theme 2 (lt2) tint -0.74999237037263116
+cell:C52	"3A3838" general nowrap
+cell:E52	none general nowrap (font "3A3838")
+cell:G52	none general nowrap (border (left thin "3A3838"))
+theme:C52	3 -0.749992370372631
+=== looks.xlsx!Colors!theme 2 (lt2) tint -0.89999084444715716
+cell:C54	"161616" general nowrap
+cell:E54	none general nowrap (font "161616")
+cell:G54	none general nowrap (border (left thin "161616"))
+theme:C54	3 -0.899990844447157
+=== looks.xlsx!Colors!theme 3 (dk2) tint 0.79998168889431442
+cell:C56	"D6DCE4" general nowrap
+cell:E56	none general nowrap (font "D6DCE4")
+cell:G56	none general nowrap (border (left thin "D6DCE4"))
+theme:C56	4 0.799981688894314
+=== looks.xlsx!Colors!theme 3 (dk2) tint 0.59999389629810485
+cell:C58	"ACB9CA" general nowrap
+cell:E58	none general nowrap (font "ACB9CA")
+cell:G58	none general nowrap (border (left thin "ACB9CA"))
+theme:C58	4 0.599993896298105
+=== looks.xlsx!Colors!theme 3 (dk2) tint 0.39997558519241921
+cell:C60	"8497B0" general nowrap
+cell:E60	none general nowrap (font "8497B0")
+cell:G60	none general nowrap (border (left thin "8497B0"))
+theme:C60	4 0.399975585192419
+=== looks.xlsx!Colors!theme 3 (dk2) tint -0.249977111117893
+cell:C62	"333F4F" general nowrap
+cell:E62	none general nowrap (font "333F4F")
+cell:G62	none general nowrap (border (left thin "333F4F"))
+theme:C62	4 -0.249977111117893
+=== looks.xlsx!Colors!theme 3 (dk2) tint -0.499984740745262
+cell:C64	"222B35" general nowrap
+cell:E64	none general nowrap (font "222B35")
+cell:G64	none general nowrap (border (left thin "222B35"))
+theme:C64	4 -0.499984740745262
+=== looks.xlsx!Colors!theme 4 (accent1) tint 0.79998168889431442
+cell:C66	"D9E1F2" general nowrap
+cell:E66	none general nowrap (font "D9E1F2")
+cell:G66	none general nowrap (border (left thin "D9E1F2"))
+theme:C66	5 0.799981688894314
+=== looks.xlsx!Colors!theme 4 (accent1) tint 0.59999389629810485
+cell:C68	"B4C6E7" general nowrap
+cell:E68	none general nowrap (font "B4C6E7")
+cell:G68	none general nowrap (border (left thin "B4C6E7"))
+theme:C68	5 0.599993896298105
+=== looks.xlsx!Colors!theme 4 (accent1) tint 0.39997558519241921
+cell:C70	"8EA9DB" general nowrap
+cell:E70	none general nowrap (font "8EA9DB")
+cell:G70	none general nowrap (border (left thin "8EA9DB"))
+theme:C70	5 0.399975585192419
+=== looks.xlsx!Colors!theme 4 (accent1) tint -0.249977111117893
+cell:C72	"305496" general nowrap
+cell:E72	none general nowrap (font "305496")
+cell:G72	none general nowrap (border (left thin "305496"))
+theme:C72	5 -0.249977111117893
+=== looks.xlsx!Colors!theme 4 (accent1) tint -0.499984740745262
+cell:C74	"203764" general nowrap
+cell:E74	none general nowrap (font "203764")
+cell:G74	none general nowrap (border (left thin "203764"))
+theme:C74	5 -0.499984740745262
+=== looks.xlsx!Colors!theme 5 (accent2) tint 0.79998168889431442
+cell:C76	"FCE4D6" general nowrap
+cell:E76	none general nowrap (font "FCE4D6")
+cell:G76	none general nowrap (border (left thin "FCE4D6"))
+theme:C76	6 0.799981688894314
+=== looks.xlsx!Colors!theme 5 (accent2) tint 0.59999389629810485
+cell:C78	"F8CBAD" general nowrap
+cell:E78	none general nowrap (font "F8CBAD")
+cell:G78	none general nowrap (border (left thin "F8CBAD"))
+theme:C78	6 0.599993896298105
+=== looks.xlsx!Colors!theme 5 (accent2) tint 0.39997558519241921
+cell:C80	"F4B084" general nowrap
+cell:E80	none general nowrap (font "F4B084")
+cell:G80	none general nowrap (border (left thin "F4B084"))
+theme:C80	6 0.399975585192419
+=== looks.xlsx!Colors!theme 5 (accent2) tint -0.249977111117893
+cell:C82	"C65911" general nowrap
+cell:E82	none general nowrap (font "C65911")
+cell:G82	none general nowrap (border (left thin "C65911"))
+theme:C82	6 -0.249977111117893
+=== looks.xlsx!Colors!theme 5 (accent2) tint -0.499984740745262
+cell:C84	"833C0C" general nowrap
+cell:E84	none general nowrap (font "833C0C")
+cell:G84	none general nowrap (border (left thin "833C0C"))
+theme:C84	6 -0.499984740745262
+=== looks.xlsx!Colors!theme 6 (accent3) tint 0.79998168889431442
+cell:C86	"EDEDED" general nowrap
+cell:E86	none general nowrap (font "EDEDED")
+cell:G86	none general nowrap (border (left thin "EDEDED"))
+theme:C86	7 0.799981688894314
+=== looks.xlsx!Colors!theme 6 (accent3) tint 0.59999389629810485
+cell:C88	"DBDBDB" general nowrap
+cell:E88	none general nowrap (font "DBDBDB")
+cell:G88	none general nowrap (border (left thin "DBDBDB"))
+theme:C88	7 0.599993896298105
+=== looks.xlsx!Colors!theme 6 (accent3) tint 0.39997558519241921
+cell:C90	"C9C9C9" general nowrap
+cell:E90	none general nowrap (font "C9C9C9")
+cell:G90	none general nowrap (border (left thin "C9C9C9"))
+theme:C90	7 0.399975585192419
+=== looks.xlsx!Colors!theme 6 (accent3) tint -0.249977111117893
+cell:C92	"7B7B7B" general nowrap
+cell:E92	none general nowrap (font "7B7B7B")
+cell:G92	none general nowrap (border (left thin "7B7B7B"))
+theme:C92	7 -0.249977111117893
+=== looks.xlsx!Colors!theme 6 (accent3) tint -0.499984740745262
+cell:C94	"525252" general nowrap
+cell:E94	none general nowrap (font "525252")
+cell:G94	none general nowrap (border (left thin "525252"))
+theme:C94	7 -0.499984740745262
+=== looks.xlsx!Colors!theme 7 (accent4) tint 0.79998168889431442
+cell:C96	"FFF2CC" general nowrap
+cell:E96	none general nowrap (font "FFF2CC")
+cell:G96	none general nowrap (border (left thin "FFF2CC"))
+theme:C96	8 0.799981688894314
+=== looks.xlsx!Colors!theme 7 (accent4) tint 0.59999389629810485
+cell:C98	"FFE699" general nowrap
+cell:E98	none general nowrap (font "FFE699")
+cell:G98	none general nowrap (border (left thin "FFE699"))
+theme:C98	8 0.599993896298105
+=== looks.xlsx!Colors!theme 7 (accent4) tint 0.39997558519241921
+cell:C100	"FFD966" general nowrap
+cell:E100	none general nowrap (font "FFD966")
+cell:G100	none general nowrap (border (left thin "FFD966"))
+theme:C100	8 0.399975585192419
+=== looks.xlsx!Colors!theme 7 (accent4) tint -0.249977111117893
+cell:C102	"BF8F00" general nowrap
+cell:E102	none general nowrap (font "BF8F00")
+cell:G102	none general nowrap (border (left thin "BF8F00"))
+theme:C102	8 -0.249977111117893
+=== looks.xlsx!Colors!theme 7 (accent4) tint -0.499984740745262
+cell:C104	"806000" general nowrap
+cell:E104	none general nowrap (font "806000")
+cell:G104	none general nowrap (border (left thin "806000"))
+theme:C104	8 -0.499984740745262
+=== looks.xlsx!Colors!theme 8 (accent5) tint 0.79998168889431442
+cell:C106	"DDEBF7" general nowrap
+cell:E106	none general nowrap (font "DDEBF7")
+cell:G106	none general nowrap (border (left thin "DDEBF7"))
+theme:C106	9 0.799981688894314
+=== looks.xlsx!Colors!theme 8 (accent5) tint 0.59999389629810485
+cell:C108	"BDD7EE" general nowrap
+cell:E108	none general nowrap (font "BDD7EE")
+cell:G108	none general nowrap (border (left thin "BDD7EE"))
+theme:C108	9 0.599993896298105
+=== looks.xlsx!Colors!theme 8 (accent5) tint 0.39997558519241921
+cell:C110	"9BC2E6" general nowrap
+cell:E110	none general nowrap (font "9BC2E6")
+cell:G110	none general nowrap (border (left thin "9BC2E6"))
+theme:C110	9 0.399975585192419
+=== looks.xlsx!Colors!theme 8 (accent5) tint -0.249977111117893
+cell:C112	"2F75B5" general nowrap
+cell:E112	none general nowrap (font "2F75B5")
+cell:G112	none general nowrap (border (left thin "2F75B5"))
+theme:C112	9 -0.249977111117893
+=== looks.xlsx!Colors!theme 8 (accent5) tint -0.499984740745262
+cell:C114	"1F4E78" general nowrap
+cell:E114	none general nowrap (font "1F4E78")
+cell:G114	none general nowrap (border (left thin "1F4E78"))
+theme:C114	9 -0.499984740745262
+=== looks.xlsx!Colors!theme 9 (accent6) tint 0.79998168889431442
+cell:C116	"E2EFDA" general nowrap
+cell:E116	none general nowrap (font "E2EFDA")
+cell:G116	none general nowrap (border (left thin "E2EFDA"))
+theme:C116	10 0.799981688894314
+=== looks.xlsx!Colors!theme 9 (accent6) tint 0.59999389629810485
+cell:C118	"C6E0B4" general nowrap
+cell:E118	none general nowrap (font "C6E0B4")
+cell:G118	none general nowrap (border (left thin "C6E0B4"))
+theme:C118	10 0.599993896298105
+=== looks.xlsx!Colors!theme 9 (accent6) tint 0.39997558519241921
+cell:C120	"A9D08E" general nowrap
+cell:E120	none general nowrap (font "A9D08E")
+cell:G120	none general nowrap (border (left thin "A9D08E"))
+theme:C120	10 0.399975585192419
+=== looks.xlsx!Colors!theme 9 (accent6) tint -0.249977111117893
+cell:C122	"548235" general nowrap
+cell:E122	none general nowrap (font "548235")
+cell:G122	none general nowrap (border (left thin "548235"))
+theme:C122	10 -0.249977111117893
+=== looks.xlsx!Colors!theme 9 (accent6) tint -0.499984740745262
+cell:C124	"375623" general nowrap
+cell:E124	none general nowrap (font "375623")
+cell:G124	none general nowrap (border (left thin "375623"))
+theme:C124	10 -0.499984740745262
+=== looks.xlsx!Colors!theme 10 (hlink) tint 0.79998168889431442
+cell:C126	"C1DFFD" general nowrap
+cell:E126	none general nowrap (font "C1DFFD")
+cell:G126	none general nowrap (border (left thin "C1DFFD"))
+theme:C126	11 0.799981688894314
+=== looks.xlsx!Colors!theme 10 (hlink) tint 0.59999389629810485
+cell:C128	"85C0FC" general nowrap
+cell:E128	none general nowrap (font "85C0FC")
+cell:G128	none general nowrap (border (left thin "85C0FC"))
+theme:C128	11 0.599993896298105
+=== looks.xlsx!Colors!theme 10 (hlink) tint 0.39997558519241921
+cell:C130	"46A0FB" general nowrap
+cell:E130	none general nowrap (font "46A0FB")
+cell:G130	none general nowrap (border (left thin "46A0FB"))
+theme:C130	11 0.399975585192419
+=== looks.xlsx!Colors!theme 10 (hlink) tint -0.249977111117893
+cell:C132	"03498F" general nowrap
+cell:E132	none general nowrap (font "03498F")
+cell:G132	none general nowrap (border (left thin "03498F"))
+theme:C132	11 -0.249977111117893
+=== looks.xlsx!Colors!theme 10 (hlink) tint -0.499984740745262
+cell:C134	"023160" general nowrap
+cell:E134	none general nowrap (font "023160")
+cell:G134	none general nowrap (border (left thin "023160"))
+theme:C134	11 -0.499984740745262
+=== looks.xlsx!Colors!theme 11 (folHlink) tint 0.79998168889431442
+cell:C136	"EBDAE2" general nowrap
+cell:E136	none general nowrap (font "EBDAE2")
+cell:G136	none general nowrap (border (left thin "EBDAE2"))
+theme:C136	12 0.799981688894314
+=== looks.xlsx!Colors!theme 11 (folHlink) tint 0.59999389629810485
+cell:C138	"D8B4C6" general nowrap
+cell:E138	none general nowrap (font "D8B4C6")
+cell:G138	none general nowrap (border (left thin "D8B4C6"))
+theme:C138	12 0.599993896298105
+=== looks.xlsx!Colors!theme 11 (folHlink) tint 0.39997558519241921
+cell:C140	"C58FAA" general nowrap
+cell:E140	none general nowrap (font "C58FAA")
+cell:G140	none general nowrap (border (left thin "C58FAA"))
+theme:C140	12 0.399975585192419
+=== looks.xlsx!Colors!theme 11 (folHlink) tint -0.249977111117893
+cell:C142	"703A55" general nowrap
+cell:E142	none general nowrap (font "703A55")
+cell:G142	none general nowrap (border (left thin "703A55"))
+theme:C142	12 -0.249977111117893
+=== looks.xlsx!Colors!theme 11 (folHlink) tint -0.499984740745262
+cell:C144	"492738" general nowrap
+cell:E144	none general nowrap (font "492738")
+cell:G144	none general nowrap (border (left thin "492738"))
+theme:C144	12 -0.499984740745262
+=== looks.xlsx!Colors!theme 0 (lt1) tint 0.3, no palette's
+cell:C146	"FFFFFF" general nowrap
+cell:E146	none general nowrap (font "FFFFFF")
+cell:G146	none general nowrap (border (left thin "FFFFFF"))
+theme:C146	1 0.299996948149052
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.6, no palette's
+cell:C148	"666666" general nowrap
+cell:E148	none general nowrap (font "666666")
+cell:G148	none general nowrap (border (left thin "666666"))
+theme:C148	1 -0.599993896298105
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.3, no palette's
+cell:C150	"4D4D4D" general nowrap
+cell:E150	none general nowrap (font "4D4D4D")
+cell:G150	none general nowrap (border (left thin "4D4D4D"))
+theme:C150	2 0.299996948149052
+=== looks.xlsx!Colors!theme 1 (dk1) tint -0.6, no palette's
+cell:C152	"000000" general nowrap
+cell:E152	none general nowrap
+cell:G152	none general nowrap (border (left thin "000000"))
+theme:C152	2 -0.599993896298105
+=== looks.xlsx!Colors!theme 2 (lt2) tint 0.3, no palette's
+cell:C154	"EDEDED" general nowrap
+cell:E154	none general nowrap (font "EDEDED")
+cell:G154	none general nowrap (border (left thin "EDEDED"))
+theme:C154	3 0.299996948149052
+=== looks.xlsx!Colors!theme 2 (lt2) tint -0.6, no palette's
+cell:C156	"5E5959" general nowrap
+cell:E156	none general nowrap (font "5E5959")
+cell:G156	none general nowrap (border (left thin "5E5959"))
+theme:C156	3 -0.599993896298105
+=== looks.xlsx!Colors!theme 3 (dk2) tint 0.3, no palette's
+cell:C158	"7085A3" general nowrap
+cell:E158	none general nowrap (font "7085A3")
+cell:G158	none general nowrap (border (left thin "7085A3"))
+theme:C158	4 0.299996948149052
+=== looks.xlsx!Colors!theme 3 (dk2) tint -0.6, no palette's
+cell:C160	"1B2129" general nowrap
+cell:E160	none general nowrap (font "1B2129")
+cell:G160	none general nowrap (border (left thin "1B2129"))
+theme:C160	4 -0.599993896298105
+=== looks.xlsx!Colors!theme 4 (accent1) tint 0.3, no palette's
+cell:C162	"7A9AD6" general nowrap
+cell:E162	none general nowrap (font "7A9AD6")
+cell:G162	none general nowrap (border (left thin "7A9AD6"))
+theme:C162	5 0.299996948149052
+=== looks.xlsx!Colors!theme 4 (accent1) tint -0.6, no palette's
+cell:C164	"182C50" general nowrap
+cell:E164	none general nowrap (font "182C50")
+cell:G164	none general nowrap (border (left thin "182C50"))
+theme:C164	5 -0.599993896298105
+=== looks.xlsx!Colors!theme 5 (accent2) tint 0.3, no palette's
+cell:C166	"F2A46F" general nowrap
+cell:E166	none general nowrap (font "F2A46F")
+cell:G166	none general nowrap (border (left thin "F2A46F"))
+theme:C166	6 0.299996948149052
+=== looks.xlsx!Colors!theme 5 (accent2) tint -0.6, no palette's
+cell:C168	"69300A" general nowrap
+cell:E168	none general nowrap (font "69300A")
+cell:G168	none general nowrap (border (left thin "69300A"))
+theme:C168	6 -0.599993896298105
+=== looks.xlsx!Colors!theme 6 (accent3) tint 0.3, no palette's
+cell:C170	"BFBFBF" general nowrap
+cell:E170	none general nowrap (font "BFBFBF")
+cell:G170	none general nowrap (border (left thin "BFBFBF"))
+theme:C170	7 0.299996948149052
+=== looks.xlsx!Colors!theme 6 (accent3) tint -0.6, no palette's
+cell:C172	"424242" general nowrap
+cell:E172	none general nowrap (font "424242")
+cell:G172	none general nowrap (border (left thin "424242"))
+theme:C172	7 -0.599993896298105
+=== looks.xlsx!Colors!theme 7 (accent4) tint 0.3, no palette's
+cell:C174	"FFD24D" general nowrap
+cell:E174	none general nowrap (font "FFD24D")
+cell:G174	none general nowrap (border (left thin "FFD24D"))
+theme:C174	8 0.299996948149052
+=== looks.xlsx!Colors!theme 7 (accent4) tint -0.6, no palette's
+cell:C176	"664D00" general nowrap
+cell:E176	none general nowrap (font "664D00")
+cell:G176	none general nowrap (border (left thin "664D00"))
+theme:C176	8 -0.599993896298105
+=== looks.xlsx!Colors!theme 8 (accent5) tint 0.3, no palette's
+cell:C178	"8CB9E1" general nowrap
+cell:E178	none general nowrap (font "8CB9E1")
+cell:G178	none general nowrap (border (left thin "8CB9E1"))
+theme:C178	9 0.299996948149052
+=== looks.xlsx!Colors!theme 8 (accent5) tint -0.6, no palette's
+cell:C180	"183F61" general nowrap
+cell:E180	none general nowrap (font "183F61")
+cell:G180	none general nowrap (border (left thin "183F61"))
+theme:C180	9 -0.599993896298105
+=== looks.xlsx!Colors!theme 9 (accent6) tint 0.3, no palette's
+cell:C182	"9AC97A" general nowrap
+cell:E182	none general nowrap (font "9AC97A")
+cell:G182	none general nowrap (border (left thin "9AC97A"))
+theme:C182	10 0.299996948149052
+=== looks.xlsx!Colors!theme 9 (accent6) tint -0.6, no palette's
+cell:C184	"2D451D" general nowrap
+cell:E184	none general nowrap (font "2D451D")
+cell:G184	none general nowrap (border (left thin "2D451D"))
+theme:C184	10 -0.599993896298105
+=== looks.xlsx!Colors!theme 10 (hlink) tint 0.3, no palette's
+cell:C186	"2992FA" general nowrap
+cell:E186	none general nowrap (font "2992FA")
+cell:G186	none general nowrap (border (left thin "2992FA"))
+theme:C186	11 0.299996948149052
+=== looks.xlsx!Colors!theme 10 (hlink) tint -0.6, no palette's
+cell:C188	"02274D" general nowrap
+cell:E188	none general nowrap (font "02274D")
+cell:G188	none general nowrap (border (left thin "02274D"))
+theme:C188	11 -0.599993896298105
+=== looks.xlsx!Colors!theme 11 (folHlink) tint 0.3, no palette's
+cell:C190	"BA7C9B" general nowrap
+cell:E190	none general nowrap (font "BA7C9B")
+cell:G190	none general nowrap (border (left thin "BA7C9B"))
+theme:C190	12 0.299996948149052
+=== looks.xlsx!Colors!theme 11 (folHlink) tint -0.6, no palette's
+cell:C192	"3A1F2D" general nowrap
+cell:E192	none general nowrap (font "3A1F2D")
+cell:G192	none general nowrap (border (left thin "3A1F2D"))
+theme:C192	12 -0.599993896298105
+=== looks.xlsx!Colors!theme 4 (accent1) tint 1, the most
+cell:C194	"FFFFFF" general nowrap
+cell:E194	none general nowrap (font "FFFFFF")
+cell:G194	none general nowrap (border (left thin "FFFFFF"))
+theme:C194	5 1
+=== looks.xlsx!Colors!theme 4 (accent1) tint -1, the most
+cell:C196	"000000" general nowrap
+cell:E196	none general nowrap
+cell:G196	none general nowrap (border (left thin "000000"))
+theme:C196	5 -1
+=== looks.xlsx!Colors!indexed 0
+cell:C198	"000000" general nowrap
+cell:E198	none general nowrap
+cell:G198	none general nowrap (border (left thin "000000"))
+=== looks.xlsx!Colors!indexed 1
+cell:C200	"FFFFFF" general nowrap
+cell:E200	none general nowrap (font "FFFFFF")
+cell:G200	none general nowrap (border (left thin "FFFFFF"))
+=== looks.xlsx!Colors!indexed 2
+cell:C202	"FF0000" general nowrap
+cell:E202	none general nowrap (font "FF0000")
+cell:G202	none general nowrap (border (left thin "FF0000"))
+=== looks.xlsx!Colors!indexed 3
+cell:C204	"00FF00" general nowrap
+cell:E204	none general nowrap (font "00FF00")
+cell:G204	none general nowrap (border (left thin "00FF00"))
+=== looks.xlsx!Colors!indexed 4
+cell:C206	"0000FF" general nowrap
+cell:E206	none general nowrap (font "0000FF")
+cell:G206	none general nowrap (border (left thin "0000FF"))
+=== looks.xlsx!Colors!indexed 5
+cell:C208	"FFFF00" general nowrap
+cell:E208	none general nowrap (font "FFFF00")
+cell:G208	none general nowrap (border (left thin "FFFF00"))
+=== looks.xlsx!Colors!indexed 6
+cell:C210	"FF00FF" general nowrap
+cell:E210	none general nowrap (font "FF00FF")
+cell:G210	none general nowrap (border (left thin "FF00FF"))
+=== looks.xlsx!Colors!indexed 7
+cell:C212	"00FFFF" general nowrap
+cell:E212	none general nowrap (font "00FFFF")
+cell:G212	none general nowrap (border (left thin "00FFFF"))
+=== looks.xlsx!Colors!indexed 8
+cell:C214	"000000" general nowrap
+cell:E214	none general nowrap
+cell:G214	none general nowrap (border (left thin "000000"))
+=== looks.xlsx!Colors!indexed 9
+cell:C216	"FFFFFF" general nowrap
+cell:E216	none general nowrap (font "FFFFFF")
+cell:G216	none general nowrap (border (left thin "FFFFFF"))
+=== looks.xlsx!Colors!indexed 10
+cell:C218	"FF0000" general nowrap
+cell:E218	none general nowrap (font "FF0000")
+cell:G218	none general nowrap (border (left thin "FF0000"))
+=== looks.xlsx!Colors!indexed 11
+cell:C220	"00FF00" general nowrap
+cell:E220	none general nowrap (font "00FF00")
+cell:G220	none general nowrap (border (left thin "00FF00"))
+=== looks.xlsx!Colors!indexed 12
+cell:C222	"0000FF" general nowrap
+cell:E222	none general nowrap (font "0000FF")
+cell:G222	none general nowrap (border (left thin "0000FF"))
+=== looks.xlsx!Colors!indexed 13
+cell:C224	"FFFF00" general nowrap
+cell:E224	none general nowrap (font "FFFF00")
+cell:G224	none general nowrap (border (left thin "FFFF00"))
+=== looks.xlsx!Colors!indexed 14
+cell:C226	"FF00FF" general nowrap
+cell:E226	none general nowrap (font "FF00FF")
+cell:G226	none general nowrap (border (left thin "FF00FF"))
+=== looks.xlsx!Colors!indexed 15
+cell:C228	"00FFFF" general nowrap
+cell:E228	none general nowrap (font "00FFFF")
+cell:G228	none general nowrap (border (left thin "00FFFF"))
+=== looks.xlsx!Colors!indexed 16
+cell:C230	"800000" general nowrap
+cell:E230	none general nowrap (font "800000")
+cell:G230	none general nowrap (border (left thin "800000"))
+=== looks.xlsx!Colors!indexed 17
+cell:C232	"008000" general nowrap
+cell:E232	none general nowrap (font "008000")
+cell:G232	none general nowrap (border (left thin "008000"))
+=== looks.xlsx!Colors!indexed 18
+cell:C234	"000080" general nowrap
+cell:E234	none general nowrap (font "000080")
+cell:G234	none general nowrap (border (left thin "000080"))
+=== looks.xlsx!Colors!indexed 19
+cell:C236	"808000" general nowrap
+cell:E236	none general nowrap (font "808000")
+cell:G236	none general nowrap (border (left thin "808000"))
+=== looks.xlsx!Colors!indexed 20
+cell:C238	"800080" general nowrap
+cell:E238	none general nowrap (font "800080")
+cell:G238	none general nowrap (border (left thin "800080"))
+=== looks.xlsx!Colors!indexed 21
+cell:C240	"008080" general nowrap
+cell:E240	none general nowrap (font "008080")
+cell:G240	none general nowrap (border (left thin "008080"))
+=== looks.xlsx!Colors!indexed 22
+cell:C242	"C0C0C0" general nowrap
+cell:E242	none general nowrap (font "C0C0C0")
+cell:G242	none general nowrap (border (left thin "C0C0C0"))
+=== looks.xlsx!Colors!indexed 23
+cell:C244	"808080" general nowrap
+cell:E244	none general nowrap (font "808080")
+cell:G244	none general nowrap (border (left thin "808080"))
+=== looks.xlsx!Colors!indexed 24
+cell:C246	"9999FF" general nowrap
+cell:E246	none general nowrap (font "9999FF")
+cell:G246	none general nowrap (border (left thin "9999FF"))
+=== looks.xlsx!Colors!indexed 25
+cell:C248	"993366" general nowrap
+cell:E248	none general nowrap (font "993366")
+cell:G248	none general nowrap (border (left thin "993366"))
+=== looks.xlsx!Colors!indexed 26
+cell:C250	"FFFFCC" general nowrap
+cell:E250	none general nowrap (font "FFFFCC")
+cell:G250	none general nowrap (border (left thin "FFFFCC"))
+=== looks.xlsx!Colors!indexed 27
+cell:C252	"CCFFFF" general nowrap
+cell:E252	none general nowrap (font "CCFFFF")
+cell:G252	none general nowrap (border (left thin "CCFFFF"))
+=== looks.xlsx!Colors!indexed 28
+cell:C254	"660066" general nowrap
+cell:E254	none general nowrap (font "660066")
+cell:G254	none general nowrap (border (left thin "660066"))
+=== looks.xlsx!Colors!indexed 29
+cell:C256	"FF8080" general nowrap
+cell:E256	none general nowrap (font "FF8080")
+cell:G256	none general nowrap (border (left thin "FF8080"))
+=== looks.xlsx!Colors!indexed 30
+cell:C258	"0066CC" general nowrap
+cell:E258	none general nowrap (font "0066CC")
+cell:G258	none general nowrap (border (left thin "0066CC"))
+=== looks.xlsx!Colors!indexed 31
+cell:C260	"CCCCFF" general nowrap
+cell:E260	none general nowrap (font "CCCCFF")
+cell:G260	none general nowrap (border (left thin "CCCCFF"))
+=== looks.xlsx!Colors!indexed 32
+cell:C262	"000080" general nowrap
+cell:E262	none general nowrap (font "000080")
+cell:G262	none general nowrap (border (left thin "000080"))
+=== looks.xlsx!Colors!indexed 33
+cell:C264	"FF00FF" general nowrap
+cell:E264	none general nowrap (font "FF00FF")
+cell:G264	none general nowrap (border (left thin "FF00FF"))
+=== looks.xlsx!Colors!indexed 34
+cell:C266	"FFFF00" general nowrap
+cell:E266	none general nowrap (font "FFFF00")
+cell:G266	none general nowrap (border (left thin "FFFF00"))
+=== looks.xlsx!Colors!indexed 35
+cell:C268	"00FFFF" general nowrap
+cell:E268	none general nowrap (font "00FFFF")
+cell:G268	none general nowrap (border (left thin "00FFFF"))
+=== looks.xlsx!Colors!indexed 36
+cell:C270	"800080" general nowrap
+cell:E270	none general nowrap (font "800080")
+cell:G270	none general nowrap (border (left thin "800080"))
+=== looks.xlsx!Colors!indexed 37
+cell:C272	"800000" general nowrap
+cell:E272	none general nowrap (font "800000")
+cell:G272	none general nowrap (border (left thin "800000"))
+=== looks.xlsx!Colors!indexed 38
+cell:C274	"008080" general nowrap
+cell:E274	none general nowrap (font "008080")
+cell:G274	none general nowrap (border (left thin "008080"))
+=== looks.xlsx!Colors!indexed 39
+cell:C276	"0000FF" general nowrap
+cell:E276	none general nowrap (font "0000FF")
+cell:G276	none general nowrap (border (left thin "0000FF"))
+=== looks.xlsx!Colors!indexed 40
+cell:C278	"00CCFF" general nowrap
+cell:E278	none general nowrap (font "00CCFF")
+cell:G278	none general nowrap (border (left thin "00CCFF"))
+=== looks.xlsx!Colors!indexed 41
+cell:C280	"CCFFFF" general nowrap
+cell:E280	none general nowrap (font "CCFFFF")
+cell:G280	none general nowrap (border (left thin "CCFFFF"))
+=== looks.xlsx!Colors!indexed 42
+cell:C282	"CCFFCC" general nowrap
+cell:E282	none general nowrap (font "CCFFCC")
+cell:G282	none general nowrap (border (left thin "CCFFCC"))
+=== looks.xlsx!Colors!indexed 43
+cell:C284	"FFFF99" general nowrap
+cell:E284	none general nowrap (font "FFFF99")
+cell:G284	none general nowrap (border (left thin "FFFF99"))
+=== looks.xlsx!Colors!indexed 44
+cell:C286	"99CCFF" general nowrap
+cell:E286	none general nowrap (font "99CCFF")
+cell:G286	none general nowrap (border (left thin "99CCFF"))
+=== looks.xlsx!Colors!indexed 45
+cell:C288	"FF99CC" general nowrap
+cell:E288	none general nowrap (font "FF99CC")
+cell:G288	none general nowrap (border (left thin "FF99CC"))
+=== looks.xlsx!Colors!indexed 46
+cell:C290	"CC99FF" general nowrap
+cell:E290	none general nowrap (font "CC99FF")
+cell:G290	none general nowrap (border (left thin "CC99FF"))
+=== looks.xlsx!Colors!indexed 47
+cell:C292	"FFCC99" general nowrap
+cell:E292	none general nowrap (font "FFCC99")
+cell:G292	none general nowrap (border (left thin "FFCC99"))
+=== looks.xlsx!Colors!indexed 48
+cell:C294	"3366FF" general nowrap
+cell:E294	none general nowrap (font "3366FF")
+cell:G294	none general nowrap (border (left thin "3366FF"))
+=== looks.xlsx!Colors!indexed 49
+cell:C296	"33CCCC" general nowrap
+cell:E296	none general nowrap (font "33CCCC")
+cell:G296	none general nowrap (border (left thin "33CCCC"))
+=== looks.xlsx!Colors!indexed 50
+cell:C298	"99CC00" general nowrap
+cell:E298	none general nowrap (font "99CC00")
+cell:G298	none general nowrap (border (left thin "99CC00"))
+=== looks.xlsx!Colors!indexed 51
+cell:C300	"FFCC00" general nowrap
+cell:E300	none general nowrap (font "FFCC00")
+cell:G300	none general nowrap (border (left thin "FFCC00"))
+=== looks.xlsx!Colors!indexed 52
+cell:C302	"FF9900" general nowrap
+cell:E302	none general nowrap (font "FF9900")
+cell:G302	none general nowrap (border (left thin "FF9900"))
+=== looks.xlsx!Colors!indexed 53
+cell:C304	"FF6600" general nowrap
+cell:E304	none general nowrap (font "FF6600")
+cell:G304	none general nowrap (border (left thin "FF6600"))
+=== looks.xlsx!Colors!indexed 54
+cell:C306	"666699" general nowrap
+cell:E306	none general nowrap (font "666699")
+cell:G306	none general nowrap (border (left thin "666699"))
+=== looks.xlsx!Colors!indexed 55
+cell:C308	"969696" general nowrap
+cell:E308	none general nowrap (font "969696")
+cell:G308	none general nowrap (border (left thin "969696"))
+=== looks.xlsx!Colors!indexed 56
+cell:C310	"003366" general nowrap
+cell:E310	none general nowrap (font "003366")
+cell:G310	none general nowrap (border (left thin "003366"))
+=== looks.xlsx!Colors!indexed 57
+cell:C312	"339966" general nowrap
+cell:E312	none general nowrap (font "339966")
+cell:G312	none general nowrap (border (left thin "339966"))
+=== looks.xlsx!Colors!indexed 58
+cell:C314	"003300" general nowrap
+cell:E314	none general nowrap (font "003300")
+cell:G314	none general nowrap (border (left thin "003300"))
+=== looks.xlsx!Colors!indexed 59
+cell:C316	"333300" general nowrap
+cell:E316	none general nowrap (font "333300")
+cell:G316	none general nowrap (border (left thin "333300"))
+=== looks.xlsx!Colors!indexed 60
+cell:C318	"993300" general nowrap
+cell:E318	none general nowrap (font "993300")
+cell:G318	none general nowrap (border (left thin "993300"))
+=== looks.xlsx!Colors!indexed 61
+cell:C320	"993366" general nowrap
+cell:E320	none general nowrap (font "993366")
+cell:G320	none general nowrap (border (left thin "993366"))
+=== looks.xlsx!Colors!indexed 62
+cell:C322	"333399" general nowrap
+cell:E322	none general nowrap (font "333399")
+cell:G322	none general nowrap (border (left thin "333399"))
+=== looks.xlsx!Colors!indexed 63
+cell:C324	"333333" general nowrap
+cell:E324	none general nowrap (font "333333")
+cell:G324	none general nowrap (border (left thin "333333"))
+=== looks.xlsx!Colors!indexed 64
+cell:C326	"FFFFFF" general nowrap
+cell:E326	none general nowrap
+cell:G326	none general nowrap (border (left thin))
+=== looks.xlsx!Colors!indexed 65
+cell:C328	"FFFFFF" general nowrap
+cell:E328	none general nowrap (font "FFFFFF")
+cell:G328	none general nowrap (border (left thin "FFFFFF"))
+=== looks.xlsx!Colors!rgb with an alpha of 80
+cell:C330	"FF0000" general nowrap
+cell:E330	none general nowrap (font "FF0000")
+cell:G330	none general nowrap (border (left thin "FF0000"))
+=== looks.xlsx!Colors!rgb with an alpha of 00
+cell:C332	"FF0000" general nowrap
+cell:E332	none general nowrap (font "FF0000")
+cell:G332	none general nowrap (border (left thin "FF0000"))
+=== looks.xlsx!Colors!rgb black
+cell:C334	"000000" general nowrap
+cell:E334	none general nowrap
+cell:G334	none general nowrap (border (left thin "000000"))
+=== looks.xlsx!Colors!auto
+cell:C336	"FFFFFF" general nowrap
+cell:E336	none general nowrap
+cell:G336	none general nowrap (border (left thin))
+=== looks.xlsx!Colors!theme 1 (dk1) tint 0.1249, a tint's quantum
+cell:C338	"202020" general nowrap
+cell:E338	none general nowrap (font "202020")
+cell:G338	none general nowrap (border (left thin "202020"))
+theme:C338	2 0.124881740775781
+=== looks.xlsx!Colors!theme 0 (lt1) tint -0.1251, a tint's quantum
+cell:C340	"DEDEDE" general nowrap
+cell:E340	none general nowrap (font "DEDEDE")
+cell:G340	none general nowrap (border (left thin "DEDEDE"))
+theme:C340	1 -0.125095370342112
+=== looks.xlsx!Colors!theme 4 (accent1) tint 0.1249, a tint's quantum
+cell:C342	"5A82CB" general nowrap
+cell:E342	none general nowrap (font "5A82CB")
+cell:G342	none general nowrap (border (left thin "5A82CB"))
+theme:C342	5 0.124881740775781
+=== looks.xlsx!Colors!theme 5 (accent2) tint -0.1251, a tint's quantum
+cell:C344	"E76814" general nowrap
+cell:E344	none general nowrap (font "E76814")
+cell:G344	none general nowrap (border (left thin "E76814"))
+theme:C344	6 -0.125095370342112
+=== looks.xlsx!Formats!built-in 0
+cell:C2	none general nowrap
+=== looks.xlsx!Formats!built-in 1
+cell:C4	none "0" nowrap
+=== looks.xlsx!Formats!built-in 2
+cell:C6	none "0.00" nowrap
+=== looks.xlsx!Formats!built-in 3
+cell:C8	none "#,##0" nowrap
+=== looks.xlsx!Formats!built-in 4
+cell:C10	none "#,##0.00" nowrap
+=== looks.xlsx!Formats!built-in 5
+cell:C12	none "$#,##0_);($#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 6
+cell:C14	none "$#,##0_);[Red]($#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 7
+cell:C16	none "$#,##0.00_);($#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 8
+cell:C18	none "$#,##0.00_);[Red]($#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 9
+cell:C20	none "0%" nowrap
+=== looks.xlsx!Formats!built-in 10
+cell:C22	none "0.00%" nowrap
+=== looks.xlsx!Formats!built-in 11
+cell:C24	none "0.00E+00" nowrap
+=== looks.xlsx!Formats!built-in 12
+cell:C26	none "# ?/?" nowrap
+=== looks.xlsx!Formats!built-in 13
+cell:C28	none "# ??/??" nowrap
+=== looks.xlsx!Formats!built-in 14
+cell:C30	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 15
+cell:C32	none "d-mmm-yy" nowrap
+=== looks.xlsx!Formats!built-in 16
+cell:C34	none "d-mmm" nowrap
+=== looks.xlsx!Formats!built-in 17
+cell:C36	none "mmm-yy" nowrap
+=== looks.xlsx!Formats!built-in 18
+cell:C38	none "h:mm AM/PM" nowrap
+=== looks.xlsx!Formats!built-in 19
+cell:C40	none "h:mm:ss AM/PM" nowrap
+=== looks.xlsx!Formats!built-in 20
+cell:C42	none "h:mm" nowrap
+=== looks.xlsx!Formats!built-in 21
+cell:C44	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 22
+cell:C46	none "m/d/yyyy h:mm" nowrap
+=== looks.xlsx!Formats!built-in 23
+cell:C48	none general nowrap
+=== looks.xlsx!Formats!built-in 24
+cell:C50	none general nowrap
+=== looks.xlsx!Formats!built-in 25
+cell:C52	none general nowrap
+=== looks.xlsx!Formats!built-in 26
+cell:C54	none general nowrap
+=== looks.xlsx!Formats!built-in 27
+cell:C56	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 28
+cell:C58	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 29
+cell:C60	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 30
+cell:C62	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 31
+cell:C64	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 32
+cell:C66	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 33
+cell:C68	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 34
+cell:C70	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 35
+cell:C72	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 36
+cell:C74	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 37
+cell:C76	none "#,##0_);(#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 38
+cell:C78	none "#,##0_);[Red](#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 39
+cell:C80	none "#,##0.00_);(#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 40
+cell:C82	none "#,##0.00_);[Red](#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 41
+cell:C84	none "_(* #,##0_);_(* (#,##0);_(* \"-\"_);_(@_)" nowrap
+=== looks.xlsx!Formats!built-in 42
+cell:C86	none "_($* #,##0_);_($* (#,##0);_($* \"-\"_);_(@_)" nowrap
+=== looks.xlsx!Formats!built-in 43
+cell:C88	none "_(* #,##0.00_);_(* (#,##0.00);_(* \"-\"??_);_(@_)" nowrap
+=== looks.xlsx!Formats!built-in 44
+cell:C90	none "_($* #,##0.00_);_($* (#,##0.00);_($* \"-\"??_);_(@_)" nowrap
+=== looks.xlsx!Formats!built-in 45
+cell:C92	none "mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 46
+cell:C94	none "[h]:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 47
+cell:C96	none "mm:ss.0" nowrap
+=== looks.xlsx!Formats!built-in 48
+cell:C98	none "##0.0E+0" nowrap
+=== looks.xlsx!Formats!built-in 49
+cell:C100	none text nowrap
+=== looks.xlsx!Formats!built-in 50
+cell:C102	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 51
+cell:C104	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 52
+cell:C106	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 53
+cell:C108	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 54
+cell:C110	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 55
+cell:C112	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 56
+cell:C114	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 57
+cell:C116	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 58
+cell:C118	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 59
+cell:C120	none "0" nowrap
+=== looks.xlsx!Formats!built-in 60
+cell:C122	none "0.00" nowrap
+=== looks.xlsx!Formats!built-in 61
+cell:C124	none "#,##0" nowrap
+=== looks.xlsx!Formats!built-in 62
+cell:C126	none "#,##0.00" nowrap
+=== looks.xlsx!Formats!built-in 63
+cell:C128	none "$#,##0_);($#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 64
+cell:C130	none "$#,##0_);[Red]($#,##0)" nowrap
+=== looks.xlsx!Formats!built-in 65
+cell:C132	none "$#,##0.00_);($#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 66
+cell:C134	none "$#,##0.00_);[Red]($#,##0.00)" nowrap
+=== looks.xlsx!Formats!built-in 67
+cell:C136	none "0%" nowrap
+=== looks.xlsx!Formats!built-in 68
+cell:C138	none "0.00%" nowrap
+=== looks.xlsx!Formats!built-in 69
+cell:C140	none "# ?/?" nowrap
+=== looks.xlsx!Formats!built-in 70
+cell:C142	none "# ??/??" nowrap
+=== looks.xlsx!Formats!built-in 71
+cell:C144	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 72
+cell:C146	none "m/d/yyyy" nowrap
+=== looks.xlsx!Formats!built-in 73
+cell:C148	none "d-mmm-yy" nowrap
+=== looks.xlsx!Formats!built-in 74
+cell:C150	none "d-mmm" nowrap
+=== looks.xlsx!Formats!built-in 75
+cell:C152	none "mmm-yy" nowrap
+=== looks.xlsx!Formats!built-in 76
+cell:C154	none "h:mm" nowrap
+=== looks.xlsx!Formats!built-in 77
+cell:C156	none "h:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 78
+cell:C158	none "m/d/yyyy h:mm" nowrap
+=== looks.xlsx!Formats!built-in 79
+cell:C160	none "mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 80
+cell:C162	none "[h]:mm:ss" nowrap
+=== looks.xlsx!Formats!built-in 81
+cell:C164	none "mm:ss.0" nowrap
+=== looks.xlsx!Formats!built-in 163
+cell:C166	none general nowrap
+=== looks.xlsx!Formats!built-in 200
+cell:C168	none general nowrap
+=== looks.xlsx!Formats!code 0.0%
+cell:C170	none "0.0%" nowrap
+=== looks.xlsx!Formats!code "$"#,##0.00
+cell:C172	none "$#,##0.00" nowrap
+=== looks.xlsx!Formats!code yyyy-mm-dd hh:mm:ss
+cell:C174	none "yyyy-mm-dd hh:mm:ss" nowrap
+=== looks.xlsx!Formats!code mmmm d, yyyy
+cell:C176	none "mmmm d, yyyy" nowrap
+=== looks.xlsx!Formats!code [h]:mm
+cell:C178	none "[h]:mm" nowrap
+=== looks.xlsx!Formats!code 0;-0;;@
+cell:C180	none "0;-0;;@" nowrap
+=== looks.xlsx!Formats!code "<"0">"
+cell:C182	none "\"<\"0\">\"" nowrap
+=== looks.xlsx!Formats!code @
+cell:C184	none text nowrap
+=== looks.xlsx!Formats!code General
+cell:C186	none general nowrap
+=== looks.xlsx!Formats!code [Red]0.00
+cell:C188	none "[Red]0.00" nowrap
+=== looks.xlsx!Formats!code [>=100]0;0.00
+cell:C190	none "[>=100]0;0.00" nowrap
+=== looks.xlsx!Formats!code [$-409]m/d/yyyy
+cell:C192	none "[$-409]m/d/yyyy" nowrap
+=== looks.xlsx!Formats!code 0.00E+00
+cell:C194	none "0.00E+00" nowrap
+=== looks.xlsx!Formats!code # ?/?
+cell:C196	none "# ?/?" nowrap
+=== looks.xlsx!Formats!code _(0_)
+cell:C198	none "_(0_)" nowrap
+=== looks.xlsx!Formats!code 0*-
+cell:C200	none "0*-" nowrap
+=== looks.xlsx!Flags!the entry's own, every flag on
+cell:C2	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!applyNumberFormat off
+cell:C4	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!applyFont off
+cell:C6	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!applyFill off
+cell:C8	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!applyBorder off
+cell:C10	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!applyAlignment off
+cell:C12	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!every flag off
+cell:C14	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!no flag written
+cell:C16	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Flags!the style's own
+cell:C18	"FFFF00" "0.00%" nowrap (font italic "00B050") (align right) (border (left medium "FF0000"))
+=== looks.xlsx!Flags!the entry's own beside Normal, no flag written
+cell:C20	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
+=== looks.xlsx!Unheld!family Arial
+cell:C2	none general nowrap ! family "Arial"
+=== looks.xlsx!Unheld!underline single
+cell:C4	none general nowrap ! underline 2
+=== looks.xlsx!Unheld!underline double
+cell:C6	none general nowrap ! underline -4119
+=== looks.xlsx!Unheld!underline single accounting
+cell:C8	none general nowrap ! underline 4
+=== looks.xlsx!Unheld!strike
+cell:C10	none general nowrap ! strike
+=== looks.xlsx!Unheld!superscript
+cell:C12	none general nowrap ! superscript
+=== looks.xlsx!Unheld!subscript
+cell:C14	none general nowrap ! subscript
+=== looks.xlsx!Unheld!outline
+cell:C16	none general nowrap ! outline
+=== looks.xlsx!Unheld!shadow
+cell:C18	none general nowrap ! shadow
+=== looks.xlsx!Unheld!condense
+cell:C20	none general nowrap
+=== looks.xlsx!Unheld!extend
+cell:C22	none general nowrap
+=== looks.xlsx!Unheld!pattern gray125
+cell:C24	none general nowrap ! pattern 17
+=== looks.xlsx!Unheld!pattern darkGrid
+cell:C26	none general nowrap ! pattern 9
+=== looks.xlsx!Unheld!gradient
+cell:C28	none general nowrap ! pattern 4000
+=== looks.xlsx!Unheld!horizontal fill
+cell:C30	none general nowrap ! horizontal 5
+=== looks.xlsx!Unheld!horizontal justify
+cell:C32	none general nowrap ! horizontal -4130
+=== looks.xlsx!Unheld!horizontal centerContinuous
+cell:C34	none general nowrap ! horizontal 7
+=== looks.xlsx!Unheld!horizontal distributed
+cell:C36	none general nowrap ! horizontal -4117
+=== looks.xlsx!Unheld!vertical justify
+cell:C38	none general nowrap ! vertical -4130
+=== looks.xlsx!Unheld!vertical distributed
+cell:C40	none general nowrap ! vertical -4117
+=== looks.xlsx!Unheld!indent 2
+cell:C42	none general nowrap (align left) ! indent 2
+=== looks.xlsx!Unheld!rotation 45
+cell:C44	none general nowrap ! rotation 45
+=== looks.xlsx!Unheld!rotation 255, stacked
+cell:C46	none general nowrap ! rotation -4166
+=== looks.xlsx!Unheld!shrink to fit
+cell:C48	none general nowrap ! shrink
+=== looks.xlsx!Unheld!reading order right to left
+cell:C50	none general nowrap ! rtl
+=== looks.xlsx!Unheld!diagonal up
+cell:C52	none general nowrap ! diagonal
+=== looks.xlsx!Unheld!diagonal down
+cell:C54	none general nowrap ! diagonal
+=== looks.xlsx!Unheld!rich text, inline
+cell:C56	none general nowrap ! runs
+=== looks.xlsx!Unheld!rich text, shared
+cell:C58	none general nowrap ! runs
+=== looks.xlsx!Unheld!protection unlocked, no look
+cell:C60	none general nowrap
+=== looks.xlsx!Columns!11.2109375, the writer's 10.5
+col:D	10.55 shown
+=== looks.xlsx!Columns!10, off a whole pixel
+col:E	9.36 shown
+=== looks.xlsx!Columns!8.43, the dialog's number written as a file's
+col:F	7.82 shown
+=== looks.xlsx!Columns!9.140625, Excel's default
+col:G	8.55 shown
+=== looks.xlsx!Columns!72.7109375, the writer's 72
+col:H	72.09 shown
+=== looks.xlsx!Columns!72.7265625, Excel's 72 saved at 150%
+col:I	72.09 shown
+=== looks.xlsx!Columns!20.7109375, Excel's own 20
+col:J	20.09 shown
+=== looks.xlsx!Columns!0.5, below a character
+col:K	0.28 shown
+=== looks.xlsx!Columns!1
+col:L	0.61 shown
+=== looks.xlsx!Columns!1.7109375, a character
+col:M	1.09 shown
+=== looks.xlsx!Columns!255, the most
+col:N	254.36 shown
+=== looks.xlsx!Columns!20, hidden
+col:O	0 hidden
+=== looks.xlsx!Columns!0 wide
+col:P	0 hidden
+=== looks.xlsx!Columns!15, its custom width unsaid
+col:Q	14.36 shown
+=== looks.xlsx!Columns!12, best fit
+col:R	11.36 shown
+=== looks.xlsx!Columns!15, a span of three
+col:S	14.36 shown
+col:T	14.36 shown
+col:U	14.36 shown
+=== looks.xlsx!Columns!a column's format
+col:V	8.55 shown
+cell:V34	none general nowrap
+blank:V35	"FFC000" general nowrap (font bold)
+=== looks.xlsx!Columns!a column's format and its width 15
+col:W	14.36 shown
+blank:W37	"92D050" general nowrap
+=== looks.xlsx!Rows!custom 30
+row:2	30 shown
+=== looks.xlsx!Rows!custom 21
+row:4	21 shown
+=== looks.xlsx!Rows!custom 13.5
+row:6	13.5 shown
+=== looks.xlsx!Rows!custom 6
+row:8	6 shown
+=== looks.xlsx!Rows!custom 408, near the most
+row:10	408 shown
+=== looks.xlsx!Rows!custom 409, the most
+row:12	409 shown
+=== looks.xlsx!Rows!custom 20, off a pixel at 96 dots
+row:14	20 shown
+=== looks.xlsx!Rows!custom 20.25, off a pixel at 144 dots
+row:16	20.3 shown
+=== looks.xlsx!Rows!fitted 45, one line
+row:18	14.5 shown
+=== looks.xlsx!Rows!fitted 10, one line
+row:20	14.5 shown
+=== looks.xlsx!Rows!no height
+row:22	14.5 shown
+=== looks.xlsx!Rows!hidden
+row:24	0 hidden
+=== looks.xlsx!Rows!hidden, custom 30
+row:26	0 hidden
+=== looks.xlsx!Rows!a row's format
+row:28	14.5 shown
+cell:C28	none general nowrap
+blank:E28	"CCC0DA" general nowrap
+=== looks.xlsx!Rows!a row's format, its customFormat unsaid
+row:30	14.5 shown
+cell:C30	none general nowrap
+blank:E30	none general nowrap
+=== looks.xlsx!Rows!the sheet's standard
+std	8.09 14.5
+=== looks.xlsx!Cells!gridlines off
+grid	off
+=== looks.xlsx!Cells!a cell that keeps a format and no value
+empty:C4	"FFFF00" general nowrap
+=== looks.xlsx!Cells!a merged range
+merge:C6	C6:E6
+cell:C6	"FFFF00" general nowrap
+=== looks.xlsx!Cells!a conditional format
+cf:C8	1 "FF0000"
+cell:C8	none general nowrap
+=== looks.xlsx!Cells!a conditional format of two rules
+cf:C10	2 "FF0000"
+cell:C10	none general nowrap
+=== looks.xlsx!Defaults!a base width of 10 and a default height of 20
+std	10.27 20
+grid	on
+col:D	10.27 shown
+row:2	20 shown
+=== looks.xlsx!Defaults2!a default width of 12
+std	12.09 14.5
+col:D	12.09 shown
+=== looks_book.xlsx!Palette!indexed 0
+cell:C2	"00FF00" general nowrap
+cell:E2	none general nowrap (font "00FF00")
+cell:G2	none general nowrap (border (left thin "00FF00"))
+=== looks_book.xlsx!Palette!indexed 1
+cell:C4	"04FC25" general nowrap
+cell:E4	none general nowrap (font "04FC25")
+cell:G4	none general nowrap (border (left thin "04FC25"))
+=== looks_book.xlsx!Palette!indexed 2
+cell:C6	"08F94A" general nowrap
+cell:E6	none general nowrap (font "08F94A")
+cell:G6	none general nowrap (border (left thin "08F94A"))
+=== looks_book.xlsx!Palette!indexed 3
+cell:C8	"0CF66F" general nowrap
+cell:E8	none general nowrap (font "0CF66F")
+cell:G8	none general nowrap (border (left thin "0CF66F"))
+=== looks_book.xlsx!Palette!indexed 4
+cell:C10	"10F394" general nowrap
+cell:E10	none general nowrap (font "10F394")
+cell:G10	none general nowrap (border (left thin "10F394"))
+=== looks_book.xlsx!Palette!indexed 5
+cell:C12	"14F0B9" general nowrap
+cell:E12	none general nowrap (font "14F0B9")
+cell:G12	none general nowrap (border (left thin "14F0B9"))
+=== looks_book.xlsx!Palette!indexed 6
+cell:C14	"18EDDE" general nowrap
+cell:E14	none general nowrap (font "18EDDE")
+cell:G14	none general nowrap (border (left thin "18EDDE"))
+=== looks_book.xlsx!Palette!indexed 7
+cell:C16	"1CEA03" general nowrap
+cell:E16	none general nowrap (font "1CEA03")
+cell:G16	none general nowrap (border (left thin "1CEA03"))
+=== looks_book.xlsx!Palette!indexed 8
+cell:C18	"20E728" general nowrap
+cell:E18	none general nowrap (font "20E728")
+cell:G18	none general nowrap (border (left thin "20E728"))
+=== looks_book.xlsx!Palette!indexed 9
+cell:C20	"24E44D" general nowrap
+cell:E20	none general nowrap (font "24E44D")
+cell:G20	none general nowrap (border (left thin "24E44D"))
+=== looks_book.xlsx!Palette!indexed 10
+cell:C22	"28E172" general nowrap
+cell:E22	none general nowrap (font "28E172")
+cell:G22	none general nowrap (border (left thin "28E172"))
+=== looks_book.xlsx!Palette!indexed 16
+cell:C24	"40CF50" general nowrap
+cell:E24	none general nowrap (font "40CF50")
+cell:G24	none general nowrap (border (left thin "40CF50"))
+=== looks_book.xlsx!Palette!indexed 30
+cell:C26	"78A556" general nowrap
+cell:E26	none general nowrap (font "78A556")
+cell:G26	none general nowrap (border (left thin "78A556"))
+=== looks_book.xlsx!Palette!indexed 40
+cell:C28	"A087C8" general nowrap
+cell:E28	none general nowrap (font "A087C8")
+cell:G28	none general nowrap (border (left thin "A087C8"))
+=== looks_book.xlsx!Palette!indexed 63
+cell:C30	"FC421B" general nowrap
+cell:E30	none general nowrap (font "FC421B")
+cell:G30	none general nowrap (border (left thin "FC421B"))
+=== looks_book.xlsx!Palette!indexed 64
+cell:C32	"FFFFFF" general nowrap
+cell:E32	none general nowrap
+cell:G32	none general nowrap (border (left thin))
+=== looks_book.xlsx!Palette!indexed 65
+cell:C34	"FFFFFF" general nowrap
+cell:E34	none general nowrap (font "FFFFFF")
+cell:G34	none general nowrap (border (left thin "FFFFFF"))
+=== looks_book.xlsx!Theme!theme 0 (lt1) with no theme part
+cell:C2	"FFFFFF" general nowrap
+cell:E2	none general nowrap (font "FFFFFF")
+cell:G2	none general nowrap (border (left thin "FFFFFF"))
+theme:C2	1 0
+=== looks_book.xlsx!Theme!theme 1 (dk1) with no theme part
+cell:C4	"000000" general nowrap
+cell:E4	none general nowrap
+cell:G4	none general nowrap (border (left thin "000000"))
+theme:C4	2 0
+=== looks_book.xlsx!Theme!theme 2 (lt2) with no theme part
+cell:C6	"E8E8E8" general nowrap
+cell:E6	none general nowrap (font "E8E8E8")
+cell:G6	none general nowrap (border (left thin "E8E8E8"))
+theme:C6	3 0
+=== looks_book.xlsx!Theme!theme 3 (dk2) with no theme part
+cell:C8	"0E2841" general nowrap
+cell:E8	none general nowrap (font "0E2841")
+cell:G8	none general nowrap (border (left thin "0E2841"))
+theme:C8	4 0
+=== looks_book.xlsx!Theme!theme 4 (accent1) with no theme part
+cell:C10	"156082" general nowrap
+cell:E10	none general nowrap (font "156082")
+cell:G10	none general nowrap (border (left thin "156082"))
+theme:C10	5 0
+=== looks_book.xlsx!Theme!theme 5 (accent2) with no theme part
+cell:C12	"E97132" general nowrap
+cell:E12	none general nowrap (font "E97132")
+cell:G12	none general nowrap (border (left thin "E97132"))
+theme:C12	6 0
+=== looks_book.xlsx!Theme!theme 6 (accent3) with no theme part
+cell:C14	"196B24" general nowrap
+cell:E14	none general nowrap (font "196B24")
+cell:G14	none general nowrap (border (left thin "196B24"))
+theme:C14	7 0
+=== looks_book.xlsx!Theme!theme 7 (accent4) with no theme part
+cell:C16	"0F9ED5" general nowrap
+cell:E16	none general nowrap (font "0F9ED5")
+cell:G16	none general nowrap (border (left thin "0F9ED5"))
+theme:C16	8 0
+=== looks_book.xlsx!Theme!theme 8 (accent5) with no theme part
+cell:C18	"A02B93" general nowrap
+cell:E18	none general nowrap (font "A02B93")
+cell:G18	none general nowrap (border (left thin "A02B93"))
+theme:C18	9 0
+=== looks_book.xlsx!Theme!theme 9 (accent6) with no theme part
+cell:C20	"4EA72E" general nowrap
+cell:E20	none general nowrap (font "4EA72E")
+cell:G20	none general nowrap (border (left thin "4EA72E"))
+theme:C20	10 0
+=== looks_book.xlsx!Theme!theme 10 (hlink) with no theme part
+cell:C22	"467886" general nowrap
+cell:E22	none general nowrap (font "467886")
+cell:G22	none general nowrap (border (left thin "467886"))
+theme:C22	11 0
+=== looks_book.xlsx!Theme!theme 11 (folHlink) with no theme part
+cell:C24	"96607D" general nowrap
+cell:E24	none general nowrap (font "96607D")
+cell:G24	none general nowrap (border (left thin "96607D"))
+theme:C24	12 0
+=== looks_book.xlsx!Theme!theme 4 (accent1) tint 0.39997558519241921 with no theme part
+cell:C26	"44B3E1" general nowrap
+cell:E26	none general nowrap (font "44B3E1")
+cell:G26	none general nowrap (border (left thin "44B3E1"))
+theme:C26	5 0.399975585192419
+=== looks_book.xlsx!Fonts!the default font, Arial 10
+cell:C2	none general nowrap
+=== looks_book.xlsx!Fonts!Arial 10, its color said automatic
+cell:C4	none general nowrap
+=== looks_book.xlsx!Fonts!Arial 11
+cell:C6	none general nowrap (font 11)
+=== looks_book.xlsx!Fonts!Calibri 10
+cell:C8	none general nowrap ! family "Calibri"
+=== looks_book.xlsx!Fonts!bold
+cell:C10	none general nowrap (font bold)
+=== looks_book.xlsx!Fonts!the theme's ink with no theme part
+cell:C12	none general nowrap
+=== looks_book.xlsx!Widths!11.2109375 in Arial 10
+col:D	10.55 shown
+=== looks_book.xlsx!Widths!72.7109375 in Arial 10
+col:E	72.09 shown
+=== looks_book.xlsx!Widths!9.140625 in Arial 10
+col:F	8.55 shown
+=== looks_book.xlsx!Widths!the sheet's standard
+std	8.09 12.5

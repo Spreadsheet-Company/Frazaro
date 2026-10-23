@@ -16,13 +16,15 @@
 //! (`grid-format-code`) and a later language that draws more reads the same
 //! rows further.
 //!
-//! Predictions here, which Excel's reading of a fixture holds (the item's
-//! second slice): a theme's first two pairs of slots counted swapped from
-//! the order a theme part lists them ([`THEME_SLOTS`]); a tint applied to a
-//! color's luminance in HLS, rounded at the end ([`tinted`]); Excel's
-//! default palette ([`PALETTE`]); the built-ins of the locale as the owner's
-//! Excel reads them ([`builtin_code`]); a width below one character; and a
-//! solid fill of Excel's automatic color drawn black.
+//! Each rule here is held to Excel's reading of two hand-made workbooks
+//! (the item's second slice, `looks_golden.rs`): a theme's first two pairs
+//! of slots counted swapped from the order a theme part lists them
+//! ([`THEME_SLOTS`]); a tint by ECMA-376's rule as Excel computes it, in
+//! Windows' HLS ([`tinted`]); Excel's default palette ([`PALETTE`]), the
+//! system's paper white; the built-ins as the owner's English Excel reads
+//! them, a locale's id as its twin ([`builtin_code`], [`builtin_twin`]); a
+//! width as Excel's rule counts it at a screen's own pixels; and a solid
+//! fill of Excel's automatic color drawn white.
 
 use vla_lang::numfmt::Code;
 use vla_lang::sheet::{NumFmt, Rgb, Style};
@@ -62,10 +64,10 @@ pub enum Resolved {
 
 /// A theme's slots in the order Excel counts them, a `theme` attribute's
 /// index: the light and the dark of the first two pairs swapped from the
-/// order a theme part lists them, `dk1` first (*prediction*; the first pair
-/// measured by inference at the scoping: Excel writes its default ink
-/// `theme="1"` beside a theme part whose first slot is `dk1`, `windowText`,
-/// and whose second is `lt1`, `window`).
+/// order a theme part lists them, `dk1` first (Excel's reading: a file's
+/// slots 0 to 3 drawn white, black, `lt2` and `dk2`). Excel's object model
+/// numbers them from 1 in the same order, its names, `xlThemeColorDark1`
+/// for the file's slot 0, the theme part's order.
 pub const THEME_SLOTS: [&str; 12] = [
     "lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6",
     "hlink", "folHlink",
@@ -73,8 +75,8 @@ pub const THEME_SLOTS: [&str; 12] = [
 
 /// Excel's default palette of 64 colors by index (ECMA-376 Part 1,
 /// §18.8.27), the colors an `indexed` attribute names where a workbook has
-/// no palette of its own; 64 and 65, past it, are the system's ink and
-/// paper, Excel's automatic.
+/// no palette of its own; 64 and 65, past it, are the system's ink, Excel's
+/// automatic, and its paper, which Excel draws white.
 pub const PALETTE: [u32; 64] = [
     0x000000, 0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, //
     0x000000, 0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, //
@@ -131,7 +133,8 @@ impl Colors {
                 Some(rgb) => rgb,
                 None => return Resolved::Unresolved,
             },
-            Color::Indexed(64) | Color::Indexed(65) => return Resolved::Automatic,
+            Color::Indexed(64) => return Resolved::Automatic,
+            Color::Indexed(65) => Rgb(255, 255, 255),
             Color::Indexed(i) => match self.palette.get(i as usize) {
                 Some(rgb) => *rgb,
                 None => return Resolved::Unresolved,
@@ -141,90 +144,114 @@ impl Colors {
     }
 }
 
-/// A color with its luminance moved by a tint, in HLS: a darkening to
-/// `L·(1 + tint)`, a lightening to `L·(1 − tint) + tint` (ECMA-376 Part 1,
-/// §18.8.19, its luminance on a scale of 1 for the standard's HLSMAX), and
-/// back to the nearest whole of each channel (*prediction*: how Excel
-/// rounds is Excel's reading's to show, the item's second slice).
+/// The range of a hue, a luminance and a saturation in Windows' HLS, which
+/// Excel's tint is applied in.
+const HLS_MAX: i32 = 240;
+
+/// A color with its luminance moved by a tint, as Excel draws it: the tint
+/// kept in 32767ths, as Excel keeps it (its save writes 0.1249 back as
+/// 4092/32767), and ECMA-376's rule (Part 1, §18.8.19) applied in Windows'
+/// HLS, each to 240 (`ColorRGBToHLS`): a darkening to `L·(1 + tint)`, a
+/// lightening to `L·(1 − tint) + (240 − 240·(1 − tint))`, each product
+/// truncated to a whole luminance, and back (`ColorHLSToRGB`), a gray to its
+/// nearest channel. Held to Excel's reading of 90 tints to the channel,
+/// every slot of a theme at its palette's tints and at others (the item's
+/// golden), where the rule in exact HLS rounded at the end gives 32, and
+/// truncated once at the end 70.
 pub fn tinted(rgb: Rgb, tint: f64) -> Rgb {
-    if tint == 0.0 || !tint.is_finite() {
+    if !tint.is_finite() {
+        return rgb;
+    }
+    let kept = (tint.clamp(-1.0, 1.0) * 32767.0).trunc() / 32767.0;
+    if kept == 0.0 {
         return rgb;
     }
     let (h, l, s) = to_hls(rgb);
-    let l = if tint < 0.0 {
-        l * (1.0 + tint)
+    let (lum, most) = (f64::from(l), f64::from(HLS_MAX));
+    let l = if kept < 0.0 {
+        (lum * (1.0 + kept)).trunc() as i32
     } else {
-        l * (1.0 - tint) + tint
+        (lum * (1.0 - kept)).trunc() as i32 + HLS_MAX - (most * (1.0 - kept)).trunc() as i32
     };
-    from_hls(h, l.clamp(0.0, 1.0), s)
+    from_hls(h, l.clamp(0, HLS_MAX), s)
 }
 
-fn to_hls(Rgb(r, g, b): Rgb) -> (f64, f64, f64) {
-    let (r, g, b) = (
-        f64::from(r) / 255.0,
-        f64::from(g) / 255.0,
-        f64::from(b) / 255.0,
-    );
-    let max = r.max(g).max(b);
-    let min = r.min(g).min(b);
-    let l = (max + min) / 2.0;
+/// A color in Windows' HLS, each to 240, as its `ColorRGBToHLS` counts one
+/// (the algorithm of Microsoft's KB29240, integers throughout).
+fn to_hls(Rgb(r, g, b): Rgb) -> (i32, i32, i32) {
+    let (r, g, b) = (i32::from(r), i32::from(g), i32::from(b));
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let l = ((max + min) * HLS_MAX + 255) / (2 * 255);
     if max == min {
-        return (0.0, l, 0.0);
+        return (0, l, 0);
     }
-    let range = max - min;
-    let s = if l <= 0.5 {
-        range / (max + min)
+    let (sum, range) = (max + min, max - min);
+    let s = if l <= HLS_MAX / 2 {
+        (range * HLS_MAX + sum / 2) / sum
     } else {
-        range / (2.0 - max - min)
+        (range * HLS_MAX + (2 * 255 - sum) / 2) / (2 * 255 - sum)
     };
-    let (rc, gc, bc) = ((max - r) / range, (max - g) / range, (max - b) / range);
-    let h = if r == max {
-        bc - gc
+    let part = |c: i32| ((max - c) * (HLS_MAX / 6) + range / 2) / range;
+    let mut h = if r == max {
+        part(b) - part(g)
     } else if g == max {
-        2.0 + rc - bc
+        HLS_MAX / 3 + part(r) - part(b)
     } else {
-        4.0 + gc - rc
+        2 * HLS_MAX / 3 + part(g) - part(r)
     };
-    ((h / 6.0).rem_euclid(1.0), l, s)
+    if h < 0 {
+        h += HLS_MAX;
+    }
+    if h > HLS_MAX {
+        h -= HLS_MAX;
+    }
+    (h, l, s)
 }
 
-fn from_hls(h: f64, l: f64, s: f64) -> Rgb {
-    let channel = |v: f64| (v * 255.0 + 0.5).floor().clamp(0.0, 255.0) as u8;
-    if s == 0.0 {
-        let v = channel(l);
+/// A color of Windows' HLS back to its channels, as its `ColorHLSToRGB`
+/// draws one, a gray rounded to its channel (Excel's reading).
+fn from_hls(h: i32, l: i32, s: i32) -> Rgb {
+    let channel = |v: i32| v.clamp(0, 255) as u8;
+    if s == 0 {
+        let v = channel((l * 255 + HLS_MAX / 2) / HLS_MAX);
         return Rgb(v, v, v);
     }
-    let m2 = if l <= 0.5 {
-        l * (1.0 + s)
+    let m2 = if l <= HLS_MAX / 2 {
+        (l * (HLS_MAX + s) + HLS_MAX / 2) / HLS_MAX
     } else {
-        l + s - l * s
+        l + s - (l * s + HLS_MAX / 2) / HLS_MAX
     };
-    let m1 = 2.0 * l - m2;
-    let part = |hue: f64| {
-        let hue = hue.rem_euclid(1.0);
-        if hue < 1.0 / 6.0 {
-            m1 + (m2 - m1) * hue * 6.0
-        } else if hue < 0.5 {
+    let m1 = 2 * l - m2;
+    let part = |hue: i32| {
+        let hue = if hue < 0 {
+            hue + HLS_MAX
+        } else if hue > HLS_MAX {
+            hue - HLS_MAX
+        } else {
+            hue
+        };
+        let v = if hue < HLS_MAX / 6 {
+            m1 + ((m2 - m1) * hue + HLS_MAX / 12) / (HLS_MAX / 6)
+        } else if hue < HLS_MAX / 2 {
             m2
-        } else if hue < 2.0 / 3.0 {
-            m1 + (m2 - m1) * (2.0 / 3.0 - hue) * 6.0
+        } else if hue < 2 * HLS_MAX / 3 {
+            m1 + ((m2 - m1) * (2 * HLS_MAX / 3 - hue) + HLS_MAX / 12) / (HLS_MAX / 6)
         } else {
             m1
-        }
+        };
+        channel((v * 255 + HLS_MAX / 2) / HLS_MAX)
     };
-    Rgb(
-        channel(part(h + 1.0 / 3.0)),
-        channel(part(h)),
-        channel(part(h - 1.0 / 3.0)),
-    )
+    Rgb(part(h + HLS_MAX / 3), part(h), part(h - HLS_MAX / 3))
 }
 
 /// A built-in number format's code by its id, for a `numFmtId` a styles
-/// part does not define, as the owner's English Excel reads it: ECMA-376's
-/// list (Part 1, §18.8.30) for the ids Excel draws alike everywhere, and
-/// for the locale's, 5 to 8, 14, 22 and 41 to 44, Excel's `en-US` reading
-/// (*prediction*, the fixture's built-ins read back by Excel the oracle);
-/// `None` for an id with no code of its own here.
+/// part does not define, as the owner's English Excel reads it (Excel's
+/// reading of every id from 0 to 81, the item's golden): ECMA-376's list
+/// (Part 1, §18.8.30) for the ids Excel draws alike everywhere; Excel's
+/// `en-US` codes for 37 to 40, where ECMA's are a space short of Excel's
+/// `_)`; for 5 to 8 and 41 to 44, the locale's own, the codes Excel's save
+/// writes for them. `None` for an id with no code of its own, a locale's
+/// id among them, which [`builtin_twin`] reads first.
 pub fn builtin_code(id: u32) -> Option<&'static str> {
     Some(match id {
         0 => "General",
@@ -250,10 +277,10 @@ pub fn builtin_code(id: u32) -> Option<&'static str> {
         20 => "h:mm",
         21 => "h:mm:ss",
         22 => "m/d/yyyy h:mm",
-        37 => "#,##0 ;(#,##0)",
-        38 => "#,##0 ;[Red](#,##0)",
-        39 => "#,##0.00;(#,##0.00)",
-        40 => "#,##0.00;[Red](#,##0.00)",
+        37 => "#,##0_);(#,##0)",
+        38 => "#,##0_);[Red](#,##0)",
+        39 => "#,##0.00_);(#,##0.00)",
+        40 => "#,##0.00_);[Red](#,##0.00)",
         41 => "_(* #,##0_);_(* \\(#,##0\\);_(* \"-\"_);_(@_)",
         42 => "_(\"$\"* #,##0_);_(\"$\"* \\(#,##0\\);_(\"$\"* \"-\"_);_(@_)",
         43 => "_(* #,##0.00_);_(* \\(#,##0.00\\);_(* \"-\"??_);_(@_)",
@@ -265,6 +292,26 @@ pub fn builtin_code(id: u32) -> Option<&'static str> {
         49 => "@",
         _ => return None,
     })
+}
+
+/// The id Excel reads a built-in id as, where a styles part defines it
+/// not: an id Excel draws alike everywhere itself; a locale's id, the
+/// East Asian dates and times from 27 to 36 and 50 to 58 and the Thai ids
+/// from 59 to 81, its twin among those (14's date, 21's time, the numbers,
+/// the currencies, the percents, the fractions and the clocks), as Excel's
+/// save writes each; and any other, 23 to 26 and past 81, General, 0.
+pub fn builtin_twin(id: u32) -> u32 {
+    match id {
+        0..=22 | 37..=49 => id,
+        27..=31 | 36 | 50..=58 | 71 | 72 => 14,
+        32..=35 | 77 => 21,
+        59..=68 | 73..=75 => id - 58,
+        69 | 70 => id - 57,
+        76 => 20,
+        78 => 22,
+        79..=81 => id - 34,
+        _ => 0,
+    }
 }
 
 /// A cell format as the record says it, and what its file says beside it
@@ -647,7 +694,11 @@ mod tests {
             Resolved::Rgb(Rgb(0xC0, 0xC0, 0xC0))
         );
         assert_eq!(of(Color::Indexed(64), 0.0), Resolved::Automatic);
-        assert_eq!(of(Color::Indexed(65), 0.0), Resolved::Automatic);
+        assert_eq!(
+            of(Color::Indexed(65), 0.0),
+            Resolved::Rgb(Rgb(255, 255, 255)),
+            "the system's paper, which Excel draws white"
+        );
         assert_eq!(of(Color::Indexed(66), 0.0), Resolved::Unresolved);
         assert_eq!(of(Color::Auto, 0.0), Resolved::Automatic);
         let none = Colors::new(None, Some(vec![Rgb(1, 2, 3)]));
@@ -675,40 +726,79 @@ mod tests {
     }
 
     #[test]
-    fn a_tint_moves_a_color_s_luminance() {
-        // The grays a theme's white and black make at Excel's palette tints.
+    fn a_tint_moves_a_color_s_luminance_as_excel_draws_it() {
+        // Excel's own colors (the item's golden): the grays a theme's white
+        // and black make at Excel's palette tints, as Excel's saves write
+        // the tints, each a gray to its nearest channel.
+        let tint = |text: &str| text.parse::<f64>().unwrap();
         let white = Rgb(255, 255, 255);
         let black = Rgb(0, 0, 0);
-        assert_eq!(tinted(white, -0.0499893185216834).hex(), "F2F2F2");
-        assert_eq!(tinted(white, -0.1499984740745262).hex(), "D9D9D9");
-        assert_eq!(tinted(white, -0.249977111117893).hex(), "BFBFBF");
-        assert_eq!(tinted(white, -0.3499862666707358).hex(), "A6A6A6");
-        assert_eq!(tinted(black, 0.499984740745262).hex(), "7F7F7F");
-        assert_eq!(tinted(black, 0.3499862666707358).hex(), "595959");
-        assert_eq!(tinted(black, 0.249977111117893).hex(), "404040");
-        assert_eq!(tinted(black, 0.0499893185216834).hex(), "0D0D0D");
+        for (base, t, want) in [
+            (white, "-4.9989318521683403E-2", "F2F2F2"),
+            (white, "-0.14999847407452621", "D9D9D9"),
+            (white, "-0.249977111117893", "BFBFBF"),
+            (white, "-0.34998626667073579", "A6A6A6"),
+            (white, "-0.499984740745262", "808080"),
+            (black, "0.499984740745262", "808080"),
+            (black, "0.34998626667073579", "595959"),
+            (black, "0.249977111117893", "404040"),
+            (black, "0.14999847407452621", "262626"),
+            (black, "4.9989318521683403E-2", "0D0D0D"),
+            // The accents, lightened and darkened, where exact HLS is a
+            // unit or two off a channel (DAE3F3 for D9E1F2) and a tint of
+            // each channel further (773F19 for 833C0C).
+            (Rgb(0x44, 0x72, 0xC4), "0.79998168889431442", "D9E1F2"),
+            (Rgb(0x44, 0x72, 0xC4), "-0.499984740745262", "203764"),
+            (Rgb(0xED, 0x7D, 0x31), "0.39997558519241921", "F4B084"),
+            (Rgb(0xED, 0x7D, 0x31), "-0.499984740745262", "833C0C"),
+            (Rgb(0xE7, 0xE6, 0xE6), "-0.89999084444715716", "161616"),
+            (Rgb(0x44, 0x54, 0x6A), "-0.249977111117893", "333F4F"),
+            // A tint no palette makes, kept in 32767ths as Excel keeps it.
+            (Rgb(0x44, 0x72, 0xC4), "0.3", "7A9AD6"),
+            (Rgb(0xED, 0x7D, 0x31), "-0.6", "69300A"),
+            // Tints between two thousandths, each product truncated: a tint
+            // in thousandths would draw the white DFDFDF, in hundredths the
+            // black 1E1E1E.
+            (black, "0.1249", "202020"),
+            (white, "-0.1251", "DEDEDE"),
+            (Rgb(0x44, 0x72, 0xC4), "0.1249", "5A82CB"),
+            (Rgb(0xED, 0x7D, 0x31), "-0.1251", "E76814"),
+        ] {
+            assert_eq!(tinted(base, tint(t)).hex(), want, "{} at {t}", base.hex());
+        }
         assert_eq!(tinted(Rgb(0x44, 0x72, 0xC4), 0.0), Rgb(0x44, 0x72, 0xC4));
         assert_eq!(tinted(Rgb(0x44, 0x72, 0xC4), 1.0), white);
         assert_eq!(tinted(Rgb(0x44, 0x72, 0xC4), -1.0), black);
-        // A darkening that crosses half the luminance, where a tint in HLS
-        // and one applied to each channel part (the latter 773F19): the
-        // implementation's own color until Excel's reading folds it
-        // (*prediction*, the item's second slice).
-        assert_eq!(
-            tinted(Rgb(0xED, 0x7D, 0x31), -0.499984740745262).hex(),
-            "843C0B"
-        );
-        // A hue kept: lighter by 80%, a pale blue.
-        let pale = tinted(Rgb(0x44, 0x72, 0xC4), 0.7999816888943144);
-        assert!(pale.2 > pale.1 && pale.1 > pale.0, "{pale:?}");
     }
 
     #[test]
     fn a_built_in_number_format_reads_as_excel_reads_it() {
         assert_eq!(builtin_code(2), Some("0.00"));
         assert_eq!(builtin_code(14), Some("m/d/yyyy"));
+        assert_eq!(builtin_code(37), Some("#,##0_);(#,##0)"));
         assert_eq!(builtin_code(49), Some("@"));
         assert_eq!(builtin_code(23), None);
+        // A locale's id is its twin, as Excel's save writes it.
+        for (id, twin) in [
+            (27, 14),
+            (32, 21),
+            (36, 14),
+            (50, 14),
+            (59, 1),
+            (63, 5),
+            (69, 12),
+            (73, 15),
+            (76, 20),
+            (77, 21),
+            (78, 22),
+            (81, 47),
+            (23, 0),
+            (163, 0),
+            (5, 5),
+            (44, 44),
+        ] {
+            assert_eq!(builtin_twin(id), twin, "id {id}");
+        }
         let mut look = Look::default();
         look.set_code("0.00");
         assert!(matches!(look.style.num_fmt, NumFmt::Code(_)));

@@ -1826,31 +1826,33 @@ impl Parsed {
 
     /// One cell format as the record says it (decision 5): its own number
     /// format, fill, font, alignment and border, whatever its `apply` flags
-    /// and its cell style say (*prediction*, Excel's reading to show); a
+    /// and its cell style say, as Excel draws it (Excel's reading: each flag
+    /// off, all of them and none written each drawn as the entry says); a
     /// property the default font has unsaid; what the record has no word for
     /// counted, the rest said.
     fn look_of(&self, xf: &FileXf, default: &FileFont, colors: &Colors) -> Look {
         let mut look = Look::default();
-        // The number format: a code the part defines, or a built-in's.
+        // The number format: a code the part defines, or a built-in's as
+        // Excel reads it, a locale's id as its twin and an id with no code
+        // General.
         match self.codes.get(&xf.num_fmt) {
             Some(code) => look.set_code(code),
-            None => match xf.num_fmt {
-                0 => {}
-                id => match super::looks::builtin_code(id) {
-                    Some(code) => look.set_code(code),
-                    None => look.unheld = true,
-                },
-            },
+            None => {
+                let twin = super::looks::builtin_twin(xf.num_fmt);
+                if let Some(code) = super::looks::builtin_code(twin) {
+                    look.set_code(code);
+                }
+            }
         }
         // The fill: a solid pattern's foreground; Excel's automatic, or no
-        // color at all, black (*prediction*).
+        // color at all, white, as Excel draws a solid fill of either.
         if let Some(fill) = self.fills.get(xf.fill) {
             look.unheld |= fill.unheld;
             if fill.solid {
                 match fill.fg.map(|c| colors.resolve(&c)) {
                     Some(Resolved::Rgb(c)) => look.style.fill = Some(c),
                     Some(Resolved::Unresolved) => look.unheld = true,
-                    Some(Resolved::Automatic) | None => look.style.fill = Some(Rgb(0, 0, 0)),
+                    Some(Resolved::Automatic) | None => look.style.fill = Some(Rgb(255, 255, 255)),
                 }
             }
         }

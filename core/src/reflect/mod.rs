@@ -59,6 +59,8 @@ pub mod cursor;
 pub mod diff;
 pub mod histogram;
 pub mod looks;
+#[cfg(test)]
+mod looks_golden;
 pub mod odf;
 pub mod ooxml;
 pub mod print;

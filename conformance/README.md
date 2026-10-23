@@ -2097,11 +2097,13 @@ workbook as oracle 11 prints each of its sheets whole.
   its `apply` flags and its cell style say. A property the workbook's
   default font, the Normal style's, has is unsaid, and so is Excel's
   automatic color. A color is resolved to six hex digits through the
-  workbook's theme, its slots counted as Excel counts them, a tint in HLS,
-  and the palette, the workbook's own where it has one. A number format is
-  the file's code as written, a built-in id by Excel's English reading of
-  it, and a code the language does not draw is printed all the same, for a
-  load to refuse by name (`grid-format-code`). A column's width is read as
+  workbook's theme, its slots counted as Excel counts them, a tint as Excel
+  applies one (ECMA's rule in Windows' HLS, each product truncated), and
+  the palette, the workbook's own where it has one, the system's paper
+  white. A number format is the file's code as written, a built-in id by
+  Excel's English reading of it, a locale's id as the id Excel reads it as,
+  and a code the language does not draw is printed all the same, for a load
+  to refuse by name (`grid-format-code`). A column's width is read as
   Excel reads it, to whole pixels at the record's 7 a character, then to
   characters in hundredths, Excel's default of 64 pixels `none`; a row's
   height is the one a person set (`customHeight`). What the record cannot
@@ -2122,7 +2124,23 @@ workbook as oracle 11 prints each of its sheets whole.
   own save of the build golden reads as the build's record, its widths
   respelled by Excel read as the model's, and its save of `KERNEL.50`'s
   cases as Excel's object model read each, 44 of 44.
+- **Excel's golden.** What neither Excel's writer nor the core's writes is
+  read by Excel itself: two workbooks the core's tests write byte for byte,
+  `scripts/reflect/looks.xlsx` and `looks_book.xlsx`, a case a row (each of
+  a theme's slots untinted and at its tints, the default palette, a
+  workbook's own palette and a workbook with no theme part, every built-in
+  number format by its id, the `apply` flags off beside a cell style that
+  says otherwise, each look the record has no word for, widths and
+  heights, a row's format, a merge, conditional formats and a sheet's own
+  defaults), each case's targets read by the reference through Excel's
+  object model into `scripts/reflect/looks_golden.txt`
+  (`VlaWriteLooksGolden`), and Excel's own saves of the two beside it. An
+  implementation's reading of each workbook, and of each save, agrees with
+  the golden target by target: a cell's look as drawn, a theme's slot and
+  tint, a width by Excel's rule at the screen's own pixels a character and
+  the record's at 7, a height within a pixel, the gridlines, and its counts
+  of what the record cannot hold with what Excel's reading shows of it.
+  `tools/check_looks_golden.ps1` holds the golden's shape and the looks its
+  cases reach.
 - **Not yet.** An OpenDocument file's looks are refused by name, the item's
-  third slice's; Excel's reading of what its own writer never writes, a
-  theme's slots and tints, the palette, the built-ins by id, the `apply`
-  flags off, is its second slice's golden.
+  third slice's.

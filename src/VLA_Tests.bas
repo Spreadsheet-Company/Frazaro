@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.50"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.57"
+' KERNEL.57: VlaWriteLooksGolden, dev-only, which opens
+' scripts/reflect/looks.xlsx and looks_book.xlsx, frazaro-core's
+' hand-made workbooks of a case a row, reads each case's targets through
+' the object model in the record's spelling (a cell's look, a fill's theme
+' color, a column's width, a row's height, a merge, a conditional format,
+' the gridlines, a sheet's standard width and height), saves each as
+' Excel's own beside it, and writes scripts/reflect/looks_golden.txt, the
+' golden frazaro-core's package reader is held to.
+'
 ' KERNEL.50: VlaWriteAppearanceGolden, dev-only, which has Excel set every
 ' case of scripts/appearance.txt, a format's fill, number format, wrap,
 ' font, alignment and border as the record spells them, on a cell of a
@@ -3810,6 +3819,287 @@ End Function
 Private Function AppearanceHex(ByVal bgr As Long) As String
     AppearanceHex = Right$("0" & Hex$(bgr And &HFF&), 2) & Right$("0" & Hex$((bgr \ &H100&) And &HFF&), 2) & _
                     Right$("0" & Hex$((bgr \ &H10000) And &HFF&), 2)
+End Function
+
+' KERNEL.57: the looks golden. scripts/reflect/looks.xlsx and
+' looks_book.xlsx, written by frazaro-core's test-only builder
+' (core/src/reflect/looks_golden.rs) and held there byte for byte, hold a
+' case a row, its name in column A and in column B the targets read of it,
+' separated by spaces. This opens each workbook in Excel, reads every
+' target through the object model, saves the workbook beside it as Excel's
+' own (looks_saved.xlsx, looks_book_saved.xlsx), with no personal
+' information, and writes looks_golden.txt beside them: a first line,
+' source<TAB>excel <version> <build>, then each case's header, "===
+' <file>!<sheet>!<name>", and a line a target, <target><TAB><reading>. A
+' cell's reading (cell:, empty:, blank:) is its look in the record's
+' spelling, every property at the workbook's default left out (the Normal
+' style's font, Excel's automatic color), then " !" and the words for what
+' the record has no word for, where the cell says any; theme: is a fill's
+' ThemeColor and TintAndShade; col: a column's ColumnWidth and shown or
+' hidden; row: a row's RowHeight and shown or hidden; merge: the merge
+' area; cf: the format conditions counted and the fill they draw; grid: the
+' window's gridlines; std: the sheet's StandardWidth and StandardHeight. A
+' width and a height are the screen's, Excel counting a column's
+' characters at the screen's own pixels. frazaro-core's looks_golden.rs
+' holds the reader to this file, and tools/check_looks_golden.ps1 its
+' shape and the cases it reaches. Dev-only, like VlaWriteAppearanceGolden:
+' run it, then compare the golden with its prediction, kept apart (a new
+' file, which git diff does not compare). It opens workbooks, which can
+' move the VBE's project, so click a module's code window before the next
+' Immediate command.
+Public Function VlaWriteLooksGolden(Optional ByVal folder As String = "") As Boolean
+    Dim wb As Workbook
+    On Error GoTo failed
+    Dim sep As String
+    sep = Application.PathSeparator
+    If Len(folder) = 0 Then
+        folder = FindDevFile("reflect" & sep & "looks.xlsx")
+        folder = Left$(folder, InStrRev(folder, sep))
+    End If
+    If Right$(folder, 1) <> sep Then folder = folder & sep
+    Debug.Print "===== WRITE LOOKS GOLDEN ====="
+    Dim books As Variant, k As Long, outText As String
+    Dim nCases As Long, nTargets As Long
+    books = Array("looks", "looks_book")
+    outText = "source" & vbTab & "excel " & Application.Version & " " & CStr(Application.Build) & vbCrLf
+    Application.ScreenUpdating = False
+    For k = LBound(books) To UBound(books)
+        Dim bookPath As String, savedPath As String
+        bookPath = folder & books(k) & ".xlsx"
+        savedPath = folder & books(k) & "_saved.xlsx"
+        If Len(Dir$(bookPath)) = 0 Then
+            Err.Raise 53, "VLA_Tests", bookPath & " not found: FRAZARO_BLESS=1 and frazaro-core's tests write it"
+        End If
+        Set wb = Workbooks.Open(bookPath, UpdateLinks:=0, ReadOnly:=True)
+        outText = outText & LooksBookRead(wb, books(k) & ".xlsx", nCases, nTargets)
+        wb.RemovePersonalInformation = True
+        Application.DisplayAlerts = False
+        wb.SaveAs savedPath, FileFormat:=51
+        Application.DisplayAlerts = True
+        wb.Close SaveChanges:=False
+        Set wb = Nothing
+    Next k
+    Application.ScreenUpdating = True
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = folder & "looks_golden.txt"
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & nCases & " cases, " & nTargets & " targets read -> " & goldenPath
+    Debug.Print "  Excel's own workbooks saved -> " & folder & "looks_saved.xlsx, looks_book_saved.xlsx"
+    Debug.Print "  (the witness: git diff --no-index between the prediction and the golden)"
+    Debug.Print "===== LOOKS GOLDEN WRITTEN ====="
+    VlaWriteLooksGolden = True
+    Exit Function
+failed:
+    Dim failNo As Long, failWords As String
+    failNo = Err.Number
+    failWords = Err.Description
+    On Error Resume Next
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    If Not wb Is Nothing Then wb.Close SaveChanges:=False
+    On Error GoTo 0
+    Debug.Print "  LOOKS GOLDEN FAILED: " & failWords & " (" & failNo & ")"
+End Function
+
+' One workbook's cases, each sheet's in its row order: a case is a row with
+' a name in column A, its targets the words of column B. The workbook's
+' defaults are its Normal style's font.
+Private Function LooksBookRead(ByVal wb As Workbook, ByVal label As String, _
+                               ByRef nCases As Long, ByRef nTargets As Long) As String
+    Dim nf As Object, nName As String, nSize As Double, nColor As Long
+    Dim nBold As Boolean, nItalic As Boolean
+    Set nf = wb.Styles("Normal").Font
+    nName = CStr(nf.Name)
+    nSize = nf.Size
+    nColor = nf.Color
+    nBold = nf.Bold
+    nItalic = nf.Italic
+    Dim ws As Worksheet, r As Long, lastRow As Long, caseName As String
+    Dim targets() As String, t As Long, s As String
+    For Each ws In wb.Worksheets
+        lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+        For r = 2 To lastRow
+            caseName = CStr(ws.Cells(r, 1).Value2)
+            If Len(caseName) > 0 Then
+                s = s & "=== " & label & "!" & ws.Name & "!" & caseName & vbCrLf
+                nCases = nCases + 1
+                targets = Split(CStr(ws.Cells(r, 2).Value2), " ")
+                For t = LBound(targets) To UBound(targets)
+                    If Len(targets(t)) > 0 Then
+                        s = s & targets(t) & vbTab & _
+                            LooksTargetRead(ws, targets(t), nName, nSize, nColor, nBold, nItalic) & vbCrLf
+                        nTargets = nTargets + 1
+                    End If
+                Next t
+            End If
+        Next r
+    Next ws
+    LooksBookRead = s
+End Function
+
+' One target read: its kind before a colon, its place after it.
+Private Function LooksTargetRead(ByVal ws As Worksheet, ByVal target As String, _
+                                 ByVal nName As String, ByVal nSize As Double, ByVal nColor As Long, _
+                                 ByVal nBold As Boolean, ByVal nItalic As Boolean) As String
+    Dim kind As String, place As String, at As Long
+    at = InStr(target, ":")
+    If at = 0 Then
+        kind = target
+    Else
+        kind = Left$(target, at - 1)
+        place = Mid$(target, at + 1)
+    End If
+    Select Case kind
+    Case "cell", "empty", "blank"
+        LooksTargetRead = LooksRead(ws.Range(place), nName, nSize, nColor, nBold, nItalic)
+    Case "theme"
+        LooksTargetRead = LooksThemeRead(ws.Range(place))
+    Case "col"
+        LooksTargetRead = LooksNumber(ws.Columns(place).ColumnWidth) & " " & _
+                          LooksShown(ws.Columns(place).Hidden)
+    Case "row"
+        LooksTargetRead = LooksNumber(ws.Rows(CLng(place)).RowHeight) & " " & _
+                          LooksShown(ws.Rows(CLng(place)).Hidden)
+    Case "merge"
+        LooksTargetRead = ws.Range(place).MergeArea.Address(False, False)
+    Case "cf"
+        LooksTargetRead = CStr(ws.Range(place).FormatConditions.Count) & " " & _
+                          LooksFill(ws.Range(place).DisplayFormat.Interior)
+    Case "grid"
+        ws.Parent.Activate
+        ws.Activate
+        If ActiveWindow.DisplayGridlines Then LooksTargetRead = "on" Else LooksTargetRead = "off"
+    Case "std"
+        LooksTargetRead = LooksNumber(ws.StandardWidth) & " " & LooksNumber(ws.StandardHeight)
+    Case Else
+        Err.Raise 5, "VLA_Tests", "looks: a target of no such kind: " & target
+    End Select
+End Function
+
+' A cell's look read back in the record's spelling, every property at the
+' workbook's default left out: its fill, number format and wrap; (font
+' ...) for a weight, a slant and a size other than the Normal style's and a
+' color other than Excel's automatic and the Normal style's; (align ...)
+' for a horizontal other than general and a vertical other than bottom;
+' (border ...) for each edge with a line, as VlaWriteAppearanceGolden reads
+' one. Then " !" and a word for each look the record has no word for, a
+' value after it where it has one: a pattern, a rich text's runs (its font
+' read at its last character, a run of the cell's own font), a family, an
+' underline, a strike, a raised or lowered text, an outline, a shadow, a
+' horizontal or a vertical the record does not name, an indent, a
+' rotation, shrinking to fit, a right-to-left order, a diagonal.
+Private Function LooksRead(ByVal target As Range, ByVal nName As String, ByVal nSize As Double, _
+                           ByVal nColor As Long, ByVal nBold As Boolean, ByVal nItalic As Boolean) As String
+    Dim s As String, said As String, unheld As String, j As Long, sides As Variant
+    Dim pat As Long, f As Object
+    pat = target.Interior.Pattern
+    If pat = xlNone Then
+        s = "none"
+    ElseIf pat = xlSolid Then
+        s = Chr$(34) & AppearanceHex(target.Interior.Color) & Chr$(34)
+    Else
+        s = "none"
+        unheld = unheld & " pattern " & CStr(pat)
+    End If
+    Select Case CStr(target.NumberFormat)
+    Case "General": s = s & " general"
+    Case "@": s = s & " text"
+    Case Else
+        s = s & " " & Chr$(34) & Replace(Replace(CStr(target.NumberFormat), "\", "\\"), Chr$(34), "\" & Chr$(34)) & Chr$(34)
+    End Select
+    If target.WrapText Then s = s & " wrap" Else s = s & " nowrap"
+    Set f = target.Font
+    If IsNull(f.Bold) Or IsNull(f.Italic) Or IsNull(f.Size) Or IsNull(f.Color) Or IsNull(f.Name) Then
+        unheld = unheld & " runs"
+        Set f = target.Characters(Len(CStr(target.Text)), 1).Font
+    End If
+    said = ""
+    If f.Bold <> nBold Then
+        If f.Bold Then said = said & " bold" Else said = said & " not-bold"
+    End If
+    If f.Italic <> nItalic Then
+        If f.Italic Then said = said & " italic" Else said = said & " not-italic"
+    End If
+    If f.Size <> nSize Then said = said & " " & AppearanceSize(f.Size)
+    If f.ColorIndex <> xlColorIndexAutomatic And f.Color <> nColor Then
+        said = said & " " & Chr$(34) & AppearanceHex(f.Color) & Chr$(34)
+    End If
+    If Len(said) > 0 Then s = s & " (font" & said & ")"
+    If CStr(f.Name) <> nName Then unheld = unheld & " family " & Chr$(34) & CStr(f.Name) & Chr$(34)
+    If f.Underline <> xlUnderlineStyleNone Then unheld = unheld & " underline " & CStr(f.Underline)
+    If f.Strikethrough Then unheld = unheld & " strike"
+    If f.Superscript Then unheld = unheld & " superscript"
+    If f.Subscript Then unheld = unheld & " subscript"
+    If f.OutlineFont Then unheld = unheld & " outline"
+    If f.Shadow Then unheld = unheld & " shadow"
+    said = ""
+    Select Case target.HorizontalAlignment
+    Case xlGeneral
+    Case xlLeft: said = " left"
+    Case xlCenter: said = " center"
+    Case xlRight: said = " right"
+    Case Else: unheld = unheld & " horizontal " & CStr(target.HorizontalAlignment)
+    End Select
+    Select Case target.VerticalAlignment
+    Case xlBottom
+    Case xlTop: said = said & " top"
+    Case xlCenter: said = said & " middle"
+    Case Else: unheld = unheld & " vertical " & CStr(target.VerticalAlignment)
+    End Select
+    If Len(said) > 0 Then s = s & " (align" & said & ")"
+    If target.IndentLevel <> 0 Then unheld = unheld & " indent " & CStr(target.IndentLevel)
+    If target.Orientation <> xlHorizontal Then unheld = unheld & " rotation " & CStr(target.Orientation)
+    If target.ShrinkToFit Then unheld = unheld & " shrink"
+    If target.ReadingOrder = xlRTL Then unheld = unheld & " rtl"
+    said = ""
+    sides = Array("left", "right", "top", "bottom")
+    For j = 0 To 3
+        said = said & AppearanceEdgeRead(target.Borders(AppearanceEdgeIndex(CStr(sides(j)))), CStr(sides(j)))
+    Next j
+    If Len(said) > 0 Then s = s & " (border" & said & ")"
+    If target.Borders(xlDiagonalUp).LineStyle <> xlLineStyleNone Then unheld = unheld & " diagonal"
+    If target.Borders(xlDiagonalDown).LineStyle <> xlLineStyleNone Then unheld = unheld & " diagonal"
+    If Len(unheld) > 0 Then s = s & " !" & unheld
+    LooksRead = s
+End Function
+
+' A fill's theme color as the object model numbers it, and its tint;
+' "none" for a fill whose color is no theme's.
+Private Function LooksThemeRead(ByVal target As Range) As String
+    Dim slot As Long, tint As Double
+    On Error GoTo noTheme
+    slot = target.Interior.ThemeColor
+    tint = target.Interior.TintAndShade
+    LooksThemeRead = CStr(slot) & " " & LooksNumber(tint)
+    Exit Function
+noTheme:
+    LooksThemeRead = "none"
+End Function
+
+' A drawn fill as the record spells one: none, or its color.
+Private Function LooksFill(ByVal fill As Object) As String
+    If fill.Pattern = xlNone Then
+        LooksFill = "none"
+    Else
+        LooksFill = Chr$(34) & AppearanceHex(fill.Color) & Chr$(34)
+    End If
+End Function
+
+Private Function LooksShown(ByVal hidden As Boolean) As String
+    If hidden Then LooksShown = "hidden" Else LooksShown = "shown"
+End Function
+
+' A number as the record spells one: Str$ reads the point whatever the
+' machine, and its leading zero restored.
+Private Function LooksNumber(ByVal x As Double) As String
+    Dim s As String
+    s = Trim$(Str$(x))
+    If Left$(s, 1) = "." Then s = "0" & s
+    If Left$(s, 2) = "-." Then s = "-0" & Mid$(s, 2)
+    LooksNumber = s
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and

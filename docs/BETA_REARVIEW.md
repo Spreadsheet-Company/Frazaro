@@ -37362,6 +37362,277 @@ of `8e01a33` and this slice was verified alone before it was written, the
 workspace's tests (the language's 371, the core's 217) and `run_checks.ps1`
 59 of 59. Not pushed.
 
+*The second slice built 2026-10-22*, Excel's golden (decision 12's
+reference part and decision 15's second slice), over `b09c78a`, in a
+worktree and a target of its own, beside the peer's `KERNEL.49` third
+slice, which rewrites `vla-lang`'s draft and the record's walk and none of
+this slice's files, the peer told so before the build and going first on
+`vla-lang`. It stops at the owner's run in Excel.
+
+*What landed.*
+1. The fixtures and their builder, `core/src/reflect/looks_golden.rs`,
+   test-only: a package writer of its own, its styles part's lists each
+   element once, a sheet's view, defaults, columns, rows of cells, merges
+   and conditional formats, and the two workbooks it writes, held byte for
+   byte (`FRAZARO_BLESS=1` writes them again). `scripts/reflect/looks.xlsx`,
+   nine sheets, its theme Office's of 2016 to 2022 and its default font
+   Calibri 11: *Colors*, each of the theme's twelve slots untinted, at the
+   five tints Excel's palette gives its kind as Excel's saves write them, at
+   0.3 and -0.6, and the first accent at 1 and -1, each index of the default
+   palette and the two past it, an alpha of 80 and of 00, an explicit black
+   and Excel's automatic, each as a fill, a font's color and an edge's;
+   *Formats*, every built-in id from 0 to 81 with no definition, two ids
+   with none at all, and sixteen codes the part defines, eight of them codes
+   the language does not draw; *Flags*, a cell style, Probe, saying a number
+   format, a font, a fill, a border and an alignment, and ten cell formats
+   of it saying others, each `apply` flag off alone, all off, none written,
+   the style's own, and the entry's own beside Normal; *Unheld*, each look
+   decision 8 names, alone, and a protection, which is no look; *Columns*,
+   fifteen widths, on whole pixels and off them, Excel's own at 96 dots and
+   at 150%, below a character and the most, hidden, a span of three, and a
+   column's format; *Rows*, heights a person set on and off a pixel, fitted
+   heights, hidden, a row's format with its `customFormat` and without it;
+   *Cells*, no gridlines, a formatted empty cell, a merge and conditional
+   formats of one rule and of two; *Defaults* and *Defaults2*, a sheet's
+   own base width, default height and default width.
+   `scripts/reflect/looks_book.xlsx`, four sheets: a palette of its own,
+   each index a color the default palette's is not at it; no theme part,
+   each slot and a tint; its default font Arial 10, fonts beside it; widths
+   in it. 389 cases, 912 targets, a case a row, its name in column A and its
+   targets in column B, two rows and two columns apart.
+2. The reference, `VlaWriteLooksGolden` (`src/VLA_Tests.bas`,
+   `VLA_TESTS_VERSION` `KERNEL.57`): each workbook opened in Excel and each
+   case's targets read through the object model, a cell's look in the
+   record's spelling with every property at the workbook's Normal style
+   left out and, after " !", a word for each look the record has no word
+   for (KERNEL.50's readers of a size, an edge and a color shared); a
+   fill's theme color and tint as the object model names them; a column's
+   width and a row's height as the screen shows them; a merge's range; the
+   conditional formats' rules and the fill they draw; the gridlines; a
+   sheet's standard width and height. Each workbook saved beside it as
+   Excel's own, `looks_saved.xlsx` and `looks_book_saved.xlsx`, with no
+   personal information; the golden's first line names its source, Excel's
+   version and build.
+3. The reader's test, `the_looks_read_each_case_as_excel_reads_it`: the
+   golden's cases the builder's, in order, each with its targets; each
+   workbook's reading under the looks, and each of Excel's saves once the
+   golden is Excel's, held to the golden target by target. A cell's look as
+   drawn (a said black ink and an unsaid one alike, a theme's color unsaid
+   where a workbook has no theme part); a theme's slot by the object
+   model's count and its tint; a width by Excel's rule at the screen's own
+   pixels a digit and padding, the pair found from Excel's readings, and
+   the record's width the same rule at its 7 and 5; a height a person set
+   within a pixel, a row or a column of no setting at its sheet's
+   standard; the gridlines; and the counts of what the record cannot hold
+   against what Excel's reading shows of it. The rule's fit answers the
+   first slice's *Found*: Excel's `ColumnWidth` on a screen of another scale
+   is the same rule at another digit and padding, so the golden is read on
+   the owner's screen as it stands, and the record's own width is held by
+   the rule.
+4. `tools/check_looks_golden.ps1`: the golden's source, its headers, every
+   target of a kind this version reads, every reading in its kind's
+   spelling, no default said, every word of what the record cannot hold
+   one it names; the looks its cases reach, the twelve slots untinted and
+   tinted, every index of the default palette and the two past it, every
+   word and every kind; its floors, 389 cases and 912 targets; its control,
+   six mutants. `run_checks.ps1`'s floor from 59 to 60, the control among
+   the extras.
+5. Oracle 8's amendment gains Excel's golden; the line's note.
+
+*The prediction*, written before the run and kept apart from the golden,
+in the scratchpad (`KERNEL.50`'s lesson: a new file's witness is its
+prediction, never `git diff`), and the tree's golden until the run writes
+Excel's: every case as the reader reads it, at the owner's screen of 144
+dots, a digit 11 pixels and its padding 7. To watch, beside the scoping's
+list: the theme's slots by the object model's count, 2, 1, 4 and 3 for the
+file's first four; each tint by the reader's HLS rounded at the end, its
+rounding the fold's; an alpha passed over; the palette's 64 and 65
+automatic, a solid fill of either black; a workbook's own palette honored,
+its first eight among it; every `apply` flag off drawn as its entry says,
+and the style's own drawn where the entry says the style's; built-in 14
+`m/d/yyyy`, 22 `m/d/yyyy h:mm`, and every id with no code here `General`;
+a condensed and an extended face, which the object model cannot show;
+11.2109375 read 10.55 on this screen, 10.43 at 96 dots; a default column
+8.09 characters and a default row 15 points; a fitted height read as the
+sheet's standard, Excel fitting it again; a row's `s` without its
+`customFormat` passed over; a theme's color with no theme part drawn in
+Excel 365's own theme, Office's of 2023.
+
+*Held.* `cargo test --workspace`: the core's 219, two new, the language's
+371; `cargo fmt --check` and both clippies at `-D warnings` clean;
+`run_checks.ps1` 60 of 60 over the worktree, the prediction as the golden;
+`check_looks_golden.ps1`'s control. Nine mutants of the golden, each
+failing the reader's test: a fill's color, a theme's slot, a tint, a
+width, an unheld word dropped, the gridlines, a rule counted, a height, a
+hidden column shown.
+
+*Against the size predicted.* The golden's writer, 300 to 450 lines of
+VBA: 291 with its comments. The check, 150 to 250: 313. The fixtures'
+builder, 400 to 600: 1,253, over by its case tables, laid out a field a
+line, and by a package writer of its own, the core's writer writing no
+theme, no palette, no `apply` flag off and nothing the record cannot hold,
+which is the fixtures' point; the reader's test beside it, 650.
+
+*Left for the owner*, the run in Excel with its stop rule, written before
+it: each fixture opened once first, which Excel must open with no repair
+(a repair stops the run, and the builder is corrected; no run is spent);
+then one run, the golden written and Excel's saves beside it, and every
+difference from the prediction read; a rule Excel's reading moves folded
+into the reader; an edge Excel answers unstably, or the object model
+cannot show, labelled in the test and never chased; a second run only to
+confirm what the fold changed in the fixtures or the reference.
+
+*The owner's run, 2026-10-22.* Each fixture opened in Excel with no
+repair; the VBA pass, `VlaDevReload`, the Debug menu's Compile and
+`VlaSelfTests`, pure 2,033 of 2,033 and host 333 of 333; and
+`VlaWriteLooksGolden`: 389 cases and 912 targets read, Excel's two saves
+beside the golden, its source Excel 16.0, build 20430.
+
+*Against the prediction*, its witness `git diff --no-index` with the
+prediction kept apart: 296 of the golden's 1,301 lines differ, its source
+beside them. As predicted: every `apply` flag off drawn as its entry says,
+and the style's own where the entry says the style's; every word of what
+the record has no word for, as each was named, the condensed and the
+extended face shown by nothing (the object model has no property for
+either); every width on this screen of 144 dots by Excel's rule at a digit
+of 11 pixels and a padding of 7, the hidden columns, the span and the
+column's format; the merge, the conditional formats and the formatted
+empty cell; the gridlines; the theme's twelve slots untinted, both pairs
+swapped from the theme part's order as the reader counts them, the second
+pair measured now (the file's slots 2 and 3 drawn E7E6E6 and 44546A); an
+alpha passed over; the default palette, and a workbook's own with its first
+eight; built-ins 0 to 22 and 45 to 49; ids 23 to 26, 163 and 200 read
+General; a fitted height read as its sheet's standard, Excel fitting the
+row again at the open; Excel 365's own theme, Office's of 2023, for a
+workbook with no theme part.
+
+Not as predicted:
+- *A tint's rounding*, the fold's by the scoping: of 86 tinted colors the
+  reader's exact HLS, rounded at the end, gives 31. A fit over candidates
+  in the scratchpad: ECMA's HLS to 255 at most 23; Windows' HLS to 240
+  (KB29240's integer algorithm, `ColorRGBToHLS` and `ColorHLSToRGB`) with
+  the tint as written, its luminance truncated, 63, and its gray rounded,
+  69; the same with the tint taken first in thousandths, as Windows'
+  `ColorAdjustLuma` takes one, 86 of 86, and in hundredths or
+  ten-thousandths alike. Excel keeps a tint in 32767ths: its save writes
+  0.3 back as 0.29999694814905242.
+- *The object model's slots*: `Interior.ThemeColor` numbers a file's slot
+  from 1 in the file's own order, 1 for the slot drawn white, where the
+  prediction swapped the first pairs there too.
+- *The system's colors*: indexed 65, the system's paper, white for a fill,
+  an ink and an edge, where the reader left it automatic; a solid fill of
+  Excel's automatic, indexed 64 or `auto`, white, where it drew black.
+- *Built-ins*: 37 to 40 in Excel's English with `_)`, `#,##0_);(#,##0)`,
+  where ECMA's list has a space; the locale's ids, 27 to 36, 50 to 58 and
+  59 to 81, read as their twins among the ids Excel draws alike everywhere,
+  Excel's save writing each as its twin's id (27 as 14, 32 as 21, 59 as 1,
+  79 as 45), where the reader read General and counted them; 5 to 8 and 41
+  to 44 shown by the object model as `$#,##0_);($#,##0)`, where Excel's
+  save writes them as the reader spells them, `"$"#,##0_);\("$"#,##0\)`.
+- *A code's spelling*: the object model shows a character a file quotes or
+  escapes bare, `"$"#,##0.00` as `$#,##0.00`, and Excel's save escapes a
+  defined code's literals, `yyyy\-mm\-dd\ hh:mm:ss`; the record keeps the
+  file's spelling (decision 7), and the test compares codes as they draw.
+- *The screen's*: a default row 14.5 points in Calibri 11 and 12.5 in
+  Arial 10 at 144 dots, where 15 and 13 were predicted; a base width of 10
+  read 10.27 characters, Excel rounding a default column up to a multiple
+  of 8 pixels; a custom height of 20.25 read 20.3.
+- The prediction's own slip: the theme's ink in the workbook with no theme
+  part predicted as a fill.
+
+*The fold*, the same day:
+1. `looks.rs`: `tinted` in Windows' HLS, the tint kept in Excel's
+   32767ths and taken in thousandths, a darkening and a lightening
+   truncated and a gray rounded to its channel; the palette's 65 white;
+   `builtin_code`'s 37 to 40 Excel's; `builtin_twin`, the id Excel reads a
+   built-in id as, a locale's id its twin and any other General; the
+   module's notes of prediction now Excel's readings.
+2. `ooxml.rs`'s `look_of`: a built-in id read through its twin, an id
+   Excel has no code for General and no longer counted; a solid fill of
+   Excel's automatic white.
+3. The reader's test: the object model's count of the slots; a tint read
+   within Excel's 32767ths; codes compared as they draw, a character drawn
+   as itself bare on both sides; a case with no theme part held with its
+   colors beside Excel's save of it, which writes Excel's own theme; Excel's
+   save writing a merge's covered cells, each in its first cell's format
+   and with no value; a row of no setting at its sheet's standard, the
+   fitted among them; the undrawn counted from the reader's own codes.
+   Held: the reader's reading of both fixtures and of both of Excel's
+   saves, every target, no difference. Eight mutants of the fold, each
+   caught by it alone: a gray truncated, a tint in 32767ths alone, a tint
+   in hundredths, HLS to 255, the system's paper automatic, an automatic
+   fill black, a locale's id not its twin, ECMA's 37.
+4. `looks.xlsx` gains four tints at the end of its Colors sheet, 0.1249 and
+   -0.1251 on a gray and on an accent each, which a tint in hundredths, in
+   thousandths and in ten-thousandths draw apart (black at 0.1249,
+   1E1E1E, 202020 and 1F1F1F): 393 cases and 928 targets, the check's
+   floors raised. Thousandths are Windows' own unit; the second run settles
+   them.
+
+*Found*, read, not minted:
+- *The writer's built-ins 37 and 39*: `numfmt`'s table writes
+  `#,##0 ;(#,##0)` and `#,##0.00;(#,##0.00)` as ids 37 and 39, ECMA's
+  spellings, which Excel's English draws as `#,##0_);(#,##0)` and
+  `#,##0.00_);(#,##0.00)`, a pad the width of a parenthesis for a space;
+  `KERNEL.47`'s formats golden shows Excel taking ECMA's spellings as codes
+  of their own, so the writer would write them so.
+
+*Left for the owner:* the second run, the stop rule's: the fixture's four
+tints added and nothing else changed, in it or in the reference; one run,
+its golden and Excel's saves written again; the witness the second
+prediction kept apart, Excel's first golden with the four tints as the fold
+draws them, every other line expected as Excel wrote it; then the commit
+at the owner's word.
+
+*The second run, 2026-10-22.* `VlaSelfTests`, pure 2,033 of 2,033 and
+host 333 of 333; `VlaWriteLooksGolden`, 393 cases and 928 targets, Excel's
+saves written again, Excel 16.0, build 20430. Against the second
+prediction: every line of the first run as Excel wrote it, Excel the same
+twice. Of the four tints, the black lightened by 0.1249 drew 202020, as
+thousandths draw it, where hundredths draw 1E1E1E and ten-thousandths
+1F1F1F; the white darkened by -0.1251 drew DEDEDE, where thousandths draw
+DFDFDF; the accents' two as predicted. And Excel keeps a tint in 32767ths
+truncated: its object model and its save hold 0.1249 as 4092/32767, where
+the first fold rounded to 4093.
+
+No quantum fits both grays: the lightening needs its tint taken up to
+0.125, the darkening its own -0.12509. A search over the storages, the
+quanta from hundredths to ten-thousandths, their roundings and the
+luminance's, each direction its own, found the answer in ECMA-376's rule
+itself (Part 1, §18.8.19), computed in Windows' HLS with each product
+truncated to a whole luminance: a lightening to
+`trunc(L·(1 − t)) + 240 − trunc(240·(1 − t))`, a darkening to
+`trunc(L·(1 + t))`, a gray rounded to its channel, 90 of 90, whichever the
+tint's storage; truncated once at the end, the rule gives 70, and in
+exact HLS rounded 32. The lightening's two truncations take its tint up
+where a darkening's one does not.
+
+*The second fold*, the same day: `tinted` is that rule, the tint kept in
+32767ths truncated, as Excel keeps it; the test reads Excel's tint within
+one 32767th. Held: the reader's reading of both fixtures and of both of
+Excel's second saves, every target, no difference; nine mutants of the
+fold, each caught by it alone: a gray truncated, a lightening truncated
+once at the end, a darkening in thousandths (the first fold's), a
+darkening rounded, HLS to 255, the system's paper automatic, an automatic
+fill black, a locale's id not its twin, ECMA's 37. Labelled, the two runs
+spent: a lightening in thousandths draws each of the 90 as the rule does,
+both taking the black's 0.1249 up to 0.125; a lightening between two
+thousandths and away from a half tells them apart (the black at 0.1234,
+the rule's luminance 30 against 29), which no case here holds. The rule is
+the one the item keeps, the standard's own, one mechanism for both
+directions.
+
+*Left for the owner:* the commit at the owner's word, this slice's files
+and its hunks of the shared documents alone, one commit.
+
+*Committed 2026-10-22* at the owner's word, "Commit slice 2 and proceed
+with implementing slice 3 as scoped.": one commit over `b09c78a`, this
+slice's sixteen files and its hunks of the shared documents alone, its
+tree verified alone before it was written (the workspace's tests, the
+core's 219 and the language's 371, fmt and both clippies,
+`run_checks.ps1` 60 of 60, `check_looks_golden.ps1` from Excel's golden).
+Not pushed.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
