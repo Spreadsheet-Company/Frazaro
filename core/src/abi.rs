@@ -44,6 +44,13 @@
 //! program line; status 2 a name that is not UTF-8. The ABI number stays 1
 //! again: three exports added, nothing changed.
 //!
+//! **The looks** (KERNEL.57): [`frazaro_reflect_looks`] takes a workbook's
+//! bytes and a name as [`frazaro_reflect`] does and answers with the rows
+//! `frazaro reflect --looks` prints, each sheet as the record prints it
+//! whole. Its status-0 record's id is what the record could not hold, in
+//! words, the note the door prints on stderr, empty where it held
+//! everything. The ABI number stays 1: one export added, nothing changed.
+//!
 //! **The view** (KERNEL.4): [`frazaro_view`] takes the build's three inputs,
 //! a sheet's name and a window (`A1:F20`; empty for the sheet's whole
 //! extent), and answers with the view record `frazaro view` prints for the
@@ -432,6 +439,40 @@ pub unsafe extern "C" fn frazaro_reflect(
     };
     let book = unsafe { bytes(book, book_len) };
     answer(api::reflect_relations(book, label), out_len)
+}
+
+/// `frazaro reflect --looks` over C linkage (KERNEL.57): a workbook's
+/// bytes, an `.xlsx` or an `.ods`, answered with the rows the door prints
+/// for the same file, each sheet as the record prints it whole
+/// (`api::reflect_looks`). The status-0 record's id is what the record
+/// could not hold, in words, empty where it held everything. `name` as for
+/// [`frazaro_reflect`].
+///
+/// # Safety
+/// As [`frazaro_reflect`].
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_reflect_looks(
+    book: *const u8,
+    book_len: u32,
+    name: *const u8,
+    name_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let label = match unsafe { name_of(name, name_len, "the file", "the file's name", out_len) } {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let book = unsafe { bytes(book, book_len) };
+    match api::reflect_looks(book, label) {
+        Ok((rows, left)) => record(
+            STATUS_OK,
+            0,
+            left.as_deref().unwrap_or(""),
+            rows.as_bytes(),
+            out_len,
+        ),
+        Err(e) => record(STATUS_REFUSED, 0, &e.id, e.text.as_bytes(), out_len),
+    }
 }
 
 /// `frazaro audit` over C linkage (PORT.8, slice 8f): a workbook's bytes
@@ -851,16 +892,17 @@ mod tests {
         assert_eq!((r.status, r.text.as_str()), (2, "the window is not UTF-8"));
     }
 
-    /// `frazaro_reflect` or `frazaro_audit` over a file's bytes under a name.
+    /// `frazaro_reflect`, `frazaro_reflect_looks` or `frazaro_audit` over a
+    /// file's bytes under a name.
     fn read_file(kind: &str, book: &[u8], name: &[u8]) -> Rec {
         unsafe {
             let (bp, bl) = put(book);
             let (np, nl) = put(name);
             let mut out_len = 0u32;
-            let ptr = if kind == "audit" {
-                frazaro_audit(bp, bl, np, nl, &mut out_len)
-            } else {
-                frazaro_reflect(bp, bl, np, nl, &mut out_len)
+            let ptr = match kind {
+                "audit" => frazaro_audit(bp, bl, np, nl, &mut out_len),
+                "looks" => frazaro_reflect_looks(bp, bl, np, nl, &mut out_len),
+                _ => frazaro_reflect(bp, bl, np, nl, &mut out_len),
             };
             frazaro_free(bp, bl);
             frazaro_free(np, nl);
@@ -923,6 +965,42 @@ mod tests {
             golden(include_str!(
                 "../../scripts/reflect/opendocument_relations.vla"
             ))
+        );
+    }
+
+    /// `frazaro_reflect_looks` (KERNEL.57): oracle 8's looks goldens
+    /// through the record, a package's and its OpenDocument twin's, the id
+    /// the note the door prints, in words; a workbook whose looks the
+    /// record holds whole answers with an empty id, and a refusal is the
+    /// reader's under the name given.
+    #[test]
+    fn the_looks_answer_with_the_rows_the_door_prints_and_their_note() {
+        let left = "the looks leave out what the record cannot hold: 1 cell that keeps a format and no value, 1 look the record has no word for";
+        let r = read_file("looks", FIXTURE_XLSX, b"fixture.xlsx");
+        assert_eq!((r.status, r.line, r.id.as_str()), (0, 0, left));
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/reflect/fixture_looks.vla"))
+        );
+        let r = read_file("looks", FIXTURE_ODS, b"opendocument.ods");
+        assert_eq!((r.status, r.id.as_str()), (0, left));
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/reflect/opendocument_looks.vla"))
+        );
+        let model = include_bytes!("../../scripts/build/model.xlsx");
+        let r = read_file("looks", model, b"model.xlsx");
+        assert_eq!((r.status, r.id.as_str()), (0, ""));
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/reflect/model_looks.vla"))
+        );
+        let r = read_file("looks", b"not a zip", b"notes.txt");
+        assert_eq!((r.status, r.id.as_str()), (1, "reflect-not-a-workbook"));
+        assert!(
+            r.text.starts_with("notes.txt is not a workbook"),
+            "{}",
+            r.text
         );
     }
 

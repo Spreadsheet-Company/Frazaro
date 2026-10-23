@@ -54,10 +54,12 @@ same file once built (see *Building it*); open it from disk.
   refuses it.
 - **Read a workbook of your own.** Under *Reflect*, pick a workbook, `.xlsx`
   or `.ods`, and the pane prints its relations as `frazaro reflect` prints
-  them. The *Show* picker beside it prints the audit list instead, as `frazaro
-  audit` does, or what changed from an earlier copy picked in the second
-  input, as `frazaro diff` does, with a Copy button and a line under the pane
-  giving the count or the refusal. The browser reads the picked file into
+  them. The *Show* picker beside it prints the relations with their looks
+  instead, as `frazaro reflect --looks` does, the line under the pane saying
+  what the record could not hold; the audit list, as `frazaro audit` does;
+  or what changed from an earlier copy picked in the second input, as
+  `frazaro diff` does; with a Copy button and a line under the pane giving
+  the count or the refusal. The browser reads the picked file into
   memory and the page copies the bytes into the engine's memory, where the
   same reader runs under the same bounds. The file goes nowhere.
 - **Go back.** The bare link at the very top, `https://spreadsheet.company`,
@@ -114,8 +116,10 @@ detail.
 - **The page speaks to the engine through `core/src/abi.rs`**, with no
   binding layer and no generated glue: an allocator pair;
   `frazaro_translate_vla` and `frazaro_translate_vba`; `frazaro_build_xlsx`;
-  the reader's three, `frazaro_reflect`, `frazaro_audit` and `frazaro_diff`,
-  a file's bytes and its name in and the lines the command line prints out;
+  the reader's four, `frazaro_reflect`, `frazaro_reflect_looks`,
+  `frazaro_audit` and `frazaro_diff`, a file's bytes and its name in and the
+  lines the command line prints out, the looks' record's id what the record
+  could not hold;
   `frazaro_view`, the build's inputs with a sheet and a window in and the
   view record out, the lines a viewport draws from (the page's own viewport
   is `KERNEL.5` on the roadmap; nothing on the page calls it yet);

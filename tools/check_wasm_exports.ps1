@@ -51,7 +51,9 @@ $root = Split-Path -Parent $PSScriptRoot
 $coreExports = @(
     'memory', 'frazaro_abi_version', 'frazaro_alloc', 'frazaro_free', 'frazaro_version_text',
     'frazaro_translate_vla', 'frazaro_translate_vba', 'frazaro_vocab_gate', 'frazaro_build_xlsx',
-    'frazaro_view', 'frazaro_reflect', 'frazaro_audit', 'frazaro_diff'
+    'frazaro_view', 'frazaro_reflect', 'frazaro_audit', 'frazaro_diff',
+    # KERNEL.57's fourth slice (2026-10-22): the reader with its looks.
+    'frazaro_reflect_looks'
 )
 # The language's C surface (vla-lang/src/abi.rs, KERNEL.22) and its memory: 10.
 $langExports = @(

@@ -208,7 +208,10 @@
   LibreOffice's own save reads the same way: its paddings and the digits
   that show a space are kept, its currency symbols are the locale's, and
   its tints and widths are LibreOffice's own, a few units and a few
-  percent from Excel's. For a
+  percent from Excel's. The page's Reflect pane prints a workbook with its
+  looks too, the fourth choice of its Show list, its status line saying what
+  the record could not hold, and the C linkage gains
+  `frazaro_reflect_looks`. For a
   reader of the
   language: `rows::Record`, `rows::record_line` and `Sink::record` spell
   and carry the record's own rows, and `calc::dates::serial_of` is public

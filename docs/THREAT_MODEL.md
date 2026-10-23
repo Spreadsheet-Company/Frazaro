@@ -370,3 +370,16 @@ as a record; nothing is fetched, nothing is written, and the file never
 leaves the browser. The C linkage gains three functions
 (`frazaro_reflect`, `frazaro_audit`, `frazaro_diff`) and no capability,
 and the module's import section is still empty.
+
+*Appended 2026-10-22, `KERNEL.57`: the looks.* Under `--looks` the reader
+decodes more of a file, read for the looks the record prints and nothing
+else: of a package, the styles part and the theme part; of an OpenDocument
+file, `styles.xml` and `settings.xml` beside `content.xml`. Each is read
+under the same bounds and through the same cursor, which refuses a
+`DOCTYPE` or an entity. What comes of them is data: a format's properties,
+a color, a width, a height, a sheet's gridlines, and a number format's code
+as text, printed as the file holds it and never run; a load refuses a code
+the language does not draw. The relations without the flag read no more
+than before. The page's Reflect pane prints the looks too, and the C
+linkage gains one function (`frazaro_reflect_looks`) and no capability; the
+module's import section is still empty.

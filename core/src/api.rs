@@ -242,6 +242,16 @@ pub fn reflect_relations(bytes: &[u8], label: &str) -> Result<String, Refusal> {
     crate::reflect::reflect_text(bytes, label)
 }
 
+/// The reader with its looks (KERNEL.57): a workbook's bytes, an `.xlsx`
+/// package or an `.ods` OpenDocument spreadsheet, as the record prints each
+/// of its sheets whole, one row a line in the fixed order
+/// (`reflect::reflect_looks`), and what the record could not hold said in
+/// words (`LooksStats::left_out`), `None` where it held everything; `label`
+/// is what a refusal calls the file.
+pub fn reflect_looks(bytes: &[u8], label: &str) -> Result<(String, Option<String>), Refusal> {
+    crate::reflect::reflect_looks(bytes, label).map(|(rows, looks)| (rows, looks.left_out()))
+}
+
 /// The difference between two workbooks (PORT.8, slice 8c): both files'
 /// bytes read through the reader and compared, the `changed` relation and
 /// the sheets in one file alone, one row a line in the fixed order

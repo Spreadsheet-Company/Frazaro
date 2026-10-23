@@ -665,9 +665,17 @@ impl LooksStats {
     }
 
     /// What a reading of these looks left out, as a door says it beside the
-    /// rows (`SD-30`); `None` where it left nothing out and no code is one a
-    /// load refuses.
+    /// rows (`SD-30`), the counts' flag after it; `None` where it left
+    /// nothing out and no code is one a load refuses.
     pub fn note(&self) -> Option<String> {
+        self.left_out()
+            .map(|said| format!("{said}; --looks --counts counts each sheet's."))
+    }
+
+    /// What a reading of these looks left out, in words, the page's status
+    /// line's (the fourth slice) and the door's note's; `None` where it left
+    /// nothing out and no code is one a load refuses.
+    pub fn left_out(&self) -> Option<String> {
         let count =
             |n: u64, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
         let mut left: Vec<String> = Vec::new();
@@ -723,11 +731,7 @@ impl LooksStats {
                 if self.undrawn == 1 { "it" } else { "them" }
             ));
         }
-        if note.is_empty() {
-            return None;
-        }
-        note.push_str("; --looks --counts counts each sheet's.");
-        Some(note)
+        (!note.is_empty()).then_some(note)
     }
 }
 

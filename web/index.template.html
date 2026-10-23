@@ -125,11 +125,12 @@
     <p id="build"></p>
   </section>
   <section class="pane reflect" aria-label="the reader">
-    <div class="bar"><span>Reflect &middot; a workbook of yours read as relations, the lines <code>frazaro reflect</code>, <code>audit</code> and <code>diff</code> print</span><button type="button" data-copy="reflect">Copy</button></div>
+    <div class="bar"><span>Reflect &middot; a workbook of yours read as relations or with its looks, the lines <code>frazaro reflect</code>, <code>audit</code> and <code>diff</code> print</span><button type="button" data-copy="reflect">Copy</button></div>
     <div class="pick">
       <label>Workbook <input type="file" id="file" accept=".xlsx,.ods"></label>
       <label>Show <select id="mode" aria-label="what to print of the workbook">
         <option value="reflect" selected>the relations</option>
+        <option value="looks">the relations with their looks</option>
         <option value="audit">the audit</option>
         <option value="diff">what changed from an earlier copy</option>
       </select></label>
@@ -250,15 +251,17 @@
     return r;
   }
   function reflect(mode, file, earlier) {
-    // frazaro reflect, audit or diff over a picked file's bytes; the record's text is the lines the
-    // door prints, and the file's name is what a refusal calls it, where the door prints its path.
+    // frazaro reflect, reflect --looks, audit or diff over a picked file's bytes; the record's text is
+    // the lines the door prints, and the file's name is what a refusal calls it, where the door prints
+    // its path. The looks' record's id is what the record could not hold, the door's note in words.
     var b = putBytes(file.bytes), n = put(file.name), r;
     if (mode === 'diff') {
       var ob = putBytes(earlier.bytes), on = put(earlier.name);
       r = call(core.frazaro_diff, [ob.ptr, ob.len, on.ptr, on.len, b.ptr, b.len, n.ptr, n.len]);
       free(ob); free(on);
     } else {
-      r = call(mode === 'audit' ? core.frazaro_audit : core.frazaro_reflect, [b.ptr, b.len, n.ptr, n.len]);
+      var fn = mode === 'audit' ? core.frazaro_audit : mode === 'looks' ? core.frazaro_reflect_looks : core.frazaro_reflect;
+      r = call(fn, [b.ptr, b.len, n.ptr, n.len]);
     }
     free(b); free(n);
     return r;
@@ -492,6 +495,7 @@
     var n = lineCount(r.text);
     var rows = n + (n === 1 ? ' row' : ' rows');
     if (mode === 'reflect') setReflected(file.name + ': ' + rows + ', as frazaro reflect prints them.', false);
+    else if (mode === 'looks') setReflected(file.name + ': ' + rows + ', as frazaro reflect --looks prints them' + (r.id ? '; ' + r.id + '.' : '.'), false);
     else if (mode === 'audit') setReflected(n ? file.name + ': ' + n + (n === 1 ? ' finding.' : ' findings.') : file.name + ': nothing to report.', false);
     else setReflected(n ? rows + ' changed from ' + earlier.name + ' to ' + file.name + '.' : earlier.name + ' and ' + file.name + ' hold the same.', false);
   }

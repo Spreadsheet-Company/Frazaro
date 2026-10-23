@@ -32,9 +32,11 @@ it, and a web page runs it as WebAssembly.
   workbook's bytes, an `.xlsx` package or an `.ods` OpenDocument
   spreadsheet, and prints its sheets, names, Tables, cells, formulas and
   references as relations in a fixed order, a formula from either format
-  spelled as the formula bar shows it; `api::diff_relations` prints what
-  differs between two workbooks; `api::audit_findings` prints the findings
-  of six audit walks, one a line.
+  spelled as the formula bar shows it; `api::reflect_looks` prints the
+  same workbook as the view record prints each sheet whole, its looks among
+  its rows, beside what the record could not hold; `api::diff_relations`
+  prints what differs between two workbooks; `api::audit_findings` prints
+  the findings of six audit walks, one a line.
 - **A window of the model as the view record.** `api::english_view`
   translates and builds a program into the sheet model, writes nothing, and
   prints one window of one sheet as the lines a viewport draws from: every
@@ -136,14 +138,16 @@ cargo build --release -p frazaro-core --target wasm32-unknown-unknown
 `abi` is the same surface for a host that is not Rust: `frazaro_alloc` and
 `frazaro_free`, an allocator pair; `frazaro_translate_vla`,
 `frazaro_translate_vba` and `frazaro_build_xlsx`; `frazaro_reflect`,
-`frazaro_audit` and `frazaro_diff`, a workbook's bytes with a name for its
-refusal in, the lines the command-line door prints out; `frazaro_view`, the
+`frazaro_reflect_looks`, `frazaro_audit` and `frazaro_diff`, a workbook's
+bytes with a name for its refusal in, the lines the command-line door
+prints out; `frazaro_view`, the
 build's inputs with a sheet and a window in, the view record out; `frazaro_vocab_gate`;
 and `frazaro_version_text` and `frazaro_abi_version`. Every answer is one record
 in the module's memory: four little-endian `u32` (status, line, id length,
 text length), then the id and the text, the one record whose text is not
 UTF-8 being a build's, whose text is the workbook's bytes and whose id is
-their SHA-256. Phrasebooks go in one buffer, NUL-separated. No binding
+their SHA-256; the looks' record's id is what the record could not hold, in
+words. Phrasebooks go in one buffer, NUL-separated. No binding
 layer and no generated glue: the repository's web page calls these from a
 few lines of JavaScript, and a native embedding loads the `cdylib` the same
 way.

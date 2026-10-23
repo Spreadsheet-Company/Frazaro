@@ -2181,3 +2181,8 @@ workbook as oracle 11 prints each of its sheets whole.
   (`loext:max-blank-integer-digits`), are read; an empty currency symbol is
   its country's own. The family's default wrap, which LibreOffice's own
   drawing does not follow, is passed over.
+- **The C linkage and the page.** `frazaro_reflect_looks` answers with the
+  rows `reflect --looks` prints, its record's id what the record could not
+  hold, in words, empty where it held everything. The core's test holds its
+  record to the looks goldens, a package's and its OpenDocument twin's, and
+  the page's Reflect pane prints it as the fourth choice of its Show list.
