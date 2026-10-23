@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.57 | KERNEL.58 |
+| KERNEL | KERNEL.59 | KERNEL.60 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -330,6 +330,17 @@ as rows: `frazaro reflect` printing a workbook's gridlines, its columns'
 widths and formats, its rows' heights and each cell's format, for `.xlsx`
 and `.ods` alike, so that a reflected workbook keeps its looks and, behind
 a manifest, loads as a cartridge with them. `KERNEL.58` is next free.
+`KERNEL.58` was minted 2026-10-22 at the owner's word, from `KERNEL.57`'s
+decisions 8 and 9 and `KERNEL.50`'s decision 1, for the looks the record
+counts and does not hold: a merged range, a conditional format, and a
+font's family, underline and strike, in the model and the record, written
+and read, so that a reflected workbook keeps them. `KERNEL.59` is next
+free.
+`KERNEL.59` was minted 2026-10-22 at the owner's word, from `KERNEL.57`'s
+*Found*, for a number format's code kept through a file: the writer's
+built-ins 37 and 39 written as the codes the record says, and an
+OpenDocument data style's locale read back as Excel's tag. `KERNEL.60` is
+next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
