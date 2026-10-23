@@ -21,7 +21,10 @@
 //! `VlaWriteLooksGolden` (VLA_Tests.bas) reads through Excel's object model
 //! into `scripts/reflect/looks_golden.txt`, case by case, before it saves
 //! each workbook as Excel's own beside it, `looks_saved.xlsx` and
-//! `looks_book_saved.xlsx`. A target is `cell:<A1>`, a cell and its value;
+//! `looks_book_saved.xlsx`; and the OpenDocument saves of the first,
+//! Excel's `looks_saved.ods` and LibreOffice's `looks_calc.ods` (the third
+//! slice), are held to the same reading, each difference its writer's and
+//! named. A target is `cell:<A1>`, a cell and its value;
 //! `empty:<A1>`, a cell that keeps a format and no value; `blank:<A1>`, no
 //! cell, drawn with its column's or its row's format; `theme:<A1>`, a
 //! fill's theme color and tint as Excel names them; `col:<letters>`,
@@ -1280,6 +1283,238 @@ const BOOK_SAVED: &str = concat!(
     "/../scripts/reflect/looks_book_saved.xlsx"
 );
 
+/// An OpenDocument save of the first fixture and what its writer writes
+/// otherwise than Excel reads the package (the third slice, decision 11):
+/// each gap's why, with the targets it reaches, a case's sheet, name and
+/// target, and the format the reader reads there from the file; and the
+/// cases whose look the record has no word for that the save does not
+/// write, which the reader cannot count.
+struct OdsSave {
+    path: &'static str,
+    label: &'static str,
+    gaps: &'static [(&'static str, &'static [(&'static str, &'static str)])],
+    dropped: &'static [&'static str],
+    widths: Widths,
+    /// The tinted targets whose colors the save writes by its own
+    /// arithmetic, each channel within `TINT_WITHIN` of Excel's.
+    tints: usize,
+}
+
+/// How an OpenDocument save writes a column's width.
+enum Widths {
+    /// Excel's writer: each length a whole number of the saving screen's
+    /// pixels at its dots, which Excel's rule at the screen's digit and
+    /// padding gives the width Excel read.
+    Screen,
+    /// LibreOffice's: each length the package's width in characters times
+    /// one digit of LibreOffice's own reckoning, within a hundredth of a
+    /// character.
+    Digit,
+}
+
+/// How far LibreOffice's tint is from Excel's in each channel: its own
+/// arithmetic, measured on the fixture's 174 tinted targets (144 a unit
+/// apart, 27 two, 3 three).
+const TINT_WITHIN: i64 = 3;
+
+impl OdsSave {
+    /// Each gap's target, the format read there and its why.
+    fn targets(&self) -> Vec<(&'static str, &'static str, &'static str)> {
+        self.gaps
+            .iter()
+            .flat_map(|(why, targets)| targets.iter().map(move |(at, ours)| (*at, *ours, *why)))
+            .collect()
+    }
+}
+
+/// The Flags sheet's cases as Excel's OpenDocument writer writes them: the
+/// probe's automatic edge black.
+const FLAGS_ODS: &str =
+    r#""5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin "000000"))"#;
+
+/// Excel's own OpenDocument save of `looks.xlsx` (the owner's, 2026-10-22,
+/// Excel 16.0, its meta's generator `MicrosoftExcel`), its gaps measured
+/// from its parts. Its widths are held apart, by the screen's own dots
+/// (`differences`).
+const EXCEL_ODS: OdsSave = OdsSave {
+    path: concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/reflect/looks_saved.ods"),
+    label: "looks.xlsx, Excel's OpenDocument save",
+    gaps: &[
+        (
+            "a solid fill of the palette's 64, which Excel draws white, written black",
+            &[("Colors!indexed 64, cell:C326", r#""000000" general nowrap"#)],
+        ),
+        (
+            "an edge's automatic color written black: the format has no automatic color for an edge",
+            &[
+                ("Colors!indexed 64, cell:G326", r#"none general nowrap (border (left thin "000000"))"#),
+                ("Colors!auto, cell:G336", r#"none general nowrap (border (left thin "000000"))"#),
+                ("Flags!the entry's own, every flag on, cell:C2", FLAGS_ODS),
+                ("Flags!applyNumberFormat off, cell:C4", FLAGS_ODS),
+                ("Flags!applyFont off, cell:C6", FLAGS_ODS),
+                ("Flags!applyFill off, cell:C8", FLAGS_ODS),
+                ("Flags!applyBorder off, cell:C10", FLAGS_ODS),
+                ("Flags!applyAlignment off, cell:C12", FLAGS_ODS),
+                ("Flags!every flag off, cell:C14", FLAGS_ODS),
+                ("Flags!no flag written, cell:C16", FLAGS_ODS),
+                ("Flags!the entry's own beside Normal, no flag written, cell:C20", FLAGS_ODS),
+            ],
+        ),
+        (
+            "a padding of a character's width, `_)`, written as a space: the format has none",
+            &[
+                ("Formats!built-in 5, cell:C12", r#"none "$#,##0 ;($#,##0)" nowrap"#),
+                ("Formats!built-in 6, cell:C14", r#"none "$#,##0 ;[Red]($#,##0)" nowrap"#),
+                ("Formats!built-in 7, cell:C16", r#"none "$#,##0.00 ;($#,##0.00)" nowrap"#),
+                ("Formats!built-in 8, cell:C18", r#"none "$#,##0.00 ;[Red]($#,##0.00)" nowrap"#),
+                ("Formats!built-in 37, cell:C76", r##"none "#,##0 ;(#,##0)" nowrap"##),
+                ("Formats!built-in 38, cell:C78", r##"none "#,##0 ;[Red](#,##0)" nowrap"##),
+                ("Formats!built-in 39, cell:C80", r##"none "#,##0.00 ;(#,##0.00)" nowrap"##),
+                ("Formats!built-in 40, cell:C82", r##"none "#,##0.00 ;[Red](#,##0.00)" nowrap"##),
+                ("Formats!built-in 63, cell:C128", r#"none "$#,##0 ;($#,##0)" nowrap"#),
+                ("Formats!built-in 64, cell:C130", r#"none "$#,##0 ;[Red]($#,##0)" nowrap"#),
+                ("Formats!built-in 65, cell:C132", r#"none "$#,##0.00 ;($#,##0.00)" nowrap"#),
+                ("Formats!built-in 66, cell:C134", r#"none "$#,##0.00 ;[Red]($#,##0.00)" nowrap"#),
+                ("Formats!code _(0_), cell:C198", r#"none " 0 " nowrap"#),
+            ],
+        ),
+        (
+            "the accounting codes' paddings written as spaces, and a digit's space, `?`, as a digit \
+             that may go unshown: the format has neither",
+            &[
+                ("Formats!built-in 41, cell:C84", r#"none " * #,##0 ; * (#,##0); * - ; @ " nowrap"#),
+                ("Formats!built-in 42, cell:C86", r#"none " $* #,##0 ; $* (#,##0); $* - ; @ " nowrap"#),
+                ("Formats!built-in 43, cell:C88", r#"none " * #,##0.00 ; * (#,##0.00); * -# ; @ " nowrap"#),
+                ("Formats!built-in 44, cell:C90", r#"none " $* #,##0.00 ; $* (#,##0.00); $* -# ; @ " nowrap"#),
+            ],
+        ),
+        (
+            "a locale's tag, which the file says as a language and a country, not read back as \
+             Windows' number for it (the reader's): the code draws alike without it",
+            &[("Formats!code [$-409]m/d/yyyy, cell:C192", r#"none "m/d/yyyy" nowrap"#)],
+        ),
+        (
+            "`centerContinuous` and `distributed` written as `start`",
+            &[
+                ("Unheld!horizontal centerContinuous, cell:C34", "none general nowrap (align left)"),
+                ("Unheld!horizontal distributed, cell:C36", "none general nowrap (align left)"),
+            ],
+        ),
+        (
+            "no settings.xml written, so every sheet's gridlines on",
+            &[("Cells!gridlines off, grid", "on")],
+        ),
+    ],
+    dropped: &[
+        "Unheld!condense",
+        "Unheld!extend",
+        "Unheld!pattern gray125",
+        "Unheld!pattern darkGrid",
+        "Unheld!gradient",
+        "Unheld!horizontal centerContinuous",
+        "Unheld!horizontal distributed",
+        "Unheld!vertical justify",
+        "Unheld!vertical distributed",
+    ],
+    widths: Widths::Screen,
+    tints: 0,
+};
+
+/// LibreOffice Calc's own save of `looks.xlsx` (the owner's, 2026-10-22,
+/// LibreOffice 26.8.1.1, its settings, its styles and its extensions
+/// written), its gaps measured from its parts.
+const LIBREOFFICE_ODS: OdsSave = OdsSave {
+    path: concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/reflect/looks_calc.ods"),
+    label: "looks.xlsx, LibreOffice's save",
+    gaps: &[
+        (
+            "a solid fill of the palette's 64 or of Excel's automatic, which Excel draws white, \
+             written black",
+            &[
+                ("Colors!indexed 64, cell:C326", r#""000000" general nowrap"#),
+                ("Colors!auto, cell:C336", r#""000000" general nowrap"#),
+            ],
+        ),
+        (
+            "an edge's automatic color written black: the format has no automatic color for an edge",
+            &[
+                ("Colors!indexed 64, cell:G326", r#"none general nowrap (border (left thin "000000"))"#),
+                ("Colors!auto, cell:G336", r#"none general nowrap (border (left thin "000000"))"#),
+                ("Flags!the entry's own, every flag on, cell:C2", FLAGS_ODS),
+                ("Flags!applyNumberFormat off, cell:C4", FLAGS_ODS),
+                ("Flags!applyFont off, cell:C6", FLAGS_ODS),
+                ("Flags!applyFill off, cell:C8", FLAGS_ODS),
+                ("Flags!applyBorder off, cell:C10", FLAGS_ODS),
+                ("Flags!applyAlignment off, cell:C12", FLAGS_ODS),
+                ("Flags!every flag off, cell:C14", FLAGS_ODS),
+                ("Flags!no flag written, cell:C16", FLAGS_ODS),
+                ("Flags!the entry's own beside Normal, no flag written, cell:C20", FLAGS_ODS),
+            ],
+        ),
+        (
+            "a locale's tag, which the file says as a language and a country, not read back as \
+             Windows' number for it (the reader's): the code draws alike without it",
+            &[("Formats!code [$-409]m/d/yyyy, cell:C192", r#"none "m/d/yyyy" nowrap"#)],
+        ),
+        (
+            "a pattern or a gradient written as one color, LibreOffice's mix of its two: the format \
+             fills a cell with one",
+            &[
+                ("Unheld!pattern gray125, cell:C24", r#""1F00E0" general nowrap"#),
+                ("Unheld!pattern darkGrid, cell:C26", r#""7F0080" general nowrap"#),
+                ("Unheld!gradient, cell:C28", r#""A1B8E1" general nowrap"#),
+            ],
+        ),
+        (
+            "`centerContinuous` written as `center`",
+            &[("Unheld!horizontal centerContinuous, cell:C34", "none general nowrap (align center)")],
+        ),
+        (
+            "a vertical `justify` or `distributed` written with a wrap, as Excel draws one",
+            &[
+                ("Unheld!vertical justify, cell:C38", "none general wrap"),
+                ("Unheld!vertical distributed, cell:C40", "none general wrap"),
+            ],
+        ),
+        (
+            "a rotated text's general alignment written as `start`, a stacked text's as `end`",
+            &[
+                ("Unheld!rotation 45, cell:C44", "none general nowrap (align left)"),
+                ("Unheld!rotation 255, stacked, cell:C46", "none general nowrap (align right)"),
+            ],
+        ),
+        (
+            "a column of no width, which Excel hides, written at LibreOffice's default width and shown",
+            &[("Columns!0 wide, col:P", "shown")],
+        ),
+        (
+            "a cell of format 0 in a column or a row of a format of its own written with no style, \
+             so that it takes the column's or the row's",
+            &[
+                ("Columns!a column's format, cell:V34", r#""FFC000" general nowrap (font bold)"#),
+                ("Rows!a row's format, cell:C28", r#""CCC0DA" general nowrap"#),
+            ],
+        ),
+        (
+            "a sheet's own default width as LibreOffice reckons `baseColWidth` and `defaultColWidth`",
+            &[
+                ("Defaults!a base width of 10 and a default height of 20, col:D", "0.8055in"),
+                ("Defaults2!a default width of 12, col:D", "0.9799in"),
+            ],
+        ),
+    ],
+    dropped: &[
+        "Unheld!condense",
+        "Unheld!extend",
+        "Unheld!pattern gray125",
+        "Unheld!pattern darkGrid",
+        "Unheld!gradient",
+        "Unheld!horizontal centerContinuous",
+    ],
+    widths: Widths::Digit,
+    tints: 174,
+};
+
 /// The object model's number for a file's theme slot, `XlThemeColor`: its
 /// index from 1 in the file's own order (Excel's reading; its names, the
 /// theme part's order, call the file's slot 0, drawn `lt1`,
@@ -1530,6 +1765,12 @@ fn code_of(text: &str) -> Option<String> {
 /// narrower than one character counted in its own pixels.
 fn width_at(width: f64, digit: f64, pad: f64) -> f64 {
     let px = ((256.0 * width + (128.0 / digit).trunc()) / 256.0 * digit).trunc();
+    chars_at(px, digit, pad)
+}
+
+/// A column's whole pixels in characters at a screen's digit and padding,
+/// in hundredths, the second half of Excel's rule.
+fn chars_at(px: f64, digit: f64, pad: f64) -> f64 {
     let chars = if px < digit + pad {
         px / (digit + pad)
     } else {
@@ -1596,6 +1837,75 @@ fn col_specs(bytes: &[u8]) -> HashMap<(String, u32), (f64, bool)> {
     specs
 }
 
+/// A length an OpenDocument file writes, in inches.
+fn inches(length: &str) -> f64 {
+    let at = length
+        .find(|c: char| c.is_ascii_alphabetic())
+        .unwrap_or(length.len());
+    let n: f64 = length[..at].parse().expect("a length's number");
+    match &length[at..] {
+        "cm" => n / 2.54,
+        "mm" => n / 25.4,
+        "in" => n,
+        "pt" => n / 72.0,
+        "pc" => n / 6.0,
+        unit => panic!("a length's unit: {unit}"),
+    }
+}
+
+/// Each sheet's columns as an OpenDocument file writes them: a sheet's name
+/// and a column's index, its length in inches and whether it is hidden.
+fn ods_col_specs(bytes: &[u8]) -> HashMap<(String, u32), (f64, bool)> {
+    let content = part_text(bytes, "content.xml").expect("a content part");
+    let tag = |at: usize| &content[at..at + content[at..].find('>').expect("a tag")];
+    let mut lengths: HashMap<&str, f64> = HashMap::new();
+    for (at, _) in content.match_indices("<style:style ") {
+        let element = tag(at);
+        if attr(element, "style:family") != Some("table-column") {
+            continue;
+        }
+        let end = at + content[at..].find("</style:style>").expect("a style's end");
+        if let (Some(name), Some(width)) = (
+            attr(element, "style:name"),
+            attr(&content[at..end], "style:column-width"),
+        ) {
+            lengths.insert(name, inches(width));
+        }
+    }
+    let mut specs = HashMap::new();
+    for (at, _) in content.match_indices("<table:table ") {
+        let name = attr(tag(at), "table:name").expect("a sheet's name");
+        let end = at + content[at..].find("</table:table>").expect("a sheet's end");
+        let mut col = 0u32;
+        for (i, _) in content[at..end].match_indices("<table:table-column ") {
+            let column = tag(at + i);
+            let repeat: u32 = attr(column, "table:number-columns-repeated")
+                .map_or(1, |n| n.parse().expect("a repeat"));
+            let length = attr(column, "table:style-name").and_then(|s| lengths.get(s));
+            let hidden = attr(column, "table:visibility") == Some("collapse");
+            for _ in 0..repeat {
+                col += 1;
+                if let (Some(length), true) = (length, col <= 16_384) {
+                    specs.insert((name.to_string(), col), (*length, hidden));
+                }
+            }
+        }
+    }
+    specs
+}
+
+/// Whether a difference is a gap an OpenDocument save's writer leaves, its
+/// target labelled with the format the reader reads there; marked seen.
+fn labelled(gaps: &[(&str, &str, &str)], seen: &mut [bool], at: &str, ours: &str) -> bool {
+    match gaps.iter().position(|(g, o, _)| *g == at && *o == ours) {
+        Some(i) => {
+            seen[i] = true;
+            true
+        }
+        None => false,
+    }
+}
+
 /// A column's index from its letters.
 fn column_number(letters: &str) -> u32 {
     letters
@@ -1634,16 +1944,36 @@ fn counted_unseen(name: &str) -> bool {
 
 /// Every difference between a workbook's reading under the looks and
 /// Excel's reading of it, the golden's cases of that workbook; `saved` for
-/// Excel's save of it, which writes a merge's covered cells in its format.
+/// Excel's save of it, which writes a merge's covered cells in its format;
+/// `ods` for an OpenDocument save of it, its writer's gaps passed where
+/// each is found as labelled, and a gap labelled and not found one more.
 fn differences(
     label: &str,
     bytes: &[u8],
     cases: &[&Read],
     book: &Book,
     saved: bool,
+    ods: Option<&OdsSave>,
 ) -> Vec<String> {
     let r = reading(bytes, label);
-    let specs = col_specs(bytes);
+    // Each column the file sizes: a package's width in characters, an
+    // OpenDocument file's length in inches.
+    let specs = match ods {
+        Some(_) => ods_col_specs(bytes),
+        None => col_specs(bytes),
+    };
+    let gaps = ods.map(OdsSave::targets).unwrap_or_default();
+    let mut seen = vec![false; gaps.len()];
+    // The package's own widths, which LibreOffice's lengths are held to, and
+    // the tinted targets its arithmetic writes apart from Excel's.
+    let package = match ods {
+        Some(OdsSave {
+            widths: Widths::Digit,
+            ..
+        }) => col_specs(&book.bytes()),
+        _ => HashMap::new(),
+    };
+    let mut tinted = 0usize;
     let (row_formats, defaults) = builder_counts(book);
     // A workbook with no theme part leaves a theme's color unsaid; Excel's
     // save of one writes its own theme, which the reader then reads.
@@ -1665,17 +1995,26 @@ fn differences(
                     case.sheet.clone(),
                     (w.parse().expect("a width"), h.parse().expect("a height")),
                 );
-                want.unheld += defaults.get(case.sheet.as_str()).copied().unwrap_or(0);
+                // A sheet's own default width and height the record has no
+                // word for; an OpenDocument file writes them on each of its
+                // columns and rows, which the record holds.
+                if ods.is_none() {
+                    want.unheld += defaults.get(case.sheet.as_str()).copied().unwrap_or(0);
+                }
             }
         }
     }
-    // The widths Excel read, beside the file's: the screen's rule is found
-    // from them below.
+    // The widths Excel read, beside the file's widths or lengths: the
+    // screen's rule is found from them below.
     let mut widths: Vec<(f64, f64, String)> = Vec::new();
+    let mut lengths: Vec<(f64, f64, String)> = Vec::new();
     for case in cases {
         let no_theme = case.name.contains("no theme part") && !themed;
+        let case_name = format!("{}!{}", case.sheet, case.name);
+        let dropped = ods.is_some_and(|o| o.dropped.contains(&case_name.as_str()));
         for (target, excel) in &case.targets {
-            let at = format!("{label}: {}!{}, {target}", case.sheet, case.name);
+            let gap_at = format!("{case_name}, {target}");
+            let at = format!("{label}: {gap_at}");
             let (kind, place) = target.split_once(':').unwrap_or((target.as_str(), ""));
             let key = (case.sheet.clone(), place.to_string());
             match kind {
@@ -1716,12 +2055,19 @@ fn differences(
                     }
                     let index = r.styles.get(&key).copied().unwrap_or(0);
                     let ours = &r.formats[&index];
-                    if drawn(ours, !no_theme) != drawn(held, !no_theme) {
+                    let tint = ods.is_some_and(|o| o.tints > 0)
+                        && case.name.contains(" tint ")
+                        && tinted_alike(ours, held);
+                    if tint && drawn(ours, true) != drawn(held, true) {
+                        tinted += 1;
+                    } else if drawn(ours, !no_theme) != drawn(held, !no_theme)
+                        && !labelled(&gaps, &mut seen, &gap_at, ours)
+                    {
                         found.push(format!(
                             "{at}: the reader's format {index}, {ours}, where Excel reads {held}"
                         ));
                     }
-                    if words.is_some() || no_theme || counted_unseen(&case.name) {
+                    if (words.is_some() || no_theme || counted_unseen(&case.name)) && !dropped {
                         want.unheld += 1;
                     }
                     // A code the language does not draw, the reader's own.
@@ -1765,13 +2111,46 @@ fn differences(
                         .get(&key)
                         .cloned()
                         .unwrap_or_else(|| ["none".into(), "shown".into(), "none".into()]);
-                    if (ours[1] == "hidden") != hidden {
+                    if (ours[1] == "hidden") != hidden
+                        && !labelled(&gaps, &mut seen, &gap_at, &ours[1])
+                    {
                         found.push(format!(
                             "{at}: the reader's column {}, where Excel's is {shown}",
                             ours[1]
                         ));
                     }
                     match specs.get(&(case.sheet.clone(), column_number(place))) {
+                        // An OpenDocument file's length: the record's width
+                        // the length at 96 dots, the rule at its own 7
+                        // pixels a character; Excel's reading held to the
+                        // length below.
+                        Some((length, file_hidden)) if ods.is_some() && !hidden && !file_hidden => {
+                            match ods.map(|o| &o.widths) {
+                                Some(Widths::Digit) => {
+                                    match package.get(&(case.sheet.clone(), column_number(place))) {
+                                        Some((width, _)) if *width > 0.0 => {
+                                            lengths.push((*length, *width, at.clone()))
+                                        }
+                                        _ => {
+                                            let spelled = format!("{length:.4}in");
+                                            if !labelled(&gaps, &mut seen, &gap_at, &spelled) {
+                                                found.push(format!("{at}: a length the package does not size, {spelled}"));
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => lengths.push((*length, excel_width, at.clone())),
+                            }
+                            let px = (length * 96.0).round();
+                            let want_width = if px == 64.0 {
+                                "none".to_string()
+                            } else {
+                                number_text(chars_at(px, 7.0, 5.0)).expect("a width")
+                            };
+                            if ours[0] != want_width {
+                                found.push(format!("{at}: the reader's width {}, where the file's length at 96 dots gives {want_width}", ours[0]));
+                            }
+                        }
                         Some((width, file_hidden)) if !hidden && !file_hidden => {
                             widths.push((*width, excel_width, at.clone()));
                             // The record's width is the rule at its own 7
@@ -1863,7 +2242,9 @@ fn differences(
                 }
                 "grid" => {
                     let ours = r.gridlines.get(&case.sheet).map(String::as_str);
-                    if ours != Some(excel.as_str()) {
+                    if ours != Some(excel.as_str())
+                        && !labelled(&gaps, &mut seen, &gap_at, ours.unwrap_or("none"))
+                    {
                         found.push(format!(
                             "{at}: the reader's gridlines {ours:?}, where Excel's are {excel}"
                         ));
@@ -1893,6 +2274,61 @@ fn differences(
                     .map(|(w, e, at)| format!("{at} {w} read {e}"))
                     .collect::<Vec<_>>()
                     .join("; ")
+            ));
+        }
+    }
+    // LibreOffice's lengths: each the package's width times one digit, the
+    // lengths' sum over the widths', within a hundredth of a character.
+    if matches!(ods.map(|o| &o.widths), Some(Widths::Digit)) && !lengths.is_empty() {
+        let digit =
+            lengths.iter().map(|l| l.0).sum::<f64>() / lengths.iter().map(|l| l.1).sum::<f64>();
+        for (length, width, at) in &lengths {
+            if (length / digit - width).abs() > 0.01 {
+                found.push(format!(
+                    "{at}: the length {length:.4}in is {:.4} characters at LibreOffice's digit of {digit:.6}in, where the package's width is {width}",
+                    length / digit
+                ));
+            }
+        }
+    }
+    if let Some(o) = ods {
+        if tinted != o.tints {
+            found.push(format!(
+                "{label}: {tinted} tinted target(s) written by the save's own arithmetic, where {} are named",
+                o.tints
+            ));
+        }
+    }
+    // An OpenDocument save's lengths, as Excel's writer writes one: each a
+    // whole number of the screen's pixels at its own dots, which Excel's
+    // rule at the screen's digit and padding gives the width Excel read.
+    if matches!(ods.map(|o| &o.widths), Some(Widths::Screen)) && !lengths.is_empty() {
+        let fits = [96u32, 120, 144, 168, 192]
+            .iter()
+            .flat_map(|dpi| (5..=40u32).flat_map(move |d| (3..=20u32).map(move |p| (*dpi, d, p))))
+            .filter(|(dpi, d, p)| {
+                lengths.iter().all(|(length, e, _)| {
+                    let px = length * f64::from(*dpi);
+                    (px - px.round()).abs() < 0.01
+                        && (chars_at(px.round(), f64::from(*d), f64::from(*p)) - e).abs() < 0.005
+                })
+            })
+            .count();
+        if fits == 0 {
+            found.push(format!(
+                "{label}: no screen's dots, digit and padding give every width Excel read: {}",
+                lengths
+                    .iter()
+                    .map(|(l, e, at)| format!("{at} {l}in read {e}"))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
+        }
+    }
+    for (i, (at, ours, why)) in gaps.iter().enumerate() {
+        if !seen[i] {
+            found.push(format!(
+                "{label}: {at}: a gap labelled ({why}), where the reader's reading is not {ours} or is Excel's"
             ));
         }
     }
@@ -1954,7 +2390,7 @@ fn the_looks_read_each_case_as_excel_reads_it() {
     let mut found = Vec::new();
     for (file, book) in &books {
         let mine: Vec<&Read> = cases.iter().filter(|c| c.file == *file).collect();
-        found.extend(differences(file, &book.bytes(), &mine, book, false));
+        found.extend(differences(file, &book.bytes(), &mine, book, false, None));
         if excel {
             let path = if *file == "looks.xlsx" {
                 SAVED
@@ -1970,8 +2406,89 @@ fn the_looks_read_each_case_as_excel_reads_it() {
                 &mine,
                 book,
                 true,
+                None,
             ));
         }
+    }
+    assert!(
+        found.is_empty(),
+        "{} difference(s) from Excel's reading ({source}):\n{}",
+        found.len(),
+        found.join("\n")
+    );
+}
+
+/// The OpenDocument saves of the first fixture: Excel's and LibreOffice's.
+const ODS_SAVES: &[OdsSave] = &[EXCEL_ODS, LIBREOFFICE_ODS];
+
+/// Whether two formats' texts differ in their colors alone, each channel of
+/// each color within `TINT_WITHIN`.
+fn tinted_alike(ours: &str, excel: &str) -> bool {
+    let hexes = |t: &str| -> Vec<[i64; 3]> {
+        t.split('"')
+            .filter(|w| w.len() == 6 && w.chars().all(|c| c.is_ascii_hexdigit()))
+            .map(|w| {
+                let channel = |i: usize| i64::from_str_radix(&w[i..i + 2], 16).expect("a channel");
+                [channel(0), channel(2), channel(4)]
+            })
+            .collect()
+    };
+    let shape = |t: &str| -> String {
+        t.split('"')
+            .map(|w| {
+                if w.len() == 6 && w.chars().all(|c| c.is_ascii_hexdigit()) {
+                    "C"
+                } else {
+                    w
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\"")
+    };
+    let (a, b) = (hexes(ours), hexes(excel));
+    !a.is_empty()
+        && a.len() == b.len()
+        && shape(ours) == shape(excel)
+        && a.iter()
+            .zip(&b)
+            .all(|(x, y)| (0..3).all(|i| (x[i] - y[i]).abs() <= TINT_WITHIN))
+}
+
+/// An OpenDocument save of the first fixture read under the looks and held
+/// to Excel's reading of the package, case by case (the third slice,
+/// decision 11): every difference its writer's, each named with the
+/// reading the file gives, and a gap named that is not found one more.
+/// Excel's save (`looks_saved.ods`): its widths the screen's own pixels at
+/// the screen's dots, every look but its gaps the package's. LibreOffice's
+/// (`looks_calc.ods`): its widths the package's times one digit of its own,
+/// its tints its own arithmetic, every other look but its gaps the
+/// package's.
+#[test]
+fn the_opendocument_looks_read_each_case_as_excel_reads_it() {
+    let (source, cases) = golden();
+    assert!(
+        source.starts_with("excel "),
+        "the golden is Excel's ({source})"
+    );
+    let book = looks();
+    let mine: Vec<&Read> = cases.iter().filter(|c| c.file == "looks.xlsx").collect();
+    let mut found = Vec::new();
+    for save in ODS_SAVES {
+        let bytes = std::fs::read(save.path)
+            .unwrap_or_else(|_| panic!("{}: the owner's save of looks.xlsx", save.path));
+        assert!(
+            crate::reflect::odf::is_opendocument(&bytes),
+            "{} is an OpenDocument file",
+            save.path
+        );
+        found.extend(differences(
+            save.label,
+            &bytes,
+            &mine,
+            &book,
+            false,
+            Some(save),
+        ));
     }
     assert!(
         found.is_empty(),

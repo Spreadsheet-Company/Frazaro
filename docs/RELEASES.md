@@ -198,8 +198,18 @@
   `--looks --counts` counts it; a number format the language does not draw
   is printed as the file holds it, and a load refuses it by name. A
   workbook the core writes now keeps a row's height and its hidden and a
-  sheet's hidden, which it dropped. This version reads an `.xlsx` package's
-  looks; an OpenDocument file's are refused by name. For a reader of the
+  sheet's hidden, which it dropped. An OpenDocument file's looks read the
+  same: `frazaro reflect book.ods --looks` resolves each cell's style up its
+  chain, spells its data style as Excel's number format code, and reads
+  each sheet's gridlines from its settings. Excel's own `.ods` save is read
+  case by case as Excel reads the workbook it saved, but where Excel's
+  writer leaves a look out or writes it otherwise, and a column's width
+  there is the length Excel wrote at the saving screen's own scale.
+  LibreOffice's own save reads the same way: its paddings and the digits
+  that show a space are kept, its currency symbols are the locale's, and
+  its tints and widths are LibreOffice's own, a few units and a few
+  percent from Excel's. For a
+  reader of the
   language: `rows::Record`, `rows::record_line` and `Sink::record` spell
   and carry the record's own rows, and `calc::dates::serial_of` is public
   (KERNEL.57).

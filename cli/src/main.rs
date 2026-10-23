@@ -92,10 +92,11 @@ usage:
                          value row after it, a date as its serial, each
                          cell's style row after its rows; what the record
                          cannot hold is left out and said on stderr, and
-                         --looks --counts counts it (an .xlsx package alone
-                         in this version); a file that is not a workbook, a
-                         part with a DOCTYPE, or a shape this version does
-                         not read is refused by name
+                         --looks --counts counts it (an .ods file's looks
+                         read from its styles, its data styles and its
+                         settings, as a package's); a file that is not a
+                         workbook, a part with a DOCTYPE, or a shape this
+                         version does not read is refused by name
   frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]
                          the difference between two workbooks (PORT.8, slice
                          8c), read as reflect reads them: the sheets in one

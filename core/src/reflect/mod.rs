@@ -62,13 +62,14 @@ pub mod looks;
 #[cfg(test)]
 mod looks_golden;
 pub mod odf;
+mod odf_looks;
 pub mod ooxml;
 pub mod print;
 
 use std::collections::HashSet;
 
 use crate::intrinsics::fold;
-use crate::messages::{raise, Refusal};
+use crate::messages::Refusal;
 use crate::refers::{self, Kind};
 
 pub use looks::LooksStats;
@@ -192,26 +193,14 @@ pub trait Source: std::fmt::Debug {
     /// its cells as [`Source::walk_sheet_with`] gives them, but for a
     /// formula's saved value, a `value` record after its formula, and a
     /// date, its serial; what the walk counted comes back, with the looks'
-    /// counts beside. A reader that reads no looks refuses by name.
+    /// counts beside. Both readers read the looks, a package's and an
+    /// OpenDocument file's (the third slice).
     fn walk_sheet_looks(
         &self,
         index: usize,
         sink: &mut dyn Sink,
         book_distinct: &mut HashSet<String>,
-    ) -> Result<(SheetStats, LooksStats), Refusal> {
-        let _ = (index, sink, book_distinct);
-        Err(raise(
-            "reflect-unsupported",
-            &[
-                ("path", self.label()),
-                ("part", "its looks"),
-                (
-                    "why",
-                    "which this version reads from a package, an .xlsx file, alone",
-                ),
-            ],
-        ))
-    }
+    ) -> Result<(SheetStats, LooksStats), Refusal>;
 
     /// A `name` row's first field: the name, a sheet-scoped one behind its
     /// sheet as a reference quotes it (`Model!Local`). The key `diff` and

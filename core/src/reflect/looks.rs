@@ -26,8 +26,11 @@
 //! width as Excel's rule counts it at a screen's own pixels; and a solid
 //! fill of Excel's automatic color drawn white.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use vla_lang::numfmt::Code;
-use vla_lang::sheet::{NumFmt, Rgb, Style};
+use vla_lang::rows::{Record, Sink};
+use vla_lang::sheet::{A1Range, Column, NumFmt, Rgb, RowSettings, Style};
 
 /// How a file names a color, before the workbook's theme and palette
 /// resolve it.
@@ -431,6 +434,179 @@ pub fn iso_serial(text: &str, date1904: bool) -> Option<f64> {
         serial += (h * 3600.0 + mi * 60.0 + s) / 86_400.0;
     }
     Some(serial)
+}
+
+/// A column's settings as a reader finds them, a span of columns: its
+/// width in the record's characters, hidden, and the format it names.
+#[derive(Clone, Debug)]
+pub(crate) struct ColumnSpec {
+    pub(crate) min: u32,
+    pub(crate) max: u32,
+    pub(crate) width: Option<f64>,
+    pub(crate) hidden: bool,
+    pub(crate) style: Option<u32>,
+}
+
+/// What a reader's first pass over a sheet found (KERNEL.57): its
+/// gridlines, its columns, its rows of settings, the extent of the cells
+/// the walk prints, the formats they use, and the counts of the looks.
+#[derive(Debug)]
+pub(crate) struct SheetScan {
+    pub(crate) gridlines: bool,
+    pub(crate) columns: Vec<ColumnSpec>,
+    /// The rows with settings: a height a person set, hidden.
+    pub(crate) rows: BTreeMap<u32, RowSettings>,
+    /// The rectangle of the cells the walk prints.
+    pub(crate) extent: Option<A1Range>,
+    /// The formats the printed cells use.
+    pub(crate) used: BTreeSet<u32>,
+    pub(crate) stats: LooksStats,
+}
+
+impl SheetScan {
+    /// A scan of nothing yet: gridlines on, the rest empty.
+    pub(crate) fn new() -> SheetScan {
+        SheetScan {
+            gridlines: true,
+            columns: Vec::new(),
+            rows: BTreeMap::new(),
+            extent: None,
+            used: BTreeSet::new(),
+            stats: LooksStats::default(),
+        }
+    }
+
+    /// The extent grown to hold a printed cell.
+    pub(crate) fn hold(&mut self, row: u32, col: u32) {
+        self.extent = Some(match self.extent {
+            None => A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            },
+            Some(e) => A1Range {
+                top: e.top.min(row),
+                left: e.left.min(col),
+                bottom: e.bottom.max(row),
+                right: e.right.max(col),
+            },
+        });
+    }
+
+    /// The sheet's own rows of the record, before its cells: its gridlines,
+    /// the columns and the rows of its window that have settings, and
+    /// format 0 and every format its printed cells and columns use,
+    /// ascending, each as `looks` says it; the window the sheet's extent,
+    /// or `A1` for a sheet with no cell, as the record of a sheet whole has
+    /// it.
+    pub(crate) fn print(&mut self, sheet: &str, looks: &[Look], sink: &mut dyn Sink) {
+        sink.record(&Record::Gridlines {
+            sheet,
+            on: self.gridlines,
+        });
+        let window = self.extent.unwrap_or(A1Range {
+            top: 1,
+            left: 1,
+            bottom: 1,
+            right: 1,
+        });
+        let mut formats = self.used.clone();
+        formats.insert(0);
+        for index in window.left..=window.right {
+            let Some(spec) = self
+                .columns
+                .iter()
+                .find(|c| c.min <= index && index <= c.max)
+            else {
+                continue;
+            };
+            if spec.width.is_none() && !spec.hidden && spec.style.is_none() {
+                continue;
+            }
+            if let Some(s) = spec.style {
+                formats.insert(s);
+            }
+            sink.record(&Record::Column {
+                sheet,
+                column: &Column {
+                    index,
+                    width: spec.width,
+                    hidden: spec.hidden,
+                    style: spec.style,
+                },
+            });
+        }
+        for (number, settings) in self.rows.range(window.top..=window.bottom) {
+            sink.record(&Record::Row {
+                sheet,
+                number: *number,
+                settings,
+            });
+        }
+        for index in &formats {
+            let look = &looks[*index as usize];
+            sink.record(&Record::Format {
+                index: *index,
+                style: Some(&look.style),
+                code: look.undrawn.as_deref(),
+            });
+        }
+        self.stats.formats = formats.len() as u64;
+    }
+}
+
+/// An ISO 8601 duration, an OpenDocument time's value (`PT12H30M00S`,
+/// `-P1DT2H`), as its days, the record's spelling of a time: `None` for a
+/// text that is no such duration.
+pub fn iso_duration_days(text: &str) -> Option<f64> {
+    let text = text.trim();
+    let (sign, rest) = match text.strip_prefix('-') {
+        Some(r) => (-1.0, r),
+        None => (1.0, text),
+    };
+    let rest = rest.strip_prefix('P')?;
+    let (days_part, time_part) = match rest.split_once('T') {
+        Some((d, t)) => (d, t),
+        None => (rest, ""),
+    };
+    let mut days = 0.0;
+    let mut number = String::new();
+    for c in days_part.chars() {
+        match c {
+            'D' => {
+                days += number.parse::<f64>().ok()?;
+                number.clear();
+            }
+            'W' => {
+                days += 7.0 * number.parse::<f64>().ok()?;
+                number.clear();
+            }
+            c if c.is_ascii_digit() || c == '.' => number.push(c),
+            _ => return None,
+        }
+    }
+    if !number.is_empty() {
+        return None;
+    }
+    for c in time_part.chars() {
+        let per_day = match c {
+            'H' => 24.0,
+            'M' => 1_440.0,
+            'S' => 86_400.0,
+            c if c.is_ascii_digit() || c == '.' => {
+                number.push(c);
+                continue;
+            }
+            _ => return None,
+        };
+        days += number.parse::<f64>().ok()? / per_day;
+        number.clear();
+    }
+    if !number.is_empty() {
+        return None;
+    }
+    Some(sign * days)
 }
 
 /// What a sheet's looks hold, counted (`--looks --counts`): the formats its

@@ -41,12 +41,12 @@
 
 use std::borrow::Cow;
 use std::cell::OnceCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use super::cursor::{attr, element_text, skip_element, Cursor, Event};
 use super::looks::{
-    font_size, iso_serial, rgb_from_hex, width_chars, Color, ColorRef, Colors, Look, LooksStats,
-    Resolved, THEME_SLOTS,
+    font_size, iso_serial, rgb_from_hex, width_chars, Color, ColorRef, Colors, ColumnSpec, Look,
+    LooksStats, Resolved, SheetScan, THEME_SLOTS,
 };
 use super::{
     emit_formula, emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source,
@@ -58,8 +58,7 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip::{self, Entry};
 use crate::sheet::{
-    cell_ref, number_text, parse_a1_range, xlfn, A1Range, Column, Edge, Horizontal, Line, Rgb,
-    RowSettings, Vertical,
+    cell_ref, number_text, parse_a1_range, xlfn, Edge, Horizontal, Line, Rgb, RowSettings, Vertical,
 };
 use vla_lang::rows::{datum, ArrayKind};
 
@@ -662,7 +661,7 @@ impl<'a> Package<'a> {
         let scan = match looks {
             Some(table) => {
                 let mut scan = self.first_pass(&text, table, label, part)?;
-                scan.print(&info.name, table, sink);
+                scan.print(&info.name, &table.looks, sink);
                 Some(scan)
             }
             None => None,
@@ -843,15 +842,8 @@ impl<'a> Package<'a> {
         table: &StyleTable,
         label: &str,
         part: &str,
-    ) -> Result<Scan, Refusal> {
-        let mut scan = Scan {
-            gridlines: true,
-            columns: Vec::new(),
-            rows: BTreeMap::new(),
-            extent: None,
-            used: BTreeSet::new(),
-            stats: LooksStats::default(),
-        };
+    ) -> Result<SheetScan, Refusal> {
+        let mut scan = SheetScan::new();
         let mut cursor = Cursor::new(text);
         let mut views = 0u32;
         let mut in_data = false;
@@ -909,7 +901,7 @@ impl<'a> Package<'a> {
                     if let Some(s) = style {
                         table.check(s, label, part, &format!("the columns {min} to {max}"))?;
                     }
-                    scan.columns.push(ColSpec {
+                    scan.columns.push(ColumnSpec {
                         min,
                         max,
                         width: if hidden {
@@ -997,20 +989,7 @@ impl<'a> Package<'a> {
                     if look.undrawn.is_some() {
                         scan.stats.undrawn += 1;
                     }
-                    scan.extent = Some(match scan.extent {
-                        None => A1Range {
-                            top: cell.row,
-                            left: cell.col,
-                            bottom: cell.row,
-                            right: cell.col,
-                        },
-                        Some(e) => A1Range {
-                            top: e.top.min(cell.row),
-                            left: e.left.min(cell.col),
-                            bottom: e.bottom.max(cell.row),
-                            right: e.right.max(cell.col),
-                        },
-                    });
+                    scan.hold(cell.row, cell.col);
                 }
                 Event::Start {
                     name: "mergeCell", ..
@@ -1346,90 +1325,6 @@ fn truthy(value: Option<Cow<'_, str>>) -> bool {
 /// Whether an attribute says no, `0` or `false`.
 fn truthy_off(value: Option<Cow<'_, str>>) -> bool {
     matches!(value.as_deref(), Some("0") | Some("false"))
-}
-
-/// A `<col>`'s settings as the record reads them.
-struct ColSpec {
-    min: u32,
-    max: u32,
-    width: Option<f64>,
-    hidden: bool,
-    style: Option<u32>,
-}
-
-/// What the looks' first pass over a sheet's part found (KERNEL.57).
-struct Scan {
-    gridlines: bool,
-    columns: Vec<ColSpec>,
-    /// The rows with settings: a height a person set, hidden.
-    rows: BTreeMap<u32, RowSettings>,
-    /// The rectangle of the cells the walk prints.
-    extent: Option<A1Range>,
-    /// The formats the printed cells use.
-    used: BTreeSet<u32>,
-    stats: LooksStats,
-}
-
-impl Scan {
-    /// The sheet's own rows of the record, before its cells: its gridlines,
-    /// the columns and the rows of its window that have settings, and
-    /// format 0 and every format its printed cells and columns use,
-    /// ascending; the window the sheet's extent, or `A1` for a sheet with no
-    /// cell, as the record of a sheet whole has it.
-    fn print(&mut self, sheet: &str, table: &StyleTable, sink: &mut dyn Sink) {
-        sink.record(&Record::Gridlines {
-            sheet,
-            on: self.gridlines,
-        });
-        let window = self.extent.unwrap_or(A1Range {
-            top: 1,
-            left: 1,
-            bottom: 1,
-            right: 1,
-        });
-        let mut formats = self.used.clone();
-        formats.insert(0);
-        for index in window.left..=window.right {
-            let Some(spec) = self
-                .columns
-                .iter()
-                .find(|c| c.min <= index && index <= c.max)
-            else {
-                continue;
-            };
-            if spec.width.is_none() && !spec.hidden && spec.style.is_none() {
-                continue;
-            }
-            if let Some(s) = spec.style {
-                formats.insert(s);
-            }
-            sink.record(&Record::Column {
-                sheet,
-                column: &Column {
-                    index,
-                    width: spec.width,
-                    hidden: spec.hidden,
-                    style: spec.style,
-                },
-            });
-        }
-        for (number, settings) in self.rows.range(window.top..=window.bottom) {
-            sink.record(&Record::Row {
-                sheet,
-                number: *number,
-                settings,
-            });
-        }
-        for index in &formats {
-            let look = &table.looks[*index as usize];
-            sink.record(&Record::Format {
-                index: *index,
-                style: Some(&look.style),
-                code: look.undrawn.as_deref(),
-            });
-        }
-        self.stats.formats = formats.len() as u64;
-    }
 }
 
 /// A package's cell formats as the looks read them (KERNEL.57): each
@@ -1989,6 +1884,7 @@ fn read_theme(text: &str, label: &str, part: &str) -> Result<[Option<Rgb>; 12], 
 mod tests {
     use super::*;
     use crate::reflect::reflect_text;
+    use crate::sheet::A1Range;
 
     const NS: &str = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";
     const REL_SHEET: &str =
@@ -2927,17 +2823,5 @@ mod tests {
             }
         }
         assert!(packages >= 15, "{packages} packages read");
-    }
-
-    #[test]
-    fn an_opendocument_file_s_looks_are_refused_by_name_in_this_version() {
-        let ods = std::fs::read(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../scripts/reflect/opendocument.ods"),
-        )
-        .unwrap();
-        let refusal = crate::reflect::reflect_looks(&ods, "opendocument.ods").unwrap_err();
-        assert_eq!(refusal.id, "reflect-unsupported");
-        assert!(refusal.text.contains("its looks"), "{}", refusal.text);
     }
 }

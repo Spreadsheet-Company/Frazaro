@@ -37949,6 +37949,300 @@ core's 219 and the language's 371, fmt and both clippies,
 `run_checks.ps1` 60 of 60, `check_looks_golden.ps1` from Excel's golden).
 Not pushed.
 
+*The third slice built 2026-10-22*, OpenDocument (decision 11 and decision
+15's third slice), over `a8e0884` in a worktree and a target of its own,
+moved onto `2e98ce5` before it landed: `KERNEL.49`'s third slice,
+committed meanwhile, touched two lines of `looks.rs`'s tests, a draft's
+fields read through its methods, and none of this slice's other files; the
+slice applied with no conflict, and its tree was verified again. It stops
+at the owner's save in LibreOffice.
+
+*The save the owner gave.* The owner saved `looks.xlsx` as an OpenDocument
+file and named it `looks_calc.ods`. Its `meta.xml` names its generator
+`MicrosoftOffice/16.0 MicrosoftExcel/CalculationVersion-30430`, so it is
+Excel's own save, not LibreOffice's. It is kept as
+`scripts/reflect/looks_saved.ods`, beside Excel's saves of the package, and
+`looks_calc.ods` is left for LibreOffice's. The scoping declined Excel's
+OpenDocument writer as the only witness (it writes a subset and no
+`settings.xml`); as a second witness it holds the reader here, each of its
+gaps measured from its parts and named. LibreOffice's save, the scoped
+oracle, follows.
+
+*What landed.*
+1. `core/src/reflect/odf_looks.rs`, new: what an OpenDocument file's
+   styles say of its looks, read once at the first walk under the flag.
+   - *What is read.* From `content.xml` and `styles.xml`: the font faces;
+     the family's default cell style; the cell styles, automatic and
+     named, each with its parent, its data style and its conditions; the
+     data styles; and the column and row styles. From `settings.xml`, each
+     sheet's `ShowGrid` under the view's `Tables`, else the document's,
+     else on.
+   - *A style's format.* A cell style is resolved up its chain over the
+     family's default and the `Default` style. Format 0 is the `Default`
+     style; the others are numbered in the order the parts declare them,
+     `content.xml`'s automatic styles first. A style that draws as format 0
+     reads as 0, since every cell of Excel's save names a style of its own
+     that says nothing.
+   - *A format's looks*, said against the default's resolved properties as
+     a package's are against its Normal style: `fo:background-color`; a
+     weight, a slant, a size and an ink (`style:use-window-font-color`
+     automatic); `fo:text-align` beside `style:text-align-source`
+     (`value-type` unsaid, `start` left, `end` right);
+     `style:vertical-align` (`automatic` bottom); `fo:wrap-option`; and
+     each edge as Excel's line. An edge's width is a keyword or a length:
+     hair below a quarter point, thin to a point and a quarter, medium to
+     two and a quarter, thick past them. Double, dotted, dashed, dash-dot
+     and dash-dot-dot each have their medium; fine-dashed is hair.
+   - *What the record has no word for*, counted as a package's is: a
+     family, an underline, a strike, a raised or lowered text, an outline,
+     a shadow, a repeated text, a justified text, another vertical, an
+     indent, a rotation, a stacked text, shrinking, a right-to-left order
+     and a diagonal.
+   - *A data style as a code in Excel's syntax.* A number's decimals, the
+     decimals that may go unshown, its integer's places, its grouping, its
+     embedded texts and its scale. A scientific number with its exponent's
+     interval (engineering's `##0.0E+0`) and its sign. A fraction, a
+     percentage, a currency, and a date's and a time's parts, an elapsed
+     hour by `truncate-on-overflow`. A text; a boolean as General; a fill
+     character; an ink as a section's. Each condition is a section: the
+     three standard ones as the code's own sections, another in brackets.
+   - *Widths and heights.* A column's width from its length, to whole
+     pixels at 96 to the inch and then to characters as decision 10, 64
+     pixels Excel's default. A row's height where the file does not mark it
+     fitted, to the twentieth of a point.
+2. `odf.rs`: the document opens `styles.xml` and `settings.xml` beside
+   `content.xml`, with its null date, and keeps a cell's own style, its
+   merge and a run of a style of its own. Under the flag a sheet's slice is
+   walked twice, as a package's is.
+   - *The first pass* reads the sheet's columns (their widths; hidden by
+     `collapse` or by no width; their default cell styles as formats), its
+     rows of settings, the extent of the cells the walk prints and the
+     formats they use.
+   - *Its counts.* A cell's format is its own style's, else its row's
+     default, else its column's. A merge is counted. An empty cell of a
+     style of its own is a formatted empty cell, or, reaching the last
+     column, a row's own format, as Excel's save writes one; a row's
+     default cell style is a row's format too. LibreOffice's conditional
+     formats beside the table are counted, else the conditions of the
+     styles the cells name.
+   - *The walk* prints each cell's rows as the package's: a date as its
+     serial in the document's calendar, a time as its days, a formula's
+     saved value after it, then its style row. Without the flag the
+     relations are byte for byte as before.
+3. `looks.rs` holds the sheet's scan both readers share (`SheetScan`,
+   `ColumnSpec`, moved from `ooxml.rs`) and an ISO duration's days. The
+   trait's refusal of a reader with no looks goes, since both readers now
+   read them, and the first slice's test of it goes with it.
+4. The tests.
+   - `the_opendocument_looks_read_each_case_as_excel_reads_it`: Excel's
+     save read under the flag and held to Excel's golden case by case. Its
+     gaps are named with the reading the file gives at each target, and a
+     gap named and not found is a failure.
+   - `a_calc_document_s_looks_read_as_the_record_prints_them`: a document
+     in LibreOffice Calc's dialect, written by hand from its saves' shapes,
+     holding what Excel's writer does not exercise. It has a family's
+     default style and the named chain `Default`, `Heading`, `Heading 1`;
+     data styles in `content.xml`; a column's and a row's default cell
+     style; a height in inches; a date, a time past a day and a null date
+     of 1904; a merge with its covered cell formatted; a run and a family;
+     a formula's saved value; a condition and a color scale beside the
+     table; and each sheet's gridlines in `settings.xml`. Its reading is
+     compared whole.
+   - `the_first_pass_reads_the_cells_the_walk_prints`: every OpenDocument
+     file of the tree, and the Calc document.
+   - Unit tests for the data styles' codes, the lengths and the edges.
+5. Oracle 8's two OpenDocument twins' looks, `opendocument_looks.vla` (145
+   lines) and `opendocument_saved_looks.vla` (143), held by
+   `check_reflect_golden.ps1`. Their looks are the package fixture's but
+   for two things: the date's code their builder wrote, `yyyy-mm-dd` for
+   `m/d/yyyy`, and Excel's save numbering that format 3. All three have
+   the same eight formats, one cell styled, one formatted empty cell and
+   one look the record has no word for (`PORT.8`'s 8e rule).
+6. The door's usage and `cli/README.md`; the treaty's amendment (the
+   oracle's eight goldens, and an OpenDocument bullet in place of *Not
+   yet*); the release's note.
+
+*Excel's save against Excel's golden*, the first reading: 53 differences,
+each read from the save's parts.
+- *The reader's, folded (1):* built-in 48, `##0.0E+0`, which Excel's
+  writer writes as `number:exponent-interval="3"`. The reader now reads a
+  scientific number's interval, its decimals that may go unshown and its
+  sign (`number:forced-exponent-sign`).
+- *The widths (18):* Excel's writer writes a width as the screen's own
+  pixels at the screen's dots. Each of the fixture's 17 column lengths is a
+  whole number of pixels at 144 dots, and Excel's rule at a digit of 11
+  pixels and a padding of 7 gives the width Excel read at each, the
+  Defaults sheets' standards among them. So the record's width, a length
+  read at 96 dots, is the length Excel wrote: 11 characters where the
+  package says 10.43, on this screen of 150%. No reader takes it back
+  without the screen the save was made on. The test holds each length to
+  Excel's reading by the screen's dots, digit and padding, found from the
+  lengths, and the record's width to the length at 96 dots.
+- *The save's own (34), named in the test:*
+  - the palette's 64 as a solid fill written black, which Excel draws
+    white (1);
+  - an edge's automatic color written black, the format having no
+    automatic color for an edge (11);
+  - a padding of a character's width, `_)`, written as a space (13);
+  - the accounting codes' paddings written as spaces, and a digit's
+    space, `??`, written as one digit that may go unshown (4);
+  - a locale's tag, `[$-409]`, written as the language `en` and the
+    country `US`, which the reader does not read back as Windows' number
+    for it; the code draws alike without it (1, the reader's);
+  - `centerContinuous` and `distributed` written as `start` (2);
+  - no `settings.xml`, so a sheet's gridlines off read on (1);
+  - the count of what the record cannot hold, 20 against Excel's 32. Nine
+    looks the save does not write at all: a condensed and an extended
+    face, the three patterns, `centerContinuous`, `distributed`, and the
+    vertical `justify` and `distributed`. And three sheet defaults the
+    format writes on every column and row, which the record holds and so
+    does not count.
+
+*Held.*
+- The workspace's tests over `2e98ce5`: the core's 224 (five new, the
+  first slice's refusal gone) and the language's 388.
+- `cargo fmt --check` and both clippies at `-D warnings` clean.
+- `run_checks.ps1` 60 of 60 over the worktree, and
+  `check_reflect_golden.ps1`'s control (each new golden's mutant failing at
+  its line).
+- Four mutants of the save's test, each failing by name: a gap unnamed
+  (the gridlines); a case left off the looks the save does not write (the
+  count 20 against 21); a gap named where the reading is Excel's; and the
+  screen's 144 dots taken from the fit.
+
+*Against the size predicted.* The scoping predicted 450 to 700 lines of
+source for OpenDocument; the slice has 1,502 (`odf_looks.rs` 1,055,
+`odf.rs` 447), and 729 of tests (`odf_looks.rs`'s 115, `odf.rs`'s 283, the
+golden's test's 331). It is over by the data styles' code writer, a part
+for each of the format's twelve and their conditions, which the estimate
+counted as the package's built-ins are, a table; and by the format's
+spellings of a length and an edge. `looks.rs`'s 178 lines moved from
+`ooxml.rs`'s 136.
+
+*Found*, read, not minted:
+- *A locale's tag in an OpenDocument file.* Reading a data style's
+  `number:language` and `number:country` back as Windows' locale number
+  (`[$-409]` for `en`, `US`) would keep the tag a package's code holds. The
+  reader drops it, since the code draws alike, for want of a table of
+  Windows' locale ids.
+
+*The prediction for LibreOffice's save*, written before it. The scoping
+said: every look the package's but where the format cannot say one; to
+watch the dash-dot lines and the hair, a tint's exact color and a code
+respelled; every width within a hundredth. Excel's save sharpens it:
+- the theme's colors and tints written as six hex digits as LibreOffice's
+  import computes them, each within a unit of a channel of Excel's; the
+  palette's 64 and an automatic edge black, as Excel's writer writes them;
+- the edges by width (`0.74pt` thin, `1.76pt` medium, `2.49pt` thick), with
+  `double`, `dotted` and `dashed` as written, and the dash-dots and the
+  hair as LibreOffice nearest spells them;
+- a padding `_)` and a digit's space `?` kept by LibreOffice's own
+  extensions (`loext:`), which this reader reads as a space and a digit
+  until the save shows their spelling;
+- every width within a hundredth of the package's at 96 dots, LibreOffice's
+  length coming from its own reckoning of the font's digit; or not, to
+  watch;
+- the gridlines each sheet's own in `settings.xml`, `Cells` off; the
+  conditional formats beside the table, three rules; a row's format as a
+  row's default cell style; the runs as spans; and the Defaults sheets'
+  standards on each column and row.
+
+*Left for the owner*, with its stop rule, written before the save:
+- `scripts\reflect\looks.xlsx` opened once in LibreOffice Calc and saved,
+  with no edit, as `scripts\reflect\looks_calc.ods` (File, Save As, ODF
+  Spreadsheet): one save.
+- It is read under the flag and held to Excel's golden as Excel's save is.
+  Each difference is read from its parts and named as LibreOffice's
+  writer's or the format's, and a reader's rule the save shows wrong is
+  folded. An edge LibreOffice answers unstably is labelled, never chased.
+  A second save is made only if the first was made otherwise than this
+  says.
+- The owner's eye over the two twins' looks goldens, each file open beside
+  its golden, as 8a's goldens were blessed.
+- Then the commit at the owner's word: this slice's files and its hunks of
+  the shared documents alone.
+
+*LibreOffice's save, 2026-10-22.* The owner opened `looks.xlsx` in
+LibreOffice Calc 26.8.1.1 and saved it, with no edit, as
+`scripts/reflect/looks_calc.ods` (45,113 bytes; its `meta.xml` names
+`LibreOffice/26.8.1.1`; it carries a `settings.xml`, LibreOffice's
+built-in named styles and its own extensions). That was one save, as the
+stop rule says. The owner also read both twins' looks goldens beside their
+files and found both right.
+
+*Against the prediction*, at the first reading: 655 differences.
+- *The family's default wrap (about 450).* LibreOffice writes
+  `fo:wrap-option="wrap"` on the family's default cell style, and only the
+  styles of an alignment of their own say otherwise. Read as ODF says it,
+  every other cell wraps. LibreOffice's own drawing of the same cells
+  wraps none. The save's thumbnail, LibreOffice's rendering of the first
+  sheet, shows column A's long names on one line, clipped at the column's
+  edge. Its fitted heights hold one line in every row of such names, and it
+  refitted to 15 points a row the package said was 45 high.
+- *The codes (19).* LibreOffice keeps Excel's `_)` and `??` by extensions
+  of its own: `loext:blank-width-char` on a text (the padding's character,
+  then its place in the text) and `loext:max-blank-integer-digits` on a
+  number. It writes the currency of built-ins 5 to 8, 42, 44 and 63 to 66
+  as an empty `number:currency-symbol`, the locale's own. The prediction
+  said a padding and a digit's space would read as a space and a digit
+  until the save showed their spelling; the save shows it.
+- *The tints (174).* LibreOffice computes a theme color's tint by its own
+  arithmetic, each channel within 3 of Excel's: 144 a unit apart, 27 two,
+  3 three. The prediction said within a unit.
+- *The widths.* LibreOffice writes a column's length as the package's
+  width in characters times one digit of its own reckoning, 0.077086 in
+  (about 111 twips, where Excel's 7 pixels at 96 dots are 0.0729). Each is
+  within a hundredth of a character, the farthest 0.0059, at a column of
+  half a character. So a width read at the record's 96 dots is about 6%
+  wider than the package's. The prediction (every width within a hundredth
+  of the package's at 96 dots) holds in LibreOffice's own digit, not at 96
+  dots. A sheet's own default width is LibreOffice's reckoning of
+  `baseColWidth` and `defaultColWidth` (2).
+- *LibreOffice's own (26).* The palette's 64 and Excel's automatic as
+  solid fills written black (2); an automatic edge written black (11);
+  `[$-409]` written as a language and a country (1, the reader's, as with
+  Excel's save); a pattern or a gradient written as one color, LibreOffice's
+  mix of its two (3); `centerContinuous` written as `center` (1); a
+  vertical `justify` or `distributed` written with a wrap, as Excel draws
+  one (2); a rotated text's general alignment written `start` and a
+  stacked text's `end` (2); a column of no width, which Excel hides,
+  written at LibreOffice's default width and shown (1); and a cell of
+  format 0 in a column or a row of a format of its own, written with no
+  style, so that it takes the column's or the row's (2).
+- *The unheld count*, 23 against 29: six looks the save does not write,
+  the condensed and the extended face, the three patterns and
+  `centerContinuous`.
+- *As predicted:* each sheet's gridlines in `settings.xml`, `Cells` off;
+  the three conditional rules beside the table; a row's format; the runs
+  as spans; the edges by width (thin, medium and thick), the dashes, the
+  dots and the double; the Defaults sheets' heights.
+
+*The fold*, the same day.
+- In `odf_looks.rs` (105 lines of source and 13 of tests): the two
+  extensions are read. An empty currency symbol is the currency of the
+  symbol's country, else the style's, else the document's, from a table of
+  the larger economies' symbols, `¤` for another country. The family's
+  default wrap is passed over, and a style's own wrap is read. Every
+  built-in of LibreOffice's save now reads as Excel's.
+- The test holds both saves (230 lines more). Excel's is held as before.
+  LibreOffice's is held at every target but its 26 named gaps, its 174
+  tints within 3 in each channel, its widths at one digit within a
+  hundredth of a character, and its six unwritten looks.
+- Held: the workspace's tests, fmt, both clippies and `run_checks.ps1` 60
+  of 60 again. Eight mutants of the fold each fail the save's test by
+  name: the family default's wrap read (649 differences), a tint unnamed,
+  tints held within 2, a padding read as a space, the column of no width
+  unnamed, widths held within less than a hundredth, an empty currency
+  symbol read as nothing, and a digit's space read as a zero.
+
+*Committed 2026-10-22* at the owner's word, "looks_calc.ods saved, both
+goldens read right. If everything looks good, commit before proceeding
+with the next slice.": one commit over `2e98ce5`, this slice's seventeen
+files and its hunks of the shared documents alone, its tree verified
+alone before it was written (the workspace's tests, the core's 224 and
+the language's 388, fmt and both clippies, `run_checks.ps1` 60 of 60).
+Not pushed.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

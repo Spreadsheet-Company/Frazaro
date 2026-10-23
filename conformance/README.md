@@ -2110,10 +2110,10 @@ workbook as oracle 11 prints each of its sheets whole.
   hold is left out of its row and counted, and the door says so on stderr:
   a cell that keeps a format and no value, a look the record has no word
   for, a merged range, a conditional format, a row's own format.
-- **The oracle.** Oracle 8 gains a row kind: each package fixture's
-  `reflect --looks` is its `<name>_looks.vla` beside its relations, six of
-  them, held whole and at their floors by `tools/check_reflect_golden.ps1`,
-  with an order of their own. Oracle 11's free oracle reaches the looks: a
+- **The oracle.** Oracle 8 gains a row kind: each fixture's
+  `reflect --looks` is its `<name>_looks.vla` beside its relations, eight of
+  them, the two OpenDocument twins' among them, held whole and at their
+  floors by `tools/check_reflect_golden.ps1`, with an order of their own. Oracle 11's free oracle reaches the looks: a
   built model's sheet viewed whole, its values computed, is
   `reflect --looks`'s reading of the file the writer writes from it, its
   `gridlines`, `column`, `row`, `format`, `cell`, `formula`, `value` and
@@ -2142,5 +2142,42 @@ workbook as oracle 11 prints each of its sheets whole.
   of what the record cannot hold with what Excel's reading shows of it.
   `tools/check_looks_golden.ps1` holds the golden's shape and the looks its
   cases reach.
-- **Not yet.** An OpenDocument file's looks are refused by name, the item's
-  third slice's.
+- **OpenDocument.** An `.ods` file's looks are the same rows (`PORT.8`'s
+  8e rule), read from its styles: a cell's style its own, else its row's
+  default cell style, else its column's, resolved up its chain to the
+  `Default` style and the family's default style, a property said nearer
+  winning; format 0 the `Default` style and the others numbered in the
+  order the file declares its cell styles, `content.xml`'s automatic ones
+  then `styles.xml`'s named ones, a style that draws as format 0 read as 0;
+  a fill, a font's weight, slant, size and ink, the alignment, the wrap and
+  each edge as Excel's line; a data style as a code in Excel's syntax, its
+  conditions as the code's sections; a column's width from its length at
+  96 dots to the inch by Excel's rule at the record's 7, and a row's height
+  where the file does not mark it fitted; the gridlines each sheet's own
+  from `settings.xml`, else on. What the record has no word for is counted
+  as a package's is, a run of a style of its own among it. An
+  implementation's reading of Excel's own `.ods` save of `looks.xlsx`
+  (`scripts/reflect/looks_saved.ods`) agrees with Excel's golden case by
+  case but for the save's own gaps, each named: an automatic edge and the
+  palette's 64 written black, a padding of a character's width written as
+  a space, `centerContinuous` and `distributed` written as `start`, no
+  `settings.xml`, the looks it writes not at all, and a locale's tag, which
+  the file says as a language and a country, not read back; its widths are
+  the screen's own pixels at the screen's dots, Excel's rule giving each
+  width Excel read. A document in LibreOffice Calc's dialect, written by
+  hand, holds what Excel's writer does not write: a family's default style
+  and a named chain, a column's and a row's default cell style,
+  conditional formats beside the table, and each sheet's gridlines.
+  LibreOffice's own save of `looks.xlsx` (`scripts/reflect/looks_calc.ods`)
+  agrees with the golden but for its own gaps, each named. Those are: the
+  palette's 64 and an automatic edge written black, a pattern written as
+  one color, `centerContinuous` written as `center`, a rotated text's
+  alignment written, a column of no width shown, a cell of format 0 under
+  a formatted column or row written with no style, and the looks it does
+  not write. Its widths are the package's times one digit of LibreOffice's
+  own, each within a hundredth of a character, and its tints are within 3
+  of Excel's in each channel. LibreOffice's extensions of a data style, a
+  padding (`loext:blank-width-char`) and a digit's space
+  (`loext:max-blank-integer-digits`), are read; an empty currency symbol is
+  its country's own. The family's default wrap, which LibreOffice's own
+  drawing does not follow, is passed over.

@@ -493,9 +493,15 @@ A format is the file's own cell format at its own index, spelled as the
 record spells one, a property the workbook's default font has left unsaid,
 each color resolved to six hex digits through the workbook's theme, its
 tints and its palette, a number format as the file holds it and a built-in
-one as Excel reads it in English. A formula's saved value is a `value` row
-after the formula and a date its serial number, as the record spells them,
-and a cell's `style` row follows its rows, its `refers` rows last:
+one as Excel reads it in English. An OpenDocument file's looks (`.ods`) are
+the same rows, read from its styles: a cell's style its own, else its row's
+default, else its column's, up its chain to the `Default` style, the
+formats numbered from that style in the order the file declares them, a
+data style as a code in Excel's syntax, a width and a height from their
+lengths at 96 dots to the inch, and the gridlines from its `settings.xml`.
+A formula's saved value is a `value` row after the formula and a date its
+serial number, as the record spells them, and a cell's `style` row follows
+its rows, its `refers` rows last:
 
 ```text
 (gridlines "Frazaro" off)
@@ -517,8 +523,6 @@ text), a merged range, a conditional format, a row formatted whole. A
 number format the language does not draw is printed as the file holds it,
 and a load refuses it by name. With `--counts` beside it, each line gains
 the looks' counts, the formats, the cells styled and each kind left out.
-This version reads the looks of a package (`.xlsx`) alone; an OpenDocument
-file's are refused by name.
 
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,
@@ -529,7 +533,7 @@ reader never expands, or markup that never closes); a shape this version
 does not read, named with its part and cell (`reflect-unsupported`: a
 data-table formula, a shared formula whose first cell is missing, a string
 index past the table; under `--looks`, a cell or a column naming a cell
-format past the styles part's list, and an OpenDocument file's looks). The
+format past the styles part's list). The
 reader streams, so the rows printed before a refusal stand on stdout.
 
 ### `frazaro diff`

@@ -13,8 +13,13 @@
 //! sheet-local, as `name` rows; the database ranges, Calc's named
 //! rectangles with a header row, as `table` rows (the nearest kin of a
 //! Table; the anonymous ones autofilters leave are not); and, at open, the
-//! other files the formulas reach, for `--counts`. Styles, settings, the
-//! manifest and the metadata are never decoded.
+//! other files the formulas reach, for `--counts`. The relations decode no
+//! style, setting, manifest or metadata; under `--looks` (KERNEL.57) the
+//! sheet is printed as the record prints it whole, its styles, its data
+//! styles and its gridlines read from `content.xml`, `styles.xml` and
+//! `settings.xml` (`odf_looks.rs`), a sheet's part walked twice, its first
+//! pass for its columns, its rows of settings, its extent and the formats
+//! its cells use.
 //!
 //! A cell's value is what the file holds: `office:value` as written for a
 //! float, a percentage or a currency; a boolean; a date or a time under
@@ -38,23 +43,26 @@
 //! one reference reader, `crate::refers`, reads both formats, and the
 //! goldens keep one spelling.
 
-use std::collections::HashSet;
+use std::cell::OnceCell;
+use std::collections::{BTreeSet, HashSet};
 
 use super::cursor::{
     attr, attr_full, attributes_full, skip_element, unescape_entities, Cursor, Event,
 };
+use super::looks::{iso_duration_days, iso_serial, ColumnSpec, LooksStats, SheetScan};
+use super::odf_looks::{self, OdsLooks};
 use super::ooxml::{not_a_workbook, step, xml_refused};
 use super::{
-    emit_formula, NameInfo, Row, SheetInfo, SheetStats, Sink, Source, Summary, TableInfo, Value,
-    Visibility,
+    emit_formula, emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source,
+    Summary, TableInfo, Value, Visibility,
 };
 use crate::intrinsics::fold;
 use crate::messages::Refusal;
 use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip;
-use crate::sheet::{cell_ref, MAX_COLUMN, MAX_ROW};
-use vla_lang::rows::ArrayKind;
+use crate::sheet::{cell_ref, number_text, RowSettings, MAX_COLUMN, MAX_ROW};
+use vla_lang::rows::{datum, ArrayKind};
 
 const MIMETYPE: &str = "application/vnd.oasis.opendocument.spreadsheet";
 const CONTENT: &str = "content.xml";
@@ -89,6 +97,14 @@ pub struct Document {
     names: Vec<NameInfo>,
     tables: Vec<TableInfo>,
     books: Vec<String>,
+    /// `styles.xml` and `settings.xml`, inflated, where the file has them,
+    /// read for the looks alone (KERNEL.57).
+    styles: Option<String>,
+    settings: Option<String>,
+    /// Whether the document counts its dates from 1904, its null date's.
+    date1904: bool,
+    /// The styles as the looks read them, the first time a walk asks.
+    looks: OnceCell<Result<OdsLooks, Refusal>>,
 }
 
 impl std::fmt::Debug for Document {
@@ -112,6 +128,8 @@ struct Structure {
     /// Each database range's name and target, `Data.A1:Data.B4`.
     ranges: Vec<(String, String)>,
     books: Vec<String>,
+    /// The null date, `table:null-date`, where the document says one.
+    null_date: Option<String>,
 }
 
 impl Document {
@@ -189,6 +207,13 @@ impl Document {
             names: found.names,
             tables,
             books: found.books,
+            styles: text_of("styles.xml")?,
+            settings: text_of("settings.xml")?,
+            date1904: found
+                .null_date
+                .as_deref()
+                .is_some_and(|d| d.starts_with("1904")),
+            looks: OnceCell::new(),
         })
     }
 }
@@ -205,6 +230,7 @@ fn structure(text: &str, label: &str) -> Result<Structure, Refusal> {
         names: Vec::new(),
         ranges: Vec::new(),
         books: Vec::new(),
+        null_date: None,
     };
     let mut cursor = Cursor::new(text);
     let mut in_styles = false;
@@ -311,6 +337,11 @@ fn structure(text: &str, label: &str) -> Result<Structure, Refusal> {
                 }
             }
             Event::Start {
+                name: "null-date",
+                attrs,
+                ..
+            } => found.null_date = attr(attrs, "date-value").map(|d| d.into_owned()),
+            Event::Start {
                 name: "database-range",
                 attrs,
                 ..
@@ -353,12 +384,19 @@ struct CellData {
     value: Option<Value>,
     formula: Option<String>,
     matrix: bool,
+    /// Its own style, `table:style-name`, which the looks read (KERNEL.57).
+    style: Option<String>,
+    /// Whether it merges the cells after it or below it.
+    spans: bool,
+    /// Whether its text holds a run of a style of its own, `text:span`.
+    rich: bool,
 }
 
 /// The text of a `text:p` just opened: its runs, `text:s` as spaces,
 /// `text:tab` and `text:line-break` as what they say, spans and links
-/// transparent, anything else inside passed over.
-fn paragraph_text(cursor: &mut Cursor, label: &str) -> Result<String, Refusal> {
+/// transparent, anything else inside passed over; `rich` set where a span
+/// names a style of its own.
+fn paragraph_text(cursor: &mut Cursor, label: &str, rich: &mut bool) -> Result<String, Refusal> {
     let part = CONTENT;
     let mut out = String::new();
     let mut depth = 0u32;
@@ -391,6 +429,9 @@ fn paragraph_text(cursor: &mut Cursor, label: &str) -> Result<String, Refusal> {
                     }
                 }
                 "span" | "a" | "ruby" | "ruby-base" | "meta" | "meta-field" => {
+                    if name == "span" && attr(attrs, "style-name").is_some() {
+                        *rich = true;
+                    }
                     if !empty {
                         depth += 1;
                     }
@@ -419,7 +460,7 @@ fn paragraph_text(cursor: &mut Cursor, label: &str) -> Result<String, Refusal> {
 }
 
 /// The paragraphs of a cell just opened, to its end tag, one line each.
-fn cell_text(cursor: &mut Cursor, label: &str) -> Result<String, Refusal> {
+fn cell_text(cursor: &mut Cursor, label: &str, rich: &mut bool) -> Result<String, Refusal> {
     let part = CONTENT;
     let mut paragraphs: Vec<String> = Vec::new();
     loop {
@@ -431,7 +472,7 @@ fn cell_text(cursor: &mut Cursor, label: &str) -> Result<String, Refusal> {
                 if empty {
                     paragraphs.push(String::new());
                 } else {
-                    paragraphs.push(paragraph_text(cursor, label)?);
+                    paragraphs.push(paragraph_text(cursor, label, rich)?);
                 }
             }
             Some(Event::Start { empty: false, .. }) => {
@@ -471,10 +512,11 @@ fn read_cell(
             }
         }
     }
+    let mut rich = false;
     let text = if empty {
         String::new()
     } else {
-        cell_text(cursor, label)?
+        cell_text(cursor, label, &mut rich)?
     };
     let value = match value_type.as_deref() {
         Some("float") | Some("percentage") | Some("currency") => {
@@ -518,11 +560,19 @@ fn read_cell(
         }
     };
     let _ = attr_full(attrs, "office:value-type");
+    let spanned = |name: &str| {
+        attr(attrs, name)
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(1)
+    };
     Ok(CellData {
         repeat,
         value,
         formula,
         matrix,
+        style: attr(attrs, "style-name").map(|s| s.into_owned()),
+        spans: spanned("number-columns-spanned") > 1 || spanned("number-rows-spanned") > 1,
+        rich,
     })
 }
 
@@ -585,6 +635,285 @@ impl Source for Document {
         sink: &mut dyn Sink,
         book_distinct: &mut HashSet<String>,
     ) -> Result<SheetStats, Refusal> {
+        self.walk(index, sink, book_distinct, None)
+            .map(|(stats, _)| stats)
+    }
+
+    /// One sheet as the record prints it whole, with its looks (KERNEL.57):
+    /// its slice read twice, the first pass ([`Document::first_pass`]) for
+    /// its own rows of the record, then the walk, each cell's rows in the
+    /// record's spelling.
+    fn walk_sheet_looks(
+        &self,
+        index: usize,
+        sink: &mut dyn Sink,
+        book_distinct: &mut HashSet<String>,
+    ) -> Result<(SheetStats, LooksStats), Refusal> {
+        let looks = self.looks()?;
+        self.walk(index, sink, book_distinct, Some(looks))
+    }
+}
+
+/// A run of columns and the cell style its cells take where they name
+/// none, `table:default-cell-style-name`.
+type ColumnDefaults = Vec<(u32, u32, Option<String>)>;
+
+/// The style a column's cells take where they name none.
+fn column_default(columns: &ColumnDefaults, col: u32) -> Option<&str> {
+    columns
+        .iter()
+        .find(|(min, max, _)| *min <= col && col <= *max)
+        .and_then(|(_, _, s)| s.as_deref())
+}
+
+impl Document {
+    /// The document's styles as the looks read them, read the first time a
+    /// walk asks (KERNEL.57).
+    fn looks(&self) -> Result<&OdsLooks, Refusal> {
+        self.looks
+            .get_or_init(|| {
+                odf_looks::read(
+                    &self.text,
+                    self.styles.as_deref(),
+                    self.settings.as_deref(),
+                    &self.label,
+                )
+            })
+            .as_ref()
+            .map_err(Clone::clone)
+    }
+
+    /// A value as the record spells it (KERNEL.57): a date as Excel's serial
+    /// in the document's calendar, a time, an ISO duration, as its days; any
+    /// other as the relations spell it.
+    fn record_value(&self, value: Value) -> Value {
+        if let Value::Date(iso) = &value {
+            let days = if iso.trim_start_matches('-').starts_with('P') {
+                iso_duration_days(iso)
+            } else {
+                iso_serial(iso, self.date1904)
+            };
+            if let Some(n) = days.and_then(number_text) {
+                return Value::Number(n);
+            }
+        }
+        value
+    }
+
+    /// The looks' first pass over a sheet's slice (KERNEL.57): its
+    /// gridlines, its columns, their widths, hidden and formats, the rows a
+    /// person set a height for or hid, the extent of the cells the walk
+    /// prints and the formats they use, and what the record cannot hold
+    /// among them, counted: a cell that keeps a format of its own and no
+    /// value, a row formatted whole (its default cell style, or, as Excel's
+    /// save writes one, its empty cells to the last column in a style of
+    /// their own), a merge, a conditional format's rules, a look of no word.
+    fn first_pass(
+        &self,
+        index: usize,
+        looks: &OdsLooks,
+    ) -> Result<(SheetScan, ColumnDefaults), Refusal> {
+        let part = CONTENT;
+        let label = self.label.as_str();
+        let info = &self.sheets[index];
+        let (start, end) = self.spans[index];
+        let mut cursor = Cursor::new(&self.text[start..end]);
+        let mut scan = SheetScan::new();
+        scan.gridlines = looks.gridlines(&info.name);
+        let mut columns: ColumnDefaults = Vec::new();
+        let mut col_no: u32 = 0;
+        let mut row_no: u32 = 0;
+        // The rows of settings as runs, kept to the extent at the end.
+        let mut runs: Vec<(u32, u32, RowSettings)> = Vec::new();
+        // The styles naming conditions the sheet's cells take, and the
+        // conditional formats LibreOffice writes beside its table.
+        let mut conditioned: BTreeSet<String> = BTreeSet::new();
+        let mut calc_rules: u64 = 0;
+        let mut opened = false;
+        while let Some(event) = step(&mut cursor, label, part)? {
+            match event {
+                Event::Start {
+                    name: "table",
+                    empty,
+                    ..
+                } if !opened => {
+                    if empty {
+                        break;
+                    }
+                    opened = true;
+                }
+                Event::End { name: "table" } => break,
+                Event::Start {
+                    name: "table-column",
+                    attrs,
+                    ..
+                } => {
+                    let repeat = attr(attrs, "number-columns-repeated")
+                        .and_then(|v| v.parse::<u32>().ok())
+                        .unwrap_or(1)
+                        .max(1);
+                    let min = col_no.saturating_add(1);
+                    let max = col_no.saturating_add(repeat).min(MAX_COLUMN);
+                    col_no = col_no.saturating_add(repeat);
+                    let style = attr(attrs, "style-name").map(|s| s.into_owned());
+                    let default = attr(attrs, "default-cell-style-name").map(|s| s.into_owned());
+                    let width = looks.column_width(style.as_deref());
+                    let hidden = attr(attrs, "visibility").as_deref() == Some("collapse")
+                        || width == Some(0.0);
+                    let format = looks.format(default.as_deref());
+                    if min <= max {
+                        scan.columns.push(ColumnSpec {
+                            min,
+                            max,
+                            width: if hidden { None } else { width },
+                            hidden,
+                            style: (format != 0).then_some(format),
+                        });
+                        columns.push((min, max, default));
+                    }
+                }
+                Event::Start {
+                    name: "table-row",
+                    attrs,
+                    empty,
+                } => {
+                    let repeat = attr(attrs, "number-rows-repeated")
+                        .and_then(|v| v.parse::<u32>().ok())
+                        .unwrap_or(1)
+                        .max(1);
+                    let style = attr(attrs, "style-name").map(|s| s.into_owned());
+                    let height = looks.row_height(style.as_deref());
+                    let hidden = matches!(
+                        attr(attrs, "visibility").as_deref(),
+                        Some("collapse") | Some("filter")
+                    );
+                    if height.is_some() || hidden {
+                        runs.push((
+                            row_no.saturating_add(1),
+                            repeat,
+                            RowSettings { height, hidden },
+                        ));
+                    }
+                    let row_default =
+                        attr(attrs, "default-cell-style-name").map(|s| s.into_owned());
+                    if looks.format(row_default.as_deref()) != 0 {
+                        scan.stats.row_formats += u64::from(repeat);
+                    }
+                    if empty {
+                        row_no = row_no.saturating_add(repeat);
+                        continue;
+                    }
+                    let cells = read_row(&mut cursor, label)?;
+                    let mut col: u32 = 0;
+                    for cell in &cells {
+                        let first = col.saturating_add(1);
+                        col = col.saturating_add(cell.repeat);
+                        if first > MAX_COLUMN {
+                            break;
+                        }
+                        let inherited = row_default
+                            .as_deref()
+                            .or_else(|| column_default(&columns, first));
+                        let named = cell.style.as_deref().or(inherited);
+                        if let Some(n) = named {
+                            if looks.rules_of(n) > 0 {
+                                conditioned.insert(n.to_string());
+                            }
+                        }
+                        if cell.spans {
+                            scan.stats.merged += 1;
+                        }
+                        let format = looks.format(named);
+                        if cell.value.is_none() && cell.formula.is_none() {
+                            // A cell that keeps a format of its own and no
+                            // value; Excel's row of them to the last column, a
+                            // row's own format.
+                            if cell.style.is_some()
+                                && format != 0
+                                && format != looks.format(inherited)
+                            {
+                                if col >= MAX_COLUMN {
+                                    scan.stats.row_formats += u64::from(repeat);
+                                } else {
+                                    scan.stats.formatted_empty +=
+                                        u64::from(cell.repeat) * u64::from(repeat);
+                                }
+                            }
+                            continue;
+                        }
+                        let look = &looks.looks[format as usize];
+                        let last_col = col.min(MAX_COLUMN);
+                        let last_row = row_no.saturating_add(repeat).min(MAX_ROW);
+                        let count = u64::from(last_col - first + 1)
+                            * u64::from(last_row.saturating_sub(row_no));
+                        scan.hold(row_no.saturating_add(1), first);
+                        scan.hold(last_row, last_col);
+                        scan.used.insert(format);
+                        if format != 0 {
+                            scan.stats.styled += count;
+                        }
+                        if look.unheld || cell.rich {
+                            scan.stats.unheld += count;
+                        }
+                        if look.undrawn.is_some() {
+                            scan.stats.undrawn += count;
+                        }
+                    }
+                    row_no = row_no.saturating_add(repeat);
+                }
+                Event::Start {
+                    name: "condition" | "date-is" | "color-scale" | "data-bar" | "icon-set",
+                    ..
+                } => calc_rules += 1,
+                Event::Start {
+                    name:
+                        "table-header-rows"
+                        | "table-rows"
+                        | "table-row-group"
+                        | "table-columns"
+                        | "table-header-columns"
+                        | "table-column-group"
+                        | "conditional-formats"
+                        | "conditional-format",
+                    ..
+                } => {}
+                Event::Start { empty: false, .. } => {
+                    skip_element(&mut cursor).map_err(|why| xml_refused(label, part, why))?;
+                }
+                _ => {}
+            }
+        }
+        scan.stats.conditional = if calc_rules > 0 {
+            calc_rules
+        } else {
+            conditioned
+                .iter()
+                .map(|n| u64::from(looks.rules_of(n)))
+                .sum()
+        };
+        if let Some(extent) = scan.extent {
+            for (first, count, settings) in runs {
+                let last = first.saturating_add(count - 1).min(extent.bottom);
+                for row in first.max(extent.top)..=last {
+                    scan.rows.insert(row, settings.clone());
+                }
+            }
+        }
+        Ok((scan, columns))
+    }
+
+    /// One sheet's walk: the relations' rows, or, given the document's
+    /// styles (KERNEL.57), the sheet as the record prints it whole, its own
+    /// rows of the record before any cell's, a date as its serial, a
+    /// formula's saved value its `value` row after the formula, and each
+    /// cell's `style` row after its rows and before its `refers` rows.
+    fn walk(
+        &self,
+        index: usize,
+        sink: &mut dyn Sink,
+        book_distinct: &mut HashSet<String>,
+        looks: Option<&OdsLooks>,
+    ) -> Result<(SheetStats, LooksStats), Refusal> {
         let part = CONTENT;
         let label = self.label.as_str();
         let info = &self.sheets[index];
@@ -593,6 +922,16 @@ impl Source for Document {
         let mut stats = SheetStats {
             part_bytes: slice.len(),
             ..SheetStats::default()
+        };
+        // The looks' first pass, and the sheet's own rows of the record
+        // before any cell's (KERNEL.57).
+        let pass = match looks {
+            Some(l) => {
+                let (mut scan, columns) = self.first_pass(index, l)?;
+                scan.print(&info.name, &l.looks, sink);
+                Some((scan, columns))
+            }
+            None => None,
         };
         let mut sheet_distinct: HashSet<String> = HashSet::new();
         let mut cursor = Cursor::new(slice);
@@ -629,6 +968,8 @@ impl Source for Document {
                         attr(attrs, "visibility").as_deref(),
                         Some("collapse") | Some("filter")
                     );
+                    let row_default =
+                        attr(attrs, "default-cell-style-name").map(|s| s.into_owned());
                     if empty {
                         row_no = row_no.saturating_add(repeat);
                         continue;
@@ -668,33 +1009,100 @@ impl Source for Document {
                                 stats.cells += 1;
                                 stats.rows = stats.rows.max(row);
                                 stats.columns = stats.columns.max(at);
-                                if let Some(value) = &cell.value {
-                                    sink.row(&Row::Cell {
-                                        sheet: &info.name,
-                                        addr: &addr,
-                                        value,
-                                    });
-                                }
-                                if let Some(text) = &cell.formula {
-                                    if cell.matrix {
-                                        stats.array_anchors += 1;
+                                let sheet = info.name.as_str();
+                                match (looks, &pass) {
+                                    (Some(l), Some((_, columns))) => {
+                                        let named = cell.style.as_deref().or(row_default
+                                            .as_deref()
+                                            .or_else(|| column_default(columns, at)));
+                                        let format = l.format(named);
+                                        let value =
+                                            cell.value.clone().map(|v| self.record_value(v));
+                                        match &cell.formula {
+                                            Some(text) => {
+                                                if cell.matrix {
+                                                    stats.array_anchors += 1;
+                                                }
+                                                let saved = value.as_ref().map(datum);
+                                                emit_formula_with(
+                                                    sink,
+                                                    sheet,
+                                                    &addr,
+                                                    text,
+                                                    row,
+                                                    at,
+                                                    &mut stats,
+                                                    &mut sheet_distinct,
+                                                    book_distinct,
+                                                    &mut |sink| {
+                                                        if let Some(saved) = &saved {
+                                                            sink.record(&Record::Value {
+                                                                sheet,
+                                                                addr: &addr,
+                                                                value: saved,
+                                                            });
+                                                        }
+                                                        if format != 0 {
+                                                            sink.record(&Record::Style {
+                                                                sheet,
+                                                                addr: &addr,
+                                                                index: format,
+                                                            });
+                                                        }
+                                                    },
+                                                );
+                                                if cell.matrix {
+                                                    sink.array(sheet, &addr, ArrayKind::Legacy);
+                                                }
+                                            }
+                                            None => {
+                                                if let Some(value) = &value {
+                                                    sink.row(&Row::Cell {
+                                                        sheet,
+                                                        addr: &addr,
+                                                        value,
+                                                    });
+                                                }
+                                                if format != 0 {
+                                                    sink.record(&Record::Style {
+                                                        sheet,
+                                                        addr: &addr,
+                                                        index: format,
+                                                    });
+                                                }
+                                            }
+                                        }
                                     }
-                                    emit_formula(
-                                        sink,
-                                        &info.name,
-                                        &addr,
-                                        text,
-                                        row,
-                                        at,
-                                        &mut stats,
-                                        &mut sheet_distinct,
-                                        book_distinct,
-                                    );
-                                    // A matrix formula's anchor, of the
-                                    // kind the format can tell (KERNEL.8,
-                                    // slice b).
-                                    if cell.matrix {
-                                        sink.array(&info.name, &addr, ArrayKind::Legacy);
+                                    _ => {
+                                        if let Some(value) = &cell.value {
+                                            sink.row(&Row::Cell {
+                                                sheet,
+                                                addr: &addr,
+                                                value,
+                                            });
+                                        }
+                                        if let Some(text) = &cell.formula {
+                                            if cell.matrix {
+                                                stats.array_anchors += 1;
+                                            }
+                                            emit_formula(
+                                                sink,
+                                                sheet,
+                                                &addr,
+                                                text,
+                                                row,
+                                                at,
+                                                &mut stats,
+                                                &mut sheet_distinct,
+                                                book_distinct,
+                                            );
+                                            // A matrix formula's anchor, of
+                                            // the kind the format can tell
+                                            // (KERNEL.8, slice b).
+                                            if cell.matrix {
+                                                sink.array(sheet, &addr, ArrayKind::Legacy);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -714,7 +1122,7 @@ impl Source for Document {
             }
         }
         stats.distinct_r1c1 = sheet_distinct.len() as u64;
-        Ok(stats)
+        Ok((stats, pass.map(|(scan, _)| scan.stats).unwrap_or_default()))
     }
 }
 
@@ -1337,6 +1745,289 @@ mod tests {
                 "(calc \"Model\" \"B7\" \"=SUBTOTAL(9,A1:A6)\" (not-computed \"a row a filter may hide\") 11 unchecked)\n",
             )
         );
+    }
+
+    /// A document in LibreOffice Calc's own dialect, written by hand from its
+    /// saves' shapes (KERNEL.57, the third slice): a family's default style
+    /// and the named chain `Default`, `Heading`, `Heading 1` in styles.xml,
+    /// data styles in content.xml, a column's and a row's default cell style,
+    /// a row's height in inches, a date, a time past a day, a merge with its
+    /// covered cell formatted, a run of its own style, a formula's saved
+    /// value, conditional formats beside the table, and settings.xml's
+    /// gridlines a sheet each.
+    const CALC_STYLES: &str = concat!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "<office:document-styles {OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:number=\"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\">",
+        "<office:font-face-decls>",
+        "<style:font-face style:name=\"Liberation Sans\" svg:font-family=\"&apos;Liberation Sans&apos;\" style:font-family-generic=\"swiss\" style:font-pitch=\"variable\"/>",
+        "<style:font-face style:name=\"DejaVu Serif\" svg:font-family=\"&apos;DejaVu Serif&apos;\" style:font-family-generic=\"roman\"/>",
+        "</office:font-face-decls>",
+        "<office:styles>",
+        "<style:default-style style:family=\"table-cell\"><style:paragraph-properties style:tab-stop-distance=\"0.5in\"/>",
+        "<style:text-properties style:font-name=\"Liberation Sans\" fo:font-size=\"10pt\" fo:language=\"en\" fo:country=\"US\"/></style:default-style>",
+        "<number:number-style style:name=\"N0\"><number:number number:min-integer-digits=\"1\"/></number:number-style>",
+        "<style:style style:name=\"Default\" style:family=\"table-cell\"/>",
+        "<style:style style:name=\"Heading\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:text-properties fo:color=\"#000000\" fo:font-size=\"24pt\" fo:font-style=\"normal\" fo:font-weight=\"bold\"/></style:style>",
+        "<style:style style:name=\"Heading_20_1\" style:display-name=\"Heading 1\" style:family=\"table-cell\" style:parent-style-name=\"Heading\"><style:text-properties fo:font-size=\"18pt\"/></style:style>",
+        "<style:style style:name=\"Good\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:table-cell-properties fo:background-color=\"#ccffcc\"/><style:text-properties fo:color=\"#006600\"/></style:style>",
+        "<style:style style:name=\"Note\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:text-properties style:font-name=\"DejaVu Serif\"/></style:style>",
+        "</office:styles>",
+        "<office:automatic-styles><style:page-layout style:name=\"Mpm1\"/></office:automatic-styles>",
+        "<office:master-styles><style:master-page style:name=\"Default\" style:page-layout-name=\"Mpm1\"><style:header><text:p><text:sheet-name>???</text:sheet-name></text:p></style:header></style:master-page></office:master-styles>",
+        "</office:document-styles>"
+    );
+
+    const CALC_CONTENT: &str = concat!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "<office:document-content {OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:number=\"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0\">",
+        "<office:automatic-styles>",
+        "<style:style style:name=\"co1\" style:family=\"table-column\"><style:table-column-properties fo:break-before=\"auto\" style:column-width=\"0.889in\"/></style:style>",
+        "<style:style style:name=\"co2\" style:family=\"table-column\"><style:table-column-properties fo:break-before=\"auto\" style:column-width=\"1.5in\"/></style:style>",
+        "<style:style style:name=\"ro1\" style:family=\"table-row\"><style:table-row-properties style:row-height=\"0.178in\" fo:break-before=\"auto\" style:use-optimal-row-height=\"true\"/></style:style>",
+        "<style:style style:name=\"ro2\" style:family=\"table-row\"><style:table-row-properties style:row-height=\"0.4167in\" fo:break-before=\"auto\" style:use-optimal-row-height=\"false\"/></style:style>",
+        "<style:style style:name=\"ta1\" style:family=\"table\" style:master-page-name=\"Default\"><style:table-properties table:display=\"true\" style:writing-mode=\"lr-tb\"/></style:style>",
+        "<number:number-style style:name=\"N2\"><number:number number:decimal-places=\"2\" number:min-decimal-places=\"2\" number:min-integer-digits=\"1\"/></number:number-style>",
+        "<number:date-style style:name=\"N37\" number:automatic-order=\"true\"><number:month number:style=\"long\"/><number:text>/</number:text><number:day number:style=\"long\"/><number:text>/</number:text><number:year/></number:date-style>",
+        "<number:time-style style:name=\"N46\" number:truncate-on-overflow=\"false\"><number:hours/><number:text>:</number:text><number:minutes number:style=\"long\"/></number:time-style>",
+        "<style:style style:name=\"ce1\" style:family=\"table-cell\" style:parent-style-name=\"Default\" style:data-style-name=\"N2\"/>",
+        "<style:style style:name=\"ce2\" style:family=\"table-cell\" style:parent-style-name=\"Heading_20_1\"/>",
+        "<style:style style:name=\"ce3\" style:family=\"table-cell\" style:parent-style-name=\"Default\" style:data-style-name=\"N37\"/>",
+        "<style:style style:name=\"ce4\" style:family=\"table-cell\" style:parent-style-name=\"Default\" style:data-style-name=\"N46\"/>",
+        "<style:style style:name=\"ce5\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:table-cell-properties style:text-align-source=\"fix\" style:repeat-content=\"false\" fo:wrap-option=\"wrap\" fo:border=\"0.74pt solid #000000\" style:vertical-align=\"middle\"/><style:paragraph-properties fo:text-align=\"center\" fo:margin-left=\"0in\"/></style:style>",
+        "<style:style style:name=\"ce6\" style:family=\"table-cell\" style:parent-style-name=\"Good\"/>",
+        "<style:style style:name=\"ce7\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:table-cell-properties fo:background-color=\"#ffff00\"/></style:style>",
+        "<style:style style:name=\"ce8\" style:family=\"table-cell\" style:parent-style-name=\"Default\"><style:map style:condition=\"cell-content()&gt;5\" style:apply-style-name=\"Good\" style:base-cell-address=\"Sheet1.B6\"/></style:style>",
+        "<style:style style:name=\"ce9\" style:family=\"table-cell\" style:parent-style-name=\"Note\"/>",
+        "<style:style style:name=\"T1\" style:family=\"text\"><style:text-properties fo:font-weight=\"bold\"/></style:style>",
+        "</office:automatic-styles>",
+        "<office:body><office:spreadsheet>",
+        "<table:table table:name=\"Sheet1\" table:style-name=\"ta1\">",
+        "<table:table-column table:style-name=\"co1\" table:default-cell-style-name=\"Default\"/>",
+        "<table:table-column table:style-name=\"co2\" table:default-cell-style-name=\"ce1\"/>",
+        "<table:table-column table:style-name=\"co1\" table:number-columns-repeated=\"1022\" table:default-cell-style-name=\"Default\"/>",
+        "<table:table-row table:style-name=\"ro1\">",
+        "<table:table-cell table:style-name=\"ce2\" office:value-type=\"string\" calcext:value-type=\"string\"><text:p>Title</text:p></table:table-cell>",
+        "<table:table-cell office:value-type=\"float\" office:value=\"1.5\" calcext:value-type=\"float\"><text:p>1.50</text:p></table:table-cell>",
+        "<table:table-cell table:number-columns-repeated=\"1022\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro2\">",
+        "<table:table-cell table:style-name=\"ce3\" office:value-type=\"date\" office:date-value=\"2025-01-21\" calcext:value-type=\"date\"><text:p>01/21/25</text:p></table:table-cell>",
+        "<table:table-cell table:style-name=\"ce4\" office:value-type=\"time\" office:time-value=\"PT36H30M00S\" calcext:value-type=\"time\"><text:p>36:30</text:p></table:table-cell>",
+        "<table:table-cell table:number-columns-repeated=\"1022\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro1\">",
+        "<table:table-cell table:style-name=\"ce5\" table:number-columns-spanned=\"2\" table:number-rows-spanned=\"1\" office:value-type=\"string\" calcext:value-type=\"string\"><text:p>Merged</text:p></table:table-cell>",
+        "<table:covered-table-cell table:style-name=\"ce5\"/>",
+        "<table:table-cell table:number-columns-repeated=\"1022\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro1\" table:default-cell-style-name=\"ce7\">",
+        "<table:table-cell office:value-type=\"float\" office:value=\"4\" calcext:value-type=\"float\"><text:p>4</text:p></table:table-cell>",
+        "<table:table-cell table:number-columns-repeated=\"1023\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro1\">",
+        "<table:table-cell table:style-name=\"ce6\" office:value-type=\"string\" calcext:value-type=\"string\"><text:p><text:span text:style-name=\"T1\">Go</text:span>od</text:p></table:table-cell>",
+        "<table:table-cell table:style-name=\"ce7\"/>",
+        "<table:table-cell table:style-name=\"ce9\" office:value-type=\"string\" calcext:value-type=\"string\"><text:p>serif</text:p></table:table-cell>",
+        "<table:table-cell table:number-columns-repeated=\"1021\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro1\">",
+        "<table:table-cell table:formula=\"of:=[.B1]*2\" office:value-type=\"float\" office:value=\"3\" calcext:value-type=\"float\"><text:p>3</text:p></table:table-cell>",
+        "<table:table-cell table:style-name=\"ce8\" office:value-type=\"float\" office:value=\"6\" calcext:value-type=\"float\"><text:p>6</text:p></table:table-cell>",
+        "<table:table-cell table:number-columns-repeated=\"1022\"/>",
+        "</table:table-row>",
+        "<table:table-row table:style-name=\"ro1\" table:number-rows-repeated=\"1048570\"><table:table-cell table:number-columns-repeated=\"1024\"/></table:table-row>",
+        "<calcext:conditional-formats>",
+        "<calcext:conditional-format calcext:target-range-address=\"Sheet1.B6:Sheet1.B6\"><calcext:condition calcext:apply-style-name=\"Good\" calcext:value=\"&gt;5\" calcext:base-cell-address=\"Sheet1.B6\"/></calcext:conditional-format>",
+        "<calcext:conditional-format calcext:target-range-address=\"Sheet1.A1:Sheet1.A6\"><calcext:color-scale><calcext:color-scale-entry calcext:value=\"0\" calcext:type=\"minimum\" calcext:color=\"#ff0000\"/><calcext:color-scale-entry calcext:value=\"0\" calcext:type=\"maximum\" calcext:color=\"#00a933\"/></calcext:color-scale></calcext:conditional-format>",
+        "</calcext:conditional-formats>",
+        "</table:table>",
+        "<table:table table:name=\"Sheet2\" table:style-name=\"ta1\">",
+        "<table:table-column table:style-name=\"co1\" table:number-columns-repeated=\"1024\" table:default-cell-style-name=\"Default\"/>",
+        "<table:table-row table:style-name=\"ro1\"><table:table-cell office:value-type=\"float\" office:value=\"1\" calcext:value-type=\"float\"><text:p>1</text:p></table:table-cell><table:table-cell table:number-columns-repeated=\"1023\"/></table:table-row>",
+        "</table:table>",
+        "</office:spreadsheet></office:body></office:document-content>"
+    );
+
+    const CALC_SETTINGS: &str = concat!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "<office:document-settings xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:config=\"urn:oasis:names:tc:opendocument:xmlns:config:1.0\" office:version=\"1.3\"><office:settings>",
+        "<config:config-item-set config:name=\"ooo:view-settings\">",
+        "<config:config-item config:name=\"VisibleAreaTop\" config:type=\"int\">0</config:config-item>",
+        "<config:config-item-map-indexed config:name=\"Views\"><config:config-item-map-entry>",
+        "<config:config-item config:name=\"ViewId\" config:type=\"string\">view1</config:config-item>",
+        "<config:config-item-map-named config:name=\"Tables\">",
+        "<config:config-item-map-entry config:name=\"Sheet1\"><config:config-item config:name=\"CursorPositionX\" config:type=\"int\">0</config:config-item><config:config-item config:name=\"ShowGrid\" config:type=\"boolean\">true</config:config-item></config:config-item-map-entry>",
+        "<config:config-item-map-entry config:name=\"Sheet2\"><config:config-item config:name=\"ShowGrid\" config:type=\"boolean\">false</config:config-item></config:config-item-map-entry>",
+        "</config:config-item-map-named>",
+        "<config:config-item config:name=\"ActiveTable\" config:type=\"string\">Sheet1</config:config-item>",
+        "<config:config-item config:name=\"ShowGrid\" config:type=\"boolean\">true</config:config-item>",
+        "</config:config-item-map-entry></config:config-item-map-indexed>",
+        "</config:config-item-set>",
+        "<config:config-item-set config:name=\"ooo:configuration-settings\"><config:config-item config:name=\"ShowGrid\" config:type=\"boolean\">true</config:config-item></config:config-item-set>",
+        "</office:settings></office:document-settings>"
+    );
+
+    /// The document in Calc's dialect, its three parts beside its
+    /// mimetype, its content's spreadsheet opening with `settings`.
+    fn calc_document(settings: &str) -> Vec<u8> {
+        let part = |text: &str| text.replace("{OFFICE}", OFFICE).into_bytes();
+        let content = CALC_CONTENT.replace(
+            "<office:spreadsheet>",
+            &format!("<office:spreadsheet>{settings}"),
+        );
+        zip::write_stored(&[
+            ("mimetype".to_string(), MIMETYPE.as_bytes().to_vec()),
+            (CONTENT.to_string(), part(&content)),
+            ("styles.xml".to_string(), part(CALC_STYLES)),
+            (
+                "settings.xml".to_string(),
+                CALC_SETTINGS.as_bytes().to_vec(),
+            ),
+        ])
+        .unwrap()
+    }
+
+    #[test]
+    fn a_calc_document_s_looks_read_as_the_record_prints_them() {
+        let (text, stats) = crate::reflect::reflect_looks(&calc_document(""), "calc.ods").unwrap();
+        // Format 0 the `Default` style over the family's default; the
+        // others in the order the parts declare them, content's automatic
+        // styles first, `ce8` drawing as format 0 (its rule alone) and
+        // `ce9` a format of its own for its family, which the record has
+        // no word for; Heading 1's bold from its parent `Heading`, its size
+        // its own; column B's format its default cell style, which B1
+        // takes and B2's own style passes over; row 4's its default cell
+        // style, which A4 takes; a date as its serial, a time past a day as
+        // its days, a formula's saved value after it; each sheet's
+        // gridlines its own.
+        assert_eq!(
+            text,
+            concat!(
+                "(sheet \"Sheet1\" visible)\n",
+                "(sheet \"Sheet2\" visible)\n",
+                "(gridlines \"Sheet1\" on)\n",
+                "(column \"Sheet1\" \"A\" 11.43 shown none)\n",
+                "(column \"Sheet1\" \"B\" 19.86 shown 1)\n",
+                "(column \"Sheet1\" \"C\" 11.43 shown none)\n",
+                "(row \"Sheet1\" 2 30 shown)\n",
+                "(format 0 none general nowrap)\n",
+                "(format 1 none \"0.00\" nowrap)\n",
+                "(format 2 none general nowrap (font bold 18 \"000000\"))\n",
+                "(format 3 none \"mm/dd/yy\" nowrap)\n",
+                "(format 4 none \"[h]:mm\" nowrap)\n",
+                "(format 5 none general wrap (align center middle) (border (left thin \"000000\") (right thin \"000000\") (top thin \"000000\") (bottom thin \"000000\")))\n",
+                "(format 6 \"CCFFCC\" general nowrap (font \"006600\"))\n",
+                "(format 7 \"FFFF00\" general nowrap)\n",
+                "(format 9 none general nowrap)\n",
+                "(cell \"Sheet1\" \"A1\" \"Title\")\n",
+                "(style \"Sheet1\" \"A1\" 2)\n",
+                "(cell \"Sheet1\" \"B1\" 1.5)\n",
+                "(style \"Sheet1\" \"B1\" 1)\n",
+                "(cell \"Sheet1\" \"A2\" 45678)\n",
+                "(style \"Sheet1\" \"A2\" 3)\n",
+                "(cell \"Sheet1\" \"B2\" 1.5208333333333333)\n",
+                "(style \"Sheet1\" \"B2\" 4)\n",
+                "(cell \"Sheet1\" \"A3\" \"Merged\")\n",
+                "(style \"Sheet1\" \"A3\" 5)\n",
+                "(cell \"Sheet1\" \"A4\" 4)\n",
+                "(style \"Sheet1\" \"A4\" 7)\n",
+                "(cell \"Sheet1\" \"A5\" \"Good\")\n",
+                "(style \"Sheet1\" \"A5\" 6)\n",
+                "(cell \"Sheet1\" \"C5\" \"serif\")\n",
+                "(style \"Sheet1\" \"C5\" 9)\n",
+                "(formula \"Sheet1\" \"A6\" \"=B1*2\")\n",
+                "(value \"Sheet1\" \"A6\" 3)\n",
+                "(refers \"Sheet1!A6\" \"Sheet1!B1\")\n",
+                "(cell \"Sheet1\" \"B6\" 6)\n",
+                "(gridlines \"Sheet2\" off)\n",
+                "(column \"Sheet2\" \"A\" 11.43 shown none)\n",
+                "(format 0 none general nowrap)\n",
+                "(cell \"Sheet2\" \"A1\" 1)\n",
+            )
+        );
+        // The covered cell and B5 keep a format and no value; the run of
+        // A5 and C5's family the record cannot hold; LibreOffice's two
+        // rules beside the table, its style's map passed over for them.
+        assert_eq!(
+            (
+                stats.styled,
+                stats.formatted_empty,
+                stats.unheld,
+                stats.undrawn,
+                stats.merged,
+                stats.conditional,
+                stats.row_formats
+            ),
+            (8, 2, 2, 0, 1, 2, 1)
+        );
+        // A document of 1904's dates counts its serials from its null date.
+        let nineteen_o_four = calc_document(
+            "<table:calculation-settings><table:null-date table:date-value=\"1904-01-01\"/></table:calculation-settings>",
+        );
+        let (text, _) = crate::reflect::reflect_looks(&nineteen_o_four, "1904.ods").unwrap();
+        assert!(text.contains("(cell \"Sheet1\" \"A2\" 44216)\n"), "{text}");
+    }
+
+    /// The looks' first pass and the walk print the same cells: every
+    /// OpenDocument file of the tree, and the Calc document, read under the
+    /// looks prints the cells and formulas its relations print, in order.
+    #[test]
+    fn the_first_pass_reads_the_cells_the_walk_prints() {
+        #[derive(Default)]
+        struct Places(Vec<String>);
+        impl Sink for Places {
+            fn row(&mut self, row: &Row<'_>) {
+                match row {
+                    Row::Cell { sheet, addr, .. } | Row::Formula { sheet, addr, .. } => {
+                        let place = format!("{sheet}!{addr}");
+                        if self.0.last() != Some(&place) {
+                            self.0.push(place);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/reflect");
+        let mut files: Vec<(String, Vec<u8>)> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("ods"))
+            .map(|p| (p.display().to_string(), std::fs::read(&p).unwrap()))
+            .collect();
+        assert!(files.len() >= 3, "{} OpenDocument files", files.len());
+        files.push(("calc.ods".to_string(), calc_document("")));
+        for (label, bytes) in &files {
+            let document = Document::open(bytes, label).unwrap();
+            for i in 0..document.sheets().len() {
+                let mut related = Places::default();
+                document.walk_sheet(i, &mut related).unwrap();
+                let mut looked = Places::default();
+                document
+                    .walk_sheet_looks(i, &mut looked, &mut HashSet::new())
+                    .unwrap();
+                assert_eq!(related.0, looked.0, "{label}, sheet {i}");
+                // The first pass's extent is the printed cells' rectangle.
+                let (scan, _) = document.first_pass(i, document.looks().unwrap()).unwrap();
+                let places: Vec<(u32, u32)> = related
+                    .0
+                    .iter()
+                    .map(|p| {
+                        let a =
+                            crate::sheet::parse_a1_range(p.rsplit('!').next().unwrap()).unwrap();
+                        (a.top, a.left)
+                    })
+                    .collect();
+                let rectangle = (!places.is_empty()).then(|| crate::sheet::A1Range {
+                    top: places.iter().map(|p| p.0).min().unwrap(),
+                    left: places.iter().map(|p| p.1).min().unwrap(),
+                    bottom: places.iter().map(|p| p.0).max().unwrap(),
+                    right: places.iter().map(|p| p.1).max().unwrap(),
+                });
+                assert_eq!(scan.extent, rectangle, "{label}, sheet {i}");
+            }
+        }
     }
 
     #[test]
