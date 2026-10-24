@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.59 | KERNEL.60 |
+| KERNEL | KERNEL.60 | KERNEL.61 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.4 | VLA.5 |
+| VLA | VLA.7 | VLA.8 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -341,6 +341,11 @@ free.
 built-ins 37 and 39 written as the codes the record says, and an
 OpenDocument data style's locale read back as Excel's tag. `KERNEL.60` is
 next free.
+`KERNEL.60` was minted 2026-10-23 at the owner's word, from the sitting of
+2026-10-22 on the helper-hungry style, for `ADDRESS` computed, a cell's
+address as a text from its row and column, entering on its fixture alone,
+so that a Write sheet row names its target by number. `KERNEL.61` is next
+free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
@@ -376,7 +381,16 @@ cartridge composes a formula from expressions; it takes the number two
 records had given an unminted candidate for the same need (a macro's text
 inside `&expand`, `KERNEL.28`'s note and Alonzo's `CART.2` decision 14),
 and folds in what remained of `F.7`; scoped, built, owner-tested and
-committed the same day, `F.7` closing with it. `VLA.5` is next free.
+committed the same day, `F.7` closing with it. `VLA.5`, `VLA.6` and `VLA.7` were minted
+2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the
+helper-hungry style (`BETA_REARVIEW.md`, THE METAMETAMACRO LINE): `VLA.5`,
+`each`, a loop at expand time, and `assoc-expand`, a piece by its head,
+so that a kit macro says what its rows are and never how to walk them;
+`VLA.6`, a name at expand time, `define`, resolved by the pass before the
+formula syntax sees the symbol, and `last`, a reference's twin, in the
+syntax; `VLA.7`, the house style of VLA source, its rule-set, a formatter
+that keeps comments and is proved by expansion, and the lint's refusals
+by name. `VLA.8` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

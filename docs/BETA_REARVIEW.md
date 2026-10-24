@@ -17658,6 +17658,48 @@ lost or mistaken for closer than they are:**
 
 ---
 
+**The sitting of 2026-10-22: the helper-hungry style, and four items minted
+2026-10-23.** The owner's thesis, stated in a Delta-wide session: VLA
+should feel like recalling what one already knows, declarative forms over
+imperative ones, every unit of computation named, a form holding three to
+five variables, helpers "abused and over-abused so that each macro feels
+more like composing lego blocks", Kairos's `board` macro the anti-example,
+and a lint rule-set for indentation settled soon, vertical s-expressions
+over one-liners. The session's reading, from a count over every source in
+Delta (a scanner of top-level forms, their line spans, their nesting and
+each `defmacro`'s arity): the median form is small everywhere, 1 to 4
+lines, and the outliers are of two kinds, the deep tree (Kairos's `board`,
+99 lines at depth 13, its body written twice for two orientations;
+Seiyaku's deepest rule at 12) and the long table (Buffet's `on` of 112
+rows, Seiyaku's book of 130), of which only the first is a reading
+problem; the kit's forty-two macros have a median of two parameters and
+two over five (`put`, `put-from`), the phrasebook's 220 six over five, and
+the games and Buffet's kitchen the rest (`field-rule` 10, three `-around`
+8, `dollars-spelled` 10, `dollars-grouped` 9). Three kinds of helper, each
+with its cost: a labeled cell (one node, visible, replayable, but cited by
+address), an expression macro (no node, the expanded row longer, a unit
+used twice computed twice until `KERNEL.29`'s `LET`), and a row-writing
+verb (composed by `begin`, where arity bites). The rule recommended: a
+unit read by one formula is an expression macro, by two or every frame a
+labeled cell, written by two cartridges a kit verb. Two pushbacks
+recorded: indirection is a cost of its own, and the kit's four-deep
+`picture` walkers exist only because the expander has no loop; and the
+grid is already declarative by Alonzo's `AD-7`, the imperative residue
+being the macro layer's walks and the Write sheet, which stays by the
+frame-problem argument of Alonzo's `SPEC.md` §3.9. Three styles of VLA
+source were found: Lint VLA's (`U.20`, 100 columns, two vertical shapes,
+comments inside a form dropped), the language's `write_pretty` (90
+columns, no comments) and the cartridges' (2 spaces, trailing comments at
+column 36, tables, closers hugging). At the owner's word of 2026-10-23,
+"Mint roadmap items to address these findings in their proper places":
+`VLA.5` (`each` and `assoc-expand`), `VLA.6` (`define` and `last`) and
+`VLA.7` (the style, the formatter and the lint) in this line, and
+`KERNEL.60` (`ADDRESS` computed) in the KERNEL line; Alonzo's `KIT.6`,
+`CART.15` and `REPO.7` and Buffet's `HOUSE.7` beside them, each in its own
+record. Nothing is built; the counts are the scanner's of that day and not
+a floor.
+
+
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
 *One download per language — the owner's own call, this session, and it
