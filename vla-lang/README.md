@@ -47,7 +47,11 @@ refused in the same words.
   `characters-expand`), and a cell's address written from a row and a
   column or read back (`address-expand`, `row-expand`, `column-expand`,
   `column-letters-expand`). A name that ends in `expand` is computed while
-  the macro expands; each refuses by name what it cannot compute.
+  the macro expands; each refuses by name what it cannot compute. The
+  expander shares what it walks, as the add-in does: a list is held once,
+  its `cdr` a view of its items and a parameter's value the argument
+  itself, so that a macro walking a list costs its length and not its
+  square, which `tests/walks.rs` holds by counting the allocations.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.
@@ -179,7 +183,9 @@ refused in the same words.
   blocks, a shape's cells on a sheet at a level, and as a list of its cells
   too where it holds at most 262,144, so that a large grid's plan holds no
   entry for a fill's cell but where the fill reads itself or a cycle may
-  stand. The grid is the
+  stand. Life on a plane of 320 by 200, 62,964 formulas, steps a frame,
+  its clock advanced, in about 2.3 ms natively on the repository's bench
+  machine (its floors, `tools/check_recalc_floors.ps1`). The grid is the
   machine's own: a filled formula held once, a rectangle and its text, cut
   into pieces by a write into part of it, and every value once, by place,
   nine bytes a cell, a twin keeping its own only where a formula reads it;
@@ -263,21 +269,27 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Recalculation's next slices.** Dynamic arrays' spills, an item of their
-  own after KERNEL.8, whose six slices, the lookups, implicit intersection
-  and `@`, the text and the date functions, the aggregates by criteria and
-  arrays within a formula, are above; the vectorized evaluation of a shared
-  formula, incremental recomputation and content-addressed evaluation
-  (KERNEL.20), which is what makes a frame of a 320 by 200 grid fast: today
-  the machine steps one in about a tenth of a second natively. The first
-  slice is here.
-- **The corpus's expansion golden.** The corpus program expanded under the
-  prelude, written by the reference and reproduced here, beside the golden
-  of the expand-time primitives the crate is already held to.
-- **An expander that shares what it walks.** A macro that walks a list
-  copies the rest of the list at each step today, so its cost grows with
-  the square of the list: a table generator's walk of 2,000 rows takes
-  about nine seconds natively (VLA.2).
+- **Spills, and Excel 365's arrays whole.** A dynamic formula's answer of
+  many values laid into the cells beside it, a legacy array formula over
+  many cells computed at each of them, and a dynamic formula's shape
+  lowered to its program, so that a workbook of Excel 365's arrays computes
+  as Excel computes it, and as fast as its legacy twin (KERNEL.55).
+- **Functions written in formulas.** `LET`, a name bound to a value once
+  within a formula, and `LAMBDA`, a function of named parameters, called
+  where it is written, passed to `MAP`, `REDUCE`, `BYROW` and their kin, or
+  held by a defined name and called by it from any formula, a named
+  function costing what the formula it stands for costs (KERNEL.29).
+- **A write that empties a cell.** A row the machine's write takes beside
+  `cell`, `formula` and `derived`, so that a host gives a cell back to no
+  value, as a rebuilt cartridge that no longer writes it asks (KERNEL.46).
+- **Two of Excel's readings.** A formula's literal of sixteen digits or
+  more, which Excel cuts to fifteen, read as Excel reads it or named where
+  Excel would cut it (KERNEL.51); and a database function's computed
+  criteria, a formula computed at each record, where it is labelled today
+  (KERNEL.52).
+- **More of a cell's look.** A merged range, a conditional format, and a
+  font's family, underline and strike, held by the model and the record
+  (KERNEL.58).
 
 ## Where it comes from
 
