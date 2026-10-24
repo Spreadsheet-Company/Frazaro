@@ -170,7 +170,12 @@ refused in the same words.
   when nothing moves: a frame that changed nothing, with no write before
   it, is followed by frames that change nothing. Each
   formula is parsed once per shape (a filled formula, or cells whose R1C1
-  text is the same) and evaluated at each cell's offset. The grid is the
+  text is the same) and evaluated at each cell's offset, and the order is
+  found over each fill's rectangles and each formula alone and kept as
+  blocks, a shape's cells on a sheet at a level, and as a list of its cells
+  too where it holds at most 262,144, so that a large grid's plan holds no
+  entry for a fill's cell but where the fill reads itself or a cycle may
+  stand. The grid is the
   machine's own: a filled formula held once, a rectangle and its text, cut
   into pieces by a write into part of it, and every value once, by place,
   nine bytes a cell, a twin keeping its own only where a formula reads it;

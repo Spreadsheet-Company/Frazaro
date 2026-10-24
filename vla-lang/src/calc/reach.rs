@@ -88,13 +88,15 @@ use crate::grid::Model;
 use crate::refers::Shape as Part;
 use crate::sheet::{MAX_COLUMN, MAX_ROW};
 
+use super::blocks::Blocks;
 use super::formula::{Expr, Read, RefExpr};
 use super::graph::CellId;
+use super::nodes::Located;
 use super::shape::Shape;
 
 /// One dimension of a reference, its rows or its columns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Dim {
+pub(crate) enum Dim {
     /// A whole column's rows, or a whole row's columns, at every offset.
     Whole { max: u32 },
     /// Two numbers as written, each with its `$` (a cell's first again):
@@ -110,7 +112,7 @@ enum Dim {
 
 impl Dim {
     /// A reference's rows, as [`RefExpr::moved`] moves them.
-    fn rows(r: &RefExpr) -> Option<Dim> {
+    pub(crate) fn rows(r: &RefExpr) -> Option<Dim> {
         let c = &r.corners;
         let span = |n1, abs1, n2, abs2| Dim::Span {
             n1,
@@ -128,7 +130,7 @@ impl Dim {
     }
 
     /// A reference's columns, as [`RefExpr::moved`] moves them.
-    fn cols(r: &RefExpr) -> Option<Dim> {
+    pub(crate) fn cols(r: &RefExpr) -> Option<Dim> {
         let c = &r.corners;
         let span = |n1, abs1, n2, abs2| Dim::Span {
             n1,
@@ -146,7 +148,7 @@ impl Dim {
     }
 
     /// Whether every offset holds the same numbers.
-    fn fixed(self) -> bool {
+    pub(crate) fn fixed(self) -> bool {
         match self {
             Dim::Whole { .. } => true,
             Dim::Span { abs1, abs2, .. } => abs1 && abs2,
@@ -154,7 +156,7 @@ impl Dim {
     }
 
     /// The numbers a fixed dimension holds.
-    fn bounds(self) -> (u32, u32) {
+    pub(crate) fn bounds(self) -> (u32, u32) {
         match self {
             Dim::Whole { max } => (1, max),
             Dim::Span { n1, n2, .. } => (n1.min(n2), n1.max(n2)),
@@ -165,6 +167,18 @@ impl Dim {
     /// unbounded where any offset does; `None` when no offset does. A
     /// relative number moved off the sheet is `#REF!`, which holds nothing.
     fn offsets(self, at: u32) -> Option<(i64, i64)> {
+        self.meeting(at, at)
+    }
+
+    /// The offsets at which the dimension, moved, holds some number from
+    /// `from` to `to` (KERNEL.49's decision 7: the cells of a node that read
+    /// a rectangle are these offsets in each dimension): an interval,
+    /// unbounded where any offset does; `None` when no offset does. The two
+    /// numbers held between them once moved meet the span where the least
+    /// is at most `to` and the most at least `from`; a number its `$` holds
+    /// stays, and a relative number moved off the sheet is `#REF!`, which
+    /// holds nothing.
+    pub(crate) fn meeting(self, from: u32, to: u32) -> Option<(i64, i64)> {
         let Dim::Span {
             n1,
             abs1,
@@ -175,7 +189,8 @@ impl Dim {
         else {
             return Some((i64::MIN, i64::MAX));
         };
-        let (at, n1, n2, max) = (i64::from(at), i64::from(n1), i64::from(n2), i64::from(max));
+        let (from, to) = (i64::from(from), i64::from(to));
+        let (n1, n2, max) = (i64::from(n1), i64::from(n2), i64::from(max));
         let (mut lo, mut hi) = (i64::MIN, i64::MAX);
         for (n, abs) in [(n1, abs1), (n2, abs2)] {
             if !abs {
@@ -184,11 +199,11 @@ impl Dim {
             }
         }
         let (a, b) = match (abs1, abs2) {
-            (true, true) if n1.min(n2) <= at && at <= n1.max(n2) => (i64::MIN, i64::MAX),
+            (true, true) if n1.min(n2) <= to && from <= n1.max(n2) => (i64::MIN, i64::MAX),
             (true, true) => return None,
-            (false, false) => (at - n1.max(n2), at - n1.min(n2)),
-            (true, false) => between(n1, n2, at),
-            (false, true) => between(n2, n1, at),
+            (false, false) => (from - n1.max(n2), to - n1.min(n2)),
+            (true, false) => between(n1, n2, from, to),
+            (false, true) => between(n2, n1, from, to),
         };
         let (lo, hi) = (lo.max(a), hi.min(b));
         (lo <= hi).then_some((lo, hi))
@@ -200,7 +215,7 @@ impl Dim {
     /// and the dimension holds what lies between its two, so the least and
     /// the most either takes over the offsets bound everything it holds at
     /// any of them.
-    fn reach(self, (d0, d1): (i64, i64)) -> Option<Span> {
+    pub(crate) fn reach(self, (d0, d1): (i64, i64)) -> Option<Span> {
         let (n1, abs1, n2, abs2, max) = match self {
             Dim::Whole { max } => return Some((1, max)),
             Dim::Span {
@@ -265,12 +280,16 @@ fn dim_covers(q: Dim, p: Dim, (d0, d1): (i64, i64)) -> bool {
 }
 
 /// A number its `$` holds and one the offset moves: the offsets at which
-/// the numbers between them hold `at`.
-fn between(held: i64, moved: i64, at: i64) -> (i64, i64) {
-    match at.cmp(&held) {
-        std::cmp::Ordering::Equal => (i64::MIN, i64::MAX),
-        std::cmp::Ordering::Greater => (at - moved, i64::MAX),
-        std::cmp::Ordering::Less => (i64::MIN, at - moved),
+/// the numbers between them hold some number from `from` to `to`, every
+/// offset where the held one does, else those that carry the moved one
+/// past the nearer end.
+fn between(held: i64, moved: i64, from: i64, to: i64) -> (i64, i64) {
+    if from <= held && held <= to {
+        (i64::MIN, i64::MAX)
+    } else if held < from {
+        (from - moved, i64::MAX)
+    } else {
+        (i64::MIN, to - moved)
     }
 }
 
@@ -387,13 +406,11 @@ fn cut(stand: &Stand, cells: u64) -> bool {
 /// where a test asks the reach unpieced, the list then empty. The pieces
 /// are gathered apart and the stands given room for them alone: pushed
 /// onto the stands, the netlist's 992 doubled its 19,955 stands' room, 1.2
-/// MB held for nothing.
-fn pieces(
-    stands: &mut Vec<Stand>,
-    cells: &[u64],
-    order: &[CellId],
-    shape_at: &[u32],
-) -> Vec<Vec<u32>> {
+/// MB held for nothing. A shape's cells are its blocks' rectangles, each cut
+/// by the tiles it crosses (KERNEL.49's decision 7), the pieces made in the
+/// order's order, block by block and in each by the first cell of its
+/// rectangles in each tile, as a walk of every cell of the order made them.
+fn pieces(stands: &mut Vec<Stand>, cells: &[u64], blocks: &Blocks) -> Vec<Vec<u32>> {
     let far: Vec<bool> = (0..cells.len())
         .map(|s| cells[s] > 0 && cut(&stands[s], cells[s]))
         .collect();
@@ -404,31 +421,68 @@ fn pieces(
     let first = stands.len();
     let mut added: Vec<Stand> = Vec::new();
     let mut piece_at: FxHashMap<(u32, usize, u32, u32), u32> = FxHashMap::default();
-    for (&(sheet, row, col), &s) in order.iter().zip(shape_at) {
+    // Each tile a block's cells meet, with the first of its cells there and
+    // the box of them.
+    let mut tiles: Vec<Tile> = Vec::new();
+    for (k, b) in blocks.blocks().iter().enumerate() {
+        let s = b.shape;
         if !far[s as usize] {
             continue;
         }
-        let anchor = stands[s as usize].anchor;
-        let (d_row, d_col) = (
-            i64::from(row) - i64::from(anchor.0),
-            i64::from(col) - i64::from(anchor.1),
-        );
-        match piece_at.entry((s, sheet, row / TILE, col / TILE)) {
-            Entry::Occupied(at) => {
-                let piece = &mut added[*at.get() as usize - first];
-                piece.rows = (piece.rows.0.min(d_row), piece.rows.1.max(d_row));
-                piece.cols = (piece.cols.0.min(d_col), piece.cols.1.max(d_col));
+        let sheet = b.sheet as usize;
+        tiles.clear();
+        for r in blocks.rects_of(k) {
+            for tr in r.top / TILE..=r.bottom / TILE {
+                for tc in r.left / TILE..=r.right / TILE {
+                    let tile = crate::sheet::A1Range {
+                        top: (tr * TILE).max(r.top),
+                        left: (tc * TILE).max(r.left),
+                        bottom: (tr * TILE + TILE - 1).min(r.bottom),
+                        right: (tc * TILE + TILE - 1).min(r.right),
+                    };
+                    match tiles.iter_mut().find(|t| t.0 == (tr, tc)) {
+                        Some(t) => {
+                            t.1 = t.1.min((tile.top, tile.left));
+                            t.2 = crate::sheet::A1Range {
+                                top: t.2.top.min(tile.top),
+                                left: t.2.left.min(tile.left),
+                                bottom: t.2.bottom.max(tile.bottom),
+                                right: t.2.right.max(tile.right),
+                            };
+                        }
+                        None => tiles.push(((tr, tc), (tile.top, tile.left), tile)),
+                    }
+                }
             }
-            Entry::Vacant(at) => {
-                let k = (first + added.len()) as u32;
-                added.push(Stand {
-                    sheets: vec![sheet],
-                    anchor,
-                    rows: (d_row, d_row),
-                    cols: (d_col, d_col),
-                });
-                at.insert(k);
-                pieces[s as usize].push(k);
+        }
+        tiles.sort_unstable_by_key(|t| t.1);
+        let anchor = stands[s as usize].anchor;
+        for &((tr, tc), _, x) in &tiles {
+            let (r0, r1) = (
+                i64::from(x.top) - i64::from(anchor.0),
+                i64::from(x.bottom) - i64::from(anchor.0),
+            );
+            let (c0, c1) = (
+                i64::from(x.left) - i64::from(anchor.1),
+                i64::from(x.right) - i64::from(anchor.1),
+            );
+            match piece_at.entry((s, sheet, tr, tc)) {
+                Entry::Occupied(at) => {
+                    let piece = &mut added[*at.get() as usize - first];
+                    piece.rows = (piece.rows.0.min(r0), piece.rows.1.max(r1));
+                    piece.cols = (piece.cols.0.min(c0), piece.cols.1.max(c1));
+                }
+                Entry::Vacant(at) => {
+                    let k = (first + added.len()) as u32;
+                    added.push(Stand {
+                        sheets: vec![sheet],
+                        anchor,
+                        rows: (r0, r1),
+                        cols: (c0, c1),
+                    });
+                    at.insert(k);
+                    pieces[s as usize].push(k);
+                }
             }
         }
     }
@@ -436,6 +490,10 @@ fn pieces(
     stands.extend(added);
     pieces
 }
+
+/// A tile a block's cells meet: its row and column among the tiles, the
+/// first of those cells there, and their box.
+type Tile = ((u32, u32), (u32, u32), crate::sheet::A1Range);
 
 /// Whether a test asks every reach built with no shape cut into pieces;
 /// `false` outside a test.
@@ -523,8 +581,8 @@ enum Slots {
     /// `first + k` at slot `k`.
     Flat { first: u32, len: u32 },
     /// The bands readers hold, where they stand too far apart for an array
-    /// over every band between them, each at its slot by hash, as
-    /// [`Positions`] keeps a sheet's formulas that stand apart: a narrow
+    /// over every band between them, each at its slot by hash, as a plan
+    /// kept a sheet's formulas that stood apart before KERNEL.49: a narrow
     /// reader at row 1,048,576 beside readers at the top would ask the array
     /// for a million slots.
     Hash(FxHashMap<u32, u32>),
@@ -548,7 +606,8 @@ impl Bands {
                 _ => wide.push(i),
             }
         }
-        // As a sheet's formulas' positions are kept: an array no more than
+        // As a plan kept a sheet's formulas' positions before KERNEL.49: an
+        // array no more than
         // four times what it holds, so that two bands far apart are two
         // slots and not a million.
         let slots = if filed.is_empty() {
@@ -898,44 +957,48 @@ pub(crate) struct Reach {
     /// frame's start; a shape's are `parts[firsts[s]..firsts[s + 1]]`.
     parts: Vec<Expr>,
     firsts: Vec<usize>,
-    /// Each formula cell's position in the order.
-    positions: Positions,
-    /// The shape of the cell at each position of the order.
-    shape_at: Vec<u32>,
 }
 
 impl Reach {
     /// What the shapes read, against the grid they are placed in, and where
-    /// their cells stand in it and in the order; `shape_at` is the shape of
-    /// each cell of the order, and `formula` whether a cell holds a formula.
+    /// their cells stand in it and in the order, which its blocks hold
+    /// (KERNEL.49's decision 7): each shape's stand the box of its blocks'
+    /// cells, a box a block, and whether a cell holds a formula found from
+    /// where the plan placed it.
     pub(crate) fn of<M: Model + ?Sized>(
         model: &M,
         shapes: &[Shape],
-        order: &[CellId],
-        shape_at: Vec<u32>,
-        formula: &dyn Fn(CellId) -> bool,
+        blocks: &Blocks,
+        located: &Located,
     ) -> Reach {
         let find: &dyn Fn(&str) -> Option<usize> = &|name| model.find_sheet(name);
+        let formula: &dyn Fn(CellId) -> bool = &|id| located.holds(id);
         let mut stands: Vec<Stand> = vec![Stand::default(); shapes.len()];
         let mut seen = vec![false; shapes.len()];
         let mut cells = vec![0u64; shapes.len()];
-        for (&(sheet, row, col), &s) in order.iter().zip(&shape_at) {
-            let s = s as usize;
-            cells[s] += 1;
+        for (k, b) in blocks.blocks().iter().enumerate() {
+            let s = b.shape as usize;
+            cells[s] += blocks.count(k) as u64;
             let (a_row, a_col) = (shapes[s].anchor.1, shapes[s].anchor.2);
-            let (d_row, d_col) = (
-                i64::from(row) - i64::from(a_row),
-                i64::from(col) - i64::from(a_col),
+            let r = &b.rect;
+            let rows = (
+                i64::from(r.top) - i64::from(a_row),
+                i64::from(r.bottom) - i64::from(a_row),
+            );
+            let cols = (
+                i64::from(r.left) - i64::from(a_col),
+                i64::from(r.right) - i64::from(a_col),
             );
             let stand = &mut stands[s];
             if !seen[s] {
                 seen[s] = true;
                 stand.anchor = (a_row, a_col);
-                stand.rows = (d_row, d_row);
-                stand.cols = (d_col, d_col);
+                stand.rows = rows;
+                stand.cols = cols;
             }
-            stand.rows = (stand.rows.0.min(d_row), stand.rows.1.max(d_row));
-            stand.cols = (stand.cols.0.min(d_col), stand.cols.1.max(d_col));
+            stand.rows = (stand.rows.0.min(rows.0), stand.rows.1.max(rows.1));
+            stand.cols = (stand.cols.0.min(cols.0), stand.cols.1.max(cols.1));
+            let sheet = b.sheet as usize;
             if !stand.sheets.contains(&sheet) {
                 stand.sheets.push(sheet);
             }
@@ -943,7 +1006,7 @@ impl Reach {
         for stand in &mut stands {
             stand.sheets.sort_unstable();
         }
-        let pieces = pieces(&mut stands, &cells, order, &shape_at);
+        let pieces = pieces(&mut stands, &cells, blocks);
         let mut readers: Vec<Vec<Reader>> = vec![Vec::new(); model.sheet_count()];
         let mut extent_readers: Vec<(u32, u32)> = Vec::new();
         let mut unfollowed = Vec::new();
@@ -972,6 +1035,7 @@ impl Reach {
                 }
                 _ => false,
             };
+            debug_assert_eq!(followed, self::followed(shape), "shape {s}");
             if !followed {
                 parts.truncate(first);
                 unfollowed.push(s);
@@ -1073,8 +1137,6 @@ impl Reach {
             extent_readers,
             parts,
             firsts,
-            positions: Positions::of(order, model.sheet_count()),
-            shape_at,
         }
     }
 
@@ -1083,20 +1145,27 @@ impl Reach {
     /// sheet's index's, where the sheet has one, and every reader of the
     /// sheet where it has none (KERNEL.35), each in no order that matters:
     /// what is reached marks a set.
-    pub(crate) fn each(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
+    pub(crate) fn each(
+        &self,
+        blocks: &Blocks,
+        located: &Located,
+        changed: CellId,
+        f: &mut impl FnMut(Reached),
+    ) {
         let (sheet, row, col) = changed;
         let Some(readers) = self.readers.get(sheet) else {
             return;
         };
+        let at = (blocks, located);
         match self.index.get(sheet).and_then(Option::as_ref) {
             Some(index) => {
                 index.each(row, col, &mut |i| {
-                    self.check(&readers[i as usize], changed, f);
+                    self.check(at, &readers[i as usize], changed, f);
                 });
             }
             None => {
                 for reader in readers {
-                    self.check(reader, changed, f);
+                    self.check(at, reader, changed, f);
                 }
             }
         }
@@ -1105,17 +1174,31 @@ impl Reach {
     /// Everything a changed cell reaches, every reader of its sheet checked
     /// against it: the reach before KERNEL.35, kept as the index's reference.
     #[cfg(test)]
-    pub(crate) fn each_by_scan(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
+    pub(crate) fn each_by_scan(
+        &self,
+        blocks: &Blocks,
+        located: &Located,
+        changed: CellId,
+        f: &mut impl FnMut(Reached),
+    ) {
         if let Some(readers) = self.readers.get(changed.0) {
             for reader in readers {
-                self.check(reader, changed, f);
+                self.check((blocks, located), reader, changed, f);
             }
         }
     }
 
     /// One reader of a changed cell's sheet checked against it: what it
-    /// reaches, to `f`.
-    fn check(&self, reader: &Reader, changed: CellId, f: &mut impl FnMut(Reached)) {
+    /// reaches, to `f`, a shape's cells reached found through its nodes and
+    /// the order's blocks (KERNEL.49's decision 7), where a grid of every
+    /// cell's position was asked at each offset.
+    fn check(
+        &self,
+        (blocks, located): (&Blocks, &Located),
+        reader: &Reader,
+        changed: CellId,
+        f: &mut impl FnMut(Reached),
+    ) {
         #[cfg(test)]
         checked::one();
         let (sheet, row, col) = changed;
@@ -1153,34 +1236,19 @@ impl Reach {
                 } else {
                     stand.sheets.as_slice()
                 };
+                // The offsets the shape's cells stand at are rows and
+                // columns on the sheet.
+                let area = crate::sheet::A1Range {
+                    top: (i64::from(stand.anchor.0) + r0) as u32,
+                    left: (i64::from(stand.anchor.1) + c0) as u32,
+                    bottom: (i64::from(stand.anchor.0) + r1) as u32,
+                    right: (i64::from(stand.anchor.1) + c1) as u32,
+                };
                 for &y in on {
-                    for d_row in r0..=r1 {
-                        // An offset the shape's cells stand at is a row and
-                        // a column on the sheet.
-                        let r = (i64::from(stand.anchor.0) + d_row) as u32;
-                        for d_col in c0..=c1 {
-                            let c = (i64::from(stand.anchor.1) + d_col) as u32;
-                            if let Some(p) = self.positions.get(y, r, c) {
-                                if self.shape_at[p] as usize == s {
-                                    f(Reached::Cell(p));
-                                }
-                            }
-                        }
-                    }
+                    located.each_in(blocks, s, y, &area, &mut |p| f(Reached::Cell(p)));
                 }
             }
         }
-    }
-
-    /// A formula cell's position in the order, where an engine's machine
-    /// keeps its value (KERNEL.26); `None` for a cell holding no formula.
-    pub(crate) fn position(&self, id: CellId) -> Option<usize> {
-        self.positions.get(id.0, id.1, id.2)
-    }
-
-    /// The shape of the cell at a position of the order.
-    pub(crate) fn shape_at(&self, pos: usize) -> usize {
-        self.shape_at[pos] as usize
     }
 
     /// The shapes no change is followed to, computed every frame.
@@ -1216,9 +1284,8 @@ impl Reach {
         self.parts.len()
     }
 
-    /// The reach spelled but for the positions, which the order makes
-    /// (KERNEL.34's oracle, through `Shapes::spelled`), each sheet's index
-    /// with it (KERNEL.35).
+    /// The reach spelled (KERNEL.34's oracle, through `Shapes::spelled`),
+    /// each sheet's index with it (KERNEL.35).
     #[cfg(test)]
     pub(crate) fn spelled(&self) -> String {
         let index: Vec<String> = self
@@ -1228,14 +1295,13 @@ impl Reach {
             .filter_map(|(s, x)| Some(format!("{s} {}", x.as_ref()?.spelled())))
             .collect();
         format!(
-            "stands {:?}\nreaders {:?}\nindex {index:?}\nunfollowed {:?}\nextent readers {:?}\nparts {:?}\nfirsts {:?}\nshape at {:?}\n",
+            "stands {:?}\nreaders {:?}\nindex {index:?}\nunfollowed {:?}\nextent readers {:?}\nparts {:?}\nfirsts {:?}\n",
             self.stands,
             self.readers,
             self.unfollowed,
             self.extent_readers,
             self.parts,
-            self.firsts,
-            self.shape_at
+            self.firsts
         )
     }
 
@@ -1261,6 +1327,33 @@ impl Reach {
     pub(crate) fn most_on(&self, sheet: usize) -> Option<usize> {
         self.index.get(sheet)?.as_ref().map(Index::most)
     }
+}
+
+/// Whether a change is followed to a shape's cells, which [`At::read`]
+/// answers as the reach is found (KERNEL.49's decision 7 plans a shape it
+/// does not follow cell by cell, and asks before the order): its parse read
+/// and not risky, and no defined name, span of sheets or range whose reach
+/// is not one sheet's anywhere in it.
+pub(crate) fn followed(shape: &Shape) -> bool {
+    let Ok(e) = &shape.expr else {
+        return false;
+    };
+    if shape.risky {
+        return false;
+    }
+    let mut stack = vec![e];
+    while let Some(e) = stack.pop() {
+        match e {
+            Expr::Name { .. } => return false,
+            Expr::Ref(r) if r.last_sheet.is_some() => return false,
+            Expr::Range(r) if r.reach.as_ref().map_or(true, |x| x.last_sheet.is_some()) => {
+                return false
+            }
+            _ => {}
+        }
+        e.push_children(&mut stack);
+    }
+    true
 }
 
 /// One shape's parse being read.
@@ -1531,124 +1624,6 @@ fn held(r: &RefExpr) -> bool {
 
 /// No position, and no band filed again.
 const NONE: u32 = u32::MAX;
-
-/// Each formula cell's position in the order: an array over a sheet's
-/// formulas where they stand close enough together, the rest by hash.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct Positions {
-    grids: Vec<Option<Grid>>,
-    rest: FxHashMap<CellId, u32>,
-}
-
-/// The positions of one sheet's formulas over the rectangle they fill.
-#[derive(Clone, Debug)]
-struct Grid {
-    top: u32,
-    left: u32,
-    width: u32,
-    height: u32,
-    at: Vec<u32>,
-}
-
-/// A sheet's formulas' rectangle, its top, left, bottom and right, and how
-/// many they are.
-type Bounds = (u32, u32, u32, u32, u64);
-
-impl Positions {
-    pub(crate) fn of(order: &[CellId], sheets: usize) -> Positions {
-        let mut bounds: Vec<Option<Bounds>> = vec![None; sheets];
-        for &(s, row, col) in order {
-            if let Some(b) = bounds.get_mut(s) {
-                *b = Some(match *b {
-                    None => (row, col, row, col, 1),
-                    Some((t, l, bt, r, n)) => {
-                        (t.min(row), l.min(col), bt.max(row), r.max(col), n + 1)
-                    }
-                });
-            }
-        }
-        // An array no more than four times its formulas, so that two
-        // formulas far apart are two entries and not a million slots.
-        let grids = bounds
-            .iter()
-            .map(|b| {
-                let (top, left, bottom, right, n) = (*b)?;
-                let (width, height) = (right - left + 1, bottom - top + 1);
-                let cells = u64::from(width) * u64::from(height);
-                (cells <= 4 * n + 64).then(|| Grid {
-                    top,
-                    left,
-                    width,
-                    height,
-                    at: vec![NONE; cells as usize],
-                })
-            })
-            .collect();
-        let mut p = Positions {
-            grids,
-            rest: FxHashMap::default(),
-        };
-        for (i, &(s, row, col)) in order.iter().enumerate() {
-            match p.grids.get_mut(s).and_then(Option::as_mut) {
-                Some(g) => {
-                    let k = (row - g.top) as usize * g.width as usize + (col - g.left) as usize;
-                    g.at[k] = i as u32;
-                }
-                None => {
-                    p.rest.insert((s, row, col), i as u32);
-                }
-            }
-        }
-        p
-    }
-
-    pub(crate) fn get(&self, sheet: usize, row: u32, col: u32) -> Option<usize> {
-        match self.grids.get(sheet) {
-            Some(Some(g)) => {
-                let (r, c) = (row.checked_sub(g.top)?, col.checked_sub(g.left)?);
-                if r >= g.height || c >= g.width {
-                    return None;
-                }
-                let at = g.at[r as usize * g.width as usize + c as usize];
-                (at != NONE).then_some(at as usize)
-            }
-            _ => self.rest.get(&(sheet, row, col)).map(|&p| p as usize),
-        }
-    }
-
-    /// Each position whose cell stands inside a rectangle of a sheet held as
-    /// an array, to `f`, row by row; `false` for a sheet whose formulas are
-    /// held by hash, which the caller walks instead (KERNEL.33: a plan finds
-    /// the formula cells an area reads with it).
-    pub(crate) fn each_in(
-        &self,
-        sheet: usize,
-        (top, left, bottom, right): (u32, u32, u32, u32),
-        f: &mut impl FnMut(usize),
-    ) -> bool {
-        let Some(Some(g)) = self.grids.get(sheet) else {
-            return false;
-        };
-        let (t, l) = (top.max(g.top), left.max(g.left));
-        let (b, r) = (
-            bottom.min(g.top + g.height - 1),
-            right.min(g.left + g.width - 1),
-        );
-        if t > b || l > r {
-            return true;
-        }
-        for row in t..=b {
-            let base = (row - g.top) as usize * g.width as usize;
-            for col in l..=r {
-                let at = g.at[base + (col - g.left) as usize];
-                if at != NONE {
-                    f(at as usize);
-                }
-            }
-        }
-        true
-    }
-}
 
 #[cfg(test)]
 mod tests {

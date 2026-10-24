@@ -525,7 +525,7 @@ impl Expr {
     /// The walks keep their own stack rather than the call stack, since a
     /// chain as long as Excel holds is a tree 4,095 deep down its left side,
     /// and a machine's plan reads every shape's references at its load.
-    fn push_children<'e>(&'e self, stack: &mut Vec<&'e Expr>) {
+    pub(crate) fn push_children<'e>(&'e self, stack: &mut Vec<&'e Expr>) {
         match self {
             Expr::Call(_, args) => stack.extend(args.iter().rev()),
             Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),

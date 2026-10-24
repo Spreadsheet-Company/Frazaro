@@ -223,29 +223,34 @@ pub(crate) fn of<M: Model + ?Sized>(
         })
         .collect();
     let mut on: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for (id, p) in plan.places() {
-        f[p.shape].cells += 1;
-        if !on[p.shape].contains(&id.0) {
-            on[p.shape].push(id.0);
+    plan.each_node(&mut |sheet, rect, shape| {
+        f[shape].cells += rect.cells() as usize;
+        if !on[shape].contains(&sheet) {
+            on[shape].push(sheet);
         }
-    }
-    // The levels, one pass over the order, a stretch of one level and one
-    // shape at a time, the order being by level, then shape, then cell.
-    let order = plan.order();
+    });
+    // The levels, one pass over the order's blocks, a stretch of one level
+    // and one shape at a time, the order being by level, then shape, then
+    // cell, sheet first: the blocks of one shape at one level, one a sheet,
+    // stand together (KERNEL.49's decision 7).
+    let blocks = plan.blocks();
+    let each = blocks.blocks();
     let ends = plan.level_ends();
-    let (mut k, mut p, mut levels) = (0usize, 0usize, 0usize);
+    let (mut k, mut b, mut levels) = (0usize, 0usize, 0usize);
     let mut counted: Option<usize> = None;
-    while p < order.len() {
+    while b < each.len() {
+        let p = each[b].start as usize;
         while k < ends.len() && ends[k] as usize <= p {
             k += 1;
         }
-        let end = ends.get(k).map_or(order.len(), |&e| e as usize);
-        let s = reach.shape_at(p);
-        let mut q = p + 1;
-        while q < end && reach.shape_at(q) == s {
-            q += 1;
+        let end = ends.get(k).map_or(blocks.len(), |&e| e as usize);
+        let s = each[b].shape as usize;
+        let mut wide = blocks.count(b);
+        let mut c = b + 1;
+        while c < each.len() && (each[c].start as usize) < end && each[c].shape as usize == s {
+            wide += blocks.count(c);
+            c += 1;
         }
-        let wide = q - p;
         let x = &mut f[s];
         x.in_order += wide;
         x.levels = Some(match x.levels {
@@ -256,7 +261,7 @@ pub(crate) fn of<M: Model + ?Sized>(
             counted = Some(k);
             levels += 1;
         }
-        p = q;
+        b = c;
     }
     for (start, end, s) in plan.run_spans() {
         let x = &mut f[s];

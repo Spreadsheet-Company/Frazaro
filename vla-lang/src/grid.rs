@@ -74,6 +74,53 @@ pub(crate) trait Model {
     /// The formula cells inside an area, row by row, the area clamped to the
     /// extent given first, as [`cells_in`] clamps it.
     fn formulas_in(&self, area: &Area, extent: Extent, f: &mut dyn FnMut(u32, u32));
+    /// Every formula cell of a sheet as the plan places it (KERNEL.49's
+    /// decision 7): a fill's cells as rectangles that never overlap, each
+    /// with the fill's index, and each formula of its own as its cell, in no
+    /// order. A workbook's are found from its cells, a fill's of a row
+    /// merged where they stand side by side and rows of the same columns
+    /// merged where they follow one another; a machine keeps its own.
+    fn each_node(&self, sheet: usize, f: &mut dyn FnMut(A1Range, Formula<'_>)) {
+        // Each row's runs of one fill, then the runs of one fill and columns
+        // in rows that follow one another made one rectangle.
+        let mut runs: Vec<(u32, u32, u32, u32)> = Vec::new();
+        self.each_formula(sheet, &mut |(row, col), formula| match formula {
+            Formula::Fill(si) => match runs.last_mut() {
+                Some(last) if last.0 == si && last.1 == row && last.3 + 1 == col => last.3 = col,
+                _ => runs.push((si, row, col, col)),
+            },
+            Formula::Own(..) => f(
+                A1Range {
+                    top: row,
+                    left: col,
+                    bottom: row,
+                    right: col,
+                },
+                formula,
+            ),
+        });
+        runs.sort_unstable_by_key(|&(si, row, left, right)| (si, left, right, row));
+        let mut k = 0;
+        while k < runs.len() {
+            let (si, top, left, right) = runs[k];
+            let mut bottom = top;
+            k += 1;
+            while let Some(&(s, row, l, r)) = runs.get(k) {
+                if (s, l, r) != (si, left, right) || row != bottom + 1 {
+                    break;
+                }
+                bottom = row;
+                k += 1;
+            }
+            let rect = A1Range {
+                top,
+                left,
+                bottom,
+                right,
+            };
+            f(rect, Formula::Fill(si));
+        }
+    }
 }
 
 /// A formula's text as the formula bar shows it, without its `=`: a fill's

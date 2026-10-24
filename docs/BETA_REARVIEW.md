@@ -33784,6 +33784,353 @@ first frame the base's (Life's 10.5 against 10.4 ms, the page's first row
 paying its warm-up on both pages; the board's 124.2 against 125.9), where
 the first reading had Life's 4.4 against 10.7.
 
+*The fourth slice built 2026-10-23*, decision 7 and the parts of decision 10
+that ride it, on `2e98ce5` (the third slice), carried onto `f0d05fa`
+(`KERNEL.57`'s third and fourth slices and the mint of `KERNEL.58` and
+`KERNEL.59`), which touch nothing of the language:
+
+- *The order as blocks* (`calc/blocks.rs`, new): a block is a shape's cells
+  on a sheet at a level, row by row, kept as the rectangles they fill, its
+  box whole where they fill one and else bands, each a run of rows the same
+  spans of columns cross with each span's cells before it in its rows. The
+  order is the list of blocks by level, shape and sheet; a cell's position
+  is the cells of the blocks before its own and its rank in its own, and the
+  cell at a position is found the other way round, by a search of the
+  blocks' first positions and of a block's bands and spans, or by a step
+  from the block the last one stood in where positions are asked in rising
+  order (`Locator`, the step's walks and the frame's ends). No map of every
+  cell's place, no grid of every cell's position and no shape a position
+  are kept, and no list of every cell of the order but where it holds at
+  most 262,144 cells (*the walk of the order*, below).
+- *The plan by nodes* (`calc/nodes.rs`, new): a node is a fill's piece or a
+  formula alone (`Model::each_node`: the machine's fills' pieces and its
+  formulas alone; a workbook's shared cells merged into rectangles, row by
+  row and down the rows, and its plain cells one each). Each of a node's
+  shape's references is swept over the node's offsets once, the nodes of the
+  sheet it reads meeting the rectangle it reads at some offset found by
+  their rectangles, and for each the rectangle of the node's cells that read
+  it, a dimension at a time (`reach::Dim::meeting`, the offsets at which a
+  reference's numbers, moved, stay on the sheet and meet a span). A
+  reference every `$` holds reads one area at every cell, and the area is a
+  vertex of its own, a hub, which every node reading it reads, its nodes
+  found once (*Found in the build*, the first). Tarjan's components are
+  found over the nodes and the hubs; a node's cells' levels are a map of
+  rectangles, each edge raising the rectangle of its cells that read a
+  rectangle of the node read to one past that rectangle's level, the map
+  found on the grid the raises' edges cut the node into. A node that reads
+  itself, stands in a component of more than one node, reads a defined name,
+  a span of sheets or a text the parse does not read (the shapes the reach
+  does not follow, `reach::followed`), or whose map would hold more than 64
+  rectangles, 256 raises or a grid of 4,096, is planned cell by cell as
+  every cell was: each cell's reads found at it, from its shape's reads
+  listed once (*Found in the build*, the third), an area every cell reads
+  alike through a hub where it names 64 cells of the component, Tarjan's
+  components over the component's cells, each cell's level one past the
+  deepest it reads, a cycle's cells marked. The runs are the blocks', a run
+  carried into the next block only where the two are one shape on one
+  sheet, at a level's end, and broken at the first of that block's cells
+  that reads a cell of the run, found by the rectangles of its edges into
+  the run's cells (no cell of one level reads another, so a block breaks a
+  run at most once); each shape's stretches (`KERNEL.54`) are its runs
+  merged, the blocks of one shape that follow one another.
+- *Where a cell stands* (`nodes::Located`): each formula alone by its place
+  with its shape and position, kept from one plan to the next so that a
+  write places again only the cells it wrote; each fill's piece by its
+  rectangle, with its rectangles of one level and their blocks, or, for a
+  piece planned cell by cell, each cell's position. A cell's position, its
+  shape and whether it holds a formula are found from its node; a shape's
+  cells inside a rectangle, which the reach asks of every moving reference
+  a changed cell meets, through its own blocks where it has eight or fewer,
+  through its pieces for a fill of more, or by place for formulas alone of
+  more, the way chosen once a plan, where a grid of every cell's position was
+  asked at each offset and the shape of each position compared.
+  *Departed from the scoping:* a sheet's formulas alone keep their shapes
+  and positions in a grid over their box, eight bytes a slot, where they
+  stand close enough together (four slots a formula and 64, the rule the
+  positions grid kept), and in the map by place elsewhere: the door's
+  programs come back from a workbook as formulas alone, one a cell, and a
+  shape of them in many blocks (a chain typed a cell at a time) was asked
+  by hash at each offset, where the plan of cells read an array; the grid
+  holds no fill's cell, so the fixtures of rows keep none.
+- *The walk of the order*: a cell of the order is found from its block, by
+  a step from the one before where the positions asked rise (`blocks::At`,
+  its block's end, columns, sheet and shape kept where it stands, a block of
+  one cell entered by itself alone): the next position in place, the next
+  cell of a box or the cell of the next block where that block is one cell;
+  a position ahead in the block it stands in at once, along a box's row or
+  down its rows by a division, along a span, or by a search of the block's
+  bands; any other searched for, or stepped to where it is near, out of line
+  (`blocks::Locator`). A run's cells are laid into its buffer a block's rows
+  or column at a time, a run's marked cells gathered by a finder of the
+  gathering's own; the frame's start makes its finder again, the order fixed
+  while a frame is in progress. *Departed from the scoping:* an order of at
+  most 262,144 cells is kept also as a list of its cells and their shapes,
+  16 bytes a cell, which the finder reads before it walks (`blocks::LIST`).
+  Alonzo's Sand, its 125,000 cells planned cell by cell in blocks of a row
+  each, computes a scattered few of a block's cells a frame and walks the
+  cells it changed at the frame's end and the next one's start, each found
+  by the finder where the base read a list: its steady frame ran 13% slower
+  than the base's, past its floor's margin of 10%, through ten variants of
+  the finder (its next position, its far path, a block passed by its first
+  position, a span's edge kept, a finder of the gathering's own, a division
+  in place of a step, the first row without one, the far path inlined, the
+  finder out of line), each at about 3.2 ms where the base's ran at 2.85;
+  a flat order read in its place, in a copy, at the frame's start and end
+  alone or at the gathering alone, took back half each, and at both 2.93.
+  Every bench program and Alonzo's Sand, Life, Life x4, the gun and Naught
+  keep a list; neither large board does, its bytes the item's. In the tests
+  the list is kept only where a test asks for it, so that what the tests
+  hold is the finder, and a law holds a listed order's frames to the
+  finder's.
+- *The reach over the blocks*: a shape's stand is the box of its blocks'
+  cells and its count theirs, and a shape cut into pieces (`KERNEL.54`) is
+  cut by the tiles its blocks' rectangles cross, its pieces made in the
+  order's order as a walk of every cell made them; `Reach` keeps no
+  positions and no shape a position. Its readers stay patterns over the
+  shapes' stands and pieces, as decision 7 and `KERNEL.54`'s scoping agreed;
+  the stretches are `KERNEL.54`'s, now the blocks'.
+- *The machine*: a cell of the order is read from its block at each of the
+  step's walks, a run's cells walked from their blocks into the run's
+  buffer a chunk at a time, where a run was a slice of the order, a
+  gathering too short to compute at once evaluated by the cells it gathered;
+  a value kept carries its cell, where it read the order again by its
+  position; the
+  census walks the blocks, its levels the blocks' and its cells the nodes'.
+  A write's copy of the plan, kept to put back on a refusal, copies nodes and
+  blocks, no longer every cell's place, order and position.
+- *The surface* (decision 10): `Shapes::order` walks the order, an iterator
+  where it lent a slice; `Shapes::place` and `holds` answer from the nodes;
+  `replace` is the tests' alone and `plan` goes, the machine planning its
+  own grid; `of` and `census` over a workbook stay for the doors.
+- *The tests' reference* (`calc/shape/reference.rs`, the tests' alone): the
+  plan of every cell as it was, its edges found at each cell (`KERNEL.33`'s
+  reads, `KERNEL.8`'s hubs), Tarjan's components over the cells, the order,
+  runs, levels, cycles and stretches of `KERNEL.20` to `KERNEL.54`, a cell's
+  position, and the first refusal over every placed cell; every plan the
+  language's tests make is held to it, part for part, at its end
+  (`reference::hold`): the order cell for cell, its runs, levels, cycles and
+  stretches, every placed cell's shape and position, each shape's cells
+  inside its box, a box wider, a quarter of it and each cell's
+  neighbourhood, and the first refusal.
+
+*Measured,* the memory runner's check mode (exact) on this tree, against
+the ceilings the owner's run of the third slice set:
+
+| fixture | formulas | held, the ceiling | held now | a formula | at the peak, the ceiling | at the peak now |
+|---|---|---|---|---|---|---|
+| column | 60,000 | 13,697,921 | 10,463,980 | 174.4 | 62,909,797 | the same |
+| chain | 39,999 | 8,325,463 | 7,064,302 | 176.6 | 37,447,954 | the same |
+| sums | 28,014 | 5,499,027 | 4,637,011 | 165.5 | 31,769,224 | the same |
+| life | 62,964 | 43,811,180 | 40,624,685 | 645.2 | 283,714,012 | the same |
+| lookups | 140,000 | 37,652,887 | 29,487,670 | 210.6 | 155,549,356 | the same |
+| criteria | 61,370 | 18,944,123 | 12,209,986 | 199.0 | 50,294,479 | 41,898,740 |
+| netlist | 20,480 | 53,238,277 | 53,186,144 | 2,597.0 | 86,925,008 | 85,038,276 |
+| superposition | 798,731 | 76,952,156 | 10,803,728 | 13.5 | 194,408,556 | 10,804,168, 13.5 a formula |
+| life-x16 | 1,019,844 | 129,893,031 | 18,975,068 | 18.6 | 238,717,605 | 18,975,068, 18.6 a formula |
+
+The prediction, 12 to 16 bytes a formula cell held and 14 to 18 at the peak
+for the board, 18 to 20 and 19 to 22 for Life x16, is met on all four, and
+so is the item's closing condition (decision 14), at most 20 held and 24 at
+the peak on both. Each peak is now the bytes held after the frames: the
+load's plan holds less than two frames add. The door's programs, whose rows
+the door writes a cell each (a reflected workbook's formula a cell), are
+formulas alone: each a node, blocks of one shape and level merged into
+their bands, a formula alone's place, shape and position 16 bytes in a map
+and, where they stand close together, 8 in the grid beside, and every one
+of them listed, 16 bytes a formula (*the walk of the order*); the netlist,
+nearly every gate a shape of its own, holds what it held, as the addendum
+said it would save only what its cells shared with a fill's.
+
+*The load:* the memory runner's, the median of three, the board 12.7 ms
+where 405.7 and Life x16 14.9 where 325.0 (the owner's run of the third
+slice), and on the night's slower clock 14.4 to 14.8 and 15.0 to 15.3;
+Alonzo's frames runner, the base and the slice alternated at full speed,
+the board 9.0 to 9.2 ms where 358 to 371: inside the item's 20 ms and
+outside the prediction's 3 to 8 and 2 to 6. The phases timed in a copy (the board, then Life x16): the reader 0.56
+and 0.10 ms, the records 0.11 and 0.04, the shapes placed 1.54 and 0.18, the
+plan over the nodes 0.08 and 0.01, the reach 0.07 and 0.01, the stores laid
+4.39 and 5.50, and the machine made 5.46 and 8.74, its twins' extents and
+stores among them: the plan is the prediction's, under a millisecond, and
+the stores are not (*Found*).
+
+*Timed,* on this machine, the base (the third slice) and the slice
+alternated, three rounds each. The machine held its clock about 18% under
+its own through the night's long runs, both alike, so the recalc runner
+marked them not baselines; at that one clock they compare:
+
+| program | the first frame | a whole frame | an edit |
+|---|---|---|---|
+| column | 1.68 to 1.91 ms | 0.578 to 0.584 | 1.546 to 1.554 |
+| chain | 1.69 to 1.76 | 0.760 to 0.791 | 1.684 to 1.792 |
+| sums | 1.61 to 1.59 | 1.079 to 1.074 | 1.756 to 1.747 |
+| life | 4.93 to 4.92 | 2.061 to 2.196 | 2.705 to 2.753 |
+| lookups | 17.52 to 18.84 | 12.929 to 12.677 | 14.270 to 14.371 |
+| criteria | 9.76 to 10.07 | 7.063 to 7.080 | 5.325 to 5.435 |
+| netlist | 7.00 to 6.85 | 5.921 to 5.542 | 8.538 to 9.078 |
+
+The runs the runner kept, each program alone after a pause, agree: the
+chain's whole frame 0.599 to 0.612 ms and its edit 1.302 to 1.356, the
+sums' 0.820 to 0.842 and 1.318 to 1.322. Against the owner's run of the
+third slice every floor keeps its margin, the chain's whole frame, the
+nearest, at about 66.9 million formulas a second where its floor is 63.0.
+Alonzo's frames runner, each cartridge alone, the runs it kept: Life's
+steady frame 2.175 to 2.168 ms, Life x4's 8.37 to 9.02, Life x16's 37.83 to
+35.40 and its first 56.2 to 56.9; the board's first frame 89.7 to 88.2,
+its load's act and settle 119.4 to 117.6 and its load 365.9 to 9.1; Sand's
+steady frame 2.837 to 3.073, 8% slower, inside its floor's
+margin of 10%, and its load 84.5 to 218.5 (*Found*). The first frames are
+the base's, as decision 14 asked.
+
+*The tests:* the language's 395 where the base's 388, every plan any of them
+makes held to the plan of cells at its end (`reference::hold`); a level
+planted wrong fails 40 of them. The seven new: a block's cells walked row by
+row and each found by its rank, cells filling a rectangle kept as the
+rectangle, and a finder crossing blocks of one cell between blocks of a box
+and of bands, asked every position in turn and between them the same one
+again, one behind, two ahead or one far (`calc/blocks.rs`); a rectangle's
+cells from a cell on, each once,
+against every rectangle of up to five rows and columns and every cell
+around it (`calc/nodes.rs`); the plan by nodes planning cell by cell what it
+must and nothing else, by count (fills and formulas alone reading one
+another by rectangles, none; a running balance, 39; a defined name's
+readers, 5; two fills reading each other's rows, 59, a hub standing for
+their held cell; a cycle of two fills, 6, refused naming its cells as it
+was; a text not read, 3; a span of sheets moved off the sheet at a fill's
+second cell refused there; the first of two refused nodes named); and runs
+carried across a shape's levels,
+300 seeded grids of a fill cut into pieces by values, constants and its own
+text written into it, each held to the plan of cells at its load and after
+every write, more than 1,000 runs carried; and a frame the same with its
+order listed as found by the finder, 60 churning grids loaded listed and
+not, written and stepped alike in steps that yield, every step's report and
+every frame's values the same (`machine`). The hubs' law gains two fills
+that read a held cell inside one component. The core's 219 and every suite
+and doctest; `cargo fmt` and both clippy configurations; the language's
+package from its tarball, 395 and every suite; the 60 checks; both wasm
+modules importing nothing and exporting what they did. The bench programs
+and the two fixtures of rows, each plan held to the plan of cells in a copy
+with the reference compiled in as the tests have it: the recalc runner's
+check mode prints the base's lines, every value and sum, and the memory
+runner's the slice's bytes held at every fixture.
+
+*The mutants:* fifty-two, each a line of the slice changed (the blocks'
+bands, spans and steps, the finder, its crossing, its far path and the
+list, the ways a shape's cells are found, the edges and the levels by
+rectangles, the cells planned cell by cell and a shape's reads listed, the
+runs and their breaks, the gathering, the reach, the placement, the refusal
+and the census): 48 killed, two of them by a test binary that aborts, a
+panic within a panic, which the runner first counted as survivors. Four
+survive, each the same plan by another road: a shape's cells found through
+its blocks however many it has; a node of another shape skipped before its
+run's region is found, which is empty for it; one more cell examined after
+the first that reads the run, which cannot be earlier; and a moved shape's
+unread cells dropped, of which a machine holds none when a write plans
+again, an unread cell refusing its load and a refusal putting the plan
+back. The tests the first round asked for (the span moved off, the first of
+two refused, runs carried across levels, a rectangle's cells from a cell
+on) are among the seven; the crossing's law fails under each of its six
+mutants (a block of many cells crossed into as one, its end set past its
+cell, the block not advanced, the first position's wrap unguarded, the
+shape or the cell left as it was), the last two failing nothing else; the
+list's law fails where no list is kept, and the integration tests, whose
+language is built as an engine's and lists its orders, where a list's
+shape or cell is written wrong.
+
+*Alonzo:* by path over the slice (Alonzo at `ea3a3f2`, its reads moved to
+the second and third slices' breaks), beside the same over the base: its
+tests, 78 of 79 and the doctest, the one failing the input card's describe,
+two read kinds of its census `slot` where its golden, written over 0.10.1,
+has `lookup` (the second slice's), as over the base; every cartridge's
+describe written again over the slice the bytes written over the base; the
+frames runner's check mode every frame its hand's, every digest, count of
+frames, allocation and reallocation the base's, and each fixture's heap
+lower: Life 14,913,351 bytes to 2,525,819, Life x4 59,625,390 to
+9,477,744 and Life x16 238,727,207 to 21,030,408 (the gun's alike), Sand
+47,117,164 to 10,182,809, the board 194,420,670 to 10,817,526 at rest and
+10,824,346 after its deepest cascade, Naught's two floors 12,826,422 and
+137,770,878 to 3,382,521 and 128,662,774, the second a gate a shape, the
+smaller boards with their lists; and the same with the reference compiled in,
+every cartridge's plans held to the plan of cells. The module imports
+nothing and exports its twelve names, and the page built over each is
+offline; its frames are above.
+
+*Found in the build:*
+
+- *Formulas alone reading one area.* The plan first built gave each node an
+  edge to every node a reference every `$` holds names: the door's lookups,
+  140,000 formulas alone, 20,000 of them each reading 40,000 cells, made 800
+  million edges, and the memory runner was stopped at 14.8 GB. A held area
+  is one vertex now, as the plan of cells read a shape's held references
+  through one hub (`KERNEL.8`).
+- *The planner's own temporaries.* A node's level map and its fill's
+  rectangles each a vector, and the formulas alone kept in a tree to find
+  them, raised the chain's, the lookups' and the criteria's peaks by 5.7,
+  11.8 and 4.4 MB over their ceilings; two arrays of every node's maps, a
+  sorted array of the formulas alone and a node's cells of one level 24
+  bytes, counted into place, bring each peak to its ceiling or under it.
+- *A cell's reads kept.* The plan first kept each read of a node planned
+  cell by cell, 24 bytes a read a cell, from the component's numbering to
+  the runs' breaks: Sand's Stay and Side, each reading the other's rows, are
+  one component of 125,000 cells, and Alonzo's frames check had Sand's heap
+  at 206,042,973 bytes where the base's was 47,117,164. A cell's reads are
+  found where they are used, at its numbering, its levels and its run's
+  break, and never kept: Sand's 10,181,137 before its list. Found so, each
+  cell walked its shape's whole parse again, a stack made each time, and
+  Sand loaded in 270 ms; a shape's reads are listed once now, the first time
+  a cell of it is planned cell by cell.
+- *A load planned cell by cell.* Sand loads in 218.5 ms where the base
+  loaded in 84.5 (Alonzo's frames runner, alternated): each cell's reads
+  moved and each read's node and cell found by a search, twice a cell (its
+  levels, then its run's break), where the plan of cells read a grid of
+  every cell's position and kept each cell's edges. A load is floored for
+  the two large boards alone; for the release or an item, the cells of a
+  component planned cell by cell found by a grid over the component.
+- *The modules.* The language's module (`vla_lang.wasm`, its C surface)
+  grew 8.8%, 1,248,374 to 1,358,501 bytes, and Alonzo's engine's 7.6%,
+  1,681,669 to 1,809,901; the core's did not move (1,652,571 to 1,652,527).
+  Of the language's 106,493 bytes of code more, the planner is 42,455,
+  compiled for a workbook's grid and for the machine's as the third slice's
+  plan is; the standard library's sort 41,392, compiled once for each of the
+  seven orders the slice sorts by a key or a type of its own (a block's
+  rectangles by first cell and by left column, the nodes by first cell in
+  the plan and in the placement, a node's rectangles of one level, the
+  reach's tiles, and a write's cells with their shapes), about 5,900 bytes
+  each, where the plan of cells sorted none of them; the reach 8,787 and the
+  blocks 6,901 more, the shapes 9,462 fewer. Each order's key is unique, so
+  the seven sorted as one type, a key and an index, would give the same
+  orders and compile the sort once, about 35,000 bytes fewer, at the cost
+  of the keys beside the plan at the load, 24 bytes an item where the door's
+  programs have a node a formula and some peaks stand at their ceilings; for
+  the release or an item.
+- *The stores laid slot by slot.* After the plan, the load is the stores:
+  each formula's slot written pending one call a cell (4.4 ms of the board's
+  12.7, 5.5 of Life x16's 14.9), a twin's extent found by a scan of every
+  slot and its store made by a copy and a pass over every slot (5.5 and 8.7
+  ms). A rectangle of slots laid at once, and a twin over a sheet holding no
+  value made empty, would take the loads to the prediction's 3 to 8 and 2 to
+  6 ms; for the release or an item.
+
+*The hand test, the owner's,* 2026-10-23: the bench on this machine, its
+block pasted from `target/bench_recalc.txt`: the floors' new entry, Life's
+edit 367, the criteria's whole frame 9,570,000, the netlist's whole
+4,310,000 and type 303,000, the board's load 38,100,000 and Life x16's
+42,200,000 raised, the rest kept from the entry before, this run under
+them, the chain's whole frame 0.599 ms, 66.8 million formulas a second where
+its floor is 63.0; and the ceilings' entry, every program's bytes held
+lowered, the board's to 10,803,728 and Life x16's to 18,975,068, and four
+peaks, the criteria's to 41,898,740, the netlist's to 85,038,276, the
+board's to 10,804,168 and Life x16's to 18,975,068; the check then whole,
+60 of 60. Alonzo's page built over the slice, beside the same page built
+over the base: the loop oracle's thirty cases on both, the replays of Sand,
+Kairos, Superposition, Seiyaku and Naught held to their hands among them;
+and `?frames=1` on both, every fixture's module memory lower (the board's
+171,048,960 bytes to 69,271,552, Life x16's 205,258,752 to 24,379,392,
+Sand's 42,598,400 to 11,599,872), every load faster (the board's 385.3 ms
+to 12.6, Life x16's 459.6 to 118.5) but the shuffled Naught's, 392.2 to
+410.9, and Sand's, 91.9 to 270.7 (*Found*), every steady frame the base's
+or faster but Sand's, 4.0 to 4.1 ms, and the first frames within 3% of the
+base's, one reading each.
+
 **`KERNEL.50`, a format's appearance in the language: the scoping,
 2026-10-20.** Begun at the owner's word of 2026-10-19, from Alonzo's
 `CART.14`, Seiyaku (制約), the owner's number-placement puzzle, scoped and

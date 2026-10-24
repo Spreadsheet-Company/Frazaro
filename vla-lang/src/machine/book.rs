@@ -100,8 +100,8 @@ impl Fills {
             .collect()
     }
 
-    /// Every piece, with its fill's index: the tests'.
-    #[cfg(test)]
+    /// Every piece, with its fill's index: the plan's nodes (KERNEL.49's
+    /// decision 7) and the tests'.
     pub(crate) fn every_piece(&self) -> impl Iterator<Item = (A1Range, u32)> + '_ {
         self.pieces.iter()
     }
@@ -381,6 +381,26 @@ impl Model for Book {
             return;
         }
         p.formulas_in(&clamped, &mut |(row, col), _| f(row, col));
+    }
+
+    /// A sheet's fills as their pieces and its formulas alone, the plan's
+    /// nodes (KERNEL.49's decision 7), with no cell of a fill walked.
+    fn each_node(&self, sheet: usize, f: &mut dyn FnMut(A1Range, Formula<'_>)) {
+        let Some(p) = self.pages.get(sheet) else {
+            return;
+        };
+        for (piece, si) in p.fills.every_piece() {
+            f(piece, Formula::Fill(si));
+        }
+        for (&(row, col), (text, kind)) in &p.alone {
+            let cell = A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            };
+            f(cell, Formula::Own(text, *kind));
+        }
     }
 }
 

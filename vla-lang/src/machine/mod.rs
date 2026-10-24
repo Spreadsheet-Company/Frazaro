@@ -129,6 +129,7 @@ pub(crate) use store::SparseWalk;
 use std::cell::Cell as Slot;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use crate::calc::blocks::Locator;
 use crate::calc::dense::{self, Slot as Stored};
 use crate::calc::graph::{Area, Extent, Names};
 use crate::calc::program::{Answer, Source};
@@ -427,6 +428,11 @@ pub struct Machine {
     /// their positions in the order.
     gathered: Vec<CellId>,
     gathered_at: Vec<u32>,
+    /// The block of the order the last cell a step found by its position
+    /// stood in, so that a step passing from one position to a later one
+    /// finds each cell by a step past the blocks between (KERNEL.49's
+    /// decision 7).
+    locator: Locator,
     /// Whether the next frame computes every cell (KERNEL.20): after a load,
     /// a write that changed a formula, a twin that lost a cell, or more
     /// changes than were kept; a value cell added and a twin cell gained are
@@ -699,6 +705,7 @@ impl Machine {
             answered: Vec::with_capacity(vector::CHUNK),
             gathered: Vec::with_capacity(vector::CHUNK),
             gathered_at: Vec::with_capacity(vector::CHUNK),
+            locator: Locator::default(),
             every_next: true,
             every: true,
             marked: Bits::default(),
@@ -762,7 +769,7 @@ impl Machine {
     /// cell. A plan made again follows no change of the frame before: the
     /// next frame computes every cell.
     fn fit(&mut self) {
-        let of = self.shapes.order().len();
+        let of = self.shapes.len();
         self.marked.sized(of);
         let shapes = self.shapes.shapes();
         self.whole.clear();
@@ -973,7 +980,7 @@ impl Machine {
             &[
                 ("frame", &thousands(self.frame + 1)),
                 ("evaluated", &thousands(done as u64)),
-                ("of", &thousands(self.shapes.order().len() as u64)),
+                ("of", &thousands(self.shapes.len() as u64)),
             ],
         )
     }
@@ -987,7 +994,7 @@ impl Machine {
     /// reading none of one another, is evaluated at once, up to
     /// [`vector::CHUNK`] cells at a time (KERNEL.20); every other cell alone.
     pub fn step(&mut self, budget: usize) -> Step {
-        let of = self.shapes.order().len();
+        let of = self.shapes.len();
         if self.progress.is_none() {
             self.begin();
         }
@@ -1113,6 +1120,8 @@ impl Machine {
         // A vector probed once in the frame before is probed once again here
         // before its index is built (KERNEL.8).
         self.indexes.begin();
+        // The order may have been planned again since the last frame.
+        self.locator = Locator::default();
         self.every = self.every_next || !self.incremental;
         self.every_next = false;
         self.reaching = 0;
@@ -1160,14 +1169,15 @@ impl Machine {
         // position in the order, which no write since moved (a write that
         // plans again makes this frame compute every cell); and the cells
         // written since.
-        let order = shapes.order();
+        let blocks = shapes.blocks();
+        let mut at = Locator::default();
         let twins = twin_changed.iter().map(|p| {
-            let (s, row, col) = order[p];
+            let ((s, row, col), _) = at.cell(blocks, p);
             (*sheets + s, row, col)
         });
         let others = twin_written.iter().chain(written.iter()).copied();
         for id in twins.chain(others) {
-            reach.each(id, &mut |r| match r {
+            shapes.reached(id, &mut |r| match r {
                 Reached::Cell(p) => marked.set(p),
                 Reached::Shape(s) => make_whole(shapes, whole, wholes, marked, s),
                 Reached::Parts(s) => {
@@ -1217,9 +1227,9 @@ impl Machine {
         moved
     }
 
-    fn evaluate(&self, id: CellId) -> Computed {
+    fn evaluate(&self, id: CellId, shape: usize) -> Computed {
         self.here.set(id);
-        self.shapes.evaluate(self, &self.library, id)
+        self.shapes.evaluate_shaped(self, &self.library, shape, id)
     }
 
     /// The cell at a position of the order evaluated alone, and its value
@@ -1227,10 +1237,15 @@ impl Machine {
     /// first cell, where the shape has one and no guard fails (KERNEL.44);
     /// else by `Ctx`, as every cell alone was before.
     fn evaluate_alone(&mut self, p: usize, keep: bool) {
+        let (id, s) = self.locator.cell(self.shapes.blocks(), p);
+        self.evaluate_cell(p, id, s, keep);
+    }
+
+    /// The cell at a position of the order, its place and its shape known,
+    /// evaluated alone and its value kept (`evaluate_alone`).
+    fn evaluate_cell(&mut self, p: usize, id: CellId, s: usize, keep: bool) {
         self.reaching += 1;
-        let id = self.shapes.order()[p];
         if self.lowered {
-            let s = self.shapes.reach().shape_at(p);
             if let Some((program, anchor)) = self.shapes.program(s) {
                 self.here.set(id);
                 let off = (
@@ -1250,8 +1265,8 @@ impl Machine {
                         self.ran += 1;
                     }
                     return match answer {
-                        Answer::Number(x) => self.keep_number(p, x, keep),
-                        Answer::Truth(b) => self.keep(p, Computed::Value(Value::Bool(b)), keep),
+                        Answer::Number(x) => self.keep_number(p, id, x, keep),
+                        Answer::Truth(b) => self.keep(p, id, Computed::Value(Value::Bool(b)), keep),
                     };
                 }
                 // The call at the root answered no number: its answer the
@@ -1261,12 +1276,12 @@ impl Machine {
                     {
                         self.ran += 1;
                     }
-                    return self.keep(p, Computed::Value(v), keep);
+                    return self.keep(p, id, Computed::Value(v), keep);
                 }
             }
         }
-        let computed = self.evaluate(id);
-        self.keep(p, computed, keep);
+        let computed = self.evaluate(id, s);
+        self.keep(p, id, computed, keep);
     }
 
     /// The cells of the order from `from` to `to`, of one run, that the
@@ -1295,26 +1310,27 @@ impl Machine {
                     i = j;
                     continue;
                 }
-                let cells = &self.shapes.order()[i..j];
+                gathered.clear();
+                self.shapes.blocks().extend_cells(i, j, &mut gathered);
                 self.shapes.evaluate_run(
                     self,
                     &self.library,
                     shape,
-                    cells,
+                    &gathered,
                     &mut lanes,
                     &mut answers,
                     &mut answered,
                 );
                 if answers.is_empty() {
                     self.reaching += answered.len();
-                    for (k, &x) in answered.iter().enumerate() {
-                        self.keep_number(i + k, x, keep);
+                    for (k, (&x, &id)) in answered.iter().zip(&gathered).enumerate() {
+                        self.keep_number(i + k, id, x, keep);
                     }
                     answered.clear();
                 } else {
                     self.reaching += answers.len();
-                    for (k, computed) in answers.drain(..).enumerate() {
-                        self.keep(i + k, computed, keep);
+                    for (k, (computed, &id)) in answers.drain(..).zip(&gathered).enumerate() {
+                        self.keep(i + k, id, computed, keep);
                     }
                 }
                 i = j;
@@ -1322,10 +1338,12 @@ impl Machine {
             }
             gathered.clear();
             gathered_at.clear();
+            let blocks = self.shapes.blocks();
+            let mut finder = self.locator;
             while gathered.len() < vector::CHUNK {
                 match self.marked.next(i, to) {
                     Some(p) => {
-                        gathered.push(self.shapes.order()[p]);
+                        gathered.push(finder.cell(blocks, p).0);
                         gathered_at.push(p as u32);
                         i = p + 1;
                     }
@@ -1335,9 +1353,10 @@ impl Machine {
                     }
                 }
             }
+            self.locator = finder;
             if gathered.len() < few {
-                for &p in &gathered_at {
-                    self.evaluate_alone(p as usize, keep);
+                for (&p, &id) in gathered_at.iter().zip(&gathered) {
+                    self.evaluate_cell(p as usize, id, shape, keep);
                 }
                 continue;
             }
@@ -1352,14 +1371,15 @@ impl Machine {
             );
             if answers.is_empty() {
                 self.reaching += answered.len();
-                for (&p, &x) in gathered_at.iter().zip(&answered) {
-                    self.keep_number(p as usize, x, keep);
+                for ((&p, &id), &x) in gathered_at.iter().zip(&gathered).zip(&answered) {
+                    self.keep_number(p as usize, id, x, keep);
                 }
                 answered.clear();
             } else {
                 self.reaching += answers.len();
-                for (&p, computed) in gathered_at.iter().zip(answers.drain(..)) {
-                    self.keep(p as usize, computed, keep);
+                let cells = gathered_at.iter().zip(&gathered);
+                for ((&p, &id), computed) in cells.zip(answers.drain(..)) {
+                    self.keep(p as usize, id, computed, keep);
                 }
             }
         }
@@ -1375,35 +1395,35 @@ impl Machine {
     /// number to the bit, as [`Machine::keep`] would do nothing, and no
     /// value made for it; else kept as `keep` keeps one, compared once.
     #[inline]
-    fn keep_number(&mut self, p: usize, x: f64, keep: bool) {
+    fn keep_number(&mut self, p: usize, id: CellId, x: f64, keep: bool) {
         #[cfg(test)]
         {
             self.computed += 1;
         }
-        let (s, row, col) = self.shapes.order()[p];
+        let (s, row, col) = id;
         if let Some(Stored::Number(held)) = self.stores[s].slot_of(row, col) {
             if held.to_bits() == x.to_bits() {
                 return;
             }
         }
-        self.changed_to(p, Computed::Value(Value::Number(x)), keep);
+        self.changed_to(p, id, Computed::Value(Value::Number(x)), keep);
     }
 
     /// The value the frame computed for the cell at a position of the order,
     /// kept when its bits differ from the one its slot holds (KERNEL.20).
-    fn keep(&mut self, p: usize, computed: Computed, keep: bool) {
+    fn keep(&mut self, p: usize, id: CellId, computed: Computed, keep: bool) {
         #[cfg(test)]
         {
             self.computed += 1;
         }
-        let (s, row, col) = self.shapes.order()[p];
+        let (s, row, col) = id;
         if self.stores[s]
             .slot_of(row, col)
             .is_some_and(|held| same_held(held, &computed))
         {
             return;
         }
-        self.changed_to(p, computed, keep);
+        self.changed_to(p, id, computed, keep);
     }
 
     /// A value that differs from the one its cell holds kept in its slot
@@ -1417,12 +1437,12 @@ impl Machine {
     /// (KERNEL.42). A formula a write changed since, its slot holding no
     /// value, is told at the frame's end, against its twin as the write found
     /// it.
-    fn changed_to(&mut self, p: usize, computed: Computed, keep: bool) {
+    fn changed_to(&mut self, p: usize, id: CellId, computed: Computed, keep: bool) {
         debug_assert!(
             !matches!(computed, Computed::Value(Value::Empty)),
             "a formula's result is settled"
         );
-        let id = self.shapes.order()[p];
+        debug_assert_eq!(self.shapes.at(p).0, id, "the cell at its position");
         // An index whose vector holds the cell is built again at its next
         // probe (KERNEL.8); nothing asked where none is built.
         self.indexes.changed(id);
@@ -1457,7 +1477,7 @@ impl Machine {
                 wholes,
                 ..
             } = self;
-            shapes.reach().each(id, &mut |r| match r {
+            shapes.reached(id, &mut |r| match r {
                 Reached::Cell(q) => marked.set(q),
                 Reached::Shape(s) | Reached::Parts(s) => {
                     make_whole(shapes, whole, wholes, marked, s);
@@ -1520,9 +1540,9 @@ impl Machine {
                 twin_written,
                 ..
             } = self;
-            let order = shapes.order();
+            let mut at = Locator::default();
             for p in twin_changed.iter() {
-                let (s, row, col) = order[p];
+                let ((s, row, col), _) = at.cell(shapes.blocks(), p);
                 indexes.changed((*sheets + s, row, col));
             }
             for &id in twin_written.iter() {
@@ -1593,10 +1613,11 @@ impl Machine {
             ..
         } = self;
         let sheets = *sheets;
+        let mut at = Locator::default();
         for p in changed.iter() {
             #[cfg(test)]
             crate::sheet::work::copied();
-            let (s, row, col) = shapes.order()[p];
+            let ((s, row, col), _) = at.cell(shapes.blocks(), p);
             changed_sheets[s] += 1;
             let slot = stores[s].slot_of(row, col);
             let t = (sheets + s, row, col);
@@ -1813,7 +1834,7 @@ impl Machine {
             }
         }
         if !self.before.is_empty() {
-            let p = self.shapes.reach().position((s, row, col));
+            let p = self.shapes.position((s, row, col));
             if let Some(was) = p.and_then(|p| self.before.get(&(p as u32))) {
                 return match was {
                     None => Held::Nothing,
@@ -1948,9 +1969,10 @@ impl Machine {
         // position, which no write since moved (one that plans again makes
         // the changes whole), and a value cell's by its place.
         let s = t - self.sheets;
-        let order = self.shapes.order();
+        let blocks = self.shapes.blocks();
+        let mut finder = Locator::default();
         let formulas = self.twin_changed.iter().filter_map(|p| {
-            let (on, row, col) = order[p];
+            let ((on, row, col), _) = finder.cell(blocks, p);
             (on == s).then_some((t, row, col))
         });
         let written = self.twin_written.iter().copied().filter(|id| id.0 == t);
@@ -2612,7 +2634,7 @@ impl Values for Machine {
     /// overwrote is read from beside it (KERNEL.20); `None` for a value cell
     /// and for a formula with no value yet.
     fn computed(&self, id: CellId) -> Option<Computed> {
-        let p = self.shapes.reach().position(id)?;
+        let p = self.shapes.position(id)?;
         if !self.before.is_empty() {
             if let Some(was) = self.before.get(&(p as u32)) {
                 return was.clone();
@@ -4020,8 +4042,8 @@ mod tests {
     /// The fact a twin's read rests on (KERNEL.25): no twin cell is placed
     /// or valued, so a read of one need look nowhere but the twin.
     fn no_twin_cell_is_placed_or_valued(m: &Machine, when: &str) {
-        assert_eq!(m.shapes.order().len(), m.shapes.formulas(), "{when}");
-        for id in m.shapes.order() {
+        assert_eq!(m.shapes.len(), m.shapes.formulas(), "{when}");
+        for id in m.shapes.order_cells() {
             assert!(id.0 < m.sheets, "{when}: {id:?} placed on a twin");
         }
         // A store for every rows' sheet, by place (KERNEL.49), each value
@@ -4029,10 +4051,7 @@ mod tests {
         // twin's cell.
         assert_eq!(m.stores.len(), m.sheets, "{when}: the stores");
         for &p in m.before.keys() {
-            assert!(
-                (p as usize) < m.shapes.order().len(),
-                "{when}: {p} kept beside"
-            );
+            assert!((p as usize) < m.shapes.len(), "{when}: {p} kept beside");
         }
         // A twin keeps no cell (KERNEL.49): its values stand in a store of
         // its own, or are made from its sheet.
@@ -4487,7 +4506,7 @@ mod tests {
         );
         let book = m.workbook();
         let before = Calc::run(&book, &m.library);
-        let mut cells: Vec<CellId> = m.shapes.order().to_vec();
+        let mut cells: Vec<CellId> = m.shapes.order_cells().to_vec();
         cells.sort_unstable();
         let want: Vec<Option<Computed>> = cells
             .iter()
@@ -5284,13 +5303,83 @@ mod tests {
     /// zero, too).
     fn values(m: &Machine) -> BTreeMap<CellId, String> {
         m.shapes
-            .order()
+            .order_cells()
             .iter()
             .filter_map(|&id| {
                 let held = m.stores[id.0].slot_of(id.1, id.2)?.computed()?;
                 Some((id, format!("{held:?}")))
             })
             .collect()
+    }
+
+    #[test]
+    fn a_frame_is_the_same_with_its_order_listed_as_found_by_the_finder() {
+        // KERNEL.49's fourth slice: an order of at most 262,144 cells kept
+        // also as a list (`blocks::LIST`) is read off it, and the finder
+        // walks the blocks of every larger one, and in the tests unless a
+        // test asks for the list. Churning grids loaded twice, listed and
+        // not, written and stepped alike in steps that yield, a value or a
+        // formula written between frames, the formula's plan made again
+        // listed and not: every step's report and every frame's values the
+        // same.
+        use crate::calc::blocks::list_at;
+        let mut listed_cells = 0;
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x4904_115D);
+            let rows = churning_grid(&mut d);
+            let was = list_at(usize::MAX);
+            let mut listed = load(&rows);
+            list_at(0);
+            let mut found = load(&rows);
+            list_at(was);
+            assert_eq!(
+                found.shapes.blocks().listed(),
+                0,
+                "seed {seed}: no list asked"
+            );
+            listed_cells += listed.shapes.blocks().listed();
+            for frame in 1..=4 {
+                let tick = format!("(cell \"Clock\" \"B1\" {frame})");
+                assert!(listed.write(&tick).is_ok() && found.write(&tick).is_ok());
+                loop {
+                    let budget = 1 + d.below(200);
+                    let (a, b) = (listed.step(budget), found.step(budget));
+                    assert_eq!(a, b, "seed {seed}, frame {frame}");
+                    if a.done {
+                        break;
+                    }
+                }
+                assert_eq!(
+                    values(&listed),
+                    values(&found),
+                    "seed {seed}, frame {frame}\n{rows}"
+                );
+                let write = match d.below(3) {
+                    0 => format!("(cell \"A\" \"A{}\" 7)", 1 + d.below(20)),
+                    1 => format!(
+                        "(formula \"A\" \"{}{}\" \"=1\")",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(4)
+                    ),
+                    _ => continue,
+                };
+                let was = list_at(usize::MAX);
+                let a = listed.write(&write);
+                list_at(0);
+                let b = found.write(&write);
+                list_at(was);
+                assert_eq!(a.is_ok(), b.is_ok(), "seed {seed}: {write}");
+                assert_eq!(
+                    listed.shapes.blocks().listed(),
+                    listed.shapes.len(),
+                    "seed {seed}"
+                );
+            }
+        }
+        assert!(
+            listed_cells > 1_000,
+            "{listed_cells} cells listed: too few for the law to hold over"
+        );
     }
 
     #[test]
@@ -5318,14 +5407,14 @@ mod tests {
                 let calc = crate::calc::Calc::run(&book, &runs.library);
                 let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
                 runs.shapes
-                    .order()
+                    .order_cells()
                     .iter()
                     .map(|id| (*id, spell(id)))
                     .collect()
             };
             for frame in 1..=4 {
                 in_runs += runs.shapes.cells_in_runs();
-                by_cell += runs.shapes.order().len();
+                by_cell += runs.shapes.len();
                 while !runs.step(1 + d.below(300)).done {}
                 assert!(alone.step(0).done);
                 assert_eq!(
@@ -5631,7 +5720,7 @@ mod tests {
                 let calc = crate::calc::Calc::run(&book, &runs.library);
                 let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
                 runs.shapes
-                    .order()
+                    .order_cells()
                     .iter()
                     .map(|id| (*id, spell(id)))
                     .collect()
@@ -5736,7 +5825,7 @@ mod tests {
         m: &Machine,
         reads: &HashMap<CellId, Vec<CellId>>,
     ) -> BTreeMap<usize, (usize, usize, usize, usize)> {
-        let order = m.shapes.order();
+        let order = m.shapes.order_cells();
         let shape_of = |id: CellId| m.shapes.place(id).expect("placed").shape;
         let mut out = BTreeMap::new();
         let mut i = 0;
@@ -6218,7 +6307,7 @@ mod tests {
         alone.by_runs = false;
         assert_eq!(
             runs.shapes.cells_in_runs(),
-            runs.shapes.order().len(),
+            runs.shapes.len(),
             "every cell in a run"
         );
         let calc: BTreeMap<CellId, String> = {
@@ -6226,7 +6315,7 @@ mod tests {
             let calc = crate::calc::Calc::run(&book, &runs.library);
             let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
             runs.shapes
-                .order()
+                .order_cells()
                 .iter()
                 .map(|id| (*id, spell(id)))
                 .collect()
@@ -7247,9 +7336,9 @@ mod tests {
         let mut m = load(rows);
         m.step(0);
         let kept = values(&m);
-        let at_b5 = m.shapes.reach().position((0, 5, 2));
+        let at_b5 = m.shapes.position((0, 5, 2));
         assert_eq!(m.write("(formula \"S\" \"B4\" \"=D1*2\")"), Ok(1));
-        assert_ne!(m.shapes.reach().position((0, 5, 2)), at_b5, "B5 moved");
+        assert_ne!(m.shapes.position((0, 5, 2)), at_b5, "B5 moved");
         for (id, v) in &kept {
             let now = m.computed(*id).map(|c| format!("{c:?}"));
             if *id == (0, 4, 2) {
@@ -7722,7 +7811,7 @@ mod tests {
                 same_state(&inc, &whole, &format!("{when}\n{rows}"));
                 frames += 1;
                 if !inc.every {
-                    let of = inc.shapes.order().len();
+                    let of = inc.shapes.len();
                     followed += 1;
                     part += usize::from(inc.computed > 0 && inc.computed < of);
                     computed += inc.computed;
@@ -7817,7 +7906,7 @@ mod tests {
     fn readers_of(m: &Machine, changed: CellId) -> BTreeSet<CellId> {
         let (sheet, row, col) = changed;
         let mut out = BTreeSet::new();
-        for &id in m.shapes.order() {
+        for id in m.shapes.order_cells() {
             let p = m.shapes.place(id).expect("placed");
             let Ok(e) = &m.shapes.shape(p.shape).expect("a shape").expr else {
                 continue;
@@ -7852,9 +7941,9 @@ mod tests {
     /// The formula cells the plan's reach reaches from a changed cell.
     fn reached(m: &Machine, changed: CellId) -> BTreeSet<CellId> {
         use crate::calc::reach::Reached;
-        let order = m.shapes.order();
+        let order = m.shapes.order_cells();
         let mut out = BTreeSet::new();
-        m.shapes.reach().each(changed, &mut |r| match r {
+        m.shapes.reached(changed, &mut |r| match r {
             Reached::Cell(pos) => {
                 out.insert(order[pos]);
             }
@@ -8839,7 +8928,7 @@ mod tests {
         let extents: Vec<Extent> = book.sheets.iter().map(Sheet::extent).collect();
         let s = Shapes::of(book, 1, &library::language(), &names, &extents);
         assert_eq!(
-            s.order().first(),
+            s.order_cells().first(),
             Some(&(0, 2, 1)),
             "A2 before what reads it"
         );
@@ -8960,7 +9049,7 @@ mod tests {
             let calc = crate::calc::Calc::run(&book, &m.library);
             let by_calc: BTreeMap<CellId, String> = m
                 .shapes
-                .order()
+                .order_cells()
                 .iter()
                 .map(|id| (*id, format!("{:?}", calc.computed(*id).expect("computed"))))
                 .collect();
@@ -9711,7 +9800,11 @@ mod tests {
             let _whole = crate::calc::reach::whole::stands();
             Shapes::of_model(&m.book, m.sheets, &m.library, &m.names, &m.extents)
         };
-        assert_eq!(unpieced.order(), m.shapes.order(), "{when}: the orders");
+        assert_eq!(
+            unpieced.order_cells(),
+            m.shapes.order_cells(),
+            "{when}: the orders"
+        );
         assert_eq!(unpieced.reach().pieces(), 0, "{when}: unpieced");
         let key = |r: Reached| match r {
             Reached::Cell(p) => (0, p),
@@ -9731,11 +9824,9 @@ mod tests {
                 let id = (sheet, row, col);
                 let (mut by_index, mut by_scan) = (Vec::new(), Vec::new());
                 checked::begin();
-                reach.each(id, &mut |r| by_index.push(key(r)));
+                m.shapes.reached(id, &mut |r| by_index.push(key(r)));
                 let checks = checked::end();
-                unpieced
-                    .reach()
-                    .each_by_scan(id, &mut |r| by_scan.push(key(r)));
+                unpieced.reached_by_scan(id, &mut |r| by_scan.push(key(r)));
                 let at = format!("{when}: {name}!{}", crate::sheet::cell_ref(row, col));
                 assert!(
                     checks <= readers,
@@ -9980,7 +10071,7 @@ mod tests {
                 let frame = checked::end();
                 checked::begin();
                 for &(row, col) in &writes {
-                    m.shapes.reach().each_by_scan((v, row, col), &mut |_| {});
+                    m.shapes.reached_by_scan((v, row, col), &mut |_| {});
                 }
                 let scan = checked::end();
                 assert_eq!(
@@ -10213,7 +10304,7 @@ mod tests {
     /// The twin cells the last frame's end changed, by place (KERNEL.42;
     /// KERNEL.49): a formula's twin cell by its position, and a value cell's.
     fn twin_changes(m: &Machine) -> BTreeSet<CellId> {
-        let order = m.shapes.order();
+        let order = m.shapes.order_cells();
         m.twin_changed
             .iter()
             .map(|p| {
@@ -10313,7 +10404,7 @@ mod tests {
                         "{when}: {w}: {a:?} {b:?} {c:?}"
                     );
                 }
-                let of = copied.shapes.order().len();
+                let of = copied.shapes.len();
                 let work = ended(&mut copied, 1 + d.below(300));
                 assert!(walked.step(0).done && whole.step(0).done);
                 same_end(&copied, &walked, &before, &when);
@@ -10559,7 +10650,7 @@ mod tests {
                 let room = copied.changed.words();
                 assert_eq!(
                     room,
-                    copied.shapes.order().len().div_ceil(64),
+                    copied.shapes.len().div_ceil(64),
                     "{n}: the set's room"
                 );
                 for frame in 1..=5u64 {
@@ -11455,7 +11546,7 @@ mod tests {
         let book = m.workbook();
         let calc = crate::calc::Calc::run(&book, &m.library);
         m.shapes
-            .order()
+            .order_cells()
             .iter()
             .map(|id| (*id, format!("{:?}", calc.computed(*id).expect("computed"))))
             .collect()
@@ -11824,7 +11915,7 @@ mod tests {
             "(formula \"T\" \"F1\" \"=E1+B1\")\n",
             "(formula \"T\" \"G1:G5\" \"=S.last!A1*3\")\n",
         );
-        let of = load(rows).shapes.order().len();
+        let of = load(rows).shapes.len();
         let twenties: BTreeSet<usize> = {
             let m = load(rows);
             [(1, 1, 1), (1, 1, 3), (1, 1, 5)]
@@ -12096,11 +12187,15 @@ mod tests {
                     let calc = crate::calc::Calc::run(&book, &m.library);
                     let spell =
                         |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
-                    m.shapes.order().iter().map(|id| (*id, spell(id))).collect()
+                    m.shapes
+                        .order_cells()
+                        .iter()
+                        .map(|id| (*id, spell(id)))
+                        .collect()
                 };
                 let shown = |m: &Machine| -> Vec<String> {
-                    let order = m.shapes.order().iter();
-                    order.map(|&id| format!("{:?}", m.computed(id))).collect()
+                    let order = m.shapes.order_cells().into_iter();
+                    order.map(|id| format!("{:?}", m.computed(id))).collect()
                 };
                 for frame in 1..=5 {
                     let when = format!("seed {seed}, stacked {stacked}, frame {frame}");
@@ -12252,7 +12347,7 @@ mod tests {
                     let (book, lib) = (m.workbook(), labelling());
                     let calc = crate::calc::Calc::run(&book, &lib);
                     assert!(m.step(0).done);
-                    for &id in m.shapes.order() {
+                    for id in m.shapes.order_cells() {
                         assert_eq!(
                             m.computed(id),
                             calc.computed(id).cloned(),
@@ -12512,7 +12607,7 @@ mod tests {
                 for (k, m) in machines.iter().enumerate() {
                     counts_held(m, &by_sheet, &format!("{when}, machine {k}\n{rows}"));
                 }
-                let of = machines[1].shapes.order().len();
+                let of = machines[1].shapes.len();
                 assert_eq!(machines[1].reached(), of, "{when}: every cell computed");
                 followed += usize::from(machines[0].reached() < of);
                 match machines[0].changed() {
@@ -12825,7 +12920,13 @@ mod tests {
         // planned with a hub for every shape's held references and with none,
         // at the load and after every write that plans again: the two plans
         // spelled whole alike (each shape, the order, its cycles, runs and
-        // levels, the reach), and their frames bit for bit.
+        // levels, the reach), and their frames bit for bit. Since KERNEL.49's
+        // decision 7 a hub stands in the plan of cells, every plan of the
+        // tests' reference (`shape::reference`), and among the cells a plan by
+        // nodes plans cell by cell: two fills reading each other's rows, one
+        // of them a held cell of the other, are one component planned cell by
+        // cell, its held read through a hub. Each plan is held to the plan of
+        // cells, and both count their hubs.
         use crate::calc::shape::{hubs_at, hubs_made};
         let planned = |rows: &str, hubs: usize| {
             hubs_at(hubs);
@@ -12847,6 +12948,8 @@ mod tests {
             rows.push_str(concat!(
                 "(formula \"B\" \"M1:M20\" \"=MATCH(A!$A1,A!$C$1:$C$20,0)\")\n",
                 "(formula \"B\" \"N1:N20\" \"=SUM(A!$C$1:$H$4)+$A1\")\n",
+                "(formula \"B\" \"P2:P30\" \"=Q1+$Q$1\")\n",
+                "(formula \"B\" \"Q1:Q30\" \"=P1+1\")\n",
             ));
             let mut with = planned(&rows, 1);
             made += hubs_made();
@@ -12884,6 +12987,178 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_plan_by_nodes_plans_cell_by_cell_what_it_must_and_nothing_else() {
+        // KERNEL.49's decision 7, by name: a fill reading itself (a chain, a
+        // running balance), two fills reading each other's rows (one
+        // component of two nodes), a fill reading a defined name and one
+        // whose text the parse does not read are planned cell by cell, a
+        // chain's order and a cycle's cells and its refusal the plan of
+        // cells' to the cell (every plan held to it, `shape::reference`);
+        // fills reading other fills, value cells and held cells, and
+        // formulas alone of one text side by side, are planned by their
+        // rectangles, no cell planned alone. The held read of a component
+        // planned cell by cell is read through a hub when hubs stand from one
+        // cell, the plan the same as with none.
+        use crate::calc::shape::{hubs_at, hubs_made, planned_by_cell};
+        planned_by_cell();
+        let by_rects = load(concat!(
+            "(cell \"S\" \"A1:A20\" 2)\n",
+            "(formula \"S\" \"B1:D20\" \"=$A1*2+$A$1\")\n",
+            "(formula \"S\" \"E1:E20\" \"=SUM(B1:D1)+B$1\")\n",
+            "(formula \"S\" \"F1\" \"=E1+1\")\n",
+            "(formula \"S\" \"G1\" \"=F1+1\")\n",
+            "(formula \"S\" \"F2\" \"=E2+1\")\n",
+            "(formula \"S\" \"G2\" \"=F2+1\")\n",
+        ));
+        assert_eq!(
+            planned_by_cell(),
+            0,
+            "fills and formulas alone by rectangles"
+        );
+        assert_eq!(by_rects.shapes.formulas(), 84);
+        let chain = load(concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(formula \"S\" \"A2:A40\" \"=MOD(ROW()*7,13)\")\n",
+            "(formula \"S\" \"B1\" \"=A1\")\n",
+            "(formula \"S\" \"B2:B40\" \"=B1+A2\")\n",
+        ));
+        assert_eq!(planned_by_cell(), 39, "the running balance cell by cell");
+        assert_eq!(chain.shapes.level_ends().len(), 40, "a level a balance");
+        let named = load(concat!(
+            "(name \"Rate\" \"S!$A$1\")\n",
+            "(cell \"S\" \"A1\" 3)\n",
+            "(formula \"S\" \"B1:B5\" \"=Rate*ROW()\")\n",
+            "(formula \"S\" \"C1:C5\" \"=B1+1\")\n",
+        ));
+        assert_eq!(planned_by_cell(), 5, "the name's readers cell by cell");
+        assert_eq!(named.shapes.formulas(), 10);
+        let rows = concat!(
+            "(formula \"S\" \"P2:P30\" \"=Q1+$Q$1\")\n",
+            "(formula \"S\" \"Q1:Q30\" \"=P1+1\")\n",
+        );
+        hubs_made();
+        let (made, through) = {
+            let _unheld = crate::calc::shape::reference::unheld();
+            hubs_at(1);
+            let m = load(rows);
+            hubs_at(64);
+            (hubs_made(), m)
+        };
+        assert_eq!(planned_by_cell(), 59, "one component of two nodes");
+        assert!(made >= 1, "the held cell read through a hub");
+        let mut direct = load(rows);
+        assert_eq!(hubs_made(), 0, "no hub of one cell at 64");
+        assert_eq!(planned_by_cell(), 59);
+        assert_eq!(through.shapes.spelled(), direct.shapes.spelled());
+        assert!(direct.step(0).done);
+        assert_eq!(
+            direct.computed((0, 30, 17)),
+            Some(Computed::Value(Value::Number(59.0)))
+        );
+        let cycle = Machine::load(
+            concat!(
+                "(formula \"S\" \"A1:A3\" \"=B1+1\")\n",
+                "(formula \"S\" \"B1:B3\" \"=A1\")\n",
+                "(formula \"S\" \"C1:C3\" \"=A1\")\n",
+            ),
+            labelling(),
+        )
+        .expect_err("a cycle refused");
+        assert_eq!(planned_by_cell(), 6, "the cycle's two nodes cell by cell");
+        assert_eq!(cycle.refusal.id, "calc-cycle");
+        assert!(
+            cycle.refusal.text.contains("S!A1, S!B1"),
+            "{}",
+            cycle.refusal.text
+        );
+        let unread = Machine::load("(formula \"S\" \"A1:A3\" \"=1+\")\n", labelling())
+            .expect_err("a text not read refused");
+        assert_eq!(planned_by_cell(), 3, "a text not read cell by cell");
+        assert_eq!(unread.refusal.id, "calc-construct-not-read");
+        // A span of sheets read at a fill's first cell and moved off the
+        // sheet at its second: the second's text not read, the load refused
+        // there, where the first reads.
+        let span = Machine::load(
+            concat!(
+                "(sheet \"Jan\" visible)\n(sheet \"Dec\" visible)\n",
+                "(formula \"S\" \"A1:A2\" \"=SUM(Jan:Dec!B1048576)\")\n",
+            ),
+            labelling(),
+        )
+        .expect_err("a span moved off the sheet refused");
+        assert_eq!(span.refusal.id, "calc-construct-not-read");
+        assert!(span.refusal.text.contains("S!A2"), "{}", span.refusal.text);
+        // Two nodes calling functions the library lacks: the first named.
+        let two = Machine::load(
+            concat!(
+                "(formula \"S\" \"C3:D4\" \"=NOSUCHTWO(1)\")\n",
+                "(formula \"S\" \"B2\" \"=NOSUCHONE(1)\")\n",
+            ),
+            labelling(),
+        )
+        .expect_err("a function not held refused");
+        assert_eq!(two.refusal.id, "calc-function-not-computed");
+        assert!(two.refusal.text.contains("S!B2"), "{}", two.refusal.text);
+    }
+
+    #[test]
+    fn runs_carried_across_a_shape_s_levels_are_the_plan_of_cells_runs() {
+        // KERNEL.49's decision 7: seeded grids where one fill's pieces stand
+        // at several levels of one sheet, so that the blocks of its shape
+        // follow one another in the order and a run is carried from one into
+        // the next and broken inside it: a fill reading up, left or up and
+        // left, cut into pieces by values, constants and formulas alone of its
+        // own text written into it, a column of values and constants beside
+        // it. Each grid is planned by nodes and held to the plan of cells
+        // (`shape::reference`), runs and all, at its load and after every
+        // write; its frames stepped.
+        let texts = ["=A1+1", "=B1*2", "=A2+1", "=$A2+B1", "=A1+B1"];
+        let mut carried = 0;
+        for seed in 1..=300u64 {
+            let mut d = Dice(seed ^ 0x4904_0004);
+            let mut rows = String::new();
+            for r in 1..=9 {
+                match d.below(3) {
+                    0 => rows.push_str(&format!("(cell \"S\" \"A{r}\" {})\n", d.below(5))),
+                    1 => rows.push_str(&format!("(formula \"S\" \"A{r}\" \"=1\")\n")),
+                    _ => {}
+                }
+            }
+            let text = d.pick(&texts);
+            let (bottom, right) = (4 + d.below(6), 3 + d.below(5));
+            rows.push_str(&format!(
+                "(formula \"S\" \"B2:{}{bottom}\" \"{text}\")\n",
+                LETTERS[right - 1]
+            ));
+            let mut m = load(&rows);
+            for _ in 0..8 {
+                let (r, c) = (2 + d.below(bottom - 1), 2 + d.below(right - 1));
+                let at = format!("{}{r}", LETTERS[c - 1]);
+                let w = match d.below(4) {
+                    0 => format!("(cell \"S\" \"{at}\" {})", d.below(9)),
+                    1 => format!("(formula \"S\" \"{at}\" \"=1\")"),
+                    2 => {
+                        let moved = shift_a1_references(text, r as i64 - 2, c as i64 - 2);
+                        format!("(formula \"S\" \"{at}\" \"{moved}\")")
+                    }
+                    _ => {
+                        let r2 = (r + d.below(3)).min(bottom);
+                        format!("(cell \"S\" \"{at}:{}{r2}\" 0)", LETTERS[c - 1])
+                    }
+                };
+                if m.write(&w).is_ok() {
+                    assert!(m.step(0).done, "seed {seed}: {w}");
+                }
+                carried += m.shapes.run_spans().count();
+            }
+        }
+        assert!(
+            carried > 1_000,
+            "{carried} runs: too few for the law to hold over"
+        );
+    }
+
     // ---- KERNEL.56: a value written into an empty cell ----
 
     /// Each formula cell's value as `Calc` computes it over the grid lent as
@@ -12894,7 +13169,7 @@ mod tests {
         let book = m.workbook();
         let calc = crate::calc::Calc::run(&book, &m.library);
         m.shapes
-            .order()
+            .order_cells()
             .iter()
             .map(|&id| (id, format!("{:?}", calc.computed(id).expect("computed"))))
             .collect()
@@ -13124,7 +13399,7 @@ mod tests {
         let x_cells = |m: &Machine| -> Vec<CellId> {
             let x = m.find_sheet("X").expect("X");
             m.shapes
-                .order()
+                .order_cells()
                 .iter()
                 .copied()
                 .filter(|id| id.0 == x)

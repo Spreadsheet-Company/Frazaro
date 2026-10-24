@@ -72,6 +72,7 @@
 pub(crate) mod aggregates;
 pub mod array;
 pub(crate) mod arrays;
+pub(crate) mod blocks;
 pub(crate) mod census;
 pub mod criteria;
 pub(crate) mod database;
@@ -84,6 +85,7 @@ pub mod graph;
 pub mod index;
 pub mod library;
 pub(crate) mod lookups;
+pub(crate) mod nodes;
 pub(crate) mod order;
 pub(crate) mod program;
 pub(crate) mod reach;

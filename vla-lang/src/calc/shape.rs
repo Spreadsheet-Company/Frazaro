@@ -40,7 +40,15 @@
 //! `super::census`): each shape's cells, the levels of the order it spans,
 //! its runs and the paths its reads take, so that a grid's cost is read
 //! before a frame runs. Of all that, the plan keeps for it only where each
-//! level of the order ends, the array its counting sort already makes.
+//! level of the order ends.
+//!
+//! Since KERNEL.49's decision 7 (its fourth slice, 2026-10-22) the plan
+//! places nodes and not cells, each a fill's piece or a formula alone, and
+//! keeps the order as blocks (`super::nodes`, `super::blocks`): no map of
+//! every cell's place, no list of every cell of the order and no grid of
+//! every cell's position, a cell's shape and position found from its node
+//! and its block. The plan of every cell it was stays as the tests'
+//! reference (`reference`), the order by blocks held to it cell for cell.
 
 use std::collections::HashMap;
 
@@ -48,14 +56,19 @@ use crate::fx::FxHashMap;
 use crate::grid::{Formula, Kind, Masters, Model};
 use crate::messages::{raise, Refusal};
 use crate::refers::{self, quote_sheet};
-use crate::sheet::{cell_ref, strip_future_prefixes, Workbook};
+use crate::sheet::{cell_ref, strip_future_prefixes, A1Range, Workbook};
 
+use super::blocks::Blocks;
 use super::eval::{unread_name, Computed, Ctx, Env, Library, Reason};
-use super::formula::{self, Expr, Read, RefExpr};
-use super::graph::{self, areas_found, dependencies_in, Area, CellId, Extent, Names};
+use super::formula::{self, Expr, RefExpr};
+use super::graph::{CellId, Extent, Names};
+use super::nodes::{self, Alone, Located, Run};
 use super::program::{Program, Why};
-use super::reach::{Positions, Reach};
+use super::reach::{Reach, Reached};
 use super::vector::{self, Lanes, Repeats};
+
+#[cfg(test)]
+pub(crate) mod reference;
 
 /// One formula, parsed once, and the cell it was read at.
 #[derive(Clone, Debug)]
@@ -158,13 +171,19 @@ pub struct Shapes {
     by_r1c1: HashMap<String, usize>,
     /// A shared formula's shape, by its sheet and its index.
     by_shared: HashMap<(usize, u32), usize>,
-    /// Every formula cell's place, looked up at each of its evaluations,
-    /// under the crate's own hash (KERNEL.25).
-    places: FxHashMap<CellId, Place>,
     /// A cell of a risky shape whose own text the parse does not read: the
     /// construct it names, found once when the cell is placed.
     unread: FxHashMap<CellId, String>,
-    order: Vec<CellId>,
+    /// The order as blocks (KERNEL.49's decision 7): a shape's cells on a
+    /// sheet at a level each, row by row, the order a list of them.
+    blocks: Blocks,
+    /// Where each formula cell stands (KERNEL.49's decision 7): each
+    /// formula alone by its place, with its shape, kept from one plan to the
+    /// next, and each fill's piece by its rectangle, where a map of every
+    /// formula cell's place stood.
+    located: Located,
+    /// How many formula cells are placed.
+    formulas: usize,
     cycles: Vec<Vec<CellId>>,
     /// The runs of the order an engine evaluates at once (KERNEL.20), by
     /// their first position: each of at least [`RUN`] cells of one parsed
@@ -174,9 +193,8 @@ pub struct Shapes {
     /// What each shape reads, found with the order (KERNEL.20).
     reach: Reach,
     /// Where each level of the order ends, by level (KERNEL.30): the
-    /// position after its last cell, the order's own counting sort kept
-    /// rather than dropped, so that the census finds each cell's level
-    /// without planning again.
+    /// position after its last cell, so that the census finds each cell's
+    /// level without planning again.
     level_ends: Vec<u32>,
     /// Each shape's stretches of the order (KERNEL.54), each its first
     /// position and the position after its last: the longest spans of the
@@ -186,14 +204,6 @@ pub struct Shapes {
     /// `stretches[stretch_firsts[s]..stretch_firsts[s + 1]]`.
     stretches: Vec<(u32, u32)>,
     stretch_firsts: Vec<u32>,
-}
-
-/// A run of the order: its cells are `order[start..end]`, of one shape.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Run {
-    start: usize,
-    end: usize,
-    shape: usize,
 }
 
 /// The fewest cells a run is evaluated at once for; fewer are evaluated one
@@ -231,7 +241,10 @@ impl Shapes {
     }
 
     /// [`Shapes::of`] over a grid, a workbook's or an engine's machine's
-    /// (KERNEL.49), its formula cells placed row by row, sheet by sheet.
+    /// (KERNEL.49), its formula cells placed node by node (decision 7), each
+    /// fill's piece and each formula alone in the order of its first cell,
+    /// sheet by sheet, so that the shapes are numbered as a walk of every
+    /// cell numbered them.
     pub(crate) fn of_model<M: Model + ?Sized>(
         model: &M,
         sheets: usize,
@@ -240,34 +253,57 @@ impl Shapes {
         extents: &[Extent],
     ) -> Shapes {
         let mut s: Box<Shapes> = Box::default();
+        s.located.alone = vec![FxHashMap::default(); model.sheet_count()];
+        let mut nodes: Vec<(usize, A1Range, Option<u32>)> = Vec::new();
         for si in 0..sheets.min(model.sheet_count()) {
-            let masters = model.masters(si);
-            model.each_formula(si, &mut |(row, col), formula| {
-                s.place_with(model, (si, row, col), formula, &masters, library);
+            model.each_node(si, &mut |rect, f| {
+                let fill = match f {
+                    Formula::Fill(index) => Some(index),
+                    Formula::Own(..) => None,
+                };
+                nodes.push((si, rect, fill));
             });
+        }
+        nodes.sort_unstable_by_key(|&(si, r, _)| (si, r.top, r.left));
+        let mut masters: Option<(usize, Masters<'_>)> = None;
+        for (si, rect, fill) in nodes {
+            if masters.as_ref().map(|m| m.0) != Some(si) {
+                masters = Some((si, model.masters(si)));
+            }
+            let formula = match fill {
+                Some(index) => Formula::Fill(index),
+                None => match model.formula((si, rect.top, rect.left)) {
+                    Some(f) => f,
+                    None => continue,
+                },
+            };
+            let m = &masters.as_ref().expect("this sheet's masters").1;
+            s.place_node(model, si, rect, formula, m, library);
         }
         s.plan_model(model, names, extents);
         *s
     }
 
     /// Place one cell after a write: its old place forgotten, and a new one
-    /// found when it holds a formula. The order waits for [`Shapes::plan`].
-    pub fn replace(&mut self, model: &Workbook, id: CellId, library: &Library) {
-        self.places.remove(&id);
+    /// found when it holds a formula. The order waits for the plan.
+    #[cfg(test)]
+    pub(crate) fn replace(&mut self, model: &Workbook, id: CellId, library: &Library) {
+        if let Some(m) = self.located.alone.get_mut(id.0) {
+            m.remove(&(id.1, id.2));
+        }
         self.unread.remove(&id);
         let Some(formula) = model.formula(id) else {
             return;
         };
         let masters = model.masters(id.0);
-        self.place_with(model, id, formula, &masters, library);
+        self.place_node(model, id.0, cell_range(id), formula, &masters, library);
     }
 
-    /// Many cells placed after a write, as [`Shapes::replace`] places one,
-    /// each sheet's shared formulas found once for all its cells, where
-    /// `replace` walks the sheet for each (KERNEL.34: Life's rule written
-    /// whole walked its sheet 62,964 times, 3.96 billion cells visited, in
-    /// 13.3 s); then the plan made the one a load of the same grid makes
-    /// ([`Shapes::as_loaded`]). The order waits for [`Shapes::plan`].
+    /// Many cells placed after a write, each sheet's shared formulas found
+    /// once for all its cells (KERNEL.34: Life's rule written whole walked
+    /// its sheet 62,964 times, 3.96 billion cells visited, in 13.3 s); then
+    /// the plan made the one a load of the same grid makes
+    /// ([`Shapes::as_loaded`]). The order waits for the plan.
     pub(crate) fn replace_many<M: Model + ?Sized>(
         &mut self,
         model: &M,
@@ -275,7 +311,9 @@ impl Shapes {
         library: &Library,
     ) {
         for id in ids {
-            self.places.remove(id);
+            if let Some(m) = self.located.alone.get_mut(id.0) {
+                m.remove(&(id.1, id.2));
+            }
             self.unread.remove(id);
         }
         let mut sheets: Vec<usize> = ids.iter().map(|id| id.0).collect();
@@ -288,11 +326,25 @@ impl Shapes {
             let masters = model.masters(s);
             for &id in ids.iter().filter(|id| id.0 == s) {
                 if let Some(formula) = model.formula(id) {
-                    self.place_with(model, id, formula, &masters, library);
+                    self.place_node(model, s, cell_range(id), formula, &masters, library);
                 }
             }
         }
         self.as_loaded(model, library);
+    }
+
+    /// A placed cell's shape as the grid now holds it: a fill's by its
+    /// index, a formula alone's by its place.
+    fn shape_in<M: Model + ?Sized>(&self, model: &M, id: CellId) -> Option<usize> {
+        match model.formula(id)? {
+            Formula::Fill(index) => self.by_shared.get(&(id.0, index)).copied(),
+            Formula::Own(..) => self
+                .located
+                .alone
+                .get(id.0)?
+                .get(&(id.1, id.2))
+                .map(|a| a.shape as usize),
+        }
     }
 
     /// The plan made the one [`Shapes::of`] makes over the same grid, once a
@@ -301,20 +353,32 @@ impl Shapes {
     /// column; a fill's shape anchored at its master and a plain formula's
     /// at its first cell, read again from that cell's text where the write
     /// moved or respelled it; a shape no cell holds dropped. Every cell's
-    /// place and every construct a cell leaves unread are then a load's, and
+    /// shape and every construct a cell leaves unread are then a load's, and
     /// so, once planned, are the order, its runs and the reach, and the
     /// census prints a load's. A write left a fill's other cells on the
     /// shape of its first cell even when that cell had been written over,
     /// and kept a shape no cell held, so that the census after a write was
     /// numbered and anchored otherwise than a load's.
     fn as_loaded<M: Model + ?Sized>(&mut self, model: &M, library: &Library) {
-        // Each shape's first cell, the least of its places, found in one pass:
-        // sorting the places to find them took a write into Sand 14 ms.
+        // Each shape's first cell, the least of its cells, found in one pass
+        // over its nodes: a fill's pieces and the formulas alone.
         let mut first: Vec<Option<CellId>> = vec![None; self.shapes.len()];
-        for (&id, p) in &self.places {
-            match first[p.shape] {
-                Some(f) if f <= id => {}
-                _ => first[p.shape] = Some(id),
+        let least = |first: &mut Vec<Option<CellId>>, s: usize, id: CellId| match first[s] {
+            Some(f) if f <= id => {}
+            _ => first[s] = Some(id),
+        };
+        for si in 0..model.sheet_count() {
+            model.each_node(si, &mut |rect, f| {
+                if let Formula::Fill(index) = f {
+                    if let Some(&s) = self.by_shared.get(&(si, index)) {
+                        least(&mut first, s, (si, rect.top, rect.left));
+                    }
+                }
+            });
+        }
+        for (si, m) in self.located.alone.iter().enumerate() {
+            for (&(row, col), a) in m {
+                least(&mut first, a.shape as usize, (si, row, col));
             }
         }
         let mut order: Vec<usize> = (0..self.shapes.len())
@@ -355,8 +419,9 @@ impl Shapes {
             return;
         }
         // The shapes read again from their first cells, then every shape in
-        // the order of its first cell, each place renumbered and, for a shape
-        // read again, moved from its new first cell.
+        // the order of its first cell, each formula alone's renumbered and,
+        // for a shape read again, each of its cells' constructs found again
+        // from its new first cell.
         let mut renewed: HashMap<usize, Shape> = HashMap::new();
         for (s, anchor, text) in again {
             let fill = self.shapes[s].fill;
@@ -380,37 +445,75 @@ impl Shapes {
                 .expect("each shape once");
             self.shapes.push(shape);
         }
-        let shapes = &self.shapes;
-        for (id, p) in self.places.iter_mut() {
-            p.shape = number[p.shape].expect("a placed cell's shape is kept");
-            if !moved[p.shape] {
-                continue;
+        for m in &mut self.located.alone {
+            for a in m.values_mut() {
+                a.shape = number[a.shape as usize].expect("a placed cell's shape is kept") as u32;
             }
-            let shape = &shapes[p.shape];
-            p.d_row = i64::from(id.1) - i64::from(shape.anchor.1);
-            p.d_col = i64::from(id.2) - i64::from(shape.anchor.2);
-            match shape.unread_at(p.d_row, p.d_col) {
-                Some(construct) => self.unread.insert(*id, construct),
-                None => self.unread.remove(id),
-            };
         }
         self.by_shared.retain(|_, s| number[*s].is_some());
         self.by_r1c1.retain(|_, s| number[*s].is_some());
         for s in self.by_shared.values_mut().chain(self.by_r1c1.values_mut()) {
             *s = number[*s].expect("kept");
         }
+        if !moved.contains(&true) {
+            return;
+        }
+        // The constructs of the cells of a shape read again, found again at
+        // their new offsets: those it had dropped, and its cells' found
+        // where it is risky.
+        let unread = std::mem::take(&mut self.unread);
+        self.unread = unread
+            .into_iter()
+            .filter(|(id, _)| self.shape_in(model, *id).map_or(true, |s| !moved[s]))
+            .collect();
+        let mut cells: Vec<(CellId, usize)> = Vec::new();
+        for si in 0..model.sheet_count() {
+            model.each_node(si, &mut |rect, f| {
+                let s = match f {
+                    Formula::Fill(index) => self.by_shared.get(&(si, index)).copied(),
+                    Formula::Own(..) => self
+                        .located
+                        .alone
+                        .get(si)
+                        .and_then(|m| m.get(&(rect.top, rect.left)))
+                        .map(|a| a.shape as usize),
+                };
+                if let Some(s) = s.filter(|&s| moved[s] && self.shapes[s].risky) {
+                    for row in rect.top..=rect.bottom {
+                        for col in rect.left..=rect.right {
+                            cells.push(((si, row, col), s));
+                        }
+                    }
+                }
+            });
+        }
+        for (id, s) in cells {
+            let shape = &self.shapes[s];
+            let (d_row, d_col) = (
+                i64::from(id.1) - i64::from(shape.anchor.1),
+                i64::from(id.2) - i64::from(shape.anchor.2),
+            );
+            if let Some(construct) = shape.unread_at(d_row, d_col) {
+                self.unread.insert(id, construct);
+            }
+        }
     }
 
-    fn place_with<M: Model + ?Sized>(
+    /// One node placed (KERNEL.49's decision 7): a fill's piece on its
+    /// fill's shape, made at its first piece and anchored at its master; a
+    /// formula alone on the shape of its R1C1 text, kept by its place; and
+    /// each cell of a risky shape whose own text the parse does not read
+    /// with the construct it names.
+    fn place_node<M: Model + ?Sized>(
         &mut self,
         model: &M,
-        id: CellId,
+        si: usize,
+        rect: A1Range,
         formula: Formula<'_>,
         masters: &Masters<'_>,
         library: &Library,
     ) {
-        let (si, row, col) = id;
-        let (shape, anchor) = match formula {
+        let shape = match formula {
             Formula::Fill(index) => {
                 let Some(&(text, m_row, m_col)) = masters.get(&index) else {
                     // A child whose master is gone has no text; the machine
@@ -419,20 +522,20 @@ impl Shapes {
                     // cells its own text, first).
                     return;
                 };
-                let anchor = (si, m_row, m_col);
                 let key = (si, index);
-                let shape = match self.by_shared.get(&key) {
+                match self.by_shared.get(&key) {
                     Some(&s) => s,
                     None => {
+                        let anchor = (si, m_row, m_col);
                         let s = self.add(model, strip_future_prefixes(text), anchor, library);
                         self.shapes[s].fill = Some(index);
                         self.by_shared.insert(key, s);
                         s
                     }
-                };
-                (shape, anchor)
+                }
             }
             Formula::Own(t, kind) => {
+                let (row, col) = (rect.top, rect.left);
                 let text = strip_future_prefixes(t);
                 let mut key = refers::r1c1(&text, row, col);
                 // A dynamic formula and a legacy array formula are read as
@@ -443,32 +546,42 @@ impl Shapes {
                     Kind::Array => key.insert(0, '\u{2}'),
                     Kind::Plain => {}
                 }
-                match self.by_r1c1.get(&key) {
-                    Some(&s) => (s, self.shapes[s].anchor),
+                let s = match self.by_r1c1.get(&key) {
+                    Some(&s) => s,
                     None => {
-                        let s = self.add(model, text, id, library);
+                        let s = self.add(model, text, (si, row, col), library);
                         self.by_r1c1.insert(key, s);
-                        (s, id)
+                        s
                     }
+                };
+                if self.located.alone.len() <= si {
+                    self.located.alone.resize_with(si + 1, FxHashMap::default);
                 }
+                self.located.alone[si].insert(
+                    (row, col),
+                    Alone {
+                        shape: s as u32,
+                        pos: nodes::NONE,
+                    },
+                );
+                s
             }
         };
-        let (d_row, d_col) = (
-            i64::from(row) - i64::from(anchor.1),
-            i64::from(col) - i64::from(anchor.2),
-        );
-        self.places.insert(
-            id,
-            Place {
-                shape,
-                d_row,
-                d_col,
-            },
-        );
-        match self.shapes[shape].unread_at(d_row, d_col) {
-            Some(construct) => self.unread.insert(id, construct),
-            None => self.unread.remove(&id),
-        };
+        let shape = &self.shapes[shape];
+        if !shape.risky || shape.expr.is_err() {
+            return;
+        }
+        for row in rect.top..=rect.bottom {
+            for col in rect.left..=rect.right {
+                let (d_row, d_col) = (
+                    i64::from(row) - i64::from(shape.anchor.1),
+                    i64::from(col) - i64::from(shape.anchor.2),
+                );
+                if let Some(construct) = shape.unread_at(d_row, d_col) {
+                    self.unread.insert((si, row, col), construct);
+                }
+            }
+        }
     }
 
     fn add<M: Model + ?Sized>(
@@ -563,321 +676,46 @@ impl Shapes {
         self.shapes.len() - 1
     }
 
-    /// The order found again from the places: every formula cell's edges
-    /// read off its shape's parse at its offset (a defined name's text read
-    /// as `graph::dependencies` reads it), then Tarjan's components, as
-    /// `graph::plan` finds them for a plan of texts.
-    ///
-    /// Each shape's references are read off its parse once (KERNEL.33,
-    /// asked by Alonzo's playtest pass of Sand, whose load spent 341 ms of
-    /// 491 finding 2.37 million edges a cell at a time): each reference once,
-    /// one to a sheet holding no formula left out, one every `$` holds found
-    /// once for the whole shape; each cell then moves only the rest. A cell's
-    /// vertex is found as reach finds a position, by an array over a sheet
-    /// whose formulas stand close together, and the edges are one flat array.
-    /// Every cell's edges are the ones a walk of its parse at its offset
-    /// finds, sorted and each once, so the order, its runs and its cycles
-    /// are the same. A shape whose held references name many formula cells
-    /// has them as one vertex of its own, a hub after the cells, each of its
-    /// cells one edge to it (KERNEL.8): twenty thousand cells searching one
-    /// table of twenty thousand formulas held whole made four hundred million
-    /// edges, the same cells in every one. A hub stands for its cells and no
-    /// more, which [`Shapes::order_and_runs`] reads through.
-    pub fn plan(&mut self, model: &Workbook, names: &Names, extents: &[Extent]) {
-        self.plan_model(model, names, extents);
-    }
-
-    /// [`Shapes::plan`] over a grid, a workbook's or an engine's machine's
-    /// (KERNEL.49).
+    /// The order found again from the placed nodes (KERNEL.49's decision 7,
+    /// `super::nodes`): each node's edges by the rectangles its shape's
+    /// references read, Tarjan's components over the nodes, each node's
+    /// cells' levels a map of rectangles, a node that reads itself, stands
+    /// in a component of more than one or reads what the reach does not
+    /// follow planned cell by cell as every cell was (KERNEL.33's edges,
+    /// KERNEL.8's hubs), the order kept as blocks; then the reach. The order,
+    /// its runs, levels and cycles are those a plan of every cell finds,
+    /// cell for cell (the tests' reference, `reference::Reference`).
     pub(crate) fn plan_model<M: Model + ?Sized>(
         &mut self,
         model: &M,
         names: &Names,
         extents: &[Extent],
     ) {
-        let mut ids: Vec<CellId> = self.places.keys().copied().collect();
-        ids.sort_unstable();
-        let index = Positions::of(&ids, model.sheet_count());
-        let mut holds = vec![false; model.sheet_count()];
-        for id in &ids {
-            holds[id.0] = true;
-        }
-        let vertices = Vertices {
+        let alone = std::mem::take(&mut self.located.alone);
+        let planned = nodes::plan(
             model,
+            &self.shapes,
+            &self.by_shared,
+            &self.unread,
+            names,
             extents,
-            index: &index,
-            holds: &holds,
-        };
-        let reads: Vec<ShapeReads> = self
-            .shapes
-            .iter()
-            .map(|shape| vertices.reads_of(shape))
-            .collect();
-        // Every cell's edges in one array, cell `v`'s at
-        // `targets[offsets[v]..offsets[v + 1]]`, where a vector of edges was
-        // made for each cell.
-        let n = ids.len();
-        let mut offsets: Vec<usize> = Vec::with_capacity(n + 1);
-        let mut targets: Vec<u32> = Vec::with_capacity(n * 8);
-        offsets.push(0);
-        let mut shape_of: Vec<usize> = Vec::with_capacity(n);
-        let mut deps: Vec<CellId> = Vec::new();
-        let mut edges: Vec<u32> = Vec::new();
-        // The vertices each shape's held references name, by the shape and,
-        // where one of them names the formula's own sheet, the cell's sheet,
-        // found once (KERNEL.8: a range of the own sheet was found again at
-        // every cell); with the hub of each that names enough of them,
-        // numbered after the cells.
-        let mut held: FxHashMap<(usize, usize), (Vec<u32>, Option<u32>)> = FxHashMap::default();
-        let mut hubs: Vec<(usize, usize)> = Vec::new();
-        for id in &ids {
-            edges.clear();
-            deps.clear();
-            let p = self.places[id];
-            shape_of.push(p.shape);
-            let shape = &self.shapes[p.shape];
-            let read = !self.unread.contains_key(id);
-            match &shape.expr {
-                Ok(e) if read => {
-                    let r = &reads[p.shape];
-                    // A shape holding nothing of its own sheet and too few
-                    // cells for a hub reads its held cells as the shape found
-                    // them, no entry made for it.
-                    if r.own.is_empty() && r.fixed.len() < hub_at() {
-                        edges.extend_from_slice(&r.fixed);
-                    } else {
-                        let key = (p.shape, if r.own.is_empty() { usize::MAX } else { id.0 });
-                        let (fixed, hub) = held.entry(key).or_insert_with(|| {
-                            let mut fixed = r.fixed.clone();
-                            for re in &r.own {
-                                let found = |n: &str| model.find_sheet(n);
-                                if let Ok(areas) = areas_found(found, id.0, re, 0, 0) {
-                                    for a in &areas {
-                                        vertices.formulas_in(a, &mut fixed);
-                                    }
-                                }
-                            }
-                            fixed.sort_unstable();
-                            fixed.dedup();
-                            let hub = (fixed.len() >= hub_at()).then(|| {
-                                hubs.push(key);
-                                vertex(n + hubs.len() - 1)
-                            });
-                            (fixed, hub)
-                        });
-                        match hub {
-                            Some(hub) => edges.push(*hub),
-                            None => edges.extend_from_slice(fixed),
-                        }
-                    }
-                    for re in &r.moving {
-                        let found = |n: &str| model.find_sheet(n);
-                        let Ok(areas) = areas_found(found, id.0, re, p.d_row, p.d_col) else {
-                            continue;
-                        };
-                        for a in &areas {
-                            vertices.formulas_in(a, &mut edges);
-                        }
-                    }
-                    if r.named {
-                        e.each_read(&mut |r| {
-                            if let Read::Name { name, sheet } = r {
-                                let scope = sheet.and_then(|s| model.find_sheet(s));
-                                if let Some(t) = names.resolve(name, scope, id.0) {
-                                    dependencies_in(
-                                        model,
-                                        names,
-                                        extents,
-                                        scope.unwrap_or(id.0),
-                                        t,
-                                        &mut deps,
-                                    );
-                                }
-                            }
-                        });
-                    }
-                }
-                // A text this version does not parse, here or at this
-                // offset: its edges as the text scan reads them, so that a
-                // cycle through it is still found.
-                _ => {
-                    let moved = refers::shift_a1_references(&shape.text, p.d_row, p.d_col);
-                    dependencies_in(model, names, extents, id.0, &moved, &mut deps);
-                }
-            }
-            for d in &deps {
-                if let Some(v) = index.get(d.0, d.1, d.2) {
-                    edges.push(vertex(v));
-                }
-            }
-            edges.sort_unstable();
-            edges.dedup();
-            targets.extend_from_slice(&edges);
-            offsets.push(targets.len());
-        }
-        for key in &hubs {
-            targets.extend_from_slice(&held[key].0);
-            offsets.push(targets.len());
-        }
+            alone,
+        );
         #[cfg(test)]
-        HUBS_MADE.with(|h| h.set(h.get() + hubs.len()));
-        let (members, starts) = graph::tarjan_flat(&offsets, &targets);
-        let shape_at =
-            self.order_and_runs(&ids, (&offsets, &targets), &shape_of, (&members, &starts));
-        let places = &self.places;
-        let formula = |id: CellId| places.contains_key(&id);
-        self.reach = Reach::of(model, &self.shapes, &self.order, shape_at, &formula);
-    }
-
-    /// The order, the cycles and the runs, from the cells, each one's edges
-    /// (one flat array, as [`graph::tarjan_flat`] reads them) and shape, and
-    /// the components, which come each after everything it reads; the shape
-    /// of each cell of the order answered.
-    ///
-    /// Each cell's level is 0 when it reads no formula of the plan, else one
-    /// past the deepest it reads, its component's. The order is by level,
-    /// then shape, then cell, sheet first: any order that puts a cell after
-    /// what it reads computes the same frame, and in this one the cells of a
-    /// shape that read none of one another stand together, whether the shape
-    /// fills rows or a column beside others (KERNEL.20).
-    fn order_and_runs(
-        &mut self,
-        ids: &[CellId],
-        (offsets, targets): (&[usize], &[u32]),
-        shape_of: &[usize],
-        (members, starts): (&[u32], &[usize]),
-    ) -> Vec<u32> {
-        self.order.clear();
-        self.cycles.clear();
-        self.runs.clear();
-        let adj = |v: usize| &targets[offsets[v]..offsets[v + 1]];
-        // The cells, then the hubs (`Shapes::plan`): a hub's level is its
-        // deepest cell's, so that a cell reading through it stands one past
-        // that cell, as an edge to each cell would stand it.
-        let n = ids.len();
-        let all = offsets.len() - 1;
-        let mut component = vec![0; all];
-        let mut level: Vec<usize> = vec![0; all];
-        let mut alone = vec![false; n];
-        for (c, ends) in starts.windows(2).enumerate() {
-            let comp = &members[ends[0]..ends[1]];
-            for &v in comp {
-                component[v as usize] = c;
-            }
-            let deepest = comp
-                .iter()
-                .flat_map(|&v| adj(v as usize))
-                .filter(|&&u| component[u as usize] != c)
-                .map(|&u| level[u as usize] + 1)
-                .max()
-                .unwrap_or(0);
-            if comp.iter().all(|&v| v as usize >= n) {
-                // A hub alone: its cells' deepest, one fewer than a reader's.
-                for &v in comp {
-                    level[v as usize] = deepest.saturating_sub(1);
-                }
-                continue;
-            }
-            for &v in comp {
-                level[v as usize] = deepest;
-            }
-            if comp.len() == 1 && !adj(comp[0] as usize).contains(&comp[0]) {
-                alone[comp[0] as usize] = true;
-            } else {
-                let mut cells: Vec<CellId> = comp
-                    .iter()
-                    .filter(|&&i| (i as usize) < n)
-                    .map(|&i| ids[i as usize])
-                    .collect();
-                cells.sort_unstable();
-                self.cycles.push(cells);
-            }
-        }
-        self.cycles.sort();
-        // By shape and then by level, each pass keeping the order before it,
-        // so by level, shape and cell, a cell's sheet first among its own;
-        // the second pass's counts are where each level ends (KERNEL.30).
-        let cells: Vec<usize> = (0..n).filter(|&v| alone[v]).collect();
-        let (cells, _) = by_key(&cells, self.shapes.len(), |v| shape_of[v]);
-        let levels = level[..n].iter().max().map_or(0, |deepest| deepest + 1);
-        let (order, ends) = by_key(&cells, levels, |v| level[v]);
-        self.level_ends = ends;
-        // The run each cell of the order joined, by the run's first position:
-        // a cell joins the run before it when it is of the run's shape and
-        // sheet and reads no cell of the run, so that the run's cells may be
-        // computed in any order, all at once among them (KERNEL.20). A hub
-        // names no cell of a run: its cells are those its shape's every cell
-        // reads, so that one of its own shape would read itself, a cycle, and
-        // a run is one shape's cells.
-        let mut joined = vec![usize::MAX; n];
-        let mut run = Run {
-            start: 0,
-            end: 0,
-            shape: usize::MAX,
-        };
-        let mut shape_at = Vec::with_capacity(order.len());
-        let mut stretches = Vec::new();
-        for v in order {
-            let (id, shape) = (ids[v], shape_of[v]);
-            let pos = self.order.len();
-            let joins = shape == run.shape
-                && id.0 == self.order[run.start].0
-                && adj(v)
-                    .iter()
-                    .all(|&u| u as usize >= n || joined[u as usize] != run.start);
-            if !joins {
-                self.keep(run, &mut stretches);
-                run = Run {
-                    start: pos,
-                    end: pos,
-                    shape,
-                };
-            }
-            joined[v] = run.start;
-            run.end = pos + 1;
-            self.order.push(id);
-            shape_at.push(shape as u32);
-        }
-        self.keep(run, &mut stretches);
-        // Each shape's stretches together, by a counting sort (KERNEL.54).
-        let shapes = self.shapes.len();
-        let mut firsts = vec![0u32; shapes + 1];
-        for &(s, _, _) in &stretches {
-            firsts[s as usize + 1] += 1;
-        }
-        for s in 0..shapes {
-            firsts[s + 1] += firsts[s];
-        }
-        let mut at = firsts.clone();
-        let mut by_shape = vec![(0, 0); stretches.len()];
-        for (s, start, end) in stretches {
-            by_shape[at[s as usize] as usize] = (start, end);
-            at[s as usize] += 1;
-        }
-        self.stretches = by_shape;
-        self.stretch_firsts = firsts;
-        shape_at
-    }
-
-    /// A run of the order kept to be evaluated at once when it is long
-    /// enough and its shape parsed and not risky, so that every cell of it
-    /// reads as the shape does (KERNEL.20). (A risky shape's cells all read
-    /// as it does in a grid that loaded, every other being refused; the
-    /// shape is evaluated cell by cell all the same.) Every run, kept or
-    /// not, is its shape's stretch, or grows the last one where it carries
-    /// on the same shape's (KERNEL.54).
-    fn keep(&mut self, run: Run, stretches: &mut Vec<(u32, u32, u32)>) {
-        let Some(shape) = self.shapes.get(run.shape) else {
-            return;
-        };
-        let (s, start, end) = (run.shape as u32, run.start as u32, run.end as u32);
-        match stretches.last_mut() {
-            Some(last) if last.0 == s && last.2 == start => last.2 = end,
-            _ => stretches.push((s, start, end)),
-        }
-        if run.end - run.start >= RUN && !shape.risky && shape.expr.is_ok() {
-            self.runs.push(run);
-        }
+        HUBS_MADE.with(|h| h.set(h.get() + planned.hubs));
+        #[cfg(test)]
+        BY_CELL.with(|h| h.set(h.get() + planned.by_cell));
+        self.blocks = planned.blocks;
+        self.located = planned.located;
+        self.cycles = planned.cycles;
+        self.runs = planned.runs;
+        self.level_ends = planned.level_ends;
+        self.stretches = planned.stretches;
+        self.stretch_firsts = planned.stretch_firsts;
+        self.formulas = planned.formulas;
+        self.reach = Reach::of(model, &self.shapes, &self.blocks, &self.located);
+        #[cfg(test)]
+        reference::hold(self, model, names, extents);
     }
 
     /// A shape's stretches of the order, each its first position and the
@@ -893,6 +731,20 @@ impl Shapes {
         }
     }
 
+    /// The order walked whole from its blocks, the tests' list of it.
+    #[cfg(test)]
+    pub(crate) fn order_cells(&self) -> Vec<CellId> {
+        self.order().collect()
+    }
+
+    /// Everything a changed cell reaches, every reader of its sheet checked
+    /// (`Reach::each_by_scan`), the tests' reference.
+    #[cfg(test)]
+    pub(crate) fn reached_by_scan(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
+        self.reach
+            .each_by_scan(&self.blocks, &self.located, changed, f);
+    }
+
     /// How many cells of the order are in runs.
     #[cfg(test)]
     pub(crate) fn cells_in_runs(&self) -> usize {
@@ -900,11 +752,13 @@ impl Shapes {
     }
 
     /// The plan spelled whole, each map in order: every shape with its first
-    /// cell, its fill, its text and its parse; every cell's place and the
-    /// construct it leaves unread; the two maps a cell finds its shape by;
-    /// the order, its cycles, runs and levels, and each shape's stretches
-    /// (KERNEL.54); the reach, its pieces among its stands. KERNEL.34's oracle,
-    /// a write leaving the plan a load of its grid makes, part for part.
+    /// cell, its fill, its text and its parse; every formula alone with its
+    /// shape and position, every fill's piece, the constructs cells leave
+    /// unread and the two maps a cell finds its shape by; the order as its
+    /// blocks, its cycles, runs and levels, and each shape's stretches
+    /// (KERNEL.54); the reach, its pieces among its stands. KERNEL.34's
+    /// oracle, a write leaving the plan a load of its grid makes, part for
+    /// part.
     #[cfg(test)]
     pub(crate) fn spelled(&self) -> String {
         use std::fmt::Write;
@@ -925,20 +779,32 @@ impl Shapes {
                 s.reads_extent
             );
         }
-        let mut places: Vec<(&CellId, &Place)> = self.places.iter().collect();
-        places.sort_by_key(|(id, _)| **id);
+        let mut alone: Vec<(usize, (u32, u32), Alone)> = self
+            .located
+            .alone
+            .iter()
+            .enumerate()
+            .flat_map(|(s, m)| m.iter().map(move |(&at, &a)| (s, at, a)))
+            .collect();
+        alone.sort_by_key(|&(s, at, _)| (s, at));
+        let mut pieces: Vec<_> = self
+            .located
+            .pieces()
+            .map(|(s, r, shape)| (s, (r.top, r.left, r.bottom, r.right), shape))
+            .collect();
+        pieces.sort_unstable();
         let mut unread: Vec<(&CellId, &String)> = self.unread.iter().collect();
         unread.sort();
         let mut shared: Vec<(&(usize, u32), &usize)> = self.by_shared.iter().collect();
         shared.sort();
         let mut r1c1: Vec<(&String, &usize)> = self.by_r1c1.iter().collect();
         r1c1.sort();
-        let _ = writeln!(out, "places {places:?}\nunread {unread:?}");
+        let _ = writeln!(out, "alone {alone:?}\npieces {pieces:?}\nunread {unread:?}");
         let _ = writeln!(out, "by shared {shared:?}\nby r1c1 {r1c1:?}");
         let _ = writeln!(
             out,
-            "order {:?}\ncycles {:?}\nruns {:?}\nlevels {:?}",
-            self.order, self.cycles, self.runs, self.level_ends
+            "blocks {:?}\nformulas {}\ncycles {:?}\nruns {:?}\nlevels {:?}",
+            self.blocks, self.formulas, self.cycles, self.runs, self.level_ends
         );
         let _ = writeln!(
             out,
@@ -1015,7 +881,7 @@ impl Shapes {
             // slice f).
             Ok(_) if s.arrayed => out.extend(cells.iter().map(|&id| {
                 env.enter(id);
-                self.evaluate(env, library, id)
+                self.evaluate_shaped(env, library, shape, id)
             })),
             Ok(e) => {
                 let held = s.holds;
@@ -1026,19 +892,48 @@ impl Shapes {
             // A run holds a parsed shape; were it not, each cell alone.
             Err(_) => out.extend(cells.iter().map(|&id| {
                 env.enter(id);
-                self.evaluate(env, library, id)
+                self.evaluate_shaped(env, library, shape, id)
             })),
         }
     }
 
     /// The formula cells in the order of evaluation, each after everything
-    /// it reads; the cells of a cycle are not in it.
-    pub fn order(&self) -> &[CellId] {
-        &self.order
+    /// it reads; the cells of a cycle are not in it. Walked from the order's
+    /// blocks (KERNEL.49's decision 7), where it was a list of its cells.
+    pub fn order(&self) -> impl Iterator<Item = CellId> + '_ {
+        self.blocks.cells(0, self.blocks.len())
     }
 
-    /// What each shape reads, and where the cells of the order stand
-    /// (KERNEL.20).
+    /// How many cells the order holds.
+    pub(crate) fn len(&self) -> usize {
+        self.blocks.len()
+    }
+
+    /// The cell at a position of the order, and its shape.
+    pub(crate) fn at(&self, p: usize) -> (CellId, usize) {
+        self.blocks.cell(p)
+    }
+
+    /// The order's blocks.
+    pub(crate) fn blocks(&self) -> &Blocks {
+        &self.blocks
+    }
+
+    /// A formula cell's position in the order, where an engine's machine
+    /// marks it (KERNEL.26); `None` for a cell holding no formula and for a
+    /// cell on a cycle. Found from its node and its block (KERNEL.49's
+    /// decision 7), where a grid of every cell's position was asked.
+    pub(crate) fn position(&self, id: CellId) -> Option<usize> {
+        self.located.position(&self.blocks, id)
+    }
+
+    /// Everything a changed cell reaches, to `f` ([`Reach::each`]), the
+    /// cells of a shape found through its nodes and blocks.
+    pub(crate) fn reached(&self, changed: CellId, f: &mut impl FnMut(Reached)) {
+        self.reach.each(&self.blocks, &self.located, changed, f);
+    }
+
+    /// What each shape reads (KERNEL.20).
     pub(crate) fn reach(&self) -> &Reach {
         &self.reach
     }
@@ -1050,7 +945,7 @@ impl Shapes {
 
     /// How many formula cells are placed.
     pub fn formulas(&self) -> usize {
-        self.places.len()
+        self.formulas
     }
 
     /// How many shapes the formulas make.
@@ -1060,12 +955,19 @@ impl Shapes {
 
     /// Whether a cell holds a placed formula.
     pub fn holds(&self, id: CellId) -> bool {
-        self.places.contains_key(&id)
+        self.located.holds(id)
     }
 
-    /// A formula cell's place.
+    /// A formula cell's place: its shape, found from its node (KERNEL.49's
+    /// decision 7), and its offset from the shape's first cell.
     pub fn place(&self, id: CellId) -> Option<Place> {
-        self.places.get(&id).copied()
+        let shape = self.located.shape_of(id)?;
+        let a = self.shapes[shape].anchor;
+        Some(Place {
+            shape,
+            d_row: i64::from(id.1) - i64::from(a.1),
+            d_col: i64::from(id.2) - i64::from(a.2),
+        })
     }
 
     /// A shape, by its index.
@@ -1099,9 +1001,18 @@ impl Shapes {
         self.runs.iter().map(|r| (r.start, r.end, r.shape))
     }
 
-    /// Every formula cell and its place, in no order (KERNEL.30).
-    pub(crate) fn places(&self) -> impl Iterator<Item = (CellId, Place)> + '_ {
-        self.places.iter().map(|(&id, &p)| (id, p))
+    /// Every node, its sheet, its rectangle and its shape, in no order: each
+    /// fill's piece and each formula alone (KERNEL.30's census; KERNEL.49's
+    /// decision 7, where it walked every cell's place).
+    pub(crate) fn each_node(&self, f: &mut dyn FnMut(usize, A1Range, usize)) {
+        for (sheet, rect, shape) in self.located.pieces() {
+            f(sheet, rect, shape);
+        }
+        for (sheet, m) in self.located.alone.iter().enumerate() {
+            for (&(row, col), a) in m {
+                f(sheet, cell_range((sheet, row, col)), a.shape as usize);
+            }
+        }
     }
 
     /// Every shape the plan holds, a shape whose cells a write has since
@@ -1113,17 +1024,31 @@ impl Shapes {
     /// One formula cell evaluated against the grid as `env` shows it, the
     /// cell being computed being `env.here()`.
     pub fn evaluate(&self, env: &dyn Env, library: &Library, id: CellId) -> Computed {
-        let Some(p) = self.places.get(&id) else {
+        let Some(shape) = self.located.shape_of(id) else {
             return Computed::NotComputed(Reason::Construct(String::new()));
         };
-        let shape = &self.shapes[p.shape];
+        self.evaluate_shaped(env, library, shape, id)
+    }
+
+    /// One formula cell of a shape evaluated, its shape known (KERNEL.49's
+    /// decision 7: a cell of the order's by its block's).
+    pub(crate) fn evaluate_shaped(
+        &self,
+        env: &dyn Env,
+        library: &Library,
+        shape: usize,
+        id: CellId,
+    ) -> Computed {
+        let s = &self.shapes[shape];
         if let Some(construct) = self.unread.get(&id) {
             return Computed::NotComputed(Reason::Construct(construct.clone()));
         }
-        match &shape.expr {
+        match &s.expr {
             Err(construct) => Computed::NotComputed(Reason::Construct(construct.clone())),
             Ok(e) => {
-                let ctx = Ctx::at(env, library, p.d_row, p.d_col);
+                let d_row = i64::from(id.1) - i64::from(s.anchor.1);
+                let d_col = i64::from(id.2) - i64::from(s.anchor.2);
+                let ctx = Ctx::at(env, library, d_row, d_col);
                 match ctx.eval(e).and_then(|arg| ctx.result(&arg)) {
                     Ok(v) => Computed::Value(v.settled()),
                     Err(reason) => Computed::NotComputed(reason),
@@ -1148,7 +1073,10 @@ impl Shapes {
     }
 
     /// [`Shapes::first_refusal`] over a grid, a workbook's or an engine's
-    /// machine's (KERNEL.49).
+    /// machine's (KERNEL.49). Every cell of a node refuses alike but for a
+    /// construct one cell leaves unread, so the first refused cell is found
+    /// node by node (decision 7), each node's first cell standing for it,
+    /// where every placed cell was sorted.
     pub(crate) fn first_refusal_in<M: Model + ?Sized>(
         &self,
         model: &M,
@@ -1161,14 +1089,6 @@ impl Shapes {
                 raise("calc-cycle", &[("cells", &cells.join(", "))]),
             ));
         }
-        let mut ids: Vec<CellId> = match only {
-            Some(cells) => cells
-                .iter()
-                .copied()
-                .filter(|id| self.places.contains_key(id))
-                .collect(),
-            None => self.places.keys().copied().collect(),
-        };
         // A defined name a cell's formula reads whose text the parse does
         // not read, which a load refuses with the constructs (KERNEL.8, slice
         // b): asked only of a workbook that defines a name whose text is
@@ -1176,105 +1096,121 @@ impl Shapes {
         // the sheet that reads it.
         let mut named: FxHashMap<(usize, usize), String> = FxHashMap::default();
         let names = (!model.defined_names().is_empty()).then(|| Names::of_model(model));
-        if let Some(names) = names.filter(Names::any_unread) {
-            let mut asked: FxHashMap<(usize, usize), ()> = FxHashMap::default();
-            for id in &ids {
-                let s = self.places[id].shape;
-                if asked.insert((s, id.0), ()).is_some() {
-                    continue;
+        let names = names.filter(Names::any_unread);
+        let mut asked: FxHashMap<(usize, usize), ()> = FxHashMap::default();
+        let mut ask = |s: usize, sheet: usize, named: &mut FxHashMap<(usize, usize), String>| {
+            let Some(names) = &names else {
+                return;
+            };
+            if asked.insert((s, sheet), ()).is_some() {
+                return;
+            }
+            if let Ok(e) = &self.shapes[s].expr {
+                if let Some(construct) = unread_name(model, names, e, sheet) {
+                    named.insert((s, sheet), construct);
                 }
-                if let Ok(e) = &self.shapes[s].expr {
-                    if let Some(construct) = unread_name(model, &names, e, id.0) {
-                        named.insert((s, id.0), construct);
+            }
+        };
+        // The first cell calling a function the library lacks, and the first
+        // standing for a text not read.
+        let (missing, labelled) = match only {
+            Some(cells) => {
+                let mut ids: Vec<(CellId, usize)> = cells
+                    .iter()
+                    .filter_map(|&id| Some((id, self.located.shape_of(id)?)))
+                    .collect();
+                ids.sort_unstable();
+                for &(id, s) in &ids {
+                    ask(s, id.0, &mut named);
+                }
+                let missing = ids
+                    .iter()
+                    .find(|(_, s)| !self.shapes[*s].missing.is_empty())
+                    .copied();
+                let labelled = ids
+                    .iter()
+                    .find(|(id, s)| {
+                        self.unread.contains_key(id)
+                            || self.shapes[*s].expr.is_err()
+                            || named.contains_key(&(*s, id.0))
+                    })
+                    .copied();
+                (missing, labelled)
+            }
+            None => {
+                let mut nodes: Vec<(CellId, usize)> = Vec::new();
+                self.each_node(&mut |sheet, rect, s| nodes.push(((sheet, rect.top, rect.left), s)));
+                for &(id, s) in &nodes {
+                    ask(s, id.0, &mut named);
+                }
+                let least = |a: Option<(CellId, usize)>, b: (CellId, usize)| match a {
+                    Some(x) if x.0 <= b.0 => Some(x),
+                    _ => Some(b),
+                };
+                let mut missing = None;
+                let mut labelled = None;
+                for &(id, s) in &nodes {
+                    let shape = &self.shapes[s];
+                    if !shape.missing.is_empty() {
+                        missing = least(missing, (id, s));
+                    }
+                    if shape.expr.is_err() || named.contains_key(&(s, id.0)) {
+                        labelled = least(labelled, (id, s));
                     }
                 }
-            }
-        }
-        let unread_named =
-            |id: &CellId| -> Option<String> { named.get(&(self.places[id].shape, id.0)).cloned() };
-        // A grid is refused nowhere far more often than somewhere: its cells
-        // are sorted, to find the first refused, only when one is (KERNEL.34).
-        let refused = |id: &CellId| {
-            let shape = &self.shapes[self.places[id].shape];
-            !shape.missing.is_empty()
-                || shape.expr.is_err()
-                || self.unread.contains_key(id)
-                || unread_named(id).is_some()
-        };
-        if !ids.iter().any(refused) {
-            return None;
-        }
-        ids.sort_unstable();
-        for id in &ids {
-            let shape = &self.shapes[self.places[id].shape];
-            if let Some(name) = shape.missing.first() {
-                return Some((
-                    *id,
-                    raise(
-                        "calc-function-not-computed",
-                        &[("cell", &spell_at(model, *id)), ("function", name)],
-                    ),
-                ));
-            }
-        }
-        for id in &ids {
-            let p = self.places[id];
-            let shape = &self.shapes[p.shape];
-            let label = match (&shape.expr, self.unread.get(id).cloned()) {
-                (_, Some(unread)) => Some(unread),
-                // The construct as the cell's own text spells it.
-                (Err(construct), None) if p.d_row == 0 && p.d_col == 0 => Some(construct.clone()),
-                (Err(construct), None) => {
-                    let moved = refers::shift_a1_references(&shape.text, p.d_row, p.d_col);
-                    Some(
-                        formula::parse(&moved)
-                            .err()
-                            .unwrap_or_else(|| construct.clone()),
-                    )
+                for &id in self.unread.keys() {
+                    if let Some(s) = self.located.shape_of(id) {
+                        labelled = least(labelled, (id, s));
+                    }
                 }
-                (Ok(_), None) => unread_named(id),
-            };
-            if let Some(label) = label {
-                return Some((*id, formula::unread_refusal(&spell_at(model, *id), &label)));
+                (missing, labelled)
             }
+        };
+        if let Some((id, s)) = missing {
+            let name = self.shapes[s].missing.first().expect("a missing function");
+            return Some((
+                id,
+                raise(
+                    "calc-function-not-computed",
+                    &[("cell", &spell_at(model, id)), ("function", name)],
+                ),
+            ));
         }
-        None
+        let (id, s) = labelled?;
+        let shape = &self.shapes[s];
+        let (d_row, d_col) = (
+            i64::from(id.1) - i64::from(shape.anchor.1),
+            i64::from(id.2) - i64::from(shape.anchor.2),
+        );
+        let label = match (&shape.expr, self.unread.get(&id).cloned()) {
+            (_, Some(unread)) => unread,
+            // The construct as the cell's own text spells it.
+            (Err(construct), None) if d_row == 0 && d_col == 0 => construct.clone(),
+            (Err(construct), None) => {
+                let moved = refers::shift_a1_references(&shape.text, d_row, d_col);
+                formula::parse(&moved)
+                    .err()
+                    .unwrap_or_else(|| construct.clone())
+            }
+            (Ok(_), None) => named.get(&(s, id.0)).cloned()?,
+        };
+        Some((id, formula::unread_refusal(&spell_at(model, id), &label)))
     }
 }
 
-/// Cells ordered by a key below `keys`, cells of one key in the order they
-/// came in: a counting sort, a pass over the cells and one over the keys,
-/// for the order of a plan (KERNEL.20); and, by key, where its cells end in
-/// that order, which the sort's own counts hold once it is done (KERNEL.30).
-/// A plan's cells are positions of an order a `u32` holds, as its reach's
-/// are.
-fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> (Vec<usize>, Vec<u32>) {
-    let mut start = vec![0u32; keys + 1];
-    for &v in cells {
-        start[key(v) + 1] += 1;
+/// A cell as a rectangle of one.
+fn cell_range((_, row, col): CellId) -> A1Range {
+    A1Range {
+        top: row,
+        left: col,
+        bottom: row,
+        right: col,
     }
-    for k in 0..keys {
-        start[k + 1] += start[k];
-    }
-    let mut out = vec![0; cells.len()];
-    for &v in cells {
-        let k = key(v);
-        out[start[k] as usize] = v;
-        start[k] += 1;
-    }
-    start.truncate(keys);
-    (out, start)
-}
-
-/// A formula cell's vertex, its position among a plan's sorted cells, as an
-/// edge holds it: a plan's cells are positions a `u32` holds, as its
-/// order's are.
-fn vertex(position: usize) -> u32 {
-    position as u32
 }
 
 /// The fewest formula cells a shape's held references name for its cells to
-/// read them through one hub (`Shapes::plan`, KERNEL.8).
+/// read them through one hub (KERNEL.8; since KERNEL.49's decision 7 the
+/// cells planned cell by cell, `super::nodes`).
 const HUB: usize = 64;
 
 #[cfg(test)]
@@ -1283,10 +1219,13 @@ thread_local! {
     static HUB_AT: std::cell::Cell<usize> = const { std::cell::Cell::new(HUB) };
     /// The hubs the plans on this thread made, for a test to count.
     static HUBS_MADE: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// The cells the plans on this thread planned cell by cell (KERNEL.49's
+    /// decision 7), for a test to count.
+    static BY_CELL: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// The fewest cells a hub stands for: [`HUB`], or the test switch's.
-fn hub_at() -> usize {
+pub(crate) fn hub_at() -> usize {
     #[cfg(test)]
     {
         HUB_AT.with(std::cell::Cell::get)
@@ -1309,121 +1248,11 @@ pub(crate) fn hubs_made() -> usize {
     HUBS_MADE.with(|h| h.replace(0))
 }
 
-/// A plan's formula cells as the vertices of its edges (KERNEL.33): each
-/// cell's position among the plan's sorted cells, and whether each sheet
-/// holds any formula.
-struct Vertices<'a, M: Model + ?Sized> {
-    model: &'a M,
-    extents: &'a [Extent],
-    index: &'a Positions,
-    holds: &'a [bool],
-}
-
-/// A shape's references as its plan reads them, once a shape (KERNEL.33):
-/// the vertices those every `$` holds name, the same at every cell, sorted
-/// and each once; those every `$` holds on the formula's own sheet, the
-/// same at every cell of one sheet (KERNEL.8); the references each cell
-/// moves, each once; and whether the parse reads a name, which each cell
-/// resolves from its own sheet.
-struct ShapeReads<'e> {
-    fixed: Vec<u32>,
-    own: Vec<&'e RefExpr>,
-    moving: Vec<&'e RefExpr>,
-    named: bool,
-}
-
-impl<M: Model + ?Sized> Vertices<'_, M> {
-    /// The formula cells inside an area, each by its vertex, to `out`: by
-    /// the array where the sheet's formulas stand close enough together to
-    /// be held as one, else by the grid's own; none on a sheet holding no
-    /// formula, from which no edge comes.
-    fn formulas_in(&self, a: &Area, out: &mut Vec<u32>) {
-        if !self.holds.get(a.sheet).copied().unwrap_or(false) {
-            return;
-        }
-        let rect = (a.top, a.left, a.bottom, a.right);
-        if self
-            .index
-            .each_in(a.sheet, rect, &mut |v| out.push(vertex(v)))
-        {
-            return;
-        }
-        let extent = self.extents.get(a.sheet).copied().flatten();
-        self.model.formulas_in(a, extent, &mut |row, col| {
-            if let Some(v) = self.index.get(a.sheet, row, col) {
-                out.push(vertex(v));
-            }
-        });
-    }
-
-    /// A shape's references read off its parse once: each once, however
-    /// often the parse repeats it; one to the single sheet its placement
-    /// found, when that sheet holds no formula, left out; one every `$`
-    /// holds there, found now, since it names the same cells at every
-    /// offset and `graph::areas_at` reads a found sheet and not the cell's;
-    /// every other kept for each cell to move.
-    fn reads_of<'e>(&self, shape: &'e Shape) -> ShapeReads<'e> {
-        let mut reads = ShapeReads {
-            fixed: Vec::new(),
-            own: Vec::new(),
-            moving: Vec::new(),
-            named: false,
-        };
-        let Ok(e) = &shape.expr else {
-            return reads;
-        };
-        let mut each: Vec<&RefExpr> = Vec::new();
-        e.each_read(&mut |r| match r {
-            Read::Ref(re) => {
-                if !each.contains(&re) {
-                    each.push(re);
-                }
-            }
-            Read::Name { .. } => reads.named = true,
-        });
-        for re in each {
-            let found_once = match (re.found, &re.last_sheet) {
-                (Some((first, last)), None) if first == last => Some(usize::from(first)),
-                _ => None,
-            };
-            if let Some(sheet) = found_once {
-                if !self.holds.get(sheet).copied().unwrap_or(false) {
-                    continue;
-                }
-                if every_dollar(re) {
-                    let found = |n: &str| self.model.find_sheet(n);
-                    if let Ok(areas) = areas_found(found, sheet, re, 0, 0) {
-                        for a in &areas {
-                            self.formulas_in(a, &mut reads.fixed);
-                        }
-                    }
-                    continue;
-                }
-            }
-            if re.sheet.is_none() && re.last_sheet.is_none() && every_dollar(re) {
-                reads.own.push(re);
-                continue;
-            }
-            reads.moving.push(re);
-        }
-        reads.fixed.sort_unstable();
-        reads.fixed.dedup();
-        reads
-    }
-}
-
-/// Whether every `$` holds a reference, so that it names the same cells at
-/// every offset (KERNEL.33): a cell's two, a range's four, a whole column's
-/// columns, a whole row's rows.
-fn every_dollar(r: &RefExpr) -> bool {
-    let c = &r.corners;
-    match r.shape {
-        refers::Shape::Cell => c.row_abs1 && c.col_abs1,
-        refers::Shape::Range => c.row_abs1 && c.col_abs1 && c.row_abs2 && c.col_abs2,
-        refers::Shape::Column => c.col_abs1 && c.col_abs2,
-        refers::Shape::Row => c.row_abs1 && c.row_abs2,
-        refers::Shape::None => false,
-    }
+/// The cells the plans on this thread planned cell by cell since the last
+/// asking.
+#[cfg(test)]
+pub(crate) fn planned_by_cell() -> usize {
+    BY_CELL.with(|h| h.replace(0))
 }
 
 /// Every reference of a parse that names its sheets, those sheets found once
@@ -1490,41 +1319,4 @@ pub fn spell_cell(model: &Workbook, id: CellId) -> String {
 pub(crate) fn spell_at<M: Model + ?Sized>(model: &M, id: CellId) -> String {
     let sheet = model.sheet_name(id.0).unwrap_or("");
     format!("{}!{}", quote_sheet(sheet), cell_ref(id.1, id.2))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn every_dollar_holds_a_reference_whose_every_number_is_held() {
-        // KERNEL.33: a plan finds a reference once for its whole shape only
-        // when every `$` holds it, so that it names the same cells at every
-        // offset: a cell's two numbers, a range's four, a whole column's
-        // columns, a whole row's rows. One unheld number moves it.
-        for (text, held) in [
-            ("$C$2", true),
-            ("$C2", false),
-            ("C$2", false),
-            ("C2", false),
-            ("$C$2:$D$4", true),
-            ("$C$2:D4", false),
-            ("$C$2:$D4", false),
-            ("$C$2:D$4", false),
-            ("C2:$D$4", false),
-            ("$C:$D", true),
-            ("$C:D", false),
-            ("C:D", false),
-            ("$2:$4", true),
-            ("$2:4", false),
-            ("2:4", false),
-            ("S!$C$2:$D$4", true),
-            ("S!C2:$D$4", false),
-        ] {
-            let Ok(Expr::Ref(r)) = formula::parse(text) else {
-                panic!("{text} reads as one reference")
-            };
-            assert_eq!(every_dollar(&r), held, "{text}");
-        }
-    }
 }

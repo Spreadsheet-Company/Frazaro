@@ -166,6 +166,25 @@
   `walk`, `written`), which `Calc` answers from its workbook;
   `Machine::workbook` makes the grid it lends from the machine's own
   (KERNEL.49).
+- **An engine plans a filled formula once.** The order a frame computes its
+  cells in is found over each fill's rectangles and each formula alone,
+  where it was found over every cell, and kept as blocks, a shape's cells on
+  a sheet at a level, where it was a list of every cell, and as that list
+  too where the order holds at most 262,144 cells, 16 bytes a cell; a cell
+  is planned alone only where a fill reads itself, two fills read each
+  other's cells, or a formula reads a defined name, a span of sheets or a
+  text this version does not read. The large board of 798,731 formula cells
+  holds 10.8 MB after two frames, 13.5 bytes a formula cell, where it held
+  77 MB, and no more at its peak, where it held 194; Life at sixteen times
+  its window 19.0 MB, 18.6 bytes a formula cell, where 130, and no more at
+  its peak, where 239. The two load in 13 and 15 ms, where they took 0.39
+  and 0.33 s. A grid whose fills read each other's cells, planned cell by
+  cell, loads slower than it did: Alonzo's Sand in 0.22 s where 0.08, and
+  computes a frame 8% slower. Every value, view and census line is the
+  same, and every frame. For an
+  engine: `Shapes::order` walks the order, an iterator where it lent a
+  slice; `Shapes::plan` and `Shapes::replace` are gone, a machine
+  planning its own grid (KERNEL.49).
 - **A formula reads another cell's formula.** `ISFORMULA(B5)` is TRUE where
   `B5` holds a formula, and `FORMULATEXT(B5)` its text as Excel's formula
   bar shows it, `#N/A` where it holds none, so that a game can hold a
