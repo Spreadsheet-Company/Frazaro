@@ -6,6 +6,151 @@
 
 ### What changed
 
+- **Lookups compute.** `INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
+  `LOOKUP` and `XLOOKUP` now compute wherever a formula does, in
+  `frazaro calc`, the page, a build's values and an engine's grid, with the
+  four tests a lookup's miss is read by, `IFERROR`, `IFNA`, `ISERROR` and
+  `ISNA`. Each answers as Excel documents it: an exact match by value and
+  without case, `*`, `?` and `~` as wildcards where Excel takes them, every
+  mode and search of `XMATCH` and `XLOOKUP`, `INDEX`'s row and column of 0,
+  and each error each function answers. A lookup asked of one range again
+  and again, as twenty thousand rows of `VLOOKUP` into one table are,
+  searches an index of the range, built once and kept until a cell of the
+  range changes, a probe where a walk of the range would be; the answers
+  are the ones a walk cell by cell gives. `COUNTIF` and `SUMIF` of a value
+  search the same index: a `COUNTIF` from each of 8,000 rows over the 8,000
+  took `frazaro calc` 13 seconds and takes 0.09. A sheet of twenty thousand
+  rows, each looked up four ways in a table of twenty thousand, computes
+  whole in 9.8 ms, where Excel 365 on the same machine takes 83 ms with its
+  twenty threads and 757 ms with one.
+
+- **Comparisons answer as Excel's own save does.** Every rule above was held
+  to Excel 365's save of a fixture of 165 formulas, and seven were corrected
+  to it, so that every cell computed agrees. Two numbers equal to fifteen
+  significant digits are equal to `=`, `<>`, `<`, `>` and to `COUNTIF` and
+  `SUMIF`: `=0.1+0.2=0.3` is TRUE, as in Excel, where it was FALSE; a lookup
+  still matches a number exactly, as Excel's lookups do. Two texts are equal
+  without case beyond A to Z too, `="É"="é"` TRUE, an accent still counting.
+  In `COUNTIF` and `SUMIF`, an empty cell given as the criterion counts the
+  zeros, not the blanks; `"<>20"` counts a text `"20"`, which `"20"` counts
+  too; and an error in `SUMIF`'s sum range answers only at a row the
+  criterion counts. `MATCH` with -1 walks from the first cell, as Excel's
+  does, and match mode 3 of `XMATCH` and `XLOOKUP`, Excel's new regular
+  expressions, says not computed where it said `#VALUE!`. A game or a model
+  that compared two numbers differing past their fifteenth digit now finds
+  them equal.
+
+- **A table read by many formulas is planned once.** A workbook whose
+  formulas read one range of formulas from many cells, a table of computed
+  keys searched by twenty thousand lookups among them, took memory that grew
+  with the readers times the range when it was planned, gigabytes for that
+  table; the range is planned once now, by `frazaro calc`, a build and an
+  engine's machine alike.
+
+- **Two readings are labelled, not guessed.** A `SUMIF` whose sum range is
+  smaller than its range, and a `LOOKUP` whose results are shorter than the
+  vector it searches, read cells past the ranges they name, which Excel
+  reads and no plan orders: each says `not computed` with the range named,
+  where a value could have been read from a cell not computed yet. A sum
+  range the size of the range, or larger, computes.
+
+- **A range where one value is wanted computes, as Excel's implicit
+  intersection.** A legacy formula that reads a range where one value is
+  wanted, `=A1:A10*2` in row 3 or `=IF(Prices>100,"high","low")`, reads the
+  range's cell in the formula's own row (in its column, for a range one row
+  high), `#VALUE!` where the range holds no cell there and `#REF!` for a
+  reference spanning sheets, as Excel does; it said not computed before. A
+  dynamic-array formula's range stays an array, not computed until arrays
+  come: `frazaro calc` now tells the two kinds apart in a file Excel saved,
+  and an OpenDocument file's matrix formulas as arrays. `SINGLE`, which is
+  how Excel's file spells `@`, computes in a formula of either kind, and a
+  built workbook spells it so that Excel reads it. An engine refuses at its
+  load a defined name whose text it cannot read, as it refuses the same text
+  in a formula, and a range over a `.last` twin now answers a cell not
+  computed where the same range over the sheet does, where it passed the
+  cell by.
+
+- **The text functions compute.** `CONCATENATE`, `CONCAT`, `TEXTJOIN`,
+  `LEFT`, `RIGHT`, `MID`, `LEN`, `FIND`, `SEARCH`, `SUBSTITUTE`, `REPLACE`,
+  `UPPER`, `LOWER`, `PROPER`, `TRIM`, `REPT`, `EXACT`, `VALUE`, `T`, `N`,
+  `UNICODE`, `UNICHAR`, `CHAR`, `CODE` and `TEXT`, in the language, so that
+  `frazaro calc`, the page, a build and an engine compute them alike. A text
+  is counted as Excel counts it, an emoji as one character; a text a
+  function would make past Excel's limit of 32,767 is `#VALUE!`, and `&` and
+  `CONCATENATE` cut theirs to the limit, as Excel does; `CHAR` and `CODE`
+  compute over ASCII and say not computed for a code page's other
+  characters, which are the computer's and not the workbook's; `VALUE` says
+  not computed of a number written a locale's way, `"1,000"`. Every rule was
+  held to Excel 365's save of a fixture of 357 formulas, and every cell
+  computed agrees: the save corrected five, counting an emoji as one
+  character, `LEFT(text,-0.5)` as `#VALUE!`, `LOWER("İ")` as `i`, `&` past
+  the limit and the order of texts below. A number format's code may now
+  hold a date or a time, `yyyy-mm-dd`, `dddd, mmmm d`, `h:mm AM/PM`,
+  `[h]:mm`, drawn as Excel draws them over its 1900 calendar, with English
+  names, in `TEXT` and in a view's `text` rows. A formula's empty text,
+  which Excel saves as an empty value, is read as the empty text.
+
+- **Texts are ordered as Excel orders them.** `<` and `>`, a sorted lookup
+  and a criterion such as `"<b"` order two texts as Excel does, as its save
+  ranks 163 of them: punctuation and signs before digits, digits before
+  letters, an accented letter after the plain one, case aside, and hyphens
+  and apostrophes passed by until last, so that `"~"<"a"` and
+  `"coop"<"co-op"` are TRUE, as in Excel, where they were FALSE; `"ß"="ss"`
+  is TRUE too. A comparison that a character the save did not rank decides,
+  a tab, `ø` or a letter of most other alphabets, says not computed rather
+  than guess; whether two texts are equal is always answered.
+
+- **The date functions compute.** `DATE`, `YEAR`, `MONTH`, `DAY`, `WEEKDAY`,
+  `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS`, `WORKDAY`, `TIME`, `HOUR`,
+  `MINUTE`, `SECOND`, `DATEDIF`, `YEARFRAC` and `WEEKNUM`, in the language,
+  so that `frazaro calc`, the page, a build and an engine compute them
+  alike, a game's calendar and its holidays among them. A date is a serial
+  of Excel's 1900 calendar, its 29 February 1900 included as Excel keeps it,
+  and a date before 1900 or after 9999 is `#NUM!`. A number or a date a text
+  spells a locale's way, `"1,000"` or `"1/1/2026"`, now says not computed in
+  arithmetic, as in `VALUE` and the date functions, where it answered
+  `#VALUE!`: a host reads it by its locale, an English Excel `="1,000"+1` as
+  1001. `DATEVALUE`, `TIMEVALUE`, `TODAY` and `NOW` stay not computed, a
+  locale's and a clock's, and a workbook that counts its dates from 1904, as
+  a Mac's may, has its calendar's functions say not computed. Where Excel's
+  documentation is silent, each function answers as Excel 365's own saves
+  do: a time a second before midnight is the next day's to `DAY`, and
+  February 1900 has 28 days to `EOMONTH`. Two edges where two of Excel's
+  saves of one formula disagreed say not computed: a year outside 0 to 9999
+  that `DATE`'s months carry back, and `WEEKNUM`'s types past 21.
+
+- **The aggregates by criteria compute.** `SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
+  `AVERAGEIFS`, `MAXIFS` and `MINIFS`; `SUBTOTAL` by each of its numbers;
+  the database functions, `DSUM`, `DAVERAGE`, `DCOUNT`, `DCOUNTA`, `DGET`,
+  `DMAX`, `DMIN`, `DPRODUCT`, `DSTDEV`, `DSTDEVP`, `DVAR` and `DVARP`; and
+  `COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `STDEVP`, `VAR` and `VARP` with
+  their newer names, `STDEV.S`, `STDEV.P`, `VAR.S` and `VAR.P`, in the
+  language, so that `frazaro calc`, the page, a build and an engine compute
+  them alike, a game's ledger summed by a stock and a month among them;
+  `AVERAGE` moved down into the language with them. A criterion reads as
+  `COUNTIF`'s does. A database's criteria are rows of tests under its
+  columns' names: a record meets the criteria where it meets every test of
+  any row, and a text with no operator, `Dav`, meets a text beginning with
+  it, as Excel's filters read one. `SUBTOTAL` passes by every cell that is
+  itself a `SUBTOTAL`, and its 101 to 111 pass by a hidden row, which
+  `frazaro calc` now reads from an xlsx or an OpenDocument file; its 1 to 11
+  over a hidden row holding a cell of the range say not computed, since a
+  file does not say whether a filter hid the row, which they pass by, or a
+  person did, which they count. A database's test under a name no column
+  holds says not computed too, a formula there being Excel's computed
+  criterion; a criteria range of one row, its names alone, is `#VALUE!`, as
+  is `DGET` of an empty cell, and a whole column's records end with its
+  sheet's last cell. A criterion's text with no `*` or `?` is now compared
+  as written, a `~` in it too, as Excel's own save shows, where its
+  documentation reads `~~` as one `~`: `COUNTIF` of `"~~x"` no longer counts
+  `~x`, while `MATCH` of `"~~x"` still finds it, a lookup reading every `~`
+  as documented. A `SUMIFS` asked of the same ranges with other values, as a
+  summary of accounts by months is, groups the ranges' rows once and answers
+  each formula from its group, its sum added in the order a walk of the
+  range adds it: such a summary, 97 accounts by 12 months over a ledger of
+  twenty thousand rows, computes whole in 12.3 ms, where Excel 365 on the
+  same machine takes 13.7 ms with its twenty threads and 94.5 ms with one.
+
 - **Arrays compute within a formula.** An array constant, `{1,2;3,4}`, reads
   as its values; an operator and a function of one value given an array
   compute at each of its values, Excel's lift, the answer as many rows and
@@ -41,35 +186,7 @@
   said not computed. A dynamic formula whose answer is many values still
   says not computed, `a spill`, until spills come; and an array of more than
   1,048,576 values says not computed, the grid's own limit.
-- **For engines.** This release changes the public surface of
-  `vla_lang::calc`, so its version is 0.11.0. `Arg::Array`, an operand that
-  is an array (`calc::Array`, its values shared by a count); `Expr::Array`,
-  an array constant, and `Expr::Range`, `:` between expressions with its
-  `RangeExpr::reach`, the plan's edges for it; `Content::ArrayFormula`, a
-  legacy array formula; and `ErrorKind::Calc`, `#CALC!`. `ErrorKind`, `Arg`,
-  `Expr`, `Reason` and `Content` are marked `#[non_exhaustive]`, and the
-  new `Param` with them, so that a kind added after this breaks no match
-  outside the language: a match of one's own gains a wildcard arm once. A
-  function's parameters have classes (`calc::Param`: a value, lifted over
-  an array given; a value forced, one value in a legacy formula; a
-  reference or an array, handed whole; an array, its expression read as
-  arrays), given at `Library::register_classed`; `Library::register` gives
-  every parameter the value's, so that a function registered there is
-  lifted over an array and never sees one; `Library::register_arrayed`
-  registers a function answering an operand (`eval::Arrayed`).
-  `Env::array_formula`, a provided method answering `false`, is how an
-  environment of one's own says a cell holds a legacy array formula;
-  `Ctx::result` is a formula's answer as its cell holds it, `Ctx::arrays`
-  whether the expression being evaluated reads a range whole,
-  `Ctx::reads_arrays_by_kind` whether the formula does by its kind, and
-  `Ctx::as_values` and `Ctx::forced` the reading of a value forced. A run of
-  an engine's machine computes a shape whose formula holds an array, and
-  every shape of dynamic formulas or legacy array formulas, at each of its
-  cells by `Ctx`, and its program is not lowered (`(unlowered array)` in
-  the census). The formula syntax writes and reads `(quote ((1 2) (3 4)))`
-  as `{1,2;3,4}` and `(: a b)` as `a:b`. Alonzo's cartridges and Buffet's
-  compute every frame as they did (KERNEL.8), each grid 2,745 bytes larger,
-  1,601 of them the twenty-one names.
+
 - **A change costs what it reaches, wherever the grid's formulas stand.**
   In an engine's machine one formula text is one shape wherever its cells
   stand, and a shape's readers were read over the box of all its cells: a
@@ -94,6 +211,7 @@
   stretches of the order, 8 bytes each and 4 a shape, and a frame's lists 4
   bytes a shape and 4 a word of 64 cells: the netlist holds 0.57% more, the
   large board 0.016% (KERNEL.54).
+
 - **A format says how its cell looks.** A format in the record may say its
   text's weight, slant, size and color, where its text sits across its cell
   and down it, and each of the cell's four edges, a line of Excel's fourteen
@@ -120,6 +238,7 @@
   object model and read back from a written workbook, holds the language
   and the writer, and Excel's own save of each holds the writer's styles
   part property by property (KERNEL.50).
+
 - **An engine's grid holds its values by place, and a twin only where a
   formula reads it.** Every value a sheet's cells hold, a value cell's and
   each formula's of the frame, is kept once, by place, nine bytes a cell:
@@ -139,9 +258,9 @@
   in an engine: a cell of it read alone is `slot` where it was `lookup`,
   and its range `array`. For an engine: `Values::computed` answers an owned
   `Computed`, where it lent one; `Values::lags` and `Values::content` are
-  gone; `Env::reasons_beside` is gone, a reason being a slot's kind;
-  `Machine::workbook` lends a copy of the grid, its twins' cells made, from
-  `&self`, where it made them in place behind `&mut self` (KERNEL.49).
+  gone; `Machine::workbook` lends a copy of the grid, its twins' cells made,
+  from `&self`, where it made them in place behind `&mut self` (KERNEL.49).
+
 - **An engine's grid holds a filled formula once.** A formula written over
   a range is held as its rectangle and its text, never as its cells; a
   value or a formula written into part of it cuts it into at most four
@@ -166,6 +285,7 @@
   `walk`, `written`), which `Calc` answers from its workbook;
   `Machine::workbook` makes the grid it lends from the machine's own
   (KERNEL.49).
+
 - **An engine plans a filled formula once.** The order a frame computes its
   cells in is found over each fill's rectangles and each formula alone,
   where it was found over every cell, and kept as blocks, a shape's cells on
@@ -185,6 +305,7 @@
   engine: `Shapes::order` walks the order, an iterator where it lent a
   slice; `Shapes::plan` and `Shapes::replace` are gone, a machine
   planning its own grid (KERNEL.49).
+
 - **A grid saves as its fills.** `Machine::view` answers a fifth
   projection, `fills`: the record with each fill's formula printed once, a
   `formula` row over each of its rectangles with the text at the
@@ -194,6 +315,7 @@
   record is 521, and loads in 1.4 s where 25; Life at sixteen times its
   window 27.8 MB where 562. `view::FillGrid` and `view::view_text_fills`
   print it over a workbook (KERNEL.49).
+
 - **A formula reads another cell's formula.** `ISFORMULA(B5)` is TRUE where
   `B5` holds a formula, and `FORMULATEXT(B5)` its text as Excel's formula
   bar shows it, `#N/A` where it holds none, so that a game can hold a
@@ -208,6 +330,7 @@
   a formula rewritten to the same value is read anew. A cell reading its own
   formula is a cycle, as a reference to its own cell always is in the
   language (KERNEL.53).
+
 - **A workbook read with its looks.** `frazaro reflect book.xlsx --looks`
   prints the workbook as the view record prints each of its sheets whole:
   its gridlines, its columns' widths, hidden and formats, the heights a
@@ -244,6 +367,7 @@
   language: `rows::Record`, `rows::record_line` and `Sink::record` spell
   and carry the record's own rows, and `calc::dates::serial_of` is public
   (KERNEL.57).
+
 - **A value typed into an empty cell costs the formulas that read it.** In
   an engine's machine, a value written into a cell the grid did not hold made
   the next two frames compute every formula. An added value cell is now
@@ -284,154 +408,14 @@
   head. Each grid holds 20 bytes more a sheet, and its library 1,065, the
   eighteen names declared (KERNEL.56).
 
-## 0.10.2
-
-### What changed
-
-- **Lookups compute.** `INDEX`, `MATCH`, `XMATCH`, `VLOOKUP`, `HLOOKUP`,
-  `LOOKUP` and `XLOOKUP` now compute wherever a formula does, in
-  `frazaro calc`, the page, a build's values and an engine's grid, with the
-  four tests a lookup's miss is read by, `IFERROR`, `IFNA`, `ISERROR` and
-  `ISNA`. Each answers as Excel documents it: an exact match by value and
-  without case, `*`, `?` and `~` as wildcards where Excel takes them, every
-  mode and search of `XMATCH` and `XLOOKUP`, `INDEX`'s row and column of 0,
-  and each error each function answers. A lookup asked of one range again
-  and again, as twenty thousand rows of `VLOOKUP` into one table are,
-  searches an index of the range, built once and kept until a cell of the
-  range changes, a probe where a walk of the range would be; the answers
-  are the ones a walk cell by cell gives. `COUNTIF` and `SUMIF` of a value
-  search the same index: a `COUNTIF` from each of 8,000 rows over the 8,000
-  took `frazaro calc` 13 seconds and takes 0.09. A sheet of twenty thousand
-  rows, each looked up four ways in a table of twenty thousand, computes
-  whole in 9.8 ms, where Excel 365 on the same machine takes 83 ms with its
-  twenty threads and 757 ms with one.
-- **Comparisons answer as Excel's own save does.** Every rule above was held
-  to Excel 365's save of a fixture of 165 formulas, and seven were corrected
-  to it, so that every cell computed agrees. Two numbers equal to fifteen
-  significant digits are equal to `=`, `<>`, `<`, `>` and to `COUNTIF` and
-  `SUMIF`: `=0.1+0.2=0.3` is TRUE, as in Excel, where it was FALSE; a lookup
-  still matches a number exactly, as Excel's lookups do. Two texts are equal
-  without case beyond A to Z too, `="É"="é"` TRUE, an accent still counting.
-  In `COUNTIF` and `SUMIF`, an empty cell given as the criterion counts the
-  zeros, not the blanks; `"<>20"` counts a text `"20"`, which `"20"` counts
-  too; and an error in `SUMIF`'s sum range answers only at a row the
-  criterion counts. `MATCH` with -1 walks from the first cell, as Excel's
-  does, and match mode 3 of `XMATCH` and `XLOOKUP`, Excel's new regular
-  expressions, says not computed where it said `#VALUE!`. A game or a model
-  that compared two numbers differing past their fifteenth digit now finds
-  them equal.
-- **A table read by many formulas is planned once.** A workbook whose
-  formulas read one range of formulas from many cells, a table of computed
-  keys searched by twenty thousand lookups among them, took memory that grew
-  with the readers times the range when it was planned, gigabytes for that
-  table; the range is planned once now, by `frazaro calc`, a build and an
-  engine's machine alike.
-- **Two readings are labelled, not guessed.** A `SUMIF` whose sum range is
-  smaller than its range, and a `LOOKUP` whose results are shorter than the
-  vector it searches, read cells past the ranges they name, which Excel
-  reads and no plan orders: each says `not computed` with the range named,
-  where a value could have been read from a cell not computed yet. A sum
-  range the size of the range, or larger, computes.
-- **A range where one value is wanted computes, as Excel's implicit
-  intersection.** A legacy formula that reads a range where one value is
-  wanted, `=A1:A10*2` in row 3 or `=IF(Prices>100,"high","low")`, reads the
-  range's cell in the formula's own row (in its column, for a range one row
-  high), `#VALUE!` where the range holds no cell there and `#REF!` for a
-  reference spanning sheets, as Excel does; it said not computed before. A
-  dynamic-array formula's range stays an array, not computed until arrays
-  come: `frazaro calc` now tells the two kinds apart in a file Excel saved,
-  and an OpenDocument file's matrix formulas as arrays. `SINGLE`, which is
-  how Excel's file spells `@`, computes in a formula of either kind, and a
-  built workbook spells it so that Excel reads it. An engine refuses at its
-  load a defined name whose text it cannot read, as it refuses the same text
-  in a formula, and a range over a `.last` twin now answers a cell not
-  computed where the same range over the sheet does, where it passed the
-  cell by.
-- **The text functions compute.** `CONCATENATE`, `CONCAT`, `TEXTJOIN`,
-  `LEFT`, `RIGHT`, `MID`, `LEN`, `FIND`, `SEARCH`, `SUBSTITUTE`, `REPLACE`,
-  `UPPER`, `LOWER`, `PROPER`, `TRIM`, `REPT`, `EXACT`, `VALUE`, `T`, `N`,
-  `UNICODE`, `UNICHAR`, `CHAR`, `CODE` and `TEXT`, in the language, so that
-  `frazaro calc`, the page, a build and an engine compute them alike. A text
-  is counted as Excel counts it, an emoji as one character; a text a
-  function would make past Excel's limit of 32,767 is `#VALUE!`, and `&` and
-  `CONCATENATE` cut theirs to the limit, as Excel does; `CHAR` and `CODE`
-  compute over ASCII and say not computed for a code page's other
-  characters, which are the computer's and not the workbook's; `VALUE` says
-  not computed of a number written a locale's way, `"1,000"`. Every rule was
-  held to Excel 365's save of a fixture of 357 formulas, and every cell
-  computed agrees: the save corrected five, counting an emoji as one
-  character, `LEFT(text,-0.5)` as `#VALUE!`, `LOWER("İ")` as `i`, `&` past
-  the limit and the order of texts below. A number format's code may now
-  hold a date or a time, `yyyy-mm-dd`, `dddd, mmmm d`, `h:mm AM/PM`,
-  `[h]:mm`, drawn as Excel draws them over its 1900 calendar, with English
-  names, in `TEXT` and in a view's `text` rows. A formula's empty text,
-  which Excel saves as an empty value, is read as the empty text.
-- **Texts are ordered as Excel orders them.** `<` and `>`, a sorted lookup
-  and a criterion such as `"<b"` order two texts as Excel does, as its save
-  ranks 163 of them: punctuation and signs before digits, digits before
-  letters, an accented letter after the plain one, case aside, and hyphens
-  and apostrophes passed by until last, so that `"~"<"a"` and
-  `"coop"<"co-op"` are TRUE, as in Excel, where they were FALSE; `"ß"="ss"`
-  is TRUE too. A comparison that a character the save did not rank decides,
-  a tab, `ø` or a letter of most other alphabets, says not computed rather
-  than guess; whether two texts are equal is always answered.
-- **The date functions compute.** `DATE`, `YEAR`, `MONTH`, `DAY`, `WEEKDAY`,
-  `EOMONTH`, `EDATE`, `DAYS`, `NETWORKDAYS`, `WORKDAY`, `TIME`, `HOUR`,
-  `MINUTE`, `SECOND`, `DATEDIF`, `YEARFRAC` and `WEEKNUM`, in the language,
-  so that `frazaro calc`, the page, a build and an engine compute them
-  alike, a game's calendar and its holidays among them. A date is a serial
-  of Excel's 1900 calendar, its 29 February 1900 included as Excel keeps it,
-  and a date before 1900 or after 9999 is `#NUM!`. A number or a date a text
-  spells a locale's way, `"1,000"` or `"1/1/2026"`, now says not computed in
-  arithmetic, as in `VALUE` and the date functions, where it answered
-  `#VALUE!`: a host reads it by its locale, an English Excel `="1,000"+1` as
-  1001. `DATEVALUE`, `TIMEVALUE`, `TODAY` and `NOW` stay not computed, a
-  locale's and a clock's, and a workbook that counts its dates from 1904, as
-  a Mac's may, has its calendar's functions say not computed. Where Excel's
-  documentation is silent, each function answers as Excel 365's own saves
-  do: a time a second before midnight is the next day's to `DAY`, and
-  February 1900 has 28 days to `EOMONTH`. Two edges where two of Excel's
-  saves of one formula disagreed say not computed: a year outside 0 to 9999
-  that `DATE`'s months carry back, and `WEEKNUM`'s types past 21.
-- **The aggregates by criteria compute.** `SUMIFS`, `COUNTIFS`, `AVERAGEIF`,
-  `AVERAGEIFS`, `MAXIFS` and `MINIFS`; `SUBTOTAL` by each of its numbers;
-  the database functions, `DSUM`, `DAVERAGE`, `DCOUNT`, `DCOUNTA`, `DGET`,
-  `DMAX`, `DMIN`, `DPRODUCT`, `DSTDEV`, `DSTDEVP`, `DVAR` and `DVARP`; and
-  `COUNT`, `COUNTA`, `PRODUCT`, `STDEV`, `STDEVP`, `VAR` and `VARP` with
-  their newer names, `STDEV.S`, `STDEV.P`, `VAR.S` and `VAR.P`, in the
-  language, so that `frazaro calc`, the page, a build and an engine compute
-  them alike, a game's ledger summed by a stock and a month among them;
-  `AVERAGE` moved down into the language with them. A criterion reads as
-  `COUNTIF`'s does. A database's criteria are rows of tests under its
-  columns' names: a record meets the criteria where it meets every test of
-  any row, and a text with no operator, `Dav`, meets a text beginning with
-  it, as Excel's filters read one. `SUBTOTAL` passes by every cell that is
-  itself a `SUBTOTAL`, and its 101 to 111 pass by a hidden row, which
-  `frazaro calc` now reads from an xlsx or an OpenDocument file; its 1 to 11
-  over a hidden row holding a cell of the range say not computed, since a
-  file does not say whether a filter hid the row, which they pass by, or a
-  person did, which they count. A database's test under a name no column
-  holds says not computed too, a formula there being Excel's computed
-  criterion; a criteria range of one row, its names alone, is `#VALUE!`, as
-  is `DGET` of an empty cell, and a whole column's records end with its
-  sheet's last cell. A criterion's text with no `*` or `?` is now compared
-  as written, a `~` in it too, as Excel's own save shows, where its
-  documentation reads `~~` as one `~`: `COUNTIF` of `"~~x"` no longer counts
-  `~x`, while `MATCH` of `"~~x"` still finds it, a lookup reading every `~`
-  as documented. A `SUMIFS` asked of the same ranges with other values, as a
-  summary of accounts by months is, groups the ranges' rows once and answers
-  each formula from its group, its sum added in the order a walk of the
-  range adds it: such a summary, 97 accounts by 12 months over a ledger of
-  twenty thousand rows, computes whole in 12.3 ms, where Excel 365 on the
-  same machine takes 13.7 ms with its twenty threads and 94.5 ms with one.
-- **For engines.** `vla_lang::calc::Indexes` holds a grid's indexes, and
+- **For engines: what the lookups, texts, dates and criteria add.**
+  `vla_lang::calc::Indexes` holds a grid's indexes, and
   `Env::indexes`, a provided method answering `None`, is where an
   environment of one's own may keep them; `calc::criteria` and `calc::index`
   are public. The census names a vector a run's cells search alike by a read
-  of its own, `keyed`. `Env::dynamic` and `Env::reasons_beside`, provided
-  methods answering `false`, are how an environment of one's own says that a
-  cell holds a dynamic-array formula, and that a sheet holds reasons beside
-  its cells; `rows::Sink::array`, a provided method, and `rows::ArrayKind`
+  of its own, `keyed`. `Env::dynamic`, a provided method answering `false`,
+  is how an environment of one's own says that a cell holds a dynamic-array
+  formula; `rows::Sink::array`, a provided method, and `rows::ArrayKind`
   carry an array formula's kind from the reader. `calc::texts` is public:
   `length`, a text's length as Excel counts it, `units`, its size as Excel's
   limit measures it, and `MOST`, that limit. `eval::compare` and
@@ -450,6 +434,37 @@
   that a computation a few units in the last place from a host's no longer
   differs across a rounding boundary. Alonzo's cartridges and Buffet's
   compute every frame as they did (KERNEL.8).
+
+- **For engines: what the arrays change.**
+  This release changes the public surface of
+  `vla_lang::calc`, so its version is 0.11.0. `Arg::Array`, an operand that
+  is an array (`calc::Array`, its values shared by a count); `Expr::Array`,
+  an array constant, and `Expr::Range`, `:` between expressions with its
+  `RangeExpr::reach`, the plan's edges for it; `Content::ArrayFormula`, a
+  legacy array formula; and `ErrorKind::Calc`, `#CALC!`. `ErrorKind`, `Arg`,
+  `Expr`, `Reason` and `Content` are marked `#[non_exhaustive]`, and the
+  new `Param` with them, so that a kind added after this breaks no match
+  outside the language: a match of one's own gains a wildcard arm once. A
+  function's parameters have classes (`calc::Param`: a value, lifted over
+  an array given; a value forced, one value in a legacy formula; a
+  reference or an array, handed whole; an array, its expression read as
+  arrays), given at `Library::register_classed`; `Library::register` gives
+  every parameter the value's, so that a function registered there is
+  lifted over an array and never sees one; `Library::register_arrayed`
+  registers a function answering an operand (`eval::Arrayed`).
+  `Env::array_formula`, a provided method answering `false`, is how an
+  environment of one's own says a cell holds a legacy array formula;
+  `Ctx::result` is a formula's answer as its cell holds it, `Ctx::arrays`
+  whether the expression being evaluated reads a range whole,
+  `Ctx::reads_arrays_by_kind` whether the formula does by its kind, and
+  `Ctx::as_values` and `Ctx::forced` the reading of a value forced. A run of
+  an engine's machine computes a shape whose formula holds an array, and
+  every shape of dynamic formulas or legacy array formulas, at each of its
+  cells by `Ctx`, and its program is not lowered (`(unlowered array)` in
+  the census). The formula syntax writes and reads `(quote ((1 2) (3 4)))`
+  as `{1,2;3,4}` and `(: a b)` as `a:b`. Alonzo's cartridges and Buffet's
+  compute every frame as they did (KERNEL.8), each grid 2,745 bytes larger,
+  1,601 of them the twenty-one names.
 
 ## 0.10.1
 

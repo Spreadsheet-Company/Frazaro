@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.10.1"
+Public Const VLA_RELEASE_VERSION As String = "0.11.0"
 Public Const VLA_CORE_VERSION As String = "KERNEL.8"
 ' KERNEL.8, SLICE F: ARRAYS IN THE FORMULA SYNTAX. FormulaSyntaxWrite
 ' writes (quote (1 2 3)) as the array constant {1,2,3} and
