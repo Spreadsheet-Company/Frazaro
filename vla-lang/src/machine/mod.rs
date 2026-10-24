@@ -152,7 +152,7 @@ use crate::sheet::{
     parse_a1_range, strip_future_prefixes, A1Range, Cell, Content, RowSettings, Sheet, Styles,
     Workbook, MAX_COLUMN, MAX_ROW,
 };
-use crate::view::{changes_text, record_text, window_over};
+use crate::view::{changes_text, fills_text, record_text, window_over};
 
 use bits::Bits;
 use book::{Book, Fills, Page};
@@ -1887,8 +1887,10 @@ impl Machine {
     /// `values` for the record less its `formula` rows, what a host draws
     /// (KERNEL.37); `changes` for the rows of the values of the cells the
     /// last complete frame changed, or `whole` where the machine cannot say
-    /// which (KERNEL.42); or `plane` for a byte a cell. `window` `None` is
-    /// the sheet's extent, as the machine keeps it.
+    /// which (KERNEL.42); `fills` for the record with each fill's `formula`
+    /// rows printed once, over each of its rectangles, what a save prints
+    /// and the load reads as the fills (KERNEL.49); or `plane` for a byte a
+    /// cell. `window` `None` is the sheet's extent, as the machine keeps it.
     pub fn view(
         &self,
         projection: &str,
@@ -1908,6 +1910,10 @@ impl Machine {
             "changes" => {
                 let w = window_over(self, sheet, window, kept)?;
                 Ok(Viewed::Text(self.changes(&w)))
+            }
+            "fills" => {
+                let w = window_over(self, sheet, window, kept)?;
+                Ok(Viewed::Text(fills_text(self, &w, kept)))
             }
             "plane" => {
                 let w = window_over(self, sheet, window, kept)?;
@@ -5310,6 +5316,140 @@ mod tests {
                 Some((id, format!("{held:?}")))
             })
             .collect()
+    }
+
+    #[test]
+    fn the_fills_print_a_fill_once_over_each_of_its_rectangles() {
+        // KERNEL.49's decision 11: a fill cut by a write into three
+        // rectangles prints one `formula` row over each, its text the
+        // fill's at the rectangle's first cell, where that cell's row
+        // stands, a rectangle of one cell by its cell's address; a window
+        // cuts each rectangle it meets to it, the text moved to the cut's
+        // first cell; a formula of its own prints as the grid prints it;
+        // and every other row is the grid's.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1:A6\" 2)\n",
+            "(formula \"S\" \"B1:C6\" \"=A1*2\")\n",
+            "(formula \"S\" \"D1\" \"=B1+1\")\n",
+        ));
+        assert!(m.write("(cell \"S\" \"B3\" 7)").is_ok());
+        assert!(m.step(0).done);
+        let text = |projection: &str, window: Option<&str>| match m.view(projection, "S", window) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        };
+        let formulas = |t: &str| -> Vec<String> {
+            t.lines()
+                .filter(|l| l.starts_with("(formula "))
+                .map(String::from)
+                .collect()
+        };
+        assert_eq!(
+            formulas(&text("fills", None)),
+            [
+                r#"(formula "S" "B1:C2" "=A1*2")"#,
+                r#"(formula "S" "D1" "=B1+1")"#,
+                r#"(formula "S" "C3" "=B3*2")"#,
+                r#"(formula "S" "B4:C6" "=A4*2")"#,
+            ]
+        );
+        assert_eq!(
+            formulas(&text("fills", Some("C2:C5"))),
+            [
+                r#"(formula "S" "C2" "=B2*2")"#,
+                r#"(formula "S" "C3" "=B3*2")"#,
+                r#"(formula "S" "C4:C5" "=B4*2")"#,
+            ]
+        );
+        for window in [None, Some("C2:C5"), Some("A3:D4")] {
+            let others: String = text("fills", window)
+                .lines()
+                .filter(|l| !l.starts_with("(formula "))
+                .map(|l| format!("{l}\n"))
+                .collect();
+            assert_eq!(others, text("values", window), "{window:?}");
+        }
+    }
+
+    #[test]
+    fn the_fills_less_their_formula_rows_are_the_values_in_any_window() {
+        // KERNEL.49's decision 11: the fills print every row the grid
+        // prints but its `formula` rows, so that without them they are the
+        // values, byte for byte, in any window: generated grids of fills
+        // and formulas of their own on two sheets, values and fills written
+        // into them between frames, each sheet viewed whole and through
+        // windows that cut its fills.
+        let mut ranged = 0;
+        for seed in 1..=60u64 {
+            let mut d = Dice(seed ^ 0x4905_F115);
+            let rows = generated_grid(&mut d);
+            let mut m = Machine::load(&rows, library::language()).unwrap_or_else(|e| {
+                panic!("seed {seed}: line {}: {}\n{rows}", e.line, e.refusal.text)
+            });
+            for frame in 1..=3 {
+                assert!(m.step(0).done);
+                for sheet in ["A", "B"] {
+                    for k in 0..5 {
+                        let window = match k {
+                            0 => None,
+                            _ => {
+                                let (top, left) = (1 + d.below(40) as u32, d.below(10));
+                                let bottom = top + d.below(30) as u32;
+                                let right = (left + d.below(6)).min(LETTERS.len() - 1);
+                                Some(format!("{}{top}:{}{bottom}", LETTERS[left], LETTERS[right]))
+                            }
+                        };
+                        let view =
+                            |projection: &str| match m.view(projection, sheet, window.as_deref()) {
+                                Ok(Viewed::Text(t)) => t,
+                                other => panic!("seed {seed}: {other:?}"),
+                            };
+                        let fills = view("fills");
+                        ranged += fills
+                            .lines()
+                            .filter(|l| {
+                                l.starts_with("(formula ")
+                                    && l.split('"').nth(3).is_some_and(|a| a.contains(':'))
+                            })
+                            .count();
+                        let others: String = fills
+                            .lines()
+                            .filter(|l| !l.starts_with("(formula "))
+                            .map(|l| format!("{l}\n"))
+                            .collect();
+                        assert_eq!(
+                            others,
+                            view("values"),
+                            "seed {seed}, frame {frame}, {sheet} {window:?}\n{rows}"
+                        );
+                    }
+                }
+                let write = match d.below(3) {
+                    0 => format!(
+                        "(cell \"A\" \"{}{}\" 5)",
+                        d.pick(&LETTERS[2..8]),
+                        1 + d.below(30)
+                    ),
+                    1 => format!(
+                        "(formula \"A\" \"D{0}:F{1}\" \"=A{0}+1\")",
+                        1 + d.below(20),
+                        21 + d.below(10)
+                    ),
+                    _ => format!(
+                        "(cell \"B\" \"{}{}:{}{}\" 1)",
+                        d.pick(&LETTERS[2..5]),
+                        1 + d.below(10),
+                        d.pick(&LETTERS[5..8]),
+                        11 + d.below(10)
+                    ),
+                };
+                assert!(m.write(&write).is_ok(), "seed {seed}: {write}");
+            }
+        }
+        assert!(
+            ranged > 1_000,
+            "{ranged} formula rows over rectangles: too few for the law to hold over"
+        );
     }
 
     #[test]

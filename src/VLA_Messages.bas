@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.50"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.49"
+' KERNEL.49: view-projection-unknown names the fifth projection, fills,
+' the rows of a window with each fill's formula once over each of its
+' rectangles, what a save prints and the loader reads as the fills.
+'
 ' KERNEL.50: grid-format-property under VLA-Grid - a format row's font,
 ' alignment or border group holding what a format does not take (a
 ' word, a size, a color, a second weight, an edge twice), named with what
@@ -1657,7 +1661,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The grid holds no sheet named {name}; it holds {sheets}."
     AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window of a sheet. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
     ' KERNEL.22 - an engine's view: a projection this version does not have, and a plane too large to hold.
-    AddMsg m, "view-projection-unknown", 5, "VLA-View", "{name} is not a projection of the grid; the projections are grid, the rows of a window, values, those rows without the formulas' texts, changes, the values' rows of the cells the last frame changed, and plane, a byte a cell."
+    AddMsg m, "view-projection-unknown", 5, "VLA-View", "{name} is not a projection of the grid; the projections are grid, the rows of a window, values, those rows without the formulas' texts, changes, the values' rows of the cells the last frame changed, fills, the rows with each fill's formula once over each of its rectangles, and plane, a byte a cell."
     AddMsg m, "view-window-too-large", 5, "VLA-View", "The window {window} holds {cells} cells, past the {limit} one plane holds; view it in parts."
 
     ' KERNEL.2: the distro folder's refusals. An edition is a folder,

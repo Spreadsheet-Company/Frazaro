@@ -185,6 +185,15 @@
   engine: `Shapes::order` walks the order, an iterator where it lent a
   slice; `Shapes::plan` and `Shapes::replace` are gone, a machine
   planning its own grid (KERNEL.49).
+- **A grid saves as its fills.** `Machine::view` answers a fifth
+  projection, `fills`: the record with each fill's formula printed once, a
+  `formula` row over each of its rectangles with the text at the
+  rectangle's first cell, every other row the grid's. The loader reads it as
+  the fills, so that a save of every sheet's fills loads as the grid it came
+  from and views as it. The large board's save is 29.7 MB where its grid's
+  record is 521, and loads in 1.4 s where 25; Life at sixteen times its
+  window 27.8 MB where 562. `view::FillGrid` and `view::view_text_fills`
+  print it over a workbook (KERNEL.49).
 - **A formula reads another cell's formula.** `ISFORMULA(B5)` is TRUE where
   `B5` holds a formula, and `FORMULATEXT(B5)` its text as Excel's formula
   bar shows it, `#N/A` where it holds none, so that a game can hold a

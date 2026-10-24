@@ -82,11 +82,20 @@
 //! and the host views the window. A host holding the window's values at the
 //! first frame, and replacing each named cell's rows with the rows given it,
 //! holds the window's values at the second, byte for byte.
+//!
+//! The fills ([`FillGrid`], `fills`; KERNEL.49, 2026-10-23) are what a save
+//! prints: the grid's record with each fill's `formula` rows printed once, a
+//! `formula` row over each rectangle of the fill in the window, its text the
+//! fill's at the rectangle's first cell, where that cell's row stands, which
+//! the loader reads as the fill again; a rectangle of one cell is named by
+//! its cell. Every other row is the grid's, in the grid's order, so that the
+//! fills without their `formula` rows are the values, byte for byte, and a
+//! grid loaded from its fills views as the grid.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::calc::{self, Extent, Values};
-use crate::grid::{text_of, Cells, Constant, Formula, Held, Holds, Masters, Page};
+use crate::grid::{overlap, text_of, Cells, Constant, Formula, Held, Holds, Masters, Page};
 use crate::machine::load::Datum;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
@@ -156,6 +165,59 @@ impl Projection for ValueGrid<'_> {
     }
 }
 
+/// The fills: the view record of one window with each fill's `formula` rows
+/// printed once, a `formula` row over each of its rectangles in the window,
+/// its text the fill's at the rectangle's first cell, which the loader reads
+/// as a fill, the fifth projection (KERNEL.49's decision 11): what a save
+/// prints, a fill's cells one row where the grid prints one each. Every
+/// other row is the grid's, in the grid's order, a rectangle's row where its
+/// first cell's stands; a formula of its own prints as the grid prints it.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FillGrid<'v> {
+    pub values: Option<&'v dyn Values>,
+}
+
+impl<'v> FillGrid<'v> {
+    /// The fills of a computed model.
+    pub fn valued(values: &'v dyn Values) -> FillGrid<'v> {
+        FillGrid {
+            values: Some(values),
+        }
+    }
+}
+
+impl Projection for FillGrid<'_> {
+    fn name(&self) -> &str {
+        "fills"
+    }
+
+    fn project(&self, model: &Workbook, window: &Window, out: &mut dyn FnMut(&str)) {
+        Grid {
+            values: self.values,
+        }
+        .rows_as(model, window, Mode::Fills, out);
+    }
+}
+
+/// Which `formula` rows a record prints: none (the values), every formula
+/// cell's (the grid), or a fill's once over each of its rectangles (the
+/// fills).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    Values,
+    Grid,
+    Fills,
+}
+
+/// The `formula` rows a cell prints, as its record's [`Mode`] says: the
+/// fills' keyed by the first cell of each rectangle of a fill in the window,
+/// clipped to it.
+enum Texts<'f> {
+    None,
+    Each,
+    Fills(&'f BTreeMap<(u32, u32), A1Range>),
+}
+
 impl Grid<'_> {
     /// The record's rows of one window: every row the grid prints, or with
     /// `formulas` false every row but the `formula` rows, which is the values
@@ -166,6 +228,19 @@ impl Grid<'_> {
         model: &G,
         window: &Window,
         formulas: bool,
+        out: &mut dyn FnMut(&str),
+    ) {
+        let mode = if formulas { Mode::Grid } else { Mode::Values };
+        self.rows_as(model, window, mode, out);
+    }
+
+    /// The record's rows of one window as `mode` prints its `formula` rows
+    /// ([`Grid::rows`]; the fills, KERNEL.49).
+    fn rows_as<G: Cells + ?Sized>(
+        &self,
+        model: &G,
+        window: &Window,
+        mode: Mode,
         out: &mut dyn FnMut(&str),
     ) {
         for s in 0..model.sheet_count() {
@@ -254,6 +329,21 @@ impl Grid<'_> {
         // master; the values ask only whether a cell with no value has one.
         let mut masters = None;
         let coded = Coded::of(model.styles(), page.looks);
+        // The fills' rectangles in the window, each by its first cell, where
+        // its row stands (KERNEL.49).
+        let mut firsts: BTreeMap<(u32, u32), A1Range> = BTreeMap::new();
+        if mode == Mode::Fills {
+            model.each_node(i, &mut |rect, formula| {
+                if let (Formula::Fill(_), Some(cut)) = (formula, overlap(&rect, &range)) {
+                    firsts.insert((cut.top, cut.left), cut);
+                }
+            });
+        }
+        let texts = match mode {
+            Mode::Values => Texts::None,
+            Mode::Grid => Texts::Each,
+            Mode::Fills => Texts::Fills(&firsts),
+        };
         #[cfg(test)]
         crate::sheet::work::viewed(cells.len());
         for (at, cell) in &cells {
@@ -263,7 +353,7 @@ impl Grid<'_> {
                 i,
                 *at,
                 cell,
-                formulas,
+                &texts,
                 &mut masters,
                 coded.as_ref(),
                 out,
@@ -273,10 +363,11 @@ impl Grid<'_> {
 
     /// One cell's rows, as the record prints them (KERNEL.42: the changes
     /// print a changed cell's by this code too): its `cell` row, or its
-    /// `formula` row where the record has them and its `value` row once it
-    /// has one, then its `text` row where its value draws under a code
-    /// (KERNEL.47), then its `style` and `sentence` rows; whether it printed
-    /// any. `masters` are the sheet's fills', found once, and `coded` what a
+    /// `formula` row where the record has them (a fill's, in the fills, over
+    /// its rectangle at the rectangle's first cell and at no other) and its
+    /// `value` row once it has one, then its `text` row where its value draws
+    /// under a code (KERNEL.47), then its `style` and `sentence` rows;
+    /// whether it printed any. `masters` are the sheet's fills', found once, and `coded` what a
     /// `text` row needs, where the style table holds a code.
     #[allow(clippy::too_many_arguments)]
     fn cell_rows<'g, G: Cells + ?Sized>(
@@ -286,7 +377,7 @@ impl Grid<'_> {
         i: usize,
         (row, col): (u32, u32),
         cell: &Held<'_>,
-        formulas: bool,
+        texts: &Texts<'_>,
         masters: &mut Option<Masters<'g>>,
         coded: Option<&Coded<'_>>,
         out: &mut dyn FnMut(&str),
@@ -341,22 +432,33 @@ impl Grid<'_> {
                 // A formula with a text: every one but a fill's cell whose
                 // master the sheet has lost, which shows nothing in either
                 // record.
-                let held = if formulas {
-                    let walked = masters.get_or_insert_with(|| model.masters(i));
-                    match text_of(*formula, (row, col), walked) {
-                        Some(text) => {
-                            let text = format!("={text}");
-                            out(&relation(&Row::Formula {
-                                sheet: name,
-                                addr: &addr,
-                                text: &text,
-                            }));
-                            true
-                        }
-                        None => false,
+                // Where the record prints the cell's `formula` row: at the
+                // cell, or, in the fills, a fill's over the rectangle its
+                // cell begins and nowhere at its other cells.
+                let over: Option<std::borrow::Cow<'_, str>> = match (texts, formula) {
+                    (Texts::None, _) => None,
+                    (Texts::Fills(firsts), Formula::Fill(_)) => {
+                        firsts.get(&(row, col)).map(|r| r.text().into())
                     }
-                } else {
-                    match formula {
+                    _ => Some(addr.as_str().into()),
+                };
+                let held = match over {
+                    Some(over) => {
+                        let walked = masters.get_or_insert_with(|| model.masters(i));
+                        match text_of(*formula, (row, col), walked) {
+                            Some(text) => {
+                                let text = format!("={text}");
+                                out(&relation(&Row::Formula {
+                                    sheet: name,
+                                    addr: &over,
+                                    text: &text,
+                                }));
+                                true
+                            }
+                            None => false,
+                        }
+                    }
+                    None => match formula {
                         // A value is only ever computed for a formula with
                         // a text, so a fill's cell with one has its master;
                         // one without asks the sheet.
@@ -364,7 +466,7 @@ impl Grid<'_> {
                             .get_or_insert_with(|| model.masters(i))
                             .contains_key(si),
                         _ => true,
-                    }
+                    },
                 };
                 let mut shown = None;
                 if let Some(computed) = computed.filter(|_| held) {
@@ -589,6 +691,29 @@ pub(crate) fn record_text<G: Cells + ?Sized>(
     out
 }
 
+/// The fills record of one window (KERNEL.49): [`view_text_valued`]'s
+/// record with each fill's `formula` rows printed once over each of its
+/// rectangles in the window ([`FillGrid`]), what a save prints. `values`
+/// must be over `model`.
+pub fn view_text_fills(model: &Workbook, window: &Window, values: &dyn Values) -> String {
+    fills_text(model, window, Some(values))
+}
+
+/// The fills of one window ([`FillGrid`], KERNEL.49) as text, each line
+/// ending in a line feed, over a workbook or an engine's machine.
+pub(crate) fn fills_text<G: Cells + ?Sized>(
+    model: &G,
+    window: &Window,
+    values: Option<&dyn Values>,
+) -> String {
+    let mut out = String::new();
+    Grid { values }.rows_as(model, window, Mode::Fills, &mut |line| {
+        out.push_str(line);
+        out.push('\n');
+    });
+    out
+}
+
 /// The changes of one window (KERNEL.42) as text, each line ending in a
 /// line feed: `(changes "<sheet>" "<range>" <since> <at> <n>)`, the window
 /// as its values record names it, then the rows of the `n` cells `cells`
@@ -638,7 +763,7 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
                 i,
                 (row, col),
                 &cell,
-                false,
+                &Texts::None,
                 &mut masters,
                 coded.as_ref(),
                 &mut push,

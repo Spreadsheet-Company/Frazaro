@@ -94,7 +94,9 @@ refused in the same words.
   same record with each formula's computed value after it. The second,
   `view::ValueGrid`, is the same record less its formula rows, the values a
   host draws every frame without moving every formula's text:
-  `view::view_text_values` prints it.
+  `view::view_text_values` prints it. The fifth, `view::FillGrid`, is the
+  record with each fill's formula row printed once over each of its
+  rectangles, what a save prints: `view::view_text_fills` prints it.
 - **Computes the grid.** `calc::Calc::new` reads every formula off a
   `Workbook`, builds the dependency graph from the references and finds the
   order, naming every cycle; `Calc::step` evaluates the next cells of that
@@ -163,7 +165,9 @@ refused in the same words.
   record with each formula's value, the values (the record less its formula
   rows, what a host draws), the changes (the values' rows of the cells the
   last frame changed, so that a host repaints those alone, or `whole` where
-  the machine cannot say), or the plane, a byte a cell. After each frame
+  the machine cannot say), the fills (the record with each fill's formula
+  once over each of its rectangles, what a save prints and the load reads
+  as the fills), or the plane, a byte a cell. After each frame
   `changed` says how many formula cells it changed the value of, to the
   bit, `changed_on` how many of them on a sheet and `reached` how many it
   computed, so that a host stepping a grid until a cascade settles stops

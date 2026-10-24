@@ -218,9 +218,9 @@ pub unsafe extern "C" fn vla_step(handle: u32, budget: u32, out_len: *mut u32) -
     })
 }
 
-/// `view`: a projection's name (`grid` or `plane`), a sheet's name and a
-/// window (`A1:F20`; empty for the sheet's extent), answered with the
-/// record's lines or the plane's bytes.
+/// `view`: a projection's name (`grid`, `values`, `changes`, `fills` or
+/// `plane`), a sheet's name and a window (`A1:F20`; empty for the sheet's
+/// extent), answered with the record's lines or the plane's bytes.
 ///
 /// # Safety
 /// Each pointer came from [`vla_alloc`] with its length, or is null with 0;

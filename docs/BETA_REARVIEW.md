@@ -34131,6 +34131,99 @@ to 12.6, Life x16's 459.6 to 118.5) but the shuffled Naught's, 392.2 to
 or faster but Sand's, 4.0 to 4.1 ms, and the first frames within 3% of the
 base's, one reading each.
 
+*The fifth slice built 2026-10-23*, decision 11, on `1dd1260` (the fourth
+slice), the item's last:
+
+- *The fills* (`view::FillGrid`, `fills`): the view record's fifth
+  projection, the grid's record with each fill's `formula` rows printed
+  once, a `formula` row over each rectangle of the fill in the window (the
+  machine's pieces, or a workbook's shared cells merged into rectangles,
+  `Model::each_node`), cut to the window, its text the fill's at the
+  rectangle's first cell, where that cell's row stands, a rectangle of one
+  cell named by its cell; a formula of its own as the grid prints it; every
+  other row the grid's, in the grid's order. The loader reads a formula row
+  over a rectangle as a fill already, so that a save is every sheet's fills
+  and loads as the fills it held. `Machine::view` answers `fills`, and the
+  C surface with it, its comment naming the five projections;
+  `view::view_text_fills` prints it over a workbook. A fill's cell that
+  begins no rectangle moves no text: whether it holds one is its master's,
+  as the values ask (*Found in the build*).
+- *The words:* `view-projection-unknown` names the fifth projection, in the
+  reference's catalogue (`src/VLA_Messages.bas`, its changelog's entry and
+  `VLA_MESSAGES_VERSION` `KERNEL.49`) and in the language's half, exported
+  (`tools/export_messages.ps1`); the core's half unchanged.
+- *The docs:* `view.rs`'s module paragraph on the fills, the language's
+  README (the machine's `view`, and the view record's projections).
+
+*Measured,* a scratch runner over the two fixtures of rows, two frames
+stepped, every sheet's record whole, each load the median of three:
+
+| fixture | the grid's save | the fills' save | the fills viewed | loaded from the fills | loaded from the grid's |
+|---|---|---|---|---|---|
+| superposition | 520,845,922 bytes, 1,860,841 rows | 29,673,330 bytes, 1,062,154 rows, 44 of them formulas | 0.63 s | 1.41 s | 25.1 s |
+| life-x16 | 561,625,731 bytes, 2,039,913 rows | 27,847,287 bytes, 1,020,070 rows, 1 a formula | 0.69 s | 1.65 s | 28.0 s |
+
+The save is the prediction's, 25 to 30 MB, its `value` rows its weight, and
+each load from the fills views as the grid, row for row. The load is not
+the prediction's tens of milliseconds: each `value` row is read and kept by
+its cell, one a row, which the scoping left for a range's values printed as
+one row (*Found*, the scoping's second).
+
+*The tests:* the language's 397 where 395 and its laws' 14 where 13: the fills
+of a fill cut by a write into three, each rectangle's row with its text,
+and a window cutting them, each cut's (`machine`); the fills less their
+`formula` rows the values, byte for byte, in any window, 60 generated grids
+of fills and formulas of their own on two sheets, values and fills written
+into them between frames, each sheet viewed whole and through four windows
+cutting its fills, more than 1,000 formula rows over rectangles among them;
+and the free law (`tests/laws.rs`): a grid loaded from its fills views as
+the grid, row for row, its fills the fills, and the load resumed and
+stepped once is the grid stepped once more, over the laws' 60 grids at four
+frames each, fills written over them and cut by the writes between frames.
+The core's 225 and every suite and doctest; `cargo fmt` and both clippy
+configurations; the 60 checks, the catalogue's export among them; the
+language's package from its tarball, 397 and every suite. The language's
+module 1,368,317 bytes, 9,816 more than the fourth slice's, and Alonzo's
+1,822,317, 12,416 more, each importing nothing and exporting what it did.
+Alonzo by path over the slice: its tests and its frames the fourth slice's,
+every frame its hand's and every heap the same, every describe the base's;
+its page built, offline. A board's values, what a host draws, viewed whole
+in 222 ms where the fourth slice's tree took 242.
+
+*The mutants:* six, each a line of the fills changed (every cell's formula row
+printed, a rectangle not cut to the window, a rectangle keyed at its last
+cell, a formula of its own left out, the machine answering the fills with
+the grid, and a fill's cell whose master is lost held): all six killed, the
+last by the view's own tests of a lost master.
+
+*Found in the build:*
+
+- *A text moved to be thrown away.* The fills first moved every fill's
+  cell's text from its master, as the grid does, to learn whether it held
+  one, and printed it at a rectangle's first cell alone: the board's save
+  took 19.0 s, the grid's 19.7, its values 0.24. A cell that begins no
+  rectangle asks its master, as the values do: 0.63 s.
+- *The grid of a whole board.* The grid moves each fill's cell's text from
+  its master at every view: the board's whole field 12.7 s, Life x16's
+  21.3, the third slice's tree the same, where their values take 0.24 and
+  0.61. A host draws the values, and a save prints the fills; a door that
+  views a large board whole through the grid waits for its texts.
+- *A load read a row at a time.* The board's fills, 1,062,154 rows,
+  load in 1.15 s: the reader, text to forms, 721 ms; the records, forms to
+  the draft, 333; the machine made 96 (Life x16's 685, 456 and 134). Where a
+  load reads the grid's record, a formula row a cell, the board's takes 25.1
+  s and Life x16's 28.0. Two ways past the second, each an item of its own:
+  a reader's path for the record's own rows, read without forms; and a
+  range's values printed as one row (the scoping's second *Found*), which
+  the loader and every host must agree on. A host's save gains the first
+  second already by printing the fills, Alonzo's at its pin to 0.11.0
+  (`ENGINE.5`, the scoping's Alonzo step 7).
+
+*The hand test, the owner's,* 2026-10-23: the reference's catalogue
+reworded, `VlaDevReload`, Debug > Compile and `? VlaSelfTests()`, pure 2033
+of 2033 and host 333 of 333; Alonzo's page built over the slice, its loop
+oracle's thirty cases.
+
 **`KERNEL.50`, a format's appearance in the language: the scoping,
 2026-10-20.** Begun at the owner's word of 2026-10-19, from Alonzo's
 `CART.14`, Seiyaku (制約), the owner's number-placement puzzle, scoped and
@@ -52139,6 +52232,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.50 — a format's appearance in the language: a cell's borders, its text's weight, color and size, and its alignment, held by `vla-lang`'s model and the record, and written and read by `frazaro-core`.** Minted 2026-10-20 at the owner's word of 2026-10-19, from Alonzo's `CART.14` (Seiyaku) and its hand test's note on a text's size; scoped the same day, its thirteen decisions approved whole 2026-10-21, and built in two slices, each at the owner's word and committed before the next: the language (`37306af`: what a format says of a font, a weight, a slant, a size in twentieths of a point from 1 to 409.55 and a color, of an alignment, horizontal and vertical, `middle` written as Excel's `center`, and of a border, four edges each a line of Excel's fourteen and a color, each property said or not; the record's groups after a format's wrap, a format that says none printing as before, byte for byte; a look drawing what its format says over a cell's own, `Style::over`, so that a board's box edges stand under the looks that draw its digits; a `style` row over a range; `grid-format-property` and `grid-cell-unwritten`; `Style` `#[non_exhaustive]`, 32 bytes more a slot of a grid's style table) and the writer and Excel's golden (the second: each font and border a workbook's formats draw with written once over the workbook's first, an edge's automatic color, an alignment and the `apply` flags, the same at the ends of a host's lists for `--into`, a table whose formats say none of them writing the bytes it wrote; 46 cases set through Excel's object model by `VlaWriteAppearanceGolden` and read back of its own cells and of the core's written workbook, every case as the record spells it, its object model taking sizes to 409.55 where 409 was predicted; and Excel's own save of the cases held to the writer's property by property). Held by the laws over grids whose formats say every group, the painter's fixture, the golden's tests and its check, twenty-four mutants over the two slices, each caught, Alonzo and Buffet over the first by a path (every frame equal), and the written workbook the owner opened in Excel and in LibreOffice Calc. A file's looks as rows, the readers', left to an item of their own (decision 8), its starting prompt given; `ENGINE.28`, Alonzo's half, after the release. To be released in 0.11.0. `~days`, taken in three days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 - ✅ **KERNEL.56 — a value written into an empty cell costs its write and its readers: the cell taken where it stands by its sheet's store, its twin's and its plane, a twin's gain kept with no whole frame, and the extent's readers computed where an extent moved, so that typing into a fresh cell, or a cartridge writing a cell it never wrote, computes no frame whole.** Minted 2026-10-21 at the owner's word, from `KERNEL.54`'s scoping (its *Found*, and its second slice's probe); scoped 2026-10-22, its eight decisions approved whole, this item before `KERNEL.49`'s third slice, and built in two slices the same day, each at the owner's word: the bench's type row (`615ff82`: a value written into a fresh cell of the netlist and the frames until the grid is still, timed against Excel's, the owner's runs of both halves at today's numbers, 6.911 ms against Excel's 0.495) and the language (the second: a value cell added planning nothing, a twin's gain growing its extent with no whole frame, the extent's readers declared by the library and filed by the plan, a store's and a plane's growth taken where they stand, the changes whole only where an extent moved; a counted test, a law over generated grids with empty-cell writes and the extent's readers, twenty-three mutants, Alonzo's and Buffet's tests and frames over it). One value typed into an empty cell of the large board costs its next two frames 0.7 and 0.6 µs where they took 30.3 ms each, Life x16's 0.8 and 0.6 where 33.8, and the shuffled adder of 65,536 bits 2.0 and 0.3 µs where 107 and 100 ms; the netlist's type 3.5 µs where 6.911 ms; a row typed below 458,753 cells 6.0 µs where 16.5 ms; the first frame after a load 15 to 26% faster; every grid 20 bytes a sheet heavier and its library 1,065. To be released in 0.11.0. `~days`, taken in two days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 - ✅ **KERNEL.57 — a file's looks as rows: `frazaro reflect --looks` printing a workbook's gridlines, its columns' widths and formats, its rows' heights and each cell's format, its fill, number format, wrap, font, alignment and borders, from `.xlsx` and `.ods` alike, so that a reflected workbook keeps its looks and, behind a manifest, loads as a cartridge with them.** Minted 2026-10-22 at the owner's word of 2026-10-21, from `KERNEL.50`'s scoping (its decision 8) and `KERNEL.47`'s *Found*; scoped the same day, its fifteen decisions approved as recommended, and built in four slices the same day, each at the owner's word: the package (`b09c78a`: the record's own rows in `vla-lang`, the package reader's styles and theme, every package fixture's looks golden, a formula's saved value a `value` row so that a reflected workbook loads, the writer keeping a row's height and a sheet's state); Excel's golden (`a8e0884`: two hand-made workbooks of a case a row, 393 cases and 928 targets read through Excel's object model in two runs, the reader folded to Excel's tint, palette and built-ins); OpenDocument (`6b5e858`: an `.ods` file's styles, data styles and settings read as a package's, held to Excel's reading through Excel's own `.ods` save and LibreOffice's, each writer's gaps named, LibreOffice's extensions read and its family default's wrap passed over); and the page (`frazaro_reflect_looks`, its record's id what the record could not hold, and the Reflect pane's fourth Show choice). A workbook's looks the record holds are read as Excel draws them: a theme's slots and tints by ECMA's rule in Windows' HLS with each product truncated, 90 of 90; the palette, a workbook's own among them; every built-in number format by its id; each width by Excel's rule; and what the record cannot hold is left out, counted and said. The looks it counts and its two *Found* minted as `KERNEL.58` and `KERNEL.59`. To be released in 0.11.0. `~weeks`, taken in a day. *(more: the scoping and the four slices' records, under the KERNEL line)*
+- ✅ **KERNEL.49 — the grid held as what a person wrote: a fill one record, every value by place in nine bytes, a twin kept only where a formula reads it, and the plan by fills and levels, so that a formula cell costs bytes and a load its rows.** Minted 2026-10-19 at the owner's word, after Alonzo's `CART.12` hand test; scoped the same day, its fourteen decisions approved as recommended on 2026-10-21, and built in five slices, each at the owner's word: the floors (`c9f225c`: two fixtures of rows, Superposition's board and Life at sixteen times its window, and a runner of their bytes, held as exact ceilings); values by place (`45f5b43`: a slot of nine bytes in one store a sheet, a twin kept only where a formula reads it, the change lists as bits); the grid and the draft (`2e98ce5`: the machine's grid its own, a fill held once and cut by a write into at most four, the rows read as records); the plan by fills and levels (`1dd1260`: a fill's piece or a formula alone a node, edges by rectangles, levels as maps, the order kept as blocks, and an order of at most 262,144 cells listed too at the owner's word); and the fills (the view record's fifth projection, each fill's formula once over each of its rectangles, what a save prints). The large board holds 13.5 bytes a formula cell after two frames and at its peak where it held 401 and 424, Life at sixteen times its window 18.6 where 397 and 471, inside the item's 20 and 24; they load in 13 and 15 ms where 0.68 and 0.62 s; their saves are 29.7 and 27.8 MB where 521 and 562; every value, view and census line the same, and every frame of Alonzo's. To be released in 0.11.0. `~weeks`, taken in three days. *(more: the scoping and the five slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

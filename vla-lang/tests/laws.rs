@@ -472,6 +472,64 @@ fn a_save_resumed_and_stepped_once_is_the_original_stepped_once_more() {
     }
 }
 
+/// A machine's fills: the fills record of every sheet a program sees
+/// (KERNEL.49's decision 11), what a save prints.
+fn fills(m: &Machine) -> String {
+    (0..m.sheets())
+        .filter_map(|i| m.sheet_name(i))
+        .map(|name| match m.view("fills", name, None) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        })
+        .collect()
+}
+
+#[test]
+fn a_grid_loaded_from_its_fills_views_as_the_grid() {
+    // KERNEL.49's decision 11, the free law: a grid's fills, each fill's
+    // formula once over each of its rectangles, load as a grid whose view
+    // is the grid's, row for row, and whose fills are the fills; and that
+    // load resumed and stepped once is the grid stepped once more. Over the
+    // laws' grids, fills written over them and cut by the writes between
+    // frames.
+    let mut ranged = 0;
+    for seed in 1..=60u64 {
+        let mut r = Rng::new(seed);
+        let rows = grid_rows(&mut r);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let mut last = None;
+        for frame in 1..=4 {
+            for _ in 0..1 + r.below(3) {
+                let write = write_between(&mut r, &mut last);
+                m.write(&write)
+                    .unwrap_or_else(|e| panic!("seed {seed}: {write}: {}", e.refusal.text));
+            }
+            assert!(m.step(0).done);
+            let saved = fills(&m);
+            ranged += saved
+                .lines()
+                .filter(|l| {
+                    l.starts_with("(formula ")
+                        && l.split('"').nth(3).is_some_and(|a| a.contains(':'))
+                })
+                .count();
+            let what = format!("seed {seed}, frame {frame}\n{rows}");
+            let mut again = load(&saved, &format!("{what}'s fills"));
+            assert_eq!(save(&again), save(&m), "{what}");
+            assert_eq!(fills(&again), saved, "{what}");
+            again
+                .resume_at(m.frame())
+                .unwrap_or_else(|e| panic!("{what}: {}", e.text));
+            assert!(m.step(0).done && again.step(0).done);
+            assert_eq!(save(&again), save(&m), "{what}, stepped");
+        }
+    }
+    assert!(
+        ranged > 100,
+        "{ranged} formula rows over rectangles: too few for the law to hold over"
+    );
+}
+
 #[test]
 fn two_machines_given_the_same_rows_show_the_same_frames() {
     for seed in 1..=50u64 {
