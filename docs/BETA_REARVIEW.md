@@ -17699,6 +17699,366 @@ column 36, tables, closers hugging). At the owner's word of 2026-10-23,
 record. Nothing is built; the counts are the scanner's of that day and not
 a floor.
 
+---
+
+- ✅ **VLA.5 — `each`, a loop at expand time, and `assoc-expand`, a piece
+  by its head.** *Scoped 2026-10-24 from a brief pasted in chat, the item
+  the sitting above minted; the nine decisions below were put to the owner
+  in chat, each with its recommendation, and approved as recommended the
+  same day ("Recommendations approved; proceed with implementing VLA.5 as
+  scoped"). Built the same day; the build's record follows the scoping.*
+
+  **What needs it.** Read again here, the sitting's fifteen walks of the
+  kit (`Alonzo/cartridges/common.vla`) are of three kinds. Twelve write a
+  row an element: `cells`, `formulas`, `rules`, `on` and `sheets` plainly,
+  and `labels-from`, `headers-from`, `palette-from`, `looks-from`,
+  `keys-from`, `picture-from` and `picture-row` counting as they go, from
+  0, from 1, from a row or from a column. One finds an entry by its head,
+  `picture-legend`, a character's value in its legend. Two fold a text,
+  `first-of-from` up to a range's colon and `twin-of-from` a reference's
+  twin, which no loop that writes forms can say: the second goes with
+  `VLA.6`'s `last`, and the first stays a walk. Buffet's `strings-from`
+  writes a row an element from row 2 and ends in its count and pickers;
+  its `picker-from` counts from a first row to a last, which is no list,
+  so no loop over a list retires it. Measured at `aa3c630` in the port,
+  release, the best of three: the kit's `cells` over 500, 1,000, 2,000
+  and 2,499 entries takes 10, 36, 139 and 206 ms, the square its own
+  comment warns of, since it splices the rest of its list at every step,
+  and an entry more is refused, `vla-macro-self-expansion-limit`, the
+  chain's 5,000 links at two a row.
+
+  **What the substrate says**, read in both implementations at `aa3c630`:
+  - `Substitute` (`VLA.bas`) and `substitute` (`expand.rs`) dispatch a
+    list's head first, `symbol`, the quasiquote bundle and the
+    twenty-seven, then walk its elements, where the rest parameter
+    standing as an element splices its forms. So a loop must be taken at
+    its head before that walk, or its binding `(entry entries)` would take
+    the rest's forms spliced in. A primitive's argument is substituted and
+    one `(quote X)` unwrapped (`ResolveListopsArg`): a literal list stands
+    as data, and a macro's call there is never expanded, so a list written
+    as a call would be walked as its symbols.
+  - A standalone primitive's result is returned as it is, never expanded
+    again (`ExpandMacros`' Select exits, `expand_at` returns). Probed:
+    `(quote-if (null? (quote ())) (when x y) (begin))` at a source's top
+    level prints `(when x y)` with no application, where the same inside a
+    macro prints `(if x (then y))`; inside a `formula-expand`, the
+    prelude's `zero?` in such a branch is refused as no function. A loop's
+    rows must expand, so a loop cannot take that path.
+  - The reference's bindings are a Collection keyed by each parameter's
+    folded name, which cannot list its keys, so a loop's scope cannot be
+    made by copying them. The port's are a map, which it can clone.
+  - `Substitute` and `ExpandMacros` are recursive, so a local added to
+    either costs stack in every frame (trap 8); `TestFormTooDeep` and
+    `TestListopsBudget` hold the ceiling.
+  - The port weighs one application's result, at most 1,000,000 forms
+    (`VLA.1`), and the reference does not: the documented difference.
+  - No source in Delta heads a form with `each`, `each-index` or
+    `assoc-expand`, nor defines one: Frazaro's scripts, distros, examples
+    and phrasebooks, Alonzo's cartridges, Buffet's `src`. `for-each` is
+    the running program's loop, a row of the head table, and stays apart;
+    `core/data/names.vla`'s `each` is VBA's keyword, which the English
+    engine's names avoid.
+
+  **The work.**
+  - *The reference first* (`SD-18`). `VLA.bas`: `each` and `each-index`
+    recognized in `Substitute`, at a list's head standing alone, in the
+    element walk spliced, and where a value is read (`ResolveListopsArg`,
+    `unquote`, `unquote-splicing`) as a list; and in `ExpandMacros`, at a
+    form's head, its `begin` handed back to the trampoline so its rows
+    expand, and among a rebuilt list's elements and a `begin`'s set-aside
+    ones, spliced. Each site calls a helper, so neither recursive
+    procedure gains a local. The loop's evaluator makes its scope for each
+    element from the template's bindings its forms' symbols read, found by
+    one walk of the forms. `assoc-expand` joins the four lists and gets an
+    evaluator. The reserved names become one table, which `DefineMacro`
+    and the loop's names both ask, as the port's `RESERVED` is. No
+    identifier is VBA's `Each`. `VLA_Messages.bas`: six ids, exported.
+    `VLA_Tests.bas`: a pure test after `TestListopsObjectModel`, and a
+    dev-only measurement.
+  - *The port.* `expand.rs`, function for function; the environment's
+    rest items borrowed and not copied, so a loop inside a loop copies no
+    list. Unit tests; `tests/walks.rs`, the loop's cost;
+    `tests/strangers.rs`, a seed program over the three and a malformed
+    loop refused by name.
+  - *The golden.* About forty cases in `scripts/expand.txt`, written in
+    the owner's style, predicted by the port, the reference confirming.
+  - *The checks.* `check_expand_golden`: the reserved names read from the
+    one table; a rule for the loop's two forms, as rule 6 is for
+    `formula-expand` (recognized by both implementations' substitution
+    and walk, reserved in both, heading an expanded case and a refused
+    one, each new id a refused record); `assoc-expand` held as `VLA.3`'s
+    ten are; mutants; the floors. `check_data_exports`: the language half
+    at 226.
+  - *The docs.* The tutorial's chapter 14; the crate's page; the count of
+    the primitives wherever a file says twenty-seven; the release note,
+    under the owner's number.
+
+  **The decisions**, each with the recommendation and what it declines:
+
+  1. *Where it lives.* `each` and `each-index` are forms of their own,
+  beside `formula-expand`, recognized at the sites above, and
+  `assoc-expand` is the twenty-eighth primitive, a pure function of two
+  data arguments, in the reference's four lists and the port's two as
+  `VLA.3`'s ten are. The loop's forms are substituted under the
+  template's bindings and its own names in the same walk, so that `(car
+  entry)` in its body sees `entry` bound. Declined: the loop as a
+  primitive in the LISTOPS lists, since a standalone primitive's result is
+  never expanded again and no primitive splices; and a pass of its own
+  after substitution, where the body's primitives would run before the
+  name is bound and the template's substitution would reach the binding
+  first.
+
+  2. *What it yields.* The rest parameter's rule, with a statement's
+  `begin`. The loop's results are a list, as the rest's forms are: spliced
+  where the loop stands as an element of a list, its own body's forms
+  among them, so that a loop inside a loop gives one flat run; the list
+  itself where a primitive or an unquote takes it, so that `(car (each
+  ...))` is its first result, `(unquote-splicing (each ...))` splices them
+  and a loop may walk another's results; and one `begin` where it stands
+  alone as a statement, a macro's whole template, a branch of `quote-if`
+  or `cond`, or a form of the source. Then `(+ (each (c cells) c))` writes
+  a sum and works inside `formula-expand`. The sitting leaned to the first
+  and the last of these; the middle one is added, since the build needs a
+  rule there. Declined: always a `begin`, which writes `(+ (begin A1
+  B1))`; and a `begin` wherever it is no element, which gives `(car (each
+  ...))` the word `begin` and splices that word after `unquote-splicing`.
+
+  3. *The spelling.* `(each (name list) form ...)` and `(each-index
+  (index name list start) form ...)`, the binding a list as `let`'s is,
+  and as Common Lisp's `(dolist (var list) form ...)`. Declined: `(each
+  name list form ...)`, where each-index's four would stand in a row with
+  its forms and only their count would tell them apart.
+
+  4. *each-index's count.* A start, required, the binding's fourth: the
+  index begins there and goes up by one, `(each-index (row text texts 2)
+  ...)`. The kit's seven counting walks start at 0 (the palette, the
+  looks), 1 (the keys), a row (the labels, a picture's rows) or a column
+  (the headers, a picture's cells), so with a start five of the seven read
+  with no arithmetic and the index names what it counts; Excel's
+  `SEQUENCE(rows, columns, start)` and Python's `enumerate(xs, start)`
+  take one; and the house's standing rule gives two legitimate readings a
+  word that names the choice, never a default. A whole number, by the
+  arithmetic's refusals. Declined: from 0, the mint's text and
+  `map-indexed`'s, where the keys and the labels add; from 1, the
+  spreadsheet's count as `ROW` and `INDEX` count, where the palette and
+  the looks subtract; and a start with a default, the hidden choice.
+
+  5. *assoc-expand's answer.* The first entry whose head is the one asked
+  for, or the empty list: Scheme's `assoc`, compared as `equal?` compares,
+  so an atom as `eq?` compares it (a symbol by its folded text, a string
+  exactly, never a symbol to a string) and a list by its structure. An
+  entry that is no list with a head is refused when the search reaches
+  it, as Scheme's `assoc` takes a list of pairs. Then `(car (cdr
+  (assoc-expand sheet pieces)))` reads a named piece and `null?` its
+  absence. Declined: the value with a default, which can be a real value,
+  and which leaves an entry of several values, `(at 3 4)`, to `cdr`.
+
+  6. *The names.* Refused by name: a reserved expand-time name, as
+  `defmacro` refuses it, from the same table; and a name the template
+  already binds, the macro's parameter, its rest, an enclosing loop's
+  name, and each-index's two names each other's. Documented, as the kit
+  documents its parameter rule: a name spelled like the head of a row the
+  body writes, since the expander knows no row and `(each (verb verbs)
+  (verb sheet range))` is a fair use. Declined: Scheme's `let`, an inner
+  name shadowing an outer one, which the sitting leaned to for an
+  enclosing loop; one rule for all three is simpler to state, catches a
+  reused name, and costs one lookup. The reason the sitting gave for
+  refusing a parameter, that the template's substitution would reach the
+  binding first, holds in a pass of its own and for the rest, whose
+  splice is checked before any binding; at `Substitute`'s head a plain
+  parameter could be shadowed, so the choice is the language's and not
+  the mechanism's.
+
+  7. *The list.* A parameter, the rest parameter, a quoted list, a
+  primitive's result (`cdr`, `characters-expand`, `list`, `cons`) or
+  another loop's results. Refused by name: an atom, and a list written as
+  a macro's call, judged on the form as written, since a list a parameter
+  holds is data whatever its head. Declined: documenting the call, which
+  would walk the macro's name and its arguments as a list without a word.
+
+  8. *The cost.* The loop costs its list's length in both: one application
+  where the walker made one an element, its rows one `begin` the
+  trampoline unwraps once. In the port, `tests/walks.rs` holds a loop's
+  second thousand elements to its first within 5%, allocations and bytes,
+  under a ceiling an element, and 10,000 are measured against the walker
+  at 2,000; in the reference, a pure pin walks 2,500 elements, past the
+  walker's cap, and the owner's pass times 10,000 against the walker at
+  2,000 by a dev-only measurement. With the chain gone, the port's bound is
+  `VLA.1`'s weighing, 1,000,000 forms in one application's result, about
+  200,000 rows of `(cell sheet address value)`; the reference has none
+  but its memory. Declined: exempting the loop's results from the
+  weighing, which guards against a doubling macro whatever writes it.
+
+  9. *The version.* 0.12.0: a feature, and three new reserved names
+  refuse a source's macro of those names, which changes the language for
+  that source; `VLA.3` and `VLA.4` went out in minors, 0.9.0 and 0.10.0.
+  Declined: 0.11.1, a patch, which the cadence keeps for fixes. The number
+  is the owner's, and the note waits for it.
+
+  **The ids**, six in the language's half, 220 to 226, each naming its
+  form: `vla-each-shape` (a binding of names and a list, then at least one
+  form), `vla-each-name-reserved`, `vla-each-name-bound`,
+  `vla-each-list-a-call`, `vla-expand-expected-list` (an atom where a list
+  belongs, the loop's list and `assoc-expand`'s entries), and
+  `vla-assoc-expand-entry`. each-index's start reuses the arithmetic's
+  `vla-arith-expand-not-number-*` and `-not-whole`, and `assoc-expand`'s
+  arity `vla-expand-arity`.
+
+  **The catch.**
+  - The loop is taken at a list's head before the element walk, and in
+    the walk before the rest's splice, or the rest spills into its
+    binding.
+  - The reference's scope is built from the forms' own symbols, the only
+    ones their substitution reads, since the Collection cannot list its
+    keys: the walk covers every atom of every form, a quoted one
+    included, as `Substitute` substitutes inside a quote.
+  - Trap 8: the new branches in the two recursive procedures call helpers
+    and add no local; the depth pins run in the owner's pass.
+  - A standalone loop's `begin` goes back into the trampoline where a
+    standalone primitive's result does not. The primitives' behavior,
+    probed above, is left as found.
+  - `Each` is a VBA keyword: no identifier is named it.
+  - A walker's record and its loop's cannot be equal: the walker fires an
+    application an element and one more, and its base case leaves a
+    `(begin)`; the loop fires one. The claim is their rows as Alonzo's
+    pass flattens them, `KIT.6`'s oracle in miniature, and a test of the
+    port holds it.
+  - Alonzo's `docs/SPEC.md` §7.8 counts the primitives, and the kit's
+    preamble says a walk recurses in tail position: Alonzo's, at `KIT.6`.
+
+  **The oracle.** The expand golden, its new cases the port's prediction
+  and the reference's `VlaWriteExpandGolden` writing the same bytes, the
+  witness `git diff --no-index` against the crate's copy, which
+  `check_crate_data` holds to the port's; the pure pins in the owner's
+  `VlaSelfTests`; the port's tests, the walker and its loop flattened to
+  the same rows; `walks.rs`'s cost; the strangers; `check_expand_golden`
+  and its mutants; every other golden unchanged and `VlaGoldens` PASS, no
+  emitted code moving; `run_checks` green; the package's tests from its
+  tarball. In Alonzo, once a release carries it: the kit's test in
+  `engine/src/pass.rs` and every cartridge `same` under `KIT.6`.
+
+  **Size.** `~days`, as minted: about twenty files, `VLA.3`'s shape.
+
+  **Built 2026-10-24, awaiting the owner's VBA pass.** The nine decisions
+  as approved, the reference first. What landed:
+  - *The reference.* `VLA.bas`: the loop's evaluator and its helpers after
+    `FuseSymbol` (`IsEachForm`, `EachFormBegin`, `EachFormInto`,
+    `SubstituteValue`, `EachFormResults`, `EachBinding`, `EachCheckName`,
+    `EachList`, `EachStartValue`, `EachReadBindings`, `EachBodyFormInto`),
+    taken by `Substitute` at a list's head, in its element walk and where
+    `ResolveListopsArg`, `unquote` and `unquote-splicing` read a value, and by
+    `ExpandMacros` at a form's head (its `begin` handed back to the
+    trampoline, a link of the chain) and among a rebuilt list's elements and
+    the set-aside ones (`ExpandEachInto`); `assoc-expand` in the four lists
+    and `EvalAssocExpand`; the reserved names one table,
+    `ExpandReservedDesc`, which `DefineMacro` asks where it held thirty-three
+    `RaiseMsg` lines; `PendingBegin`, the fix below. No identifier is VBA's
+    `Each`; the two recursive procedures gained no local, `ExpandMacros`
+    lost two to `PendingBegin`; the trap list was run (no `As New` in a
+    loop, `IsObject` before every `CStr`, one spelling per name in each
+    module, the longest line 561 characters, no keyword among the new
+    names). `IsEachForm` passes over a head of another length before it
+    folds, so that a walk pays one length test a list. `VLA_Messages.bas`:
+    the six ids, exported, the language's half at 226. `VLA_Tests.bas`:
+    `TestEachForms`, 49 pins, wired after `TestListopsObjectModel`;
+    `VlaMeasureEach`, dev-only. Each module's version is `VLA.5`.
+  - *The port.* `expand.rs` function for function: `Env` borrows the call's
+    rest items, so a loop inside a loop copies no list, and holds the
+    expander's rules, which the reference's `GetMacro` reads from its module,
+    so that `each_list` refuses a list written as a macro's call outside a
+    template too; eight unit tests, the 49 pins; `tests/expand_golden.rs`'s
+    `the_walker_and_its_loop_write_the_same_rows`, the two fixture cases
+    flattened as Alonzo's pass flattens them; `tests/walks.rs`, the loop's
+    cost; `tests/strangers.rs`, a seed program over the three and five named
+    cases. `is_each_form` folds nothing, `eq_ignore_ascii_case` being `fold`
+    for these names; a first draft through `head_is`, which folds both
+    texts, doubled the table generator's allocations, 203,038 to 437,038 a
+    thousand rows, and the walks pin failed on it before anything else did.
+  - *The golden.* 52 cases, 31 expanded and 21 refused, the fixture 229 and
+    100 refused, 36 distinct ids; the 177 records before them byte for byte
+    the committed golden. Written by the port through a scratch probe that
+    copies `VlaWriteExpandGolden`'s loop and its CRLF (the reference's
+    `WritePretty` breaks a line with `vbCrLf`, and the palette's case is the
+    golden's first record printed across lines), into both copies before
+    the reference had written its own.
+  - *The checks.* `check_expand_golden` reads the reserved words from the
+    table and holds `DefineMacro` to asking it; rule 7, the loop, and
+    `assoc-expand` among the covered primitives; two mutants, nine in all;
+    floors 229, 129 and 36. `check_data_exports` at 226.
+  - *The docs.* The tutorial's chapter 14, a subsection *The loop*, the
+    table's three rows, the chain's paragraph and the note on `lambda`, each
+    example run through the port; the crate's page, its count and its 135
+    cases; `RELEASES.md` under 0.12.0; the roadmap's line 🟡.
+
+  **Found while building, and fixed.** A `begin` a macro made whose last
+  form is an atom expanded to the atom alone, in both implementations: the
+  trampoline set the other forms aside, met the atom at the loop's head and
+  returned it, so `(defmacro (m) (debug-print 1) x)` expanded `(m)` to `x`
+  and `(defmacro (m & xs) (begin xs))` `(m 1 2 3)` to `3`. A loop's
+  statement `begin` meets it whenever its last result is an atom, so it is
+  fixed here: the forms set aside are kept, the atom last (`PendingBegin`,
+  `pending_begin`), and a golden case and a pin in each implementation hold
+  it. No golden moved: the door's compile golden (291,184 characters), its
+  translate golden, its build, reflect, diff, audit, view and recalc goldens
+  and `prove -Impl` (61 passed) reproduce whole, so no program of the corpus
+  met it.
+
+  **Found while building, left as found.** A standalone primitive's chosen
+  branch is not expanded again, as probed in the scoping. VBA's Collection
+  compares keys without case beyond A to Z where the port's map does not,
+  so a loop's name `é` beside a parameter `É` is refused as bound in the
+  reference and not in the port, as two such parameters already part the
+  two; no source spells one. Buffet's `picker-from` counts from a row to a
+  row, and a loop needs a list: a range of numbers at expand time would
+  retire it, unminted. An Excel owner-file, `scripts/~$appearance_
+  written.xlsx`, written while the owner had that workbook open, failed the
+  core's `the_first_pass_reads_the_cells_the_walk_prints`, which opens every
+  `.xlsx` under `scripts/`; it went when the workbook closed, and the test
+  passes. Whether the test should pass over Excel's owner-files is the
+  reader's question, not this item's.
+
+  **Measured**, the port in release, the best of three: the kit's `cells`
+  walker 139 ms over 2,000 entries and 206 over 2,499, refused at 2,500;
+  the same `cells` as a loop 4.9 ms over 2,000, 6.2 over 2,499, 24 over
+  10,000 and 279 over 100,000, one application each, and at 200,000 rows
+  refused by name, `VLA.1`'s million forms in one application, as the
+  scoping said. Allocations a thousand rows (`tests/walks.rs`): each-rows
+  16,024 of 678,425 bytes, the cells loop 25,021 of 1,015,165, where
+  walk-rows makes 42,020 of 1,351,193; the second thousand within 5% of the
+  first in each, and the table generator's and walk-rows' VLA.2 numbers
+  unchanged to the allocation. The reference, the owner's `VlaMeasureEach`,
+  each case once: the walker 12,922 ms over 2,000 entries, 2,001
+  applications; the loop 375 ms over 2,000 and 2,797 over 10,000, one
+  application each, the last half as much again as a linear rate from
+  2,000 would give, measured once and not chased.
+
+  **Verified** on `aa3c630` plus this item: fmt and clippy with `-D
+  warnings` clean; `cargo test --workspace`, 667 passed, 0 failed and 5
+  ignored, run again once the owner-file above was gone (665 with its test
+  set aside before); the door's ten goldens and `prove -Impl` as above;
+  `run_checks`, 60 of 60; `check_expand_golden -Control`, each of nine
+  mutants failing; `vla-lang`'s package unpacked from its tarball, 442 of
+  its tests passing, its expand fixture and golden the tree's.
+
+  **For the owner's pass:** `VlaDevReload`, Debug > Compile;
+  `? VlaSelfTests()`, the pure suite 49 pins more than its last run and
+  every pin passing, the host suite as it was; `? VlaWriteExpandGolden()`,
+  229 cases and 100 refused, then `git diff --no-index
+  vla-lang\testdata\expand_golden.txt scripts\expand_golden.txt`, empty
+  predicted, the reference agreeing with the port on every case, the
+  applications counted among them; `? VlaGoldens()`, corpus and interpreter
+  PASS, no emitted code having moved; `? VlaMeasureEach()`, its three lines
+  for this record.
+
+  **The owner's pass, 2026-10-24, every prediction held:** `VlaSelfTests`,
+  pure 2082/2082 and host 333/333, `TestEachForms`' 49 pins among them;
+  `VlaWriteExpandGolden` wrote 229 cases, 100 refused, byte for byte the
+  port's prediction (`git diff --no-index` against the crate's copy, exit
+  0), the applications counted included; `VlaGoldens`, corpus and
+  interpreter PASS; `VlaMeasureEach`, the three lines under *Measured*. The
+  nine decisions stand as built. **Closed ✅ and committed 2026-10-24 at the
+  owner's word.**
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
@@ -52213,6 +52573,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.3 — the expand-time object model: a template macro reaches a column, an address and a text's characters as it reaches a row.** Scoped, built, owner-tested and committed 2026-10-10, at the owner's word on Alonzo's request after `SPEC.3`, whose §12 named it as the cartridge pass's next step. Ten primitives join the seventeen, each a name ending in `expand`, so that Excel's plain names stay free for the formula dialect. `-expand` and `*expand` subtract and multiply. `quotient-expand` and `mod-expand` are Excel's `QUOTIENT` and `MOD` over whole numbers, a zero divisor refused. `&expand` joins atoms into a string, so a macro needs no leading-quote trick. `characters-expand` splits a text into its characters, a surrogate pair kept whole. `address-expand`, `row-expand`, `column-expand` and `column-letters-expand` write an address from a row and a column and read it back, by one written grammar within Excel's bounds. Eight refusals by name, in the catalogue's language half, now 204. The reference came first (`VLA.bas`, `TestListopsObjectModel`'s 48 pins); the port mirrors it rule for rule (`expand.rs`). The two are held to one golden of 135 cases over all twenty-seven primitives: `VlaWriteExpandGolden` writes it, `tests/expand_golden.rs` reproduces it, and `check_expand_golden`, the 55th check, holds its shape and the reference's lists of the primitives to the port's. The owner's pass: pure 1997/1997, host 333/333, the reference's golden byte for byte the port's, goldens PASS, VerifyReports 371/371. *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **VLA.4 — the formula syntax: an expression written as a formula's text and read back, with `formula-expand`.** Minted, scoped, built, owner-tested and committed 2026-10-17 at the owner's word. `vla-lang`'s `formula_syntax` writes an expanded VLA expression as a formula's canonical text in Excel's invariant spelling (`write`), and reads a formula's text back as the canonical expression (`read`, for tools and tests, never the way back from an edited formula, `SD-24`). The expander's `(formula-expand <expression>)` is the writer at expand time, an operation of the walk that expands its argument first, so that a cartridge composes a formula from expressions and its own macros, where a template macro fused a flat one from texts (Alonzo's `SPEC.md` §7.8 and §12, the step it names). The VBA reference writes the same text (`FormulaSyntaxWrite`), held to the port by the expand golden; the reader is the port's alone, as the evaluator is. Canonical both ways: no space outside a text, the fewest parentheses Excel's precedence allows, upper-case names, a sheet quoted only where it must be, numbers and texts as written; anything outside the subset is refused by one of thirteen ids, never renamed or guessed. The laws hold over the fixtures, the reference's 85 refers formulas and 3,000 generated expressions; a probe found 242 of the 243 authored cartridge formulas already in that spelling. It takes `F.7`'s remainder: every head of the head table declared, `yes` or `refused`, and both writers held to it. *Depends on:* Alonzo's `CHARTER.md` rule 1, amended the same day. *Pays into:* Alonzo's kit, its verbs over expressions; Buffet's formulas; `KERNEL.29`'s named functions. The owner's pass: pure 2031/2031, host 333/333; the reference's expand golden the port's byte for byte, once its first run had found `(si ...)` written `SI(...)` in a session no compile had run in, an alias read off a compile's state, now read off the head table and held by `check_expand_golden`'s seventh mutant. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **VLA.5 — `each`, a loop at expand time, and `assoc-expand`, a piece by its head.** Minted 2026-10-23 from the sitting on the helper-hungry style; scoped, approved, built, owner-tested and committed 2026-10-24 at the owner's word. `(each (name list) form ...)` writes its forms once for each element of a list, the name bound beside the template's own parameters, and `(each-index (index name list start) form ...)` binds a count beside it from a start its author must write, so that a kit macro says what its rows are and never how to walk them. A loop is a form of the walks beside `formula-expand`, and takes the rest parameter's rule: one `begin` where it stands alone, its results spliced where it is a list's element (a sum, inside `formula-expand`, a loop inside a loop flat), the list of them where a primitive or an unquote reads it. Its names are refused by name when expand-time names or already bound, and its list when an atom or written as a macro's call. `(assoc-expand head entries)`, the twenty-eighth primitive, answers the first entry whose head is `head` or `()`, as Scheme's `assoc`. The reserved names became one table in the reference. Found and fixed on the way: a `begin` a macro made that ended in an atom kept only the atom, in both implementations. Twelve of the kit's fifteen walkers can be loops and `picture-legend` an `assoc-expand`; the kit's `cells` takes 4.9 ms over 2,000 entries in the port where its walker took 139, and 375 ms in the add-in where the walker took 12.9 s, one application over 10,000 where the walker stopped at 2,499. The owner's pass: pure 2082/2082, host 333/333; the reference's expand golden, 229 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6` and Buffet's `HOUSE.7`, once a release carries it; `VLA.6`'s `names`. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

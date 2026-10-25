@@ -282,6 +282,9 @@ const PROGRAMS: &[&str] = &[
     "(sub main () (dim x Long) (set! x (+ 1 2)) (debug-print x))",
     // VLA.3: the expand-time object model, a picture and an address's arithmetic.
     "(defmacro (pic r t) (pic-from r 1 (characters-expand t))) (defmacro (pic-from r c m) (quote-if (null? m) (begin) (begin (quote-if (eq? (car m) \"#\") (cell \"S\" (address-expand r c) 1) (begin)) (pic-from r (+expand c 1) (cdr m))))) (pic 2 \".#\") (&expand (row-expand \"B3\") (column-letters-expand (mod-expand 30 26)) (quotient-expand 9 (-expand 4 (*expand 1 2))) (column-expand \"$C$4\"))",
+    // VLA.5: the loop in a template and out of one, a count, a loop inside a
+    // loop, a loop where a value is read, and a piece found by its head.
+    "(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) (cells \"S\" (\"A1\" 1) (\"B1\" 2)) (each-index (i x (quote (a b)) 0) (each (y (cdr (quote (p q r)))) (f i x y))) (+ (each (c (quote (A1 B1))) c)) (car (each (z (quote (u v))) (g z))) (assoc-expand (quote b) (quote ((a 1) (b 2))))",
 ];
 
 /// The rows a write is made of before they are mutated.
@@ -374,6 +377,16 @@ fn the_named_strangers() {
         (Door::Write, "a formula past the length".into(), format!("(formula \"G\" \"D1\" \"={}1\")", "1+".repeat(5000))),
         (Door::Expand, "a macro that calls itself unchanged".into(), "(defmacro (spin x) (spin x)) (spin 1)".into()),
         (Door::Expand, "a macro with no template".into(), "(defmacro (m))".into()),
+        // VLA.5: a malformed loop is refused by name, and a long one answers.
+        (Door::Expand, "a loop alone".into(), "(each)".into()),
+        (Door::Expand, "a loop whose binding is an atom".into(), "(each x)".into()),
+        (Door::Expand, "a loop whose binding is empty".into(), "(each () (f))".into()),
+        (Door::Expand, "a loop of a hundred thousand".into(), format!("(each (x (quote ({}))) x)", "1 ".repeat(100_000))),
+        (
+            Door::Expand,
+            "a loop past a million forms in one application".into(),
+            format!("(defmacro (m & xs) (each (x xs) (f x x x x))) (m {})", "1 ".repeat(200_000)),
+        ),
     ];
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/strangers");
     let mut kept: Vec<_> = std::fs::read_dir(dir)

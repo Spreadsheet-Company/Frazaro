@@ -20,7 +20,34 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.11.0"
-Public Const VLA_CORE_VERSION As String = "KERNEL.8"
+Public Const VLA_CORE_VERSION As String = "VLA.5"
+' VLA.5: A LOOP AT EXPAND TIME, AND A PIECE BY ITS HEAD. (each (name list)
+' form ...) substitutes its forms once for each element of the list, the
+' name bound to the element under the template's own bindings, and
+' (each-index (index name list start) form ...) binds a count beside it,
+' from the start up by one (EachFormResults). A loop is a form of the
+' walks, beside formula-expand, and no LISTOPS primitive: Substitute takes
+' it at a list's head, standing alone, as one begin (EachFormBegin), as a
+' list's element its results spliced in (EachFormInto), and where a value
+' is read - ResolveListopsArg, unquote, unquote-splicing - as the list of
+' its results (SubstituteValue), the rest parameter's own rule with a
+' statement's begin; ExpandMacros takes it at a form's head, its begin
+' handed back to the trampoline so its rows expand, and among a list's
+' elements spliced (ExpandEachInto). A loop's scope is made for each
+' element from the template's bindings its forms read (EachReadBindings),
+' since a Collection cannot list its keys. A name a loop binds is refused
+' when it is an expand-time name or one the template already binds, and a
+' list written as a macro's call is refused, never walked as its symbols.
+' (assoc-expand head entries) is the twenty-eighth primitive
+' (EvalAssocExpand): the first entry whose head is head, compared as
+' equal? compares, or the empty list, Scheme's assoc. The expand-time
+' names are one table now, ExpandReservedDesc, which DefineMacro and a
+' loop's names both ask. Found on the way and fixed, since a loop's begin
+' meets it: a begin a macro made whose last form is an atom kept the atom
+' alone and dropped the forms set aside before it, so (defmacro (m)
+' (debug-print 1) x) expanded to x; ExpandMacros keeps them now, in order
+' (PendingBegin). vla-lang's expand.rs mirrors each; the expand golden
+' holds the two to one text.
 ' KERNEL.8, SLICE F: ARRAYS IN THE FORMULA SYNTAX. FormulaSyntaxWrite
 ' writes (quote (1 2 3)) as the array constant {1,2,3} and
 ' (quote ((1 2) (3 4))) as {1,2;3,4}, each value a numeral, a text, a
@@ -2575,89 +2602,16 @@ Private Sub DefineMacro(f As Collection)
     Set sig = NthList(f, 2)
     Dim mname As String
     mname = HeadSym(sig)
-    ' P.L5: the expansion walks skip (quote ...) forms whole, so a
-    ' macro named "quote" could never fire - refuse the name loudly
-    ' instead of shadowing it silently.
-    If VLA_Identity.Fold(mname) = "quote" Then VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "quote", "desc", "data-literal form"
-    ' QUASIQUOTE/LISTOPS: same reasoning as quote above, generalized -
-    ' Substitute and ExpandMacros recognize all of these as special
-    ' forms, so a macro defined under any of these names could never
-    ' fire; refuse loudly instead of shadowing it silently.
-    Select Case VLA_Identity.Fold(mname)
-        Case "quasiquote"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "quasiquote", "desc", "template-shielding form"
-        Case "unquote"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "unquote", "desc", "quasiquote escape form"
-        Case "unquote-splicing"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "unquote-splicing", "desc", "quasiquote splice form"
-        Case "symbol"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "symbol", "desc", "identifier-fusion primitive"
-        ' LISTOPS: same reasoning again - Substitute/ExpandMacros
-        ' recognize all twenty-seven (the original nine, LISTOPS-EXPAND's
-        ' own seven, cond, and VLA.3's ten) as special forms, so a macro
-        ' defined under any of these names could never fire.
-        Case "car"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "car", "desc", "list-head primitive"
-        Case "cdr"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "cdr", "desc", "list-tail primitive"
-        Case "cddr"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "cddr", "desc", "list-tail primitive"
-        Case "cons"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "cons", "desc", "list-construction primitive"
-        Case "list"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "list", "desc", "list-construction primitive"
-        Case "null?"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "null?", "desc", "empty-list primitive"
-        Case "eq?"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "eq?", "desc", "atom-comparison primitive"
-        Case "equal?"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "equal?", "desc", "structural-comparison primitive"
-        Case "quote-if"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "quote-if", "desc", "expand-time conditional"
-        Case "cond"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "cond", "desc", "multi-clause conditional (folds at expand time when possible, defers to runtime otherwise)"
-        ' LISTOPS-EXPAND: same reasoning as the original nine - recognized
-        ' as special forms by Substitute/ExpandMacros, so a macro defined
-        ' under any of these names could never fire.
-        Case "+expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "+expand", "desc", "expand-time addition primitive"
-        Case "=expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "=expand", "desc", "expand-time equality primitive"
-        Case "<>expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "<>expand", "desc", "expand-time inequality primitive"
-        Case ">expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", ">expand", "desc", "expand-time comparison primitive"
-        Case "<expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "<expand", "desc", "expand-time comparison primitive"
-        Case ">=expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", ">=expand", "desc", "expand-time comparison primitive"
-        Case "<=expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "<=expand", "desc", "expand-time comparison primitive"
-        ' VLA.3: the expand-time object model's ten, the same reasoning -
-        ' recognized as special forms by Substitute/ExpandMacros.
-        Case "-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "-expand", "desc", "expand-time subtraction primitive"
-        Case "*expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "*expand", "desc", "expand-time multiplication primitive"
-        Case "quotient-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "quotient-expand", "desc", "expand-time integer quotient primitive"
-        Case "mod-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "mod-expand", "desc", "expand-time remainder primitive"
-        Case "&expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "&expand", "desc", "expand-time text-joining primitive"
-        Case "characters-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "characters-expand", "desc", "expand-time text-splitting primitive"
-        Case "address-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "address-expand", "desc", "expand-time address primitive"
-        Case "row-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "row-expand", "desc", "expand-time row-number primitive"
-        Case "column-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-expand", "desc", "expand-time column-number primitive"
-        Case "column-letters-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-letters-expand", "desc", "expand-time column-letters primitive"
-        Case "formula-expand"
-            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "formula-expand", "desc", "expand-time formula-syntax operation"
-    End Select
+    ' P.L5, QUASIQUOTE, LISTOPS, VLA.3, VLA.4, VLA.5: the walks recognize
+    ' every expand-time name as a form of their own - quote's data skip,
+    ' the shielding bundle, the primitives, formula-expand and the loop -
+    ' so a macro defined under one could never fire; refuse the name
+    ' loudly instead of shadowing it silently, saying what it already is.
+    ' The names and their words are one table, ExpandReservedDesc, which a
+    ' loop's names are refused by too (VLA.5).
+    Dim reservedDesc As String
+    reservedDesc = ExpandReservedDesc(VLA_Identity.Fold(mname))
+    If Len(reservedDesc) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", VLA_Identity.Fold(mname), "desc", reservedDesc
 
     Dim params As New Collection
     Dim restName As String
@@ -2739,6 +2693,90 @@ Private Sub DefineMacro(f As Collection)
     ' and corpora are headed, not a one-time saving.
     Set mMacros.Item(VLA_Identity.Fold(mname)) = rec
 End Sub
+
+' VLA.5: the expand-time names, each with what it is, "" for any other
+' name: the one table DefineMacro refuses a macro's name by and a loop
+' refuses a name it binds by, vla-lang's RESERVED in its order. The walks
+' recognize each name as a form of their own (P.L5's quote, QUASIQUOTE's
+' bundle, the twenty-eight primitives, VLA.4's formula-expand, VLA.5's
+' loop), so a macro of the name could never fire, and a loop's name so
+' spelled would stand where the walks read the form.
+Private Function ExpandReservedDesc(ByVal wordFold As String) As String
+    Select Case wordFold
+        Case "quote"
+            ExpandReservedDesc = "data-literal form"
+        Case "quasiquote"
+            ExpandReservedDesc = "template-shielding form"
+        Case "unquote"
+            ExpandReservedDesc = "quasiquote escape form"
+        Case "unquote-splicing"
+            ExpandReservedDesc = "quasiquote splice form"
+        Case "symbol"
+            ExpandReservedDesc = "identifier-fusion primitive"
+        Case "car"
+            ExpandReservedDesc = "list-head primitive"
+        Case "cdr"
+            ExpandReservedDesc = "list-tail primitive"
+        Case "cddr"
+            ExpandReservedDesc = "list-tail primitive"
+        Case "cons"
+            ExpandReservedDesc = "list-construction primitive"
+        Case "list"
+            ExpandReservedDesc = "list-construction primitive"
+        Case "null?"
+            ExpandReservedDesc = "empty-list primitive"
+        Case "eq?"
+            ExpandReservedDesc = "atom-comparison primitive"
+        Case "equal?"
+            ExpandReservedDesc = "structural-comparison primitive"
+        Case "quote-if"
+            ExpandReservedDesc = "expand-time conditional"
+        Case "cond"
+            ExpandReservedDesc = "multi-clause conditional (folds at expand time when possible, defers to runtime otherwise)"
+        Case "+expand"
+            ExpandReservedDesc = "expand-time addition primitive"
+        Case "=expand"
+            ExpandReservedDesc = "expand-time equality primitive"
+        Case "<>expand"
+            ExpandReservedDesc = "expand-time inequality primitive"
+        Case ">expand"
+            ExpandReservedDesc = "expand-time comparison primitive"
+        Case "<expand"
+            ExpandReservedDesc = "expand-time comparison primitive"
+        Case ">=expand"
+            ExpandReservedDesc = "expand-time comparison primitive"
+        Case "<=expand"
+            ExpandReservedDesc = "expand-time comparison primitive"
+        Case "-expand"
+            ExpandReservedDesc = "expand-time subtraction primitive"
+        Case "*expand"
+            ExpandReservedDesc = "expand-time multiplication primitive"
+        Case "quotient-expand"
+            ExpandReservedDesc = "expand-time integer quotient primitive"
+        Case "mod-expand"
+            ExpandReservedDesc = "expand-time remainder primitive"
+        Case "&expand"
+            ExpandReservedDesc = "expand-time text-joining primitive"
+        Case "characters-expand"
+            ExpandReservedDesc = "expand-time text-splitting primitive"
+        Case "address-expand"
+            ExpandReservedDesc = "expand-time address primitive"
+        Case "row-expand"
+            ExpandReservedDesc = "expand-time row-number primitive"
+        Case "column-expand"
+            ExpandReservedDesc = "expand-time column-number primitive"
+        Case "column-letters-expand"
+            ExpandReservedDesc = "expand-time column-letters primitive"
+        Case "formula-expand"
+            ExpandReservedDesc = "expand-time formula-syntax operation"
+        Case "assoc-expand"
+            ExpandReservedDesc = "expand-time entry-lookup primitive"
+        Case "each"
+            ExpandReservedDesc = "expand-time loop form"
+        Case "each-index"
+            ExpandReservedDesc = "expand-time counting loop form"
+    End Select
+End Function
 
 ' L17: read a macro's docstring - "" for an undocumented or unknown
 ' name. LIFETIME, stated plainly: the macro table rebuilds on every
@@ -3226,6 +3264,9 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     Dim bi As Long
     Do
         If Not IsList(cur) Then
+            ' VLA.5: an atom with forms set aside before it is the last form
+            ' of a begin a macro made, combined with them after the loop.
+            If pendingHead.Count > 0 Then Exit Do
             ExpandMacros = cur
             Exit Function
         End If
@@ -3281,18 +3322,18 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             Case "quasiquote", "unquote", "unquote-splicing"
                 VLA_Messages.RaiseMsg "vla-quasiquote-outside-template", "head", headFold
         End Select
-        ' LISTOPS: the twenty-seven list/arithmetic/conditional primitives
-        ' (the original nine, LISTOPS-EXPAND's own seven, cond, and VLA.3's
-        ' ten) are recognized standalone too, same treatment symbol gets -
-        ' none need Substitute's ambient bindings table intrinsically, since a
-        ' bound-name reference inside an argument can't exist outside
-        ' an enclosing macro in the first place (same reasoning
-        ' FuseSymbol's own comment gives for symbol).
+        ' LISTOPS: the twenty-eight list/arithmetic/conditional primitives
+        ' (the original nine, LISTOPS-EXPAND's own seven, cond, VLA.3's ten
+        ' and VLA.5's assoc-expand) are recognized standalone too, same
+        ' treatment symbol gets - none need Substitute's ambient bindings
+        ' table intrinsically, since a bound-name reference inside an
+        ' argument can't exist outside an enclosing macro in the first place
+        ' (same reasoning FuseSymbol's own comment gives for symbol).
         Select Case headFold
             Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
                  "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
                  "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
-                 "address-expand", "row-expand", "column-expand", "column-letters-expand"
+                 "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand"
                 AssignVar lprimTop, EvalListopsPrim(headFold, lst, New Collection, "", New Collection)
                 If IsObject(lprimTop) Then Set ExpandMacros = lprimTop Else ExpandMacros = lprimTop
                 Exit Function
@@ -3309,7 +3350,17 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' `(begin (foo x) (bar y))` reached directly would lose its own
         ' real line tag for no reason - the whole point here is chains
         ' that were ALREADY untagged, not a new class of untagged form.
-        If headFold = "begin" And lst.Count > 1 And FormLine(cur) = 0 Then
+        ' VLA.5: a loop at a form's head, outside any template, is a
+        ' statement: its results as one begin (tagged 0), handed back to this
+        ' loop so that its rows expand - a primitive's result above is
+        ' returned as it is, and a loop's rows would then never expand. One
+        ' link of the chain, as a begin unwrapped is. A helper, so this
+        ' recursive procedure gains no local (trap 8).
+        If headFold = "each" Or headFold = "each-index" Then
+            chainLen = chainLen + 1
+            If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+            Set cur = EachFormBegin(lst, New Collection, "", New Collection)
+        ElseIf headFold = "begin" And lst.Count > 1 And FormLine(cur) = 0 Then
             For bi = 2 To lst.Count - 1
                 pendingHead.Add Nth(lst, bi)
             Next
@@ -3329,6 +3380,15 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             AssignVar cur, r
         End If
     Loop
+    ' VLA.5: FOUND WHILE BUILDING THE LOOP, AND FIXED. A begin a macro made
+    ' whose last form is an atom - (defmacro (m) (debug-print 1) x), or a
+    ' loop's results that end in one - reaches here with its other forms set
+    ' aside, where the atom alone used to be returned and they were dropped:
+    ' (m) expanded to x. They are kept now, in order, the atom last.
+    If Not IsList(cur) Then
+        Set ExpandMacros = PendingBegin(pendingHead, cur, depth, walkDepth)
+        Exit Function
+    End If
     ' No macro at the head: rebuild with expanded elements. C2: the
     ' rebuild copies the source-line tag - expansion rebuilds EVERY
     ' list, so without this hop the whole map would die here. The
@@ -3356,7 +3416,13 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     Dim outc As New Collection
     Dim ei As Long
     For ei = 1 To curObj.Count
-        outc.Add ExpandMacros(curObj.Item(ei), depth, walkDepth + 1)
+        ' VLA.5: a loop among the elements, its results spliced in, each
+        ' expanded where the loop stood (ExpandEachInto).
+        If IsEachForm(curObj.Item(ei)) Then
+            ExpandEachInto outc, curObj.Item(ei), depth, walkDepth + 1
+        Else
+            outc.Add ExpandMacros(curObj.Item(ei), depth, walkDepth + 1)
+        End If
     Next
     TagLine outc, FormLine(cur)
     ' TABLESPEC-SCALE / TABLESPECSCALE.0: pendingHead is empty for every
@@ -3371,26 +3437,35 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     ' to build, just assembled by a loop instead of by stack depth.
     ' Untagged (TagLine ..., 0), same convention the macro path above
     ' already holds - this wrapper is assembled template output, not a
-    ' form with a user line of its own.
+    ' form with a user line of its own (PendingBegin, VLA.5's helper, so
+    ' that the atom's case above and this one assemble it alike).
     If pendingHead.Count = 0 Then
         Set ExpandMacros = outc
         Exit Function
     End If
+    Set ExpandMacros = PendingBegin(pendingHead, outc, depth, walkDepth)
+End Function
+
+' TABLESPEC-SCALE / VLA.5: the forms ExpandMacros' trampoline set aside,
+' each expanded as a chain of its own (a loop among them spliced, as a
+' loop among a list's elements is), then the last form, already expanded:
+' one begin, tagged 0. PNTH.0: pendingHead is always a genuine Collection
+' (built by pendingHead.Add Nth(lst, bi) - a parsed sub-form, never a
+' VlaSlice), so For Each is safe here.
+Private Function PendingBegin(pendingHead As Collection, lastForm As Variant, ByVal depth As Long, ByVal walkDepth As Long) As Collection
     Dim finalOut As New Collection
     finalOut.Add "begin"
-    ' PNTH.0: pendingHead is always a genuine Collection (built above via
-    ' pendingHead.Add Nth(lst, bi) - a parsed sub-form, never a VlaSlice),
-    ' so For Each here was always safe - e itself just needs declaring
-    ' again: it used to be shared with the cur-rebuild loop above, which
-    ' no longer uses a For Each (or e) at all now that it walks curObj by
-    ' index instead.
     Dim e As Variant
     For Each e In pendingHead
-        finalOut.Add ExpandMacros(e, depth, walkDepth + 1)
+        If IsEachForm(e) Then
+            ExpandEachInto finalOut, e, depth, walkDepth + 1
+        Else
+            finalOut.Add ExpandMacros(e, depth, walkDepth + 1)
+        End If
     Next
-    finalOut.Add outc
+    finalOut.Add lastForm
     TagLine finalOut, 0
-    Set ExpandMacros = finalOut
+    Set PendingBegin = finalOut
 End Function
 
 ' VLA.4: (formula-expand <expression>) - vla-lang's
@@ -3421,6 +3496,20 @@ failed:
     On Error GoTo 0
     Err.Raise errNum, errSrc, errDesc
 End Function
+
+' VLA.5: a loop met among a list's elements by ExpandMacros' walk, outside
+' any template: its results, the loop evaluated with no bindings but its
+' own names, added to outc in order, each expanded at the depth the loop
+' stood at - spliced, as Substitute splices a loop that is a template's
+' element.
+Private Sub ExpandEachInto(outc As Collection, eachForm As Variant, ByVal depth As Long, ByVal walkDepth As Long)
+    Dim results As Collection
+    Set results = EachFormResults(eachForm, New Collection, "", New Collection)
+    Dim r As Variant
+    For Each r In results
+        outc.Add ExpandMacros(r, depth, walkDepth)
+    Next
+End Sub
 
 ' PNTH.0: callForm widened Collection -> Object - both ExpandMacros'
 ' own trampoline and ExpandOnePass can call this with a VlaSlice (a
@@ -3524,7 +3613,9 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                     If Not inQuasi Then VLA_Messages.RaiseMsg "vla-unquote-outside-quasiquote"
                     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-unquote-arity", "n", (lst.Count - 1)
                     Dim uqRes As Variant
-                    AssignVar uqRes, Substitute(Nth(lst, 2), bindings, restName, restItems, False)
+                    ' VLA.5: a value is read here, so a loop is its results'
+                    ' list, as the rest parameter is its whole list here.
+                    AssignVar uqRes, SubstituteValue(Nth(lst, 2), bindings, restName, restItems)
                     If IsObject(uqRes) Then Set Substitute = uqRes Else Substitute = uqRes
                     Exit Function
                 Case "unquote-splicing"
@@ -3539,7 +3630,7 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                 Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
                      "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
                      "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
-                     "address-expand", "row-expand", "column-expand", "column-letters-expand"
+                     "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand"
                     ' LISTOPS: unlike symbol, NOT recognized while
                     ' inQuasi is True - a shielded (car x) stays ordinary
                     ' shielded list data, same as everything else under
@@ -3554,6 +3645,16 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                         Dim lprim As Variant
                         AssignVar lprim, EvalListopsPrim(h, lst, bindings, restName, restItems)
                         If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
+                        Exit Function
+                    End If
+                Case "each", "each-index"
+                    ' VLA.5: a loop standing alone is a statement, its results
+                    ' one begin (EachFormBegin), taken here at its head before
+                    ' the element walk below, where the rest parameter in its
+                    ' binding would be spliced. Shielded data while inQuasi, as
+                    ' the primitives are. A helper, so this frame gains no local.
+                    If Not inQuasi Then
+                        Set Substitute = EachFormBegin(lst, bindings, restName, restItems)
                         Exit Function
                     End If
             End Select
@@ -3573,7 +3674,8 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
             Set splLst = e
             If splLst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-unquote-splicing-arity", "n", (splLst.Count - 1)
             Dim splVal As Variant
-            AssignVar splVal, Substitute(Nth(splLst, 2), bindings, restName, restItems, False)
+            ' VLA.5: a value is read here too, so a loop splices its results.
+            AssignVar splVal, SubstituteValue(Nth(splLst, 2), bindings, restName, restItems)
             If Not IsList(splVal) Then VLA_Messages.RaiseMsg "vla-unquote-splicing-not-list"
             ' PNTH.0: indexed, not For Each - splVal may be a VlaSlice
             ' (the splice argument can legitimately resolve through a
@@ -3598,6 +3700,11 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                         spliced = True
                     End If
                 End If
+            ElseIf IsEachForm(e) Then
+                ' VLA.5: a loop as a list element: its results spliced in, as
+                ' the rest parameter's forms are (EachFormInto).
+                EachFormInto outc, e, bindings, restName, restItems
+                spliced = True
             End If
         End If
         If Not spliced Then outc.Add Substitute(e, bindings, restName, restItems, inQuasi)
@@ -3652,12 +3759,276 @@ Private Function FuseSymbol(lst As Object, bindings As Collection, ByVal restNam
     FuseSymbol = fused
 End Function
 
-' LISTOPS.0: shared dispatcher for the twenty-seven expand-time list/
+' =====================================================================
+'  VLA.5: the loop at expand time, (each (name list) form ...) and
+'  (each-index (index name list start) form ...). A form of the walks,
+'  beside formula-expand, and no LISTOPS primitive: its forms are a
+'  template substituted once for each element of the list, the name bound
+'  to the element, and its results take the rest parameter's own rule -
+'  spliced where the loop is a list's element (EachFormInto), the list of
+'  them where a value is read (SubstituteValue), and one begin where it
+'  stands alone as a statement (EachFormBegin). No gensym and no eval: the
+'  names are the author's, and the loop reads nothing but the source.
+' =====================================================================
+
+' VLA.5: whether a form is a loop - a list headed by each or each-index.
+' Asked of every list the walks meet, so a head of another length is passed
+' over before it is folded: ListHeadIs twice would fold four texts a list.
+Private Function IsEachForm(v As Variant) As Boolean
+    If Not IsObject(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    Dim h As String
+    h = CStr(lst.Item(1))
+    If Len(h) <> 4 And Len(h) <> 10 Then Exit Function
+    h = VLA_Identity.Fold(h)
+    IsEachForm = (h = "each" Or h = "each-index")
+End Function
+
+' VLA.5: a loop standing alone, a statement - a macro's whole template, a
+' branch of quote-if or cond, a form of the source: its results as one
+' begin, tagged 0 as every list the macro system makes is (S3.1), so
+' ExpandMacros' trampoline unwraps it.
+Private Function EachFormBegin(eachForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
+    Dim results As Collection
+    Set results = EachFormResults(eachForm, bindings, restName, restItems)
+    Dim outc As New Collection
+    outc.Add "begin"
+    Dim r As Variant
+    For Each r In results
+        outc.Add r
+    Next
+    TagLine outc, 0
+    Set EachFormBegin = outc
+End Function
+
+' VLA.5: a loop as a list's element: its results added to outc in order,
+' spliced as the rest parameter's forms are.
+Private Sub EachFormInto(outc As Collection, eachForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection)
+    Dim results As Collection
+    Set results = EachFormResults(eachForm, bindings, restName, restItems)
+    Dim r As Variant
+    For Each r In results
+        outc.Add r
+    Next
+End Sub
+
+' VLA.5: a form where a value is read - a primitive's argument
+' (ResolveListopsArg), unquote's, unquote-splicing's: a loop there is the
+' list of its results, as the rest parameter is its whole list there; any
+' other form as Substitute makes it.
+Private Function SubstituteValue(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
+    If IsEachForm(t) Then
+        Set SubstituteValue = EachFormResults(t, bindings, restName, restItems)
+        Exit Function
+    End If
+    Dim v As Variant
+    AssignVar v, Substitute(t, bindings, restName, restItems)
+    If IsObject(v) Then Set SubstituteValue = v Else SubstituteValue = v
+End Function
+
+' VLA.5: a loop's results, a new list tagged 0. The binding read whole, by
+' its shape (EachBinding); each name a loop binds checked (EachCheckName);
+' the list resolved as a primitive's argument is (EachList); each-index's
+' start a whole number (EachStartValue). Then, for each element in order,
+' every form of the loop substituted as a list's element is (a loop among
+' them spliced, the rest parameter spliced), under a scope of the name
+' bound to the element - and the index to the element's count, the start
+' up by one - beside the template's own bindings its forms read: those,
+' found once by a walk of the forms (EachReadBindings), since a Collection
+' cannot list its keys to be copied.
+Private Function EachFormResults(eachForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
+    Dim lst As Object
+    Set lst = eachForm
+    Dim op As String
+    op = VLA_Identity.Fold(CStr(lst.Item(1)))
+    Dim binding As Object
+    Set binding = EachBinding(lst, op)
+    Dim indexed As Boolean
+    indexed = (op = "each-index")
+    Dim indexName As String, varName As String
+    Dim indexFold As String, varFold As String
+    Dim listAt As Long
+    If indexed Then
+        indexName = CStr(binding.Item(1))
+        varName = CStr(binding.Item(2))
+        listAt = 3
+        EachCheckName op, indexName, bindings, restName
+        indexFold = VLA_Identity.Fold(indexName)
+    Else
+        varName = CStr(binding.Item(1))
+        listAt = 2
+    End If
+    EachCheckName op, varName, bindings, restName
+    varFold = VLA_Identity.Fold(varName)
+    If indexed Then
+        If varFold = indexFold Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", op, "word", varName
+    End If
+    Dim walked As Object
+    Set walked = EachList(op, binding.Item(listAt), bindings, restName, restItems)
+    Dim startN As Double
+    If indexed Then startN = EachStartValue(op, binding.Item(4), bindings, restName, restItems)
+
+    Dim readKeys As New Collection, readVals As New Collection, readSeen As New Collection
+    Dim fi As Long
+    For fi = 3 To lst.Count
+        EachReadBindings lst.Item(fi), bindings, varFold, indexFold, readKeys, readVals, readSeen
+    Next
+
+    Dim results As New Collection
+    Dim scope As Collection
+    Dim wi As Long, ki As Long
+    For wi = 1 To walked.Count
+        Set scope = New Collection          ' trap 2: a new scope each element
+        scope.Add walked.Item(wi), varFold
+        If indexed Then scope.Add Trim$(Str$(startN + wi - 1)), indexFold
+        For ki = 1 To readKeys.Count
+            scope.Add readVals.Item(ki), CStr(readKeys.Item(ki))
+        Next
+        For fi = 3 To lst.Count
+            EachBodyFormInto results, lst.Item(fi), scope, restName, restItems
+        Next
+    Next
+    TagLine results, 0
+    Set EachFormResults = results
+End Function
+
+' VLA.5: the loop's binding, or the refusal that shows its shape: (name
+' list) for each, (index name list start) for each-index, each name a
+' symbol, and at least one form after it.
+Private Function EachBinding(lst As Object, ByVal op As String) As Object
+    Dim want As Long
+    If op = "each-index" Then want = 4 Else want = 2
+    Dim ok As Boolean
+    Dim b As Object
+    ok = (lst.Count >= 3)
+    If ok Then ok = IsList(lst.Item(2))
+    If ok Then
+        Set b = lst.Item(2)
+        ok = (b.Count = want)
+    End If
+    If ok Then ok = IsSym(b.Item(1))
+    If ok And want = 4 Then ok = IsSym(b.Item(2))
+    If Not ok Then
+        If want = 4 Then
+            VLA_Messages.RaiseMsg "vla-each-shape", "op", op, "binding", "(index name list start)"
+        Else
+            VLA_Messages.RaiseMsg "vla-each-shape", "op", op, "binding", "(name list)"
+        End If
+    End If
+    Set EachBinding = b
+End Function
+
+' VLA.5: a name a loop binds, refused when it is an expand-time name (the
+' table defmacro's names are refused by) or a name the template already
+' binds: the macro's parameter, its rest, an enclosing loop's name.
+Private Sub EachCheckName(ByVal op As String, ByVal word As String, bindings As Collection, ByVal restName As String)
+    Dim wordFold As String
+    wordFold = VLA_Identity.Fold(word)
+    Dim desc As String
+    desc = ExpandReservedDesc(wordFold)
+    If Len(desc) > 0 Then VLA_Messages.RaiseMsg "vla-each-name-reserved", "op", op, "word", wordFold, "desc", desc
+    Dim found As Boolean
+    CollGet bindings, wordFold, found
+    If Len(restName) > 0 Then
+        If wordFold = restName Then found = True
+    End If
+    If found Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", op, "word", word
+End Sub
+
+' VLA.5: the list a loop walks, resolved as a primitive's argument is: a
+' parameter, the rest parameter, a quoted list, a primitive's result or
+' another loop's results. A list written as a macro's call is refused by
+' name, since a primitive's argument is never expanded and the call would
+' be walked as its symbols; an atom is refused as no list.
+Private Function EachList(ByVal op As String, listForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Object
+    If IsList(listForm) Then
+        Dim lf As Object
+        Set lf = listForm
+        If lf.Count > 0 Then
+            If IsSym(lf.Item(1)) Then
+                If Not GetMacro(CStr(lf.Item(1))) Is Nothing Then VLA_Messages.RaiseMsg "vla-each-list-a-call", "op", op, "head", CStr(lf.Item(1))
+            End If
+        End If
+    End If
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(listForm, bindings, restName, restItems)
+    If Not IsList(v) Then VLA_Messages.RaiseMsg "vla-expand-expected-list", "op", op, "value", CStr(v)
+    Set EachList = v
+End Function
+
+' VLA.5: each-index's start, resolved as a primitive's argument and held
+' to the arithmetic's gate: a number literal (IsNumericLiteralText, never
+' VBA's IsNumeric) and a whole one, so the count is exact.
+Private Function EachStartValue(ByVal op As String, startForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Double
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(startForm, bindings, restName, restItems)
+    If IsObject(v) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-list", "op", op
+    If Not IsNumericLiteralText(CStr(v)) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-value", "op", op, "value", CStr(v)
+    Dim n As Double
+    n = Val(CStr(v))
+    If n <> Int(n) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-whole", "op", op, "value", CStr(v)
+    EachStartValue = n
+End Function
+
+' VLA.5: the template's bindings a loop's forms read, each kept once with
+' its value: every symbol of a form, a quoted form's included since
+' Substitute substitutes inside a quote, the loop's own names left out
+' (skipA, skipB), looked up in the bindings once (readSeen). A walk of the
+' written form, as deep as its text, so the depth limit bounds it.
+Private Sub EachReadBindings(f As Variant, bindings As Collection, ByVal skipA As String, ByVal skipB As String, readKeys As Collection, readVals As Collection, readSeen As Collection)
+    If IsObject(f) Then
+        Dim fl As Object
+        Set fl = f
+        Dim i As Long
+        For i = 1 To fl.Count
+            EachReadBindings fl.Item(i), bindings, skipA, skipB, readKeys, readVals, readSeen
+        Next
+        Exit Sub
+    End If
+    If Not IsSym(f) Then Exit Sub
+    Dim k As String
+    k = VLA_Identity.Fold(CStr(f))
+    If k = skipA Or k = skipB Then Exit Sub
+    Dim found As Boolean
+    CollGet readSeen, k, found
+    If found Then Exit Sub
+    readSeen.Add k, k
+    Dim v As Variant
+    AssignVar v, CollGet(bindings, k, found)
+    If Not found Then Exit Sub
+    readKeys.Add k
+    readVals.Add v
+End Sub
+
+' VLA.5: one of a loop's forms for one element, as a list's element is
+' substituted: a loop spliced, the rest parameter spliced, any other form
+' substituted under the element's scope.
+Private Sub EachBodyFormInto(outc As Collection, f As Variant, scope As Collection, ByVal restName As String, restItems As Collection)
+    If IsEachForm(f) Then
+        EachFormInto outc, f, scope, restName, restItems
+        Exit Sub
+    End If
+    If IsSym(f) And Len(restName) > 0 Then
+        If VLA_Identity.Fold(CStr(f)) = restName Then
+            Dim ri As Variant
+            For Each ri In restItems
+                outc.Add ri
+            Next
+            Exit Sub
+        End If
+    End If
+    outc.Add Substitute(f, scope, restName, restItems)
+End Sub
+
+' LISTOPS.0: shared dispatcher for the twenty-eight expand-time list/
 ' arithmetic/conditional primitives (the original nine, LISTOPS-EXPAND's
-' own seven, cond, and VLA.3's ten), called from both recognition sites (Substitute's per-template
-' walk and ExpandMacros's standalone walk) exactly the way FuseSymbol
-' already serves `symbol` from both. Caller has already confirmed
-' headFold is one of the twenty-seven names.
+' own seven, cond, VLA.3's ten and VLA.5's assoc-expand), called from both
+' recognition sites (Substitute's per-template walk and ExpandMacros's
+' standalone walk) exactly the way FuseSymbol already serves `symbol` from
+' both. Caller has already confirmed headFold is one of the twenty-eight.
 ' PNTH.0: lst widened Collection -> Object, same reason as FuseSymbol
 ' just above - passed straight through to whichever Eval* this
 ' dispatches to, all of which accept Object on this same parameter now.
@@ -3698,6 +4069,9 @@ Private Function EvalListopsPrim(ByVal headFold As String, lst As Object, bindin
             result = EvalAddressPartExpand(headFold, lst, bindings, restName, restItems)
         Case "column-letters-expand"
             result = EvalColumnLettersExpand(lst, bindings, restName, restItems)
+        ' VLA.5: a piece found by its head.
+        Case "assoc-expand"
+            AssignVar result, EvalAssocExpand(lst, bindings, restName, restItems)
     End Select
     If IsObject(result) Then Set EvalListopsPrim = result Else EvalListopsPrim = result
 End Function
@@ -3717,7 +4091,15 @@ End Function
 ' 2-element list (quote a) as real data, not further.
 Private Function ResolveListopsArg(argForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
     Dim v As Variant
-    AssignVar v, Substitute(argForm, bindings, restName, restItems)
+    ' VLA.5: a loop where a primitive reads its argument is the list of its
+    ' results, as the rest parameter is its whole list here - SubstituteValue's
+    ' rule, written in place so that this frame on every primitive's path
+    ' calls no further frame for it.
+    If IsEachForm(argForm) Then
+        Set v = EachFormResults(argForm, bindings, restName, restItems)
+    Else
+        AssignVar v, Substitute(argForm, bindings, restName, restItems)
+    End If
     If ListHeadIs(v, "quote") Then
         ' PNTH.0: Object, not Collection - v (already-evaluated listops
         ' data, not a parsed form) could be a VlaSlice whose own first
@@ -4243,6 +4625,38 @@ Private Function EvalColumnLettersExpand(lst As Object, bindings As Collection, 
     c = Val(CStr(v))
     If c <> Int(c) Or c < 1 Or c > 16384 Then VLA_Messages.RaiseMsg "vla-address-expand-column", "op", "column-letters-expand", "value", CStr(v)
     EvalColumnLettersExpand = Chr$(34) & VLA_Refers.RefersColumnLetters(CLng(c))
+End Function
+
+' VLA.5: (assoc-expand head entries) - the first entry of the list whose
+' own head is head, compared as equal? compares (DeepEqual: an atom as eq?
+' compares it, a symbol by its folded text and a string exactly, never one
+' to the other, and a list by its structure), the entry itself; or the
+' empty list, a NEW Collection tagged 0, when none is: Scheme's assoc. An
+' entry is a list with a head, and one that is not is refused when the
+' search reaches it; an entry past the one found is never looked at.
+Private Function EvalAssocExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", "assoc-expand", "want", 2, "n", (lst.Count - 1)
+    Dim head As Variant
+    AssignVar head, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    Dim listed As Variant
+    AssignVar listed, ResolveListopsArg(Nth(lst, 3), bindings, restName, restItems)
+    If Not IsList(listed) Then VLA_Messages.RaiseMsg "vla-expand-expected-list", "op", "assoc-expand", "value", CStr(listed)
+    Dim entries As Object
+    Set entries = listed
+    Dim entry As Object
+    Dim i As Long
+    For i = 1 To entries.Count
+        If Not IsList(entries.Item(i)) Then VLA_Messages.RaiseMsg "vla-assoc-expand-entry", "value", CStr(entries.Item(i))
+        Set entry = entries.Item(i)
+        If entry.Count = 0 Then VLA_Messages.RaiseMsg "vla-assoc-expand-entry", "value", "()"
+        If DeepEqual(head, entry.Item(1)) Then
+            Set EvalAssocExpand = entry
+            Exit Function
+        End If
+    Next
+    Dim none As New Collection
+    TagLine none, 0
+    Set EvalAssocExpand = none
 End Function
 
 ' (cond (test1 form1) (test2 form2) ... (else formN)) - the tenth

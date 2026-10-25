@@ -39,19 +39,35 @@ refused in the same words.
   The prelude is a library the caller passes: the repository's
   [scripts/prelude.vla](https://raw.githubusercontent.com/Spreadsheet-Company/Frazaro/main/scripts/prelude.vla)
   is the standard one, and a program may carry its own definitions.
-  Twenty-seven primitives compute while a macro expands, over the data
+  Twenty-eight primitives compute while a macro expands, over the data
   written in the source: the list operations (`car`, `cdr`, `cons`,
   `quote-if`, `cond` and their kin), arithmetic and comparison (`+expand`,
   `-expand`, `*expand`, `quotient-expand`, `mod-expand`, `=expand` and the
   rest), text joined or split into its characters (`&expand`,
-  `characters-expand`), and a cell's address written from a row and a
-  column or read back (`address-expand`, `row-expand`, `column-expand`,
-  `column-letters-expand`). A name that ends in `expand` is computed while
-  the macro expands; each refuses by name what it cannot compute. The
-  expander shares what it walks, as the add-in does: a list is held once,
-  its `cdr` a view of its items and a parameter's value the argument
-  itself, so that a macro walking a list costs its length and not its
-  square, which `tests/walks.rs` holds by counting the allocations.
+  `characters-expand`), a cell's address written from a row and a column
+  or read back (`address-expand`, `row-expand`, `column-expand`,
+  `column-letters-expand`), and the entry of a list found by its head
+  (`assoc-expand`). A name that ends in `expand` is computed while the
+  macro expands; each refuses by name what it cannot compute. A loop,
+  `each`, writes its forms once for each element of a list, and
+  `each-index` with a count beside the element, from a start the author
+  names, so that a macro says what its rows are and not how to walk to them:
+
+  ```lisp
+  (defmacro (cells sheet & entries)
+    "value cells of one sheet, named once: each entry an address or a range, then its value"
+    (each (entry entries)
+      (cell sheet (car entry) (car (cdr entry)))))
+  ```
+
+  `(cells "S" ("A1" 1) ("B1" 2))` expands to `(begin (cell "S" "A1" 1)
+  (cell "S" "B1" 2))`: a loop standing alone is one `begin`, a loop that is
+  an element of a list has its results spliced in, and a primitive reads a
+  loop as the list of its results. The expander shares what it walks, as
+  the add-in does: a list is held once, its `cdr` a view of its items and a
+  parameter's value the argument itself, so that a macro walking a list,
+  or a loop over one, costs its length and not its square, which
+  `tests/walks.rs` holds by counting the allocations and their bytes.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.
@@ -306,8 +322,8 @@ can stand on the language without the bridges.
 The goldens and fixtures the tests read travel with the package, under
 `testdata/`, so `cargo test` runs from the published crate. The repository
 holds the copies to their sources byte for byte. The expander is held to
-the add-in's expansion of 135 cases, every expand-time primitive and its
-refusals among them (`tests/expand_golden.rs`). Beside the goldens, the
+the add-in's expansion of 229 cases, every expand-time primitive, the loop
+and their refusals among them (`tests/expand_golden.rs`). Beside the goldens, the
 tests hold the language's laws over generated programs (`tests/laws.rs`)
 and knock at every door with mutated text (`tests/strangers.rs`, and a
 longer run with `--ignored`).

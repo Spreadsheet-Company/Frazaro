@@ -385,7 +385,8 @@ committed the same day, `F.7` closing with it. `VLA.5`, `VLA.6` and `VLA.7` were
 2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the
 helper-hungry style (`BETA_REARVIEW.md`, THE METAMETAMACRO LINE): `VLA.5`,
 `each`, a loop at expand time, and `assoc-expand`, a piece by its head,
-so that a kit macro says what its rows are and never how to walk them;
+so that a kit macro says what its rows are and never how to walk them,
+scoped, approved, built, owner-tested and committed 2026-10-24;
 `VLA.6`, a name at expand time, `define`, resolved by the pass before the
 formula syntax sees the symbol, and `last`, a reference's twin, in the
 syntax; `VLA.7`, the house style of VLA source, its rule-set, a formatter

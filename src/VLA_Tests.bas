@@ -1,6 +1,17 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.57"
+Public Const VLA_TESTS_VERSION As String = "VLA.5"
+' VLA.5: TestEachForms - the loop at expand time and assoc-expand, 49 pins:
+' a loop standing alone one begin of its rows, its rows expanded, a
+' template's loop, each-index from its start, a loop spliced as a list's
+' element (a sum, inside formula-expand, a loop inside a loop), the list
+' of its results where a value is read (a primitive's argument, another
+' loop's list, unquote-splicing), every refusal by its words, the three
+' reserved names, the trampoline keeping a begin's forms before an atom,
+' and 2,500 rows in one loop, past the walker's 2,499; wired after
+' TestListopsObjectModel. VlaMeasureEach, dev-only: the kit's cells walker
+' over 2,000 entries against the loop over 2,000 and 10,000, timed.
+'
 ' KERNEL.57: VlaWriteLooksGolden, dev-only, which opens
 ' scripts/reflect/looks.xlsx and looks_book.xlsx, frazaro-core's
 ' hand-made workbooks of a case a row, reads each case's targets through
@@ -506,6 +517,7 @@ Public Function VlaSelfTest() As Boolean
     TestListops
     TestListopsExpand
     TestListopsObjectModel
+    TestEachForms
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -3318,6 +3330,55 @@ refused:
     On Error GoTo 0
     ExpandReportFor = "REFUSED" & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
 End Function
+
+' VLA.5: dev-only, not in VlaSelfTest - the loop's cost against the walk it
+' replaces, timed by Timer (a tick about 16 ms), each case once: the kit's
+' cells walker over 2,000 entries, which splices the rest of its list into
+' its next call at every step, and the loop over 2,000 and over 10,000.
+' The numbers are printed for VLA.5's record in BETA_REARVIEW.md.
+Public Function VlaMeasureEach() As Boolean
+    Dim walker As String, looped As String
+    walker = "(defmacro (cells sheet & entries) (quote-if (null? entries) (begin) (begin " & _
+        "(cell sheet (car (car entries)) (car (cdr (car entries)))) " & _
+        "(quasiquote (cells (unquote sheet) (unquote-splicing (cdr entries)))))))"
+    looped = "(defmacro (cells sheet & entries) (each (entry entries) " & _
+        "(cell sheet (car entry) (car (cdr entry)))))"
+    Debug.Print "===== MEASURE EACH ====="
+    MeasureEachCase "the walker", walker, 2000
+    MeasureEachCase "the loop", looped, 2000
+    MeasureEachCase "the loop", looped, 10000
+    Debug.Print "===== MEASURED ====="
+    VlaMeasureEach = True
+End Function
+
+' VLA.5: one of VlaMeasureEach's cases: n entries ("A1" 1) ... in one call,
+' expanded to the fixpoint under the prelude, its time, its applications and
+' its text's length printed, or the refusal it met.
+Private Sub MeasureEachCase(ByVal what As String, ByVal macroText As String, ByVal n As Long)
+    Dim parts() As String
+    ReDim parts(1 To n)
+    Dim i As Long
+    For i = 1 To n
+        parts(i) = "(""A" & i & """ " & i & ")"
+    Next
+    Dim src As String
+    src = macroText & vbCrLf & "(cells ""S"" " & Join(parts, " ") & ")"
+    Dim fired As Long
+    Dim t As String, d As String
+    Dim t0 As Double, ms As Double
+    t0 = Timer
+    On Error Resume Next
+    t = VlaExpandText(src, True, fired)
+    d = Err.Description
+    On Error GoTo 0
+    ms = (Timer - t0) * 1000#
+    If ms < 0 Then ms = ms + 86400000#   ' Timer wraps at midnight
+    If Len(d) > 0 Then
+        Debug.Print "  " & what & ", " & n & " entries: refused - " & d
+    Else
+        Debug.Print "  " & what & ", " & n & " entries: " & Format$(ms, "0") & " ms, " & fired & " application(s), " & Len(t) & " characters"
+    End If
+End Sub
 
 ' KERNEL.47: the number formats golden. scripts/formats.txt holds cases,
 ' each under a line "=== <name>": the first line of a case is a format
@@ -6712,6 +6773,147 @@ Private Sub TestListopsObjectModel()
         "(defmacro (address-expand x) x)", "'address-expand' is the expand-time address primitive and cannot be a macro name"
     CheckExpandErr "object-model: 'characters-expand' refused as a macro name", _
         "(defmacro (characters-expand x) x)", "'characters-expand' is the expand-time text-splitting primitive and cannot be a macro name"
+End Sub
+
+' ---------------------------------------------------------------------
+'  VLA.5: the loop at expand time, (each (name list) form ...) and
+'  (each-index (index name list start) form ...), and assoc-expand. A
+'  loop standing alone is one begin of its results, as a list's element
+'  its results are spliced in, and where a value is read they are a list;
+'  each refusal is by name. scripts/expand.txt holds these cases' whole
+'  records and vla-lang is held to its golden; these pins say what each
+'  one means, with no file.
+' ---------------------------------------------------------------------
+Private Sub TestEachForms()
+    ' --- each: a template once for each element.
+    CheckV "each: a loop standing alone is one begin of its rows", _
+        ExpandTrimmed("(each (x (quote (a b))) (f x))"), "(begin (f a) (f b))"
+    CheckV "each: its rows expand, a macro among them firing", _
+        ExpandTrimmed("(each (x (quote (a b))) (when x (f)))"), "(begin (if a (then (f))) (if b (then (f))))"
+    CheckV "each: a loop that is a macro's template is one begin", _
+        ExpandTrimmed("(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) " & _
+            "(cells ""S"" (""A1"" 1) (""B1"" 2))"), "(begin (cell ""S"" ""A1"" 1) (cell ""S"" ""B1"" 2))"
+    CheckV "each: the empty list writes nothing", _
+        ExpandTrimmed("(each (x (quote ())) (f x))"), "(begin)"
+    CheckV "each: several forms an element, in order", _
+        ExpandTrimmed("(each (x (quote (a b))) (f x) (g x))"), "(begin (f a) (g a) (f b) (g b))"
+    CheckV "each: a template's loop of atoms keeps every one", _
+        ExpandTrimmed("(defmacro (seq & xs) (each (x xs) x)) (seq 1 2 3)"), "(begin 1 2 3)"
+
+    ' --- each-index: a count beside the name, from the start its binding names.
+    CheckV "each-index: counts from 0", _
+        ExpandTrimmed("(each-index (i x (quote (a b c)) 0) (f i x))"), "(begin (f 0 a) (f 1 b) (f 2 c))"
+    CheckV "each-index: counts from 1", _
+        ExpandTrimmed("(each-index (i x (quote (a b)) 1) (f i x))"), "(begin (f 1 a) (f 2 b))"
+    CheckV "each-index: counts from a row an address gives", _
+        ExpandTrimmed("(each-index (row x (quote (a b)) (row-expand ""C7"")) (f row x))"), "(begin (f 7 a) (f 8 b))"
+    CheckV "each-index: counts from below zero", _
+        ExpandTrimmed("(each-index (i x (quote (a b)) -1) (f i))"), "(begin (f -1) (f 0))"
+
+    ' --- spliced where a loop is a list's element, outside a template and in one.
+    CheckV "each: as an element its results are spliced", _
+        ExpandTrimmed("(+ (each (c (quote (A1 B1 C1))) c))"), "(+ A1 B1 C1)"
+    CheckV "each: spliced inside a template too", _
+        ExpandTrimmed("(defmacro (total & cells) (+ (each (c cells) c))) (total A1 B1)"), "(+ A1 B1)"
+    CheckV "each: a sum inside formula-expand", _
+        ExpandTrimmed("(formula-expand (+ (each (c (quote (A1 B1))) c)))"), """=A1+B1"""
+    CheckV "each: a loop inside a loop gives one flat run", _
+        ExpandTrimmed("(each (r (quote ((a b) (c)))) (each (x r) (f x)))"), "(begin (f a) (f b) (f c))"
+
+    ' --- where a value is read, the list of its results.
+    CheckV "each: a primitive takes the list of its results", _
+        ExpandTrimmed("(car (cdr (each (x (quote (a b c))) (f x))))"), "(f b)"
+    CheckV "each: a loop walks another's results", _
+        ExpandTrimmed("(each (y (each (x (quote (a b))) (f x))) (g y))"), "(begin (g (f a)) (g (f b)))"
+    CheckV "each: unquote-splicing splices its results", _
+        ExpandTrimmed("(defmacro (m & xs) (quasiquote (f (unquote-splicing (each (x xs) (g x)))))) (m a b)"), "(f (g a) (g b))"
+    CheckV "each: shielded it is data, and walked where it lands", _
+        ExpandTrimmed("(defmacro (m) (quasiquote (each (x (quote (a b))) x))) (m)"), "(begin a b)"
+
+    ' --- the loop's refusals, each by name.
+    CheckExpandErr "each: a binding and no form refused", _
+        "(each (x (quote (a))))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each: a binding not written as a list refused", _
+        "(each x (quote (a)) (f x))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each: a name that is a text refused", _
+        "(each (""x"" (quote (a))) (f))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each-index: a binding of three refused", _
+        "(each-index (i x (quote (a))) (f x))", "each-index: write (each-index (index name list start) form ...)"
+    CheckExpandErr "each: an expand-time name refused as a loop's name", _
+        "(each (car (quote (a))) (f car))", "each 'car': 'car' is the list-head primitive and cannot be a name each binds"
+    CheckExpandErr "each: the macro's parameter refused as a loop's name", _
+        "(defmacro (m xs) (each (xs xs) (f xs))) (m (quote (a)))", "each: 'xs' is already a name in this template"
+    CheckExpandErr "each: the rest parameter refused as a loop's name", _
+        "(defmacro (m & xs) (each (xs xs) (f xs))) (m a)", "each: 'xs' is already a name in this template"
+    CheckExpandErr "each: an enclosing loop's name refused", _
+        "(each (x (quote ((a)))) (each (x x) (f x)))", "each: 'x' is already a name in this template"
+    CheckExpandErr "each-index: its two names alike refused", _
+        "(each-index (x x (quote (a)) 0) (f x))", "each-index: 'x' is already a name in this template"
+    CheckExpandErr "each: an atom is no list to walk", _
+        "(each (x y) (f x))", "each: expected a list, got 'y'"
+    CheckExpandErr "each: a macro's call is no list to walk", _
+        "(each (x (when a b)) (f x))", "each: the list to walk is a call of the macro 'when'"
+    CheckExpandErr "each-index: a start that is no number refused", _
+        "(each-index (i x (quote (a)) one) (f i))", "each-index: expected a number, got 'one'"
+    CheckExpandErr "each-index: a start that is a list refused", _
+        "(each-index (i x (quote (a)) (quote (1))) (f i))", "each-index: expected a number, got a list"
+    CheckExpandErr "each-index: a start that is no whole number refused", _
+        "(each-index (i x (quote (a)) 1.5) (f i))", "each-index: expected a whole number, got '1.5'"
+
+    ' --- assoc-expand: the first entry whose head is the one asked for.
+    CheckV "assoc-expand: finds the first entry by its head", _
+        ExpandTrimmed("(assoc-expand (quote b) (quote ((a 1) (b 2) (b 3))))"), "(b 2)"
+    CheckV "assoc-expand: the empty list when no entry has the head", _
+        ExpandTrimmed("(assoc-expand (quote z) (quote ((a 1))))"), "()"
+    CheckV "assoc-expand: a symbol by its folded text", _
+        ExpandTrimmed("(assoc-expand (quote SHEET) (quote ((sheet ""Tower""))))"), "(sheet ""Tower"")"
+    CheckV "assoc-expand: never a text to a symbol", _
+        ExpandTrimmed("(assoc-expand ""a"" (quote ((a 1))))"), "()"
+    CheckV "assoc-expand: a list head by its structure", _
+        ExpandTrimmed("(assoc-expand (quote (1 2)) (quote (((1 2) x))))"), "((1 2) x)"
+    CheckV "assoc-expand: an entry past the one found is never read", _
+        ExpandTrimmed("(assoc-expand (quote a) (quote ((a 1) junk)))"), "(a 1)"
+    CheckV "assoc-expand: a named piece read in a template", _
+        ExpandTrimmed("(defmacro (put at & pieces) (cell (car (cdr (assoc-expand sheet pieces))) at)) " & _
+            "(put ""A2"" (value 1) (sheet ""Tower""))"), "(cell ""Tower"" ""A2"")"
+    CheckExpandErr "assoc-expand: takes two arguments", _
+        "(assoc-expand (quote a))", "assoc-expand expects exactly 2 argument(s), got 1"
+    CheckExpandErr "assoc-expand: its entries are a list", _
+        "(assoc-expand (quote a) b)", "assoc-expand: expected a list, got 'b'"
+    CheckExpandErr "assoc-expand: an entry is a list with a head", _
+        "(assoc-expand (quote a) (quote (x (a 1))))", "assoc-expand: an entry is a list with a head, got 'x'"
+    CheckExpandErr "assoc-expand: an empty entry refused", _
+        "(assoc-expand (quote a) (quote (())))", "assoc-expand: an entry is a list with a head, got '()'"
+
+    ' --- reserved: none of the three can be a macro's name, and the one
+    '     table still refuses the names it held before.
+    CheckExpandErr "each: 'each' refused as a macro name", _
+        "(defmacro (each x) x)", "'each' is the expand-time loop form and cannot be a macro name"
+    CheckExpandErr "each: 'each-index' refused as a macro name", _
+        "(defmacro (each-index x) x)", "'each-index' is the expand-time counting loop form and cannot be a macro name"
+    CheckExpandErr "each: 'assoc-expand' refused as a macro name", _
+        "(defmacro (assoc-expand x) x)", "'assoc-expand' is the expand-time entry-lookup primitive and cannot be a macro name"
+    CheckExpandErr "each: the one table refuses quote in any case", _
+        "(defmacro (QUOTE x) x)", "defmacro 'quote': 'quote' is the data-literal form and cannot be a macro name"
+
+    ' --- the trampoline keeps a begin's forms set aside before its last
+    '     atom, found while building the loop: it returned the atom alone.
+    CheckV "each: a begin a macro made keeps its forms before an atom", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) x) (m)"), "(begin (debug-print 1) x)"
+
+    ' --- past the walker's cap: 2,500 rows in one application, where a
+    '     walk of the same list stops at 2,499 (its chain of 5,000 links).
+    Dim parts() As String
+    ReDim parts(1 To 2500)
+    Dim i As Long
+    For i = 1 To 2500
+        parts(i) = "(""A" & i & """ " & i & ")"
+    Next
+    Dim t As String
+    t = ExpandTrimmed("(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) " & _
+        "(cells ""S"" " & Join(parts, " ") & ")")
+    Report "each: 2,500 rows in one loop, past the walker's 2,499", _
+        InStr(1, t, "(cell ""S"" ""A2500"" 2500)", vbBinaryCompare) > 0, Left$(t, 160)
 End Sub
 
 ' VLA.3: one form's expansion under the prelude, its last break dropped,

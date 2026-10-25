@@ -559,10 +559,11 @@ parameters.
 ## 14. Data at expansion time
 
 A macro receives forms. Sometimes it helps to treat a form as a list and
-walk it. VLA has twenty-seven primitives for that, counting the arithmetic,
-the text and the addresses a walk tends to need. They work on **quoted data
-in the source text**, while the program is being expanded. They never see
-a cell, a range, or anything else that exists only when the program runs.
+walk it. VLA has twenty-eight primitives for that, counting the arithmetic,
+the text and the addresses a walk tends to need and a lookup, and a loop
+that writes a form for each element. They work on **quoted data in the
+source text**, while the program is being expanded. They never see a cell,
+a range, or anything else that exists only when the program runs.
 
 | Primitive | Gives |
 |---|---|
@@ -582,6 +583,9 @@ a cell, a range, or anything else that exists only when the program runs.
 | `(address-expand row column)` | The address: `"B3"` for row 3, column 2. |
 | `(row-expand address)` `(column-expand address)` | The row and the column of an address. `column-expand` also reads a column's letters alone. |
 | `(column-letters-expand column)` | A column's letters: `"AB"` for 28. |
+| `(assoc-expand head entries)` | The first entry whose own head is `head`, or `()` when none is. |
+| `(each (name list) form ...)` | The forms written once for each element; see *The loop* below. |
+| `(each-index (index name list start) form ...)` | The same, with a count beside each element, from `start` up by one. |
 
 **A name that ends in `expand` is computed while the macro expands.** The
 plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
@@ -607,6 +611,86 @@ to `true` or `false` during expansion chooses its clause on the spot. A
 test that depends on the running program, such as `(> x 0)`, is left in
 place as an ordinary `if`. Each clause decides separately. `else` must be
 last, and a `cond` in which nothing matches expands to nothing at all.
+
+### The loop
+
+A walk by recursion says how to reach the next element. A loop says what
+each element writes:
+
+```lisp
+(defmacro
+    (cells sheet & entries)
+    "value cells of one sheet, named once: each entry an address or a range, then its value"
+    (each (entry entries)
+        (cell sheet (car entry) (car (cdr entry)))))
+```
+
+`(cells "S" ("A1" 1) ("B1" 2))` expands to `(begin (cell "S" "A1" 1)
+(cell "S" "B1" 2))`. The binding `(entry entries)` names the element and
+the list, as `let` names a value; the forms after it are a template,
+substituted once for each element with `entry` bound to it, beside the
+macro's own parameters, so `(car entry)` reads the entry. `each-index`
+binds a count beside the element, from a start the binding names:
+
+```lisp
+(defmacro
+    (labels-at sheet top column & texts)
+    "labels' rows: a text a row, down from the top row in one column"
+    (each-index (row text texts top)
+        (cell sheet (address-expand row column) text)))
+```
+
+The start is required. A palette counts from 0 and a sheet's rows from 1,
+and nothing in the loop can tell which is meant, so the binding says.
+
+Where a loop stands decides what it writes:
+
+| Where it stands | What it writes |
+|---|---|
+| Alone: a macro's whole template, a branch of `quote-if` or `cond`, a form of the file | One `begin` of its results. |
+| As an element of a list: `(+ (each (c cells) c))` | Its results, spliced into the list. |
+| Where a primitive reads it, `(car (each ...))`, or after `unquote` | The list of its results. |
+
+So a loop inside a loop gives one flat run of rows, a loop may walk the
+results of another, and `(formula-expand (+ (each (c cells) c)))` writes
+a sum.
+
+Its names are the author's, as every name in a template is (Section 11).
+A loop refuses a name the template already holds, a parameter, the rest or
+an enclosing loop's name, rather than shadow it:
+
+> each: 'xs' is already a name in this template - give the name each binds
+> a word of its own
+
+It refuses a list written as a macro's call too. A primitive's argument is
+never expanded, so the call would be walked as its own words:
+
+> each: the list to walk is a call of the macro 'rows', which does not
+> expand where a list is walked - give the list itself, quoted or as a
+> parameter
+
+A loop is one application and no chain, so the chain's limit below does not
+hold it: the kit's `cells` written as a walk stops at 2,499 entries, and
+written as a loop it writes ten thousand.
+
+**`assoc-expand` finds a piece by its head**, as Scheme's `assoc` does, so
+that a verb can take its pieces by name and in any order:
+
+```lisp
+(defmacro
+    (piece name & pieces)
+    "a named piece's value: the entry whose head is the name, its second"
+    (car (cdr (assoc-expand name pieces))))
+
+(defmacro
+    (put at & pieces)
+    "a cell from named pieces, its sheet and its value in either order"
+    (cell (piece sheet pieces) at (piece value pieces)))
+```
+
+`(put "A2" (value 1) (sheet "Tower"))` expands to `(cell "Tower" "A2" 1)`.
+A symbol is compared without case, a text exactly and a list by its
+structure, and a head that no entry has gives `()`.
 
 **The list library** in the prelude is written with these:
 
@@ -636,14 +720,15 @@ emitted code, with no arithmetic left to do at run time.
 The 200 was not chosen for its roundness. A first attempt raised it to
 1,000 and the host ran out of stack somewhere between 150 and 250, so the
 number went back. A recursive macro therefore handles lists of modest
-length, and a long table is split across several calls. The refusal is
-loud; a partial result is never returned.
+length; a long table is a loop, which is one application and no chain. The
+refusal is loud; a partial result is never returned.
 
 Two properties are worth a Lisp programmer's attention, because they differ
 from home.
 
 - **There is no `lambda` at expansion time.** `quote-map` takes the *name*
-  of a macro or function of one argument.
+  of a macro or function of one argument. A loop's forms are a template
+  written in place, which is what a `lambda` would be for here.
 - **There is no `filter`.** `quote-if` needs its test already decided, and
   a call to a predicate you passed in is not yet expanded at the moment
   the test is inspected. The prelude says so, at length, in the place

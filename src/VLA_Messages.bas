@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.49"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.5"
+' VLA.5: the loop at expand time and assoc-expand, six refusals under VLA,
+' each naming its form: vla-each-shape - a loop's binding as its shape
+' asks, (name list) or (index name list start), then at least one form;
+' vla-each-name-reserved and vla-each-name-bound - a name a loop binds that
+' is an expand-time name, or one the template already binds;
+' vla-each-list-a-call - a list written as a macro's call, which is never
+' expanded where a list is walked; vla-expand-expected-list - an atom where
+' a list belongs, a loop's list or assoc-expand's entries; and
+' vla-assoc-expand-entry - an entry that is no list with a head.
+'
 ' KERNEL.49: view-projection-unknown names the fifth projection, fills,
 ' the rows of a window with each fill's formula once over each of its
 ' rectangles, what a save prints and the loader reads as the fills.
@@ -803,6 +813,16 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-formula-expand-nested", 5, "VLA", "formula-expand: one inside another would write the inner formula as a text - write the inner expression itself"
     AddMsg m, "vla-formula-read-malformed", 5, "VLA", "formula text: {what}, so it is not a formula"
     AddMsg m, "vla-formula-read-unsupported", 5, "VLA", "formula text: Excel reads {construct}, and this version's formula syntax does not yet"
+    ' VLA.5 - the loop at expand time, (each (name list) form ...) and
+    ' (each-index (index name list start) form ...), and assoc-expand, a
+    ' piece found by its head: each refusal names its form, and a name or a
+    ' list the author wrote.
+    AddMsg m, "vla-each-shape", 5, "VLA", "{op}: write ({op} {binding} form ...): the binding a list of that shape, its names symbols, and at least one form after it"
+    AddMsg m, "vla-each-name-reserved", 5, "VLA", "{op} '{word}': '{word}' is the {desc} and cannot be a name {op} binds"
+    AddMsg m, "vla-each-name-bound", 5, "VLA", "{op}: '{word}' is already a name in this template - give the name {op} binds a word of its own"
+    AddMsg m, "vla-each-list-a-call", 5, "VLA", "{op}: the list to walk is a call of the macro '{head}', which does not expand where a list is walked - give the list itself, quoted or as a parameter"
+    AddMsg m, "vla-expand-expected-list", 5, "VLA", "{op}: expected a list, got '{value}'"
+    AddMsg m, "vla-assoc-expand-entry", 5, "VLA", "assoc-expand: an entry is a list with a head, got '{value}'"
 
     ' CO.4 - the one refusal grammar semantic versioning needs. A
     ' version that cannot be read is never treated as satisfied AND

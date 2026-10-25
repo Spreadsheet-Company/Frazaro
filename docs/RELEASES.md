@@ -2,6 +2,54 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.12.0
+
+### What changed
+
+- **A loop at expand time.** A macro can now write a form for each element
+  of a list, where it had to walk the list by recursing on its `cdr`.
+  `(each (entry entries) (cell sheet (car entry) (car (cdr entry))))` writes
+  one `cell` row for each entry: its forms are a template, substituted once
+  for each element with `entry` bound to it, beside the macro's own
+  parameters, so `(car entry)` reads the entry. `(each-index (row text texts
+  2) ...)` binds a count beside the element, from the start the binding
+  names, its fourth item and a whole number, up by one, so that a label
+  goes in its row with no arithmetic. A loop that stands alone, a macro's
+  whole template or a form of a source, writes its results as one `begin`;
+  a loop that is an element of a list has its results spliced into the
+  list, so `(+ (each (c cells) c))` is a sum and works inside
+  `formula-expand`; and where a primitive or an unquote reads a loop, it is
+  the list of its results, so a loop may walk another's. A loop costs its
+  list's length: the kit's `cells` walker took 139 ms over 2,000 entries in
+  `vla-lang` and 12.9 s in the add-in, and stopped at the 2,500th, refused
+  as more than 5,000 applications in one chain; written as a loop it takes
+  5 ms over 2,000 entries in `vla-lang` and 0.4 s in the add-in, and 24 ms
+  and 2.8 s over 10,000, in one application. A loop is refused by name when its binding
+  is not `(name list)` or `(index name list start)` with a form after it,
+  when a name it binds is an expand-time name or one the template already
+  binds (the macro's parameter, its rest, an enclosing loop's name), when
+  its list is an atom, and when its list is written as a macro's call,
+  which is never expanded where a list is walked.
+
+- **A piece found by its head.** `(assoc-expand head entries)` answers the
+  first entry of a list whose head is `head`, or the empty list, as
+  Scheme's `assoc` does: a symbol compared by its text without case, a text
+  exactly, a list by its structure. So a verb can take named pieces in any
+  order, `(put "A2" (value 1) (sheet "Tower"))`, and read one by
+  `(car (cdr (assoc-expand sheet pieces)))`. An entry that is no list with a
+  head is refused by name.
+
+- **`each`, `each-index` and `assoc-expand` are reserved names**, so a
+  macro of one of those names is refused, as a macro named `car` is. None
+  was defined in this repository's sources, the phrasebooks, Alonzo's
+  cartridges or Buffet.
+
+- **A macro whose last form is an atom keeps the forms before it.**
+  `(defmacro (logged x) (debug-print 1) x)` expanded `(logged y)` to `y`
+  alone, its other forms dropped; it now expands to `(begin (debug-print 1)
+  y)`. No program in the corpus, the phrasebooks or the cartridges met it,
+  and every compiled golden stands as it was.
+
 ## 0.11.0
 
 ### What changed

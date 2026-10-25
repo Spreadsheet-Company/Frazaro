@@ -25,8 +25,9 @@ every push:
      in the language's half of the catalogue (vla-lang/data/messages.vla);
   3. the reference's lists and the port's name the same primitives: the
      two recognition Selects and EvalListopsPrim's Cases are the port's
-     LISTOPS, and DefineMacro's reserved words are the port's RESERVED
-     (read from the sources, never retyped here);
+     LISTOPS, and the reference's reserved words, one table since VLA.5
+     (ExpandReservedDesc, which DefineMacro and a loop's names both ask),
+     are the port's RESERVED (read from the sources, never retyped here);
   4. every primitive of LISTOPS heads a form in at least one fixture case;
      each of VLA.3's ten heads one in an EXPANDED case and in a REFUSED
      case; and each of VLA.3's eight ids is the id of a REFUSED record;
@@ -40,15 +41,24 @@ every push:
      writer reads no compile's state: none of its procedures calls
      ResolveHeadAlias, whose map only a compile sets, since formula-expand
      runs in the expander (the owner's pass of 2026-10-17 found
-     (si ...) written SI(...) in a session no compile had run in).
+     (si ...) written SI(...) in a session no compile had run in);
+  7. VLA.5's loop, each and each-index, a form of the walks and of the
+     substitution and no LISTOPS primitive: both implementations take it at
+     a list's head in their substitution (Substitute's Case, substitute's
+     arm) and at a form's head in their walk (ExpandMacros' and expand_at's
+     test of the head), both reserve it and neither lists it among the
+     primitives, each form heads a form in an EXPANDED case and in a
+     REFUSED one, VLA.5's primitive assoc-expand does too, and each of
+     VLA.5's six ids is the id of a REFUSED record.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
 with its last case dropped, one refusing with an id the catalogue lacks, a
 reference with one name taken from Substitute's Select, a fixture with
 every characters-expand renamed away, a reference whose walk no longer
-recognizes formula-expand, and a reference whose formula writer resolves
-an alias through ResolveHeadAlias.
+recognizes formula-expand, a reference whose formula writer resolves an
+alias through ResolveHeadAlias, a reference whose Substitute no longer
+takes the loop at a list's head, and a port whose RESERVED lost each.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -67,9 +77,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # the golden written by the port ahead of the reference's first run.
 # 2026-10-17, VLA.4: 174 cases, 96 expanded, 30 distinct ids, formula-expand's
 # 39 written by the port ahead of the reference's run, as VLA.3's were.
-$caseFloor = 174
-$expandedFloor = 96
-$idFloor = 30
+# 2026-10-24, VLA.5: 229 cases, 129 expanded, 36 distinct ids, the loop's and
+# assoc-expand's 52 written by the port ahead of the reference's run.
+$caseFloor = 229
+$expandedFloor = 129
+$idFloor = 36
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -86,6 +98,13 @@ $formulaIds = @('vla-formula-atom-unspelled', 'vla-formula-numeral-unspelled',
     'vla-formula-head-not-a-function', 'vla-formula-head-refused', 'vla-formula-arity',
     'vla-formula-unsupported', 'vla-formula-lambda-params', 'vla-formula-ref-invalid',
     'vla-formula-text-too-long', 'vla-formula-expand-arity', 'vla-formula-expand-nested')
+
+# VLA.5's loop, a form of the walks and of the substitution, its primitive,
+# and its six ids, which rule 7 holds to both implementations and the fixture.
+$loopForms = @('each', 'each-index')
+$loopPrimitives = @('assoc-expand')
+$loopIds = @('vla-each-shape', 'vla-each-name-reserved', 'vla-each-name-bound',
+    'vla-each-list-a-call', 'vla-expand-expected-list', 'vla-assoc-expand-entry')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -138,7 +157,8 @@ function Get-ExpandHeads([string]$text) {
 
 # The reference's lists, read from src/VLA.bas with continuations joined:
 # the recognition Selects (each a Case opening on "car", "cdr"), the Cases
-# of EvalListopsPrim, and DefineMacro's reserved words.
+# of EvalListopsPrim, and the reserved words, the Cases of ExpandReservedDesc
+# (VLA.5), the one table DefineMacro asks.
 function Read-ReferenceLists([string]$path) {
     $logical = New-Object System.Collections.ArrayList
     $buffer = ''
@@ -154,6 +174,7 @@ function Read-ReferenceLists([string]$path) {
     $prim = New-OrdinalSet
     $reserved = New-OrdinalSet
     $inPrim = $false
+    $inReserved = $false
     foreach ($ln in $logical) {
         if ($ln -match '^\s*Case "car", "cdr", ') {
             $set = New-OrdinalSet
@@ -165,8 +186,10 @@ function Read-ReferenceLists([string]$path) {
         if ($inPrim -and $ln -match '^\s*Case\s+"') {
             foreach ($q in [regex]::Matches($ln, '"([^"]+)"')) { [void]$prim.Add($q.Groups[1].Value) }
         }
-        foreach ($q in [regex]::Matches($ln, 'RaiseMsg "vla-defmacro-reserved-name", "word", "([^"]+)"')) {
-            [void]$reserved.Add($q.Groups[1].Value)
+        if ($ln -match '^\s*Private Function ExpandReservedDesc\b') { $inReserved = $true; continue }
+        if ($inReserved -and $ln -match '^\s*End Function') { $inReserved = $false }
+        if ($inReserved -and $ln -match '^\s*Case\s+"') {
+            foreach ($q in [regex]::Matches($ln, '"([^"]+)"')) { [void]$reserved.Add($q.Groups[1].Value) }
         }
     }
     return @{ Selects = $selects; Prim = $prim; Reserved = $reserved }
@@ -227,9 +250,14 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         foreach ($p in (Format-ExpandSetDiff 'primitive' $s "the reference's recognition Select $k" $prt.Listops "the port's LISTOPS")) { [void]$problems.Add($p) }
     }
     foreach ($p in (Format-ExpandSetDiff 'primitive' $ref.Prim "the reference's EvalListopsPrim" $prt.Listops "the port's LISTOPS")) { [void]$problems.Add($p) }
-    foreach ($p in (Format-ExpandSetDiff 'reserved word' $ref.Reserved "the reference's DefineMacro" $prt.Reserved "the port's RESERVED")) { [void]$problems.Add($p) }
+    foreach ($p in (Format-ExpandSetDiff 'reserved word' $ref.Reserved "the reference's ExpandReservedDesc" $prt.Reserved "the port's RESERVED")) { [void]$problems.Add($p) }
     foreach ($x in $prt.Listops) {
         if (-not $prt.Reserved.Contains($x)) { [void]$problems.Add("primitive '$x' is recognized by the port and not reserved") }
+    }
+    # VLA.5: the table is the reserved words only while DefineMacro asks it.
+    $vbaSource = [System.IO.File]::ReadAllText($vba)
+    if ($vbaSource -notmatch 'reservedDesc = ExpandReservedDesc\(VLA_Identity\.Fold\(mname\)\)') {
+        [void]$problems.Add("the reference's DefineMacro does not ask ExpandReservedDesc, so its table is no macro's refusal")
     }
 
     # 1. the headers
@@ -289,6 +317,11 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
     foreach ($x in $newIds) {
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
+    foreach ($x in $loopPrimitives) {
+        if (-not $prt.Listops.Contains($x)) { [void]$problems.Add("'$x', VLA.5's primitive, is not in the port's LISTOPS") }
+        if (-not $headsExpanded.Contains($x)) { [void]$problems.Add("no EXPANDED case heads a form with '$x'") }
+        if (-not $headsRefused.Contains($x)) { [void]$problems.Add("no REFUSED case heads a form with '$x'") }
+    }
 
     # 6. VLA.4's operation of the walk
     $vbaText = [System.IO.File]::ReadAllText($vba)
@@ -315,6 +348,32 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if ($m.Value -match 'ResolveHeadAlias\(') {
             [void]$problems.Add("the reference's $($m.Groups[1].Value) resolves an alias through ResolveHeadAlias, a compile's state the expander does not set")
         }
+    }
+
+    # 7. VLA.5's loop, a form of the walks and of the substitution: taken at a
+    # list's head by both implementations' substitution and at a form's head
+    # by both walks, reserved in both, listed among neither's primitives, and
+    # reached by the fixture; its ids each a refused record.
+    if ($vbaText -notmatch 'Case "each", "each-index"') {
+        [void]$problems.Add("the reference's Substitute does not take the loop at a list's head (Case `"each`", `"each-index`")")
+    }
+    if ($vbaText -notmatch 'If headFold = "each" Or headFold = "each-index" Then') {
+        [void]$problems.Add("the reference's walk (ExpandMacros) does not take the loop at a form's head")
+    }
+    if ($portText -notmatch '"each" \| "each-index" if !in_quasi =>') {
+        [void]$problems.Add("the port's substitute does not take the loop at a list's head")
+    }
+    if ($portText -notmatch 'if head_fold == "each" \|\| head_fold == "each-index" \{') {
+        [void]$problems.Add("the port's walk (expand_at) does not take the loop at a form's head")
+    }
+    foreach ($x in $loopForms) {
+        if (-not $prt.Reserved.Contains($x)) { [void]$problems.Add("the loop's form '$x' is not in the port's RESERVED") }
+        if ($prt.Listops.Contains($x)) { [void]$problems.Add("the loop's form '$x' is in the port's LISTOPS, which takes data and splices nothing") }
+        if (-not $headsExpanded.Contains($x)) { [void]$problems.Add("no EXPANDED case heads a form with '$x'") }
+        if (-not $headsRefused.Contains($x)) { [void]$problems.Add("no REFUSED case heads a form with '$x'") }
+    }
+    foreach ($x in $loopIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
     # 5. the floors
@@ -387,6 +446,17 @@ if ($Control) {
         if ([regex]::Matches($vbaText, [regex]::Escape($aliasAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected FsList''s FsCanonicalHead call once in the reference'; exit 1 }
         $pg = Join-Path $tmp 'g.bas'
         [System.IO.File]::WriteAllText($pg, $vbaText.Replace($aliasAnchor, 'h = ResolveHeadAlias(VLA_Identity.Fold(headWritten))'), $utf8)
+        # (h) the reference whose Substitute no longer takes the loop at a list's head
+        $loopAnchor = 'Case "each", "each-index"'
+        if ([regex]::Matches($vbaText, [regex]::Escape($loopAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected Substitute''s loop Case once in the reference'; exit 1 }
+        $ph = Join-Path $tmp 'h.bas'
+        [System.IO.File]::WriteAllText($ph, $vbaText.Replace($loopAnchor, 'Case "eachh", "each-index"'), $utf8)
+        # (i) the port whose RESERVED lost each
+        $portSource = [System.IO.File]::ReadAllText($portPath)
+        $reservedRow = '(?m)^    \("each", "expand-time loop form"\),\r?$'
+        if ([regex]::Matches($portSource, $reservedRow).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s RESERVED row for each once'; exit 1 }
+        $pi = Join-Path $tmp 'i.rs'
+        [System.IO.File]::WriteAllText($pi, [regex]::Replace($portSource, $reservedRow, ''), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath
@@ -394,8 +464,10 @@ if ($Control) {
         $re = Test-ExpandGolden $pe $goldenPath $vbaPath $portPath $catalogPath
         $rf = Test-ExpandGolden $fixturePath $goldenPath $pf $portPath $catalogPath
         $rg = Test-ExpandGolden $fixturePath $goldenPath $pg $portPath $catalogPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1) {
+        $rh = Test-ExpandGolden $fixturePath $goldenPath $ph $portPath $catalogPath
+        $ri = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pi $catalogPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

@@ -450,3 +450,141 @@ REFUSED	vla-formula-ref-invalid	formula: (ref ...) names one reference from a sh
 REFUSED	vla-formula-text-too-long	formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds 256
 === reserved-formula-expand
 REFUSED	vla-defmacro-reserved-name	defmacro 'formula-expand': 'formula-expand' is the expand-time formula-syntax operation and cannot be a macro name
+=== each-writes-a-form-an-element
+EXPANDED	0
+(begin (f a) (f b) (f c))
+=== each-rows-expand-a-macro-among-them
+EXPANDED	2
+(begin (if a (then (f))) (if b (then (f))))
+=== each-of-the-empty-list-writes-nothing
+EXPANDED	0
+(begin)
+=== each-forms-in-order-an-element
+EXPANDED	0
+(begin (f a) (g a) (f b) (g b))
+=== cells-written-by-a-walk
+EXPANDED	4
+(begin (cell "S" "A1" 1) (cell "S" "B1" 2) (cell "S" "C1:C3" 0) (begin))
+=== cells-written-by-each
+EXPANDED	1
+(begin (cell "S" "A1" 1) (cell "S" "B1" 2) (cell "S" "C1:C3" 0))
+=== each-in-a-template-keeps-every-atom
+EXPANDED	1
+(begin 1 2 3)
+=== a-begin-a-macro-made-keeps-its-forms-before-an-atom
+EXPANDED	1
+(begin (debug-print 1) y)
+=== each-index-counts-from-its-start
+EXPANDED	0
+(begin (f 0 a) (f 1 b) (f 2 c))
+=== each-index-counts-from-below-zero
+EXPANDED	0
+(begin (f -1) (f 0))
+=== each-index-counts-down-a-block-s-labels
+EXPANDED	2
+(begin (cell "Keys" "A3" "up") (cell "Keys" "A4" "down") (cell "Keys" "A5" "left"))
+=== each-index-counts-the-palette-from-0
+EXPANDED	3
+(begin
+    (begin (cell "Palette" "A1" 0) (cell "Palette" "B1" "#000000"))
+    (cell "Palette" "A2" 1)
+    (cell "Palette" "B2" "#0000AA"))
+=== each-index-draws-a-picture-a-cell-a-character
+EXPANDED	5
+(begin (begin) (cell "S" "B2" 1) (cell "S" "A3" 1) (begin))
+=== each-as-an-element-is-spliced
+EXPANDED	0
+(+ A1 B1 C1)
+=== each-spliced-in-a-template
+EXPANDED	1
+(+ A1 B1)
+=== each-inside-formula-expand-writes-a-sum
+EXPANDED	0
+"=A1+B1"
+=== each-inside-formula-expand-in-a-template
+EXPANDED	1
+(formula "Ledger" "A4" "=Ledger!C4+Ledger!D4+Ledger!E4")
+=== each-inside-each-gives-one-flat-run
+EXPANDED	0
+(begin (f a) (f b) (f c))
+=== each-where-a-primitive-reads-it-is-its-results
+EXPANDED	0
+(f b)
+=== each-walks-another-each-s-results
+EXPANDED	0
+(begin (g (f a)) (g (f b)))
+=== each-after-unquote-splicing-splices-its-results
+EXPANDED	1
+(f (g a) (g b))
+=== each-after-unquote-is-its-list
+EXPANDED	1
+(f ((g a) (g b)))
+=== each-shielded-is-data-and-walked-where-it-lands
+EXPANDED	1
+(begin a b)
+=== each-with-no-form-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-spelled-without-its-binding-list-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-index-of-a-binding-of-three-refused
+REFUSED	vla-each-shape	each-index: write (each-index (index name list start) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-named-by-a-text-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-named-car-refused
+REFUSED	vla-each-name-reserved	each 'car': 'car' is the list-head primitive and cannot be a name each binds
+=== each-named-as-the-macro-s-parameter-refused
+REFUSED	vla-each-name-bound	each: 'xs' is already a name in this template - give the name each binds a word of its own
+=== each-named-as-the-rest-refused
+REFUSED	vla-each-name-bound	each: 'xs' is already a name in this template - give the name each binds a word of its own
+=== each-named-as-the-loop-around-it-refused
+REFUSED	vla-each-name-bound	each: 'x' is already a name in this template - give the name each binds a word of its own
+=== each-index-of-two-names-alike-refused
+REFUSED	vla-each-name-bound	each-index: 'x' is already a name in this template - give the name each-index binds a word of its own
+=== each-of-an-atom-refused
+REFUSED	vla-expand-expected-list	each: expected a list, got 'y'
+=== each-of-a-macro-s-call-refused
+REFUSED	vla-each-list-a-call	each: the list to walk is a call of the macro 'when', which does not expand where a list is walked - give the list itself, quoted or as a parameter
+=== each-index-from-a-word-refused
+REFUSED	vla-arith-expand-not-number-value	each-index: expected a number, got 'one'
+=== each-index-from-a-list-refused
+REFUSED	vla-arith-expand-not-number-list	each-index: expected a number, got a list
+=== each-index-from-a-fraction-refused
+REFUSED	vla-arith-expand-not-whole	each-index: expected a whole number, got '1.5'
+=== assoc-expand-finds-the-first-entry
+EXPANDED	0
+(b 2)
+=== assoc-expand-of-no-entry-is-the-empty-list
+EXPANDED	0
+()
+=== assoc-expand-folds-a-symbol-s-case
+EXPANDED	0
+(sheet "Tower")
+=== assoc-expand-never-matches-a-text-to-a-symbol
+EXPANDED	0
+()
+=== assoc-expand-matches-a-list-by-its-structure
+EXPANDED	0
+((1 2) x)
+=== assoc-expand-reads-no-entry-past-the-one-found
+EXPANDED	0
+(a 1)
+=== assoc-expand-reads-a-verb-s-named-pieces
+EXPANDED	3
+(cell "Tower" "A2" 1)
+=== assoc-expand-finds-a-legend-s-character
+EXPANDED	2
+(cell "S" "B2" 1)
+=== assoc-expand-of-one-argument-refused
+REFUSED	vla-expand-arity	assoc-expand expects exactly 2 argument(s), got 1
+=== assoc-expand-of-an-atom-refused
+REFUSED	vla-expand-expected-list	assoc-expand: expected a list, got 'b'
+=== assoc-expand-of-an-entry-that-is-an-atom-refused
+REFUSED	vla-assoc-expand-entry	assoc-expand: an entry is a list with a head, got 'x'
+=== assoc-expand-of-an-empty-entry-refused
+REFUSED	vla-assoc-expand-entry	assoc-expand: an entry is a list with a head, got '()'
+=== reserved-each
+REFUSED	vla-defmacro-reserved-name	defmacro 'each': 'each' is the expand-time loop form and cannot be a macro name
+=== reserved-each-index
+REFUSED	vla-defmacro-reserved-name	defmacro 'each-index': 'each-index' is the expand-time counting loop form and cannot be a macro name
+=== reserved-assoc-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'assoc-expand': 'assoc-expand' is the expand-time entry-lookup primitive and cannot be a macro name

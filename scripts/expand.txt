@@ -8,10 +8,11 @@ applications that fired>" and the text VlaExpandText prints, or
 "REFUSED<TAB><the catalogue's id><TAB><the refusal's text>". vla-lang is
 held to that file by tests/expand_golden.rs, and
 tools/check_expand_golden.ps1 holds the pair's shape and every one of the
-twenty-seven expand-time primitives reached. A case is named for what it
-means to reach; the golden records what the reference does. No case
-raises a refusal that names a line, so an edit of the prelude moves
-nothing here.
+twenty-eight expand-time primitives reached, with the walk's forms,
+formula-expand and the loop, each and each-index (VLA.5). A case is named
+for what it means to reach; the golden records what the reference does.
+No case raises a refusal that names a line, so an edit of the prelude
+moves nothing here.
 === car
 (car (quote (a b c)))
 === car-of-a-text-refused
@@ -377,3 +378,232 @@ nothing here.
 (formula-expand "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 === reserved-formula-expand
 (defmacro (formula-expand x) x)
+=== each-writes-a-form-an-element
+(each (x (quote (a b c)))
+  (f x))
+=== each-rows-expand-a-macro-among-them
+(each (x (quote (a b)))
+  (when x (f)))
+=== each-of-the-empty-list-writes-nothing
+(each (x (quote ()))
+  (f x))
+=== each-forms-in-order-an-element
+(each (x (quote (a b)))
+  (f x)
+  (g x))
+=== cells-written-by-a-walk
+(defmacro (cells sheet & entries)
+  "value cells of one sheet, named once: each entry an address or a range, then its value"
+  (quote-if (null? entries)
+    (begin)
+    (begin
+      (cell sheet (car (car entries)) (car (cdr (car entries))))
+      (quasiquote (cells (unquote sheet) (unquote-splicing (cdr entries)))))))
+(cells "S"
+  ("A1" 1)
+  ("B1" 2)
+  ("C1:C3" 0))
+=== cells-written-by-each
+(defmacro (cells sheet & entries)
+  "value cells of one sheet, named once: each entry an address or a range, then its value"
+  (each (entry entries)
+    (cell sheet (car entry) (car (cdr entry)))))
+(cells "S"
+  ("A1" 1)
+  ("B1" 2)
+  ("C1:C3" 0))
+=== each-in-a-template-keeps-every-atom
+(defmacro (seq & xs)
+  "the forms given, one statement each"
+  (each (x xs)
+    x))
+(seq 1 2 3)
+=== a-begin-a-macro-made-keeps-its-forms-before-an-atom
+(defmacro (logged x)
+  "x, after a line printed"
+  (debug-print 1)
+  x)
+(logged y)
+=== each-index-counts-from-its-start
+(each-index (i x (quote (a b c)) 0)
+  (f i x))
+=== each-index-counts-from-below-zero
+(each-index (i x (quote (a b)) -1)
+  (f i))
+=== each-index-counts-down-a-block-s-labels
+(defmacro (labels sheet first & texts)
+  "texts down a column from a cell, one a row: a block's labels"
+  (labels-at sheet (row-expand first) (column-expand first) texts))
+(defmacro (labels-at sheet top column & texts)
+  "labels' rows: a text a row, down from the top row in one column"
+  (each-index (row text texts top)
+    (cell sheet (address-expand row column) text)))
+(labels "Keys" "A3" "up" "down" "left")
+=== each-index-counts-the-palette-from-0
+(defmacro (palette & entries)
+  "the Palette's rows: each entry a color and a name, its index its place from 0"
+  (each-index (index entry entries 0)
+    (palette-entry index entry)))
+(defmacro (palette-entry index entry)
+  "one Palette row: the index in column A, the color in column B"
+  (cell "Palette" (address-expand (+expand index 1) 1) index)
+  (cell "Palette" (address-expand (+expand index 1) 2) (car entry)))
+(palette
+  ("#000000" "black")
+  ("#0000AA" "blue"))
+=== each-index-draws-a-picture-a-cell-a-character
+(defmacro (picture sheet top left & rows)
+  "rows of cells drawn as text: each string a row down from the top, each character a cell, a dot no cell"
+  (each-index (row text rows top)
+    (each-index (column character (characters-expand text) left)
+      (picture-cell sheet row column character))))
+(defmacro (picture-cell sheet row column character)
+  "one character's cell: a dot writes none, any other character a cell of 1"
+  (quote-if (eq? character ".")
+    (begin)
+    (cell sheet (address-expand row column) 1)))
+(picture "S" 2 1
+  ".#"
+  "#.")
+=== each-as-an-element-is-spliced
+(+ (each (c (quote (A1 B1 C1)))
+     c))
+=== each-spliced-in-a-template
+(defmacro (total & cells)
+  "the sum of the cells given"
+  (+ (each (c cells)
+       c)))
+(total A1 B1)
+=== each-inside-formula-expand-writes-a-sum
+(formula-expand
+  (+ (each (c (quote (A1 B1)))
+       c)))
+=== each-inside-formula-expand-in-a-template
+(defmacro (row-total sheet row & columns)
+  "a row's total in column A: the sum of the row's cells in the columns named"
+  (formula sheet (address-expand row 1)
+    (formula-expand
+      (+ (each (column columns)
+           (ref sheet (address-expand row (column-expand column))))))))
+(row-total "Ledger" 4 "C" "D" "E")
+=== each-inside-each-gives-one-flat-run
+(each (row (quote ((a b) (c))))
+  (each (x row)
+    (f x)))
+=== each-where-a-primitive-reads-it-is-its-results
+(car (cdr (each (x (quote (a b c)))
+            (f x))))
+=== each-walks-another-each-s-results
+(each (y (each (x (quote (a b)))
+           (f x)))
+  (g y))
+=== each-after-unquote-splicing-splices-its-results
+(defmacro (calls & xs)
+  "f of each of the forms given, g around each"
+  (quasiquote
+    (f (unquote-splicing (each (x xs) (g x))))))
+(calls a b)
+=== each-after-unquote-is-its-list
+(defmacro (listed & xs)
+  "f of one list, g around each of the forms given"
+  (quasiquote
+    (f (unquote (each (x xs) (g x))))))
+(listed a b)
+=== each-shielded-is-data-and-walked-where-it-lands
+(defmacro (deferred)
+  "a loop written as data, which the walk then expands"
+  (quasiquote
+    (each (x (quote (a b))) x)))
+(deferred)
+=== each-with-no-form-refused
+(each (x (quote (a))))
+=== each-spelled-without-its-binding-list-refused
+(each x (quote (a))
+  (f x))
+=== each-index-of-a-binding-of-three-refused
+(each-index (i x (quote (a)))
+  (f x))
+=== each-named-by-a-text-refused
+(each ("x" (quote (a)))
+  (f))
+=== each-named-car-refused
+(each (car (quote (a)))
+  (f car))
+=== each-named-as-the-macro-s-parameter-refused
+(defmacro (m xs)
+  (each (xs xs)
+    (f xs)))
+(m (quote (a)))
+=== each-named-as-the-rest-refused
+(defmacro (m & xs)
+  (each (xs xs)
+    (f xs)))
+(m a)
+=== each-named-as-the-loop-around-it-refused
+(each (x (quote ((a))))
+  (each (x x)
+    (f x)))
+=== each-index-of-two-names-alike-refused
+(each-index (x x (quote (a)) 0)
+  (f x))
+=== each-of-an-atom-refused
+(each (x y)
+  (f x))
+=== each-of-a-macro-s-call-refused
+(each (x (when a b))
+  (f x))
+=== each-index-from-a-word-refused
+(each-index (i x (quote (a)) one)
+  (f i))
+=== each-index-from-a-list-refused
+(each-index (i x (quote (a)) (quote (1)))
+  (f i))
+=== each-index-from-a-fraction-refused
+(each-index (i x (quote (a)) 1.5)
+  (f i))
+=== assoc-expand-finds-the-first-entry
+(assoc-expand (quote b) (quote ((a 1) (b 2) (b 3))))
+=== assoc-expand-of-no-entry-is-the-empty-list
+(assoc-expand (quote z) (quote ((a 1))))
+=== assoc-expand-folds-a-symbol-s-case
+(assoc-expand (quote SHEET) (quote ((sheet "Tower"))))
+=== assoc-expand-never-matches-a-text-to-a-symbol
+(assoc-expand "a" (quote ((a 1))))
+=== assoc-expand-matches-a-list-by-its-structure
+(assoc-expand (quote (1 2)) (quote (((1 2) x))))
+=== assoc-expand-reads-no-entry-past-the-one-found
+(assoc-expand (quote a) (quote ((a 1) junk)))
+=== assoc-expand-reads-a-verb-s-named-pieces
+(defmacro (piece name & pieces)
+  "a named piece's value: the entry whose head is the name, its second"
+  (car (cdr (assoc-expand name pieces))))
+(defmacro (put at & pieces)
+  "a cell from named pieces, its sheet and its value in either order"
+  (cell (piece sheet pieces) at (piece value pieces)))
+(put "A2"
+  (value 1)
+  (sheet "Tower"))
+=== assoc-expand-finds-a-legend-s-character
+(defmacro (legend-cell sheet at character legend)
+  "a character's cell in a legend of (character value) entries"
+  (legend-entry-cell sheet at character (assoc-expand character legend)))
+(defmacro (legend-entry-cell sheet at character entry)
+  "the cell an entry gives, or the row the load refuses when there is none"
+  (quote-if (null? entry)
+    (not-in-the-legend sheet at character)
+    (cell sheet at (car (cdr entry)))))
+(legend-cell "S" "B2" "O" (("O" 1) ("." 0)))
+=== assoc-expand-of-one-argument-refused
+(assoc-expand (quote a))
+=== assoc-expand-of-an-atom-refused
+(assoc-expand (quote a) b)
+=== assoc-expand-of-an-entry-that-is-an-atom-refused
+(assoc-expand (quote a) (quote (x (a 1))))
+=== assoc-expand-of-an-empty-entry-refused
+(assoc-expand (quote a) (quote (())))
+=== reserved-each
+(defmacro (each x) x)
+=== reserved-each-index
+(defmacro (each-index x) x)
+=== reserved-assoc-expand
+(defmacro (assoc-expand x) x)

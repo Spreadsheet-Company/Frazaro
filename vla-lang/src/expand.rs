@@ -1,9 +1,11 @@
 //! The macro system: VLA.bas's `DefineMacro`, `ExpandMacros`, `ExpandOne`,
-//! `Substitute` with the QUASIQUOTE bundle, the twenty-seven LISTOPS
+//! `Substitute` with the QUASIQUOTE bundle, the twenty-eight LISTOPS
 //! primitives, `ExpandOnePass`, and `VlaExpandText` (PORT.5, slice 5d; the
-//! expand-time object model's ten, VLA.3); and `formula-expand`, the formula
-//! syntax at expand time, an operation of the walk that expands its argument
-//! before writing it (`ExpandFormulaCall`, VLA.4).
+//! expand-time object model's ten, VLA.3; `assoc-expand`, VLA.5); and the
+//! walk's two kinds of form: `formula-expand`, the formula syntax at expand
+//! time, which expands its argument before writing it (`ExpandFormulaCall`,
+//! VLA.4), and the loop, `each` and `each-index`, a template substituted
+//! once for each element of a list (`EachFormResults`, VLA.5).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -101,11 +103,16 @@ const RESERVED: &[(&str, &str)] = &[
     ("column-letters-expand", "expand-time column-letters primitive"),
     // VLA.4: the formula syntax at expand time, an operation of the walk.
     ("formula-expand", "expand-time formula-syntax operation"),
+    // VLA.5: a piece by its head, and the loop.
+    ("assoc-expand", "expand-time entry-lookup primitive"),
+    ("each", "expand-time loop form"),
+    ("each-index", "expand-time counting loop form"),
 ];
 
-/// The twenty-seven LISTOPS primitives `Substitute` and `ExpandMacros` both
+/// The twenty-eight LISTOPS primitives `Substitute` and `ExpandMacros` both
 /// recognise at a form's head: the original nine, LISTOPS-EXPAND's seven,
-/// `cond`, and the expand-time object model's ten (VLA.3).
+/// `cond`, the expand-time object model's ten (VLA.3) and `assoc-expand`
+/// (VLA.5).
 const LISTOPS: &[&str] = &[
     "car",
     "cdr",
@@ -134,10 +141,24 @@ const LISTOPS: &[&str] = &[
     "row-expand",
     "column-expand",
     "column-letters-expand",
+    "assoc-expand",
 ];
 
 fn is_listops(head_fold: &str) -> bool {
     LISTOPS.contains(&head_fold)
+}
+
+/// VLA.5, VBA `IsEachForm`: a loop, a list headed by `each` or
+/// `each-index`. Asked of every list a walk meets, so it folds nothing:
+/// `fold` maps A to Z alone, which an ASCII comparison without case is.
+fn is_each_form(n: &Node) -> bool {
+    match n {
+        Node::List(l) => matches!(
+            l.items().first(),
+            Some(Node::Sym(s)) if s.eq_ignore_ascii_case("each") || s.eq_ignore_ascii_case("each-index")
+        ),
+        _ => false,
+    }
 }
 
 /// A form as the expander holds it (VLA.2): VLA.bas's own model, where an
@@ -331,13 +352,17 @@ fn nth_list(items: &[Node], i: usize) -> Result<&Seq, Refusal> {
 }
 
 /// The substitution environment of one macro application: `Substitute`'s
-/// `bindings`, `restName` (folded) and `restItems`. Empty for a primitive
-/// met outside any template.
+/// `bindings`, `restName` (folded) and `restItems`, the call's own items
+/// borrowed, so that a loop's scope (VLA.5) copies no list; and the
+/// expander's macros, which the reference's `GetMacro` reads from its
+/// module, so that a loop refuses a list written as a macro's call. Empty
+/// for a primitive met outside any template, but for the macros.
 #[derive(Default)]
 struct Env<'r> {
     bindings: HashMap<&'r str, Node>,
     rest_name: &'r str,
-    rest_items: Vec<Node>,
+    rest_items: &'r [Node],
+    macros: Option<&'r HashMap<String, Rule>>,
 }
 
 /// A macro as the expander applies it (VLA.2): its parameters folded and
@@ -497,7 +522,12 @@ impl Expander {
         let mut pending_head: Vec<Node> = Vec::new();
         loop {
             let Node::List(lst) = &cur else {
-                return Ok(cur.form());
+                // VLA.5: an atom with forms set aside before it is the last
+                // form of a begin a macro made, combined with them below.
+                if pending_head.is_empty() {
+                    return Ok(cur.form());
+                }
+                break;
             };
             let items = lst.items();
             let Some(Node::Sym(head)) = items.first() else {
@@ -510,7 +540,7 @@ impl Expander {
             }
             // QUASIQUOTE: (symbol ...) needs no ambient bindings.
             if head_fold == "symbol" {
-                return Ok(fuse_symbol(items, &Env::default())?.form());
+                return Ok(fuse_symbol(items, &self.bare_env())?.form());
             }
             // VLA.4: the formula syntax, its argument expanded first.
             if head_fold == "formula-expand" {
@@ -525,9 +555,23 @@ impl Expander {
                     &[("head", &head_fold)],
                 ));
             }
-            // LISTOPS: the twenty-seven primitives, standalone.
+            // LISTOPS: the twenty-eight primitives, standalone.
             if is_listops(&head_fold) {
-                return Ok(eval_listops_prim(&head_fold, items, &Env::default())?.form());
+                return Ok(eval_listops_prim(&head_fold, items, &self.bare_env())?.form());
+            }
+            // VLA.5: a loop at a form's head, outside any template, is a
+            // statement: its results as one begin, handed back to this loop
+            // so that its rows expand, where a primitive's result above is
+            // returned as it is. One link of the chain, as a begin unwrapped
+            // is.
+            if head_fold == "each" || head_fold == "each-index" {
+                chain_len += 1;
+                if chain_len > 5000 {
+                    return Err(raise("vla-macro-self-expansion-limit", &[]));
+                }
+                let next = each_begin(items, &self.bare_env())?;
+                cur = next;
+                continue;
             }
             if head_fold == "begin" && items.len() > 1 && lst.line == 0 {
                 // TABLESPEC-SCALE: a begin a macro made is a tail-position
@@ -553,31 +597,87 @@ impl Expander {
                 if chain_len > 5000 {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
-                let r = expand_one(items, rule)?;
+                let r = expand_one(items, rule, &self.rules)?;
                 self.weigh(&r)?;
                 self.expand_fired += 1; // L1: one per application
                 cur = r;
             }
         }
-        // No macro at the head: rebuild with expanded elements, keeping the
-        // list's own line (C2).
+        // VLA.5, found while building the loop and fixed: a begin a macro
+        // made whose last form is an atom, `(defmacro (m) (debug-print 1)
+        // x)` or a loop's results ending in one, reaches here with its other
+        // forms set aside, where the atom alone was returned and they were
+        // dropped. They are kept, in order, the atom last.
         let Node::List(cur_list) = &cur else {
-            unreachable!("the loop leaves only on a list");
+            return self.pending_begin(&pending_head, cur.form(), depth, walk);
         };
+        // No macro at the head: rebuild with expanded elements, keeping the
+        // list's own line (C2); a loop among them spliced (VLA.5).
         let mut out = Vec::with_capacity(cur_list.count());
         for e in cur_list.items() {
-            out.push(self.expand_at(e, depth, walk + 1)?);
+            match e {
+                Node::List(l) if is_each_form(e) => {
+                    self.expand_each_into(&mut out, l.items(), depth, walk + 1)?;
+                }
+                _ => out.push(self.expand_at(e, depth, walk + 1)?),
+            }
         }
         let out = Form::List(List::new(out, cur_list.line));
         if pending_head.is_empty() {
             return Ok(out);
         }
+        self.pending_begin(&pending_head, out, depth, walk)
+    }
+
+    /// TABLESPEC-SCALE and VLA.5, VBA `PendingBegin`: the forms the
+    /// trampoline set aside, each expanded as a chain of its own (a loop
+    /// among them spliced), then the last form, already expanded: one
+    /// `begin`, with no line.
+    fn pending_begin(
+        &mut self,
+        pending_head: &[Node],
+        last: Form,
+        depth: u32,
+        walk: u32,
+    ) -> Result<Form, Refusal> {
         let mut final_out = vec![Form::sym("begin")];
-        for e in &pending_head {
-            final_out.push(self.expand_at(e, depth, walk + 1)?);
+        for e in pending_head {
+            match e {
+                Node::List(l) if is_each_form(e) => {
+                    self.expand_each_into(&mut final_out, l.items(), depth, walk + 1)?;
+                }
+                _ => final_out.push(self.expand_at(e, depth, walk + 1)?),
+            }
         }
-        final_out.push(out);
+        final_out.push(last);
         Ok(Form::list(final_out))
+    }
+
+    /// VLA.5, VBA `ExpandEachInto`: a loop met among a list's elements by
+    /// the walk, outside any template: its results, the loop evaluated with
+    /// no bindings but its own names, pushed in order, each expanded at the
+    /// depth the loop stood at.
+    fn expand_each_into(
+        &mut self,
+        out: &mut Vec<Form>,
+        each_form: &[Node],
+        depth: u32,
+        walk: u32,
+    ) -> Result<(), Refusal> {
+        let results = each_results(each_form, &self.bare_env())?;
+        for r in &results {
+            out.push(self.expand_at(r, depth, walk)?);
+        }
+        Ok(())
+    }
+
+    /// The environment of a form met outside any template: no bindings, but
+    /// the macros, which a loop asks of its list (VLA.5).
+    fn bare_env(&self) -> Env<'_> {
+        Env {
+            macros: Some(&self.rules),
+            ..Env::default()
+        }
     }
 
     /// VLA.4: `(formula-expand <expression>)`, VBA `ExpandFormulaCall`: the
@@ -629,7 +729,7 @@ impl Expander {
             }
             if let Some(rule) = self.rules.get(&head_fold) {
                 if !(self.budget_on && self.expand_fired >= self.expand_budget) {
-                    let r = expand_one(items, rule)?;
+                    let r = expand_one(items, rule, &self.rules)?;
                     self.weigh(&r)?;
                     self.expand_fired += 1;
                     return Ok(r.form());
@@ -736,8 +836,9 @@ fn too_deep(line: u32) -> Refusal {
 }
 
 /// VBA `ExpandOne`: one application of a macro to a call form's items. A
-/// parameter is bound to its argument itself, not a copy of it.
-fn expand_one(call: &[Node], rule: &Rule) -> Result<Node, Refusal> {
+/// parameter is bound to its argument itself, not a copy of it, and the
+/// rest parameter to the call's own items after the parameters'.
+fn expand_one(call: &[Node], rule: &Rule, rules: &HashMap<String, Rule>) -> Result<Node, Refusal> {
     let argc = call.len() - 1;
     let name = call[0].atom_text().unwrap_or_default();
     if rule.rest_name.is_empty() {
@@ -764,13 +865,12 @@ fn expand_one(call: &[Node], rule: &Rule) -> Result<Node, Refusal> {
     let mut env = Env {
         bindings: HashMap::new(),
         rest_name: &rule.rest_name,
-        rest_items: Vec::new(),
+        rest_items: &call[rule.params.len() + 1..],
+        macros: Some(rules),
     };
     for (j, p) in rule.params.iter().enumerate() {
         env.bindings.insert(p, call[j + 1].clone());
     }
-    env.rest_items
-        .extend(call[rule.params.len() + 1..].iter().cloned());
     substitute(&rule.template, &env, false)
 }
 
@@ -785,7 +885,7 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             let key = fold(s);
             if !env.rest_name.is_empty() && key == env.rest_name {
                 // The rest parameter standalone: the whole list.
-                return Ok(Node::list(env.rest_items.clone()));
+                return Ok(Node::list(env.rest_items.to_vec()));
             }
             if let Some(v) = env.bindings.get(key.as_str()) {
                 return Ok(v.clone());
@@ -822,7 +922,9 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
                         &[("n", &(items.len() - 1).to_string())],
                     ));
                 }
-                return substitute(nth(items, 2)?, env, false);
+                // VLA.5: a value is read here, so a loop is its results'
+                // list, as the rest parameter is its whole list here.
+                return substitute_value(nth(items, 2)?, env);
             }
             "unquote-splicing" => {
                 // A splice in its place is taken by the element walk below;
@@ -834,6 +936,13 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             }
             _ if is_listops(&h) && !in_quasi => {
                 return eval_listops_prim(&h, items, env);
+            }
+            // VLA.5: a loop standing alone is a statement, its results one
+            // begin, taken at its head before the element walk below, where
+            // the rest parameter in its binding would be spliced. Shielded
+            // data inside a quasiquote, as the primitives are.
+            "each" | "each-index" if !in_quasi => {
+                return each_begin(items, env);
             }
             _ => {}
         }
@@ -851,19 +960,26 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
                     &[("n", &(spl.len() - 1).to_string())],
                 ));
             }
-            let val = substitute(nth(spl, 2)?, env, false)?;
+            // VLA.5: a value is read here too, so a loop splices its results.
+            let val = substitute_value(nth(spl, 2)?, env)?;
             let Node::List(val) = val else {
                 return Err(raise("vla-unquote-splicing-not-list", &[]));
             };
             out.extend(val.items().iter().cloned());
             spliced = true;
         } else if !in_quasi {
-            if let Node::Sym(s) = e {
-                if !env.rest_name.is_empty() && fold(s) == env.rest_name {
+            match e {
+                Node::Sym(s) if !env.rest_name.is_empty() && fold(s) == env.rest_name => {
                     // The rest parameter as an element: its forms spliced in.
                     out.extend(env.rest_items.iter().cloned());
                     spliced = true;
                 }
+                Node::List(l) if is_each_form(e) => {
+                    // VLA.5: a loop as an element, its results spliced in.
+                    out.extend(each_results(l.items(), env)?);
+                    spliced = true;
+                }
+                _ => {}
             }
         }
         if !spliced {
@@ -901,6 +1017,202 @@ fn fuse_symbol(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
     })
 }
 
+// VLA.5: the loop at expand time, `(each (name list) form ...)` and
+// `(each-index (index name list start) form ...)`. A form of the walks,
+// beside `formula-expand`, and no LISTOPS primitive: its forms are a
+// template substituted once for each element of the list, the name bound
+// to the element, and its results take the rest parameter's own rule:
+// spliced where the loop is a list's element, the list of them where a
+// value is read, and one `begin` where it stands alone as a statement. No
+// gensym and no eval: the names are the author's, and the loop reads
+// nothing but the source.
+
+/// VBA `EachFormBegin`: a loop standing alone, a statement (a macro's
+/// whole template, a branch of `quote-if` or `cond`, a form of the source):
+/// its results as one `begin`, with no line, so the trampoline unwraps it.
+fn each_begin(each_form: &[Node], env: &Env) -> Result<Node, Refusal> {
+    let mut out = vec![Node::sym("begin")];
+    out.extend(each_results(each_form, env)?);
+    Ok(Node::list(out))
+}
+
+/// VBA `SubstituteValue`: a form where a value is read, `unquote`'s or
+/// `unquote-splicing`'s: a loop there is the list of its results, any other
+/// form as `substitute` makes it.
+fn substitute_value(t: &Node, env: &Env) -> Result<Node, Refusal> {
+    match t {
+        Node::List(l) if is_each_form(t) => Ok(Node::list(each_results(l.items(), env)?)),
+        _ => substitute(t, env, false),
+    }
+}
+
+/// VBA `EachFormResults`: a loop's results. The binding read by its shape,
+/// each name it binds checked, the list resolved as a primitive's argument
+/// is, each-index's start a whole number; then, for each element in order,
+/// every form of the loop substituted as a list's element is (a loop among
+/// them spliced, the rest parameter spliced), under the template's
+/// bindings with the name bound to the element, and the index to its
+/// count, the start up by one. The reference builds that scope from the
+/// bindings its forms read, since a Collection cannot list its keys; the
+/// port clones its map, which answers every form the same.
+fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
+    let op = match &each_form[0] {
+        Node::Sym(s) => fold(s),
+        _ => unreachable!("a loop is headed by its name"),
+    };
+    let binding = each_binding(each_form, &op)?;
+    let indexed = op == "each-index";
+    let (index_name, var_name, list_at) = if indexed {
+        (Some(symbol_text(&binding[0])), symbol_text(&binding[1]), 2)
+    } else {
+        (None, symbol_text(&binding[0]), 1)
+    };
+    if let Some(index_name) = &index_name {
+        each_check_name(&op, index_name, env)?;
+    }
+    each_check_name(&op, &var_name, env)?;
+    let var_fold = fold(&var_name);
+    let index_fold = index_name.as_deref().map(fold);
+    if index_fold.as_deref() == Some(var_fold.as_str()) {
+        return Err(raise(
+            "vla-each-name-bound",
+            &[("op", &op), ("word", &var_name)],
+        ));
+    }
+    let walked = each_list(&op, &binding[list_at], env)?;
+    let start = if indexed {
+        each_start_value(&op, &binding[3], env)?
+    } else {
+        0.0
+    };
+    let mut scope = Env {
+        bindings: env.bindings.clone(),
+        rest_name: env.rest_name,
+        rest_items: env.rest_items,
+        macros: env.macros,
+    };
+    let mut results = Vec::new();
+    for (k, element) in walked.items().iter().enumerate() {
+        scope.bindings.insert(var_fold.as_str(), element.clone());
+        if let Some(index_fold) = &index_fold {
+            let count = start + k as f64;
+            scope
+                .bindings
+                .insert(index_fold.as_str(), Node::sym(str_(count).trim()));
+        }
+        for f in &each_form[2..] {
+            each_body_form_into(&mut results, f, &scope)?;
+        }
+    }
+    Ok(results)
+}
+
+/// A name the loop's binding holds, which `each_binding` saw is a symbol.
+fn symbol_text(n: &Node) -> String {
+    match n {
+        Node::Sym(s) => s.to_string(),
+        _ => unreachable!("the binding's names are symbols"),
+    }
+}
+
+/// VBA `EachBinding`: the loop's binding, or the refusal that shows its
+/// shape: `(name list)` for `each`, `(index name list start)` for
+/// `each-index`, each name a symbol, and at least one form after it.
+fn each_binding<'a>(each_form: &'a [Node], op: &str) -> Result<&'a [Node], Refusal> {
+    let want = if op == "each-index" { 4 } else { 2 };
+    let names = want / 2;
+    if each_form.len() >= 3 {
+        if let Node::List(b) = &each_form[1] {
+            let items = b.items();
+            if items.len() == want && items[..names].iter().all(|n| matches!(n, Node::Sym(_))) {
+                return Ok(items);
+            }
+        }
+    }
+    let shape = if want == 4 {
+        "(index name list start)"
+    } else {
+        "(name list)"
+    };
+    Err(raise("vla-each-shape", &[("op", op), ("binding", shape)]))
+}
+
+/// VBA `EachCheckName`: a name a loop binds, refused when it is an
+/// expand-time name (the table `defmacro` refuses a name by) or one the
+/// template already binds, the macro's parameter, its rest, an enclosing
+/// loop's name.
+fn each_check_name(op: &str, word: &str, env: &Env) -> Result<(), Refusal> {
+    let word_fold = fold(word);
+    if let Some((reserved, desc)) = RESERVED.iter().find(|(w, _)| *w == word_fold) {
+        return Err(raise(
+            "vla-each-name-reserved",
+            &[("op", op), ("word", reserved), ("desc", desc)],
+        ));
+    }
+    let bound = env.bindings.contains_key(word_fold.as_str())
+        || (!env.rest_name.is_empty() && word_fold == env.rest_name);
+    if bound {
+        return Err(raise("vla-each-name-bound", &[("op", op), ("word", word)]));
+    }
+    Ok(())
+}
+
+/// VBA `EachList`: the list a loop walks, resolved as a primitive's
+/// argument is: a parameter, the rest parameter, a quoted list, a
+/// primitive's result or another loop's results. A list written as a
+/// macro's call is refused by name, since a primitive's argument is never
+/// expanded and the call would be walked as its symbols; an atom is refused
+/// as no list.
+fn each_list(op: &str, list_form: &Node, env: &Env) -> Result<Seq, Refusal> {
+    if let Node::List(l) = list_form {
+        if let Some(Node::Sym(head)) = l.items().first() {
+            if env.macros.is_some_and(|m| m.contains_key(&fold(head))) {
+                return Err(raise("vla-each-list-a-call", &[("op", op), ("head", head)]));
+            }
+        }
+    }
+    match resolve_listops_arg(list_form, env)? {
+        Node::List(walked) => Ok(walked),
+        other => Err(raise(
+            "vla-expand-expected-list",
+            &[
+                ("op", op),
+                ("value", &other.atom_text().unwrap_or_default()),
+            ],
+        )),
+    }
+}
+
+/// VBA `EachStartValue`: each-index's start, resolved as a primitive's
+/// argument and held to the arithmetic's gate, a number literal and a
+/// whole one, so that the count is exact.
+fn each_start_value(op: &str, start_form: &Node, env: &Env) -> Result<f64, Refusal> {
+    let v = resolve_listops_arg(start_form, env)?;
+    let text = number_text(op, &v)?;
+    let n = val(&text);
+    if n.fract() != 0.0 {
+        return Err(raise(
+            "vla-arith-expand-not-whole",
+            &[("op", op), ("value", &text)],
+        ));
+    }
+    Ok(n)
+}
+
+/// VBA `EachBodyFormInto`: one of a loop's forms for one element, as a
+/// list's element is substituted: a loop spliced, the rest parameter
+/// spliced, any other form substituted under the element's scope.
+fn each_body_form_into(out: &mut Vec<Node>, f: &Node, scope: &Env) -> Result<(), Refusal> {
+    match f {
+        Node::List(l) if is_each_form(f) => out.extend(each_results(l.items(), scope)?),
+        Node::Sym(s) if !scope.rest_name.is_empty() && fold(s) == scope.rest_name => {
+            out.extend(scope.rest_items.iter().cloned());
+        }
+        _ => out.push(substitute(f, scope, false)?),
+    }
+    Ok(())
+}
+
 /// VBA `EvalListopsPrim`: the dispatcher the two recognition sites share,
 /// over the primitive's call form.
 fn eval_listops_prim(head_fold: &str, lst: &[Node], env: &Env) -> Result<Node, Refusal> {
@@ -920,14 +1232,19 @@ fn eval_listops_prim(head_fold: &str, lst: &[Node], env: &Env) -> Result<Node, R
         "address-expand" => eval_address_expand(lst, env),
         "row-expand" | "column-expand" => eval_address_part_expand(head_fold, lst, env),
         "column-letters-expand" => eval_column_letters_expand(lst, env),
+        "assoc-expand" => eval_assoc_expand(lst, env),
         _ => eval_arith_expand(head_fold, lst, env),
     }
 }
 
 /// VBA `ResolveListopsArg`: the argument through `Substitute`, then one
-/// top-level `(quote X)` unwrapped to its data, X itself.
+/// top-level `(quote X)` unwrapped to its data, X itself. A loop there is
+/// the list of its results (VLA.5), as the rest parameter is its whole list.
 fn resolve_listops_arg(arg: &Node, env: &Env) -> Result<Node, Refusal> {
-    let v = substitute(arg, env, false)?;
+    let v = match arg {
+        Node::List(l) if is_each_form(arg) => Node::list(each_results(l.items(), env)?),
+        _ => substitute(arg, env, false)?,
+    };
     if v.head_is("quote") {
         let Node::List(qc) = &v else { unreachable!() };
         let qc = qc.items();
@@ -1386,6 +1703,46 @@ fn eval_column_letters_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> 
     Ok(Node::Str(Arc::from(column_letters(col as u32).as_str())))
 }
 
+/// VLA.5: `(assoc-expand head entries)`, the first entry of the list whose
+/// own head is `head`, compared as `equal?` compares (an atom as `eq?`
+/// compares it, a symbol by its folded text and a string exactly, never
+/// one to the other, and a list by its structure), the entry itself; or
+/// the empty list when none is: Scheme's `assoc`. An entry is a list with
+/// a head, and one that is not is refused when the search reaches it; an
+/// entry past the one found is never looked at.
+fn eval_assoc_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    const OP: &str = "assoc-expand";
+    if lst.len() != 3 {
+        return Err(expand_arity(OP, 2, lst));
+    }
+    let head = resolve_listops_arg(nth(lst, 2)?, env)?;
+    let listed = resolve_listops_arg(nth(lst, 3)?, env)?;
+    let Node::List(entries) = &listed else {
+        return Err(raise(
+            "vla-expand-expected-list",
+            &[
+                ("op", OP),
+                ("value", &listed.atom_text().unwrap_or_default()),
+            ],
+        ));
+    };
+    for entry in entries.items() {
+        let Node::List(e) = entry else {
+            return Err(raise(
+                "vla-assoc-expand-entry",
+                &[("value", &entry.atom_text().unwrap_or_default())],
+            ));
+        };
+        let Some(first) = e.items().first() else {
+            return Err(raise("vla-assoc-expand-entry", &[("value", "()")]));
+        };
+        if deep_equal(&head, first) {
+            return Ok(entry.clone());
+        }
+    }
+    Ok(Node::list(Vec::new()))
+}
+
 /// VBA `EvalCondFrom`: `(cond (test form) ... (else form))`, one clause at
 /// a time from `start_idx`; a test that folds to true or false is taken or
 /// skipped at expand time, any other test defers to a native `if`.
@@ -1824,8 +2181,9 @@ mod tests {
             "unquote-splicing",
             "symbol",
         ];
-        // VLA.4: an operation of the walk, recognized by `expand_at` alone.
-        let walk_operations = ["formula-expand"];
+        // VLA.4: an operation of the walk, recognized by `expand_at` alone;
+        // VLA.5: the loop, a form of the walk and of `substitute`.
+        let walk_operations = ["formula-expand", "each", "each-index"];
         for name in LISTOPS {
             assert!(
                 reserved.contains(name),
@@ -1840,7 +2198,7 @@ mod tests {
                 "{name} is reserved but not recognised"
             );
         }
-        assert_eq!(LISTOPS.len(), 27);
+        assert_eq!(LISTOPS.len(), 28);
         assert_eq!(one("(formula-expand (+ 1 2))"), "\"=1+2\"");
     }
 
@@ -2199,7 +2557,7 @@ mod tests {
             .unwrap();
         let call = Node::of(&read_forms("(m (g 1) (quote ((h 2) 3)))").unwrap()[0]);
         let Node::List(call) = &call else { panic!() };
-        let r = expand_one(call.items(), &ex.rules["m"]).unwrap();
+        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules).unwrap();
         let Node::List(r) = &r else { panic!() };
         let shared = |n: &Node, with: &Node| match (n, with) {
             (Node::List(a), Node::List(b)) => Arc::ptr_eq(&a.run, &b.run),
@@ -2292,6 +2650,263 @@ mod tests {
         let Form::List(r) = &out else { panic!() };
         assert_eq!(r.line, 0);
         assert_eq!(r.items[2].as_list().unwrap().line, 4);
+    }
+
+    // VLA.5: the loop and assoc-expand, TestEachForms (VLA_Tests.bas) pin
+    // for pin.
+    #[test]
+    fn a_loop_writes_its_forms_once_an_element() {
+        assert_eq!(one("(each (x (quote (a b))) (f x))"), "(begin (f a) (f b))");
+        assert_eq!(
+            one("(each (x (quote (a b))) (when x (f)))"),
+            "(begin (if a (then (f))) (if b (then (f))))"
+        );
+        assert_eq!(
+            one("(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) \
+                 (cells \"S\" (\"A1\" 1) (\"B1\" 2))"),
+            "(begin (cell \"S\" \"A1\" 1) (cell \"S\" \"B1\" 2))"
+        );
+        assert_eq!(one("(each (x (quote ())) (f x))"), "(begin)");
+        assert_eq!(
+            one("(each (x (quote (a b))) (f x) (g x))"),
+            "(begin (f a) (g a) (f b) (g b))"
+        );
+        assert_eq!(
+            one("(defmacro (seq & xs) (each (x xs) x)) (seq 1 2 3)"),
+            "(begin 1 2 3)"
+        );
+    }
+
+    #[test]
+    fn each_index_counts_from_the_start_its_binding_names() {
+        assert_eq!(
+            one("(each-index (i x (quote (a b c)) 0) (f i x))"),
+            "(begin (f 0 a) (f 1 b) (f 2 c))"
+        );
+        assert_eq!(
+            one("(each-index (i x (quote (a b)) 1) (f i x))"),
+            "(begin (f 1 a) (f 2 b))"
+        );
+        assert_eq!(
+            one("(each-index (row x (quote (a b)) (row-expand \"C7\")) (f row x))"),
+            "(begin (f 7 a) (f 8 b))"
+        );
+        assert_eq!(
+            one("(each-index (i x (quote (a b)) -1) (f i))"),
+            "(begin (f -1) (f 0))"
+        );
+    }
+
+    #[test]
+    fn a_loop_splices_as_an_element_and_is_its_list_where_a_value_is_read() {
+        assert_eq!(one("(+ (each (c (quote (A1 B1 C1))) c))"), "(+ A1 B1 C1)");
+        assert_eq!(
+            one("(defmacro (total & cells) (+ (each (c cells) c))) (total A1 B1)"),
+            "(+ A1 B1)"
+        );
+        assert_eq!(
+            one("(formula-expand (+ (each (c (quote (A1 B1))) c)))"),
+            "\"=A1+B1\""
+        );
+        assert_eq!(
+            one("(each (r (quote ((a b) (c)))) (each (x r) (f x)))"),
+            "(begin (f a) (f b) (f c))"
+        );
+        assert_eq!(one("(car (cdr (each (x (quote (a b c))) (f x))))"), "(f b)");
+        assert_eq!(
+            one("(each (y (each (x (quote (a b))) (f x))) (g y))"),
+            "(begin (g (f a)) (g (f b)))"
+        );
+        assert_eq!(
+            one("(defmacro (m & xs) (quasiquote (f (unquote-splicing (each (x xs) (g x)))))) (m a b)"),
+            "(f (g a) (g b))"
+        );
+        assert_eq!(
+            one("(defmacro (m) (quasiquote (each (x (quote (a b))) x))) (m)"),
+            "(begin a b)"
+        );
+    }
+
+    #[test]
+    fn a_malformed_loop_is_refused_by_name() {
+        for (src, id, frag) in [
+            (
+                "(each (x (quote (a))))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each x (quote (a)) (f x))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each (\"x\" (quote (a))) (f))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each-index (i x (quote (a))) (f x))",
+                "vla-each-shape",
+                "each-index: write (each-index (index name list start) form ...)",
+            ),
+            (
+                "(each (car (quote (a))) (f car))",
+                "vla-each-name-reserved",
+                "each 'car': 'car' is the list-head primitive and cannot be a name each binds",
+            ),
+            (
+                "(defmacro (m xs) (each (xs xs) (f xs))) (m (quote (a)))",
+                "vla-each-name-bound",
+                "each: 'xs' is already a name in this template",
+            ),
+            (
+                "(defmacro (m & xs) (each (xs xs) (f xs))) (m a)",
+                "vla-each-name-bound",
+                "each: 'xs' is already a name in this template",
+            ),
+            (
+                "(each (x (quote ((a)))) (each (x x) (f x)))",
+                "vla-each-name-bound",
+                "each: 'x' is already a name in this template",
+            ),
+            (
+                "(each-index (x x (quote (a)) 0) (f x))",
+                "vla-each-name-bound",
+                "each-index: 'x' is already a name in this template",
+            ),
+            (
+                "(each (x y) (f x))",
+                "vla-expand-expected-list",
+                "each: expected a list, got 'y'",
+            ),
+            (
+                "(each (x (when a b)) (f x))",
+                "vla-each-list-a-call",
+                "each: the list to walk is a call of the macro 'when'",
+            ),
+            (
+                "(each-index (i x (quote (a)) one) (f i))",
+                "vla-arith-expand-not-number-value",
+                "each-index: expected a number, got 'one'",
+            ),
+            (
+                "(each-index (i x (quote (a)) (quote (1))) (f i))",
+                "vla-arith-expand-not-number-list",
+                "each-index: expected a number, got a list",
+            ),
+            (
+                "(each-index (i x (quote (a)) 1.5) (f i))",
+                "vla-arith-expand-not-whole",
+                "each-index: expected a whole number, got '1.5'",
+            ),
+        ] {
+            let r = expand_err(src);
+            assert_eq!(r.id, id, "{src}");
+            assert!(r.text.contains(frag), "{src}: {}", r.text);
+        }
+    }
+
+    #[test]
+    fn assoc_expand_answers_the_first_entry_by_its_head_or_the_empty_list() {
+        assert_eq!(
+            one("(assoc-expand (quote b) (quote ((a 1) (b 2) (b 3))))"),
+            "(b 2)"
+        );
+        assert_eq!(one("(assoc-expand (quote z) (quote ((a 1))))"), "()");
+        assert_eq!(
+            one("(assoc-expand (quote SHEET) (quote ((sheet \"Tower\"))))"),
+            "(sheet \"Tower\")"
+        );
+        assert_eq!(one("(assoc-expand \"a\" (quote ((a 1))))"), "()");
+        assert_eq!(
+            one("(assoc-expand (quote (1 2)) (quote (((1 2) x))))"),
+            "((1 2) x)"
+        );
+        assert_eq!(
+            one("(assoc-expand (quote a) (quote ((a 1) junk)))"),
+            "(a 1)"
+        );
+        assert_eq!(
+            one(
+                "(defmacro (put at & pieces) (cell (car (cdr (assoc-expand sheet pieces))) at)) \
+                 (put \"A2\" (value 1) (sheet \"Tower\"))"
+            ),
+            "(cell \"Tower\" \"A2\")"
+        );
+        for (src, id, frag) in [
+            (
+                "(assoc-expand (quote a))",
+                "vla-expand-arity",
+                "assoc-expand expects exactly 2 argument(s), got 1",
+            ),
+            (
+                "(assoc-expand (quote a) b)",
+                "vla-expand-expected-list",
+                "assoc-expand: expected a list, got 'b'",
+            ),
+            (
+                "(assoc-expand (quote a) (quote (x (a 1))))",
+                "vla-assoc-expand-entry",
+                "assoc-expand: an entry is a list with a head, got 'x'",
+            ),
+            (
+                "(assoc-expand (quote a) (quote (())))",
+                "vla-assoc-expand-entry",
+                "assoc-expand: an entry is a list with a head, got '()'",
+            ),
+        ] {
+            let r = expand_err(src);
+            assert_eq!(r.id, id, "{src}");
+            assert!(r.text.contains(frag), "{src}: {}", r.text);
+        }
+    }
+
+    #[test]
+    fn the_loop_s_names_are_reserved_and_the_one_table_still_refuses() {
+        for (name, desc) in [
+            ("each", "expand-time loop form"),
+            ("each-index", "expand-time counting loop form"),
+            ("assoc-expand", "expand-time entry-lookup primitive"),
+        ] {
+            let r = expand_err(&format!("(defmacro ({name} x) x)"));
+            assert_eq!(r.id, "vla-defmacro-reserved-name");
+            assert_eq!(
+                r.text,
+                format!("defmacro '{name}': '{name}' is the {desc} and cannot be a macro name")
+            );
+        }
+        assert_eq!(
+            expand_err("(defmacro (QUOTE x) x)").text,
+            "defmacro 'quote': 'quote' is the data-literal form and cannot be a macro name"
+        );
+    }
+
+    #[test]
+    fn a_begin_a_macro_made_keeps_its_forms_before_an_atom() {
+        // Found while building the loop: the trampoline returned the atom
+        // alone and dropped the forms it had set aside before it.
+        assert_eq!(
+            one("(defmacro (m) (debug-print 1) x) (m)"),
+            "(begin (debug-print 1) x)"
+        );
+        assert_eq!(
+            one("(defmacro (m & xs) (begin xs)) (m 1 2 3)"),
+            "(begin 1 2 3)"
+        );
+    }
+
+    #[test]
+    fn a_loop_of_2500_rows_is_one_application_past_the_walker_s_cap() {
+        let entries: Vec<String> = (1..=2500).map(|i| format!("(\"A{i}\" {i})")).collect();
+        let src = format!(
+            "(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) \
+             (cells \"S\" {})",
+            entries.join(" ")
+        );
+        let (text, fired) = expand_text(&src, PRELUDE, true).unwrap();
+        assert_eq!(fired, 1);
+        assert!(text.contains("(cell \"S\" \"A2500\" 2500)"));
     }
 
     #[test]

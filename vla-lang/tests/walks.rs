@@ -1,4 +1,5 @@
-//! A macro that walks a list costs its length (VLA.2). The reference's scale
+//! A macro that walks a list costs its length (VLA.2), and so does a loop
+//! (VLA.5), `each` over a macro's rest in one application. The reference's scale
 //! pins walk a table by recursing on `(cdr spec)` (`TestTablespecDepthSafety`
 //! and `TestListopsDepthSafety`, VLA_Tests.bas), and VLA.bas shares the rest
 //! of the table at each step. The port copied it at every use of the
@@ -92,6 +93,28 @@ fn walk_rows(n: usize) -> String {
     )
 }
 
+/// VLA.5: the loop over `n` arguments of its rest, one statement a row, in
+/// one application where walk-rows makes one a row.
+fn each_rows(n: usize) -> String {
+    let rows: Vec<String> = (1..=n).map(|i| i.to_string()).collect();
+    format!(
+        "(defmacro (each-rows & xs) (each (x xs) (debug-print x)))\r\n\
+         (sub t () (each-rows {}))",
+        rows.join(" ")
+    )
+}
+
+/// VLA.5: the kit's `cells` as a loop, over `n` entries of its rest, each
+/// read by `car` and `cdr`: the shape `KIT.6` writes.
+fn each_cells(n: usize) -> String {
+    let entries: Vec<String> = (1..=n).map(|i| format!("(\"A{i}\" {i})")).collect();
+    format!(
+        "(defmacro (cells sheet & entries) (each (entry entries) \
+         (cell sheet (car entry) (car (cdr entry)))))\r\n(cells \"S\" {})",
+        entries.join(" ")
+    )
+}
+
 /// The allocations the expander makes on this thread, and the bytes they
 /// ask for, defining the prelude's macros and the source's and expanding
 /// the rest to its fixpoint, as `VlaExpandText` does; the text is read
@@ -118,10 +141,17 @@ fn a_walk_over_a_table_costs_its_rows_not_their_square() {
     // 7,936,337 bytes and its second 203,002 of 7,936,456; walk-rows'
     // 42,020 of 1,351,193 and 42,002 of 1,351,456. Before it, the
     // generator's were 73,236,060 allocations of 2.5 GB and 217,236,002 of
-    // 7.5 GB. The ceilings are half as much again as a row's allocations.
+    // 7.5 GB. VLA.5's loop, measured when it was built: each-rows' first
+    // thousand 16,024 allocations of 678,425 bytes and its second 16,002
+    // of 678,456, the cells loop's 25,021 of 1,015,165 and 25,002 of
+    // 1,015,456 - a loop of rows in one application where walk-rows makes
+    // one a row, at a third of its allocations. The ceilings are half as
+    // much again as a row's allocations.
     for (what, program, ceiling) in [
         ("the table generator", table as fn(usize) -> String, 305u64),
         ("walk-rows", walk_rows, 63),
+        ("each-rows", each_rows, 24),
+        ("the cells loop", each_cells, 38),
     ] {
         let none = spent(&program(0));
         let one = spent(&program(1000));

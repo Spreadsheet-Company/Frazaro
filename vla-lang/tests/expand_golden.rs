@@ -7,12 +7,16 @@
 //! (`VLA_Tests.bas`) writes of them: each case's header, then
 //! `EXPANDED<TAB><applications fired>` and the text `VlaExpandText` prints,
 //! or `REFUSED<TAB><id><TAB><text>`. This writes the same records from the
-//! port and holds them to that file whole, so that the twenty-seven
-//! expand-time primitives and the macro system around them answer one text
-//! the same way in both implementations (SD-18: the reference's file is the
-//! one that decides).
+//! port and holds them to that file whole, so that the twenty-eight
+//! expand-time primitives, the walk's forms and the macro system around
+//! them answer one text the same way in both implementations (SD-18: the
+//! reference's file is the one that decides). And it holds the loop's
+//! claim in miniature (VLA.5): the kit's `cells` walker and its `each`
+//! twin, two cases of the fixture, write the same rows.
 
 use vla_lang::expand::expand_text;
+use vla_lang::form::Form;
+use vla_lang::reader::read_forms;
 
 const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 const CASES: &str = include_str!("../testdata/expand.txt");
@@ -62,11 +66,59 @@ fn report(cases: &str) -> (String, usize) {
     (out, count)
 }
 
+/// A case's text, by its name in the fixture.
+fn case_text(name: &str) -> String {
+    let cases = CASES.replace("\r\n", "\n");
+    let header = format!("=== {name}\n");
+    let at = cases
+        .find(&header)
+        .unwrap_or_else(|| panic!("no case {name} in the fixture"))
+        + header.len();
+    let rest = &cases[at..];
+    let end = rest.find("\n=== ").map_or(rest.len(), |e| e + 1);
+    rest[..end].trim_end_matches('\n').to_string()
+}
+
+/// The rows an expansion writes, as Alonzo's pass reads them: every
+/// `begin` flattened, an empty one writing nothing.
+fn rows(text: &str) -> Vec<Form> {
+    fn flatten(f: Form, out: &mut Vec<Form>) {
+        match f {
+            Form::List(l) if l.head_is("begin") => {
+                for item in l.items.into_iter().skip(1) {
+                    flatten(item, out);
+                }
+            }
+            other => out.push(other),
+        }
+    }
+    let mut out = Vec::new();
+    for f in read_forms(text).expect("an expansion reads back") {
+        flatten(f, &mut out);
+    }
+    out
+}
+
+#[test]
+fn the_walker_and_its_loop_write_the_same_rows() {
+    // The two records cannot be equal: the walker fires an application an
+    // entry and one more, and its base case leaves a (begin); the loop
+    // fires one. Their rows are what a cartridge holds.
+    let (walked, walks) =
+        expand_text(&case_text("cells-written-by-a-walk"), PRELUDE, true).unwrap();
+    let (looped, loops) = expand_text(&case_text("cells-written-by-each"), PRELUDE, true).unwrap();
+    assert_eq!((walks, loops), (4, 1));
+    assert_ne!(walked, looped);
+    let (walked, looped) = (rows(&walked), rows(&looped));
+    assert_eq!(walked.len(), 3);
+    assert_eq!(walked, looped);
+}
+
 #[test]
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 135, "only {count} cases in the expand fixture");
+    assert!(count >= 229, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))
