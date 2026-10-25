@@ -19,10 +19,11 @@ Option Explicit
 ' VlaPopContext) is the stack of them.
 '
 ' Scope, stated so it is not assumed wider than it is: this snapshots
-' VLA.bas's twenty fields only (the ones "the compiler is not reentrant"
-' in BETA_REARVIEW.md's F.5 refers to; APROPOSPLUS added AproposRulesCarry
-' beside AproposCarry, and LISTOPS-PROVENANCE added GenRow beside AtLine,
-' same shape, same reason each needs the same save/restore).
+' VLA.bas's twenty-one fields only (the ones "the compiler is not
+' reentrant" in BETA_REARVIEW.md's F.5 refers to; APROPOSPLUS added
+' AproposRulesCarry beside AproposCarry, LISTOPS-PROVENANCE added GenRow
+' beside AtLine, and VLA.6 added Defines beside Macros, same shape, same
+' reason each needs the same save/restore).
 ' VLA_English.bas's own module-level state
 ' (63 variables, the English grammar/parsing engine) is a separate, later
 ' item - deliberately out of scope here, the same "first cut sized to the
@@ -31,6 +32,8 @@ Option Explicit
 Public Macros As Object            ' PDICT.0: late-bound Scripting.Dictionary,
                                     ' was a Collection - see VLA.bas's own
                                     ' mMacros declaration comment.
+Public Defines As Object           ' VLA.6: VLA.bas's mDefines, the words a
+                                    ' source's defines bind, or Nothing.
 Public HeadAliases As Collection
 Public SubDocs As Collection
 Public AproposCarry As String

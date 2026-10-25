@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Refers"
 Option Explicit
-Public Const VLA_REFERS_VERSION As String = "VLA.3"
+Public Const VLA_REFERS_VERSION As String = "VLA.6"
+' VLA.6: RefersR1C1Shaped, IsR1C1Shaped made reachable, so that the
+' expander's define (VLA.bas) refuses a word Excel refuses as a name since
+' R1C1 notation reads it as a reference, R, C, RC or R1C1, by this module's
+' one rule, which already quotes a sheet so named.
+'
 ' VLA.3: RefersColumnNumber, LettersToCol made reachable, so that the
 ' expander's row-expand and column-expand (VLA.bas) read a column's letters
 ' by this module's one rule, as RefersColumnLetters already writes them.
@@ -692,6 +697,13 @@ Private Function SheetNeedsQuotes(ByVal sheetName As String) As Boolean
         Exit Function
     End If
     SheetNeedsQuotes = IsR1C1Shaped(sheetName)
+End Function
+
+' VLA.6: whether a word has the R1C1 shape, R, C, RC, R1C1 or R12C34, which
+' Excel refuses as a name and SheetNeedsQuotes quotes as a sheet: VLA.bas's
+' define refuses a word so shaped.
+Public Function RefersR1C1Shaped(ByVal word As String) As Boolean
+    RefersR1C1Shaped = IsR1C1Shaped(word)
 End Function
 
 ' R, C, R1, C1, RC, R1C1, R12C34: a sheet so named is quoted.

@@ -50,6 +50,51 @@
   y)`. No program in the corpus, the phrasebooks or the cartridges met it,
   and every compiled golden stands as it was.
 
+- **A name at expand time.** `(define stop State!B12)` gives a form a word,
+  so that a source says `stop` where it meant that cell: in every form of
+  the source after the define's own, the expander puts the form where the
+  word stands as a value, so `(formula-expand (if (= stop 1) 1 0))` writes
+  `=IF(State!B12=1,1,0)`. A define writes nothing where it stands and is
+  gone once the source has expanded, so no workbook, record or formula ever
+  meets the word. A macro may write defines, so one list can give a sheet's
+  labels and their words together. The word is never replaced at a list's
+  head, inside a quote or a text, or in an expand-time primitive's
+  argument, and a macro's parameter of the same word hides it. A define may
+  name another, and its form expands where the word stands. Refused by
+  name: a define that is not `(define name form)`; a word that is a
+  reference (`B12`, `A:A`, `Sheet1!x`, `R1C1`), a number, a truth value, a
+  keyword, a form of the language, an expand-time name, a form of the
+  formula syntax's own (`error`, `ref`, `last`), a macro's name or a word
+  defined already; a define inside another form or a formula; a word used
+  in the very form that defines it, where it is not yet bound; and words
+  that stand for one another in a ring.
+
+- **A reference's twin in the formula syntax.** `(last Input!B13)` writes
+  `Input.last!B13`, the same cells on the sheet the language's machine keeps
+  the last frame's values in, its sheet quoted where it must be (`(last
+  (ref "Q1 Data" "A1"))` writes `'Q1 Data.last'!A1`), and `(last stop)`
+  takes a defined word. A reference with no sheet, a twin's twin and a name
+  are refused by name, and the formula reader now refuses a call named
+  `LAST`, as it refuses `REF`, since the writer never writes one.
+
+- **A reference's two parts.** `(sheet-expand reference)` and
+  `(range-expand reference)` give the sheet and the cell or range of one
+  reference on a sheet as texts, the two `ref` takes, their argument
+  expanded first, so that a macro writes a row at a word: `(formula
+  (sheet-expand stop) (range-expand stop) ...)` is a row at `State!B12`.
+
+- **`define`, `sheet-expand` and `range-expand` are reserved names**, so a
+  macro of one of those names is refused. None was defined in this
+  repository's sources, the phrasebooks, Alonzo's cartridges or Buffet.
+
+- **A macro whose last form is a quote, a formula or a primitive keeps the
+  forms before it.** `(defmacro (m) (debug-print 1) (quote (a b)))`
+  expanded `(m)` to `(quote (a b))` alone, the `debug-print` dropped, and
+  likewise with a `formula-expand` or an expand-time primitive's call last;
+  each now keeps the forms before it, as a macro whose last form is an atom
+  has since the loop arrived. No program in the corpus, the phrasebooks or
+  the cartridges met it, and every compiled golden stands as it was.
+
 ## 0.11.0
 
 ### What changed

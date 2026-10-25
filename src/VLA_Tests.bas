@@ -1,6 +1,19 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.5"
+Public Const VLA_TESTS_VERSION As String = "VLA.6"
+' VLA.6: TestDefineForms - a name at expand time and a reference's twin, 69
+' pins: a define binding the forms after its own and replaced only where the
+' walk meets its word as an expression, never a head, a quote, a text or a
+' primitive's argument; a macro's parameter shadowing it; a define naming
+' another, before or after it; its form expanding where its word stands; a
+' define a macro writes and labels and names a loop writes from one list;
+' the stop rule by names writing Kairos's row, as its twin by addresses
+' does; one pass leaving a define whole; every refusal by its words or its
+' id; last's twins and refusals; sheet-expand and range-expand, a row at a
+' name; the three reserved names; and the trampoline keeping a begin's
+' forms before a quote, a formula and a primitive, found while scoping.
+' Wired after TestEachForms.
+'
 ' VLA.5: TestEachForms - the loop at expand time and assoc-expand, 49 pins:
 ' a loop standing alone one begin of its rows, its rows expanded, a
 ' template's loop, each-index from its start, a loop spliced as a list's
@@ -518,6 +531,7 @@ Public Function VlaSelfTest() As Boolean
     TestListopsExpand
     TestListopsObjectModel
     TestEachForms
+    TestDefineForms
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -6915,6 +6929,181 @@ Private Sub TestEachForms()
     Report "each: 2,500 rows in one loop, past the walker's 2,499", _
         InStr(1, t, "(cell ""S"" ""A2500"" 2500)", vbBinaryCompare) > 0, Left$(t, 160)
 End Sub
+
+' VLA.6: a name at expand time, (define name form), and a reference's twin,
+' (last X), with a reference's two parts, sheet-expand and range-expand: a
+' define binding the forms after its own, replaced where the walk meets its
+' word as an expression and nowhere else, a define a macro and a loop write,
+' the stop rule by names writing the row its twin by addresses writes, one
+' pass leaving a define whole, every refusal by its words or its id, the
+' three reserved names, and the trampoline keeping a begin's forms before a
+' quote, a formula and a primitive. scripts/expand_golden.txt holds the
+' same cases' whole records to vla-lang's; these pins say what each means.
+Private Sub TestDefineForms()
+    ' --- define: a word for a form, from the next form of the source on.
+    CheckV "define: binds the forms after it, writing nothing where it stands", _
+        ExpandTrimmed("(define stop State!B12) (f stop)"), "(begin)" & vbCrLf & "(f State!B12)"
+    CheckV "define: a word replaced inside a formula", _
+        ExpandTrimmed("(define stop State!B12) (formula-expand (if (= stop 1) 1 0))"), _
+        "(begin)" & vbCrLf & """=IF(State!B12=1,1,0)"""
+    CheckV "define: a list's head is never replaced", _
+        ExpandTrimmed("(define left State!B5) (formula-expand (left left 1))"), _
+        "(begin)" & vbCrLf & """=LEFT(State!B5,1)"""
+    CheckV "define: never inside a quote or a text", _
+        ExpandTrimmed("(define stop State!B12) (f (quote stop) ""stop"" stop)"), _
+        "(begin)" & vbCrLf & "(f (quote stop) ""stop"" State!B12)"
+    CheckV "define: a primitive reads the word as data", _
+        ExpandTrimmed("(define stop State!B12) (eq? stop (quote stop))"), "(begin)" & vbCrLf & "true"
+    CheckV "define: a macro's parameter shadows it, its argument replaced where it lands", _
+        ExpandTrimmed("(defmacro (twice stop) (+ stop stop)) (define stop State!B12) (twice 5) (twice stop)"), _
+        "(begin)" & vbCrLf & "(+ 5 5)" & vbCrLf & "(+ State!B12 State!B12)"
+    CheckV "define: names another defined before it", _
+        ExpandTrimmed("(define last-column State!B24) (define right-end last-column) (f right-end)"), _
+        "(begin)" & vbCrLf & "(begin)" & vbCrLf & "(f State!B24)"
+    CheckV "define: names another defined after it", _
+        ExpandTrimmed("(define right-end last-column) (define last-column State!B24) (f right-end)"), _
+        "(begin)" & vbCrLf & "(begin)" & vbCrLf & "(f State!B24)"
+    CheckV "define: its form expands where its word stands, a macro firing there", _
+        ExpandTrimmed("(defmacro (pressed-now button) (and (= button 1) (= (last button) 0))) " & _
+            "(define press-edge (pressed-now Input!B5)) (formula-expand (if press-edge 1 0))"), _
+        "(begin)" & vbCrLf & """=IF(AND(Input!B5=1,Input.last!B5=0),1,0)"""
+    CheckV "define: a macro writes one", _
+        ExpandTrimmed("(defmacro (name-cell word sheet address) (define word (ref sheet address))) " & _
+            "(name-cell stop ""State"" ""B12"") (formula-expand (+ stop 1))"), _
+        "(begin)" & vbCrLf & """=State!B12+1"""
+    CheckV "define: in a begin written by hand, nothing left where it stood", _
+        ExpandTrimmed("(begin (define stop State!B12) (f 1)) (f stop)"), "(begin (f 1))" & vbCrLf & "(f State!B12)"
+    Dim firedN As Long
+    Dim t As String
+    t = VlaExpandText("(define stop State!B12) (f stop)", True, firedN)
+    CheckV "define: a word replaced is no macro's application", firedN, 0
+    t = VlaExpandText("(define stop (when a b)) (f stop)", False, firedN)
+    CheckV "define: one pass leaves a define whole and replaces no word", t, _
+        "(define stop (when a b))" & vbCrLf & "(f stop)" & vbCrLf
+
+    ' --- a block's labels and its names from one list, by a loop: the stop
+    '     rule by names writes the row its twin by addresses writes.
+    Dim namesMacros As String
+    namesMacros = "(defmacro (names sheet top & words) (each-index (row word words top) (label-and-name sheet row word))) " & _
+        "(defmacro (label-and-name sheet row word) (cell sheet (address-expand row 1) (&expand word)) " & _
+        "(define word (ref sheet (address-expand row 2)))) "
+    CheckV "define: a loop writes labels and names from one list, every label kept", _
+        ExpandTrimmed(namesMacros & "(names ""State"" 1 phase since) (formula-expand (if (= phase 1) since 0))"), _
+        "(begin (begin (cell ""State"" ""A1"" ""phase"")) (cell ""State"" ""A2"" ""since""))" & vbCrLf & _
+        """=IF(State!B1=1,State!B2,0)"""
+    CheckV "define: the stop rule by names, Kairos's row", _
+        LastLineOf(ExpandTrimmed(namesMacros & _
+            "(defmacro (rule name expression) (formula (sheet-expand name) (range-expand name) (formula-expand expression))) " & _
+            "(define sliding 1) (names ""State"" 1 phase) (names ""State"" 9 press take start stop) " & _
+            "(rule stop (if (and (= (last phase) sliding) (= press 1)) 1 0))")), _
+        "(formula ""State"" ""B12"" ""=IF(AND(State.last!B1=1,State!B9=1),1,0)"")"
+    CheckV "define: the stop rule by addresses, the same row", _
+        ExpandTrimmed("(defmacro (rule sheet range expression) (formula sheet range (formula-expand expression))) " & _
+            "(rule ""State"" ""B12"" (if (and (= State.last!B1 1) (= State!B9 1)) 1 0))"), _
+        "(formula ""State"" ""B12"" ""=IF(AND(State.last!B1=1,State!B9=1),1,0)"")"
+    CheckV "define: a loop's begin ending in a define keeps every row", _
+        ExpandTrimmed("(each (w (quote (p q))) (cell (&expand w)) (define w (ref ""S"" ""A1"")))"), _
+        "(begin (cell ""p"") (cell ""q""))"
+
+    ' --- a define's refusals, each by its id or the words that name it.
+    CheckV "define: a word alone is no define", ExpandRefusalId("(define stop)"), "vla-define-shape"
+    CheckV "define: two forms are no define", ExpandRefusalId("(define stop A1 B1)"), "vla-define-shape"
+    CheckExpandErr "define: a text is no word", "(define ""stop"" A1)", _
+        "define: write (define name form), a name and the one form it stands for - got (define ""stop"" A1)"
+    CheckExpandErr "define: a word read as a cell refused", "(define B12 1)", _
+        "define 'B12': 'B12' reads as a cell, and a define gives a reference a word of its own"
+    CheckExpandErr "define: a word read as a column refused", "(define A:A 1)", "'A:A' reads as a column"
+    CheckExpandErr "define: a sheet's name refused", "(define Sheet1!stop 1)", "'Sheet1!stop' reads as a name on a sheet"
+    CheckExpandErr "define: a word in R1C1 notation refused", "(define R1C1 1)", "'R1C1' reads as a reference in R1C1 notation"
+    CheckExpandErr "define: a number refused", "(define 12 A1)", _
+        "define '12': '12' is a number, and a define binds a word of the source's own"
+    CheckExpandErr "define: a truth value refused", "(define true 1)", "'true' is a truth value"
+    CheckExpandErr "define: a keyword refused", "(define :stop 1)", "':stop' is a keyword argument"
+    CheckExpandErr "define: a form of the language refused", "(define if A1)", "'if' is a form of the language"
+    CheckExpandErr "define: an alias of one refused too", "(define si A1)", "'si' is a form of the language"
+    CheckExpandErr "define: an expand-time name refused", "(define car A1)", "'car' is the list-head primitive"
+    CheckExpandErr "define: the formula syntax's own form refused", "(define last State!B24)", _
+        "'last' is a form of the formula syntax's own"
+    CheckExpandErr "define: define itself refused", "(define define A1)", "'define' is the expand-time naming form"
+    CheckExpandErr "define: a macro's name refused", "(defmacro (since event) event) (define since State!B2)", _
+        "define 'since': 'since' is a macro's name in this source - a word names one thing"
+    CheckExpandErr "define: a word defined twice refused", "(define stop A1) (define stop B1)", _
+        "'stop' is defined already in this source"
+    CheckExpandErr "define: twice in one form refused", "(begin (define stop A1) (define stop B1))", _
+        "'stop' is defined already in this source"
+    CheckV "define: inside a row refused", ExpandRefusalId("(cell ""S"" ""A1"" (define stop A1))"), "vla-define-not-a-statement"
+    CheckV "define: inside a formula refused", ExpandRefusalId("(formula-expand (+ 1 (define stop A1)))"), "vla-define-not-a-statement"
+    CheckV "define: a define's form holding a define refused", ExpandRefusalId("(define stop (define press A1))"), _
+        "vla-define-not-a-statement"
+    CheckExpandErr "define: a word used in its own form refused", "(begin (define stop State!B12) (f stop))", _
+        "'stop' is used in the form of the source that defines it, where it is not yet a name"
+    CheckV "define: used in its own form by a formula refused", _
+        ExpandRefusalId("(begin (define stop State!B12) (formula-expand (+ stop 1)))"), "vla-define-used-in-its-form"
+    CheckV "define: used before it in a macro's begin refused", _
+        ExpandRefusalId("(defmacro (use-then-define) (f stop) (define stop A1)) (use-then-define)"), "vla-define-used-in-its-form"
+    CheckExpandErr "define: words in a ring refused, the ring named", "(define start-row end-row) (define end-row start-row)", _
+        "define 'end-row': the words end-row -> start-row -> end-row stand for one another in a ring"
+    CheckExpandErr "define: a word naming itself refused", "(define total (+ total 1))", _
+        "the words total -> total stand for one another"
+    CheckExpandErr "define: 'define' refused as a macro name", "(defmacro (define x) x)", _
+        "'define' is the expand-time naming form and cannot be a macro name"
+    CheckExpandErr "define: 'define' refused as a loop's name", "(each (define (quote (a))) (f define))", _
+        "each 'define': 'define' is the expand-time naming form and cannot be a name each binds"
+
+    ' --- last: a reference's twin, in the formula syntax.
+    CheckV "last: a cell's twin", ExpandTrimmed("(formula-expand (+ (last Input!B13) 1))"), """=Input.last!B13+1"""
+    CheckV "last: a range's twin", ExpandTrimmed("(formula-expand (sum (last Tally!B1:E10)))"), """=SUM(Tally.last!B1:E10)"""
+    CheckV "last: a quoted sheet's twin, quoted by the one rule", _
+        ExpandTrimmed("(formula-expand (last (ref ""Q1 Data"" ""A1"")))"), """='Q1 Data.last'!A1"""
+    CheckV "last: its $ marks as written", ExpandTrimmed("(formula-expand (last State!$B$3))"), """=State.last!$B$3"""
+    CheckV "last: a column's twin", ExpandTrimmed("(formula-expand (sum (last Screen!A:A)))"), """=SUM(Screen.last!A:A)"""
+    CheckV "last: of a word a define binds", _
+        ExpandTrimmed("(define level State!B3) (formula-expand (+ (last level) 1))"), "(begin)" & vbCrLf & """=State.last!B3+1"""
+    CheckExpandErr "last: a reference with no sheet refused", "(formula-expand (last B13))", _
+        "last: 'B13' names no sheet, and a formula does not know the sheet it will stand on"
+    CheckExpandErr "last: a twin's twin refused", "(formula-expand (last Input.last!B13))", _
+        "last: 'Input.last!B13' is a twin already, and a twin has none"
+    CheckExpandErr "last: a name refused", "(formula-expand (last stop))", "got 'stop', a name"
+    CheckExpandErr "last: a span of sheets refused", "(formula-expand (last Jan:Dec!A1))", "got 'Jan:Dec!A1', a span of sheets"
+    CheckExpandErr "last: a number refused", "(formula-expand (last 5))", "got '5', no reference"
+    CheckV "last: takes one reference", ExpandRefusalId("(formula-expand (last A1 B1))"), "vla-formula-arity"
+    CheckV "last: a ref with no sheet refused", ExpandRefusalId("(formula-expand (last (ref ""A1"")))"), "vla-reference-no-sheet"
+
+    ' --- a reference's two parts, forms of the walk: a row at a name.
+    CheckV "sheet-expand and range-expand: a row at a name", _
+        ExpandTrimmed("(define stop State!B12) (formula (sheet-expand stop) (range-expand stop) (formula-expand (+ stop 1)))"), _
+        "(begin)" & vbCrLf & "(formula ""State"" ""B12"" ""=State!B12+1"")"
+    CheckV "range-expand: a range's cells", ExpandTrimmed("(range-expand Tally!B1:E10)"), """B1:E10"""
+    CheckV "sheet-expand: a quoted sheet's name as it is", ExpandTrimmed("(sheet-expand (ref ""Q1 Data"" ""A1""))"), """Q1 Data"""
+    CheckExpandErr "sheet-expand: a reference with no sheet refused", "(sheet-expand B12)", "sheet-expand: 'B12' names no sheet"
+    CheckExpandErr "range-expand: a name refused", "(range-expand stop)", "range-expand: expected one reference on a sheet"
+    CheckExpandErr "sheet-expand: takes one argument", "(sheet-expand A1 B1)", "sheet-expand expects exactly 1 argument(s), got 2"
+    CheckExpandErr "sheet-expand: refused as a macro name", "(defmacro (sheet-expand x) x)", _
+        "'sheet-expand' is the expand-time reference-sheet operation and cannot be a macro name"
+    CheckExpandErr "range-expand: refused as a macro name", "(defmacro (range-expand x) x)", _
+        "'range-expand' is the expand-time reference-range operation and cannot be a macro name"
+
+    ' --- the trampoline keeps a begin's forms before every return of its
+    '     own, found while scoping: it returned the quote, the formula's text
+    '     and the primitive's result alone.
+    CheckV "define: a begin a macro made keeps its forms before a quote", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) (quote (a b))) (m)"), "(begin (debug-print 1) (quote (a b)))"
+    CheckV "define: a begin a macro made keeps its forms before a formula", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) (formula-expand (+ A1 1))) (m)"), "(begin (debug-print 1) ""=A1+1"")"
+    CheckV "define: a begin a macro made keeps its forms before a primitive", _
+        ExpandTrimmed("(defmacro (m) (quasiquote (begin (debug-print 1) (car (quote (a b)))))) (m)"), "(begin (debug-print 1) a)"
+End Sub
+
+' VLA.6: a text's last line, all of it when it has one line.
+Private Function LastLineOf(ByVal t As String) As String
+    Dim breakAt As Long
+    breakAt = InStrRev(t, vbCrLf)
+    If breakAt = 0 Then
+        LastLineOf = t
+    Else
+        LastLineOf = Mid$(t, breakAt + 2)
+    End If
+End Function
 
 ' VLA.3: one form's expansion under the prelude, its last break dropped,
 ' or "refused: " and the refusal's text, so a pin that meets an

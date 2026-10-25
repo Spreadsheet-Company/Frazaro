@@ -588,3 +588,199 @@ REFUSED	vla-defmacro-reserved-name	defmacro 'each': 'each' is the expand-time lo
 REFUSED	vla-defmacro-reserved-name	defmacro 'each-index': 'each-index' is the expand-time counting loop form and cannot be a macro name
 === reserved-assoc-expand
 REFUSED	vla-defmacro-reserved-name	defmacro 'assoc-expand': 'assoc-expand' is the expand-time entry-lookup primitive and cannot be a macro name
+=== define-binds-the-forms-after-it
+EXPANDED	0
+(begin)
+(f State!B12)
+=== define-is-replaced-in-a-formula
+EXPANDED	0
+(begin)
+(begin)
+"=IF(AND(State!B12=1,State!B9=1),1,0)"
+=== define-never-replaces-a-head
+EXPANDED	0
+(begin)
+"=LEFT(State!B5,1)"
+=== define-never-replaces-inside-a-quote-or-a-text
+EXPANDED	0
+(begin)
+(f (quote stop) "stop" State!B12)
+=== define-is-no-primitive-s-argument
+EXPANDED	0
+(begin)
+true
+=== a-macro-s-parameter-shadows-a-define
+EXPANDED	2
+(begin)
+(+ 5 5)
+(+ State!B12 State!B12)
+=== a-define-names-another
+EXPANDED	0
+(begin)
+(begin)
+(f State!B24)
+=== a-define-names-one-defined-after-it
+EXPANDED	0
+(begin)
+(begin)
+(f State!B24)
+=== a-define-s-form-expands-where-its-word-stands
+EXPANDED	1
+(begin)
+"=IF(AND(Input!B5=1,Input.last!B5=0),1,0)"
+=== a-define-a-macro-writes
+EXPANDED	1
+(begin)
+"=State!B12+1"
+=== defines-written-by-a-loop
+EXPANDED	4
+(begin
+    (begin (cell "State" "A1" "phase"))
+    (begin (cell "State" "A2" "since"))
+    (cell "State" "A3" "press"))
+"=IF(State!B1=1,State!B2,0)"
+=== the-stop-rule-by-names
+EXPANDED	10
+(begin)
+(begin
+    (begin (cell "State" "A1" "phase"))
+    (begin (cell "State" "A2" "since"))
+    (cell "State" "A3" "level"))
+(begin
+    (begin (cell "State" "A9" "press"))
+    (begin (cell "State" "A10" "take"))
+    (begin (cell "State" "A11" "start"))
+    (cell "State" "A12" "stop"))
+(formula "State" "B12" "=IF(AND(State.last!B1=1,State!B9=1),1,0)")
+=== the-stop-rule-by-addresses
+EXPANDED	3
+(begin
+    (cell "State" "A1" "phase")
+    (cell "State" "A2" "since")
+    (cell "State" "A3" "level"))
+(begin
+    (cell "State" "A9" "press")
+    (cell "State" "A10" "take")
+    (cell "State" "A11" "start")
+    (cell "State" "A12" "stop"))
+(formula "State" "B12" "=IF(AND(State.last!B1=1,State!B9=1),1,0)")
+=== a-define-in-a-begin-written-by-hand
+EXPANDED	0
+(begin (f 1))
+(f State!B12)
+=== define-of-a-word-alone-refused
+REFUSED	vla-define-shape	define: write (define name form), a name and the one form it stands for - got (define stop)
+=== define-of-two-forms-refused
+REFUSED	vla-define-shape	define: write (define name form), a name and the one form it stands for - got (define stop A1 B1)
+=== define-named-by-a-text-refused
+REFUSED	vla-define-shape	define: write (define name form), a name and the one form it stands for - got (define "stop" A1)
+=== define-named-like-a-cell-refused
+REFUSED	vla-define-name-reference	define 'B12': 'B12' reads as a cell, and a define gives a reference a word of its own, such as stop
+=== define-named-like-a-column-refused
+REFUSED	vla-define-name-reference	define 'A:A': 'A:A' reads as a column, and a define gives a reference a word of its own, such as stop
+=== define-named-like-a-sheet-s-name-refused
+REFUSED	vla-define-name-reference	define 'Sheet1!stop': 'Sheet1!stop' reads as a name on a sheet, and a define gives a reference a word of its own, such as stop
+=== define-named-in-r1c1-notation-refused
+REFUSED	vla-define-name-reference	define 'R1C1': 'R1C1' reads as a reference in R1C1 notation, and a define gives a reference a word of its own, such as stop
+=== define-named-by-a-number-refused
+REFUSED	vla-define-name-reserved	define '12': '12' is a number, and a define binds a word of the source's own
+=== define-named-true-refused
+REFUSED	vla-define-name-reserved	define 'true': 'true' is a truth value, and a define binds a word of the source's own
+=== define-named-by-a-keyword-refused
+REFUSED	vla-define-name-reserved	define ':stop': ':stop' is a keyword argument, and a define binds a word of the source's own
+=== define-named-if-refused
+REFUSED	vla-define-name-reserved	define 'if': 'if' is a form of the language, and a define binds a word of the source's own
+=== define-named-car-refused
+REFUSED	vla-define-name-reserved	define 'car': 'car' is the list-head primitive, and a define binds a word of the source's own
+=== define-named-last-refused
+REFUSED	vla-define-name-reserved	define 'last': 'last' is a form of the formula syntax's own, and a define binds a word of the source's own
+=== define-named-define-refused
+REFUSED	vla-define-name-reserved	define 'define': 'define' is the expand-time naming form, and a define binds a word of the source's own
+=== define-named-as-a-macro-refused
+REFUSED	vla-define-name-taken	define 'since': 'since' is a macro's name in this source - a word names one thing
+=== define-twice-refused
+REFUSED	vla-define-name-taken	define 'stop': 'stop' is defined already in this source - a word names one thing
+=== define-twice-in-one-form-refused
+REFUSED	vla-define-name-taken	define 'stop': 'stop' is defined already in this source - a word names one thing
+=== define-inside-a-row-refused
+REFUSED	vla-define-not-a-statement	define 'stop': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula
+=== define-inside-a-formula-refused
+REFUSED	vla-define-not-a-statement	define 'stop': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula
+=== define-of-a-define-refused
+REFUSED	vla-define-not-a-statement	define 'press': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula
+=== define-used-in-its-own-form-refused
+REFUSED	vla-define-used-in-its-form	'stop' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own
+=== define-used-in-its-own-form-by-a-formula-refused
+REFUSED	vla-define-used-in-its-form	'stop' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own
+=== define-used-before-it-in-a-macro-s-begin-refused
+REFUSED	vla-define-used-in-its-form	'stop' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own
+=== defines-in-a-ring-refused
+REFUSED	vla-define-cycle	define 'end-row': the words end-row -> start-row -> end-row stand for one another in a ring - a define names a form that does not come back to it
+=== a-define-naming-itself-refused
+REFUSED	vla-define-cycle	define 'total': the words total -> total stand for one another in a ring - a define names a form that does not come back to it
+=== reserved-define
+REFUSED	vla-defmacro-reserved-name	defmacro 'define': 'define' is the expand-time naming form and cannot be a macro name
+=== each-named-define-refused
+REFUSED	vla-each-name-reserved	each 'define': 'define' is the expand-time naming form and cannot be a name each binds
+=== last-of-a-cell
+EXPANDED	0
+"=Input.last!B13+1"
+=== last-of-a-range
+EXPANDED	0
+"=SUM(Tally.last!B1:E10)"
+=== last-of-a-quoted-sheet
+EXPANDED	0
+"='Q1 Data.last'!A1"
+=== last-keeps-its-marks
+EXPANDED	0
+"=State.last!$B$3"
+=== last-of-a-column
+EXPANDED	0
+"=SUM(Screen.last!A:A)"
+=== last-of-a-word-a-define-binds
+EXPANDED	0
+(begin)
+"=State.last!B3+1"
+=== last-of-a-cell-with-no-sheet-refused
+REFUSED	vla-reference-no-sheet	last: 'B13' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== last-of-a-twin-refused
+REFUSED	vla-formula-last-twin	last: 'Input.last!B13' is a twin already, and a twin has none - (last X) takes the reference X itself
+=== last-of-a-name-refused
+REFUSED	vla-reference-expected	last: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'stop', a name
+=== last-of-a-span-of-sheets-refused
+REFUSED	vla-reference-expected	last: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'Jan:Dec!A1', a span of sheets
+=== last-of-a-number-refused
+REFUSED	vla-reference-expected	last: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '5', no reference
+=== last-of-two-refused
+REFUSED	vla-formula-arity	formula: (last ...) takes one reference on a sheet, got 2
+=== last-of-a-ref-with-no-sheet-refused
+REFUSED	vla-reference-no-sheet	last: '(ref "A1")' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== a-row-at-a-name
+EXPANDED	0
+(begin)
+(formula "State" "B12" "=State!B12+1")
+=== range-expand-of-a-range
+EXPANDED	0
+"B1:E10"
+=== sheet-expand-of-a-quoted-sheet
+EXPANDED	0
+"Q1 Data"
+=== sheet-expand-of-no-sheet-refused
+REFUSED	vla-reference-no-sheet	sheet-expand: 'B12' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== range-expand-of-a-name-refused
+REFUSED	vla-reference-expected	range-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'stop', a name
+=== sheet-expand-of-two-refused
+REFUSED	vla-expand-arity	sheet-expand expects exactly 1 argument(s), got 2
+=== reserved-sheet-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'sheet-expand': 'sheet-expand' is the expand-time reference-sheet operation and cannot be a macro name
+=== reserved-range-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'range-expand': 'range-expand' is the expand-time reference-range operation and cannot be a macro name
+=== a-begin-a-macro-made-keeps-its-forms-before-a-quote
+EXPANDED	1
+(begin (debug-print 1) (quote (a b)))
+=== a-begin-a-macro-made-keeps-its-forms-before-a-formula
+EXPANDED	1
+(begin (debug-print 1) "=A1+1")
+=== a-begin-a-macro-made-keeps-its-forms-before-a-primitive
+EXPANDED	1
+(begin (debug-print 1) a)

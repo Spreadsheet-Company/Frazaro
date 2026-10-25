@@ -50,6 +50,18 @@ every push:
      primitives, each form heads a form in an EXPANDED case and in a
      REFUSED one, VLA.5's primitive assoc-expand does too, and each of
      VLA.5's six ids is the id of a REFUSED record.
+  8. VLA.6's define, a form of the walk alone, with a reference's two
+     parts, sheet-expand and range-expand, and the formula syntax's last:
+     both walks take define and the two at a form's head (ExpandMacros' and
+     expand_at's test of the head), both reserve the three and list none
+     among the primitives; a define binds from the next form of the source
+     on only while every form of a source goes through one wrapper, so the
+     reference's three entry points call ExpandSourceForm and nothing else
+     calls ExpandMacros(f, 0), and the port's Expander::expand takes the
+     defines (take_defines); both writers take last among their own heads
+     (FsList's Case, formula_syntax's list); each of the four heads a form
+     in an EXPANDED case and in a REFUSED one; and each of VLA.6's ten ids
+     is the id of a REFUSED record.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
@@ -58,7 +70,10 @@ reference with one name taken from Substitute's Select, a fixture with
 every characters-expand renamed away, a reference whose walk no longer
 recognizes formula-expand, a reference whose formula writer resolves an
 alias through ResolveHeadAlias, a reference whose Substitute no longer
-takes the loop at a list's head, and a port whose RESERVED lost each.
+takes the loop at a list's head, a port whose RESERVED lost each, a
+reference whose walk no longer passes a define by, a reference whose
+VlaExpandText expands a form by ExpandMacros directly, and a port whose
+writer lost last.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -79,9 +94,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 39 written by the port ahead of the reference's run, as VLA.3's were.
 # 2026-10-24, VLA.5: 229 cases, 129 expanded, 36 distinct ids, the loop's and
 # assoc-expand's 52 written by the port ahead of the reference's run.
-$caseFloor = 229
-$expandedFloor = 129
-$idFloor = 36
+# 2026-10-25, VLA.6: 294 cases, 155 expanded, 46 distinct ids, define's,
+# last's, the reference parts' and the walk's returns' 65 written by the port
+# ahead of the reference's run.
+$caseFloor = 294
+$expandedFloor = 155
+$idFloor = 46
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -106,10 +124,19 @@ $loopPrimitives = @('assoc-expand')
 $loopIds = @('vla-each-shape', 'vla-each-name-reserved', 'vla-each-name-bound',
     'vla-each-list-a-call', 'vla-expand-expected-list', 'vla-assoc-expand-entry')
 
+# VLA.6's forms of the walk alone, the formula syntax's head, and the ten ids,
+# which rule 8 holds to both implementations and the fixture.
+$defineForms = @('define', 'sheet-expand', 'range-expand')
+$syntaxHead = 'last'
+$defineIds = @('vla-define-shape', 'vla-define-name-reference', 'vla-define-name-reserved',
+    'vla-define-name-taken', 'vla-define-not-a-statement', 'vla-define-used-in-its-form',
+    'vla-define-cycle', 'vla-reference-no-sheet', 'vla-reference-expected', 'vla-formula-last-twin')
+
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
 $vbaPath     = Join-Path $repoRoot 'src/VLA.bas'
 $portPath    = Join-Path $repoRoot 'vla-lang/src/expand.rs'
+$syntaxPath  = Join-Path $repoRoot 'vla-lang/src/formula_syntax.rs'
 $catalogPath = Join-Path $repoRoot 'vla-lang/data/messages.vla'
 
 function Get-ExpandLines([string]$path) {
@@ -228,9 +255,9 @@ function Format-ExpandSetDiff([string]$what, $a, [string]$aName, $b, [string]$bN
     return ,$out
 }
 
-# Every problem of one fixture/golden/reference/port/catalogue set, with the
-# counts the floors read.
-function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [string]$port, [string]$catalog) {
+# Every problem of one fixture/golden/reference/port/writer/catalogue set,
+# with the counts the floors read.
+function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [string]$port, [string]$catalog, [string]$syntax) {
     $problems = New-Object System.Collections.ArrayList
     $fcases = Read-ExpandCases $fixture
     $gcases = Read-ExpandCases $golden
@@ -376,6 +403,54 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
+    # 8. VLA.6's define and a reference's two parts, forms of the walk alone,
+    # and the formula syntax's last: taken at a form's head by both walks,
+    # reserved in both and listed among neither's primitives; every form of a
+    # source through one wrapper, so that a define binds from the next form
+    # on; last among both writers' own heads; reached by the fixture; its ids
+    # each a refused record.
+    $syntaxText = [System.IO.File]::ReadAllText($syntax)
+    if ($vbaText -notmatch 'If headFold = "define" Then') {
+        [void]$problems.Add("the reference's walk (ExpandMacros) does not pass a define by at a form's head")
+    }
+    if ($vbaText -notmatch 'If headFold = "sheet-expand" Or headFold = "range-expand" Then') {
+        [void]$problems.Add("the reference's walk (ExpandMacros) does not take a reference's two parts at a form's head")
+    }
+    if ($portText -notmatch 'if head_fold == "define" \{') {
+        [void]$problems.Add("the port's walk (expand_at) does not pass a define by at a form's head")
+    }
+    if ($portText -notmatch 'if head_fold == "sheet-expand" \|\| head_fold == "range-expand" \{') {
+        [void]$problems.Add("the port's walk (expand_at) does not take a reference's two parts at a form's head")
+    }
+    $wrapperCalls = [regex]::Matches($vbaText, 'ExpandSourceForm\(f\)').Count
+    if ($wrapperCalls -ne 3) {
+        [void]$problems.Add("the reference's entry points call ExpandSourceForm(f) $wrapperCalls time(s), not the three (VlaTranspile, VlaCompileToForms, VlaExpandText)")
+    }
+    $directCalls = [regex]::Matches($vbaText, 'ExpandMacros\(f, 0\)').Count
+    if ($directCalls -ne 1) {
+        [void]$problems.Add("the reference calls ExpandMacros(f, 0) $directCalls time(s), where ExpandSourceForm's one call is the only one, so a form of a source would expand with no define taken")
+    }
+    if ($portText -notmatch '(?s)pub fn expand\(&mut self, d: &Form, depth: u32\).*?self\.take_defines\(out\)') {
+        [void]$problems.Add("the port's Expander::expand does not take a form's defines (take_defines)")
+    }
+    if ($vbaText -notmatch 'FsList = FsLastForm\(lst, headWritten\)') {
+        [void]$problems.Add("the reference's formula writer (FsList) does not take last among its own heads")
+    }
+    if ($syntaxText -notmatch '"last" => last_form\(head, args\),') {
+        [void]$problems.Add("the port's formula writer (formula_syntax's list) does not take last among its own heads")
+    }
+    foreach ($x in $defineForms) {
+        if (-not $prt.Reserved.Contains($x)) { [void]$problems.Add("VLA.6's form '$x' is not in the port's RESERVED") }
+        if ($prt.Listops.Contains($x)) { [void]$problems.Add("VLA.6's form '$x' is in the port's LISTOPS, which takes data and sees no define") }
+    }
+    foreach ($x in @($defineForms + $syntaxHead)) {
+        if (-not $headsExpanded.Contains($x)) { [void]$problems.Add("no EXPANDED case heads a form with '$x'") }
+        if (-not $headsRefused.Contains($x)) { [void]$problems.Add("no REFUSED case heads a form with '$x'") }
+    }
+    foreach ($x in $defineIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -392,7 +467,7 @@ if ($Control) {
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
         $utf8 = New-Object System.Text.UTF8Encoding($false)
-        $real = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath
+        $real = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath $syntaxPath
         $lines = Get-ExpandLines $goldenPath
         $firstExpanded = -1
         $firstRefused = -1
@@ -457,17 +532,36 @@ if ($Control) {
         if ([regex]::Matches($portSource, $reservedRow).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s RESERVED row for each once'; exit 1 }
         $pi = Join-Path $tmp 'i.rs'
         [System.IO.File]::WriteAllText($pi, [regex]::Replace($portSource, $reservedRow, ''), $utf8)
-        $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath
-        $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath
-        $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath
-        $rd = Test-ExpandGolden $fixturePath $goldenPath $pd $portPath $catalogPath
-        $re = Test-ExpandGolden $pe $goldenPath $vbaPath $portPath $catalogPath
-        $rf = Test-ExpandGolden $fixturePath $goldenPath $pf $portPath $catalogPath
-        $rg = Test-ExpandGolden $fixturePath $goldenPath $pg $portPath $catalogPath
-        $rh = Test-ExpandGolden $fixturePath $goldenPath $ph $portPath $catalogPath
-        $ri = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pi $catalogPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1) {
+        # (j) the reference whose walk no longer passes a define by
+        $defineAnchor = 'If headFold = "define" Then'
+        if ([regex]::Matches($vbaText, [regex]::Escape($defineAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected the walk''s define test once in the reference'; exit 1 }
+        $pj = Join-Path $tmp 'j.bas'
+        [System.IO.File]::WriteAllText($pj, $vbaText.Replace($defineAnchor, 'If headFold = "definee" Then'), $utf8)
+        # (k) the reference whose VlaExpandText expands a form by ExpandMacros directly
+        $wrapperAnchor = 'AssignVar ex, ExpandSourceForm(f)'
+        if ([regex]::Matches($vbaText, [regex]::Escape($wrapperAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected VlaExpandText''s call of the wrapper once in the reference'; exit 1 }
+        $pk = Join-Path $tmp 'k.bas'
+        [System.IO.File]::WriteAllText($pk, $vbaText.Replace($wrapperAnchor, 'AssignVar ex, ExpandMacros(f, 0)'), $utf8)
+        # (l) the port whose writer lost last
+        $syntaxSource = [System.IO.File]::ReadAllText($syntaxPath)
+        $lastArm = '"last" => last_form(head, args),'
+        if ([regex]::Matches($syntaxSource, [regex]::Escape($lastArm)).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s writer arm for last once'; exit 1 }
+        $pl = Join-Path $tmp 'l.rs'
+        [System.IO.File]::WriteAllText($pl, $syntaxSource.Replace($lastArm, ''), $utf8)
+        $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath $syntaxPath
+        $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath $syntaxPath
+        $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath $syntaxPath
+        $rd = Test-ExpandGolden $fixturePath $goldenPath $pd $portPath $catalogPath $syntaxPath
+        $re = Test-ExpandGolden $pe $goldenPath $vbaPath $portPath $catalogPath $syntaxPath
+        $rf = Test-ExpandGolden $fixturePath $goldenPath $pf $portPath $catalogPath $syntaxPath
+        $rg = Test-ExpandGolden $fixturePath $goldenPath $pg $portPath $catalogPath $syntaxPath
+        $rh = Test-ExpandGolden $fixturePath $goldenPath $ph $portPath $catalogPath $syntaxPath
+        $ri = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pi $catalogPath $syntaxPath
+        $rj = Test-ExpandGolden $fixturePath $goldenPath $pj $portPath $catalogPath $syntaxPath
+        $rk = Test-ExpandGolden $fixturePath $goldenPath $pk $portPath $catalogPath $syntaxPath
+        $rl = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath $pl
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }
@@ -479,7 +573,7 @@ if ($Control) {
     }
 }
 
-$r = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath
+$r = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath $syntaxPath
 if ($r.Problems.Count -eq 0) {
     $above = ($r.Cases -gt $caseFloor) -or ($r.Expanded -gt $expandedFloor) -or ($r.Ids -gt $idFloor)
     $note = if ($above) { ' - above a floor: raise the floors in this file' } else { '' }

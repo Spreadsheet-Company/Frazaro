@@ -5,7 +5,15 @@
 //! walk's two kinds of form: `formula-expand`, the formula syntax at expand
 //! time, which expands its argument before writing it (`ExpandFormulaCall`,
 //! VLA.4), and the loop, `each` and `each-index`, a template substituted
-//! once for each element of a list (`EachFormResults`, VLA.5).
+//! once for each element of a list (`EachFormResults`, VLA.5). And, since
+//! VLA.6, a name at expand time, `(define name form)`: the walk passes a
+//! define by as written, and once the form of the source it stands in has
+//! expanded, [`Expander::expand`] takes the defines from that form's
+//! statements, checks them and registers them (`DefinesTake`), so that a
+//! word binds from the next form of the source on, and the walk puts a
+//! define's form where its word stands as an expression; with a reference's
+//! two parts, `sheet-expand` and `range-expand`, forms of the walk beside
+//! `formula-expand` (`ExpandReferencePart`).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -41,11 +49,12 @@ use std::sync::{Arc, OnceLock};
 
 use crate::form::{sym_text, Form, List};
 use crate::formula_syntax;
-use crate::intrinsics::{fold, is_numeric_literal_text, str_, val};
+use crate::headtable;
+use crate::intrinsics::{fold, is_numeric, is_numeric_literal_text, str_, val};
 use crate::messages::{raise, Refusal};
-use crate::printer::write_pretty;
+use crate::printer::{write_datum, write_pretty};
 use crate::reader::{count_lf, parse_all, src_line_tag, tokenize, FORM_DEPTH_LIMIT};
-use crate::refers::letters_to_col;
+use crate::refers::{self, letters_to_col, Kind};
 use crate::sheet::{column_letters, MAX_COLUMN, MAX_ROW};
 
 /// One macro, as `DefineMacro` records it.
@@ -107,6 +116,10 @@ const RESERVED: &[(&str, &str)] = &[
     ("assoc-expand", "expand-time entry-lookup primitive"),
     ("each", "expand-time loop form"),
     ("each-index", "expand-time counting loop form"),
+    // VLA.6: a name at expand time, and a reference's two parts.
+    ("define", "expand-time naming form"),
+    ("sheet-expand", "expand-time reference-sheet operation"),
+    ("range-expand", "expand-time reference-range operation"),
 ];
 
 /// The twenty-eight LISTOPS primitives `Substitute` and `ExpandMacros` both
@@ -157,6 +170,18 @@ fn is_each_form(n: &Node) -> bool {
             l.items().first(),
             Some(Node::Sym(s)) if s.eq_ignore_ascii_case("each") || s.eq_ignore_ascii_case("each-index")
         ),
+        _ => false,
+    }
+}
+
+/// VLA.6, VBA `IsDefineForm`: a define, a list headed by `define`, over a
+/// form the walk has written out, folding nothing, as [`is_each_form`]
+/// folds nothing.
+fn is_define(f: &Form) -> bool {
+    match f {
+        Form::List(l) => {
+            matches!(l.items.first(), Some(Form::Sym(s)) if s.eq_ignore_ascii_case("define"))
+        }
         _ => false,
     }
 }
@@ -388,6 +413,17 @@ pub struct Expander {
     /// VLA.4: whether the walk stands inside a `formula-expand`'s argument,
     /// where another one is refused.
     formula_open: bool,
+    /// VLA.6, `mDefines`: the words a source's defines bind, folded, each its
+    /// form as written, registered once the form of the source each stands
+    /// in has expanded, so that a word binds from the next form on. Empty
+    /// for a source with none, which the walk's atom case asks first.
+    defines: HashMap<String, Node>,
+    /// VLA.6, `mDefineMet`: the walk passed a define by in the form
+    /// [`Expander::expand`] expands.
+    define_met: bool,
+    /// VLA.6, `mFormulaTexts`: the texts formula-expand wrote in that form,
+    /// read for a word used in the form that defines it.
+    formula_texts: Vec<String>,
 }
 
 /// The most forms one macro application's result may hold (VLA.1), counted
@@ -500,9 +536,20 @@ impl Expander {
         Ok(())
     }
 
-    /// VBA `ExpandMacros`: a form to its fixpoint.
+    /// VBA `ExpandSourceForm`: a form of the source to its fixpoint
+    /// (`ExpandMacros`), and then, when the walk passed a define by, the
+    /// form's defines taken from its statements and registered for the forms
+    /// after it (VLA.6). Every caller expands a source's forms through this,
+    /// once a form and in order, so a word binds from the next form of the
+    /// source on, whatever order the trampoline expanded this one in.
     pub fn expand(&mut self, d: &Form, depth: u32) -> Result<Form, Refusal> {
-        self.expand_at(&Node::of(d), depth, 1)
+        self.define_met = false;
+        self.formula_texts.clear();
+        let out = self.expand_at(&Node::of(d), depth, 1)?;
+        if self.define_met {
+            return self.take_defines(out);
+        }
+        Ok(out)
     }
 
     /// [`Expander::expand`] at `walk`, the depth of the list `d` would be
@@ -521,6 +568,21 @@ impl Expander {
         let mut chain_len: u32 = 0;
         let mut pending_head: Vec<Node> = Vec::new();
         loop {
+            // VLA.6: a word a define binds, its form put where the word stands
+            // and looked at again, one link of the chain. A source with no
+            // define pays one `is_empty` and folds nothing.
+            if let Node::Sym(s) = &cur {
+                if !self.defines.is_empty() {
+                    if let Some(v) = self.defines.get(&fold(s)) {
+                        chain_len += 1;
+                        if chain_len > 5000 {
+                            return Err(raise("vla-macro-self-expansion-limit", &[]));
+                        }
+                        cur = v.clone();
+                        continue;
+                    }
+                }
+            }
             let Node::List(lst) = &cur else {
                 // VLA.5: an atom with forms set aside before it is the last
                 // form of a begin a macro made, combined with them below.
@@ -534,17 +596,38 @@ impl Expander {
                 break;
             };
             let head_fold = fold(head);
-            // P.L5: quote is a data context; expansion never enters.
+            // P.L5: quote is a data context; expansion never enters. VLA.6:
+            // every return of a form of its own, this one and those below,
+            // goes by `finish`, which keeps the forms set aside before it.
             if head_fold == "quote" {
-                return Ok(cur.form());
+                let quoted = cur.form();
+                return self.finish(&pending_head, quoted, depth, walk);
             }
             // QUASIQUOTE: (symbol ...) needs no ambient bindings.
             if head_fold == "symbol" {
-                return Ok(fuse_symbol(items, &self.bare_env())?.form());
+                let fused = fuse_symbol(items, &self.bare_env())?.form();
+                return self.finish(&pending_head, fused, depth, walk);
             }
             // VLA.4: the formula syntax, its argument expanded first.
             if head_fold == "formula-expand" {
-                return self.formula_expand(items, depth, walk);
+                let text = self.formula_expand(items, depth, walk)?;
+                return self.finish(&pending_head, text, depth, walk);
+            }
+            // VLA.6: a define, a form of the walk that writes nothing here:
+            // passed by as written, its word and its form never walked, for
+            // `expand` to take once the form of the source it stands in has
+            // expanded; refused inside a formula's expression.
+            if head_fold == "define" {
+                self.define_passed_by(items)?;
+                let passed = cur.form();
+                return self.finish(&pending_head, passed, depth, walk);
+            }
+            // VLA.6: a reference's sheet and its cell or range as texts, forms
+            // of the walk beside formula-expand, their argument expanded first
+            // so that a word a define binds is replaced.
+            if head_fold == "sheet-expand" || head_fold == "range-expand" {
+                let part = self.reference_part(&head_fold, items, depth, walk)?;
+                return self.finish(&pending_head, part, depth, walk);
             }
             if matches!(
                 head_fold.as_str(),
@@ -557,7 +640,9 @@ impl Expander {
             }
             // LISTOPS: the twenty-eight primitives, standalone.
             if is_listops(&head_fold) {
-                return Ok(eval_listops_prim(&head_fold, items, &self.bare_env())?.form());
+                let result = eval_listops_prim(&head_fold, items, &self.bare_env())?.form();
+                self.define_note_chosen(&result)?;
+                return self.finish(&pending_head, result, depth, walk);
             }
             // VLA.5: a loop at a form's head, outside any template, is a
             // statement: its results as one begin, handed back to this loop
@@ -612,9 +697,16 @@ impl Expander {
             return self.pending_begin(&pending_head, cur.form(), depth, walk);
         };
         // No macro at the head: rebuild with expanded elements, keeping the
-        // list's own line (C2); a loop among them spliced (VLA.5).
+        // list's own line (C2); a loop among them spliced (VLA.5). VLA.6: a
+        // list's head is never a word a define binds, so an atom there is
+        // passed by, as the walk would have returned it.
         let mut out = Vec::with_capacity(cur_list.count());
-        for e in cur_list.items() {
+        let mut elements = cur_list.items();
+        if let Some(head) = elements.first().filter(|head| !head.is_list()) {
+            out.push(head.form());
+            elements = &elements[1..];
+        }
+        for e in elements {
             match e {
                 Node::List(l) if is_each_form(e) => {
                     self.expand_each_into(&mut out, l.items(), depth, walk + 1)?;
@@ -651,6 +743,84 @@ impl Expander {
         }
         final_out.push(last);
         Ok(Form::list(final_out))
+    }
+
+    /// VLA.6, `ExpandMacros`' `finish`: a form of its own the trampoline
+    /// returns as it is (a quote, `symbol`'s atom, formula-expand's text, a
+    /// primitive's result, a define passed by, a reference's part), after
+    /// the forms it set aside before it, as an atom's are since VLA.5. Found
+    /// while scoping and fixed: `(defmacro (m) (debug-print 1) (quote (a
+    /// b)))` expanded `(m)` to `(quote (a b))` alone.
+    fn finish(
+        &mut self,
+        pending_head: &[Node],
+        result: Form,
+        depth: u32,
+        walk: u32,
+    ) -> Result<Form, Refusal> {
+        if pending_head.is_empty() {
+            return Ok(result);
+        }
+        self.pending_begin(pending_head, result, depth, walk)
+    }
+
+    /// VLA.6, VBA `DefinePassedBy`: a define the walk meets at a form's
+    /// head, passed by as written for [`Expander::expand`] to take. Inside a
+    /// formula's expression it would be written as a function's call, so it
+    /// is refused there.
+    fn define_passed_by(&mut self, items: &[Node]) -> Result<(), Refusal> {
+        if self.formula_open {
+            let word = items
+                .get(1)
+                .map(|w| write_datum(&w.form()))
+                .unwrap_or_default();
+            return Err(raise("vla-define-not-a-statement", &[("word", &word)]));
+        }
+        self.define_met = true;
+        Ok(())
+    }
+
+    /// VLA.6, VBA `DefineNoteChosen`: a standalone primitive's chosen branch
+    /// is not expanded again (VLA.5, left as found), so a define it chooses
+    /// is met at no head: noted here, as [`Expander::define_passed_by`]
+    /// notes one, and refused inside a formula's expression.
+    fn define_note_chosen(&mut self, result: &Form) -> Result<(), Refusal> {
+        let Some(held) = define_held_in(result) else {
+            return Ok(());
+        };
+        if self.formula_open {
+            return Err(raise(
+                "vla-define-not-a-statement",
+                &[("word", &define_word_of(held))],
+            ));
+        }
+        self.define_met = true;
+        Ok(())
+    }
+
+    /// VLA.6, VBA `ExpandReferencePart`: `(sheet-expand reference)` and
+    /// `(range-expand reference)`, forms of the walk beside formula-expand:
+    /// the argument expanded to its fixpoint, so that a word a define binds
+    /// is replaced first, then read as one reference on a sheet, and its
+    /// sheet's name or its cell or range answered as a text, the two texts
+    /// `ref` takes; a string, as formula-expand's is.
+    fn reference_part(
+        &mut self,
+        op: &str,
+        items: &[Node],
+        depth: u32,
+        walk: u32,
+    ) -> Result<Form, Refusal> {
+        if items.len() != 2 {
+            return Err(expand_arity(op, 1, items));
+        }
+        let read = self.expand_at(&items[1], depth, walk + 1)?;
+        let r = formula_syntax::sheet_reference(&read, op)?;
+        Ok(Form::Str(if op == "sheet-expand" {
+            r.sheet_name
+        } else {
+            formula_syntax::part_text(&r)
+        }))
     }
 
     /// VLA.5, VBA `ExpandEachInto`: a loop met among a list's elements by
@@ -703,7 +873,12 @@ impl Expander {
         self.formula_open = true;
         let expr = self.expand_at(&items[1], depth, walk + 1);
         self.formula_open = false;
-        Ok(Form::Str(formula_syntax::write(&expr?)?))
+        let text = formula_syntax::write(&expr?)?;
+        // VLA.6: kept for the form `expand` expands, so that a word a define
+        // of that form binds, written here as one of Excel's names, is
+        // refused (`DefinesRefuseFormulaUse`).
+        self.formula_texts.push(text.clone());
+        Ok(Form::Str(text))
     }
 
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
@@ -724,7 +899,9 @@ impl Expander {
         let items = lst.items();
         if let Some(Node::Sym(head)) = items.first() {
             let head_fold = fold(head);
-            if head_fold == "quote" {
+            // VLA.6: a define is left whole as written, as a quote is, since it
+            // belongs to the fixpoint walk; one pass replaces no word.
+            if head_fold == "quote" || head_fold == "define" {
                 return Ok(d.form());
             }
             if let Some(rule) = self.rules.get(&head_fold) {
@@ -793,6 +970,147 @@ impl Expander {
             }
         }
         Ok(body)
+    }
+
+    /// VLA.6, VBA `DefinesTake`: a form of the source, expanded, with its
+    /// defines taken from it. Those among its statements, the form itself or
+    /// a begin's elements at any depth of begins, are taken in order, each
+    /// leaving nothing where it stood; one anywhere else is refused. Each is
+    /// checked; then a word of theirs used in this same form, where it is
+    /// not yet bound, is refused, found in the result or in a text
+    /// formula-expand wrote, and so is a ring of words; and they bind the
+    /// forms of the source after this one.
+    fn take_defines(&mut self, out: Form) -> Result<Form, Refusal> {
+        let mut found = Vec::new();
+        let kept = defines_from_statement(out, &mut found);
+        refuse_stray_define(&kept)?;
+        let mut taken = TakenDefines::default();
+        for d in &found {
+            self.take_one_define(d, &mut taken)?;
+        }
+        refuse_define_use(&kept, &taken)?;
+        self.refuse_formula_use(&taken)?;
+        for (word, _) in &taken.words {
+            self.refuse_define_ring(word, &taken)?;
+        }
+        for (word, form) in taken.words {
+            self.defines.insert(word, Node::of(&form));
+        }
+        Ok(kept)
+    }
+
+    /// VLA.6, VBA `DefineTakeOne`: one define taken from its form: its
+    /// shape, `(define name form)`, the name a symbol and the form holding
+    /// no define; its name held to the rules; then the word, folded, and its
+    /// form as written into `taken`.
+    fn take_one_define(&self, d: &Form, taken: &mut TakenDefines) -> Result<(), Refusal> {
+        let Form::List(l) = d else {
+            unreachable!("a define is a list headed by define")
+        };
+        let shape = || raise("vla-define-shape", &[("form", &write_datum(d))]);
+        if l.items.len() != 3 {
+            return Err(shape());
+        }
+        let Form::Sym(word) = &l.items[1] else {
+            return Err(shape());
+        };
+        refuse_stray_define(&l.items[2])?;
+        self.check_define_name(word, taken)?;
+        taken.push(fold(word), l.items[2].clone());
+        Ok(())
+    }
+
+    /// VLA.6, VBA `DefineCheckName`: a define's word, refused by name when
+    /// the reference scanner reads it whole as a reference or a name on a
+    /// sheet, or it has the R1C1 shape Excel refuses a name; when it is a
+    /// number, a truth value, a keyword, a form of the head table, an
+    /// expand-time name or a form of the formula syntax's own; and when it
+    /// is a macro's name or defined already, in an earlier form or this one.
+    fn check_define_name(&self, word: &str, taken: &TakenDefines) -> Result<(), Refusal> {
+        if let Some(what) = define_reads_as(word) {
+            return Err(raise(
+                "vla-define-name-reference",
+                &[("word", word), ("what", what)],
+            ));
+        }
+        if let Some(desc) = define_reserved_desc(word) {
+            return Err(raise(
+                "vla-define-name-reserved",
+                &[("word", word), ("desc", &desc)],
+            ));
+        }
+        if self.get_macro(word).is_some() {
+            return Err(raise(
+                "vla-define-name-taken",
+                &[("word", word), ("what", "a macro's name")],
+            ));
+        }
+        if self.define_bound(&fold(word), taken) {
+            return Err(raise(
+                "vla-define-name-taken",
+                &[("word", word), ("what", "defined already")],
+            ));
+        }
+        Ok(())
+    }
+
+    /// VLA.6, VBA `DefineBound`: whether a folded word is bound by a define,
+    /// of this form or of an earlier one.
+    fn define_bound(&self, word_fold: &str, taken: &TakenDefines) -> bool {
+        taken.has(word_fold) || self.defines.contains_key(word_fold)
+    }
+
+    /// VLA.6, VBA `DefinesRefuseFormulaUse`: a word a define of this form
+    /// binds, written by formula-expand into one of this form's formulas as
+    /// one of Excel's names, since it was not yet bound there: each text
+    /// formula-expand wrote in the form read again by the scanner, and a name
+    /// with no sheet that is such a word refused.
+    fn refuse_formula_use(&self, taken: &TakenDefines) -> Result<(), Refusal> {
+        for text in &self.formula_texts {
+            for r in refers::scan(text) {
+                if r.kind == Kind::Name && r.sheet_name.is_empty() && taken.has(&fold(&r.part)) {
+                    return Err(raise("vla-define-used-in-its-form", &[("word", &r.part)]));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// VLA.6, VBA `DefinesRefuseRing`: a ring of words, a define whose form
+    /// comes back to its own word through the words its forms stand for,
+    /// refused when its last define registers, the ring named. The words a
+    /// define's form would have replaced are followed once each, breadth
+    /// first, through every word a define binds, in an earlier form or this
+    /// one; the ring is the way back.
+    fn refuse_define_ring(&self, start: &str, taken: &TakenDefines) -> Result<(), Refusal> {
+        let mut came_from: HashMap<String, String> = HashMap::new();
+        let mut queue = vec![start.to_string()];
+        let mut next = 0;
+        while next < queue.len() {
+            let at_name = queue[next].clone();
+            next += 1;
+            let mut words = Vec::new();
+            match taken.get(&at_name) {
+                Some(form) => define_words_in(form, &mut words),
+                None => define_words_in(&self.defines[&at_name].form(), &mut words),
+            }
+            for word in words {
+                if word == start {
+                    return Err(raise(
+                        "vla-define-cycle",
+                        &[
+                            ("word", start),
+                            ("ring", &ring_text(start, &at_name, &came_from)),
+                        ],
+                    ));
+                }
+                if self.define_bound(&word, taken) && !came_from.contains_key(&word) {
+                    came_from.insert(word.clone(), at_name.clone());
+                    queue.push(word);
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1211,6 +1529,209 @@ fn each_body_form_into(out: &mut Vec<Node>, f: &Node, scope: &Env) -> Result<(),
         _ => out.push(substitute(f, scope, false)?),
     }
     Ok(())
+}
+
+// VLA.6: a name at expand time, `(define name form)`. A form of the walk that
+// writes nothing where it stands: the walk passes it by as written, and once
+// the form of the source it stands in has expanded, `Expander::expand` takes
+// the defines from that form's statements, so that a word binds from the
+// next form of the source on, whatever order the trampoline expanded the
+// form in. The walk puts a define's form where its word stands as an
+// expression, never at a list's head, never inside a quote, a text or a
+// primitive's argument. No gensym and no eval: the word is the author's and
+// the form the source's own, both gone at the pass.
+
+/// VLA.6: the defines of one form of the source, in the order the form holds
+/// them, each word folded with its form as written: `DefinesTake`'s `taken`
+/// Dictionary, whose order is the order they register in.
+#[derive(Default)]
+struct TakenDefines {
+    words: Vec<(String, Form)>,
+    index: HashMap<String, usize>,
+}
+
+impl TakenDefines {
+    fn has(&self, word_fold: &str) -> bool {
+        self.index.contains_key(word_fold)
+    }
+
+    fn get(&self, word_fold: &str) -> Option<&Form> {
+        self.index.get(word_fold).map(|&i| &self.words[i].1)
+    }
+
+    fn push(&mut self, word_fold: String, form: Form) {
+        self.index.insert(word_fold.clone(), self.words.len());
+        self.words.push((word_fold, form));
+    }
+}
+
+/// VLA.6, VBA `DefinesFromStatement`: a statement with the defines among it
+/// taken out, in order, into `found`: a define itself leaves an empty begin;
+/// a begin is rebuilt without them, a begin among its elements the same,
+/// keeping its line; any other form is kept whole.
+fn defines_from_statement(v: Form, found: &mut Vec<Form>) -> Form {
+    if is_define(&v) {
+        found.push(v);
+        return Form::list(vec![Form::sym("begin")]);
+    }
+    if !v.head_is("begin") {
+        return v;
+    }
+    let Form::List(l) = v else {
+        unreachable!("a begin is a list")
+    };
+    let mut items = l.items.into_iter();
+    let mut out: Vec<Form> = items.next().into_iter().collect();
+    for e in items {
+        if is_define(&e) {
+            found.push(e);
+        } else {
+            out.push(defines_from_statement(e, found));
+        }
+    }
+    Form::List(List::new(out, l.line))
+}
+
+/// VLA.6, VBA `DefinesRefuseStray`: a define left anywhere in a form the
+/// statements' walk kept whole, a row's argument, a call's, a procedure's
+/// body, refused by name, since a define stands as a form of the source or a
+/// statement of a begin standing as one; a quote's data passed over.
+fn refuse_stray_define(v: &Form) -> Result<(), Refusal> {
+    let Form::List(l) = v else {
+        return Ok(());
+    };
+    if v.head_is("quote") {
+        return Ok(());
+    }
+    if is_define(v) {
+        return Err(raise(
+            "vla-define-not-a-statement",
+            &[("word", &define_word_of(l))],
+        ));
+    }
+    for e in &l.items {
+        refuse_stray_define(e)?;
+    }
+    Ok(())
+}
+
+/// VLA.6, VBA `DefineWordOf`: a define's word as a refusal names it: the
+/// word, or what stands where the word belongs, as written.
+fn define_word_of(l: &List) -> String {
+    l.items.get(1).map(write_datum).unwrap_or_default()
+}
+
+/// VLA.6, VBA `DefineHeldIn`: the first define a form holds, itself or at
+/// any depth, a quote's data passed over.
+fn define_held_in(v: &Form) -> Option<&List> {
+    let Form::List(l) = v else {
+        return None;
+    };
+    if v.head_is("quote") {
+        return None;
+    }
+    if is_define(v) {
+        return Some(l);
+    }
+    l.items.iter().find_map(define_held_in)
+}
+
+/// VLA.6, VBA `DefinesRefuseUse`: a word a define of this form binds,
+/// standing in the form's result where the walk would have put its form,
+/// the result itself or a list's element after an atom head, never a
+/// quote's, refused: in the form that defines it a word is not yet bound.
+fn refuse_define_use(v: &Form, taken: &TakenDefines) -> Result<(), Refusal> {
+    match v {
+        Form::Sym(s) if taken.has(&fold(s)) => {
+            Err(raise("vla-define-used-in-its-form", &[("word", s)]))
+        }
+        Form::List(l) if !v.head_is("quote") => {
+            for (i, e) in l.items.iter().enumerate() {
+                if i > 0 || matches!(e, Form::List(_)) {
+                    refuse_define_use(e, taken)?;
+                }
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// VLA.6, VBA `DefineWordsIn`: the words a define's form would have replaced
+/// where the walk meets them, the form itself when a symbol, a list's
+/// elements after an atom head, never a quote's, folded, in order.
+fn define_words_in(v: &Form, words: &mut Vec<String>) {
+    match v {
+        Form::Sym(s) => words.push(fold(s)),
+        Form::List(l) if !v.head_is("quote") => {
+            for (i, e) in l.items.iter().enumerate() {
+                if i > 0 || matches!(e, Form::List(_)) {
+                    define_words_in(e, words);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// VLA.6, VBA `DefineRingText`: a ring as its refusal names it, from its
+/// first word around to it again, `start -> ... -> last -> start`, by the
+/// word each was reached from.
+fn ring_text(start: &str, last: &str, came_from: &HashMap<String, String>) -> String {
+    let mut ring = format!("{last} -> {start}");
+    let mut at = last.to_string();
+    while at != start {
+        at = came_from[&at].clone();
+        ring = format!("{at} -> {ring}");
+    }
+    ring
+}
+
+/// VLA.6, VBA `DefineReadsAs`: what the reference scanner reads a define's
+/// word as, or `None` for a word of the source's own: a cell, a range, a
+/// column, a row, a span of sheets, a name on a sheet or any other reference
+/// it reads whole; or a reference in R1C1 notation, `R`, `C`, `RC` or `R1C1`,
+/// which Excel refuses as a name.
+fn define_reads_as(word: &str) -> Option<&'static str> {
+    let read = formula_syntax::whole_reference(word).and_then(|r| match r.kind {
+        Kind::Cell => Some("a cell"),
+        Kind::Range => Some("a range"),
+        Kind::Column => Some("a column"),
+        Kind::Row => Some("a row"),
+        Kind::ThreeD => Some("a span of sheets"),
+        Kind::Name if r.sheet_name.is_empty() => None,
+        Kind::Name => Some("a name on a sheet"),
+        _ => Some("a reference"),
+    });
+    read.or_else(|| refers::is_r1c1_shaped(word).then_some("a reference in R1C1 notation"))
+}
+
+/// VLA.6, VBA `DefineReservedDesc`: what a define's word already is in the
+/// language, or `None` for a word of the source's own: a number, a truth
+/// value, a keyword argument, a form of the head table or one of its
+/// aliases, or `defmacro`; an expand-time name ([`RESERVED`]); or a form of
+/// the formula syntax's own.
+fn define_reserved_desc(word: &str) -> Option<String> {
+    let word_fold = fold(word);
+    let desc = if formula_syntax::is_numeral(word)
+        || formula_syntax::is_negative_numeral(word)
+        || is_numeric(word)
+    {
+        "a number".to_string()
+    } else if word_fold == "true" || word_fold == "false" {
+        "a truth value".to_string()
+    } else if word.starts_with(':') && word.chars().count() > 1 {
+        "a keyword argument".to_string()
+    } else if headtable::row(&word_fold).is_some() || word_fold == "defmacro" {
+        "a form of the language".to_string()
+    } else if let Some((_, desc)) = RESERVED.iter().find(|(w, _)| *w == word_fold) {
+        format!("the {desc}")
+    } else if matches!(word_fold.as_str(), "error" | "ref" | "last") {
+        "a form of the formula syntax's own".to_string()
+    } else {
+        return None;
+    };
+    Some(desc)
 }
 
 /// VBA `EvalListopsPrim`: the dispatcher the two recognition sites share,
@@ -2182,8 +2703,16 @@ mod tests {
             "symbol",
         ];
         // VLA.4: an operation of the walk, recognized by `expand_at` alone;
-        // VLA.5: the loop, a form of the walk and of `substitute`.
-        let walk_operations = ["formula-expand", "each", "each-index"];
+        // VLA.5: the loop, a form of the walk and of `substitute`; VLA.6:
+        // define and a reference's two parts, forms of the walk alone.
+        let walk_operations = [
+            "formula-expand",
+            "each",
+            "each-index",
+            "define",
+            "sheet-expand",
+            "range-expand",
+        ];
         for name in LISTOPS {
             assert!(
                 reserved.contains(name),
@@ -2907,6 +3436,342 @@ mod tests {
         let (text, fired) = expand_text(&src, PRELUDE, true).unwrap();
         assert_eq!(fired, 1);
         assert!(text.contains("(cell \"S\" \"A2500\" 2500)"));
+    }
+
+    // VLA.6: a name at expand time, (define name form), and a reference's
+    // twin, (last X), with a reference's two parts, TestDefineForms' pins.
+    const NAMES_MACROS: &str = "(defmacro (names sheet top & words) \
+         (each-index (row word words top) (label-and-name sheet row word))) \
+         (defmacro (label-and-name sheet row word) \
+         (cell sheet (address-expand row 1) (&expand word)) \
+         (define word (ref sheet (address-expand row 2)))) ";
+
+    #[test]
+    fn a_define_binds_the_forms_after_its_own_and_is_replaced_as_an_expression() {
+        assert_eq!(
+            one("(define stop State!B12) (f stop)"),
+            "(begin)\n(f State!B12)"
+        );
+        assert_eq!(
+            one("(define stop State!B12) (formula-expand (if (= stop 1) 1 0))"),
+            "(begin)\n\"=IF(State!B12=1,1,0)\""
+        );
+        assert_eq!(
+            one("(define left State!B5) (formula-expand (left left 1))"),
+            "(begin)\n\"=LEFT(State!B5,1)\""
+        );
+        assert_eq!(
+            one("(define stop State!B12) (f (quote stop) \"stop\" stop)"),
+            "(begin)\n(f (quote stop) \"stop\" State!B12)"
+        );
+        assert_eq!(
+            one("(define stop State!B12) (eq? stop (quote stop))"),
+            "(begin)\ntrue"
+        );
+        assert_eq!(
+            one("(defmacro (twice stop) (+ stop stop)) (define stop State!B12) (twice 5) (twice stop)"),
+            "(begin)\n(+ 5 5)\n(+ State!B12 State!B12)"
+        );
+        assert_eq!(
+            one("(define last-column State!B24) (define right-end last-column) (f right-end)"),
+            "(begin)\n(begin)\n(f State!B24)"
+        );
+        assert_eq!(
+            one("(define right-end last-column) (define last-column State!B24) (f right-end)"),
+            "(begin)\n(begin)\n(f State!B24)"
+        );
+        assert_eq!(
+            one(
+                "(defmacro (pressed-now button) (and (= button 1) (= (last button) 0))) \
+                 (define press-edge (pressed-now Input!B5)) (formula-expand (if press-edge 1 0))"
+            ),
+            "(begin)\n\"=IF(AND(Input!B5=1,Input.last!B5=0),1,0)\""
+        );
+        assert_eq!(
+            one(
+                "(defmacro (name-cell word sheet address) (define word (ref sheet address))) \
+                 (name-cell stop \"State\" \"B12\") (formula-expand (+ stop 1))"
+            ),
+            "(begin)\n\"=State!B12+1\""
+        );
+        assert_eq!(
+            one("(begin (define stop State!B12) (f 1)) (f stop)"),
+            "(begin (f 1))\n(f State!B12)"
+        );
+        let (_, fired) = expand_text("(define stop State!B12) (f stop)", PRELUDE, true).unwrap();
+        assert_eq!(fired, 0, "a word replaced is no macro's application");
+        let (one_pass, _) =
+            expand_text("(define stop (when a b)) (f stop)", PRELUDE, false).unwrap();
+        assert_eq!(one_pass, "(define stop (when a b))\r\n(f stop)\r\n");
+    }
+
+    #[test]
+    fn a_loop_writes_a_block_s_labels_and_names_and_the_stop_rule_reads_them() {
+        assert_eq!(
+            one(&format!(
+                "{NAMES_MACROS}(names \"State\" 1 phase since) (formula-expand (if (= phase 1) since 0))"
+            )),
+            "(begin (begin (cell \"State\" \"A1\" \"phase\")) (cell \"State\" \"A2\" \"since\"))\n\
+             \"=IF(State!B1=1,State!B2,0)\""
+        );
+        let by_names = one(&format!(
+            "{NAMES_MACROS}(defmacro (rule name expression) \
+             (formula (sheet-expand name) (range-expand name) (formula-expand expression))) \
+             (define sliding 1) (names \"State\" 1 phase) (names \"State\" 9 press take start stop) \
+             (rule stop (if (and (= (last phase) sliding) (= press 1)) 1 0))"
+        ));
+        let kairos = "(formula \"State\" \"B12\" \"=IF(AND(State.last!B1=1,State!B9=1),1,0)\")";
+        assert_eq!(by_names.lines().last(), Some(kairos));
+        assert_eq!(
+            one("(defmacro (rule sheet range expression) (formula sheet range (formula-expand expression))) \
+                 (rule \"State\" \"B12\" (if (and (= State.last!B1 1) (= State!B9 1)) 1 0))"),
+            kairos
+        );
+        assert_eq!(
+            one("(each (w (quote (p q))) (cell (&expand w)) (define w (ref \"S\" \"A1\")))"),
+            "(begin (cell \"p\") (cell \"q\"))"
+        );
+    }
+
+    #[test]
+    fn a_malformed_define_is_refused_by_name() {
+        for (src, id, frag) in [
+            ("(define stop)", "vla-define-shape", "- got (define stop)"),
+            ("(define stop A1 B1)", "vla-define-shape", "- got (define stop A1 B1)"),
+            (
+                "(define \"stop\" A1)",
+                "vla-define-shape",
+                "define: write (define name form), a name and the one form it stands for - got (define \"stop\" A1)",
+            ),
+            (
+                "(define B12 1)",
+                "vla-define-name-reference",
+                "define 'B12': 'B12' reads as a cell, and a define gives a reference a word of its own",
+            ),
+            ("(define A:A 1)", "vla-define-name-reference", "'A:A' reads as a column"),
+            (
+                "(define Sheet1!stop 1)",
+                "vla-define-name-reference",
+                "'Sheet1!stop' reads as a name on a sheet",
+            ),
+            (
+                "(define R1C1 1)",
+                "vla-define-name-reference",
+                "'R1C1' reads as a reference in R1C1 notation",
+            ),
+            (
+                "(define 12 A1)",
+                "vla-define-name-reserved",
+                "define '12': '12' is a number, and a define binds a word of the source's own",
+            ),
+            ("(define true 1)", "vla-define-name-reserved", "'true' is a truth value"),
+            ("(define :stop 1)", "vla-define-name-reserved", "':stop' is a keyword argument"),
+            ("(define if A1)", "vla-define-name-reserved", "'if' is a form of the language"),
+            ("(define si A1)", "vla-define-name-reserved", "'si' is a form of the language"),
+            ("(define car A1)", "vla-define-name-reserved", "'car' is the list-head primitive"),
+            (
+                "(define last State!B24)",
+                "vla-define-name-reserved",
+                "'last' is a form of the formula syntax's own",
+            ),
+            (
+                "(define define A1)",
+                "vla-define-name-reserved",
+                "'define' is the expand-time naming form",
+            ),
+            (
+                "(defmacro (since event) event) (define since State!B2)",
+                "vla-define-name-taken",
+                "define 'since': 'since' is a macro's name in this source - a word names one thing",
+            ),
+            (
+                "(define stop A1) (define stop B1)",
+                "vla-define-name-taken",
+                "'stop' is defined already in this source",
+            ),
+            (
+                "(begin (define stop A1) (define stop B1))",
+                "vla-define-name-taken",
+                "'stop' is defined already in this source",
+            ),
+            (
+                "(cell \"S\" \"A1\" (define stop A1))",
+                "vla-define-not-a-statement",
+                "define 'stop': a define stands as a form of the source",
+            ),
+            (
+                "(formula-expand (+ 1 (define stop A1)))",
+                "vla-define-not-a-statement",
+                "define 'stop'",
+            ),
+            (
+                "(define stop (define press A1))",
+                "vla-define-not-a-statement",
+                "define 'press'",
+            ),
+            (
+                "(begin (define stop State!B12) (f stop))",
+                "vla-define-used-in-its-form",
+                "'stop' is used in the form of the source that defines it, where it is not yet a name",
+            ),
+            (
+                "(begin (define stop State!B12) (formula-expand (+ stop 1)))",
+                "vla-define-used-in-its-form",
+                "'stop' is used",
+            ),
+            (
+                "(defmacro (use-then-define) (f stop) (define stop A1)) (use-then-define)",
+                "vla-define-used-in-its-form",
+                "'stop' is used",
+            ),
+            (
+                "(define start-row end-row) (define end-row start-row)",
+                "vla-define-cycle",
+                "define 'end-row': the words end-row -> start-row -> end-row stand for one another in a ring",
+            ),
+            (
+                "(define total (+ total 1))",
+                "vla-define-cycle",
+                "the words total -> total stand for one another",
+            ),
+            (
+                "(defmacro (define x) x)",
+                "vla-defmacro-reserved-name",
+                "'define' is the expand-time naming form and cannot be a macro name",
+            ),
+            (
+                "(each (define (quote (a))) (f define))",
+                "vla-each-name-reserved",
+                "each 'define': 'define' is the expand-time naming form and cannot be a name each binds",
+            ),
+        ] {
+            let e = expand_err(src);
+            assert_eq!(e.id, id, "{src}: {}", e.text);
+            assert!(e.text.contains(frag), "{src}: {}", e.text);
+        }
+    }
+
+    #[test]
+    fn last_writes_a_reference_s_twin_and_refuses_what_has_none() {
+        assert_eq!(
+            one("(formula-expand (+ (last Input!B13) 1))"),
+            "\"=Input.last!B13+1\""
+        );
+        assert_eq!(
+            one("(formula-expand (sum (last Tally!B1:E10)))"),
+            "\"=SUM(Tally.last!B1:E10)\""
+        );
+        assert_eq!(
+            one("(formula-expand (last (ref \"Q1 Data\" \"A1\")))"),
+            "\"='Q1 Data.last'!A1\""
+        );
+        assert_eq!(
+            one("(formula-expand (last State!$B$3))"),
+            "\"=State.last!$B$3\""
+        );
+        assert_eq!(
+            one("(formula-expand (sum (last Screen!A:A)))"),
+            "\"=SUM(Screen.last!A:A)\""
+        );
+        assert_eq!(
+            one("(define level State!B3) (formula-expand (+ (last level) 1))"),
+            "(begin)\n\"=State.last!B3+1\""
+        );
+        for (src, id, frag) in [
+            (
+                "(formula-expand (last B13))",
+                "vla-reference-no-sheet",
+                "last: 'B13' names no sheet, and a formula does not know the sheet it will stand on",
+            ),
+            (
+                "(formula-expand (last Input.last!B13))",
+                "vla-formula-last-twin",
+                "last: 'Input.last!B13' is a twin already, and a twin has none",
+            ),
+            (
+                "(formula-expand (last stop))",
+                "vla-reference-expected",
+                "got 'stop', a name",
+            ),
+            (
+                "(formula-expand (last Jan:Dec!A1))",
+                "vla-reference-expected",
+                "got 'Jan:Dec!A1', a span of sheets",
+            ),
+            (
+                "(formula-expand (last 5))",
+                "vla-reference-expected",
+                "got '5', no reference",
+            ),
+            ("(formula-expand (last A1 B1))", "vla-formula-arity", "(last ...)"),
+            (
+                "(formula-expand (last (ref \"A1\")))",
+                "vla-reference-no-sheet",
+                "'(ref \"A1\")' names no sheet",
+            ),
+        ] {
+            let e = expand_err(src);
+            assert_eq!(e.id, id, "{src}: {}", e.text);
+            assert!(e.text.contains(frag), "{src}: {}", e.text);
+        }
+    }
+
+    #[test]
+    fn a_reference_s_two_parts_write_a_row_at_a_name() {
+        assert_eq!(
+            one("(define stop State!B12) (formula (sheet-expand stop) (range-expand stop) (formula-expand (+ stop 1)))"),
+            "(begin)\n(formula \"State\" \"B12\" \"=State!B12+1\")"
+        );
+        assert_eq!(one("(range-expand Tally!B1:E10)"), "\"B1:E10\"");
+        assert_eq!(
+            one("(sheet-expand (ref \"Q1 Data\" \"A1\"))"),
+            "\"Q1 Data\""
+        );
+        for (src, id, frag) in [
+            ("(sheet-expand B12)", "vla-reference-no-sheet", "sheet-expand: 'B12' names no sheet"),
+            (
+                "(range-expand stop)",
+                "vla-reference-expected",
+                "range-expand: expected one reference on a sheet",
+            ),
+            (
+                "(sheet-expand A1 B1)",
+                "vla-expand-arity",
+                "sheet-expand expects exactly 1 argument(s), got 2",
+            ),
+            (
+                "(defmacro (sheet-expand x) x)",
+                "vla-defmacro-reserved-name",
+                "'sheet-expand' is the expand-time reference-sheet operation and cannot be a macro name",
+            ),
+            (
+                "(defmacro (range-expand x) x)",
+                "vla-defmacro-reserved-name",
+                "'range-expand' is the expand-time reference-range operation and cannot be a macro name",
+            ),
+        ] {
+            let e = expand_err(src);
+            assert_eq!(e.id, id, "{src}: {}", e.text);
+            assert!(e.text.contains(frag), "{src}: {}", e.text);
+        }
+    }
+
+    #[test]
+    fn a_begin_a_macro_made_keeps_its_forms_before_every_return_of_its_own() {
+        // Found while scoping VLA.6: the quote, the formula's text and the
+        // primitive's result were returned alone, the debug-print dropped.
+        assert_eq!(
+            one("(defmacro (m) (debug-print 1) (quote (a b))) (m)"),
+            "(begin (debug-print 1) (quote (a b)))"
+        );
+        assert_eq!(
+            one("(defmacro (m) (debug-print 1) (formula-expand (+ A1 1))) (m)"),
+            "(begin (debug-print 1) \"=A1+1\")"
+        );
+        assert_eq!(
+            one("(defmacro (m) (quasiquote (begin (debug-print 1) (car (quote (a b)))))) (m)"),
+            "(begin (debug-print 1) a)"
+        );
     }
 
     #[test]

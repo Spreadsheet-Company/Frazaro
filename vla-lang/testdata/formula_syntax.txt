@@ -157,3 +157,5 @@ to reach.
 =CALL(1)
 === unsupported-a-function-named-ref
 =REF(1)
+=== unsupported-a-function-named-last
+=LAST(Input!B5)

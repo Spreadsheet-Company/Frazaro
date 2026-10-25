@@ -389,7 +389,9 @@ so that a kit macro says what its rows are and never how to walk them,
 scoped, approved, built, owner-tested and committed 2026-10-24;
 `VLA.6`, a name at expand time, `define`, resolved by the pass before the
 formula syntax sees the symbol, and `last`, a reference's twin, in the
-syntax; `VLA.7`, the house style of VLA source, its rule-set, a formatter
+syntax, with a reference's two parts, `sheet-expand` and `range-expand`,
+scoped, approved, built, owner-tested and committed 2026-10-25; `VLA.7`,
+the house style of VLA source, its rule-set, a formatter
 that keeps comments and is proved by expansion, and the lint's refusals
 by name. `VLA.8` is next free.
 

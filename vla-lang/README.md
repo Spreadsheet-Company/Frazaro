@@ -63,11 +63,30 @@ refused in the same words.
   `(cells "S" ("A1" 1) ("B1" 2))` expands to `(begin (cell "S" "A1" 1)
   (cell "S" "B1" 2))`: a loop standing alone is one `begin`, a loop that is
   an element of a list has its results spliced in, and a primitive reads a
-  loop as the list of its results. The expander shares what it walks, as
-  the add-in does: a list is held once, its `cdr` a view of its items and a
-  parameter's value the argument itself, so that a macro walking a list,
-  or a loop over one, costs its length and not its square, which
-  `tests/walks.rs` holds by counting the allocations and their bytes.
+  loop as the list of its results. A define, `(define stop State!B12)`,
+  gives a form a word in every form of a program after its own: the
+  expander puts the form where the word stands as a value, never at a
+  list's head, inside a quote or a text, or in an expand-time primitive's
+  argument, and refuses by name a word that already means something (a
+  reference, a number, a form of the language, a macro's name), a word used
+  in the form that defines it, and a ring of words. The expander shares
+  what it walks, as the add-in does: a list is held once, its `cdr` a view
+  of its items and a parameter's value the argument itself, so that a macro
+  walking a list, or a loop over one, costs its length and not its square,
+  which `tests/walks.rs` holds by counting the allocations and their bytes.
+- **Writes formulas from expressions.** `formula_syntax::write` writes an
+  expression the expander has finished with as a formula's text in Excel's
+  own spelling, `(if (> A1 3) "big" "small")` as `=IF(A1>3,"big","small")`:
+  no space outside a text, the fewest parentheses Excel's precedence allows,
+  a sheet quoted only where it must be; and `formula_syntax::read` reads a
+  formula back as that expression, for tools and tests. The expander's
+  `formula-expand` is the writer at expand time, its argument expanded
+  first, so a macro or a define inside it has done its work. `(last X)` is
+  a reference's twin, the sheet's name with `.last` after it: after
+  `(define stop State!B12)`, `(formula-expand (if (= (last stop) 1) 0 1))`
+  writes `=IF(State.last!B12=1,0,1)`; and `sheet-expand` and `range-expand`
+  give a reference's sheet and its cell or range as the two texts `ref`
+  takes, so a macro can write a row at a word.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.

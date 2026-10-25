@@ -560,10 +560,11 @@ parameters.
 
 A macro receives forms. Sometimes it helps to treat a form as a list and
 walk it. VLA has twenty-eight primitives for that, counting the arithmetic,
-the text and the addresses a walk tends to need and a lookup, and a loop
-that writes a form for each element. They work on **quoted data in the
-source text**, while the program is being expanded. They never see a cell,
-a range, or anything else that exists only when the program runs.
+the text and the addresses a walk tends to need and a lookup, a loop that
+writes a form for each element, and a word for a form, `define`. They work
+on **quoted data in the source text**, while the program is being expanded.
+They never see a cell, a range, or anything else that exists only when the
+program runs.
 
 | Primitive | Gives |
 |---|---|
@@ -586,6 +587,9 @@ a range, or anything else that exists only when the program runs.
 | `(assoc-expand head entries)` | The first entry whose own head is `head`, or `()` when none is. |
 | `(each (name list) form ...)` | The forms written once for each element; see *The loop* below. |
 | `(each-index (index name list start) form ...)` | The same, with a count beside each element, from `start` up by one. |
+| `(define name form)` | A word for the form, in every form of the file after this one; see *A name* below. |
+| `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
+| `(sheet-expand reference)` `(range-expand reference)` | A reference's sheet, and its cell or range, as texts. |
 
 **A name that ends in `expand` is computed while the macro expands.** The
 plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
@@ -708,6 +712,148 @@ structure, and a head that no entry has gives `()`.
 
 `length` folds to a literal: `(length (quote (a b c)))` is `3` in the
 emitted code, with no arithmetic left to do at run time.
+
+### A name
+
+An address says where a value is, not what it is. `define` gives a form a
+word, so that the source says what its author thinks:
+
+```lisp
+(define stop State!B12)
+(define press State!B9)
+
+(formula-expand
+    (if (and (= stop 1) (= press 1))
+        1
+        0))
+```
+
+The last form expands to the formula `=IF(AND(State!B12=1,State!B9=1),1,0)`.
+A define writes nothing where it stands, and its word is gone once the file
+has expanded: neither the workbook nor any formula ever meets it.
+
+**A define binds the forms after its own.** The forms of a file expand one
+at a time, in order, and a define one of them holds binds its word from the
+next form on. So a macro may write defines, and one list can give a block
+its labels and its words together:
+
+```lisp
+(defmacro
+    (names sheet top & words)
+    "a block's labels down column A from a row, each word a name for the cell beside it"
+    (each-index (row word words top)
+        (label-and-name sheet row word)))
+
+(defmacro
+    (label-and-name sheet row word)
+    "one label in column A, and its word a name for the value beside it in column B"
+    (cell sheet (address-expand row 1) (&expand word))
+    (define word (ref sheet (address-expand row 2))))
+
+(names "State" 1 phase since level)
+```
+
+`(names "State" 1 phase since level)` writes the three labels down column
+A, and from the next form on `phase` stands for `State!B1`, `since` for
+`State!B2` and `level` for `State!B3`. In the form that defines it, a word
+is not yet bound, wherever it stands, and a use there is refused:
+
+> 'stop' is used in the form of the source that defines it, where it is not
+> yet a name - a define binds the forms after its own
+
+**Where a word is replaced.** Wherever it stands as a value: an argument, a
+statement, anything inside `formula-expand`. Never at a list's head, so
+`(define left State!B5)` and `(left text 1)` never meet; never inside a
+quote or a text; and never in an expand-time primitive's argument, which
+reads the file's own data, so `(eq? stop (quote stop))` is `true`. A
+macro's parameter of the same word hides it, since the parameter is
+replaced first. A define may name another, defined before it or after it,
+and its form expands where the word stands, a macro's call in it firing
+there.
+
+**The words it refuses** are the ones that already mean something: a
+reference (`B12`, `A:A`, `Sheet1!x`, and `R1C1`, which Excel refuses as a
+name), a number, `true` and `false`, a keyword, a form of the language
+(`if`, `begin`), an expand-time name (`car`, `each`, `define`), a form of
+the formula syntax's own (`error`, `ref`, `last`), a macro's name, and a
+word defined already. A word no formula could hold is a fair name,
+`mouse-x` among them, since the word never reaches a formula. A ring of
+words that stand for one another is refused, the ring named:
+
+> define 'end-row': the words end-row -> start-row -> end-row stand for one
+> another in a ring - a define names a form that does not come back to it
+
+The expander knows no variable, so a define replaces its word as a value
+everywhere, in a running program's variable of the same word too: give a
+define a cell, never a variable.
+
+### A formula from an expression
+
+`formula-expand` writes an expression as a formula's text in Excel's own
+spelling: no space outside a text, the fewest parentheses Excel's
+precedence allows, a function's name upper-case, a sheet quoted only where
+it must be. It expands its argument first, so a macro or a define inside it
+has done its work before the text is written:
+
+```lisp
+(formula-expand
+    (if (> (sum Data!B2:B13) 1000)
+        "over"
+        "under"))
+```
+
+expands to the formula `=IF(SUM(Data!B2:B13)>1000,"over","under")`. A
+reference is a bare symbol, `Input!B5`, or `(ref "Q1 Data" "A1")` where a
+symbol cannot hold it; an error is `(error "#N/A")`; and anything a formula
+does not spell, such as `tax-rate`, is refused rather than renamed.
+
+**A reference's twin.** `(last X)` is the twin of the one reference on a
+sheet that X is: the same cells on the sheet whose name is X's sheet's with
+`.last` after it, the twin in which the language's machine keeps each
+sheet's values from the frame before.
+
+| Expression | Formula text |
+|---|---|
+| `(last Input!B13)` | `Input.last!B13` |
+| `(last Tally!B1:E10)` | `Tally.last!B1:E10` |
+| `(last (ref "Q1 Data" "A1"))` | `'Q1 Data.last'!A1` |
+| `(last stop)`, after `(define stop State!B12)` | `State.last!B12` |
+
+A reference with no sheet is refused, since a formula does not know the
+sheet it will stand on when it is written:
+
+> last: 'B13' names no sheet, and a formula does not know the sheet it will
+> stand on - write the reference with its sheet, such as Input!B5
+
+and so are a twin's twin and a name.
+
+**A reference's two parts.** `(sheet-expand reference)` and `(range-expand
+reference)` give the sheet and the cell or range of one reference on a
+sheet, as the two texts `ref` takes, so that a macro can write a row at a
+word:
+
+```lisp
+(defmacro
+    (rule name expression)
+    "one formula row at a named cell: its sheet and its cell from the name, its text from the expression"
+    (formula (sheet-expand name) (range-expand name) (formula-expand expression)))
+```
+
+With the block above, `(names "State" 9 press take start stop)` and
+`(define sliding 1)`, the form
+
+```lisp
+(rule stop
+    (if (and (= (last phase) sliding) (= press 1))
+        1
+        0))
+```
+
+writes `(formula "State" "B12" "=IF(AND(State.last!B1=1,State!B9=1),1,0)")`,
+the row Kairos's source writes today by its addresses. Like
+`formula-expand`, the two expand their argument first, and are read where
+the walk meets them, a row's field or a statement, never in an expand-time
+primitive's argument.
 
 ### Where it stops
 

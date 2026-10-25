@@ -59,8 +59,10 @@
 //! `rate`). Inside the syntax a string is always a text: a formula's text
 //! kept raw is the string a row holds outside it.
 //!
-//! **The heads.** The twelve operators and `%`; `error`, `ref` and
-//! `lambda`, the syntax's own forms; a head the head table declares no
+//! **The heads.** The twelve operators and `%`; `error`, `ref`, `last` and
+//! `lambda`, the syntax's own forms, `(last X)` the twin of the one
+//! reference on a sheet X is, `Input.last!B13` for `Input!B13` (VLA.6); a
+//! head the head table declares no
 //! formula's (`set!`, `begin`, `.`, `new`; the table's formula column,
 //! F.7's declaration) refused; any other head a function call, its name
 //! letters, digits, `.` and `_` from a letter on. `if`, `not` and `mod`,
@@ -220,7 +222,7 @@ fn atom(s: &str) -> Result<String, Refusal> {
 }
 
 /// The one record the scanner reads over the whole of `s`, or none.
-fn whole_reference(s: &str) -> Option<FormulaRef> {
+pub(crate) fn whole_reference(s: &str) -> Option<FormulaRef> {
     if s.is_empty() || s.starts_with('=') {
         return None;
     }
@@ -245,10 +247,21 @@ fn construct_of(r: &FormulaRef) -> String {
 }
 
 /// A reference's canonical spelling: its sheet or span quoted only where it
-/// must be, its column letters upper-case, its `$` marks as written; a
-/// name as written behind its sheet.
+/// must be, then its part ([`part_text`]).
 fn reference_text(r: &FormulaRef) -> String {
-    let part = match (r.kind, r.shape) {
+    let part = part_text(r);
+    if r.sheet_name.is_empty() {
+        part
+    } else {
+        format!("{}!{part}", sheet_text(&r.sheet_name))
+    }
+}
+
+/// A reference's part, after its sheet, in its canonical spelling: its
+/// column letters upper-case, its `$` marks as written; a name as written.
+/// VLA.6: apart from [`reference_text`], for the expander's `range-expand`.
+pub(crate) fn part_text(r: &FormulaRef) -> String {
+    match (r.kind, r.shape) {
         (Kind::Name, _) | (_, Shape::None) => r.part.clone(),
         (_, Shape::Cell) => cell_text(r.col1, r.col_abs1, r.row1, r.row_abs1),
         (_, Shape::Range) => format!(
@@ -270,11 +283,6 @@ fn reference_text(r: &FormulaRef) -> String {
             mark(r.row_abs2),
             r.row2
         ),
-    };
-    if r.sheet_name.is_empty() {
-        part
-    } else {
-        format!("{}!{part}", sheet_text(&r.sheet_name))
     }
 }
 
@@ -376,6 +384,7 @@ fn list(l: &List, depth: u32) -> Result<String, Refusal> {
         }
         "error" => error_literal(head, args),
         "ref" => ref_form(head, args),
+        "last" => last_form(head, args),
         "lambda" => lambda(head, args, depth),
         "quote" => quote_form(head, args),
         _ => {
@@ -535,6 +544,68 @@ fn ref_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
     }
 }
 
+/// VLA.6, VBA `FsLastForm`: `(last X)`, X's twin: the one reference on a
+/// sheet X is ([`sheet_reference`]), with `.last` after its sheet's name,
+/// quoted by the sheet rule, its marks as written: `Input.last!B13` for
+/// `Input!B13`. A twin's twin is refused, since no sheet a grid may hold ends
+/// in `.last` ([`crate::machine::twin_base`], the one rule).
+fn last_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
+    let [reference] = args else {
+        return Err(arity(head, "one reference on a sheet", args.len()));
+    };
+    let mut r = sheet_reference(reference, "last")?;
+    if crate::machine::twin_base(&r.sheet_name).is_some() {
+        return Err(raise(
+            "vla-formula-last-twin",
+            &[("value", &write_datum(reference))],
+        ));
+    }
+    r.sheet_name.push_str(".last");
+    Ok(reference_text(&r))
+}
+
+/// VLA.6, VBA `FsSheetReference`: one reference on one sheet, as `last` and
+/// the expander's `sheet-expand` and `range-expand` read it: a symbol the
+/// scanner reads whole as a cell, a range, a column or a row behind its
+/// sheet, or `(ref sheet address)`, whose own refusals stand. Refused by
+/// name: a reference with no sheet, since a formula does not know the sheet
+/// it will stand on when it is written; and a name, a span of sheets, a text
+/// or any other form.
+pub(crate) fn sheet_reference(f: &Form, op: &str) -> Result<FormulaRef, Refusal> {
+    let expected = |what: &str| {
+        raise(
+            "vla-reference-expected",
+            &[("op", op), ("value", &write_datum(f)), ("what", what)],
+        )
+    };
+    let spelled = match f {
+        Form::List(l) if f.head_is("ref") => {
+            let Some(Form::Sym(head)) = l.items.first() else {
+                unreachable!("a list whose head is ref holds it as a symbol")
+            };
+            ref_form(head, &l.items[1..])?
+        }
+        Form::List(_) => return Err(expected("no reference")),
+        Form::Str(_) => return Err(expected("a text")),
+        Form::Sym(s) => s.clone(),
+    };
+    let Some(r) = whole_reference(&spelled) else {
+        return Err(expected("no reference"));
+    };
+    match r.kind {
+        Kind::Cell | Kind::Range | Kind::Column | Kind::Row if r.sheet_name.is_empty() => {
+            Err(raise(
+                "vla-reference-no-sheet",
+                &[("op", op), ("value", &write_datum(f))],
+            ))
+        }
+        Kind::Cell | Kind::Range | Kind::Column | Kind::Row => Ok(r),
+        Kind::ThreeD => Err(expected("a span of sheets")),
+        Kind::Name => Err(expected("a name")),
+        _ => Err(expected("no reference")),
+    }
+}
+
 /// `(lambda (x y) body)`: Excel's `LAMBDA(x,y,body)`.
 fn lambda(head: &str, args: &[Form], depth: u32) -> Result<String, Refusal> {
     let [params, body] = args else {
@@ -604,7 +675,7 @@ pub fn is_numeral(s: &str) -> bool {
     i == b.len()
 }
 
-fn is_negative_numeral(s: &str) -> bool {
+pub(crate) fn is_negative_numeral(s: &str) -> bool {
     s.strip_prefix('-').is_some_and(is_numeral)
 }
 
@@ -1098,7 +1169,9 @@ impl Reader {
         if !is_function_name(&name) {
             return Err(unsupported(&format!("the function name {name}")));
         }
-        let reserved = matches!(folded.as_str(), "error" | "ref" | "quote")
+        // VLA.6: `last` among them, since the writer writes `(last X)` as a
+        // twin and never as `LAST(X)`.
+        let reserved = matches!(folded.as_str(), "error" | "ref" | "quote" | "last")
             || headtable::row(&folded).is_some_and(|r| r.formula != FormulaSupport::Yes);
         if reserved {
             return Err(unsupported(&format!(

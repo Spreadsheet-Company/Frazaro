@@ -9,7 +9,9 @@ applications that fired>" and the text VlaExpandText prints, or
 held to that file by tests/expand_golden.rs, and
 tools/check_expand_golden.ps1 holds the pair's shape and every one of the
 twenty-eight expand-time primitives reached, with the walk's forms,
-formula-expand and the loop, each and each-index (VLA.5). A case is named
+formula-expand and the loop, each and each-index (VLA.5), and define and
+a reference's two parts, sheet-expand and range-expand, beside the
+formula syntax's last (VLA.6). A case is named
 for what it means to reach; the golden records what the reference does.
 No case raises a refusal that names a line, so an edit of the prelude
 moves nothing here.
@@ -607,3 +609,232 @@ moves nothing here.
 (defmacro (each-index x) x)
 === reserved-assoc-expand
 (defmacro (assoc-expand x) x)
+=== define-binds-the-forms-after-it
+(define stop State!B12)
+(f stop)
+=== define-is-replaced-in-a-formula
+(define stop State!B12)
+(define press State!B9)
+(formula-expand
+  (if (and (= stop 1) (= press 1))
+    1
+    0))
+=== define-never-replaces-a-head
+(define left State!B5)
+(formula-expand (left left 1))
+=== define-never-replaces-inside-a-quote-or-a-text
+(define stop State!B12)
+(f (quote stop) "stop" stop)
+=== define-is-no-primitive-s-argument
+(define stop State!B12)
+(eq? stop (quote stop))
+=== a-macro-s-parameter-shadows-a-define
+(defmacro (twice stop)
+  "a value twice, its parameter spelled like a define"
+  (+ stop stop))
+(define stop State!B12)
+(twice 5)
+(twice stop)
+=== a-define-names-another
+(define last-column State!B24)
+(define right-end last-column)
+(f right-end)
+=== a-define-names-one-defined-after-it
+(define right-end last-column)
+(define last-column State!B24)
+(f right-end)
+=== a-define-s-form-expands-where-its-word-stands
+(defmacro (pressed-now button)
+  "a button down in this frame and up in the last"
+  (and (= button 1) (= (last button) 0)))
+(define press-edge (pressed-now Input!B5))
+(formula-expand (if press-edge 1 0))
+=== a-define-a-macro-writes
+(defmacro (name-cell word sheet address)
+  "a word for one cell of a sheet"
+  (define word (ref sheet address)))
+(name-cell stop "State" "B12")
+(formula-expand (+ stop 1))
+=== defines-written-by-a-loop
+(defmacro (names sheet top & words)
+  "a block's labels down column A from a row, each word a name for the cell beside it"
+  (each-index (row word words top)
+    (label-and-name sheet row word)))
+(defmacro (label-and-name sheet row word)
+  "one label in column A, and its word a name for the value beside it in column B"
+  (cell sheet (address-expand row 1) (&expand word))
+  (define word (ref sheet (address-expand row 2))))
+(names "State" 1 phase since press)
+(formula-expand (if (= phase 1) since 0))
+=== the-stop-rule-by-names
+(defmacro (names sheet top & words)
+  "a block's labels down column A from a row, each word a name for the cell beside it"
+  (each-index (row word words top)
+    (label-and-name sheet row word)))
+(defmacro (label-and-name sheet row word)
+  "one label in column A, and its word a name for the value beside it in column B"
+  (cell sheet (address-expand row 1) (&expand word))
+  (define word (ref sheet (address-expand row 2))))
+(defmacro (rule name expression)
+  "one formula row at a named cell: its sheet and its cell from the name, its text from the expression"
+  (formula (sheet-expand name) (range-expand name) (formula-expand expression)))
+(define sliding 1)
+(names "State" 1 phase since level)
+(names "State" 9 press take start stop)
+(rule stop
+  (if (and (= (last phase) sliding) (= press 1))
+    1
+    0))
+=== the-stop-rule-by-addresses
+(defmacro (labels sheet top & texts)
+  "a block's labels down column A from a row"
+  (each-index (row text texts top)
+    (cell sheet (address-expand row 1) text)))
+(defmacro (rule sheet range expression)
+  "one formula row from an expression"
+  (formula sheet range (formula-expand expression)))
+(labels "State" 1 "phase" "since" "level")
+(labels "State" 9 "press" "take" "start" "stop")
+(rule "State" "B12"
+  (if (and (= State.last!B1 1) (= State!B9 1))
+    1
+    0))
+=== a-define-in-a-begin-written-by-hand
+(begin
+  (define stop State!B12)
+  (f 1))
+(f stop)
+=== define-of-a-word-alone-refused
+(define stop)
+=== define-of-two-forms-refused
+(define stop A1 B1)
+=== define-named-by-a-text-refused
+(define "stop" A1)
+=== define-named-like-a-cell-refused
+(define B12 1)
+=== define-named-like-a-column-refused
+(define A:A 1)
+=== define-named-like-a-sheet-s-name-refused
+(define Sheet1!stop 1)
+=== define-named-in-r1c1-notation-refused
+(define R1C1 1)
+=== define-named-by-a-number-refused
+(define 12 A1)
+=== define-named-true-refused
+(define true 1)
+=== define-named-by-a-keyword-refused
+(define :stop 1)
+=== define-named-if-refused
+(define if A1)
+=== define-named-car-refused
+(define car A1)
+=== define-named-last-refused
+(define last State!B24)
+=== define-named-define-refused
+(define define A1)
+=== define-named-as-a-macro-refused
+(defmacro (since event)
+  "a count of the frames since an event"
+  event)
+(define since State!B2)
+=== define-twice-refused
+(define stop A1)
+(define stop B1)
+=== define-twice-in-one-form-refused
+(begin
+  (define stop A1)
+  (define stop B1))
+=== define-inside-a-row-refused
+(cell "S" "A1" (define stop A1))
+=== define-inside-a-formula-refused
+(formula-expand (+ 1 (define stop A1)))
+=== define-of-a-define-refused
+(define stop (define press A1))
+=== define-used-in-its-own-form-refused
+(begin
+  (define stop State!B12)
+  (f stop))
+=== define-used-in-its-own-form-by-a-formula-refused
+(begin
+  (define stop State!B12)
+  (formula-expand (+ stop 1)))
+=== define-used-before-it-in-a-macro-s-begin-refused
+(defmacro (use-then-define)
+  "a use of a word, and then the define of the word"
+  (f stop)
+  (define stop A1))
+(use-then-define)
+=== defines-in-a-ring-refused
+(define start-row end-row)
+(define end-row start-row)
+=== a-define-naming-itself-refused
+(define total (+ total 1))
+=== reserved-define
+(defmacro (define x) x)
+=== each-named-define-refused
+(each (define (quote (a)))
+  (f define))
+=== last-of-a-cell
+(formula-expand (+ (last Input!B13) 1))
+=== last-of-a-range
+(formula-expand (sum (last Tally!B1:E10)))
+=== last-of-a-quoted-sheet
+(formula-expand (last (ref "Q1 Data" "A1")))
+=== last-keeps-its-marks
+(formula-expand (last State!$B$3))
+=== last-of-a-column
+(formula-expand (sum (last Screen!A:A)))
+=== last-of-a-word-a-define-binds
+(define level State!B3)
+(formula-expand (+ (last level) 1))
+=== last-of-a-cell-with-no-sheet-refused
+(formula-expand (last B13))
+=== last-of-a-twin-refused
+(formula-expand (last Input.last!B13))
+=== last-of-a-name-refused
+(formula-expand (last stop))
+=== last-of-a-span-of-sheets-refused
+(formula-expand (last Jan:Dec!A1))
+=== last-of-a-number-refused
+(formula-expand (last 5))
+=== last-of-two-refused
+(formula-expand (last A1 B1))
+=== last-of-a-ref-with-no-sheet-refused
+(formula-expand (last (ref "A1")))
+=== a-row-at-a-name
+(define stop State!B12)
+(formula (sheet-expand stop) (range-expand stop) (formula-expand (+ stop 1)))
+=== range-expand-of-a-range
+(range-expand Tally!B1:E10)
+=== sheet-expand-of-a-quoted-sheet
+(sheet-expand (ref "Q1 Data" "A1"))
+=== sheet-expand-of-no-sheet-refused
+(sheet-expand B12)
+=== range-expand-of-a-name-refused
+(range-expand stop)
+=== sheet-expand-of-two-refused
+(sheet-expand A1 B1)
+=== reserved-sheet-expand
+(defmacro (sheet-expand x) x)
+=== reserved-range-expand
+(defmacro (range-expand x) x)
+=== a-begin-a-macro-made-keeps-its-forms-before-a-quote
+(defmacro (logged-data)
+  "a list of data, after a line printed"
+  (debug-print 1)
+  (quote (a b)))
+(logged-data)
+=== a-begin-a-macro-made-keeps-its-forms-before-a-formula
+(defmacro (logged-formula)
+  "a formula's text, after a line printed"
+  (debug-print 1)
+  (formula-expand (+ A1 1)))
+(logged-formula)
+=== a-begin-a-macro-made-keeps-its-forms-before-a-primitive
+(defmacro (logged-head)
+  "a list's head, after a line printed"
+  (quasiquote
+    (begin
+      (debug-print 1)
+      (car (quote (a b))))))
+(logged-head)

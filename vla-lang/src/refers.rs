@@ -711,8 +711,9 @@ fn sheet_needs_quotes(sheet_name: &str) -> bool {
     is_r1c1_shaped(sheet_name)
 }
 
-/// `R`, `C`, `R1`, `C1`, `RC`, `R1C1`, `R12C34`: a sheet so named is quoted.
-fn is_r1c1_shaped(sheet_name: &str) -> bool {
+/// `R`, `C`, `R1`, `C1`, `RC`, `R1C1`, `R12C34`: a sheet so named is quoted,
+/// and a define's word so spelled refused (VLA.6, VBA `RefersR1C1Shaped`).
+pub(crate) fn is_r1c1_shaped(sheet_name: &str) -> bool {
     let f = fold(sheet_name);
     let mut chars = f.chars();
     let mut seen_c = match chars.next() {

@@ -285,6 +285,9 @@ const PROGRAMS: &[&str] = &[
     // VLA.5: the loop in a template and out of one, a count, a loop inside a
     // loop, a loop where a value is read, and a piece found by its head.
     "(defmacro (cells sheet & entries) (each (entry entries) (cell sheet (car entry) (car (cdr entry))))) (cells \"S\" (\"A1\" 1) (\"B1\" 2)) (each-index (i x (quote (a b)) 0) (each (y (cdr (quote (p q r)))) (f i x y))) (+ (each (c (quote (A1 B1))) c)) (car (each (z (quote (u v))) (g z))) (assoc-expand (quote b) (quote ((a 1) (b 2))))",
+    // VLA.6: defines of a reference and of a ref, a define a macro writes, a
+    // twin of each, and a row at a name.
+    "(defmacro (name-cell word sheet address) (define word (ref sheet address))) (define stop State!B12) (define press (ref \"State\" \"B9\")) (formula-expand (if (and (= (last stop) 1) (= press 1)) 1 0)) (formula (sheet-expand stop) (range-expand stop) (formula-expand (+ stop 1))) (name-cell level \"State\" \"B3\") (formula-expand (last level))",
 ];
 
 /// The rows a write is made of before they are mutated.
@@ -386,6 +389,24 @@ fn the_named_strangers() {
             Door::Expand,
             "a loop past a million forms in one application".into(),
             format!("(defmacro (m & xs) (each (x xs) (f x x x x))) (m {})", "1 ".repeat(200_000)),
+        ),
+        // VLA.6: a malformed define and a malformed last are refused by name,
+        // and a chain of words past 5,000 links meets the chain's limit.
+        (Door::Expand, "a define alone".into(), "(define)".into()),
+        (Door::Expand, "a define whose word is a list".into(), "(define (a) 1)".into()),
+        (Door::Expand, "a last alone".into(), "(formula-expand (last))".into()),
+        (Door::Expand, "a last of an empty ref".into(), "(formula-expand (last (ref)))".into()),
+        (Door::Expand, "a reference's sheet alone".into(), "(sheet-expand)".into()),
+        (
+            Door::Expand,
+            "a chain of six thousand words".into(),
+            format!(
+                "{} (f link-1)",
+                (1..=6000)
+                    .map(|i| format!("(define link-{i} link-{})", i + 1))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
         ),
     ];
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/strangers");

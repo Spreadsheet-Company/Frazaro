@@ -20,7 +20,27 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.11.0"
-Public Const VLA_CORE_VERSION As String = "VLA.5"
+Public Const VLA_CORE_VERSION As String = "VLA.6"
+' VLA.6: A NAME AT EXPAND TIME, AND A REFERENCE'S TWIN. (define name form)
+' binds a word to a form from the next form of the source on: the walk
+' passes a define by as written (DefinePassedBy), and once the form of the
+' source it stands in has expanded, ExpandSourceForm - the one place the
+' three entry points expand a form of the source - takes the defines from
+' that form's statements, checks each name, refuses a name used in its own
+' form and a ring of names, and registers them (DefinesTake), so that
+' neither the trampoline's order nor a begin's shape decides what a word
+' means. The walk's atom case puts a define's form where its name stands
+' as an expression and looks at it again, a link of the chain; a list's
+' head is passed by, never a name. (last X) is a head of the formula syntax
+' beside ref and error, X's twin, its sheet's name with .last after it
+' (FsLastForm); (sheet-expand X) and (range-expand X) are forms of the walk
+' beside formula-expand, the two texts ref takes, so that a verb writes a
+' row at a name (ExpandReferencePart); the three read one reference on a
+' sheet alike (FsSheetReference). Found while scoping and fixed: every
+' return of the trampoline but an atom's dropped the forms it had set aside
+' - (defmacro (m) (debug-print 1) (quote (a b))) expanded to (quote (a b))
+' - and each now keeps them (ExpandMacros' finish). vla-lang's expand.rs
+' and formula_syntax.rs mirror each; the expand golden holds the two.
 ' VLA.5: A LOOP AT EXPAND TIME, AND A PIECE BY ITS HEAD. (each (name list)
 ' form ...) substitutes its forms once for each element of the list, the
 ' name bound to the element under the template's own bindings, and
@@ -902,6 +922,20 @@ Private mFormulaExpandOpen As Boolean ' VLA.4: the walk stands inside a
                                    ' formula-expand's argument, where
                                    ' another one is refused; cleared by
                                    ' ExpandFormulaCall on every way out
+Private mDefines As Object         ' VLA.6: the words a source's defines
+                                   ' bind, a late-bound Scripting.Dictionary
+                                   ' keyed by the folded word, each its form
+                                   ' as written; Nothing until a form's
+                                   ' defines register, so that the walk asks
+                                   ' one Is Nothing of an atom in a source
+                                   ' with none. Reset beside mMacros by each
+                                   ' entry point, carried by VlaFrame
+Private mDefineMet As Boolean      ' VLA.6: the walk passed a define by in
+                                   ' the form ExpandSourceForm expands
+Private mFormulaTexts As Collection ' VLA.6: the texts formula-expand wrote
+                                   ' in that form, read for a word used in
+                                   ' the form that defines it; Nothing for
+                                   ' none
 
 ' F5.0: the push/pop stack itself - NOT one of the eighteen fields a
 ' VlaFrame snapshots (it is the stack that HOLDS those snapshots).
@@ -1132,6 +1166,7 @@ Public Function VlaTranspile(ByVal source As String) As String
     Set forms = ParseAll(toks)
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4
     Set mSubDocs = New Collection   ' P.L6: per-transpile, see declaration
     mProcEmitted = False            ' G12.1: per-transpile topology
@@ -1183,7 +1218,7 @@ Public Function VlaTranspile(ByVal source As String) As String
             pt0 = Timer
             profPhase = "expand"
         End If
-        AssignVar expanded, ExpandMacros(f, 0)
+        AssignVar expanded, ExpandSourceForm(f)   ' VLA.6
         If mProfileOn Then
             mProfMsExpand = mProfMsExpand + ProfMs(pt0)
             profPhase = ""
@@ -1307,6 +1342,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     Set forms = ParseAll(toks)
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4 - unused
                         ' by this function (it never calls Emit*), set
                         ' anyway to match VlaTranspile so neither entry
@@ -1330,7 +1366,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
 
     Dim expanded As New Collection
     For Each f In bodyForms
-        expanded.Add ExpandMacros(f, 0)
+        expanded.Add ExpandSourceForm(f)   ' VLA.6
     Next
     Set VlaCompileToForms = expanded
 End Function
@@ -1432,6 +1468,7 @@ End Sub
 Public Sub VlaPushContext()
     Dim f As New VlaFrame
     Set f.Macros = mMacros
+    Set f.Defines = mDefines        ' VLA.6
     Set f.HeadAliases = mHeadAliases
     Set f.SubDocs = mSubDocs
     f.AproposCarry = mAproposCarry
@@ -1470,6 +1507,7 @@ Public Sub VlaPopContext()
     Set f = mContextStack.Item(mContextStack.Count)
     mContextStack.Remove mContextStack.Count
     Set mMacros = f.Macros
+    Set mDefines = f.Defines        ' VLA.6
     Set mHeadAliases = f.HeadAliases
     Set mSubDocs = f.SubDocs
     mAproposCarry = f.AproposCarry
@@ -1633,6 +1671,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     ' Same two-pass shape as VlaTranspile: collect every defmacro
     ' (prelude's and the source's own), expand only the body forms.
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Dim bodyForms As New Collection
     Dim f As Variant
     For Each f In forms
@@ -1649,7 +1688,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     Dim ex As Variant
     For Each f In bodyForms
         If toFixpoint Then
-            AssignVar ex, ExpandMacros(f, 0)
+            AssignVar ex, ExpandSourceForm(f)   ' VLA.6
         Else
             AssignVar ex, ExpandOnePass(f)
         End If
@@ -1678,8 +1717,10 @@ Private Function ExpandOnePass(d As Variant, Optional ByVal walkDepth As Long = 
     If lst.Count > 0 Then
         If IsSym(lst.Item(1)) Then
             ' P.L5: quote skip - the fixpoint walk's twin, same
-            ' reason, same exactness (see ExpandMacros).
-            If VLA_Identity.Fold(CStr(lst.Item(1))) = "quote" Then
+            ' reason, same exactness (see ExpandMacros). VLA.6: a define is
+            ' left whole as written too, its word and its form, since it
+            ' belongs to the fixpoint walk; one pass replaces no word.
+            If VLA_Identity.Fold(CStr(lst.Item(1))) = "quote" Or IsDefineForm(lst) Then
                 Set ExpandOnePass = lst
                 Exit Function
             End If
@@ -2602,9 +2643,10 @@ Private Sub DefineMacro(f As Collection)
     Set sig = NthList(f, 2)
     Dim mname As String
     mname = HeadSym(sig)
-    ' P.L5, QUASIQUOTE, LISTOPS, VLA.3, VLA.4, VLA.5: the walks recognize
-    ' every expand-time name as a form of their own - quote's data skip,
-    ' the shielding bundle, the primitives, formula-expand and the loop -
+    ' P.L5, QUASIQUOTE, LISTOPS, VLA.3, VLA.4, VLA.5, VLA.6: the walks
+    ' recognize every expand-time name as a form of their own - quote's data
+    ' skip, the shielding bundle, the primitives, formula-expand, the loop,
+    ' define and the reference's two parts -
     ' so a macro defined under one could never fire; refuse the name
     ' loudly instead of shadowing it silently, saying what it already is.
     ' The names and their words are one table, ExpandReservedDesc, which a
@@ -2699,8 +2741,9 @@ End Sub
 ' refuses a name it binds by, vla-lang's RESERVED in its order. The walks
 ' recognize each name as a form of their own (P.L5's quote, QUASIQUOTE's
 ' bundle, the twenty-eight primitives, VLA.4's formula-expand, VLA.5's
-' loop), so a macro of the name could never fire, and a loop's name so
-' spelled would stand where the walks read the form.
+' loop, VLA.6's define and the reference's two parts), so a macro of the
+' name could never fire, and a loop's name so spelled would stand where the
+' walks read the form. A define's word is refused by it too (VLA.6).
 Private Function ExpandReservedDesc(ByVal wordFold As String) As String
     Select Case wordFold
         Case "quote"
@@ -2775,6 +2818,12 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
             ExpandReservedDesc = "expand-time loop form"
         Case "each-index"
             ExpandReservedDesc = "expand-time counting loop form"
+        Case "define"
+            ExpandReservedDesc = "expand-time naming form"
+        Case "sheet-expand"
+            ExpandReservedDesc = "expand-time reference-sheet operation"
+        Case "range-expand"
+            ExpandReservedDesc = "expand-time reference-range operation"
     End Select
 End Function
 
@@ -3264,6 +3313,17 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     Dim bi As Long
     Do
         If Not IsList(cur) Then
+            ' VLA.6: a word a define binds, its form put where the word stands
+            ' and looked at again, one link of the chain. A source with no
+            ' define pays the one Is Nothing.
+            If Not mDefines Is Nothing Then
+                If DefineNamed(cur) Then
+                    chainLen = chainLen + 1
+                    If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+                    AssignVar cur, mDefines.Item(VLA_Identity.Fold(CStr(cur)))
+                    GoTo nextLink
+                End If
+            End If
             ' VLA.5: an atom with forms set aside before it is the last form
             ' of a begin a macro made, combined with them after the loop.
             If pendingHead.Count > 0 Then Exit Do
@@ -3281,10 +3341,12 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' DefineMacro refuses "quote" as a macro name, so the
         ' head can never be a macro - the skip is exact, not
         ' heuristic. Deterministic and budget-neutral (L15):
-        ' skipping fires nothing.
+        ' skipping fires nothing. VLA.6: every return of a form of its
+        ' own, this one and those below, goes by finish, which keeps the
+        ' forms set aside before it.
         If headFold = "quote" Then
-            Set ExpandMacros = lst
-            Exit Function
+            Set lprimTop = lst
+            GoTo finish
         End If
         ' QUASIQUOTE: (symbol ...) is the one primitive of the
         ' bundle recognized standalone, not just inside a defmacro
@@ -3296,8 +3358,8 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' can never itself be a defined macro name (DefineMacro
         ' refuses it, same as quote).
         If headFold = "symbol" Then
-            ExpandMacros = FuseSymbol(lst, New Collection, "", New Collection)
-            Exit Function
+            lprimTop = FuseSymbol(lst, New Collection, "", New Collection)
+            GoTo finish
         End If
         ' VLA.4: (formula-expand <expression>), the formula syntax at
         ' expand time - an operation of this walk and of no other site.
@@ -3308,8 +3370,23 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' function's. A helper, so this recursive procedure gains no
         ' local (trap 8).
         If headFold = "formula-expand" Then
-            ExpandMacros = ExpandFormulaCall(lst, depth, walkDepth)
-            Exit Function
+            lprimTop = ExpandFormulaCall(lst, depth, walkDepth)
+            GoTo finish
+        End If
+        ' VLA.6: a define, a form of the walk that writes nothing here: passed
+        ' by as written, its word and its form never walked, for the form of
+        ' the source it stands in to take once that has expanded
+        ' (ExpandSourceForm); refused inside a formula's expression.
+        If headFold = "define" Then
+            Set lprimTop = DefinePassedBy(lst)
+            GoTo finish
+        End If
+        ' VLA.6: a reference's sheet and its cell or range as texts, forms of
+        ' the walk beside formula-expand, their argument expanded first so
+        ' that a word a define binds is replaced (ExpandReferencePart).
+        If headFold = "sheet-expand" Or headFold = "range-expand" Then
+            lprimTop = ExpandReferencePart(headFold, lst, depth, walkDepth)
+            GoTo finish
         End If
         ' QUASIQUOTE: unlike symbol, quasiquote/unquote/unquote-
         ' splicing DO require the ambient bindings table Substitute
@@ -3335,8 +3412,8 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
                  "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
                  "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand"
                 AssignVar lprimTop, EvalListopsPrim(headFold, lst, New Collection, "", New Collection)
-                If IsObject(lprimTop) Then Set ExpandMacros = lprimTop Else ExpandMacros = lprimTop
-                Exit Function
+                DefineNoteChosen lprimTop   ' VLA.6
+                GoTo finish
         End Select
         ' `FormLine(cur) = 0` gates this to template-copy output ONLY -
         ' a hand-written top-level `(begin ...)` statement, parsed
@@ -3379,6 +3456,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             mExpandFired = mExpandFired + 1   ' L1: one per application
             AssignVar cur, r
         End If
+nextLink:
     Loop
     ' VLA.5: FOUND WHILE BUILDING THE LOOP, AND FIXED. A begin a macro made
     ' whose last form is an atom - (defmacro (m) (debug-print 1) x), or a
@@ -3415,7 +3493,16 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
     Set curObj = cur
     Dim outc As New Collection
     Dim ei As Long
-    For ei = 1 To curObj.Count
+    ' VLA.6: a list's head is never a word a define binds, so an atom there
+    ' is passed by, as the walk would have returned it.
+    ei = 1
+    If curObj.Count > 0 Then
+        If Not IsObject(curObj.Item(1)) Then
+            outc.Add curObj.Item(1)
+            ei = 2
+        End If
+    End If
+    For ei = ei To curObj.Count
         ' VLA.5: a loop among the elements, its results spliced in, each
         ' expanded where the loop stood (ExpandEachInto).
         If IsEachForm(curObj.Item(ei)) Then
@@ -3444,6 +3531,17 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         Exit Function
     End If
     Set ExpandMacros = PendingBegin(pendingHead, outc, depth, walkDepth)
+    Exit Function
+    ' VLA.6: FOUND WHILE SCOPING, AND FIXED. A form of its own the loop above
+    ' returns as it is - a quote, symbol's atom, formula-expand's text, a
+    ' primitive's result, a define passed by, a reference's part - used to be
+    ' returned alone, and the forms a begin a macro made had set aside before
+    ' it were dropped: (defmacro (m) (debug-print 1) (quote (a b))) expanded
+    ' to (quote (a b)). Each comes here in lprimTop, and those forms are kept
+    ' before it, as an atom's are since VLA.5 (PendingBegin).
+finish:
+    If pendingHead.Count > 0 Then Set lprimTop = PendingBegin(pendingHead, lprimTop, depth, walkDepth)
+    If IsObject(lprimTop) Then Set ExpandMacros = lprimTop Else ExpandMacros = lprimTop
 End Function
 
 ' TABLESPEC-SCALE / VLA.5: the forms ExpandMacros' trampoline set aside,
@@ -3481,12 +3579,15 @@ Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal wal
     If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-formula-expand-nested"
     Dim expr As Variant
     Dim errNum As Long, errSrc As String, errDesc As String
+    Dim syntaxText As String
     mFormulaExpandOpen = True
     On Error GoTo failed
     AssignVar expr, ExpandMacros(lst.Item(2), depth, walkDepth + 1)
     mFormulaExpandOpen = False
     On Error GoTo 0
-    ExpandFormulaCall = Chr$(34) & FormulaSyntaxWrite(expr)
+    syntaxText = FormulaSyntaxWrite(expr)
+    FormulaTextKept syntaxText   ' VLA.6
+    ExpandFormulaCall = Chr$(34) & syntaxText
     Exit Function
 failed:
     errNum = Err.Number
@@ -4022,6 +4123,422 @@ Private Sub EachBodyFormInto(outc As Collection, f As Variant, scope As Collecti
     End If
     outc.Add Substitute(f, scope, restName, restItems)
 End Sub
+
+' =====================================================================
+'  VLA.6: a name at expand time, (define name form). A form of the walk
+'  that writes nothing where it stands: the walk passes it by as written
+'  (DefinePassedBy), and once the form of the source it stands in has
+'  expanded, ExpandSourceForm takes the defines from that form's
+'  statements (DefinesTake), so that a word binds from the next form of
+'  the source on, whatever order the trampoline expanded the form in. The
+'  walk's atom case puts a define's form where its word stands as an
+'  expression (DefineNamed), never at a list's head, never inside a quote,
+'  a text or a primitive's argument. No gensym and no eval: the word is
+'  the author's and the form the source's own, both gone at the pass.
+' =====================================================================
+
+' VLA.6: one form of the source to its fixpoint, and then, when the walk
+' passed a define by, the form's defines taken from its statements and
+' registered for the forms after it: the one place the three entry points
+' expand a form of the source.
+Private Function ExpandSourceForm(f As Variant) As Variant
+    mDefineMet = False
+    Set mFormulaTexts = Nothing
+    Dim r As Variant
+    AssignVar r, ExpandMacros(f, 0)
+    If mDefineMet Then AssignVar r, DefinesTake(r)
+    If IsObject(r) Then Set ExpandSourceForm = r Else ExpandSourceForm = r
+End Function
+
+' VLA.6: whether a form is a define, a list headed by define; a head of
+' another length is passed over before it is folded, as IsEachForm's is.
+Private Function IsDefineForm(v As Variant) As Boolean
+    If Not IsObject(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    Dim h As String
+    h = CStr(lst.Item(1))
+    If Len(h) <> 6 Then Exit Function
+    IsDefineForm = (VLA_Identity.Fold(h) = "define")
+End Function
+
+' VLA.6: a define the walk meets at a form's head, passed by as written for
+' ExpandSourceForm to take. Inside a formula's expression it would be
+' written as a function's call, so it is refused there.
+Private Function DefinePassedBy(lst As Object) As Object
+    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(lst)
+    mDefineMet = True
+    Set DefinePassedBy = lst
+End Function
+
+' VLA.6: a standalone primitive's chosen branch is not expanded again (VLA.5,
+' left as found), so a define it chooses is met at no head: noted here, as
+' DefinePassedBy notes one, and refused inside a formula's expression.
+Private Sub DefineNoteChosen(v As Variant)
+    Dim held As Object
+    Set held = DefineHeldIn(v)
+    If held Is Nothing Then Exit Sub
+    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(held)
+    mDefineMet = True
+End Sub
+
+' VLA.6: the first define a form holds, itself or at any depth, a quote's
+' data passed over; Nothing for none.
+Private Function DefineHeldIn(v As Variant) As Object
+    If Not IsObject(v) Then Exit Function
+    If ListHeadIs(v, "quote") Then Exit Function
+    If IsDefineForm(v) Then
+        Set DefineHeldIn = v
+        Exit Function
+    End If
+    Dim lst As Object
+    Set lst = v
+    Dim inner As Object
+    Dim i As Long
+    For i = 1 To lst.Count
+        Set inner = DefineHeldIn(lst.Item(i))
+        If Not inner Is Nothing Then
+            Set DefineHeldIn = inner
+            Exit Function
+        End If
+    Next
+End Function
+
+' VLA.6: a define's word as a refusal names it: the word, or what stands
+' where the word belongs, as written.
+Private Function DefineWordOf(lst As Object) As String
+    If lst.Count < 2 Then Exit Function
+    DefineWordOf = WriteDatum(lst.Item(2))
+End Function
+
+' VLA.6: a form of the source, expanded, with its defines taken from it.
+' Those among its statements - the form itself, or a begin's elements at
+' any depth of begins - are taken in order, each leaving nothing where it
+' stood (DefinesFromStatement); one anywhere else is refused
+' (DefinesRefuseStray). Each is checked (DefineTakeOne); then a word of
+' theirs used in this same form, where it is not yet bound, is refused,
+' found in the result (DefinesRefuseUse) or in a text formula-expand wrote
+' (DefinesRefuseFormulaUse), and so is a ring of words (DefinesRefuseRing);
+' and they bind the forms of the source after this one.
+Private Function DefinesTake(r As Variant) As Variant
+    Dim found As New Collection
+    Dim kept As Variant
+    AssignVar kept, DefinesFromStatement(r, found)
+    DefinesRefuseStray kept
+    Dim taken As Object
+    Set taken = CreateObject("Scripting.Dictionary")
+    Dim d As Variant
+    For Each d In found
+        DefineTakeOne d, taken
+    Next
+    DefinesRefuseUse kept, taken
+    DefinesRefuseFormulaUse taken
+    Dim k As Variant
+    For Each k In taken.Keys
+        DefinesRefuseRing CStr(k), taken
+    Next
+    If mDefines Is Nothing Then Set mDefines = CreateObject("Scripting.Dictionary")
+    For Each k In taken.Keys
+        mDefines.Add k, taken.Item(k)
+    Next
+    If IsObject(kept) Then Set DefinesTake = kept Else DefinesTake = kept
+End Function
+
+' VLA.6: a statement with the defines among it taken out, in order, into
+' found: a define itself leaves an empty begin; a begin is rebuilt without
+' them, a begin among its elements the same, keeping its line; any other
+' form is kept whole.
+Private Function DefinesFromStatement(v As Variant, found As Collection) As Variant
+    If IsDefineForm(v) Then
+        found.Add v
+        Dim leftNone As New Collection
+        leftNone.Add "begin"
+        TagLine leftNone, 0
+        Set DefinesFromStatement = leftNone
+        Exit Function
+    End If
+    If Not ListHeadIs(v, "begin") Then
+        If IsObject(v) Then Set DefinesFromStatement = v Else DefinesFromStatement = v
+        Exit Function
+    End If
+    Dim lst As Object
+    Set lst = v
+    Dim outc As New Collection
+    outc.Add lst.Item(1)
+    Dim i As Long
+    For i = 2 To lst.Count
+        If IsDefineForm(lst.Item(i)) Then
+            found.Add lst.Item(i)
+        Else
+            outc.Add DefinesFromStatement(lst.Item(i), found)
+        End If
+    Next
+    TagLine outc, FormLine(v)
+    Set DefinesFromStatement = outc
+End Function
+
+' VLA.6: a define left anywhere in a form the statements' walk kept whole -
+' a row's argument, a call's, a procedure's body - refused by name, since a
+' define stands as a form of the source or a statement of a begin standing
+' as one; a quote's data passed over.
+Private Sub DefinesRefuseStray(v As Variant)
+    If Not IsObject(v) Then Exit Sub
+    If ListHeadIs(v, "quote") Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    If IsDefineForm(v) Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(lst)
+    Dim i As Long
+    For i = 1 To lst.Count
+        DefinesRefuseStray lst.Item(i)
+    Next
+End Sub
+
+' VLA.6: one define taken from its form: its shape, (define name form), the
+' name a symbol and the form holding no define (DefinesRefuseStray); its
+' name held to the rules (DefineCheckName); then the word, folded, and its
+' form as written into taken.
+Private Sub DefineTakeOne(d As Variant, taken As Object)
+    Dim lst As Object
+    Set lst = d
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-define-shape", "form", WriteDatum(d)
+    If Not IsSym(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-define-shape", "form", WriteDatum(d)
+    DefinesRefuseStray lst.Item(3)
+    Dim word As String
+    word = CStr(lst.Item(2))
+    DefineCheckName word, taken
+    taken.Add VLA_Identity.Fold(word), lst.Item(3)
+End Sub
+
+' VLA.6: a define's word, refused by name when the reference scanner reads
+' it whole as a reference or a name on a sheet, or it has the R1C1 shape
+' Excel refuses a name (DefineReadsAs); when it is a number, a truth value,
+' a keyword, a form of the head table, an expand-time name or a form of the
+' formula syntax's own (DefineReservedDesc); and when it is a macro's name
+' or defined already, in an earlier form or in this one.
+Private Sub DefineCheckName(ByVal word As String, taken As Object)
+    Dim what As String
+    what = DefineReadsAs(word)
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reference", "word", word, "what", what
+    what = DefineReservedDesc(word)
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reserved", "word", word, "desc", what
+    If Not GetMacro(word) Is Nothing Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "a macro's name"
+    If DefineBound(VLA_Identity.Fold(word), taken) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "defined already"
+End Sub
+
+' VLA.6: what the reference scanner reads a define's word as, "" for a word
+' of the source's own: a cell, a range, a column, a row, a span of sheets,
+' a name on a sheet or any other reference it reads whole; or a reference
+' in R1C1 notation, R, C, RC or R1C1, which Excel refuses as a name.
+Private Function DefineReadsAs(ByVal word As String) As String
+    Dim what As String
+    Dim fr As FormulaRef
+    If FsWholeReference(word, fr) Then
+        Select Case fr.Kind
+            Case "cell"
+                what = "a cell"
+            Case "range"
+                what = "a range"
+            Case "column"
+                what = "a column"
+            Case "row"
+                what = "a row"
+            Case "3d"
+                what = "a span of sheets"
+            Case "name"
+                If Len(fr.SheetName) > 0 Then what = "a name on a sheet"
+            Case Else
+                what = "a reference"
+        End Select
+    End If
+    If Len(what) = 0 Then
+        If VLA_Refers.RefersR1C1Shaped(word) Then what = "a reference in R1C1 notation"
+    End If
+    DefineReadsAs = what
+End Function
+
+' VLA.6: what a define's word already is in the language, "" for a word of
+' the source's own: a number, a truth value, a keyword argument, a form of
+' the head table or one of its aliases, or defmacro; an expand-time name
+' (ExpandReservedDesc); or a form of the formula syntax's own.
+Private Function DefineReservedDesc(ByVal word As String) As String
+    Dim wordFold As String
+    Dim desc As String
+    wordFold = VLA_Identity.Fold(word)
+    If FsIsNumeral(word) Or FsIsNegativeNumeral(word) Or FsVbaNumeral(word) Then
+        desc = "a number"
+    ElseIf wordFold = "true" Or wordFold = "false" Then
+        desc = "a truth value"
+    ElseIf IsKeywordArg(word) Then
+        desc = "a keyword argument"
+    ElseIf Not VLA_HeadTable.VlaHeadTableRow(wordFold) Is Nothing Then
+        desc = "a form of the language"
+    ElseIf wordFold = "defmacro" Then
+        desc = "a form of the language"
+    ElseIf Len(ExpandReservedDesc(wordFold)) > 0 Then
+        desc = "the " & ExpandReservedDesc(wordFold)
+    ElseIf wordFold = "error" Or wordFold = "ref" Or wordFold = "last" Then
+        desc = "a form of the formula syntax's own"
+    End If
+    DefineReservedDesc = desc
+End Function
+
+' VLA.6: a word a define of this form binds, standing in the form's result
+' where the walk would have put its form - the result itself, a list's
+' element after an atom head, never a quote's - refused: in the form that
+' defines it a word is not yet bound.
+Private Sub DefinesRefuseUse(v As Variant, taken As Object)
+    If Not IsObject(v) Then
+        If IsSym(v) Then
+            If taken.Exists(VLA_Identity.Fold(CStr(v))) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "word", CStr(v)
+        End If
+        Exit Sub
+    End If
+    If ListHeadIs(v, "quote") Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    Dim i As Long
+    For i = 1 To lst.Count
+        If i > 1 Or IsObject(lst.Item(i)) Then DefinesRefuseUse lst.Item(i), taken
+    Next
+End Sub
+
+' VLA.6: a word a define of this form binds, written by formula-expand into
+' one of this form's formulas as one of Excel's names, since it was not yet
+' bound there: each text formula-expand wrote in the form read again by
+' RefersScan, and a name with no sheet that is such a word refused.
+Private Sub DefinesRefuseFormulaUse(taken As Object)
+    If mFormulaTexts Is Nothing Then Exit Sub
+    Dim t As Variant
+    Dim refs() As FormulaRef
+    Dim n As Long, i As Long
+    For Each t In mFormulaTexts
+        n = VLA_Refers.RefersScan(CStr(t), refs)
+        For i = 1 To n
+            If refs(i).Kind = "name" And Len(refs(i).SheetName) = 0 Then
+                If taken.Exists(VLA_Identity.Fold(refs(i).Part)) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "word", refs(i).Part
+            End If
+        Next
+    Next
+End Sub
+
+' VLA.6: a ring of words, a define whose form comes back to its own word
+' through the words its forms stand for, refused when its last define
+' registers, the ring named. The words a define's form would have replaced
+' (DefineWordsIn) are followed once each, breadth first, through every word
+' a define binds, in an earlier form or this one; the ring is the way back.
+Private Sub DefinesRefuseRing(ByVal startName As String, taken As Object)
+    Dim cameFrom As Object
+    Set cameFrom = CreateObject("Scripting.Dictionary")
+    Dim queue As New Collection
+    queue.Add startName
+    Dim queueAt As Long
+    queueAt = 1
+    Dim atName As String
+    Dim wordsIn As Collection
+    Dim wordAt As Variant
+    Do While queueAt <= queue.Count
+        atName = CStr(queue.Item(queueAt))
+        queueAt = queueAt + 1
+        Set wordsIn = New Collection
+        DefineWordsIn DefineValueOf(atName, taken), wordsIn
+        For Each wordAt In wordsIn
+            If CStr(wordAt) = startName Then VLA_Messages.RaiseMsg "vla-define-cycle", "word", startName, "ring", DefineRingText(startName, atName, cameFrom)
+            If DefineBound(CStr(wordAt), taken) Then
+                If Not cameFrom.Exists(CStr(wordAt)) Then
+                    cameFrom.Add CStr(wordAt), atName
+                    queue.Add CStr(wordAt)
+                End If
+            End If
+        Next
+    Loop
+End Sub
+
+' VLA.6: the words a define's form would have replaced where the walk meets
+' them - the form itself when a symbol, a list's elements after an atom
+' head, never a quote's - folded, in order, into wordsIn.
+Private Sub DefineWordsIn(v As Variant, wordsIn As Collection)
+    If Not IsObject(v) Then
+        If IsSym(v) Then wordsIn.Add VLA_Identity.Fold(CStr(v))
+        Exit Sub
+    End If
+    If ListHeadIs(v, "quote") Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    Dim i As Long
+    For i = 1 To lst.Count
+        If i > 1 Or IsObject(lst.Item(i)) Then DefineWordsIn lst.Item(i), wordsIn
+    Next
+End Sub
+
+' VLA.6: whether a folded word is bound by a define, of this form or of an
+' earlier one.
+Private Function DefineBound(ByVal wordFold As String, taken As Object) As Boolean
+    If taken.Exists(wordFold) Then
+        DefineBound = True
+    ElseIf Not mDefines Is Nothing Then
+        DefineBound = mDefines.Exists(wordFold)
+    End If
+End Function
+
+' VLA.6: the form a folded word stands for, a define of this form first; the
+' caller has seen that a define binds it (DefineBound).
+Private Function DefineValueOf(ByVal wordFold As String, taken As Object) As Variant
+    If taken.Exists(wordFold) Then
+        If IsObject(taken.Item(wordFold)) Then Set DefineValueOf = taken.Item(wordFold) Else DefineValueOf = taken.Item(wordFold)
+    Else
+        If IsObject(mDefines.Item(wordFold)) Then Set DefineValueOf = mDefines.Item(wordFold) Else DefineValueOf = mDefines.Item(wordFold)
+    End If
+End Function
+
+' VLA.6: a ring as its refusal names it, from its first word around to it
+' again, startName -> ... -> lastName -> startName, by the word each was
+' reached from.
+Private Function DefineRingText(ByVal startName As String, ByVal lastName As String, cameFrom As Object) As String
+    Dim ringText As String
+    Dim nm As String
+    ringText = lastName & " -> " & startName
+    nm = lastName
+    Do While nm <> startName
+        nm = CStr(cameFrom.Item(nm))
+        ringText = nm & " -> " & ringText
+    Loop
+    DefineRingText = ringText
+End Function
+
+' VLA.6: whether an atom is a word a define binds: a symbol, never a text,
+' found in mDefines, which the walk has seen is not Nothing.
+Private Function DefineNamed(v As Variant) As Boolean
+    If IsObject(v) Then Exit Function
+    Dim s As String
+    s = CStr(v)
+    If Len(s) = 0 Then Exit Function
+    If Left$(s, 1) = Chr$(34) Then Exit Function
+    DefineNamed = mDefines.Exists(VLA_Identity.Fold(s))
+End Function
+
+' VLA.6: a text formula-expand wrote, kept for the form ExpandSourceForm
+' expands, so that a word a define of that form binds, which the formula
+' wrote as one of Excel's names, is refused (DefinesRefuseFormulaUse).
+Private Sub FormulaTextKept(ByVal syntaxText As String)
+    If mFormulaTexts Is Nothing Then Set mFormulaTexts = New Collection
+    mFormulaTexts.Add syntaxText
+End Sub
+
+' VLA.6: (sheet-expand reference) and (range-expand reference), forms of the
+' walk beside formula-expand: the argument expanded to its fixpoint, so
+' that a word a define binds is replaced first, then read as one reference
+' on a sheet, and its sheet's name or its cell or range answered as a text
+' (FsReferencePartText), the two texts ref takes; a string atom, as
+' formula-expand's is. A helper of its own reads the reference, so that this
+' frame, on the walk's way down, holds no record.
+Private Function ExpandReferencePart(ByVal op As String, lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", op, "want", 1, "n", (lst.Count - 1)
+    Dim v As Variant
+    AssignVar v, ExpandMacros(lst.Item(2), depth, walkDepth + 1)
+    ExpandReferencePart = Chr$(34) & FsReferencePartText(v, op)
+End Function
 
 ' LISTOPS.0: shared dispatcher for the twenty-eight expand-time list/
 ' arithmetic/conditional primitives (the original nine, LISTOPS-EXPAND's
@@ -6329,9 +6846,19 @@ Private Function FsConstructOf(ByRef fr As FormulaRef) As String
 End Function
 
 ' A reference's canonical spelling: its sheet or span quoted only where it
-' must be, its column letters upper-case, its $ marks as written; a name
-' as written behind its sheet.
+' must be, then its part (FsPartText).
 Private Function FsReferenceText(ByRef fr As FormulaRef) As String
+    If Len(fr.SheetName) = 0 Then
+        FsReferenceText = FsPartText(fr)
+    Else
+        FsReferenceText = FsSheetText(fr.SheetName) & "!" & FsPartText(fr)
+    End If
+End Function
+
+' A reference's part, after its sheet, in its canonical spelling: its
+' column letters upper-case, its $ marks as written; a name as written.
+' VLA.6: apart from FsReferenceText, for range-expand.
+Private Function FsPartText(ByRef fr As FormulaRef) As String
     Dim refPart As String
     If fr.Kind = "name" Or Len(fr.PartShape) = 0 Then
         refPart = fr.Part
@@ -6349,11 +6876,7 @@ Private Function FsReferenceText(ByRef fr As FormulaRef) As String
                 refPart = fr.Part
         End Select
     End If
-    If Len(fr.SheetName) = 0 Then
-        FsReferenceText = refPart
-    Else
-        FsReferenceText = FsSheetText(fr.SheetName) & "!" & refPart
-    End If
+    FsPartText = refPart
 End Function
 
 Private Function FsCellText(ByVal colNum As Long, ByVal colAbs As Boolean, ByVal rowNum As Long, ByVal rowAbs As Boolean) As String
@@ -6383,7 +6906,7 @@ Private Function FsSheetText(ByVal sheetSpelled As String) As String
     End If
 End Function
 
-' A list: an operator, one of the syntax's own forms (error, ref,
+' A list: an operator, one of the syntax's own forms (error, ref, last,
 ' lambda), or a call; a head the head table refuses is refused by name.
 Private Function FsList(v As Variant, ByVal depth As Long) As String
     Dim lst As Object
@@ -6431,6 +6954,9 @@ Private Function FsList(v As Variant, ByVal depth As Long) As String
             Exit Function
         Case "ref"
             FsList = FsRefForm(lst, headWritten)
+            Exit Function
+        Case "last"
+            FsList = FsLastForm(lst, headWritten)
             Exit Function
         Case "lambda"
             FsList = FsLambda(lst, headWritten, depth)
@@ -6605,6 +7131,73 @@ Private Function FsRefForm(lst As Object, ByVal headWritten As String) As String
     End If
     VLA_Messages.RaiseMsg "vla-formula-ref-invalid", "text", built
 End Function
+
+' VLA.6: (last X), X's twin: the one reference on a sheet X is
+' (FsSheetReference), with .last after its sheet's name, quoted by the
+' sheet rule, its marks as written - Input.last!B13 for Input!B13. A twin's
+' twin is refused, since no sheet a grid may hold ends in .last.
+Private Function FsLastForm(lst As Object, ByVal headWritten As String) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one reference on a sheet", "n", (lst.Count - 1)
+    Dim argForm As Variant
+    AssignVar argForm, lst.Item(2)
+    Dim fr As FormulaRef
+    FsSheetReference argForm, "last", fr
+    If FsIsTwinSheet(fr.SheetName) Then VLA_Messages.RaiseMsg "vla-formula-last-twin", "value", WriteDatum(argForm)
+    fr.SheetName = fr.SheetName & ".last"
+    FsLastForm = FsReferenceText(fr)
+End Function
+
+' VLA.6: whether a sheet's name is a twin's, ending in .last without case,
+' as vla-lang's twin_base reads it.
+Private Function FsIsTwinSheet(ByVal sheetSpelled As String) As Boolean
+    If Len(sheetSpelled) <= 5 Then Exit Function
+    FsIsTwinSheet = (VLA_Identity.Fold(Right$(sheetSpelled, 5)) = ".last")
+End Function
+
+' VLA.6: the text sheet-expand or range-expand answers, the sheet's name or
+' the cell or range of the one reference on a sheet a form is.
+Private Function FsReferencePartText(v As Variant, ByVal op As String) As String
+    Dim fr As FormulaRef
+    FsSheetReference v, op, fr
+    If op = "sheet-expand" Then
+        FsReferencePartText = fr.SheetName
+    Else
+        FsReferencePartText = FsPartText(fr)
+    End If
+End Function
+
+' VLA.6: one reference on one sheet, as last, sheet-expand and range-expand
+' read it, into fr: a symbol RefersScan reads whole as a cell, a range, a
+' column or a row behind its sheet, or (ref sheet address), whose own
+' refusals stand (FsRefForm). Refused by name: a reference with no sheet,
+' since a formula does not know the sheet it will stand on when it is
+' written; and a name, a span of sheets, a text or any other form.
+Private Sub FsSheetReference(v As Variant, ByVal op As String, ByRef fr As FormulaRef)
+    Dim spelled As String
+    If IsList(v) Then
+        If Not ListHeadIs(v, "ref") Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", "no reference"
+        Dim refList As Object
+        Set refList = v
+        spelled = FsRefForm(refList, CStr(refList.Item(1)))
+    Else
+        spelled = CStr(v)
+        If Left$(spelled, 1) = Chr$(34) Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", "a text"
+    End If
+    Dim what As String
+    what = "no reference"
+    If FsWholeReference(spelled, fr) Then
+        Select Case fr.Kind
+            Case "cell", "range", "column", "row"
+                If Len(fr.SheetName) = 0 Then VLA_Messages.RaiseMsg "vla-reference-no-sheet", "op", op, "value", WriteDatum(v)
+                Exit Sub
+            Case "3d"
+                what = "a span of sheets"
+            Case "name"
+                what = "a name"
+        End Select
+    End If
+    VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", what
+End Sub
 
 ' (lambda (x y) body): Excel's LAMBDA(x,y,body), each parameter a name.
 Private Function FsLambda(lst As Object, ByVal headWritten As String, ByVal depth As Long) As String

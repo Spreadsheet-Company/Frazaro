@@ -1,6 +1,22 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.5"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.6"
+' VLA.6: a name at expand time and a reference's twin, ten refusals under
+' VLA. Seven of define, each naming the word the author wrote:
+' vla-define-shape - (define name form), a name and one form;
+' vla-define-name-reference - a word the reference scanner reads as a
+' reference, or one in R1C1 notation; vla-define-name-reserved - a word
+' the language already has, a number, a truth value, a keyword, a form of
+' the head table, an expand-time name or a form of the formula syntax's
+' own; vla-define-name-taken - a macro's name, or a word defined already;
+' vla-define-not-a-statement - a define inside another form or a formula;
+' vla-define-used-in-its-form - a word used in the form of the source that
+' defines it, where it is not yet bound; and vla-define-cycle - words that
+' stand for one another in a ring. Two of the reading of one reference on a
+' sheet that last, sheet-expand and range-expand share:
+' vla-reference-no-sheet and vla-reference-expected. And last's own,
+' vla-formula-last-twin, a twin's twin.
+'
 ' VLA.5: the loop at expand time and assoc-expand, six refusals under VLA,
 ' each naming its form: vla-each-shape - a loop's binding as its shape
 ' asks, (name list) or (index name list start), then at least one form;
@@ -823,6 +839,21 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-each-list-a-call", 5, "VLA", "{op}: the list to walk is a call of the macro '{head}', which does not expand where a list is walked - give the list itself, quoted or as a parameter"
     AddMsg m, "vla-expand-expected-list", 5, "VLA", "{op}: expected a list, got '{value}'"
     AddMsg m, "vla-assoc-expand-entry", 5, "VLA", "assoc-expand: an entry is a list with a head, got '{value}'"
+    ' VLA.6 - a name at expand time, (define name form), binding the forms of
+    ' the source after its own; and the reading of one reference on a sheet
+    ' that the formula syntax's last and the walk's sheet-expand and
+    ' range-expand share: each refusal names the word or the reference the
+    ' author wrote.
+    AddMsg m, "vla-define-shape", 5, "VLA", "define: write (define name form), a name and the one form it stands for - got {form}"
+    AddMsg m, "vla-define-name-reference", 5, "VLA", "define '{word}': '{word}' reads as {what}, and a define gives a reference a word of its own, such as stop"
+    AddMsg m, "vla-define-name-reserved", 5, "VLA", "define '{word}': '{word}' is {desc}, and a define binds a word of the source's own"
+    AddMsg m, "vla-define-name-taken", 5, "VLA", "define '{word}': '{word}' is {what} in this source - a word names one thing"
+    AddMsg m, "vla-define-not-a-statement", 5, "VLA", "define '{word}': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula"
+    AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own"
+    AddMsg m, "vla-define-cycle", 5, "VLA", "define '{word}': the words {ring} stand for one another in a ring - a define names a form that does not come back to it"
+    AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"
+    AddMsg m, "vla-reference-expected", 5, "VLA", "{op}: expected one reference on a sheet, such as Input!B5 or (ref ""Q1 Data"" ""A1""), got '{value}', {what}"
+    AddMsg m, "vla-formula-last-twin", 5, "VLA", "last: '{value}' is a twin already, and a twin has none - (last X) takes the reference X itself"
 
     ' CO.4 - the one refusal grammar semantic versioning needs. A
     ' version that cannot be read is never treated as satisfied AND

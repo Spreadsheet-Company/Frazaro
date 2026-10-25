@@ -12,7 +12,10 @@
 //! them answer one text the same way in both implementations (SD-18: the
 //! reference's file is the one that decides). And it holds the loop's
 //! claim in miniature (VLA.5): the kit's `cells` walker and its `each`
-//! twin, two cases of the fixture, write the same rows.
+//! twin, two cases of the fixture, write the same rows; and the define's
+//! (VLA.6): a block's labels and names written from one list and the stop
+//! rule by names write the rows their twin by addresses writes, Kairos's
+//! own stop among them.
 
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
@@ -115,10 +118,28 @@ fn the_walker_and_its_loop_write_the_same_rows() {
 }
 
 #[test]
+fn the_stop_rule_by_names_writes_the_rows_its_twin_by_addresses_writes() {
+    // The records differ: the names' case defines its words, an empty begin
+    // where each stood, and fires a label's macro a word. Its rows are the
+    // addresses' case's, Kairos's stop row last.
+    let (named, _) = expand_text(&case_text("the-stop-rule-by-names"), PRELUDE, true).unwrap();
+    let (addressed, _) =
+        expand_text(&case_text("the-stop-rule-by-addresses"), PRELUDE, true).unwrap();
+    assert_ne!(named, addressed);
+    let (named, addressed) = (rows(&named), rows(&addressed));
+    assert_eq!(named.len(), 8);
+    assert_eq!(named, addressed);
+    let kairos =
+        read_forms("(formula \"State\" \"B12\" \"=IF(AND(State.last!B1=1,State!B9=1),1,0)\")")
+            .unwrap();
+    assert_eq!(named.last(), kairos.first());
+}
+
+#[test]
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 229, "only {count} cases in the expand fixture");
+    assert!(count >= 294, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))
