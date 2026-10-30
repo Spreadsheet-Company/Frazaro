@@ -67,7 +67,7 @@ Put 7 into cell B1 of sheet Output.
 Each step says what it prints, so the walk doubles as a check that the
 program you installed is the one this page describes.
 
-1. **The version.** `frazaro version` prints `frazaro 0.11.0 (core abi 1)`:
+1. **The version.** `frazaro version` prints `frazaro 0.12.0 (core abi 1)`:
    the release's version, which is the add-in's, and the number an embedding
    checks before calling the core.
 
@@ -90,8 +90,8 @@ program you installed is the one this page describes.
    frazaro build hello.txt --out hello.xlsx
    ```
 
-   prints `wrote hello.xlsx: 10971 bytes, sha256
-   546A597ED17CFCFE246EEBA1B41E36CD709F99C68D447B0E7550EECF81658451` and
+   prints `wrote hello.xlsx: 10972 bytes, sha256
+   3D6B2AAE916DAF3A1C5672974740DD0B7E077ABCBD49A2306029A07D39760E52` and
    nothing else. The digest is the file's: whoever builds these seven
    sentences with this version gets these bytes, on any machine, whether the
    file was saved with Windows or Unix line endings. Open it: a `Frazaro`
@@ -106,7 +106,7 @@ program you installed is the one this page describes.
    frazaro rebuild hello.xlsx
    ```
 
-   prints `This workbook was built from these 7 sentences by Frazaro 0.11.0:
+   prints `This workbook was built from these 7 sentences by Frazaro 0.12.0:
    yes.` and exits 0. Save the file from Excel and ask again: it is refused
    as a host's save, because Excel rewrites every part on save, by design.
 
@@ -194,13 +194,13 @@ byte:
     frazaro build scripts/build/into.txt --into scripts/build/model.xlsx --out tour-into.xlsx
     ```
 
-    prints `wrote tour-into.xlsx: 13697 bytes, sha256
-    C25C6F1DC4F1480016E6895266858F832A96F4266127974CAF0939B0B59C7BCC`: the
+    prints `wrote tour-into.xlsx: 13698 bytes, sha256
+    EA78524514087CBABDC166419E3147C12DEE87901FD019AD94BF082AC7416B5E`: the
     model's own sheets `Model` and `Notes` copied byte for byte, the
     sentences' `Frazaro`, `Output` and `checks` added, `Output!B1` reading
     `=Model!B3*Rate`. `frazaro rebuild tour-into.xlsx` prints `This
     workbook's Frazaro sheets were built from these 6 sentences by Frazaro
-    0.11.0, into a workbook whose own sheets are not checked: yes.`
+    0.12.0, into a workbook whose own sheets are not checked: yes.`
 
 12. **What changed between two workbooks.**
 

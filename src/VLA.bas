@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.11.0"
+Public Const VLA_RELEASE_VERSION As String = "0.12.0"
 Public Const VLA_CORE_VERSION As String = "VLA.15"
 ' VLA.15: A NAME WHERE AN ADDRESS STANDS. (list? x) is the twenty-ninth
 ' primitive (EvalListQ): true when x resolves to a list, the empty list
