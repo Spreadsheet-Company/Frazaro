@@ -19014,6 +19014,616 @@ built.
   2218/2218 and host 333/333. The ten decisions stand as built. **Closed ✅
   and committed 2026-10-29 at the owner's word.**
 
+- ✅ **VLA.9 — named pieces with defaults: a parameter declared `(sheet
+  "Screen")` after a macro's positional ones, a caller writing `(sheet
+  "Tower")` for what differs and leaving the rest to their defaults, and a
+  piece the macro does not declare refused by name.** *Scoped 2026-10-30
+  from a brief pasted in chat, the item the third sitting of 2026-10-25
+  minted (`b7208fe`); the ten decisions below put to the owner in chat,
+  each with its recommendation, and approved the same day ("VLA.9
+  recommendations approved; proceed with implementing VLA.9 as scoped"),
+  the break and 0.13.0 of the ninth among them.*
+
+  **What needs it.** The mint named the smell by the verbs' arity,
+  "Superposition's `field-rule` at ten parameters and the kit's `put-from`
+  at seven", and the first is gone: `KIT.6`'s first slice wrote it
+  `(field-rule kind)` (Alonzo's `28621e4`). Counted again at `bc6dd77`,
+  most of the 236 macros of Alonzo's sources and kit and Buffet's kitchen
+  and source take one to three parameters, and these take six or more:
+  Buffet's `dollars-spelled` (10) and `dollars-grouped` (9),
+  Superposition's `boxes-around` and its two kin (8), the kit's `put-from`
+  (7) and `put` (6), Buffet's `strings-pickers`, `picker` and
+  `picker-from` (6) and Naught's `lab-gates` (6); and here the
+  phrasebook's `table-property-family` (eight and a rest),
+  `tablespec-row`, `method-antonym-family` and `datalog-filter-place` (7),
+  and `pivot-full` and `bool-antonym-family` (6). The long tails of the
+  first two groups are lists by nature, `p1` to `p6`, `g1` to `g4` and the
+  neighbors `a` to `h`, which a rest parameter or a loop serves (`VLA.5`);
+  the need is a verb a person calls with options, and the first is `put`.
+  `KIT.6`'s sixth decision, approved 2026-10-29, writes it `(put at (sheet
+  "Tower") (when test) (address expression) (value expression))` under
+  `on`, the pieces in any order, read by hand over `assoc-expand`,
+  `put-from` retired; its three calls, the input card's and Kairos's two,
+  are that item's second slice, and if this item's call is that list they
+  move from the reading by hand to declared pieces unchanged. And `SD-4`'s
+  horizon asks the same of a library's slots, named and never positional,
+  "so a library can add a slot with a default without breaking a single
+  caller" (`HORIZON.md` §12.9): a macro gains that property. Alonzo's
+  `KIT.8`, the shapes as functors, waits on this item and `VLA.12`,
+  released.
+
+  **What the substrate says**, read in both implementations at `bc6dd77`:
+  - *The signature.* `DefineMacro` (`VLA.bas`) and `define_macro`
+    (`expand.rs`) read each parameter as a word (`SymText`, `sym_text`),
+    and `&` with one word after it as the rest, which must come last
+    (`vla-defmacro-rest-param-missing`, `-not-last`). A list there is
+    refused by `SymText` as `vla-expected-symbol-got-list`, which names
+    neither the macro nor the parameter. None of Delta's 1,686
+    `defmacro`s, the phrasebook's copies counted, holds a list in its
+    signature, so no source that expands now can be read another way.
+  - *The record.* The reference keeps a macro as a Collection read by its
+    index: the parameters, the rest's name and the template (items 1 to 3,
+    `ExpandOne`), the doc (4, `VlaMacroDoc` and apropos) and the name (5,
+    apropos). The port's `Macro` is public, its five fields public;
+    outside `vla-lang` the core's emitter alone reads one, for its doc
+    (`emit_doc`, `core/src/emit/stmt.rs`), and no crate in Delta builds
+    one. `Rule`, private, holds what the expander applies: the parameters
+    folded and the template as nodes.
+  - *The call.* `ExpandOne` and `expand_one` check the count exactly
+    (`vla-macro-arity`) or as a minimum beside a rest
+    (`vla-macro-arity-min`), neither naming a line, and bind each
+    parameter to its argument as written, unexpanded. The reference keys
+    its bindings in a Collection by the folded word, and a keyed `Add` of a
+    key it holds raises VBA's error 457; the port's map overwrites. The
+    call may be a `VlaSlice` (PNTH.0), and so may an argument.
+  - *A word declared twice.* Neither implementation refuses it at the
+    definition. At the call the reference raises error 457, a raw error and
+    no refusal of the catalogue's (`SD-2`), and the port binds the last: a
+    divergence, found while scoping. No signature in Delta declares a word
+    twice, the rest's among them.
+  - *Substitution.* `Substitute` and `substitute` replace a parameter
+    wherever its word stands, a list's head among them: the kit's rule "a
+    parameter never takes the name of a row it writes", and `VLA.11`'s
+    open item. And they read a list headed by a primitive, by `each` or
+    `each-index`, by `symbol` or by the quasiquote bundle as that form
+    wherever a template holds it, so a call written inside a template has
+    its arguments substituted, such a list among them evaluated, before the
+    call fires.
+  - *The line.* A list read from the source carries its line in both, the
+    reference's by its address (`TagLine`, `FormLine`) and the port's on
+    the list, and every list the macro system makes carries 0 (S3.1).
+    `vla-form-too-deep` is the one refusal of the expander that names a
+    line, its `{loc}` " (vla line N)", or nothing for a list a macro made.
+    A call a template writes, or one a macro rebuilds (`on` conses its
+    sheet onto each call), carries none: Alonzo's three calls of `put` are
+    of both kinds, and Alonzo's pass names the top-level form's line itself
+    (`LineRefusal`). The reference's `LabeledLine` reads the include map,
+    which `VlaTranspile` and `VlaCompileToForms` set through
+    `SpliceIncludes` and `VlaExpandText` never clears, and the grammar
+    suite's include pins leave one set: so a line `VlaExpandText` names
+    could be read through the last compile's map. No case has met it, since
+    no case names a line, as the fixture's header says.
+  - *The colon.* A symbol that begins with `:` is the statement language's
+    named argument, `(. r sort :key1 k)` written `key1:=k` by both emitters
+    (`EmitArgs`; `core/src/emit/expr.rs`), interpolate's keyword pairs, and
+    refused anywhere else by the emitter (`vla-keyword-misuse`) and as a
+    define's word ("a keyword argument"). Both readers take `:sheet` and
+    `sheet:` each as one symbol, splitting only at a parenthesis, a space,
+    a `;` or a quote mark.
+  - *`assoc-expand`* compares a symbol head by its folded text (`VLA.5`),
+    so a piece's word folds as a parameter's does.
+  - *`put`.* The rows `put-from` writes, which `put` would write itself,
+    are a `cell` row and two `formula` rows through the primitives and
+    `formula-expand`, and none of `KIT.6`'s four words, `sheet`, `when`,
+    `address` and `value`, heads a form among them; `when` is the prelude's
+    macro, which a piece's list never meets as a form, a call's arguments
+    being bound unexpanded. Its first parameter is the sheet `on` hands it,
+    the Write sheet, spelled `sheet` today, the word the sixth decision
+    gives a piece. Kairos's `writes`, whose template holds two of the
+    calls, has one parameter, `orientation`.
+
+  **The work.**
+  - *The reference first* (`SD-18`). `VLA.bas`: `DefineMacro` reads a list
+    in the signature as a piece's declaration, through helpers, and keeps
+    the pieces at the record's end, items 6 and 7, their words and their
+    defaults; `ExpandOne` binds them after the positional parameters,
+    through a helper, refusing as decisions 7 and 8 say; `VlaExpandText`
+    clears the include map. `VLA_Messages.bas`: the eleven ids, exported.
+    `VLA_Tests.bas`: `TestNamedPieces`, after `TestAddressForms`. Each
+    touched module's version `VLA.9`.
+  - *The port.* `expand.rs` function for function: `define_macro` and its
+    helpers, `Rule`'s pieces and `Macro`'s (decision 9), and `expand_one`
+    taking the call's line from both its callers. Unit tests;
+    `tests/expand_golden.rs`, the proof in miniature, `put` by pieces in
+    two orders writing the rows `put-from` writes; `tests/strangers.rs`, a
+    seed program and each malformed declaration and call refused by name.
+  - *The golden.* About fifty cases in `scripts/expand.txt`, in the owner's
+    style, predicted by the port, the reference confirming; the fixture's
+    header on the line a refusal names.
+  - *The checks.* `check_expand_golden`'s rule 10: both signature walks
+    taking a declaration, both bindings taking a default, each new id the
+    id of a `REFUSED` record, and one call written in two orders expanding
+    alike; mutants; floors. `check_data_exports` at 248.
+  - *The docs*, as decision 10 settles; `RELEASES.md` under the heading
+    decision 9 numbers.
+
+  **The spelling, for the long term.** `SD-4` keeps a sentence of a
+  shipped `instructions.txt`, and VLA's names stay revisable, an alias
+  shadowing an old one (the owner's word of 2026-10-22); but a call's
+  spelling is how every source that calls is read, and a later change
+  reads them all again. So the test is the house's for a parsing fork:
+  which choice a later design reads identically. Mature Lisps settled two
+  traditions, one for each kind of call:
+  - *A function's options are pairs after its positional arguments.*
+    Common Lisp's `&key`, `(f 1 :sheet "Tower")`, its keyword a type of its
+    own: a key the function does not take refused unless it allows others,
+    the leftmost of two pairs for one key used (CLHS 3.4.1.4), so that
+    `apply` may override one, and a default reading the parameters to its
+    left (3.4.1). Emacs Lisp's `cl-defun` is the same. Racket makes a
+    keyword a token of its own, `#:last`, matched by its keyword wherever
+    it stands among the arguments, and refuses a header that declares one
+    twice. SRFI 88 writes a keyword with a trailing colon, `sheet:`, as
+    DSSSL did.
+  - *A macro's options are lists headed by their name.* Common Lisp's own
+    macros take them so: `(defstruct (point (:conc-name p-) (:copier nil))
+    x y)`, `defpackage`'s `(:use ...)` and `(:export ...)`, `defclass`'s
+    class options. R6RS's `define-record-type` takes clauses headed by
+    their kind, `(fields ...)`, `(parent ...)`, `(protocol ...)`, a kind
+    given twice a syntax violation; and so `let` takes its bindings and
+    `cond` its clauses. A list holds its value as one form, nests, and
+    passes through the code that moves forms.
+  The house writes its options the second way already: Alonzo's manifest,
+  one directive a list, `(spec 2)`, `(title "Life")`, `(rate 30)`; the
+  record's `format` row since `KERNEL.50`, `(font ...)`, `(align ...)` and
+  `(border (left ...) ...)`, each group at most once and in any order
+  (Alonzo's `SPEC.md`, `ENGINE.28`'s note of 2026-10-24); `KIT.6`'s `put`;
+  the line's own example and `2030.md` §7.4's sketch, `(spec 9) (rate 0)
+  (settle 2)`. The first tradition's colon is taken here, VBA's named
+  argument in the statement language and interpolate's pairs. And a VLA
+  macro is a template over forms, the second tradition's case: a piece is
+  data until its macro binds it, and the house's code moves pieces as
+  forms, `on` consing a sheet onto a call, `assoc-expand` finding a piece
+  by its head, `each` walking a list of them. What each candidate
+  forecloses:
+  - *The list* forecloses nothing it refuses: a colon pair after the
+    positional arguments is an atom where a piece goes, refused today, so
+    the colon could be added later as a second spelling without reading a
+    call again, and a rename is refused as a declaration's shape. It costs
+    decision 2's refusal and decision 5's, each one a later design may turn
+    into a reading.
+  - *The colon* splits a piece over two forms, so no form holds one: `on`,
+    `assoc-expand`, `each` and a splice carry a pair as two items, a
+    keyword without its value is a fault of its own, `KIT.6`'s callers are
+    written a second time, and `(f :x 1)` reads as VBA's named argument or
+    as a macro's piece by a definition made elsewhere.
+  - *The trailing colon* splits a piece the same way, and brings the
+    English layer's slot word into the forms, `{sheet:text}` in a pattern
+    and `header:` in `HORIZON.md` §12.9's `Use` sentence.
+
+  **The decisions**, each with the recommendation and what it declines:
+
+  1. *The spelling at the call.* A piece is one list, its word and then its
+  value, `(sheet "Tower")`: the declaration's own shape with the value
+  where the default stood, so that `(defmacro (rule range (sheet "Screen"))
+  ...)` is called `(rule "B2:K11" (sheet "Tower"))`. It is what the line
+  shows, what `2030.md` sketches, what `KIT.6`'s `put` writes by hand and
+  how the house writes every other option. Declined: interpolate's colon,
+  `:sheet "Tower"`, Common Lisp's `&key` at the call, which splits a piece
+  over two forms no form of the house moves as one and spells a macro's
+  piece as the statement language spells VBA's named argument; and the
+  trailing colon, `sheet: "Tower"`, SRFI 88's and the English layer's slot
+  word, which splits it the same way.
+
+  2. *The reading.* By position, the line's rule: a macro that declares N
+  positional parameters reads its call's first N arguments as them and
+  every argument after them as a piece. A positional argument written as
+  one of the macro's own pieces, a list headed by a piece's word, is
+  refused by name (decision 8). So every call the language takes reads the
+  same by position and by its pieces' words: the pieces after the
+  positional arguments, and no positional argument spelled as a piece. A
+  caller who leaves out a positional argument hears so, where the plain
+  rule binds the first piece to it and, when the piece so moved has a
+  default, takes the default in silence. Declined: the plain rule without
+  that refusal, which reads `(put "Write" (sheet "Tower") ...)` as `at`
+  bound to `(sheet "Tower")`; and the pieces found by their words wherever
+  they stand, Racket's rule, sound there because a keyword is a token no
+  expression can be, and unsound here, where a list headed by a word is
+  every expression's shape.
+
+  3. *The declaration.* Two parts: `(name default)`, a piece the caller may
+  give, its default standing for it otherwise; and `(name)`, a piece the
+  caller must give. One word for the caller and the template, read as a
+  positional parameter's is. Positional parameters first, then the pieces,
+  in the order the call writes them. Declined: three parts, `(sheet s
+  "Screen")`, the line's example and `2030.md`'s, a template's word beside
+  the caller's, which buys a template word unlike the caller's where the
+  caller's word is a row the template writes (`formula`, `look`, `value`),
+  at the cost of every declaration writing its word twice and `(formula
+  f)` read two ways; and Common Lisp's nested rename, `((name word)
+  default)`, which a later design can add without reading a declaration
+  again, since a list where a piece's word stands is refused today
+  (decision 7). The capture is `VLA.11`'s, for every parameter and both
+  ways: a piece's word heading a form in its own template is replaced
+  there, and a call's piece inside another template has its head replaced
+  by that template's parameter of the same word. Until `VLA.11` lands, a
+  piece's word avoids the heads its template writes, as `put-from`'s
+  `what` avoids `value`, and a template that calls a macro with pieces
+  names no parameter after one of them, as Kairos's `writes`, its one
+  parameter `orientation`, already does.
+
+  4. *A default that names another parameter.* An earlier one, positional
+  or piece, as Common Lisp's `&key` defaults and `let*` bind (CLHS 3.4.1,
+  an init-form reading the parameters to its left): the default is
+  substituted at the call under the parameters bound before it, given or
+  defaulted, so `(defmacro (frame sheet (top 1) (bottom top)) ...)` called
+  `(frame "S" (top 3))` binds `bottom` to 3. A default that names its own
+  word or a later piece's is refused at the definition by name. No ring
+  can form, and a reader re-derives each default by reading the
+  declaration left to right. Declined: no parameter in a default, which
+  writes a macro twice where one default leans on another; and any
+  parameter, where a ring needs a budget and the order of binding would
+  decide a value in silence.
+
+  5. *Named pieces beside a rest parameter.* Refused at the definition by
+  name, since an argument after the positional ones would be either a
+  piece or the rest's. `table-property-family` keeps its rest, positional.
+  Declined: Common Lisp's `&rest` beside `&key`, the rest holding the pairs
+  too; and the pieces taken off the rest's front by their words, a reading
+  by shape. The refusal can become a reading later without reading a call
+  again.
+
+  6. *A default's moment.* A default is a form of the macro's, never
+  expanded at the definition. At each call that leaves its piece out it is
+  substituted under the parameters bound before it (decision 4), as the
+  template's own forms are, and stands where the piece's word stands; the
+  walk then expands it with the rest of the call's output. So a default
+  naming a macro expands where the call does, and one naming a define's
+  word reads the defines the call's form sees: every `defmacro` is taken
+  before any form expands, and a define binds from the next form of the
+  source on, so `(define home "B2")` between the definition and the call
+  gives the call's default `"B2"`, and the same call above the define
+  writes the word. A given piece's value is bound as an argument is, as
+  written, its line with it. Declined: a default expanded once at the
+  definition, which reads no define and fixes a form before the call's
+  arguments are known.
+
+  7. *The declaration's refusals*, each by name and naming the macro: a
+  declaration that is not one word, or a word and one form
+  (`vla-defmacro-piece-shape`): the empty list, a text or a list where the
+  word stands, three forms; a positional parameter after a piece
+  (`vla-defmacro-param-after-piece`); a rest beside pieces
+  (`vla-defmacro-piece-with-rest`, decision 5); a word declared twice,
+  positional, piece or rest (`vla-defmacro-param-twice`), which ends the
+  divergence found while scoping; a piece's word that is an expand-time
+  name (`vla-defmacro-piece-reserved`), from the one table `defmacro` and a
+  loop's names ask, since a template holding the call would read such a
+  piece as that form before the call fires; and a default that names its
+  own word or a later piece's (`vla-defmacro-piece-default-unbound`,
+  decision 4). As the four refusals of a definition that stand, they name
+  the macro and no line, a macro's name being one in the table. Declined:
+  a word declared twice refused among the pieces alone, which leaves the
+  divergence; and a piece spelled as an expand-time name allowed, a piece
+  no template can hold.
+
+  8. *The call's refusals, their order and the line.* Each by name, the
+  macro's as the call writes it: an argument after the positional ones
+  that is no piece the macro declares, an atom or a list headed by any
+  other word (`vla-macro-piece-unknown`), naming the pieces it takes, as
+  `HORIZON.md` §12.9's refusal names a library's slots; a piece holding
+  other than one form (`vla-macro-piece-arity`); a piece given twice
+  (`vla-macro-piece-twice`); a piece without a default that the call
+  leaves out (`vla-macro-piece-missing`); and a positional argument
+  written as one of the macro's pieces (`vla-macro-piece-for-param`,
+  decision 2). Too few arguments for the positional parameters stays
+  `vla-macro-arity-min`'s, a macro with pieces taking at least its
+  positional count. One order in both implementations, so that the first
+  fault a call holds is the one named: the count; the positional
+  arguments, left to right; the arguments after them, left to right; then
+  the pieces without a default, in the declaration's order; and only then
+  a default substituted. Each of the five ends in `{loc}`, the call's line
+  where its author wrote the call, " (vla line N)", and nothing where a
+  macro made it, as `vla-form-too-deep`'s does: a call a template writes
+  or `on` rebuilds carries no line, and Alonzo's pass names the top-level
+  form's. Declined: Common Lisp's leftmost pair, which drops a piece the
+  caller wrote without a trace (PROVENANCE); and a line given the two
+  arity refusals as well, which moves every record and pin of their texts
+  for a call the need does not ask about, left as found.
+
+  9. *Where the pieces live in the port, and the version.* `Macro` gains
+  `pieces`, each a `Piece` with its word as written and its default, and
+  is marked `#[non_exhaustive]`: one break that ends the struct's breaks,
+  so that `VLA.12`'s module and `VLA.14`'s examples, each a field of a
+  macro's, land without one. No crate in Delta builds a `Macro` or takes
+  one apart, and the core reads its doc alone, so no consumer changes a
+  line; Alonzo's exact pin moves for any release. The release is then
+  0.13.0. Declined: the field without the mark, the mint's leaning, which
+  breaks again at the next field; and the pieces in the private `Rule`
+  alone with an accessor beside `get_macro`, no break and 0.12.1 possible,
+  but a `Macro` that describes half a macro's parameters and every later
+  field the same choice again. The break and the number are the owner's.
+
+  10. *The docs.* The tutorial's Part III, chapter 10, *Named pieces* after
+  the paragraph on names: a declaration, one call in two orders, a default
+  leaning on an earlier one, and the refusals' rule; chapter 6's sentence
+  on keywords pointing there, the colon staying VBA's named argument. The
+  crate's page, the expander's paragraph. The registry's paragraph. A
+  release note under a new top heading, `## 0.13.0` as decision 9 numbers
+  it, opened as `VLA.5` opened `## 0.12.0`: a macro's named pieces, and the
+  one definition no longer taken, a word declared twice, of which Delta
+  holds none. And a dated note on `VLA.7`'s line: its refusal of a macro of
+  more than five parameters counts the positional ones alone, a piece
+  being an option its caller names. Every example run through the port.
+  Declined: the record and the release note alone, which leave the add-in's
+  author without the form.
+
+  **The ids**, eleven in the language's half, the 238th to the 248th,
+  their texts drafts the build settles. At the definition, each naming the
+  macro: `vla-defmacro-piece-shape`, "defmacro '{name}': a named piece is
+  declared (word) or (word default), got '{value}'";
+  `vla-defmacro-param-after-piece`, "... the parameter '{word}' follows a
+  named piece, and the positional parameters come first";
+  `vla-defmacro-piece-with-rest`, "... named pieces and a rest parameter
+  cannot stand together, since an argument after the positional ones would
+  be either"; `vla-defmacro-param-twice`, "... '{word}' is declared twice";
+  `vla-defmacro-piece-reserved`, "... the piece '{word}' is spelled as the
+  {desc}, which the expander reads as its own form"; and
+  `vla-defmacro-piece-default-unbound`, "... the default of '{word}' names
+  '{other}', which is not bound before it - a default may name only the
+  parameters declared before it". At the call, each ending in `{loc}`:
+  `vla-macro-piece-unknown`, "macro '{name}': '{value}' stands after its
+  positional arguments, where only its pieces go: {pieces}";
+  `vla-macro-piece-arity`, "... the piece '{word}' holds {n} form(s), and a
+  piece holds one, as ({word} value)"; `vla-macro-piece-twice`, "... the
+  piece '{word}' is given twice"; `vla-macro-piece-missing`, "... the piece
+  '{word}' has no default, and the call does not give it"; and
+  `vla-macro-piece-for-param`, "... '{value}' stands for the positional
+  argument '{param}' and is written as the piece '{word}' - the positional
+  arguments come first". The count's is `vla-macro-arity-min`'s.
+
+  **The wall**, the line's constitution and the gate's four, with the
+  `GENSYM` veto's tests:
+  - *Purity.* A piece is read from the call and a default from the
+    definition, both the source's, and the binding reads nothing else: no
+    file, workbook, clock or table outside the compile. The include map a
+    compile leaves is state between compiles, which a line `VlaExpandText`
+    names could read: cleared there, found while scoping.
+  - *Provenance.* Every form of the output is the template's, a given
+    piece's value, the caller's form with its line, or a default, the
+    definition's form with the earlier parameters put in; nothing is made.
+    No piece is dropped: one given twice, one the macro does not declare
+    and a second form in a piece are refused, where Common Lisp's leftmost
+    pair, and `KIT.6`'s reading by hand, keep the first in silence.
+  - *Budget.* A default names only the parameters before it, so the
+    binding is one pass left to right and no ring can form; a default is
+    substituted once a call and weighed with the application's result
+    (`VLA.1`); and a default that calls its own macro is a chain the 5,000
+    links bound, as any macro's call of itself is.
+  - *Confluence.* The pieces are bound by their words, and the defaults in
+    the declaration's order, never the call's, so one call written in two
+    orders writes the same rows, which a case of the fixture pins. The
+    binding sets no state of the walk.
+  - *The veto's tests.* The same rows across recompiles and across the
+    pieces' orders; re-derivable by hand, a piece's value put where its
+    word stands; and never surfacing without a trace, every row in the
+    expand golden and in `VlaExpandText`. A parameter is never renamed to
+    dodge a capture: that is `GENSYM` under another name, and the capture
+    stays `VLA.11`'s, by refusal.
+
+  **The catch.**
+  - `ExpandOne`'s call and a piece may each be a `VlaSlice`: read by
+    `.Count` and `.Item` alone.
+  - A Collection's keyed `Add` of a key it holds raises error 457: a word
+    declared twice is refused at the definition, and a piece given twice
+    before it is bound.
+  - The record is read by index: the pieces go at its end, items 6 and 7,
+    so `VlaMacroDoc` and apropos read 4 and 5 as before, and a macro
+    without pieces keeps an empty pair.
+  - The trampoline has dropped forms twice (`VLA.5`, `VLA.6`): a case calls
+    a macro with pieces after a `debug-print`, in a `begin` a macro made.
+  - A default is substituted by `Substitute`, which makes its lists afresh
+    at line 0 (S3.1), so the definition's line never rides into the output;
+    a given piece keeps the caller's.
+  - A refusal's line in the reference goes through `LabeledLine`, which
+    reads the include map: `VlaExpandText` clears it first.
+  - The fixture's header says no case names a line: it will say that a line
+    a refusal names is the case's own, counted from its first line, so an
+    edit of the prelude still moves nothing.
+  - `ExpandMacros` and `Substitute` gain no local (trap 8): the binding
+    lives in `ExpandOne`, which is not recursive, and its helpers.
+  - The port's `expand_one` takes the call's line from both its callers,
+    the trampoline and one pass.
+  - `check_message_slots`: every raise site passes each slot of its id.
+  - The VBA trap list, on every new procedure.
+
+  **The oracle.** The expand golden, its new cases the port's prediction,
+  written into both copies, and the reference's `VlaWriteExpandGolden`
+  writing the same bytes, the witness `git diff --no-index` against the
+  crate's copy: among them one call's pieces in two orders, a default
+  naming an earlier parameter, a default naming a define's word with the
+  define between the definition and the call, each refusal, and a call
+  with pieces among forms a macro set aside. `TestNamedPieces` in the
+  owner's `VlaSelfTests`; the port's unit tests; the proof in miniature;
+  the strangers; `check_expand_golden`'s rule 10 and its mutants; every
+  other golden unchanged, the door's ten and `prove -Impl`, and
+  `VlaGoldens` PASS; `run_checks` green; the package's tests from its
+  tarball. In an Alonzo copy by `git archive`, `vla-lang` patched to this
+  tree and the patch never committed: `put` over declared pieces in the
+  sixth decision's words, its first parameter a word other than `sheet`,
+  `put-from` retired, its three calls written over the pieces in more than
+  one order, and every cartridge `same` by `expand --check`.
+
+  **Found while scoping.**
+  - Two parameters of one word: the reference raises error 457 at the
+    call and the port binds the last. Decision 7 refuses the word at the
+    definition in both. None in Delta.
+  - `VlaExpandText` names a line through the last compile's include map,
+    since it splices no include and clears no map: latent since `VLA.1`
+    gave `vla-form-too-deep` its line, which no case reaches. Cleared
+    there.
+  - For `KIT.6`'s second slice, said in chat: `put`'s first parameter, the
+    sheet `on` hands it, is spelled `sheet`, the word its sixth decision
+    gives a piece, so it takes another word; and the reading by hand over
+    `assoc-expand` keeps the first of a piece given twice and the first
+    form of a piece that holds two, which declared pieces refuse.
+
+  **Size.** `~days`, as minted, both implementations in one pass: about
+  twenty files, `VLA.15`'s less the formula syntax's three.
+
+  **Built 2026-10-30.** The ten decisions as approved, the reference first.
+  What landed, nineteen files, the registry's paragraph the twentieth at the
+  close:
+  - *The reference.* `VLA.bas`: `DefineMacro`'s signature walk takes a list
+    as a declaration (`DeclarePiece`, its shape `PieceDeclShaped`), refuses a
+    parameter after a piece and a rest beside one, and asks every word
+    (`RefuseWordTwice`, `WordIndex`), the rest's among them; the defaults
+    checked once the walk has every word, before the template is read
+    (`RefuseDefaultsUnbound`, `DefaultNamesFrom`, every word of the form
+    counting, a head's and a quoted one's, as `Substitute` replaces them
+    all); the record's items 6 and 7, the words as written and each
+    declaration, the list itself, so that its count says whether a default
+    stands. `ExpandOne`: a macro with pieces counts as a rest does, refuses a
+    positional argument written as a piece (`RefusePieceForParam`,
+    `PieceWrittenAs`), and binds through `BindPieces` and `TakePiece`, the
+    arguments, then the pieces left out, then the bindings in the
+    declaration's order; a refusal's list of pieces `PieceWordsText`. The line
+    `FormLineTag`, `RefuseFormTooDeep`'s own reading moved there and shared.
+    `VlaExpandText` clears the include map. `ExpandMacros` and `Substitute`
+    gained no local. The trap list was run by a scan: each new procedure's
+    name unique across `src/`, no identifier a keyword or spelled as a member
+    or another way in its module, no duplicate among a procedure's names, no
+    Variant handed to a typed `ByRef`, every line CRLF, the longest of
+    `VLA.bas` 241 characters. `VLA_Messages.bas`: the eleven ids, exported,
+    the language's half at 248. `VLA_Tests.bas`: `TestNamedPieces`, 109 pins,
+    after `TestAddressForms`, 105 of them generated from a table with each
+    expected value the port's record of the pin's source. `VLA_Tests_Grammar.bas`:
+    one pin in `TestPL7`, a compile's include map read by no later expansion.
+    Each module's version is `VLA.9`.
+  - *The port.* `expand.rs` function for function: `Macro` gains `pieces`, a
+    `Piece` its word and its default, both `#[non_exhaustive]`, the second
+    by the first's reasoning, since a nested rename would be a field of a
+    piece's; `Rule` the pieces as nodes, the parameters as written for a
+    refusal's words, and a map of the pieces by their folded words;
+    `declare_piece`, `refuse_word_twice`, `refuse_defaults_unbound`,
+    `default_names_from`, `piece_written_as`, `refuse_piece_for_param` and
+    `bind_pieces`; `expand_one` taking the call's line from its two callers.
+    Where the reference scans a short list, the port asks a set and a map, so
+    that a stranger's signature or call of a hundred thousand pieces stays
+    linear; the refusals and their order are the same. Nine unit tests;
+    `tests/expand_golden.rs`, the proof in miniature, a `put` by its pieces in
+    two orders one record, and its rows the seven-parameter verb's;
+    `tests/strangers.rs`, a seed program and nineteen named cases, a chain of
+    eighty defaults doubling refused by name, as a macro that doubles is, and
+    a signature and a call of a hundred thousand pieces answered.
+  - *The goldens.* 109 cases, 47 expanded and 62 refused, the fixture 471 and
+    226 refused, 63 distinct ids, five of the macro system's reached by a
+    refused case for the first time; the 362 records before them byte for
+    byte the committed golden. Written by the port through a scratch probe
+    that runs the test's own report loop and writes the reference's CRLF, into
+    both copies, the probe first reproducing the committed golden over the
+    fixture as it stood. The fixture's header: a refusal that names a line
+    names the case's own, counted from its first line.
+  - *The checks.* `check_expand_golden`'s rule 10 and three mutants, a
+    signature walk with no declaration, a binding with no default and one
+    call's two orders apart, seventeen in all; floors 471, 245 and 63.
+    `check_data_exports` at 248.
+  - *The docs.* The tutorial's chapter 10, *Named pieces* after the paragraph
+    on names, and chapter 6's sentence on keywords pointing there; the crate's
+    page, the expander's paragraph; `RELEASES.md`, `## 0.13.0`, which holds
+    `KERNEL.67`'s note too since the owner's word below; the dated note on
+    `VLA.7`'s line; the roadmap's line 🟡. Every
+    example run through the port.
+
+  One addition inside the seventh decision, named here since the decision did
+  not spell it: `&` where a piece's word stands is `vla-defmacro-piece-shape`,
+  so that `(& rest)` is told it is no rest parameter. The fixture came out at
+  109 cases where the scoping said about fifty, the refusals' orders and lines
+  taking the rest.
+
+  **Found while building.**
+  - A macro calling itself by a piece meets the capture the third decision
+    names: `(defmacro (down (n 2)) ... (down (n (-expand n 1))))` has its own
+    `n` replace the piece's word, and the call `(down (2 1))` is refused by
+    name. Under `quasiquote` the word is data and the call reads: both pinned,
+    and the tutorial says so. `VLA.11`'s, as the capture is.
+  - For `KIT.6`'s second slice, said in chat: `engine/src/pass.rs`'s kit test
+    calls `put` by position twice, so the slice has five calls to write and not
+    three; the new refusal named the first, its pieces listed, on the first
+    run of that test in the copy.
+  - A Collection compares its keys without case, where `Fold` touches A-Z
+    alone. If that reaches past ASCII, `(defmacro (m É é) ...)` passes
+    `RefuseWordTwice` and raises error 457 at the call, as two words declared
+    alike did before this item, where the port binds both. Unmeasured; none of
+    Delta's 1,686 `defmacro`s holds a word past ASCII. Left as found, a
+    positional parameter's since the first macro, for the owner's word.
+
+  **Verified** on `bc6dd77` plus this item, in a copy by `git archive` with
+  this item's files laid over it, a peer's `KERNEL.67` standing uncommitted in
+  the shared tree: fmt clean and clippy with `-D warnings` clean; `cargo test
+  --workspace`, 690 passed, 0 failed and 5 ignored; `prove -Impl` over the door
+  built from that copy, 61 passed and none failed; `run_checks`, 60 of 60;
+  `check_expand_golden -Control`, each of seventeen mutants failing; `vla-lang`'s
+  package from its tarball, 465 tests passing and 2 ignored, its fixture and
+  golden the tree's; the strangers' long run, ten seeds of 5,000 cases at each
+  of the six doors, every one answered or refused by name. In the shared tree
+  `run_checks` is 59 of 60, its one failure `check_recalc_floors` on the peer's
+  `superposition-styled` row. In Alonzo at `93c71e7`, a scratch copy by `git
+  archive` with `vla-lang` patched to the copy and nothing written in its tree:
+  `put` over `(sheet)`, `(when)`, `(address)` and `(value)`, its first parameter
+  `write-sheet`, `put-from` retired, its three calls written over the pieces, the
+  second of Kairos's in the reverse order, and the eleven cartridges `same` by
+  `expand --check`; the kit's test, its two calls written over the pieces, its
+  rows as they stood, eleven of the pass's tests passing.
+
+  **The owner's first pass, 2026-10-30:** `VlaWriteExpandGolden` wrote 464
+  cases, 225 refused, byte for byte the port's prediction (`git diff --no-index`
+  against the crate's copy, exit 0); `VlaGoldens`, corpus and interpreter PASS;
+  `VlaSelfTests`, host 333/333 and pure 2320/2321. The paste named the count
+  and not the pin, so the pin was found by reading: this item's own test. The
+  include map's pin had been inserted in `TestPL7` between the baseline's
+  computing of `d` and its `Report`, so that `pl7: the no-include baseline
+  wording is untouched` read the new pin's refusal. The block moved below that
+  `Report`; no implementation moved.
+
+  **The owner's word the same day.** *The release:* "Fold 0.12.1 and 0.13.0 into
+  one release": `## 0.13.0` holds `KERNEL.67`'s note after this item's, the
+  heading `## 0.12.1` gone, and that item's session told, its own record its
+  own. *A question:* whether `&` as a piece's word conflicts with variadic
+  parameters, and whether an item is owed for two uses. It does not, and none
+  is minted, since there are not two uses to reconcile. In a signature `&` has
+  one reading, an atom among the parameters, the mark before the rest's name; in
+  a piece's list it has none, refused by shape; and `(& a b)` everywhere else is
+  a list with the formula syntax's operator at its head, a position the
+  signature's walk never reads. No parameter or piece can be spelled `&`, so no
+  template's operator can be replaced by one, which the refusal is what keeps
+  so. Counted over Delta's 1,686 `defmacro`s: 95 take a rest, 39 hold `(& ...)`
+  in a template and 6 do both, today, with no `&` in a signature's list and no
+  macro named `&`. Seven cases and seven pins hold it, a rest taking lists headed
+  by the operator, a positional argument, a piece's value and a default headed by
+  it, the operator in a template beside a piece, and the operator where a piece
+  goes refused by name. What pieces and a rest do share is the fifth decision's
+  refusal, and the refusal can become a reading later without reading a call
+  again; a piece of many forms, `(sheets & names)`, is refused today as three
+  forms, so that spelling stays open as well. Neither is asked for.
+
+  *Left as found:* `(defmacro (m & &) ...)`, a rest whose word is spelled as its
+  mark, which both implementations have taken since the first macro, and which
+  replaces the operator in its template as any parameter replaces a head. None
+  in Delta. The seventh case pins it; `VLA.11`'s, as the capture is.
+
+  **For the owner's next pass:** `VlaDevReload`, Debug > Compile;
+  `? VlaSelfTests()`, the pure suite 110 pins more than its last whole run,
+  2328/2328 predicted, the host suite 333/333; `? VlaWriteExpandGolden()`, 471
+  cases and 226 refused, its file then held to the crate's copy by `git diff
+  --no-index`, empty predicted; `? VlaGoldens()`, corpus and interpreter PASS, no
+  emitted code having moved.
+
+  **The owner's pass, 2026-10-30:** `VlaSelfTests`, pure 2328/2328,
+  `TestNamedPieces`' 109 pins and `TestPL7`'s moved pin among them, and host
+  333/333; `VlaWriteExpandGolden` wrote 471 cases, 226 refused, byte for byte
+  the port's prediction (`git diff --no-index` against the crate's copy, exit
+  0); `VlaGoldens`, corpus and interpreter PASS. The ten decisions stand as
+  built. **Closed ✅ and committed 2026-10-30 at the owner's word.**
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
@@ -53574,6 +54184,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.6 — `define`, a name at expand time, and `last`, a reference's twin in the formula syntax.** Minted 2026-10-23 from the sitting on the helper-hungry style; scoped, approved, built, owner-tested and committed 2026-10-25 at the owner's word. `(define stop State!B12)` binds a word to a form from the next form of the source on: the walk passes a define by as written, and once the form it stands in has expanded, the one wrapper every entry point calls takes the defines from its statements and registers them, so that neither the trampoline's order nor a begin's shape decides what a word means. The walk puts a define's form where its word stands as a value, never at a list's head, inside a quote or a text, or in an expand-time primitive's argument; a word that already means something (a reference, a number, a form of the language, an expand-time name, `error`, `ref` or `last`, a macro's name, a word defined already), a word used in the form that defines it and a ring of words are refused by name. `(last X)` writes X's twin, `Input.last!B13` for `Input!B13`, its sheet quoted by the one rule, and the formula reader refuses `LAST(` as it refuses `REF(`; `sheet-expand` and `range-expand` give a reference's sheet and its cell or range, the two texts `ref` takes, so that a verb writes a row at a word, and the stop rule written in names writes Kairos's committed row. Found while scoping and fixed in both implementations: every return of the trampoline but an atom's dropped the forms a begin a macro made had set aside before it. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor Buffet's game. The owner's pass: pure 2151/2151, host 333/333; the reference's expand golden, 294 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6` and Buffet's `HOUSE.7`, once a release carries it. *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **VLA.15 — a name where an address stands: `list?`, a word told from a list; the anchored reference in the formula syntax; and a reference's first cell, a third form of the walk.** Minted 2026-10-29 from Alonzo's `KIT.6`, whose first slice found what its third asks of the language; scoped, approved, built, owner-tested and committed 2026-10-29 at the owner's word. `(list? x)`, the twenty-ninth primitive, is `true` for every list, the empty one among them, and `false` for a word or a text, the one test of a form's kind that refuses neither, so a template tells a word from a pair. `(absolute X)`, `(absolute-row X)` and `(absolute-column X)` write a reference with the `$` marks each adds, Excel's absolute reference and its two mixed ones, and never take one away, so the three and `last` stand in either order and a fill cites a defined word anchored: `(last (absolute stop))` writes `State.last!$B$12`. `(first-cell-expand X)` gives a reference's first cell, a range's top-left as the grid reads it, as the text `ref` takes, so a verb twins the cell its fill is written for at a word as at an address. The syntax's reference heads and the walk's three forms read one reference one way, inside out; a whole column or row where a cell is needed is refused by name, and the formula reader refuses a call named `ABSOLUTE`. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor did any with the kit's twins rewritten over the new forms as `KIT.6`'s tenth decision writes them. The owner's pass: pure 2218/2218, host 333/333 on a second run, the first having met a transient recorded under Found; the reference's expand golden, 362 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second and third slices, once a release carries it; `VLA.13`. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **VLA.9 — named pieces with defaults: a parameter declared `(sheet "Screen")` after a macro's positional ones, a caller writing `(sheet "Tower")` in any order for what differs, and a piece the macro does not declare refused by name.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, item 4); scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. A list in a macro's signature, after its positional parameters, declares a piece, `(word default)`, or `(word)` for one the call must give; a call gives each as `(word value)` after its positional arguments. The pieces are bound in the declaration's order and never the call's, so one call in two orders writes the same rows; a default is a form of the macro's, substituted at each call that leaves its piece out under the parameters bound before it, and expanded with the rest of what the call wrote. Six refusals at the definition, a word declared twice among them, positional, piece or rest, which ends a divergence found while scoping; five at the call, each naming the call's line, or none for a call a macro made, a positional argument written as one of the pieces among them, so that a call reads the same by position and by its pieces' words. `Macro` gains `pieces`, and it and `Piece` are `#[non_exhaustive]`, one break that ends the struct's breaks: 0.13.0, into which the owner folded `KERNEL.67`'s 0.12.1. `&` keeps its one meaning in a signature, the owner's question answered with no item. No compiled golden moved; in an Alonzo copy `put` over declared pieces, `put-from` retired, left the eleven cartridges byte for byte. The owner's pass: pure 2328/2328, host 333/333, the first run's one failure this item's own pin, moved; the reference's expand golden, 471 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second slice, five calls of `put` and not three, once a release carries it; Alonzo's `KIT.8`, with `VLA.12`. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

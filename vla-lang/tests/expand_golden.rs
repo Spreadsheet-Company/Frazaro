@@ -18,7 +18,8 @@
 //! own stop among them; and VLA.15's: a block's labels and words from
 //! entries `list?` tells apart, a word or a pair, a fill citing a word
 //! anchored, and `count` at a word through `first-cell-expand`, each fill
-//! the row its twin by addresses writes.
+//! the row its twin by addresses writes; and VLA.9's: a `put` by its named
+//! pieces, in two orders, writing the rows of a `put` by position.
 
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
@@ -178,10 +179,34 @@ fn a_fill_and_a_count_at_a_word_write_the_rows_their_twins_by_addresses_write() 
 }
 
 #[test]
+fn a_put_by_its_pieces_in_two_orders_writes_the_rows_of_a_put_by_position() {
+    // VLA.9: one call written in two orders is one record, since the pieces
+    // are bound in the declaration's order and never the call's, and its
+    // rows are the seven-parameter verb's, the kit's put-from.
+    let (by_position, _) = expand_text(&case_text("a-put-by-position"), PRELUDE, true).unwrap();
+    let (by_pieces, _) = expand_text(&case_text("a-put-by-pieces"), PRELUDE, true).unwrap();
+    let (in_another_order, _) = expand_text(
+        &case_text("a-put-by-pieces-in-another-order"),
+        PRELUDE,
+        true,
+    )
+    .unwrap();
+    assert_eq!(by_pieces, in_another_order);
+    let (by_position, by_pieces) = (rows(&by_position), rows(&by_pieces));
+    assert_eq!(by_pieces.len(), 3);
+    assert_eq!(by_pieces, by_position);
+    let want = read_forms(
+        "(cell \"Write\" \"A2\" \"Tower\") (formula \"Write\" \"B2\" \"=IF(Gate!A1,\\\"C3\\\",\\\"\\\")\") (formula \"Write\" \"C2\" \"=Gate!B1+1\")",
+    )
+    .unwrap();
+    assert_eq!(by_pieces, want);
+}
+
+#[test]
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 362, "only {count} cases in the expand fixture");
+    assert!(count >= 471, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))

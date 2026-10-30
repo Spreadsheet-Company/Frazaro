@@ -975,3 +975,282 @@ EXPANDED	0
 === a-begin-a-macro-made-keeps-its-forms-before-a-first-cell
 EXPANDED	1
 (begin (debug-print 1) "B1")
+=== a-piece-left-out-takes-its-default
+EXPANDED	1
+(formula "Screen" "B2:K11" "=1")
+=== a-piece-given-takes-its-value
+EXPANDED	1
+(formula "Tower" "B2:K11" "=1")
+=== a-piece-s-word-folds-as-a-parameter-s
+EXPANDED	1
+(formula "Tower" "B2:K11" "=1")
+=== a-piece-the-call-must-give
+EXPANDED	1
+(formula "Tower" "B2:K11" "=1")
+=== a-macro-of-pieces-alone-left-to-its-defaults
+EXPANDED	1
+(cell "Screen" "A1" 1)
+=== a-macro-of-pieces-alone-given-one
+EXPANDED	1
+(cell "Screen" "C3" 1)
+=== a-macro-of-pieces-alone-given-both
+EXPANDED	1
+(cell "Tower" "C3" 1)
+=== a-docstring-beside-a-piece
+EXPANDED	1
+"Frazaro"
+=== a-lone-text-is-the-template-beside-a-piece
+EXPANDED	1
+"a lone text"
+=== a-piece-s-value-is-a-form-as-written
+EXPANDED	1
+(formula "Screen" "B2" "=A1+1")
+=== a-piece-s-value-calling-a-macro-expands-where-it-lands
+EXPANDED	2
+(formula "Home" "B2" "=1")
+=== a-default-calling-a-macro-expands-where-the-call-does
+EXPANDED	2
+(formula "Home" "B2" "=1")
+=== a-default-used-twice-stands-twice
+EXPANDED	1
+(f (g 1) (g 1))
+=== a-default-naming-an-earlier-piece
+EXPANDED	1
+(box "S" 3 3)
+=== a-default-naming-an-earlier-piece-given-after-it
+EXPANDED	1
+(box "S" 3 9)
+=== a-default-naming-an-earlier-piece-left-out
+EXPANDED	1
+(box "S" 1 1)
+=== a-default-naming-a-positional-parameter
+EXPANDED	1
+(cell "Tower" "A1" "Tower")
+=== a-default-naming-a-default-naming-a-default
+EXPANDED	1
+(f 7 7 7)
+=== a-default-computed-from-an-earlier-piece
+EXPANDED	1
+(f 3 12)
+=== a-default-naming-a-piece-inside-a-list
+EXPANDED	1
+(f (ref "Tower" "A1"))
+=== a-default-naming-a-word-reads-the-define-the-call-sees
+EXPANDED	1
+(begin)
+(cell "S" "B2" 1)
+=== a-default-naming-a-word-above-its-define-writes-the-word
+EXPANDED	1
+(cell "S" home 1)
+(begin)
+=== a-default-with-a-text-names-no-piece
+EXPANDED	1
+(g "b" 1)
+=== a-default-is-not-read-when-its-piece-is-given
+EXPANDED	1
+(g 1)
+=== a-default-read-where-its-piece-is-left-out-refused
+REFUSED	vla-car-expected-list	car: expected a list, got '"text'
+=== a-default-of-a-loop-is-one-begin
+EXPANDED	1
+(begin (g 1) (g 2))
+=== a-default-of-the-empty-list
+EXPANDED	1
+(g ())
+=== a-piece-given-the-empty-list
+EXPANDED	1
+(g ())
+=== a-put-by-position
+EXPANDED	1
+(begin
+    (cell "Write" "A2" "Tower")
+    (formula "Write" "B2" "=IF(Gate!A1,\"C3\",\"\")")
+    (formula "Write" "C2" "=Gate!B1+1"))
+=== a-put-by-pieces
+EXPANDED	1
+(begin
+    (cell "Write" "A2" "Tower")
+    (formula "Write" "B2" "=IF(Gate!A1,\"C3\",\"\")")
+    (formula "Write" "C2" "=Gate!B1+1"))
+=== a-put-by-pieces-in-another-order
+EXPANDED	1
+(begin
+    (cell "Write" "A2" "Tower")
+    (formula "Write" "B2" "=IF(Gate!A1,\"C3\",\"\")")
+    (formula "Write" "C2" "=Gate!B1+1"))
+=== pieces-through-on
+EXPANDED	5
+(begin
+    (begin (cell "Write" "A1" "Tower") (formula "Write" "B1" "=0"))
+    (begin (cell "Write" "A2" "Screen") (formula "Write" "B2" "=2"))
+    (begin))
+=== pieces-in-a-template
+EXPANDED	2
+(begin (cell "Write" "A1" "Screen") (formula "Write" "B1" "=1"))
+=== pieces-a-quasiquote-writes
+EXPANDED	2
+(formula "Tower" "B2" "=1")
+=== pieces-in-a-loop
+EXPANDED	3
+(begin (formula "Tower" "B2" "=1") (formula "Tower" "B3" "=1"))
+=== pieces-among-forms-a-macro-set-aside
+EXPANDED	3
+(begin (debug-print 1) (formula "Screen" "B2" "=1") (formula "Tower" "B3" "=1"))
+=== an-atom-by-a-piece-after-forms-a-macro-set-aside
+EXPANDED	2
+(begin (debug-print 1) "none")
+=== a-macro-calling-itself-by-a-piece-under-a-shield
+EXPANDED	3
+(done)
+=== a-macro-calling-itself-by-a-piece-bare-refused
+REFUSED	vla-macro-piece-unknown	macro 'countdown': '(2 1)' stands after its positional arguments, where only its pieces go: n
+=== a-template-s-parameter-spelled-as-a-piece-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '("Tower" "Tower")' stands after its positional arguments, where only its pieces go: sheet
+=== a-piece-s-word-at-a-head-of-its-template-is-replaced
+EXPANDED	1
+("x" "S" "A1" 1)
+=== a-positional-argument-of-another-word-is-no-piece
+EXPANDED	1
+(formula "Screen" (ref "S" "A1") "=1")
+=== a-macro-with-no-piece-takes-any-list
+EXPANDED	1
+(f (sheet "Tower"))
+=== a-macro-with-no-piece-counts-as-it-did
+REFUSED	vla-macro-arity	macro 'plain' expects 1 argument(s), got 2
+=== a-rest-macro-takes-any-list
+EXPANDED	1
+(f (sheet "Tower") (sheet "Screen"))
+=== a-declaration-of-nothing-refused
+REFUSED	vla-defmacro-piece-shape	defmacro 'f': a named piece is declared (word) or (word default), got '()'
+=== a-declaration-of-three-forms-refused
+REFUSED	vla-defmacro-piece-shape	defmacro 'f': a named piece is declared (word) or (word default), got '(a 1 2)'
+=== a-declaration-headed-by-a-text-refused
+REFUSED	vla-defmacro-piece-shape	defmacro 'f': a named piece is declared (word) or (word default), got '("a" 1)'
+=== a-declaration-headed-by-a-list-refused
+REFUSED	vla-defmacro-piece-shape	defmacro 'f': a named piece is declared (word) or (word default), got '((a b) 1)'
+=== a-declaration-headed-by-the-rest-s-mark-refused
+REFUSED	vla-defmacro-piece-shape	defmacro 'f': a named piece is declared (word) or (word default), got '(& rest)'
+=== a-parameter-after-a-piece-refused
+REFUSED	vla-defmacro-param-after-piece	defmacro 'f': the parameter 'b' follows a named piece, and the positional parameters come first
+=== a-rest-beside-a-piece-refused
+REFUSED	vla-defmacro-piece-with-rest	defmacro 'f': named pieces and a rest parameter cannot stand together, since an argument after the positional ones would be either
+=== a-rest-s-mark-with-no-word-beside-a-piece-refused
+REFUSED	vla-defmacro-piece-with-rest	defmacro 'f': named pieces and a rest parameter cannot stand together, since an argument after the positional ones would be either
+=== a-piece-after-a-rest-refused-as-the-rest-not-last
+REFUSED	vla-defmacro-rest-param-not-last	defmacro 'f': rest parameter must be last
+=== a-list-for-the-rest-s-word-refused
+REFUSED	vla-expected-symbol-got-list	expected a symbol, got a list
+=== a-word-declared-twice-refused
+REFUSED	vla-defmacro-param-twice	defmacro 'f': 'a' is declared twice
+=== a-word-declared-twice-by-its-fold-refused
+REFUSED	vla-defmacro-param-twice	defmacro 'f': 'A' is declared twice
+=== a-piece-spelled-as-a-parameter-refused
+REFUSED	vla-defmacro-param-twice	defmacro 'f': 'A' is declared twice
+=== a-piece-declared-twice-refused
+REFUSED	vla-defmacro-param-twice	defmacro 'f': 'a' is declared twice
+=== a-rest-spelled-as-a-parameter-refused
+REFUSED	vla-defmacro-param-twice	defmacro 'f': 'a' is declared twice
+=== a-piece-spelled-as-a-loop-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'f': the piece 'each' is spelled as the expand-time loop form, which the expander reads as its own form
+=== a-piece-spelled-as-a-primitive-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'f': the piece 'CAR' is spelled as the list-head primitive, which the expander reads as its own form
+=== a-piece-spelled-as-quote-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'f': the piece 'quote' is spelled as the data-literal form, which the expander reads as its own form
+=== a-piece-spelled-as-define-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'f': the piece 'define' is spelled as the expand-time naming form, which the expander reads as its own form
+=== a-default-naming-its-own-word-refused
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'a', which is not bound before it - a default may name only the parameters declared before it
+=== a-default-naming-a-later-piece-refused
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'b', which is not bound before it - a default may name only the parameters declared before it
+=== a-default-naming-a-later-piece-inside-a-list-refused
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'b', which is not bound before it - a default may name only the parameters declared before it
+=== a-default-naming-its-own-word-at-a-head-refused
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'a', which is not bound before it - a default may name only the parameters declared before it
+=== a-default-naming-a-later-piece-under-a-quote-refused
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'b', which is not bound before it - a default may name only the parameters declared before it
+=== a-default-unbound-named-after-the-signature-is-read
+REFUSED	vla-defmacro-param-after-piece	defmacro 'f': the parameter 'b' follows a named piece, and the positional parameters come first
+=== a-default-unbound-named-before-a-missing-template
+REFUSED	vla-defmacro-piece-default-unbound	defmacro 'f': the default of 'a' names 'a', which is not bound before it - a default may name only the parameters declared before it
+=== a-macro-of-a-piece-with-no-template-refused
+REFUSED	vla-defmacro-missing-template	defmacro 'f': missing template body
+=== an-atom-after-the-positional-arguments-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '"Tower"' stands after its positional arguments, where only its pieces go: sheet, text (vla line 5)
+=== a-word-after-the-positional-arguments-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': 'sheet' stands after its positional arguments, where only its pieces go: sheet, text (vla line 5)
+=== a-piece-the-macro-does-not-declare-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '(color "red")' stands after its positional arguments, where only its pieces go: sheet, text (vla line 5)
+=== an-empty-list-after-the-positional-arguments-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '()' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== a-list-headed-by-a-list-after-the-positional-arguments-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '((sheet) "Tower")' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== a-list-headed-by-a-text-after-the-positional-arguments-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '("sheet" "Tower")' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== a-refusal-names-the-macro-as-the-call-writes-it
+REFUSED	vla-macro-piece-unknown	macro 'RULE': '(color "red")' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== a-piece-with-no-value-refused
+REFUSED	vla-macro-piece-arity	macro 'rule': the piece 'sheet' holds 0 form(s), and a piece holds one, as (sheet value) (vla line 5)
+=== a-piece-with-two-values-refused
+REFUSED	vla-macro-piece-arity	macro 'rule': the piece 'sheet' holds 2 form(s), and a piece holds one, as (sheet value) (vla line 5)
+=== a-piece-given-twice-refused
+REFUSED	vla-macro-piece-twice	macro 'rule': the piece 'sheet' is given twice (vla line 5)
+=== a-piece-given-twice-by-its-fold-refused
+REFUSED	vla-macro-piece-twice	macro 'rule': the piece 'sheet' is given twice (vla line 5)
+=== a-piece-left-out-without-a-default-refused
+REFUSED	vla-macro-piece-missing	macro 'rule': the piece 'sheet' has no default, and the call does not give it (vla line 5)
+=== a-positional-argument-written-as-a-piece-refused
+REFUSED	vla-macro-piece-for-param	macro 'rule': '(sheet "Tower")' stands for the positional argument 'range' and is written as the piece 'sheet' - the positional arguments come first (vla line 5)
+=== a-second-positional-argument-written-as-a-piece-refused
+REFUSED	vla-macro-piece-for-param	macro 'rule-on': '(SHEET "Tower")' stands for the positional argument 'range' and is written as the piece 'sheet' - the positional arguments come first (vla line 5)
+=== too-few-arguments-for-a-macro-with-pieces-refused
+REFUSED	vla-macro-arity-min	macro 'rule' expects at least 1 argument(s), got 0
+=== the-count-is-named-before-a-piece
+REFUSED	vla-macro-arity-min	macro 'rule-on' expects at least 2 argument(s), got 1
+=== a-positional-argument-is-named-before-an-unknown-piece
+REFUSED	vla-macro-piece-for-param	macro 'rule': '(sheet "Tower")' stands for the positional argument 'range' and is written as the piece 'sheet' - the positional arguments come first (vla line 5)
+=== the-arguments-are-read-left-to-right-an-unknown-first
+REFUSED	vla-macro-piece-unknown	macro 'rule': '(color "red")' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== the-arguments-are-read-left-to-right-an-arity-first
+REFUSED	vla-macro-piece-arity	macro 'rule': the piece 'sheet' holds 0 form(s), and a piece holds one, as (sheet value) (vla line 5)
+=== a-piece-given-twice-is-named-before-a-piece-left-out
+REFUSED	vla-macro-piece-twice	macro 'rule': the piece 'sheet' is given twice (vla line 5)
+=== the-pieces-left-out-are-named-in-the-declaration-s-order
+REFUSED	vla-macro-piece-missing	macro 'rule': the piece 'sheet' has no default, and the call does not give it (vla line 5)
+=== a-piece-left-out-is-named-before-a-default-is-read
+REFUSED	vla-macro-piece-missing	macro 'f': the piece 'b' has no default, and the call does not give it (vla line 5)
+=== a-refusal-names-the-call-s-line
+REFUSED	vla-macro-piece-unknown	macro 'rule': '(color "red")' stands after its positional arguments, where only its pieces go: sheet (vla line 6)
+=== a-refusal-names-the-line-a-begin-holds-the-call-on
+REFUSED	vla-macro-piece-arity	macro 'rule': the piece 'sheet' holds 0 form(s), and a piece holds one, as (sheet value) (vla line 7)
+=== a-refusal-names-the-line-a-formula-holds-the-call-on
+REFUSED	vla-macro-piece-twice	macro 'edge': the piece 'twin' is given twice (vla line 7)
+=== a-refusal-names-the-line-a-define-holds-the-call-on
+REFUSED	vla-macro-piece-missing	macro 'rule': the piece 'sheet' has no default, and the call does not give it (vla line 5)
+=== a-refusal-names-no-line-for-a-call-a-template-writes
+REFUSED	vla-macro-piece-unknown	macro 'rule': '(color "red")' stands after its positional arguments, where only its pieces go: sheet
+=== a-refusal-names-no-line-for-a-call-on-conses
+REFUSED	vla-macro-piece-unknown	macro 'put': '(color "red")' stands after its positional arguments, where only its pieces go: sheet
+=== a-given-piece-s-call-keeps-its-line
+REFUSED	vla-macro-piece-missing	macro 'needs': the piece 'a' has no default, and the call does not give it (vla line 10)
+=== a-default-s-call-names-no-line
+REFUSED	vla-macro-piece-missing	macro 'needs': the piece 'a' has no default, and the call does not give it
+=== a-rest-takes-lists-headed-by-the-text-joining-operator
+EXPANDED	1
+(f (& "a" "b") (& "c" "d"))
+=== a-positional-argument-headed-by-the-text-joining-operator
+EXPANDED	1
+(formula "Screen" (& "B" 2) "=1")
+=== a-piece-s-value-headed-by-the-text-joining-operator
+EXPANDED	1
+(formula (& "T" 1) "B2" "=1")
+=== a-default-headed-by-the-text-joining-operator
+EXPANDED	1
+(f (& "row " 3))
+=== a-template-s-text-joining-head-beside-a-piece
+EXPANDED	1
+"=A1&\"x\""
+=== the-text-joining-operator-for-a-piece-refused
+REFUSED	vla-macro-piece-unknown	macro 'rule': '(& "T" 1)' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
+=== a-rest-spelled-as-its-own-mark-replaces-the-operator
+EXPANDED	1
+(1 2 "a" "b")

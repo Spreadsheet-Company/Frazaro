@@ -21,7 +21,11 @@
 //! ...)`. A parameter is replaced by the form passed at the call site; the
 //! rest parameter splices its forms into whatever list it stands in; several
 //! template forms become one `(begin ...)`. No gensym, no compile-time
-//! computation beyond the expand-time primitives, by design.
+//! computation beyond the expand-time primitives, by design. Since VLA.9 a
+//! list in the signature, after the positional parameters, declares a named
+//! piece, `(word default)` or `(word)`, which a call gives as `(word value)`
+//! after its positional arguments, in any order; a piece left out takes its
+//! default, substituted under the parameters bound before it.
 //!
 //! The shape is the VBA's, function for function. `ExpandMacros` is the
 //! hand-made trampoline: a form whose head is a macro is substituted and
@@ -46,7 +50,7 @@
 //!
 //! The refusals are the catalogue's, by id, in the same situations.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
 use crate::form::{sym_text, Form, List};
@@ -61,6 +65,7 @@ use crate::sheet::{column_letters, MAX_COLUMN, MAX_ROW};
 
 /// One macro, as `DefineMacro` records it.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Macro {
     /// The parameter names, as written.
     pub params: Vec<String>,
@@ -71,6 +76,20 @@ pub struct Macro {
     pub doc: String,
     /// The name as written.
     pub name: String,
+    /// The named pieces, after `params` and in the declaration's order
+    /// (VLA.9).
+    pub pieces: Vec<Piece>,
+}
+
+/// A macro's named piece (VLA.9), as `DefineMacro` records it: `(word
+/// default)`, or `(word)` for a piece the caller must give.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct Piece {
+    /// The word, as written.
+    pub word: String,
+    /// The default as written, or `None` for a piece the caller must give.
+    pub default: Option<Form>,
 }
 
 /// The expand-time names a macro may not take, each with the description
@@ -400,8 +419,23 @@ struct Env<'r> {
 /// its template read into nodes once, when it is defined.
 struct Rule {
     params: Vec<String>,
+    /// VLA.9: the parameters as written, for a refusal's words.
+    param_words: Vec<String>,
     rest_name: String,
     template: Node,
+    /// VLA.9: the named pieces in the declaration's order, none for most.
+    pieces: Vec<RulePiece>,
+    /// VLA.9: where each piece stands in `pieces`, by its word folded, so
+    /// that a stranger's call of thousands of pieces stays linear.
+    piece_index: HashMap<String, usize>,
+}
+
+/// A named piece as the expander applies it (VLA.9): its word folded, and as
+/// written for a refusal, and its default read into nodes once.
+struct RulePiece {
+    word: String,
+    word_fold: String,
+    default: Option<Node>,
 }
 
 /// The macro table and the application counters: `mMacros`, `mBudgetOn`,
@@ -475,11 +509,23 @@ impl Expander {
         }
 
         let mut params = Vec::new();
+        let mut pieces = Vec::new();
         let mut rest_name = String::new();
+        // VLA.9: every word declared so far, folded, the reference's scan as
+        // a set, since a stranger's signature may hold a hundred thousand.
+        let mut declared = HashSet::new();
         let mut j = 2;
         while j <= sig.count() {
+            if let Form::List(decl) = sig.nth(j)? {
+                pieces.push(declare_piece(&mname, decl, &mut declared)?);
+                j += 1;
+                continue;
+            }
             let t = sym_text(sig.nth(j)?)?;
             if t == "&" {
+                if !pieces.is_empty() {
+                    return Err(raise("vla-defmacro-piece-with-rest", &[("name", &mname)]));
+                }
                 if j + 1 > sig.count() {
                     return Err(raise(
                         "vla-defmacro-rest-param-missing",
@@ -493,11 +539,25 @@ impl Expander {
                         &[("name", &mname)],
                     ));
                 }
+                refuse_word_twice(&mname, &rest_name, &mut declared)?;
                 break;
             }
+            if !pieces.is_empty() {
+                return Err(raise(
+                    "vla-defmacro-param-after-piece",
+                    &[("name", &mname), ("word", &t)],
+                ));
+            }
+            refuse_word_twice(&mname, &t, &mut declared)?;
             params.push(t);
             j += 1;
         }
+        let piece_index: HashMap<String, usize> = pieces
+            .iter()
+            .enumerate()
+            .map(|(k, piece): (usize, &Piece)| (fold(&piece.word), k))
+            .collect();
+        refuse_defaults_unbound(&mname, &pieces, &piece_index)?;
 
         // L17: a string at form 3 is documentation only when at least one
         // more form follows; a lone string is the template.
@@ -525,8 +585,11 @@ impl Expander {
             mfold.clone(),
             Rule {
                 params: params.iter().map(|p| fold(p)).collect(),
+                param_words: params.clone(),
                 rest_name: fold(&rest_name),
                 template: Node::of(&template),
+                pieces: pieces.iter().map(RulePiece::of).collect(),
+                piece_index,
             },
         );
         self.macros.insert(
@@ -537,6 +600,7 @@ impl Expander {
                 template,
                 doc,
                 name: mname,
+                pieces,
             },
         );
         Ok(())
@@ -694,7 +758,7 @@ impl Expander {
                 if chain_len > 5000 {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
-                let r = expand_one(items, rule, &self.rules)?;
+                let r = expand_one(items, rule, &self.rules, lst.line)?;
                 self.weigh(&r)?;
                 self.expand_fired += 1; // L1: one per application
                 cur = r;
@@ -920,7 +984,7 @@ impl Expander {
             }
             if let Some(rule) = self.rules.get(&head_fold) {
                 if !(self.budget_on && self.expand_fired >= self.expand_budget) {
-                    let r = expand_one(items, rule, &self.rules)?;
+                    let r = expand_one(items, rule, &self.rules, lst.line)?;
                     self.weigh(&r)?;
                     self.expand_fired += 1;
                     return Ok(r.form());
@@ -1167,13 +1231,245 @@ fn too_deep(line: u32) -> Refusal {
     )
 }
 
+/// VBA `DeclarePiece`: a list in a macro's signature, a named piece's
+/// declaration (VLA.9). Refused by name: any shape but one word, or a word
+/// and one form, the rest's mark being no piece's word; a word declared
+/// before it; and a word the walks read as a form of their own, since a
+/// template holding a call would read such a piece as that form before the
+/// call fires.
+fn declare_piece(
+    mname: &str,
+    decl: &List,
+    declared: &mut HashSet<String>,
+) -> Result<Piece, Refusal> {
+    let word = match (decl.count(), decl.items.first()) {
+        (1 | 2, Some(Form::Sym(word))) if word != "&" => word.clone(),
+        _ => {
+            return Err(raise(
+                "vla-defmacro-piece-shape",
+                &[
+                    ("name", mname),
+                    ("value", &write_datum(&Form::List(decl.clone()))),
+                ],
+            ))
+        }
+    };
+    refuse_word_twice(mname, &word, declared)?;
+    let word_fold = fold(&word);
+    if let Some((_, desc)) = RESERVED.iter().find(|(w, _)| *w == word_fold) {
+        return Err(raise(
+            "vla-defmacro-piece-reserved",
+            &[("name", mname), ("word", &word), ("desc", desc)],
+        ));
+    }
+    Ok(Piece {
+        word,
+        default: decl.items.get(1).cloned(),
+    })
+}
+
+/// VBA `RefuseWordTwice`: a word a signature has declared already,
+/// positional, piece or rest, compared as a call binds them, by the fold
+/// (VLA.9).
+fn refuse_word_twice(
+    mname: &str,
+    word: &str,
+    declared: &mut HashSet<String>,
+) -> Result<(), Refusal> {
+    if !declared.insert(fold(word)) {
+        return Err(raise(
+            "vla-defmacro-param-twice",
+            &[("name", mname), ("word", word)],
+        ));
+    }
+    Ok(())
+}
+
+/// VBA `RefuseDefaultsUnbound`: a default may name only the parameters
+/// declared before it, so that the binding is one pass left to right and no
+/// ring can form: its own word or a later piece's is refused at the
+/// definition, the first such word its walk meets (VLA.9).
+fn refuse_defaults_unbound(
+    mname: &str,
+    pieces: &[Piece],
+    piece_index: &HashMap<String, usize>,
+) -> Result<(), Refusal> {
+    for (k, piece) in pieces.iter().enumerate() {
+        let Some(default) = &piece.default else {
+            continue;
+        };
+        if let Some(other) = default_names_from(default, k, piece_index) {
+            return Err(raise(
+                "vla-defmacro-piece-default-unbound",
+                &[
+                    ("name", mname),
+                    ("word", &piece.word),
+                    ("other", &pieces[other].word),
+                ],
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// VBA `DefaultNamesFrom`: the first piece from `from` on whose word a
+/// default holds. Every word of the form counts, a head's and a quoted one's
+/// among them, as [`substitute`] replaces them all. Bounded by the reader's
+/// depth (VLA.1).
+fn default_names_from(
+    d: &Form,
+    from: usize,
+    piece_index: &HashMap<String, usize>,
+) -> Option<usize> {
+    match d {
+        Form::Sym(s) => piece_index.get(&fold(s)).copied().filter(|&k| k >= from),
+        Form::Str(_) => None,
+        Form::List(l) => l
+            .items
+            .iter()
+            .find_map(|e| default_names_from(e, from, piece_index)),
+    }
+}
+
+impl RulePiece {
+    fn of(piece: &Piece) -> RulePiece {
+        RulePiece {
+            word: piece.word.clone(),
+            word_fold: fold(&piece.word),
+            default: piece.default.as_ref().map(Node::of),
+        }
+    }
+}
+
+/// VBA `PieceWrittenAs`: which of a macro's pieces a form is written as, the
+/// piece whose word heads it, by the fold; none for an atom, the empty list
+/// and a list headed by anything else (VLA.9).
+fn piece_written_as(v: &Node, piece_index: &HashMap<String, usize>) -> Option<usize> {
+    let Node::List(lst) = v else {
+        return None;
+    };
+    let Some(Node::Sym(head)) = lst.items().first() else {
+        return None;
+    };
+    piece_index.get(&fold(head)).copied()
+}
+
+/// VBA `RefusePieceForParam`: a positional argument written as one of the
+/// macro's own pieces is refused, left to right, so that a call the language
+/// takes reads the same by position and by its pieces' words, and a caller
+/// who leaves out a positional argument hears so, where the first piece would
+/// be bound to it (VLA.9).
+fn refuse_piece_for_param(call: &[Node], rule: &Rule, line: u32) -> Result<(), Refusal> {
+    for (j, param) in rule.param_words.iter().enumerate() {
+        if let Some(k) = piece_written_as(&call[j + 1], &rule.piece_index) {
+            return Err(raise(
+                "vla-macro-piece-for-param",
+                &[
+                    ("name", &call[0].atom_text().unwrap_or_default()),
+                    ("value", &write_datum(&call[j + 1].form())),
+                    ("param", param),
+                    ("word", &rule.pieces[k].word),
+                    ("loc", &src_line_tag(line, 0)),
+                ],
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// VBA `BindPieces`: the arguments after a macro's positional ones, each one
+/// of its pieces (VLA.9). In one order, so that the first fault a call holds
+/// is the one named: the arguments left to right; then the pieces without a
+/// default, in the declaration's order; and only then every piece bound, in
+/// the declaration's order and never the call's: a given one to its value
+/// itself, its line with it, and a left-out one to its default substituted
+/// under the parameters bound before it, let*'s reading, so one call written
+/// in two orders writes the same rows.
+fn bind_pieces<'r>(
+    call: &'r [Node],
+    rule: &'r Rule,
+    line: u32,
+    env: &mut Env<'r>,
+) -> Result<(), Refusal> {
+    let name = call[0].atom_text().unwrap_or_default();
+    let mut given: Vec<Option<&Node>> = vec![None; rule.pieces.len()];
+    for arg in &call[rule.params.len() + 1..] {
+        let Some(k) = piece_written_as(arg, &rule.piece_index) else {
+            let pieces: Vec<&str> = rule.pieces.iter().map(|p| p.word.as_str()).collect();
+            return Err(raise(
+                "vla-macro-piece-unknown",
+                &[
+                    ("name", &name),
+                    ("value", &write_datum(&arg.form())),
+                    ("pieces", &pieces.join(", ")),
+                    ("loc", &src_line_tag(line, 0)),
+                ],
+            ));
+        };
+        let Node::List(piece) = arg else {
+            unreachable!("piece_written_as answers only a list")
+        };
+        if piece.count() != 2 {
+            return Err(raise(
+                "vla-macro-piece-arity",
+                &[
+                    ("name", &name),
+                    ("word", &rule.pieces[k].word),
+                    ("n", &(piece.count() - 1).to_string()),
+                    ("loc", &src_line_tag(line, 0)),
+                ],
+            ));
+        }
+        if given[k].is_some() {
+            return Err(raise(
+                "vla-macro-piece-twice",
+                &[
+                    ("name", &name),
+                    ("word", &rule.pieces[k].word),
+                    ("loc", &src_line_tag(line, 0)),
+                ],
+            ));
+        }
+        given[k] = Some(&piece.items()[1]);
+    }
+    for (piece, value) in rule.pieces.iter().zip(&given) {
+        if value.is_none() && piece.default.is_none() {
+            return Err(raise(
+                "vla-macro-piece-missing",
+                &[
+                    ("name", &name),
+                    ("word", &piece.word),
+                    ("loc", &src_line_tag(line, 0)),
+                ],
+            ));
+        }
+    }
+    for (piece, value) in rule.pieces.iter().zip(&given) {
+        let bound = match (value, &piece.default) {
+            (Some(v), _) => (*v).clone(),
+            (None, Some(default)) => substitute(default, env, false)?,
+            (None, None) => unreachable!("a piece with neither was refused above"),
+        };
+        env.bindings.insert(&piece.word_fold, bound);
+    }
+    Ok(())
+}
+
 /// VBA `ExpandOne`: one application of a macro to a call form's items. A
 /// parameter is bound to its argument itself, not a copy of it, and the
-/// rest parameter to the call's own items after the parameters'.
-fn expand_one(call: &[Node], rule: &Rule, rules: &HashMap<String, Rule>) -> Result<Node, Refusal> {
+/// rest parameter to the call's own items after the parameters'; the
+/// arguments after the positional ones are its named pieces, for a macro
+/// that declares any (VLA.9). `line` is the call's own, 0 for one a macro
+/// made, which the refusals of its pieces name.
+fn expand_one(
+    call: &[Node],
+    rule: &Rule,
+    rules: &HashMap<String, Rule>,
+    line: u32,
+) -> Result<Node, Refusal> {
     let argc = call.len() - 1;
     let name = call[0].atom_text().unwrap_or_default();
-    if rule.rest_name.is_empty() {
+    if rule.rest_name.is_empty() && rule.pieces.is_empty() {
         if argc != rule.params.len() {
             return Err(raise(
                 "vla-macro-arity",
@@ -1194,14 +1490,25 @@ fn expand_one(call: &[Node], rule: &Rule, rules: &HashMap<String, Rule>) -> Resu
             ],
         ));
     }
+    let named = !rule.pieces.is_empty();
+    if named {
+        refuse_piece_for_param(call, rule, line)?;
+    }
     let mut env = Env {
         bindings: HashMap::new(),
         rest_name: &rule.rest_name,
-        rest_items: &call[rule.params.len() + 1..],
+        rest_items: if named {
+            &[]
+        } else {
+            &call[rule.params.len() + 1..]
+        },
         macros: Some(rules),
     };
     for (j, p) in rule.params.iter().enumerate() {
         env.bindings.insert(p, call[j + 1].clone());
+    }
+    if named {
+        bind_pieces(call, rule, line, &mut env)?;
     }
     substitute(&rule.template, &env, false)
 }
@@ -3119,7 +3426,7 @@ mod tests {
             .unwrap();
         let call = Node::of(&read_forms("(m (g 1) (quote ((h 2) 3)))").unwrap()[0]);
         let Node::List(call) = &call else { panic!() };
-        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules).unwrap();
+        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules, 0).unwrap();
         let Node::List(r) = &r else { panic!() };
         let shared = |n: &Node, with: &Node| match (n, with) {
             (Node::List(a), Node::List(b)) => Arc::ptr_eq(&a.run, &b.run),
@@ -4048,6 +4355,429 @@ mod tests {
         assert_eq!(
             one("(defmacro (m) (debug-print 1) (first-cell-expand Tally!B1:E10)) (m)"),
             "(begin (debug-print 1) \"B1\")"
+        );
+    }
+
+    /// VLA.9's macro of the fixture's first cases: a positional parameter
+    /// and two pieces, each with a default.
+    const RULE: &str =
+        "(defmacro (rule range (sheet \"Screen\") (text \"=1\")) (formula sheet range text)) ";
+
+    #[test]
+    fn a_piece_takes_its_value_or_its_default_in_any_order() {
+        let with = |call: &str| one(&format!("{RULE}{call}"));
+        assert_eq!(with("(rule \"B2\")"), "(formula \"Screen\" \"B2\" \"=1\")");
+        assert_eq!(
+            with("(rule \"B2\" (sheet \"Tower\"))"),
+            "(formula \"Tower\" \"B2\" \"=1\")"
+        );
+        assert_eq!(
+            with("(rule \"B2\" (text \"=2\"))"),
+            "(formula \"Screen\" \"B2\" \"=2\")"
+        );
+        let want = "(formula \"Tower\" \"B2\" \"=2\")";
+        assert_eq!(with("(rule \"B2\" (sheet \"Tower\") (text \"=2\"))"), want);
+        assert_eq!(with("(rule \"B2\" (text \"=2\") (sheet \"Tower\"))"), want);
+        assert_eq!(with("(RULE \"B2\" (TEXT \"=2\") (Sheet \"Tower\"))"), want);
+        assert_eq!(
+            one("(defmacro (mark (at)) (cell \"S\" at 1)) (mark (at \"A1\"))"),
+            "(cell \"S\" \"A1\" 1)"
+        );
+        assert_eq!(
+            one("(defmacro (mark (at \"A1\")) (cell \"S\" at 1)) (mark)"),
+            "(cell \"S\" \"A1\" 1)"
+        );
+    }
+
+    #[test]
+    fn a_default_is_substituted_under_the_parameters_bound_before_it() {
+        let frame = "(defmacro (frame sheet (top 1) (bottom top)) (box sheet top bottom)) ";
+        let with = |call: &str| one(&format!("{frame}{call}"));
+        assert_eq!(with("(frame \"S\")"), "(box \"S\" 1 1)");
+        assert_eq!(with("(frame \"S\" (top 3))"), "(box \"S\" 3 3)");
+        assert_eq!(with("(frame \"S\" (bottom 9) (top 3))"), "(box \"S\" 3 9)");
+        // A positional parameter, a primitive reading a piece, and a default
+        // leaning on a default.
+        assert_eq!(
+            one("(defmacro (titled sheet (title sheet)) (cell sheet \"A1\" title)) (titled \"T\")"),
+            "(cell \"T\" \"A1\" \"T\")"
+        );
+        assert_eq!(
+            one("(defmacro (span (from 1) (to (+expand from 9))) (f from to)) (span (from 3))"),
+            "(f 3 12)"
+        );
+        assert_eq!(
+            one("(defmacro (chain (a 1) (b a) (c b)) (f a b c)) (chain (a 7))"),
+            "(f 7 7 7)"
+        );
+        // A default stands where its piece's word stands and expands there,
+        // so a word reads the defines the call's form sees.
+        assert_eq!(
+            one("(defmacro (m (at home)) (f at)) (define home \"B2\") (m)"),
+            "(begin)\n(f \"B2\")"
+        );
+        assert_eq!(
+            one("(defmacro (m (at home)) (f at)) (m) (define home \"B2\")"),
+            "(f home)\n(begin)"
+        );
+        // A default left out of nothing is never read.
+        assert_eq!(
+            one("(defmacro (m (a (car \"t\"))) (f a)) (m (a 1))"),
+            "(f 1)"
+        );
+        assert_eq!(
+            expand_err("(defmacro (m (a (car \"t\"))) (f a)) (m)").id,
+            "vla-car-expected-list"
+        );
+    }
+
+    #[test]
+    fn a_macro_records_its_pieces_as_written() {
+        let mut ex = Expander::new();
+        ex.collect(
+            read_forms("(defmacro (Rule range (Sheet \"Screen\") (look)) \"the doc\" range)")
+                .unwrap(),
+        )
+        .unwrap();
+        let m = ex.get_macro("rule").unwrap();
+        assert_eq!(m.params, ["range"]);
+        assert_eq!(m.rest_name, "");
+        assert_eq!(m.doc, "the doc");
+        assert_eq!(m.name, "Rule");
+        assert_eq!(m.pieces.len(), 2);
+        assert_eq!(m.pieces[0].word, "Sheet");
+        assert_eq!(m.pieces[0].default, Some(Form::string("Screen")));
+        assert_eq!(m.pieces[1].word, "look");
+        assert_eq!(m.pieces[1].default, None);
+        assert_eq!(ex.macro_doc("RULE"), "the doc");
+        // A macro with none records none.
+        ex.collect(read_forms("(defmacro (plain x & more) x)").unwrap())
+            .unwrap();
+        assert!(ex.get_macro("plain").unwrap().pieces.is_empty());
+    }
+
+    #[test]
+    fn a_malformed_declaration_is_refused_by_name() {
+        for (src, id, frag) in [
+            (
+                "(defmacro (m ()) 1)",
+                "vla-defmacro-piece-shape",
+                "got '()'",
+            ),
+            (
+                "(defmacro (m (a 1 2)) 1)",
+                "vla-defmacro-piece-shape",
+                "got '(a 1 2)'",
+            ),
+            (
+                "(defmacro (m (\"a\" 1)) 1)",
+                "vla-defmacro-piece-shape",
+                "got '(\"a\" 1)'",
+            ),
+            (
+                "(defmacro (m ((a) 1)) 1)",
+                "vla-defmacro-piece-shape",
+                "got '((a) 1)'",
+            ),
+            (
+                "(defmacro (m (& rest)) 1)",
+                "vla-defmacro-piece-shape",
+                "got '(& rest)'",
+            ),
+            (
+                "(defmacro (m (a 1) b) 1)",
+                "vla-defmacro-param-after-piece",
+                "the parameter 'b'",
+            ),
+            (
+                "(defmacro (m (a 1) & b) 1)",
+                "vla-defmacro-piece-with-rest",
+                "defmacro 'm'",
+            ),
+            (
+                "(defmacro (m (a 1) &) 1)",
+                "vla-defmacro-piece-with-rest",
+                "defmacro 'm'",
+            ),
+            (
+                "(defmacro (m & b (a 1)) 1)",
+                "vla-defmacro-rest-param-not-last",
+                "must be last",
+            ),
+            (
+                "(defmacro (m & (a 1)) 1)",
+                "vla-expected-symbol-got-list",
+                "got a list",
+            ),
+            (
+                "(defmacro (m a a) 1)",
+                "vla-defmacro-param-twice",
+                "'a' is declared twice",
+            ),
+            (
+                "(defmacro (m a A) 1)",
+                "vla-defmacro-param-twice",
+                "'A' is declared twice",
+            ),
+            (
+                "(defmacro (m a (a 1)) 1)",
+                "vla-defmacro-param-twice",
+                "'a' is declared twice",
+            ),
+            (
+                "(defmacro (m (a 1) (A 2)) 1)",
+                "vla-defmacro-param-twice",
+                "'A' is declared twice",
+            ),
+            (
+                "(defmacro (m a & a) 1)",
+                "vla-defmacro-param-twice",
+                "'a' is declared twice",
+            ),
+            (
+                "(defmacro (m (each 1)) 1)",
+                "vla-defmacro-piece-reserved",
+                "expand-time loop form",
+            ),
+            (
+                "(defmacro (m (CAR)) 1)",
+                "vla-defmacro-piece-reserved",
+                "the piece 'CAR'",
+            ),
+            (
+                "(defmacro (m (a a)) 1)",
+                "vla-defmacro-piece-default-unbound",
+                "names 'a'",
+            ),
+            (
+                "(defmacro (m (a b) (b 1)) 1)",
+                "vla-defmacro-piece-default-unbound",
+                "names 'b'",
+            ),
+            (
+                "(defmacro (m (a (g (B))) (b 1)) 1)",
+                "vla-defmacro-piece-default-unbound",
+                "names 'b'",
+            ),
+            (
+                "(defmacro (m (a (quote b)) (b 1)) 1)",
+                "vla-defmacro-piece-default-unbound",
+                "names 'b'",
+            ),
+            (
+                "(defmacro (m (a 1)))",
+                "vla-defmacro-missing-template",
+                "missing template",
+            ),
+        ] {
+            let e = expand_err(src);
+            assert_eq!(e.id, id, "{src}");
+            assert!(e.text.contains(frag), "{src}: {}", e.text);
+        }
+        // A text naming a later piece's word is no name.
+        assert_eq!(
+            one("(defmacro (m (a \"b\") (b 1)) (f a b)) (m)"),
+            "(f \"b\" 1)"
+        );
+    }
+
+    #[test]
+    fn a_call_s_fault_is_refused_by_name_in_one_order() {
+        let both = "(defmacro (two p q (a) (b)) (f p q a b)) ";
+        for (call, id, frag) in [
+            // The count, before any piece is read.
+            (
+                "(two (a 1))",
+                "vla-macro-arity-min",
+                "at least 2 argument(s), got 1",
+            ),
+            // The positional arguments, left to right.
+            (
+                "(two (a 1) (b 2))",
+                "vla-macro-piece-for-param",
+                "the positional argument 'p'",
+            ),
+            (
+                "(two 1 (B 2) (x 3))",
+                "vla-macro-piece-for-param",
+                "the positional argument 'q'",
+            ),
+            // The arguments after them, left to right.
+            (
+                "(two 1 2 (x 3) (a))",
+                "vla-macro-piece-unknown",
+                "'(x 3)' stands after",
+            ),
+            (
+                "(two 1 2 (a) (x 3))",
+                "vla-macro-piece-arity",
+                "holds 0 form(s)",
+            ),
+            (
+                "(two 1 2 (a 1 2))",
+                "vla-macro-piece-arity",
+                "holds 2 form(s)",
+            ),
+            (
+                "(two 1 2 (a 1) (A 2))",
+                "vla-macro-piece-twice",
+                "the piece 'a' is given twice",
+            ),
+            ("(two 1 2 x)", "vla-macro-piece-unknown", "'x' stands after"),
+            (
+                "(two 1 2 \"x\")",
+                "vla-macro-piece-unknown",
+                "'\"x\"' stands after",
+            ),
+            (
+                "(two 1 2 ())",
+                "vla-macro-piece-unknown",
+                "'()' stands after",
+            ),
+            (
+                "(two 1 2 ((a) 1))",
+                "vla-macro-piece-unknown",
+                "'((a) 1)' stands after",
+            ),
+            (
+                "(two 1 2 (\"a\" 1))",
+                "vla-macro-piece-unknown",
+                "'(\"a\" 1)' stands after",
+            ),
+            // Then the pieces left out, in the declaration's order.
+            ("(two 1 2)", "vla-macro-piece-missing", "the piece 'a'"),
+            (
+                "(two 1 2 (a 1))",
+                "vla-macro-piece-missing",
+                "the piece 'b'",
+            ),
+        ] {
+            let e = expand_err(&format!("{both}{call}"));
+            assert_eq!(e.id, id, "{call}");
+            assert!(e.text.contains(frag), "{call}: {}", e.text);
+        }
+        // An unknown piece's refusal names the pieces, as written.
+        let e = expand_err("(defmacro (m (Sheet 1) (look 2)) 1) (M (x 3))");
+        assert!(e.text.starts_with("macro 'M': "), "{}", e.text);
+        assert!(
+            e.text
+                .ends_with("only its pieces go: Sheet, look (vla line 1)"),
+            "{}",
+            e.text
+        );
+        // A default is read only once no piece is missing.
+        assert_eq!(
+            expand_err("(defmacro (m (a (car \"t\")) (b)) (f a b)) (m)").id,
+            "vla-macro-piece-missing"
+        );
+        // A macro with no piece reads as it did.
+        assert_eq!(one("(defmacro (m x) (f x)) (m (x 1))"), "(f (x 1))");
+        assert_eq!(
+            expand_err("(defmacro (m x) x) (m 1 (x 1))").id,
+            "vla-macro-arity"
+        );
+    }
+
+    #[test]
+    fn a_refusal_names_the_call_s_line_or_none() {
+        let rule = "(defmacro (rule (sheet)) (f sheet))\n";
+        let at_line = |src: &str| expand_err(&format!("{rule}{src}")).text;
+        assert!(at_line("\n(rule)").ends_with(" (vla line 3)"));
+        assert!(at_line("(begin\n  (rule (x 1)))").ends_with(" (vla line 3)"));
+        assert!(at_line("(define b (rule))\n\nb").ends_with(" (vla line 2)"));
+        // A call a template writes, or one a macro rebuilds, carries none.
+        for src in [
+            "(defmacro (t) (rule))\n(t)",
+            "(defmacro (t) (quasiquote (rule)))\n(t)",
+            "(defmacro (t & c) (cons (car (car c)) (cdr (car c))))\n(t (rule))",
+            "(each (x (quote (1))) (rule))",
+        ] {
+            let text = at_line(src);
+            assert!(text.ends_with("does not give it"), "{src}: {text}");
+        }
+        // A given piece's value keeps its line; a default's is made afresh.
+        let outer = "(defmacro (outer (inner (rule))) inner)\n";
+        let given = expand_err(&format!("{rule}{outer}(outer\n  (inner (rule)))")).text;
+        assert!(given.ends_with(" (vla line 4)"), "{given}");
+        let fresh = expand_err(&format!("{rule}{outer}(outer)")).text;
+        assert!(fresh.ends_with("does not give it"), "{fresh}");
+    }
+
+    #[test]
+    fn one_pass_binds_a_piece_and_walks_no_default() {
+        let src = "(defmacro (m (a (g))) (h a)) (defmacro (g) 1) (m) (m (a (g)))";
+        let (text, fired) = expand_text(src, PRELUDE, false).unwrap();
+        assert_eq!(text.replace("\r\n", "\n"), "(h (g))\n(h (g))\n");
+        assert_eq!(fired, 2);
+        let e = expand_text("(defmacro (m (a)) a)\n(m)", PRELUDE, false).unwrap_err();
+        assert_eq!(e.id, "vla-macro-piece-missing");
+        assert!(e.text.ends_with(" (vla line 2)"), "{}", e.text);
+    }
+
+    #[test]
+    fn a_given_piece_is_the_argument_itself_and_a_default_is_made_afresh() {
+        // The reference's `Set Substitute = v` for a given piece, and a
+        // default substituted as a template's forms are, at line 0 (S3.1),
+        // though its macro was read at a line of its own.
+        let mut ex = Expander::new();
+        ex.collect(read_forms("\n\n(defmacro (m (x (g 1)) (y (g 2))) (f x y))").unwrap())
+            .unwrap();
+        let call = Node::of(&read_forms("\n\n\n(m (x (h 3)))").unwrap()[0]);
+        let Node::List(call) = &call else { panic!() };
+        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules, call.line).unwrap();
+        let Node::List(r) = &r else { panic!() };
+        let [_, x, y] = r.items() else { panic!() };
+        let Node::List(piece) = &call.items()[1] else {
+            panic!()
+        };
+        let (Node::List(x), Node::List(given)) = (x, &piece.items()[1]) else {
+            panic!()
+        };
+        assert!(Arc::ptr_eq(&x.run, &given.run));
+        assert_eq!(x.line, 4);
+        let Node::List(y) = y else { panic!() };
+        assert_eq!(y.line, 0);
+    }
+
+    #[test]
+    fn the_rest_s_mark_and_the_joining_operator_never_meet() {
+        // In a signature `&` is an atom among the parameters, the mark before
+        // a rest; anywhere else `(& a b)` is a list with `&` at its head.
+        assert_eq!(
+            one("(defmacro (m x & more) (f x more)) (m (& \"a\" \"b\") (& \"c\" \"d\"))"),
+            "(f (& \"a\" \"b\") (& \"c\" \"d\"))"
+        );
+        let with = |call: &str| one(&format!("{RULE}{call}"));
+        assert_eq!(
+            with("(rule (& \"B\" 2))"),
+            "(formula \"Screen\" (& \"B\" 2) \"=1\")"
+        );
+        assert_eq!(
+            with("(rule \"B2\" (sheet (& \"T\" 1)))"),
+            "(formula (& \"T\" 1) \"B2\" \"=1\")"
+        );
+        assert_eq!(
+            one("(defmacro (m (top 1) (label (& \"row \" top))) (f label)) (m (top 3))"),
+            "(f (& \"row \" 3))"
+        );
+        assert_eq!(
+            one("(defmacro (m a (b \"x\")) (formula-expand (& a b))) (m A1)"),
+            "\"=A1&\\\"x\\\"\""
+        );
+        // Where a piece goes, it is no piece; and it can declare none.
+        assert_eq!(
+            expand_err(&format!("{RULE}(rule \"B2\" (& \"T\" 1))")).id,
+            "vla-macro-piece-unknown"
+        );
+        assert_eq!(
+            expand_err("(defmacro (m (& rest)) 1)").id,
+            "vla-defmacro-piece-shape"
+        );
+        // A rest's word spelled as its mark, taken since the first macro, is
+        // a parameter's capture, VLA.11's.
+        assert_eq!(
+            one("(defmacro (m & &) (& \"a\" \"b\")) (m 1 2)"),
+            "(1 2 \"a\" \"b\")"
         );
     }
 

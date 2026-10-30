@@ -1,6 +1,21 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.15"
+Public Const VLA_TESTS_VERSION As String = "VLA.9"
+' VLA.9: TestNamedPieces - named pieces with defaults, 109 pins: a piece's
+' value or its default, one call's pieces in two orders, a call's words and a
+' declaration's folding; a default substituted under the parameters bound
+' before it, a positional one, an earlier piece, a primitive reading one and a
+' default leaning on a default, a macro expanding where the call does, a word
+' reading the define the call sees and written above it, a default not read
+' when its piece is given; the walks around a call, through on, a template, a
+' quasiquote, a loop and a begin a macro made, the trampoline keeping its forms;
+' the capture VLA.11 owns, refused by name or replaced as a parameter's is;
+' every refusal of the definition and of the call in one order, by its id or its
+' whole text; the line a call's refusal names, or none for a call a macro made;
+' the record's doc and name read as before; one pass; and the rest's mark and
+' the text-joining operator, two places that never meet. Each expected value
+' is the port's record of the pin's source. Wired after TestAddressForms.
+'
 ' VLA.15: TestAddressForms - a name where an address stands, 67 pins: list?
 ' true for every list, the empty one, a loop's results and a cdr's view
 ' among them, and false for a word, a text, a number and a define's word,
@@ -548,6 +563,7 @@ Public Function VlaSelfTest() As Boolean
     TestEachForms
     TestDefineForms
     TestAddressForms
+    TestNamedPieces
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -7251,6 +7267,311 @@ Private Sub TestAddressForms()
     CheckV "first-cell-expand: a begin a macro made keeps its forms before it", _
         ExpandTrimmed("(defmacro (m) (debug-print 1) (first-cell-expand Tally!B1:E10)) (m)"), "(begin (debug-print 1) ""B1"")"
 End Sub
+
+' VLA.9: named pieces with defaults - a declaration, one call in two orders,
+' a default substituted under the parameters bound before it, the walks
+' around a call, every refusal by its id or its whole text, in one order, and
+' the line a call's refusal names. scripts/expand_golden.txt holds the same
+' cases' whole records to vla-lang's; these pins say what each one means.
+Private Sub TestNamedPieces()
+    Dim ruleMacro As String, frameMacro As String, twoMacro As String, putMacro As String, onMacro As String, needMacro As String, outerMacro As String
+    ruleMacro = "(defmacro (rule range (sheet ""Screen"") (text ""=1"")) (formula sheet range text)) "
+    frameMacro = "(defmacro (frame sheet (top 1) (bottom top)) (box sheet top bottom)) "
+    twoMacro = "(defmacro (two p q (a) (b)) (f p q a b)) "
+    putMacro = "(defmacro (put w at (sheet ""S"") (value 0)) (f w at sheet value)) "
+    onMacro = "(defmacro (on sheet & forms) (quote-if (null? forms) (begin) (begin (cons (car (car forms)) (cons sheet (cdr (car forms)))) (quasiquote (on (unquote sheet) (unquote-splicing (cdr forms))))))) "
+    needMacro = "(defmacro (need (sheet)) (f sheet))" & vbLf
+    outerMacro = "(defmacro (outer (inner (need))) inner)" & vbLf
+
+    ' --- a piece's value or its default, in any order, by its fold.
+    CheckV "pieces: a piece left out takes its default", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"")"), "(formula ""Screen"" ""B2"" ""=1"")"
+    CheckV "pieces: a piece given takes its value", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (sheet ""Tower""))"), "(formula ""Tower"" ""B2"" ""=1"")"
+    CheckV "pieces: the second piece alone", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (text ""=2""))"), "(formula ""Screen"" ""B2"" ""=2"")"
+    CheckV "pieces: one call's pieces in one order", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (sheet ""Tower"") (text ""=2""))"), "(formula ""Tower"" ""B2"" ""=2"")"
+    CheckV "pieces: and in the other", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (text ""=2"") (sheet ""Tower""))"), "(formula ""Tower"" ""B2"" ""=2"")"
+    CheckV "pieces: a call's words fold", _
+        ExpandTrimmed(ruleMacro & "(RULE ""B2"" (TEXT ""=2"") (Sheet ""Tower""))"), "(formula ""Tower"" ""B2"" ""=2"")"
+    CheckV "pieces: a declaration's word folds", _
+        ExpandTrimmed("(defmacro (m (Sheet 1)) (f SHEET)) (m (sheet 2))"), "(f 2)"
+    CheckV "pieces: a piece the call must give", _
+        ExpandTrimmed("(defmacro (mark (at)) (cell ""S"" at 1)) (mark (at ""A1""))"), "(cell ""S"" ""A1"" 1)"
+    CheckV "pieces: a macro of pieces alone, left to its defaults", _
+        ExpandTrimmed("(defmacro (mark (at ""A1"")) (cell ""S"" at 1)) (mark)"), "(cell ""S"" ""A1"" 1)"
+    CheckV "pieces: a value is a form as written until it lands", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (text (formula-expand (+ A1 1))))"), "(formula ""Screen"" ""B2"" ""=A1+1"")"
+    CheckV "pieces: a value's macro expands where it lands", _
+        ExpandTrimmed(ruleMacro & "(defmacro (home) ""Home"") (rule ""B2"" (sheet (home)))"), "(formula ""Home"" ""B2"" ""=1"")"
+    CheckV "pieces: a docstring beside a piece", _
+        ExpandTrimmed("(defmacro (m (a 1)) ""the doc"" (f a)) (m)"), "(f 1)"
+    CheckV "pieces: a lone text is the template beside a piece", _
+        ExpandTrimmed("(defmacro (m (a 1)) ""a lone text"") (m (a 2))"), """a lone text"""
+
+    ' --- a default, substituted under the parameters bound before it.
+    CheckV "default: its piece left out, its earlier piece too", _
+        ExpandTrimmed(frameMacro & "(frame ""S"")"), "(box ""S"" 1 1)"
+    CheckV "default: naming an earlier piece", _
+        ExpandTrimmed(frameMacro & "(frame ""S"" (top 3))"), "(box ""S"" 3 3)"
+    CheckV "default: the earlier piece given after it", _
+        ExpandTrimmed(frameMacro & "(frame ""S"" (bottom 9) (top 3))"), "(box ""S"" 3 9)"
+    CheckV "default: naming a positional parameter", _
+        ExpandTrimmed("(defmacro (titled sheet (title sheet)) (cell sheet ""A1"" title)) (titled ""T"")"), "(cell ""T"" ""A1"" ""T"")"
+    CheckV "default: a primitive reading an earlier piece", _
+        ExpandTrimmed("(defmacro (span (from 1) (to (+expand from 9))) (f from to)) (span (from 3))"), "(f 3 12)"
+    CheckV "default: leaning on a default", _
+        ExpandTrimmed("(defmacro (chain (a 1) (b a) (c b)) (f a b c)) (chain (a 7))"), "(f 7 7 7)"
+    CheckV "default: naming a piece inside a list", _
+        ExpandTrimmed("(defmacro (m (s ""A"") (h (ref s ""A1""))) (f h)) (m (s ""B""))"), "(f (ref ""B"" ""A1""))"
+    CheckV "default: a macro expands where the call does", _
+        ExpandTrimmed("(defmacro (m (a (home))) (f a)) (defmacro (home) ""Home"") (m)"), "(f ""Home"")"
+    CheckV "default: used twice, standing twice", _
+        ExpandTrimmed("(defmacro (m (x (g 1))) (f x x)) (m)"), "(f (g 1) (g 1))"
+    CheckV "default: a word reads the define the call sees", _
+        ExpandTrimmed("(defmacro (m (at home)) (f at)) (define home ""B2"") (m)"), "(begin)" & vbCrLf & "(f ""B2"")"
+    CheckV "default: a word above its define is written", _
+        ExpandTrimmed("(defmacro (m (at home)) (f at)) (m) (define home ""B2"")"), "(f home)" & vbCrLf & "(begin)"
+    CheckV "default: a text names no piece", _
+        ExpandTrimmed("(defmacro (m (a ""b"") (b 1)) (f a b)) (m)"), "(f ""b"" 1)"
+    CheckV "default: not read when its piece is given", _
+        ExpandTrimmed("(defmacro (m (a (car ""t""))) (f a)) (m (a 1))"), "(f 1)"
+    CheckV "default: refused where its piece is left out", _
+        ExpandRefusalId("(defmacro (m (a (car ""t""))) (f a)) (m)"), "vla-car-expected-list"
+    CheckV "default: a loop is one begin", _
+        ExpandTrimmed("(defmacro (m (a (each (x (quote (1 2))) (g x)))) a) (m)"), "(begin (g 1) (g 2))"
+    CheckV "default: the empty list", _
+        ExpandTrimmed("(defmacro (m (a ())) (f a)) (m)"), "(f ())"
+    CheckV "pieces: a value of the empty list", _
+        ExpandTrimmed("(defmacro (m (a 1)) (f a)) (m (a ()))"), "(f ())"
+
+    ' --- the walks around a call.
+    CheckV "walks: pieces through on", _
+        ExpandTrimmed(putMacro & onMacro & "(on ""W"" (put 1 (sheet ""T"")) (put 2 (value 3)))"), "(begin (f ""W"" 1 ""T"" 0) (f ""W"" 2 ""S"" 3) (begin))"
+    CheckV "walks: a template's parameter filled in inside a piece", _
+        ExpandTrimmed(putMacro & "(defmacro (writes o) (put 1 2 (value o))) (writes 7)"), "(f 1 2 ""S"" 7)"
+    CheckV "walks: a call a quasiquote writes", _
+        ExpandTrimmed(ruleMacro & "(defmacro (rule-on s r) (quasiquote (rule (unquote r) (sheet (unquote s))))) (rule-on ""T"" ""B2"")"), "(formula ""T"" ""B2"" ""=1"")"
+    CheckV "walks: pieces in a loop", _
+        ExpandTrimmed(ruleMacro & "(defmacro (rules-on s & ranges) (each (r ranges) (rule r (sheet s)))) (rules-on ""T"" ""B2"" ""B3"")"), "(begin (formula ""T"" ""B2"" ""=1"") (formula ""T"" ""B3"" ""=1""))"
+    CheckV "walks: pieces among forms a macro set aside", _
+        ExpandTrimmed(ruleMacro & "(defmacro (m) (debug-print 1) (rule ""B2"") (rule ""B3"" (sheet ""T""))) (m)"), "(begin (debug-print 1) (formula ""Screen"" ""B2"" ""=1"") (formula ""T"" ""B3"" ""=1""))"
+    CheckV "walks: an atom by a piece after forms set aside", _
+        ExpandTrimmed("(defmacro (w (a ""none"")) a) (defmacro (m) (debug-print 1) (w)) (m)"), "(begin (debug-print 1) ""none"")"
+    CheckV "walks: a macro calling itself by a piece, shielded", _
+        ExpandTrimmed("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (quasiquote (down (n (unquote (-expand n 1))))))) (down)"), "(done)"
+    CheckV "capture: a macro calling itself by a piece, bare", _
+        ExpandTrimmed("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (down (n (-expand n 1))))) (down)"), _
+        "refused: macro 'down': '(2 1)' stands after its positional arguments, where only its pieces go: n"
+    CheckV "capture: a template's parameter spelled as a piece", _
+        ExpandTrimmed(ruleMacro & "(defmacro (tower sheet) (rule ""B2"" (sheet sheet))) (tower ""T"")"), _
+        "refused: macro 'rule': '(""T"" ""T"")' stands after its positional arguments, where only its pieces go: sheet, text"
+    CheckV "capture: a piece's word at a head of its template", _
+        ExpandTrimmed("(defmacro (m (formula ""x"")) (formula ""S"" ""A1"" 1)) (m)"), "(""x"" ""S"" ""A1"" 1)"
+    CheckV "reading: a positional argument of another word", _
+        ExpandTrimmed(ruleMacro & "(rule (ref ""S"" ""A1""))"), "(formula ""Screen"" (ref ""S"" ""A1"") ""=1"")"
+    CheckV "reading: a macro with no piece takes any list", _
+        ExpandTrimmed("(defmacro (m x) (f x)) (m (x 1))"), "(f (x 1))"
+    CheckV "reading: a macro with no piece counts as it did", _
+        ExpandRefusalId("(defmacro (m x) x) (m 1 (x 1))"), "vla-macro-arity"
+    CheckV "reading: a rest macro takes any list", _
+        ExpandTrimmed("(defmacro (m x & more) (f x more)) (m (x 1) (x 2))"), "(f (x 1) (x 2))"
+
+    ' --- the rest's mark and the text-joining operator: the mark an atom among a
+    '     signature's parameters, the operator a list's head anywhere else.
+    CheckV "amp: a rest takes lists headed by the operator", _
+        ExpandTrimmed("(defmacro (m x & more) (f x more)) (m (& ""a"" ""b"") (& ""c"" ""d""))"), "(f (& ""a"" ""b"") (& ""c"" ""d""))"
+    CheckV "amp: a positional argument headed by the operator", _
+        ExpandTrimmed(ruleMacro & "(rule (& ""B"" 2))"), "(formula ""Screen"" (& ""B"" 2) ""=1"")"
+    CheckV "amp: a piece's value headed by the operator", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (sheet (& ""T"" 1)))"), "(formula (& ""T"" 1) ""B2"" ""=1"")"
+    CheckV "amp: a default headed by the operator", _
+        ExpandTrimmed("(defmacro (m (top 1) (label (& ""row "" top))) (f label)) (m (top 3))"), "(f (& ""row "" 3))"
+    CheckV "amp: a template's operator beside a piece", _
+        ExpandTrimmed("(defmacro (m a (b ""x"")) (formula-expand (& a b))) (m A1)"), """=A1&\""x\"""""
+    CheckV "amp: the operator where a piece goes", _
+        ExpandTrimmed(ruleMacro & "(rule ""B2"" (& ""T"" 1))"), "refused: macro 'rule': '(& ""T"" 1)' stands after its positional arguments, where only its pieces go: sheet, text (vla line 1)"
+    CheckV "amp: a rest spelled as its mark replaces the operator", _
+        ExpandTrimmed("(defmacro (m & &) (& ""a"" ""b"")) (m 1 2)"), "(1 2 ""a"" ""b"")"
+
+    ' --- a declaration's refusals.
+    CheckV "declare: nothing", _
+        ExpandTrimmed("(defmacro (m ()) 1)"), _
+        "refused: defmacro 'm': a named piece is declared (word) or (word default), got '()'"
+    CheckV "declare: three forms", _
+        ExpandTrimmed("(defmacro (m (a 1 2)) 1)"), _
+        "refused: defmacro 'm': a named piece is declared (word) or (word default), got '(a 1 2)'"
+    CheckV "declare: a text for its word", _
+        ExpandRefusalId("(defmacro (m (""a"" 1)) 1)"), "vla-defmacro-piece-shape"
+    CheckV "declare: a list for its word", _
+        ExpandRefusalId("(defmacro (m ((a b) 1)) 1)"), "vla-defmacro-piece-shape"
+    CheckV "declare: the rest's mark for its word", _
+        ExpandRefusalId("(defmacro (m (& rest)) 1)"), "vla-defmacro-piece-shape"
+    CheckV "declare: a parameter after a piece", _
+        ExpandTrimmed("(defmacro (m (a 1) b) 1)"), _
+        "refused: defmacro 'm': the parameter 'b' follows a named piece, and the positional parameters come first"
+    CheckV "declare: a rest beside a piece", _
+        ExpandTrimmed("(defmacro (m (a 1) & more) 1)"), _
+        "refused: defmacro 'm': named pieces and a rest parameter cannot stand together, since an argument after the positional ones would be either"
+    CheckV "declare: a rest's mark alone beside a piece", _
+        ExpandRefusalId("(defmacro (m (a 1) &) 1)"), "vla-defmacro-piece-with-rest"
+    CheckV "declare: a piece after a rest", _
+        ExpandRefusalId("(defmacro (m & more (a 1)) 1)"), "vla-defmacro-rest-param-not-last"
+    CheckV "declare: a list for the rest's word", _
+        ExpandRefusalId("(defmacro (m & (a 1)) 1)"), "vla-expected-symbol-got-list"
+    CheckV "declare: a word twice", _
+        ExpandTrimmed("(defmacro (m a a) 1)"), _
+        "refused: defmacro 'm': 'a' is declared twice"
+    CheckV "declare: a word twice by its fold", _
+        ExpandRefusalId("(defmacro (m a A) 1)"), "vla-defmacro-param-twice"
+    CheckV "declare: a piece spelled as a parameter", _
+        ExpandRefusalId("(defmacro (m a (A 1)) 1)"), "vla-defmacro-param-twice"
+    CheckV "declare: a piece twice", _
+        ExpandRefusalId("(defmacro (m (a 1) (a 2)) 1)"), "vla-defmacro-param-twice"
+    CheckV "declare: a rest spelled as a parameter", _
+        ExpandRefusalId("(defmacro (m a & a) 1)"), "vla-defmacro-param-twice"
+    CheckV "declare: a piece spelled as a loop", _
+        ExpandTrimmed("(defmacro (m (each 1)) 1)"), _
+        "refused: defmacro 'm': the piece 'each' is spelled as the expand-time loop form, which the expander reads as its own form"
+    CheckV "declare: a piece spelled as a primitive, folded", _
+        ExpandRefusalId("(defmacro (m (CAR)) 1)"), "vla-defmacro-piece-reserved"
+    CheckV "declare: a piece spelled as quote", _
+        ExpandRefusalId("(defmacro (m (quote 1)) 1)"), "vla-defmacro-piece-reserved"
+    CheckV "declare: a piece spelled as define", _
+        ExpandRefusalId("(defmacro (m (define 1)) 1)"), "vla-defmacro-piece-reserved"
+    CheckV "declare: a default naming its own word", _
+        ExpandTrimmed("(defmacro (m (a a)) 1)"), _
+        "refused: defmacro 'm': the default of 'a' names 'a', which is not bound before it - a default may name only the parameters declared before it"
+    CheckV "declare: a default naming a later piece", _
+        ExpandTrimmed("(defmacro (m (a b) (b 1)) 1)"), _
+        "refused: defmacro 'm': the default of 'a' names 'b', which is not bound before it - a default may name only the parameters declared before it"
+    CheckV "declare: a default naming a later piece in a list, folded", _
+        ExpandRefusalId("(defmacro (m (a (g (h B))) (b 1)) 1)"), "vla-defmacro-piece-default-unbound"
+    CheckV "declare: a default naming its own word at a head", _
+        ExpandRefusalId("(defmacro (m (a (a 1))) 1)"), "vla-defmacro-piece-default-unbound"
+    CheckV "declare: a default naming a later piece under a quote", _
+        ExpandRefusalId("(defmacro (m (a (quote b)) (b 1)) 1)"), "vla-defmacro-piece-default-unbound"
+    CheckV "declare: the signature is read before a default", _
+        ExpandRefusalId("(defmacro (m (a a) b) 1)"), "vla-defmacro-param-after-piece"
+    CheckV "declare: a default before a missing template", _
+        ExpandRefusalId("(defmacro (m (a a)))"), "vla-defmacro-piece-default-unbound"
+    CheckV "declare: a piece's macro with no template", _
+        ExpandRefusalId("(defmacro (m (a 1)))"), "vla-defmacro-missing-template"
+
+    ' --- a call's refusals, in one order.
+    CheckV "call: the count before a piece", _
+        ExpandRefusalId(twoMacro & "(two (a 1))"), "vla-macro-arity-min"
+    CheckV "call: a positional argument written as a piece", _
+        ExpandTrimmed(twoMacro & "(two (a 1) (b 2))"), _
+        "refused: macro 'two': '(a 1)' stands for the positional argument 'p' and is written as the piece 'a' - the positional arguments come first (vla line 1)"
+    CheckV "call: the second, by its fold", _
+        ExpandTrimmed(twoMacro & "(two 1 (B 2) (x 3))"), _
+        "refused: macro 'two': '(B 2)' stands for the positional argument 'q' and is written as the piece 'b' - the positional arguments come first (vla line 1)"
+    CheckV "call: an unknown piece first", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (x 3) (a))"), _
+        "refused: macro 'two': '(x 3)' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: a piece with no value first", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (a) (x 3))"), _
+        "refused: macro 'two': the piece 'a' holds 0 form(s), and a piece holds one, as (a value) (vla line 1)"
+    CheckV "call: a piece with two values", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (a 1 2))"), _
+        "refused: macro 'two': the piece 'a' holds 2 form(s), and a piece holds one, as (a value) (vla line 1)"
+    CheckV "call: a piece given twice, by its fold", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (a 1) (A 2))"), _
+        "refused: macro 'two': the piece 'a' is given twice (vla line 1)"
+    CheckV "call: a word for a piece", _
+        ExpandTrimmed(twoMacro & "(two 1 2 x)"), _
+        "refused: macro 'two': 'x' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: a text for a piece", _
+        ExpandTrimmed(twoMacro & "(two 1 2 ""x"")"), _
+        "refused: macro 'two': '""x""' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: an empty list for a piece", _
+        ExpandTrimmed(twoMacro & "(two 1 2 ())"), _
+        "refused: macro 'two': '()' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: a list headed by a list", _
+        ExpandTrimmed(twoMacro & "(two 1 2 ((a) 1))"), _
+        "refused: macro 'two': '((a) 1)' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: a list headed by a text", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (""a"" 1))"), _
+        "refused: macro 'two': '(""a"" 1)' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: the first piece left out", _
+        ExpandTrimmed(twoMacro & "(two 1 2)"), _
+        "refused: macro 'two': the piece 'a' has no default, and the call does not give it (vla line 1)"
+    CheckV "call: the second piece left out", _
+        ExpandTrimmed(twoMacro & "(two 1 2 (a 1))"), _
+        "refused: macro 'two': the piece 'b' has no default, and the call does not give it (vla line 1)"
+    CheckV "call: the macro as the call writes it", _
+        ExpandTrimmed(twoMacro & "(TWO 1 2 (x 3))"), _
+        "refused: macro 'TWO': '(x 3)' stands after its positional arguments, where only its pieces go: a, b (vla line 1)"
+    CheckV "call: a piece left out before a default is read", _
+        ExpandRefusalId("(defmacro (m (a (car ""t"")) (b)) (f a b)) (m)"), "vla-macro-piece-missing"
+    CheckV "call: too few for a macro with pieces", _
+        ExpandTrimmed(ruleMacro & "(rule)"), _
+        "refused: macro 'rule' expects at least 1 argument(s), got 0"
+
+    ' --- the line a call's refusal names.
+    CheckV "line: the call's own", _
+        ExpandTrimmed(needMacro & vbLf & "(need)"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it (vla line 3)"
+    CheckV "line: a begin's element", _
+        ExpandTrimmed(needMacro & "(begin" & vbLf & "  (need (x 1)))"), _
+        "refused: macro 'need': '(x 1)' stands after its positional arguments, where only its pieces go: sheet (vla line 3)"
+    CheckV "line: in a formula", _
+        ExpandTrimmed(needMacro & "(formula-expand" & vbLf & "  (if (need) 1 0))"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it (vla line 3)"
+    CheckV "line: in a define's form", _
+        ExpandTrimmed(needMacro & "(define b (need))" & vbLf & vbLf & "b"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it (vla line 2)"
+    CheckV "line: none for a call a template writes", _
+        ExpandTrimmed(needMacro & "(defmacro (t) (need))" & vbLf & "(t)"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it"
+    CheckV "line: none for a call a quasiquote writes", _
+        ExpandTrimmed(needMacro & "(defmacro (t) (quasiquote (need)))" & vbLf & "(t)"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it"
+    CheckV "line: none for a call a cons rebuilds", _
+        ExpandTrimmed(needMacro & "(defmacro (t & c) (cons (car (car c)) (cdr (car c))))" & vbLf & "(t (need))"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it"
+    CheckV "line: none for a call a loop writes", _
+        ExpandTrimmed(needMacro & "(each (x (quote (1))) (need))"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it"
+    CheckV "line: a given piece's call keeps its own", _
+        ExpandTrimmed(needMacro & outerMacro & "(outer" & vbLf & "  (inner (need)))"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it (vla line 4)"
+    CheckV "line: a default's call names none", _
+        ExpandTrimmed(needMacro & outerMacro & "(outer)"), _
+        "refused: macro 'need': the piece 'sheet' has no default, and the call does not give it"
+
+    ' --- the record: the doc and the name read at items 4 and 5 as before.
+    ExpandTrimmed "(defmacro (m (a 1)) ""the doc"" (f a)) (m)"
+    CheckV "record: the doc reads as before", VlaMacroDoc("M"), "the doc"
+    CheckV "record: apropos reads the name and the doc as before", _
+        InStr(1, VlaAproposText("when"), "run the body when the test is true", vbTextCompare) > 0, True
+
+    ' --- one pass: a piece bound, a default written, and neither walked.
+    CheckV "one pass: a piece bound and no default walked", _
+        OnePassRecord("(defmacro (m (a (g))) (h a)) (defmacro (g) 1) (m) (m (a (g)))"), "2: (h (g))" & vbCrLf & "(h (g))"
+    CheckV "one pass: a refusal names the call's line", _
+        OnePassRecord("(defmacro (m (a)) a)" & vbLf & "(m)"), _
+        "refused: macro 'm': the piece 'a' has no default, and the call does not give it (vla line 2)"
+End Sub
+
+' VLA.9: one pass under the prelude: the applications fired and the text, its
+' last break dropped, or "refused: " and the refusal's text.
+Private Function OnePassRecord(ByVal source As String) As String
+    Dim fired As Long
+    Dim t As String, d As String
+    On Error GoTo refused
+    t = VlaExpandText(source, False, fired)
+    If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
+    OnePassRecord = fired & ": " & t
+    Exit Function
+refused:
+    d = Err.Description
+    On Error GoTo 0
+    OnePassRecord = "refused: " & d
+End Function
 
 ' VLA.6: a text's last line, all of it when it has one line.
 Private Function LastLineOf(ByVal t As String) As String

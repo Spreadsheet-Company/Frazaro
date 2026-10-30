@@ -70,11 +70,33 @@ refused in the same words.
   list's head, inside a quote or a text, or in an expand-time primitive's
   argument, and refuses by name a word that already means something (a
   reference, a number, a form of the language, a macro's name), a word used
-  in the form that defines it, and a ring of words. The expander shares
-  what it walks, as the add-in does: a list is held once, its `cdr` a view
-  of its items and a parameter's value the argument itself, so that a macro
-  walking a list, or a loop over one, costs its length and not its square,
-  which `tests/walks.rs` holds by counting the allocations and their bytes.
+  in the form that defines it, and a ring of words.
+
+  A macro may take named pieces after its positional parameters, so that a
+  caller names only what differs, in any order, and a piece can be added
+  with a default without moving a call:
+
+  ```lisp
+  (defmacro (rule range (sheet "Screen") (text "=1"))
+    "a formula row, on the Screen and of the plain text unless the call says"
+    (formula sheet range text))
+  ```
+
+  `(rule "B2:K11" (text "=2") (sheet "Tower"))` expands to `(formula "Tower"
+  "B2:K11" "=2")`, and so does the call in the other order. `(sheet)`, the
+  word alone, is a piece the call must give, and a default may name the
+  parameters declared before it. An argument after the positional ones that
+  is none of the pieces, a piece holding other than one form or given twice,
+  a piece with no default left out, and a positional argument written as one
+  of the pieces are each refused by name, with the call's line where its
+  author wrote it. `Expander::get_macro` answers a macro's `pieces` as
+  written.
+
+  The expander shares what it walks, as the add-in does: a list is held
+  once, its `cdr` a view of its items and a parameter's value the argument
+  itself, so that a macro walking a list, or a loop over one, costs its
+  length and not its square, which `tests/walks.rs` holds by counting the
+  allocations and their bytes.
 - **Writes formulas from expressions.** `formula_syntax::write` writes an
   expression the expander has finished with as a formula's text in Excel's
   own spelling, `(if (> A1 3) "big" "small")` as `=IF(A1>3,"big","small")`:

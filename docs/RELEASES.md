@@ -2,6 +2,49 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.13.0
+
+### What changed
+
+- **Named pieces with defaults.** A macro can take options its caller names,
+  where every parameter was read by its place. A list in the signature, after
+  the positional parameters, declares one: `(defmacro (rule range (sheet
+  "Screen") (text "=1")) (formula sheet range text))`. `(rule "B2:K11")` takes
+  both defaults, and `(rule "B2:K11" (text "=2") (sheet "Tower"))` writes
+  `(formula "Tower" "B2:K11" "=2")`, as does the same call in the other order,
+  since the pieces are bound in the order the signature declares them. `(sheet)`,
+  the word alone, is a piece the call must give. A default may name the
+  parameters declared before it: after `(top 1)`, `(bottom top)` is whatever
+  `top` is, given or left out. A default is filled in at each call that leaves
+  its piece out and expands with the rest of what the call wrote, so a macro in
+  it fires there and a word of `define` reads what the call's form sees.
+  Refused by name at the definition, each naming the macro: a declaration
+  other than `(word)` or `(word default)`, a parameter after a piece, a rest
+  parameter beside a piece, a piece spelled as an expand-time name, and a default
+  naming its own word or a later piece's. Refused by name at the call, each with
+  the call's line where its author wrote it: an argument after the positional
+  ones that is none of the pieces, the refusal listing them; a piece holding other
+  than one form; a piece given twice; a piece with no default left out; and a
+  positional argument written as one of the pieces, which is a list headed by
+  a piece's word, so a macro with a piece `sheet` takes no positional argument
+  written `(sheet ...)`. Too few positional arguments for a macro with pieces are
+  counted as a macro with a rest counts them. A macro with no piece reads as
+  it did. Alonzo's kit's `put`, rewritten over four pieces in a scratch copy,
+  its three calls in more than one order, left all eleven cartridges byte for
+  byte.
+
+- **A macro that declares one word twice is refused.** `(defmacro (m a a) ...)`,
+  positional, piece or rest, compared without case, is refused at the definition.
+  The add-in raised a raw error at the call, and `vla-lang` bound the last. No
+  macro in this repository's sources, the phrasebooks, Alonzo's cartridges or
+  Buffet declares one.
+
+- **`vla-lang`'s `Macro` gains `pieces`, each a `Piece`, and both are
+  `#[non_exhaustive]`.** Code that reads a macro's fields is unchanged. Code that
+  builds a `Macro` or takes one apart by a pattern breaks here, once, and at no
+  later field; nothing in this repository or Alonzo does either. So this release
+  is 0.13.0.
+
 ## 0.12.0
 
 ### What changed

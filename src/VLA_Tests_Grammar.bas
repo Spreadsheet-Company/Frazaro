@@ -1,6 +1,8 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "SEC.15"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "VLA.9"
+' VLA.9: TestPL7 - a compile's include map is read by no later VlaExpandText,
+' whose refusal names the line of its own text.
 ' SEC.15: TestG10's set-formula pin reads the emitted call to the runtime's
 ' VlaSetFormula, the formula sink of both backends, where it read the
 ' .Formula2 line the emitter wrote directly until SEC.15.
@@ -3789,6 +3791,18 @@ Public Sub TestPL7()
     On Error GoTo 0
     Report "pl7: the no-include baseline wording is untouched", _
            InStr(1, d, "(near vla line 2)", vbTextCompare) > 0, "got: " & d
+
+    ' VLA.9: VlaExpandText splices no include, so a line it names is its own
+    ' text's, whatever map the last compile left.
+    d = ""
+    On Error Resume Next
+    t = VlaTranspile("(include """ & p1 & """)" & vbCrLf & "(sub t () (lib-one))")
+    t = VlaExpandText("(defmacro (m (a)) a) (m)", True)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "pl7: a compile's include map is read by no later expansion", _
+           InStr(1, d, "(vla line 1)", vbTextCompare) > 0 And InStr(1, d, ".vla line", vbTextCompare) = 0, _
+           "got: " & d
 
     pB = WriteTempLib("vla_pl7_libb.vla", "(sub lib-two () (debug-print 88))")
     pA = WriteTempLib("vla_pl7_liba.vla", "(include """ & pB & """)" & vbCrLf & "(sub lib-outer () (lib-two))")

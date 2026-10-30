@@ -70,6 +70,12 @@ every push:
      own heads (FsList's Case, formula_syntax's list); each of the five
      heading a form in an EXPANDED case and in a REFUSED one; and VLA.15's
      id the id of a REFUSED record.
+ 10. VLA.9's named pieces: both signature walks take a list as a declaration
+     (DefineMacro's call of DeclarePiece, define_macro's of declare_piece) and
+     both bindings take a default (BindPieces' and bind_pieces' substitution of
+     one); each of VLA.9's eleven ids is the id of a REFUSED record; and the
+     two cases of one call in two orders have one record, and that record the
+     rows of a piece bound by its word and never by its place.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
@@ -81,8 +87,10 @@ alias through ResolveHeadAlias, a reference whose Substitute no longer
 takes the loop at a list's head, a port whose RESERVED lost each, a
 reference whose walk no longer passes a define by, a reference whose
 VlaExpandText expands a form by ExpandMacros directly, a port whose writer
-lost last, a reference whose walk no longer takes the first cell, and a
-port whose writer lost the three marks.
+lost last, a reference whose walk no longer takes the first cell, a port
+whose writer lost the three marks, a reference whose signature walk reads no
+declaration, a port whose binding takes no default, and a golden whose second
+order of one call differs from its first.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -109,9 +117,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-29, VLA.15: 362 cases, 198 expanded, 47 distinct ids, list?'s, the
 # three marks' and the first cell's 68 written by the port ahead of the
 # reference's run.
-$caseFloor = 362
-$expandedFloor = 198
-$idFloor = 47
+# 2026-10-30, VLA.9: 471 cases, 245 expanded, 63 distinct ids, the named pieces'
+# 109 written by the port ahead of the reference's run, and five ids of the
+# macro system's a refused case had not reached before.
+$caseFloor = 471
+$expandedFloor = 245
+$idFloor = 63
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -150,6 +161,15 @@ $addressPrimitive = 'list?'
 $addressForm = 'first-cell-expand'
 $markHeads = @('absolute', 'absolute-row', 'absolute-column')
 $addressIds = @('vla-reference-whole-line')
+
+# VLA.9's eleven ids, the definition's six and the call's five, and the two
+# cases of one call written in two orders, which rule 10 holds to the fixture.
+$pieceIds = @('vla-defmacro-piece-shape', 'vla-defmacro-param-after-piece',
+    'vla-defmacro-piece-with-rest', 'vla-defmacro-param-twice',
+    'vla-defmacro-piece-reserved', 'vla-defmacro-piece-default-unbound',
+    'vla-macro-piece-unknown', 'vla-macro-piece-arity', 'vla-macro-piece-twice',
+    'vla-macro-piece-missing', 'vla-macro-piece-for-param')
+$twoOrders = @('=== a-put-by-pieces', '=== a-put-by-pieces-in-another-order')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -502,6 +522,32 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
+    # 10. VLA.9's named pieces: a list in a signature a declaration and a default
+    # substituted at the call, in both implementations; its ids each a refused
+    # record; and one call in two orders, one record, since the pieces are bound
+    # in the declaration's order and never the call's.
+    if ($vbaText -notmatch 'DeclarePiece mname, sig\.Item\(j\), params, pieceWords, pieceDecls') {
+        [void]$problems.Add("the reference's signature walk (DefineMacro) does not read a list as a piece's declaration")
+    }
+    if ($vbaText -notmatch 'bindings\.Add Substitute\(decl\.Item\(2\), bindings, "", noItems\), wordFold') {
+        [void]$problems.Add("the reference's binding (BindPieces) does not substitute a default under the parameters bound before it")
+    }
+    if ($portText -notmatch 'pieces\.push\(declare_piece\(&mname, decl, &mut declared\)\?\);') {
+        [void]$problems.Add("the port's signature walk (define_macro) does not read a list as a piece's declaration")
+    }
+    if ($portText -notmatch '\(None, Some\(default\)\) => substitute\(default, env, false\)\?,') {
+        [void]$problems.Add("the port's binding (bind_pieces) does not substitute a default under the parameters bound before it")
+    }
+    foreach ($x in $pieceIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+    $orders = @($gcases | Where-Object { $twoOrders -ccontains $_.Header })
+    if ($orders.Count -ne 2) {
+        [void]$problems.Add(("{0} of the two cases of one call in two orders in the golden" -f $orders.Count))
+    } elseif ((($orders[0].Lines) -join "`n") -cne (($orders[1].Lines) -join "`n")) {
+        [void]$problems.Add("one call written in two orders, $($twoOrders[0]) and $($twoOrders[1]), has two records, so a piece is bound by its place")
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -609,6 +655,23 @@ if ($Control) {
         if ([regex]::Matches($syntaxSource, [regex]::Escape($markArm)).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s writer arm for the three marks once'; exit 1 }
         $pn = Join-Path $tmp 'n.rs'
         [System.IO.File]::WriteAllText($pn, $syntaxSource.Replace($markArm, ''), $utf8)
+        # (o) the reference whose signature walk reads no declaration
+        $declareAnchor = 'DeclarePiece mname, sig.Item(j), params, pieceWords, pieceDecls'
+        if ([regex]::Matches($vbaText, [regex]::Escape($declareAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected DefineMacro''s call of DeclarePiece once in the reference'; exit 1 }
+        $po = Join-Path $tmp 'o.bas'
+        [System.IO.File]::WriteAllText($po, $vbaText.Replace($declareAnchor, 'SymText sig.Item(j)'), $utf8)
+        # (p) the port whose binding takes no default
+        $defaultArm = '(None, Some(default)) => substitute(default, env, false)?,'
+        if ([regex]::Matches($portSource, [regex]::Escape($defaultArm)).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s arm for a default once'; exit 1 }
+        $pp = Join-Path $tmp 'p.rs'
+        [System.IO.File]::WriteAllText($pp, $portSource.Replace($defaultArm, '(None, Some(default)) => default.clone(),'), $utf8)
+        # (q) a golden whose second order of one call differs from its first
+        $q = @($lines | ForEach-Object { $_ })
+        $orderAt = [array]::IndexOf($q, $twoOrders[1])
+        if ($orderAt -lt 0) { Write-Output 'FAIL: the control found no second order of one call in the golden'; exit 1 }
+        $q[$orderAt + 1] = "EXPANDED`t9"
+        $pq = Join-Path $tmp 'q.txt'
+        [System.IO.File]::WriteAllText($pq, ($q -join "`n"), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath $syntaxPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath $syntaxPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath $syntaxPath
@@ -623,8 +686,11 @@ if ($Control) {
         $rl = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath $pl
         $rm = Test-ExpandGolden $fixturePath $goldenPath $pm $portPath $catalogPath $syntaxPath
         $rn = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $portPath $catalogPath $pn
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1) {
+        $ro = Test-ExpandGolden $fixturePath $goldenPath $po $portPath $catalogPath $syntaxPath
+        $rp = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pp $catalogPath $syntaxPath
+        $rq = Test-ExpandGolden $fixturePath $pq $vbaPath $portPath $catalogPath $syntaxPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

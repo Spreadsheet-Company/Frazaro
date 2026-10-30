@@ -219,7 +219,8 @@ A member may be a path: `font.bold`, `entirecolumn.autofit`. And a symbol
 may carry its own dots, which is the usual way to write a global:
 `err.number`, `activewindow.freezepanes`, `(err.clear)`.
 
-**Keywords** become VBA's named arguments: `:key1 k` is `key1:=k`.
+**Keywords** become VBA's named arguments: `:key1 k` is `key1:=k`. A
+macro's own named pieces are lists and no keywords: Section 10 has them.
 
 **`set!` or `obj-set!`.** VBA makes this distinction and so VLA does.
 Values are assigned with `set!`; object references with `obj-set!`. The
@@ -439,6 +440,80 @@ story of the day this mattered.
 **Names are global.** Every macro in the prelude, the phrasebooks and your
 file shares one table. In a phrasebook, a second macro of the same name is
 refused.
+
+### Named pieces
+
+A parameter is read by its place, which serves a macro of two or three and
+stops serving one whose caller must remember what the fifth argument was.
+A list in the signature, after the parameters, declares a **named piece**:
+
+```lisp
+(defmacro (rule range (sheet "Screen") (text "=1"))
+  "a formula row, on the Screen and of the plain text unless the call says"
+  (formula sheet range text))
+```
+
+`(sheet "Screen")` is a piece the call may leave out, its default standing
+for it; `(sheet)`, the word alone, is one the call must give. A call writes
+its positional arguments first, and after them each piece it names, a list
+of the word and its value, in any order:
+
+```lisp
+(rule "B2:K11")                               ; (formula "Screen" "B2:K11" "=1")
+(rule "B2:K11" (sheet "Tower"))               ; (formula "Tower" "B2:K11" "=1")
+(rule "B2:K11" (text "=2") (sheet "Tower"))   ; (formula "Tower" "B2:K11" "=2")
+(rule "B2:K11" (sheet "Tower") (text "=2"))   ; the same row
+```
+
+The pieces are bound in the order the signature declares them, never the
+order the call writes them, so one call in two orders writes the same row.
+A piece's word folds as a parameter's does, and stands in the template as a
+parameter's does.
+
+A default may name what is declared before it, a positional parameter or an
+earlier piece, given or left out:
+
+```lisp
+(defmacro (frame sheet (top 1) (bottom top))
+  "a box of rows, its bottom its top unless the call says"
+  (box sheet top bottom))
+
+(frame "S")                      ; (box "S" 1 1)
+(frame "S" (top 3))              ; (box "S" 3 3)
+(frame "S" (bottom 9) (top 3))   ; (box "S" 3 9)
+```
+
+A default is a form of the macro's, as its template is. Nothing happens to
+it at the definition. Each call that leaves its piece out fills it in, and
+it expands with the rest of what the call wrote, so a macro in it fires
+there, and a word of `define` reads what the call's form sees (Section 14).
+
+What the reading cannot take is refused by name. At the definition: a
+declaration other than `(word)` or `(word default)`; a parameter after a
+piece; a rest parameter beside a piece, since an argument after the
+positional ones would be either; a word declared twice; a piece spelled as
+an expand-time name; a default naming its own word or a later piece's. At
+the call: anything after the positional arguments that is none of the
+pieces, which the refusal lists; a piece holding other than one form; a
+piece given twice; a piece with no default left out; and a positional
+argument written as one of the pieces, since `(rule (sheet "Tower"))` has
+left out the range. The call's line is named where its author wrote it, and
+a call a macro made names none:
+
+> macro 'rule': '(color "red")' stands after its positional arguments, where
+> only its pieces go: sheet, text (vla line 5)
+
+`&` keeps its one meaning in a signature, the mark before a rest parameter,
+so `(& rest)` there is refused as no piece; and `(& a b)` is the joining of
+two texts everywhere else, a positional argument, a piece's value or a
+default among them.
+
+A template replaces every word that is one of its parameters, a list's head
+among them. So a template that calls a macro with pieces names no parameter
+after one of them: in `(defmacro (tower sheet) (rule "B2" (sheet sheet)))`
+the call becomes `(rule "B2" ("Tower" "Tower"))`, and is refused. Spell the
+parameter otherwise, or write the call under `quasiquote` (Section 13), which
+is how a macro calls itself by a piece.
 
 ## 11. No gensym
 

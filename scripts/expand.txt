@@ -13,10 +13,11 @@ formula-expand and the loop, each and each-index (VLA.5), and define and
 a reference's two parts, sheet-expand and range-expand, beside the
 formula syntax's last (VLA.6), and a reference's first cell,
 first-cell-expand, beside the formula syntax's three marks, absolute,
-absolute-row and absolute-column (VLA.15). A case is named
-for what it means to reach; the golden records what the reference does.
-No case raises a refusal that names a line, so an edit of the prelude
-moves nothing here.
+absolute-row and absolute-column (VLA.15), and a macro's named pieces, each
+of their refusals among them (VLA.9). A case is named for what it means to
+reach; the golden records what the reference does. A refusal that names a
+line names the case's own, counted from the case's first line, so an edit
+of the prelude moves nothing here.
 === car
 (car (quote (a b c)))
 === car-of-a-text-refused
@@ -1047,3 +1048,635 @@ moves nothing here.
   (first-cell-expand Tally!B1:E10))
 
 (logged-first-cell)
+=== a-piece-left-out-takes-its-default
+(defmacro (rule range (sheet "Screen"))
+  "a formula row, on the Screen unless the call names another sheet"
+  (formula sheet range "=1"))
+
+(rule "B2:K11")
+=== a-piece-given-takes-its-value
+(defmacro (rule range (sheet "Screen"))
+  "a formula row, on the Screen unless the call names another sheet"
+  (formula sheet range "=1"))
+
+(rule "B2:K11" (sheet "Tower"))
+=== a-piece-s-word-folds-as-a-parameter-s
+(defmacro (rule range (Sheet "Screen"))
+  "a formula row, its piece's word spelled three ways"
+  (formula SHEET range "=1"))
+
+(rule "B2:K11" (sheet "Tower"))
+=== a-piece-the-call-must-give
+(defmacro (rule range (sheet))
+  "a formula row on the sheet the call names"
+  (formula sheet range "=1"))
+
+(rule "B2:K11" (sheet "Tower"))
+=== a-macro-of-pieces-alone-left-to-its-defaults
+(defmacro (mark (sheet "Screen") (at "A1"))
+  "a mark, where the call says"
+  (cell sheet at 1))
+
+(mark)
+=== a-macro-of-pieces-alone-given-one
+(defmacro (mark (sheet "Screen") (at "A1"))
+  "a mark, where the call says"
+  (cell sheet at 1))
+
+(mark (at "C3"))
+=== a-macro-of-pieces-alone-given-both
+(defmacro (mark (sheet "Screen") (at "A1"))
+  "a mark, where the call says"
+  (cell sheet at 1))
+
+(mark (at "C3") (sheet "Tower"))
+=== a-docstring-beside-a-piece
+(defmacro (titled (title "Frazaro"))
+  "a title, by a piece"
+  title)
+
+(titled)
+=== a-lone-text-is-the-template-beside-a-piece
+(defmacro (titled (title "Frazaro")) "a lone text")
+
+(titled (title "Beta"))
+=== a-piece-s-value-is-a-form-as-written
+(defmacro (rule range (text "=1"))
+  "a formula row, its text the call's form as written until it lands"
+  (formula "Screen" range text))
+
+(rule "B2" (text (formula-expand (+ A1 1))))
+=== a-piece-s-value-calling-a-macro-expands-where-it-lands
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (home-sheet) "Home")
+
+(rule "B2" (sheet (home-sheet)))
+=== a-default-calling-a-macro-expands-where-the-call-does
+(defmacro (rule range (sheet (home-sheet)))
+  "a formula row, on the home sheet unless the call says"
+  (formula sheet range "=1"))
+
+(defmacro (home-sheet) "Home")
+
+(rule "B2")
+=== a-default-used-twice-stands-twice
+(defmacro (pair (x (g 1)))
+  "one piece, standing twice"
+  (f x x))
+
+(pair)
+=== a-default-naming-an-earlier-piece
+(defmacro (frame sheet (top 1) (bottom top))
+  "a box of rows, its bottom its top unless the call says"
+  (box sheet top bottom))
+
+(frame "S" (top 3))
+=== a-default-naming-an-earlier-piece-given-after-it
+(defmacro (frame sheet (top 1) (bottom top))
+  "a box of rows, its bottom its top unless the call says"
+  (box sheet top bottom))
+
+(frame "S" (bottom 9) (top 3))
+=== a-default-naming-an-earlier-piece-left-out
+(defmacro (frame sheet (top 1) (bottom top))
+  "a box of rows, its bottom its top unless the call says"
+  (box sheet top bottom))
+
+(frame "S")
+=== a-default-naming-a-positional-parameter
+(defmacro (titled sheet (title sheet))
+  "a sheet's title, its name unless the call says"
+  (cell sheet "A1" title))
+
+(titled "Tower")
+=== a-default-naming-a-default-naming-a-default
+(defmacro (chain (a 1) (b a) (c b))
+  "three pieces, each leaning on the one before"
+  (f a b c))
+
+(chain (a 7))
+=== a-default-computed-from-an-earlier-piece
+(defmacro (span (from 1) (to (+expand from 9)))
+  "ten rows from a row, unless the call says"
+  (f from to))
+
+(span (from 3))
+=== a-default-naming-a-piece-inside-a-list
+(defmacro (anchored (sheet "Screen") (home (ref sheet "A1")))
+  "a reference on a sheet, its first cell unless the call says"
+  (f home))
+
+(anchored (sheet "Tower"))
+=== a-default-naming-a-word-reads-the-define-the-call-sees
+(defmacro (marked (at home))
+  "a mark at a word the source binds"
+  (cell "S" at 1))
+
+(define home "B2")
+(marked)
+=== a-default-naming-a-word-above-its-define-writes-the-word
+(defmacro (marked (at home))
+  "a mark at a word the source binds"
+  (cell "S" at 1))
+
+(marked)
+(define home "B2")
+=== a-default-with-a-text-names-no-piece
+(defmacro (f (a "b") (b 1))
+  "a text is no word"
+  (g a b))
+
+(f)
+=== a-default-is-not-read-when-its-piece-is-given
+(defmacro (f (a (car "text")))
+  "a default no call has reached"
+  (g a))
+
+(f (a 1))
+=== a-default-read-where-its-piece-is-left-out-refused
+(defmacro (f (a (car "text")))
+  "a default no call has reached"
+  (g a))
+
+(f)
+=== a-default-of-a-loop-is-one-begin
+(defmacro (f (a (each (x (quote (1 2))) (g x))))
+  "a statement's loop as a default"
+  a)
+
+(f)
+=== a-default-of-the-empty-list
+(defmacro (f (a ()))
+  "the empty list, the default"
+  (g a))
+
+(f)
+=== a-piece-given-the-empty-list
+(defmacro (f (a 1))
+  "the empty list, a value"
+  (g a))
+
+(f (a ()))
+=== a-put-by-position
+(defmacro (put-from write-sheet put-row put-column target when address what)
+  "a write of a Write sheet's three columns, every part by its place"
+  (cell write-sheet (address-expand put-row put-column) target)
+  (formula write-sheet (address-expand put-row (+expand put-column 1)) (formula-expand (if when address "")))
+  (formula write-sheet (address-expand put-row (+expand put-column 2)) (formula-expand what)))
+
+(put-from "Write" 2 1 "Tower" Gate!A1 "C3" (+ Gate!B1 1))
+=== a-put-by-pieces
+(defmacro (put write-sheet at (sheet "Screen") (when 1) (address "A1") (value 0))
+  "a write of a Write sheet's three columns, each part by its word"
+  (cell write-sheet at sheet)
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 1)) (formula-expand (if when address "")))
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 2)) (formula-expand value)))
+
+(put "Write" "A2" (sheet "Tower") (when Gate!A1) (address "C3") (value (+ Gate!B1 1)))
+=== a-put-by-pieces-in-another-order
+(defmacro (put write-sheet at (sheet "Screen") (when 1) (address "A1") (value 0))
+  "a write of a Write sheet's three columns, each part by its word"
+  (cell write-sheet at sheet)
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 1)) (formula-expand (if when address "")))
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 2)) (formula-expand value)))
+
+(put "Write" "A2" (value (+ Gate!B1 1)) (address "C3") (when Gate!A1) (sheet "Tower"))
+=== pieces-through-on
+(defmacro (on sheet & forms)
+  "rows of one sheet, named once: each a call whose first argument is the sheet, written without it"
+  (quote-if (null? forms)
+    (begin)
+    (begin
+      (cons (car (car forms)) (cons sheet (cdr (car forms))))
+      (quasiquote (on (unquote sheet) (unquote-splicing (cdr forms)))))))
+
+(defmacro (put write-sheet at (sheet "Screen") (value 0))
+  "a write of a Write sheet's two columns, each part by its word"
+  (cell write-sheet at sheet)
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 1)) (formula-expand value)))
+
+(on "Write"
+  (put "A1" (sheet "Tower"))
+  (put "A2" (value 2)))
+=== pieces-in-a-template
+(defmacro (put write-sheet at (sheet "Screen") (value 0))
+  "a write of a Write sheet's two columns, each part by its word"
+  (cell write-sheet at sheet)
+  (formula write-sheet (address-expand (row-expand at) (+expand (column-expand at) 1)) (formula-expand value)))
+
+(defmacro (writes orientation)
+  "a parameter of the template filled in inside a piece"
+  (put "Write" "A1" (value orientation)))
+
+(writes 1)
+=== pieces-a-quasiquote-writes
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (rule-on sheet-name range)
+  "a call with a piece, its value punched through the shield"
+  (quasiquote (rule (unquote range) (sheet (unquote sheet-name)))))
+
+(rule-on "Tower" "B2")
+=== pieces-in-a-loop
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (rules-on sheet-name & ranges)
+  "a row for each range, on one sheet"
+  (each (range ranges)
+    (rule range (sheet sheet-name))))
+
+(rules-on "Tower" "B2" "B3")
+=== pieces-among-forms-a-macro-set-aside
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (logged-rules)
+  "two rows after a line printed, the last by its piece"
+  (debug-print 1)
+  (rule "B2")
+  (rule "B3" (sheet "Tower")))
+
+(logged-rules)
+=== an-atom-by-a-piece-after-forms-a-macro-set-aside
+(defmacro (word-of (word "none"))
+  "a word, by a piece"
+  word)
+
+(defmacro (logged-word)
+  "a word after a line printed"
+  (debug-print 1)
+  (word-of))
+
+(logged-word)
+=== a-macro-calling-itself-by-a-piece-under-a-shield
+(defmacro (countdown (n 2))
+  "a walk by a piece, its call shielded, since the template's own n would replace the piece's word"
+  (quote-if (=expand n 0)
+    (done)
+    (quasiquote (countdown (n (unquote (-expand n 1)))))))
+
+(countdown)
+=== a-macro-calling-itself-by-a-piece-bare-refused
+(defmacro (countdown (n 2))
+  "a walk by a piece, its own n replacing the piece's word: VLA.11's capture, refused by name"
+  (quote-if (=expand n 0)
+    (done)
+    (countdown (n (-expand n 1)))))
+
+(countdown)
+=== a-template-s-parameter-spelled-as-a-piece-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (tower-rule sheet)
+  "a parameter spelled as the piece it hands on: VLA.11's capture, refused by name"
+  (rule "B2" (sheet sheet)))
+
+(tower-rule "Tower")
+=== a-piece-s-word-at-a-head-of-its-template-is-replaced
+(defmacro (f (formula "x"))
+  "a piece's word heading a form of its template, replaced as a parameter's is: VLA.11's"
+  (formula "S" "A1" 1))
+
+(f)
+=== a-positional-argument-of-another-word-is-no-piece
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule (ref "S" "A1"))
+=== a-macro-with-no-piece-takes-any-list
+(defmacro (plain x)
+  "no piece declared, so no list reads as one"
+  (f x))
+
+(plain (sheet "Tower"))
+=== a-macro-with-no-piece-counts-as-it-did
+(defmacro (plain x)
+  "no piece declared, so the count is exact"
+  (f x))
+
+(plain 1 (sheet "Tower"))
+=== a-rest-macro-takes-any-list
+(defmacro (some x & more)
+  "no piece declared, so the rest is the rest"
+  (f x more))
+
+(some (sheet "Tower") (sheet "Screen"))
+=== a-declaration-of-nothing-refused
+(defmacro (f ()) 1)
+=== a-declaration-of-three-forms-refused
+(defmacro (f (a 1 2)) 1)
+=== a-declaration-headed-by-a-text-refused
+(defmacro (f ("a" 1)) 1)
+=== a-declaration-headed-by-a-list-refused
+(defmacro (f ((a b) 1)) 1)
+=== a-declaration-headed-by-the-rest-s-mark-refused
+(defmacro (f (& rest)) 1)
+=== a-parameter-after-a-piece-refused
+(defmacro (f (a 1) b) 1)
+=== a-rest-beside-a-piece-refused
+(defmacro (f (a 1) & more) 1)
+=== a-rest-s-mark-with-no-word-beside-a-piece-refused
+(defmacro (f (a 1) &) 1)
+=== a-piece-after-a-rest-refused-as-the-rest-not-last
+(defmacro (f & more (a 1)) 1)
+=== a-list-for-the-rest-s-word-refused
+(defmacro (f & (a 1)) 1)
+=== a-word-declared-twice-refused
+(defmacro (f a a) 1)
+=== a-word-declared-twice-by-its-fold-refused
+(defmacro (f a A) 1)
+=== a-piece-spelled-as-a-parameter-refused
+(defmacro (f a (A 1)) 1)
+=== a-piece-declared-twice-refused
+(defmacro (f (a 1) (a 2)) 1)
+=== a-rest-spelled-as-a-parameter-refused
+(defmacro (f a & a) 1)
+=== a-piece-spelled-as-a-loop-refused
+(defmacro (f (each 1)) 1)
+=== a-piece-spelled-as-a-primitive-refused
+(defmacro (f (CAR)) 1)
+=== a-piece-spelled-as-quote-refused
+(defmacro (f (quote 1)) 1)
+=== a-piece-spelled-as-define-refused
+(defmacro (f (define 1)) 1)
+=== a-default-naming-its-own-word-refused
+(defmacro (f (a a)) 1)
+=== a-default-naming-a-later-piece-refused
+(defmacro (f (a b) (b 1)) 1)
+=== a-default-naming-a-later-piece-inside-a-list-refused
+(defmacro (f (a (g (h B))) (b 1)) 1)
+=== a-default-naming-its-own-word-at-a-head-refused
+(defmacro (f (a (a 1))) 1)
+=== a-default-naming-a-later-piece-under-a-quote-refused
+(defmacro (f (a (quote b)) (b 1)) 1)
+=== a-default-unbound-named-after-the-signature-is-read
+(defmacro (f (a a) b) 1)
+=== a-default-unbound-named-before-a-missing-template
+(defmacro (f (a a)))
+=== a-macro-of-a-piece-with-no-template-refused
+(defmacro (f (a 1)))
+=== an-atom-after-the-positional-arguments-refused
+(defmacro (rule range (sheet "Screen") (text "=1"))
+  "a formula row on a sheet"
+  (formula sheet range text))
+
+(rule "B2" "Tower")
+=== a-word-after-the-positional-arguments-refused
+(defmacro (rule range (sheet "Screen") (text "=1"))
+  "a formula row on a sheet"
+  (formula sheet range text))
+
+(rule "B2" sheet)
+=== a-piece-the-macro-does-not-declare-refused
+(defmacro (rule range (sheet "Screen") (text "=1"))
+  "a formula row on a sheet"
+  (formula sheet range text))
+
+(rule "B2" (color "red"))
+=== an-empty-list-after-the-positional-arguments-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" ())
+=== a-list-headed-by-a-list-after-the-positional-arguments-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" ((sheet) "Tower"))
+=== a-list-headed-by-a-text-after-the-positional-arguments-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" ("sheet" "Tower"))
+=== a-refusal-names-the-macro-as-the-call-writes-it
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(RULE "B2" (color "red"))
+=== a-piece-with-no-value-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet))
+=== a-piece-with-two-values-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet "Tower" "Screen"))
+=== a-piece-given-twice-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet "Tower") (sheet "Screen"))
+=== a-piece-given-twice-by-its-fold-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet "Tower") (SHEET "Screen"))
+=== a-piece-left-out-without-a-default-refused
+(defmacro (rule range (sheet))
+  "a formula row on the sheet the call names"
+  (formula sheet range "=1"))
+
+(rule "B2")
+=== a-positional-argument-written-as-a-piece-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule (sheet "Tower"))
+=== a-second-positional-argument-written-as-a-piece-refused
+(defmacro (rule-on where range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range where))
+
+(rule-on "=1" (SHEET "Tower"))
+=== too-few-arguments-for-a-macro-with-pieces-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule)
+=== the-count-is-named-before-a-piece
+(defmacro (rule-on where range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range where))
+
+(rule-on (sheet "Tower"))
+=== a-positional-argument-is-named-before-an-unknown-piece
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule (sheet "Tower") (color "red"))
+=== the-arguments-are-read-left-to-right-an-unknown-first
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (color "red") (sheet))
+=== the-arguments-are-read-left-to-right-an-arity-first
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet) (color "red"))
+=== a-piece-given-twice-is-named-before-a-piece-left-out
+(defmacro (rule range (sheet) (text))
+  "a formula row, both pieces the call's"
+  (formula sheet range text))
+
+(rule "B2" (sheet "Tower") (sheet "Screen"))
+=== the-pieces-left-out-are-named-in-the-declaration-s-order
+(defmacro (rule range (sheet) (text))
+  "a formula row, both pieces the call's"
+  (formula sheet range text))
+
+(rule "B2")
+=== a-piece-left-out-is-named-before-a-default-is-read
+(defmacro (f (a (car "text")) (b))
+  "a default that would be refused, and a piece the call must give"
+  (g a b))
+
+(f)
+=== a-refusal-names-the-call-s-line
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2")
+(rule "B3"
+  (color "red"))
+=== a-refusal-names-the-line-a-begin-holds-the-call-on
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(begin
+  (rule "B2")
+  (rule "B3" (sheet)))
+=== a-refusal-names-the-line-a-formula-holds-the-call-on
+(defmacro (edge cell (twin 0))
+  "a rising edge"
+  (and (= cell 1) (= twin 0)))
+
+(formula-expand
+  (if
+    (edge A1 (twin 1) (twin 2))
+    1
+    0))
+=== a-refusal-names-the-line-a-define-holds-the-call-on
+(defmacro (rule range (sheet))
+  "a formula row on the sheet the call names"
+  (formula sheet range "=1"))
+
+(define broken (rule "B2"))
+
+broken
+=== a-refusal-names-no-line-for-a-call-a-template-writes
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (broken-rule)
+  "a call with a fault a template writes"
+  (rule "B2" (color "red")))
+
+(broken-rule)
+=== a-refusal-names-no-line-for-a-call-on-conses
+(defmacro (on sheet & forms)
+  "rows of one sheet, named once: each a call whose first argument is the sheet, written without it"
+  (quote-if (null? forms)
+    (begin)
+    (begin
+      (cons (car (car forms)) (cons sheet (cdr (car forms))))
+      (quasiquote (on (unquote sheet) (unquote-splicing (cdr forms)))))))
+
+(defmacro (put write-sheet at (sheet "Screen"))
+  "a write of a Write sheet's first column"
+  (cell write-sheet at sheet))
+
+(on "Write"
+  (put "A1" (color "red")))
+=== a-given-piece-s-call-keeps-its-line
+(defmacro (outer (inner (needs)))
+  "a piece whose default is a call"
+  inner)
+
+(defmacro (needs (a))
+  "a piece the call must give"
+  a)
+
+(outer
+  (inner (needs)))
+=== a-default-s-call-names-no-line
+(defmacro (outer (inner (needs)))
+  "a piece whose default is a call"
+  inner)
+
+(defmacro (needs (a))
+  "a piece the call must give"
+  a)
+
+(outer)
+=== a-rest-takes-lists-headed-by-the-text-joining-operator
+(defmacro (some x & more)
+  "the rest's mark in the signature and the operator in the call, two places that never meet"
+  (f x more))
+
+(some (& "a" "b") (& "c" "d"))
+=== a-positional-argument-headed-by-the-text-joining-operator
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule (& "B" 2))
+=== a-piece-s-value-headed-by-the-text-joining-operator
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (sheet (& "T" 1)))
+=== a-default-headed-by-the-text-joining-operator
+(defmacro (labeled (top 1) (label (& "row " top)))
+  "a label, its row's unless the call says"
+  (f label))
+
+(labeled (top 3))
+=== a-template-s-text-joining-head-beside-a-piece
+(defmacro (joined a (b "x"))
+  "the operator at a head of a template, which no piece's word can replace"
+  (formula-expand (& a b)))
+
+(joined A1)
+=== the-text-joining-operator-for-a-piece-refused
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(rule "B2" (& "T" 1))
+=== a-rest-spelled-as-its-own-mark-replaces-the-operator
+(defmacro (m & &)
+  "a rest's word spelled as its mark, taken since the first macro: a parameter's capture, VLA.11's"
+  (& "a" "b"))
+
+(m 1 2)

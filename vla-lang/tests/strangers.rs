@@ -291,6 +291,9 @@ const PROGRAMS: &[&str] = &[
     // VLA.15: a word told from a pair, the three marks around a word and its
     // twin, and a range's first cell at a word and by addresses.
     "(defmacro (label e) (quote-if (list? e) (car e) (&expand e))) (cell \"S\" \"A1\" (label w)) (cell \"S\" \"A2\" (label (\"a b\" w2))) (define tally Tally!B1:E10) (formula-expand (+ (absolute-row (last tally)) (last (absolute-column Gate!D1)) (absolute B6))) (formula (sheet-expand tally) (first-cell-expand tally) (formula-expand (last (ref \"Tally\" (first-cell-expand Tally!E$10:$B1)))))",
+    // VLA.9: a macro's named pieces, a default leaning on an earlier one, one
+    // call in two orders, a call a template writes and a default a macro's.
+    "(defmacro (rule range (sheet \"Screen\") (top 1) (bottom (+expand top 9)) (text (home))) (formula sheet range (&expand text bottom))) (defmacro (home) \"=\") (rule \"A1\") (rule \"A1\" (bottom 2) (sheet \"S\")) (rule \"A1\" (sheet \"S\") (bottom 2)) (defmacro (t x) (rule x (top 3))) (t \"B2\")",
 ];
 
 /// The rows a write is made of before they are mutated.
@@ -431,6 +434,63 @@ fn the_named_strangers() {
             Door::Expand,
             "marks nested past the reader's limit".into(),
             format!("(formula-expand {}Input!B5{})", "(absolute ".repeat(70), ")".repeat(70)),
+        ),
+        // VLA.9: each malformed declaration and call is refused by name, a
+        // default that calls its own macro meets the chain's limit, a chain
+        // of defaults doubling is refused where it is written out, and a
+        // signature and a call of a hundred thousand pieces answer.
+        (Door::Expand, "a declaration of nothing".into(), "(defmacro (m ()) 1)".into()),
+        (Door::Expand, "a declaration's word a list".into(), "(defmacro (m ((a) 1)) 1)".into()),
+        (Door::Expand, "a declaration's word a text".into(), "(defmacro (m (\"a\" 1)) 1)".into()),
+        (Door::Expand, "a declaration of three".into(), "(defmacro (m (a 1 2)) 1)".into()),
+        (Door::Expand, "a declaration's word the rest's mark".into(), "(defmacro (m (&)) 1)".into()),
+        (Door::Expand, "a parameter after a piece".into(), "(defmacro (m (a 1) b) 1)".into()),
+        (Door::Expand, "a rest beside a piece".into(), "(defmacro (m (a 1) & b) 1)".into()),
+        (Door::Expand, "a word declared twice".into(), "(defmacro (m a A) 1)".into()),
+        (Door::Expand, "a piece spelled as a primitive".into(), "(defmacro (m (car 1)) 1)".into()),
+        (Door::Expand, "a default naming itself".into(), "(defmacro (m (a a)) 1)".into()),
+        (Door::Expand, "a piece with no value".into(), "(defmacro (m (a 1)) a) (m (a))".into()),
+        (Door::Expand, "a piece given twice".into(), "(defmacro (m (a 1)) a) (m (a 1) (a 2))".into()),
+        (Door::Expand, "an empty list for a piece".into(), "(defmacro (m (a 1)) a) (m ())".into()),
+        (Door::Expand, "an atom for a piece".into(), "(defmacro (m (a 1)) a) (m a)".into()),
+        (Door::Expand, "a piece for a positional argument".into(), "(defmacro (m x (a 1)) a) (m (a 1))".into()),
+        (Door::Expand, "a default that calls its own macro".into(), "(defmacro (m (a (m))) a) (m)".into()),
+        (
+            Door::Expand,
+            "a chain of defaults doubling".into(),
+            format!(
+                "(defmacro (m (p0 1) {}) p80) (m)",
+                (1..=80)
+                    .map(|i| format!("(p{i} (p{} p{}))", i - 1, i - 1))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+        ),
+        (
+            Door::Expand,
+            "a hundred thousand pieces, each default leaning on the one before".into(),
+            format!(
+                "(defmacro (m (p0 1) {}) p0) (m)",
+                (1..=100_000)
+                    .map(|i| format!("(p{i} p{})", i - 1))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+        ),
+        (
+            Door::Expand,
+            "a call of a hundred thousand pieces".into(),
+            format!(
+                "(defmacro (m {}) p1) (m {})",
+                (1..=100_000)
+                    .map(|i| format!("(p{i})"))
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                (1..=100_000)
+                    .map(|i| format!("(p{i} {i})"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
         ),
     ];
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/strangers");

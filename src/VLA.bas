@@ -20,7 +20,25 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.12.0"
-Public Const VLA_CORE_VERSION As String = "VLA.15"
+Public Const VLA_CORE_VERSION As String = "VLA.9"
+' VLA.9: NAMED PIECES WITH DEFAULTS. A list in a macro's signature declares
+' a piece after its positional parameters, (sheet "Screen") one with a
+' default and (sheet) one the caller must give (DeclarePiece), kept at the
+' record's end, items 6 and 7. A call's arguments after the positional ones
+' are its pieces, each a list headed by its word, in any order (TakePiece);
+' a positional argument written as one of the pieces is refused, so that a
+' call reads the same by position and by its pieces' words. Every piece is
+' bound in the declaration's order, a given one to its value as written and
+' a left-out one to its default substituted under the parameters bound
+' before it, let*'s reading (BindPieces), so one call written in two orders
+' writes the same rows. A default names no word declared at or after its
+' own (RefuseDefaultsUnbound). A word declared twice is refused at the
+' definition, positional and rest among them (RefuseWordTwice), where this
+' raised error 457 at the call and the port bound the last. Five of the
+' refusals are the call's and name its line (FormLineTag), a call a macro
+' made naming none; so VlaExpandText clears the include map, which it never
+' set and a line would be read through. vla-lang's expand.rs mirrors each;
+' the expand golden holds the two.
 ' VLA.15: A NAME WHERE AN ADDRESS STANDS. (list? x) is the twenty-ninth
 ' primitive (EvalListQ): true when x resolves to a list, the empty list
 ' among them, and false for a symbol or a text, the one test of a form's
@@ -1669,6 +1687,8 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     prelude = PreludeMacros()
     mLineOffset = CountLf(prelude) + 1
     Set mFormLines = New Collection
+    Set mIncMap = Nothing           ' VLA.9: this text splices no include, so a
+                                    ' line it names reads no earlier compile's map
     mEmitLine = 0
     mAtLine = 0
     mGenRow = ""
@@ -1769,12 +1789,17 @@ End Function
 ' the recursive walks gain no local (trap 8).
 Private Sub RefuseFormTooDeep(d As Variant)
     If Not IsList(d) Then Exit Sub
-    Dim loc As String
+    VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", CStr(VLA_FORM_DEPTH_LIMIT), "loc", FormLineTag(d)
+End Sub
+
+' VLA.9: a list's own line as a refusal says it, " (vla line N)", or nothing
+' for a list a macro made or the prelude holds (VLA.1's reading, now shared
+' with the refusals of a macro's call).
+Private Function FormLineTag(d As Variant) As String
     Dim ln As Long
     ln = FormLine(d)
-    If ln > 0 Then loc = SrcLineTag(ln + mLineOffset)
-    VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", CStr(VLA_FORM_DEPTH_LIMIT), "loc", loc
-End Sub
+    If ln > 0 Then FormLineTag = SrcLineTag(ln + mLineOffset)
+End Function
 
 ' Flat datum writer: symbols and numbers print raw; string literals
 ' (leading-quote-marked, escapes already processed at tokenize) are
@@ -2648,7 +2673,10 @@ End Function
 '  passed at the call site; the rest parameter splices its forms into
 '  whatever list it appears in. Multiple template forms are wrapped in
 '  an implicit (begin ...). No gensym, no compile-time computation -
-'  by design (see README).
+'  by design (see README). VLA.9: a list in the signature, after the
+'  positional parameters, declares a named piece, (word default) or
+'  (word), which a call gives as (word value) after its positional
+'  arguments, in any order; a piece left out takes its default.
 ' =====================================================================
 
 Private Sub DefineMacro(f As Collection)
@@ -2669,23 +2697,35 @@ Private Sub DefineMacro(f As Collection)
     If Len(reservedDesc) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", VLA_Identity.Fold(mname), "desc", reservedDesc
 
     Dim params As New Collection
+    Dim pieceWords As New Collection   ' VLA.9: the named pieces' words as written,
+    Dim pieceDecls As New Collection   ' and their declarations, one list each
     Dim restName As String
     restName = ""
     Dim j As Long
     j = 2
     Do While j <= sig.Count
         Dim t As String
-        t = SymText(Nth(sig, j))
-        If t = "&" Then
-            If j + 1 > sig.Count Then VLA_Messages.RaiseMsg "vla-defmacro-rest-param-missing", "name", mname
-            restName = SymText(Nth(sig, j + 1))
-            If j + 1 <> sig.Count Then VLA_Messages.RaiseMsg "vla-defmacro-rest-param-not-last", "name", mname
-            j = sig.Count + 1
-        Else
-            params.Add t
+        If IsList(sig.Item(j)) Then
+            DeclarePiece mname, sig.Item(j), params, pieceWords, pieceDecls
             j = j + 1
+        Else
+            t = SymText(Nth(sig, j))
+            If t = "&" Then
+                If pieceWords.Count > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-piece-with-rest", "name", mname
+                If j + 1 > sig.Count Then VLA_Messages.RaiseMsg "vla-defmacro-rest-param-missing", "name", mname
+                restName = SymText(Nth(sig, j + 1))
+                If j + 1 <> sig.Count Then VLA_Messages.RaiseMsg "vla-defmacro-rest-param-not-last", "name", mname
+                RefuseWordTwice mname, restName, params, pieceWords
+                j = sig.Count + 1
+            Else
+                If pieceWords.Count > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-param-after-piece", "name", mname, "word", t
+                RefuseWordTwice mname, t, params, pieceWords
+                params.Add t
+                j = j + 1
+            End If
         End If
     Loop
+    RefuseDefaultsUnbound mname, pieceWords, pieceDecls
 
     ' L17: an optional docstring. A string literal at form 3 is
     ' documentation ONLY when at least one more form follows - a lone
@@ -2736,6 +2776,9 @@ Private Sub DefineMacro(f As Collection)
                                    ' is still a Collection - only the
                                    ' outer mMacros table itself, PDICT.0,
                                    ' became a Dictionary)
+    rec.Add pieceWords             ' VLA.9: item 6, the pieces' words as written
+    rec.Add pieceDecls             ' VLA.9: item 7, their declarations; both empty
+                                   ' for a macro with no piece
     ' PDICT.0: direct overwrite, not Remove-then-Add - a Dictionary's own
     ' keyed Item-assignment already replaces an existing entry (or inserts
     ' a new one) with no error either way, so "allow redefinition" needs
@@ -2748,6 +2791,92 @@ Private Sub DefineMacro(f As Collection)
     ' and corpora are headed, not a one-time saving.
     Set mMacros.Item(VLA_Identity.Fold(mname)) = rec
 End Sub
+
+' VLA.9: a list in a macro's signature, a named piece's declaration: (word)
+' a piece the caller must give, (word default) one it may leave out. Refused
+' by name: any other shape, a word declared before it, and a word the walks
+' read as a form of their own, since a template holding a call would read
+' such a piece as that form before the call fires. Its default is checked
+' once every word is known (RefuseDefaultsUnbound).
+Private Sub DeclarePiece(ByVal mname As String, decl As Variant, params As Collection, pieceWords As Collection, pieceDecls As Collection)
+    Dim lst As Object
+    Set lst = decl
+    If Not PieceDeclShaped(lst) Then VLA_Messages.RaiseMsg "vla-defmacro-piece-shape", "name", mname, "value", WriteDatum(decl)
+    Dim word As String
+    word = CStr(lst.Item(1))
+    RefuseWordTwice mname, word, params, pieceWords
+    Dim desc As String
+    desc = ExpandReservedDesc(VLA_Identity.Fold(word))
+    If Len(desc) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-piece-reserved", "name", mname, "word", word, "desc", desc
+    pieceWords.Add word
+    pieceDecls.Add lst
+End Sub
+
+' VLA.9: a declaration's shape: one word, or a word and one form. The rest's
+' mark is no piece's word, so (& rest) is told it is not a rest parameter.
+Private Function PieceDeclShaped(lst As Object) As Boolean
+    If lst.Count < 1 Or lst.Count > 2 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    PieceDeclShaped = (CStr(lst.Item(1)) <> "&")
+End Function
+
+' VLA.9: a word a signature has declared already, positional, piece or rest,
+' compared as a call binds them, by the fold. Without this the reference
+' raised error 457 at the call, and the port bound the last.
+Private Sub RefuseWordTwice(ByVal mname As String, ByVal word As String, params As Collection, pieceWords As Collection)
+    Dim wordFold As String
+    wordFold = VLA_Identity.Fold(word)
+    If WordIndex(params, wordFold) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-param-twice", "name", mname, "word", word
+    If WordIndex(pieceWords, wordFold) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-param-twice", "name", mname, "word", word
+End Sub
+
+' VLA.9: where a word stands among words as written, by its fold, from
+' fromIndex on, or 0.
+Private Function WordIndex(words As Collection, ByVal wordFold As String, Optional ByVal fromIndex As Long = 1) As Long
+    Dim k As Long
+    For k = fromIndex To words.Count
+        If VLA_Identity.Fold(CStr(words.Item(k))) = wordFold Then
+            WordIndex = k
+            Exit Function
+        End If
+    Next
+End Function
+
+' VLA.9: a default may name only the parameters declared before it, so that
+' the binding is one pass left to right and no ring can form: its own word
+' or a later piece's is refused at the definition, the first such word its
+' walk meets.
+Private Sub RefuseDefaultsUnbound(ByVal mname As String, pieceWords As Collection, pieceDecls As Collection)
+    Dim decl As Object
+    Dim k As Long, other As Long
+    For k = 1 To pieceWords.Count
+        Set decl = pieceDecls.Item(k)
+        If decl.Count = 2 Then
+            other = DefaultNamesFrom(decl.Item(2), pieceWords, k)
+            If other > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-piece-default-unbound", "name", mname, "word", CStr(pieceWords.Item(k)), "other", CStr(pieceWords.Item(other))
+        End If
+    Next
+End Sub
+
+' VLA.9: the first piece from fromIndex on whose word a default holds, or 0.
+' Every word of the form counts, a head's and a quoted one's among them, as
+' Substitute replaces them all. Bounded by the reader's depth (VLA.1).
+Private Function DefaultNamesFrom(d As Variant, pieceWords As Collection, ByVal fromIndex As Long) As Long
+    If IsList(d) Then
+        Dim lst As Object
+        Set lst = d
+        Dim i As Long, hit As Long
+        For i = 1 To lst.Count
+            hit = DefaultNamesFrom(lst.Item(i), pieceWords, fromIndex)
+            If hit > 0 Then
+                DefaultNamesFrom = hit
+                Exit Function
+            End If
+        Next
+    ElseIf IsSym(d) Then
+        DefaultNamesFrom = WordIndex(pieceWords, VLA_Identity.Fold(CStr(d)), fromIndex)
+    End If
+End Function
 
 ' VLA.5: the expand-time names, each with what it is, "" for any other
 ' name: the one table DefineMacro refuses a macro's name by and a loop
@@ -3648,10 +3777,12 @@ Private Function ExpandOne(callForm As Object, rec As Collection) As Variant
     restName = rec.Item(2)
     Dim tmpl As Variant
     AssignVar tmpl, Nth(rec, 3)
+    Dim pieceWords As Collection     ' VLA.9: empty for a macro with no piece
+    Set pieceWords = rec.Item(6)
 
     Dim argc As Long
     argc = callForm.Count - 1
-    If Len(restName) = 0 Then
+    If Len(restName) = 0 And pieceWords.Count = 0 Then
         If argc <> params.Count Then
             VLA_Messages.RaiseMsg "vla-macro-arity", "name", CStr(callForm.Item(1)), "n", params.Count, "given", argc
         End If
@@ -3663,17 +3794,114 @@ Private Function ExpandOne(callForm As Object, rec As Collection) As Variant
 
     Dim bindings As New Collection
     Dim j As Long
+    If pieceWords.Count > 0 Then RefusePieceForParam callForm, params, pieceWords
     For j = 1 To params.Count
         bindings.Add callForm.Item(j + 1), VLA_Identity.Fold(CStr(params.Item(j)))
     Next
     Dim restItems As New Collection
-    For j = params.Count + 2 To callForm.Count
-        restItems.Add callForm.Item(j)
-    Next
+    If pieceWords.Count > 0 Then
+        BindPieces callForm, rec, bindings
+    Else
+        For j = params.Count + 2 To callForm.Count
+            restItems.Add callForm.Item(j)
+        Next
+    End If
 
     Dim res As Variant
     AssignVar res, Substitute(tmpl, bindings, VLA_Identity.Fold(restName), restItems)
     If IsObject(res) Then Set ExpandOne = res Else ExpandOne = res
+End Function
+
+' VLA.9: which of a macro's pieces a form is written as: the index of the
+' piece whose word heads it, by the fold, or 0 for an atom, the empty list
+' and a list headed by anything else. A list may be a VlaSlice.
+Private Function PieceWrittenAs(v As Variant, pieceWords As Collection) As Long
+    If Not IsList(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    PieceWrittenAs = WordIndex(pieceWords, VLA_Identity.Fold(CStr(lst.Item(1))))
+End Function
+
+' VLA.9: a positional argument written as one of the macro's own pieces is
+' refused, left to right, so that a call the language takes reads the same by
+' position and by its pieces' words, and a caller who leaves out a positional
+' argument hears so, where the first piece would be bound to it.
+Private Sub RefusePieceForParam(callForm As Object, params As Collection, pieceWords As Collection)
+    Dim j As Long, k As Long
+    For j = 1 To params.Count
+        k = PieceWrittenAs(callForm.Item(j + 1), pieceWords)
+        If k > 0 Then VLA_Messages.RaiseMsg "vla-macro-piece-for-param", "name", CStr(callForm.Item(1)), "value", WriteDatum(callForm.Item(j + 1)), "param", CStr(params.Item(j)), "word", CStr(pieceWords.Item(k)), "loc", FormLineTag(callForm)
+    Next
+End Sub
+
+' VLA.9: the arguments after a macro's positional ones, each one of its
+' pieces. In one order, so that the first fault a call holds is the one named:
+' the arguments left to right (TakePiece); then the pieces without a default,
+' in the declaration's order; and only then every piece bound, in the
+' declaration's order and never the call's: a given one to its value as
+' written, its line with it, and a left-out one to its default substituted
+' under the parameters bound before it, let*'s reading, so one call written
+' in two orders writes the same rows. A substituted default is made afresh at
+' line 0, as a template's forms are (S3.1).
+Private Sub BindPieces(callForm As Object, rec As Collection, bindings As Collection)
+    Dim params As Collection, pieceWords As Collection, pieceDecls As Collection
+    Set params = rec.Item(1)
+    Set pieceWords = rec.Item(6)
+    Set pieceDecls = rec.Item(7)
+    Dim given As New Collection      ' a given piece's value, by its word's fold
+    Dim j As Long
+    For j = params.Count + 2 To callForm.Count
+        TakePiece callForm, j, pieceWords, given
+    Next
+    Dim k As Long, wordFold As String, found As Boolean
+    Dim decl As Object, v As Variant
+    For k = 1 To pieceWords.Count
+        Set decl = pieceDecls.Item(k)
+        If decl.Count = 1 Then
+            AssignVar v, CollGet(given, VLA_Identity.Fold(CStr(pieceWords.Item(k))), found)
+            If Not found Then VLA_Messages.RaiseMsg "vla-macro-piece-missing", "name", CStr(callForm.Item(1)), "word", CStr(pieceWords.Item(k)), "loc", FormLineTag(callForm)
+        End If
+    Next
+    Dim noItems As New Collection
+    For k = 1 To pieceWords.Count
+        Set decl = pieceDecls.Item(k)
+        wordFold = VLA_Identity.Fold(CStr(pieceWords.Item(k)))
+        AssignVar v, CollGet(given, wordFold, found)
+        If found Then
+            bindings.Add v, wordFold
+        Else
+            bindings.Add Substitute(decl.Item(2), bindings, "", noItems), wordFold
+        End If
+    Next
+End Sub
+
+' VLA.9: one argument after the positional ones, kept by its piece's word:
+' refused unless it is one of the macro's pieces, holding one form, and not
+' given before. A Collection's keyed Add of a key it holds raises error 457,
+' so a piece given twice is asked for first.
+Private Sub TakePiece(callForm As Object, ByVal j As Long, pieceWords As Collection, given As Collection)
+    Dim k As Long
+    k = PieceWrittenAs(callForm.Item(j), pieceWords)
+    If k = 0 Then VLA_Messages.RaiseMsg "vla-macro-piece-unknown", "name", CStr(callForm.Item(1)), "value", WriteDatum(callForm.Item(j)), "pieces", PieceWordsText(pieceWords), "loc", FormLineTag(callForm)
+    Dim piece As Object
+    Set piece = callForm.Item(j)
+    If piece.Count <> 2 Then VLA_Messages.RaiseMsg "vla-macro-piece-arity", "name", CStr(callForm.Item(1)), "word", CStr(pieceWords.Item(k)), "n", piece.Count - 1, "loc", FormLineTag(callForm)
+    Dim wordFold As String, found As Boolean, was As Variant
+    wordFold = VLA_Identity.Fold(CStr(pieceWords.Item(k)))
+    AssignVar was, CollGet(given, wordFold, found)
+    If found Then VLA_Messages.RaiseMsg "vla-macro-piece-twice", "name", CStr(callForm.Item(1)), "word", CStr(pieceWords.Item(k)), "loc", FormLineTag(callForm)
+    given.Add piece.Item(2), wordFold
+End Sub
+
+' VLA.9: a macro's pieces for a refusal, their words as written, "sheet, look".
+Private Function PieceWordsText(pieceWords As Collection) As String
+    Dim k As Long
+    For k = 1 To pieceWords.Count
+        If k > 1 Then PieceWordsText = PieceWordsText & ", "
+        PieceWordsText = PieceWordsText & CStr(pieceWords.Item(k))
+    Next
 End Function
 
 ' QUASIQUOTE: inQuasi defaults False so every existing call site (just

@@ -1,6 +1,21 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.15"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.9"
+' VLA.9: named pieces with defaults, eleven refusals under VLA. Six of the
+' definition, each naming the macro: vla-defmacro-piece-shape - a declaration
+' is (word) or (word default); vla-defmacro-param-after-piece - the positional
+' parameters come first; vla-defmacro-piece-with-rest - an argument after the
+' positional ones would be either; vla-defmacro-param-twice - a word declared
+' twice, positional, piece or rest; vla-defmacro-piece-reserved - a piece
+' spelled as an expand-time name; and vla-defmacro-piece-default-unbound - a
+' default naming its own word or a later piece's. Five of the call, each
+' naming the macro as the call writes it and ending in the call's line, or
+' nothing for a call a macro made: vla-macro-piece-unknown - an argument
+' after the positional ones that is no piece, naming the pieces it takes;
+' vla-macro-piece-arity - a piece holds one form; vla-macro-piece-twice;
+' vla-macro-piece-missing - a piece without a default left out; and
+' vla-macro-piece-for-param - a positional argument written as a piece.
+'
 ' VLA.15: a name where an address stands, one refusal under VLA,
 ' vla-reference-whole-line - a whole column or row where a form needs a
 ' cell or the other axis: first-cell-expand's, since a whole column or row
@@ -717,6 +732,12 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-defmacro-rest-param-missing", 5, "VLA", "defmacro '{name}': '&' must be followed by a rest parameter"
     AddMsg m, "vla-defmacro-rest-param-not-last", 5, "VLA", "defmacro '{name}': rest parameter must be last"
     AddMsg m, "vla-defmacro-missing-template", 5, "VLA", "defmacro '{name}': missing template body"
+    AddMsg m, "vla-defmacro-piece-shape", 5, "VLA", "defmacro '{name}': a named piece is declared (word) or (word default), got '{value}'"
+    AddMsg m, "vla-defmacro-param-after-piece", 5, "VLA", "defmacro '{name}': the parameter '{word}' follows a named piece, and the positional parameters come first"
+    AddMsg m, "vla-defmacro-piece-with-rest", 5, "VLA", "defmacro '{name}': named pieces and a rest parameter cannot stand together, since an argument after the positional ones would be either"
+    AddMsg m, "vla-defmacro-param-twice", 5, "VLA", "defmacro '{name}': '{word}' is declared twice"
+    AddMsg m, "vla-defmacro-piece-reserved", 5, "VLA", "defmacro '{name}': the piece '{word}' is spelled as the {desc}, which the expander reads as its own form"
+    AddMsg m, "vla-defmacro-piece-default-unbound", 5, "VLA", "defmacro '{name}': the default of '{word}' names '{other}', which is not bound before it - a default may name only the parameters declared before it"
     AddMsg m, "vla-doc-arity", 5, "VLA", "(doc <macro-name>) names one macro"
     AddMsg m, "vla-macro-expansion-too-deep", 5, "VLA", "macro expansion too deep (recursive macro?)"
     AddMsg m, "vla-quasiquote-outside-template", 5, "VLA", "'{head}' only has meaning inside a defmacro's own template - there is no substitution environment outside one"
@@ -725,6 +746,11 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-macro-expansion-too-large", 5, "VLA", "one macro application wrote more than {limit} forms (a macro that doubles its argument?)"
     AddMsg m, "vla-macro-arity", 5, "VLA", "macro '{name}' expects {n} argument(s), got {given}"
     AddMsg m, "vla-macro-arity-min", 5, "VLA", "macro '{name}' expects at least {n} argument(s), got {given}"
+    AddMsg m, "vla-macro-piece-unknown", 5, "VLA", "macro '{name}': '{value}' stands after its positional arguments, where only its pieces go: {pieces}{loc}"
+    AddMsg m, "vla-macro-piece-arity", 5, "VLA", "macro '{name}': the piece '{word}' holds {n} form(s), and a piece holds one, as ({word} value){loc}"
+    AddMsg m, "vla-macro-piece-twice", 5, "VLA", "macro '{name}': the piece '{word}' is given twice{loc}"
+    AddMsg m, "vla-macro-piece-missing", 5, "VLA", "macro '{name}': the piece '{word}' has no default, and the call does not give it{loc}"
+    AddMsg m, "vla-macro-piece-for-param", 5, "VLA", "macro '{name}': '{value}' stands for the positional argument '{param}' and is written as the piece '{word}' - the positional arguments come first{loc}"
     AddMsg m, "vla-quasiquote-nested", 5, "VLA", "quasiquote: nested quasiquote is not supported"
     AddMsg m, "vla-quasiquote-arity", 5, "VLA", "quasiquote expects exactly 1 argument, got {n}"
     AddMsg m, "vla-unquote-outside-quasiquote", 5, "VLA", "unquote used outside quasiquote"
