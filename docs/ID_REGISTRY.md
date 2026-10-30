@@ -95,19 +95,19 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.60 | KERNEL.61 |
+| KERNEL | KERNEL.66 | KERNEL.67 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
 | PF | PF.6 | PF.7 |
 | PI | PI.7 | PI.8 |
-| PORT | PORT.14 | PORT.15 |
+| PORT | PORT.16 | PORT.17 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.7 | VLA.8 |
+| VLA | VLA.15 | VLA.16 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -346,6 +346,26 @@ next free.
 address as a text from its row and column, entering on its fixture alone,
 so that a Write sheet row names its target by number. `KERNEL.61` is next
 free.
+`KERNEL.61`, `KERNEL.62`, `KERNEL.63`, `KERNEL.64` and `KERNEL.65` were
+minted 2026-10-25 at the owner's word, from the Delta-wide sitting of
+2026-10-25 on what Alonzo needs to make Excel look like a toy (Alonzo's
+`docs/REARVIEW.md`, THE SITTINGS): `KERNEL.61` for a cell's cone through
+the machine's handle, its precedents and dependents to a depth with the
+twin edges, Alonzo's `ENGINE.31` its client; `KERNEL.62` for the step
+across threads, a level's shapes stepped side by side bit for bit with one
+thread, and the `CELLS` cap raised on the measured slope, Alonzo's `SPEC.6`
+its client; `KERNEL.63` for the shape compiler, a frame's shapes emitted to
+WebAssembly as the language's third backend and held to the machine's step;
+`KERNEL.64` for the model fixture, a real multi-sheet financial model
+measured beside Excel; `KERNEL.65` for the composite projection, a Screen
+and a Sprites sheet to one plane with blank transparent, Alonzo's `SPEC.7`
+its client. `KERNEL.66` is next free.
+`KERNEL.66` was minted 2026-10-25 at the owner's word, from the third sitting
+of that day, VLA in 2030 (Alonzo's `docs/2030.md` §7.3, item 11), for kinds:
+a column's or a range's kind declared once, cents, a count, a date, a flag,
+a text, a ratio, held by the model and the record, a formula mixing kinds
+refused by name at the load and a kind's representation exact. `KERNEL.67`
+is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next
@@ -354,6 +374,17 @@ free.
 fifth slice, whose first build wrote `SUBTOTAL(9,5)`, a formula Excel's
 opening repaired by taking it out, for a formula no Excel cell holds
 refused by name at the build; `PORT.15` is next free.
+`PORT.15` was minted 2026-10-25 at the owner's word, from the same sitting
+as `KERNEL.61` to `KERNEL.65`, for the language server: diagnostics,
+completion, hover, definition and references over `.vla` files answered by
+`vla-lang` through the Language Server Protocol, a VS Code extension its
+first client and the pages' boxes its second, its code's home the owner's
+call under Alonzo's `AD-2`; `PORT.16` is next free.
+`PORT.16` was minted 2026-10-25 at the owner's word, from the third sitting
+of that day (Alonzo's `docs/2030.md` §7.3, item 17), for sentences in a
+cartridge's source: a source's English lines translated by the door into the
+forms they mean before the pass, the sentence kept as a comment above them;
+`PORT.17` is next free.
 
 The `VLA` family had its row in the inventory above and no sentence here
 until 2026-10-12, when the owner asked where `VLA.3` was minted. Its items
@@ -393,7 +424,28 @@ syntax, with a reference's two parts, `sheet-expand` and `range-expand`,
 scoped, approved, built, owner-tested and committed 2026-10-25; `VLA.7`,
 the house style of VLA source, its rule-set, a formatter
 that keeps comments and is proved by expansion, and the lint's refusals
-by name. `VLA.8` is next free.
+by name. `VLA.8` is next free. `VLA.8` to `VLA.14` were minted 2026-10-25
+at the owner's word ("Mint items to cover the 2030 gaps"), from the third
+sitting of that day, VLA in 2030 (Alonzo's `docs/2030.md` §7.3;
+`BETA_REARVIEW.md`, THE METAMETAMACRO LINE, the sitting of 2026-10-25):
+`VLA.8`, functions at expand time with values and `let-expand`, its first
+decision the doctrine's wording, the owner's; `VLA.9`, named pieces with
+defaults, a macro's parameters by keyword; `VLA.10`, verbs that compose, the
+fill's own place as a word bound by the verb that knows its range, and a
+verb nested in another's piece yielding its expression; `VLA.11`, hygiene by
+design, a parameter never a head, a redefinition refused unless declared a
+`parameter`, a free symbol in a formula refused; `VLA.12`, modules and `use`,
+exports, qualified names and `describe` listing the macros loaded;
+`VLA.13`, geometry as a value and the expander's shadow of the rows written;
+`VLA.14`, the macro's proof and its trail, `example` under a `defmacro` and
+every row's origin, `macroexpand-1` at a door. `VLA.15` was minted
+2026-10-29 at the owner's word, from Alonzo's `KIT.6`, whose first slice
+found what its third slice asks of the language (`BETA_REARVIEW.md`, THE
+METAMETAMACRO LINE, the owner's word of 2026-10-29): `list?`, a word told
+from a list; the anchored reference, written by the formula syntax beside
+`last`; and a reference's first cell, a third form of the walk beside
+`sheet-expand` and `range-expand`; one item for one need. `VLA.16` is next
+free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

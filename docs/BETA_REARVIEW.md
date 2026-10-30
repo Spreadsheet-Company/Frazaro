@@ -17701,6 +17701,76 @@ a floor.
 
 ---
 
+**The sitting of 2026-10-25, the third of that day: VLA in 2030, and nine
+items minted the same evening.** The owner, after the day's first two
+sittings (the pocket calculator and the 2030 moonshots, recorded under THE
+KERNEL LINE and in Alonzo's `docs/2030.md`), asked what VLA, "a hodge-podge
+of empirical spreadsheet helper functions derived from Excel's VBA gaps",
+should and will look like in 2030, and which macros, functors, features and
+forms the author of 2030 would travel back to 2026 to request. The session
+read the language as both implementations hold it: the head table's
+sixty-six forms, VBA's statements in parentheses; the prelude's forty-seven
+macros, VBA's conveniences and a list library of `-onto` walks; the kit's
+forty-two, Buffet's twenty-two and the games' hundred and more, every one
+written in the template language; the formula language Excel's by design;
+the rows the treaty's. Four notations wearing one syntax, with the sentences
+above them, the statement forms one backend's dialect that no author of a
+cartridge or a template ever meets. Ten regularities the eleven cartridges,
+Buffet and the phrasebook already show, each predicted to hold at a million
+lines: layout is the cost and not logic (Kairos citing one cell by address
+169 times); the walks are the pain; nesting kills and helpers heal; the two
+kinds of helper want to be one; every game is a dozen sheet shapes; state as
+values works and the state machine recurs; content wants its own files; the
+cost rules are folklore; tests want to live beside the macro; and names are
+the real request, which `VLA.6` answered the same day. Seventeen gaps
+ranked, each with its 2030 form, a sketch of a budget and Lights Out in
+twenty lines with no address typed, what VLA never gets, and one decision
+asked of the owner: the doctrine's sentence in `vla-lang/src/expand.rs`,
+"no compile-time computation beyond the expand-time primitives, by design",
+which functions with values at expand time would amend, the computation
+being already there in the walks. The record is Alonzo's `docs/2030.md` §7.
+At the owner's word, "Mint items to cover the 2030 gaps", nine items here:
+`VLA.8` (functions at expand time with values, the doctrine its first
+decision), `VLA.9` (named pieces with defaults), `VLA.10` (verbs that
+compose: the fill's own place, and the nest), `VLA.11` (hygiene by design),
+`VLA.12` (modules and `use`), `VLA.13` (geometry as a value and the
+expander's shadow), `VLA.14` (the macro's proof and its trail) in this line;
+`KERNEL.66` (kinds) in the KERNEL line; `PORT.16` (sentences in a
+cartridge's source) in Part B of the two neutralities; in Alonzo `KIT.7` to
+`KIT.11`, `SPEC.8` and `REPO.10`, each in its own record (Alonzo's
+`docs/REARVIEW.md`, THE SITTINGS, 2026-10-25). The first gap, names, needed
+no mint, `VLA.6` having closed that day (`6a86156`). Nothing is built; the
+counts are the day's and not a floor.
+
+---
+
+**The owner's word, 2026-10-29: `VLA.15` minted from Alonzo's `KIT.6`.**
+Alonzo's `KIT.6`, the kit helper-hungry, built its first slice that day over
+`vla-lang` 0.11.0, and the build found three things its third slice, the kit
+and Kairos written in names, asks of the language (Alonzo's
+`docs/REARVIEW.md`, `KIT.6`, Found): a test that tells a word from a list,
+for `names`, whose entries are words or pairs, since `null?` is false for
+both, `car` refuses a word and `eq?` a list; an anchored reference, since a
+`define` names one form and Kairos's fills cite the State anchored 55 times;
+and a reference's first cell as a form of the walk, since `count`, `hold`
+and `since` twin their range's first cell through a walk over its
+characters and no primitive reads `range-expand`. The owner, asking whether
+`VLA.7` to `VLA.14` can be built side by side and which belong in 0.12.0:
+"If not yet minted, mint them where they belong (whether as one item or
+three items), and suggest when they should be prioritized." None was
+minted: `VLA.13` names a range's top-left among the primitives it would add
+and leaves open how a primitive reads a name, and no item named a
+predicate or an anchor. One item, `VLA.15`, since one need asks for the
+three and one pass of the owner's through the expand golden carries them
+together. The session's recommendation, given in chat: `VLA.15` before the
+0.12.0 release, so that `VLA.5`, `VLA.6` and `VLA.15` ship together and
+Alonzo's pin moves once for `KIT.6`'s second and third slices; none of
+`VLA.7` to `VLA.14` in 0.12.0, each being days or weeks with the owner's
+decisions open and none needed by the release's first reader; `VLA.9` and
+`VLA.10` the next pair, the sitting's own order. Nothing is built.
+
+---
+
 - ✅ **VLA.5 — `each`, a loop at expand time, and `assoc-expand`, a piece
   by its head.** *Scoped 2026-10-24 from a brief pasted in chat, the item
   the sitting above minted; the nine decisions below were put to the owner
@@ -19667,6 +19737,46 @@ asked for (a frame of 64,000 cells thirty times a second cannot rebuild its
 grid from text), and the Frazaro item that lands the handle dates that
 amendment here, not the cut. The same day's other measurement, `KERNEL.3`'s
 renderer benchmark, is recorded under its own entry below.
+
+**The sitting of 2026-10-25: the pocket calculator, and six items minted
+the same day.** The owner asked, in a Delta-wide session, whether a
+WASM-first spreadsheet can outperform Excel's engine and what Alonzo needs,
+in performance and in use, to make Excel look like a child's toy: an IDE of
+VS Code's class, a CLI, the arcade, and what else. The session's answer,
+from the floors: `check_recalc_floors.ps1`'s baseline of 2026-10-22 has the
+machine on one thread ahead of Excel 365's twenty threads on every
+fixture's whole frame, 2.2 times on `life` and 12.4 on `lookups`, ahead on
+five of seven edits, 1.4 times on `column` to 10 on `lookups`, and behind
+on `chain`'s edit (1.34 ms against 1.03) and the netlist's (6.12 against
+3.85, Excel's one thread recalculating the netlist whole in 1.50 ms against
+the machine's 4.03); WebAssembly runs the same code a quarter to a half
+slower than native on every frame Alonzo's floors time, so the bytecode is
+the distribution and never the speed, which is the plan by shapes
+(`KERNEL.20`), the incremental frame and the dense arrays (`KERNEL.49`);
+since `KERNEL.49` a million formula cells hold 21 MB natively, about 20
+bytes a cell, where Alonzo's `ENGINE.9` restated its cap on a slope of 460.
+The missing measurement, named and minted: a real multi-sheet financial
+model beside Excel. The reading given: a pocket calculator has buttons and
+a display and no source, no history, no proof and no frame rate; Excel is
+the largest in that sense; the stack has all four in principle, with the
+application around them in two halves that have not met, Alonzo's grid
+opening no workbook (the reader is this core's, Alonzo's `AD-1`) and this
+page drawing no grid (`KERNEL.5`'s linking half, `KERNEL.9` and `KERNEL.11`
+open). At the owner's word, "Mint these findings in their appropriate
+roadmaps", six items here: `KERNEL.61` (a cell's cone through the machine's
+handle, for Alonzo's `ENGINE.31`), `KERNEL.62` (the step across threads and
+the cap raised, for Alonzo's `SPEC.6`), `KERNEL.63` (the shape compiler,
+the third backend), `KERNEL.64` (the model fixture beside Excel),
+`KERNEL.65` (the composite projection, for Alonzo's `SPEC.7`) and, in Part
+B of the two neutralities, `PORT.15` (the language server over `vla-lang`,
+VS Code its first client); in Alonzo `ENGINE.30` to `ENGINE.35`, `SPEC.6`,
+`SPEC.7` and `REPO.9`, each in its own record (Alonzo's `docs/REARVIEW.md`,
+THE SITTINGS, 2026-10-25); in Buffet two rows of its asks table. Left as
+candidates, unminted: frames as columns and the solver ladder (Alonzo's
+`docs/ALGEBRA.md` §5.3, §6 and §7), charts as a projection under `SD-32`,
+which the owner decides under `SD-7`, and the signed workbook beyond
+Alonzo's `ENGINE.10`. Nothing is built; the numbers are the baselines' of
+those days and not new floors.
 
 **The expanded scoping, item by item.**
 
