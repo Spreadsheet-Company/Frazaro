@@ -17771,6 +17771,33 @@ decisions open and none needed by the release's first reader; `VLA.9` and
 
 ---
 
+**The determinism wall, the open line checked, 2026-10-29.** The owner
+asked that every new `VLA` item be checked against the wall that vetoed
+`GENSYM`, and then that each condition found be noted on its item's line.
+The wall as this record writes it: the line's constitution above (the
+expander reads nothing but the literal, finite source text being
+compiled); the veto's terms (no name without a trace to what a person
+wrote, none unstable across recompiles and reorderings); the gate's four,
+LISTOPS-PURITY, -PROVENANCE, -BUDGET and -CONFLUENCE; the auditability
+LISTOPS-EXPAND's adjudication asks, a reader re-deriving a value by hand;
+and QUASIQUOTE's scoping, expand time "has no evaluator at all, by
+design". The verdict: none of `VLA.7` to `VLA.15` breaches it as minted,
+none inventing a name, reading past the source or running a text as
+code, and five carry a condition, each noted on its line. `VLA.8`, whose
+first decision is the doctrine's sentence, the owner's: its functions
+keep to the source's literals, the fuel, no state between calls and
+whole-number arithmetic free of locale. `VLA.10`: its binding a stack
+restored on every exit. `VLA.11`: hygiene by refusal and never by
+renaming, the textbook's renaming being `GENSYM` under another name.
+`VLA.12`: an injective qualifier, and a library found by its path alone.
+`VLA.13`: the shadow updated only between top-level forms, as a `define`
+binds. `VLA.7`, `VLA.9`, `VLA.14` and `VLA.15` stand inside it plainly: a
+formatter proved by expansion, substitution by name, a trail kept out of
+the bytes, and a predicate with two readings of a reference. Nothing is
+built.
+
+---
+
 - ✅ **VLA.5 — `each`, a loop at expand time, and `assoc-expand`, a piece
   by its head.** *Scoped 2026-10-24 from a brief pasted in chat, the item
   the sitting above minted; the nine decisions below were put to the owner
