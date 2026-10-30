@@ -59,9 +59,13 @@
 //! `rate`). Inside the syntax a string is always a text: a formula's text
 //! kept raw is the string a row holds outside it.
 //!
-//! **The heads.** The twelve operators and `%`; `error`, `ref`, `last` and
-//! `lambda`, the syntax's own forms, `(last X)` the twin of the one
-//! reference on a sheet X is, `Input.last!B13` for `Input!B13` (VLA.6); a
+//! **The heads.** The twelve operators and `%`; `error`, `ref`, `last`,
+//! `absolute`, `absolute-row`, `absolute-column` and `lambda`, the syntax's
+//! own forms, `(last X)` the twin of the one reference on a sheet X is,
+//! `Input.last!B13` for `Input!B13` (VLA.6), and the three marks X with the
+//! `$` marks each adds and never one taken away, `State!$B$12`, `Gate!A$4`
+//! and `Gate!$D1` (VLA.15), so that the four compose in either order, each
+//! reading its reference as the others write one; a
 //! head the head table declares no
 //! formula's (`set!`, `begin`, `.`, `new`; the table's formula column,
 //! F.7's declaration) refused; any other head a function call, its name
@@ -385,6 +389,7 @@ fn list(l: &List, depth: u32) -> Result<String, Refusal> {
         "error" => error_literal(head, args),
         "ref" => ref_form(head, args),
         "last" => last_form(head, args),
+        "absolute" | "absolute-row" | "absolute-column" => mark_form(head, &h, args),
         "lambda" => lambda(head, args, depth),
         "quote" => quote_form(head, args),
         _ => {
@@ -548,8 +553,16 @@ fn ref_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
 /// sheet X is ([`sheet_reference`]), with `.last` after its sheet's name,
 /// quoted by the sheet rule, its marks as written: `Input.last!B13` for
 /// `Input!B13`. A twin's twin is refused, since no sheet a grid may hold ends
-/// in `.last` ([`crate::machine::twin_base`], the one rule).
+/// in `.last` ([`crate::machine::twin_base`], the one rule). VLA.15: read by
+/// [`last_reference`], which the reading of a reference shares, so that
+/// `(last X)` stands inside another of the syntax's reference heads.
 fn last_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
+    Ok(reference_text(&last_reference(head, args)?))
+}
+
+/// VLA.6 and VLA.15, VBA `FsLastReference`: `(last X)` read as a reference,
+/// X's twin.
+fn last_reference(head: &str, args: &[Form]) -> Result<FormulaRef, Refusal> {
     let [reference] = args else {
         return Err(arity(head, "one reference on a sheet", args.len()));
     };
@@ -561,21 +574,174 @@ fn last_form(head: &str, args: &[Form]) -> Result<String, Refusal> {
         ));
     }
     r.sheet_name.push_str(".last");
-    Ok(reference_text(&r))
+    Ok(r)
 }
 
-/// VLA.6, VBA `FsSheetReference`: one reference on one sheet, as `last` and
-/// the expander's `sheet-expand` and `range-expand` read it: a symbol the
-/// scanner reads whole as a cell, a range, a column or a row behind its
-/// sheet, or `(ref sheet address)`, whose own refusals stand. Refused by
-/// name: a reference with no sheet, since a formula does not know the sheet
-/// it will stand on when it is written; and a name, a span of sheets, a text
-/// or any other form.
+/// VLA.15, VBA `FsMarkForm`: `(absolute X)`, `(absolute-row X)` or
+/// `(absolute-column X)`, X with the `$` marks the head adds
+/// ([`marked_reference`]), in its canonical spelling: `State!$B$12`,
+/// `Gate!A$4`, `Gate!$D1`.
+fn mark_form(head: &str, mark: &str, args: &[Form]) -> Result<String, Refusal> {
+    Ok(reference_text(&marked_reference(head, mark, args)?))
+}
+
+/// VLA.15, VBA `FsMarkedReference`: one of the three marks read as a
+/// reference: X one reference, its sheet written or none
+/// ([`one_reference`]), with the marks `mark` adds, `absolute` the column's
+/// and the row's, `absolute-row` the row's alone and `absolute-column` the
+/// column's alone, on both corners of a range and on what a whole column or
+/// row has. A head adds marks and never takes one away, so the three commute
+/// with one another and with `last`, each idempotent. A row's mark on a
+/// whole column, or a column's on a whole row, has no place there, and is
+/// refused by name.
+fn marked_reference(head: &str, mark: &str, args: &[Form]) -> Result<FormulaRef, Refusal> {
+    let [reference] = args else {
+        return Err(arity(head, "one reference", args.len()));
+    };
+    let mut r = one_reference(reference, mark, false)?;
+    let whole = |line: &str, want: &str| {
+        raise(
+            "vla-reference-whole-line",
+            &[
+                ("op", mark),
+                ("value", &write_datum(reference)),
+                ("line", line),
+                ("want", want),
+            ],
+        )
+    };
+    match r.shape {
+        Shape::Column if mark == "absolute-row" => {
+            return Err(whole(
+                "column",
+                "a reference with a row to mark, such as Input!B5 or 3:3",
+            ))
+        }
+        Shape::Row if mark == "absolute-column" => {
+            return Err(whole(
+                "row",
+                "a reference with a column to mark, such as Input!B5 or A:A",
+            ))
+        }
+        _ => {}
+    }
+    if mark != "absolute-row" {
+        r.col_abs1 = true;
+        r.col_abs2 = true;
+    }
+    if mark != "absolute-column" {
+        r.row_abs1 = true;
+        r.row_abs2 = true;
+    }
+    Ok(r)
+}
+
+/// VLA.15, VBA `FsFirstCellText`: the first cell of the one reference `r`
+/// is, as the text `ref` takes: a cell's own address, or a range's top-left
+/// as the grid reads a row's range, its corners in any order
+/// ([`crate::sheet::parse_a1_range`]): the lesser column with the mark
+/// written on it and the lesser row with its own, the first corner's where
+/// the two are equal; `B1` for `Tally!B1:E10` and for `Tally!E10:B1`, `$B$1`
+/// for `Tally!$B$1:$E$10`. A whole column or row is no fill's range, and is
+/// refused by name, `f` the form read and `op` the form reading it.
+pub(crate) fn first_cell_text(r: &FormulaRef, f: &Form, op: &str) -> Result<String, Refusal> {
+    let whole = |line: &str| {
+        raise(
+            "vla-reference-whole-line",
+            &[
+                ("op", op),
+                ("value", &write_datum(f)),
+                ("line", line),
+                ("want", "a cell or a range, such as Tally!B1:E10"),
+            ],
+        )
+    };
+    match r.shape {
+        Shape::Column => Err(whole("column")),
+        Shape::Row => Err(whole("row")),
+        Shape::Range => {
+            let (col, col_abs) = if r.col2 < r.col1 {
+                (r.col2, r.col_abs2)
+            } else {
+                (r.col1, r.col_abs1)
+            };
+            let (row, row_abs) = if r.row2 < r.row1 {
+                (r.row2, r.row_abs2)
+            } else {
+                (r.row1, r.row_abs1)
+            };
+            Ok(cell_text(col, col_abs, row, row_abs))
+        }
+        _ => Ok(cell_text(r.col1, r.col_abs1, r.row1, r.row_abs1)),
+    }
+}
+
+/// VLA.6 and VLA.15, VBA `FsSheetReference`: one reference on one sheet, as
+/// `last` and the expander's `sheet-expand`, `range-expand` and
+/// `first-cell-expand` read it: one reference as [`one_reference`] reads it,
+/// its sheet written.
 pub(crate) fn sheet_reference(f: &Form, op: &str) -> Result<FormulaRef, Refusal> {
+    one_reference(f, op, true)
+}
+
+/// VLA.15, VBA `FsOneReference`: one reference, as the syntax's reference
+/// heads and the walk's three forms read it: a symbol the scanner reads
+/// whole as a cell, a range, a column or a row, or `(ref sheet address)`
+/// ([`spelled_reference`]); or one of the syntax's reference heads around
+/// one, read inside out, `(last X)` X's twin ([`last_reference`]) and
+/// `(absolute X)`, `(absolute-row X)` and `(absolute-column X)` X with the
+/// marks each adds ([`marked_reference`]), so that the heads compose in
+/// either order. Where `on_a_sheet` asks, a reference with no sheet is
+/// refused by name, since a formula does not know the sheet it will stand
+/// on when it is written. A call a head, at most the form's own nesting.
+fn one_reference(f: &Form, op: &str, on_a_sheet: bool) -> Result<FormulaRef, Refusal> {
+    let r = match reference_head(f) {
+        Some((head, h, args)) if h == "last" => last_reference(head, args)?,
+        Some((head, h, args)) => marked_reference(head, &h, args)?,
+        None => spelled_reference(f, op, on_a_sheet)?,
+    };
+    if on_a_sheet && r.sheet_name.is_empty() {
+        return Err(raise(
+            "vla-reference-no-sheet",
+            &[("op", op), ("value", &write_datum(f))],
+        ));
+    }
+    Ok(r)
+}
+
+/// VLA.15, VBA `FsReferenceHead`: the syntax's reference head a form is, as
+/// written and folded (`last`, `absolute`, `absolute-row` or
+/// `absolute-column`), with its arguments; `None` for any other form.
+fn reference_head(f: &Form) -> Option<(&str, String, &[Form])> {
+    let Form::List(l) = f else {
+        return None;
+    };
+    let Some(Form::Sym(head)) = l.items.first() else {
+        return None;
+    };
+    let h = fold(head);
+    matches!(
+        h.as_str(),
+        "last" | "absolute" | "absolute-row" | "absolute-column"
+    )
+    .then_some((head.as_str(), h, &l.items[1..]))
+}
+
+/// VLA.6, VBA `FsSpelledReference`: one reference read from its spelling, a
+/// symbol the scanner reads whole as a cell, a range, a column or a row, or
+/// `(ref sheet address)`, whose own refusals stand. Refused by name: a name,
+/// a span of sheets, a text or any other form, the refusal saying what the
+/// reading asks for (VLA.15, [`reference_want`]).
+fn spelled_reference(f: &Form, op: &str, on_a_sheet: bool) -> Result<FormulaRef, Refusal> {
     let expected = |what: &str| {
         raise(
             "vla-reference-expected",
-            &[("op", op), ("value", &write_datum(f)), ("what", what)],
+            &[
+                ("op", op),
+                ("want", reference_want(on_a_sheet)),
+                ("value", &write_datum(f)),
+                ("what", what),
+            ],
         )
     };
     let spelled = match f {
@@ -593,16 +759,22 @@ pub(crate) fn sheet_reference(f: &Form, op: &str) -> Result<FormulaRef, Refusal>
         return Err(expected("no reference"));
     };
     match r.kind {
-        Kind::Cell | Kind::Range | Kind::Column | Kind::Row if r.sheet_name.is_empty() => {
-            Err(raise(
-                "vla-reference-no-sheet",
-                &[("op", op), ("value", &write_datum(f))],
-            ))
-        }
         Kind::Cell | Kind::Range | Kind::Column | Kind::Row => Ok(r),
         Kind::ThreeD => Err(expected("a span of sheets")),
         Kind::Name => Err(expected("a name")),
         _ => Err(expected("no reference")),
+    }
+}
+
+/// VLA.15, VBA `FsReferenceWant`: what a reading of one reference asks for,
+/// as its refusal says it: one on a sheet for `last` and the walk's three
+/// forms, and a cell, a range, a column or a row, its sheet written or none,
+/// for a mark.
+fn reference_want(on_a_sheet: bool) -> &'static str {
+    if on_a_sheet {
+        "one reference on a sheet"
+    } else {
+        "a cell, a range, a column or a row"
     }
 }
 
@@ -1170,9 +1342,13 @@ impl Reader {
             return Err(unsupported(&format!("the function name {name}")));
         }
         // VLA.6: `last` among them, since the writer writes `(last X)` as a
-        // twin and never as `LAST(X)`.
-        let reserved = matches!(folded.as_str(), "error" | "ref" | "quote" | "last")
-            || headtable::row(&folded).is_some_and(|r| r.formula != FormulaSupport::Yes);
+        // twin and never as `LAST(X)`; VLA.15: and `absolute`, the one of
+        // the three marks spelled as a function's name could be.
+        let reserved = matches!(
+            folded.as_str(),
+            "error" | "ref" | "quote" | "last" | "absolute"
+        ) || headtable::row(&folded)
+            .is_some_and(|r| r.formula != FormulaSupport::Yes);
         if reserved {
             return Err(unsupported(&format!(
                 "a function named {name}, a word the syntax keeps for a form of its own"
@@ -1375,6 +1551,20 @@ mod tests {
         assert_eq!(w("(xor (type A1) 1)"), "=XOR(TYPE(A1),1)");
         assert_eq!(w("(row)"), "=ROW()");
         assert_eq!(w("\"=A1+1\""), "=\"=A1+1\"");
+        // VLA.15: the three marks, each added and none taken away, and the
+        // four reference heads read inside out in either order.
+        assert_eq!(w("(absolute State!B12)"), "=State!$B$12");
+        assert_eq!(w("(ABSOLUTE-ROW gate!a4)"), "=gate!A$4");
+        assert_eq!(w("(absolute-column Gate!D1:D15)"), "=Gate!$D1:$D15");
+        assert_eq!(w("(absolute-row $B12)"), "=$B$12");
+        assert_eq!(w("(absolute 1:3)"), "=$1:$3");
+        assert_eq!(w("(absolute (ref \"Q1 Data\" \"B2\"))"), "='Q1 Data'!$B$2");
+        assert_eq!(w("(last (absolute-row Input!B5))"), "=Input.last!B$5");
+        assert_eq!(w("(absolute-row (last Input!B5))"), "=Input.last!B$5");
+        assert_eq!(
+            w("(absolute-column (absolute-row (absolute-column C3)))"),
+            "=$C$3"
+        );
     }
 
     #[test]
@@ -1432,6 +1622,17 @@ mod tests {
         assert_eq!(w_err("(lambda ((x)) x)"), "vla-formula-lambda-params");
         assert_eq!(w_err("(lambda (A1) A1)"), "vla-formula-lambda-params");
         assert_eq!(w_err("(ref \"Data\" \"A1+1\")"), "vla-formula-ref-invalid");
+        // VLA.15: a mark refuses what is no reference to cells, and a mark a
+        // whole column or row has no place for.
+        assert_eq!(w_err("(absolute)"), "vla-formula-arity");
+        assert_eq!(w_err("(absolute Rate)"), "vla-reference-expected");
+        assert_eq!(
+            w_err("(absolute-row (quote (1)))"),
+            "vla-reference-expected"
+        );
+        assert_eq!(w_err("(absolute-row A:B)"), "vla-reference-whole-line");
+        assert_eq!(w_err("(absolute-column 2:2)"), "vla-reference-whole-line");
+        assert_eq!(w_err("(last (absolute A1))"), "vla-reference-no-sheet");
         let long = format!("\"{}\"", "a".repeat(256));
         assert_eq!(w_err(&long), "vla-formula-text-too-long");
         assert_eq!(w(&format!("\"{}\"", "a".repeat(255))).len(), 258);
@@ -1502,9 +1703,13 @@ mod tests {
             "=Sheet1!#REF!",
             "=CALL(1)",
             "=REF(1)",
+            "=Absolute(A1)",
         ] {
             assert_eq!(r_err(valid), "vla-formula-read-unsupported", "{valid}");
         }
+        // VLA.15: a hyphened mark is never a function's name, so the reader
+        // reads its text as the names and the operator it spells.
+        assert_eq!(r("=ABSOLUTE-ROW(A1)"), "(- ABSOLUTE (row A1))");
         let long = format!("=\"{}\"", "a".repeat(256));
         assert_eq!(r_err(&long), "vla-formula-read-malformed");
     }

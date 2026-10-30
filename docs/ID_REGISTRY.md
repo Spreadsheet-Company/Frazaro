@@ -444,7 +444,8 @@ found what its third slice asks of the language (`BETA_REARVIEW.md`, THE
 METAMETAMACRO LINE, the owner's word of 2026-10-29): `list?`, a word told
 from a list; the anchored reference, written by the formula syntax beside
 `last`; and a reference's first cell, a third form of the walk beside
-`sheet-expand` and `range-expand`; one item for one need. `VLA.16` is next
+`sheet-expand` and `range-expand`; one item for one need, scoped,
+approved, built, owner-tested and committed 2026-10-29. `VLA.16` is next
 free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately

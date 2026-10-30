@@ -7,15 +7,18 @@
 //! (`VLA_Tests.bas`) writes of them: each case's header, then
 //! `EXPANDED<TAB><applications fired>` and the text `VlaExpandText` prints,
 //! or `REFUSED<TAB><id><TAB><text>`. This writes the same records from the
-//! port and holds them to that file whole, so that the twenty-eight
+//! port and holds them to that file whole, so that the twenty-nine
 //! expand-time primitives, the walk's forms and the macro system around
 //! them answer one text the same way in both implementations (SD-18: the
 //! reference's file is the one that decides). And it holds the loop's
 //! claim in miniature (VLA.5): the kit's `cells` walker and its `each`
-//! twin, two cases of the fixture, write the same rows; and the define's
+//! twin, two cases of the fixture, write the same rows; the define's
 //! (VLA.6): a block's labels and names written from one list and the stop
 //! rule by names write the rows their twin by addresses writes, Kairos's
-//! own stop among them.
+//! own stop among them; and VLA.15's: a block's labels and words from
+//! entries `list?` tells apart, a word or a pair, a fill citing a word
+//! anchored, and `count` at a word through `first-cell-expand`, each fill
+//! the row its twin by addresses writes.
 
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
@@ -136,10 +139,49 @@ fn the_stop_rule_by_names_writes_the_rows_its_twin_by_addresses_writes() {
 }
 
 #[test]
+fn a_block_s_entries_are_told_apart_by_list_and_name_their_cells() {
+    // VLA.15: a word whose text is its label, and a pair whose label is no
+    // word, written as one block; the define each entry leaves names the
+    // value beside its label, read in the form after.
+    let (named, _) = expand_text(&case_text("names-from-words-and-pairs"), PRELUDE, true).unwrap();
+    let want = read_forms(
+        "(cell \"State\" \"A1\" \"phase\") (cell \"State\" \"A2\" \"stopped at\") \"=IF(State!B1=1,State!B2,0)\"",
+    )
+    .unwrap();
+    assert_eq!(rows(&named), want);
+}
+
+#[test]
+fn a_fill_and_a_count_at_a_word_write_the_rows_their_twins_by_addresses_write() {
+    // VLA.15: the records differ by the define's empty begin and the `at`
+    // applied; the rows are the same, Kairos's anchored reading and the
+    // kit's count at a word through the first cell.
+    for (by_words, by_addresses, row) in [
+        (
+            "a-fill-citing-a-word-anchored",
+            "a-fill-citing-addresses-anchored",
+            "(formula \"Gate\" \"A1:O1\" \"=IF(State!$B$12=1,State.last!$B$12,0)\")",
+        ),
+        (
+            "a-count-at-a-word",
+            "a-count-at-addresses",
+            "(formula \"Tally\" \"B1:E10\" \"=Tally.last!B1+Input!B16\")",
+        ),
+    ] {
+        let (named, _) = expand_text(&case_text(by_words), PRELUDE, true).unwrap();
+        let (addressed, _) = expand_text(&case_text(by_addresses), PRELUDE, true).unwrap();
+        assert_ne!(named, addressed, "{by_words}");
+        let (named, addressed) = (rows(&named), rows(&addressed));
+        assert_eq!(named, addressed, "{by_words}");
+        assert_eq!(named, read_forms(row).unwrap(), "{by_words}");
+    }
+}
+
+#[test]
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 294, "only {count} cases in the expand fixture");
+    assert!(count >= 362, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))

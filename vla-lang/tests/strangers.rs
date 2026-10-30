@@ -288,6 +288,9 @@ const PROGRAMS: &[&str] = &[
     // VLA.6: defines of a reference and of a ref, a define a macro writes, a
     // twin of each, and a row at a name.
     "(defmacro (name-cell word sheet address) (define word (ref sheet address))) (define stop State!B12) (define press (ref \"State\" \"B9\")) (formula-expand (if (and (= (last stop) 1) (= press 1)) 1 0)) (formula (sheet-expand stop) (range-expand stop) (formula-expand (+ stop 1))) (name-cell level \"State\" \"B3\") (formula-expand (last level))",
+    // VLA.15: a word told from a pair, the three marks around a word and its
+    // twin, and a range's first cell at a word and by addresses.
+    "(defmacro (label e) (quote-if (list? e) (car e) (&expand e))) (cell \"S\" \"A1\" (label w)) (cell \"S\" \"A2\" (label (\"a b\" w2))) (define tally Tally!B1:E10) (formula-expand (+ (absolute-row (last tally)) (last (absolute-column Gate!D1)) (absolute B6))) (formula (sheet-expand tally) (first-cell-expand tally) (formula-expand (last (ref \"Tally\" (first-cell-expand Tally!E$10:$B1)))))",
 ];
 
 /// The rows a write is made of before they are mutated.
@@ -407,6 +410,27 @@ fn the_named_strangers() {
                     .collect::<Vec<_>>()
                     .join(" ")
             ),
+        ),
+        // VLA.15: a malformed list?, mark and first cell are refused by name,
+        // and marks nested to the reader's limit answer or are refused there.
+        (Door::Expand, "a list test alone".into(), "(list?)".into()),
+        (Door::Expand, "a mark alone".into(), "(formula-expand (absolute))".into()),
+        (Door::Expand, "a mark of an empty ref".into(), "(formula-expand (absolute-row (ref)))".into()),
+        (Door::Expand, "a first cell alone".into(), "(first-cell-expand)".into()),
+        (Door::Expand, "a first cell of a mark of nothing".into(), "(first-cell-expand (absolute))".into()),
+        (
+            Door::Expand,
+            "marks nested sixty deep".into(),
+            format!(
+                "(formula-expand {}Input!B5{})",
+                "(absolute-row (absolute-column ".repeat(30),
+                "))".repeat(30)
+            ),
+        ),
+        (
+            Door::Expand,
+            "marks nested past the reader's limit".into(),
+            format!("(formula-expand {}Input!B5{})", "(absolute ".repeat(70), ")".repeat(70)),
         ),
     ];
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/strangers");

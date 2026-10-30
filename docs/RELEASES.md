@@ -95,6 +95,42 @@
   has since the loop arrived. No program in the corpus, the phrasebooks or
   the cartridges met it, and every compiled golden stands as it was.
 
+- **A word told from a list.** `(list? x)` is `true` when `x` is a list,
+  the empty one among them, and `false` for a word or a text, so a macro can
+  take entries of two kinds and tell them apart: `(quote-if (list? entry)
+  (car entry) (&expand entry))` gives a pair's label or a word's own. Where
+  `null?` answers `false` for a word and for a list with items alike, `car`
+  refuses a word and `eq?` refuses a list, `list?` refuses neither.
+
+- **A reference's marks in the formula syntax.** `(absolute State!B12)`
+  writes `State!$B$12`, `(absolute-row Gate!A4)` writes `Gate!A$4` and
+  `(absolute-column Gate!D1)` writes `Gate!$D1`, Excel's absolute reference
+  and its two mixed ones; a range takes the marks on both its corners, and a
+  whole column or row the marks it has. A mark is added and never taken
+  away, so the three and `last` stand in either order: after `(define stop
+  State!B12)`, `(last (absolute stop))` and `(absolute (last stop))` both
+  write `State.last!$B$12`, and a formula filled across a range can cite a
+  defined word anchored. A mark needs no sheet: `(absolute B6)` writes
+  `$B$6`. A name, a span of sheets, a text, and a row's mark on a whole
+  column or a column's on a whole row are refused by name, and the formula
+  reader now refuses a call named `ABSOLUTE`, as it refuses `LAST`.
+
+- **A reference's first cell.** `(first-cell-expand reference)` gives the
+  first cell of one reference on a sheet as the text `ref` takes: `"B1"` for
+  `Tally!B1:E10`, a cell's own address for a cell, its marks as written, and
+  a range written backwards its top-left. A whole column or row is refused,
+  since a fill's range is never one. So a verb that reads its own last value
+  twins the cell its fill is written for, at a word as at an address:
+  `(last (ref sheet (first-cell-expand (ref sheet range))))`.
+  `sheet-expand`, `range-expand` and `first-cell-expand` read what `last` and
+  the marks write, so `(range-expand (absolute stop))` gives `"$B$12"`.
+
+- **`list?` and `first-cell-expand` are reserved names**, so a macro of
+  either name is refused, and a define refuses the words `absolute`,
+  `absolute-row` and `absolute-column`, the formula syntax's own. None was
+  defined in this repository's sources, the phrasebooks, Alonzo's cartridges
+  or Buffet.
+
 ## 0.11.0
 
 ### What changed

@@ -20,7 +20,20 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.11.0"
-Public Const VLA_CORE_VERSION As String = "VLA.6"
+Public Const VLA_CORE_VERSION As String = "VLA.15"
+' VLA.15: A NAME WHERE AN ADDRESS STANDS. (list? x) is the twenty-ninth
+' primitive (EvalListQ): true when x resolves to a list, the empty list
+' among them, and false for a symbol or a text, the one test of a form's
+' kind that refuses neither. (absolute X), (absolute-row X) and
+' (absolute-column X) are heads of the formula syntax beside ref and last:
+' X with the $ marks each adds and never one taken away (FsMarkForm), so
+' that the three commute with one another and with last. (first-cell-expand
+' X) is a third form of the walk beside the reference's two parts, X's first
+' cell as the text ref takes, a range's top-left (ExpandReferencePart,
+' FsFirstCellText). The syntax's reference heads and the walk's three forms
+' read one reference one way (FsOneReference): a symbol, a ref, or a
+' reference head around one, read inside out. vla-lang's expand.rs and
+' formula_syntax.rs mirror each; the expand golden holds the two.
 ' VLA.6: A NAME AT EXPAND TIME, AND A REFERENCE'S TWIN. (define name form)
 ' binds a word to a form from the next form of the source on: the walk
 ' passes a define by as written (DefinePassedBy), and once the form of the
@@ -2643,10 +2656,10 @@ Private Sub DefineMacro(f As Collection)
     Set sig = NthList(f, 2)
     Dim mname As String
     mname = HeadSym(sig)
-    ' P.L5, QUASIQUOTE, LISTOPS, VLA.3, VLA.4, VLA.5, VLA.6: the walks
-    ' recognize every expand-time name as a form of their own - quote's data
-    ' skip, the shielding bundle, the primitives, formula-expand, the loop,
-    ' define and the reference's two parts -
+    ' P.L5, QUASIQUOTE, LISTOPS, VLA.3, VLA.4, VLA.5, VLA.6, VLA.15: the
+    ' walks recognize every expand-time name as a form of their own - quote's
+    ' data skip, the shielding bundle, the primitives, formula-expand, the
+    ' loop, define and the reference's parts -
     ' so a macro defined under one could never fire; refuse the name
     ' loudly instead of shadowing it silently, saying what it already is.
     ' The names and their words are one table, ExpandReservedDesc, which a
@@ -2740,8 +2753,9 @@ End Sub
 ' name: the one table DefineMacro refuses a macro's name by and a loop
 ' refuses a name it binds by, vla-lang's RESERVED in its order. The walks
 ' recognize each name as a form of their own (P.L5's quote, QUASIQUOTE's
-' bundle, the twenty-eight primitives, VLA.4's formula-expand, VLA.5's
-' loop, VLA.6's define and the reference's two parts), so a macro of the
+' bundle, the twenty-nine primitives, VLA.4's formula-expand, VLA.5's
+' loop, VLA.6's define and the reference's two parts, VLA.15's list? and
+' the reference's first cell), so a macro of the
 ' name could never fire, and a loop's name so spelled would stand where the
 ' walks read the form. A define's word is refused by it too (VLA.6).
 Private Function ExpandReservedDesc(ByVal wordFold As String) As String
@@ -2824,6 +2838,10 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
             ExpandReservedDesc = "expand-time reference-sheet operation"
         Case "range-expand"
             ExpandReservedDesc = "expand-time reference-range operation"
+        Case "list?"
+            ExpandReservedDesc = "list-test primitive"
+        Case "first-cell-expand"
+            ExpandReservedDesc = "expand-time reference-first-cell operation"
     End Select
 End Function
 
@@ -3388,6 +3406,12 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             lprimTop = ExpandReferencePart(headFold, lst, depth, walkDepth)
             GoTo finish
         End If
+        ' VLA.15: a reference's first cell as a text, a third form of the walk
+        ' beside the two parts and read as they are (ExpandReferencePart).
+        If headFold = "first-cell-expand" Then
+            lprimTop = ExpandReferencePart(headFold, lst, depth, walkDepth)
+            GoTo finish
+        End If
         ' QUASIQUOTE: unlike symbol, quasiquote/unquote/unquote-
         ' splicing DO require the ambient bindings table Substitute
         ' threads - unquote's entire job is looking a name up in
@@ -3399,18 +3423,18 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             Case "quasiquote", "unquote", "unquote-splicing"
                 VLA_Messages.RaiseMsg "vla-quasiquote-outside-template", "head", headFold
         End Select
-        ' LISTOPS: the twenty-eight list/arithmetic/conditional primitives
-        ' (the original nine, LISTOPS-EXPAND's own seven, cond, VLA.3's ten
-        ' and VLA.5's assoc-expand) are recognized standalone too, same
-        ' treatment symbol gets - none need Substitute's ambient bindings
-        ' table intrinsically, since a bound-name reference inside an
+        ' LISTOPS: the twenty-nine list/arithmetic/conditional primitives
+        ' (the original nine, LISTOPS-EXPAND's own seven, cond, VLA.3's ten,
+        ' VLA.5's assoc-expand and VLA.15's list?) are recognized standalone
+        ' too, same treatment symbol gets - none need Substitute's ambient
+        ' bindings table intrinsically, since a bound-name reference inside an
         ' argument can't exist outside an enclosing macro in the first place
         ' (same reasoning FuseSymbol's own comment gives for symbol).
         Select Case headFold
             Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
                  "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
                  "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
-                 "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand"
+                 "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand", "list?"
                 AssignVar lprimTop, EvalListopsPrim(headFold, lst, New Collection, "", New Collection)
                 DefineNoteChosen lprimTop   ' VLA.6
                 GoTo finish
@@ -3731,7 +3755,7 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                 Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
                      "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
                      "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
-                     "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand"
+                     "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand", "list?"
                     ' LISTOPS: unlike symbol, NOT recognized while
                     ' inQuasi is True - a shielded (car x) stays ordinary
                     ' shielded list data, same as everything else under
@@ -4361,7 +4385,8 @@ End Function
 ' VLA.6: what a define's word already is in the language, "" for a word of
 ' the source's own: a number, a truth value, a keyword argument, a form of
 ' the head table or one of its aliases, or defmacro; an expand-time name
-' (ExpandReservedDesc); or a form of the formula syntax's own.
+' (ExpandReservedDesc); or a form of the formula syntax's own (VLA.15: the
+' three marks among them).
 Private Function DefineReservedDesc(ByVal word As String) As String
     Dim wordFold As String
     Dim desc As String
@@ -4378,8 +4403,11 @@ Private Function DefineReservedDesc(ByVal word As String) As String
         desc = "a form of the language"
     ElseIf Len(ExpandReservedDesc(wordFold)) > 0 Then
         desc = "the " & ExpandReservedDesc(wordFold)
-    ElseIf wordFold = "error" Or wordFold = "ref" Or wordFold = "last" Then
-        desc = "a form of the formula syntax's own"
+    Else
+        Select Case wordFold
+            Case "error", "ref", "last", "absolute", "absolute-row", "absolute-column"
+                desc = "a form of the formula syntax's own"
+        End Select
     End If
     DefineReservedDesc = desc
 End Function
@@ -4532,7 +4560,9 @@ End Sub
 ' on a sheet, and its sheet's name or its cell or range answered as a text
 ' (FsReferencePartText), the two texts ref takes; a string atom, as
 ' formula-expand's is. A helper of its own reads the reference, so that this
-' frame, on the walk's way down, holds no record.
+' frame, on the walk's way down, holds no record. VLA.15: and
+' (first-cell-expand reference), the third, its first cell as the text ref
+' takes.
 Private Function ExpandReferencePart(ByVal op As String, lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As String
     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", op, "want", 1, "n", (lst.Count - 1)
     Dim v As Variant
@@ -4540,12 +4570,13 @@ Private Function ExpandReferencePart(ByVal op As String, lst As Object, ByVal de
     ExpandReferencePart = Chr$(34) & FsReferencePartText(v, op)
 End Function
 
-' LISTOPS.0: shared dispatcher for the twenty-eight expand-time list/
+' LISTOPS.0: shared dispatcher for the twenty-nine expand-time list/
 ' arithmetic/conditional primitives (the original nine, LISTOPS-EXPAND's
-' own seven, cond, VLA.3's ten and VLA.5's assoc-expand), called from both
-' recognition sites (Substitute's per-template walk and ExpandMacros's
-' standalone walk) exactly the way FuseSymbol already serves `symbol` from
-' both. Caller has already confirmed headFold is one of the twenty-eight.
+' own seven, cond, VLA.3's ten, VLA.5's assoc-expand and VLA.15's list?),
+' called from both recognition sites (Substitute's per-template walk and
+' ExpandMacros's standalone walk) exactly the way FuseSymbol already serves
+' `symbol` from both. Caller has already confirmed headFold is one of the
+' twenty-nine.
 ' PNTH.0: lst widened Collection -> Object, same reason as FuseSymbol
 ' just above - passed straight through to whichever Eval* this
 ' dispatches to, all of which accept Object on this same parameter now.
@@ -4589,6 +4620,9 @@ Private Function EvalListopsPrim(ByVal headFold As String, lst As Object, bindin
         ' VLA.5: a piece found by its head.
         Case "assoc-expand"
             AssignVar result, EvalAssocExpand(lst, bindings, restName, restItems)
+        ' VLA.15: a word told from a list.
+        Case "list?"
+            result = EvalListQ(lst, bindings, restName, restItems)
     End Select
     If IsObject(result) Then Set EvalListopsPrim = result Else EvalListopsPrim = result
 End Function
@@ -4797,6 +4831,18 @@ Private Function EvalNullQ(lst As Object, bindings As Collection, ByVal restName
     Else
         EvalNullQ = "false"
     End If
+End Function
+
+' VLA.15: (list? x) - true iff x resolves to a list, the empty list among
+' them (a VlaSlice a cdr made is one too), and false for a symbol or a
+' text: the one test of a form's kind that refuses neither, where null? is
+' false for a word and for a list with items alike, car refuses a word and
+' eq? a list. Scheme's own list?, whose null?, eq? and equal? these are.
+Private Function EvalListQ(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", "list?", "want", 1, "n", (lst.Count - 1)
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    EvalListQ = BoolSym(IsList(v))
 End Function
 
 ' (eq? a b) - both must resolve to ATOMS (see AtomEqual above); either
@@ -6906,8 +6952,9 @@ Private Function FsSheetText(ByVal sheetSpelled As String) As String
     End If
 End Function
 
-' A list: an operator, one of the syntax's own forms (error, ref, last,
-' lambda), or a call; a head the head table refuses is refused by name.
+' A list: an operator, one of the syntax's own forms (error, ref, last, the
+' three marks, lambda), or a call; a head the head table refuses is refused
+' by name.
 Private Function FsList(v As Variant, ByVal depth As Long) As String
     Dim lst As Object
     Set lst = v
@@ -6957,6 +7004,9 @@ Private Function FsList(v As Variant, ByVal depth As Long) As String
             Exit Function
         Case "last"
             FsList = FsLastForm(lst, headWritten)
+            Exit Function
+        Case "absolute", "absolute-row", "absolute-column"
+            FsList = FsMarkForm(lst, h)
             Exit Function
         Case "lambda"
             FsList = FsLambda(lst, headWritten, depth)
@@ -7135,17 +7185,62 @@ End Function
 ' VLA.6: (last X), X's twin: the one reference on a sheet X is
 ' (FsSheetReference), with .last after its sheet's name, quoted by the
 ' sheet rule, its marks as written - Input.last!B13 for Input!B13. A twin's
-' twin is refused, since no sheet a grid may hold ends in .last.
+' twin is refused, since no sheet a grid may hold ends in .last. VLA.15:
+' read by FsLastReference, which the reading of a reference shares, so that
+' (last X) stands inside another of the syntax's reference heads.
 Private Function FsLastForm(lst As Object, ByVal headWritten As String) As String
+    Dim fr As FormulaRef
+    FsLastReference lst, headWritten, fr
+    FsLastForm = FsReferenceText(fr)
+End Function
+
+' VLA.6, VLA.15: (last X) read as a reference, into fr - X's twin.
+Private Sub FsLastReference(lst As Object, ByVal headWritten As String, ByRef fr As FormulaRef)
     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "one reference on a sheet", "n", (lst.Count - 1)
     Dim argForm As Variant
     AssignVar argForm, lst.Item(2)
-    Dim fr As FormulaRef
     FsSheetReference argForm, "last", fr
     If FsIsTwinSheet(fr.SheetName) Then VLA_Messages.RaiseMsg "vla-formula-last-twin", "value", WriteDatum(argForm)
     fr.SheetName = fr.SheetName & ".last"
-    FsLastForm = FsReferenceText(fr)
+End Sub
+
+' VLA.15: (absolute X), (absolute-row X) or (absolute-column X), X with the
+' $ marks the head adds (FsMarkedReference), in its canonical spelling -
+' State!$B$12, Gate!A$4, Gate!$D1.
+Private Function FsMarkForm(lst As Object, ByVal markHead As String) As String
+    Dim fr As FormulaRef
+    FsMarkedReference lst, markHead, fr
+    FsMarkForm = FsReferenceText(fr)
 End Function
+
+' VLA.15: one of the three marks read as a reference, into fr: X one
+' reference, its sheet written or none (FsOneReference), with the marks
+' markHead adds - absolute the column's and the row's, absolute-row the
+' row's alone, absolute-column the column's alone - on both corners of a
+' range, and on what a whole column or row has. A head adds marks and never
+' takes one away, so the three commute with one another and with last, each
+' idempotent. A row's mark on a whole column, or a column's on a whole row,
+' has no place there, and is refused by name.
+Private Sub FsMarkedReference(lst As Object, ByVal markHead As String, ByRef fr As FormulaRef)
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", CStr(lst.Item(1)), "want", "one reference", "n", (lst.Count - 1)
+    Dim argForm As Variant
+    AssignVar argForm, lst.Item(2)
+    FsOneReference argForm, markHead, False, fr
+    If fr.PartShape = "column" Then
+        If markHead = "absolute-row" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", markHead, "value", WriteDatum(argForm), "line", "column", "want", "a reference with a row to mark, such as Input!B5 or 3:3"
+    End If
+    If fr.PartShape = "row" Then
+        If markHead = "absolute-column" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", markHead, "value", WriteDatum(argForm), "line", "row", "want", "a reference with a column to mark, such as Input!B5 or A:A"
+    End If
+    If markHead <> "absolute-row" Then
+        fr.ColAbs1 = True
+        fr.ColAbs2 = True
+    End If
+    If markHead <> "absolute-column" Then
+        fr.RowAbs1 = True
+        fr.RowAbs2 = True
+    End If
+End Sub
 
 ' VLA.6: whether a sheet's name is a twin's, ending in .last without case,
 ' as vla-lang's twin_base reads it.
@@ -7155,40 +7250,123 @@ Private Function FsIsTwinSheet(ByVal sheetSpelled As String) As Boolean
 End Function
 
 ' VLA.6: the text sheet-expand or range-expand answers, the sheet's name or
-' the cell or range of the one reference on a sheet a form is.
+' the cell or range of the one reference on a sheet a form is. VLA.15: and
+' first-cell-expand's, its first cell (FsFirstCellText).
 Private Function FsReferencePartText(v As Variant, ByVal op As String) As String
     Dim fr As FormulaRef
     FsSheetReference v, op, fr
-    If op = "sheet-expand" Then
-        FsReferencePartText = fr.SheetName
-    Else
-        FsReferencePartText = FsPartText(fr)
-    End If
+    Select Case op
+        Case "sheet-expand"
+            FsReferencePartText = fr.SheetName
+        Case "first-cell-expand"
+            FsReferencePartText = FsFirstCellText(fr, v, op)
+        Case Else
+            FsReferencePartText = FsPartText(fr)
+    End Select
 End Function
 
-' VLA.6: one reference on one sheet, as last, sheet-expand and range-expand
-' read it, into fr: a symbol RefersScan reads whole as a cell, a range, a
-' column or a row behind its sheet, or (ref sheet address), whose own
-' refusals stand (FsRefForm). Refused by name: a reference with no sheet,
-' since a formula does not know the sheet it will stand on when it is
-' written; and a name, a span of sheets, a text or any other form.
+' VLA.15: the first cell of the one reference fr is, as the text ref takes:
+' a cell's own address, or a range's top-left as the grid reads a row's
+' range, its corners in any order - the lesser column with the mark written
+' on it and the lesser row with its own, the first corner's where the two
+' are equal: B1 for Tally!B1:E10 and for Tally!E10:B1, $B$1 for
+' Tally!$B$1:$E$10. A whole column or row is no fill's range, and is
+' refused by name.
+Private Function FsFirstCellText(ByRef fr As FormulaRef, v As Variant, ByVal op As String) As String
+    If fr.PartShape = "column" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", op, "value", WriteDatum(v), "line", "column", "want", "a cell or a range, such as Tally!B1:E10"
+    If fr.PartShape = "row" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", op, "value", WriteDatum(v), "line", "row", "want", "a cell or a range, such as Tally!B1:E10"
+    Dim colNum As Long, rowNum As Long
+    Dim colAbs As Boolean, rowAbs As Boolean
+    colNum = fr.Col1
+    colAbs = fr.ColAbs1
+    rowNum = fr.Row1
+    rowAbs = fr.RowAbs1
+    If fr.PartShape = "range" Then
+        If fr.Col2 < fr.Col1 Then
+            colNum = fr.Col2
+            colAbs = fr.ColAbs2
+        End If
+        If fr.Row2 < fr.Row1 Then
+            rowNum = fr.Row2
+            rowAbs = fr.RowAbs2
+        End If
+    End If
+    FsFirstCellText = FsCellText(colNum, colAbs, rowNum, rowAbs)
+End Function
+
+' VLA.6, VLA.15: one reference on one sheet, as last, sheet-expand,
+' range-expand and first-cell-expand read it, into fr: one reference as
+' FsOneReference reads it, its sheet written.
 Private Sub FsSheetReference(v As Variant, ByVal op As String, ByRef fr As FormulaRef)
+    FsOneReference v, op, True, fr
+End Sub
+
+' VLA.15: one reference, as the syntax's reference heads and the walk's three
+' forms read it, into fr: a symbol RefersScan reads whole as a cell, a range,
+' a column or a row, or (ref sheet address) (FsSpelledReference); or one of
+' the syntax's reference heads around one, read inside out - (last X), X's
+' twin (FsLastReference), and (absolute X), (absolute-row X) and
+' (absolute-column X), X with the marks each adds (FsMarkedReference) - so
+' that the heads compose in either order. Where onSheet asks, a reference
+' with no sheet is refused by name, since a formula does not know the sheet
+' it will stand on when it is written. A frame a head, at most the form's
+' own nesting.
+Private Sub FsOneReference(v As Variant, ByVal op As String, ByVal onSheet As Boolean, ByRef fr As FormulaRef)
+    Dim refHead As String
+    refHead = FsReferenceHead(v)
+    If Len(refHead) = 0 Then
+        FsSpelledReference v, op, onSheet, fr
+    Else
+        Dim headList As Object
+        Set headList = v
+        If refHead = "last" Then
+            FsLastReference headList, CStr(headList.Item(1)), fr
+        Else
+            FsMarkedReference headList, refHead, fr
+        End If
+    End If
+    If onSheet Then
+        If Len(fr.SheetName) = 0 Then VLA_Messages.RaiseMsg "vla-reference-no-sheet", "op", op, "value", WriteDatum(v)
+    End If
+End Sub
+
+' VLA.15: the head of the syntax's reference head a form is, folded - last,
+' absolute, absolute-row or absolute-column - or "" for any other form.
+Private Function FsReferenceHead(v As Variant) As String
+    If Not IsList(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    Dim headFold As String
+    headFold = VLA_Identity.Fold(CStr(lst.Item(1)))
+    Select Case headFold
+        Case "last", "absolute", "absolute-row", "absolute-column"
+            FsReferenceHead = headFold
+    End Select
+End Function
+
+' VLA.6: one reference read from its spelling, into fr: a symbol RefersScan
+' reads whole as a cell, a range, a column or a row, or (ref sheet address),
+' whose own refusals stand (FsRefForm). Refused by name: a name, a span of
+' sheets, a text or any other form, the refusal saying what the reading
+' asks for (VLA.15, FsReferenceWant).
+Private Sub FsSpelledReference(v As Variant, ByVal op As String, ByVal onSheet As Boolean, ByRef fr As FormulaRef)
     Dim spelled As String
     If IsList(v) Then
-        If Not ListHeadIs(v, "ref") Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", "no reference"
+        If Not ListHeadIs(v, "ref") Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "want", FsReferenceWant(onSheet), "value", WriteDatum(v), "what", "no reference"
         Dim refList As Object
         Set refList = v
         spelled = FsRefForm(refList, CStr(refList.Item(1)))
     Else
         spelled = CStr(v)
-        If Left$(spelled, 1) = Chr$(34) Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", "a text"
+        If Left$(spelled, 1) = Chr$(34) Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "want", FsReferenceWant(onSheet), "value", WriteDatum(v), "what", "a text"
     End If
     Dim what As String
     what = "no reference"
     If FsWholeReference(spelled, fr) Then
         Select Case fr.Kind
             Case "cell", "range", "column", "row"
-                If Len(fr.SheetName) = 0 Then VLA_Messages.RaiseMsg "vla-reference-no-sheet", "op", op, "value", WriteDatum(v)
                 Exit Sub
             Case "3d"
                 what = "a span of sheets"
@@ -7196,8 +7374,19 @@ Private Sub FsSheetReference(v As Variant, ByVal op As String, ByRef fr As Formu
                 what = "a name"
         End Select
     End If
-    VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "value", WriteDatum(v), "what", what
+    VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "want", FsReferenceWant(onSheet), "value", WriteDatum(v), "what", what
 End Sub
+
+' VLA.15: what a reading of one reference asks for, as its refusal says it:
+' one on a sheet for last and the walk's three forms, and a cell, a range, a
+' column or a row, its sheet written or none, for a mark.
+Private Function FsReferenceWant(ByVal onSheet As Boolean) As String
+    If onSheet Then
+        FsReferenceWant = "one reference on a sheet"
+    Else
+        FsReferenceWant = "a cell, a range, a column or a row"
+    End If
+End Function
 
 ' (lambda (x y) body): Excel's LAMBDA(x,y,body), each parameter a name.
 Private Function FsLambda(lst As Object, ByVal headWritten As String, ByVal depth As Long) As String

@@ -197,3 +197,5 @@ REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named 
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named REF, a word the syntax keeps for a form of its own, and this version's formula syntax does not yet
 === unsupported-a-function-named-last
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named LAST, a word the syntax keeps for a form of its own, and this version's formula syntax does not yet
+=== unsupported-a-function-named-absolute
+REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function named ABSOLUTE, a word the syntax keeps for a form of its own, and this version's formula syntax does not yet

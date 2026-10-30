@@ -1,7 +1,8 @@
 //! The macro system: VLA.bas's `DefineMacro`, `ExpandMacros`, `ExpandOne`,
-//! `Substitute` with the QUASIQUOTE bundle, the twenty-eight LISTOPS
+//! `Substitute` with the QUASIQUOTE bundle, the twenty-nine LISTOPS
 //! primitives, `ExpandOnePass`, and `VlaExpandText` (PORT.5, slice 5d; the
-//! expand-time object model's ten, VLA.3; `assoc-expand`, VLA.5); and the
+//! expand-time object model's ten, VLA.3; `assoc-expand`, VLA.5; `list?`, a
+//! word told from a list, VLA.15); and the
 //! walk's two kinds of form: `formula-expand`, the formula syntax at expand
 //! time, which expands its argument before writing it (`ExpandFormulaCall`,
 //! VLA.4), and the loop, `each` and `each-index`, a template substituted
@@ -13,7 +14,8 @@
 //! word binds from the next form of the source on, and the walk puts a
 //! define's form where its word stands as an expression; with a reference's
 //! two parts, `sheet-expand` and `range-expand`, forms of the walk beside
-//! `formula-expand` (`ExpandReferencePart`).
+//! `formula-expand` (`ExpandReferencePart`), and since VLA.15 its first
+//! cell, `first-cell-expand`, the third.
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -120,12 +122,15 @@ const RESERVED: &[(&str, &str)] = &[
     ("define", "expand-time naming form"),
     ("sheet-expand", "expand-time reference-sheet operation"),
     ("range-expand", "expand-time reference-range operation"),
+    // VLA.15: a word told from a list, and a reference's first cell.
+    ("list?", "list-test primitive"),
+    ("first-cell-expand", "expand-time reference-first-cell operation"),
 ];
 
-/// The twenty-eight LISTOPS primitives `Substitute` and `ExpandMacros` both
+/// The twenty-nine LISTOPS primitives `Substitute` and `ExpandMacros` both
 /// recognise at a form's head: the original nine, LISTOPS-EXPAND's seven,
-/// `cond`, the expand-time object model's ten (VLA.3) and `assoc-expand`
-/// (VLA.5).
+/// `cond`, the expand-time object model's ten (VLA.3), `assoc-expand`
+/// (VLA.5) and `list?` (VLA.15).
 const LISTOPS: &[&str] = &[
     "car",
     "cdr",
@@ -155,6 +160,7 @@ const LISTOPS: &[&str] = &[
     "column-expand",
     "column-letters-expand",
     "assoc-expand",
+    "list?",
 ];
 
 fn is_listops(head_fold: &str) -> bool {
@@ -629,6 +635,12 @@ impl Expander {
                 let part = self.reference_part(&head_fold, items, depth, walk)?;
                 return self.finish(&pending_head, part, depth, walk);
             }
+            // VLA.15: a reference's first cell as a text, a third form of the
+            // walk beside the two parts and read as they are.
+            if head_fold == "first-cell-expand" {
+                let part = self.reference_part(&head_fold, items, depth, walk)?;
+                return self.finish(&pending_head, part, depth, walk);
+            }
             if matches!(
                 head_fold.as_str(),
                 "quasiquote" | "unquote" | "unquote-splicing"
@@ -803,7 +815,9 @@ impl Expander {
     /// the argument expanded to its fixpoint, so that a word a define binds
     /// is replaced first, then read as one reference on a sheet, and its
     /// sheet's name or its cell or range answered as a text, the two texts
-    /// `ref` takes; a string, as formula-expand's is.
+    /// `ref` takes; a string, as formula-expand's is. VLA.15: and
+    /// `(first-cell-expand reference)`, the third, its first cell as the
+    /// text `ref` takes (VBA `FsFirstCellText`).
     fn reference_part(
         &mut self,
         op: &str,
@@ -816,10 +830,10 @@ impl Expander {
         }
         let read = self.expand_at(&items[1], depth, walk + 1)?;
         let r = formula_syntax::sheet_reference(&read, op)?;
-        Ok(Form::Str(if op == "sheet-expand" {
-            r.sheet_name
-        } else {
-            formula_syntax::part_text(&r)
+        Ok(Form::Str(match op {
+            "sheet-expand" => r.sheet_name,
+            "first-cell-expand" => formula_syntax::first_cell_text(&r, &read, op)?,
+            _ => formula_syntax::part_text(&r),
         }))
     }
 
@@ -1710,7 +1724,7 @@ fn define_reads_as(word: &str) -> Option<&'static str> {
 /// language, or `None` for a word of the source's own: a number, a truth
 /// value, a keyword argument, a form of the head table or one of its
 /// aliases, or `defmacro`; an expand-time name ([`RESERVED`]); or a form of
-/// the formula syntax's own.
+/// the formula syntax's own, the three marks among them since VLA.15.
 fn define_reserved_desc(word: &str) -> Option<String> {
     let word_fold = fold(word);
     let desc = if formula_syntax::is_numeral(word)
@@ -1726,7 +1740,10 @@ fn define_reserved_desc(word: &str) -> Option<String> {
         "a form of the language".to_string()
     } else if let Some((_, desc)) = RESERVED.iter().find(|(w, _)| *w == word_fold) {
         format!("the {desc}")
-    } else if matches!(word_fold.as_str(), "error" | "ref" | "last") {
+    } else if matches!(
+        word_fold.as_str(),
+        "error" | "ref" | "last" | "absolute" | "absolute-row" | "absolute-column"
+    ) {
         "a form of the formula syntax's own".to_string()
     } else {
         return None;
@@ -1754,6 +1771,7 @@ fn eval_listops_prim(head_fold: &str, lst: &[Node], env: &Env) -> Result<Node, R
         "row-expand" | "column-expand" => eval_address_part_expand(head_fold, lst, env),
         "column-letters-expand" => eval_column_letters_expand(lst, env),
         "assoc-expand" => eval_assoc_expand(lst, env),
+        "list?" => eval_listq(lst, env),
         _ => eval_arith_expand(head_fold, lst, env),
     }
 }
@@ -1909,6 +1927,19 @@ fn eval_nullq(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
         Node::List(c) => bool_sym(c.count() == 0),
         _ => bool_sym(false),
     })
+}
+
+/// VLA.15, VBA `EvalListQ`: `(list? x)`, `true` when x resolves to a list,
+/// the empty list among them and a view `cdr` made, and `false` for a
+/// symbol or a text: the one test of a form's kind that refuses neither,
+/// where `null?` is false for a word and for a list with items alike, `car`
+/// refuses a word and `eq?` a list. Scheme's own `list?`.
+fn eval_listq(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if lst.len() != 2 {
+        return Err(expand_arity("list?", 1, lst));
+    }
+    let v = resolve_listops_arg(nth(lst, 2)?, env)?;
+    Ok(bool_sym(v.is_list()))
 }
 
 fn eval_eq(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
@@ -2704,7 +2735,8 @@ mod tests {
         ];
         // VLA.4: an operation of the walk, recognized by `expand_at` alone;
         // VLA.5: the loop, a form of the walk and of `substitute`; VLA.6:
-        // define and a reference's two parts, forms of the walk alone.
+        // define and a reference's two parts, forms of the walk alone;
+        // VLA.15: its first cell, the third.
         let walk_operations = [
             "formula-expand",
             "each",
@@ -2712,6 +2744,7 @@ mod tests {
             "define",
             "sheet-expand",
             "range-expand",
+            "first-cell-expand",
         ];
         for name in LISTOPS {
             assert!(
@@ -2727,7 +2760,7 @@ mod tests {
                 "{name} is reserved but not recognised"
             );
         }
-        assert_eq!(LISTOPS.len(), 28);
+        assert_eq!(LISTOPS.len(), 29);
         assert_eq!(one("(formula-expand (+ 1 2))"), "\"=1+2\"");
     }
 
@@ -3771,6 +3804,250 @@ mod tests {
         assert_eq!(
             one("(defmacro (m) (quasiquote (begin (debug-print 1) (car (quote (a b)))))) (m)"),
             "(begin (debug-print 1) a)"
+        );
+    }
+
+    /// The pins' last words: the refusal's id, and its text holding the
+    /// fragment.
+    fn assert_refusals(cases: &[(&str, &str, &str)]) {
+        for (src, id, frag) in cases {
+            let e = expand_err(src);
+            assert_eq!(e.id, *id, "{src}: {}", e.text);
+            assert!(e.text.contains(frag), "{src}: {}", e.text);
+        }
+    }
+
+    #[test]
+    fn list_tells_a_word_from_a_list_and_refuses_neither() {
+        // VLA.15, `TestAddressForms`' first part.
+        for (src, want) in [
+            ("(list? (quote (a b)))", "true"),
+            ("(list? (quote ()))", "true"),
+            ("(list? (quote a))", "false"),
+            ("(list? \"a\")", "false"),
+            ("(list? 5)", "false"),
+            ("(list? (each (x (quote (a b))) x))", "true"),
+            ("(list? (cdr (quote (a b))))", "true"),
+            ("(define stop State!B12) (list? stop)", "(begin)\nfalse"),
+        ] {
+            assert_eq!(one(src), want, "{src}");
+        }
+        assert_eq!(
+            one("(defmacro (entry-label entry) (quote-if (list? entry) (car entry) (&expand entry))) \
+                 (cell \"State\" \"A1\" (entry-label phase)) \
+                 (cell \"State\" \"A2\" (entry-label (\"stopped at\" stopped-at)))"),
+            "(cell \"State\" \"A1\" \"phase\")\n(cell \"State\" \"A2\" \"stopped at\")"
+        );
+        let names = "(defmacro (names sheet top & entries) (each-index (row entry entries top) (name-entry sheet row entry))) \
+                     (defmacro (name-entry sheet row entry) (quote-if (list? entry) \
+                     (label-and-name sheet row (car entry) (car (cdr entry))) (label-and-name sheet row (&expand entry) entry))) \
+                     (defmacro (label-and-name sheet row label word) (cell sheet (address-expand row 1) label) \
+                     (define word (ref sheet (address-expand row 2)))) ";
+        assert_eq!(
+            one(&format!(
+                "{names}(names \"State\" 1 phase (\"stopped at\" stopped-at)) (formula-expand (if (= phase 1) stopped-at 0))"
+            )),
+            "(begin (begin (cell \"State\" \"A1\" \"phase\")) (cell \"State\" \"A2\" \"stopped at\"))\n\"=IF(State!B1=1,State!B2,0)\""
+        );
+        assert_refusals(&[
+            (
+                "(list? (quote a) (quote b))",
+                "vla-expand-arity",
+                "list? expects exactly 1 argument(s), got 2",
+            ),
+            ("(list?)", "vla-expand-arity", "got 0"),
+            (
+                "(defmacro (list? x) x)",
+                "vla-defmacro-reserved-name",
+                "'list?' is the list-test primitive and cannot be a macro name",
+            ),
+            (
+                "(define list? A1)",
+                "vla-define-name-reserved",
+                "'list?' is the list-test primitive",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn the_three_marks_anchor_a_reference_and_commute_with_last() {
+        // VLA.15, `TestAddressForms`' second part: each head adds its marks
+        // and takes none away.
+        for (src, want) in [
+            ("(formula-expand (+ (absolute State!B12) 1))", "\"=State!$B$12+1\""),
+            ("(formula-expand (absolute-row Gate!A4))", "\"=Gate!A$4\""),
+            ("(formula-expand (absolute-column Gate!D1))", "\"=Gate!$D1\""),
+            ("(formula-expand (sum (absolute Tally!B1:E10)))", "\"=SUM(Tally!$B$1:$E$10)\""),
+            ("(formula-expand (sum (absolute-row Tally!B1:E10)))", "\"=SUM(Tally!B$1:E$10)\""),
+            ("(formula-expand (sum (absolute-column Tally!B1:E10)))", "\"=SUM(Tally!$B1:$E10)\""),
+            ("(formula-expand (sum (absolute Screen!A:A)))", "\"=SUM(Screen!$A:$A)\""),
+            ("(formula-expand (sum (absolute-column Screen!A:C)))", "\"=SUM(Screen!$A:$C)\""),
+            ("(formula-expand (sum (absolute 3:3)))", "\"=SUM($3:$3)\""),
+            ("(formula-expand (sum (absolute-row Screen!3:5)))", "\"=SUM(Screen!$3:$5)\""),
+            ("(formula-expand (+ (absolute B6) 1))", "\"=$B$6+1\""),
+            ("(formula-expand (absolute-row $B12))", "\"=$B$12\""),
+            ("(formula-expand (absolute (ref \"Q1 Data\" \"A1\")))", "\"='Q1 Data'!$A$1\""),
+            ("(formula-expand (absolute Input.last!B5))", "\"=Input.last!$B$5\""),
+            (
+                "(define stop State!B12) (formula-expand (+ (absolute stop) (last (absolute stop))))",
+                "(begin)\n\"=State!$B$12+State.last!$B$12\"",
+            ),
+            (
+                "(define stop State!B12) (formula-expand (= (last (absolute stop)) (absolute (last stop))))",
+                "(begin)\n\"=State.last!$B$12=State.last!$B$12\"",
+            ),
+            ("(formula-expand (absolute-row (absolute-column Input!B5)))", "\"=Input!$B$5\""),
+            ("(formula-expand (absolute (absolute Input!B5)))", "\"=Input!$B$5\""),
+        ] {
+            assert_eq!(one(src), want, "{src}");
+        }
+        let fill = one("(defmacro (rule sheet range expression) (formula sheet range (formula-expand expression))) \
+                        (define stop State!B12) \
+                        (rule \"Gate\" \"A1:O1\" (if (= (absolute stop) 1) (last (absolute stop)) 0))");
+        assert_eq!(
+            fill.lines().last(),
+            Some("(formula \"Gate\" \"A1:O1\" \"=IF(State!$B$12=1,State.last!$B$12,0)\")")
+        );
+        assert_refusals(&[
+            ("(formula-expand (absolute A1 B1))", "vla-formula-arity", "(absolute ...)"),
+            (
+                "(formula-expand (absolute stop))",
+                "vla-reference-expected",
+                "absolute: expected a cell, a range, a column or a row, such as Input!B5",
+            ),
+            ("(formula-expand (absolute 5))", "vla-reference-expected", "got '5', no reference"),
+            (
+                "(formula-expand (absolute Jan:Dec!A1))",
+                "vla-reference-expected",
+                "got 'Jan:Dec!A1', a span of sheets",
+            ),
+            ("(formula-expand (absolute \"B12\"))", "vla-reference-expected", "', a text"),
+            (
+                "(formula-expand (absolute-row Screen!A:A))",
+                "vla-reference-whole-line",
+                "absolute-row: 'Screen!A:A' is a whole column, and absolute-row takes a reference with a row to mark",
+            ),
+            (
+                "(formula-expand (absolute-column 3:3))",
+                "vla-reference-whole-line",
+                "absolute-column: '3:3' is a whole row, and absolute-column takes a reference with a column to mark",
+            ),
+            (
+                "(formula-expand (last (absolute B12)))",
+                "vla-reference-no-sheet",
+                "last: '(absolute B12)' names no sheet",
+            ),
+            (
+                "(formula-expand (absolute (last Input.last!B5)))",
+                "vla-formula-last-twin",
+                "last: 'Input.last!B5' is a twin already",
+            ),
+            (
+                "(formula-expand (last (last Input!B5)))",
+                "vla-formula-last-twin",
+                "last: '(last Input!B5)' is a twin already",
+            ),
+            (
+                "(define absolute A1)",
+                "vla-define-name-reserved",
+                "'absolute' is a form of the formula syntax's own",
+            ),
+            (
+                "(define absolute-row A1)",
+                "vla-define-name-reserved",
+                "'absolute-row' is a form of the formula syntax's own",
+            ),
+            (
+                "(define absolute-column A1)",
+                "vla-define-name-reserved",
+                "'absolute-column' is a form of the formula syntax's own",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn the_first_cell_is_a_third_form_of_the_walk() {
+        // VLA.15, `TestAddressForms`' third part: a range's top-left as the
+        // grid reads a row's range, the marks written on each lesser.
+        for (src, want) in [
+            ("(first-cell-expand Tally!B1:E10)", "\"B1\""),
+            ("(first-cell-expand State!B12)", "\"B12\""),
+            ("(first-cell-expand Tally!$B$1:$E$10)", "\"$B$1\""),
+            ("(first-cell-expand Tally!E10:B1)", "\"B1\""),
+            ("(first-cell-expand Tally!E$10:$B1)", "\"$B1\""),
+            ("(define tally Tally!B1:E10) (first-cell-expand tally)", "(begin)\n\"B1\""),
+            (
+                "(define tally Tally!B1:E10) (first-cell-expand (ref (sheet-expand tally) (range-expand tally)))",
+                "(begin)\n\"B1\"",
+            ),
+            ("(define tally Tally!B1:E10) (first-cell-expand (absolute tally))", "(begin)\n\"$B$1\""),
+        ] {
+            assert_eq!(one(src), want, "{src}");
+        }
+        let count = "(defmacro (count sheet range event) (formula sheet range \
+                     (formula-expand (+ (last (ref sheet (first-cell-expand (ref sheet range)))) event)))) ";
+        let at_a_word = one(&format!(
+            "{count}(defmacro (at word call) (quasiquote ((unquote (car call)) (sheet-expand (unquote word)) \
+             (range-expand (unquote word)) (unquote-splicing (cdr call))))) \
+             (define tally Tally!B1:E10) (at tally (count Input!B16))"
+        ));
+        let row = "(formula \"Tally\" \"B1:E10\" \"=Tally.last!B1+Input!B16\")";
+        assert_eq!(at_a_word.lines().last(), Some(row));
+        assert_eq!(
+            one(&format!("{count}(count \"Tally\" \"B1:E10\" Input!B16)")),
+            row
+        );
+        assert_refusals(&[
+            (
+                "(first-cell-expand Screen!A:A)",
+                "vla-reference-whole-line",
+                "first-cell-expand: 'Screen!A:A' is a whole column, and first-cell-expand takes a cell or a range, such as Tally!B1:E10",
+            ),
+            ("(first-cell-expand Screen!3:3)", "vla-reference-whole-line", "'Screen!3:3' is a whole row"),
+            (
+                "(first-cell-expand B1:E10)",
+                "vla-reference-no-sheet",
+                "first-cell-expand: 'B1:E10' names no sheet",
+            ),
+            (
+                "(first-cell-expand tally)",
+                "vla-reference-expected",
+                "first-cell-expand: expected one reference on a sheet",
+            ),
+            ("(first-cell-expand \"B1:E10\")", "vla-reference-expected", "', a text"),
+            (
+                "(first-cell-expand A1 B1)",
+                "vla-expand-arity",
+                "first-cell-expand expects exactly 1 argument(s), got 2",
+            ),
+            (
+                "(&expand (first-cell-expand Tally!B1:E10))",
+                "vla-expand-arg-is-list",
+                "&expand: argument 1 is a list",
+            ),
+            (
+                "(defmacro (first-cell-expand x) x)",
+                "vla-defmacro-reserved-name",
+                "'first-cell-expand' is the expand-time reference-first-cell operation and cannot be a macro name",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn the_walk_s_forms_read_what_a_head_writes() {
+        // VLA.15, `TestAddressForms`' last part: one reading of a reference,
+        // and the trampoline's begin kept before the first cell.
+        assert_eq!(
+            one("(define stop State!B12) (range-expand (absolute stop))"),
+            "(begin)\n\"$B$12\""
+        );
+        assert_eq!(
+            one("(define stop State!B12) (sheet-expand (last stop))"),
+            "(begin)\n\"State.last\""
+        );
+        assert_eq!(
+            one("(defmacro (m) (debug-print 1) (first-cell-expand Tally!B1:E10)) (m)"),
+            "(begin (debug-print 1) \"B1\")"
         );
     }
 

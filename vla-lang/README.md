@@ -39,9 +39,10 @@ refused in the same words.
   The prelude is a library the caller passes: the repository's
   [scripts/prelude.vla](https://raw.githubusercontent.com/Spreadsheet-Company/Frazaro/main/scripts/prelude.vla)
   is the standard one, and a program may carry its own definitions.
-  Twenty-eight primitives compute while a macro expands, over the data
+  Twenty-nine primitives compute while a macro expands, over the data
   written in the source: the list operations (`car`, `cdr`, `cons`,
-  `quote-if`, `cond` and their kin), arithmetic and comparison (`+expand`,
+  `quote-if`, `cond` and their kin, and `list?`, which tells a word from a
+  list and refuses neither), arithmetic and comparison (`+expand`,
   `-expand`, `*expand`, `quotient-expand`, `mod-expand`, `=expand` and the
   rest), text joined or split into its characters (`&expand`,
   `characters-expand`), a cell's address written from a row and a column
@@ -84,9 +85,14 @@ refused in the same words.
   first, so a macro or a define inside it has done its work. `(last X)` is
   a reference's twin, the sheet's name with `.last` after it: after
   `(define stop State!B12)`, `(formula-expand (if (= (last stop) 1) 0 1))`
-  writes `=IF(State.last!B12=1,0,1)`; and `sheet-expand` and `range-expand`
-  give a reference's sheet and its cell or range as the two texts `ref`
-  takes, so a macro can write a row at a word.
+  writes `=IF(State.last!B12=1,0,1)`. `(absolute X)`, `(absolute-row X)` and
+  `(absolute-column X)` write a reference with the `$` marks each adds, and
+  never take one away, so they and `last` stand in either order: `(last
+  (absolute stop))` writes `State.last!$B$12`. And `sheet-expand` and
+  `range-expand` give a reference's sheet and its cell or range as the two
+  texts `ref` takes, so a macro can write a row at a word, and
+  `first-cell-expand` its first cell, a range's top-left, so a verb can twin
+  the cell its fill is written for.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.

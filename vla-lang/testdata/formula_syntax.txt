@@ -159,3 +159,5 @@ to reach.
 =REF(1)
 === unsupported-a-function-named-last
 =LAST(Input!B5)
+=== unsupported-a-function-named-absolute
+=ABSOLUTE(Input!B5)

@@ -18543,6 +18543,450 @@ decisions open and none needed by the release's first reader; `VLA.9` and
   interpreter PASS. The ten decisions stand as built. **Closed ✅ and
   committed 2026-10-25 at the owner's word.**
 
+- ✅ **VLA.15 — a name where an address stands: `list?`, a word told from
+  a list; the anchored reference, `absolute`, `absolute-row` and
+  `absolute-column` in the formula syntax beside `last`; and a reference's
+  first cell, `first-cell-expand`, a third form of the walk.** *Scoped
+  2026-10-29 from a brief pasted in chat, the item the owner's word of that
+  day minted, the mint committed first at the owner's word (`b7208fe`);
+  the ten decisions below put to the owner in chat, each with its
+  recommendation, and approved as recommended the same day
+  ("Recommendations approved; proceed with implementing VLA.15 as
+  scoped").*
+
+  **What needs it.** Alonzo's `KIT.6` built its first slice on 2026-10-29
+  over `vla-lang` 0.11.0 (`28621e4`), and its third slice, the kit and
+  Kairos written in names, asks three things of the language (Alonzo's
+  `docs/REARVIEW.md`, `KIT.6`: its Found, decisions 7, 8, 10 and 11).
+  `names` takes a block's entries, each a word whose text is its label or a
+  pair, `("stopped at" stopped-at)`, and no form tells the two apart. A
+  `define` names one form, and the fills cite their cells anchored: Kairos
+  the State 33 times at `28621e4`, 32 `State!$B$n` and one
+  `State.last!$B$3`, against 146 relative citations (55 and 151 before the
+  first slice wrote its board once, the mint's count); the Gate by the row
+  lying on its side and by the column standing up, `Gate!A$4` and
+  `Gate!$D1`, which `gate-field` builds by text, `(ref "Gate" (&expand "A$"
+  field))`; and Superposition the Input 24 times, `Input!$B$11` to
+  `Input!$B$20`. And `count`, `hold` and `since` twin their range's first
+  cell through `first-of`, a walk over `characters-expand`, which takes no
+  word: decision 8's `at` hands a verb `(sheet-expand word)` and
+  `(range-expand word)`, and a primitive's argument is never expanded.
+  `dice` reads its one cell and needs `last` alone. 0.12.0, which carries
+  `VLA.5` and `VLA.6`, is unreleased, so this item rides the same release
+  and Alonzo's pin moves once.
+
+  **What the substrate says**, read in both implementations at `b7208fe`,
+  the code of `6a86156`:
+  - The twenty-eight primitives hold one test of a form's kind, `null?`,
+    false for an atom and for a list with items alike (`eval_nullq`,
+    `EvalNullQ`). `car` refuses an atom (`vla-car-expected-list`), `eq?` a
+    list (`vla-eq-expected-atom`), `assoc-expand` an entry that is an atom,
+    `characters-expand` and `&expand` a list (`vla-expand-arg-is-list`),
+    and `quote-if` a test that is a list; `equal?` compares anything, but
+    only against a form of the shape it is asked about. So no form answers
+    "a word or a list" of both without a refusal on one.
+  - A primitive's argument is resolved and never expanded
+    (`resolve_listops_arg`, `ResolveListopsArg`): substituted, one quote
+    unwrapped, a loop its results' list. `quote-if`'s test is resolved the
+    same way, so a predicate a template's `quote-if` reads must be a
+    primitive: a form of the walk would reach it as a list and be refused
+    (`vla-quote-if-test-is-list`).
+  - `formula-expand`, `sheet-expand` and `range-expand` are forms of the
+    walk, taken at a form's head (`expand_at`, `ExpandMacros`), their
+    argument expanded to its fixpoint first (`reference_part`,
+    `ExpandReferencePart`) and their text returned through `finish`, which
+    keeps the forms a begin a macro made set aside before it (`VLA.6`,
+    decision 10). `ExpandOnePass` evaluates none of them.
+  - The formula syntax's own heads are `error`, `ref`, `last`, `lambda` and
+    `quote`, the writer's match (`formula_syntax::list`, `FsList`'s
+    Select); `error`, `ref` and `last` are listed again by the reader,
+    which refuses a call so named (`call`), and by the describer of a
+    define's word (`define_reserved_desc`, `DefineReservedDesc`).
+    `last_form` and `FsLastForm` read their argument by `sheet_reference`
+    and `FsSheetReference`, a symbol the scanner reads whole or a `(ref
+    sheet address)` and nothing else: no head reads another head's form, so
+    `(last (last X))` is refused as no reference.
+  - A reference's marks are the scanner's (`FormulaRef`'s `col_abs1` to
+    `row_abs2`, `ColAbs1` to `RowAbs2`), and the writer spells them as
+    written (`part_text`, `FsPartText`): a mark before a column's letters
+    and before a row's number, a range's two corners each its own, a whole
+    column's two columns and a whole row's two rows.
+  - The scanner keeps a range's corners as written. The grid reads a row's
+    range with its corners in any order, its top-left the lesser row and
+    the lesser column, and takes no whole column or row as a row's range
+    (`sheet::parse_a1_range`): a fill's first cell is a cell's or a range's
+    top-left, and a whole column or row is no fill's.
+  - The writer's call takes a head spelled as a function's name, a letter
+    and then letters, digits, `.` and `_` (`is_function_name`), so a head
+    with a hyphen is never a call, and of the three names only `absolute`
+    is spelled as a function's could be; Excel has no function so named.
+    Frazaro's English maps the words "absolute of" to `abs`
+    (`core/data/names.vla`, `AddFnEntry`), a sentence's word that the
+    English path writes `(abs x)`. PROLOG's type tests are `atom?` and
+    `is-list?`, ISO's `atom/1` and `is_list/1`
+    (`prolog-reserved-predicate-name`).
+  - `vla-expand-arity` is the arity refusal of the primitives since
+    `VLA.3`, `assoc-expand`'s and the two parts' among them; the first nine
+    have their own.
+  - Names: no `.vla` among Delta's 191 defines or heads a form with
+    `list?`, `atom?`, `absolute`, `absolute-row`, `absolute-column`,
+    `anchor` or `first-cell-expand`, and no head-table row or alias spells
+    one. Buffet's copy of the kit defines a macro `first-cell`
+    (`Buffet/src/common.vla:318`), a walk handing a range's first cell on,
+    so that bare name stays free.
+
+  **The work.**
+  - *The reference first* (`SD-18`). `VLA.bas`: `list?` in the two
+    recognition Selects, `EvalListopsPrim` and `ExpandReservedDesc`, and
+    its `EvalListQ`; `first-cell-expand` at a form's head beside the two
+    parts, by `ExpandReferencePart`, and reserved; the three heads in
+    `FsList`'s Select; one reading of a reference (decision 6) where
+    `FsSheetReference` reads one today, the heads read inside out, the
+    marks added, the first cell taken; the three in `DefineReservedDesc`.
+    `VLA_Messages.bas`: the one id and the slot (decision 7), exported.
+    `VLA_Tests.bas`: `TestAddressForms`, after `TestDefineForms`. Each
+    touched module's version `VLA.15`.
+  - *The port.* `expand.rs` and `formula_syntax.rs` function for function:
+    `LISTOPS` and `RESERVED`, `eval_listq`; `first-cell-expand` in
+    `expand_at` and `reference_part`; the writer's three heads, the reading,
+    the reader's `ABSOLUTE`. Unit tests; `tests/expand_golden.rs`, the proof
+    in miniature, a block's labels and names from entries told apart by
+    `list?` and `count` at a word through the first cell, each writing the
+    rows its twin by addresses writes; `tests/strangers.rs`, a seed program
+    and each malformed form refused by name.
+  - *The goldens.* About sixty cases in `scripts/expand.txt`, in the
+    owner's style, predicted by the port, the reference confirming; one
+    case in `vla-lang/testdata/formula_syntax.txt`, its golden blessed.
+  - *The checks.* `check_expand_golden`'s rule 9: `list?` among the
+    primitives and reached by an expanded case and a refused one,
+    `first-cell-expand` taken at a form's head by both walks, reserved in
+    both and no primitive, the three heads among both writers' own, each
+    heading an EXPANDED case and a REFUSED one, the new id a REFUSED
+    record; its mutants; the floors. `check_data_exports` at 237.
+  - *The docs*, as decision 9 settles; `RELEASES.md` under 0.12.0.
+
+  **The decisions**, each with the recommendation and what it declines:
+
+  1. *The predicate.* `(list? x)`: `true` when x resolves to a list, the
+  empty list among them, and `false` for a symbol or a text, its argument
+  read as every primitive's is. So `(list? (quote ()))` is `true` and a
+  word's `false`, and with `null?` a list with items is `(list? x)` and not
+  `(null? x)`. Scheme's own (R7RS §6.4), whose `null?`, `eq?` and `equal?`
+  the expander's already are; `names` reads `(quote-if (list? entry) pair
+  word)`. Declined: `atom?`, its negation, which PROLOG in the same product
+  spells for a symbol alone where here a text would be one too; `pair?`,
+  Scheme's for a list with items, a word the house has no dotted pair to
+  give, which would call `("a" b c)` a pair; and the empty list as no
+  list, which `null?` already tells apart.
+
+  2. *Where `list?` lives.* In `LISTOPS`, the twenty-ninth, recognized at a
+  form's head by both walks and the substitution and reserved, so a macro
+  may not take its name and a define's word so spelled is refused as the
+  list-test primitive; data inside a quasiquote, as every primitive is;
+  its arity `vla-expand-arity`'s. Declined: a form of the walk, which
+  `quote-if`'s test, resolved and never walked, would meet as a list and
+  refuse.
+
+  3. *The anchored heads.* Three heads of the formula syntax beside `ref`
+  and `last`, each named by the mark it adds in Excel's own words
+  (`ADDRESS`'s `abs_num` 1 to 3: "Absolute"; "Absolute row; relative
+  column"; "Relative row; absolute column"): `(absolute State!B12)`
+  `State!$B$12`, `(absolute-row Gate!A4)` `Gate!A$4`, `(absolute-column
+  Gate!D1)` `Gate!$D1`. A range takes the mark on both its corners,
+  `(absolute Tally!B1:E10)` `Tally!$B$1:$E$10`; a whole column or row the
+  marks it has, `(absolute Screen!A:A)` `Screen!$A:$A`, `(absolute 3:3)`
+  `$3:$3`. A head adds marks and never takes one away, so a mark the
+  author wrote stands, `(absolute-row $B12)` `$B$12`: from a reference
+  written relative, as every one a define names in the need is, each head
+  writes the state Excel's F4 key cycles to, and the three commute with
+  one another and with `last`, each idempotent, so `(last (absolute
+  stop))` and `(absolute (last stop))` both write `State.last!$B$12`. X is
+  one reference, read as decision 6 reads it, its sheet written or none,
+  since a mark needs no sheet: `(absolute B6)` `$B$6`, as Buffet's
+  `=IF(B11=1,Day.last!$B$3+$B$6,...)` holds one. Refused by name: an
+  argument count other than one (`vla-formula-arity`); a name, a span of
+  sheets, a text, a number or any other form (`vla-reference-expected`);
+  and a row's mark on a whole column or a column's on a whole row
+  (decision 7's id). Not reserved for a macro, as `last` is not; a define's
+  word so spelled is refused, a form of the formula syntax's own. The
+  English path's "absolute of" is `ABS`, a sentence's word; `(absolute -5)`
+  here is refused by name and never an `ABS`. Declined: one head with its
+  state, `(absolute X row)`, a word chosen from three where the head's name
+  can say it; the state F4 cycles to, which takes away a mark the author
+  wrote; `anchor`, `anchor-row` and `anchor-column`, no word of Excel's for
+  this; `fixed`, which is Excel's `FIXED`; and a fourth head taking marks
+  away, which nothing asks.
+
+  4. *The first cell.* `(first-cell-expand reference)`, a third form of the
+  walk beside `sheet-expand` and `range-expand`: its argument expanded to
+  its fixpoint, read as one reference on a sheet as the two read it, and
+  answered as its first cell's text, the text `ref` takes:
+  `(first-cell-expand Tally!B1:E10)` `"B1"`, a cell's own address for a
+  cell, its marks as written, `(first-cell-expand Tally!$B$1:$E$10)`
+  `"$B$1"`. A range written backwards answers its top-left, as the grid
+  reads a row's range and as Excel rewrites one typed backwards: the lesser
+  column with the mark written on it and the lesser row with its own, the
+  first corner's where the two are equal, `Tally!E10:B1` `"B1"`. Refused
+  by name: a whole column or row, no fill's range (decision 7's id); and
+  the two's refusals, an argument count other than one
+  (`vla-expand-arity`), no sheet (`vla-reference-no-sheet`), and a name, a
+  span or a text (`vla-reference-expected`). Reserved, as the two are. The
+  kit's verbs then write `(last (ref sheet (first-cell-expand (ref sheet
+  range))))`, `ref` making one reference of their two texts, and at a word
+  the walk meets `(sheet-expand word)` and `(range-expand word)` inside it.
+  Declined: `corner-expand`, which names no corner; `top-left-expand`,
+  where the kit's own word is the first cell (`first-of`, "a range's first
+  cell as a text"); `first-cell` bare, Buffet's macro's name, and without
+  the suffix that says a form computes while the macro expands (chapter
+  14's rule); a range's text for an argument, `(first-cell-expand
+  "B1:E10")`, which gives the walk's three forms two kinds to read where
+  `ref` makes one; and a reference answered in place of a text, the two
+  answering texts and a row's fields being texts.
+
+  5. *Whether a primitive reads a form of the walk.* No. A primitive's
+  argument is resolved inside a macro's application, before the walk meets
+  the result; a primitive that read `range-expand` would run the walk
+  inside the substitution, a function with a value at expand time, which
+  is `VLA.8`'s question, its first decision the doctrine's sentence and the
+  owner's. The three uses that cannot wait stand where the walk already
+  reaches: `list?` reads data, and the heads and the first cell stand in a
+  formula's expression or a row's field. So `(&expand (first-cell-expand
+  X))` stays refused as `&expand` of a list, and `first-of` stays the
+  kit's walk over a range's text where a verb has one. Declined: the
+  primitives expanding their arguments, which lets a define change a
+  primitive's data, the wall `VLA.6`'s decision 2 kept.
+
+  6. *One reading of a reference.* `last`, the three heads and the walk's
+  three forms read one reference the same way: a symbol the scanner reads
+  whole, a `(ref sheet address)`, or one of the syntax's reference heads
+  around one, read inside out; so the heads compose in either order and
+  the walk's forms read what a head writes, `(range-expand (absolute
+  stop))` `"$B$12"`, `(sheet-expand (last stop))` `"State.last"`. Each
+  then asks its own: a sheet (`last` and the walk's three), no twin
+  (`last`), a mark's place (the heads), a cell or a range (the first
+  cell). A refusal inside names the innermost form and what it holds:
+  `(last (absolute B12))` is refused as no sheet, `(absolute (last 5))` as
+  `last`'s. The reading recurses no deeper than the form nests, which the
+  reader and the walk hold to 64. Declined: each head reading only a symbol
+  or a `ref`, which refuses `(last (absolute stop))`; and two readings,
+  one for the heads and one for the walk's forms, two rules for one
+  thing. The consequence for `VLA.6`'s forms, unreleased: `(last (last X))`
+  is refused as a twin's twin where it was refused as no reference, and
+  the two parts take a head's form where they refused one.
+
+  7. *The refusals.* One id, `vla-reference-whole-line`, "{op}: '{value}'
+  is a whole {line}, and {op} takes {want}", a whole column or row where a
+  form needs a cell or the other axis: the first cell's, and a mark a
+  whole column or row has no place for. And `vla-reference-expected`
+  gains a slot, `{want}`, what the form reads: `VLA.6`'s sites pass "one
+  reference on a sheet", so their records stand byte for byte, and
+  `TestDefineForms`' pin of that text with them; the heads pass "a cell, a
+  range, a column or a row". Declined: an id for the heads' expectation
+  beside one that differs by its first words; and one text reworded for
+  every form, which moves `VLA.6`'s records and its pin and calls a span of
+  sheets no reference.
+
+  8. *The reader.* It refuses a call named `ABSOLUTE`, as it refuses `LAST`
+  and `REF`, a word the syntax keeps for a form of its own; the other two
+  are never a function's name. A marked reference reads, as today, as the
+  bare reference it is, so `(absolute X)` round-trips as `(last X)` does:
+  written as the marked reference, read back as that bare symbol, and
+  written again to the same text. Declined: the reader writing the heads
+  for each mark it reads, which moves the reading golden (Buffet's row,
+  Sand's brush and the references of every shape) and the laws' generator,
+  for an expression the bare reference already round-trips.
+
+  9. *The docs.* The tutorial's chapter 14: the table's count, twenty-nine,
+  and two rows, `(list? x)` and `(first-cell-expand reference)`; *A formula
+  from an expression*, the three heads after the twin, with a table of what
+  each writes; *A reference's two parts*, the third. The crate's page: the
+  expander's paragraph `list?` and the first cell, the formula syntax's
+  paragraph the three heads. `RELEASES.md` under 0.12.0. Every example run
+  through the port. Declined: the rear-view and the release note alone,
+  which leave the add-in's user without four words of the language.
+
+  10. *The version.* 0.12.0, unreleased and holding `VLA.5`'s and
+  `VLA.6`'s notes: two reserved names more, three more words a define
+  refuses, and the reader's `ABSOLUTE`, each a change of the language for a
+  source that used one, of which Delta holds none. The number is the
+  owner's.
+
+  **The ids**, one in the language's half, the 237th:
+  `vla-reference-whole-line`; and `vla-reference-expected`'s `{want}`.
+  `list?`'s and the first cell's arity are `vla-expand-arity`'s, the heads'
+  `vla-formula-arity`'s, and the reader's `ABSOLUTE`
+  `vla-formula-read-unsupported`'s.
+
+  **The wall**, the line's constitution and the gate's four, with the
+  `GENSYM` veto's tests:
+  - *Purity.* `list?` reads its argument, the source's data, and nothing
+    else; the heads and the first cell read the reference written or the
+    form a define named, the source's both. No file, workbook, clock or
+    table outside the compile is read.
+  - *Provenance.* Every output is the author's reference with the marks the
+    author asked for, the corner of the author's range, or `true` or
+    `false` of the author's data. No name is made, so `GENSYM`'s breach has
+    no door here.
+  - *Budget.* Each form refuses by name every shape it does not take; the
+    first cell's argument expands inside the walk's chain and depth limits,
+    as the two parts' does; the reading recurses no deeper than the form
+    nests.
+  - *Confluence.* Each is a pure function of its argument; the first cell
+    sets no state of the walk and returns through `finish`; the heads
+    commute with one another and with `last`, so no order of writing moves
+    the text.
+  - *The veto's tests.* The same text across recompiles and reorderings,
+    nothing here reading an order; re-derivable by hand, a `$` before a
+    letter or a number and a range's corner; and never surfacing without a
+    trace, each text a record of the expand golden and visible in
+    `VlaExpandText`.
+
+  **The catch.**
+  - Trap 8: `ExpandMacros` gains no local. `first-cell-expand` takes a test
+    of its own beside the two parts' (rule 8 reads theirs as written) and
+    their helper, `ExpandReferencePart`, its op handed on.
+  - The walk's returns: the first cell goes by `finish`, and a case writes
+    it after a `debug-print` in a begin a macro made, the trap `VLA.5` and
+    `VLA.6` each met.
+  - The reading recurses in the reference too: `FsSheetReference` becomes a
+    reading over a `FormulaRef` handed down `ByRef`, a frame a head, at
+    most the form's nesting.
+  - `vla-reference-expected` gains a slot: every raise site passes it, which
+    `check_message_slots` holds, and the export runs again.
+  - Of the three names only `absolute` can be a function's, so the reader's
+    list gains one word.
+  - `list?` resolves its argument as every primitive does, so an entry
+    written `(quote a)` reads as the word `a`: documented.
+  - A word a define binds, used in first-cell-expand's argument in its own
+    form, is refused as a name by the reading before the define's rule
+    meets it, as with the two parts.
+  - No new state: `VlaFrame.cls` and the port's `Expander` keep their
+    fields.
+
+  **The oracle.** The expand golden, its new cases the port's prediction
+  and the reference's `VlaWriteExpandGolden` writing the same bytes, the
+  witness `git diff --no-index` against the crate's copy; the reading
+  golden's one case; `TestAddressForms` in the owner's `VlaSelfTests`; the
+  port's unit tests; the proof in miniature in `tests/expand_golden.rs`;
+  the strangers; `check_expand_golden`'s rule 9 and its mutants; every
+  other golden unchanged, the door's ten and `prove -Impl`, and
+  `VlaGoldens` PASS; `run_checks` green; the package's tests from its
+  tarball. In an Alonzo copy by `git archive`, `vla-lang` patched to this
+  tree and the patch never committed: a probe as `KIT.6`'s third slice
+  would write it, `names` telling words from pairs by `list?`, a fill
+  citing `(define stop State!B12)` as `State!$B$12` and `State.last!$B$12`,
+  and `count` at a word through the first cell; and every cartridge `same`
+  by `expand --check`.
+
+  **Size.** `~days`, as minted, both implementations, the three in one
+  pass: about twenty-three files, `VLA.6`'s less `VlaFrame.cls`,
+  `VLA_Refers.bas` and `refers.rs`.
+
+  **Built 2026-10-29, the owner's VBA pass the same day.** The ten
+  decisions as approved, the reference first. What landed, twenty-one files:
+  - *The reference.* `VLA.bas`: `EvalListQ` after `EvalNullQ`, and `list?`
+    in the two recognition Selects, `EvalListopsPrim` and
+    `ExpandReservedDesc`; `first-cell-expand` at a form's head beside the two
+    parts, a test of its own since rule 8 reads theirs as written, by their
+    helper, `ExpandReferencePart`, and reserved; the three marks in
+    `FsList`'s Select (`FsMarkForm`); the one reading, `FsOneReference` over
+    `FsReferenceHead`, `FsSpelledReference` (the old reading, its refusals
+    saying `FsReferenceWant`), `FsLastReference` (split from `FsLastForm`)
+    and `FsMarkedReference`, with `FsSheetReference` the reading that asks a
+    sheet; `FsFirstCellText` under `FsReferencePartText`; the three marks in
+    `DefineReservedDesc`. `ExpandMacros` gained no local. The trap list was
+    run: each new procedure's name unique across `src/`, no identifier a
+    keyword or spelled as a member, no Variant handed to a typed `ByRef`,
+    every line CRLF, the longest 302 characters. `VLA_Messages.bas`:
+    `vla-reference-whole-line` and `vla-reference-expected`'s `{want}`,
+    exported, the language's half at 237. `VLA_Tests.bas`:
+    `TestAddressForms`, 67 pins, after `TestDefineForms`. Each module's
+    version is `VLA.15`.
+  - *The port.* `expand.rs`: `LISTOPS` and `RESERVED`'s two, `eval_listq`,
+    `first-cell-expand` in `expand_at` and `reference_part`, the describer's
+    three. `formula_syntax.rs`: `mark_form`, `marked_reference`,
+    `last_reference`, `one_reference`, `reference_head`, `spelled_reference`,
+    `reference_want` and `first_cell_text`, `sheet_reference` over
+    `one_reference`, and the reader's `ABSOLUTE`. Four unit tests holding the
+    67 pins' sources and texts, and the writer's own, the marks written
+    directly and `=ABSOLUTE-ROW(A1)` read as the names and operator it spells;
+    `tests/expand_golden.rs`, two proofs in miniature, a block's labels and
+    words from words and a pair, and the fill citing a word anchored and
+    `count` at a word through the first cell, each the rows its twin by
+    addresses writes; `tests/strangers.rs`, a seed program and seven named
+    cases, marks nested sixty deep answered and seventy refused at the
+    reader's limit.
+  - *The goldens.* 68 cases, 43 expanded and 25 refused, the fixture 362
+    and 164 refused, 47 distinct ids; the 294 records before them byte for
+    byte the committed golden, `VLA.6`'s text of `vla-reference-expected`
+    standing through the new slot. Written by the port through a scratch
+    probe that runs the test's own report loop and writes the reference's
+    CRLF, into both copies while `scripts/expand_golden.txt` still equalled
+    HEAD, the probe first reproducing the committed golden over the fixture
+    as it stood. The reading fixture's one case,
+    `unsupported-a-function-named-absolute`, its golden blessed.
+  - *The checks.* `check_expand_golden`'s rule 9 and two mutants, a walk
+    without the first cell and a port's writer without the marks, fourteen
+    in all; floors 362, 198 and 47. `check_data_exports` at 237.
+  - *The docs.* The tutorial's chapter 14: the count, twenty-nine, two rows
+    of its table, *A word or a list* after `cond`'s paragraph, *A
+    reference's marks* after the twin, and *A reference's first cell* after
+    the two parts; the crate's page, `list?` in the expander's paragraph and
+    the marks and the first cell in the formula syntax's; `RELEASES.md` under
+    0.12.0; the roadmap's line 🟡. Every example run through the port.
+
+  **Found while building.** The host suite's
+  `TestSetFormulaSpillsWithoutImplicitIntersection` failed once in the
+  owner's pass: `=SEQUENCE(3)` written by `Formula2` with no `@`, its first
+  pin passing, and B2 1 with B3 and B4 empty, the transient `LX.15`'s run
+  met on 2026-10-02, which passed on its re-run with the calculation
+  automatic. This item's code meets the test's path at two comparisons that
+  answer false, and its expansion is unchanged. The test stands seventh in
+  the host suite, ahead of every test that sets the calculation (g-formula
+  3's among them), each of which leaves it automatic; `VLA.xlsm`'s last save
+  holds an automatic calculation (its `calcPr` names no mode). The reading
+  the session offered, a first run whose calculation came in manual, is
+  unproved: the owner found the calculation automatic after the failing run,
+  which the later tests leave it in either way, so the look could not tell;
+  and with Excel closed and opened again the suite passed whole. The cause is
+  unknown. Left as found, the second time recorded, for the owner's word:
+  the test setting the calculation it needs and putting the prior one back,
+  or a probe of the spill under each mode first.
+
+  **Verified** on `b7208fe` plus this item: fmt clean and clippy with `-D
+  warnings` clean; `cargo test --workspace`, 680 passed, 0 failed and 5
+  ignored; `prove -Impl` over the door built from this tree, 61 passed and
+  none failed; `run_checks`, 60 of 60; `check_expand_golden -Control`, each
+  of fourteen mutants failing; `vla-lang`'s package from its tarball, 455
+  tests passing, its fixture and golden the tree's; the strangers' long run,
+  ten seeds of 5,000 cases at each of the six doors, every one answered or
+  refused by name. In Alonzo at `e22a0ed`, a scratch copy by `git archive`
+  with `vla-lang` patched to this tree and nothing written in its tree: the
+  eleven cartridges `same` by `expand --check`; a probe as `KIT.6`'s third
+  slice would write it expanding to 62 rows and loading, `names` writing
+  the labels `phase`, `stopped at` and `stop` from words and a pair, the
+  Gate's fill at the word `stop`, `=IF(State!$B$3=1,State.last!$B$3,0)`,
+  byte for byte its twin by addresses, and `count` at the word `presses`,
+  `=Tally.last!B1+Input!B16`; and with the kit's `count`, `hold` and `since`
+  rewritten over the first cell and `dice` and `edge` over `last`, as
+  `KIT.6`'s tenth decision writes them, every cartridge still `same`.
+
+  **For the owner's pass:** `VlaDevReload`, Debug > Compile;
+  `? VlaSelfTests()`, the pure suite 67 pins more than its last run,
+  2218/2218 predicted, the host suite 333/333; `? VlaWriteExpandGolden()`,
+  362 cases and 164 refused, its file then held to the crate's copy by `git
+  diff --no-index`, empty predicted; `? VlaGoldens()`, corpus and
+  interpreter PASS, no emitted code having moved.
+
+  **The owner's pass, 2026-10-29:** `VlaSelfTests`, pure 2218/2218,
+  `TestAddressForms`' 67 pins among them, and host 332/333, its one failure
+  the transient found above; `VlaWriteExpandGolden` wrote 362 cases, 164
+  refused, byte for byte the port's prediction (`git diff --no-index`
+  against the crate's copy, exit 0); `VlaGoldens`, corpus and interpreter
+  PASS. Run again with Excel closed and opened again, `VlaSelfTests`, pure
+  2218/2218 and host 333/333. The ten decisions stand as built. **Closed ✅
+  and committed 2026-10-29 at the owner's word.**
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
@@ -53101,6 +53545,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.5 — `each`, a loop at expand time, and `assoc-expand`, a piece by its head.** Minted 2026-10-23 from the sitting on the helper-hungry style; scoped, approved, built, owner-tested and committed 2026-10-24 at the owner's word. `(each (name list) form ...)` writes its forms once for each element of a list, the name bound beside the template's own parameters, and `(each-index (index name list start) form ...)` binds a count beside it from a start its author must write, so that a kit macro says what its rows are and never how to walk them. A loop is a form of the walks beside `formula-expand`, and takes the rest parameter's rule: one `begin` where it stands alone, its results spliced where it is a list's element (a sum, inside `formula-expand`, a loop inside a loop flat), the list of them where a primitive or an unquote reads it. Its names are refused by name when expand-time names or already bound, and its list when an atom or written as a macro's call. `(assoc-expand head entries)`, the twenty-eighth primitive, answers the first entry whose head is `head` or `()`, as Scheme's `assoc`. The reserved names became one table in the reference. Found and fixed on the way: a `begin` a macro made that ended in an atom kept only the atom, in both implementations. Twelve of the kit's fifteen walkers can be loops and `picture-legend` an `assoc-expand`; the kit's `cells` takes 4.9 ms over 2,000 entries in the port where its walker took 139, and 375 ms in the add-in where the walker took 12.9 s, one application over 10,000 where the walker stopped at 2,499. The owner's pass: pure 2082/2082, host 333/333; the reference's expand golden, 229 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6` and Buffet's `HOUSE.7`, once a release carries it; `VLA.6`'s `names`. *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **VLA.6 — `define`, a name at expand time, and `last`, a reference's twin in the formula syntax.** Minted 2026-10-23 from the sitting on the helper-hungry style; scoped, approved, built, owner-tested and committed 2026-10-25 at the owner's word. `(define stop State!B12)` binds a word to a form from the next form of the source on: the walk passes a define by as written, and once the form it stands in has expanded, the one wrapper every entry point calls takes the defines from its statements and registers them, so that neither the trampoline's order nor a begin's shape decides what a word means. The walk puts a define's form where its word stands as a value, never at a list's head, inside a quote or a text, or in an expand-time primitive's argument; a word that already means something (a reference, a number, a form of the language, an expand-time name, `error`, `ref` or `last`, a macro's name, a word defined already), a word used in the form that defines it and a ring of words are refused by name. `(last X)` writes X's twin, `Input.last!B13` for `Input!B13`, its sheet quoted by the one rule, and the formula reader refuses `LAST(` as it refuses `REF(`; `sheet-expand` and `range-expand` give a reference's sheet and its cell or range, the two texts `ref` takes, so that a verb writes a row at a word, and the stop rule written in names writes Kairos's committed row. Found while scoping and fixed in both implementations: every return of the trampoline but an atom's dropped the forms a begin a macro made had set aside before it. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor Buffet's game. The owner's pass: pure 2151/2151, host 333/333; the reference's expand golden, 294 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6` and Buffet's `HOUSE.7`, once a release carries it. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **VLA.15 — a name where an address stands: `list?`, a word told from a list; the anchored reference in the formula syntax; and a reference's first cell, a third form of the walk.** Minted 2026-10-29 from Alonzo's `KIT.6`, whose first slice found what its third asks of the language; scoped, approved, built, owner-tested and committed 2026-10-29 at the owner's word. `(list? x)`, the twenty-ninth primitive, is `true` for every list, the empty one among them, and `false` for a word or a text, the one test of a form's kind that refuses neither, so a template tells a word from a pair. `(absolute X)`, `(absolute-row X)` and `(absolute-column X)` write a reference with the `$` marks each adds, Excel's absolute reference and its two mixed ones, and never take one away, so the three and `last` stand in either order and a fill cites a defined word anchored: `(last (absolute stop))` writes `State.last!$B$12`. `(first-cell-expand X)` gives a reference's first cell, a range's top-left as the grid reads it, as the text `ref` takes, so a verb twins the cell its fill is written for at a word as at an address. The syntax's reference heads and the walk's three forms read one reference one way, inside out; a whole column or row where a cell is needed is refused by name, and the formula reader refuses a call named `ABSOLUTE`. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor did any with the kit's twins rewritten over the new forms as `KIT.6`'s tenth decision writes them. The owner's pass: pure 2218/2218, host 333/333 on a second run, the first having met a transient recorded under Found; the reference's expand golden, 362 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second and third slices, once a release carries it; `VLA.13`. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

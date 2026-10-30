@@ -784,3 +784,194 @@ EXPANDED	1
 === a-begin-a-macro-made-keeps-its-forms-before-a-primitive
 EXPANDED	1
 (begin (debug-print 1) a)
+=== list-test-of-a-list
+EXPANDED	0
+true
+=== list-test-of-the-empty-list
+EXPANDED	0
+true
+=== list-test-of-a-word
+EXPANDED	0
+false
+=== list-test-of-a-text
+EXPANDED	0
+false
+=== list-test-of-a-number
+EXPANDED	0
+false
+=== list-test-of-a-loop
+EXPANDED	0
+true
+=== list-test-of-a-view-cdr-made
+EXPANDED	0
+true
+=== list-test-reads-a-define-s-word-as-data
+EXPANDED	0
+(begin)
+false
+=== list-test-tells-a-word-from-a-pair
+EXPANDED	2
+(cell "State" "A1" "phase")
+(cell "State" "A2" "stopped at")
+=== names-from-words-and-pairs
+EXPANDED	5
+(begin (begin (cell "State" "A1" "phase")) (cell "State" "A2" "stopped at"))
+"=IF(State!B1=1,State!B2,0)"
+=== list-test-of-two-refused
+REFUSED	vla-expand-arity	list? expects exactly 1 argument(s), got 2
+=== list-test-of-nothing-refused
+REFUSED	vla-expand-arity	list? expects exactly 1 argument(s), got 0
+=== reserved-list-test
+REFUSED	vla-defmacro-reserved-name	defmacro 'list?': 'list?' is the list-test primitive and cannot be a macro name
+=== define-named-list-test-refused
+REFUSED	vla-define-name-reserved	define 'list?': 'list?' is the list-test primitive, and a define binds a word of the source's own
+=== absolute-of-a-cell
+EXPANDED	0
+"=State!$B$12+1"
+=== absolute-row-of-a-cell
+EXPANDED	0
+"=Gate!A$4"
+=== absolute-column-of-a-cell
+EXPANDED	0
+"=Gate!$D1"
+=== absolute-of-a-range
+EXPANDED	0
+"=SUM(Tally!$B$1:$E$10)"
+=== absolute-row-of-a-range
+EXPANDED	0
+"=SUM(Tally!B$1:E$10)"
+=== absolute-column-of-a-range
+EXPANDED	0
+"=SUM(Tally!$B1:$E10)"
+=== absolute-of-a-column
+EXPANDED	0
+"=SUM(Screen!$A:$A)"
+=== absolute-column-of-a-column
+EXPANDED	0
+"=SUM(Screen!$A:$C)"
+=== absolute-of-a-row
+EXPANDED	0
+"=SUM($3:$3)"
+=== absolute-row-of-a-row
+EXPANDED	0
+"=SUM(Screen!$3:$5)"
+=== absolute-of-a-reference-with-no-sheet
+EXPANDED	0
+"=$B$6+1"
+=== absolute-row-keeps-a-mark-written
+EXPANDED	0
+"=$B$12"
+=== absolute-of-a-quoted-sheet
+EXPANDED	0
+"='Q1 Data'!$A$1"
+=== absolute-of-a-twin
+EXPANDED	0
+"=Input.last!$B$5"
+=== absolute-of-a-word-a-define-binds
+EXPANDED	0
+(begin)
+"=State!$B$12+State.last!$B$12"
+=== last-and-absolute-either-way-round
+EXPANDED	0
+(begin)
+"=State.last!$B$12=State.last!$B$12"
+=== absolute-row-and-absolute-column-make-absolute
+EXPANDED	0
+"=Input!$B$5"
+=== absolute-twice-is-absolute-once
+EXPANDED	0
+"=Input!$B$5"
+=== a-fill-citing-a-word-anchored
+EXPANDED	1
+(begin)
+(formula "Gate" "A1:O1" "=IF(State!$B$12=1,State.last!$B$12,0)")
+=== a-fill-citing-addresses-anchored
+EXPANDED	1
+(formula "Gate" "A1:O1" "=IF(State!$B$12=1,State.last!$B$12,0)")
+=== absolute-of-two-refused
+REFUSED	vla-formula-arity	formula: (absolute ...) takes one reference, got 2
+=== absolute-of-a-name-refused
+REFUSED	vla-reference-expected	absolute: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got 'stop', a name
+=== absolute-of-a-number-refused
+REFUSED	vla-reference-expected	absolute: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got '5', no reference
+=== absolute-of-a-span-of-sheets-refused
+REFUSED	vla-reference-expected	absolute: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got 'Jan:Dec!A1', a span of sheets
+=== absolute-of-a-text-refused
+REFUSED	vla-reference-expected	absolute: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got '"B12"', a text
+=== absolute-row-of-a-column-refused
+REFUSED	vla-reference-whole-line	absolute-row: 'Screen!A:A' is a whole column, and absolute-row takes a reference with a row to mark, such as Input!B5 or 3:3
+=== absolute-column-of-a-row-refused
+REFUSED	vla-reference-whole-line	absolute-column: '3:3' is a whole row, and absolute-column takes a reference with a column to mark, such as Input!B5 or A:A
+=== last-of-an-anchored-reference-with-no-sheet-refused
+REFUSED	vla-reference-no-sheet	last: '(absolute B12)' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== absolute-of-a-twin-s-twin-refused
+REFUSED	vla-formula-last-twin	last: 'Input.last!B5' is a twin already, and a twin has none - (last X) takes the reference X itself
+=== last-of-last-refused-as-a-twin-s-twin
+REFUSED	vla-formula-last-twin	last: '(last Input!B5)' is a twin already, and a twin has none - (last X) takes the reference X itself
+=== define-named-absolute-refused
+REFUSED	vla-define-name-reserved	define 'absolute': 'absolute' is a form of the formula syntax's own, and a define binds a word of the source's own
+=== define-named-absolute-row-refused
+REFUSED	vla-define-name-reserved	define 'absolute-row': 'absolute-row' is a form of the formula syntax's own, and a define binds a word of the source's own
+=== define-named-absolute-column-refused
+REFUSED	vla-define-name-reserved	define 'absolute-column': 'absolute-column' is a form of the formula syntax's own, and a define binds a word of the source's own
+=== first-cell-expand-of-a-range
+EXPANDED	0
+"B1"
+=== first-cell-expand-of-a-cell
+EXPANDED	0
+"B12"
+=== first-cell-expand-keeps-its-marks
+EXPANDED	0
+"$B$1"
+=== first-cell-expand-of-a-range-written-backwards
+EXPANDED	0
+"B1"
+=== first-cell-expand-takes-each-lesser-with-its-mark
+EXPANDED	0
+"$B1"
+=== first-cell-expand-of-a-word-a-define-binds
+EXPANDED	0
+(begin)
+"B1"
+=== first-cell-expand-of-a-word-s-two-parts
+EXPANDED	0
+(begin)
+"B1"
+=== first-cell-expand-of-an-anchored-word
+EXPANDED	0
+(begin)
+"$B$1"
+=== a-count-at-a-word
+EXPANDED	2
+(begin)
+(formula "Tally" "B1:E10" "=Tally.last!B1+Input!B16")
+=== a-count-at-addresses
+EXPANDED	1
+(formula "Tally" "B1:E10" "=Tally.last!B1+Input!B16")
+=== first-cell-expand-of-a-column-refused
+REFUSED	vla-reference-whole-line	first-cell-expand: 'Screen!A:A' is a whole column, and first-cell-expand takes a cell or a range, such as Tally!B1:E10
+=== first-cell-expand-of-a-row-refused
+REFUSED	vla-reference-whole-line	first-cell-expand: 'Screen!3:3' is a whole row, and first-cell-expand takes a cell or a range, such as Tally!B1:E10
+=== first-cell-expand-of-no-sheet-refused
+REFUSED	vla-reference-no-sheet	first-cell-expand: 'B1:E10' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== first-cell-expand-of-a-name-refused
+REFUSED	vla-reference-expected	first-cell-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'tally', a name
+=== first-cell-expand-of-a-text-refused
+REFUSED	vla-reference-expected	first-cell-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '"B1:E10"', a text
+=== first-cell-expand-of-two-refused
+REFUSED	vla-expand-arity	first-cell-expand expects exactly 1 argument(s), got 2
+=== first-cell-expand-in-a-primitive-s-argument-refused
+REFUSED	vla-expand-arg-is-list	&expand: argument 1 is a list, expected an atom or string literal
+=== reserved-first-cell-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'first-cell-expand': 'first-cell-expand' is the expand-time reference-first-cell operation and cannot be a macro name
+=== range-expand-of-an-anchored-word
+EXPANDED	0
+(begin)
+"$B$12"
+=== sheet-expand-of-a-twin
+EXPANDED	0
+(begin)
+"State.last"
+=== a-begin-a-macro-made-keeps-its-forms-before-a-first-cell
+EXPANDED	1
+(begin (debug-print 1) "B1")

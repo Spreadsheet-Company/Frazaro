@@ -1,6 +1,21 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.6"
+Public Const VLA_TESTS_VERSION As String = "VLA.15"
+' VLA.15: TestAddressForms - a name where an address stands, 67 pins: list?
+' true for every list, the empty one, a loop's results and a cdr's view
+' among them, and false for a word, a text, a number and a define's word,
+' read as data; a template telling a word from a pair, and a block's labels
+' and words from words and pairs; the three marks on a cell, a range, a whole
+' column or row, with no sheet, a quoted sheet and a twin, a mark written
+' standing, each commuting with the others and with last either way round,
+' and a fill citing a word anchored; first-cell-expand's first cell, a
+' range's top-left written either way with the marks written on it, of a
+' word, of a ref made of a word's two parts and of an anchored word, and
+' count at a word writing the row count at addresses writes; the walk's two
+' parts reading what a head writes; the trampoline keeping a begin's forms
+' before the first cell; and every refusal by its words or its id. Wired
+' after TestDefineForms.
+'
 ' VLA.6: TestDefineForms - a name at expand time and a reference's twin, 69
 ' pins: a define binding the forms after its own and replaced only where the
 ' walk meets its word as an expression, never a head, a quote, a text or a
@@ -532,6 +547,7 @@ Public Function VlaSelfTest() As Boolean
     TestListopsObjectModel
     TestEachForms
     TestDefineForms
+    TestAddressForms
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -7092,6 +7108,148 @@ Private Sub TestDefineForms()
         ExpandTrimmed("(defmacro (m) (debug-print 1) (formula-expand (+ A1 1))) (m)"), "(begin (debug-print 1) ""=A1+1"")"
     CheckV "define: a begin a macro made keeps its forms before a primitive", _
         ExpandTrimmed("(defmacro (m) (quasiquote (begin (debug-print 1) (car (quote (a b)))))) (m)"), "(begin (debug-print 1) a)"
+End Sub
+
+' VLA.15: a name where an address stands - list?, a word told from a list;
+' the three marks, a reference's $ marks in the formula syntax; and
+' first-cell-expand, a reference's first cell, a third form of the walk.
+Private Sub TestAddressForms()
+    ' --- list?: a word told from a list, refusing neither.
+    CheckV "list?: a list", ExpandTrimmed("(list? (quote (a b)))"), "true"
+    CheckV "list?: the empty list is a list", ExpandTrimmed("(list? (quote ()))"), "true"
+    CheckV "list?: a word is no list", ExpandTrimmed("(list? (quote a))"), "false"
+    CheckV "list?: a text is no list", ExpandTrimmed("(list? ""a"")"), "false"
+    CheckV "list?: a number is no list", ExpandTrimmed("(list? 5)"), "false"
+    CheckV "list?: a loop where it reads is its results' list", ExpandTrimmed("(list? (each (x (quote (a b))) x))"), "true"
+    CheckV "list?: a view a cdr made is a list", ExpandTrimmed("(list? (cdr (quote (a b))))"), "true"
+    CheckV "list?: a word a define binds is read as data", _
+        ExpandTrimmed("(define stop State!B12) (list? stop)"), "(begin)" & vbCrLf & "false"
+    CheckV "list?: a template tells a word from a pair", _
+        ExpandTrimmed("(defmacro (entry-label entry) (quote-if (list? entry) (car entry) (&expand entry))) " & _
+            "(cell ""State"" ""A1"" (entry-label phase)) (cell ""State"" ""A2"" (entry-label (""stopped at"" stopped-at)))"), _
+        "(cell ""State"" ""A1"" ""phase"")" & vbCrLf & "(cell ""State"" ""A2"" ""stopped at"")"
+    Dim namesMacros As String
+    namesMacros = "(defmacro (names sheet top & entries) (each-index (row entry entries top) (name-entry sheet row entry))) " & _
+        "(defmacro (name-entry sheet row entry) (quote-if (list? entry) " & _
+        "(label-and-name sheet row (car entry) (car (cdr entry))) (label-and-name sheet row (&expand entry) entry))) " & _
+        "(defmacro (label-and-name sheet row label word) (cell sheet (address-expand row 1) label) " & _
+        "(define word (ref sheet (address-expand row 2)))) "
+    CheckV "list?: a block's labels and words from words and pairs", _
+        ExpandTrimmed(namesMacros & "(names ""State"" 1 phase (""stopped at"" stopped-at)) (formula-expand (if (= phase 1) stopped-at 0))"), _
+        "(begin (begin (cell ""State"" ""A1"" ""phase"")) (cell ""State"" ""A2"" ""stopped at""))" & vbCrLf & _
+        """=IF(State!B1=1,State!B2,0)"""
+    CheckExpandErr "list?: takes one argument", "(list? (quote a) (quote b))", "list? expects exactly 1 argument(s), got 2"
+    CheckV "list?: takes one argument, not none", ExpandRefusalId("(list?)"), "vla-expand-arity"
+    CheckExpandErr "list?: refused as a macro name", "(defmacro (list? x) x)", _
+        "'list?' is the list-test primitive and cannot be a macro name"
+    CheckExpandErr "list?: refused as a define's word", "(define list? A1)", "'list?' is the list-test primitive"
+
+    ' --- the three marks: a reference's $ marks in the formula syntax, each
+    '     added and none taken away, so that they commute with last.
+    CheckV "absolute: a cell's both marks", ExpandTrimmed("(formula-expand (+ (absolute State!B12) 1))"), """=State!$B$12+1"""
+    CheckV "absolute-row: the row's mark", ExpandTrimmed("(formula-expand (absolute-row Gate!A4))"), """=Gate!A$4"""
+    CheckV "absolute-column: the column's mark", ExpandTrimmed("(formula-expand (absolute-column Gate!D1))"), """=Gate!$D1"""
+    CheckV "absolute: a range's two corners", _
+        ExpandTrimmed("(formula-expand (sum (absolute Tally!B1:E10)))"), """=SUM(Tally!$B$1:$E$10)"""
+    CheckV "absolute-row: a range's two rows", _
+        ExpandTrimmed("(formula-expand (sum (absolute-row Tally!B1:E10)))"), """=SUM(Tally!B$1:E$10)"""
+    CheckV "absolute-column: a range's two columns", _
+        ExpandTrimmed("(formula-expand (sum (absolute-column Tally!B1:E10)))"), """=SUM(Tally!$B1:$E10)"""
+    CheckV "absolute: a whole column's columns", ExpandTrimmed("(formula-expand (sum (absolute Screen!A:A)))"), """=SUM(Screen!$A:$A)"""
+    CheckV "absolute-column: a whole column's columns", _
+        ExpandTrimmed("(formula-expand (sum (absolute-column Screen!A:C)))"), """=SUM(Screen!$A:$C)"""
+    CheckV "absolute: a whole row's rows", ExpandTrimmed("(formula-expand (sum (absolute 3:3)))"), """=SUM($3:$3)"""
+    CheckV "absolute-row: a whole row's rows", ExpandTrimmed("(formula-expand (sum (absolute-row Screen!3:5)))"), """=SUM(Screen!$3:$5)"""
+    CheckV "absolute: a reference with no sheet", ExpandTrimmed("(formula-expand (+ (absolute B6) 1))"), """=$B$6+1"""
+    CheckV "absolute-row: a mark written stands", ExpandTrimmed("(formula-expand (absolute-row $B12))"), """=$B$12"""
+    CheckV "absolute: a quoted sheet, quoted by the one rule", _
+        ExpandTrimmed("(formula-expand (absolute (ref ""Q1 Data"" ""A1"")))"), """='Q1 Data'!$A$1"""
+    CheckV "absolute: a twin's cells", ExpandTrimmed("(formula-expand (absolute Input.last!B5))"), """=Input.last!$B$5"""
+    CheckV "absolute: of a word a define binds, and its twin", _
+        ExpandTrimmed("(define stop State!B12) (formula-expand (+ (absolute stop) (last (absolute stop))))"), _
+        "(begin)" & vbCrLf & """=State!$B$12+State.last!$B$12"""
+    CheckV "absolute and last: either way round", _
+        ExpandTrimmed("(define stop State!B12) (formula-expand (= (last (absolute stop)) (absolute (last stop))))"), _
+        "(begin)" & vbCrLf & """=State.last!$B$12=State.last!$B$12"""
+    CheckV "absolute-row of absolute-column: absolute", _
+        ExpandTrimmed("(formula-expand (absolute-row (absolute-column Input!B5)))"), """=Input!$B$5"""
+    CheckV "absolute: twice is once", ExpandTrimmed("(formula-expand (absolute (absolute Input!B5)))"), """=Input!$B$5"""
+    CheckV "absolute: a fill citing a word anchored, the row its addresses write", _
+        LastLineOf(ExpandTrimmed("(defmacro (rule sheet range expression) (formula sheet range (formula-expand expression))) " & _
+            "(define stop State!B12) (rule ""Gate"" ""A1:O1"" (if (= (absolute stop) 1) (last (absolute stop)) 0))")), _
+        "(formula ""Gate"" ""A1:O1"" ""=IF(State!$B$12=1,State.last!$B$12,0)"")"
+    CheckV "absolute: takes one reference", ExpandRefusalId("(formula-expand (absolute A1 B1))"), "vla-formula-arity"
+    CheckExpandErr "absolute: a name refused", "(formula-expand (absolute stop))", _
+        "absolute: expected a cell, a range, a column or a row, such as Input!B5"
+    CheckExpandErr "absolute: a number refused", "(formula-expand (absolute 5))", "got '5', no reference"
+    CheckExpandErr "absolute: a span of sheets refused", "(formula-expand (absolute Jan:Dec!A1))", "got 'Jan:Dec!A1', a span of sheets"
+    CheckExpandErr "absolute: a text refused", "(formula-expand (absolute ""B12""))", "', a text"
+    CheckExpandErr "absolute-row: a whole column refused", "(formula-expand (absolute-row Screen!A:A))", _
+        "absolute-row: 'Screen!A:A' is a whole column, and absolute-row takes a reference with a row to mark"
+    CheckExpandErr "absolute-column: a whole row refused", "(formula-expand (absolute-column 3:3))", _
+        "absolute-column: '3:3' is a whole row, and absolute-column takes a reference with a column to mark"
+    CheckExpandErr "last of an anchored reference with no sheet refused", "(formula-expand (last (absolute B12)))", _
+        "last: '(absolute B12)' names no sheet"
+    CheckV "absolute of a twin's twin refused", _
+        ExpandRefusalId("(formula-expand (absolute (last Input.last!B5)))"), "vla-formula-last-twin"
+    CheckExpandErr "last of last refused as a twin's twin", "(formula-expand (last (last Input!B5)))", _
+        "last: '(last Input!B5)' is a twin already"
+    CheckExpandErr "absolute: refused as a define's word", "(define absolute A1)", _
+        "'absolute' is a form of the formula syntax's own"
+    CheckExpandErr "absolute-row: refused as a define's word", "(define absolute-row A1)", _
+        "'absolute-row' is a form of the formula syntax's own"
+    CheckExpandErr "absolute-column: refused as a define's word", "(define absolute-column A1)", _
+        "'absolute-column' is a form of the formula syntax's own"
+
+    ' --- first-cell-expand: a reference's first cell, a third form of the walk.
+    CheckV "first-cell-expand: a range's first cell", ExpandTrimmed("(first-cell-expand Tally!B1:E10)"), """B1"""
+    CheckV "first-cell-expand: a cell's own address", ExpandTrimmed("(first-cell-expand State!B12)"), """B12"""
+    CheckV "first-cell-expand: its marks as written", ExpandTrimmed("(first-cell-expand Tally!$B$1:$E$10)"), """$B$1"""
+    CheckV "first-cell-expand: a range written backwards, its top-left", _
+        ExpandTrimmed("(first-cell-expand Tally!E10:B1)"), """B1"""
+    CheckV "first-cell-expand: each lesser with the mark written on it", _
+        ExpandTrimmed("(first-cell-expand Tally!E$10:$B1)"), """$B1"""
+    CheckV "first-cell-expand: of a word a define binds", _
+        ExpandTrimmed("(define tally Tally!B1:E10) (first-cell-expand tally)"), "(begin)" & vbCrLf & """B1"""
+    CheckV "first-cell-expand: of a word's two parts made one by ref", _
+        ExpandTrimmed("(define tally Tally!B1:E10) (first-cell-expand (ref (sheet-expand tally) (range-expand tally)))"), _
+        "(begin)" & vbCrLf & """B1"""
+    CheckV "first-cell-expand: of an anchored word", _
+        ExpandTrimmed("(define tally Tally!B1:E10) (first-cell-expand (absolute tally))"), "(begin)" & vbCrLf & """$B$1"""
+    Dim countMacro As String
+    countMacro = "(defmacro (count sheet range event) (formula sheet range " & _
+        "(formula-expand (+ (last (ref sheet (first-cell-expand (ref sheet range)))) event)))) "
+    CheckV "first-cell-expand: count at a word", _
+        LastLineOf(ExpandTrimmed(countMacro & _
+            "(defmacro (at word call) (quasiquote ((unquote (car call)) (sheet-expand (unquote word)) " & _
+            "(range-expand (unquote word)) (unquote-splicing (cdr call))))) " & _
+            "(define tally Tally!B1:E10) (at tally (count Input!B16))")), _
+        "(formula ""Tally"" ""B1:E10"" ""=Tally.last!B1+Input!B16"")"
+    CheckV "first-cell-expand: count at addresses, the same row", _
+        ExpandTrimmed(countMacro & "(count ""Tally"" ""B1:E10"" Input!B16)"), _
+        "(formula ""Tally"" ""B1:E10"" ""=Tally.last!B1+Input!B16"")"
+    CheckExpandErr "first-cell-expand: a whole column refused", "(first-cell-expand Screen!A:A)", _
+        "first-cell-expand: 'Screen!A:A' is a whole column, and first-cell-expand takes a cell or a range, such as Tally!B1:E10"
+    CheckExpandErr "first-cell-expand: a whole row refused", "(first-cell-expand Screen!3:3)", "'Screen!3:3' is a whole row"
+    CheckExpandErr "first-cell-expand: no sheet refused", "(first-cell-expand B1:E10)", "first-cell-expand: 'B1:E10' names no sheet"
+    CheckExpandErr "first-cell-expand: a name refused", "(first-cell-expand tally)", _
+        "first-cell-expand: expected one reference on a sheet"
+    CheckExpandErr "first-cell-expand: a text refused", "(first-cell-expand ""B1:E10"")", "', a text"
+    CheckExpandErr "first-cell-expand: takes one argument", "(first-cell-expand A1 B1)", _
+        "first-cell-expand expects exactly 1 argument(s), got 2"
+    CheckV "first-cell-expand: no primitive's argument", _
+        ExpandRefusalId("(&expand (first-cell-expand Tally!B1:E10))"), "vla-expand-arg-is-list"
+    CheckExpandErr "first-cell-expand: refused as a macro name", "(defmacro (first-cell-expand x) x)", _
+        "'first-cell-expand' is the expand-time reference-first-cell operation and cannot be a macro name"
+
+    ' --- one reading of a reference: the walk's forms read what a head writes;
+    '     and the trampoline keeps a begin's forms before the first cell.
+    CheckV "range-expand: an anchored word's cell", _
+        ExpandTrimmed("(define stop State!B12) (range-expand (absolute stop))"), "(begin)" & vbCrLf & """$B$12"""
+    CheckV "sheet-expand: a twin's sheet", _
+        ExpandTrimmed("(define stop State!B12) (sheet-expand (last stop))"), "(begin)" & vbCrLf & """State.last"""
+    CheckV "first-cell-expand: a begin a macro made keeps its forms before it", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) (first-cell-expand Tally!B1:E10)) (m)"), "(begin (debug-print 1) ""B1"")"
 End Sub
 
 ' VLA.6: a text's last line, all of it when it has one line.

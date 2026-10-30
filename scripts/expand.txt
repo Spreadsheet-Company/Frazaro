@@ -8,10 +8,12 @@ applications that fired>" and the text VlaExpandText prints, or
 "REFUSED<TAB><the catalogue's id><TAB><the refusal's text>". vla-lang is
 held to that file by tests/expand_golden.rs, and
 tools/check_expand_golden.ps1 holds the pair's shape and every one of the
-twenty-eight expand-time primitives reached, with the walk's forms,
+twenty-nine expand-time primitives reached, with the walk's forms,
 formula-expand and the loop, each and each-index (VLA.5), and define and
 a reference's two parts, sheet-expand and range-expand, beside the
-formula syntax's last (VLA.6). A case is named
+formula syntax's last (VLA.6), and a reference's first cell,
+first-cell-expand, beside the formula syntax's three marks, absolute,
+absolute-row and absolute-column (VLA.15). A case is named
 for what it means to reach; the golden records what the reference does.
 No case raises a refusal that names a line, so an edit of the prelude
 moves nothing here.
@@ -838,3 +840,210 @@ moves nothing here.
       (debug-print 1)
       (car (quote (a b))))))
 (logged-head)
+=== list-test-of-a-list
+(list? (quote (a b)))
+=== list-test-of-the-empty-list
+(list? (quote ()))
+=== list-test-of-a-word
+(list? (quote a))
+=== list-test-of-a-text
+(list? "a")
+=== list-test-of-a-number
+(list? 5)
+=== list-test-of-a-loop
+(list? (each (x (quote (a b))) x))
+=== list-test-of-a-view-cdr-made
+(list? (cdr (quote (a b))))
+=== list-test-reads-a-define-s-word-as-data
+(define stop State!B12)
+(list? stop)
+=== list-test-tells-a-word-from-a-pair
+(defmacro (entry-label entry)
+  "an entry's label: a pair's text, or a word's own"
+  (quote-if (list? entry)
+    (car entry)
+    (&expand entry)))
+
+(cell "State" "A1" (entry-label phase))
+(cell "State" "A2" (entry-label ("stopped at" stopped-at)))
+=== names-from-words-and-pairs
+(defmacro (names sheet top & entries)
+  "a block's labels down column A from a row and a word for each value beside one, each entry a word or a (label word) pair"
+  (each-index (row entry entries top)
+    (name-entry sheet row entry)))
+
+(defmacro (name-entry sheet row entry)
+  "one entry of a block: a pair's label and its word, or a word that is its own label"
+  (quote-if (list? entry)
+    (label-and-name sheet row (car entry) (car (cdr entry)))
+    (label-and-name sheet row (&expand entry) entry)))
+
+(defmacro (label-and-name sheet row label word)
+  "one label in column A, and a word for the value beside it in column B"
+  (cell sheet (address-expand row 1) label)
+  (define word (ref sheet (address-expand row 2))))
+
+(names "State" 1 phase ("stopped at" stopped-at))
+(formula-expand (if (= phase 1) stopped-at 0))
+=== list-test-of-two-refused
+(list? (quote a) (quote b))
+=== list-test-of-nothing-refused
+(list?)
+=== reserved-list-test
+(defmacro (list? x) x)
+=== define-named-list-test-refused
+(define list? A1)
+=== absolute-of-a-cell
+(formula-expand (+ (absolute State!B12) 1))
+=== absolute-row-of-a-cell
+(formula-expand (absolute-row Gate!A4))
+=== absolute-column-of-a-cell
+(formula-expand (absolute-column Gate!D1))
+=== absolute-of-a-range
+(formula-expand (sum (absolute Tally!B1:E10)))
+=== absolute-row-of-a-range
+(formula-expand (sum (absolute-row Tally!B1:E10)))
+=== absolute-column-of-a-range
+(formula-expand (sum (absolute-column Tally!B1:E10)))
+=== absolute-of-a-column
+(formula-expand (sum (absolute Screen!A:A)))
+=== absolute-column-of-a-column
+(formula-expand (sum (absolute-column Screen!A:C)))
+=== absolute-of-a-row
+(formula-expand (sum (absolute 3:3)))
+=== absolute-row-of-a-row
+(formula-expand (sum (absolute-row Screen!3:5)))
+=== absolute-of-a-reference-with-no-sheet
+(formula-expand (+ (absolute B6) 1))
+=== absolute-row-keeps-a-mark-written
+(formula-expand (absolute-row $B12))
+=== absolute-of-a-quoted-sheet
+(formula-expand (absolute (ref "Q1 Data" "A1")))
+=== absolute-of-a-twin
+(formula-expand (absolute Input.last!B5))
+=== absolute-of-a-word-a-define-binds
+(define stop State!B12)
+(formula-expand (+ (absolute stop) (last (absolute stop))))
+=== last-and-absolute-either-way-round
+(define stop State!B12)
+(formula-expand (= (last (absolute stop)) (absolute (last stop))))
+=== absolute-row-and-absolute-column-make-absolute
+(formula-expand (absolute-row (absolute-column Input!B5)))
+=== absolute-twice-is-absolute-once
+(formula-expand (absolute (absolute Input!B5)))
+=== a-fill-citing-a-word-anchored
+(defmacro (rule sheet range expression)
+  "one formula row from an expression"
+  (formula sheet range (formula-expand expression)))
+
+(define stop State!B12)
+(rule "Gate" "A1:O1"
+  (if (= (absolute stop) 1)
+    (last (absolute stop))
+    0))
+=== a-fill-citing-addresses-anchored
+(defmacro (rule sheet range expression)
+  "one formula row from an expression"
+  (formula sheet range (formula-expand expression)))
+
+(rule "Gate" "A1:O1"
+  (if (= State!$B$12 1)
+    State.last!$B$12
+    0))
+=== absolute-of-two-refused
+(formula-expand (absolute A1 B1))
+=== absolute-of-a-name-refused
+(formula-expand (absolute stop))
+=== absolute-of-a-number-refused
+(formula-expand (absolute 5))
+=== absolute-of-a-span-of-sheets-refused
+(formula-expand (absolute Jan:Dec!A1))
+=== absolute-of-a-text-refused
+(formula-expand (absolute "B12"))
+=== absolute-row-of-a-column-refused
+(formula-expand (absolute-row Screen!A:A))
+=== absolute-column-of-a-row-refused
+(formula-expand (absolute-column 3:3))
+=== last-of-an-anchored-reference-with-no-sheet-refused
+(formula-expand (last (absolute B12)))
+=== absolute-of-a-twin-s-twin-refused
+(formula-expand (absolute (last Input.last!B5)))
+=== last-of-last-refused-as-a-twin-s-twin
+(formula-expand (last (last Input!B5)))
+=== define-named-absolute-refused
+(define absolute A1)
+=== define-named-absolute-row-refused
+(define absolute-row A1)
+=== define-named-absolute-column-refused
+(define absolute-column A1)
+=== first-cell-expand-of-a-range
+(first-cell-expand Tally!B1:E10)
+=== first-cell-expand-of-a-cell
+(first-cell-expand State!B12)
+=== first-cell-expand-keeps-its-marks
+(first-cell-expand Tally!$B$1:$E$10)
+=== first-cell-expand-of-a-range-written-backwards
+(first-cell-expand Tally!E10:B1)
+=== first-cell-expand-takes-each-lesser-with-its-mark
+(first-cell-expand Tally!E$10:$B1)
+=== first-cell-expand-of-a-word-a-define-binds
+(define tally Tally!B1:E10)
+(first-cell-expand tally)
+=== first-cell-expand-of-a-word-s-two-parts
+(define tally Tally!B1:E10)
+(first-cell-expand (ref (sheet-expand tally) (range-expand tally)))
+=== first-cell-expand-of-an-anchored-word
+(define tally Tally!B1:E10)
+(first-cell-expand (absolute tally))
+=== a-count-at-a-word
+(defmacro (count sheet range event)
+  "each cell its own last value plus an event: =sheet.last!first+event"
+  (formula sheet range
+    (formula-expand (+ (last (ref sheet (first-cell-expand (ref sheet range)))) event))))
+
+(defmacro (at word call)
+  "a verb's row at a word: the word's sheet and range handed in after the verb's head"
+  (quasiquote
+    ((unquote (car call))
+     (sheet-expand (unquote word))
+     (range-expand (unquote word))
+     (unquote-splicing (cdr call)))))
+
+(define tally Tally!B1:E10)
+(at tally (count Input!B16))
+=== a-count-at-addresses
+(defmacro (count sheet range event)
+  "each cell its own last value plus an event: =sheet.last!first+event"
+  (formula sheet range
+    (formula-expand (+ (last (ref sheet (first-cell-expand (ref sheet range)))) event))))
+
+(count "Tally" "B1:E10" Input!B16)
+=== first-cell-expand-of-a-column-refused
+(first-cell-expand Screen!A:A)
+=== first-cell-expand-of-a-row-refused
+(first-cell-expand Screen!3:3)
+=== first-cell-expand-of-no-sheet-refused
+(first-cell-expand B1:E10)
+=== first-cell-expand-of-a-name-refused
+(first-cell-expand tally)
+=== first-cell-expand-of-a-text-refused
+(first-cell-expand "B1:E10")
+=== first-cell-expand-of-two-refused
+(first-cell-expand A1 B1)
+=== first-cell-expand-in-a-primitive-s-argument-refused
+(&expand (first-cell-expand Tally!B1:E10))
+=== reserved-first-cell-expand
+(defmacro (first-cell-expand x) x)
+=== range-expand-of-an-anchored-word
+(define stop State!B12)
+(range-expand (absolute stop))
+=== sheet-expand-of-a-twin
+(define stop State!B12)
+(sheet-expand (last stop))
+=== a-begin-a-macro-made-keeps-its-forms-before-a-first-cell
+(defmacro (logged-first-cell)
+  "a range's first cell, after a line printed"
+  (debug-print 1)
+  (first-cell-expand Tally!B1:E10))
+
+(logged-first-cell)

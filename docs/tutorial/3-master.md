@@ -559,9 +559,10 @@ parameters.
 ## 14. Data at expansion time
 
 A macro receives forms. Sometimes it helps to treat a form as a list and
-walk it. VLA has twenty-eight primitives for that, counting the arithmetic,
-the text and the addresses a walk tends to need and a lookup, a loop that
-writes a form for each element, and a word for a form, `define`. They work
+walk it. VLA has twenty-nine primitives for that, counting the arithmetic,
+the text and the addresses a walk tends to need, a lookup and a test that
+tells a word from a list, a loop that writes a form for each element, and a
+word for a form, `define`. They work
 on **quoted data in the source text**, while the program is being expanded.
 They never see a cell, a range, or anything else that exists only when the
 program runs.
@@ -572,6 +573,7 @@ program runs.
 | `(car xs)` `(cdr xs)` `(cddr xs)` | The first item; all but the first; all but the first two. |
 | `(cons x xs)` `(list a b c)` | A list with `x` in front; a list of the items. |
 | `(null? xs)` | `true` when the list is empty. |
+| `(list? x)` | `true` when `x` is a list, the empty one among them, and `false` for a word or a text; see *A word or a list* below. |
 | `(eq? a b)` `(equal? a b)` | Whether two atoms are the same; whether two structures are. |
 | `(quote-if test then-form else-form)` | One form or the other. The test must already be `true` or `false`. |
 | `(cond (test form) … (else form))` | The first clause whose test holds. |
@@ -590,6 +592,7 @@ program runs.
 | `(define name form)` | A word for the form, in every form of the file after this one; see *A name* below. |
 | `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
 | `(sheet-expand reference)` `(range-expand reference)` | A reference's sheet, and its cell or range, as texts. |
+| `(first-cell-expand reference)` | A reference's first cell, as a text: `"B1"` for `Tally!B1:E10`. |
 
 **A name that ends in `expand` is computed while the macro expands.** The
 plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
@@ -615,6 +618,25 @@ to `true` or `false` during expansion chooses its clause on the spot. A
 test that depends on the running program, such as `(> x 0)`, is left in
 place as an ordinary `if`. Each clause decides separately. `else` must be
 last, and a `cond` in which nothing matches expands to nothing at all.
+
+**A word or a list.** `(list? x)` is `true` when `x` is a list, the empty
+one among them, and `false` for a word or a text. It is the one test of a
+form's kind that refuses neither: `null?` is `false` for a word and for a
+list with items alike, `car` refuses a word, and `eq?` refuses a list. So a
+macro can take entries of two kinds, a word that is its own label and a pair
+whose label is no word:
+
+```lisp
+(defmacro
+    (entry-label entry)
+    "an entry's label: a pair's text, or a word's own"
+    (quote-if (list? entry)
+        (car entry)
+        (&expand entry)))
+```
+
+`(entry-label phase)` expands to `"phase"`, and `(entry-label ("stopped at"
+stopped-at))` to `"stopped at"`.
 
 ### The loop
 
@@ -827,6 +849,29 @@ sheet it will stand on when it is written:
 
 and so are a twin's twin and a name.
 
+**A reference's marks.** `(absolute X)`, `(absolute-row X)` and
+`(absolute-column X)` write the reference X with the `$` marks each adds,
+Excel's absolute reference and its two mixed ones, so that a formula filled
+across a range keeps a cell fixed as Excel's F4 key fixes it:
+
+| Expression | Formula text |
+|---|---|
+| `(absolute State!B12)` | `State!$B$12` |
+| `(absolute-row Gate!A4)` | `Gate!A$4` |
+| `(absolute-column Gate!D1)` | `Gate!$D1` |
+| `(absolute Tally!B1:E10)` | `Tally!$B$1:$E$10` |
+| `(absolute B6)` | `$B$6` |
+| `(last (absolute stop))`, after `(define stop State!B12)` | `State.last!$B$12` |
+
+A mark is added and never taken away, so `(absolute-row $B12)` writes
+`$B$12`, and the three marks and `last` stand in either order: `(absolute
+(last stop))` writes `State.last!$B$12` too. A mark needs no sheet, as `$B$6`
+shows. A name, a span of sheets and a text are refused, and so is a mark a
+whole column or row has no place for:
+
+> absolute-row: 'Screen!A:A' is a whole column, and absolute-row takes a
+> reference with a row to mark, such as Input!B5 or 3:3
+
 **A reference's two parts.** `(sheet-expand reference)` and `(range-expand
 reference)` give the sheet and the cell or range of one reference on a
 sheet, as the two texts `ref` takes, so that a macro can write a row at a
@@ -853,6 +898,30 @@ writes `(formula "State" "B12" "=IF(AND(State.last!B1=1,State!B9=1),1,0)")`,
 the row Kairos's source writes today by its addresses. Like
 `formula-expand`, the two expand their argument first, and are read where
 the walk meets them, a row's field or a statement, never in an expand-time
+primitive's argument. Each reads what a mark or `last` writes, so
+`(range-expand (absolute stop))` is `"$B$12"`.
+
+**A reference's first cell.** `(first-cell-expand reference)` gives the
+first cell of one reference on a sheet, as the text `ref` takes: `"B1"` for
+`Tally!B1:E10`, and a cell's own address for a cell, its marks as written. A
+range written backwards gives its top-left, `"B1"` for `Tally!E10:B1`, as a
+row's range is read. A verb that reads its own last value twins its range's
+first cell by it, the verb's two texts made one reference by `ref`:
+
+```lisp
+(defmacro
+    (count sheet range event)
+    "each cell its own last value plus an event: =sheet.last!first+event"
+    (formula sheet range
+        (formula-expand (+ (last (ref sheet (first-cell-expand (ref sheet range)))) event))))
+```
+
+`(count "Tally" "B1:E10" Input!B16)` writes `(formula "Tally" "B1:E10"
+"=Tally.last!B1+Input!B16")`, and so does the same verb at a word, its sheet
+and range handed in as `(sheet-expand tally)` and `(range-expand tally)`
+after `(define tally Tally!B1:E10)`. A whole column or row is refused, since
+a fill's range is never one; and like the two parts, the first cell expands
+its argument first and is read where the walk meets it, never in a
 primitive's argument.
 
 ### Where it stops

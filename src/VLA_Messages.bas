@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.6"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.15"
+' VLA.15: a name where an address stands, one refusal under VLA,
+' vla-reference-whole-line - a whole column or row where a form needs a
+' cell or the other axis: first-cell-expand's, since a whole column or row
+' is no fill's range, and a mark a whole column or row has no place for,
+' (absolute-row A:A) and (absolute-column 3:3), named with what the form
+' takes. And vla-reference-expected gains its want slot, what the reading
+' asks for: one reference on a sheet for last and the walk's three forms,
+' as before, and a cell, a range, a column or a row for the three marks.
+'
 ' VLA.6: a name at expand time and a reference's twin, ten refusals under
 ' VLA. Seven of define, each naming the word the author wrote:
 ' vla-define-shape - (define name form), a name and one form;
@@ -852,8 +861,12 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own"
     AddMsg m, "vla-define-cycle", 5, "VLA", "define '{word}': the words {ring} stand for one another in a ring - a define names a form that does not come back to it"
     AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"
-    AddMsg m, "vla-reference-expected", 5, "VLA", "{op}: expected one reference on a sheet, such as Input!B5 or (ref ""Q1 Data"" ""A1""), got '{value}', {what}"
+    AddMsg m, "vla-reference-expected", 5, "VLA", "{op}: expected {want}, such as Input!B5 or (ref ""Q1 Data"" ""A1""), got '{value}', {what}"
     AddMsg m, "vla-formula-last-twin", 5, "VLA", "last: '{value}' is a twin already, and a twin has none - (last X) takes the reference X itself"
+    ' VLA.15 - a name where an address stands: a whole column or row where a
+    ' form needs a cell or the other axis, the reference and what the form
+    ' takes named.
+    AddMsg m, "vla-reference-whole-line", 5, "VLA", "{op}: '{value}' is a whole {line}, and {op} takes {want}"
 
     ' CO.4 - the one refusal grammar semantic versioning needs. A
     ' version that cannot be read is never treated as satisfied AND
