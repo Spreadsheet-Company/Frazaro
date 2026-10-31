@@ -2272,3 +2272,40 @@ boundary those rows showed. That save, `address_saved.xlsx`, joins the table at
 `no-differ` (`address_saved_calc.vla`): 538 formulas, the 403 the door computes
 agreeing with Excel's, and 135 labelled, Excel's answer to each standing in the
 golden.
+
+## Amendment of 2026-10-30: oracle 11's font, its underline, strike and family (`KERNEL.58`, its second slice)
+
+`KERNEL.50` kept these three out of the record for want of a consumer. A font
+now says them, words of its group, each at most once and printed after its
+color.
+
+- **The words.** `underline`, `double-underline`, `accounting-underline`,
+  `double-accounting-underline` or `not-underline`, Excel's five; `strike` or
+  `not-strike`; and `(family "Consolas" mono)`, a name of 1 to 31 characters in
+  quotes, since a text alone in a font is its color, and after it the generic
+  that draws where a reading machine lacks the name: `serif`, `sans`, `mono`,
+  `script` or `decorative`, a file's `<family val>` and an OpenDocument file's
+  `style:font-family-generic`. A record saying none of them prints as it did,
+  byte for byte, so that no golden of oracle 11 moves. Each falls over a cell's
+  own as the rest of a font does (`Style::over`); a said `not-underline` or
+  `not-strike` takes the cell's own away. A word a font does not take is refused
+  by name with what it takes (`grid-format-property`).
+- **The writer.** `<strike/>` and `<u/>` where Excel writes them, an underline's
+  `val` where it is not a single one, and `<name>` and `<family>` in place of the
+  base's, whose `charset` and `scheme` go with them, since Excel would follow a
+  `scheme` over the name. A font saying none of them is the font it was.
+- **The readers.** A package's `strike`, `u`, `name` and `family`, an OpenDocument
+  file's `style:text-underline-style` and `-type`, `style:text-line-through-style`,
+  and a font face's name and generic, each said where it differs from the
+  workbook's default font, as a size is; a name the record cannot hold, and a line
+  other than solid in an OpenDocument file, stay counted, and these three leave the
+  looks the record has no word for.
+- **The oracle.** Excel's own: `scripts/appearance.txt` holds fourteen more cases,
+  each applied by `VlaWriteAppearanceGolden` and read back, and the written
+  workbook's cells beside them, a family by its name alone, Excel's object model
+  saying no generic, which Excel's save of the same cells shows as `<family val>`.
+  `scripts/reflect/looks_golden.txt` reads `looks.xlsx`'s and `looks_book.xlsx`'s
+  families, underlines and strikes in the same words where it said them after its
+  `!`. Both `.ods` saves of `looks.xlsx` agree but for one gap, each writer's, named:
+  an accounting underline written as a single one. The language's third, ninth and
+  eleventh laws hold over grids saying them.

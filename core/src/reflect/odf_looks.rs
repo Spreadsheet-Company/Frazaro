@@ -20,12 +20,14 @@
 //! save names a style of its own that says nothing.
 //!
 //! A format is said as a package's is said against its Normal style: a fill,
-//! `fo:background-color`; a weight, a slant, a size and an ink; a horizontal
+//! `fo:background-color`; a weight, a slant, a size, an ink, an underline, a
+//! strike and a family, a font face's name and generic; a horizontal
 //! (`start` left, `end` right, a value's own alignment unsaid) and a vertical
 //! (`automatic` bottom); the wrap; the four edges, a width, a style and a
 //! color each, as Excel's lines; and a number format, the data style as a
 //! code in Excel's syntax. What the record has no word for is counted, the
-//! rest said: a font's family, an underline, a strike, a raised or lowered
+//! rest said: an underline or a strike of a line other than solid, a raised
+//! or lowered
 //! text, an outline, a shadow, a text repeated to fill its cell, a justified
 //! text, an indent, a rotation, a stacked text, shrinking to fit, a
 //! right-to-left order and a diagonal.
@@ -45,7 +47,7 @@ use super::cursor::{attr, attributes_full, skip_element, Cursor, Event};
 use super::looks::{font_size, Look};
 use super::ooxml::{step, xml_refused};
 use crate::messages::Refusal;
-use crate::sheet::{Edge, Horizontal, Line, Rgb, Vertical};
+use crate::sheet::{Edge, Family, Generic, Horizontal, Line, Rgb, Underline, Vertical};
 
 /// A style's properties as its part writes them: every attribute of its
 /// property elements, by its name as written.
@@ -200,7 +202,7 @@ impl OdsLooks {
 /// What a part's styles hold, read in one pass.
 #[derive(Default)]
 struct Declared {
-    faces: HashMap<String, String>,
+    faces: Faces,
     default_style: Props,
     /// Cell styles in the order the part declares them.
     cells: Vec<(String, CellStyle)>,
@@ -305,7 +307,12 @@ fn declared(text: &str, label: &str, part: &str, out: &mut Declared) -> Result<(
                         let family = attr(attrs, "font-family")
                             .map(|f| f.trim_matches(['\'', '"']).to_string())
                             .unwrap_or_else(|| face.to_string());
-                        out.faces.insert(face.into_owned(), family);
+                        if let Some(g) =
+                            attr(attrs, "font-family-generic").and_then(|g| Generic::from_odf(&g))
+                        {
+                            out.faces.generics.insert(face.to_string(), g);
+                        }
+                        out.faces.names.insert(face.into_owned(), family);
                     }
                 }
                 "default-style" => {
@@ -596,12 +603,60 @@ fn size(props: &Props) -> Option<f64> {
     props.get("fo:font-size").and_then(|s| points(s))
 }
 
+/// A part's font faces: each face's family by the name the part declares,
+/// and its generic where it says one.
+#[derive(Clone, Debug, Default)]
+struct Faces {
+    names: HashMap<String, String>,
+    generics: HashMap<String, Generic>,
+}
+
 /// A font's family: its face's, by the name the part declares, or its own.
-fn family<'p>(props: &'p Props, faces: &'p HashMap<String, String>) -> Option<&'p str> {
+fn family<'p>(props: &'p Props, faces: &'p Faces) -> Option<&'p str> {
     if let Some(face) = props.get("style:font-name") {
-        return Some(faces.get(face).map_or(face.as_str(), String::as_str));
+        return Some(faces.names.get(face).map_or(face.as_str(), String::as_str));
     }
-    props.get("fo:font-family").map(String::as_str)
+    props
+        .get("fo:font-family")
+        .map(|f| f.trim_matches(['\'', '"']))
+}
+
+/// A font's family as the record says one: its name, and its face's generic
+/// or its own; `None` for a name the record does not hold.
+fn family_said(props: &Props, faces: &Faces) -> Option<Family> {
+    let generic = match props.get("style:font-name") {
+        Some(face) => faces.generics.get(face).copied(),
+        None => props
+            .get("style:font-family-generic")
+            .and_then(|g| Generic::from_odf(g)),
+    };
+    Family::new(family(props, faces)?, generic)
+}
+
+/// A style's underline: a line of a type, `none` of either being none, and a
+/// double where its type says so, the others a single.
+fn underline(props: &Props) -> Underline {
+    let style = props.get("style:text-underline-style").map(String::as_str);
+    let kind = props.get("style:text-underline-type").map(String::as_str);
+    if matches!(style, None | Some("none")) || kind == Some("none") {
+        return Underline::None;
+    }
+    if kind == Some("double") {
+        Underline::Double
+    } else {
+        Underline::Single
+    }
+}
+
+/// Whether a style strikes its text through.
+fn strike(props: &Props) -> bool {
+    let style = props
+        .get("style:text-line-through-style")
+        .map(String::as_str);
+    let kind = props
+        .get("style:text-line-through-type")
+        .map(String::as_str);
+    !matches!(style, None | Some("none")) && kind != Some("none")
 }
 
 /// An edge as a style writes one, `thin solid #000000`: Excel's line by its
@@ -655,12 +710,12 @@ fn edge(spec: &str) -> Option<(Line, Option<Rgb>)> {
 }
 
 /// What the record has no word for, said where a style says it.
-fn unheld(props: &Props, default: &Props, faces: &HashMap<String, String>) -> bool {
+fn unheld(props: &Props, default: &Props, faces: &Faces) -> bool {
     let said =
         |key: &str, none: &[&str]| props.get(key).is_some_and(|v| !none.contains(&v.as_str()));
-    family(props, faces) != family(default, faces)
-        || said("style:text-underline-style", &["none"])
-        || said("style:text-line-through-style", &["none"])
+    (family(props, faces) != family(default, faces) && family_said(props, faces).is_none())
+        || said("style:text-underline-style", &["none", "solid"])
+        || said("style:text-line-through-style", &["none", "solid"])
         || said("style:text-position", &["0%", "0% 100%"])
         || said("style:text-outline", &["false"])
         || said("fo:text-shadow", &["none"])
@@ -686,12 +741,7 @@ fn unheld(props: &Props, default: &Props, faces: &HashMap<String, String>) -> bo
 
 /// A resolved style as the record says it, against the default's resolved
 /// properties; its code from its data style.
-fn look_of(
-    props: &Props,
-    default: &Props,
-    code: Option<&str>,
-    faces: &HashMap<String, String>,
-) -> Look {
+fn look_of(props: &Props, default: &Props, code: Option<&str>, faces: &Faces) -> Look {
     let mut look = Look::default();
     if let Some(code) = code {
         look.set_code(code);
@@ -717,6 +767,15 @@ fn look_of(
     let ink = color(props, "fo:color");
     if !window && ink != color(default, "fo:color") {
         look.style.font.color = ink;
+    }
+    if underline(props) != underline(default) {
+        look.style.font.underline = Some(underline(props));
+    }
+    if strike(props) != strike(default) {
+        look.style.font.strike = Some(strike(props));
+    }
+    if family(props, faces) != family(default, faces) {
+        look.style.family = family_said(props, faces).map(Box::new);
     }
     let repeat = props
         .get("style:repeat-content")
@@ -1076,7 +1135,8 @@ pub(crate) fn read(
     declared(content, label, "content.xml", &mut automatic)?;
     // The faces and the data styles of both parts, content's nearer.
     let mut faces = named.faces.clone();
-    faces.extend(automatic.faces.clone());
+    faces.names.extend(automatic.faces.names.clone());
+    faces.generics.extend(automatic.faces.generics.clone());
     let mut data = named.data.clone();
     data.extend(automatic.data.clone());
     // Every cell style by its name, and the formats in their order: Default
@@ -1258,6 +1318,106 @@ mod tests {
         assert_eq!(row_height(&props), Some(30.0));
         props.insert("style:use-optimal-row-height".into(), "true".into());
         assert_eq!(row_height(&props), None, "a height fitted");
+    }
+
+    #[test]
+    fn an_underline_and_a_strike_read_by_their_style_and_their_type() {
+        let props = |pairs: &[(&str, &str)]| -> Props {
+            pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        };
+        for (style, kind, want) in [
+            (None, None, Underline::None),
+            (Some("none"), None, Underline::None),
+            (Some("none"), Some("single"), Underline::None),
+            (Some("solid"), Some("none"), Underline::None),
+            (Some("solid"), None, Underline::Single),
+            (Some("solid"), Some("single"), Underline::Single),
+            (Some("solid"), Some("double"), Underline::Double),
+            (Some("dotted"), Some("single"), Underline::Single),
+        ] {
+            let mut p = props(&[]);
+            if let Some(s) = style {
+                p.insert("style:text-underline-style".to_string(), s.to_string());
+            }
+            if let Some(k) = kind {
+                p.insert("style:text-underline-type".to_string(), k.to_string());
+            }
+            assert_eq!(underline(&p), want, "{style:?} {kind:?}");
+        }
+        for (style, kind, want) in [
+            (None, None, false),
+            (Some("none"), None, false),
+            (Some("none"), Some("single"), false),
+            (Some("solid"), Some("none"), false),
+            (Some("solid"), None, true),
+            (Some("solid"), Some("single"), true),
+        ] {
+            let mut p = props(&[]);
+            if let Some(s) = style {
+                p.insert("style:text-line-through-style".to_string(), s.to_string());
+            }
+            if let Some(k) = kind {
+                p.insert("style:text-line-through-type".to_string(), k.to_string());
+            }
+            assert_eq!(strike(&p), want, "{style:?} {kind:?}");
+        }
+        // What the record has no word for stays counted: a line other than
+        // solid; what it has one for does not.
+        let faces = Faces::default();
+        let none = props(&[]);
+        assert!(unheld(
+            &props(&[("style:text-underline-style", "wave")]),
+            &none,
+            &faces
+        ));
+        assert!(unheld(
+            &props(&[("style:text-line-through-style", "dash")]),
+            &none,
+            &faces
+        ));
+        assert!(!unheld(
+            &props(&[
+                ("style:text-underline-style", "solid"),
+                ("style:text-line-through-style", "solid"),
+                ("fo:font-family", "'Arial'"),
+            ]),
+            &none,
+            &faces
+        ));
+        // A family past the record's bound stays counted, and a face's generic
+        // is read by its name.
+        let mut named = Faces::default();
+        named
+            .names
+            .insert("Mono".to_string(), "Courier".to_string());
+        named.generics.insert("Mono".to_string(), Generic::Mono);
+        assert_eq!(
+            family_said(&props(&[("style:font-name", "Mono")]), &named),
+            Family::new("Courier", Some(Generic::Mono))
+        );
+        assert_eq!(
+            family_said(&props(&[("fo:font-family", "'Arial'")]), &named),
+            Family::new("Arial", None)
+        );
+        assert_eq!(
+            family_said(
+                &props(&[
+                    ("fo:font-family", "Arial"),
+                    ("style:font-family-generic", "swiss")
+                ]),
+                &named
+            ),
+            Family::new("Arial", Some(Generic::Sans))
+        );
+        let long = "x".repeat(32);
+        assert!(unheld(
+            &props(&[("fo:font-family", long.as_str())]),
+            &none,
+            &named
+        ));
     }
 
     #[test]

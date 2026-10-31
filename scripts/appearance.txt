@@ -107,7 +107,35 @@ none general nowrap (border (top medium "6B4FC8") (bottom dashed "00B050"))
 none general wrap (align center middle) (border (left medium) (top medium))
 === a given digit on a board
 none general nowrap (font bold 22) (align center middle) (border (right medium))
+=== an underline
+none general nowrap (font underline)
+=== a double underline
+none general nowrap (font double-underline)
+=== an accounting underline
+none general nowrap (font accounting-underline)
+=== a double accounting underline
+none general nowrap (font double-accounting-underline)
+=== no underline, the default said
+none general nowrap (font not-underline)
+=== a strike
+none general nowrap (font strike)
+=== no strike, the default said
+none general nowrap (font not-strike)
+=== a family
+none general nowrap (font (family "Arial"))
+=== a family and its generic
+none general nowrap (font (family "Consolas" mono))
+=== a serif family
+none general nowrap (font (family "Times New Roman" serif))
+=== a family no machine holds
+none general nowrap (font (family "No Such Font" sans))
+=== a family of 31 characters
+none general nowrap (font (family "abcdefghijklmnopqrstuvwxyz01234"))
+=== the whole of a font
+none general nowrap (font bold italic 14 "800020" double-underline strike (family "Arial" sans))
 === a size past the file's most !refused 409.6
 none general nowrap (font 409.6)
 === a size under the least !refused 0.5
 none general nowrap (font 0.5)
+=== a family of 32 characters !refused family
+none general nowrap (font (family "abcdefghijklmnopqrstuvwxyz012345"))

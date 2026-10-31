@@ -25,7 +25,9 @@
 //! (font bold italic 22 "FFFFFF")        a weight, bold or not-bold; a slant,
 //!                                       italic or not-italic; a size in points
 //!                                       from 1 to 409.55 by twentieths, as
-//!                                       Office keeps one; a color, six hex digits
+//!                                       Office keeps one; a color, six hex digits;
+//!                                       and since KERNEL.58 an underline, a strike
+//!                                       and a family, (family "Consolas" mono)
 //! (align center middle)                 general, left, center or right; top,
 //!                                       middle or bottom (Excel's Middle Align)
 //! (border (left thin) (top medium "6B4FC8"))
@@ -113,7 +115,9 @@ impl Unsaid {
 }
 
 /// What a format says of its text's font. A list that may grow
-/// (`#[non_exhaustive]`): an underline or a family would join it.
+/// (`#[non_exhaustive]`). A family, which is a name of any length, is the
+/// format's own ([`crate::sheet::Style::family`]), so that a font stays
+/// `Copy` and a format's table slot a pointer more.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Font {
@@ -126,6 +130,10 @@ pub struct Font {
     pub size: Option<FontSize>,
     /// The text's color; unsaid, the host's own ink.
     pub color: Option<Rgb>,
+    /// The underline, one of Excel's or none (KERNEL.58).
+    pub underline: Option<Underline>,
+    /// The strike: struck through, or not (KERNEL.58).
+    pub strike: Option<bool>,
 }
 
 impl Font {
@@ -136,7 +144,132 @@ impl Font {
             italic: self.italic.or(own.italic),
             size: self.size.or(own.size),
             color: self.color.or(own.color),
+            underline: self.underline.or(own.underline),
+            strike: self.strike.or(own.strike),
         }
+    }
+}
+
+/// A text's underline: none, or one of Excel's four (ECMA-376 Part 1,
+/// `ST_UnderlineValues`), a closed list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Underline {
+    None,
+    Single,
+    Double,
+    SingleAccounting,
+    DoubleAccounting,
+}
+
+/// Each underline, the record's word and Excel's name in a file's `<u val>`.
+const UNDERLINES: [(Underline, &str, &str); 5] = [
+    (Underline::None, "not-underline", "none"),
+    (Underline::Single, "underline", "single"),
+    (Underline::Double, "double-underline", "double"),
+    (
+        Underline::SingleAccounting,
+        "accounting-underline",
+        "singleAccounting",
+    ),
+    (
+        Underline::DoubleAccounting,
+        "double-accounting-underline",
+        "doubleAccounting",
+    ),
+];
+
+impl Underline {
+    /// The record's word.
+    pub fn word(self) -> &'static str {
+        UNDERLINES.iter().find(|u| u.0 == self).map_or("", |u| u.1)
+    }
+
+    /// Excel's name in a file's `<u val>`, `single` where it writes none.
+    pub fn excel(self) -> &'static str {
+        UNDERLINES.iter().find(|u| u.0 == self).map_or("", |u| u.2)
+    }
+
+    /// The underline a record's word names.
+    pub fn from_word(word: &str) -> Option<Underline> {
+        UNDERLINES.iter().find(|u| u.1 == word).map(|u| u.0)
+    }
+
+    /// The underline Excel's name in a file names.
+    pub fn from_excel(name: &str) -> Option<Underline> {
+        UNDERLINES.iter().find(|u| u.2 == name).map(|u| u.0)
+    }
+}
+
+/// A font's family (KERNEL.58): its name as a file holds it, and the generic
+/// it belongs to, which is what draws where a reading machine lacks the name.
+/// A list that may grow (`#[non_exhaustive]`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Family {
+    pub name: String,
+    pub generic: Option<Generic>,
+}
+
+impl Family {
+    /// The most characters a name holds, Excel's own.
+    pub const MOST: usize = 31;
+
+    /// A family of a name of 1 to [`Family::MOST`] characters.
+    pub fn new(name: &str, generic: Option<Generic>) -> Option<Family> {
+        let n = name.chars().count();
+        (1..=Self::MOST).contains(&n).then(|| Family {
+            name: name.to_string(),
+            generic,
+        })
+    }
+}
+
+/// A family's generic, a file's `<family val>` and an OpenDocument file's
+/// `style:font-family-generic`, a closed list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Generic {
+    Serif,
+    Sans,
+    Mono,
+    Script,
+    Decorative,
+}
+
+/// Each generic, the record's word, its number in a file's `<family val>`
+/// and its word in an OpenDocument file.
+const GENERICS: [(Generic, &str, u32, &str); 5] = [
+    (Generic::Serif, "serif", 1, "roman"),
+    (Generic::Sans, "sans", 2, "swiss"),
+    (Generic::Mono, "mono", 3, "modern"),
+    (Generic::Script, "script", 4, "script"),
+    (Generic::Decorative, "decorative", 5, "decorative"),
+];
+
+impl Generic {
+    /// The record's word.
+    pub fn word(self) -> &'static str {
+        GENERICS.iter().find(|g| g.0 == self).map_or("", |g| g.1)
+    }
+
+    /// Its number in a file's `<family val>`.
+    pub fn excel(self) -> u32 {
+        GENERICS.iter().find(|g| g.0 == self).map_or(0, |g| g.2)
+    }
+
+    /// The generic a record's word names.
+    pub fn from_word(word: &str) -> Option<Generic> {
+        GENERICS.iter().find(|g| g.1 == word).map(|g| g.0)
+    }
+
+    /// The generic a file's `<family val>` names; `None` for 0, no family.
+    pub fn from_excel(n: u32) -> Option<Generic> {
+        GENERICS.iter().find(|g| g.2 == n).map(|g| g.0)
+    }
+
+    /// The generic an OpenDocument file's `style:font-family-generic` names;
+    /// `None` for `system`, the machine's own, which is no family.
+    pub fn from_odf(word: &str) -> Option<Generic> {
+        GENERICS.iter().find(|g| g.3 == word).map(|g| g.0)
     }
 }
 
@@ -418,6 +551,8 @@ impl Line {
 #[derive(Debug, Default)]
 pub(crate) struct Said {
     pub font: Font,
+    /// The family its font group says (KERNEL.58).
+    pub family: Option<Family>,
     pub align: Align,
     pub border: Border,
     /// A format of groups alone's fill, number format and wrap, each where
@@ -454,7 +589,7 @@ pub(crate) enum Wrong {
     Code { code: String, why: Unsupported },
 }
 
-const FONT_TAKES: &str = "a font takes bold or not-bold, italic or not-italic, a size in points from 1 to 409.55 in steps of 0.05, and a color of six hex digits in quotes, each at most once";
+const FONT_TAKES: &str = "a font takes bold or not-bold, italic or not-italic, a size in points from 1 to 409.55 in steps of 0.05, a color of six hex digits in quotes, underline, double-underline, accounting-underline, double-accounting-underline or not-underline, strike or not-strike, and (family \"<name>\" [serif|sans|mono|script|decorative]), a name of 1 to 31 characters, each at most once";
 const ALIGN_TAKES: &str = "an alignment takes one of general, left, center and right, and one of top, middle and bottom, each at most once";
 const BORDER_TAKES: &str = "a border takes each edge at most once, (left <line>), (right <line>), (top <line>) or (bottom <line>), a color of six hex digits in quotes after the line where wanted, the line one of none, thin, medium, thick, double, hair, dotted, dashed, dash-dot, dash-dot-dot, medium-dashed, medium-dash-dot, medium-dash-dot-dot and slant-dash-dot, and none taking no color";
 const FILL_TAKES: &str = "a fill takes one color of six hex digits in quotes, or none";
@@ -489,7 +624,7 @@ pub(crate) fn read_groups(items: &[Form]) -> Result<Said, Wrong> {
         }
         seen[k] = true;
         match k {
-            0 => said.font = read_font(rest)?,
+            0 => (said.font, said.family) = read_font(rest)?,
             1 => said.align = read_align(rest)?,
             2 => said.border = read_border(rest)?,
             3 => said.fill = Some(read_fill(rest)?),
@@ -549,14 +684,33 @@ fn read_wrap(items: &[Form]) -> Result<bool, Wrong> {
     }
 }
 
-fn read_font(items: &[Form]) -> Result<Font, Wrong> {
+fn read_font(items: &[Form]) -> Result<(Font, Option<Family>), Wrong> {
     let wrong = |what: String| property("font", what, FONT_TAKES);
     if items.is_empty() {
         return Err(wrong("nothing".to_string()));
     }
     let mut font = Font::default();
+    let mut family = None;
     for item in items {
         match item {
+            Form::Sym(w) if Underline::from_word(w).is_some() => {
+                if font.underline.is_some() {
+                    return Err(wrong("a second underline".to_string()));
+                }
+                font.underline = Underline::from_word(w);
+            }
+            Form::Sym(w) if w == "strike" || w == "not-strike" => {
+                if font.strike.is_some() {
+                    return Err(wrong("a second strike".to_string()));
+                }
+                font.strike = Some(w == "strike");
+            }
+            Form::List(l) if matches!(l.items.first(), Some(Form::Sym(h)) if h == "family") => {
+                if family.is_some() {
+                    return Err(wrong("a second family".to_string()));
+                }
+                family = Some(read_family(&l.items[1..]).ok_or_else(|| wrong(write_datum(item)))?);
+            }
             Form::Sym(w) if w == "bold" || w == "not-bold" => {
                 if font.bold.is_some() {
                     return Err(wrong("a second weight".to_string()));
@@ -586,7 +740,18 @@ fn read_font(items: &[Form]) -> Result<Font, Wrong> {
             other => return Err(wrong(write_datum(other))),
         }
     }
-    Ok(font)
+    Ok((font, family))
+}
+
+/// A `(family ...)` list's items: its name, and its generic where one is said.
+fn read_family(items: &[Form]) -> Option<Family> {
+    match items {
+        [Form::Str(name)] => Family::new(name, None),
+        [Form::Str(name), Form::Sym(generic)] => {
+            Family::new(name, Some(Generic::from_word(generic)?))
+        }
+        _ => None,
+    }
 }
 
 fn read_align(items: &[Form]) -> Result<Align, Wrong> {
@@ -656,11 +821,20 @@ fn read_border(items: &[Form]) -> Result<Border, Wrong> {
 /// with the space before it: the font, the alignment and the border it
 /// says anything of, in that order, and nothing for a format that says
 /// none of them.
-pub(crate) fn groups_text(font: &Font, align: &Align, border: &Border) -> String {
+pub(crate) fn groups_text(
+    font: &Font,
+    family: Option<&Family>,
+    align: &Align,
+    border: &Border,
+) -> String {
     let mut out = String::new();
     // A format that says none of them, every format of a record before
     // KERNEL.50, asks nothing more.
-    if *font == Font::default() && *align == Align::default() && *border == Border::default() {
+    if *font == Font::default()
+        && family.is_none()
+        && *align == Align::default()
+        && *border == Border::default()
+    {
         return out;
     }
     let mut parts: Vec<String> = Vec::new();
@@ -675,6 +849,18 @@ pub(crate) fn groups_text(font: &Font, align: &Align, border: &Border) -> String
     }
     if let Some(color) = font.color {
         parts.push(quoted(&color.hex()));
+    }
+    if let Some(underline) = font.underline {
+        parts.push(underline.word().to_string());
+    }
+    if let Some(s) = font.strike {
+        parts.push(if s { "strike" } else { "not-strike" }.to_string());
+    }
+    if let Some(f) = family {
+        parts.push(match f.generic {
+            Some(g) => format!("(family {} {})", quoted(&f.name), g.word()),
+            None => format!("(family {})", quoted(&f.name)),
+        });
     }
     if !parts.is_empty() {
         out.push_str(&format!(" (font {})", parts.join(" ")));
@@ -717,7 +903,139 @@ mod tests {
 
     fn printed(text: &str) -> String {
         let s = groups(text).unwrap_or_else(|e| panic!("{text}: {e:?}"));
-        groups_text(&s.font, &s.align, &s.border)
+        groups_text(&s.font, s.family.as_ref(), &s.align, &s.border)
+    }
+
+    #[test]
+    fn an_underline_a_strike_and_a_family_are_words_of_a_font() {
+        assert_eq!(
+            printed("(font (family \"Consolas\" mono) strike \"800020\" underline 22 bold)"),
+            " (font bold 22 \"800020\" underline strike (family \"Consolas\" mono))"
+        );
+        assert_eq!(
+            printed("(font not-strike not-underline)"),
+            " (font not-underline not-strike)"
+        );
+        assert_eq!(
+            printed("(font (family \"Arial\"))"),
+            " (font (family \"Arial\"))"
+        );
+        for (word, underline, excel) in [
+            ("not-underline", Underline::None, "none"),
+            ("underline", Underline::Single, "single"),
+            ("double-underline", Underline::Double, "double"),
+            (
+                "accounting-underline",
+                Underline::SingleAccounting,
+                "singleAccounting",
+            ),
+            (
+                "double-accounting-underline",
+                Underline::DoubleAccounting,
+                "doubleAccounting",
+            ),
+        ] {
+            let s = groups(&format!("(font {word})")).unwrap();
+            assert_eq!(s.font.underline, Some(underline), "{word}");
+            assert_eq!(underline.word(), word);
+            assert_eq!(underline.excel(), excel);
+            assert_eq!(Underline::from_excel(excel), Some(underline));
+            assert_eq!(
+                printed(&format!("(font {word})")),
+                format!(" (font {word})")
+            );
+        }
+        for (word, generic, n, odf) in [
+            ("serif", Generic::Serif, 1, "roman"),
+            ("sans", Generic::Sans, 2, "swiss"),
+            ("mono", Generic::Mono, 3, "modern"),
+            ("script", Generic::Script, 4, "script"),
+            ("decorative", Generic::Decorative, 5, "decorative"),
+        ] {
+            let s = groups(&format!("(font (family \"F\" {word}))")).unwrap();
+            assert_eq!(s.family, Some(Family::new("F", Some(generic)).unwrap()));
+            assert_eq!(generic.word(), word);
+            assert_eq!(generic.excel(), n);
+            assert_eq!(Generic::from_excel(n), Some(generic));
+            assert_eq!(Generic::from_odf(odf), Some(generic));
+        }
+        assert_eq!(Generic::from_excel(0), None);
+        assert_eq!(Generic::from_excel(6), None);
+        assert_eq!(Generic::from_odf("system"), None);
+        // A name of 1 to 31 characters, counted as characters.
+        assert!(Family::new("", None).is_none());
+        assert!(Family::new(&"x".repeat(31), None).is_some());
+        assert!(Family::new(&"x".repeat(32), None).is_none());
+        assert!(Family::new(&"é".repeat(31), None).is_some());
+        // What a font does not take, by what it holds.
+        let long = "x".repeat(32);
+        let cases: &[(String, String)] = &[
+            (
+                "(font underline strike underline)".to_string(),
+                "a second underline".to_string(),
+            ),
+            (
+                "(font underline not-underline)".to_string(),
+                "a second underline".to_string(),
+            ),
+            (
+                "(font strike not-strike)".to_string(),
+                "a second strike".to_string(),
+            ),
+            (
+                "(font (family \"A\") (family \"B\"))".to_string(),
+                "a second family".to_string(),
+            ),
+            ("(font (family))".to_string(), "(family)".to_string()),
+            (
+                "(font (family Arial))".to_string(),
+                "(family Arial)".to_string(),
+            ),
+            (
+                "(font (family \"\"))".to_string(),
+                "(family \"\")".to_string(),
+            ),
+            (
+                "(font (family \"Arial\" comic))".to_string(),
+                "(family \"Arial\" comic)".to_string(),
+            ),
+            (
+                "(font (family \"Arial\" sans mono))".to_string(),
+                "(family \"Arial\" sans mono)".to_string(),
+            ),
+            (
+                format!("(font (family \"{long}\"))"),
+                format!("(family \"{long}\")"),
+            ),
+            (
+                "(font (colour \"Arial\"))".to_string(),
+                "(colour \"Arial\")".to_string(),
+            ),
+            ("(font single)".to_string(), "single".to_string()),
+        ];
+        for (text, what) in cases {
+            assert_eq!(refused(text), ("font", what.clone()), "{text}");
+        }
+    }
+
+    #[test]
+    fn an_underline_and_a_strike_fall_over_a_cell_s_own_as_the_rest_of_a_font() {
+        let own = groups("(font underline strike)").unwrap().font;
+        let none = Font::default();
+        assert_eq!(none.over(&own), own);
+        assert_eq!(own.over(&none), own);
+        let back = groups("(font not-underline not-strike)").unwrap().font;
+        let drawn = back.over(&own);
+        assert_eq!(
+            (drawn.underline, drawn.strike),
+            (Some(Underline::None), Some(false))
+        );
+        let double = groups("(font double-underline)").unwrap().font;
+        let drawn = double.over(&own);
+        assert_eq!(
+            (drawn.underline, drawn.strike),
+            (Some(Underline::Double), Some(true))
+        );
     }
 
     fn refused(text: &str) -> (&'static str, String) {

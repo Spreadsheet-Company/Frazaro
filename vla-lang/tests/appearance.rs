@@ -638,8 +638,92 @@ fn a_format_says_only_what_it_says_over_a_cell_s_own() {
         first.over(&second.over(&own)),
         "the fold's two groupings"
     );
-    // A byte in its padding.
-    assert_eq!(std::mem::size_of::<Style>(), 56);
+    // What it leaves unsaid a byte in its padding, as an underline and a
+    // strike are, and a family a pointer (KERNEL.58's second slice).
+    assert_eq!(std::mem::size_of::<Style>(), 64);
+    assert_eq!(std::mem::size_of::<vla_lang::sheet::Font>(), 12);
+}
+
+#[test]
+fn a_font_s_family_underline_and_strike_print_as_said_and_fall_over_a_cell_s_own() {
+    let rows = concat!(
+        "(format 1 none general nowrap (font (family \"Consolas\" mono) strike underline))\n",
+        "(format 2 (font double-underline))\n",
+        "(format 3 (font not-underline not-strike (family \"Arial\")))\n",
+        "(format 4 \"E8E0F7\" general nowrap (font (family \"Georgia\" serif) accounting-underline))\n",
+        "(cell \"S\" \"A1:D1\" 5)\n",
+        "(style \"S\" \"A1\" 1)\n",
+        "(style \"S\" \"B1\" 2)\n",
+        "(style \"S\" \"C1\" 3)\n",
+        "(style \"S\" \"D1\" 4)\n",
+    );
+    let m = load(rows);
+    let record = grid(&m, "S");
+    assert_eq!(
+        formats(&record),
+        [
+            "(format 0 none general nowrap)",
+            "(format 1 none general nowrap (font underline strike (family \"Consolas\" mono)))",
+            "(format 2 (font double-underline))",
+            "(format 3 (font not-underline not-strike (family \"Arial\")))",
+            "(format 4 \"E8E0F7\" general nowrap (font accounting-underline (family \"Georgia\" serif)))",
+        ],
+        "{record}"
+    );
+    let mut again = load(&save(&m));
+    assert_eq!(grid(&again, "S"), record);
+    let _ = again.step(0);
+    assert_eq!(grid(&again, "S"), record);
+    // Over a cell's own, the first that says each.
+    let wb = m.workbook();
+    let style = |k: u32| wb.styles.get(k).expect("the format");
+    let own = style(1);
+    let family = |s: &Style| s.family.as_deref().map(|f| f.name.clone());
+    assert_eq!(family(&style(2).over(own)).as_deref(), Some("Consolas"));
+    assert_eq!(family(&style(3).over(own)).as_deref(), Some("Arial"));
+    let drawn = style(2).over(own);
+    assert_eq!(
+        (drawn.font.underline, drawn.font.strike),
+        (Some(vla_lang::sheet::Underline::Double), Some(true))
+    );
+    let drawn = style(3).over(own);
+    assert_eq!(
+        (drawn.font.underline, drawn.font.strike),
+        (Some(vla_lang::sheet::Underline::None), Some(false))
+    );
+    assert_eq!(
+        style(1).family.as_deref().and_then(|f| f.generic),
+        Some(vla_lang::sheet::Generic::Mono)
+    );
+    assert!(style(2).says_appearance());
+    let mut only_family = Style::partial();
+    only_family.family = own.family.clone();
+    assert!(only_family.says_appearance());
+    assert_ne!(only_family, Style::partial(), "a family is said");
+    // Said twice alike and in another order, taken; another name, refused.
+    load(concat!(
+        "(format 1 none general nowrap (font strike (family \"A\" sans)))\n",
+        "(format 1 none general nowrap (font (family \"A\" sans) strike))\n",
+    ));
+    for rows in [
+        "(format 1 (font (family \"A\")))\n(format 1 (font (family \"B\")))\n",
+        "(format 1 (font (family \"A\")))\n(format 1 (font (family \"A\" sans)))\n",
+        "(format 1 (font strike))\n(format 1 (font not-strike))\n",
+    ] {
+        let e = refused(rows);
+        assert_eq!(
+            (e.line, e.refusal.id.as_str()),
+            (2, "grid-cell-written-twice"),
+            "{rows}"
+        );
+    }
+    let e = refused("(sheet \"S\" visible)\n(format 3 (font (family \"\")))\n");
+    assert_eq!((e.line, e.refusal.id.as_str()), (2, "grid-format-property"));
+    assert!(
+        e.refusal.text.contains("(family \"<name>\""),
+        "{}",
+        e.refusal.text
+    );
 }
 
 /// The second fixture's rows: a cell's own format that says everything, and

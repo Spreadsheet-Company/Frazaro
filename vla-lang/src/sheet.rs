@@ -21,7 +21,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 pub use crate::appearance::{
-    Align, Border, Edge, Font, FontSize, Horizontal, Line, Unsaid, Vertical,
+    Align, Border, Edge, Family, Font, FontSize, Generic, Horizontal, Line, Underline, Unsaid,
+    Vertical,
 };
 use crate::numfmt::Code;
 use crate::rows::Visibility;
@@ -93,6 +94,9 @@ pub struct Style {
     pub num_fmt: NumFmt,
     pub wrap: bool,
     pub font: Font,
+    /// The family its font group says (KERNEL.58), a pointer in a table's
+    /// slot and its name on the heap only where said.
+    pub family: Option<Box<Family>>,
     pub align: Align,
     pub border: Border,
     /// What it leaves unsaid of its fill, number format and wrap: nothing,
@@ -144,6 +148,7 @@ impl Style {
     /// border (KERNEL.50).
     pub fn says_appearance(&self) -> bool {
         self.font != Font::default()
+            || self.family.is_some()
             || self.align != Align::default()
             || self.border != Border::default()
     }
@@ -175,6 +180,7 @@ impl Style {
                 self.wrap
             },
             font: self.font.over(&own.font),
+            family: self.family.clone().or_else(|| own.family.clone()),
             align: self.align.over(&own.align),
             border: self.border.over(&own.border),
             unsaid: self.unsaid.both(own.unsaid),

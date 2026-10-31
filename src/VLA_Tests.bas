@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.10"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
 ' KERNEL.58: VlaWriteAppearanceGolden and VlaWriteLooksGolden take and read
 ' a font's underline, strike and family in the record's words, where the looks
 ' golden said them after its " !": AppearanceFont sets them, by Font.Underline,
@@ -3741,25 +3741,40 @@ Private Function AppearanceRgb(ByVal atom As String) As Long
 End Function
 
 ' A font group: bold, not-bold, italic, not-italic, a size in points (Val
-' reads the point whatever the machine) and a color.
+' reads the point whatever the machine), a color, an underline, a strike, and
+' since KERNEL.58 a family, a list of its name and a generic the object model
+' has no property for.
 Private Sub AppearanceFont(ByVal target As Range, ByVal grp As Object)
-    Dim i As Long, w As String
+    Dim i As Long, w As String, famList As Object
     For i = 2 To grp.Count
-        w = AppearanceAtom(grp, i)
-        Select Case w
-        Case "bold": target.Font.Bold = True
-        Case "not-bold": target.Font.Bold = False
-        Case "italic": target.Font.Italic = True
-        Case "not-italic": target.Font.Italic = False
-        Case Else
-            If Left$(w, 1) = Chr$(34) Then
-                target.Font.Color = AppearanceRgb(w)
-            ElseIf w Like "#*" Then
-                target.Font.Size = Val(w)
-            Else
-                Err.Raise 5, "VLA_Tests", "appearance.txt: a font of no such word: " & w
-            End If
-        End Select
+        If IsObject(grp.Item(i)) Then
+            Set famList = grp.Item(i)
+            If AppearanceAtom(famList, 1) <> "family" Then Err.Raise 5, "VLA_Tests", "appearance.txt: a font's list of no such head"
+            target.Font.Name = Mid$(AppearanceAtom(famList, 2), 2)
+        Else
+            w = AppearanceAtom(grp, i)
+            Select Case w
+            Case "bold": target.Font.Bold = True
+            Case "not-bold": target.Font.Bold = False
+            Case "italic": target.Font.Italic = True
+            Case "not-italic": target.Font.Italic = False
+            Case "underline": target.Font.Underline = xlUnderlineStyleSingle
+            Case "double-underline": target.Font.Underline = xlUnderlineStyleDouble
+            Case "accounting-underline": target.Font.Underline = xlUnderlineStyleSingleAccounting
+            Case "double-accounting-underline": target.Font.Underline = xlUnderlineStyleDoubleAccounting
+            Case "not-underline": target.Font.Underline = xlUnderlineStyleNone
+            Case "strike": target.Font.Strikethrough = True
+            Case "not-strike": target.Font.Strikethrough = False
+            Case Else
+                If Left$(w, 1) = Chr$(34) Then
+                    target.Font.Color = AppearanceRgb(w)
+                ElseIf w Like "#*" Then
+                    target.Font.Size = Val(w)
+                Else
+                    Err.Raise 5, "VLA_Tests", "appearance.txt: a font of no such word: " & w
+                End If
+            End Select
+        End If
     Next i
 End Sub
 
@@ -3824,8 +3839,9 @@ End Function
 
 ' A cell's format read back in the record's spelling, every property at
 ' Excel's default left out: its fill, number format and wrap; then (font
-' ...) for a weight, a slant, a size other than 11 and a color other than
-' the automatic or black; (align ...) for a horizontal other than general
+' ...) for a weight, a slant, a size other than 11, a color other than the
+' automatic or black, an underline, a strike and a family other than the
+' workbook's Normal style's; (align ...) for a horizontal other than general
 ' and a vertical other than bottom; (border ...) for each edge with a line,
 ' its color where it is not the automatic. A value the record has no word
 ' for is read as its number, so that the golden shows it.
@@ -3850,6 +3866,7 @@ Private Function AppearanceRead(ByVal target As Range) As String
     If target.Font.ColorIndex <> xlColorIndexAutomatic And target.Font.Color <> 0 Then
         said = said & " " & Chr$(34) & AppearanceHex(target.Font.Color) & Chr$(34)
     End If
+    said = said & AppearanceFontWords(target.Font, CStr(target.Worksheet.Parent.Styles("Normal").Font.Name))
     If Len(said) > 0 Then s = s & " (font" & said & ")"
     said = ""
     Select Case target.HorizontalAlignment
@@ -3873,6 +3890,25 @@ Private Function AppearanceRead(ByVal target As Range) As String
     Next j
     If Len(said) > 0 Then s = s & " (border" & said & ")"
     AppearanceRead = s
+End Function
+
+' A font's underline, strike and family as the record spells them after its
+' color (KERNEL.58), each with its space: a family where it is not nName, the
+' Normal style's, by its name alone, the object model saying no generic; an
+' underline of no word read as its number, so that the golden shows it.
+Private Function AppearanceFontWords(ByVal f As Object, ByVal nName As String) As String
+    Dim said As String
+    Select Case f.Underline
+    Case xlUnderlineStyleNone
+    Case xlUnderlineStyleSingle: said = " underline"
+    Case xlUnderlineStyleDouble: said = " double-underline"
+    Case xlUnderlineStyleSingleAccounting: said = " accounting-underline"
+    Case xlUnderlineStyleDoubleAccounting: said = " double-accounting-underline"
+    Case Else: said = " underline=" & CStr(f.Underline)
+    End Select
+    If f.Strikethrough Then said = said & " strike"
+    If CStr(f.Name) <> nName Then said = said & " (family " & Chr$(34) & CStr(f.Name) & Chr$(34) & ")"
+    AppearanceFontWords = said
 End Function
 
 ' One edge read back: nothing where it has no line, else " (side line)",
@@ -4109,14 +4145,15 @@ End Function
 
 ' A cell's look read back in the record's spelling, every property at the
 ' workbook's default left out: its fill, number format and wrap; (font
-' ...) for a weight, a slant and a size other than the Normal style's and a
-' color other than Excel's automatic and the Normal style's; (align ...)
+' ...) for a weight, a slant and a size other than the Normal style's, a color
+' other than Excel's automatic and the Normal style's, an underline, a strike
+' and a family other than the Normal style's (KERNEL.58); (align ...)
 ' for a horizontal other than general and a vertical other than bottom;
 ' (border ...) for each edge with a line, as VlaWriteAppearanceGolden reads
 ' one. Then " !" and a word for each look the record has no word for, a
 ' value after it where it has one: a pattern, a rich text's runs (its font
-' read at its last character, a run of the cell's own font), a family, an
-' underline, a strike, a raised or lowered text, an outline, a shadow, a
+' read at its last character, a run of the cell's own font), a raised or
+' lowered text, an outline, a shadow, a
 ' horizontal or a vertical the record does not name, an indent, a
 ' rotation, shrinking to fit, a right-to-left order, a diagonal.
 Private Function LooksRead(ByVal target As Range, ByVal nName As String, ByVal nSize As Double, _
@@ -4140,7 +4177,7 @@ Private Function LooksRead(ByVal target As Range, ByVal nName As String, ByVal n
     End Select
     If target.WrapText Then s = s & " wrap" Else s = s & " nowrap"
     Set f = target.Font
-    If IsNull(f.Bold) Or IsNull(f.Italic) Or IsNull(f.Size) Or IsNull(f.Color) Or IsNull(f.Name) Then
+    If IsNull(f.Bold) Or IsNull(f.Italic) Or IsNull(f.Size) Or IsNull(f.Color) Or IsNull(f.Name) Or IsNull(f.Underline) Or IsNull(f.Strikethrough) Then
         unheld = unheld & " runs"
         Set f = target.Characters(Len(CStr(target.Text)), 1).Font
     End If
@@ -4155,10 +4192,8 @@ Private Function LooksRead(ByVal target As Range, ByVal nName As String, ByVal n
     If f.ColorIndex <> xlColorIndexAutomatic And f.Color <> nColor Then
         said = said & " " & Chr$(34) & AppearanceHex(f.Color) & Chr$(34)
     End If
+    said = said & AppearanceFontWords(f, nName)
     If Len(said) > 0 Then s = s & " (font" & said & ")"
-    If CStr(f.Name) <> nName Then unheld = unheld & " family " & Chr$(34) & CStr(f.Name) & Chr$(34)
-    If f.Underline <> xlUnderlineStyleNone Then unheld = unheld & " underline " & CStr(f.Underline)
-    If f.Strikethrough Then unheld = unheld & " strike"
     If f.Superscript Then unheld = unheld & " superscript"
     If f.Subscript Then unheld = unheld & " subscript"
     If f.OutlineFont Then unheld = unheld & " outline"

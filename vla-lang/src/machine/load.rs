@@ -1423,6 +1423,7 @@ impl Reader {
                     style.say_wrap(wrap);
                 }
                 style.font = said.font;
+                style.family = said.family.map(Box::new);
                 style.align = said.align;
                 style.border = said.border;
             }

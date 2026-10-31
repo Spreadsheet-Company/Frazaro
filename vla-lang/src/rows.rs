@@ -238,7 +238,7 @@ fn format_text(index: u32, style: Option<&Style>, code: Option<&str>) -> String 
     let wrap = if s.wrap { "wrap" } else { "nowrap" };
     // What it says of a font, an alignment and a border (KERNEL.50), after
     // its wrap; nothing for a format that says none of them.
-    let groups = crate::appearance::groups_text(&s.font, &s.align, &s.border);
+    let groups = crate::appearance::groups_text(&s.font, s.family.as_deref(), &s.align, &s.border);
     if s.unsaid == Unsaid::NOTHING {
         return format!("(format {index} {fill} {num} {wrap}{groups})");
     }

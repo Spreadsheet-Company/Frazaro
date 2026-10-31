@@ -1893,8 +1893,8 @@ mod tests {
         // Format 0 the `Default` style over the family's default; the
         // others in the order the parts declare them, content's automatic
         // styles first, `ce8` drawing as format 0 (its rule alone) and
-        // `ce9` a format of its own for its family, which the record has
-        // no word for; Heading 1's bold from its parent `Heading`, its size
+        // `ce9` a format of its own for its family, a face's name and its
+        // generic; Heading 1's bold from its parent `Heading`, its size
         // its own; column B's format its default cell style, which B1
         // takes and B2's own style passes over; row 4's its default cell
         // style, which A4 takes; a date as its serial, a time past a day as
@@ -1918,7 +1918,7 @@ mod tests {
                 "(format 5 none general wrap (align center middle) (border (left thin \"000000\") (right thin \"000000\") (top thin \"000000\") (bottom thin \"000000\")))\n",
                 "(format 6 \"CCFFCC\" general nowrap (font \"006600\"))\n",
                 "(format 7 \"FFFF00\" general nowrap)\n",
-                "(format 9 none general nowrap)\n",
+                "(format 9 none general nowrap (font (family \"DejaVu Serif\" serif)))\n",
                 "(cell \"Sheet1\" \"A1\" \"Title\")\n",
                 "(style \"Sheet1\" \"A1\" 2)\n",
                 "(cell \"Sheet1\" \"B1\" 1.5)\n",
@@ -1958,7 +1958,7 @@ mod tests {
                 stats.conditional,
                 stats.row_formats
             ),
-            (8, 2, 2, 0, 1, 2, 1)
+            (8, 2, 1, 0, 1, 2, 1)
         );
         // A document of 1904's dates counts its serials from its null date.
         let nineteen_o_four = calc_document(

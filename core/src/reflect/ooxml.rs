@@ -58,7 +58,8 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip::{self, Entry};
 use crate::sheet::{
-    cell_ref, number_text, parse_a1_range, xlfn, Edge, Horizontal, Line, Rgb, RowSettings, Vertical,
+    cell_ref, number_text, parse_a1_range, xlfn, Edge, Family, Generic, Horizontal, Line, Rgb,
+    RowSettings, Underline, Vertical,
 };
 use vla_lang::rows::{datum, ArrayKind};
 
@@ -1371,8 +1372,13 @@ struct FileFont {
     size: Option<f64>,
     color: Option<ColorRef>,
     name: Option<String>,
-    /// An underline, a strike, a raised or lowered text, an outline, a
-    /// shadow, a condensed or extended face: what no word of the record's
+    /// Its `<family val>`, the generic of its name.
+    generic: Option<Generic>,
+    /// Its underline, none where it has none or says `none`.
+    underline: Option<Underline>,
+    strike: bool,
+    /// A raised or lowered text, an outline, a shadow, a condensed or
+    /// extended face, an underline of no name: what no word of the record's
     /// says.
     unheld: bool,
 }
@@ -1506,14 +1512,18 @@ fn read_styles(text: &str, label: &str, part: &str) -> Result<Parsed, Refusal> {
                         match child {
                             "b" => f.bold = flag_on(attrs),
                             "i" => f.italic = flag_on(attrs),
-                            "strike" | "outline" | "shadow" | "condense" | "extend" => {
+                            "strike" => f.strike = flag_on(attrs),
+                            "outline" | "shadow" | "condense" | "extend" => {
                                 if flag_on(attrs) {
                                     f.unheld = true;
                                 }
                             }
                             "u" => {
-                                if attr(attrs, "val").as_deref() != Some("none") {
-                                    f.unheld = true;
+                                let val = attr(attrs, "val");
+                                match Underline::from_excel(val.as_deref().unwrap_or("single")) {
+                                    Some(Underline::None) => {}
+                                    Some(u) => f.underline = Some(u),
+                                    None => f.unheld = true,
                                 }
                             }
                             "vertAlign" => {
@@ -1524,6 +1534,11 @@ fn read_styles(text: &str, label: &str, part: &str) -> Result<Parsed, Refusal> {
                             "sz" => f.size = attr(attrs, "val").and_then(|v| v.trim().parse().ok()),
                             "color" => f.color = color_of(attrs),
                             "name" => f.name = attr(attrs, "val").map(Cow::into_owned),
+                            "family" => {
+                                f.generic = attr(attrs, "val")
+                                    .and_then(|v| v.trim().parse().ok())
+                                    .and_then(Generic::from_excel);
+                            }
                             _ => {}
                         }
                     }
@@ -1774,9 +1789,23 @@ impl Parsed {
                 Some(Resolved::Automatic) | None => {}
             }
         }
-        if font.name != default.name || font.unheld {
-            look.unheld = true;
+        if font.underline != default.underline {
+            look.style.font.underline = Some(font.underline.unwrap_or(Underline::None));
         }
+        if font.strike != default.strike {
+            look.style.font.strike = Some(font.strike);
+        }
+        if font.name != default.name {
+            let family = font
+                .name
+                .as_deref()
+                .and_then(|name| Family::new(name, font.generic));
+            match family {
+                Some(f) => look.style.family = Some(Box::new(f)),
+                None => look.unheld = true,
+            }
+        }
+        look.unheld |= font.unheld;
         // The alignment and the wrap.
         match xf.horizontal.as_deref() {
             None | Some("general") => {}
@@ -2602,7 +2631,10 @@ mod tests {
             "(format 2 none general wrap (font italic 22 \"C00000\") (align center middle) (border (left thin) (top medium \"6B4FC8\") (bottom double)))".to_string(),
             format!("(format 3 \"{}\" \"0.0%\" nowrap)", fill3.hex()),
             "(format 4 \"C0C0C0\" \"[Red]0.00\" nowrap)".to_string(),
-            format!("(format 5 none {accounting} nowrap (font \"{}\"))", ink5.hex()),
+            format!(
+                "(format 5 none {accounting} nowrap (font \"{}\" underline (family \"Courier New\")))",
+                ink5.hex()
+            ),
             "(format 6 none general nowrap (font bold))".to_string(),
             "(format 7 none general nowrap)".to_string(),
             "(format 8 none \"m/d/yyyy\" nowrap)".to_string(),
@@ -2691,6 +2723,104 @@ mod tests {
     }
 
     #[test]
+    fn a_font_s_underline_strike_and_family_are_said_against_the_default_font() {
+        // A format per font, each cell its own, over a default font of the
+        // first argument.
+        let formats = |default: &str, fonts: &[&str]| -> Vec<String> {
+            let all: String = std::iter::once(default)
+                .chain(fonts.iter().copied())
+                .collect();
+            let xfs: String = (0..=fonts.len())
+                .map(|k| format!("<xf numFmtId=\"0\" fontId=\"{k}\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>"))
+                .collect();
+            let cells: String = (0..=fonts.len())
+                .map(|k| {
+                    format!(
+                        "<c r=\"{}\" s=\"{k}\"><v>1</v></c>",
+                        cell_ref(1, k as u32 + 1)
+                    )
+                })
+                .collect();
+            let styles = format!(
+                concat!(
+                    "<fonts count=\"{}\">{}</fonts>",
+                    "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>",
+                    "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>",
+                    "<cellXfs count=\"{}\">{}</cellXfs>",
+                    "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>",
+                ),
+                fonts.len() + 1,
+                all,
+                fonts.len() + 1,
+                xfs
+            );
+            let sheet = format!("<sheetData><row r=\"1\">{cells}</row></sheetData>");
+            let bytes = styled(&sheet, &styles, None, "");
+            let (text, stats) = crate::reflect::reflect_looks(&bytes, "fonts.xlsx").unwrap();
+            assert_eq!(stats.unheld, 0, "{text}");
+            text.lines()
+                .filter(|l| l.starts_with("(format "))
+                .map(str::to_string)
+                .collect()
+        };
+        let plain = "<font><sz val=\"10\"/><name val=\"Arial\"/></font>";
+        // Over a plain default: a name's generic by its number, none for none
+        // or 0; `<u/>` a single underline; a said none and a said no unsaid.
+        assert_eq!(
+            formats(
+                plain,
+                &[
+                    "<font><sz val=\"10\"/><name val=\"Consolas\"/><family val=\"3\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Georgia\"/><family val=\"1\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Script\"/><family val=\"4\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Wingdings\"/><family val=\"5\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Helvetica\"/><family val=\"2\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Nothing\"/><family val=\"0\"/></font>",
+                    "<font><sz val=\"10\"/><name val=\"Nowhere\"/></font>",
+                    "<font><u/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                    "<font><u val=\"doubleAccounting\"/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                    "<font><strike/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                    "<font><u val=\"none\"/><strike val=\"0\"/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                ],
+            ),
+            [
+                "(format 0 none general nowrap)",
+                "(format 1 none general nowrap (font (family \"Consolas\" mono)))",
+                "(format 2 none general nowrap (font (family \"Georgia\" serif)))",
+                "(format 3 none general nowrap (font (family \"Script\" script)))",
+                "(format 4 none general nowrap (font (family \"Wingdings\" decorative)))",
+                "(format 5 none general nowrap (font (family \"Helvetica\" sans)))",
+                "(format 6 none general nowrap (font (family \"Nothing\")))",
+                "(format 7 none general nowrap (font (family \"Nowhere\")))",
+                "(format 8 none general nowrap (font underline))",
+                "(format 9 none general nowrap (font double-accounting-underline))",
+                "(format 10 none general nowrap (font strike))",
+                "(format 11 none general nowrap)",
+            ]
+        );
+        // Over a default that strikes and underlines: what it says is unsaid,
+        // and a font that does not says so.
+        assert_eq!(
+            formats(
+                "<font><strike/><u/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                &[
+                    "<font><strike/><u/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                    plain,
+                    "<font><strike/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                    "<font><u val=\"double\"/><sz val=\"10\"/><name val=\"Arial\"/></font>",
+                ],
+            ),
+            [
+                "(format 0 none general nowrap)",
+                "(format 1 none general nowrap)",
+                "(format 2 none general nowrap (font not-underline not-strike))",
+                "(format 3 none general nowrap (font not-underline))",
+                "(format 4 none general nowrap (font double-underline not-strike))",
+            ]
+        );
+    }
+
+    #[test]
     fn a_workbook_s_own_palette_and_its_normal_style_s_font_are_its_own() {
         // A palette of the workbook's own (`indexedColors`) resolves its
         // indices; the default font is the Normal style's, here font 1,
@@ -2717,13 +2847,13 @@ mod tests {
         assert!(
             text.contains(
                 "(format 0 none general nowrap)
-(format 1 none general nowrap (font 11))
+(format 1 none general nowrap (font 11 (family \"Calibri\")))
 (format 2 \"6B4FC8\" general nowrap)
 "
             ),
             "{text}"
         );
-        assert_eq!(stats.unheld, 1, "Calibri beside the default's Arial");
+        assert_eq!(stats.unheld, 0, "Calibri beside the default's Arial, said");
     }
 
     #[test]

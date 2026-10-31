@@ -26,14 +26,16 @@ catalogue lacks. This check holds those, host-free, on every push:
      (a case the language refuses) and for no other;
   3. every reading is in the record's spelling: a fill, a number format and
      a wrap, then a font, an alignment and a border, each said only where it
-     is not Excel's default (no not-bold, not-italic, 11, general, bottom or
-     none) and no group left empty;
+     is not Excel's default (no not-bold, not-italic, 11, not-underline,
+     not-strike, general, bottom or none) and no group left empty, a family
+     by its name alone, the object model saying no generic;
   4. grid-format-property, the refusal of a property this version does not
      take, is an id of the language's half of the catalogue
      (vla-lang/data/messages.vla);
   5. the properties the taken cases reach, each named below, all of them:
      each weight and slant said and unsaid, a size whole, of a half, of
-     tenths and of hundredths, the least and the most, a font's color;
+     tenths and of hundredths, the least and the most, a font's color,
+     each underline and strike said and unsaid, and a family and its generic;
      every horizontal and vertical; every side and every one of the
      fourteen lines, an edge's color; a fill and a wrap; and the three
      groups in one format;
@@ -62,13 +64,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors, never lowered ------------------------------------------------
 # 2026-10-22, KERNEL.50: 46 cases, 2 refused here; the golden written as the
 # prediction ahead of the reference's first run in Excel.
-$caseFloor = 46
-$refusedFloor = 2
+$caseFloor = 60
+$refusedFloor = 3
 
 # The properties rule 5 holds the taken cases to.
 $properties = @('bold', 'not-bold', 'italic', 'not-italic', 'a whole size',
     'a size of a half', 'a size of tenths', 'a size of hundredths', 'the least size',
-    'the most size', "a font's color", 'general', 'left', 'center', 'right', 'top',
+    'the most size', "a font's color", 'underline', 'double-underline',
+    'accounting-underline', 'double-accounting-underline', 'not-underline', 'strike',
+    'not-strike', 'a family', "a family's generic", 'general', 'left', 'center', 'right', 'top',
     'middle', 'bottom', 'the left edge', 'the right edge', 'the top edge',
     'the bottom edge', 'none', 'thin', 'medium', 'thick', 'double', 'hair', 'dotted',
     'dashed', 'dash-dot', 'dash-dot-dot', 'medium-dashed', 'medium-dash-dot',
@@ -87,7 +91,7 @@ $sizeText = '[1-9][0-9]{0,2}(?:\.[1-9]|\.[0-9]5)?'
 $lineWords = '(?:medium-dash-dot-dot|medium-dash-dot|medium-dashed|slant-dash-dot|dash-dot-dot|dash-dot|dashed|dotted|double|medium|thick|thin|hair)'
 $edgeText = { param($side) "(?: \($side $lineWords(?: $rgb)?\))?" }
 $readingPattern = '^(?:none|' + $rgb + ') (?:general|text|"(?:[^"\\]|\\.)*") (?:wrap|nowrap)' +
-    '(?: \(font(?: bold)?(?: italic)?(?: (?<size>' + $sizeText + '))?(?: ' + $rgb + ')?\))?' +
+    '(?: \(font(?: bold)?(?: italic)?(?: (?<size>' + $sizeText + '))?(?: ' + $rgb + ')?(?: (?:underline|double-underline|accounting-underline|double-accounting-underline))?(?: strike)?(?: \(family "(?:[^"\\]|\\.)*"\))?\))?' +
     '(?: \(align(?: (?:left|center|right))?(?: (?:top|middle))?\))?' +
     '(?: \(border' + (& $edgeText 'left') + (& $edgeText 'right') + (& $edgeText 'top') + (& $edgeText 'bottom') + '\))?$'
 
@@ -169,6 +173,11 @@ function Get-CaseProperties([string]$line) {
                 elseif ($t -cmatch '\.\d$') { [void]$found.Add('a size of tenths') }
                 elseif ($t -cmatch '\.\d\d$') { [void]$found.Add('a size of hundredths') }
             } else { [void]$found.Add($t) }
+            continue
+        }
+        if ($depth -eq 2 -and $head -ceq 'font') {
+            if ($t.StartsWith('"')) { [void]$found.Add('a family') }
+            elseif ($t -cne 'family') { [void]$found.Add("a family's generic") }
             continue
         }
         if ($depth -eq 1 -and $head -ceq 'align') { [void]$found.Add($t); continue }

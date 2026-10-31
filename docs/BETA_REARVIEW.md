@@ -42214,6 +42214,88 @@ and its doc test, its describe goldens among them.
 to commit, and no hand test: the spelling is the language's, and Excel first
 meets a differential format at the third slice's save.
 
+*Committed 2026-10-30, the first slice,* `0d18aa6`, at the owner's word,
+"Commit slice 1 and proceed with slice 2": its tree verified alone, the
+worktree holding the same tree (fmt, clippy, the workspace's tests,
+`run_checks` 60 of 60), the shared index given its paths alone. Not pushed.
+
+*The second slice built 2026-10-30*, a font's family, underline and strike
+(decision 9), in the same worktree over `0d18aa6`. *What landed.* `vla-lang`:
+`appearance.rs` (`Underline`, `Family` and `Generic`, each with its words and
+a file's; `Font`'s `underline` and `strike`; the font group's words and a
+`(family ...)` list), `sheet.rs` (`Style::family`, a thin box, and
+`Style::over` taking the first said), `rows.rs` and `machine/load.rs`.
+`frazaro-core`: the writer (`font_element_of`, `font_xml`: `<strike/>` and
+`<u>` where Excel writes them, `<name>` and `<family>` in place of the base's,
+its `charset` and `scheme` going with them; `font_element`'s signature kept),
+the package reader (`FileFont`, each said where it differs from the workbook's
+default font), the OpenDocument reader (`Faces`, a face's name and generic;
+`underline`, `strike`). The reference: `AppearanceFont` takes them and
+`AppearanceFontWords` reads them in both golden writers.
+`tools/check_appearance_golden.ps1` (60 cases, 3 refused, the new words among
+rule 5's properties), `tools/check_looks_golden.ps1` (the three leave its
+words, and a font's spelling takes them), `scripts/appearance.txt` (fourteen
+cases) and `appearance_written.xlsx`, the crate's copies, and the two goldens
+written as predictions, kept apart in the scratchpad (`k58_pred2/`), so that
+their witness is `git diff --no-index` after the owner's run.
+
+*Measured against the predictions.* `Style` 64 and `Font` 12, held by a test.
+`bytes held` up by 8 on every fixture of one format and by 128 on
+Superposition's 16 slots, to the byte; the peaks of criteria and netlist up by
+16 and of column, chain, sums, life and lookups unmoved, the peak standing
+before the table's growth. The ceilings' entry is the memory runner's own
+check, its bytes exact on any 64-bit machine, so that no bench run of the
+owner's was needed; each row's timings stay the run's of the first of today.
+`Unheld` falls by five in `looks.xlsx` and by one more in `looks_book.xlsx`, a
+sixth case the prediction missed: `Calibri 10` beside its Arial default, a
+family too. No `<name>_looks.vla` golden moves. The two `.ods` saves agree but
+for one gap the prediction did not name, each writer's: an accounting
+underline written as a single one.
+
+*Waiting on the owner's run:* `the_looks_read_each_case_as_excel_read_it` and
+`excel_saves_each_case_with_the_font_fill_border_and_alignment_the_writer_writes`
+read `appearance_saved.xlsx`, which `VlaWriteAppearanceGolden` saves with the
+new cases' cells. Predicted of the run: 60 cases, 3 refused by Excel (the
+family of 32 characters 1004, by the name's limit in Excel's own files), 57
+written cells read; the family of 31 characters kept whole; `<family val>` 2,
+3 and 1 for Arial, Consolas and Times New Roman in Excel's save. *The stop
+rule* (the owner's of 2026-10-20): two runs at most, the second only to
+confirm what the first corrected; if Excel takes 32 characters, the language's
+limit moves to what it refuses, one fold; an edge it answers unstably
+labelled, never chased.
+
+*While the run waits.* 33 mutants of the slice, a control before and after: 29
+caught at once, 4 surviving, each a behavior no test held: a said `<u
+val="none"/>`, a package's generic (the golden's comparison passes a generic
+over, the object model saying none), a default font that strikes or
+underlines, an OpenDocument type of `none` beside a solid style. Two tests pin
+them
+(`a_font_s_underline_strike_and_family_are_said_against_the_default_font`,
+`an_underline_and_a_strike_read_by_their_style_and_their_type`), and the four
+and two more of the same code are caught under them. Alonzo's `db054c2` over
+this language by path: its 82 tests and its doc test.
+
+*The owner's run, 2026-10-30,* Excel 16.0 build 20527, the golden's 20430
+before it: `VlaDevReload`, Debug > Compile, `VlaSelfTests` pure 2504/2504 and
+host 333/333, `? VlaWriteAppearanceGolden()` 60 cases, 3 refused by Excel, 57
+written cells read, and `? VlaWriteLooksGolden()` 393 cases, 928 targets. The
+witness, `git diff --no-index` against the predictions kept apart: the
+appearance golden byte for byte, the family of 32 characters refused 1004 and
+that of 31 kept whole; the looks golden but for its source line, the build.
+Excel's save writes each font as the writer writes it, `<strike/>`, `<u/>` and
+a `val`, `<name>` and `<family>` 2, 3 and 1 for Arial, Consolas and Times New
+Roman, the base's `scheme` gone with the name, and no `<family>` for `No Such
+Font` or the name of 31 characters, whose generic is no save's to say. So one
+run, the stop rule's second not needed, and the two tests that waited pass:
+the core's 228, the language's library 441 with `VLA.10`'s among them.
+
+*A peer's commit.* `VLA.10` (`4bccb9b`, committed during the run) carries this
+slice's changelog comment at the head of `src/VLA_Tests.bas`, the two hunks
+standing side by side; that commit's own tree holds no code of this item's,
+and this slice's code and the module's version line land here. The worktree
+was laid again over `4bccb9b` from a saved patch, one conflict, that header,
+resolved by content. Waits on the owner's word to commit.
+
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
 `ENGINE.28` session: one `style` row over a range held by the machine as one

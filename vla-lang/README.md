@@ -169,7 +169,9 @@ refused in the same words.
 - **Says how a cell looks.** A style (`sheet::Style`) is a fill, a number
   format and a wrap, and what it says of its text's font, its alignment and
   its borders (`appearance`): a weight, a slant, a size in points from 1 to
-  409.55 by twentieths, as Office keeps one, and a color; a horizontal and a
+  409.55 by twentieths, as Office keeps one, a color, an underline, a strike
+  and a family, its name and the generic that draws where a machine lacks it;
+  a horizontal and a
   vertical alignment; and each of a cell's four edges, a line of Excel's
   fourteen and a color, each said or not. The view record prints what a
   format says after its wrap, `(font bold 22 "FFFFFF")`,
@@ -387,9 +389,8 @@ this page gains its section when the item closes:
   Excel would cut it (KERNEL.51); and a database function's computed
   criteria, a formula computed at each record, where it is labelled today
   (KERNEL.52).
-- **More of a cell's look.** A merged range, a conditional format, and a
-  font's family, underline and strike, held by the model and the record
-  (KERNEL.58).
+- **More of a cell's look.** A merged range and a conditional format, held by
+  the model and the record, a rule's answer computed by the machine (KERNEL.58).
 
 ## Where it comes from
 

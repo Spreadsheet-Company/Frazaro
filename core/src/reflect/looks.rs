@@ -9,8 +9,8 @@
 //!
 //! A format prints what it changes: a property the workbook's default font
 //! has is unsaid, and so is Excel's automatic color. What the record has no
-//! word for, a font's family, an underline, a pattern, a rotation, a
-//! diagonal, is left out of the row and counted, the rest of the format
+//! word for, a raised text, a pattern, a rotation, a diagonal, is left out
+//! of the row and counted, the rest of the format
 //! printed. A number format the language does not draw is printed as the
 //! file holds it ([`Look::undrawn`]), so that a load refuses it by name
 //! (`grid-format-code`) and a later language that draws more reads the same

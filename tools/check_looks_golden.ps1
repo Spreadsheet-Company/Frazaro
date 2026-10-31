@@ -70,7 +70,7 @@ $saves = @('looks_saved.xlsx', 'looks_book_saved.xlsx')
 $defaultSize = @{ 'looks.xlsx' = '11'; 'looks_book.xlsx' = '10' }
 
 $kinds = @('cell', 'empty', 'blank', 'theme', 'col', 'row', 'merge', 'cf', 'grid', 'std')
-$words = @('family', 'underline', 'strike', 'superscript', 'subscript', 'outline', 'shadow',
+$words = @('superscript', 'subscript', 'outline', 'shadow',
     'runs', 'pattern', 'horizontal', 'vertical', 'indent', 'rotation', 'shrink', 'rtl', 'diagonal')
 
 # A cell's look in the record's spelling (rule 3), every group optional and
@@ -80,10 +80,10 @@ $sizeText = '[1-9][0-9]{0,2}(?:\.[1-9]|\.[0-9]5)?|size=\S+'
 $lineWords = '(?:medium-dash-dot-dot|medium-dash-dot|medium-dashed|slant-dash-dot|dash-dot-dot|dash-dot|dashed|dotted|double|medium|thick|thin|hair|style=-?\d+ weight=-?\d+)'
 $edgeText = { param($side) "(?: \($side $lineWords(?: $rgb)?\))?" }
 $lookPattern = '^(?:none|' + $rgb + ') (?:general|text|"(?:[^"\\]|\\.)*") (?:wrap|nowrap)' +
-    '(?: \(font(?: (?:bold|not-bold))?(?: (?:italic|not-italic))?(?: (?<size>' + $sizeText + '))?(?: ' + $rgb + ')?\))?' +
+    '(?: \(font(?: (?:bold|not-bold))?(?: (?:italic|not-italic))?(?: (?<size>' + $sizeText + '))?(?: ' + $rgb + ')?(?: (?:underline|double-underline|accounting-underline|double-accounting-underline))?(?: strike)?(?: \(family "(?:[^"\\]|\\.)*"\))?\))?' +
     '(?: \(align(?: (?:left|center|right))?(?: (?:top|middle))?\))?' +
     '(?: \(border' + (& $edgeText 'left') + (& $edgeText 'right') + (& $edgeText 'top') + (& $edgeText 'bottom') + '\))?$'
-$wordPattern = '^(?:family "[^"]*"|underline -?\d+|strike|superscript|subscript|outline|shadow|runs|pattern -?\d+|horizontal -?\d+|vertical -?\d+|indent \d+|rotation -?\d+|shrink|rtl|diagonal)$'
+$wordPattern = '^(?:superscript|subscript|outline|shadow|runs|pattern -?\d+|horizontal -?\d+|vertical -?\d+|indent \d+|rotation -?\d+|shrink|rtl|diagonal)$'
 $number = '-?\d+(?:\.\d+)?(?:E[-+]?\d+)?'
 $readingPatterns = @{
     'theme' = "^(?:none|\d+ $number)$"
@@ -110,7 +110,7 @@ function New-OrdinalSet {
 # the list and the value after it where it takes one.
 function Split-Words([string]$tail) {
     $found = New-Object System.Collections.ArrayList
-    $m = [regex]::Matches($tail, ' (family "[^"]*"|underline -?\d+|pattern -?\d+|horizontal -?\d+|vertical -?\d+|indent \d+|rotation -?\d+|[a-z]+)')
+    $m = [regex]::Matches($tail, ' (pattern -?\d+|horizontal -?\d+|vertical -?\d+|indent \d+|rotation -?\d+|[a-z]+)')
     $at = 0
     foreach ($x in $m) {
         if ($x.Index -ne $at) { [void]$found.Add($null); return ,$found }
@@ -246,11 +246,11 @@ if ($Control) {
         $lastHeader = -1
         for ($i = 0; $i -lt $lines.Count; $i++) {
             if ($firstCell -lt 0 -and $lines[$i] -cmatch '^cell:[A-Z]+\d+\tnone general nowrap$') { $firstCell = $i }
-            if ($firstWords -lt 0 -and $lines[$i] -cmatch '^cell:[A-Z]+\d+\t.* ! strike$') { $firstWords = $i }
+            if ($firstWords -lt 0 -and $lines[$i] -cmatch '^cell:[A-Z]+\d+\t.* ! outline$') { $firstWords = $i }
             if ($lines[$i].StartsWith('=== ')) { $lastHeader = $i }
         }
         if ($firstCell -lt 0 -or $firstWords -lt 0 -or $lastHeader -lt 1) {
-            Write-Output 'FAIL: the control found no plain cell, no struck cell or no last header to mutate'
+            Write-Output 'FAIL: the control found no plain cell, no outlined cell or no last header to mutate'
             exit 1
         }
         $mutants = New-Object System.Collections.ArrayList
@@ -271,7 +271,7 @@ if ($Control) {
         [void]$mutants.Add(@('the default said', $d))
         # (e) an unheld word of no such name
         $e = & $copy
-        $e[$firstWords] = $e[$firstWords].Replace(' ! strike', ' ! struck')
+        $e[$firstWords] = $e[$firstWords].Replace(' ! outline', ' ! outlined')
         [void]$mutants.Add(@('the unheld word of none', $e))
         # (f) a source that is no one's
         $f = & $copy

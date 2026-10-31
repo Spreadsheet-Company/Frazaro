@@ -13,9 +13,10 @@
 //!    `VlaWriteAppearanceGolden`; each cell's font, fill, border and
 //!    alignment there, read from its styles part, is the one the writer
 //!    writes for the case, property by property: a weight, a slant, a size
-//!    in twentieths of a point and an ink of its own; a fill; each edge's
-//!    line and color of its own; and the alignment and the wrap. The font's
-//!    family, Excel's Aptos Narrow beside the writer's Calibri, is a
+//!    in twentieths of a point, an ink of its own, an underline and a strike;
+//!    a family where a case says one; a fill; each edge's line and color of
+//!    its own; and the alignment and the wrap. A font's family where a case
+//!    says none, Excel's Aptos Narrow beside the writer's Calibri, is a
 //!    workbook's and no case's.
 //!
 //! The files are read at run time, outside the crate, which the core's
@@ -182,6 +183,11 @@ struct Drawn {
     italic: bool,
     twentieths: u32,
     ink: Option<String>,
+    /// An underline, Excel's name of it.
+    underline: Option<String>,
+    strike: bool,
+    /// A family other than the workbook's first font's.
+    family: Option<String>,
     fill: Option<String>,
     edges: Vec<(String, String, Option<String>)>,
     horizontal: String,
@@ -246,6 +252,11 @@ impl Book {
         let solid =
             child(fill, "patternFill").and_then(|p| attr(p, "patternType")) == Some("solid");
         let border = &self.borders[index(xf, "borderId")];
+        let name = |f: &str| {
+            child(f, "name")
+                .and_then(|n| attr(n, "val"))
+                .map(str::to_string)
+        };
         let edges = ["left", "right", "top", "bottom"]
             .iter()
             .filter_map(|side| {
@@ -264,6 +275,11 @@ impl Book {
             italic: flag("i"),
             twentieths: (size * 20.0).round() as u32,
             ink: own_rgb(child(font, "color")),
+            underline: child(font, "u")
+                .map(|u| attr(u, "val").unwrap_or("single").to_string())
+                .filter(|u| u != "none"),
+            strike: flag("strike"),
+            family: name(font).filter(|n| Some(n) != name(&self.fonts[0]).as_ref()),
             fill: if solid {
                 own_rgb(child(fill, "fgColor"))
             } else {
@@ -277,6 +293,30 @@ impl Book {
             wrap: matches!(attr(alignment, "wrapText"), Some("1" | "true")),
         }
     }
+
+    /// The generic the cell at `address` draws with, a file's `<family val>`.
+    fn generic(&self, address: &str) -> Option<String> {
+        let key = format!("<c r=\"{address}\"");
+        let at = self.sheet.find(&key)?;
+        let cell = &self.sheet[at..at + self.sheet[at..].find('>')?];
+        let index =
+            |e: &str, a: &str| -> usize { attr(e, a).map_or(0, |v| v.parse().expect("an index")) };
+        let font = &self.fonts[index(&self.xfs[index(cell, "s")], "fontId")];
+        attr(child(font, "family")?, "val").map(str::to_string)
+    }
+}
+
+/// A format's text with its family's generic left out, which Excel's object
+/// model cannot say: `(family "Arial" sans)` as `(family "Arial")`.
+fn less_generic(text: &str) -> String {
+    let open = "(family \"";
+    let Some(at) = text.find(open) else {
+        return text.to_string();
+    };
+    let name = at + open.len();
+    let quote = name + text[name..].find('"').expect("the family's name closes");
+    let close = quote + text[quote..].find(')').expect("the family closes");
+    format!("{}{}", &text[..=quote], &text[close..])
 }
 
 #[test]
@@ -336,6 +376,38 @@ fn excel_saves_each_case_with_the_font_fill_border_and_alignment_the_writer_writ
         .iter()
         .any(|d| d.edges.iter().any(|e| e.2.as_deref() == Some("00B050"))));
     assert!(drawn.iter().any(|d| d.vertical == "center"));
+    assert!(drawn
+        .iter()
+        .any(|d| d.underline.as_deref() == Some("double")));
+    assert!(drawn.iter().any(|d| d.strike));
+    assert!(drawn
+        .iter()
+        .any(|d| d.family.as_deref() == Some("Consolas")));
+    // The generic Excel's save writes for a family its machine holds, beside
+    // the one a case says; a family no machine holds, Excel's to guess, apart.
+    let (mut held, mut compared) = (0, 0);
+    for (i, (name, line)) in all.iter().enumerate() {
+        let address = format!("B{}", 2 * (i + 1));
+        if name.contains(" !refused ") || line.contains("No Such Font") {
+            continue;
+        }
+        if !line.contains("(family ") {
+            continue;
+        }
+        held += 1;
+        if let Some(ours) = ours.generic(&address) {
+            assert_eq!(
+                excel.generic(&address).as_deref(),
+                Some(ours.as_str()),
+                "{name}: the generic Excel writes"
+            );
+            compared += 1;
+        }
+    }
+    assert!(
+        held >= 5 && compared >= 3,
+        "{held} families, {compared} generics"
+    );
 }
 
 /// The reader's half (KERNEL.57): `reflect --looks` of Excel's own save of
@@ -393,13 +465,14 @@ fn the_looks_read_each_case_as_excel_read_it() {
             }
             let address = format!("B{}", 2 * (k + 1));
             let index = styles.get(&address).copied().unwrap_or(0);
+            let got = formats.get(&index).map(|f| less_generic(f));
             assert_eq!(
-                formats.get(&index),
+                got.as_ref(),
                 Some(want),
                 "{path}: {name}, the cell {address} at format {index}"
             );
             read += 1;
         }
-        assert_eq!(read, 44, "{path}: the cases read");
+        assert_eq!(read, 57, "{path}: the cases read");
     }
 }

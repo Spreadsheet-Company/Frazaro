@@ -517,9 +517,9 @@ its rows, its `refers` rows last:
 
 What the record cannot hold is left out of its row, the rest of the row
 printed, and one line on stderr says how much was: a cell that keeps a
-format and no value, a look the record has no word for (a font's family,
-an underline, a pattern, a rotation, an indent, a diagonal, a run of rich
-text), a merged range, a conditional format, a row formatted whole. A
+format and no value, a look the record has no word for (a raised text, an
+outline, a pattern, a rotation, an indent, a diagonal, a run of rich text),
+a merged range, a conditional format, a row formatted whole. A
 number format the language does not draw is printed as the file holds it,
 and a load refuses it by name. With `--counts` beside it, each line gains
 the looks' counts, the formats, the cells styled and each kind left out.

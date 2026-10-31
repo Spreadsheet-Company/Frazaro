@@ -131,6 +131,17 @@
   spells the three prints and draws as it did, and `Style::partial`, `say_fill`,
   `say_number` and `say_wrap` build one (KERNEL.58's first slice).
 
+- **A font's family, underline and strike.** A font says them, words of its
+  group after its color: `underline`, `double-underline`, `accounting-underline`,
+  `double-accounting-underline` or `not-underline`; `strike` or `not-strike`; and
+  `(family "Consolas" mono)`, a name of 1 to 31 characters and the generic that
+  draws where a machine lacks it, `serif`, `sans`, `mono`, `script` or
+  `decorative`. The writer writes them where Excel writes them, and `reflect
+  --looks` reads them from a package and from an OpenDocument file, where it
+  counted them as looks of no word. A `Style` is 64 bytes where 56, a pointer to
+  its family, its `Font` still `Copy`, and `font_element_of` writes a format's
+  font with its family (KERNEL.58's second slice).
+
 - **`ADDRESS` computes.** A cell's address as a text from its row and its column:
   `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and
   `=ADDRESS(3,2,4,TRUE,"My Sheet")` is `'My Sheet'!B3`. A cartridge's load refused

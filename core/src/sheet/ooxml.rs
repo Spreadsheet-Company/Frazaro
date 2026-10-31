@@ -59,8 +59,8 @@ use std::collections::HashSet;
 use super::xml;
 use super::zip;
 use super::{
-    cell_ref, column_width_attr, number_text, shared_masters, Border, Content, Font, Horizontal,
-    Line, NumFmt, RowSettings, Sheet, Style, Vertical, Workbook,
+    cell_ref, column_width_attr, number_text, shared_masters, Border, Content, Family, Font,
+    Horizontal, Line, NumFmt, RowSettings, Sheet, Style, Underline, Vertical, Workbook,
 };
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
@@ -369,7 +369,7 @@ impl Looks {
         let first_font = font_element(base, &Font::default());
         let mut looks = Looks::default();
         for xf in styles.xfs() {
-            let font = font_element(base, &xf.font);
+            let font = font_element_of(base, xf);
             looks
                 .fonts_of
                 .push(place(&mut looks.fonts, font, &first_font));
@@ -458,10 +458,22 @@ fn children(element: &str) -> Vec<&str> {
 }
 
 /// A `<font>`: `base`'s, with what `font` says in place of its own (a
-/// weight, a slant, a size and a color), its children in the order Excel
-/// writes them, so that a font that says nothing is `base` as Excel would
-/// have written it.
+/// weight, a slant, a size, a color, an underline and a strike), its children
+/// in the order Excel writes them, so that a font that says nothing is `base`
+/// as Excel would have written it.
 pub fn font_element(base: &str, font: &Font) -> String {
+    font_xml(base, font, None)
+}
+
+/// The `<font>` of a format (KERNEL.58): [`font_element`] of its font, and
+/// the family it says, a name and a generic, in place of the base's, whose
+/// `charset` and `scheme` go with it, since Excel would follow a `scheme` over
+/// the name.
+pub fn font_element_of(base: &str, xf: &Style) -> String {
+    font_xml(base, &xf.font, xf.family.as_deref())
+}
+
+fn font_xml(base: &str, font: &Font, family: Option<&Family>) -> String {
     let kids = children(base);
     let named = |name: &str| kids.iter().find(|k| tag_name(k) == name).copied();
     let on = |name: &str| {
@@ -474,14 +486,26 @@ pub fn font_element(base: &str, font: &Font) -> String {
     if font.italic.unwrap_or_else(|| on("i")) {
         s.push_str("<i/>");
     }
+    if font.strike == Some(true) {
+        s.push_str("<strike/>");
+    }
     for k in &kids {
-        if matches!(
-            tag_name(k),
-            "strike" | "condense" | "extend" | "outline" | "shadow" | "u" | "vertAlign"
-        ) {
+        let kept = match tag_name(k) {
+            "strike" => font.strike.is_none(),
+            "u" => font.underline.is_none(),
+            "condense" | "extend" | "outline" | "shadow" => true,
+            _ => false,
+        };
+        if kept {
             s.push_str(k);
         }
     }
+    match font.underline {
+        None | Some(Underline::None) => {}
+        Some(Underline::Single) => s.push_str("<u/>"),
+        Some(u) => s.push_str(&format!("<u val=\"{}\"/>", u.excel())),
+    }
+    s.push_str(named("vertAlign").unwrap_or(""));
     match font.size {
         Some(size) => s.push_str(&format!("<sz val=\"{}\"/>", size.spell())),
         None => s.push_str(named("sz").unwrap_or("")),
@@ -490,9 +514,19 @@ pub fn font_element(base: &str, font: &Font) -> String {
         Some(color) => s.push_str(&format!("<color rgb=\"{}\"/>", color.argb_hex())),
         None => s.push_str(named("color").unwrap_or("")),
     }
-    for k in &kids {
-        if matches!(tag_name(k), "name" | "family" | "charset" | "scheme") {
-            s.push_str(k);
+    match family {
+        Some(f) => {
+            s.push_str(&format!("<name val=\"{}\"/>", xml::attr(&f.name)));
+            if let Some(g) = f.generic {
+                s.push_str(&format!("<family val=\"{}\"/>", g.excel()));
+            }
+        }
+        None => {
+            for k in &kids {
+                if matches!(tag_name(k), "name" | "family" | "charset" | "scheme") {
+                    s.push_str(k);
+                }
+            }
         }
     }
     s.push_str("</font>");
@@ -1304,6 +1338,55 @@ mod tests {
         assert!(before.contains(&format!(
             "<borders count=\"1\">{EMPTY_BORDER}</borders>\n<cellStyleXfs"
         )));
+    }
+
+    #[test]
+    fn a_font_s_underline_strike_and_family_are_written_where_excel_writes_them() {
+        use crate::sheet::{Family, Generic, Underline};
+        let base = "<font><sz val=\"11\"/><color theme=\"1\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>";
+        let mut xf = Style::default();
+        assert_eq!(font_element_of(base, &xf), base);
+        xf.font.underline = Some(Underline::Single);
+        xf.font.strike = Some(true);
+        assert_eq!(
+            font_element_of(base, &xf),
+            "<font><strike/><u/><sz val=\"11\"/><color theme=\"1\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>"
+        );
+        for (u, written) in [
+            (Underline::Double, "<u val=\"double\"/>"),
+            (Underline::SingleAccounting, "<u val=\"singleAccounting\"/>"),
+            (Underline::DoubleAccounting, "<u val=\"doubleAccounting\"/>"),
+        ] {
+            xf.font.underline = Some(u);
+            xf.font.strike = None;
+            assert_eq!(
+                font_element_of(base, &xf),
+                format!("<font>{written}<sz val=\"11\"/><color theme=\"1\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><scheme val=\"minor\"/></font>")
+            );
+        }
+        // A family in place of the base's, its scheme and its charset going
+        // with it; a generic only where said; a name escaped.
+        let mut xf = Style::default();
+        xf.family = Family::new("Consolas", Some(Generic::Mono)).map(Box::new);
+        let scheme = "<font><b/><strike/><u/><vertAlign val=\"superscript\"/><sz val=\"11\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><charset val=\"1\"/><scheme val=\"minor\"/></font>";
+        assert_eq!(
+            font_element_of(scheme, &xf),
+            "<font><b/><strike/><u/><vertAlign val=\"superscript\"/><sz val=\"11\"/><name val=\"Consolas\"/><family val=\"3\"/></font>"
+        );
+        xf.family = Family::new("A&B \"x\"", None).map(Box::new);
+        assert_eq!(
+            font_element_of("<font><sz val=\"11\"/></font>", &xf),
+            "<font><sz val=\"11\"/><name val=\"A&amp;B &quot;x&quot;\"/></font>"
+        );
+        // A said no takes the base's away, and an unsaid one keeps the base's.
+        let mut xf = Style::default();
+        xf.font.underline = Some(Underline::None);
+        xf.font.strike = Some(false);
+        assert_eq!(
+            font_element_of(scheme, &xf),
+            "<font><b/><vertAlign val=\"superscript\"/><sz val=\"11\"/><name val=\"Aptos Narrow\"/><family val=\"2\"/><charset val=\"1\"/><scheme val=\"minor\"/></font>"
+        );
+        assert_eq!(font_element(scheme, &Font::default()), scheme);
     }
 
     #[test]

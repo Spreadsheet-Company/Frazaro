@@ -825,8 +825,8 @@ fn dressed(r: &mut Rng, rows: &str) -> String {
         out.push_str(line);
         out.push('\n');
         if line.starts_with("(sheet ") {
-            out.push_str("(format 1 \"F7F4FC\" general nowrap (font bold 14 \"6B4FC8\") (align center middle) (border (left thin) (bottom double \"FF0000\")))\n");
-            out.push_str("(format 2 none \"0.00\" nowrap (font not-italic 9.5) (align right top) (border (top medium-dash-dot)))\n");
+            out.push_str("(format 1 \"F7F4FC\" general nowrap (font bold 14 \"6B4FC8\" underline (family \"Consolas\" mono)) (align center middle) (border (left thin) (bottom double \"FF0000\")))\n");
+            out.push_str("(format 2 none \"0.00\" nowrap (font not-italic 9.5 not-underline strike) (align right top) (border (top medium-dash-dot)))\n");
             out.push_str("(format 3 none \"#,##0.0;(#,##0.0);\\\"zero\\\"\" nowrap)\n");
             out.push_str("(format 4 \"E2D8F6\" \"0;-0;0;\\\"<\\\"@\\\">\\\"\" nowrap)\n");
             out.push_str("(format 5 (fill \"FFE699\") (font \"800020\"))\n");

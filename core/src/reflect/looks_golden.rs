@@ -863,7 +863,9 @@ fn looks() -> Book {
     }
     parts.push(p);
 
-    // What the record has no word for, each alone.
+    // What the record has no word for, each alone. A family, an underline
+    // and a strike have had words since KERNEL.58; their cases stay here, under
+    // the names they had, so that the workbook is the same bytes.
     let mut p = Part::new("Unheld");
     let ink = styles.ink;
     let arial =
@@ -1404,6 +1406,10 @@ const EXCEL_ODS: OdsSave = OdsSave {
             "no settings.xml written, so every sheet's gridlines on",
             &[("Cells!gridlines off, grid", "on")],
         ),
+        (
+            "an accounting underline written as a single one",
+            &[("Unheld!underline single accounting, cell:C8", "none general nowrap (font underline)")],
+        ),
     ],
     dropped: &[
         "Unheld!condense",
@@ -1427,6 +1433,10 @@ const LIBREOFFICE_ODS: OdsSave = OdsSave {
     path: concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/reflect/looks_calc.ods"),
     label: "looks.xlsx, LibreOffice's save",
     gaps: &[
+        (
+            "an accounting underline written as a single one",
+            &[("Unheld!underline single accounting, cell:C8", "none general nowrap (font underline)")],
+        ),
         (
             "a solid fill of the palette's 64 or of Excel's automatic, which Excel draws white, \
              written black",
@@ -1698,6 +1708,11 @@ fn drawn(text: &str, colors: bool) -> Drawn {
                     match item {
                         Form::Str(c) if c == "000000" => {}
                         Form::Str(_) => d.font.extend(color(item)),
+                        // A family by its name, Excel's object model saying
+                        // no generic.
+                        Form::List(f) => {
+                            d.font.push(format!("family {}", content(&f.items[1])));
+                        }
                         _ => d.font.push(atom(item)),
                     }
                 }

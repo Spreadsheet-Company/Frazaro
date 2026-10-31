@@ -71,8 +71,10 @@ fn printed(line: &str) -> Result<String, (String, String)> {
 }
 
 /// A format as Excel reads a cell's back: every property at Excel's default
-/// left out, a weight or a slant not taken, the size 11, a general or a
-/// bottom alignment and an edge of none, and a group left empty with them.
+/// left out, a weight or a slant not taken, the size 11, no underline, no
+/// strike, a general or a bottom alignment and an edge of none, and a group
+/// left empty with them; a family by its name alone, the object model saying
+/// no generic.
 fn as_excel_reads(text: &str) -> String {
     let forms = read_forms(text).expect("the case's forms");
     let mut out: Vec<String> = forms[..3].iter().map(write_datum).collect();
@@ -87,14 +89,23 @@ fn as_excel_reads(text: &str) -> String {
         let kept: Vec<String> = l.items[1..]
             .iter()
             .filter(|item| match (head, item) {
-                ("font", Form::Sym(w)) => !matches!(w.as_str(), "not-bold" | "not-italic" | "11"),
+                ("font", Form::Sym(w)) => !matches!(
+                    w.as_str(),
+                    "not-bold" | "not-italic" | "11" | "not-underline" | "not-strike"
+                ),
                 ("align", Form::Sym(w)) => !matches!(w.as_str(), "general" | "bottom"),
                 ("border", Form::List(edge)) => {
                     !matches!(edge.items.get(1), Some(Form::Sym(w)) if w == "none")
                 }
                 _ => true,
             })
-            .map(write_datum)
+            .map(|item| match (head, item) {
+                ("font", Form::List(f)) => {
+                    let name = f.items.get(1).map(write_datum).unwrap_or_default();
+                    format!("(family {name})")
+                }
+                _ => write_datum(item),
+            })
             .collect();
         if !kept.is_empty() {
             out.push(format!("({head} {})", kept.join(" ")));

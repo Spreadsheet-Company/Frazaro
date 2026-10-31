@@ -1,4 +1,4 @@
-source	excel 16.0 20430
+source	excel 16.0 20527
 === looks.xlsx!Colors!theme 0 (lt1)
 cell:C2	"FFFFFF" general nowrap
 cell:E2	none general nowrap (font "FFFFFF")
@@ -1010,15 +1010,15 @@ cell:C18	"FFFF00" "0.00%" nowrap (font italic "00B050") (align right) (border (l
 === looks.xlsx!Flags!the entry's own beside Normal, no flag written
 cell:C20	"5B9BD5" "0.00" nowrap (font bold) (align center) (border (left thin))
 === looks.xlsx!Unheld!family Arial
-cell:C2	none general nowrap ! family "Arial"
+cell:C2	none general nowrap (font (family "Arial"))
 === looks.xlsx!Unheld!underline single
-cell:C4	none general nowrap ! underline 2
+cell:C4	none general nowrap (font underline)
 === looks.xlsx!Unheld!underline double
-cell:C6	none general nowrap ! underline -4119
+cell:C6	none general nowrap (font double-underline)
 === looks.xlsx!Unheld!underline single accounting
-cell:C8	none general nowrap ! underline 4
+cell:C8	none general nowrap (font accounting-underline)
 === looks.xlsx!Unheld!strike
-cell:C10	none general nowrap ! strike
+cell:C10	none general nowrap (font strike)
 === looks.xlsx!Unheld!superscript
 cell:C12	none general nowrap ! superscript
 === looks.xlsx!Unheld!subscript
@@ -1307,7 +1307,7 @@ cell:C4	none general nowrap
 === looks_book.xlsx!Fonts!Arial 11
 cell:C6	none general nowrap (font 11)
 === looks_book.xlsx!Fonts!Calibri 10
-cell:C8	none general nowrap ! family "Calibri"
+cell:C8	none general nowrap (font (family "Calibri"))
 === looks_book.xlsx!Fonts!bold
 cell:C10	none general nowrap (font bold)
 === looks_book.xlsx!Fonts!the theme's ink with no theme part
