@@ -23,7 +23,7 @@
 use crate::form::Form;
 use crate::printer::write_datum;
 use crate::refers::{self, FormulaRef, Kind};
-use crate::sheet::{column_letters, number_text, Column, NumFmt, RowSettings, Style};
+use crate::sheet::{column_letters, number_text, Column, NumFmt, RowSettings, Style, Unsaid};
 
 /// A cell's value as the file holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,7 +138,8 @@ pub enum Record<'r> {
     /// `code`, where given, the number format as a file holds it, printed in
     /// quotes in place of the style's own, a code the language may not draw
     /// (KERNEL.57: a reader prints it as written, and a load refuses it by
-    /// name).
+    /// name). A format that leaves any of the three unsaid prints as
+    /// `(format <index> <groups>)` (KERNEL.58).
     Format {
         index: u32,
         style: Option<&'r Style>,
@@ -218,7 +219,9 @@ pub fn record_line(record: &Record<'_>) -> String {
 /// number format, `general`, `text` or a code quoted (KERNEL.47), whether
 /// text wraps, and the groups of what it says of a font, an alignment and a
 /// border (KERNEL.50). An index the style table does not hold reads as the
-/// default format; a code given is printed in place of the style's own.
+/// default format; a code given is printed in place of the style's own. A
+/// format that leaves any of the three unsaid (KERNEL.58) prints its groups
+/// alone, each of the three it says a group of its own first.
 fn format_text(index: u32, style: Option<&Style>, code: Option<&str>) -> String {
     let default = Style::default();
     let s = style.unwrap_or(&default);
@@ -232,13 +235,24 @@ fn format_text(index: u32, style: Option<&Style>, code: Option<&str>) -> String 
         (None, NumFmt::Text) => "text".to_string(),
         (None, NumFmt::Code(code)) => quoted(code.as_str()),
     };
+    let wrap = if s.wrap { "wrap" } else { "nowrap" };
     // What it says of a font, an alignment and a border (KERNEL.50), after
     // its wrap; nothing for a format that says none of them.
     let groups = crate::appearance::groups_text(&s.font, &s.align, &s.border);
-    format!(
-        "(format {index} {fill} {num} {}{groups})",
-        if s.wrap { "wrap" } else { "nowrap" }
-    )
+    if s.unsaid == Unsaid::NOTHING {
+        return format!("(format {index} {fill} {num} {wrap}{groups})");
+    }
+    let mut said = String::new();
+    if !s.unsaid.fill() {
+        said.push_str(&format!(" (fill {fill})"));
+    }
+    if !s.unsaid.number() || code.is_some() {
+        said.push_str(&format!(" (number {num})"));
+    }
+    if !s.unsaid.wrap() {
+        said.push_str(&format!(" (wrap {wrap})"));
+    }
+    format!("(format {index}{said}{groups})")
 }
 
 /// An array formula's kind, as the reader finds it beside its anchor's

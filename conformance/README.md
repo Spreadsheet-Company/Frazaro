@@ -2186,3 +2186,39 @@ workbook as oracle 11 prints each of its sheets whole.
   hold, in words, empty where it held everything. The core's test holds its
   record to the looks goldens, a package's and its OpenDocument twin's, and
   the page's Reflect pane prints it as the fourth choice of its Show list.
+
+## Amendment of 2026-10-30: oracle 11's format of groups alone (`KERNEL.58`, its first slice)
+
+A format row spelled a fill, a number format and a wrap whatever it had to
+say, so that a look could not color a text over whatever fill a cell has, and
+a conditional format, which says only what it says, had no format to name. A
+format may now say no more than its groups.
+
+- **The row.** `(format 64 (fill "FFE699") (font "800020"))`: where a fill's
+  place holds a list, the row is its groups alone, each given at most once,
+  read in any order and printed `fill`, `number`, `wrap`, `font`, `align`,
+  `border`. Three groups join the three: `(fill "<RRGGBB>")` or `(fill none)`;
+  `(number general)`, `(number text)` or `(number "<code>")`; `(wrap wrap)` or
+  `(wrap nowrap)`. A row spelling the three in their places takes none of those
+  three groups. A format whose groups say all three prints as a format that
+  spells them, and every format of today prints as it did, byte for byte, so
+  that no golden of oracle 11 moves. A group holding what it does not take is
+  refused by name with what it takes (`grid-format-property`), and a code this
+  version does not draw by its own refusal (`grid-format-code`); a row saying
+  nothing, and a group given twice, are out of the row's shape.
+- **A look over a cell's own format.** A format draws with the cell's own for
+  each of the three it leaves unsaid, as it does for a font, an alignment and a
+  border (`Style::over`). A said `none`, `general` or `nowrap` is said, and
+  takes the cell's own away. A `text` row draws under the look's code where the
+  look says a number format and under the cell's own where it does not. As a
+  cell's own format, what it leaves unsaid draws as the default, and the writer
+  writes the default.
+- **The oracle.** The language's third, ninth and eleventh laws hold over grids
+  with looks of groups alone (`vla-lang/tests/laws.rs`), and
+  `vla-lang/tests/appearance.rs` holds each group, each refusal and each row's
+  print. A second painter's fixture, `vla-lang/testdata/appearance/partial.vla`
+  and `partial_drawn.vla`, is a record whose looks are of groups alone beside
+  the same window with every look applied by `Style::over`, its `text` rows the
+  drawn record's. No reading of Excel's holds this slice: the spelling is the
+  language's, and a differential format, Excel's twin of it, joins a later
+  slice with its golden.

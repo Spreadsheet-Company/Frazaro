@@ -20,7 +20,9 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-pub use crate::appearance::{Align, Border, Edge, Font, FontSize, Horizontal, Line, Vertical};
+pub use crate::appearance::{
+    Align, Border, Edge, Font, FontSize, Horizontal, Line, Unsaid, Vertical,
+};
 use crate::numfmt::Code;
 use crate::rows::Visibility;
 
@@ -78,9 +80,12 @@ impl NumFmt {
 /// One cell format: a solid fill or none, a number format, wrapped text or
 /// not, and since KERNEL.50 (2026-10-21) what it says of its text's font,
 /// its alignment and its borders (`crate::appearance`), each unsaid where
-/// `None`. Index 0 of a [`Styles`] table is this type's default. A list
+/// `None`; since KERNEL.58 (2026-10-30) a format of groups alone leaves its
+/// fill, number format or wrap unsaid too ([`Unsaid`]), holding the default
+/// of each. Index 0 of a [`Styles`] table is this type's default. A list
 /// that may grow (`#[non_exhaustive]`): another crate builds one by
-/// [`Style::new`] or `Style::default()` and sets its fields.
+/// [`Style::new`], [`Style::partial`] or `Style::default()` and sets its
+/// fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Style {
@@ -90,6 +95,9 @@ pub struct Style {
     pub font: Font,
     pub align: Align,
     pub border: Border,
+    /// What it leaves unsaid of its fill, number format and wrap: nothing,
+    /// but in a format of groups alone.
+    pub unsaid: Unsaid,
 }
 
 impl Style {
@@ -104,6 +112,34 @@ impl Style {
         }
     }
 
+    /// A format of groups alone saying nothing yet (KERNEL.58), which
+    /// [`Style::say_fill`], [`Style::say_number`], [`Style::say_wrap`] and its
+    /// font, alignment and border fields make say what it says.
+    pub fn partial() -> Style {
+        Style {
+            unsaid: Unsaid::ALL,
+            ..Style::default()
+        }
+    }
+
+    /// The format says this fill, `None` no fill at all.
+    pub fn say_fill(&mut self, fill: Option<Rgb>) {
+        self.fill = fill;
+        self.unsaid.said_fill();
+    }
+
+    /// The format says this number format.
+    pub fn say_number(&mut self, num_fmt: NumFmt) {
+        self.num_fmt = num_fmt;
+        self.unsaid.said_number();
+    }
+
+    /// The format says this wrap.
+    pub fn say_wrap(&mut self, wrap: bool) {
+        self.wrap = wrap;
+        self.unsaid.said_wrap();
+    }
+
     /// Whether the format says anything of a font, an alignment or a
     /// border (KERNEL.50).
     pub fn says_appearance(&self) -> bool {
@@ -113,19 +149,35 @@ impl Style {
     }
 
     /// The format a cell draws with under a look whose format this is
-    /// (KERNEL.50): this one's fill, number format and wrap, which every
-    /// format row spells, and of a font, an alignment and a border what
-    /// this one says, the cell's own `own` for the rest. A look of a format
-    /// that says none of them draws with this format whole, as a look did
-    /// before.
+    /// (KERNEL.50): this one's fill, number format and wrap, which a format
+    /// row spelling the three says whatever their values, and of a font, an
+    /// alignment and a border what this one says, the cell's own `own` for
+    /// the rest. A look of a format that says none of them draws with this
+    /// format whole, as a look did before. A format of groups alone
+    /// (KERNEL.58) takes `own`'s fill, number format or wrap for each it
+    /// leaves unsaid; what both leave unsaid the format drawn leaves, so that
+    /// formats are folded over one another before the cell's own.
     pub fn over(&self, own: &Style) -> Style {
         Style {
-            fill: self.fill,
-            num_fmt: self.num_fmt.clone(),
-            wrap: self.wrap,
+            fill: if self.unsaid.fill() {
+                own.fill
+            } else {
+                self.fill
+            },
+            num_fmt: if self.unsaid.number() {
+                own.num_fmt.clone()
+            } else {
+                self.num_fmt.clone()
+            },
+            wrap: if self.unsaid.wrap() {
+                own.wrap
+            } else {
+                self.wrap
+            },
             font: self.font.over(&own.font),
             align: self.align.over(&own.align),
             border: self.border.over(&own.border),
+            unsaid: self.unsaid.both(own.unsaid),
         }
     }
 }

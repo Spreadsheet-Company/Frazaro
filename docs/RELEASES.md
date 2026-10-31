@@ -60,6 +60,19 @@
   another format, name the cell and the line they named. A sheet with no
   format holds 16 bytes less, and so does every sheet's twin (KERNEL.67).
 
+- **A format that says only what it says.** A format row may now be its groups
+  alone, `(format 64 (fill "FFE699") (font "800020"))`, where every format row
+  spelled a fill, a number format and a wrap. Three groups join the font, the
+  alignment and the border: `(fill "<RRGGBB>")` or `(fill none)`, `(number
+  general)`, `(number text)` or `(number "<code>")`, and `(wrap wrap)` or
+  `(wrap nowrap)`. A look of such a format draws the cell's own for whatever it
+  leaves unsaid, so that a look colors a text over whatever fill a cell has and
+  keeps its number format and wrap; a `text` row draws under the look's code
+  where it says a number format and under the cell's own where it does not. As
+  a cell's own format, what it leaves unsaid draws as the default. A format that
+  spells the three prints and draws as it did, and `Style::partial`, `say_fill`,
+  `say_number` and `say_wrap` build one (KERNEL.58's first slice).
+
 ## 0.12.0
 
 ### What changed

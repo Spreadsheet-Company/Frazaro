@@ -36,11 +36,81 @@
 //! A format that says none of them prints as a format printed before them,
 //! byte for byte, and a viewport that reads a format row's first four items
 //! passes over its groups.
+//!
+//! A format of groups alone (KERNEL.58) spells neither a fill, a number
+//! format nor a wrap in its row's places, and says what its groups say and no
+//! more, three more groups saying those three, so that a look of it draws the
+//! cell's own for the rest ([`Unsaid`]):
+//!
+//! ```text
+//! (format 64 (fill "FFE699") (font "800020"))
+//!
+//! (fill "FFE699")                       a fill, six hex digits, or (fill none)
+//! (number "0.00")                       general, text, or a code of Excel's
+//! (wrap nowrap)                         wrap or nowrap
+//! ```
+//!
+//! A format whose groups say all three prints as a format that spells them. A
+//! format of groups alone is no record's before this item, and one whose row
+//! says nothing is refused.
 
 use crate::form::Form;
+use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
 use crate::rows::quoted;
-use crate::sheet::Rgb;
+use crate::sheet::{NumFmt, Rgb};
+
+const UNSAID_FILL: u8 = 1;
+const UNSAID_NUMBER: u8 = 2;
+const UNSAID_WRAP: u8 = 4;
+
+/// What a format leaves unsaid of its fill, its number format and its wrap
+/// (KERNEL.58): nothing, as every format whose row spells the three; or, in a
+/// format of groups alone, what its groups do not say, so that a look of it
+/// draws the cell's own for each ([`crate::sheet::Style::over`]). A format
+/// holds the default of what it leaves unsaid, which is what it draws as a
+/// cell's own format.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Unsaid(u8);
+
+impl Unsaid {
+    /// Nothing unsaid, as every format whose row spells the three.
+    pub const NOTHING: Unsaid = Unsaid(0);
+    /// All three unsaid.
+    pub const ALL: Unsaid = Unsaid(UNSAID_FILL | UNSAID_NUMBER | UNSAID_WRAP);
+
+    /// Whether the fill is unsaid.
+    pub fn fill(self) -> bool {
+        self.0 & UNSAID_FILL != 0
+    }
+
+    /// Whether the number format is unsaid.
+    pub fn number(self) -> bool {
+        self.0 & UNSAID_NUMBER != 0
+    }
+
+    /// Whether the wrap is unsaid.
+    pub fn wrap(self) -> bool {
+        self.0 & UNSAID_WRAP != 0
+    }
+
+    /// What both leave unsaid, which is what a format drawn of the two leaves.
+    pub(crate) fn both(self, other: Unsaid) -> Unsaid {
+        Unsaid(self.0 & other.0)
+    }
+
+    pub(crate) fn said_fill(&mut self) {
+        self.0 &= !UNSAID_FILL;
+    }
+
+    pub(crate) fn said_number(&mut self) {
+        self.0 &= !UNSAID_NUMBER;
+    }
+
+    pub(crate) fn said_wrap(&mut self) {
+        self.0 &= !UNSAID_WRAP;
+    }
+}
 
 /// What a format says of its text's font. A list that may grow
 /// (`#[non_exhaustive]`): an underline or a family would join it.
@@ -350,13 +420,27 @@ pub(crate) struct Said {
     pub font: Font,
     pub align: Align,
     pub border: Border,
+    /// A format of groups alone's fill, number format and wrap, each where
+    /// its group says one (KERNEL.58).
+    pub fill: Option<Option<Rgb>>,
+    pub number: Option<NumFmt>,
+    pub wrap: Option<bool>,
+}
+
+impl Said {
+    /// Whether it said a fill, a number format or a wrap, which a format row
+    /// spelling the three in its places says there alone.
+    pub fn says_the_places(&self) -> bool {
+        self.fill.is_some() || self.number.is_some() || self.wrap.is_some()
+    }
 }
 
 /// Why a format row's groups said nothing a format takes.
 #[derive(Debug)]
 pub(crate) enum Wrong {
     /// Not in the row's shape: an item that is no group, a group whose head
-    /// is none of `font`, `align` and `border`, or a group given twice.
+    /// is none of `font`, `align`, `border`, `fill`, `number` and `wrap`, or
+    /// a group given twice.
     Shape,
     /// A group holding what a format does not take: the group, what it held,
     /// and what the group takes.
@@ -365,16 +449,24 @@ pub(crate) enum Wrong {
         what: String,
         fix: &'static str,
     },
+    /// A `number` group's code this version does not draw, refused as a code
+    /// in a format's place is (KERNEL.47).
+    Code { code: String, why: Unsupported },
 }
 
 const FONT_TAKES: &str = "a font takes bold or not-bold, italic or not-italic, a size in points from 1 to 409.55 in steps of 0.05, and a color of six hex digits in quotes, each at most once";
 const ALIGN_TAKES: &str = "an alignment takes one of general, left, center and right, and one of top, middle and bottom, each at most once";
 const BORDER_TAKES: &str = "a border takes each edge at most once, (left <line>), (right <line>), (top <line>) or (bottom <line>), a color of six hex digits in quotes after the line where wanted, the line one of none, thin, medium, thick, double, hair, dotted, dashed, dash-dot, dash-dot-dot, medium-dashed, medium-dash-dot, medium-dash-dot-dot and slant-dash-dot, and none taking no color";
+const FILL_TAKES: &str = "a fill takes one color of six hex digits in quotes, or none";
+const NUMBER_TAKES: &str =
+    "a number format takes one of general, text and a code of Excel's in quotes";
+const WRAP_TAKES: &str = "a wrap takes one of wrap and nowrap";
 
-/// The groups after a format row's wrap, read in any order.
+/// The groups after a format row's wrap, or all of a format of groups alone,
+/// read in any order.
 pub(crate) fn read_groups(items: &[Form]) -> Result<Said, Wrong> {
     let mut said = Said::default();
-    let mut seen = [false; 3];
+    let mut seen = [false; 6];
     for item in items {
         let Form::List(l) = item else {
             return Err(Wrong::Shape);
@@ -387,6 +479,9 @@ pub(crate) fn read_groups(items: &[Form]) -> Result<Said, Wrong> {
             "font" => 0,
             "align" => 1,
             "border" => 2,
+            "fill" => 3,
+            "number" => 4,
+            "wrap" => 5,
             _ => return Err(Wrong::Shape),
         };
         if seen[k] {
@@ -396,7 +491,10 @@ pub(crate) fn read_groups(items: &[Form]) -> Result<Said, Wrong> {
         match k {
             0 => said.font = read_font(rest)?,
             1 => said.align = read_align(rest)?,
-            _ => said.border = read_border(rest)?,
+            2 => said.border = read_border(rest)?,
+            3 => said.fill = Some(read_fill(rest)?),
+            4 => said.number = Some(read_number(rest)?),
+            _ => said.wrap = Some(read_wrap(rest)?),
         }
     }
     Ok(said)
@@ -404,6 +502,51 @@ pub(crate) fn read_groups(items: &[Form]) -> Result<Said, Wrong> {
 
 fn property(group: &'static str, what: String, fix: &'static str) -> Wrong {
     Wrong::Property { group, what, fix }
+}
+
+/// A group that holds one item: that item; what it holds else, refused.
+fn one<'f>(items: &'f [Form], group: &'static str, fix: &'static str) -> Result<&'f Form, Wrong> {
+    match items {
+        [item] => Ok(item),
+        [] => Err(property(group, "nothing".to_string(), fix)),
+        [_, second, ..] => Err(property(group, write_datum(second), fix)),
+    }
+}
+
+fn read_fill(items: &[Form]) -> Result<Option<Rgb>, Wrong> {
+    let item = one(items, "fill", FILL_TAKES)?;
+    match item {
+        Form::Sym(w) if w == "none" => Ok(None),
+        Form::Str(hex) => Rgb::from_hex(hex)
+            .map(Some)
+            .ok_or_else(|| property("fill", quoted(hex), FILL_TAKES)),
+        other => Err(property("fill", write_datum(other), FILL_TAKES)),
+    }
+}
+
+fn read_number(items: &[Form]) -> Result<NumFmt, Wrong> {
+    let item = one(items, "number", NUMBER_TAKES)?;
+    match item {
+        Form::Sym(w) if w == "general" => Ok(NumFmt::General),
+        Form::Sym(w) if w == "text" => Ok(NumFmt::Text),
+        Form::Str(code) => match Code::parse(code) {
+            Ok(code) => Ok(NumFmt::Code(code)),
+            Err(why) => Err(Wrong::Code {
+                code: code.clone(),
+                why,
+            }),
+        },
+        other => Err(property("number", write_datum(other), NUMBER_TAKES)),
+    }
+}
+
+fn read_wrap(items: &[Form]) -> Result<bool, Wrong> {
+    let item = one(items, "wrap", WRAP_TAKES)?;
+    match item {
+        Form::Sym(w) if w == "wrap" => Ok(true),
+        Form::Sym(w) if w == "nowrap" => Ok(false),
+        other => Err(property("wrap", write_datum(other), WRAP_TAKES)),
+    }
 }
 
 fn read_font(items: &[Form]) -> Result<Font, Wrong> {
@@ -582,6 +725,79 @@ mod tests {
             Err(Wrong::Property { group, what, .. }) => (group, what),
             other => panic!("{text}: {other:?}"),
         }
+    }
+
+    #[test]
+    fn a_fill_a_number_format_and_a_wrap_are_groups_a_format_of_groups_alone_says() {
+        let s = groups("(wrap wrap) (number \"0.00\") (fill \"ffe699\")").unwrap();
+        assert_eq!(s.fill, Some(Some(Rgb(0xFF, 0xE6, 0x99))));
+        assert!(matches!(s.number, Some(NumFmt::Code(_))));
+        assert_eq!(s.wrap, Some(true));
+        assert!(s.says_the_places());
+        let s = groups("(fill none) (number general) (wrap nowrap)").unwrap();
+        assert_eq!(
+            (s.fill, s.number, s.wrap),
+            (Some(None), Some(NumFmt::General), Some(false))
+        );
+        assert_eq!(groups("(number text)").unwrap().number, Some(NumFmt::Text));
+        // The other three say none of them.
+        assert!(!groups("(font bold) (align left) (border (top thin))")
+            .unwrap()
+            .says_the_places());
+        assert!(!groups("").unwrap().says_the_places());
+        let cases: &[(&str, &str, &str)] = &[
+            ("(fill)", "fill", "nothing"),
+            ("(fill red)", "fill", "red"),
+            ("(fill \"FFF\")", "fill", "\"FFF\""),
+            ("(fill 5)", "fill", "5"),
+            ("(fill none none)", "fill", "none"),
+            ("(fill \"FFFFFF\" \"000000\")", "fill", "\"000000\""),
+            ("(number)", "number", "nothing"),
+            ("(number wide)", "number", "wide"),
+            ("(number 5)", "number", "5"),
+            ("(number general text)", "number", "text"),
+            ("(wrap)", "wrap", "nothing"),
+            ("(wrap maybe)", "wrap", "maybe"),
+            ("(wrap \"wrap\")", "wrap", "\"wrap\""),
+            ("(wrap wrap nowrap)", "wrap", "nowrap"),
+        ];
+        for (text, group, what) in cases {
+            assert_eq!(refused(text), (*group, what.to_string()), "{text}");
+        }
+        // Twice is the row's shape, as for the other three.
+        for text in [
+            "(fill none) (fill none)",
+            "(number text) (number text)",
+            "(wrap wrap) (wrap wrap)",
+        ] {
+            assert!(matches!(groups(text), Err(Wrong::Shape)), "{text}");
+        }
+        // A code this version does not draw, by its own refusal.
+        match groups("(number \"0.00E+00\")") {
+            Err(Wrong::Code { code, .. }) => assert_eq!(code, "0.00E+00"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn what_a_format_leaves_unsaid_is_a_mask_and_a_drawn_format_leaves_what_both_do() {
+        assert!(!Unsaid::NOTHING.fill() && !Unsaid::NOTHING.number() && !Unsaid::NOTHING.wrap());
+        assert!(Unsaid::ALL.fill() && Unsaid::ALL.number() && Unsaid::ALL.wrap());
+        assert_eq!(Unsaid::default(), Unsaid::NOTHING);
+        let mut u = Unsaid::ALL;
+        u.said_fill();
+        assert!(!u.fill() && u.number() && u.wrap());
+        u.said_number();
+        assert!(!u.fill() && !u.number() && u.wrap());
+        u.said_wrap();
+        assert_eq!(u, Unsaid::NOTHING);
+        let mut a = Unsaid::ALL;
+        a.said_fill();
+        let mut b = Unsaid::ALL;
+        b.said_wrap();
+        let both = a.both(b);
+        assert!(!both.fill() && both.number() && !both.wrap());
+        assert_eq!(a.both(Unsaid::NOTHING), Unsaid::NOTHING);
     }
 
     #[test]

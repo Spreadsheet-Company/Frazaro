@@ -12,7 +12,8 @@
 //! 3. Loading a grid's view and viewing it again gives the same view,
 //!    before a frame and after each one, over grids whose formats hold
 //!    codes among them, whose `text` rows the load skips (KERNEL.47), and
-//!    what they say of a font, an alignment and a border (KERNEL.50).
+//!    what they say of a font, an alignment and a border (KERNEL.50), and
+//!    formats of groups alone (KERNEL.58).
 //! 4. A frame stepped in slices of any budget is the frame stepped whole.
 //! 5. A save resumed and stepped once is the original stepped once more.
 //! 6. Two machines given the same rows show the same grid and the same
@@ -388,6 +389,7 @@ fn plane(m: &Machine) -> Vec<u8> {
 fn loading_a_view_and_viewing_it_again_gives_the_same_view() {
     let mut texts = 0;
     let mut groups = 0;
+    let mut alone = 0;
     for seed in 1..=50u64 {
         let mut r = Rng::new(seed);
         let rows = grid_rows(&mut r);
@@ -407,9 +409,19 @@ fn loading_a_view_and_viewing_it_again_gives_the_same_view() {
                 .lines()
                 .filter(|l| l.starts_with("(format ") && l.contains(" (font "))
                 .count();
+            alone += saved
+                .lines()
+                .filter(|l| l.starts_with("(format ") && l.contains(" (fill "))
+                .count();
             assert!(m.step(0).done);
         }
     }
+    // Every record of a dressed grid lists its looks' formats, three saves of
+    // twenty-five grids a sheet (KERNEL.58).
+    assert!(
+        alone >= 75,
+        "too few formats of groups alone for the law to hold over: {alone}"
+    );
     // Measured 2026-10-17 (KERNEL.47): 318 text rows in the saves.
     assert!(
         texts >= 150,
@@ -801,7 +813,10 @@ fn a_grid_s_frames_are_the_same_however_its_formulas_are_written() {
 /// codes, a number's, a sign's and a text's, and two looks map a value to
 /// them, so that a cell's `text` row stands in the records too (KERNEL.47);
 /// two say a font, an alignment and borders, so that their groups stand in
-/// the records (KERNEL.50).
+/// the records (KERNEL.50); and two looks' formats are of groups alone, a
+/// fill and a text's color, and a number format, so that they stand in the
+/// records, and a `text` row drawn under one or under the cell's own
+/// (KERNEL.58).
 fn dressed(r: &mut Rng, rows: &str) -> String {
     let cell = format!("(cell \"{SHEET}\" \"");
     let formula = format!("(formula \"{SHEET}\" \"");
@@ -814,8 +829,10 @@ fn dressed(r: &mut Rng, rows: &str) -> String {
             out.push_str("(format 2 none \"0.00\" nowrap (font not-italic 9.5) (align right top) (border (top medium-dash-dot)))\n");
             out.push_str("(format 3 none \"#,##0.0;(#,##0.0);\\\"zero\\\"\" nowrap)\n");
             out.push_str("(format 4 \"E2D8F6\" \"0;-0;0;\\\"<\\\"@\\\">\\\"\" nowrap)\n");
+            out.push_str("(format 5 (fill \"FFE699\") (font \"800020\"))\n");
+            out.push_str("(format 6 (number \"0.0\"))\n");
             out.push_str(&format!(
-                "(look \"{SHEET}\" 0 3)\n(look \"{SHEET}\" \"t1\" 4)\n"
+                "(look \"{SHEET}\" 0 3)\n(look \"{SHEET}\" \"t1\" 4)\n(look \"{SHEET}\" 1 5)\n(look \"{SHEET}\" 2 6)\n"
             ));
         }
         let Some(addr) = line

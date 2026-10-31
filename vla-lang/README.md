@@ -144,7 +144,10 @@ refused in the same words.
   `(align center middle)` and `(border (left medium))`, and the loader reads
   it back. `Style::over` is the format a cell draws with under a look: the
   look's fill, number format and wrap, what it says of a font, an alignment
-  and a border, and the cell's own format for the rest.
+  and a border, and the cell's own format for the rest. A format of groups
+  alone, `(format 64 (fill "FFE699") (font "800020"))`, says no more than its
+  groups (`Style::partial`, `sheet::Unsaid`), so that a look of it draws the
+  cell's own fill, number format and wrap for those it leaves unsaid.
 - **Reads references.** `refers::scan` finds every reference inside a
   formula's text, cells, ranges, columns, rows, names, Tables, external
   books and 3D spans, and names the calls it cannot read; `refers::r1c1`

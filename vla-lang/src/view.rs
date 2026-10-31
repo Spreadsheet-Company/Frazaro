@@ -27,6 +27,9 @@
 //!                                    and a border, (font ...) (align ...)
 //!                                    (border ...), where it says any (KERNEL.50;
 //!                                    `crate::appearance`)
+//! (format 2 (fill "FFE699"))         a format of groups alone (KERNEL.58): what
+//!                                    its groups say, (fill ...) (number ...)
+//!                                    (wrap ...) among them, and no more
 //! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
 //!                                    holding the value draws with the format
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
@@ -556,16 +559,23 @@ impl<'m> Coded<'m> {
     /// The text a value draws as in a cell of format `style`: under its
     /// look's format in place of the cell's own where its value has one, as
     /// the viewport draws a look (Alonzo's `SPEC.md` decision 19), the first
-    /// look of the record's that it meets; `None` where that format holds no
-    /// code or the code draws the value as the record spells it.
+    /// look of the record's that it meets, and under the cell's own where
+    /// that look leaves its number format unsaid (KERNEL.58); `None` where
+    /// that format holds no code or the code draws the value as the record
+    /// spells it.
     fn text(&self, style: u32, value: &calc::Value) -> Option<String> {
         let met = self.looks.iter().find(|(look, _)| match (look, value) {
             (Look::Number(a), calc::Value::Number(b)) => a == b,
             (Look::Text(a), calc::Value::Text(b)) => a == b,
             _ => false,
         });
-        let index = met.map_or(style, |(_, index)| *index);
-        match self.styles.get(index).map(|s| &s.num_fmt) {
+        let look = met.map(|(_, index)| self.styles.get(*index));
+        let draws = match look {
+            None => self.styles.get(style),
+            Some(Some(look)) if look.unsaid.number() => self.styles.get(style),
+            Some(look) => look,
+        };
+        match draws.map(|s| &s.num_fmt) {
             Some(NumFmt::Code(code)) => code.text(value),
             _ => None,
         }

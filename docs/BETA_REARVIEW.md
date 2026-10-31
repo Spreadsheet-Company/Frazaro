@@ -40755,6 +40755,718 @@ decision 1; and `KERNEL.59`, a number format's code kept through a file,
 from this item's two *Found*, the writer's built-ins 37 and 39 and an
 OpenDocument file's locale tag.
 
+**`KERNEL.58`, the looks the record counts, held: the scoping, 2026-10-30.**
+Begun at the owner's word, from Alonzo's `CART.14.1` (its `docs/REARVIEW.md`,
+"What the language and the engine still lack"), whose ladder's logic is built
+now and whose highlight waits for this item. The line stands minted
+(2026-10-22) and is not minted again; nothing else is minted, the findings
+below under *Found*. The scoping is written here, the decisions with
+recommendations and the predictions before any build, then a stop for the
+owner's approval. Nothing is built. HEAD `b4238af`, two ahead of origin
+(`VLA.9`, `KERNEL.67`), `run_checks` 60 of 60, CI green at `bc6dd77`; in the
+tree a peer's `.gitattributes` and, in this file, peers' scopings of `VLA.10`
+and `KERNEL.60`. Alonzo's HEAD `db054c2`, a peer's `CART.9` slice uncommitted
+in it, read and never written.
+
+*Who asks, and what.*
+- Alonzo's Seiyaku. A look matches a cell's own value and nothing else
+  (Alonzo's `SPEC.md` §3.1), so its Board cannot hold its digits: it holds
+  codes, 100 times a kind, 10 times the box's parity and the value, 207 for an
+  assigned 7, drawn through 108 looks over 54 formats whose number formats
+  spell the digit back. An empty cell and a formula with no value match no
+  look, and an unassigned variable draws its marks as one of 512 texts, so it
+  cannot be lit at all; those are the cells a hint most needs to light. The
+  owner chose that the ladder's logic is built now and its highlight waits for
+  this item, when the Board's codes retire and every variable holds its own
+  digit.
+- What Seiyaku asks of a rule: over a range, `B2:J10`; a formula reading other
+  sheets, hidden ones among them, its relative references moving as a fill's
+  (`Violations!A1=1`, `Lit!A1=1`, `Lab!$B$11=1`); answering for any cell, a
+  number, a text or an empty one; a partial format, saying a fill or a font's
+  color and keeping the cell's own number format, wrap, alignment and border;
+  about six rules over 81 cells. And a font's family: Seiyaku places its marks
+  by figure spaces and its keys by fullwidth letters, for want of a monospace.
+- Every other grid cartridge writes the same code trick. `look` rows by
+  expanded cartridge (*measured*): Seiyaku 108, Naught 31, Kairos 16,
+  Superposition 12, Buffet 7.
+- Frazaro itself: a reflected workbook loses its conditional formats, and
+  `--looks --counts` says so.
+- `AD-1`: a game reaches the language alone, so a rule a cartridge writes is
+  evaluated by `vla-lang`'s machine, never by `frazaro-core`.
+
+*What stands, read in the tree.*
+- `Style` (56 bytes) spells a fill, a number format and a wrap in every format
+  row, then its groups; `Style::over`, a look's format over the cell's own, is
+  called by no reader of the language, only by its tests and, mirrored, by the
+  painter (`over`, Alonzo's `web/viewport.js`). The view's `Coded` picks a
+  `text` row's code from a look or the cell's own.
+- The package reader counts each `mergeCell` and `cfRule` (`first_pass`),
+  skips `extLst` whole ("conditional formats Excel writes twice among them"),
+  skips `dxfs` (`read_styles`), and marks a strike, an underline and a family
+  unheld. The OpenDocument reader counts `style:map` rules, LibreOffice's
+  `calcext` elements and a spanned cell. The writer writes no merge, no rule
+  and no `dxfs`; `font_element` keeps a base font's `u` and `strike` and never
+  says one.
+- `scripts/reflect/looks.xlsx` holds 1 merged range and 3 rules on its `Cells`
+  sheet, each case in `looks_golden.txt`: `merge:C6 C6:E6`, `cf:C8 1
+  "FF0000"`, `cf:C10 2 "FF0000"`, and on `Unheld` `! family "Arial"`, `!
+  underline 2`, `! underline -4119`, `! underline 4`, `! strike`. What each
+  save did with the three rules (*measured*, read from the parts): Excel's
+  `.xlsx` save keeps them in the main part, its two differential formats
+  written as three, a solid fill's color `bgColor`; Excel's `.ods` save writes
+  `style:map`, `of:cell-content()=1` and `of:is-true-formula(TRUE)`;
+  LibreOffice's writes `calcext:conditional-format` beside `style:map`, its
+  value `=1` and `formula-is(1)`, having respelled `TRUE` as `1`.
+- The machine: a frame's plan takes the fills and the formulas alone of the
+  sheets `0..sheets` (`Shapes::of_model`), a value by place in each sheet's
+  store, a twin at `sheets + s`. `changed()` and `changed_on()` count formula
+  cells; a window's changes (`Machine::changes`) name the cells among the twin
+  cells a frame's end changed, each printed by `cell_rows`.
+- A released page, read at `db054c2`. `readRow` counts an unknown head and
+  goes on; a format row whose second item is a list is malformed, counted and
+  dropped, and a look naming a dropped format draws the cell's own.
+  `Viewport.patch` refuses a model holding an unknown or malformed row, and
+  `Host`'s `byCell` a record with a row after its first cell's that is no
+  cell's, so that such a window is viewed whole each frame and draws as
+  before. So a new row costs a released page its patches and never its values.
+  A new word *inside* a group is another matter (*Found*).
+- The kit holds a macro `(rule sheet range expression)`
+  (`cartridges/common.vla`), which is a row head no cartridge could write.
+  Alonzo's `check_devices` holds every formula of `Draft::formulas()` to its
+  `VOLATILE` list, and `readsInputRows` reads any text of a row that begins
+  `=`.
+
+*Measured,* a scratch probe outside the repository (the session's scratchpad,
+`k58probe/`): `vla-lang` at `b4238af` by path, a counting allocator, release
+at opt-level 3 with LTO, one machine, medians of thousands of acts. A rule is
+stood in for by what decision 6 plans it as, a fill on a sheet of its own,
+`=IFERROR(IF(S1!A1=1,1,0),0)`, and nothing of the tree is changed. An act is
+one cell written and two frames.
+
+| grid | load | held after the load | first frame | an act | an idle frame | every cell's frame |
+|---|---|---|---|---|---|---|
+| 81 cells and six sheets of 81, no rule | 0.031 ms | 48,863 B | 0.1 µs | 1.1 µs | 0.0 µs | |
+| and six rules over 81 cells | 0.112 ms | 103,967 B | 11.6 µs | 1.3 µs | 0.1 µs | |
+| a sheet of 512 by 512, no rule | 2.29 ms | 2,395,508 B | 0 | 1.2 µs | 0.0 µs | 43.07 ms |
+| and one rule over it | 6.66 ms | 9,059,613 B | 5.43 ms | 1.6 µs | 0.2 µs | 52.83 ms |
+| Superposition's rows, the floors' | 10.18 ms | 10,593,758 B | | | 0.00 ms | |
+| and a rule over `A1:SR487` | 11.82 ms | 12,942,041 B | | | 0.00 ms | |
+
+A rule's cell computes in 21 to 24 ns at a first frame and 37 where every cell
+changes, and holds 9.42 bytes on the large board and 25.4 where the plan's
+order is at most 262,144 cells, the order's list of them 16 bytes a cell
+(*derived*: `KERNEL.49`'s blocks). And the one refusal that decides something:
+the rule over Superposition's own Field as a fill among the grid's cells is
+refused, `Writing R1!A1:SR512 would bring the grid to 1,060,995 cells, past
+the 1,048,576`, so that a rule's cells cannot be counted with the grid's
+(decision 6).
+
+Sizes by `size_of`: `Style` 56, `NumFmt` 16, `Font` 10, `Align` 2, `Border`
+20, `Sheet` 160, `Workbook` 80, `Styles` 24. `Style` is 53 bytes and three of
+padding, so that two more of `Font` and one of a mask fit in it (*derived*,
+decisions 4 and 9). `Sheet {` and `Render {` literals outside their own crates
+(*measured*, grep over `core/`, `cli/`, Alonzo's engine and Buffet's oracle):
+`Sheet` none, `Render` none outside `frazaro-core`. The workbooks the tree
+holds, by `--looks --counts`: `examples/Frazaro Sample Data.xlsx` 0 merged, 0
+conditional, 6 unheld; `VLA.xlsm` 0, 0 and 0; `looks.xlsx` its 1 and 3, by
+hand; and no merge or rule in any workbook a `<name>_looks.vla` golden reads.
+The sample's six are families by its styles part, Segoe UI and its kin
+(*read*, not counted cell by cell). No real model is in the tree (`AXM.13`
+still waits on one).
+
+*Predicted before that run* (kept in the scratchpad, `k58_predictions.md`)
+*and what it said.* Six rules' first frame about 100 µs: 11.6. An act 1 to 5
+µs more: 0.2. A load under 1 ms more: 0.08. About 40 KB more: 55. One rule
+over 512 by 512, 2.5 MB more: 6.66, the order's list unforeseen, and 2.35 on
+the large board, which keeps none. An idle frame within 5%: yes. Every cell's
+frame 10 to 30 ms more: 9.8. One cell's act under 10 µs more: 0.4. `Style` 56,
+`Font` 10, `Border` 20 as predicted, `Sheet` 160 where about 200. The
+computation came in far under the prediction, and it is not what limits this
+design; the rule's cells' count is.
+
+**The decisions**, the owner's, each with a recommendation. The first two are
+put first.
+
+1. *Which of the five first.* The line's own first decision. Recommended: all
+   five in this item, in this order, each a slice: a format of groups alone
+   (none of the five, but `KERNEL.57`'s decision 9 asks it first); a font's
+   family, underline and strike together; a conditional format in the
+   language; its writer and package reader; its OpenDocument reader; a merge;
+   the rules not computed, held. Seiyaku waits on the first three. The
+   underline and the strike ride with the family, where the suggestion left
+   them for later, because they are the font group's words and the reader's
+   one branch, they cost no byte, and a differential format says them: a
+   rule's format read from a file before they are words would be counted where
+   it could be said, and read again after. A merge last, because it touches no
+   plan and no rule, nothing waits on it, and its hard half is the painter's,
+   one cell drawn over many. The rest of what `--looks` counts (a superscript,
+   a pattern, a rotation, an indent, shrinking, a diagonal, rich text, a row's
+   own format, a formatted empty cell) stays counted, no consumer naming one.
+   What real workbooks carry can move only the last three: the tree holds
+   none, its one designed sample's six unheld being families, and `frazaro
+   reflect <file> --looks --counts` over the owner's prints counts alone,
+   nothing from inside a workbook. *Declined:* (a) a merge first (very likely
+   the most common of the five in a person's files, unmeasured, and no
+   consumer waits); (b) the rule alone, the family after Seiyaku (Seiyaku
+   keeps its figure spaces for a release, for no saving); (c) an item a piece
+   (the owner's word on minting).
+
+2. *`SD-32`, said out loud.* "Appearance is declared, not painted: formatting
+   sentences live apart from logic sentences"; Alonzo's `SPEC.md` §3.1, "never
+   through a formula that paints". A rule's formula decides a look, and there
+   is no reading in which that is not a formula near a look. Recommended: the
+   commandment stands, on this reading, written into the register as one
+   sentence with no new number, and Alonzo's sentence amended by an Alonzo
+   session with its own half:
+   - *Painting is a formula writing a look.* No formula writes one: a rule
+     answers 1 or 0 and the look stays a declared format, in a row of its own
+     in the looks' block of the record, apart from every `cell` and `formula`
+     row.
+   - *It goes one way.* A rule reads cells; no cell reads a rule. An answer
+     stands on a sheet no reference can spell (decision 6), so the logic
+     cannot depend on the look, by construction and not by a rule of style.
+   - *The painter computes nothing.* The record says what each cell draws
+     (decision 7); an answer is a value of the frame, computed by the machine,
+     and the page folds declared formats as it does for a look.
+   - *And it is held, not asserted:* the free law, a grid with its
+     `conditional` rows stepped equal, cell for cell at every frame, to the
+     same grid without them (decision 14).
+
+   The sentence for the register: "A conditional format is a declared row: its
+   formula answers whether a declared format applies, no cell reads its
+   answer, and the record says what each cell draws, so that a look still
+   computes nothing and the logic still depends on no look."
+
+   What this reading gives up, plainly: a rule may hold real logic, an auditor
+   must read a rule row as a formula, and an author can spell a whole game's
+   state in its looks' conditions. That was already so of a look keyed on a
+   code, whose logic is only moved to a neighbor; here it is printed where it
+   stands.
+
+   *Declined:* (a) `SD-32` amended to name rules as its exception (an
+   exception to a rule that turns out to keep it); (b) `SD-32` kept by
+   refusing formulas, a look keyed on a parallel cell alone (decision 3's (c):
+   a real workbook's rules are formulas, so a reader would have to invent a
+   sheet to read one).
+
+3. *A conditional format's form.* Recommended: (a) a row of its own, Excel's
+   model:
+   ```text
+   (conditional "Board" 1 "B2:J10" "=Violations!A1=1" 64)
+   (conditional "Board" 2 "B2:J10" "=Lit!A1=1" 65 stop)
+   (conditional "Data" 3 "A1:A9" (cell greater "=5") 66)
+   (conditional "Data" 4 "A1:A3 C1:C3" (cell between "=1" "=5") none stop)
+   ```
+   Its sheet; its priority, a whole number, lowest first, as a file's
+   `priority` is, a second row of one priority alike taken and unlike refused
+   (`grid-cell-written-twice`, as a `look` is); its range, a rectangle or
+   several as a file's `sqref` spells them, whose cells need no earlier row,
+   since a rule answers for an empty cell; its test, a formula, or `(cell <op>
+   "=<a>" ["=<b>"])`, `<op>` one of `less`, `less-or-equal`, `equal`,
+   `not-equal`, `greater-or-equal`, `greater`, `between` and `not-between`,
+   Excel's eight; its format or `none`; and `stop`. A formula moves from the
+   first rectangle's first cell (*prediction*, the probes). It is printed in
+   every record of its sheet in priority order, after the `look` rows and
+   before the cells, unclipped as a `look` is, so that a save keeps a rule
+   whose range lies past its sheet's extent; the formats rules name join the
+   `format` rows. A load takes it, a twin refused. Named `conditional`, as
+   `--counts` names it, and not `rule`, which the kit's verb holds. What the
+   readers do with each form: under (a) a rule in a file is a row, formula and
+   all; under (b) a look grown would mean two things, a value's map and a
+   range's test, and a reader would print a rule as a `look`; under (c) a
+   reader would make a sheet of its own for a rule's formula and print it as
+   ordinary cells, which no file holds. *Declined:* (b) the `look` row grown
+   (`KERNEL.50`'s decision 3 declined two meanings of one row for this
+   reason); (c) a look keyed on another cell's value, a range drawing by the
+   declared map through a parallel cell, the logic in ordinary cells a person
+   can read (what an author may write under (a), `=Paint!A1=3`, for any
+   cartridge that wants it, and no reader could print it).
+
+4. *A format of groups alone* (`KERNEL.50`'s *Found*; slice 1). Recommended: a
+   format row whose second item is a list says only its groups, and three
+   groups join the three: `(format 64 (fill "FFE699"))`, `(format 65 (fill
+   none) (font "800020"))`, `(format 66 (number "0.00") (wrap nowrap))`.
+   `Style` gains a mask of what it leaves unsaid, a byte in its padding
+   (`Style` stays 56); `Style::over` takes a look's fill, number format and
+   wrap where said, and the cell's own where not, every format of today saying
+   all three and drawing as it drew; its row prints the slots where all three
+   are said, so no record of today moves. It serves a `look` as well as a
+   rule, a look coloring a text over whatever fill a cell has (`KERNEL.50`'s
+   own example). As a cell's own format what it leaves unsaid draws as the
+   default. A row saying nothing is refused. *Declined:* a word in the slots,
+   `(format 64 own own own ...)` (the slots read as "every format spells
+   these", and `KERNEL.50` kept this spelling for this); a table of its own,
+   `(partial 64 ...)`, as a file's `dxfs` is (two index spaces and a `look`
+   naming either).
+
+5. *Which of Excel's rules the language computes.* Recommended: `expression`
+   and `cellIs`, and every kind whose file holds its own `<formula>`, read as
+   an expression by that formula: `containsText`, `notContainsText`,
+   `beginsWith`, `endsWith`, `containsBlanks`, `notContainsBlanks`,
+   `containsErrors`, `notContainsErrors` (Excel's dialog then shows them as
+   "use a formula" after a trip through the writer, which is said; their
+   meaning is the file's own; `timePeriod`'s calls `TODAY`, which the language
+   has not, and a load refuses it as it refuses that call in a cell). Not
+   computed, and named so that nothing fails silently (`SD-30`): `colorScale`,
+   `dataBar`, `iconSet`, `top10`, `aboveAverage`, `duplicateValues`,
+   `uniqueValues`. These a load takes and draws nothing for, their rows
+   printed back; `--counts` says how many; until the last slice a reader
+   leaves them out and says so. That slice holds them through a file by words
+   of their own, `(color-scale (min) (percentile 50) (max) "F8696B" "FFEB84"
+   "63BE7B")`, a file's colors resolved as any, what an `x14` extension adds
+   to them counted unheld. *Declined:* (a) `expression` alone (`cellIs` is a
+   look's own twin); (b) all of them computed (a color scale's color is
+   computed for each cell, which no row says and `lit` cannot: a later row,
+   for a consumer); (c) a load refusing them as a code it cannot draw is
+   refused (`KERNEL.57`'s decision 7: a wrong text is a wrong answer, and a
+   missing bar is no wrong value; one data bar would keep a whole workbook
+   out); (d) the file's element carried as raw XML (a row writing raw markup
+   into a part the writer otherwise escapes, a new injection path, ranked last
+   by the owner's security rule).
+
+6. *How the machine computes a rule.* Recommended: planned as a hidden fill.
+   Each rectangle of a rule's range a fill on an answer sheet of the rule's
+   own, after the rows' sheets and before the twins, at the same places as the
+   cells it answers for; its text `IFERROR(IF(<test>,1,0),0)`, each reference
+   that names no sheet qualified by the rule's own sheet, a defined name found
+   from that sheet; so that a relative reference moves as a fill's does, an
+   answer is 1 or 0, an error or a text is false (*prediction*, the probes),
+   and a test's 2 turned to 3 is no change. Everything else the machine does,
+   it does already, since an answer sheet is a sheet: a shape, a node of
+   `KERNEL.49`, levels after the cells it reads, a change followed to it, a
+   store, a run and a program, a yield, and a view during one. No run or
+   program path of the evaluator changes, and the probe above ran this text on
+   them. In detail:
+   - An answer sheet's name is one no reference can spell, `Board[1]`, a `[`
+     being refused in a sheet's name, so that no formula can read an answer,
+     no guard is needed and no cycle can pass through one; the census and a
+     refusal print it, and a load refusing a function a rule calls gives the
+     rule's line.
+   - No rule, no answer sheet: a grid holding none plans, steps and prints as
+     it does.
+   - `Machine::sheets()`, `loaded()` and `formulas()` keep the rows' own
+     counts; a step's `of` and `changed()` hold the rule's cells, which are
+     work a frame does.
+   - A rule's cells stand beside the grid's and not among them (measured
+     above), at most `CELLS` in all, past which a load refuses by name, a
+     lesson saying to narrow the range: so a rule over a whole column fills
+     it, *Found*.
+   - The drawing: rules by priority, a format's each property the first true
+     rule's to say it, `stop` ending the list; a rule over a look over the
+     cell's own (`Style::over`, folded; a look being no file's, the order is
+     the language's).
+   - `Draft::formulas()` takes each rule's formula, so that Alonzo's
+     `VOLATILE` check holds a rule with no change of Alonzo's.
+   - The doors compute none: `Calc` stays as it is and a door's record prints
+     a rule's row with no answer; `KERNEL.32` brings them to the machine.
+
+   *Declined:* (a) computed at a view, for the window's cells (a window's cost
+   at every view, nothing able to say a look moved, and the changes whole);
+   (b) a visible sheet beside each, as a twin is listed (a `sheet` row in
+   every record, and a formula able to read a look, which ends decision 2's
+   reading); (c) a layer in `CellId` (every reader of `id.0` changed, for what
+   a sheet gives free); (d) the rule's cells among the grid's (Superposition's
+   Field is refused).
+
+7. *The record: what a cell draws.* Recommended: `(lit "Board" "B2" 1 3)`, the
+   priorities of the rules that apply there, in order, up to the first that
+   stops; after a cell's `style` row and before its `sentence` row, in the
+   grid, the values and the fills; a lit cell that holds nothing prints it
+   alone, at its place in row-major order; none for a cell no rule lights. A
+   `text` row draws under the number format the rules, a look and the cell's
+   own give it. The page reads each priority's format from the `conditional`
+   rows and folds `over`, as it does for a look; it computes no test. A load
+   takes a `lit` row as the rule's last answer, as a `value` row is a
+   formula's, so that a sheet viewed whole and loaded again views the same
+   (Alonzo's `SPEC.md` §7.3), a rule with no row waiting for the first step.
+   *Declined:* (a) the formats listed and not the rules (a page needs no
+   table, but a load cannot tell which of two rules of one format answered);
+   (b) one format row a combination, made at a view (a table growing by what
+   the frame computes, and a format no source declared); (c) the row left to a
+   projection of its own (a host joining two answers each frame, for no record
+   it saves by).
+
+8. *The changes, and the page.* A cell's look can now move while its value
+   does not. Recommended: a window's changes name a cell a rule's answer
+   moved, among the twin cells a frame's end changed, an answer sheet's cells
+   read as their rule's own sheet's: each cell by `cell_rows` with its `lit`
+   row, a cell left holding nothing and lit by nothing `(empty ...)`.
+   `changed()` counts the answer, since a rule reading a twin may move a frame
+   later, and `changed_on(<the rule's sheet>)` counts it there, so that a
+   settle's stillness does not stop with a look still to move, and a still
+   frame stays one where nothing moved. A cell whose rule moved under a higher
+   rule that stops prints the rows it printed: the law of `KERNEL.42` holds,
+   and it is named all the same, a repaint at no harm, since telling it apart
+   would keep each cell's list a frame. A released page draws its values as
+   before (read above), with no patch and no rule's look. *Declined:* (a) the
+   changes whole wherever a rule moved (a rule over a board moves often, and
+   it would give back what `ENGINE.19` bought, a still frame 226 µs to 13);
+   (b) stillness counting values alone (a settle stops a frame early over a
+   rule reading a twin, the stale look the prompt names).
+
+9. *A font's family, underline and strike* (slice 2). Recommended: words of
+   the font's group (`KERNEL.50`'s decision 2), printed after its color:
+   `(font bold 22 "FFFFFF" underline strike (family "Consolas" mono))`. An
+   underline is `underline`, `double-underline`, `accounting-underline`,
+   `double-accounting-underline` or `not-underline`, Excel's five; a strike
+   `strike` or `not-strike`; a family a list, its name in quotes since a text
+   alone is a color, and after it the generic, `serif`, `sans`, `mono`,
+   `script` or `decorative`, a file's `<family val>` and an OpenDocument
+   `style:font-family-generic`, which is what "a family the reading machine
+   lacks drawn as its nearest" draws by: the painter's stack, the name then
+   the generic. In the model `Font` gains `underline` and `strike`, two bytes
+   in `Style`'s padding, and stays `Copy`; `Style` gains `family:
+   Option<Box<Family>>`, a thin box, 8 bytes (56 to 64), the name and its
+   generic on the heap only where said. The reader's rule stands: what the
+   workbook's default font has is unsaid. The writer writes `name` and
+   `family` over a base's and drops its `scheme`, which would otherwise win.
+   *Declined:* (a) the index into a table the prompt weighs: two bytes, but
+   `Style` passes 56 for them as for the box, all readers go through `Styles`,
+   `merge.rs` translates it, and `Record::Format` needs the table, a public
+   break; (b) `Font::family`, an owned text (`Font` loses `Copy`, a public
+   break); (c) the generic alone, `(font mono)` (a reflected Arial has no
+   word).
+
+10. *A merge* (slice 6). Recommended: `(merge "Report" "C6:E6")`, printed in
+    every record of its sheet after the `conditional` rows, of more than one
+    cell, two overlapping refused by name at a load as Excel repairs them
+    (*prediction*). It moves no value and no plan: a covered cell holds what
+    its rows wrote, nothing as Excel leaves it, and is read as any cell.
+    `Sheet` holds the ranges, the writer `<mergeCells>`, the readers
+    `mergeCell` and a spanned cell. The drawing is the page's. *Declined:* the
+    covered cells refused a value (Excel's own files may hold one, read by a
+    formula as it stands, *prediction*); a merge as a word of a format
+    (`style` rows say a cell, and a merge is a sheet's rectangle).
+
+11. *The writer* (slice 4). Recommended: `<dxfs>` after `cellStyles`, one for
+    each distinct format rules name; `<mergeCells>` then
+    `<conditionalFormatting>` after `sheetData`, as Excel orders them, the
+    rules of one range under one element, each `type`, `dxfId`, `priority`,
+    `stopIfTrue` and `<formula>` written by the existing escapes and `xlfn`
+    prefixes; a solid fill as `bgColor` (Excel's save keeps it), a font's `b`,
+    `i`, `strike`, `u` and `color`, a border, and a number format. No rule, no
+    bytes: every build golden stands. And:
+    - *A rule reading another sheet.* Microsoft's reference documents the
+      element, `x14:conditionalFormatting`, and not which rules go there
+      (*exhibit*); that a rule reading another sheet does is this author's
+      memory and the prompt's, and the owner's save settles it. Recommended:
+      the form Excel's save writes, deterministic `id`s from the sheet and
+      priority, if Excel takes it back; the plain form where the probes show
+      that is the only one taken.
+    - *What a differential format cannot hold.* Excel's dialog offers no
+      family and no size (`KERNEL.50`'s *exhibit*). What the probes show Excel
+      ignores is left out of the `dxf`, the language and the page still
+      drawing it, and named by a public `ooxml::rules_left_out` for a door to
+      say, as `reflect --looks` says what it leaves.
+    - *A rule reading a twin,* which has no spelling in Excel: left out whole
+      and named the same way, since a wrong formula would cost the file a
+      repair. A cell's formula reading a twin is the same hole, no door
+      reaching it (*Found*).
+    - *`--into`* (`merge.rs`): the build's `dxfs` appended past the host's, a
+      `dxf_base` beside `style_base`, a host's own rules untouched as its
+      parts are copied.
+
+12. *The readers* (slices 4 and 5). Recommended:
+    - *The package.* `read_styles` reads `dxfs`; `first_pass` reads what it
+      counts, and the extension it skips, each `x14:cfRule`, `xm:f`, `x14:dxf`
+      and `xm:sqref`. A differential format is printed as the partial format
+      it is, at an index past `cellXfs` (`cellXfs` + `dxfId`, the extension's
+      inline ones after them), its colors resolved through the workbook's
+      theme and palette as any, the default font not subtracted, since it says
+      what it says. A rule's rows print under `--looks` alone; the plain
+      relations stand. A rule's formula is the bar's text, as a `formula`
+      row's is.
+    - *OpenDocument.* The same rows: LibreOffice's
+      `calcext:conditional-format` first, `style:map` on cell styles where
+      there is none (Excel's `.ods` save), a range gathered from the cells
+      that name the style, a base cell by `base-cell-address`; `of:` formulas
+      by the reader's own translation, `calcext` values by a small one (`=1`,
+      `formula-is(...)` and their kin, in Calc's own references, as
+      LibreOffice's save shows them); the applied style's chain less `Default`
+      as the partial format. LibreOffice's respelling of `TRUE` as `1` shows
+      these are read as that save holds them and not as Excel's.
+    - *`--counts`.* `merged` and `conditional` stay counts and leave the "left
+      out" line; `not-computed` and `rule-cells` join them,
+      `LooksStats::left_out`'s words moving, the page's record id with them.
+      `formatted-empty` and `unheld` stand.
+
+13. *The API.* The owner's rule: measure a non-breaking route first. New
+    fields on `Style` and `Font` and new variants of `Record` break nothing
+    (`#[non_exhaustive]`, `KERNEL.50`), and `Machine` gains no signature: the
+    rows and the views are text. Two remain: `Sheet` must hold a sheet's rules
+    and merges, and `core`'s `Render` a `dxf_base`. *The route with no break,*
+    measured: a sheet's rules and merges kept in `Styles`, whose fields are
+    private, each under its sheet's name; no signature or literal moves, and
+    no sheet grows. Recommended against it, for the break: `Sheet` gains one
+    boxed field with accessors (8 bytes a sheet, the `CellStyles` shape), both
+    types `#[non_exhaustive]` from here on. The measurement above: no `Sheet
+    {` literal in `core/`, `cli/`, Alonzo's engine or Buffet's oracle, and no
+    `Render {` outside `frazaro-core`; so it moves no line downstream, and
+    rides a minor release whichever this takes (decision 15). Against the
+    route with no break: a sheet's looks found in a table of formats, by its
+    name, where `Sheet::looks` stands beside them, a trap for every reader
+    after this one. The owner's call, by the version's consequence: none
+    beyond the minor.
+
+14. *The oracle.* Recommended, in the house's shape:
+    - *Free laws over the machine's generated grids:* a grid's values at every
+      frame equal to the same grid's without its `conditional` rows (`SD-32`,
+      decision 2); each `lit` row the answers of each rule's text filled on an
+      ordinary sheet of a twin grid; `KERNEL.42`'s law, a window's changes
+      laid on its values equal to its next values byte for byte, over grids
+      holding rules; a grid viewed whole and loaded again views the same.
+    - *The test the prompt names:*
+      `a_rule_s_answer_moves_where_no_value_does`, a Board of still values and
+      a rule reading a sheet a write moves: its answer at every frame, the
+      changes naming the cell and printing the `lit` row, `changed_on`
+      counting it there and not on the sheet that moved, and the next frame
+      still.
+    - *Excel's reading,* the probes below: the rows of the hand-made workbooks
+      loaded into the language's machine by a test of the core's under Excel's
+      library, as `core/examples/recalc.rs` loads a program, stepped, its
+      `lit` rows folded by `Style::over` and spelled, held case by case to
+      `DisplayFormat` in `scripts/reflect/rules_golden.txt`, and the reader's
+      rows held to `FormatConditions`.
+    - *The round trip:* rows through the writer and each reader back to the
+      same rows, a rule's format compared by what it says.
+    - *LibreOffice's save beside it,* the way `KERNEL.57`'s third slice held
+      its save, every difference a named gap.
+    - *The floors and the consumers:* oracle 11 and `check_recalc_floors` hold
+      every record and frame of a grid with no rule; a scratch copy of Alonzo
+      over this language by path runs its tests and describe goldens at each
+      slice, Superposition and Seiyaku unchanged while they hold no rule; and
+      the painter's fixture (`vla-lang/testdata/appearance/`, `ENGINE.28`)
+      gains a record with rules beside the same record drawn, for Alonzo to
+      hold.
+    - No check is added: `check_looks_golden` takes the second golden, so
+      `run_checks`' floor stays. A treaty amendment, as oracle 11's rows have
+      had.
+
+15. *The release, the owner's call.* Recommended: `0.13.0` does not wait.
+    `VLA.9` and `KERNEL.67` are done, `KERNEL.60` is short, `KIT.6`'s second
+    slice wants `VLA.9`'s pieces, and this item is weeks. It takes `0.14.0`,
+    Alonzo's pin, its painter item and Seiyaku's highlight following there.
+    Slices 1 and 2 are whole in themselves and may ride `0.13.0` if they land
+    first; slice 3 is a rule with no writer, so it does not reach `main`
+    before `0.13.0` is cut, and waits in its worktree if need be. *Declined:*
+    `0.13.0` holding for this (a language change Alonzo wants now, behind
+    weeks of another).
+
+16. *Alonzo's half,* Alonzo's to mint after the release that carries this (its
+    next free `ENGINE.36`), named here so that nothing is assumed of it: the
+    page reading `conditional`, `lit` and `merge` rows, `CELL_ROWS` and
+    `CELL_LINE` taking `lit`; `readGroups` the new groups and `readFont` the
+    new words; `over` honoring what a format leaves unsaid; one cell drawn
+    over many; a font's stack; `SPEC.md` §3.1's sentence and §7.3's rows;
+    Seiyaku's codes retired. No new act, so no new key.
+
+**The probes,** designed before the first save, the reference's part (`SD-18`)
+and the owner's to run. Three hand-made workbooks, written by a test-only
+builder of the core's, held byte for byte (`FRAZARO_BLESS=1`), a case a row,
+each case's cells beside its name, no case's cell reading another's:
+`scripts/reflect/rules.xlsx`, and apart, since a repair would taint the rest,
+`rules_plain.xlsx` (a rule reading another sheet in the main part) and
+`rules_x14.xlsx` (the same in the extension). `VlaWriteRulesGolden`
+(`src/VLA_Tests.bas`) opens each, reads each target cell's `DisplayFormat`,
+Microsoft's reading of the format a cell shows with its conditional formats
+applied, which a procedure may read and a worksheet function may not
+(*exhibit*): (`Interior.Color`; `Font.Bold`, `.Italic`, `.Size`, `.Color`,
+`.Name`, `.Underline`, `.Strikethrough`; `NumberFormat`,
+`HorizontalAlignment`, `VerticalAlignment`, `WrapText`; each edge's
+`LineStyle`, `Weight` and `Color`) and `Range.Text`, and each
+`FormatCondition`'s `AppliesTo`, `Type`, `Operator`, `Priority`, `StopIfTrue`
+and `Formula1` with the rule's first cell selected, since `Formula1` reads
+relative to the active cell (*exhibit*); writes the golden, and saves each as
+Excel's own `.xlsx` and `.ods`, personal information removed. The cases, with
+their predictions:
+
+- *A. Kinds and truth.* An `expression` answering each of: a number not 0, 0,
+  `TRUE`, `FALSE`, a text, the text `"TRUE"`, an empty reference, an error.
+  *Predicted:* as `IF` reads each, an error and a text false, `"TRUE"` true.
+- *B. `cellIs`,* each of the eight operators over a number, a text, an empty
+  cell, a truth value and an error, and `between` with its bounds reversed.
+  *Predicted:* as `=x op a`, an empty cell 0 and a text above every number; an
+  error lit by none; reversed `between` uncertain, the save says. `cellIs`
+  expands to the formula Excel's answers show, and no other.
+- *C. References.* Relative, `$A1`, `A$1`, `$A$1`; a range of several
+  rectangles out of order, `F5:F6 D3:D4`, values chosen so each base gives
+  another answer. *Predicted:* the first rectangle's first cell. A reference
+  moved past the sheet's edge: *predicted* wraps in Excel and is `#REF!`,
+  false, in the language, a named gap. `=AND($A1:$C1=1)`: *predicted* answered
+  as an array in Excel and by intersection in the language, a named gap,
+  `KERNEL.55`'s.
+- *D. Order.* Two true rules saying one property, and two saying different
+  ones; a file's order against its priorities; `stopIfTrue`; a rule with no
+  `dxfId` and `stopIfTrue` over a lower rule. *Predicted:* by priority,
+  property by property, a formatless stop ending the list.
+- *E. A partial format, over a cell's own fill, font, number format and
+  borders.* A fill's `bgColor`, its `fgColor` under `solid`,
+  `patternType="none"`; `<b val="0"/>`, `<i val="0"/>` over a bold italic
+  cell; each underline, a strike and a color; an edge of each of three lines;
+  a number format, by `Range.Text`; and in a `dxf`, `sz`, `name`, `alignment`
+  and `wrapText`. *Predicted:* `bgColor` draws and a `fgColor` alone does not;
+  a said default takes the cell's own away; a thin edge draws; `sz`, `name`
+  and `alignment` are read and not drawn.
+- *F. Other sheets.* In their own two workbooks: a rule reading a visible
+  sheet, a hidden one, both relative and absolute. *Predicted (70%):* both
+  forms open and draw, and both save to the extension; a defined name reading
+  another sheet stays in the main part.
+- *G. Kinds not computed, and kinds with a formula.* One of each named in
+  decision 5, in the main part; what a save keeps of each. *Predicted:* each
+  kept, `containsText` and its kin with their `<formula>`.
+
+*The stop rule, before the first save* (the owner's of 2026-10-20). Two runs
+at most, the second only to confirm what the first corrected. A deterministic
+rule the save shows is folded and confirmed once. A file Excel repairs ends
+that form's probe: the form is declared not written, the case leaves the
+fixture, and that is no new round. An edge Excel answers unstably, and any gap
+named above, is labelled, never chased; a cleaner meaning under the language's
+own name would be another item. The language matches where Excel is
+deterministic. LibreOffice's is one save of `rules.xlsx`, as
+`scripts/reflect/rules_calc.ods`, beside Excel's own `.ods` save,
+`rules_saved.ods`, their differences named gaps.
+
+**The slices,** each a commit at the owner's word, staged by content. The
+Excel steps are named in full at each handover.
+1. *A format of groups alone* (decision 4): the language alone, the painter's
+   fixture. No Excel, no golden moved.
+2. *A font's three* (decision 9): the language, the writer and both readers.
+   Owner: `VlaDevReload`, `? VlaWriteAppearanceGolden()` and `?
+   VlaWriteLooksGolden()`, the latter's `!` notes turning to the record's
+   words; and `bench_recalc.ps1`'s memory rows, as `KERNEL.67`'s, ceilings
+   raised with a reason.
+3. *A conditional format in the language* (decisions 3, 5 to 8, 13, 14): the
+   fixture and the golden writer come first, so that the first save settles
+   truth, order and references before the machine is held to them. Owner:
+   `VlaDevReload`, `? VlaWriteRulesGolden()`. Then the row, the page, the
+   record, the changes and the laws.
+4. *The writer and the package reader* (decisions 11, 12): `dxfs`,
+   `conditionalFormatting`, the extension, `--into`; `reflect --looks` of
+   `looks.xlsx` and its saves gaining their rows. Owner: open the regenerated
+   goldens and the round trip's workbook in Excel; the second save if the
+   first corrected anything.
+5. *The OpenDocument reader* (decision 12). Owner: LibreOffice's save.
+6. *A merge* (decision 10): the language, the writer, both readers; `merge:C6`
+   already in the golden.
+7. *The rules not computed, held* (decision 5). May be cut to *Found* by what
+   real workbooks show; the item's close then says so.
+
+**Predictions,** written before any build:
+- Slice 1: `Style` stays 56; no golden moves; about 150 lines with its tests.
+- Slice 2: `Style` 64, `Font` 12, `Sheet` unchanged; every memory ceiling up
+  by 8 bytes a table slot, Superposition's 16 slots 128 bytes, a fixture of
+  one format 8; `looks.xlsx`'s `unheld` falls by its five family, underline
+  and strike cases, the golden's moved lines those five alone; no
+  `<name>_looks.vla` golden moves, none of their workbooks saying any of the
+  three; Alonzo's and Buffet's tests unchanged.
+- Slice 3: a grid of no rule: no plan, frame or record moves, and
+  Superposition's and Life's frame times stay within their floors; `Sheet`
+  168, every ceiling up by 8 bytes a sheet, twins among them, Superposition's
+  32 sheets 256; a rule's act and memory as the table above; a whole view of
+  81 cells with six rules under 10 µs more; about 1,000 lines with tests, the
+  machine's own about 150 of them, the view's 100.
+- Slice 4: every `<name>_looks.vla` and build golden stands byte for byte,
+  none of their workbooks holding a rule; `looks.xlsx` read gains three rule
+  rows and two format rows, and Excel's save of it three and three, its two
+  differential formats written as three; the stderr line of `reflect --looks`
+  over it loses "3 conditional formats".
+- Throughout: `run_checks` 60; no refusal's text moved but
+  `grid-row-unknown`'s list, which gains `conditional`, `lit` and `merge`; one
+  new refusal a load, a rule's cells past `CELLS`.
+
+**What it touches.** `vla-lang`: `appearance.rs`, `sheet.rs`, `rows.rs`,
+`view.rs`, `grid.rs`, `machine/load.rs`, `machine/book.rs`, `machine/mod.rs`,
+its `testdata/appearance/`, `data/` by the exporter. `frazaro-core`:
+`sheet/ooxml.rs`, `sheet/merge.rs`, `reflect/looks.rs`, `reflect/ooxml.rs`,
+`reflect/odf.rs`, `reflect/odf_looks.rs`, `reflect/looks_golden.rs` and a new
+builder of the probes' workbooks. `src/VLA_Tests.bas` and
+`src/VLA_Messages.bas`, the golden writers and the one refusal.
+`tools/check_looks_golden.ps1`, `check_recalc_floors.ps1`.
+`conformance/README.md`, `cli/README.md` and `USAGE`, `docs/RELEASES.md`, the
+register's line of `SD-32`, `Delta/CLAUDE.md`, `docs/THREAT_MODEL.md` (the
+readers' new parts, a rule's formula printed and never run by them).
+
+**Beside it.** `KERNEL.60`, a short item in `calc/` and the same `## 0.13.0`,
+read and not touched. `KERNEL.55`, dynamic arrays, owning decision 14's array
+case. `KERNEL.32`, the doors on the machine. `KERNEL.16` and `G-CONDFORMAT`,
+the sentences: after this item a highlight has a row to land on, and its
+sentence forms (`SD-19`, "live") stay theirs. `KERNEL.46`, when it is built: a
+cell emptied under a rule stays lit. Alonzo's `CART.14.1`, slices 1 and 2,
+built meanwhile on looks as they stand.
+
+**Found,** read, not minted:
+1. *A new word in a group, on a released page.* `readFont` returns null on a
+   word it does not know, so the whole format is malformed and dropped: a cell
+   of `(font underline)` on a `0.3.0` page draws in format 0 and loses its
+   fill, where a new *row* costs nothing. The prompt's "reads a format row's
+   fields past wrap by its groups" holds of the groups it knows. No exposure:
+   a page and its module ship together (Buffet's by `check_vendored`), and an
+   older module refuses the row by name. Worth a line in Alonzo's item.
+2. *A rule over a whole column* fills the rule cap alone, `A1:A1048576`, and
+   real workbooks may write it; the answers past a sheet's extent could be
+   left unplanned where every read of the rule is relative and the cells
+   empty, at the cost of the plan following the extent. `rule-cells` under
+   `--counts` will say whether it matters.
+3. *A cell's formula reading a twin reaches the writer as written,* a sheet
+   Excel's file does not hold. No door reaches it.
+4. *`frazaro diff` and `audit` see no look,* so a rule is invisible to both, a
+   rule reading a hidden sheet among them; and `--cone` follows no rule's
+   reads, plain relations printing none.
+5. *`top10`, `aboveAverage`, `duplicateValues` and `uniqueValues`* are
+   expressible as formulas over the rule's own range, later, if real workbooks
+   ask; a color scale's color has no row at all.
+6. *Excel's array reading of a rule* (the probes' C): if a real rule depends
+   on it, `KERNEL.55`'s scoping should know.
+
+*Scoped 2026-10-30; the sixteen decisions await the owner, and nothing is
+built.*
+
+*Approved 2026-10-30* at the owner's word, "Recommendations approved; proceed
+with KERNEL.58 as scoped.": the sixteen decisions as recommended, the release
+`0.14.0` and `0.13.0` not waiting; the roadmap's line 🟡, the first slice first.
+
+*The first slice built 2026-10-30*, a format of groups alone (decision 4), in
+a detached worktree at `b4238af` (the session's scratchpad, `k58wt/`), peers'
+`VLA.10` and `KERNEL.60` being written in the shared tree meanwhile. *What
+landed.* `vla-lang`: `appearance.rs` (`Unsaid`, a byte; the groups `fill`,
+`number` and `wrap`; `Said::says_the_places`; `Wrong::Code`), `sheet.rs`
+(`Style::unsaid`, `Style::partial`, `say_fill`, `say_number`, `say_wrap`, and
+`Style::over` taking the cell's own for what a format leaves unsaid, what both
+leave staying unsaid so that formats fold before the cell's own), `rows.rs` (a
+format that leaves any of the three unsaid prints its groups alone),
+`machine/load.rs` (a list where a fill's place stands is a format of groups
+alone; the three groups refused beside the places; the row's shape's words),
+`view.rs` (a `text` row under the cell's own code where a look leaves its
+number format unsaid). `tests/appearance.rs` (five tests), `tests/laws.rs`
+(two looks of groups alone among the dressed grids, a floor of their rows), a
+second painter's fixture, `testdata/appearance/partial.vla` and
+`partial_drawn.vla`, the first pair byte for byte as it stood, so that
+Alonzo's pinned hashes hold; the crate's README and the treaty's amendment. No
+public signature moves, and no VBA module, golden or exported table: so no
+hand test in Excel. The core needs no change: a partial format holds the
+defaults of what it leaves unsaid, which is what the writer writes of it as a
+cell's own.
+
+*Measured against the predictions.* `Style` stays 56, held by a test; no
+golden moved, the first fixture's pair among them; `check_recalc_floors` holds
+every memory row at its ceiling. About 230 lines of source and 430 of tests,
+where about 150 together was predicted: the refusals' table and the fixture's
+cases cell by cell are the difference. In the worktree: fmt, clippy, the
+language's library 430 tests where 428, its `tests/appearance.rs` 11 where 6,
+the laws' 14, the core's 225, and `run_checks` 60 of 60 with both wasm modules
+built. 22 mutants of the slice all caught, a control passing before and after
+them, each applied and proved so: `over` ignoring each of the three, and
+keeping or forgetting what both leave unsaid; each `say_` leaving its property
+unsaid; a row printing its places or an unsaid group; a look's unsaid number
+format; the three groups taken beside the places, read into nothing, given
+twice or holding two; a code's refusal; a mask that says what either does.
+Alonzo's `db054c2` over this language by path, a scratch copy: its 82 tests
+and its doc test, its describe goldens among them.
+
+*Found while building:* nothing new. The first slice waits on the owner's word
+to commit, and no hand test: the spelling is the language's, and Excel first
+meets a differential format at the third slice's save.
+
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
 `ENGINE.28` session: one `style` row over a range held by the machine as one

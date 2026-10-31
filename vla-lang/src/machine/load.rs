@@ -18,7 +18,9 @@
 //! does not draw (`crate::numfmt`), and since KERNEL.50 its wrap is followed
 //! by what it says of a font, an alignment and a border, each a group
 //! (`crate::appearance`), refused by `grid-format-property` naming what a
-//! group holds that a format does not take. A `style` row names a cell or,
+//! group holds that a format does not take; since KERNEL.58 a format of
+//! groups alone says no more than its groups, three more saying a fill, a
+//! number format and a wrap. A `style` row names a cell or,
 //! since KERNEL.50, a range, every cell of it written by an earlier row, as
 //! a `sentence` row's cell is; a cell no earlier row wrote is refused by
 //! `grid-cell-unwritten`, naming it. Since KERNEL.67 a range's format is held
@@ -55,7 +57,7 @@ use crate::refers::{quote_sheet, shift_a1_references};
 use crate::rows::{quoted, Visibility};
 use crate::sheet::{
     cell_ref, number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb,
-    RowSettings, Sheet, Style, Styles, Workbook, MAX_COLUMN, MAX_ROW,
+    RowSettings, Sheet, Style, Styles, Unsaid, Workbook, MAX_COLUMN, MAX_ROW,
 };
 
 use super::{LineRefusal, CELLS};
@@ -818,7 +820,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "gridlines" => "(gridlines \"<sheet>\" on|off)",
         "column" => "(column \"<sheet>\" \"<letters>\" <width>|none shown|hidden <format>|none)",
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
-        "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)])",
+        "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)]) or a format of groups alone, (format <index> [(fill ...)] [(number ...)] [(wrap ...)] [(font ...)] [(align ...)] [(border ...)]), saying at least one",
         "look" => "(look \"<sheet>\" <value> <format>)",
         "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
         "sentence" => {
@@ -1361,43 +1363,65 @@ impl Reader {
     }
 
     fn format(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
-        let [Form::Sym(index), fill, num, Form::Sym(wrap), groups @ ..] = items else {
+        let Some(Form::Sym(index)) = items.first() else {
             return Err(malformed(line, form, "format"));
         };
         let index = match index.parse::<u32>() {
             Ok(i) if i < FORMATS => i,
             _ => return Err(malformed(line, form, "format")),
         };
-        let fill = match fill {
-            Form::Sym(f) if f == "none" => None,
-            Form::Str(hex) => match Rgb::from_hex(hex) {
-                Some(c) => Some(c),
-                None => return Err(malformed(line, form, "format")),
-            },
+        let (mut style, groups) = match &items[1..] {
+            // A format of groups alone (KERNEL.58), a list where a fill's
+            // place stands: all it says is in them.
+            groups @ [Form::List(_), ..] => (Style::partial(), groups),
+            [fill, num, Form::Sym(wrap), groups @ ..] => {
+                let fill = match fill {
+                    Form::Sym(f) if f == "none" => None,
+                    Form::Str(hex) => match Rgb::from_hex(hex) {
+                        Some(c) => Some(c),
+                        None => return Err(malformed(line, form, "format")),
+                    },
+                    _ => return Err(malformed(line, form, "format")),
+                };
+                let num_fmt = match num {
+                    Form::Sym(s) if s == "general" => NumFmt::General,
+                    Form::Sym(s) if s == "text" => NumFmt::Text,
+                    // A code of Excel's (KERNEL.47), refused naming what it
+                    // holds that this version does not draw.
+                    Form::Str(code) => match Code::parse(code) {
+                        Ok(code) => NumFmt::Code(code),
+                        Err(unsupported) => return Err(format_code(line, code, &unsupported)),
+                    },
+                    _ => return Err(malformed(line, form, "format")),
+                };
+                let wrap = match wrap.as_str() {
+                    "wrap" => true,
+                    "nowrap" => false,
+                    _ => return Err(malformed(line, form, "format")),
+                };
+                (Style::new(fill, num_fmt, wrap), groups)
+            }
             _ => return Err(malformed(line, form, "format")),
         };
-        let num_fmt = match num {
-            Form::Sym(s) if s == "general" => NumFmt::General,
-            Form::Sym(s) if s == "text" => NumFmt::Text,
-            // A code of Excel's (KERNEL.47), refused naming what it holds
-            // that this version does not draw.
-            Form::Str(code) => match Code::parse(code) {
-                Ok(code) => NumFmt::Code(code),
-                Err(unsupported) => return Err(format_code(line, code, &unsupported)),
-            },
-            _ => return Err(malformed(line, form, "format")),
-        };
-        let wrap = match wrap.as_str() {
-            "wrap" => true,
-            "nowrap" => false,
-            _ => return Err(malformed(line, form, "format")),
-        };
-        let mut style = Style::new(fill, num_fmt, wrap);
         // What its groups say of a font, an alignment and a border
-        // (KERNEL.50), a group holding what a format does not take refused
-        // naming it.
+        // (KERNEL.50), and in a format of groups alone of a fill, a number
+        // format and a wrap (KERNEL.58), which a format spelling the three
+        // says in their places alone; a group holding what a format does not
+        // take refused naming it.
         match appearance::read_groups(groups) {
             Ok(said) => {
+                if said.says_the_places() && style.unsaid == Unsaid::NOTHING {
+                    return Err(malformed(line, form, "format"));
+                }
+                if let Some(fill) = said.fill {
+                    style.say_fill(fill);
+                }
+                if let Some(number) = said.number {
+                    style.say_number(number);
+                }
+                if let Some(wrap) = said.wrap {
+                    style.say_wrap(wrap);
+                }
                 style.font = said.font;
                 style.align = said.align;
                 style.border = said.border;
@@ -1406,6 +1430,7 @@ impl Reader {
             Err(Wrong::Property { group, what, fix }) => {
                 return Err(format_property(line, &index.to_string(), group, &what, fix))
             }
+            Err(Wrong::Code { code, why }) => return Err(format_code(line, &code, &why)),
         }
         if let Some((said, first)) = self.formats.get(&index) {
             if *said != style {
