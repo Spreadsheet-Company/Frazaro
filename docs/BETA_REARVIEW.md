@@ -42655,6 +42655,362 @@ line in `.gitattributes` left out, its tree verified alone before it was written
 the language's 428, both wasm modules built, `run_checks.ps1` 60 of 60). The item
 closes: its line leaves the roadmap for the closed ledger. Not pushed.
 
+**`KERNEL.60`, `ADDRESS` computed: the scoping, 2026-10-30.** Begun at the
+owner's word, a prompt relayed from Alonzo's `CART.14.1` ("What the language
+and the engine still lack", its `docs/REARVIEW.md`): Seiyaku's hint names a
+variable, "E2 is 5: the only place left for it in its row", and builds the
+"E2" by `MID("BCDEFGHIJ",c,1)`; Kairos's `letter`, a `CHOOSE` over the
+alphabet, waits on it under `KIT.6`. A game reaches the language alone
+(`AD-1`), and `=ADDRESS(3,2,4)`, tried the same day through Alonzo's pass and
+load at 0.12.0, is refused at the load, `calc-function-not-computed`. The line
+was minted 2026-10-23, so nothing is minted here. The decisions with
+recommendations, the probes, the stop rule and the predictions are written
+before any build or number; then a stop for the owner's approval. Nothing is
+built. HEAD `b4238af`, two ahead of origin, `run_checks` 60 of 60; in the tree
+another session's line in `.gitattributes`, and a peer scoping `KERNEL.58` in
+these documents.
+
+*What it stands on, read in the code at `b4238af`.*
+- A function given to `Library::register` has every parameter one value
+  (`Param::Value`): an array given lifts it, a range read as arrays lifts it,
+  and a legacy formula meets a range at its cell (`Ctx::lifted_call`,
+  `Ctx::one`), as `LEFT` and `MID` stand. A run calls such a function at each
+  cell, and `FORMULATEXT`'s `@` rule reads its class, so neither wants a line
+  for a new name.
+- `calc/texts.rs` holds what it wants: `answer`, `wrong`, and `made`, a text
+  past 32,767 units `#VALUE!`. `sheet::column_letters` writes the column, as
+  for `address-expand`, which `VLA.3` named `ADDRESS` with `abs_num` 4.
+- `refers::quote_sheet`, the line's rule, spells a reference's sheet, held by
+  the owner's pass of 2026-10-04 to what Excel writes in a formula and never
+  to what `ADDRESS` writes. It quotes the empty name as `''`, and its
+  `is_ident_char` takes every character above 127.
+- A label is a `Reason::Construct`: a door prints `(not-computed "...")`, and
+  an engine's machine holds the same at the cell and at the cells reading it
+  (corrected at the build: this first said a machine refuses it, which a
+  construct the parser cannot read is, `calc-construct-not-read`, and a label
+  a function answers is not).
+- An argument left out reaches a strict function as
+  `Arg::Scalar(Value::Empty)` and a reference to an empty cell as `Arg::Area`,
+  which is how `arrays::omitted` tells them; a lift hands an array's empty
+  place as the first.
+- Excel refuses a call of too few or too many arguments at entry, so no
+  fixture holds one.
+- Microsoft's page: `abs_num` 1 or omitted absolute, 2 an absolute row, 3 an
+  absolute column, 4 relative; `a1` TRUE or omitted A1, FALSE R1C1;
+  `sheet_text` omitted no sheet; among its examples `=ADDRESS(2,3,2,FALSE)`
+  `R2C[3]` and `=ADDRESS(2,3,1,FALSE,"[Book1]Sheet1")`
+  `'[Book1]Sheet1'!R2C3`. It is silent on every edge below.
+
+*The decisions.*
+
+1. *The route.* Recommended: a fixture of its own,
+   `scripts/recalc/address.txt`, built by the door into `address.xlsx` and
+   saved by the owner as `address_saved.xlsx`, joining
+   `check_recalc_golden.ps1` at `built` and at `no-differ`,
+   `check_shapes_golden.ps1`, `prove.ps1`'s twenty-second and twenty-third calc
+   rows and a conformance amendment, as `formulas.txt` did. The line says both
+   "as `ISFORMULA` and `FORMULATEXT` did" and "a row of `subset.txt` for each
+   form", which are two routes: `KERNEL.53` put nothing in `subset.txt`, whose
+   one commit is `KERNEL.7`'s, and each of the seven families since has a
+   fixture of its own. `subset.txt` is one formula a function; five rows cannot
+   hold the edges below, and a new save of it replaces a witness of 106 rows
+   for rows that have nothing to do with them. The line is corrected at the
+   approval. *Declined:* the subset's rows; rows added to `texts.txt` or
+   `formulas.txt`, a new save of either for the same nothing.
+
+2. *Where it lives.* Recommended: `calc/texts.rs`, beside `TEXT` and `CHAR`,
+   which also answer a text from numbers, `lib.register("ADDRESS",
+   texts::address)`, and a row of `core/src/excel.rs`'s `SUBSET`, on its
+   fixture alone. *Declined:* `lookups.rs`, Excel's own category for it, when
+   it reads no reference and no cell; `library.rs`, beside `ROW` and `COLUMN`,
+   which read a place.
+
+3. *The order of its reading.* Recommended: every argument read first, left
+   to right, an error or a text that spells no number answering there; then
+   `abs`'s range, then `a1`, then the row's and the column's ranges; each
+   number read down to a whole one, as `MID` reads its start. So
+   `ADDRESS(0,1/0)` is `#DIV/0!`. *Alternative:* each range checked as its
+   argument is read, `#VALUE!` there. The save tells.
+
+4. *Left out, and empty.* Recommended: `abs` left out 1, `a1` left out TRUE and
+   `sheet_text` left out no sheet, as the page says, with a comma and nothing
+   too (`ADDRESS(3,2,,,"Data")`); a row or a column left out 0, so `#VALUE!`; a
+   reference to an empty cell read as any value is, 0, FALSE or the empty text.
+   The strict route cannot tell a lift's empty place from an argument left
+   out: where the save reads one as it reads an empty cell, `lifted_call` hands
+   such a place as an array of one value, which `Ctx::one` reads alike, so that
+   no other function moves. *Alternative:* an empty cell read as left out, as
+   `lookups::number_or` reads it, which needs no such change, if the save says
+   so.
+
+5. *`a1` FALSE.* The line's: labelled, `(not-computed "an address in R1C1")`.
+   Recommended: the label after the reading and `abs`'s range and before the
+   row's and the column's, since a relative R1C1 address may be legal where no
+   A1 address is (`ADDRESS(0,0,4,FALSE)`), and a label cannot differ from Excel
+   where a range's `#VALUE!` could. Excel's answers stand in the saved golden
+   for whoever computes them. *Declined:* computing R1C1, no notation of the
+   house (Alonzo's `SPEC.md` §12).
+
+6. *The sheet's text.* The line's: read as `&` reads a value, then
+   `quote_sheet`, `!` and the address; no sheet looked for. Recommended: where
+   the save parts from `quote_sheet`, the fold goes in `texts::address` alone,
+   a difference no stated rule covers labelled by its shape, and `quote_sheet`
+   stays as it is, since it spells references and this save witnesses only
+   `ADDRESS`: a doubt about a reference goes under *Found*. *Alternative:* the
+   one rule changed for both, which moves `refers`' golden and the reader on
+   this save's word.
+
+7. *The lift.* Recommended: `register`'s, as `LEN`; where a legacy formula
+   forces a parameter as `VLOOKUP`'s index is forced, `Param::Scalar`, one word
+   in the registration.
+
+8. *The count of arguments.* Fewer than two or more than five: `#VALUE!`, as
+   every function of `texts.rs` answers, held by a unit test alone.
+
+9. *The release.* Additive, one name in the library, no public call or record
+   moved: a bullet under `## 0.13.0`, riding it if the owner so decides.
+   Alonzo's pin moves as its own step, and Kairos's `letter` with `KIT.6`.
+
+*The probes, all in the first build.* A Data sheet of the values read (numbers,
+a text of digits, a text, a truth value, an empty cell, an error; a column of
+1, 10 and 100; a column with a hole; a column of sheet texts); a Functions sheet
+of one formula a rule; a Lift sheet where a formula's row meets a range. About
+210 formulas:
+- the forms (15): `abs` 1 to 4, `a1` TRUE, a sheet, the page's two A1 examples,
+  the last cell, and the columns at Z, AA, ZZ and AAA;
+- a row and a column (30): 0, below 0, one past the last, fractions on both
+  sides of 1, 2^31, 2^32+1 and 1E+300, a text of digits, `" 3 "`, `"x"`, `""`,
+  each truth value, each kind of cell, a span of sheets, and each left out;
+- `abs` (16): 0, 5, -1, 8, fractions, texts, truth values, left out, an empty
+  cell;
+- `a1` (14): numbers, texts, left out, cells;
+- R1C1 (16): every `abs`, the page's three, FALSE by 0, by a text and by an
+  empty cell, rows and columns no A1 address has, and the three whose error
+  comes first;
+- the sheet's text (62): names a reference must quote and names it need not;
+  those shaped like a cell or an R1C1 reference, and those shaped nearly so; a
+  period at each end, `_`, `-`, `+`, `!`, `:`, a workbook's brackets, a text
+  already quoted, `TRUE`, `#REF!`, the empty text and a space; letters beyond
+  ASCII, an emoji, an em dash and a no-break space; a number, a truth value, an
+  error, left out, each kind of cell; and the limit's two sides, `LEN` of a name
+  of 255 and 256, of one that ends the address at 32,767 units and one past it,
+  by letters and by apostrophes;
+- the order of errors (11): two errors, a range and an error, a text and an
+  error, in every order;
+- the lift (30): a constant, a range and `ROW` of a range at each parameter,
+  read by `SUM`, `SUMPRODUCT`, `INDEX`, `ROWS` and `COLUMNS`; a legacy formula
+  meeting a range, at its row and at none; two arrays of different shapes; an
+  error at one place; a FALSE at one place; the hole at `abs`, `a1` and the
+  sheet's text;
+- the consumers' shapes (12): `ADDRESS(ROW(),COLUMN(),4)` alone and over a fill,
+  the hint's words, a column's letters by `SUBSTITUTE`;
+- `FORMULATEXT` of two (2), with an `@` and with none.
+
+*The stop rule, before the first save.* One save is planned, with nothing to
+type: `address.xlsx` opened in Excel 365 and saved as `address_saved.xlsx`. An
+answer Excel gives deterministically is folded and held to that same save, whose
+values a fold does not move, the built fixture written again; a second save only
+where a fold needs a formula the first did not hold, and never a third. An
+answer Excel gives otherwise from one copy of a formula to another in one save
+is labelled. A sheet's text no stated rule covers is labelled by its shape.
+R1C1's answers are read and never computed. Excel's oddities are matched where
+deterministic and not chased.
+
+*Predictions, before any number.*
+1. The build: about 210 formulas, 15 labelled (13 R1C1, a lift through FALSE, a
+   `FORMULATEXT` with an `@`), the rest agreeing with what the door writes.
+2. Excel's save agrees at every computed row but those decisions 4 and 6 name:
+   the empty text and the empty cell as a sheet's text, `!A1` where
+   `quote_sheet` writes `''!A1`; the em dash, the no-break space and perhaps the
+   emoji, quoted where `is_ident_char` takes them; and the lift's holes, read as
+   an empty cell. Six rows or fewer. The forms, the ranges, `abs` and `a1` agree
+   as built; an empty cell at `abs` is `#VALUE!` and at `a1` R1C1; a text already
+   quoted is quoted again. Least sure: `ADDRESS("x",1/0)`, `TRUE` as a sheet's
+   text and `.x`.
+3. The lift as `LEN`'s: `SUM(LEN(ADDRESS({1,2,3},1)))` 12,
+   `SUMPRODUCT(LEN(ADDRESS(Data!C1:C3,1)))` 15.
+4. `ADDRESS(0,0,4,FALSE)` is a text in Excel, not an error, and
+   `ADDRESS(0,2,1,FALSE)` `#VALUE!`, both labelled here.
+5. One save. No golden moves but the new fixture's four; no floor moves, since
+   the memory runner makes its library outside its count and no program of the
+   floors calls `ADDRESS`; an Alonzo grid holds some bytes more, this name's
+   letters, as at `KERNEL.53`.
+
+*Approved 2026-10-30* at the owner's word, "Recommendations approved; proceed
+with implementing KERNEL.60 as scoped.": the nine decisions as recommended; the
+roadmap's line 🟡, its route corrected to the fixture of its own.
+
+*The build, its first half.* The function, its tests and the fixture, in a
+detached worktree at `b4238af` (the session's scratchpad, `k60wt/`). The door's
+build of the fixture: 210 formulas, 195 agreeing and 15 labelled, prediction 1
+to the count.
+
+*Excel's first save, 2026-10-30* (the scratchpad's `k60/saves/first.xlsx`). No
+notice and no repair. 195 computed: 179 agreeing and 16 differing. As built: the
+forms; every range, fraction and kind of the row, the column, `abs` and `a1`;
+each argument left out and each empty cell but the two below; the order of
+reading, all eleven rows, `ADDRESS("x",1/0)` `#VALUE!` among them; the lift
+(prediction 3) and a legacy formula meeting a range; `=ADDRESS(0,0,4,FALSE)` `RC`
+and `=ADDRESS(0,2,1,FALSE)` `#VALUE!` (prediction 4), so that decision 5's label
+stands where it is; and `FORMULATEXT`'s `=ADDRESS(@data!C1:C3,1)`. Microsoft's
+page is not what Excel computes for one of its examples: `[Book1]Sheet1!R2C3`
+where the page has `'[Book1]Sheet1'!R2C3`.
+
+The sixteen, all in decisions 4 and 6:
+- A lift's empty place (`A174`, `A176`): read as an empty cell, `#VALUE!` at
+  `abs` and the empty text at the sheet, as predicted; decision 4's change.
+- The empty text and an empty cell as a sheet's text (`A130`, `A145`): `!A1`, as
+  predicted.
+- The truth words (`A126` to `A128`, `A141`, `A142`): quoted, in any case, where
+  the rule leaves them bare.
+- `.x` (`A113`): quoted, where `x.` and `Q1.Data` are not.
+- `R1C1C` (`A111`): quoted, where `is_r1c1_shaped` wants the whole name to be the
+  shape.
+- A no-break space (`A137`): quoted, where the em dash and the emoji are not; I
+  had predicted those two quoted.
+- A limit I had not predicted: a name of 256 characters is `#VALUE!` and one of
+  255 is not (`A148` to `A150`, `A152`).
+- `[Book1]Sheet1` (`A121`): bare, where `[Book1]My Sheet` is quoted whole.
+
+So prediction 2 fails as to its count, sixteen rows where it said six or fewer,
+and prediction 5 as to one save. The forms the consumers call hold as built.
+
+*The second save, the stop rule's one, and why.* A fold needs formulas the first
+did not hold: each row above shows a boundary and does not locate it, and the
+fold must answer for every name, not the name that showed it. A Names sheet
+after the three, 328 formulas, no row of the first moving: a name opening on a
+row's or a column's number, at each number's range and with a tail; a cell's
+shape; the truth words and other words; what may come first; every other ASCII
+mark and control character; a sample of the characters beyond ASCII, each read
+by the answer's first character, `'` or the name's; the limit by each way a name
+counts (quoted, apostrophes doubled, an emoji, a letter of two bytes); and an
+argument left out by a function, `CHOOSE(1,,2)`. Not probed: a text holding `[`
+or `]`, a workbook's spelling, which the language's parser refuses by name in a
+reference. By decision 6 it is labelled, `(not-computed "an address into another
+workbook")`, and no rule of Excel's is chased for it.
+
+*Predictions for it, before it.*
+1. A cell's shape whole is quoted within the grid's limits, leading zeros read
+   (`A01` quoted, `A0` bare). And a name *opening* on `R` and a row from 1 to
+   1,048,576, or on `C` or `RC` and a column from 1 to 16,384, is quoted whatever
+   follows, in any case, as XlsxWriter's `quote_sheetname` states for a reference:
+   `R2D2`, `C3PO` and `R1_x` quoted; `R0`, `C0`, `R1048577`, `C1048577` and
+   `R1048577X` bare, where `is_r1c1_shaped` quotes the first four.
+2. The truth words whole, in any case, and no other word.
+3. A digit or a period first, and nothing else first.
+4. Every other ASCII mark and control character quoted, as `quote_sheet` has it.
+5. Beyond ASCII, a table below U+0100, its marks quoted and its letters not, and
+   above it nothing quoted but perhaps the spaces; U+3000 least sure.
+6. The limit 255 characters of the text as given, however long its quoted form,
+   an emoji two: 127 of them pass and 128 are `#VALUE!`. Least sure.
+7. `CHOOSE(1,,2)` read as an argument left out, as the language hands it on.
+
+*The stop rule, the second save's.* Each family folded to the rule that holds
+every row of both saves, in `texts::address` alone (decision 6). What no stated
+rule covers is labelled by its shape, and never a third save.
+
+*Excel's second save, 2026-10-30, the stop rule's last* (the scratchpad's
+`k60/saves/second.xlsx`; the fixture's `address_saved.xlsx`). No notice and no
+repair; 538 formulas, none of the first's moved, its answers the same. The
+predictions:
+1. Held, but for one thing the reference's rule does not say: a period right
+   after the number frees the name, `R1.x`, `C1.x` and `RC1.x` bare where `R1_x`
+   is quoted. So `R2D2` and `C3PO` are quoted, `R0`, `C0`, `R1048577`, `C1048577`
+   and `R1048577X` bare, as said, and `R1C1C` is quoted for opening on `R1`.
+2. Held: `True` and `tRuE` quoted; `TRUEX`, `NULL` and `SUM` bare.
+3. Held, with `?` first quoted as a mark, and `\` first bare.
+4. Failed for two: `?` and `\` stand in a name, as they stand in Excel's defined
+   names, `a?b`, `x?`, `\x` and `a\b` bare. Every other ASCII mark and control
+   character is quoted. Read together, the save's rule for ASCII is whether the
+   name could be a defined name.
+5. Failed. No class states it. Below U+0100 the C1 controls probed, the no-break
+   space and `¢ £ ¥ ¦ © « ¬ ® »` are quoted, and `¡ ¤ § ¨ ¯ ° ± ² ³ ´ ¶ · ¸ ¹ ¼
+   ½ ¾ ¿ × ÷` and the soft hyphen are not; above it U+2012, U+201A and U+2022 are
+   quoted, and every space probed, U+2014, U+FEFF and the emoji are not; and
+   first, U+0660 and `€` are quoted where `²`, U+FF11 and U+2014 are not. A table
+   of Excel's own, and the stop rule's case: labelled.
+6. Held as to the text: 255 UTF-16 units, an emoji two and a letter of two bytes
+   one, whatever `a1` says. Failed as to its quoted form: past 258 characters
+   Excel cuts its answer, 258 long for 254 letters and a space, for 127
+   apostrophes, and for a name of 255 before `$XFD$1048576`, 259 for 128
+   apostrophes, and by 254 apostrophes it answers `#VALUE!`. Its own buffer, no
+   rule: labelled past 258, and not chased.
+7. Held for `CHOOSE(1,,2)`. The row beside it showed what no prediction asked:
+   `IF(TRUE,,2)` hands on nothing too, `$B$3` and `A1`, where the language's `IF`
+   reads a branch left out as 0 wherever it is read. Labelled by its shape, as the
+   stop rule says, and under *Found*.
+
+*The folds, held to that save, whose values a fold does not move.*
+- `calc/eval.rs`: decision 4's change, `place_of_lift`: an empty place of a lift
+  handed as an array of that one value, which `Ctx::one` reads as it reads an
+  empty cell, so that no other function moves and no other golden does; and
+  `Ctx::strict_many` `pub(crate)`.
+- `calc/texts.rs`: `address`, a form, so that it can see an `IF`'s branch left out
+  in its expression, which a strict function cannot, and handing every other call
+  to `address_of` through `Ctx::strict_many`, which lifts it as before. A form is
+  computed through `Ctx` at each cell, so that a run's empty cell stays a
+  reference and is not taken for an argument left out. `sheet_spelled`,
+  `name_is_quoted`, `after_number`, `cell_shaped` and `after_reference`: the rule.
+  Decision 6's: `refers::quote_sheet` unmoved, and the line's "one rule" does not
+  hold, as this save witnesses.
+- `ADDRESS_NAME_MOST` and `ADDRESS_MOST` for `made`, which the first bounds.
+
+The door over the save: 538 formulas, 403 agreeing, none differing, and 135
+labelled: 107 names with a character beyond ASCII that is no letter, 15 addresses
+in R1C1, 7 answers past 258 characters, 3 branches of `IF` left out, 2 a workbook's
+spelling, and 1 `FORMULATEXT` of a text Excel shows with an `@`, whose text Excel's
+save holds, `=ADDRESS(@data!C1:C3,1)`. Their answers stand in
+`address_saved_calc.vla` for whoever computes them.
+
+*Found* (measured, unminted).
+1. `refers::quote_sheet` parts from what `ADDRESS` writes, and it spells every
+   reference the language and the door write. It leaves bare `TRUE`, `.x`, `R1C1C`,
+   `R1X`, `R2D2` and `C3PO`, and it quotes `a?b`, `\x`, `R0`, `C0` and `R1048577`.
+   XlsxWriter's `quote_sheetname` states the same prefix rule for a reference. If
+   Excel's formula writer does as `ADDRESS` does, then a formula written `=R2D2!A1`,
+   for a sheet so named, does not read as written. This save does not witness a
+   reference; a workbook with sheets so named would tell.
+2. The language's `IF` reads a branch left out as 0 wherever it is read, in `Ctx`
+   and in a run, where Excel hands it on as nothing to `ADDRESS`. What `&`, `LEN` or
+   a comparison reads of it in Excel is not measured; `IF(TRUE,,1)&"x"` is `0x` here.
+3. Microsoft's page on `ADDRESS` is not what Excel computes for one of its examples:
+   `[Book1]Sheet1!R2C3` where the page has `'[Book1]Sheet1'!R2C3`.
+4. The census's `(unlowered form)`: `ADDRESS` is computed through `Ctx` at each cell
+   and never lowered, as `XLOOKUP` is. No program of the floors calls it and a hint
+   calls it once; a large fill of addresses would pay it.
+
+*Held, over `0d18aa6`*, `KERNEL.58` committed while this was built and no file of
+its this item's but the documents' other hunks; the four goldens written again the
+same, the fixture built again by the door.
+- `cargo fmt --all -- --check`; `cargo clippy --workspace --all-targets -- -D
+  warnings`, and with `c-abi`; `cargo test --workspace`, the language's 442 and the
+  core's 225 and every other suite, `vla-lang/tests/address.rs` through the machine's
+  public calls among them; both wasm modules; `run_checks.ps1` 60 of 60 with the
+  modules present; `prove.ps1 -Impl`, 63 passed, the twenty-second and twenty-third
+  calc rows; `-Control` of `check_recalc_golden` and `check_shapes_golden`.
+- Fifty-seven mutants (the scratchpad's `k60/mutants.py`), each one change asserted
+  to occur once and each file put back byte for byte, every one failing a named test
+  of the language's own: each of the rule's characters, words, numbers and limits, the
+  order of the reading, the label's place, each default left out, and the lift's two
+  sites.
+- Prediction 5, the rest of it: no golden moved but the new fixture's four, and no
+  floor; `check_recalc_floors` as it stood.
+- Over this language by a path, in copies, never in their repositories: Alonzo's
+  `db054c2`, its 82 tests and its doctest, every replay to its golden and the describe
+  goldens. Buffet's `f5dcde1`, its 38 and 53 of its 54, `describe_holds_its_golden`
+  failing for the census's reads, a pin's move: over the language at `0d18aa6` without
+  this item its describe is the same byte for byte.
+
+*Committed 2026-10-30* at the owner's word, "Commit KERNEL.60 before suggesting next
+steps": rebuilt over `4bccb9b` (`VLA.10`, committed meanwhile), the item's files and
+its hunks of the shared documents alone, by a worktree's own index; other sessions'
+uncommitted `KERNEL.58`, `KERNEL.68`, `KERNEL.69` and `KERNEL.70` work and a line in
+`.gitattributes` left out. That tree verified alone before it was written: fmt, clippy
+with warnings denied, `cargo test --workspace`, the language's 451 and the core's 225,
+both wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 63 passed, and
+the four goldens written again the same. The item closes: its line leaves the roadmap
+for the closed ledger. Not pushed.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -56149,6 +56505,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.57 — a file's looks as rows: `frazaro reflect --looks` printing a workbook's gridlines, its columns' widths and formats, its rows' heights and each cell's format, its fill, number format, wrap, font, alignment and borders, from `.xlsx` and `.ods` alike, so that a reflected workbook keeps its looks and, behind a manifest, loads as a cartridge with them.** Minted 2026-10-22 at the owner's word of 2026-10-21, from `KERNEL.50`'s scoping (its decision 8) and `KERNEL.47`'s *Found*; scoped the same day, its fifteen decisions approved as recommended, and built in four slices the same day, each at the owner's word: the package (`b09c78a`: the record's own rows in `vla-lang`, the package reader's styles and theme, every package fixture's looks golden, a formula's saved value a `value` row so that a reflected workbook loads, the writer keeping a row's height and a sheet's state); Excel's golden (`a8e0884`: two hand-made workbooks of a case a row, 393 cases and 928 targets read through Excel's object model in two runs, the reader folded to Excel's tint, palette and built-ins); OpenDocument (`6b5e858`: an `.ods` file's styles, data styles and settings read as a package's, held to Excel's reading through Excel's own `.ods` save and LibreOffice's, each writer's gaps named, LibreOffice's extensions read and its family default's wrap passed over); and the page (`frazaro_reflect_looks`, its record's id what the record could not hold, and the Reflect pane's fourth Show choice). A workbook's looks the record holds are read as Excel draws them: a theme's slots and tints by ECMA's rule in Windows' HLS with each product truncated, 90 of 90; the palette, a workbook's own among them; every built-in number format by its id; each width by Excel's rule; and what the record cannot hold is left out, counted and said. The looks it counts and its two *Found* minted as `KERNEL.58` and `KERNEL.59`. To be released in 0.11.0. `~weeks`, taken in a day. *(more: the scoping and the four slices' records, under the KERNEL line)*
 - ✅ **KERNEL.49 — the grid held as what a person wrote: a fill one record, every value by place in nine bytes, a twin kept only where a formula reads it, and the plan by fills and levels, so that a formula cell costs bytes and a load its rows.** Minted 2026-10-19 at the owner's word, after Alonzo's `CART.12` hand test; scoped the same day, its fourteen decisions approved as recommended on 2026-10-21, and built in five slices, each at the owner's word: the floors (`c9f225c`: two fixtures of rows, Superposition's board and Life at sixteen times its window, and a runner of their bytes, held as exact ceilings); values by place (`45f5b43`: a slot of nine bytes in one store a sheet, a twin kept only where a formula reads it, the change lists as bits); the grid and the draft (`2e98ce5`: the machine's grid its own, a fill held once and cut by a write into at most four, the rows read as records); the plan by fills and levels (`1dd1260`: a fill's piece or a formula alone a node, edges by rectangles, levels as maps, the order kept as blocks, and an order of at most 262,144 cells listed too at the owner's word); and the fills (the view record's fifth projection, each fill's formula once over each of its rectangles, what a save prints). The large board holds 13.5 bytes a formula cell after two frames and at its peak where it held 401 and 424, Life at sixteen times its window 18.6 where 397 and 471, inside the item's 20 and 24; they load in 13 and 15 ms where 0.68 and 0.62 s; their saves are 29.7 and 27.8 MB where 521 and 562; every value, view and census line the same, and every frame of Alonzo's. To be released in 0.11.0. `~weeks`, taken in three days. *(more: the scoping and the five slices' records, under the KERNEL line)*
 - ✅ **KERNEL.67 — a style row over a range held as one range: a sheet's formats kept by the machine as rectangles that never overlap, each with its format, and never a format a cell, so that a `style` row's heap stops growing with the area it covers.** Minted 2026-10-30 at the owner's word, from Alonzo's `ENGINE.28` (its *Found* after the close, for `vla-lang`); scoped the same day, its five decisions approved as recommended; built, measured by the owner's native run and committed the same day at the owner's word. `grid::CellStyles`, one type the draft and the page share: a rectangle of more than one cell among the rectangles of its height and a cell alone by place, in a box made at a sheet's first format, so that a sheet with no format holds a word where it held three. A row over rectangles of its own format adds only the rectangles its range leaves outside them; a range's cells are found written by a count over its records' rectangles; the two refusals name the cell and the line they named, found by rectangles; a cell taken from a draft cuts its rectangle into at most four and gives its format up; the record, the save and the file model a format a cell as before. One row over Superposition's Field of 262,144 cells held 6.9 MB more after two frames and 15.2 MB more at its peak, and read in 44 ms where the rows unstyled read in 0.3; it holds 520 bytes over its twin after the load, after two frames and at the peak, and reads in 0.1. Every sheet and its twin 16 bytes fewer: thirteen of the eighteen ceilings fell, five peaks stayed, none rose. *Pins:* a seeded law of 240 deals of style rows, overlapping and refused, every cell's format and every refusal's cell and line held to today's loop (82 taken, 75 written twice, 83 unwritten), the thirteen mutants killed; the rectangle test; the grid's two. *Oracle:* `superposition-styled`, the third fixture of rows, held within 4,096 bytes of its twin at all three points by a rule of `check_recalc_floors.ps1`, with five control cases; no golden moved. Ships in `0.13.0`, into which the owner folded `0.12.1`. The owner's run pasted in part, the memory rows and both histories, the seven native rows marked for a later pass; three *Found* read, not minted, the third the floor `netlist type`, which the code that set it no longer clears. (Full entry: THE KERNEL LINE, after `KERNEL.57`.)
+- ✅ **KERNEL.60 — `ADDRESS` computed: a cell's address as a text from its row and column, so that a Write sheet row names its target by number and never by `CHOOSE` over the alphabet.** Minted 2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the helper-hungry style; scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1`, its nine decisions approved as recommended; built, held to two Excel saves and committed the same day at the owner's word. `ADDRESS(row, column, [abs], [a1], [sheet])` in `vla-lang`'s `language()`, so that a game reaches it (`AD-1`), in `calc/texts.rs`, a form handing its call to a strict function: `abs` 1 to 4; every argument read first, left to right, an error or a text spelling no number answering there, and only then their ranges; an argument left out its default, and a reference to an empty cell or an empty place of a lift read as any value is, which `Ctx::lifted_call`'s `place_of_lift` tells apart. A sheet's name is quoted as Excel's `ADDRESS` quotes it, unless it could be a defined name, the empty text written `!A1` and a name past 255 UTF-16 units `#VALUE!`, which is not `refers::quote_sheet`'s rule, as this line first said. Labelled by shape, as the stop rule stated before the saves: an address in R1C1, no notation of the house, where Excel's relative form reaches rows no A1 address has; a workbook's spelling; a character beyond ASCII that is no letter, which Excel quotes by a table of its own; an answer past 258 characters, where Excel cuts it; a name opening on a row's or a column's number with a tail no save reaches; and an `IF`'s branch left out, which Excel hands on as nothing and the language reads as 0. *Oracle:* a fixture of its own, `scripts/recalc/address.txt`, and not the subset's rows, as this line first said: 538 formulas, Excel's second save `address_saved.xlsx` at `no-differ`, 403 agreeing, none differing and 135 labelled, Excel's answer to each in its golden; fifty-seven mutants, none surviving; no other golden and no floor moved. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step, and Kairos's `letter` retired under Alonzo's `KIT.6`. Four *Found*, not minted, the first that `quote_sheet` parts from what `ADDRESS` writes. (Full entry: THE KERNEL LINE, after `KERNEL.67`.) `~hours`
 
 ## 🛡 ADVERSARY · SECURITY
 

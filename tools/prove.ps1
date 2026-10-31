@@ -146,7 +146,9 @@ KERNEL.8's sixth slice: an eighteenth, the arrays' fixture
 save of it (arrays_saved.xlsx, no row differing). KERNEL.53: a twentieth,
 the formulas read by a formula's fixture (scripts/recalc/formulas.xlsx),
 and a twenty-first, the owner's second Excel save of it
-(formulas_saved.xlsx, no row differing).
+(formulas_saved.xlsx, no row differing). KERNEL.60: a twenty-second, ADDRESS's
+fixture (scripts/recalc/address.xlsx), and a twenty-third, the owner's second
+Excel save of it (address_saved.xlsx, no row differing).
 #>
 param(
     [string]$Impl = '',
@@ -396,7 +398,9 @@ function Get-Oracles([string]$root) {
         @('scripts/recalc/arrays.xlsx',        'arrays_calc'),
         @('scripts/recalc/arrays_saved.xlsx',  'arrays_saved_calc'),
         @('scripts/recalc/formulas.xlsx',      'formulas_calc'),
-        @('scripts/recalc/formulas_saved.xlsx', 'formulas_saved_calc'))) {
+        @('scripts/recalc/formulas_saved.xlsx', 'formulas_saved_calc'),
+        @('scripts/recalc/address.xlsx',       'address_calc'),
+        @('scripts/recalc/address_saved.xlsx', 'address_saved_calc'))) {
         $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
                      Input = $c[0]; Golden = ('scripts/recalc/' + $c[1] + '.vla') })
     }
@@ -792,6 +796,8 @@ switch (`$kind) {
             'arrays_saved'   { 'scripts/recalc/arrays_saved_calc.vla' }
             'formulas'       { 'scripts/recalc/formulas_calc.vla' }
             'formulas_saved' { 'scripts/recalc/formulas_saved_calc.vla' }
+            'address'        { 'scripts/recalc/address_calc.vla' }
+            'address_saved'  { 'scripts/recalc/address_saved_calc.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

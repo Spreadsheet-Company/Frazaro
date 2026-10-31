@@ -145,6 +145,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # were `lookup`. The owner's second Excel save of it, a twenty-first, 68
 # lines: the build's but for the spelling Excel saved and D1 a legacy array
 # formula, `(unlowered array)`.
+# 2026-10-30, KERNEL.60: ADDRESS's fixture, a twenty-second, 531 lines: one fill
+# of six cells and every other formula a cell alone, a form computed at each
+# cell. The owner's second Excel save of it, a twenty-third, 531 lines.
 # 2026-10-21, KERNEL.54's first slice: the netlist program, a sixth bench
 # program, its golden a head of two lines, the plan row and its readers row,
 # `(most 496)` as found: nearly every change of its sheet meets every
@@ -171,6 +174,8 @@ $goldens = @(
     @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Floor = 215 },
     @{ Name = 'formulas';      Fixture = 'scripts/recalc/formulas.xlsx';      Floor = 68 },
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Floor = 68 },
+    @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Floor = 531 },
+    @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Floor = 531 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },

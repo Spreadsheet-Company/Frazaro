@@ -244,7 +244,9 @@ refused in the same words.
   for an array with nothing in it), and a cell's formula read by its
   reference (`calc::formulas`: `ISFORMULA`, and `FORMULATEXT`, the text
   the view record prints, labelled where Excel's formula bar may spell it
-  otherwise). A crate above registers more, as
+  otherwise), and a cell's address as a text from its row and its column
+  (`calc::texts`: `ADDRESS`, an address in R1C1 labelled). A crate above
+  registers more, as
   `frazaro-core` registers Excel's library by measurement. A lookup or a
   criterion asked of one range again and again searches the range's
   index (`calc::Indexes`), built at its second probe in one evaluation and

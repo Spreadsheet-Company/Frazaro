@@ -36,7 +36,8 @@
 //! twenty-one array functions (its sixth); and `ISFORMULA` and
 //! `FORMULATEXT`, a cell's formula read by its reference (`KERNEL.53`),
 //! which enter on their fixture alone as `IFS` did, Excel having added them
-//! in 2013, after both corpora were gathered.
+//! in 2013, after both corpora were gathered; and `ADDRESS` (`KERNEL.60`),
+//! on its fixture alone too, in neither table, for what a game asked of it.
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -62,8 +63,8 @@ pub struct Entry {
 }
 
 /// The declared subset: the language's functions first, its day-one
-/// fourteen, the hundred and eight `KERNEL.8` brought and the two
-/// `KERNEL.53` brought, then Excel's.
+/// fourteen, the hundred and eight `KERNEL.8` brought, the two `KERNEL.53`
+/// brought and the one `KERNEL.60` brought, then Excel's.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -560,6 +561,10 @@ pub const SUBSET: &[Entry] = &[
     Entry {
         name: "FORMULATEXT",
         evidence: "a cell's formula read by its reference, KERNEL.53 for Alonzo's CART.9; scripts/recalc/formulas.txt",
+    },
+    Entry {
+        name: "ADDRESS",
+        evidence: "a cell's address from its row and column, KERNEL.60 for Alonzo's KIT.6 and CART.14.1; scripts/recalc/address.txt",
     },
     Entry {
         name: "ROUND",

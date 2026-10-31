@@ -1197,8 +1197,9 @@ impl<'a> Ctx<'a> {
         f(self, &pair).map(Arg::Scalar)
     }
 
-    /// A strict call of any other count of arguments, in a vector.
-    fn strict_many(
+    /// A strict call of any other count of arguments, in a vector, and of a
+    /// form that hands its call on to a strict function (`ADDRESS`, KERNEL.60).
+    pub(crate) fn strict_many(
         &self,
         f: Strict,
         classes: Classes,
@@ -1247,7 +1248,7 @@ impl<'a> Ctx<'a> {
                 continue;
             }
             match v {
-                Arg::Array(a) if a.is_single() => *v = Arg::Scalar(a.get(0, 0).clone()),
+                Arg::Array(a) if a.is_single() => *v = place_of_lift(a.get(0, 0)),
                 Arg::Array(a) => lifted.push((j, a.clone())),
                 Arg::Area { areas, .. } if self.lifts_area(areas) => {
                     let area = areas[0];
@@ -1270,7 +1271,7 @@ impl<'a> Ctx<'a> {
                 let mut reached = true;
                 for (j, a) in &lifted {
                     match a.at(r, c) {
-                        Some(v) => values[*j] = Arg::Scalar(v.clone()),
+                        Some(v) => values[*j] = place_of_lift(v),
                         None => {
                             reached = false;
                             break;
@@ -1343,6 +1344,17 @@ impl<'a> Ctx<'a> {
                 Ok(())
             }
         }
+    }
+}
+
+/// A place of a lift as a function's argument: its value, and an empty place
+/// as an array of that one value, which [`Ctx::one`] reads as it reads an empty
+/// cell and which no function takes for an argument left out, as Excel's save
+/// of `ADDRESS`'s fixture reads one (KERNEL.60).
+fn place_of_lift(v: &Value) -> Arg<'static> {
+    match v {
+        Value::Empty => Arg::Array(Array::single(Value::Empty)),
+        v => Arg::Scalar(v.clone()),
     }
 }
 

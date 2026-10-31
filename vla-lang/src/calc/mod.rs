@@ -60,6 +60,9 @@
 //! `formulas`): `ISFORMULA`, and `FORMULATEXT`, the text the view record
 //! prints, labelled where Excel's formula bar spells it otherwise.
 //!
+//! A cell's address is a text since KERNEL.60 (2026-10-30, [`texts`]):
+//! `ADDRESS`, an address in R1C1 labelled.
+//!
 //! What is not here, by name, each a slice of its own: the `SUMIFS` family
 //! and the database functions, arrays within a formula (`KERNEL.8`'s later
 //! slices), spills (an item of their own), `LET` and `LAMBDA`

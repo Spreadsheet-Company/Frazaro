@@ -159,7 +159,7 @@ fn array_of(ctx: &Ctx<'_>, arg: &Arg<'_>) -> Got<Array> {
 }
 
 /// Whether an argument was left out or given as nothing.
-fn omitted(arg: Option<&Arg<'_>>) -> bool {
+pub(crate) fn omitted(arg: Option<&Arg<'_>>) -> bool {
     matches!(arg, None | Some(Arg::Scalar(Value::Empty)))
 }
 

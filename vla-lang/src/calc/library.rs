@@ -157,7 +157,9 @@ fn joined(j: usize) -> Param {
 /// `ISFORMULA` and `FORMULATEXT` (`super::formulas`), a cell's formula read
 /// by its reference, each answering an operand so that every path computes
 /// it as `Ctx` does. Since KERNEL.56 the functions that read a sheet's
-/// extent itself are declared so ([`READS_EXTENT`]).
+/// extent itself are declared so ([`READS_EXTENT`]). Since KERNEL.60
+/// `ADDRESS` (`super::texts`), a cell's address as a text from its row and
+/// its column, a form a run computes at each cell.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -213,6 +215,7 @@ pub fn language() -> Library {
     lib.register("CHAR", texts::char_);
     lib.register("CODE", texts::code);
     lib.register("TEXT", texts::text_);
+    lib.register_form("ADDRESS", texts::address);
     lib.register("DATE", dates::date);
     lib.register("YEAR", dates::year);
     lib.register("MONTH", dates::month);
@@ -412,6 +415,10 @@ const KERNEL_8: [&str; 108] = [
 /// The functions KERNEL.53 brought: a cell's formula read by its reference.
 #[cfg(test)]
 const KERNEL_53: [&str; 2] = ["ISFORMULA", "FORMULATEXT"];
+
+/// The function KERNEL.60 brought: a cell's address as a text.
+#[cfg(test)]
+const KERNEL_60: [&str; 1] = ["ADDRESS"];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
@@ -1202,12 +1209,13 @@ mod tests {
     }
 
     #[test]
-    fn the_language_registers_the_day_one_list_and_kernel_8_s_and_kernel_53_s_exactly() {
+    fn the_language_registers_the_day_one_list_and_kernel_8_s_53_s_and_60_s_exactly() {
         let lib = language();
         let mut want: Vec<&str> = NAMES
             .iter()
             .chain(KERNEL_8.iter())
             .chain(KERNEL_53.iter())
+            .chain(KERNEL_60.iter())
             .copied()
             .collect();
         want.sort_unstable();

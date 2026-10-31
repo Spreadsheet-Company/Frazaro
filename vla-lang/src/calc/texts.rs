@@ -30,11 +30,22 @@
 //! every code page, and label the rest (the owner's decision, 2026-10-19).
 //! `FIXED` and `DOLLAR`, a locale's separators and its currency, are not
 //! here.
+//!
+//! `ADDRESS` (KERNEL.60, 2026-10-30) stands here as `TEXT` and `CHAR` do, a
+//! text made from numbers, and reads no cell: a game's hint names a variable
+//! by it, and a Write sheet row its target (Alonzo's `SPEC.md` section 3.9).
+//! Held to Excel's two saves of `scripts/recalc/address.txt`, as the reference
+//! it is not: it quotes a sheet's name by a rule of its own ([`sheet_spelled`]),
+//! and writes no R1C1 and no other workbook's name, which it labels.
 
+use super::arrays::omitted;
 use super::criteria::wildcard_prefix;
-use super::eval::{numeric, Arg, Ctx, Reason};
+use super::eval::{numeric, values, Arg, Ctx, Reason};
+use super::formula::Expr;
 use super::value::{number_to_text, text_to_number, ErrorKind, Value};
 use crate::numfmt::Code;
+use crate::refers::letters_to_col;
+use crate::sheet::{column_letters, MAX_COLUMN, MAX_ROW};
 
 /// The most UTF-16 units a text a formula makes may hold, Excel's limit on
 /// a cell's text, an emoji two.
@@ -891,6 +902,190 @@ pub(crate) fn text_(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     })
 }
 
+/// The most UTF-16 units of a sheet's name `ADDRESS` takes, past which Excel's
+/// saves of the fixture answer `#VALUE!`, an emoji two (`Names!A310`, `A311`).
+const ADDRESS_NAME_MOST: usize = 255;
+
+/// The most UTF-16 units of an answer of `ADDRESS` Excel's saves hold whole.
+/// Past them Excel cuts its answer by no rule the saves show, 258 long for a
+/// name of 255 and a longer address (`Names!A316`) and 259 for 128 apostrophes
+/// (`A306`), and then answers `#VALUE!` (`A307`): labelled, and not chased.
+const ADDRESS_MOST: usize = 258;
+
+/// `ADDRESS(row, column, [abs], [a1], [sheet])` (KERNEL.60): a cell's address
+/// as a text ([`address_of`]). A form so that it can read one thing a strict
+/// function cannot: an `IF` whose branch is left out, which Excel hands on as
+/// nothing, its default (`Names!A324` to `A326`), and which the language's `IF`
+/// reads as 0 wherever it is read, so that such an argument, at `abs`, `a1` or
+/// the sheet, is labelled by its shape. Any other call is the strict function's,
+/// lifted over an array as [`Ctx::strict_many`] lifts one.
+pub(crate) fn address<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
+    if args.iter().skip(2).any(leaves_a_branch_out) {
+        return Err(Reason::Construct(
+            "a branch of IF left out as an argument of ADDRESS".to_string(),
+        ));
+    }
+    ctx.strict_many(address_of, values, args)
+}
+
+/// Whether an argument is an `IF` with a branch left out, at any depth of the
+/// `IF`s and `CHOOSE`s that answer one of their values; `CHOOSE`'s own value
+/// left out is nothing in the language too.
+fn leaves_a_branch_out(e: &Expr) -> bool {
+    match e {
+        Expr::Pos(x) => leaves_a_branch_out(x),
+        Expr::Call(name, args) if name == "IF" => args
+            .iter()
+            .skip(1)
+            .any(|a| matches!(a, Expr::Empty) || leaves_a_branch_out(a)),
+        Expr::Call(name, args) if name == "CHOOSE" => args.iter().skip(1).any(leaves_a_branch_out),
+        _ => false,
+    }
+}
+
+/// `ADDRESS`'s meaning: `abs` 1 `$B$3`, 2 `B$3`, 3 `$B3` and 4 `B3`, after a
+/// sheet's name and a `!` where one is given ([`sheet_spelled`]), the name
+/// looked for nowhere. An argument left out or given as nothing takes its
+/// default, `abs` 1, `a1` TRUE and no sheet, and a row or a column reads 0; a
+/// reference to an empty cell reads as any value does, and so does an empty
+/// place of a lift. Every argument is read first, left to right, so that an
+/// error or a text spelling no number answers there, and only then are their
+/// ranges held: `abs` from 1 to 4 and the name's length; then `a1`, whose FALSE
+/// is labelled ahead of the row's and the column's, since R1C1 is no notation
+/// of the house and its relative address reaches rows no A1 address has
+/// (`ADDRESS(0,0,4,FALSE)` is `RC` in Excel's save); then the row and the
+/// column. Each number reads down to a whole one ([`count`]).
+fn address_of(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    answer(|| {
+        if !(2..=5).contains(&args.len()) {
+            return wrong();
+        }
+        let given = |j: usize| args.get(j).filter(|a| !omitted(Some(a)));
+        let row = count(ctx, args.first(), 0.0)?;
+        let column = count(ctx, args.get(1), 0.0)?;
+        let abs = count(ctx, given(2), 1.0)?;
+        let a1 = match given(3) {
+            Some(a) => ctx.one(a)?.truth()?,
+            None => true,
+        };
+        let sheet = given(4).map(|a| text(ctx, a)).transpose()?;
+        let long = |name: &String| units(name) > ADDRESS_NAME_MOST;
+        if !(1.0..=4.0).contains(&abs) || sheet.as_ref().is_some_and(long) {
+            return wrong();
+        }
+        if !a1 {
+            return label("an address in R1C1");
+        }
+        if !(1.0..=f64::from(MAX_ROW)).contains(&row)
+            || !(1.0..=f64::from(MAX_COLUMN)).contains(&column)
+        {
+            return wrong();
+        }
+        let (row, column) = (row as u32, column_letters(column as u32));
+        let place = match abs as u32 {
+            1 => format!("${column}${row}"),
+            2 => format!("{column}${row}"),
+            3 => format!("${column}{row}"),
+            _ => format!("{column}{row}"),
+        };
+        let whole = match sheet {
+            Some(name) => format!("{}!{place}", sheet_spelled(&name)?),
+            None => place,
+        };
+        if units(&whole) > ADDRESS_MOST {
+            return label("an address past 258 characters");
+        }
+        Ok(Value::Text(whole))
+    })
+}
+
+/// A sheet's name as `ADDRESS` writes it before its `!`, as Excel's two saves of
+/// the fixture hold it. Its rule is not [`crate::refers::quote_sheet`]'s, which
+/// spells a reference and which the saves part from: the empty text is written
+/// as nothing, `!A1`, as an empty cell is, and a name is quoted, its apostrophes
+/// doubled, unless it reads as Excel's defined names read ([`name_is_quoted`]).
+/// Two shapes are labelled, each by what no save settles: a `[` or a `]`, a
+/// workbook's spelling, whose name Excel reads after the bracket
+/// (`[Book1]Sheet1!A1`) and which a reference of the language refuses by name;
+/// and a character beyond ASCII that is no letter, which Excel quotes by a table
+/// no class states, `¢`, `«` and U+2022 where it leaves `¤`, `±` and U+2014 bare.
+fn sheet_spelled(name: &str) -> Result<String, Fault> {
+    if name.contains(['[', ']']) {
+        return label("an address into another workbook");
+    }
+    if name.chars().any(|c| !c.is_ascii() && !c.is_alphabetic()) {
+        return label("a sheet's name with a character beyond ASCII that is no letter");
+    }
+    Ok(if name_is_quoted(name)? {
+        format!("'{}'", name.replace('\'', "''"))
+    } else {
+        name.to_string()
+    })
+}
+
+/// Whether `ADDRESS` quotes a sheet's name, its characters letters or ASCII. It
+/// does unless the name could be a defined name: a letter, `_` or `\` first,
+/// and only letters, digits, `_`, `.`, `?` and `\` after it; and neither `TRUE`
+/// nor `FALSE`, nor `R`, `C` or `RC`, in any case, nor a cell's address within
+/// the grid's limits, nor opening on a row's or a column's number within them
+/// ([`after_reference`]), whatever comes after it but a period (`R2D2` quoted,
+/// `R1.x` and `R0X` bare). A period later in such a name, or a `?` or a `\`, or
+/// a letter beyond ASCII, no save reaches: labelled.
+fn name_is_quoted(name: &str) -> Result<bool, Fault> {
+    let Some(first) = name.chars().next() else {
+        return Ok(false);
+    };
+    let starts = first.is_alphabetic() || first == '_' || first == '\\';
+    let stands = |c: char| c.is_alphanumeric() || matches!(c, '_' | '.' | '?' | '\\');
+    if !starts || !name.chars().all(stands) {
+        return Ok(true);
+    }
+    let reserved = ["TRUE", "FALSE", "R", "C", "RC"];
+    if reserved.iter().any(|w| name.eq_ignore_ascii_case(w)) || cell_shaped(name) {
+        return Ok(true);
+    }
+    match after_reference(name) {
+        None => Ok(false),
+        Some(tail) if tail.starts_with('.') => Ok(false),
+        Some(tail) if tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') => Ok(true),
+        Some(_) => label("a sheet's name opening on a row's or a column's number"),
+    }
+}
+
+/// What follows a whole number from 1 to `most` at the start of a text, its
+/// zeros read as Excel's saves read them (`R01` quoted, `R0` and `R00` bare), or
+/// `None` where none stands there.
+fn after_number(t: &str, most: u32) -> Option<&str> {
+    let end = t.find(|c: char| !c.is_ascii_digit()).unwrap_or(t.len());
+    let number = t[..end].bytes().try_fold(0u32, |n, digit| {
+        n.checked_mul(10)?.checked_add(u32::from(digit - b'0'))
+    })?;
+    (1..=most).contains(&number).then(|| &t[end..])
+}
+
+/// Whether a name is a cell's address within the grid's limits, in any case.
+fn cell_shaped(name: &str) -> bool {
+    let letters = name
+        .find(|c: char| !c.is_ascii_alphabetic())
+        .unwrap_or(name.len());
+    (1..=3).contains(&letters)
+        && letters_to_col(&name[..letters]).is_some()
+        && after_number(&name[letters..], MAX_ROW) == Some("")
+}
+
+/// What follows a row's or a column's number opening a name, `R1`, `C1` or
+/// `RC1`, each within the grid's limits and in any case; `None` for a name
+/// opening on none, `R0X`, `C16385X` and `R1048577C1` among them.
+fn after_reference(name: &str) -> Option<&str> {
+    match name.strip_prefix(['R', 'r']) {
+        Some(rest) => after_number(rest, MAX_ROW).or_else(|| {
+            let column = rest.strip_prefix(['C', 'c'])?;
+            after_number(column, MAX_COLUMN)
+        }),
+        None => after_number(name.strip_prefix(['C', 'c'])?, MAX_COLUMN),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::calc::{library, Calc, ErrorKind};
@@ -900,7 +1095,8 @@ mod tests {
     /// apostrophe and digits among letters, letters beyond ASCII, an emoji
     /// (a surrogate pair, two UTF-16 units) first and between letters, a
     /// number, a truth value, an error; a row of texts with an empty cell
-    /// among them in B, delimiters in D, and texts a locale might read in C.
+    /// among them in B, delimiters in D, texts a locale might read in C,
+    /// numbers in G and numbers with an empty cell among them in H.
     /// A text spelling a number is written after a `'`.
     const TABLE: &[(&str, &str)] = &[
         ("A1", "Hello World"),
@@ -921,6 +1117,11 @@ mod tests {
         ("C5", "abc"),
         ("D1", "-"),
         ("D2", "+"),
+        ("G1", "1"),
+        ("G2", "10"),
+        ("G3", "100"),
+        ("H1", "1"),
+        ("H3", "4"),
     ];
 
     /// Each formula's value over [`TABLE`] as `Calc` computes it, spelled,
@@ -1179,6 +1380,390 @@ mod tests {
             ("TEXT(5,\"\")", "\"\""),
             ("TEXT(5,\"[Red]0\")", "(not-computed \"TEXT's code\")"),
             ("TEXT(T!A9,\"0\")", NA),
+        ]);
+    }
+
+    const R1C1: &str = "(not-computed \"an address in R1C1\")";
+    const DIV0: &str = "(error \"#DIV/0!\")";
+    const PAST: &str = "(not-computed \"an address past 258 characters\")";
+
+    #[test]
+    fn address_writes_each_of_its_forms() {
+        holds(&[
+            ("ADDRESS(3,2)", "\"$B$3\""),
+            ("ADDRESS(3,2,1)", "\"$B$3\""),
+            ("ADDRESS(3,2,2)", "\"B$3\""),
+            ("ADDRESS(3,2,3)", "\"$B3\""),
+            ("ADDRESS(3,2,4)", "\"B3\""),
+            ("ADDRESS(3,2,1,TRUE)", "\"$B$3\""),
+            ("ADDRESS(3,2,4,TRUE,\"Data\")", "\"Data!B3\""),
+            ("ADDRESS(1048576,16384)", "\"$XFD$1048576\""),
+            ("ADDRESS(1,26,4)", "\"Z1\""),
+            ("ADDRESS(1,27,4)", "\"AA1\""),
+            ("ADDRESS(1,702,4)", "\"ZZ1\""),
+            ("ADDRESS(1,703,4)", "\"AAA1\""),
+            ("ADDRESS(ROW(),COLUMN(),4)", "\"A13\""),
+            ("ADDRESS(ROW(T!C2),COLUMN(T!C2),4)", "\"C2\""),
+            ("SUBSTITUTE(ADDRESS(1,28,4),\"1\",\"\")", "\"AB\""),
+        ]);
+    }
+
+    #[test]
+    fn address_reads_a_row_and_a_column_down_to_their_range() {
+        holds(&[
+            ("ADDRESS(0,1)", VALUE),
+            ("ADDRESS(1,0)", VALUE),
+            ("ADDRESS(-1,1)", VALUE),
+            ("ADDRESS(1,-1)", VALUE),
+            ("ADDRESS(1048577,1)", VALUE),
+            ("ADDRESS(1,16385)", VALUE),
+            ("ADDRESS(1.9,2.9)", "\"$B$1\""),
+            ("ADDRESS(0.9,1)", VALUE),
+            ("ADDRESS(1,0.9)", VALUE),
+            ("ADDRESS(-0.5,1)", VALUE),
+            ("ADDRESS(1048576.9,16384.9)", "\"$XFD$1048576\""),
+            ("ADDRESS(2^31,1)", VALUE),
+            ("ADDRESS(1,2^32+1)", VALUE),
+            ("ADDRESS(1E+300,1)", VALUE),
+            ("ADDRESS(\"3\",\"2\")", "\"$B$3\""),
+            ("ADDRESS(\" 3 \",2)", "\"$B$3\""),
+            ("ADDRESS(\"x\",1)", VALUE),
+            ("ADDRESS(\"\",1)", VALUE),
+            ("ADDRESS(TRUE,TRUE)", "\"$A$1\""),
+            ("ADDRESS(FALSE,1)", VALUE),
+            ("ADDRESS(T!G2,T!G1)", "\"$A$10\""),
+            ("ADDRESS(T!C4,1)", "\"$A$7\""),
+            ("ADDRESS(T!C5,1)", VALUE),
+            ("ADDRESS(T!A8,1)", "\"$A$1\""),
+            ("ADDRESS(T!Z1,1)", VALUE),
+            ("ADDRESS(1,T!Z1)", VALUE),
+            ("ADDRESS(T!A9,1)", NA),
+            ("ADDRESS(,1)", VALUE),
+            ("ADDRESS(1,)", VALUE),
+        ]);
+    }
+
+    #[test]
+    fn address_reads_abs_and_a1_with_their_defaults() {
+        holds(&[
+            ("ADDRESS(3,2,0)", VALUE),
+            ("ADDRESS(3,2,5)", VALUE),
+            ("ADDRESS(3,2,-1)", VALUE),
+            ("ADDRESS(3,2,8)", VALUE),
+            ("ADDRESS(3,2,1.9)", "\"$B$3\""),
+            ("ADDRESS(3,2,4.9)", "\"B3\""),
+            ("ADDRESS(3,2,0.9)", VALUE),
+            ("ADDRESS(3,2,\"2\")", "\"B$3\""),
+            ("ADDRESS(3,2,\"x\")", VALUE),
+            ("ADDRESS(3,2,\"\")", VALUE),
+            ("ADDRESS(3,2,TRUE)", "\"$B$3\""),
+            ("ADDRESS(3,2,FALSE)", VALUE),
+            ("ADDRESS(3,2,)", "\"$B$3\""),
+            ("ADDRESS(3,2,,TRUE)", "\"$B$3\""),
+            ("ADDRESS(3,2,T!Z1)", VALUE),
+            ("ADDRESS(3,2,T!G1)", "\"$B$3\""),
+            ("ADDRESS(3,2,1,1)", "\"$B$3\""),
+            ("ADDRESS(3,2,1,-1)", "\"$B$3\""),
+            ("ADDRESS(3,2,1,0.5)", "\"$B$3\""),
+            ("ADDRESS(3,2,1,\"TRUE\")", "\"$B$3\""),
+            ("ADDRESS(3,2,1,\"x\")", VALUE),
+            ("ADDRESS(3,2,1,\"\")", VALUE),
+            ("ADDRESS(3,2,1,)", "\"$B$3\""),
+            ("ADDRESS(3,2,,)", "\"$B$3\""),
+            ("ADDRESS(3,2,,,\"Data\")", "\"Data!$B$3\""),
+            ("ADDRESS(3,2,1,T!A8)", "\"$B$3\""),
+        ]);
+    }
+
+    #[test]
+    fn address_labels_r1c1_after_its_reading_and_abs_and_before_its_ranges() {
+        holds(&[
+            ("ADDRESS(3,2,1,FALSE)", R1C1),
+            ("ADDRESS(3,2,4,FALSE)", R1C1),
+            ("ADDRESS(3,2,1,0)", R1C1),
+            ("ADDRESS(3,2,1,\"FALSE\")", R1C1),
+            ("ADDRESS(3,2,1,T!Z1)", R1C1),
+            ("ADDRESS(2,3,1,FALSE,\"EXCEL SHEET\")", R1C1),
+            ("ADDRESS(0,0,4,FALSE)", R1C1),
+            ("ADDRESS(-1,-1,4,FALSE)", R1C1),
+            ("ADDRESS(0,2,1,FALSE)", R1C1),
+            ("ADDRESS(3,2,5,FALSE)", VALUE),
+            ("ADDRESS(3,2,1,FALSE,1/0)", DIV0),
+            ("ADDRESS(\"x\",2,1,FALSE)", VALUE),
+        ]);
+    }
+
+    #[test]
+    fn address_reads_every_argument_before_it_holds_a_range() {
+        holds(&[
+            ("ADDRESS(1/0,#N/A)", DIV0),
+            ("ADDRESS(#N/A,1/0)", NA),
+            ("ADDRESS(0,1/0)", DIV0),
+            ("ADDRESS(1/0,0)", DIV0),
+            ("ADDRESS(\"x\",1/0)", VALUE),
+            ("ADDRESS(1/0,\"x\")", DIV0),
+            ("ADDRESS(1,1,5,1/0)", DIV0),
+            ("ADDRESS(1,1,\"x\",1/0)", VALUE),
+            ("ADDRESS(1,1,1,\"x\",1/0)", VALUE),
+            ("ADDRESS(0,1,1,TRUE,1/0)", DIV0),
+            ("ADDRESS(0,1,5)", VALUE),
+        ]);
+    }
+
+    /// Each name against how `ADDRESS` writes it, `true` quoted and `false` bare.
+    fn writes(cases: &[(&str, bool)]) {
+        for (name, quoted) in cases {
+            let formula = format!("ADDRESS(1,1,4,TRUE,\"{name}\")");
+            let want = match quoted {
+                true => format!("\"'{name}'!A1\""),
+                false => format!("\"{name}!A1\""),
+            };
+            assert_eq!(computed(&[&formula]), [want], "={formula}");
+        }
+    }
+
+    #[test]
+    fn address_quotes_a_name_that_could_not_be_a_defined_name() {
+        writes(&[
+            ("Data", false),
+            ("Nowhere", false),
+            ("Sheet1", false),
+            ("Tax_Rate", false),
+            ("_x", false),
+            ("_", false),
+            ("Q1.Data", false),
+            ("x.", false),
+            ("x..y", false),
+            ("a?b", false),
+            ("x?", false),
+            ("Éclair", false),
+            ("日本語", false),
+            ("é1", false),
+            ("SUM", false),
+            ("NULL", false),
+            ("TRUEX", false),
+            ("My Sheet", true),
+            ("2024", true),
+            ("2024a", true),
+            ("1_", true),
+            (".x", true),
+            (".", true),
+            ("?x", true),
+            ("a-b", true),
+            ("a+b", true),
+            ("a:b", true),
+            ("a,b", true),
+            ("a~b", true),
+            ("$A$1", true),
+            ("TRUE", true),
+            ("true", true),
+            ("tRuE", true),
+            ("FALSE", true),
+        ]);
+        holds(&[
+            ("ADDRESS(1,1,4,TRUE,\"It's\")", "\"'It''s'!A1\""),
+            (
+                "ADDRESS(1,1,4,TRUE,\"'My Sheet'\")",
+                "\"'''My Sheet'''!A1\"",
+            ),
+            ("ADDRESS(1,1,4,TRUE,\"a\"\"b\")", "\"'a\\\"b'!A1\""),
+            ("ADDRESS(1,1,4,TRUE,\"\\x\")", "\"\\\\x!A1\""),
+            ("ADDRESS(1,1,4,TRUE,\"a\\b\")", "\"a\\\\b!A1\""),
+        ]);
+    }
+
+    #[test]
+    fn address_quotes_a_cell_s_shape_and_a_name_opening_on_a_row_s_or_a_column_s_number() {
+        writes(&[
+            // A cell's address within the grid's limits, its zeros read.
+            ("A1", true),
+            ("a1", true),
+            ("A01", true),
+            ("A0001", true),
+            ("x1", true),
+            ("abc123", true),
+            ("XFD1048576", true),
+            ("A0", false),
+            ("XFE1", false),
+            ("A1048577", false),
+            ("AAAA1", false),
+            ("A1B", false),
+            ("A1_", false),
+            ("A1.x", false),
+            ("A", false),
+            ("XFD", false),
+            // The three whole words.
+            ("R", true),
+            ("C", true),
+            ("RC", true),
+            ("rc", true),
+            ("RX", false),
+            ("RCX", false),
+            ("RR", false),
+            ("R_", false),
+            ("R.", false),
+            // A row's number opening a name, within its limits.
+            ("R1", true),
+            ("R01", true),
+            ("R1X", true),
+            ("r1x", true),
+            ("R1_x", true),
+            ("R2D2", true),
+            ("R1C", true),
+            ("R1C1", true),
+            ("R1C1C", true),
+            ("R1C1R1", true),
+            ("R1048576", true),
+            ("R1048576X", true),
+            ("R0", false),
+            ("R00", false),
+            ("R0X", false),
+            ("R0C1", false),
+            ("R1048577", false),
+            ("R1048577X", false),
+            ("R1048577C1", false),
+            ("R99999999999", false),
+            // A column's number, alone or after an `R`.
+            ("C1X", true),
+            ("c1x", true),
+            ("C3PO", true),
+            ("C16384X", true),
+            ("RC1X", true),
+            ("Rc1X", true),
+            ("RC16384X", true),
+            ("C0", false),
+            ("C0X", false),
+            ("C16385X", false),
+            ("C1048577", false),
+            ("RC0", false),
+            ("RC0X", false),
+            ("RC16385X", false),
+            ("RC1048577", false),
+            // A cell's shape past a column's limit.
+            ("C16385", true),
+            ("RC16385", true),
+            ("C1048576", true),
+            // A period right after the number frees it.
+            ("R1.x", false),
+            ("C1.x", false),
+            ("RC1.x", false),
+            // Ordinary names opening so.
+            ("Report", false),
+            ("Cash", false),
+            ("Room1", false),
+            ("Cr1", true),
+        ]);
+    }
+
+    #[test]
+    fn address_writes_the_empty_text_as_nothing_and_a_name_left_out_as_none() {
+        holds(&[
+            ("ADDRESS(1,1,4,TRUE,\"\")", "\"!A1\""),
+            ("ADDRESS(3,2,1,TRUE,\"\")", "\"!$B$3\""),
+            ("ADDRESS(3,2,,,\"\")", "\"!$B$3\""),
+            ("ADDRESS(1,1,4,TRUE,T(1))", "\"!A1\""),
+            ("ADDRESS(1,1,4,TRUE,T!Z1)", "\"!A1\""),
+            ("ADDRESS(1,1,4,TRUE,)", "\"A1\""),
+            ("ADDRESS(1,1,4,TRUE,CHOOSE(1,,2))", "\"A1\""),
+            ("ADDRESS(3,2,CHOOSE(1,,2))", "\"$B$3\""),
+            ("ADDRESS(3,2,1,CHOOSE(1,,2))", "\"$B$3\""),
+            ("ADDRESS(1,1,4,TRUE,5)", "\"'5'!A1\""),
+            ("ADDRESS(1,1,4,TRUE,1.5)", "\"'1.5'!A1\""),
+            ("ADDRESS(1,1,4,TRUE,TRUE)", "\"'TRUE'!A1\""),
+            ("ADDRESS(1,1,4,TRUE,1/0)", DIV0),
+            ("ADDRESS(1,1,4,TRUE,T!A1)", "\"'Hello World'!A1\""),
+        ]);
+    }
+
+    #[test]
+    fn address_takes_a_name_of_255_units_and_labels_an_answer_past_258() {
+        holds(&[
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"x\",255)))", "258"),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"é\",255)))", "258"),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"x\",256)))", VALUE),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"é\",256)))", VALUE),
+            ("LEN(ADDRESS(1,1,4,TRUE,\" \"&REPT(\"x\",255)))", VALUE),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"😀\",128)))", VALUE),
+            ("LEN(ADDRESS(1,1,4,FALSE,REPT(\"x\",256)))", VALUE),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"x\",254)&\" \"))", PAST),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"'\",127)))", PAST),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"'\",255)))", PAST),
+            ("LEN(ADDRESS(1048576,16384,1,TRUE,REPT(\"x\",255)))", PAST),
+            ("LEN(ADDRESS(1,1,4,TRUE,REPT(\"x\",252)&\" \"))", "258"),
+        ]);
+    }
+
+    #[test]
+    fn address_labels_what_no_save_of_excel_s_settles() {
+        const BEYOND: &str =
+            "(not-computed \"a sheet's name with a character beyond ASCII that is no letter\")";
+        const WORKBOOK: &str = "(not-computed \"an address into another workbook\")";
+        const NUMBER: &str =
+            "(not-computed \"a sheet's name opening on a row's or a column's number\")";
+        const BRANCH: &str = "(not-computed \"a branch of IF left out as an argument of ADDRESS\")";
+        holds(&[
+            ("ADDRESS(1,1,4,TRUE,\"[Book1]Sheet1\")", WORKBOOK),
+            ("ADDRESS(1,1,4,TRUE,\"[Book1]My Sheet\")", WORKBOOK),
+            ("ADDRESS(1,1,4,TRUE,\"a]b\")", WORKBOOK),
+            ("ADDRESS(1,1,4,TRUE,\"😀\")", BEYOND),
+            ("ADDRESS(1,1,4,TRUE,\"a—b\")", BEYOND),
+            ("ADDRESS(1,1,4,TRUE,\"a\"&UNICHAR(160)&\"b\")", BEYOND),
+            ("ADDRESS(1,1,4,TRUE,UNICHAR(1632))", BEYOND),
+            ("ADDRESS(1,1,4,TRUE,\"R1X.y\")", NUMBER),
+            ("ADDRESS(1,1,4,TRUE,\"R1?x\")", NUMBER),
+            ("ADDRESS(1,1,4,TRUE,\"C1\\x\")", NUMBER),
+            ("ADDRESS(1,1,4,TRUE,\"R1é\")", NUMBER),
+            ("ADDRESS(3,2,IF(TRUE,,2))", BRANCH),
+            ("ADDRESS(3,2,1,IF(TRUE,,2))", BRANCH),
+            ("ADDRESS(1,1,4,TRUE,IF(TRUE,,2))", BRANCH),
+            ("ADDRESS(1,1,4,TRUE,IF(FALSE,1,))", BRANCH),
+            ("ADDRESS(3,2,IF(TRUE,IF(TRUE,,1),2))", BRANCH),
+            ("ADDRESS(3,2,CHOOSE(1,IF(TRUE,,1),2))", BRANCH),
+            ("ADDRESS(3,2,+IF(TRUE,,2))", BRANCH),
+            // An `IF`'s condition left out is no branch.
+            ("ADDRESS(3,2,IF(,2,4))", "\"B3\""),
+            // Where the row and the column stand it reads 0, as Excel's does.
+            ("ADDRESS(IF(TRUE,,2),1)", VALUE),
+            ("ADDRESS(1,IF(TRUE,,2))", VALUE),
+            // A range past the limits is `#VALUE!` ahead of the name's label.
+            ("ADDRESS(0,1,4,TRUE,\"[Book1]Sheet1\")", VALUE),
+            ("ADDRESS(0,1,4,TRUE,\"😀\")", VALUE),
+        ]);
+    }
+
+    #[test]
+    fn address_lifts_over_an_array_and_meets_a_range_at_its_cell() {
+        holds(&[
+            // Rows 1 to 3 of `F` meet the range, and every row after them none.
+            ("ADDRESS(T!G1:G3,1)", "\"$A$1\""),
+            ("ADDRESS(T!G1:G3,1)", "\"$A$10\""),
+            ("ADDRESS(1,T!G1:G3)", "\"$CV$1\""),
+            ("ADDRESS(T!G1:G3,1)", VALUE),
+            ("ADDRESS({1,2},1)", "\"$A$1\""),
+            ("SUM(LEN(ADDRESS({1,2,3},1)))", "12"),
+            ("SUM(LEN(ADDRESS({1,2,3},1,{1,4,4})))", "8"),
+            ("SUMPRODUCT(LEN(ADDRESS(T!G1:G3,1)))", "15"),
+            ("SUMPRODUCT(LEN(ADDRESS(ROW(T!G1:G3),1)))", "12"),
+            ("SUMPRODUCT(LEN(ADDRESS(1,T!G1:G3)))", "13"),
+            ("SUMPRODUCT(LEN(ADDRESS(1,1,{1,2,3,4})))", "12"),
+            ("SUMPRODUCT(--ISERROR(ADDRESS({0,1,2},1)))", "1"),
+            ("SUMPRODUCT(LEN(ADDRESS(1,1,{1,2},{TRUE,FALSE})))", R1C1),
+            ("ROWS(ADDRESS(T!G1:G3,1))", "3"),
+            ("COLUMNS(ADDRESS(1,{1,2,3,4}))", "4"),
+            // A lift's empty place is an empty cell and no argument left out.
+            ("SUMPRODUCT(LEN(ADDRESS(1,1,T!H1:H3)))", VALUE),
+            ("SUMPRODUCT(LEN(ADDRESS(1,1,1,TRUE,T!H1:H3)))", "21"),
+            ("SUMPRODUCT(LEN(ADDRESS(1,1,1,T!H1:H3)))", R1C1),
+            ("ADDRESS(1,1,TAKE(T!H2:H3,1))", VALUE),
+        ]);
+    }
+
+    #[test]
+    fn address_of_too_few_or_too_many_arguments_is_a_wrong_value() {
+        // Excel refuses both at entry, so no save of the fixture holds them.
+        holds(&[
+            ("ADDRESS(1)", VALUE),
+            ("ADDRESS(1,1,1,TRUE,\"S\",2)", VALUE),
         ]);
     }
 }

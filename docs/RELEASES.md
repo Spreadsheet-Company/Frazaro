@@ -131,6 +131,19 @@
   spells the three prints and draws as it did, and `Style::partial`, `say_fill`,
   `say_number` and `say_wrap` build one (KERNEL.58's first slice).
 
+- **`ADDRESS` computes.** A cell's address as a text from its row and its column:
+  `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and
+  `=ADDRESS(3,2,4,TRUE,"My Sheet")` is `'My Sheet'!B3`. A cartridge's load refused
+  the name; it now computes in the language, so that a game's hint can say `E2` and
+  a Write sheet row can name its target by numbers. An array given lifts it, and
+  `a1` FALSE shows `(not-computed "an address in R1C1")`. A sheet's name is quoted
+  as Excel's `ADDRESS` quotes it, which is not as a reference has been: `TRUE`, `.x`
+  and `R2D2` are quoted, `a?b` and `R0` are not, the empty text writes `!A1`, and a
+  name past 255 units is `#VALUE!`. Excel 365's own save holds 538 formulas: 403
+  agree, none differs, and 135 are labelled, among them a name holding a character
+  beyond ASCII that is no letter, which Excel quotes by a table of its own, and an
+  answer past 258 characters (KERNEL.60).
+
 ## 0.12.0
 
 ### What changed

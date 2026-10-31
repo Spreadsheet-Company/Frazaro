@@ -2222,3 +2222,53 @@ format may now say no more than its groups.
   drawn record's. No reading of Excel's holds this slice: the spelling is the
   language's, and a differential format, Excel's twin of it, joins a later
   slice with its golden.
+
+## Amendment of 2026-10-30: oracle 12's `ADDRESS` (`KERNEL.60`)
+
+**The function.** `ADDRESS(row, column, [abs], [a1], [sheet])` is a cell's
+address as a text: `abs` 1 `$B$3`, 2 `B$3`, 3 `$B3` and 4 `B3`, after a sheet's
+name and a `!` where one is given. It reads no cell and looks for no sheet.
+Each number reads down to a whole one. An argument left out, or handed on as
+nothing by `CHOOSE`, takes its default, `abs` 1, `a1` TRUE and no sheet, and a
+row or a column reads 0. A reference to an empty cell, and an empty place of an
+array it is lifted over, reads as any value does: 0, FALSE or the empty text.
+Every argument is read first, left to right, so that an error or a text spelling
+no number answers there. Then `#VALUE!` for `abs` outside 1 to 4 and for a name
+past 255 UTF-16 units; then `a1` FALSE, labelled; then `#VALUE!` for a row
+outside 1 to 1,048,576 or a column outside 1 to 16,384. An array given lifts it
+and a range is met at the formula's cell in a legacy formula, as any parameter
+of one value.
+
+**The sheet's name.** The empty text writes nothing, `!A1`. Any other name is
+quoted, its apostrophes doubled, unless it could be a defined name: a letter, `_`
+or `\` first, and only letters, digits, `_`, `.`, `?` and `\` after it; and,
+without case, neither `TRUE`, `FALSE`, `R`, `C` nor `RC`, nor a cell's address
+within the grid's limits, nor opening on `R` and a row's number or on `C` or `RC`
+and a column's within those limits, whatever follows but a period (`R2D2` quoted,
+`R1.x` and `R0X` bare). This is not `refers::quote_sheet`, which spells a
+reference.
+
+**Labelled.** `(not-computed "an address in R1C1")`, no notation of the house, for
+any `a1` FALSE that reaches it, where Excel's relative form reaches rows no A1
+address has (`ADDRESS(0,0,4,FALSE)` is `RC`); `(not-computed "an address into
+another workbook")` for a name holding `[` or `]`; `(not-computed "a sheet's name
+with a character beyond ASCII that is no letter")`, which Excel quotes by a table
+no class states; `(not-computed "a sheet's name opening on a row's or a column's
+number")` where a later period, a `?`, a `\` or a letter beyond ASCII follows that
+number, which no save reaches; `(not-computed "an address past 258 characters")`,
+past which Excel cuts its answer by no stated rule; and `(not-computed "a branch of
+IF left out as an argument of ADDRESS")`, at `abs`, `a1` or the sheet, which Excel
+hands on as nothing and the language's `IF` reads as 0.
+
+**The fixture.** `scripts/recalc/address.txt`, built by the door into
+`address.xlsx`, holds 538 formulas: a Data sheet of the values read; a Functions
+sheet of 195, one a rule; a Lift sheet where a legacy formula's row meets a range
+and where it does not, and a fill; and a Names sheet of 328 at the boundaries of
+the name's rule. `address_calc.vla` is the door's record of it: 403 rows `agree`
+with the values the build wrote, and 135 labelled. Excel 365's first save of 210
+of them, on 2026-10-30, differed at sixteen rows, all of a sheet's name or an empty
+place of a lift; its second, the same day, with the Names sheet, located each
+boundary those rows showed. That save, `address_saved.xlsx`, joins the table at
+`no-differ` (`address_saved_calc.vla`): 538 formulas, the 403 the door computes
+agreeing with Excel's, and 135 labelled, Excel's answer to each standing in the
+golden.
