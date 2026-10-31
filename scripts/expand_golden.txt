@@ -415,7 +415,7 @@ EXPANDED	1
 === formula-expand-a-prelude-macro-shadows-a-function-refused
 REFUSED	vla-formula-head-refused	formula: '(begin ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls
 === formula-expand-nested-refused
-REFUSED	vla-formula-expand-nested	formula-expand: one inside another would write the inner formula as a text - write the inner expression itself
+REFUSED	vla-formula-expand-nested	formula-expand: one inside another would write the inner formula as a text - write the inner expression itself, and a verb meant to stand inside an expression as an expression macro over self
 === formula-expand-arity-refused
 REFUSED	vla-formula-expand-arity	formula-expand: takes one expression, got 0
 === formula-expand-inside-concat-expand-refused
@@ -1254,3 +1254,498 @@ REFUSED	vla-macro-piece-unknown	macro 'rule': '(& "T" 1)' stands after its posit
 === a-rest-spelled-as-its-own-mark-replaces-the-operator
 EXPANDED	1
 (1 2 "a" "b")
+=== a-binding-and-its-read
+EXPANDED	0
+"=Screen.last!B2"
+=== a-binding-of-a-quoted-sheet
+EXPANDED	0
+"='Q1 Data.last'!B2"
+=== a-binding-s-word-folds
+EXPANDED	0
+"=Screen.last!B2"
+=== a-binding-s-self-bare-writes-its-reference
+EXPANDED	0
+"=Screen!B2"
+=== a-binding-gives-a-row-its-two-fields
+EXPANDED	0
+(cell "Screen" "B2" 1)
+=== a-binding-reads-through-the-first-cell
+EXPANDED	0
+"B2"
+=== a-binding-of-a-define-s-word
+EXPANDED	0
+(begin)
+"=State.last!B12"
+=== a-binding-of-a-macro-s-result
+EXPANDED	1
+"=Screen.last!B2"
+=== a-binding-of-a-marked-cell
+EXPANDED	0
+"=Screen.last!$B$2"
+=== a-binding-of-a-twin
+EXPANDED	0
+"=Screen.last!B2"
+=== a-binding-s-several-forms-are-one-begin
+EXPANDED	0
+(begin (cell "Screen" "A1" 1) (formula "Screen" "B2" "=Screen.last!B2"))
+=== a-binding-in-a-statement
+EXPANDED	0
+(set! x "=Screen.last!B2")
+=== a-binding-stands-in-an-expression
+EXPANDED	0
+"=1+A.last!B2"
+=== a-binding-replaces-the-word-a-program-holds
+EXPANDED	0
+(debug-print Screen!B2)
+=== a-head-is-no-word
+EXPANDED	0
+"=SELF(1)"
+=== a-text-is-no-word
+EXPANDED	0
+"=\"self\""
+=== a-quote-is-no-word
+EXPANDED	0
+(quote self)
+=== a-ref-writes-a-name-so-spelled
+EXPANDED	0
+"=self"
+=== a-rule-binds-its-range-s-first-cell
+EXPANDED	1
+(formula "Screen" "B2:K11" "=Screen.last!B2")
+=== a-rule-over-one-cell
+EXPANDED	1
+(formula "Tally" "B16" "=Tally.last!B16+Input!B16")
+=== a-rule-s-range-written-backwards
+EXPANDED	1
+(formula "Screen" "K11:B2" "=Screen.last!B2")
+=== a-rule-on-a-quoted-sheet
+EXPANDED	1
+(formula "Q1 Data" "B2:K11" "='Q1 Data.last'!B2")
+=== a-rule-at-a-word
+EXPANDED	1
+(begin)
+(formula "Screen" "B2:K11" "=Screen.last!B2")
+=== an-expression-macro-reads-the-verb-s-place
+EXPANDED	2
+(formula "Tally" "B16" "=Tally.last!B16+Input!B16")
+=== expression-macros-compose-where-a-verb-would-nest
+EXPANDED	4
+(formula "Tally" "B16" "=Tally.last!B16+IF(AND(Input!B1=1,Input.last!B1=0),1,0)")
+=== a-verb-inside-a-verb-refused
+REFUSED	vla-formula-expand-nested	formula-expand: one inside another would write the inner formula as a text - write the inner expression itself, and a verb meant to stand inside an expression as an expression macro over self
+=== a-whole-column-refused-at-the-verb
+REFUSED	vla-reference-whole-line	first-cell-expand: '(ref "Screen" "A:A")' is a whole column, and first-cell-expand takes a cell or a range, such as Tally!B1:E10
+=== offset-moves-a-cell
+EXPANDED	0
+"=Tally!D3"
+=== offset-moves-up-and-left
+EXPANDED	0
+"=Tally!A2"
+=== offset-of-no-distance
+EXPANDED	0
+"=Tally!C3"
+=== offset-moves-a-range-keeping-its-size
+EXPANDED	0
+"=Tally!C3:F11"
+=== offset-with-excel-s-height-and-width
+EXPANDED	0
+"=Screen!A1:C3"
+=== offset-of-one-by-one-is-a-cell
+EXPANDED	0
+"=Screen!C3"
+=== offset-sizes-a-range-from-its-top-left
+EXPANDED	0
+"=Tally!B2:C3"
+=== offset-sizes-a-range-written-backwards-from-its-top-left
+EXPANDED	0
+"=Tally!B2:C3"
+=== offset-moves-a-range-written-backwards-corner-by-corner
+EXPANDED	0
+"=Tally!F11:C3"
+=== offset-keeps-a-cell-s-marks
+EXPANDED	0
+"=Tally!$C3"
+=== offset-keeps-each-corner-s-marks
+EXPANDED	0
+"=Tally!$C3:D$4"
+=== offset-sized-takes-the-top-left-s-marks
+EXPANDED	0
+"=Tally!$B$2:$C$3"
+=== offset-of-no-sheet-stays-no-sheet
+EXPANDED	0
+"=B3"
+=== offset-of-a-quoted-sheet
+EXPANDED	0
+"='Q1 Data'!B3"
+=== offset-of-a-twin
+EXPANDED	0
+"=Stay.last!D3"
+=== offset-of-a-mark
+EXPANDED	0
+"=Stay!$D$3"
+=== offset-answers-a-ref
+EXPANDED	0
+(ref "Tally" "B3")
+=== offset-answers-a-ref-of-no-sheet
+EXPANDED	0
+(ref "B3")
+=== last-reads-an-offset
+EXPANDED	0
+"=Stay.last!D3"
+=== a-mark-reads-an-offset
+EXPANDED	0
+"=Stay!$B2"
+=== the-walk-s-forms-read-an-offset
+EXPANDED	0
+(cell "Tally" "B3" "B3")
+=== offset-reads-a-define-s-word
+EXPANDED	0
+(begin)
+"=State!B13"
+=== offset-reads-a-define-s-number
+EXPANDED	0
+(begin)
+"=Tally!B4"
+=== offset-reads-a-macro-s-number
+EXPANDED	1
+"=Tally!B3"
+=== offset-reads-a-template-s-arithmetic
+EXPANDED	1
+"=Screen!A1:E5"
+=== offset-after-a-statement-a-macro-made
+EXPANDED	1
+(begin (debug-print 1) (ref "Tally" "B3"))
+=== offset-to-the-sheet-s-last-cell
+EXPANDED	0
+"=Tally!XFD1048576"
+=== offset-past-the-top-refused
+REFUSED	vla-address-expand-row	offset-expand: a row is a whole number from 1 to 1048576, got '0'
+=== offset-past-the-left-refused
+REFUSED	vla-address-expand-column	offset-expand: a column is a whole number from 1 to 16384, got '0'
+=== offset-past-the-bottom-refused
+REFUSED	vla-address-expand-row	offset-expand: a row is a whole number from 1 to 1048576, got '1048577'
+=== offset-past-the-right-refused
+REFUSED	vla-address-expand-column	offset-expand: a column is a whole number from 1 to 16384, got '16385'
+=== offset-sized-past-the-bottom-refused
+REFUSED	vla-address-expand-row	offset-expand: a row is a whole number from 1 to 1048576, got '1048577'
+=== offset-sized-past-the-right-refused
+REFUSED	vla-address-expand-column	offset-expand: a column is a whole number from 1 to 16384, got '16385'
+=== offset-s-second-corner-past-the-top-refused
+REFUSED	vla-address-expand-row	offset-expand: a row is a whole number from 1 to 1048576, got '0'
+=== offset-a-row-before-a-column-refused
+REFUSED	vla-address-expand-row	offset-expand: a row is a whole number from 1 to 1048576, got '-7'
+=== offset-of-a-whole-column-refused
+REFUSED	vla-reference-whole-line	offset-expand: 'Tally!A:A' is a whole column, and offset-expand takes a cell or a range, such as Tally!B1:E10
+=== offset-of-a-whole-row-refused
+REFUSED	vla-reference-whole-line	offset-expand: 'Tally!3:3' is a whole row, and offset-expand takes a cell or a range, such as Tally!B1:E10
+=== offset-of-one-argument-refused
+REFUSED	vla-offset-expand-arity	offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got 1 argument(s)
+=== offset-of-two-arguments-refused
+REFUSED	vla-offset-expand-arity	offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got 2 argument(s)
+=== offset-of-a-height-alone-refused
+REFUSED	vla-offset-expand-arity	offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got 4 argument(s)
+=== offset-of-six-arguments-refused
+REFUSED	vla-offset-expand-arity	offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got 6 argument(s)
+=== offset-of-a-text-for-a-number-refused
+REFUSED	vla-arith-expand-not-number-value	offset-expand: expected a number, got '"1'
+=== offset-of-a-word-for-a-number-refused
+REFUSED	vla-arith-expand-not-number-value	offset-expand: expected a number, got 'rows'
+=== offset-of-a-fraction-refused
+REFUSED	vla-arith-expand-not-whole	offset-expand: expected a whole number, got '1.5'
+=== offset-of-a-list-for-a-number-refused
+REFUSED	vla-arith-expand-not-number-list	offset-expand: expected a number, got a list
+=== offset-of-a-height-of-zero-refused
+REFUSED	vla-offset-expand-size	offset-expand: a height and a width are whole numbers from 1, got '0'
+=== offset-of-a-width-below-zero-refused
+REFUSED	vla-offset-expand-size	offset-expand: a height and a width are whole numbers from 1, got '-1'
+=== offset-of-a-name-refused
+REFUSED	vla-reference-expected	offset-expand: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got 'stop', a name
+=== offset-of-a-span-refused
+REFUSED	vla-reference-expected	offset-expand: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got 'Jan:Dec!A1', a span of sheets
+=== offset-of-a-text-refused
+REFUSED	vla-reference-expected	offset-expand: expected a cell, a range, a column or a row, such as Input!B5 or (ref "Q1 Data" "A1"), got '"B2"', a text
+=== offset-s-numbers-before-its-reference-refused
+REFUSED	vla-arith-expand-not-number-value	offset-expand: expected a number, got '"x'
+=== offset-s-whole-line-before-its-size-refused
+REFUSED	vla-reference-whole-line	offset-expand: 'Tally!A:A' is a whole column, and offset-expand takes a cell or a range, such as Tally!B1:E10
+=== offset-s-size-before-its-corner-refused
+REFUSED	vla-offset-expand-size	offset-expand: a height and a width are whole numbers from 1, got '0'
+=== life-s-rule-over-self
+EXPANDED	5
+(formula
+    "Screen"
+    "B2:LG199"
+    "=IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,AND(Screen.last!B2=1,SUM(Screen.last!A1:C3)-Screen.last!B2=2)),1,0)")
+=== life-s-rule-by-addresses
+EXPANDED	1
+(formula
+    "Screen"
+    "B2:LG199"
+    "=IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,AND(Screen.last!B2=1,SUM(Screen.last!A1:C3)-Screen.last!B2=2)),1,0)")
+=== the-sound-card-s-rule-over-self
+EXPANDED	2
+(formula "Screen" "A2:AV24" "=Screen.last!A1")
+=== the-sound-card-s-rule-by-addresses
+EXPANDED	1
+(formula "Screen" "A2:AV24" "=Screen.last!A1")
+=== sand-s-first-diagonal-over-self
+EXPANDED	5
+(formula "Stay" "C2:LF199" "=AND(Side!D3=0,Screen.last!D2<2)")
+=== sand-s-first-diagonal-by-addresses
+EXPANDED	1
+(formula "Stay" "C2:LF199" "=AND(Side!D3=0,Screen.last!D2<2)")
+=== a-word-over-self-over-any-reference
+EXPANDED	3
+(begin)
+"=State!B11"
+"=State.last!B11"
+"=State.last!$B$11"
+=== a-bare-reference-by-ref
+EXPANDED	2
+"=B1+1"
+=== an-anchored-column-by-a-distance
+EXPANDED	0
+"=Gate!$B2"
+=== an-inner-binding-hides-the-outer-and-the-outer-stands-again
+EXPANDED	0
+(begin "=A.last!B2" "=C.last!D4" "=A.last!B2")
+=== a-binding-s-value-reads-the-outer
+EXPANDED	0
+"=A.last!B3"
+=== a-binding-reads-itself-and-is-free
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== two-siblings
+EXPANDED	3
+(begin (formula "A" "B2" "=A.last!B2") (formula "C" "D4" "=C.last!D4"))
+=== two-siblings-in-the-other-order
+EXPANDED	3
+(begin (formula "C" "D4" "=C.last!D4") (formula "A" "B2" "=A.last!B2"))
+=== siblings-by-a-walk-over-quasiquote
+EXPANDED	7
+(begin
+    (formula "S" "B1" "=S.last!B1")
+    (formula "S" "B2" "=S.last!B2")
+    (formula "S" "B3" "=S!B3")
+    (begin))
+=== siblings-by-on
+EXPANDED	5
+(begin (formula "S" "B1" "=S.last!B1") (formula "S" "B2" "=S.last!B2") (begin))
+=== siblings-by-a-loop
+EXPANDED	3
+(begin
+    (formula "S" "B1" "=S.last!B1")
+    (formula "S" "B2" "=S.last!B2")
+    (formula "S" "B3" "=S.last!B3"))
+=== a-loop-in-a-binding
+EXPANDED	0
+(begin "=A.last!B2+1" "=A.last!B2+2")
+=== a-loop-names-a-binding-s-sheet
+EXPANDED	0
+(begin "=A.last!B2" "=B.last!B2")
+=== a-loop-among-a-binding-s-forms
+EXPANDED	0
+(begin (cell "A" "A1" 1) (begin (cell "A" "B2" 1) (cell "A" "B2" 2)))
+=== a-macro-made-begin-as-a-binding-s-body
+EXPANDED	1
+(begin (debug-print "=A.last!B2") "=A.last!B2+1")
+=== a-binding-after-a-statement-a-macro-made
+EXPANDED	1
+(begin (debug-print 1) "=A.last!B2")
+=== forms-set-aside-around-a-binding-read-the-outer
+EXPANDED	1
+(begin "=A.last!B2" "=C.last!D4")
+=== forms-set-aside-around-a-binding-at-no-outer-are-free
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-define-whose-form-is-self-reads-it-at-each-use
+EXPANDED	0
+(begin)
+"=A.last!B2"
+"=C.last!D4"
+=== a-rule-by-name-reads-where-it-stands
+EXPANDED	0
+(begin)
+"=SUM(Screen.last!A1:C3)"
+"=SUM(Screen.last!B2:D4)"
+=== a-define-whose-form-is-self-at-no-binding-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-define-in-a-binding-s-body-binds-the-forms-after
+EXPANDED	0
+(begin)
+"=C.last!D4"
+=== a-define-in-a-formula-s-binding-refused
+REFUSED	vla-define-not-a-statement	define 'me': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula
+=== a-piece-s-default-names-self
+EXPANDED	1
+"=A.last!B2"
+=== a-piece-s-default-given
+EXPANDED	1
+"=Tally.last!B1"
+=== a-piece-s-default-names-self-at-no-binding-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-parameter-holds-the-word-and-reads-it-where-the-template-puts-it
+EXPANDED	1
+"=A!B1"
+=== a-macro-called-a-second-time-reads-its-own-binding
+EXPANDED	2
+"=A.last!B2"
+"=C.last!D4"
+=== a-recursive-verb-hands-off-into-another
+EXPANDED	104
+(f "first" "=A.last!B2")
+(f "second" "=C.last!D4")
+=== two-recursive-verbs-as-siblings
+EXPANDED	53
+(begin "=A.last!B2" "=C.last!D4")
+=== self-moved-down-a-row-at-each-level
+EXPANDED	21
+"=A.last!B22"
+=== a-binding-that-never-ends-refused
+REFUSED	vla-form-too-deep	lists nested more than 64 deep - no program needs that many
+=== a-refusal-inside-a-binding-s-body
+REFUSED	vla-formula-head-not-a-function	formula: 'no-such-function-name' cannot name a function - a function's name is letters, digits, . and _, beginning with a letter
+=== after-a-refusal-self-is-free-again
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-refusal-in-a-binding-s-second-form
+REFUSED	vla-reference-expected	range-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '"no reference"', a text
+=== a-refusal-two-bindings-deep
+REFUSED	vla-reference-no-sheet	bind-expand: 'B7' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== self-free-in-a-formula-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-bare-in-a-formula-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-a-function-s-argument-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-a-macro-s-result-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-as-a-lambda-s-parameter-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-the-sheet-part-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-the-range-part-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-the-range-part-through-last-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-the-first-cell-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-in-offset-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-through-offset-in-a-formula-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-free-stays-a-word-in-a-statement
+EXPANDED	0
+(set! self 1)
+=== self-free-stays-a-word-in-a-procedure
+EXPANDED	0
+(sub main () (dim self) (set! self 1) (debug-print self))
+=== self-free-stays-a-word-in-a-row-s-field
+EXPANDED	0
+(cell "S" "A1" self)
+=== a-standalone-branch-is-not-expanded-so-self-goes-unread
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-standalone-branch-holding-a-reference-head-goes-unread
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-free-word-through-a-standalone-branch-refused
+REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== a-template-s-branch-is-expanded-and-reads-self
+EXPANDED	1
+"=A.last!B2"
+=== a-define-named-self-refused
+REFUSED	vla-define-name-reserved	define 'self': 'self' is the place a verb writes, and a define binds a word of the source's own
+=== a-define-named-bind-expand-refused
+REFUSED	vla-define-name-reserved	define 'bind-expand': 'bind-expand' is the expand-time place-binding form, and a define binds a word of the source's own
+=== a-define-named-offset-expand-refused
+REFUSED	vla-define-name-reserved	define 'offset-expand': 'offset-expand' is the expand-time reference-moving operation, and a define binds a word of the source's own
+=== a-macro-named-self-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'self': 'self' is the place a verb writes and cannot be a macro name
+=== a-macro-named-bind-expand-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'bind-expand': 'bind-expand' is the expand-time place-binding form and cannot be a macro name
+=== a-macro-named-offset-expand-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'offset-expand': 'offset-expand' is the expand-time reference-moving operation and cannot be a macro name
+=== a-loop-named-self-refused
+REFUSED	vla-each-name-reserved	each 'self': 'self' is the place a verb writes and cannot be a name each binds
+=== a-counting-loop-named-self-refused
+REFUSED	vla-each-name-reserved	each-index 'self': 'self' is the place a verb writes and cannot be a name each-index binds
+=== a-piece-named-self-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'm': the piece 'self' is spelled as the place a verb writes, which the expander reads as its own form
+=== a-piece-named-offset-expand-refused
+REFUSED	vla-defmacro-piece-reserved	defmacro 'm': the piece 'offset-expand' is spelled as the expand-time reference-moving operation, which the expander reads as its own form
+=== a-parameter-named-self-hides-the-word
+EXPANDED	1
+"=Tally.last!B1"
+=== a-parameter-named-self-hides-a-binding
+EXPANDED	1
+"=Tally.last!B1"
+=== a-rest-named-self-hides-the-word
+EXPANDED	1
+(f 1 2)
+=== a-parameter-named-self-in-a-macro-s-own-binding-refused
+REFUSED	vla-bind-expand-word	bind-expand: 'Tally!B1' is no word it binds - it binds self alone, and a define gives any other word its form
+=== a-text-joined-of-self-refused
+REFUSED	vla-self-in-a-primitive	&expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== characters-of-self-refused
+REFUSED	vla-self-in-a-primitive	characters-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== the-row-of-self-refused
+REFUSED	vla-self-in-a-primitive	row-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== the-column-of-self-refused
+REFUSED	vla-self-in-a-primitive	column-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== a-word-fused-of-self-refused
+REFUSED	vla-self-in-a-primitive	symbol takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== a-template-s-primitive-over-self-refused
+REFUSED	vla-self-in-a-primitive	row-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== a-primitive-over-the-word-in-any-case-refused
+REFUSED	vla-self-in-a-primitive	row-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== a-primitive-over-a-quoted-self-refused
+REFUSED	vla-self-in-a-primitive	&expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
+=== a-text-spelled-self-is-a-text
+EXPANDED	0
+"self"
+=== a-word-fused-from-a-text-spelled-self
+EXPANDED	0
+self-x
+=== a-primitive-carries-the-word-as-data
+EXPANDED	0
+self
+false
+(self a)
+true
+true
+=== a-binding-of-no-forms-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand ((self A!B2)))
+=== a-binding-of-an-atom-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand self (formula-expand 1))
+=== a-binding-of-no-binding-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand () (formula-expand 1))
+=== a-binding-whose-entry-is-an-atom-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand (self) (formula-expand 1))
+=== a-binding-whose-entry-holds-one-form-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand ((self)) (formula-expand 1))
+=== a-binding-whose-entry-holds-three-forms-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand ((self A!B2 A!B3)) (formula-expand 1))
+=== a-binding-whose-word-is-a-text-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand (("self" A!B2)) (formula-expand 1))
+=== a-binding-whose-word-is-a-list-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand (((self) A!B2)) (formula-expand 1))
+=== a-binding-of-another-word-refused
+REFUSED	vla-bind-expand-word	bind-expand: 'stop' is no word it binds - it binds self alone, and a define gives any other word its form
+=== a-binding-of-two-places-refused
+REFUSED	vla-bind-expand-shape	bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand ((self A!B2) (self C!D4)) (formula-expand (last self)))
+=== a-binding-s-other-word-before-its-count-refused
+REFUSED	vla-bind-expand-word	bind-expand: 'stop' is no word it binds - it binds self alone, and a define gives any other word its form
+=== a-binding-of-a-range-refused
+REFUSED	vla-bind-expand-not-a-cell	bind-expand: self is one cell on a sheet, and 'A!B2:C3' is a range - a fill binds its first cell, (first-cell-expand reference)
+=== a-binding-of-a-whole-column-refused
+REFUSED	vla-bind-expand-not-a-cell	bind-expand: self is one cell on a sheet, and 'A!B:B' is a whole column - a fill binds its first cell, (first-cell-expand reference)
+=== a-binding-of-a-whole-row-refused
+REFUSED	vla-bind-expand-not-a-cell	bind-expand: self is one cell on a sheet, and 'A!3:3' is a whole row - a fill binds its first cell, (first-cell-expand reference)
+=== a-binding-of-no-sheet-refused
+REFUSED	vla-reference-no-sheet	bind-expand: 'B2' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5
+=== a-binding-of-a-text-refused
+REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '"B2"', a text
+=== a-binding-of-a-name-refused
+REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'stop', a name
+=== a-binding-of-a-span-refused
+REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got 'Jan:Dec!A1', a span of sheets
+=== a-binding-of-a-list-refused
+REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '(quote (a))', no reference
+=== a-binding-s-value-refused-before-its-body
+REFUSED	vla-reference-expected	range-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '"x"', a text

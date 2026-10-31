@@ -19,7 +19,10 @@
 //! entries `list?` tells apart, a word or a pair, a fill citing a word
 //! anchored, and `count` at a word through `first-cell-expand`, each fill
 //! the row its twin by addresses writes; and VLA.9's: a `put` by its named
-//! pieces, in two orders, writing the rows of a `put` by position.
+//! pieces, in two orders, writing the rows of a `put` by position; and
+//! VLA.10's: Life's, the sound card's and Sand's rules over `self` writing the
+//! rows their twins by addresses write, and two sibling verbs each keeping its
+//! own place, in either order.
 
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
@@ -203,10 +206,57 @@ fn a_put_by_its_pieces_in_two_orders_writes_the_rows_of_a_put_by_position() {
 }
 
 #[test]
+fn a_rule_over_self_writes_the_row_its_twin_by_addresses_writes() {
+    // VLA.10: the records differ by the macros applied; the rows are one, each
+    // of the three the row its cartridge's source writes by addresses today.
+    for (over_self, by_addresses, row) in [
+        (
+            "life-s-rule-over-self",
+            "life-s-rule-by-addresses",
+            "(formula \"Screen\" \"B2:LG199\" \"=IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,AND(Screen.last!B2=1,SUM(Screen.last!A1:C3)-Screen.last!B2=2)),1,0)\")",
+        ),
+        (
+            "the-sound-card-s-rule-over-self",
+            "the-sound-card-s-rule-by-addresses",
+            "(formula \"Screen\" \"A2:AV24\" \"=Screen.last!A1\")",
+        ),
+        (
+            "sand-s-first-diagonal-over-self",
+            "sand-s-first-diagonal-by-addresses",
+            "(formula \"Stay\" \"C2:LF199\" \"=AND(Side!D3=0,Screen.last!D2<2)\")",
+        ),
+    ] {
+        let (written, _) = expand_text(&case_text(over_self), PRELUDE, true).unwrap();
+        let (addressed, _) = expand_text(&case_text(by_addresses), PRELUDE, true).unwrap();
+        assert_eq!(rows(&written), rows(&addressed), "{over_self}");
+        assert_eq!(rows(&written), read_forms(row).unwrap(), "{over_self}");
+    }
+}
+
+#[test]
+fn two_sibling_verbs_each_keep_their_own_place_in_either_order() {
+    // VLA.10, LISTOPS-CONFLUENCE's proof for the binding: swapping the two
+    // verbs swaps their rows and changes neither, though a begin a macro made
+    // expands its last form first, so the second row is written before the
+    // first in each.
+    let (forward, _) = expand_text(&case_text("two-siblings"), PRELUDE, true).unwrap();
+    let (reversed, _) =
+        expand_text(&case_text("two-siblings-in-the-other-order"), PRELUDE, true).unwrap();
+    let (mut forward, reversed) = (rows(&forward), rows(&reversed));
+    assert_eq!(forward.len(), 2);
+    assert_eq!(
+        forward[0],
+        read_forms("(formula \"A\" \"B2\" \"=A.last!B2\")").unwrap()[0]
+    );
+    forward.reverse();
+    assert_eq!(forward, reversed);
+}
+
+#[test]
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 471, "only {count} cases in the expand fixture");
+    assert!(count >= 656, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))

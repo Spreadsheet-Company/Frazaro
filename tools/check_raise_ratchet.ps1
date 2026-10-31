@@ -160,8 +160,12 @@ function Get-RawRaiseCount([string]$path) {
 # raised again from locals once the walk's mFormulaExpandOpen is cleared, so
 # that a refusal never leaves the next expansion inside a formula-expand. No
 # new English text; nothing an id could name.
+# 2026-10-30 (VLA.10): VLA 9->10. The tenth site is ExpandBindCall's failed:
+# handler, the same cleanup re-raise: a refusal inside a binding's body is raised
+# again from locals once the place is popped, so that no sibling sees another's
+# self, the determinism wall's one condition. No new English text.
 $ceilings = @{
-    'VLA'                = 9
+    'VLA'                = 10
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4

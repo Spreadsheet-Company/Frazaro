@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.9"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.10"
+' VLA.10: the fill's own place as a word, seven refusals under VLA.
+' vla-self-free - the word self nothing reads, free, or in a branch the walk
+' does not expand; vla-self-in-a-primitive - a primitive that reads a word's
+' text over it; vla-bind-expand-shape - one binding and at least one form;
+' vla-bind-expand-word - every word but self; vla-bind-expand-not-a-cell - a
+' range, a whole column or a whole row where one cell goes;
+' vla-offset-expand-arity - three arguments or five; and vla-offset-expand-size -
+' a height or a width under 1. And vla-formula-expand-nested says where a verb
+' that stands inside an expression goes, its id as it was.
+'
 ' VLA.9: named pieces with defaults, eleven refusals under VLA. Six of the
 ' definition, each naming the macro: vla-defmacro-piece-shape - a declaration
 ' is (word) or (word default); vla-defmacro-param-after-piece - the positional
@@ -861,7 +871,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-formula-ref-invalid", 5, "VLA", "formula: (ref ...) names one reference from a sheet and an address, such as (ref ""Data"" ""B2"") - '{text}' is not one"
     AddMsg m, "vla-formula-text-too-long", 5, "VLA", "formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds {n}"
     AddMsg m, "vla-formula-expand-arity", 5, "VLA", "formula-expand: takes one expression, got {n}"
-    AddMsg m, "vla-formula-expand-nested", 5, "VLA", "formula-expand: one inside another would write the inner formula as a text - write the inner expression itself"
+    AddMsg m, "vla-formula-expand-nested", 5, "VLA", "formula-expand: one inside another would write the inner formula as a text - write the inner expression itself, and a verb meant to stand inside an expression as an expression macro over self"
     AddMsg m, "vla-formula-read-malformed", 5, "VLA", "formula text: {what}, so it is not a formula"
     AddMsg m, "vla-formula-read-unsupported", 5, "VLA", "formula text: Excel reads {construct}, and this version's formula syntax does not yet"
     ' VLA.5 - the loop at expand time, (each (name list) form ...) and
@@ -893,6 +903,14 @@ Private Sub AddEntries(ByVal m As Collection)
     ' form needs a cell or the other axis, the reference and what the form
     ' takes named.
     AddMsg m, "vla-reference-whole-line", 5, "VLA", "{op}: '{value}' is a whole {line}, and {op} takes {want}"
+    ' VLA.10 - the fill's own place as a word, and a reference moved.
+    AddMsg m, "vla-self-free", 5, "VLA", "self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row"
+    AddMsg m, "vla-self-in-a-primitive", 5, "VLA", "{op} takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address"
+    AddMsg m, "vla-bind-expand-shape", 5, "VLA", "bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got {form}"
+    AddMsg m, "vla-bind-expand-word", 5, "VLA", "bind-expand: '{word}' is no word it binds - it binds self alone, and a define gives any other word its form"
+    AddMsg m, "vla-bind-expand-not-a-cell", 5, "VLA", "bind-expand: self is one cell on a sheet, and '{value}' is {what} - a fill binds its first cell, (first-cell-expand reference)"
+    AddMsg m, "vla-offset-expand-arity", 5, "VLA", "offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got {n} argument(s)"
+    AddMsg m, "vla-offset-expand-size", 5, "VLA", "offset-expand: a height and a width are whole numbers from 1, got '{value}'"
 
     ' CO.4 - the one refusal grammar semantic versioning needs. A
     ' version that cannot be read is never treated as satisfied AND

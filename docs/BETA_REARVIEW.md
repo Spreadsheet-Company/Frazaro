@@ -19624,6 +19624,753 @@ built.
   0); `VlaGoldens`, corpus and interpreter PASS. The ten decisions stand as
   built. **Closed ✅ and committed 2026-10-30 at the owner's word.**
 
+- ✅ **VLA.10 — verbs that compose: the fill's own place as a word, `self`,
+  bound by `bind-expand` and read by the walk alone, with `offset-expand`,
+  Excel's `OFFSET` at expand time; and a verb an expression over it, so that the
+  nest stays refused.** *Scoped 2026-10-30 from a brief pasted in chat, the item
+  the third sitting of 2026-10-25 minted (`b7208fe`), its one condition set by
+  the wall's paragraph of 2026-10-29; the ten decisions
+  below put to the owner in chat, each with its recommendation, and approved
+  the same day ("Recommendations approved; proceed with implementing VLA.10 as
+  scoped"), the form brought forward and the stepper's fix among them.*
+
+  **The words this entry keeps apart.** A *verb* writes a row, an *expression
+  macro* returns a form, a verb's *expression* is what its `formula-expand`
+  writes, and a *piece* is `VLA.9`'s alone.
+
+  **What needs it.** A fill is one formula written as its first cell reads,
+  and the author does the relative arithmetic by hand against a cell the
+  source never names. Life's rule, over `B2:LG199`, reads `Screen.last!A1:C3`
+  and `Screen.last!B2` to mean "my eight neighbors and me, last frame"; the
+  gun's is the same. Sand's three fills start at `C2` and read
+  `Screen.last!A1` to `Screen.last!E1`, the row above and two columns to
+  either side, and `Side!C3`, the cell beneath on another sheet. The sound
+  card writes `(rule "Screen" "A2:AV24" Screen.last!A1)`. The kit's `interior`
+  computes the anchor and never tells the rule, and `count`, `hold` and
+  `since` twin theirs by text, `(ref (&expand sheet ".last") (first-of
+  range))`, over a walk of its characters. And a verb writes a row of its own
+  where an expression macro returns a form, so a test two verbs share is
+  written as an expression macro and each verb wraps it, `pressed` over `edge`
+  (Alonzo's `docs/2030.md` §7.2, lesson 4; §7.3, items 2 and 3).
+
+  Counted at this scoping over every `formula` row of Alonzo's eleven
+  cartridges and Buffet's game, 352 over a range and 776 over one cell, what
+  each reads against its own first cell, a scan of the rows' texts with their
+  literals taken out:
+
+  | A row reads | Over a range | Over one cell |
+  |---|---|---|
+  | its own twin at its own place | 144 | 259 |
+  | its own twin elsewhere | 81 | 80 |
+  | another sheet at its own place | 89 | 16 |
+  | another sheet elsewhere | 579 | 799 |
+  | its own sheet, bare | 887 | 948 |
+  | its own sheet, named | 0 | 77 |
+  | one axis anchored, `$A2` or `A$4` | 281 | 5 |
+  | both anchored | 949 | 963 |
+
+  So `(last self)` alone writes 403 of the 564 references to a row's own twin,
+  and the other 161 need arithmetic on a reference. The 1,378 to another sheet
+  elsewhere are of both kinds, Sand's `Side!D3` and a setting read from a
+  block, which the scan does not tell apart.
+
+  **What moved since the mint.**
+  - `VLA.15` shipped `first-cell-expand` in 0.12.0, a form of the walk
+    refusing a whole column or row: how a verb computes its `self`.
+  - `VLA.9` (`5f04888`, unreleased) gave "piece" a meaning of its own, so the
+    line's "a verb inside another's piece" is written here "a verb inside
+    another's expression".
+  - `KIT.6`'s first slice took `within` for a test of two bounds, `(within x
+    low high)`, so the line's `(within 1 self)`, a neighborhood, wants another
+    word, the kit's to choose. Superposition defines `neighbors` and `tally`,
+    and a later `defmacro` replaces an earlier one in silence (`VLA.11`), so
+    the kit takes neither.
+  - The line's `(rule r (count Input!B16))` calls `count` with one argument,
+    where the kit's verb is `(count sheet range event)`: the example reads
+    only if the verb is an expression macro (decision 4). `COUNT` is an Excel
+    function too, which the kit's macro of that name shadows in every source
+    that includes it, so nothing in a proof here takes that word.
+
+  **What the substrate says**, read in both implementations at `b4238af`:
+  - *How a word is resolved.* A define's word is resolved by the walk alone:
+    where it stands as an expression, as one link of the chain (`expand_at`'s
+    atom case, `ExpandMacros`' `DefineNamed`), and inside a form of the walk,
+    whose argument the walk expands first. A primitive takes its arguments as
+    data, at substitution: a list there is refused (`vla-expand-arg-is-list`)
+    and a word is read as its text, which is why `VLA.15` made the first cell
+    a form of the walk. `Substitute` and `substitute` read their own
+    parameters and pure helpers and nothing else, the premise of
+    LISTOPS-CONFLUENCE (this file, the gate).
+  - *What a reference is to each reader.* `row-expand` and `column-expand`
+    read an address alone, "a sheet's name before it ... is not an address"
+    (`parse_address_text`); `last` and the three marks read one reference
+    (`one_reference`, `FsOneReference`), `last` asking a sheet; the writer
+    writes a string as a text. So each spelling of `self` fails somewhere:
+
+    | `self` written as | `last` | the primitives | in a formula's text |
+    |---|---|---|---|
+    | `Screen!B2` | reads | refused | a reference |
+    | `"B2"` | refused | reads | a text, not a reference |
+    | `B2` | refused | reads | a reference |
+
+  - *A free word in a formula.* The writer writes a symbol the scanner reads
+    as a name as that name, so `(formula-expand self)` writes `=self` today,
+    and the reader reads it back as the bare symbol. `(ref "self")` writes the
+    same text from a text (`ref_form`, `FsRefForm`).
+  - *The walk's forms.* `formula-expand`, `sheet-expand`, `range-expand` and
+    `first-cell-expand` are taken at a form's head, expand their argument to
+    its fixpoint inside a helper, and return through `finish`, which keeps the
+    forms a begin a macro made set aside before them (`VLA.6`, decision 10). A
+    standalone primitive's chosen branch is returned as it is and not expanded
+    again (`VLA.5`, left as found). `formula_open` and `mFormulaExpandOpen`
+    are set before the argument and cleared on every way out, the reference
+    raising again from locals (`check_raise_ratchet` counts that handler). The
+    flag is no `VlaFrame` field, being false at every entry and exit;
+    `mDefines` is one of the twenty-one.
+  - *The trampoline.* A begin a macro made is unwrapped around its last form
+    and its other forms expanded after it (`pending_begin`, `PendingBegin`),
+    so forms do not expand in written order, and a form handed back to the
+    trampoline would expand after anything popped around it.
+  - *The expander knows no row.* `formula` is a list to the walk, its elements
+    walked and its head passed by; neither `expand.rs` nor the walk in
+    `VLA.bas` names it. A row is the waist of the hourglass (`2030.md` §7.4),
+    and reading one in the expander would be the first thing there that knows
+    the record's notation.
+  - *One pass.* `expand_one_pass` and `ExpandOnePass` leave a define whole and
+    walk any other list, a form of the walk among them, so `(formula-expand
+    (m))` shows `m`'s template inside it.
+  - *The reserved words.* One table, `RESERVED` and `ExpandReservedDesc`,
+    refuses a macro's name, a loop's names, a piece's word and a define's
+    word. A positional parameter asks it nothing: `(defmacro (m quote) ...)`
+    is taken today, and a parameter hides a define's word (`VLA.6`, decision
+    2).
+  - *The statement language.* Any word is a variable. Run through the door,
+    `Set self to 1.` compiles to `(dim self)` and `(set! self 1)`, and to `Dim
+    self As Variant` in the VBA. English writes none of the walk's forms:
+    `english.vla`, the prelude and the distros hold no `formula-expand` and no
+    reference part.
+  - *The stepper.* `VlaExpandStepText` runs the walk under a budget that stops
+    applications, and the walk's forms compute regardless (decision 9).
+  - *The public types.* `Expander`'s fields are private, `Macro` and `Piece`
+    are marked `#[non_exhaustive]` since `VLA.9`, and nothing here is a field
+    of either.
+  - *The words.* No `.vla` in Delta holds `self` as a word, `bind-expand` or
+    `offset-expand` at all; no head-table row spells one; no source writes a
+    verb over a whole column or row.
+
+  **What a mature Lisp settled about `self`, for the long term.** VLA's names
+  are revisable by an alias and a changed meaning is flagged (the owner's word
+  of 2026-10-22), so this and decision 4 are the costly kind: every later
+  source is read by them. Three lines of work bear on a word bound for a
+  region of expansion:
+  - *A word the walk replaces.* Common Lisp's `symbol-macrolet`: "each
+    reference to symbol as a variable within the lexical scope of
+    symbol-macrolet is expanded", and the result "is subject to further macro
+    expansion in the same lexical environment" (CLHS); and "the use of
+    symbol-macrolet can be shadowed by let". Its macros are not hygienic, so a
+    word a macro's expansion writes inside the body is in that scope, which is
+    the line's "for the forms a macro expands within it".
+    `define-symbol-macro` is the global form, the lineage `VLA.6` took for
+    `define`.
+  - *Expansion's own dynamic binding.* Racket's syntax parameters
+    (`racket/stxparam`; Barzilay, Culpepper and Flatt, Scheme Workshop 2011),
+    standardized as SRFI 139 and held by Racket, Guile and Chibi: "a mechanism
+    for rebinding a macro definition within the dynamic extent of a macro
+    expansion", and "during the expansion of the body-exprs, the value of each
+    expr is bound to the corresponding id". This is the need exactly, `it` in
+    an `aif` and `abort` in a loop. The word is declared first ("each keyword
+    must be bound to a syntax parameter"), and its default refuses, "abort
+    used outside of a loop" in SRFI 139's example, "use of a class keyword not
+    in a class" in Racket's. The read is the expander's, where it meets the
+    word; a transformer that computes asks by a function,
+    `syntax-parameter-value`, as Common Lisp's asks by `&environment`, a
+    parameter it declares (CLHS 3.4.4). No template reads an ambient value it
+    did not ask for.
+  - *Run time's dynamic binding, a different tool.* Common Lisp's specials,
+    Scheme's `parameterize` (SRFI 39), Clojure's `binding`: a word declared
+    first ("opt-in only", in Clojure's words), restored as control leaves the
+    body (`dynamic-wind` in SRFI 39), a new value computed outside the
+    binding, as `let` computes one. A macro function that binds a special
+    around itself does not cover what it returns, which the walk expands after
+    it has returned: the gap syntax parameters were made for, and decision 8's
+    answer to it.
+
+  What each candidate forecloses:
+  - *a, a reference, read by the walk alone,* forecloses nothing it refuses. A
+    primitive that meets the word is refused by name (decision 7), so a later
+    reading there moves no source, and a function of `VLA.8` takes `self` as
+    an argument the walk has expanded, the two systems' explicit read.
+    `Substitute` keeps its premise and one pass stays free of any context, so
+    `VLA.14`'s `macroexpand-1` shows `(above self)` as `(offset-expand self -1
+    0)` with no binding at hand. And because the words over it are forms of
+    the walk, they read any reference: `(above stop)`, `(around (absolute
+    stop) 1)`, `(below (last self))`, the one reading of `VLA.15`. It costs
+    one form now (below), and what no form of the walk computes waits: a fixed
+    column of the fill's own row by its letters, the census's 286.
+  - *b, the anchor's text,* forecloses a reference. `(last self)` would need a
+    second reading of a reference, a text with its sheet supplied from
+    elsewhere; a bare `self` in a formula would write a text where its author
+    meant a cell, `="B2"`, in silence; and a text the binding supplied could
+    not be told from a text the author wrote.
+  - *c, both, the binding handed to substitution,* forecloses the gate's
+    premise as it stands: a template's expansion would be a function of more
+    than its template and its arguments, one word among all of them reading an
+    environment the QUASIQUOTE scoping says does not exist. A template that
+    computes on `self` at substitution cannot later move to the walk without
+    being read again, and a word of `define` would still reach no primitive,
+    so `(above self)` would read and `(above stop)` would not: two rules for
+    one thing. The gain is one form fewer.
+
+  **What a mature Lisp settled about a verb, for the long term.** Lisp has no
+  statements, and every mature one still tells a form that defines from a form
+  that yields:
+  - Scheme refuses a definition where an expression stands: "Definitions are
+    valid in some, but not all, contexts where expressions are allowed. They
+    are valid only at the top level of a <program> and at the beginning of a
+    <body>" (R5RS §5.2). A macro that expands to one takes that rule. The
+    refusal here by name is the same rule.
+  - A macro that asks where it stands exists and is a specialist's tool:
+    Racket's `syntax-local-context` reports `expression`, `top-level`,
+    `module` and the rest. The house's rule is the other way, no mode around a
+    body.
+  - The honest form of a definition inside an expression is a lift: Racket's
+    `syntax-local-lift-expression` "returns a fresh identifier" and binds it
+    at the enclosing level. There the price is a fresh name, the `GENSYM` the
+    wall vetoes. Here a row has its author's address, so a later design could
+    read a verb inside an expression as writing its row at the form's own
+    level and yielding its reference, "every pattern's value is still a cell a
+    person sees" in the kit's words. Nothing asks for it; the refusal keeps
+    that door.
+
+  What each candidate forecloses:
+  - *a, the nest,* gives one name two meanings by where it stands, a row at a
+    form's head and an expression inside a formula, which every later reader
+    must carry. It takes the spelling a lift would want. It teaches the
+    expander the record's notation, since either the nested `formula-expand`
+    yields its argument and the walk drops the `formula` row around it, or one
+    form of the walk makes a verb's row and knows whether it is nested. And
+    what it buys is the host's place written a second time, or another place's
+    relative references written against the wrong anchor.
+  - *b, every verb an expression macro over `self`,* forecloses nothing. The
+    refusal stands and still catches a real mistake, and can become either
+    reading later without a source being read again. It costs the kit a change
+    of shape, Alonzo's to make, and one word and one level more at each call:
+    `(rule "Tally" "B16" (running Input!B16))` where `(count "Tally" "B16"
+    Input!B16)` stood.
+
+  **The decisions**, each with the recommendation and what it declines:
+
+  1. *The binding form's name.* `bind-expand`: `(bind-expand ((self
+  reference)) form ...)`. The suffix says a form computes while the macro
+  expands (chapter 14's rule), and it reads as a pair with `VLA.8`'s
+  `let-expand`, unbuilt, by where each is read: `let-expand` a value a
+  primitive can take, for one form, at substitution; `bind-expand` a word the
+  walk replaces, for every form the walk meets in its body. Declined: Common
+  Lisp's `let` over a declared special, one form with two meanings by a
+  declaration elsewhere; Racket's `syntax-parameterize` and Scheme's
+  `parameterize`, Clojure's `binding` and Common Lisp's `symbol-macrolet`, the
+  mechanisms' own words where the house has a suffix.
+
+  2. *What `self` is, and where it is read.* One cell on a sheet, written as
+  any form the one reading of a reference takes (`Screen!B2`, `(ref "Q 1"
+  "B2")`), read by the walk alone: where it stands as an expression, as one
+  link of the chain, as a define's word is; and inside the walk's forms, which
+  expand their argument first. `Substitute` does not change. So `(last self)`
+  reads as written, and `(sheet-expand self)` and `(range-expand self)` give a
+  row's two fields.
+
+  *The form this brings forward.* The words over `self` need arithmetic on a
+  reference, and no form of the walk does any. Recommended, brought forward
+  from `VLA.13` at the owner's word: `(offset-expand reference rows columns)`
+  and `(offset-expand reference rows columns height width)`, Excel's `OFFSET`
+  at expand time in Excel's argument order, as `row-expand` is `ROW` and
+  `address-expand` is `ADDRESS`. A form of the walk, reserved and no
+  primitive: its reference read by the one reading, its sheet written or none,
+  its numbers expanded and held to the arithmetic's gate, and its answer `(ref
+  sheet part)`, which `last`, the marks, the walk's forms and the writer all
+  read. So `(offset-expand Screen!B2 -1 -1 3 3)` is `Screen!A1:C3`, and a
+  range with no size keeps its own, `(offset-expand Tally!B2:E10 1 1)`
+  `Tally!C3:F11`, each as `OFFSET` answers. A `$` stays where it was written.
+  A row or a column past the sheet is refused by `address-expand`'s own ids; a
+  whole column or row by `vla-reference-whole-line`; a size under 1 by name, a
+  refusal that can become a reading later. The words over it are the kit's to
+  name; the proof below writes `above`, `below`, `around`, `in-sheet` and
+  `near`. Declined: *the anchor's text*, and *both*, for the reasons above;
+  *the words waiting for `VLA.13`*, which leaves `self` the 403 references
+  `(last self)` writes, and Life's, Sand's and the sound card's rules
+  unwritten; `range-at`, that line's sketch, the same arithmetic in a word of
+  no system its reader knows and without the size; and a primitive, which
+  neither `self` nor a define's word reaches (`VLA.15`, decision 5).
+
+  3. *Whether a nested verb's sheet must be the outer's.* Lapses under
+  decision 4, since no verb nests. Under the nest the inner's whole place must
+  be the outer's, its range as well as its sheet, since its relative
+  references are written against its own first cell; it would then write the
+  outer's place a second time.
+
+  4. *What a verb is.* An expression macro over `self`, with `rule` the one
+  row-writer. `(rule "Tally" "B16" (running Input!B16))` composes with no nest
+  at all, and `(rule "S" "B2" (+ (running x) (if (edge b) 1 0)))` composes
+  further, a name keeping one meaning wherever it stands. The language adds
+  nothing for this half: `self` serves it. What is left of the line's second
+  half is a refusal that says so, `vla-formula-expand-nested` reworded to
+  point at `self`, its id unchanged. No case found while scoping needs the
+  nest: a verb of several rows (`put`, a `picture`) is a statement and yields
+  no expression, and a verb that wants its row kept, a lift, is another
+  reading. The kit's shapes are Alonzo's: the proof below shows the bytes, and
+  the choice of which verbs move and under what names is its session's, with
+  `KIT.6`. Declined: the nest, the line's words, for the reasons above; and a
+  verb of two arities, `(count sheet range event)` and `(count event)`, a mode
+  by the count of its arguments.
+
+  5. *What may be bound.* `self` alone, the language's word, in a form that
+  takes a list of bindings and refuses every other word by name. So a
+  template's free word never changes meaning with its caller, as every mature
+  system's declaration keeps it from doing, and the list keeps the door: a
+  later item can open a declared word with evidence and no source is read
+  again. Declined: any word declared first (Common Lisp's `defvar`, Racket's
+  `define-syntax-parameter`), the mature design, which waits for a second word
+  to ask; any word, which is scope by accident, and is `define`'s job in the
+  region where a word wants one meaning; and `self`'s value alone,
+  `(bind-expand reference form ...)`, which closes the door.
+
+  6. *When the anchor is computed.* At the binding, once, under whatever
+  binding stands outside it, `let`'s rule and `parameterize`'s: `(bind-expand
+  ((self (offset-expand self 1 0))) ...)` reads the outer `self`, and no read
+  can loop, the value holding no `self` by the time it is bound. The value is
+  expanded to its fixpoint and read as one reference on a sheet, one cell: a
+  range, a whole column or row, no sheet, a text and a name are each refused
+  by name, so a verb's own whole column is refused at the verb by
+  `first-cell-expand`. Declined: `letrec`'s rule, a binding that reads itself,
+  which needs a limit to stop it; a define's lazy form, read afresh at each
+  use, the same; and a range bound as written, which leaves the fill's first
+  cell to every reader.
+
+  7. *Where a free `self` is refused.* Where it would be read, and nowhere
+  else:
+  - In a formula's finished expression, where a value stands, never at a
+    list's head, in a quote or a text: `vla-self-free`. One check after the
+    walk (`holds_self`) and not in the atom's case, so that a standalone
+    primitive's chosen branch, which the walk does not expand, is refused too
+    where it would write `=self` in silence.
+  - Wherever one reference is read: `last`, the marks, the walk's forms and a
+    binding's value, by `vla-self-free` in the one reading.
+  - In a primitive that reads a word's text, `&expand`, `characters-expand`,
+    `row-expand`, `column-expand` and `symbol`, free or bound:
+    `vla-self-in-a-primitive`, since the walk alone reads it and the line's
+    own sketch reaches for `row-expand` first. The other primitives carry it
+    as the data it is, so `on`, `rules` and `each` move an expression that
+    holds it; the number gate says "expected a number".
+  - Nowhere else. A statement's `self` stays the word, so `Set self to 1.`
+    compiles as it did, the sentence's reading `SD-4` keeps. A program's
+    variable named `self` meets nothing outside a binding, and inside one is
+    replaced, as a define replaces its word in a program's variable (chapter
+    14). A row's field holding the word reaches the load, which refuses it
+    (`grid-row-malformed`, measured). `(ref "self")` still writes Excel's
+    name.
+
+  `self`, `bind-expand` and `offset-expand` join the one table, so that a
+  macro's name, a loop's name, a piece's word and a define's word so spelled
+  are refused. A positional or rest parameter named `self` hides the word in
+  its template, as it hides a define's word and as `let` shadows a symbol
+  macro, the table asked by no positional parameter for any word: pinned, and
+  `VLA.11`'s. The changed meanings, for the release note: a macro, loop, piece
+  or define so named; a call of `bind-expand` or `offset-expand` as a
+  program's own; `(formula-expand self)`, which wrote Excel's name, a
+  `lambda`'s parameter so named among them; and those five primitives over the
+  word. Delta holds none. Declined: everywhere the walk meets it, the line's
+  rule, which the census of `.vla` files allows and a sentence does not: a
+  shipped `Set self to 1.` would be refused, for a row's field the load
+  already refuses.
+
+  8. *The binding's extent.* The body is expanded to its fixpoint inside the
+  binding, as formula-expand's argument is, each form of it in written order
+  and several forms one `begin` with no line, and never handed back to the
+  trampoline. So, each a case:
+  - an inner binding hides the outer's in its body, and the outer's stands
+    again after it;
+  - a sibling never sees another's, in either order, a begin a macro made
+    expanding its last first;
+  - `rules` (siblings by quasiquote), `on` (a call consed) and `each` each
+    give every row its own place;
+  - a macro's result in the body, a begin a macro made among them, reads the
+    binding, its set-aside forms before the pop;
+  - forms a macro set aside *around* a binding expand after the pop, outside
+    it, through `finish`;
+  - a define whose form is `self` reads it at each use, a define's form being
+    kept as written: `(define me self)` is each use's place, a rule by name
+    such as `(define neighbors-last (last (around self 1)))` reads wherever it
+    stands, and at no binding it is refused; a define written in a body binds
+    from the next form on, as any;
+  - a piece's default that names `self` reads it where the call stands, the
+    default expanding with the call's output (`VLA.9`, decision 6);
+  - a parameter holding the word, `(above self)`, reads it where the template
+    puts it.
+
+  Declined: the binding as a statement in force until the form ends, which
+  reads by the order of expansion; and a body handed back to the trampoline,
+  whose set-aside forms would expand after the pop.
+
+  9. *One pass and the stepper.* One pass changes nothing: it walks the form
+  as a list, as it walks `formula-expand`, so a macro in the body shows its
+  template and `self` stays the word, since one pass replaces no word. The
+  binding and a read are no applications, so the totals and the golden's
+  counts are untouched, and a read is one link of the chain.
+
+  *The stepper, a defect found while scoping.* The walk's forms compute at a
+  spent budget, so a frame holding an unfired macro inside one is refused or
+  written wrong. Measured in the port, the reference reading alike: `(count
+  "Tally" "B1:E10" Input!B1)` is refused at each of its frames 1 to 4
+  (`vla-formula-arity`), `(formula-expand (my-m))` at frame 0
+  (`vla-formula-head-not-a-function`), `(range-expand (m))` at frame 0
+  (`vla-reference-expected`), and `(formula-expand (m))` shows `=M()`, a
+  function's call, at frame 0. So `VlaExpandStep`, whose printout its comment
+  calls the macro chapter, cannot step through any verb in the kit.
+  Recommended: at a spent budget each of the walk's forms stands, its argument
+  expanded as far as the budget went, and computes nothing: `(formula-expand
+  (m))`, `(formula "Tally" "B1:E10" (formula-expand (+ (ref "Tally.last"
+  (first-of "B1:E10")) Input!B1)))`, `(bind-expand ((self (ref "Tally" ...)))
+  ...)`. A test of the budget in four helpers of each implementation. No
+  fixpoint moves, the fixture holding no budget, and the stepper's pins hold
+  no form of the walk. Declined: the two new forms alone, since a verb's frame
+  would still stop at its `formula-expand`; and left as found, which leaves
+  the stepper refusing what the expansion takes.
+
+  10. *The version.* No public type changes, so a minor release's feature:
+  three words more that a source's macro may not take, and the changed
+  meanings of decision 7. `## 0.13.0` stands unreleased with `VLA.9`'s and
+  `KERNEL.67`'s notes. Recommended: the note joins it, so that Alonzo's pin
+  moves once for `KIT.6`'s second and third slices and a kit over `self`. The
+  alternative, the release after it, if 0.13.0 ships first. The number is the
+  owner's.
+
+  **The work.**
+  - *The reference first* (`SD-18`). `VLA.bas`: `bind-expand` and
+    `offset-expand` at a form's head in `ExpandMacros`, through helpers
+    (`ExpandBindCall`, `ExpandOffsetCall`), so that it gains no local; the
+    atom's case reading the stack; `FormHoldsSelf` after `ExpandFormulaCall`'s
+    argument; the one reading's refusal in `FsSpelledReference`, the moved
+    reference `FsOffsetForm` under the formula writer's; the budget's test in
+    the four helpers; the three words in `ExpandReservedDesc`; `mSelfStack`,
+    reset at each public entry beside `mDefines`, with `VlaSelfDepth` for the
+    tests. `VLA_Messages.bas`: seven ids and a reworded one, exported.
+    `VLA_Tests.bas`: `TestSelfForms`, after `TestNamedPieces`. Each touched
+    module's version `VLA.10`.
+  - *The port.* `expand.rs` and `formula_syntax.rs` function for function.
+    Unit tests; `tests/expand_golden.rs`, the proof in miniature, Life's rule
+    and the sound card's by `self`, each the row its twin by addresses writes;
+    `tests/strangers.rs`, a seed program and each malformed form refused by
+    name, bindings nested past the depth limit.
+  - *The golden.* About ninety cases in `scripts/expand.txt`, in the owner's
+    style, predicted by the port, the reference confirming.
+  - *The checks.* `check_expand_golden`'s rule 11: both walks taking the two
+    forms at a form's head, both reserving the three and listing none among
+    the primitives, `Substitute` and `EvalListopsPrim` naming no stack (the
+    gate's premise), each form heading an EXPANDED case and a REFUSED one,
+    each new id a REFUSED record, the two siblings' rows alike in either
+    order; its mutants, the stack not restored on the reference's error path
+    among them; floors. `check_data_exports` at 255; `check_raise_ratchet`'s
+    `VLA` 9 to 10, the same cleanup handler again, named there.
+  - *The docs.* The tutorial's chapter 14, its table's two rows and a
+    subsection, *The place a verb writes*, before *Where it stops*; chapter
+    10's *Names that are taken* and chapter 11's rule, the word bound and
+    never invented. The crate's page, the expander's paragraph. The registry's
+    paragraph. `RELEASES.md` under the heading decision 10 settles. The three
+    dated notes below. Every example run through the port.
+
+  **The ids**, seven in the language's half, the 249th to the 255th, their
+  texts drafts the build settles. `vla-self-free`, "self: nothing reads it
+  here - self is the place a verb writes, and it stands only inside
+  (bind-expand ((self reference)) form ...), which a verb writes around its
+  row"; `vla-self-in-a-primitive`, "{op}: self is read as the walk meets it,
+  and {op} takes its arguments as data - write the words over it, such as
+  (offset-expand self rows columns), or (range-expand self) where a row's
+  field wants its address"; `vla-bind-expand-shape`, "bind-expand: write
+  (bind-expand ((self reference)) form ...), one binding and at least one form
+  after it - got {form}"; `vla-bind-expand-word`, "bind-expand: '{word}' is no
+  word it binds - it binds self alone, and a define gives any other word its
+  form"; `vla-bind-expand-not-a-cell`, "bind-expand: self is one cell on a
+  sheet, and '{value}' is {what} - a fill binds its first cell,
+  (first-cell-expand reference)"; `vla-offset-expand-arity`, "offset-expand:
+  write (offset-expand reference rows columns), or (offset-expand reference
+  rows columns height width) - got {n} argument(s)"; and
+  `vla-offset-expand-size`, "offset-expand: a height and a width are whole
+  numbers from 1, got '{value}'". Reworded, `vla-formula-expand-nested`, its
+  text gaining ", and a verb meant to stand inside an expression as an
+  expression macro over self": one record of the golden, and its pins are by
+  id. The rest are the ids that stand: `vla-reference-expected`,
+  `vla-reference-no-sheet`, `vla-reference-whole-line`,
+  `vla-address-expand-row`, `vla-address-expand-column`, the arithmetic's
+  three, and the table's.
+
+  **The wall**, the line's constitution and the gate's four, with the `GENSYM`
+  veto's tests. `self` is a name resolved by its context, which QUASIQUOTE's
+  scoping counts as evaluation's capability and `VLA.6`'s `define` brought
+  inside the wall in written order. The check of 2026-10-29 found this item
+  inside on one condition, the binding a stack restored on every exit, two
+  siblings proved in either order.
+  - *Purity.* The binding reads the verb's range, a text in the source, and
+    nothing else: no file, workbook, clock or table outside the compile. The
+    stack is empty at every entry and every exit, a refusal's exit included,
+    restored before the `?` in the port and from locals in the reference's
+    handler, and reset at each public entry as `mDefines` is; so it needs no
+    `VlaFrame` field, as the flag does not. `Substitute` does not read it,
+    which a rule of the check holds.
+  - *Provenance.* `self`'s value is re-derived by hand as the first cell of
+    the range its author wrote, and each word over it by adding the numbers
+    its author wrote to that cell. Nothing is made: every row is in the expand
+    golden and in `VlaExpandText`, and each list the two forms make is tagged
+    0 (S3.1).
+  - *Budget.* A read is one link of the chain, as a define's word is. The
+    value and the body expand inside the walk's limits, as formula-expand's
+    argument does, so a binding that never ends is refused at the depth of 64
+    and not at the stack, a case of the fixture. The value holds no `self`
+    once bound, so no read can loop.
+  - *Confluence.* `Substitute` is unchanged, so the gate's premise stands as
+    written and is not restated. Two siblings binding two cells write the same
+    rows in either order, and a recursive verb handing off into another keeps
+    each binding, as `TestListopsConfluence` proves its three: a chain of 25
+    links handing off into another of 25, ending in `(last self)`, under two
+    bindings, a case of the fixture and pins of the test. Each binding is the
+    top of a stack whose extent is one call of a helper, so no order of the
+    trampoline's can show one to another.
+  - *The veto's tests.* The same rows across recompiles and across the
+    siblings' orders; re-derivable by hand; never surfacing without a trace.
+    No name is invented and none renamed, and a binding its author names is
+    never `GENSYM`.
+
+  **The catch.**
+  - Trap 8: `ExpandMacros` gains no local; each form has its helper.
+  - A binding 64 deep is two frames a level in the reference, `ExpandMacros`
+    and `ExpandBindCall`, as a nest of the reference's parts already is. The
+    fixture's runaway binding must be refused by name and never by "Out of
+    stack space": the owner's pass is the proof, and a smaller limit on
+    bindings alone the fallback, named if it is needed.
+  - The reference's stack is a Collection reset as `mDefines` is, an atom or a
+    list an item, read by `AssignVar`; the handler pops and raises from locals
+    (trap 1), as `ExpandFormulaCall`'s does.
+  - The binding list and the form may be a `VlaSlice` (PNTH.0): read by
+    `.Count` and `.Item` alone, `FormHoldsSelf` among them.
+  - The trampoline has dropped forms twice (`VLA.5`, `VLA.6`): a binding goes
+    by `finish`, a case with forms around it and one whose body is a
+    macro-made begin.
+  - Trap 15: `.Offset`, `.Rows`, `.Columns`, `.Height` and `.Width` are
+    members the module may use, so no local takes those words.
+  - The moved reference's lists are new lists: `TagLine ..., 0`,
+    LISTOPS-PURITY's binding note.
+  - One order of refusals in both implementations, so that the first fault a
+    form holds is the one named: `offset-expand`'s count; its reference
+    expanded, then its numbers, left to right, each through the gate; the
+    reference read; a whole line; the sizes; then the corners against the
+    sheet. `bind-expand`'s shape, its word, its value expanded, its value
+    read.
+  - A corner past the sheet is computed in doubles, as the reference's `Val`
+    reads it, so a stranger's size cannot overflow the port's whole numbers: a
+    case of the strangers.
+  - `check_message_slots`: every raise site passes each slot. Rewording a
+    refusal: the pins grepped for its words.
+  - Inserting a pin above a `Report`: the lines above it read first (`VLA.9`'s
+    first pass).
+  - The expand golden is written by the port through the scratch probe with
+    the reference's CRLF, its witness `git diff --no-index`.
+
+  **The oracle.** The expand golden, its new cases the port's prediction and
+  the reference's `VlaWriteExpandGolden` writing the same bytes: a binding and
+  its read; two siblings in either order; a recursive verb handing off into
+  another; a nested binding; a refusal inside a body, followed by a form that
+  reads no stale `self`; a free `self` at each of decision 7's places;
+  decision 8's cases; the nest's refusal; each new refusal. `TestSelfForms` in
+  the owner's `VlaSelfTests`, built as `TestListopsConfluence` is, asserting
+  `VlaSelfDepth` 0 after every refusal. The port's unit tests; the proof in
+  miniature; the strangers; `check_expand_golden`'s rule 11 and its mutants;
+  every other golden unchanged, the formula syntax's among them, the door's
+  ten and `prove -Impl`, and `VlaGoldens` PASS, no emitted code moving;
+  `run_checks` green; the package's tests from its tarball. In an Alonzo copy
+  by `git archive`, `vla-lang` patched to this tree and the patch never
+  committed, the proof below written against the built crate, eleven `same`.
+
+  **Tried while scoping**, in scratch copies by `git archive` and nothing
+  written in either tree: the port's half of decisions 2 and 5 to 9 as a
+  throwaway, and in Alonzo at `db054c2`:
+  - the kit's `rule`, `first-frame`, `hold`, `dice` and `since` binding `self`
+    by one helper, `(bind-expand ((self (ref sheet (first-cell-expand (ref
+    sheet range))))) form)`, and its first-of retired from them;
+  - `above`, `below`, `around`, `in-sheet` and `near` as kit macros over
+    `offset-expand`;
+  - Life's and the gun's rule `(- (sum (last (around self 1))) (last self))`,
+    the sound card's `(rule "Screen" "A2:AV24" (last (above self)))`, and
+    Sand's three fills over `was`, `stay` and `side`, each a sheet at a
+    distance from `self`, so that Stay's first diagonal reads `(and (= (side 1
+    1) 0) (< (was 0 1) 2))`;
+  - `count` retired for `running`, `(+ (last self) event)`, its nineteen calls
+    in Alonzo's sources moved to `(rule ... (running event))`.
+
+  `expand --check`, eleven `same`; with one distance in Sand written wrong,
+  `differs` and exit 1, the control. The language's tests all pass over the
+  throwaway but `every_listops_name_is_reserved`, which lists the reserved
+  words, the 471 records of the golden byte for byte among them. The pass over
+  the eleven, alternated, about 125 ms before and about 132 after. What it
+  does not retire: `Gate!$B2`, a fixed column of the fill's own row, is
+  written `(absolute-column (near "Gate" 0 -1))`, a distance counted by hand
+  against `C`, the census's 286 of that kind.
+
+  **Found while scoping.**
+  - The stepper refuses the frames of any verb since `VLA.4` (decision 9).
+  - `Set self to 1.` compiles today, so the line's "refused outside any
+    binding" would break a sentence (decision 7).
+  - For Alonzo's kit, said in chat: `engine/src/pass.rs`'s kit test calls
+    `count` six times and the nest's pin is one of them; Superposition's
+    `neighbors` and `tally` keep those words from the kit; a same-sheet word
+    over `self` writes `Screen!B1` where 1,835 references are bare, and `(ref
+    (range-expand X))` writes the bare one; Buffet's copy of the kit takes
+    `count`'s event as a text, so its eleven calls move at its own pin.
+
+  **The dated notes proposed**, each at the close, as `VLA.9` noted `VLA.7`'s
+  line:
+  - On `VLA.8`'s: `bind-expand` is its form's pair, a word the walk replaces
+    beside a value a primitive can take; a `defexpand` takes `self` as an
+    argument the walk has expanded, and no function reads an ambient one.
+  - On `VLA.11`'s: a free `self` is its first case, refused by a check of a
+    formula's finished expression, which can carry every free symbol once the
+    reader spells a defined name `(ref name)`; a parameter named `self` hides
+    the word, as a define's.
+  - On `VLA.13`'s: `range-at` came forward as `offset-expand`, Excel's
+    `OFFSET`, a form of the walk since `self` and a define's word reach no
+    primitive, a choice the rest of its range primitives meet; and it leaves
+    that line a fixed column or row beside the fill's other axis, the census's
+    286.
+
+  **Size.** `~days`, as minted, both implementations in one pass: about twenty
+  files, `VLA.9`'s less `VLA_Tests_Grammar.bas` and with `formula_syntax.rs`.
+
+  **Built 2026-10-30.** The ten decisions as approved, the reference first.
+  What landed, twenty files, the registry's paragraph the twenty-first and the
+  three dated notes at the close:
+  - *The reference.* `VLA.bas`: `bind-expand` and `offset-expand` at a form's
+    head in `ExpandMacros`, through `ExpandBindCall` and `ExpandOffsetCall`;
+    the atom's case reading `mSelfStack`, asked behind one Is Nothing
+    (`IsSelfWord`); `ExpandBindCall`'s value (`BindValueForm`, its shape and
+    its word), its body (`ExpandBindBody`) and its handler (`PopSelf`, then a
+    raise from locals); `FormHoldsSelf` after `ExpandFormulaCall`'s argument;
+    `RefuseSelfText` in `FuseSymbol`, `EvalConcatExpand`,
+    `EvalCharactersExpand` and `EvalAddressPartExpand`; `FsSpelledReference`'s
+    refusal of the word; `FsBoundCell`; `FsOffsetForm` over `FsOffsetSized`,
+    `FsOffsetCorner`, `FsOffsetRow` and `FsOffsetColumn`; `OffsetWholeNumber`;
+    the three words in `ExpandReservedDesc`; `mSelfStack` reset at the three
+    entry points; `VlaSelfDepth` for the tests; `ExpandBudgetSpent` and
+    `FormOfTheWalkStanding`, with `BindStanding`, at the walk's forms, whose
+    helpers now answer a Variant through `AssignVar`. `ExpandMacros` and
+    `Substitute` gained no local, and `Substitute` no line. The trap list was
+    run by a scan, controlled on a planted duplicate and a planted keyword:
+    each new procedure's name unique across `src/`, no identifier a keyword,
+    no duplicate among a procedure's names, no identifier spelled another way
+    in its module's code but the test module's `name` and `source`, already
+    its parameters, every line CRLF, the longest of `VLA.bas` 241 characters
+    and of `VLA_Tests.bas` 321. `VLA_Messages.bas`: the seven ids and the
+    reworded one, exported, the language's half at 255. `VLA_Tests.bas`:
+    `TestSelfForms`, 176 pins, after `TestNamedPieces`, 164 of them generated
+    from a table with each expected value the port's record of the pin's
+    source, and `CheckSelfRefused`, which reads `VlaSelfDepth` at every
+    refusal by id. Each module's version is `VLA.10`.
+  - *The port.* `expand.rs` and `formula_syntax.rs` function for function:
+    `self_stack`, read in `expand_at`'s atom case; `bind_expand`, `bind_body`,
+    `bind_value`, `bind_standing`; `offset_expand`, `offset_whole_number`;
+    `holds_self`, `refuse_self_text`, `is_self_word`; `budget_spent`,
+    `form_of_the_walk_standing`; `bound_cell`, `offset_form`, `offset_sized`,
+    `offset_corner`, `offset_row`, `offset_column`. No public type changed.
+    Eleven unit tests, one expander held across refusals with its stack read
+    after each; `tests/expand_golden.rs`, two proofs in miniature, Life's, the
+    sound card's and Sand's rules over `self` each the row its twin by
+    addresses writes, and two siblings' rows in either order;
+    `tests/strangers.rs`, a seed program and fifteen named cases, bindings and
+    offsets nested seventy deep stopped at the limit, a body of a hundred
+    thousand forms and as many reads of the word answered, and sizes past any
+    sheet refused and never overflowed.
+  - *The goldens.* 185 cases, 94 expanded and 91 refused, the fixture 656 and
+    317 refused, 71 distinct ids, the seven new and `vla-form-too-deep`, which
+    a refused case had not reached before; the 471 records before them byte
+    for byte the committed golden but one, the reworded refusal. Written by
+    the port through a scratch probe outside the tree that runs the test's own
+    report loop and writes the reference's CRLF, into both copies, the probe
+    first reproducing the committed golden over the fixture as it stood, its
+    one difference that record. The formula syntax golden did not move.
+  - *The checks.* `check_expand_golden`'s rule 11 and five mutants, the walk
+    without `bind-expand`, the handler leaving the stack, `Substitute` reading
+    it, the port's binding never popping and a sibling writing the first's
+    place, twenty-two in all; floors 656, 339 and 71. `check_data_exports` at
+    255; `check_raise_ratchet`'s `VLA` at 10, the same cleanup handler again.
+  - *The docs.* The tutorial's chapter 14, its table's two rows and *The place
+    a verb writes* before *Where it stops*; chapter 10's *Names that are
+    taken*, chapter 11's rule, the word bound and never invented, and the
+    stepper's sentence in chapter 21; the crate's page, the expander's
+    paragraph and its stale count of cases; `RELEASES.md`, `## 0.13.0`; the
+    roadmap's line 🟡. Every example run through the port.
+
+  Three things settled here that the scoping left drafts or got loosely. The
+  texts of the word's two refusals: `vla-self-free` names `bind-expand` and no
+  kit, the language's catalogue knowing none, and `vla-self-in-a-primitive`
+  says "takes its arguments as data" and never "the walk", the word of this
+  record and no word of a reader's. `offset-expand` expands every argument
+  before it reads any, and only then passes each number through the gate, so
+  that at a spent budget it stands with no number read; the first fault named
+  is unchanged for a form with nothing to expand. And the fixture came out at
+  185 cases where the scoping said about ninety, the refusals' orders and the
+  extent's cases taking the rest.
+
+  **Found while building.**
+  - A `lambda`'s parameter list is a list to `holds_self`, so a parameter
+    standing first stands at a head: `(lambda (self) 1)` writes
+    `LAMBDA(self,1)`, unused, where `(lambda (x self) 1)` and a body that uses
+    the word are refused. Inside a binding the walk replaces the body's word
+    and passes the parameter by, `LAMBDA(self,A!B2+1)`, as it does a define's
+    word, knowing no scope of Excel's. Neither is asked for; both pinned or
+    noted for `VLA.11`, whose scope this is.
+  - For Alonzo's kit, said in chat: the proof moved `engine/src/pass.rs`'s six
+    calls of `count` too, the nest's pin among them, its rows as they stood.
+
+  **Verified** on `b4238af` plus this item, in a copy by `git archive` with
+  this item's files laid over it, a peer's `KERNEL.58` and `KERNEL.60` work
+  standing uncommitted in the shared tree: fmt clean and clippy with `-D
+  warnings` clean; `cargo test --workspace`, 705 passed, 0 failed and 5
+  ignored; `prove -Impl` over the door built from that copy, 61 passed and
+  none failed; `run_checks`, 60 of 60; `check_expand_golden -Control`, each of
+  twenty-two mutants failing; `vla-lang`'s package from its tarball, 480 tests
+  passing and 2 ignored, its fixture and golden the tree's; the strangers'
+  long run, ten seeds of 5,000 cases at each of the six doors, every one
+  answered or refused by name. In the shared tree, with the peer's work,
+  `run_checks` is 60 of 60 as well. In Alonzo at `db054c2`, a scratch copy by
+  `git archive` with `vla-lang` patched to this tree and nothing written in
+  its tree: the kit's `rule`, `first-frame`, `hold`, `dice` and `since`
+  binding `self` by one helper; `above`, `below`, `around`, `in-sheet` and
+  `near` over `offset-expand`; Life's, the gun's, Sand's three fills and the
+  sound card's rule over them; `count` retired for `running`, its nineteen
+  calls moved; eleven `same` by `expand --check`, and with one distance in
+  Sand written wrong, `differs` and exit 1; the kit's test, its six calls of
+  `count` over `rule` and `running`, eleven of the pass's tests passing.
+
+  **For the owner's pass:** `VlaDevReload`, Debug > Compile; `?
+  VlaSelfTests()`, the pure suite 176 pins more than its last whole run,
+  2504/2504 predicted, the host suite 333/333; `? VlaWriteExpandGolden()`, 656
+  cases and 317 refused, its file then held to the crate's copy by `git diff
+  --no-index`, empty predicted; `? VlaGoldens()`, corpus and interpreter PASS,
+  no emitted code having moved. The one thing no scan can show is the
+  fixture's `a-binding-that-never-ends-refused`, a binding sixty-four deep at
+  two frames a level: refused by name, `vla-form-too-deep`, predicted, and
+  "Out of stack space" the failure to report.
+
+  **The owner's pass, 2026-10-30:** `VlaSelfTests`, pure 2504/2504,
+  `TestSelfForms`' 176 pins among them, and host 333/333; `VlaWriteExpandGolden`
+  wrote 656 cases, 317 refused, byte for byte the port's prediction (`git diff
+  --no-index` against the crate's copy, exit 0), so a binding sixty-four deep was
+  refused by name and ran no stack out; `VlaGoldens`, corpus and interpreter PASS.
+  Each of the four as predicted, the first run. Verified again over this commit's
+  tree alone, on `0d18aa6`, a peer's `KERNEL.58` committed meanwhile: `cargo test
+  --workspace`, 712 passed, 0 failed and 5 ignored; `run_checks`, 60 of 60; `prove
+  -Impl`, 61 passed; each mutant failing; the package's tests from its tarball, 487
+  passing and 2 ignored; the strangers' long run. The three dated notes stand on
+  `VLA.8`'s, `VLA.11`'s and `VLA.13`'s lines. The ten decisions stand as built.
+  **Closed ✅ and committed 2026-10-30 at the owner's word.**
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
@@ -55338,6 +56085,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **VLA.15 — a name where an address stands: `list?`, a word told from a list; the anchored reference in the formula syntax; and a reference's first cell, a third form of the walk.** Minted 2026-10-29 from Alonzo's `KIT.6`, whose first slice found what its third asks of the language; scoped, approved, built, owner-tested and committed 2026-10-29 at the owner's word. `(list? x)`, the twenty-ninth primitive, is `true` for every list, the empty one among them, and `false` for a word or a text, the one test of a form's kind that refuses neither, so a template tells a word from a pair. `(absolute X)`, `(absolute-row X)` and `(absolute-column X)` write a reference with the `$` marks each adds, Excel's absolute reference and its two mixed ones, and never take one away, so the three and `last` stand in either order and a fill cites a defined word anchored: `(last (absolute stop))` writes `State.last!$B$12`. `(first-cell-expand X)` gives a reference's first cell, a range's top-left as the grid reads it, as the text `ref` takes, so a verb twins the cell its fill is written for at a word as at an address. The syntax's reference heads and the walk's three forms read one reference one way, inside out; a whole column or row where a cell is needed is refused by name, and the formula reader refuses a call named `ABSOLUTE`. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor did any with the kit's twins rewritten over the new forms as `KIT.6`'s tenth decision writes them. The owner's pass: pure 2218/2218, host 333/333 on a second run, the first having met a transient recorded under Found; the reference's expand golden, 362 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second and third slices, once a release carries it; `VLA.13`. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **VLA.9 — named pieces with defaults: a parameter declared `(sheet "Screen")` after a macro's positional ones, a caller writing `(sheet "Tower")` in any order for what differs, and a piece the macro does not declare refused by name.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, item 4); scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. A list in a macro's signature, after its positional parameters, declares a piece, `(word default)`, or `(word)` for one the call must give; a call gives each as `(word value)` after its positional arguments. The pieces are bound in the declaration's order and never the call's, so one call in two orders writes the same rows; a default is a form of the macro's, substituted at each call that leaves its piece out under the parameters bound before it, and expanded with the rest of what the call wrote. Six refusals at the definition, a word declared twice among them, positional, piece or rest, which ends a divergence found while scoping; five at the call, each naming the call's line, or none for a call a macro made, a positional argument written as one of the pieces among them, so that a call reads the same by position and by its pieces' words. `Macro` gains `pieces`, and it and `Piece` are `#[non_exhaustive]`, one break that ends the struct's breaks: 0.13.0, into which the owner folded `KERNEL.67`'s 0.12.1. `&` keeps its one meaning in a signature, the owner's question answered with no item. No compiled golden moved; in an Alonzo copy `put` over declared pieces, `put-from` retired, left the eleven cartridges byte for byte. The owner's pass: pure 2328/2328, host 333/333, the first run's one failure this item's own pin, moved; the reference's expand golden, 471 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second slice, five calls of `put` and not three, once a release carries it; Alonzo's `KIT.8`, with `VLA.12`. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **VLA.10 — verbs that compose: the fill's own place as a word, `self`, bound by `bind-expand` and read by the walk alone, with `offset-expand`, Excel's `OFFSET` at expand time; and a verb an expression over it, so that the nest stays refused.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, items 2 and 3), its one condition set by the determinism wall's paragraph of 2026-10-29; scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. `(bind-expand ((self reference)) form ...)` binds the word to one cell on a sheet for every form the walk meets in its body: the cell computed first under any binding outside it, `let`'s rule, the body expanded to its fixpoint inside, an inner binding hiding an outer, and the stack restored on every exit, a refusal's among them, so that no sibling sees another's place. The walk alone reads the word, as it reads a define's, and `Substitute` did not change, so LISTOPS-CONFLUENCE's premise stands as written. `(offset-expand reference rows columns [height width])`, brought forward from `VLA.13` at the owner's word, is a form of the walk answering `(ref sheet part)`, so that the words over `self` read any reference. A verb is an expression macro over `self` with `rule` the one row-writer, the kit's shapes Alonzo's; what is left of the nest is its refusal, reworded. A free `self` is refused by name only where it would be read, since `Set self to 1.` compiles today and SD-4 keeps a sentence's reading; five primitives that read a word's text refuse it, bound or free. Found while scoping and fixed: the walk's forms computed at a spent budget, so the stepper refused the frames of any verb since `VLA.4`; each now stands. Seven ids. No compiled golden moved; in an Alonzo copy the kit bound `self`, Life, the gun, Sand and the sound card wrote their rules over it, `count` became `running` with its nineteen calls moved, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2504/2504, host 333/333; the reference's expand golden, 656 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's kit, its verbs over `self` at a pin that carries 0.13.0; `2030.md` §7.4's sketch. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

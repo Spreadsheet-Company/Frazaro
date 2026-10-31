@@ -76,6 +76,16 @@ every push:
      one); each of VLA.9's eleven ids is the id of a REFUSED record; and the
      two cases of one call in two orders have one record, and that record the
      rows of a piece bound by its word and never by its place.
+ 11. VLA.10's place a verb writes: bind-expand and offset-expand, forms of the
+     walk alone, taken at a form's head by both walks; those two and the word
+     self reserved in both and listed among neither's primitives; each form
+     heading a form in an EXPANDED case and in a REFUSED one; each of VLA.10's
+     seven ids the id of a REFUSED record. The wall's one condition, by reading:
+     the stack reset at each of the reference's three entry points, restored on
+     its error path (ExpandBindCall's handler) and before the port's question
+     mark (bind_expand); and the gate's premise, LISTOPS-CONFLUENCE's, that
+     neither Substitute nor EvalListopsPrim nor the port's substitute names the
+     stack. And two sibling verbs, in either order, one record of each row.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
@@ -89,8 +99,11 @@ reference whose walk no longer passes a define by, a reference whose
 VlaExpandText expands a form by ExpandMacros directly, a port whose writer
 lost last, a reference whose walk no longer takes the first cell, a port
 whose writer lost the three marks, a reference whose signature walk reads no
-declaration, a port whose binding takes no default, and a golden whose second
-order of one call differs from its first.
+declaration, a port whose binding takes no default, a golden whose second
+order of one call differs from its first, a reference whose walk no longer
+takes bind-expand, a reference whose handler leaves the stack as it stood, a
+reference whose Substitute reads the stack, a port whose binding never pops, and
+a golden whose second sibling writes the first's place.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -120,9 +133,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-30, VLA.9: 471 cases, 245 expanded, 63 distinct ids, the named pieces'
 # 109 written by the port ahead of the reference's run, and five ids of the
 # macro system's a refused case had not reached before.
-$caseFloor = 471
-$expandedFloor = 245
-$idFloor = 63
+# 2026-10-30, VLA.10: 656 cases, 339 expanded, 71 distinct ids, the place a verb
+# writes' 185 written by the port ahead of the reference's run.
+$caseFloor = 656
+$expandedFloor = 339
+$idFloor = 71
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -170,6 +185,16 @@ $pieceIds = @('vla-defmacro-piece-shape', 'vla-defmacro-param-after-piece',
     'vla-macro-piece-unknown', 'vla-macro-piece-arity', 'vla-macro-piece-twice',
     'vla-macro-piece-missing', 'vla-macro-piece-for-param')
 $twoOrders = @('=== a-put-by-pieces', '=== a-put-by-pieces-in-another-order')
+
+# VLA.10's forms of the walk alone, the word they read, its seven ids, and the two
+# cases of two sibling verbs in either order, which rule 11 holds.
+$selfForms = @('bind-expand', 'offset-expand')
+$selfWord = 'self'
+$selfIds = @('vla-self-free', 'vla-self-in-a-primitive', 'vla-bind-expand-shape',
+    'vla-bind-expand-word', 'vla-bind-expand-not-a-cell', 'vla-offset-expand-arity',
+    'vla-offset-expand-size')
+$twoSiblings = @('=== two-siblings', '=== two-siblings-in-the-other-order')
+$siblingRows = @('(formula "A" "B2" "=A.last!B2")', '(formula "C" "D4" "=C.last!D4")')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -548,6 +573,68 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         [void]$problems.Add("one call written in two orders, $($twoOrders[0]) and $($twoOrders[1]), has two records, so a piece is bound by its place")
     }
 
+    # 11. VLA.10's place a verb writes: two forms of the walk alone and the word they
+    # read, reserved and no primitive; the stack empty at every entry and exit, read
+    # from both implementations; Substitute reading none of it; its ids each a refused
+    # record; and two sibling verbs, in either order, each row in each record.
+    foreach ($x in $selfForms) {
+        if ($vbaText -notmatch ('If headFold = "' + [regex]::Escape($x) + '" Then')) {
+            [void]$problems.Add("the reference's walk (ExpandMacros) does not take '$x' at a form's head")
+        }
+        if ($portText -notmatch ('if head_fold == "' + [regex]::Escape($x) + '" \{')) {
+            [void]$problems.Add("the port's walk (expand_at) does not take '$x' at a form's head")
+        }
+        if (-not $headsExpanded.Contains($x)) { [void]$problems.Add("no EXPANDED case heads a form with '$x'") }
+        if (-not $headsRefused.Contains($x)) { [void]$problems.Add("no REFUSED case heads a form with '$x'") }
+    }
+    foreach ($x in @($selfForms + $selfWord)) {
+        if (-not $prt.Reserved.Contains($x)) { [void]$problems.Add("VLA.10's word '$x' is not in the port's RESERVED") }
+        if ($prt.Listops.Contains($x)) { [void]$problems.Add("VLA.10's word '$x' is in the port's LISTOPS, which takes data and reads no binding") }
+    }
+    $resets = [regex]::Matches($vbaText, '(?m)^\s*Set mSelfStack = Nothing\s+'' VLA\.10').Count
+    if ($resets -ne 3) {
+        [void]$problems.Add("the reference resets the stack at $resets entry point(s), not the three (VlaTranspile, VlaCompileToForms, VlaExpandText)")
+    }
+    $bindCall = [regex]::Match($vbaText, '(?ms)^Private Function ExpandBindCall\(.*?^End Function')
+    if (-not $bindCall.Success) {
+        [void]$problems.Add("the reference has no ExpandBindCall for this rule to read")
+    } elseif ($bindCall.Value -notmatch '(?s)failed:.*?PopSelf.*?Err\.Raise errNum, errSrc, errDesc') {
+        [void]$problems.Add("the reference's ExpandBindCall does not restore the stack on its error path, so a sibling could see another's self")
+    }
+    if ($portText -notmatch '(?s)let body = self\.bind_body\(&items\[2\.\.\], depth, walk\);\s+self\.self_stack\.pop\(\);\s+body') {
+        [void]$problems.Add("the port's bind_expand does not pop the stack before its question mark")
+    }
+    foreach ($proc in @('Substitute', 'SubstituteValue', 'EvalListopsPrim')) {
+        $body = [regex]::Match($vbaText, ('(?ms)^Private Function ' + $proc + '\(.*?^End Function'))
+        if (-not $body.Success) {
+            [void]$problems.Add("the reference has no $proc for this rule to read")
+        } elseif ($body.Value -match 'mSelfStack|VlaSelfDepth') {
+            [void]$problems.Add("the reference's $proc reads the stack, so a macro's result is no longer a function of its template and its arguments (LISTOPS-CONFLUENCE)")
+        }
+    }
+    $portSubstitute = [regex]::Match($portText, '(?ms)^fn substitute\(.*?^\}')
+    if (-not $portSubstitute.Success) {
+        [void]$problems.Add("the port has no substitute for this rule to read")
+    } elseif ($portSubstitute.Value -match 'self_stack') {
+        [void]$problems.Add("the port's substitute reads the stack (LISTOPS-CONFLUENCE)")
+    }
+    foreach ($x in $selfIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+    $siblings = @($gcases | Where-Object { $twoSiblings -ccontains $_.Header })
+    if ($siblings.Count -ne 2) {
+        [void]$problems.Add(("{0} of the two cases of two sibling verbs in the golden" -f $siblings.Count))
+    } else {
+        foreach ($c in $siblings) {
+            $record = ($c.Lines) -join "`n"
+            foreach ($row in $siblingRows) {
+                if (-not $record.Contains($row)) {
+                    [void]$problems.Add("$($c.Header) does not hold the row $row, so a sibling saw another's self")
+                }
+            }
+        }
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -672,6 +759,34 @@ if ($Control) {
         $q[$orderAt + 1] = "EXPANDED`t9"
         $pq = Join-Path $tmp 'q.txt'
         [System.IO.File]::WriteAllText($pq, ($q -join "`n"), $utf8)
+        # (r) the reference whose walk no longer takes bind-expand
+        $bindAnchor = 'If headFold = "bind-expand" Then'
+        if ([regex]::Matches($vbaText, [regex]::Escape($bindAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected the walk''s bind-expand test once in the reference'; exit 1 }
+        $pr = Join-Path $tmp 'r.bas'
+        [System.IO.File]::WriteAllText($pr, $vbaText.Replace($bindAnchor, 'If headFold = "bind-expandd" Then'), $utf8)
+        # (s) the reference whose handler leaves the stack as it stood
+        $handlerAnchor = [regex]'(?s)(Private Function ExpandBindCall\(.*?failed:.*?)PopSelf'
+        if (-not $handlerAnchor.IsMatch($vbaText)) { Write-Output 'FAIL: the control expected ExpandBindCall''s handler to pop the stack'; exit 1 }
+        $ps = Join-Path $tmp 's.bas'
+        [System.IO.File]::WriteAllText($ps, $handlerAnchor.Replace($vbaText, '$1', 1), $utf8)
+        # (t) the reference whose Substitute reads the stack
+        $substituteAnchor = 'Private Function Substitute(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, Optional ByVal inQuasi As Boolean = False) As Variant'
+        if ([regex]::Matches($vbaText, [regex]::Escape($substituteAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected Substitute''s signature once in the reference'; exit 1 }
+        $pt = Join-Path $tmp 't.bas'
+        [System.IO.File]::WriteAllText($pt, $vbaText.Replace($substituteAnchor, $substituteAnchor + "`r`n    If mSelfStack Is Nothing Then Exit Function"), $utf8)
+        # (u) the port whose binding never pops
+        $popAnchor = 'self.self_stack.pop();'
+        if ([regex]::Matches($portSource, [regex]::Escape($popAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected the port''s pop once'; exit 1 }
+        $pu = Join-Path $tmp 'u.rs'
+        [System.IO.File]::WriteAllText($pu, $portSource.Replace($popAnchor, ''), $utf8)
+        # (v) a golden whose second sibling writes the first's place
+        $v = @($lines | ForEach-Object { $_ })
+        $siblingAt = [array]::IndexOf($v, $twoSiblings[1])
+        if ($siblingAt -lt 0) { Write-Output 'FAIL: the control found no second sibling in the golden'; exit 1 }
+        $v[$siblingAt + 2] = $v[$siblingAt + 2].Replace('=C.last!D4', '=A.last!B2')
+        if ($v[$siblingAt + 2] -match '=C\.last!D4') { Write-Output 'FAIL: the control could not plant the first''s place'; exit 1 }
+        $pv = Join-Path $tmp 'v.txt'
+        [System.IO.File]::WriteAllText($pv, ($v -join "`n"), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath $syntaxPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath $syntaxPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath $syntaxPath
@@ -689,8 +804,13 @@ if ($Control) {
         $ro = Test-ExpandGolden $fixturePath $goldenPath $po $portPath $catalogPath $syntaxPath
         $rp = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pp $catalogPath $syntaxPath
         $rq = Test-ExpandGolden $fixturePath $pq $vbaPath $portPath $catalogPath $syntaxPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1) {
+        $rr = Test-ExpandGolden $fixturePath $goldenPath $pr $portPath $catalogPath $syntaxPath
+        $rs = Test-ExpandGolden $fixturePath $goldenPath $ps $portPath $catalogPath $syntaxPath
+        $rt = Test-ExpandGolden $fixturePath $goldenPath $pt $portPath $catalogPath $syntaxPath
+        $ru = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pu $catalogPath $syntaxPath
+        $rv = Test-ExpandGolden $fixturePath $pv $vbaPath $portPath $catalogPath $syntaxPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}, the walk without bind-expand {18}, the handler leaving the stack {19}, Substitute reading the stack {20}, the port's binding never popping {21}, a sibling writing the first's place {22}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count, $rr.Problems.Count, $rs.Problems.Count, $rt.Problems.Count, $ru.Problems.Count, $rv.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1 -and $rr.Problems.Count -ge 1 -and $rs.Problems.Count -ge 1 -and $rt.Problems.Count -ge 1 -and $ru.Problems.Count -ge 1 -and $rv.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

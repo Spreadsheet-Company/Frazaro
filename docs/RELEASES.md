@@ -45,6 +45,64 @@
   later field; nothing in this repository or Alonzo does either. So this release
   is 0.13.0.
 
+- **The place a verb writes, as a word.** A row over a range is one formula
+  written as its first cell reads, and a rule read its neighbors by arithmetic
+  done by hand against that cell. The word `self` now names it. A verb binds it
+  and whatever stands inside the verb reads it:
+
+  ```lisp
+  (defmacro (rule sheet range expression)
+    "one formula row, self its range's first cell"
+    (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+      (formula sheet range (formula-expand expression))))
+
+  (defmacro (running event)
+    "its own last value plus an event"
+    (+ (last self) event))
+
+  (rule "Tally" "B1:E10" (running Input!B16))
+  ```
+
+  The last form writes `(formula "Tally" "B1:E10" "=Tally.last!B1+Input!B16")`.
+  `(bind-expand ((self reference)) form ...)` binds the word to one cell on a sheet
+  for every form the expander meets in its body: the cell computed first, under any
+  binding outside it, the body expanded whole inside the binding, an inner binding
+  hiding an outer, and two verbs beside each other each keeping their own, in
+  either order. The expander reads the word where it stands as a value, as a word of
+  `define`, a macro's result among those places; a macro's expansion stays a function
+  of its template and its arguments. So a verb that writes one row can be an
+  expression over `self` with `rule` around it, and such expressions compose. A verb
+  inside another's expression stays refused by name, and the refusal now says where
+  such a verb goes.
+
+- **A reference moved at expand time.** `(offset-expand reference rows columns)`
+  and `(offset-expand reference rows columns height width)` are Excel's `OFFSET`
+  while the macro expands, in its argument order, answering a reference that `last`,
+  the marks and a reference's parts all read: `(offset-expand Screen!B2 -1 -1 3 3)`
+  writes `Screen!A1:C3`, and a range with no size keeps its own. Refused by name: a
+  row or a column past the sheet, a whole column or row, a size under 1, and a number
+  that is not whole. It takes any reference, `self` or a word of `define`, which
+  the expand-time primitives cannot.
+
+- **`self`, `bind-expand` and `offset-expand` are taken, and a few things read
+  differently.** A macro, a loop's name, a named piece and a define may not take those
+  three words. A call of `bind-expand` or `offset-expand` as a program's own now reads
+  as the form. `(formula-expand self)` with no binding around it, which wrote Excel's
+  name `self`, is refused by name, a `lambda`'s parameter so named among them, and
+  `(ref "self")` writes that name; `sheet-expand`, `range-expand`, `first-cell-expand`
+  and `last` refuse the word in the same words. `&expand`, `characters-expand`,
+  `row-expand`, `column-expand` and `symbol` refuse the bare word, bound or free, where
+  each read it as its text. Everywhere else the word is what it was: a sentence's or a
+  program's variable named `self` compiles as it did, and a macro's positional parameter
+  of the word hides it. No source in this repository, Alonzo's cartridges or Buffet holds
+  any of these.
+
+- **The stepper steps through a formula.** `VlaExpandStep` refused, or wrote a macro's
+  call as a function's, on any frame that left a macro unfired inside `formula-expand`,
+  `sheet-expand`, `range-expand` or `first-cell-expand`, so it could not step through a
+  verb. Each now stands as written, its argument expanded as far as the frame reached, and
+  computes on a later frame. The fixpoint and every count are unchanged.
+
 - **A style row over a range holds its rectangle.** A `style` row naming a
   range, `(style "Field" "A1:SR512" 13)`, is held as its rectangle and its
   format, where it held an entry for each of its cells; a row of the same

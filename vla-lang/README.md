@@ -92,6 +92,38 @@ refused in the same words.
   author wrote it. `Expander::get_macro` answers a macro's `pieces` as
   written.
 
+  The word `self` names the place a verb writes, so that a rule reads as its
+  author thinks and a verb can be an expression:
+
+  ```lisp
+  (defmacro (rule sheet range expression)
+    "one formula row, self its range's first cell"
+    (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+      (formula sheet range (formula-expand expression))))
+
+  (defmacro (running event)
+    "its own last value plus an event"
+    (+ (last self) event))
+
+  (rule "Tally" "B1:E10" (running Input!B16))
+  ```
+
+  The last form expands to `(formula "Tally" "B1:E10"
+  "=Tally.last!B1+Input!B16")`. `bind-expand` binds the word to one cell on a
+  sheet for every form the expander meets in its body, computing the cell under
+  any binding outside it, and an inner binding hides an outer. The expander
+  reads the word where it stands as a value, as a define's word; a macro's
+  template is still a function of its template and its arguments, and a
+  primitive that reads a word's text refuses this one by name. `(offset-expand
+  reference rows columns)` and `(offset-expand reference rows columns height
+  width)` are Excel's `OFFSET` at expand time, so `(offset-expand self -1 -1 3
+  3)` is the square around the cell: `(bind-expand ((self Screen!B2))
+  (formula-expand (- (sum (last (offset-expand self -1 -1 3 3))) (last self))))`
+  writes `=SUM(Screen.last!A1:C3)-Screen.last!B2`. With no binding around it the
+  word is refused by name where it would be read, in a formula's expression and
+  wherever one reference is read, and is left alone everywhere else, so a
+  running program's variable of that name is a variable.
+
   The expander shares what it walks, as the add-in does: a list is held
   once, its `cdr` a view of its items and a parameter's value the argument
   itself, so that a macro walking a list, or a loop over one, costs its
@@ -372,7 +404,7 @@ can stand on the language without the bridges.
 The goldens and fixtures the tests read travel with the package, under
 `testdata/`, so `cargo test` runs from the published crate. The repository
 holds the copies to their sources byte for byte. The expander is held to
-the add-in's expansion of 229 cases, every expand-time primitive, the loop
+the add-in's expansion of 656 cases, every expand-time primitive, the loop
 and their refusals among them (`tests/expand_golden.rs`). Beside the goldens, the
 tests hold the language's laws over generated programs (`tests/laws.rs`)
 and knock at every door with mutated text (`tests/strangers.rs`, and a

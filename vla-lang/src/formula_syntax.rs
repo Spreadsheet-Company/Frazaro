@@ -91,12 +91,12 @@ use crate::calc::formula::{LENGTH_LIMIT, NESTING_LIMIT};
 use crate::calc::value::ErrorKind;
 use crate::form::{Form, List};
 use crate::headtable::{self, FormulaSupport};
-use crate::intrinsics::{fold, is_numeric};
+use crate::intrinsics::{fold, is_numeric, str_};
 use crate::messages::{raise, Refusal};
 use crate::printer::write_datum;
 use crate::reader::FORM_DEPTH_LIMIT;
 use crate::refers::{self, is_ident_char, quote_sheet, FormulaRef, Kind, Shape};
-use crate::sheet::column_letters;
+use crate::sheet::{column_letters, MAX_COLUMN, MAX_ROW};
 
 /// The longest text a formula's literal holds, Excel's own limit, in UTF-16
 /// code units as Excel and VBA's `Len` count them.
@@ -676,6 +676,147 @@ pub(crate) fn first_cell_text(r: &FormulaRef, f: &Form, op: &str) -> Result<Stri
     }
 }
 
+/// VLA.10, VBA `FsBoundCell`: what `bind-expand` binds: one reference on a
+/// sheet, as [`one_reference`] reads it, and one cell, the place a verb writes.
+pub(crate) fn bound_cell(f: &Form) -> Result<(), Refusal> {
+    let r = one_reference(f, "bind-expand", true)?;
+    let what = match r.shape {
+        Shape::Cell => return Ok(()),
+        Shape::Range => "a range",
+        Shape::Column => "a whole column",
+        Shape::Row => "a whole row",
+        Shape::None => "no cell",
+    };
+    Err(raise(
+        "vla-bind-expand-not-a-cell",
+        &[("value", &write_datum(f)), ("what", what)],
+    ))
+}
+
+/// VLA.10, VBA `FsOffsetForm`: a reference moved, Excel's `OFFSET` at expand
+/// time: `f` one reference, its sheet written or none ([`one_reference`]);
+/// `numbers` its rows and columns, and its height and width where it holds
+/// four. A range with no size keeps its own, each corner moved with its marks.
+/// Its answer `(ref sheet part)`, which `last`, the marks, the walk's forms and
+/// the writer all read. One order: a whole column or row, then the sizes
+/// ([`offset_sized`]), then each corner against the sheet, its row before its
+/// column.
+pub(crate) fn offset_form(f: &Form, numbers: &[f64]) -> Result<Form, Refusal> {
+    let r = one_reference(f, OFFSET, false)?;
+    let line = match r.shape {
+        Shape::Column => Some("column"),
+        Shape::Row => Some("row"),
+        _ => None,
+    };
+    if let Some(line) = line {
+        return Err(raise(
+            "vla-reference-whole-line",
+            &[
+                ("op", OFFSET),
+                ("value", &write_datum(f)),
+                ("line", line),
+                ("want", "a cell or a range, such as Tally!B1:E10"),
+            ],
+        ));
+    }
+    let moved = if numbers.len() == 4 {
+        offset_sized(&r, numbers)?
+    } else {
+        let first = offset_corner(r.col1, r.col_abs1, r.row1, r.row_abs1, numbers)?;
+        if r.shape == Shape::Range {
+            let second = offset_corner(r.col2, r.col_abs2, r.row2, r.row_abs2, numbers)?;
+            format!("{first}:{second}")
+        } else {
+            first
+        }
+    };
+    let mut out = vec![Form::sym("ref")];
+    if !r.sheet_name.is_empty() {
+        out.push(Form::Str(r.sheet_name));
+    }
+    out.push(Form::Str(moved));
+    Ok(Form::list(out))
+}
+
+/// `offset-expand`'s name, in its refusals.
+const OFFSET: &str = "offset-expand";
+
+/// VLA.10, VBA `FsOffsetSized`: a height and a width from a reference's
+/// top-left moved, as the grid reads a row's range ([`first_cell_text`]'s
+/// corner), that corner's marks on both; one cell where both are 1, as `OFFSET`
+/// answers. A size under 1 is refused by name, which a later design may read.
+fn offset_sized(r: &FormulaRef, numbers: &[f64]) -> Result<String, Refusal> {
+    for size in &numbers[2..] {
+        if *size < 1.0 {
+            return Err(raise(
+                "vla-offset-expand-size",
+                &[("value", str_(*size).trim())],
+            ));
+        }
+    }
+    let (col, col_abs) = if r.shape == Shape::Range && r.col2 < r.col1 {
+        (r.col2, r.col_abs2)
+    } else {
+        (r.col1, r.col_abs1)
+    };
+    let (row, row_abs) = if r.shape == Shape::Range && r.row2 < r.row1 {
+        (r.row2, r.row_abs2)
+    } else {
+        (r.row1, r.row_abs1)
+    };
+    let top = offset_row(f64::from(row) + numbers[0])?;
+    let left = offset_column(f64::from(col) + numbers[1])?;
+    let first = cell_text(left, col_abs, top, row_abs);
+    if numbers[2] == 1.0 && numbers[3] == 1.0 {
+        return Ok(first);
+    }
+    let bottom = offset_row(f64::from(top) + numbers[2] - 1.0)?;
+    let right = offset_column(f64::from(left) + numbers[3] - 1.0)?;
+    Ok(format!(
+        "{first}:{}",
+        cell_text(right, col_abs, bottom, row_abs)
+    ))
+}
+
+/// VLA.10, VBA `FsOffsetCorner`: one corner moved, its marks as written, its
+/// row before its column.
+fn offset_corner(
+    col: u32,
+    col_abs: bool,
+    row: u32,
+    row_abs: bool,
+    numbers: &[f64],
+) -> Result<String, Refusal> {
+    let row = offset_row(f64::from(row) + numbers[0])?;
+    let col = offset_column(f64::from(col) + numbers[1])?;
+    Ok(cell_text(col, col_abs, row, row_abs))
+}
+
+/// VLA.10, VBA `FsOffsetRow`: a row a corner moved to, computed in a double so
+/// that a stranger's number cannot overflow, refused past the sheet by
+/// `address-expand`'s own id.
+fn offset_row(at: f64) -> Result<u32, Refusal> {
+    if !(1.0..=f64::from(MAX_ROW)).contains(&at) {
+        return Err(raise(
+            "vla-address-expand-row",
+            &[("op", OFFSET), ("value", str_(at).trim())],
+        ));
+    }
+    Ok(at as u32)
+}
+
+/// VLA.10, VBA `FsOffsetColumn`: a column a corner moved to, as [`offset_row`]'s
+/// row is.
+fn offset_column(at: f64) -> Result<u32, Refusal> {
+    if !(1.0..=f64::from(MAX_COLUMN)).contains(&at) {
+        return Err(raise(
+            "vla-address-expand-column",
+            &[("op", OFFSET), ("value", str_(at).trim())],
+        ));
+    }
+    Ok(at as u32)
+}
+
 /// VLA.6 and VLA.15, VBA `FsSheetReference`: one reference on one sheet, as
 /// `last` and the expander's `sheet-expand`, `range-expand` and
 /// `first-cell-expand` read it: one reference as [`one_reference`] reads it,
@@ -731,7 +872,9 @@ fn reference_head(f: &Form) -> Option<(&str, String, &[Form])> {
 /// symbol the scanner reads whole as a cell, a range, a column or a row, or
 /// `(ref sheet address)`, whose own refusals stand. Refused by name: a name,
 /// a span of sheets, a text or any other form, the refusal saying what the
-/// reading asks for (VLA.15, [`reference_want`]).
+/// reading asks for (VLA.15, [`reference_want`]). VLA.10: the word `self` read
+/// here is free, or stands where the walk did not expand it, since the walk
+/// replaced every one it read, and is refused as that.
 fn spelled_reference(f: &Form, op: &str, on_a_sheet: bool) -> Result<FormulaRef, Refusal> {
     let expected = |what: &str| {
         raise(
@@ -753,6 +896,9 @@ fn spelled_reference(f: &Form, op: &str, on_a_sheet: bool) -> Result<FormulaRef,
         }
         Form::List(_) => return Err(expected("no reference")),
         Form::Str(_) => return Err(expected("a text")),
+        Form::Sym(s) if s.eq_ignore_ascii_case("self") => {
+            return Err(raise("vla-self-free", &[]));
+        }
         Form::Sym(s) => s.clone(),
     };
     let Some(r) = whole_reference(&spelled) else {

@@ -425,9 +425,9 @@ stand where a statement may, or where a value may: `(zero? x)` expands to
 `(= x 0)` in either position.
 
 **Names that are taken.** A macro may not be named `quote`, or after any
-of the shielding forms and expansion primitives of Sections 13 and 14. The
-expander handles those itself, so such a macro could never fire, and the
-refusal says what the name already is:
+of the shielding forms and expansion primitives of Sections 13 and 14, the
+word `self` among them. The expander handles those itself, so such a macro
+could never fire, and the refusal says what the name already is:
 
 > defmacro 'quasiquote': 'quasiquote' is the template-shielding form and
 > cannot be a macro name
@@ -555,6 +555,11 @@ And VBA's procedure-wide `Dim` stops being a hazard and becomes part of
 the contract: after `(when-let x (range "b2") …)`, the name `x` still holds
 the value, because the expansion says so and VBA agrees.
 
+One word looks like an exception and is not. `self` (Section 14, *The place
+a verb writes*) is a word the language keeps and never one it invents: the
+caller's own `bind-expand` says what it stands for, a cell the caller wrote,
+which a reader finds by hand.
+
 ## 12. The prelude
 
 The standard library is [`prelude.vla`](../../scripts/prelude.vla),
@@ -636,9 +641,9 @@ parameters.
 A macro receives forms. Sometimes it helps to treat a form as a list and
 walk it. VLA has twenty-nine primitives for that, counting the arithmetic,
 the text and the addresses a walk tends to need, a lookup and a test that
-tells a word from a list, a loop that writes a form for each element, and a
-word for a form, `define`. They work
-on **quoted data in the source text**, while the program is being expanded.
+tells a word from a list, a loop that writes a form for each element, a
+word for a form, `define`, and one for the place a verb writes, `self`. They
+work on **quoted data in the source text**, while the program is being expanded.
 They never see a cell, a range, or anything else that exists only when the
 program runs.
 
@@ -668,6 +673,8 @@ program runs.
 | `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
 | `(sheet-expand reference)` `(range-expand reference)` | A reference's sheet, and its cell or range, as texts. |
 | `(first-cell-expand reference)` | A reference's first cell, as a text: `"B1"` for `Tally!B1:E10`. |
+| `(bind-expand ((self reference)) form ...)` | The forms, with the word `self` standing for one cell on a sheet; see *The place a verb writes* below. |
+| `(offset-expand reference rows columns)` `(offset-expand reference rows columns height width)` | A reference moved, as Excel's `OFFSET` moves it. |
 
 **A name that ends in `expand` is computed while the macro expands.** The
 plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
@@ -998,6 +1005,157 @@ after `(define tally Tally!B1:E10)`. A whole column or row is refused, since
 a fill's range is never one; and like the two parts, the first cell expands
 its argument first and is read where the walk meets it, never in a
 primitive's argument.
+
+### The place a verb writes
+
+A row over a range is one formula, written as its first cell reads. Life's
+rule over `B2:LG199` reads `Screen.last!A1:C3` to mean "my eight neighbors and
+me, last frame", and its author does the arithmetic by hand against `B2`, a
+cell the source never names. **`self` names it.** A verb binds the word, and
+whatever stands inside the verb reads it:
+
+```lisp
+(defmacro
+    (rule sheet range expression)
+    "one formula row, self its range's first cell"
+    (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+        (formula sheet range (formula-expand expression))))
+
+(defmacro
+    (running event)
+    "its own last value plus an event"
+    (+ (last self) event))
+
+(rule "Tally" "B1:E10" (running Input!B16))
+```
+
+The last form writes `(formula "Tally" "B1:E10" "=Tally.last!B1+Input!B16")`.
+`running` takes no sheet and no range: it reads the place of the verb around
+it.
+
+**The binding.** `(bind-expand ((self reference)) form ...)` expands its forms
+with `self` standing for one cell on a sheet, and then the word means what it
+meant before. The reference is worked out first, under any binding outside
+this one, so `(bind-expand ((self (offset-expand self 1 0))) ...)` reads the
+outer `self` and moves it a row down. The forms are expanded completely inside
+the binding, each in the order written: one form gives its own result, and
+several give one `begin`. A binding inside another hides it for its own forms,
+and the outer stands again after them. Two verbs beside each other each have
+their own, in whichever order they expand. A word other than `self`, a text, a
+reference with no sheet, and a range are refused:
+
+> bind-expand: self is one cell on a sheet, and 'A!B2:C3' is a range - a fill
+> binds its first cell, (first-cell-expand reference)
+
+**Where the word is read.** Where a define's word is: wherever it stands as a
+value, a macro's result among them, inside `formula-expand` and inside the
+forms that read a reference, `sheet-expand`, `range-expand`,
+`first-cell-expand` and `offset-expand`; never at a list's head, inside a quote
+or a text. So a macro over it may be called from any verb, and a word of
+`define` may name it: after `(define neighbors-last (last (offset-expand self
+-1 -1 3 3)))`, `(sum neighbors-last)` reads the neighbors of whichever cell the
+verb around it writes. A default that names `self` reads it where the call
+stands. A macro's parameter of the same word hides it, since the parameter is
+replaced first.
+
+**A reference moved.** `(offset-expand reference rows columns)` and
+`(offset-expand reference rows columns height width)` are Excel's `OFFSET` while
+the macro expands, in its argument order:
+
+| Expression | Formula text |
+|---|---|
+| `(offset-expand Tally!B2 1 2)` | `Tally!D3` |
+| `(offset-expand Screen!B2 -1 -1 3 3)` | `Screen!A1:C3` |
+| `(offset-expand Tally!B2:E10 1 1)` | `Tally!C3:F11` |
+| `(offset-expand Tally!$B2 1 1)` | `Tally!$C3` |
+| `(offset-expand B2 1 0)` | `B3` |
+| `(last (offset-expand Stay!C2 1 1))` | `Stay.last!D3` |
+| `(offset-expand stop 1 0)`, after `(define stop State!B12)` | `State!B13` |
+
+A range with no size keeps its own, a `$` stays where it was written, and its
+answer is `(ref sheet part)`, which `last`, the marks and a reference's parts
+all read. Like them it expands its arguments first, and is read where the walk
+meets it. A row or a column past the sheet, a whole column or row, a size under
+1 and a number that is not whole are refused by name:
+
+> offset-expand: a row is a whole number from 1 to 1048576, got '0'
+
+So the words over `self` are macros over it, and each reads any reference:
+
+```lisp
+(defmacro
+    (above at)
+    "the cell above a reference"
+    (offset-expand at -1 0))
+
+(defmacro
+    (around at radius)
+    "the square of a radius around a cell, the cell at its center"
+    (offset-expand at
+        (-expand 0 radius)
+        (-expand 0 radius)
+        (+expand (*expand radius 2) 1)
+        (+expand (*expand radius 2) 1)))
+
+(defmacro
+    (neighbors-alive)
+    "the eight neighbors alive in the last frame"
+    (- (sum (last (around self 1))) (last self)))
+
+(rule "Screen" "B2:LG199" (neighbors-alive))
+(rule "Screen" "A2:AV24" (last (above self)))
+```
+
+These two write `=SUM(Screen.last!A1:C3)-Screen.last!B2` and `=Screen.last!A1`,
+and `(formula-expand (above stop))` writes `=State!B11`. A word over `self`
+writes the sheet's name, `Screen!B1` where the formula stands on the Screen;
+`(ref (range-expand (above self)))` writes the bare `B1`.
+
+**A primitive does not read it.** An expand-time primitive takes its arguments
+as data while a macro's template is filled in, before the walk meets the word,
+so a primitive that reads a word's text refuses this one:
+
+> row-expand takes its arguments as data, and self is read only where a form
+> stands as an expression - write the words over it, such as (offset-expand self
+> rows columns), or (range-expand self) where a row's field wants its address
+
+`car`, `cons`, `eq?` and the rest carry the word as the data it is, so `rules`,
+`on` and a loop move an expression that holds it.
+
+**Where it is refused, and where it is not.** With no binding around it, the
+word is refused where it would be read, in a formula's expression and wherever
+one reference is read:
+
+> self: nothing reads it here - self is the place a verb writes, and it stands
+> only inside (bind-expand ((self reference)) form ...), which a verb writes
+> around its row
+
+Everywhere else it is the word it always was. A sentence's or a program's
+variable named `self` is a variable, unless a binding stands around it, which
+then replaces it as a define replaces its word: give a binding a verb's row,
+never a running program. `(ref "self")` writes a defined name so spelled. A
+macro, a loop's name, a named piece and a define may not take the word.
+
+**A verb inside a verb.** A verb writes a row, so it has no place inside another
+verb's expression, and `formula-expand` says so:
+
+> formula-expand: one inside another would write the inner formula as a text -
+> write the inner expression itself, and a verb meant to stand inside an
+> expression as an expression macro over self
+
+Since `self` tells an expression macro its place, a verb that writes one row can
+be an expression, with `rule` around it, and such expressions compose:
+
+```lisp
+(defmacro
+    (pressed button)
+    "1 in the frame a button goes down"
+    (if (and (= button 1) (= (last button) 0)) 1 0))
+
+(rule "Tally" "B16" (running (pressed Input!B1)))
+```
+
+writes `(formula "Tally" "B16" "=Tally.last!B16+IF(AND(Input!B1=1,Input.last!B1=0),1,0)")`.
 
 ### Where it stops
 
@@ -1423,9 +1581,11 @@ wrapped round every program.
 among them `EnglishToVla`, which gives the VLA of one sentence, and
 `EnglishExplain`, which says which rule claimed it and from which file.
 Two more live in the same module as the compiler: `VlaExpandStep` prints a
-form after each macro application in turn, from *as written* to the end,
-and `VlaApropos` searches the names and descriptions of every macro
-loaded, with the English sentence that reaches each one.
+form after each macro application in turn, from *as written* to the end, a
+form that computes while the macro expands standing as written until the
+macros inside it have fired, and `VlaApropos` searches the names and
+descriptions of every macro loaded, with the English sentence that reaches
+each one.
 
 Nothing in Frazaro's messages will ever send a user there. It is a
 workshop, and the door is marked.

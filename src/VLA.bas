@@ -20,7 +20,25 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.12.0"
-Public Const VLA_CORE_VERSION As String = "VLA.9"
+Public Const VLA_CORE_VERSION As String = "VLA.10"
+' VLA.10: THE FILL'S OWN PLACE AS A WORD. (bind-expand ((self reference)) form
+' ...) binds the word self to one cell on a sheet for every form the walk meets
+' in its body (ExpandBindCall): its value expanded first, under the binding
+' outside it, its body to its fixpoint inside, and the stack restored on every
+' way out, a refusal's included, so that no sibling sees another's place. The
+' walk alone reads the word, where it stands as an expression, as one link of
+' the chain, as a define's word is; Substitute does not change, so
+' LISTOPS-CONFLUENCE's premise stands as written. (offset-expand reference rows
+' columns [height width]) is Excel's OFFSET at expand time, a form of the walk
+' (ExpandOffsetCall, FsOffsetForm), so that the words over self read any
+' reference. The word left in a formula's finished expression, or met where one
+' reference is read, is refused by name (FormHoldsSelf, FsSpelledReference), and
+' so is a primitive that reads a word's text over it (RefuseSelfText); a
+' statement's self stays the word, the sentence's reading SD-4 keeps. Found
+' while scoping and fixed: the walk's forms computed at a spent budget, so the
+' stepper refused the frames of any verb; each now stands, its argument expanded
+' as far as the budget went (ExpandBudgetSpent). vla-lang's expand.rs and
+' formula_syntax.rs mirror each; the expand golden holds the two.
 ' VLA.9: NAMED PIECES WITH DEFAULTS. A list in a macro's signature declares
 ' a piece after its positional parameters, (sheet "Screen") one with a
 ' default and (sheet) one the caller must give (DeclarePiece), kept at the
@@ -953,6 +971,13 @@ Private mFormulaExpandOpen As Boolean ' VLA.4: the walk stands inside a
                                    ' formula-expand's argument, where
                                    ' another one is refused; cleared by
                                    ' ExpandFormulaCall on every way out
+Private mSelfStack As Collection   ' VLA.10: the places bind-expand holds open,
+                                   ' innermost last, each a form the walk has
+                                   ' finished with; Nothing with none open, which
+                                   ' the walk's atom case asks first. Restored by
+                                   ' ExpandBindCall on every way out, so empty at
+                                   ' every entry and exit, and no VlaFrame field,
+                                   ' as mFormulaExpandOpen is none
 Private mDefines As Object         ' VLA.6: the words a source's defines
                                    ' bind, a late-bound Scripting.Dictionary
                                    ' keyed by the folded word, each its form
@@ -1198,6 +1223,7 @@ Public Function VlaTranspile(ByVal source As String) As String
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4
     Set mSubDocs = New Collection   ' P.L6: per-transpile, see declaration
     mProcEmitted = False            ' G12.1: per-transpile topology
@@ -1374,6 +1400,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4 - unused
                         ' by this function (it never calls Emit*), set
                         ' anyway to match VlaTranspile so neither entry
@@ -1705,6 +1732,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     ' (prelude's and the source's own), expand only the body forms.
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Dim bodyForms As New Collection
     Dim f As Variant
     For Each f In forms
@@ -2884,9 +2912,11 @@ End Function
 ' recognize each name as a form of their own (P.L5's quote, QUASIQUOTE's
 ' bundle, the twenty-nine primitives, VLA.4's formula-expand, VLA.5's
 ' loop, VLA.6's define and the reference's two parts, VLA.15's list? and
-' the reference's first cell), so a macro of the
+' the reference's first cell, VLA.10's two forms), so a macro of the
 ' name could never fire, and a loop's name so spelled would stand where the
-' walks read the form. A define's word is refused by it too (VLA.6).
+' walks read the form. A define's word is refused by it too (VLA.6). VLA.10:
+' and the word self, which the walk reads, so that it means one thing; a
+' positional parameter asks this table nothing, for any word, and hides it.
 Private Function ExpandReservedDesc(ByVal wordFold As String) As String
     Select Case wordFold
         Case "quote"
@@ -2971,6 +3001,12 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
             ExpandReservedDesc = "list-test primitive"
         Case "first-cell-expand"
             ExpandReservedDesc = "expand-time reference-first-cell operation"
+        Case "self"
+            ExpandReservedDesc = "place a verb writes"
+        Case "bind-expand"
+            ExpandReservedDesc = "expand-time place-binding form"
+        Case "offset-expand"
+            ExpandReservedDesc = "expand-time reference-moving operation"
     End Select
 End Function
 
@@ -3471,6 +3507,18 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
                     GoTo nextLink
                 End If
             End If
+            ' VLA.10: the word self inside a binding, the place it holds put where
+            ' the word stands and looked at again, one link of the chain, as a
+            ' define's word is. With no binding open the walk pays the one Is
+            ' Nothing, and the word stays the word it is in a program.
+            If Not mSelfStack Is Nothing Then
+                If IsSelfWord(cur) Then
+                    chainLen = chainLen + 1
+                    If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+                    AssignVar cur, mSelfStack.Item(mSelfStack.Count)
+                    GoTo nextLink
+                End If
+            End If
             ' VLA.5: an atom with forms set aside before it is the last form
             ' of a begin a macro made, combined with them after the loop.
             If pendingHead.Count > 0 Then Exit Do
@@ -3517,7 +3565,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' function's. A helper, so this recursive procedure gains no
         ' local (trap 8).
         If headFold = "formula-expand" Then
-            lprimTop = ExpandFormulaCall(lst, depth, walkDepth)
+            AssignVar lprimTop, ExpandFormulaCall(lst, depth, walkDepth)
             GoTo finish
         End If
         ' VLA.6: a define, a form of the walk that writes nothing here: passed
@@ -3532,13 +3580,25 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' the walk beside formula-expand, their argument expanded first so
         ' that a word a define binds is replaced (ExpandReferencePart).
         If headFold = "sheet-expand" Or headFold = "range-expand" Then
-            lprimTop = ExpandReferencePart(headFold, lst, depth, walkDepth)
+            AssignVar lprimTop, ExpandReferencePart(headFold, lst, depth, walkDepth)
             GoTo finish
         End If
         ' VLA.15: a reference's first cell as a text, a third form of the walk
         ' beside the two parts and read as they are (ExpandReferencePart).
         If headFold = "first-cell-expand" Then
-            lprimTop = ExpandReferencePart(headFold, lst, depth, walkDepth)
+            AssignVar lprimTop, ExpandReferencePart(headFold, lst, depth, walkDepth)
+            GoTo finish
+        End If
+        ' VLA.10: (bind-expand ((self reference)) form ...), a place bound for the
+        ' forms of its body, and (offset-expand reference rows columns [height
+        ' width]), a reference moved: forms of the walk, each with a helper of
+        ' its own, so that this recursive procedure gains no local (trap 8).
+        If headFold = "bind-expand" Then
+            AssignVar lprimTop, ExpandBindCall(lst, depth, walkDepth)
+            GoTo finish
+        End If
+        If headFold = "offset-expand" Then
+            AssignVar lprimTop, ExpandOffsetCall(lst, depth, walkDepth)
             GoTo finish
         End If
         ' QUASIQUOTE: unlike symbol, quasiquote/unquote/unquote-
@@ -3726,8 +3786,11 @@ End Function
 ' reader's string marker). Arity is refused first, then a formula-expand
 ' inside another's argument, whose text would be a text there.
 ' mFormulaExpandOpen is cleared on every way out, a refusal's included,
-' and a refusal raised again from locals (trap 1).
-Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As String
+' and a refusal raised again from locals (trap 1). VLA.10: at a spent budget it
+' stands, its argument expanded as far as the budget went (ExpandBudgetSpent);
+' and the word self left in its expression is refused (FormHoldsSelf), since
+' the walk replaced every one it read, so that none is written as a name.
+Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-expand-arity", "n", (lst.Count - 1)
     If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-formula-expand-nested"
     Dim expr As Variant
@@ -3738,6 +3801,11 @@ Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal wal
     AssignVar expr, ExpandMacros(lst.Item(2), depth, walkDepth + 1)
     mFormulaExpandOpen = False
     On Error GoTo 0
+    If ExpandBudgetSpent() Then
+        Set ExpandFormulaCall = FormOfTheWalkStanding(lst, expr)
+        Exit Function
+    End If
+    If FormHoldsSelf(expr) Then VLA_Messages.RaiseMsg "vla-self-free"
     syntaxText = FormulaSyntaxWrite(expr)
     FormulaTextKept syntaxText   ' VLA.6
     ExpandFormulaCall = Chr$(34) & syntaxText
@@ -3749,6 +3817,230 @@ failed:
     mFormulaExpandOpen = False
     On Error GoTo 0
     Err.Raise errNum, errSrc, errDesc
+End Function
+
+' L15 and VLA.10: whether the stepper's budget is spent. No application fires
+' after it, so a form of the walk that read its argument now would read a macro
+' not yet fired, and be refused, or write a macro's call as a function's: found
+' while scoping VLA.10, a verb's every frame refused since VLA.4. Each form
+' stands instead, and computes on a later frame or at the fixpoint.
+Private Function ExpandBudgetSpent() As Boolean
+    If mBudgetOn Then ExpandBudgetSpent = (mExpandFired >= mExpandBudget)
+End Function
+
+' VLA.10: a form of the walk standing at a spent budget, its head as written and
+' its one argument as far as the budget took it. A new list, tagged 0 (S3.1).
+Private Function FormOfTheWalkStanding(lst As Object, argForm As Variant) As Collection
+    Dim outc As New Collection
+    outc.Add lst.Item(1)
+    outc.Add argForm
+    TagLine outc, 0
+    Set FormOfTheWalkStanding = outc
+End Function
+
+' VLA.10: whether an atom is the word self: a symbol, never a text, whose
+' marker makes it five characters, and by the fold, as every word is compared.
+Private Function IsSelfWord(v As Variant) As Boolean
+    If IsObject(v) Then Exit Function
+    Dim s As String
+    s = CStr(v)
+    If Len(s) <> 4 Then Exit Function
+    IsSelfWord = (VLA_Identity.Fold(s) = "self")
+End Function
+
+' VLA.10: whether a formula's finished expression holds the word self where a
+' value stands: never a list's head, whose atom is a function's name, and never
+' inside a quote, an array's data. The walk replaced every one it read, so one
+' left here is free, or stands in a primitive's chosen branch, which the walk
+' does not expand (VLA.5). At most the form's own nesting. A list may be a
+' VlaSlice, read by .Count and .Item alone.
+Private Function FormHoldsSelf(v As Variant) As Boolean
+    If Not IsList(v) Then
+        FormHoldsSelf = IsSelfWord(v)
+        Exit Function
+    End If
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    Dim k As Long
+    k = 1
+    If Not IsObject(lst.Item(1)) Then
+        If VLA_Identity.Fold(CStr(lst.Item(1))) = "quote" Then Exit Function
+        k = 2
+    End If
+    For k = k To lst.Count
+        If FormHoldsSelf(lst.Item(k)) Then
+            FormHoldsSelf = True
+            Exit Function
+        End If
+    Next
+End Function
+
+' VLA.10: a primitive that reads a word's text refuses the word self, free or
+' bound, since the walk alone reads it and a primitive takes its arguments as
+' data; so a later reading there moves no source. A text so spelled is a text.
+Private Sub RefuseSelfText(ByVal op As String, v As Variant)
+    If IsSelfWord(v) Then VLA_Messages.RaiseMsg "vla-self-in-a-primitive", "op", op
+End Sub
+
+' VLA.10: (bind-expand ((self reference)) form ...): the place a verb writes,
+' bound for every form the walk meets in its body. One order, so that the first
+' fault a form holds is the one named: its shape and its word (BindValueForm);
+' its value, expanded to its fixpoint under the binding outside it, let's rule,
+' so that no read can loop; at a spent budget the form stands (BindStanding); its
+' value read as one cell on a sheet (FsBoundCell). Then the body to its fixpoint
+' inside the binding, and never handed back to the trampoline, whose set-aside
+' forms would expand after the pop. mSelfStack is restored on every way out, a
+' refusal's included, and a refusal raised again from locals (trap 1).
+Private Function ExpandBindCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
+    Dim boundForm As Variant
+    AssignVar boundForm, ExpandMacros(BindValueForm(lst), depth, walkDepth + 1)
+    If ExpandBudgetSpent() Then
+        Set ExpandBindCall = BindStanding(lst, boundForm)
+        Exit Function
+    End If
+    FsBoundCell boundForm
+    Dim errNum As Long, errSrc As String, errDesc As String
+    Dim bodyDone As Variant
+    If mSelfStack Is Nothing Then Set mSelfStack = New Collection
+    mSelfStack.Add boundForm
+    On Error GoTo failed
+    AssignVar bodyDone, ExpandBindBody(lst, depth, walkDepth)
+    PopSelf
+    On Error GoTo 0
+    If IsObject(bodyDone) Then Set ExpandBindCall = bodyDone Else ExpandBindCall = bodyDone
+    Exit Function
+failed:
+    errNum = Err.Number
+    errSrc = Err.Source
+    errDesc = Err.Description
+    PopSelf
+    On Error GoTo 0
+    Err.Raise errNum, errSrc, errDesc
+End Function
+
+' VLA.10: the binding's end: the innermost place taken off, and Nothing again
+' when none stands, which the walk's atom case asks first.
+Private Sub PopSelf()
+    mSelfStack.Remove mSelfStack.Count
+    If mSelfStack.Count = 0 Then Set mSelfStack = Nothing
+End Sub
+
+' VLA.10: how many places stand bound, for the tests: 0 at every entry and exit
+' of a public expansion, a refusal's exit among them (the wall's one condition).
+Public Function VlaSelfDepth() As Long
+    If Not mSelfStack Is Nothing Then VlaSelfDepth = mSelfStack.Count
+End Function
+
+' VLA.10: a binding's shape and its word, and the form it binds. A list of
+' bindings, so that a later item can open a declared word with no source read
+' again, each (word form); every word but self refused by name; then one
+' binding, and at least one form after it. A list may be a VlaSlice.
+Private Function BindValueForm(lst As Object) As Variant
+    If lst.Count < 3 Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+    If Not IsList(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+    Dim bound As Object
+    Set bound = lst.Item(2)
+    If bound.Count = 0 Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+    Dim k As Long
+    Dim oneBinding As Object
+    For k = 1 To bound.Count
+        If Not IsList(bound.Item(k)) Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+        Set oneBinding = bound.Item(k)
+        If oneBinding.Count <> 2 Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+        If Not IsSym(oneBinding.Item(1)) Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+        If Not IsSelfWord(oneBinding.Item(1)) Then VLA_Messages.RaiseMsg "vla-bind-expand-word", "word", CStr(oneBinding.Item(1))
+    Next
+    If bound.Count <> 1 Then VLA_Messages.RaiseMsg "vla-bind-expand-shape", "form", WriteDatum(lst)
+    Set oneBinding = bound.Item(1)
+    Dim v As Variant
+    AssignVar v, oneBinding.Item(2)
+    If IsObject(v) Then Set BindValueForm = v Else BindValueForm = v
+End Function
+
+' VLA.10: a bind-expand standing at a spent budget: its word as written, its
+' value as far as the budget took it, and its body as written. New lists, each
+' tagged 0 (S3.1).
+Private Function BindStanding(lst As Object, boundForm As Variant) As Collection
+    Dim bound As Object, oneBinding As Object
+    Set bound = lst.Item(2)
+    Set oneBinding = bound.Item(1)
+    Dim wordAndValue As New Collection
+    wordAndValue.Add oneBinding.Item(1)
+    wordAndValue.Add boundForm
+    TagLine wordAndValue, 0
+    Dim bindingList As New Collection
+    bindingList.Add wordAndValue
+    TagLine bindingList, 0
+    Dim outc As New Collection
+    outc.Add lst.Item(1)
+    outc.Add bindingList
+    Dim k As Long
+    For k = 3 To lst.Count
+        outc.Add lst.Item(k)
+    Next
+    TagLine outc, 0
+    Set BindStanding = outc
+End Function
+
+' VLA.10: a binding's body, each form to its fixpoint in written order: one form
+' its own result, and several one begin with no line, as a template's several
+' forms are. A chain inside a form sets its own forms aside and expands them
+' before ExpandMacros returns, so all of it stands inside the binding.
+Private Function ExpandBindBody(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
+    If lst.Count = 3 Then
+        Dim oneForm As Variant
+        AssignVar oneForm, ExpandMacros(lst.Item(3), depth, walkDepth + 1)
+        If IsObject(oneForm) Then Set ExpandBindBody = oneForm Else ExpandBindBody = oneForm
+        Exit Function
+    End If
+    Dim outc As New Collection
+    outc.Add "begin"
+    Dim k As Long
+    For k = 3 To lst.Count
+        outc.Add ExpandMacros(lst.Item(k), depth, walkDepth + 1)
+    Next
+    TagLine outc, 0
+    Set ExpandBindBody = outc
+End Function
+
+' VLA.10: (offset-expand reference rows columns) and (offset-expand reference
+' rows columns height width), Excel's OFFSET at expand time, in its argument
+' order. One order, so that the first fault a form holds is the one named: the
+' count; every argument expanded to its fixpoint, left to right, so that self or
+' a define's word is replaced first; at a spent budget the form stands; each
+' number through the arithmetic's gate, left to right (OffsetWholeNumber); and
+' the reference moved (FsOffsetForm). No primitive, since self and a define's
+' word reach none.
+Private Function ExpandOffsetCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
+    If lst.Count <> 4 And lst.Count <> 6 Then VLA_Messages.RaiseMsg "vla-offset-expand-arity", "n", (lst.Count - 1)
+    Dim outc As New Collection
+    outc.Add lst.Item(1)
+    Dim k As Long
+    For k = 2 To lst.Count
+        outc.Add ExpandMacros(lst.Item(k), depth, walkDepth + 1)
+    Next
+    TagLine outc, 0
+    If ExpandBudgetSpent() Then
+        Set ExpandOffsetCall = outc
+        Exit Function
+    End If
+    Dim nums(1 To 4) As Double
+    For k = 3 To outc.Count
+        nums(k - 2) = OffsetWholeNumber(outc.Item(k))
+    Next
+    Set ExpandOffsetCall = FsOffsetForm(outc.Item(2), nums, outc.Count - 2)
+End Function
+
+' VLA.10: one number of offset-expand, through the arithmetic's gate: an atom, a
+' number literal, and a whole one.
+Private Function OffsetWholeNumber(v As Variant) As Double
+    If IsObject(v) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-list", "op", "offset-expand"
+    If Not IsNumericLiteralText(CStr(v)) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-value", "op", "offset-expand", "value", CStr(v)
+    Dim n As Double
+    n = Val(CStr(v))
+    If n <> Int(n) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-whole", "op", "offset-expand", "value", CStr(v)
+    OffsetWholeNumber = n
 End Function
 
 ' VLA.5: a loop met among a list's elements by ExpandMacros' walk, outside
@@ -4101,6 +4393,7 @@ Private Function FuseSymbol(lst As Object, bindings As Collection, ByVal restNam
         Dim piece As Variant
         AssignVar piece, Substitute(Nth(lst, k), bindings, restName, restItems)
         If IsList(piece) Then VLA_Messages.RaiseMsg "vla-symbol-arg-is-list", "n", (k - 1)
+        RefuseSelfText "symbol", piece   ' VLA.10
         Dim ptext As String
         If Left$(CStr(piece), 1) = Chr$(34) Then
             ptext = StrLitContent(piece)
@@ -4790,11 +5083,15 @@ End Sub
 ' formula-expand's is. A helper of its own reads the reference, so that this
 ' frame, on the walk's way down, holds no record. VLA.15: and
 ' (first-cell-expand reference), the third, its first cell as the text ref
-' takes.
-Private Function ExpandReferencePart(ByVal op As String, lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As String
+' takes. VLA.10: at a spent budget it stands (ExpandBudgetSpent).
+Private Function ExpandReferencePart(ByVal op As String, lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", op, "want", 1, "n", (lst.Count - 1)
     Dim v As Variant
     AssignVar v, ExpandMacros(lst.Item(2), depth, walkDepth + 1)
+    If ExpandBudgetSpent() Then
+        Set ExpandReferencePart = FormOfTheWalkStanding(lst, v)
+        Exit Function
+    End If
     ExpandReferencePart = Chr$(34) & FsReferencePartText(v, op)
 End Function
 
@@ -5273,6 +5570,7 @@ Private Function EvalConcatExpand(lst As Object, bindings As Collection, ByVal r
     For k = 2 To lst.Count
         AssignVar piece, ResolveListopsArg(Nth(lst, k), bindings, restName, restItems)
         If IsObject(piece) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", "&expand", "n", (k - 1)
+        RefuseSelfText "&expand", piece   ' VLA.10
         joined = joined & AtomTextExpand(piece)
     Next
     EvalConcatExpand = Chr$(34) & joined
@@ -5290,6 +5588,7 @@ Private Function EvalCharactersExpand(lst As Object, bindings As Collection, ByV
     Dim v As Variant
     AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
     If IsObject(v) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", "characters-expand", "n", 1
+    RefuseSelfText "characters-expand", v   ' VLA.10
     Dim s As String
     s = AtomTextExpand(v)
     Dim outc As New Collection
@@ -5342,6 +5641,7 @@ Private Function EvalAddressPartExpand(ByVal op As String, lst As Object, bindin
     Dim v As Variant
     AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
     If IsObject(v) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", op, "n", 1
+    RefuseSelfText op, v   ' VLA.10
     Dim s As String
     s = AtomTextExpand(v)
     Dim rowNum As Long, colNum As Long
@@ -7522,6 +7822,110 @@ Private Function FsFirstCellText(ByRef fr As FormulaRef, v As Variant, ByVal op 
     FsFirstCellText = FsCellText(colNum, colAbs, rowNum, rowAbs)
 End Function
 
+' VLA.10: what bind-expand binds: one reference on a sheet, as FsOneReference
+' reads it, and one cell, the place a verb writes.
+Private Sub FsBoundCell(v As Variant)
+    Dim fr As FormulaRef
+    FsOneReference v, "bind-expand", True, fr
+    Dim what As String
+    Select Case fr.PartShape
+        Case "cell"
+            Exit Sub
+        Case "range"
+            what = "a range"
+        Case "column"
+            what = "a whole column"
+        Case "row"
+            what = "a whole row"
+        Case Else
+            what = "no cell"
+    End Select
+    VLA_Messages.RaiseMsg "vla-bind-expand-not-a-cell", "value", WriteDatum(v), "what", what
+End Sub
+
+' VLA.10: a reference moved, Excel's OFFSET at expand time: v one reference, its
+' sheet written or none (FsOneReference); nums its rows and columns, and its
+' height and width where numCount says 4. A range with no size keeps its own,
+' each corner moved with its marks. Its answer (ref sheet part), a new list
+' tagged 0 (S3.1), which last, the marks, the walk's forms and the writer all
+' read. One order: a whole column or row, then the sizes (FsOffsetSized), then
+' each corner against the sheet, its row before its column.
+Private Function FsOffsetForm(v As Variant, nums() As Double, ByVal numCount As Long) As Collection
+    Dim fr As FormulaRef
+    FsOneReference v, "offset-expand", False, fr
+    If fr.PartShape = "column" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", "offset-expand", "value", WriteDatum(v), "line", "column", "want", "a cell or a range, such as Tally!B1:E10"
+    If fr.PartShape = "row" Then VLA_Messages.RaiseMsg "vla-reference-whole-line", "op", "offset-expand", "value", WriteDatum(v), "line", "row", "want", "a cell or a range, such as Tally!B1:E10"
+    Dim moved As String
+    If numCount = 4 Then
+        moved = FsOffsetSized(fr, nums)
+    Else
+        moved = FsOffsetCorner(fr.Col1, fr.ColAbs1, fr.Row1, fr.RowAbs1, nums)
+        If fr.PartShape = "range" Then moved = moved & ":" & FsOffsetCorner(fr.Col2, fr.ColAbs2, fr.Row2, fr.RowAbs2, nums)
+    End If
+    Dim outc As New Collection
+    outc.Add "ref"
+    If Len(fr.SheetName) > 0 Then outc.Add Chr$(34) & fr.SheetName
+    outc.Add Chr$(34) & moved
+    TagLine outc, 0
+    Set FsOffsetForm = outc
+End Function
+
+' VLA.10: a height and a width from a reference's top-left moved, as the grid
+' reads a row's range (FsFirstCellText's corner), that corner's marks on both;
+' one cell where both are 1, as OFFSET answers. A size under 1 is refused by
+' name, which a later design may read.
+Private Function FsOffsetSized(ByRef fr As FormulaRef, nums() As Double) As String
+    If nums(3) < 1 Then VLA_Messages.RaiseMsg "vla-offset-expand-size", "value", Trim$(Str$(nums(3)))
+    If nums(4) < 1 Then VLA_Messages.RaiseMsg "vla-offset-expand-size", "value", Trim$(Str$(nums(4)))
+    Dim colNum As Long, rowNum As Long
+    Dim colAbs As Boolean, rowAbs As Boolean
+    colNum = fr.Col1
+    colAbs = fr.ColAbs1
+    rowNum = fr.Row1
+    rowAbs = fr.RowAbs1
+    If fr.PartShape = "range" Then
+        If fr.Col2 < fr.Col1 Then
+            colNum = fr.Col2
+            colAbs = fr.ColAbs2
+        End If
+        If fr.Row2 < fr.Row1 Then
+            rowNum = fr.Row2
+            rowAbs = fr.RowAbs2
+        End If
+    End If
+    Dim topRow As Long, leftCol As Long, bottomRow As Long, rightCol As Long
+    topRow = FsOffsetRow(rowNum + nums(1))
+    leftCol = FsOffsetColumn(colNum + nums(2))
+    If nums(3) = 1 And nums(4) = 1 Then
+        FsOffsetSized = FsCellText(leftCol, colAbs, topRow, rowAbs)
+        Exit Function
+    End If
+    bottomRow = FsOffsetRow(topRow + nums(3) - 1)
+    rightCol = FsOffsetColumn(leftCol + nums(4) - 1)
+    FsOffsetSized = FsCellText(leftCol, colAbs, topRow, rowAbs) & ":" & FsCellText(rightCol, colAbs, bottomRow, rowAbs)
+End Function
+
+' VLA.10: one corner moved, its marks as written, its row before its column.
+Private Function FsOffsetCorner(ByVal colNum As Long, ByVal colAbs As Boolean, ByVal rowNum As Long, ByVal rowAbs As Boolean, nums() As Double) As String
+    Dim rowMoved As Long, colMoved As Long
+    rowMoved = FsOffsetRow(rowNum + nums(1))
+    colMoved = FsOffsetColumn(colNum + nums(2))
+    FsOffsetCorner = FsCellText(colMoved, colAbs, rowMoved, rowAbs)
+End Function
+
+' VLA.10: a row a corner moved to, computed in a Double so that a stranger's
+' number cannot overflow, refused past the sheet by address-expand's own id.
+Private Function FsOffsetRow(ByVal rowAt As Double) As Long
+    If rowAt < 1 Or rowAt > 1048576 Then VLA_Messages.RaiseMsg "vla-address-expand-row", "op", "offset-expand", "value", Trim$(Str$(rowAt))
+    FsOffsetRow = CLng(rowAt)
+End Function
+
+' VLA.10: a column a corner moved to, as FsOffsetRow's row is.
+Private Function FsOffsetColumn(ByVal colAt As Double) As Long
+    If colAt < 1 Or colAt > 16384 Then VLA_Messages.RaiseMsg "vla-address-expand-column", "op", "offset-expand", "value", Trim$(Str$(colAt))
+    FsOffsetColumn = CLng(colAt)
+End Function
+
 ' VLA.6, VLA.15: one reference on one sheet, as last, sheet-expand,
 ' range-expand and first-cell-expand read it, into fr: one reference as
 ' FsOneReference reads it, its sheet written.
@@ -7578,7 +7982,9 @@ End Function
 ' reads whole as a cell, a range, a column or a row, or (ref sheet address),
 ' whose own refusals stand (FsRefForm). Refused by name: a name, a span of
 ' sheets, a text or any other form, the refusal saying what the reading
-' asks for (VLA.15, FsReferenceWant).
+' asks for (VLA.15, FsReferenceWant). VLA.10: the word self read here is free, or
+' stands where the walk did not expand it, since the walk replaced every one it
+' read, and is refused as that.
 Private Sub FsSpelledReference(v As Variant, ByVal op As String, ByVal onSheet As Boolean, ByRef fr As FormulaRef)
     Dim spelled As String
     If IsList(v) Then
@@ -7589,6 +7995,7 @@ Private Sub FsSpelledReference(v As Variant, ByVal op As String, ByVal onSheet A
     Else
         spelled = CStr(v)
         If Left$(spelled, 1) = Chr$(34) Then VLA_Messages.RaiseMsg "vla-reference-expected", "op", op, "want", FsReferenceWant(onSheet), "value", WriteDatum(v), "what", "a text"
+        If IsSelfWord(v) Then VLA_Messages.RaiseMsg "vla-self-free"
     End If
     Dim what As String
     what = "no reference"

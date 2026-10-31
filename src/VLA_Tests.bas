@@ -1,6 +1,26 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.9"
+Public Const VLA_TESTS_VERSION As String = "VLA.10"
+' KERNEL.58: VlaWriteAppearanceGolden and VlaWriteLooksGolden take and read
+' a font's underline, strike and family in the record's words, where the looks
+' golden said them after its " !": AppearanceFont sets them, by Font.Underline,
+' Font.Strikethrough and Font.Name; AppearanceFontWords reads them back, a
+' family where it is not the workbook's Normal style's and by its name alone,
+' the object model saying no generic. No pin of the pure suite moves.
+'
+' VLA.10: TestSelfForms - the fill's own place as a word, 176 pins: a binding and its
+' read, by the fold, where it stands as an expression and nowhere else; a verb binding
+' its range's first cell and an expression macro over it; a reference moved as Excel's
+' OFFSET moves it; the binding's extent, an inner hiding the outer, a sibling's and a
+' set-aside form's, a define's form and a piece's default read at their use; a free
+' word refused where it would be read and kept in a statement; the words that mean one
+' thing and a parameter that hides one; a primitive over the word, and the ones that
+' carry it as data; every refusal by its id or its whole text, in one order; the
+' stepper's frames at a spent budget and one pass; VlaSelfDepth 0 after every refusal;
+' and two 50-deep chains as siblings, in either order, and a recursive hand-off,
+' LISTOPS-CONFLUENCE's three. Each expected value is the port's record of the pin's
+' source. Wired after TestNamedPieces.
+'
 ' VLA.9: TestNamedPieces - named pieces with defaults, 109 pins: a piece's
 ' value or its default, one call's pieces in two orders, a call's words and a
 ' declaration's folding; a default substituted under the parameters bound
@@ -564,6 +584,7 @@ Public Function VlaSelfTest() As Boolean
     TestDefineForms
     TestAddressForms
     TestNamedPieces
+    TestSelfForms
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -7556,6 +7577,451 @@ Private Sub TestNamedPieces()
         OnePassRecord("(defmacro (m (a)) a)" & vbLf & "(m)"), _
         "refused: macro 'm': the piece 'a' has no default, and the call does not give it (vla line 2)"
 End Sub
+
+' VLA.10: the fill's own place as a word - a binding and its read, a verb over it, a
+' reference moved, the binding's extent, a free word refused where it would be read,
+' the words that mean one thing, a primitive over the word, every refusal by its id
+' or its whole text, the stepper's frames and one pass. Each expected value is the
+' port's record of the pin's source. scripts/expand_golden.txt holds the same cases'
+' whole records to vla-lang's; these pins say what each one means. Then the wall's
+' one condition, built as TestListopsConfluence is: VlaSelfDepth is 0 after every
+' refusal (CheckSelfRefused), and siblings and a recursive hand-off keep each binding.
+Private Sub TestSelfForms()
+    Dim ruleMacro As String, runningMacro As String, aboveMacro As String, aroundMacro As String, bothMacro As String, twinMacro As String, rulesMacro As String, onMacro As String
+    ruleMacro = "(defmacro (rule sheet range expression) (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range))))) (formula sheet range (formula-expand expression)))) "
+    runningMacro = "(defmacro (running event) (+ (last self) event)) "
+    aboveMacro = "(defmacro (above at) (offset-expand at -1 0)) "
+    aroundMacro = "(defmacro (around at radius) (offset-expand at (-expand 0 radius) (-expand 0 radius) (+expand (*expand radius 2) 1) (+expand (*expand radius 2) 1))) "
+    bothMacro = "(defmacro (both first-verb second-verb) (begin first-verb second-verb)) "
+    twinMacro = "(defmacro (twin) (last self)) "
+    rulesMacro = "(defmacro (rules sheet & entries) (quote-if (null? entries) (begin) (begin (rule sheet (car (car entries)) (car (cdr (car entries)))) (quasiquote (rules (unquote sheet) (unquote-splicing (cdr entries))))))) "
+    onMacro = "(defmacro (on sheet & forms) (quote-if (null? forms) (begin) (begin (cons (car (car forms)) (cons sheet (cdr (car forms)))) (quasiquote (on (unquote sheet) (unquote-splicing (cdr forms))))))) "
+
+    ' --- a binding and its read: the word, by the fold, where it stands as an expression.
+    CheckV "self: a binding's read through last", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (formula-expand (last self)))"), """=Screen.last!B2"""
+    CheckV "self: a quoted sheet", _
+        ExpandTrimmed("(bind-expand ((self (ref ""Q1 Data"" ""B2""))) (formula-expand (last self)))"), """='Q1 Data.last'!B2"""
+    CheckV "self: the word folds", _
+        ExpandTrimmed("(bind-expand ((SELF Screen!B2)) (formula-expand (last SeLf)))"), """=Screen.last!B2"""
+    CheckV "self: bare, its reference", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (formula-expand self))"), """=Screen!B2"""
+    CheckV "self: a row's two fields", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (cell (sheet-expand self) (range-expand self) 1))"), "(cell ""Screen"" ""B2"" 1)"
+    CheckV "self: its first cell", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (first-cell-expand self))"), """B2"""
+    CheckV "self: a define's word for a value", _
+        ExpandTrimmed("(define stop State!B12) (bind-expand ((self stop)) (formula-expand (last self)))"), "(begin)" & vbCrLf & """=State.last!B12"""
+    CheckV "self: a macro's call for a value", _
+        ExpandTrimmed("(defmacro (home) Screen!B2) (bind-expand ((self (home))) (formula-expand (last self)))"), """=Screen.last!B2"""
+    CheckV "self: a mark on its value", _
+        ExpandTrimmed("(bind-expand ((self (absolute Screen!B2))) (formula-expand (last self)))"), """=Screen.last!$B$2"""
+    CheckV "self: several forms are one begin", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (cell ""S"" ""A1"" 1) (formula-expand (last self)))"), "(begin (cell ""S"" ""A1"" 1) ""=Screen.last!B2"")"
+    CheckV "self: a binding in a statement", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (set! x (formula-expand (last self))))"), "(set! x ""=Screen.last!B2"")"
+    CheckV "self: a binding in an expression", _
+        ExpandTrimmed("(formula-expand (+ 1 (bind-expand ((self A!B2)) (last self))))"), """=1+A.last!B2"""
+    CheckV "self: a program's word is replaced inside a binding", _
+        ExpandTrimmed("(bind-expand ((self Screen!B2)) (debug-print self))"), "(debug-print Screen!B2)"
+    CheckV "self: a head is no word", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (formula-expand (self 1)))"), """=SELF(1)"""
+    CheckV "self: a text is no word", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (formula-expand ""self""))"), """=\""self\"""""
+    CheckV "self: a quote is no word", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (quote self))"), "(quote self)"
+    CheckV "self: ref writes a name so spelled", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (formula-expand (ref ""self"")))"), """=self"""
+
+    ' --- a verb binds its range's first cell, and a verb is an expression over it.
+    CheckV "verb: a fill's first cell", _
+        ExpandTrimmed(ruleMacro & "(rule ""Screen"" ""B2:K11"" (last self))"), "(formula ""Screen"" ""B2:K11"" ""=Screen.last!B2"")"
+    CheckV "verb: one cell", _
+        ExpandTrimmed(ruleMacro & "(rule ""Tally"" ""B16"" (+ (last self) Input!B16))"), "(formula ""Tally"" ""B16"" ""=Tally.last!B16+Input!B16"")"
+    CheckV "verb: a range written backwards", _
+        ExpandTrimmed(ruleMacro & "(rule ""Screen"" ""K11:B2"" (last self))"), "(formula ""Screen"" ""K11:B2"" ""=Screen.last!B2"")"
+    CheckV "verb: a quoted sheet", _
+        ExpandTrimmed(ruleMacro & "(rule ""Q1 Data"" ""B2:K11"" (last self))"), "(formula ""Q1 Data"" ""B2:K11"" ""='Q1 Data.last'!B2"")"
+    CheckV "verb: an expression macro reads the verb's place", _
+        ExpandTrimmed(ruleMacro & runningMacro & "(rule ""Tally"" ""B16"" (running Input!B16))"), "(formula ""Tally"" ""B16"" ""=Tally.last!B16+Input!B16"")"
+    CheckV "verb: Life's neighbors", _
+        ExpandTrimmed(ruleMacro & aroundMacro & "(rule ""Screen"" ""B2:LG199"" (- (sum (last (around self 1))) (last self)))"), "(formula ""Screen"" ""B2:LG199"" ""=SUM(Screen.last!A1:C3)-Screen.last!B2"")"
+    CheckV "verb: the sound card's row above", _
+        ExpandTrimmed(ruleMacro & aboveMacro & "(rule ""Screen"" ""A2:AV24"" (last (above self)))"), "(formula ""Screen"" ""A2:AV24"" ""=Screen.last!A1"")"
+    CheckSelfRefused "verb: a verb inside a verb stays refused", _
+        ruleMacro & "(rule ""S"" ""B1"" (+ (rule ""S"" ""B2"" 1) 1))", "vla-formula-expand-nested"
+    CheckSelfRefused "verb: a whole column at the verb", _
+        ruleMacro & "(rule ""S"" ""A:A"" 1)", "vla-reference-whole-line"
+
+    ' --- a reference moved, as Excel's OFFSET moves it.
+    CheckV "offset: a cell", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!B2 1 2))"), """=Tally!D3"""
+    CheckV "offset: up and left", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!C3 -1 -2))"), """=Tally!A2"""
+    CheckV "offset: a range keeps its size", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!B2:E10 1 1))"), """=Tally!C3:F11"""
+    CheckV "offset: a height and a width", _
+        ExpandTrimmed("(formula-expand (offset-expand Screen!B2 -1 -1 3 3))"), """=Screen!A1:C3"""
+    CheckV "offset: one by one is a cell", _
+        ExpandTrimmed("(formula-expand (offset-expand Screen!B2 1 1 1 1))"), """=Screen!C3"""
+    CheckV "offset: a size from a backward range's top-left", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!E10:B2 0 0 2 2))"), """=Tally!B2:C3"""
+    CheckV "offset: a backward range, corner by corner", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!E10:B2 1 1))"), """=Tally!F11:C3"""
+    CheckV "offset: each corner's marks", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!$B2:C$3 1 1))"), """=Tally!$C3:D$4"""
+    CheckV "offset: a size takes the top-left's marks", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!$B$2 0 0 2 2))"), """=Tally!$B$2:$C$3"""
+    CheckV "offset: no sheet stays no sheet", _
+        ExpandTrimmed("(formula-expand (offset-expand B2 1 0))"), """=B3"""
+    CheckV "offset: a quoted sheet", _
+        ExpandTrimmed("(formula-expand (offset-expand (ref ""Q1 Data"" ""B2"") 1 0))"), """='Q1 Data'!B3"""
+    CheckV "offset: a twin", _
+        ExpandTrimmed("(formula-expand (offset-expand (last Stay!C2) 1 1))"), """=Stay.last!D3"""
+    CheckV "offset: a mark", _
+        ExpandTrimmed("(formula-expand (offset-expand (absolute Stay!C2) 1 1))"), """=Stay!$D$3"""
+    CheckV "offset: its answer a ref", _
+        ExpandTrimmed("(offset-expand Tally!B2 1 0)"), "(ref ""Tally"" ""B3"")"
+    CheckV "offset: last reads it", _
+        ExpandTrimmed("(formula-expand (last (offset-expand Stay!C2 1 1)))"), """=Stay.last!D3"""
+    CheckV "offset: a mark reads it", _
+        ExpandTrimmed("(formula-expand (absolute-column (offset-expand Stay!C2 0 -1)))"), """=Stay!$B2"""
+    CheckV "offset: the walk's forms read it", _
+        ExpandTrimmed("(cell (sheet-expand (offset-expand Tally!B2 1 0)) (range-expand (offset-expand Tally!B2 1 0)) (first-cell-expand (offset-expand Tally!B2:C3 1 0)))"), "(cell ""Tally"" ""B3"" ""B3"")"
+    CheckV "offset: a define's word for a reference", _
+        ExpandTrimmed("(define stop State!B12) (formula-expand (offset-expand stop 1 0))"), "(begin)" & vbCrLf & """=State!B13"""
+    CheckV "offset: a define's word for a number", _
+        ExpandTrimmed("(define rows 2) (formula-expand (offset-expand Tally!B2 rows 0))"), "(begin)" & vbCrLf & """=Tally!B4"""
+    CheckV "offset: a macro's call for a number", _
+        ExpandTrimmed("(defmacro (one-down) 1) (formula-expand (offset-expand Tally!B2 (one-down) 0))"), """=Tally!B3"""
+    CheckV "offset: a template's arithmetic", _
+        ExpandTrimmed(aroundMacro & "(formula-expand (around Screen!C3 2))"), """=Screen!A1:E5"""
+    CheckV "offset: a statement a macro set aside before it", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) (offset-expand Tally!B2 1 0)) (m)"), "(begin (debug-print 1) (ref ""Tally"" ""B3""))"
+    CheckV "offset: to the sheet's last cell", _
+        ExpandTrimmed("(formula-expand (offset-expand Tally!A1 1048575 16383))"), """=Tally!XFD1048576"""
+    CheckV "offset: past the top, by its text", _
+        ExpandTrimmed("(offset-expand Tally!B2 -2 0)"), "refused: offset-expand: a row is a whole number from 1 to 1048576, got '0'"
+    CheckV "offset: past the left, by its text", _
+        ExpandTrimmed("(offset-expand Tally!B2 0 -2)"), "refused: offset-expand: a column is a whole number from 1 to 16384, got '0'"
+    CheckV "offset: a size past the bottom, by its text", _
+        ExpandTrimmed("(offset-expand Tally!A1048576 0 0 2 1)"), "refused: offset-expand: a row is a whole number from 1 to 1048576, got '1048577'"
+    CheckV "offset: a size past any sheet, by its text", _
+        ExpandTrimmed("(offset-expand Tally!A1 0 0 99999999999999999999999 1)"), "refused: offset-expand: a row is a whole number from 1 to 1048576, got '1E+23'"
+    CheckSelfRefused "offset: a row before a column", _
+        "(offset-expand Tally!B2 -9 -9)", "vla-address-expand-row"
+    CheckSelfRefused "offset: a whole column", _
+        "(offset-expand Tally!A:A 0 1)", "vla-reference-whole-line"
+    CheckSelfRefused "offset: a whole row", _
+        "(offset-expand Tally!3:3 1 0)", "vla-reference-whole-line"
+    CheckV "offset: too few arguments, by its text", _
+        ExpandTrimmed("(offset-expand Tally!B2 1)"), "refused: offset-expand: write (offset-expand reference rows columns), or (offset-expand reference rows columns height width) - got 2 argument(s)"
+    CheckSelfRefused "offset: a height alone", _
+        "(offset-expand Tally!B2 1 1 2)", "vla-offset-expand-arity"
+    CheckSelfRefused "offset: a text for a number", _
+        "(offset-expand Tally!B2 ""1"" 0)", "vla-arith-expand-not-number-value"
+    CheckSelfRefused "offset: a word for a number", _
+        "(offset-expand Tally!B2 rows 0)", "vla-arith-expand-not-number-value"
+    CheckSelfRefused "offset: a fraction", _
+        "(offset-expand Tally!B2 1.5 0)", "vla-arith-expand-not-whole"
+    CheckSelfRefused "offset: a list for a number", _
+        "(offset-expand Tally!B2 (+ 1 1) 0)", "vla-arith-expand-not-number-list"
+    CheckV "offset: a size of zero, by its text", _
+        ExpandTrimmed("(offset-expand Tally!B2 0 0 0 1)"), "refused: offset-expand: a height and a width are whole numbers from 1, got '0'"
+    CheckSelfRefused "offset: a name", _
+        "(offset-expand stop 1 0)", "vla-reference-expected"
+    CheckSelfRefused "offset: a text", _
+        "(offset-expand ""B2"" 1 0)", "vla-reference-expected"
+    CheckSelfRefused "offset: its numbers before its reference", _
+        "(offset-expand ""B2"" ""x"" 0)", "vla-arith-expand-not-number-value"
+    CheckSelfRefused "offset: a whole line before a size", _
+        "(offset-expand Tally!A:A 0 0 0 0)", "vla-reference-whole-line"
+    CheckSelfRefused "offset: a size before a corner", _
+        "(offset-expand Tally!B2 -9 0 0 1)", "vla-offset-expand-size"
+
+    ' --- the extent: the body to its fixpoint inside, an inner binding hiding the outer.
+    CheckV "extent: an inner hides the outer, which stands again", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (formula-expand (last self)) (bind-expand ((self C!D4)) (formula-expand (last self))) (formula-expand (last self)))"), "(begin ""=A.last!B2"" ""=C.last!D4"" ""=A.last!B2"")"
+    CheckV "extent: a value reads the outer", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (bind-expand ((self (offset-expand self 1 0))) (formula-expand (last self))))"), """=A.last!B3"""
+    CheckV "extent: a walk's siblings", _
+        ExpandTrimmed(ruleMacro & rulesMacro & "(rules ""S"" (""B1"" (last self)) (""B2"" (last self)) (""B3"" self))"), "(begin" & vbCrLf & "    (formula ""S"" ""B1"" ""=S.last!B1"")" & vbCrLf & "    (formula ""S"" ""B2"" ""=S.last!B2"")" & vbCrLf & "    (formula ""S"" ""B3"" ""=S!B3"")" & vbCrLf & "    (begin))"
+    CheckV "extent: on's siblings", _
+        ExpandTrimmed(ruleMacro & onMacro & "(on ""S"" (rule ""B1"" (last self)) (rule ""B2"" (last self)))"), "(begin (formula ""S"" ""B1"" ""=S.last!B1"") (formula ""S"" ""B2"" ""=S.last!B2"") (begin))"
+    CheckV "extent: a loop's siblings", _
+        ExpandTrimmed(ruleMacro & "(each (at (quote (""B1"" ""B2""))) (rule ""S"" at (last self)))"), "(begin (formula ""S"" ""B1"" ""=S.last!B1"") (formula ""S"" ""B2"" ""=S.last!B2""))"
+    CheckV "extent: a loop in a body", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (each (n (quote (1 2))) (formula-expand (+ (last self) n))))"), "(begin ""=A.last!B2+1"" ""=A.last!B2+2"")"
+    CheckV "extent: a loop among a body's forms", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (cell ""A"" ""A1"" 1) (each (n (quote (1 2))) (cell ""A"" (range-expand self) n)))"), "(begin (cell ""A"" ""A1"" 1) (begin (cell ""A"" ""B2"" 1) (cell ""A"" ""B2"" 2)))"
+    CheckV "extent: a macro-made begin as a body keeps its forms inside", _
+        ExpandTrimmed("(defmacro (two) (debug-print (formula-expand (last self))) (formula-expand (+ (last self) 1))) (bind-expand ((self A!B2)) (two))"), "(begin (debug-print ""=A.last!B2"") ""=A.last!B2+1"")"
+    CheckV "extent: a statement set aside before a binding", _
+        ExpandTrimmed("(defmacro (m) (debug-print 1) (bind-expand ((self A!B2)) (formula-expand (last self)))) (m)"), "(begin (debug-print 1) ""=A.last!B2"")"
+    CheckV "extent: a form set aside around a binding reads the outer", _
+        ExpandTrimmed("(defmacro (m) (formula-expand (last self)) (bind-expand ((self C!D4)) (formula-expand (last self)))) (bind-expand ((self A!B2)) (m))"), "(begin ""=A.last!B2"" ""=C.last!D4"")"
+    CheckSelfRefused "extent: and at no outer is free", _
+        "(defmacro (m) (formula-expand (last self)) (bind-expand ((self C!D4)) (formula-expand (last self)))) (m)", "vla-self-free"
+    CheckV "extent: a define's form read at each use", _
+        ExpandTrimmed("(define me self) (bind-expand ((self A!B2)) (formula-expand (last me))) (bind-expand ((self C!D4)) (formula-expand (last me)))"), "(begin)" & vbCrLf & """=A.last!B2""" & vbCrLf & """=C.last!D4"""
+    CheckV "extent: a rule by name reads where it stands", _
+        ExpandTrimmed("(define neighbors-last (last (offset-expand self -1 -1 3 3))) (bind-expand ((self Screen!B2)) (formula-expand (sum neighbors-last))) (bind-expand ((self Screen!C3)) (formula-expand (sum neighbors-last)))"), "(begin)" & vbCrLf & """=SUM(Screen.last!A1:C3)""" & vbCrLf & """=SUM(Screen.last!B2:D4)"""
+    CheckSelfRefused "extent: a define's self at no binding", _
+        "(define me self) (formula-expand (last me))", "vla-self-free"
+    CheckV "extent: a define in a body binds the forms after", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (define me self)) (bind-expand ((self C!D4)) (formula-expand (last me)))"), "(begin)" & vbCrLf & """=C.last!D4"""
+    CheckSelfRefused "extent: a define in a formula's binding", _
+        "(formula-expand (bind-expand ((self A!B2)) (define me self)))", "vla-define-not-a-statement"
+    CheckV "extent: a piece's default reads where the call stands", _
+        ExpandTrimmed("(defmacro (twin-of (at self)) (last at)) (bind-expand ((self A!B2)) (formula-expand (twin-of)))"), """=A.last!B2"""
+    CheckV "extent: the piece given", _
+        ExpandTrimmed("(defmacro (twin-of (at self)) (last at)) (bind-expand ((self A!B2)) (formula-expand (twin-of (at Tally!B1))))"), """=Tally.last!B1"""
+    CheckSelfRefused "extent: the default at no binding", _
+        "(defmacro (twin-of (at self)) (last at)) (formula-expand (twin-of))", "vla-self-free"
+    CheckV "extent: a parameter holding the word", _
+        ExpandTrimmed(aboveMacro & "(bind-expand ((self A!B2)) (formula-expand (above self)))"), """=A!B1"""
+    CheckV "extent: one macro, two bindings", _
+        ExpandTrimmed(twinMacro & "(bind-expand ((self A!B2)) (formula-expand (twin))) (bind-expand ((self C!D4)) (formula-expand (twin)))"), """=A.last!B2""" & vbCrLf & """=C.last!D4"""
+    CheckV "extent: self moved down a row at each level", _
+        ExpandTrimmed("(defmacro (down n) (quote-if (=expand n 0) (formula-expand (last self)) (bind-expand ((self (offset-expand self 1 0))) (down (-expand n 1))))) (bind-expand ((self A!B2)) (down 20))"), """=A.last!B22"""
+
+    ' --- a free word: refused where it would be read, and nowhere else.
+    CheckSelfRefused "free: in a formula", _
+        "(formula-expand (last self))", "vla-self-free"
+    CheckSelfRefused "free: bare in a formula", _
+        "(formula-expand (+ self 1))", "vla-self-free"
+    CheckSelfRefused "free: a function's argument", _
+        "(formula-expand (sum self 1))", "vla-self-free"
+    CheckSelfRefused "free: a macro's result", _
+        twinMacro & "(formula-expand (twin))", "vla-self-free"
+    CheckSelfRefused "free: a lambda's parameter, used", _
+        "(formula-expand (lambda (self) (+ self 1)))", "vla-self-free"
+    CheckSelfRefused "free: the sheet part", _
+        "(sheet-expand self)", "vla-self-free"
+    CheckSelfRefused "free: the range part", _
+        "(range-expand self)", "vla-self-free"
+    CheckSelfRefused "free: the range part through last", _
+        "(range-expand (last self))", "vla-self-free"
+    CheckSelfRefused "free: the first cell", _
+        "(first-cell-expand self)", "vla-self-free"
+    CheckSelfRefused "free: offset", _
+        "(offset-expand self 1 0)", "vla-self-free"
+    CheckSelfRefused "free: a binding that reads itself", _
+        "(bind-expand ((self self)) (formula-expand (last self)))", "vla-self-free"
+    CheckSelfRefused "free: a standalone branch goes unread in a binding", _
+        "(bind-expand ((self A!B2)) (formula-expand (quote-if (null? (quote ())) self 1)))", "vla-self-free"
+    CheckSelfRefused "free: a standalone branch's head goes unread", _
+        "(bind-expand ((self A!B2)) (formula-expand (quote-if (null? (quote ())) (last self) 1)))", "vla-self-free"
+    CheckSelfRefused "free: a standalone branch at no binding", _
+        "(formula-expand (quote-if (null? (quote ())) self 1))", "vla-self-free"
+    CheckV "free: a template's branch is expanded and reads it", _
+        ExpandTrimmed("(defmacro (m) (quote-if (null? (quote ())) (last self) 1)) (bind-expand ((self A!B2)) (formula-expand (m)))"), """=A.last!B2"""
+    CheckV "free: its text", _
+        ExpandTrimmed("(formula-expand self)"), "refused: self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row"
+    CheckV "free: a statement keeps the word", _
+        ExpandTrimmed("(set! self 1)"), "(set! self 1)"
+    CheckV "free: a procedure keeps the word", _
+        ExpandTrimmed("(sub main () (dim self) (set! self 1) (debug-print self))"), "(sub main () (dim self) (set! self 1) (debug-print self))"
+    CheckV "free: a row's field keeps the word", _
+        ExpandTrimmed("(cell ""S"" ""A1"" self)"), "(cell ""S"" ""A1"" self)"
+    CheckV "free: ref writes a name", _
+        ExpandTrimmed("(formula-expand (ref ""self""))"), """=self"""
+
+    ' --- one meaning: the table, and a parameter that hides the word.
+    CheckSelfRefused "reserved: a define of the word", _
+        "(define self A!B1)", "vla-define-name-reserved"
+    CheckSelfRefused "reserved: a define of bind-expand", _
+        "(define bind-expand A!B1)", "vla-define-name-reserved"
+    CheckSelfRefused "reserved: a define of offset-expand", _
+        "(define offset-expand A!B1)", "vla-define-name-reserved"
+    CheckV "reserved: a macro of the word, by its text", _
+        ExpandTrimmed("(defmacro (self) 1)"), "refused: defmacro 'self': 'self' is the place a verb writes and cannot be a macro name"
+    CheckSelfRefused "reserved: a macro of bind-expand", _
+        "(defmacro (bind-expand) 1)", "vla-defmacro-reserved-name"
+    CheckSelfRefused "reserved: a macro of offset-expand", _
+        "(defmacro (offset-expand) 1)", "vla-defmacro-reserved-name"
+    CheckSelfRefused "reserved: a loop's name", _
+        "(each (self (quote (1 2))) (debug-print self))", "vla-each-name-reserved"
+    CheckSelfRefused "reserved: a counting loop's index", _
+        "(each-index (self word (quote (a b)) 1) (debug-print word))", "vla-each-name-reserved"
+    CheckSelfRefused "reserved: a piece's word", _
+        "(defmacro (m (self A!B1)) (last self)) (m)", "vla-defmacro-piece-reserved"
+    CheckV "reserved: a parameter hides the word", _
+        ExpandTrimmed("(defmacro (m self) (formula-expand (last self))) (m Tally!B1)"), """=Tally.last!B1"""
+    CheckV "reserved: and hides a binding", _
+        ExpandTrimmed("(defmacro (m self) (formula-expand (last self))) (bind-expand ((self A!B2)) (m Tally!B1))"), """=Tally.last!B1"""
+    CheckV "reserved: a rest hides it", _
+        ExpandTrimmed("(defmacro (m & self) (f self)) (m 1 2)"), "(f 1 2)"
+    CheckSelfRefused "reserved: and takes a binding's word in its template", _
+        "(defmacro (m self) (bind-expand ((self self)) (formula-expand (last self)))) (m Tally!B1)", "vla-bind-expand-word"
+
+    ' --- a primitive that reads a word's text, and the ones that carry it as data.
+    CheckV "primitive: &expand, by its text", _
+        ExpandTrimmed("(&expand ""x"" self)"), "refused: &expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address"
+    CheckSelfRefused "primitive: characters-expand", _
+        "(characters-expand self)", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: row-expand", _
+        "(row-expand self)", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: column-expand", _
+        "(column-expand self)", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: symbol", _
+        "(symbol self ""x"")", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: in a template, bound", _
+        "(defmacro (row-of at) (row-expand at)) (bind-expand ((self A!B2)) (formula-expand (row-of self)))", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: in any case", _
+        "(row-expand SELF)", "vla-self-in-a-primitive"
+    CheckSelfRefused "primitive: quoted", _
+        "(&expand (quote self))", "vla-self-in-a-primitive"
+    CheckV "primitive: a text so spelled", _
+        ExpandTrimmed("(&expand ""self"")"), """self"""
+    CheckV "primitive: a word fused from a text so spelled", _
+        ExpandTrimmed("(symbol ""self"" ""-x"")"), "self-x"
+    CheckV "primitive: data carried", _
+        ExpandTrimmed("(car (quote (self 1))) (list? self) (cons self (quote (a))) (eq? self (quote self)) (equal? (quote (self)) (list self))"), "self" & vbCrLf & "false" & vbCrLf & "(self a)" & vbCrLf & "true" & vbCrLf & "true"
+
+    ' --- a binding's shape, its word and its value, in one order.
+    CheckV "shape: no form, by its text", _
+        ExpandTrimmed("(bind-expand ((self A!B2)))"), "refused: bind-expand: write (bind-expand ((self reference)) form ...), one binding and at least one form after it - got (bind-expand ((self A!B2)))"
+    CheckSelfRefused "shape: an atom", _
+        "(bind-expand self (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: no binding", _
+        "(bind-expand () (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: an entry that is an atom", _
+        "(bind-expand (self) (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: an entry of one form", _
+        "(bind-expand ((self)) (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: an entry of three forms", _
+        "(bind-expand ((self A!B2 A!B3)) (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: a text for a word", _
+        "(bind-expand ((""self"" A!B2)) (formula-expand 1))", "vla-bind-expand-shape"
+    CheckSelfRefused "shape: a list for a word", _
+        "(bind-expand (((self) A!B2)) (formula-expand 1))", "vla-bind-expand-shape"
+    CheckV "word: another word, by its text", _
+        ExpandTrimmed("(bind-expand ((stop A!B2)) (formula-expand (last stop)))"), "refused: bind-expand: 'stop' is no word it binds - it binds self alone, and a define gives any other word its form"
+    CheckSelfRefused "shape: two places", _
+        "(bind-expand ((self A!B2) (self C!D4)) (formula-expand (last self)))", "vla-bind-expand-shape"
+    CheckSelfRefused "word: before the count", _
+        "(bind-expand ((self A!B2) (stop C!D4)) (formula-expand (last self)))", "vla-bind-expand-word"
+    CheckV "value: a range, by its text", _
+        ExpandTrimmed("(bind-expand ((self A!B2:C3)) (formula-expand (last self)))"), "refused: bind-expand: self is one cell on a sheet, and 'A!B2:C3' is a range - a fill binds its first cell, (first-cell-expand reference)"
+    CheckV "value: a whole column, by its text", _
+        ExpandTrimmed("(bind-expand ((self A!B:B)) (formula-expand (last self)))"), "refused: bind-expand: self is one cell on a sheet, and 'A!B:B' is a whole column - a fill binds its first cell, (first-cell-expand reference)"
+    CheckV "value: a whole row, by its text", _
+        ExpandTrimmed("(bind-expand ((self A!3:3)) (formula-expand (last self)))"), "refused: bind-expand: self is one cell on a sheet, and 'A!3:3' is a whole row - a fill binds its first cell, (first-cell-expand reference)"
+    CheckSelfRefused "value: no sheet", _
+        "(bind-expand ((self B2)) (formula-expand (last self)))", "vla-reference-no-sheet"
+    CheckSelfRefused "value: a text", _
+        "(bind-expand ((self ""B2"")) (formula-expand (last self)))", "vla-reference-expected"
+    CheckSelfRefused "value: a name", _
+        "(bind-expand ((self stop)) (formula-expand (last stop)))", "vla-reference-expected"
+    CheckSelfRefused "value: a span", _
+        "(bind-expand ((self Jan:Dec!A1)) (formula-expand 1))", "vla-reference-expected"
+    CheckSelfRefused "value: before its body", _
+        "(bind-expand ((self (range-expand ""x""))) (formula-expand (no-such-function-name 1)))", "vla-reference-expected"
+    CheckSelfRefused "value: a binding that never ends stops at the depth", _
+        "(defmacro (forever) (bind-expand ((self A!B2)) (forever))) (forever)", "vla-form-too-deep"
+
+    ' --- the stepper: each form of the walk stands at a spent budget (found while scoping).
+    CheckV "stepper: formula-expand stands, a macro unfired", _
+        SelfStepFrame("(defmacro (my-m) (+ 1 2)) (formula-expand (my-m))", 0), "(formula-expand (my-m))"
+    CheckV "stepper: a part stands", _
+        SelfStepFrame("(defmacro (m) Sheet1!B2) (range-expand (m))", 0), "(range-expand (m))"
+    CheckV "stepper: the first cell stands", _
+        SelfStepFrame("(defmacro (m) Sheet1!B2:C3) (first-cell-expand (m))", 0), "(first-cell-expand (m))"
+    CheckV "stepper: offset stands", _
+        SelfStepFrame("(defmacro (m) 1) (offset-expand A!B2 (m) 0)", 0), "(offset-expand A!B2 (m) 0)"
+    CheckV "stepper: a binding stands, a macro in its value", _
+        SelfStepFrame("(defmacro (m) A!B2) (bind-expand ((self (m))) (formula-expand (last self)))", 0), "(bind-expand ((self (m))) (formula-expand (last self)))"
+    CheckV "stepper: a verb's first frame", _
+        SelfStepFrame(ruleMacro & runningMacro & "(rule ""Tally"" ""B1"" (running Input!B1))", 0), "(rule ""Tally"" ""B1"" (running Input!B1))"
+    CheckV "stepper: its second", _
+        SelfStepFrame(ruleMacro & runningMacro & "(rule ""Tally"" ""B1"" (running Input!B1))", 1), "(bind-expand" & vbCrLf & "    ((self (ref ""Tally"" (first-cell-expand (ref ""Tally"" ""B1"")))))" & vbCrLf & "    (formula ""Tally"" ""B1"" (formula-expand (running Input!B1))))"
+    CheckV "stepper: a read inside a macro left unfired", _
+        SelfStepFrame("(defmacro (a) 1) (defmacro (m x) x) (bind-expand ((self A!B2)) (formula-expand (+ (a) (m self))))", 1), "(formula-expand (+ 1 (m A!B2)))"
+    CheckV "stepper: a binding reached after the last application stands whole", _
+        SelfStepFrame("(defmacro (m x) x) (defmacro (n) (bind-expand ((self A!B2)) (formula-expand (m self)))) (n)", 1), "(bind-expand ((self A!B2)) (formula-expand (m self)))"
+
+    ' --- one pass: the form walked as a list, and no word replaced.
+    CheckV "one pass: a binding walked as a list", _
+        OnePassRecord("(defmacro (m) (last self)) (bind-expand ((self (m))) (formula-expand (m)))"), "2: (bind-expand ((self (last self))) (formula-expand (last self)))"
+
+    ' --- the wall's condition: a refusal leaves no place bound, and the next form
+    ' reads none, each read before the next expansion's own reset.
+    CheckSelfRefused "depth: a refusal in a body", _
+        "(bind-expand ((self A!B2)) (formula-expand (no-such-function-name 1)))", "vla-formula-head-not-a-function"
+    CheckV "depth: and formula-expand is not left open", ExpandTrimmed("(formula-expand 1)"), """=1"""
+    CheckSelfRefused "depth: and the next form reads no stale place", _
+        "(formula-expand (last self))", "vla-self-free"
+    CheckSelfRefused "depth: a refusal in a body's second form", _
+        "(bind-expand ((self A!B2)) (cell ""A"" ""A1"" 1) (range-expand ""x""))", "vla-reference-expected"
+    CheckSelfRefused "depth: two bindings deep", _
+        "(bind-expand ((self A!B2)) (bind-expand ((self C!D4)) (row-expand self)))", "vla-self-in-a-primitive"
+    CheckSelfRefused "depth: a third binding's value, with two open", _
+        "(bind-expand ((self A!B2)) (bind-expand ((self C!D4)) (bind-expand ((self B7)) 1)))", "vla-reference-no-sheet"
+    CheckSelfRefused "depth: a verb inside a verb, a binding open in a formula", _
+        ruleMacro & "(rule ""S"" ""B1"" (rule ""S"" ""B2"" 1))", "vla-formula-expand-nested"
+    CheckSelfRefused "depth: a set-aside form refused after an inner pop", _
+        "(defmacro (m) (range-expand ""x"") (bind-expand ((self C!D4)) 1)) (bind-expand ((self A!B2)) (m))", "vla-reference-expected"
+    CheckV "depth: and on the way out that succeeds", _
+        ExpandTrimmed("(bind-expand ((self A!B2)) (bind-expand ((self C!D4)) 1))") & " at depth " & VlaSelfDepth(), "1 at depth 0"
+
+    ' --- LISTOPS-CONFLUENCE, as TestListopsConfluence proves it: two independent
+    ' 50-deep chains brought together as siblings by one macro, each ending in self
+    ' under its own binding, in either order; and a value threaded through one chain
+    ' that hands off into a second, its binding and its value arriving uncorrupted.
+    Dim i As Long, chainLen As Long
+    chainLen = 50
+    Dim chains As String
+    For i = 0 To chainLen - 2
+        chains = chains & "(defmacro (stepC" & i & ") (stepC" & (i + 1) & ")) "
+        chains = chains & "(defmacro (stepD" & i & ") (stepD" & (i + 1) & ")) "
+    Next
+    chains = chains & "(defmacro (stepC" & (chainLen - 1) & ") (formula-expand (last self))) "
+    chains = chains & "(defmacro (stepD" & (chainLen - 1) & ") (formula-expand (last self))) "
+    chains = chains & bothMacro
+    Dim boundC As String, boundD As String
+    boundC = "(bind-expand ((self A!B2)) (stepC0))"
+    boundD = "(bind-expand ((self C!D4)) (stepD0))"
+    CheckV "confluence: two 50-deep chains as siblings, each its own place", _
+        ExpandTrimmed(chains & "(both " & boundC & " " & boundD & ")"), "(begin ""=A.last!B2"" ""=C.last!D4"")"
+    CheckV "confluence: swapping the siblings swaps the rows, cleanly", _
+        ExpandTrimmed(chains & "(both " & boundD & " " & boundC & ")"), "(begin ""=C.last!D4"" ""=A.last!B2"")"
+    Dim halfLen As Long
+    halfLen = 25
+    Dim handing As String
+    For i = 0 To halfLen - 2
+        handing = handing & "(defmacro (stepA" & i & " tag) (stepA" & (i + 1) & " tag)) "
+        handing = handing & "(defmacro (stepB" & i & " tag) (stepB" & (i + 1) & " tag)) "
+    Next
+    handing = handing & "(defmacro (stepA" & (halfLen - 1) & " tag) (stepB0 tag)) "
+    handing = handing & "(defmacro (stepB" & (halfLen - 1) & " tag) (f tag (formula-expand (last self)))) "
+    CheckV "confluence: a recursive verb handing off into another keeps its binding and its value", _
+        ExpandTrimmed(handing & "(bind-expand ((self A!B2)) (stepA0 ""PAYLOAD""))"), "(f ""PAYLOAD"" ""=A.last!B2"")"
+End Sub
+
+' VLA.10: a pin of a refusal by its id, and of the wall's one condition: the stack
+' empty at the refusal's exit, read before the next expansion's own reset.
+Private Sub CheckSelfRefused(ByVal name As String, ByVal source As String, ByVal wantId As String)
+    Dim gotId As String
+    gotId = ExpandRefusalId(source)
+    CheckV name, gotId & " at depth " & VlaSelfDepth(), wantId & " at depth 0"
+End Sub
+
+' VLA.10: one frame of the stepper, its last break dropped, or "refused: " and the
+' refusal's text, so that a frame the walk refuses fails its pin and not the suite.
+Private Function SelfStepFrame(ByVal source As String, ByVal stepN As Long) As String
+    Dim total As Long
+    Dim t As String, d As String
+    On Error GoTo refused
+    t = VlaExpandStepText(source, stepN, total)
+    If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
+    SelfStepFrame = t
+    Exit Function
+refused:
+    d = Err.Description
+    On Error GoTo 0
+    SelfStepFrame = "refused: " & d
+End Function
 
 ' VLA.9: one pass under the prelude: the applications fired and the text, its
 ' last break dropped, or "refused: " and the refusal's text.

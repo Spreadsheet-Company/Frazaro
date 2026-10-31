@@ -294,6 +294,8 @@ const PROGRAMS: &[&str] = &[
     // VLA.9: a macro's named pieces, a default leaning on an earlier one, one
     // call in two orders, a call a template writes and a default a macro's.
     "(defmacro (rule range (sheet \"Screen\") (top 1) (bottom (+expand top 9)) (text (home))) (formula sheet range (&expand text bottom))) (defmacro (home) \"=\") (rule \"A1\") (rule \"A1\" (bottom 2) (sheet \"S\")) (rule \"A1\" (sheet \"S\") (bottom 2)) (defmacro (t x) (rule x (top 3))) (t \"B2\")",
+    // VLA.10: a verb binding its place, a word over it, and a rule over both.
+    "(defmacro (rule sheet range e) (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range))))) (formula sheet range (formula-expand e)))) (defmacro (around at r) (offset-expand at (-expand 0 r) (-expand 0 r) (+expand (*expand r 2) 1) (+expand (*expand r 2) 1))) (rule \"S\" \"B2:K11\" (- (sum (last (around self 1))) (last self)))",
 ];
 
 /// The rows a write is made of before they are mutated.
@@ -493,6 +495,100 @@ fn the_named_strangers() {
             ),
         ),
     ];
+    // VLA.10: a malformed binding refused by name, one nested or never ending
+    // stopped at the walk's limit, and a number past any sheet refused, never
+    // overflowed.
+    cases.extend([
+        (
+            Door::Expand,
+            "a binding alone".to_string(),
+            "(bind-expand)".to_string(),
+        ),
+        (
+            Door::Expand,
+            "a binding of an atom".into(),
+            "(bind-expand self)".into(),
+        ),
+        (
+            Door::Expand,
+            "a binding with no form".into(),
+            "(bind-expand ((self A!B2)))".into(),
+        ),
+        (
+            Door::Expand,
+            "a binding of no cell".into(),
+            "(bind-expand ((self A:A)) self)".into(),
+        ),
+        (
+            Door::Expand,
+            "bindings nested past the limit".into(),
+            format!(
+                "{}1{}",
+                "(bind-expand ((self A!B2)) ".repeat(70),
+                ")".repeat(70)
+            ),
+        ),
+        (
+            Door::Expand,
+            "a binding around its own call".into(),
+            "(defmacro (forever) (bind-expand ((self A!B2)) (forever))) (forever)".into(),
+        ),
+        (
+            Door::Expand,
+            "a binding whose value calls itself".into(),
+            "(defmacro (spin) (bind-expand ((self (spin))) 1)) (spin)".into(),
+        ),
+        (
+            Door::Expand,
+            "a body of a hundred thousand forms".into(),
+            format!(
+                "(bind-expand ((self A!B2)) {})",
+                "(last self) ".repeat(100_000)
+            ),
+        ),
+        (
+            Door::Expand,
+            "a hundred thousand reads of the word".into(),
+            format!(
+                "(bind-expand ((self A!B2)) (f {}))",
+                "self ".repeat(100_000)
+            ),
+        ),
+        (
+            Door::Expand,
+            "a free word deep in a formula".into(),
+            format!(
+                "(formula-expand {}self{})",
+                "(f ".repeat(60),
+                ")".repeat(60)
+            ),
+        ),
+        (
+            Door::Expand,
+            "an offset alone".into(),
+            "(offset-expand)".into(),
+        ),
+        (
+            Door::Expand,
+            "offsets nested past the limit".into(),
+            format!("{}A!B2{}", "(offset-expand ".repeat(70), " 1 0)".repeat(70)),
+        ),
+        (
+            Door::Expand,
+            "an offset past every sheet".into(),
+            "(offset-expand A!B2 99999999999999999999999 0)".into(),
+        ),
+        (
+            Door::Expand,
+            "a size past every sheet".into(),
+            "(offset-expand A!B2 0 0 99999999999999999999999 99999999999999999999999)".into(),
+        ),
+        (
+            Door::Expand,
+            "a size past the sheet's last row from its last row".into(),
+            "(offset-expand A!A1048576 0 0 4294967296 1)".into(),
+        ),
+    ]);
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/strangers");
     let mut kept: Vec<_> = std::fs::read_dir(dir)
         .expect("testdata/strangers")

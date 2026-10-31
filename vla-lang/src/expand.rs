@@ -15,7 +15,15 @@
 //! define's form where its word stands as an expression; with a reference's
 //! two parts, `sheet-expand` and `range-expand`, forms of the walk beside
 //! `formula-expand` (`ExpandReferencePart`), and since VLA.15 its first
-//! cell, `first-cell-expand`, the third.
+//! cell, `first-cell-expand`, the third. And, since VLA.10, the place a verb
+//! writes: `(bind-expand ((self reference)) form ...)` binds the word `self`
+//! to one cell on a sheet for every form the walk meets in its body
+//! (`ExpandBindCall`), and the walk alone reads the word, where it stands as
+//! an expression, as a define's word is; `substitute` does not change, so a
+//! macro's result is still a function of its template and its arguments. With
+//! it `offset-expand`, Excel's `OFFSET` at expand time, a reference moved, a
+//! form of the walk (`ExpandOffsetCall`), so that the words over `self` read
+//! any reference.
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -144,6 +152,11 @@ const RESERVED: &[(&str, &str)] = &[
     // VLA.15: a word told from a list, and a reference's first cell.
     ("list?", "list-test primitive"),
     ("first-cell-expand", "expand-time reference-first-cell operation"),
+    // VLA.10: the word the walk reads, the form that binds it, and a reference
+    // moved.
+    ("self", "place a verb writes"),
+    ("bind-expand", "expand-time place-binding form"),
+    ("offset-expand", "expand-time reference-moving operation"),
 ];
 
 /// The twenty-nine LISTOPS primitives `Substitute` and `ExpandMacros` both
@@ -464,6 +477,11 @@ pub struct Expander {
     /// VLA.6, `mFormulaTexts`: the texts formula-expand wrote in that form,
     /// read for a word used in the form that defines it.
     formula_texts: Vec<String>,
+    /// VLA.10, `mSelfStack`: the places `bind-expand` holds open, innermost
+    /// last, each a form the walk has finished with. Empty at every entry and
+    /// exit of [`Expander::expand`], a refusal's exit among them, since each
+    /// is popped before the `?` that would leave it.
+    self_stack: Vec<Node>,
 }
 
 /// The most forms one macro application's result may hold (VLA.1), counted
@@ -652,6 +670,20 @@ impl Expander {
                         continue;
                     }
                 }
+                // VLA.10: the word self inside a binding, the place it holds
+                // put where the word stands and looked at again, one link of
+                // the chain, as a define's word is. With no binding open the
+                // word stays the word it is in a program.
+                if is_self_word(s) {
+                    if let Some(v) = self.self_stack.last() {
+                        chain_len += 1;
+                        if chain_len > 5000 {
+                            return Err(raise("vla-macro-self-expansion-limit", &[]));
+                        }
+                        cur = v.clone();
+                        continue;
+                    }
+                }
             }
             let Node::List(lst) = &cur else {
                 // VLA.5: an atom with forms set aside before it is the last
@@ -704,6 +736,16 @@ impl Expander {
             if head_fold == "first-cell-expand" {
                 let part = self.reference_part(&head_fold, items, depth, walk)?;
                 return self.finish(&pending_head, part, depth, walk);
+            }
+            // VLA.10: a place bound for the forms of its body, and a reference
+            // moved, forms of the walk.
+            if head_fold == "bind-expand" {
+                let body = self.bind_expand(items, depth, walk)?;
+                return self.finish(&pending_head, body, depth, walk);
+            }
+            if head_fold == "offset-expand" {
+                let moved = self.offset_expand(items, depth, walk)?;
+                return self.finish(&pending_head, moved, depth, walk);
             }
             if matches!(
                 head_fold.as_str(),
@@ -881,7 +923,8 @@ impl Expander {
     /// sheet's name or its cell or range answered as a text, the two texts
     /// `ref` takes; a string, as formula-expand's is. VLA.15: and
     /// `(first-cell-expand reference)`, the third, its first cell as the
-    /// text `ref` takes (VBA `FsFirstCellText`).
+    /// text `ref` takes (VBA `FsFirstCellText`). VLA.10: at a spent budget it
+    /// stands ([`Expander::budget_spent`]).
     fn reference_part(
         &mut self,
         op: &str,
@@ -893,6 +936,9 @@ impl Expander {
             return Err(expand_arity(op, 1, items));
         }
         let read = self.expand_at(&items[1], depth, walk + 1)?;
+        if self.budget_spent() {
+            return Ok(form_of_the_walk_standing(&items[0], read));
+        }
         let r = formula_syntax::sheet_reference(&read, op)?;
         Ok(Form::Str(match op {
             "sheet-expand" => r.sheet_name,
@@ -937,7 +983,10 @@ impl Expander {
     /// its argument before writing it, so that an author's macros inside the
     /// expression fire and a macro's call is never written as a function's.
     /// One inside another's argument is refused, since its text would be a
-    /// text there and not the formula it wrote.
+    /// text there and not the formula it wrote. VLA.10: at a spent budget it
+    /// stands ([`Expander::budget_spent`]); and the word `self` left in its
+    /// expression is refused ([`holds_self`]), since the walk replaced every
+    /// one it read, so that none is written as a name.
     fn formula_expand(&mut self, items: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
         if items.len() != 2 {
             return Err(raise(
@@ -951,12 +1000,101 @@ impl Expander {
         self.formula_open = true;
         let expr = self.expand_at(&items[1], depth, walk + 1);
         self.formula_open = false;
-        let text = formula_syntax::write(&expr?)?;
+        let expr = expr?;
+        if self.budget_spent() {
+            return Ok(form_of_the_walk_standing(&items[0], expr));
+        }
+        if holds_self(&expr) {
+            return Err(raise("vla-self-free", &[]));
+        }
+        let text = formula_syntax::write(&expr)?;
         // VLA.6: kept for the form `expand` expands, so that a word a define
         // of that form binds, written here as one of Excel's names, is
         // refused (`DefinesRefuseFormulaUse`).
         self.formula_texts.push(text.clone());
         Ok(Form::Str(text))
+    }
+
+    /// L15 and VLA.10, VBA `ExpandBudgetSpent`: whether the stepper's budget
+    /// is spent. No application fires after it, so a form of the walk that
+    /// read its argument now would read a macro not yet fired, and be refused,
+    /// or write a macro's call as a function's: found while scoping VLA.10, a
+    /// verb's every frame refused since VLA.4. Each form stands instead, and
+    /// computes on a later frame or at the fixpoint.
+    fn budget_spent(&self) -> bool {
+        self.budget_on && self.expand_fired >= self.expand_budget
+    }
+
+    /// VLA.10, VBA `ExpandBindCall`: `(bind-expand ((self reference)) form
+    /// ...)`, the place a verb writes, bound for every form the walk meets in
+    /// its body. One order, so that the first fault a form holds is the one
+    /// named: its shape and its word ([`bind_value`]); its value, expanded to
+    /// its fixpoint under the binding outside it, `let`'s rule, so that no read
+    /// can loop; at a spent budget the form stands ([`bind_standing`]); its
+    /// value read as one cell on a sheet ([`formula_syntax::bound_cell`]). Then
+    /// the body to its fixpoint inside the binding, and never handed back to
+    /// the trampoline, whose set-aside forms would expand after the pop. The
+    /// stack is restored before the `?` that would leave it, on every way out.
+    fn bind_expand(&mut self, items: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
+        let value = bind_value(items)?;
+        let bound = self.expand_at(value, depth, walk + 1)?;
+        if self.budget_spent() {
+            return Ok(bind_standing(items, bound));
+        }
+        formula_syntax::bound_cell(&bound)?;
+        self.self_stack.push(Node::of(&bound));
+        let body = self.bind_body(&items[2..], depth, walk);
+        self.self_stack.pop();
+        body
+    }
+
+    /// VLA.10, VBA `ExpandBindBody`: a binding's body, each form to its
+    /// fixpoint in written order: one form its own result, and several one
+    /// `begin` with no line, as a template's several forms are. A chain inside
+    /// a form sets its own forms aside and expands them before
+    /// [`Expander::expand_at`] returns, so all of it stands inside the binding.
+    fn bind_body(&mut self, forms: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
+        if let [one] = forms {
+            return self.expand_at(one, depth, walk + 1);
+        }
+        let mut out = Vec::with_capacity(forms.len() + 1);
+        out.push(Form::sym("begin"));
+        for f in forms {
+            out.push(self.expand_at(f, depth, walk + 1)?);
+        }
+        Ok(Form::list(out))
+    }
+
+    /// VLA.10, VBA `ExpandOffsetCall`: `(offset-expand reference rows columns)`
+    /// and `(offset-expand reference rows columns height width)`, Excel's
+    /// `OFFSET` at expand time, in its argument order. One order, so that the
+    /// first fault a form holds is the one named: the count; every argument
+    /// expanded to its fixpoint, left to right, so that `self` or a define's
+    /// word is replaced first; at a spent budget the form stands; each number
+    /// through the arithmetic's gate, left to right
+    /// ([`offset_whole_number`]); and the reference moved
+    /// ([`formula_syntax::offset_form`]). No primitive, since `self` and a
+    /// define's word reach none.
+    fn offset_expand(&mut self, items: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
+        if items.len() != 4 && items.len() != 6 {
+            return Err(raise(
+                "vla-offset-expand-arity",
+                &[("n", &(items.len() - 1).to_string())],
+            ));
+        }
+        let mut read = Vec::with_capacity(items.len());
+        read.push(items[0].form());
+        for item in &items[1..] {
+            read.push(self.expand_at(item, depth, walk + 1)?);
+        }
+        if self.budget_spent() {
+            return Ok(Form::list(read));
+        }
+        let mut numbers = Vec::with_capacity(4);
+        for v in &read[2..] {
+            numbers.push(offset_whole_number(v)?);
+        }
+        formula_syntax::offset_form(&read[1], &numbers)
     }
 
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
@@ -1455,6 +1593,122 @@ fn bind_pieces<'r>(
     Ok(())
 }
 
+/// VLA.10, VBA `IsSelfWord`: whether a word is `self`, by the fold, folding
+/// nothing: `fold` maps A to Z alone, which an ASCII comparison without case
+/// is. Asked of every word the walk meets inside a binding.
+fn is_self_word(s: &str) -> bool {
+    s.eq_ignore_ascii_case("self")
+}
+
+/// VLA.10, VBA `FormOfTheWalkStanding`: a form of the walk standing at a spent
+/// budget, its head as written and its one argument as far as the budget took
+/// it.
+fn form_of_the_walk_standing(head: &Node, arg: Form) -> Form {
+    Form::list(vec![head.form(), arg])
+}
+
+/// VLA.10, VBA `FormHoldsSelf`: whether a formula's finished expression holds
+/// the word `self` where a value stands: never a list's head, whose atom is a
+/// function's name, and never inside a quote, an array's data. The walk
+/// replaced every one it read, so one left here is free, or stands in a
+/// primitive's chosen branch, which the walk does not expand (VLA.5). At most
+/// the form's own nesting.
+fn holds_self(f: &Form) -> bool {
+    match f {
+        Form::Sym(s) => is_self_word(s),
+        Form::Str(_) => false,
+        Form::List(l) => {
+            if f.head_is("quote") {
+                return false;
+            }
+            let values = match l.items.first() {
+                Some(Form::Sym(_) | Form::Str(_)) => &l.items[1..],
+                _ => &l.items[..],
+            };
+            values.iter().any(holds_self)
+        }
+    }
+}
+
+/// VLA.10, VBA `RefuseSelfText`: a primitive that reads a word's text refuses
+/// the word `self`, free or bound, since the walk alone reads it and a
+/// primitive takes its arguments as data; so a later reading there moves no
+/// source. A text so spelled is a text.
+fn refuse_self_text(op: &str, v: &Node) -> Result<(), Refusal> {
+    match v {
+        Node::Sym(s) if is_self_word(s) => Err(raise("vla-self-in-a-primitive", &[("op", op)])),
+        _ => Ok(()),
+    }
+}
+
+/// VLA.10, VBA `BindValueForm`: a binding's shape and its word, and the form it
+/// binds. A list of bindings, so that a later item can open a declared word
+/// with no source read again, each `(word form)`; every word but `self`
+/// refused by name; then one binding, and at least one form after it.
+fn bind_value(items: &[Node]) -> Result<&Node, Refusal> {
+    let shape = || {
+        raise(
+            "vla-bind-expand-shape",
+            &[("form", &write_datum(&Node::list(items.to_vec()).form()))],
+        )
+    };
+    let [_, Node::List(bindings), _, ..] = items else {
+        return Err(shape());
+    };
+    if bindings.count() == 0 {
+        return Err(shape());
+    }
+    for binding in bindings.items() {
+        let Node::List(binding) = binding else {
+            return Err(shape());
+        };
+        let [Node::Sym(word), _] = binding.items() else {
+            return Err(shape());
+        };
+        if !is_self_word(word) {
+            return Err(raise("vla-bind-expand-word", &[("word", word)]));
+        }
+    }
+    let [Node::List(binding)] = bindings.items() else {
+        return Err(shape());
+    };
+    Ok(&binding.items()[1])
+}
+
+/// VLA.10, VBA `BindStanding`: a `bind-expand` standing at a spent budget: its
+/// word as written, its value as far as the budget took it, and its body as
+/// written. [`bind_value`] has read its shape.
+fn bind_standing(items: &[Node], bound: Form) -> Form {
+    let word = match &items[1] {
+        Node::List(bindings) => match &bindings.items()[0] {
+            Node::List(binding) => binding.items()[0].form(),
+            other => other.form(),
+        },
+        other => other.form(),
+    };
+    let binding = Form::list(vec![word, bound]);
+    let mut out = Vec::with_capacity(items.len());
+    out.push(items[0].form());
+    out.push(Form::list(vec![binding]));
+    out.extend(items[2..].iter().map(Node::form));
+    Form::list(out)
+}
+
+/// VLA.10, VBA `OffsetWholeNumber`: one number of `offset-expand`, through the
+/// arithmetic's gate: an atom, a number literal, and a whole one.
+fn offset_whole_number(v: &Form) -> Result<f64, Refusal> {
+    const OP: &str = "offset-expand";
+    let text = number_text(OP, &Node::of(v))?;
+    let n = val(&text);
+    if n.fract() != 0.0 {
+        return Err(raise(
+            "vla-arith-expand-not-whole",
+            &[("op", OP), ("value", &text)],
+        ));
+    }
+    Ok(n)
+}
+
 /// VBA `ExpandOne`: one application of a macro to a call form's items. A
 /// parameter is bound to its argument itself, not a copy of it, and the
 /// rest parameter to the call's own items after the parameters'; the
@@ -1640,6 +1894,7 @@ fn fuse_symbol(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
     let mut fused = String::new();
     for k in 2..=lst.len() {
         let piece = substitute(nth(lst, k)?, env, false)?;
+        refuse_self_text("symbol", &piece)?; // VLA.10
         match piece {
             Node::List(_) => {
                 return Err(raise(
@@ -2423,6 +2678,7 @@ fn eval_concat_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
                 &[("op", "&expand"), ("n", &(k - 1).to_string())],
             ));
         }
+        refuse_self_text("&expand", &piece)?; // VLA.10
         joined.push_str(&atom_text_expand(&piece));
     }
     Ok(Node::Str(Arc::from(joined.as_str())))
@@ -2443,6 +2699,7 @@ fn eval_characters_expand(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
             &[("op", "characters-expand"), ("n", "1")],
         ));
     }
+    refuse_self_text("characters-expand", &v)?; // VLA.10
     let items = atom_text_expand(&v)
         .chars()
         .map(|c| Node::Str(Arc::from(c.to_string().as_str())))
@@ -2491,6 +2748,7 @@ fn eval_address_part_expand(op: &str, lst: &[Node], env: &Env) -> Result<Node, R
     if v.is_list() {
         return Err(raise("vla-expand-arg-is-list", &[("op", op), ("n", "1")]));
     }
+    refuse_self_text(op, &v)?; // VLA.10
     let text = atom_text_expand(&v);
     let Some((row, col)) = parse_address_text(&text, op == "column-expand") else {
         return Err(raise(
@@ -3043,7 +3301,8 @@ mod tests {
         // VLA.4: an operation of the walk, recognized by `expand_at` alone;
         // VLA.5: the loop, a form of the walk and of `substitute`; VLA.6:
         // define and a reference's two parts, forms of the walk alone;
-        // VLA.15: its first cell, the third.
+        // VLA.15: its first cell, the third; VLA.10: the word the walk reads,
+        // the form that binds it, and a reference moved.
         let walk_operations = [
             "formula-expand",
             "each",
@@ -3052,6 +3311,9 @@ mod tests {
             "sheet-expand",
             "range-expand",
             "first-cell-expand",
+            "self",
+            "bind-expand",
+            "offset-expand",
         ];
         for name in LISTOPS {
             assert!(
@@ -4778,6 +5040,341 @@ mod tests {
         assert_eq!(
             one("(defmacro (m & &) (& \"a\" \"b\")) (m 1 2)"),
             "(1 2 \"a\" \"b\")"
+        );
+    }
+
+    /// VLA.10: a verb that binds its range's first cell.
+    const BOUND_RULE: &str = "(defmacro (rule sheet range expression) (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range))))) (formula sheet range (formula-expand expression)))) ";
+
+    #[test]
+    fn a_binding_is_read_by_the_walk_alone() {
+        let bound = |form: &str| one(&format!("(bind-expand ((self Screen!B2)) {form})"));
+        assert_eq!(bound("(formula-expand (last self))"), "\"=Screen.last!B2\"");
+        assert_eq!(bound("(formula-expand self)"), "\"=Screen!B2\"");
+        assert_eq!(bound("(sheet-expand self)"), "\"Screen\"");
+        assert_eq!(bound("(range-expand self)"), "\"B2\"");
+        assert_eq!(bound("(first-cell-expand self)"), "\"B2\"");
+        assert_eq!(bound("(f SELF)"), "(f Screen!B2)");
+        // A head, a text and a quote are no places the walk reads a word.
+        assert_eq!(bound("(formula-expand (self 1))"), "\"=SELF(1)\"");
+        assert_eq!(bound("(formula-expand \"self\")"), "\"=\\\"self\\\"\"");
+        assert_eq!(bound("(quote self)"), "(quote self)");
+        // A read is a link of the chain and no application.
+        let (_, fired) = expand_text(
+            "(bind-expand ((self Screen!B2)) (f self self self))",
+            PRELUDE,
+            true,
+        )
+        .unwrap();
+        assert_eq!(fired, 0);
+    }
+
+    #[test]
+    fn a_verb_binds_its_range_s_first_cell() {
+        let with = |call: &str| one(&format!("{BOUND_RULE}{call}"));
+        assert_eq!(
+            with("(rule \"Tally\" \"B1:E10\" (+ (last self) Input!B1))"),
+            "(formula \"Tally\" \"B1:E10\" \"=Tally.last!B1+Input!B1\")"
+        );
+        assert_eq!(
+            with("(rule \"Q 1\" \"E10:B1\" (last self))"),
+            "(formula \"Q 1\" \"E10:B1\" \"='Q 1.last'!B1\")"
+        );
+        assert_eq!(
+            expand_err(&format!("{BOUND_RULE}(rule \"S\" \"A:A\" 1)")).id,
+            "vla-reference-whole-line"
+        );
+        // The nest stays refused, and says where such a verb goes.
+        let nested = expand_err(&format!(
+            "{BOUND_RULE}(rule \"S\" \"B1\" (rule \"S\" \"B2\" 1))"
+        ));
+        assert_eq!(nested.id, "vla-formula-expand-nested");
+        assert!(
+            nested.text.contains("an expression macro over self"),
+            "{}",
+            nested.text
+        );
+    }
+
+    #[test]
+    fn the_stack_is_empty_after_every_refusal() {
+        // The wall's one condition (the determinism wall, 2026-10-29): one
+        // expander, as a caller holds one across forms, its stack read after
+        // each way out, and the next form reading no stale place.
+        let mut ex = Expander::new();
+        let form = |text: &str| read_forms(text).unwrap().remove(0);
+        for refused in [
+            "(bind-expand ((self A!B2)) (formula-expand (no-such-function-name 1)))",
+            "(bind-expand ((self A!B2)) (cell \"A\" \"A1\" 1) (range-expand \"x\"))",
+            "(bind-expand ((self A!B2)) (bind-expand ((self C!D4)) (bind-expand ((self B7)) 1)))",
+            "(bind-expand ((self A!B2)) (row-expand self))",
+            "(bind-expand ((self A!B2)) (bind-expand ((self (no-sheet-here B7))) (range-expand B7)))",
+            "(formula-expand (bind-expand ((self A!B2)) (formula-expand 1)))",
+        ] {
+            assert!(ex.expand(&form(refused), 0).is_err(), "{refused}");
+            assert!(ex.self_stack.is_empty(), "{refused}");
+            assert!(!ex.formula_open, "{refused}");
+            assert_eq!(
+                ex.expand(&form("(formula-expand (last self))"), 0).unwrap_err().id,
+                "vla-self-free",
+                "{refused}"
+            );
+        }
+        // And on the way out that succeeds, at any depth.
+        ex.expand(
+            &form("(bind-expand ((self A!B2)) (bind-expand ((self C!D4)) 1))"),
+            0,
+        )
+        .unwrap();
+        assert!(ex.self_stack.is_empty());
+    }
+
+    #[test]
+    fn siblings_and_a_recursive_hand_off_each_keep_their_binding() {
+        // LISTOPS-CONFLUENCE's three, as `TestListopsConfluence` proves them:
+        // two chains beside each other, in either order, and a value threaded
+        // through one chain handing off into a second, each ending in self.
+        let mut chains = String::new();
+        for i in 0..49 {
+            chains.push_str(&format!("(defmacro (step-c{i}) (step-c{}))\n", i + 1));
+            chains.push_str(&format!("(defmacro (step-d{i}) (step-d{}))\n", i + 1));
+        }
+        chains.push_str("(defmacro (step-c49) (formula-expand (last self)))\n");
+        chains.push_str("(defmacro (step-d49) (formula-expand (last self)))\n");
+        chains.push_str("(defmacro (both a b) (begin a b))\n");
+        let c = "(bind-expand ((self A!B2)) (step-c0))";
+        let d = "(bind-expand ((self C!D4)) (step-d0))";
+        assert_eq!(
+            one(&format!("{chains}(both {c} {d})")),
+            "(begin \"=A.last!B2\" \"=C.last!D4\")"
+        );
+        assert_eq!(
+            one(&format!("{chains}(both {d} {c})")),
+            "(begin \"=C.last!D4\" \"=A.last!B2\")"
+        );
+        let mut handing = String::new();
+        for i in 0..24 {
+            handing.push_str(&format!(
+                "(defmacro (step-a{i} tag) (step-a{} tag))\n",
+                i + 1
+            ));
+            handing.push_str(&format!(
+                "(defmacro (step-b{i} tag) (step-b{} tag))\n",
+                i + 1
+            ));
+        }
+        handing.push_str("(defmacro (step-a24 tag) (step-b0 tag))\n");
+        handing.push_str("(defmacro (step-b24 tag) (f tag (formula-expand (last self))))\n");
+        assert_eq!(
+            one(&format!(
+                "{handing}(bind-expand ((self A!B2)) (step-a0 \"PAYLOAD\"))"
+            )),
+            "(f \"PAYLOAD\" \"=A.last!B2\")"
+        );
+    }
+
+    #[test]
+    fn a_free_word_is_refused_where_it_would_be_read_and_nowhere_else() {
+        for read in [
+            "(formula-expand self)",
+            "(formula-expand (+ self 1))",
+            "(formula-expand (last self))",
+            "(formula-expand (lambda (self) (+ self 1)))",
+            "(formula-expand (quote-if (null? (quote ())) self 1))",
+            "(bind-expand ((self A!B2)) (formula-expand (quote-if (null? (quote ())) self 1)))",
+            "(sheet-expand self)",
+            "(range-expand (last self))",
+            "(first-cell-expand self)",
+            "(offset-expand self 1 0)",
+            "(bind-expand ((self self)) 1)",
+        ] {
+            assert_eq!(expand_err(read).id, "vla-self-free", "{read}");
+        }
+        assert_eq!(one("(set! self 1)"), "(set! self 1)");
+        assert_eq!(one("(sub m () (dim self))"), "(sub m () (dim self))");
+        assert_eq!(one("(cell \"S\" \"A1\" self)"), "(cell \"S\" \"A1\" self)");
+        assert_eq!(one("(formula-expand (ref \"self\"))"), "\"=self\"");
+        assert_eq!(one("(formula-expand (quote (1)))"), "\"={1}\"");
+        for primitive in [
+            "(&expand self)",
+            "(characters-expand self)",
+            "(row-expand self)",
+            "(column-expand self)",
+            "(symbol self)",
+        ] {
+            assert_eq!(
+                expand_err(primitive).id,
+                "vla-self-in-a-primitive",
+                "{primitive}"
+            );
+        }
+        assert_eq!(one("(car (quote (self)))"), "self");
+        assert_eq!(one("(list? self)"), "false");
+        assert_eq!(one("(&expand \"self\")"), "\"self\"");
+    }
+
+    #[test]
+    fn a_word_means_one_thing_and_a_parameter_hides_it() {
+        for (form, id) in [
+            ("(defmacro (self) 1)", "vla-defmacro-reserved-name"),
+            ("(defmacro (bind-expand) 1)", "vla-defmacro-reserved-name"),
+            ("(defmacro (offset-expand) 1)", "vla-defmacro-reserved-name"),
+            ("(defmacro (m (self 1)) 1)", "vla-defmacro-piece-reserved"),
+            ("(each (self (quote (1))) 1)", "vla-each-name-reserved"),
+            ("(define self A!B1)", "vla-define-name-reserved"),
+            ("(define bind-expand A!B1)", "vla-define-name-reserved"),
+        ] {
+            assert_eq!(expand_err(form).id, id, "{form}");
+        }
+        assert_eq!(
+            one("(defmacro (m self) (f self)) (bind-expand ((self A!B2)) (m 1))"),
+            "(f 1)"
+        );
+        assert_eq!(one("(defmacro (m & self) (f self)) (m 1 2)"), "(f 1 2)");
+    }
+
+    #[test]
+    fn a_reference_is_moved_as_excel_s_offset_moves_it() {
+        let moved = |form: &str| one(&format!("(formula-expand {form})"));
+        assert_eq!(
+            moved("(offset-expand Screen!B2 -1 -1 3 3)"),
+            "\"=Screen!A1:C3\""
+        );
+        assert_eq!(
+            moved("(offset-expand Tally!B2:E10 1 1)"),
+            "\"=Tally!C3:F11\""
+        );
+        assert_eq!(
+            moved("(offset-expand Tally!E10:B2 0 0 2 2)"),
+            "\"=Tally!B2:C3\""
+        );
+        assert_eq!(moved("(offset-expand Tally!$B2 1 1)"), "\"=Tally!$C3\"");
+        assert_eq!(
+            moved("(offset-expand Tally!$B$2 0 0 2 2)"),
+            "\"=Tally!$B$2:$C$3\""
+        );
+        assert_eq!(moved("(offset-expand B2 1 0)"), "\"=B3\"");
+        assert_eq!(moved("(offset-expand Tally!B2 0 0 1 1)"), "\"=Tally!B2\"");
+        assert_eq!(
+            moved("(last (offset-expand Tally!B2 1 0))"),
+            "\"=Tally.last!B3\""
+        );
+        assert_eq!(
+            moved("(offset-expand (last Tally!B2) 1 0)"),
+            "\"=Tally.last!B3\""
+        );
+        assert_eq!(
+            one("(offset-expand (ref \"Q 1\" \"B2\") 1 0)"),
+            "(ref \"Q 1\" \"B3\")"
+        );
+        for (form, id) in [
+            ("(offset-expand)", "vla-offset-expand-arity"),
+            ("(offset-expand A!B2 1 1 1)", "vla-offset-expand-arity"),
+            ("(offset-expand A!B2 -2 0)", "vla-address-expand-row"),
+            ("(offset-expand A!B2 0 -2)", "vla-address-expand-column"),
+            (
+                "(offset-expand A!A1048576 0 0 4294967296 1)",
+                "vla-address-expand-row",
+            ),
+            (
+                "(offset-expand A!B2 99999999999999999999999 0)",
+                "vla-address-expand-row",
+            ),
+            ("(offset-expand A!A:A 0 1)", "vla-reference-whole-line"),
+            ("(offset-expand A!B2 0 0 0 1)", "vla-offset-expand-size"),
+            ("(offset-expand A!B2 1.5 0)", "vla-arith-expand-not-whole"),
+            (
+                "(offset-expand A!B2 \"1\" 0)",
+                "vla-arith-expand-not-number-value",
+            ),
+            (
+                "(offset-expand A!B2 (f) 0)",
+                "vla-arith-expand-not-number-list",
+            ),
+        ] {
+            assert_eq!(expand_err(form).id, id, "{form}");
+        }
+    }
+
+    /// One frame of the stepper: `VlaExpandStepText` under a budget of `spent`
+    /// applications, the forms of the source written out a line each.
+    fn frame(src: &str, spent: u64) -> String {
+        let text = format!("{PRELUDE}\r\n{src}");
+        let forms = parse_all(&tokenize(&text), count_lf(PRELUDE) as u32 + 1).unwrap();
+        let mut ex = Expander::new();
+        let body = ex.collect(forms).unwrap();
+        ex.budget_on = true;
+        ex.expand_budget = spent;
+        body.iter()
+            .map(|f| write_datum(&ex.expand(f, 0).unwrap()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn the_walk_s_forms_stand_at_a_spent_budget() {
+        // Found while scoping VLA.10: each of these refused its frame, or
+        // wrote a macro's call as a function's, since VLA.4.
+        assert_eq!(
+            frame("(defmacro (my-m) (+ 1 2)) (formula-expand (my-m))", 0),
+            "(formula-expand (my-m))"
+        );
+        assert_eq!(
+            frame("(defmacro (m) Sheet1!B2) (range-expand (m))", 0),
+            "(range-expand (m))"
+        );
+        assert_eq!(
+            frame("(defmacro (m) Sheet1!B2) (first-cell-expand (m))", 0),
+            "(first-cell-expand (m))"
+        );
+        assert_eq!(
+            frame("(defmacro (m) 1) (offset-expand A!B2 (m) 0)", 0),
+            "(offset-expand A!B2 (m) 0)"
+        );
+        assert_eq!(
+            frame(
+                "(defmacro (m) A!B2) (bind-expand ((self (m))) (formula-expand (last self)))",
+                0
+            ),
+            "(bind-expand ((self (m))) (formula-expand (last self)))"
+        );
+        let verb = format!("{BOUND_RULE}(defmacro (running e) (+ (last self) e)) (rule \"Tally\" \"B1\" (running Input!B1))");
+        assert_eq!(
+            frame(&verb, 0),
+            "(rule \"Tally\" \"B1\" (running Input!B1))"
+        );
+        assert_eq!(
+            frame(&verb, 1),
+            "(bind-expand ((self (ref \"Tally\" (first-cell-expand (ref \"Tally\" \"B1\"))))) (formula \"Tally\" \"B1\" (formula-expand (running Input!B1))))"
+        );
+        assert_eq!(
+            expand(&verb).trim_end(),
+            "(formula \"Tally\" \"B1\" \"=Tally.last!B1+Input!B1\")"
+        );
+        // A binding's read inside a macro left unfired.
+        assert_eq!(
+            frame("(defmacro (a) 1) (defmacro (m x) x) (bind-expand ((self A!B2)) (formula-expand (+ (a) (m self))))", 1),
+            "(formula-expand (+ 1 (m A!B2)))"
+        );
+        // And a binding reached after the last application stands whole.
+        assert_eq!(
+            frame("(defmacro (m x) x) (defmacro (n) (bind-expand ((self A!B2)) (formula-expand (m self)))) (n)", 1),
+            "(bind-expand ((self A!B2)) (formula-expand (m self)))"
+        );
+    }
+
+    #[test]
+    fn one_pass_walks_a_binding_as_a_list_and_replaces_no_word() {
+        let (text, fired) = expand_text(
+            "(defmacro (m) (last self)) (bind-expand ((self (m))) (formula-expand (m)))",
+            PRELUDE,
+            false,
+        )
+        .unwrap();
+        assert_eq!(fired, 2);
+        assert_eq!(
+            text.trim_end(),
+            "(bind-expand ((self (last self))) (formula-expand (last self)))"
         );
     }
 

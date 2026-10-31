@@ -438,8 +438,10 @@ sitting of that day, VLA in 2030 (Alonzo's `docs/2030.md` §7.3;
 decision the doctrine's wording, the owner's; `VLA.9`, named pieces with
 defaults, a macro's options named at the call, scoped, approved, built,
 owner-tested and committed 2026-10-30; `VLA.10`, verbs that compose, the
-fill's own place as a word bound by the verb that knows its range, and a
-verb nested in another's piece yielding its expression; `VLA.11`, hygiene by
+fill's own place as a word, `self`, bound by `bind-expand` and read by the
+walk alone, with `offset-expand` brought forward from `VLA.13`, and a verb an
+expression over it, the nest staying refused, scoped, approved, built,
+owner-tested and committed 2026-10-30; `VLA.11`, hygiene by
 design, a parameter never a head, a redefinition refused unless declared a
 `parameter`, a free symbol in a formula refused; `VLA.12`, modules and `use`,
 exports, qualified names and `describe` listing the macros loaded;

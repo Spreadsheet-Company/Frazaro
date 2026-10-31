@@ -14,8 +14,9 @@ a reference's two parts, sheet-expand and range-expand, beside the
 formula syntax's last (VLA.6), and a reference's first cell,
 first-cell-expand, beside the formula syntax's three marks, absolute,
 absolute-row and absolute-column (VLA.15), and a macro's named pieces, each
-of their refusals among them (VLA.9). A case is named for what it means to
-reach; the golden records what the reference does. A refusal that names a
+of their refusals among them (VLA.9), and the place a verb writes, the word
+self, bind-expand and offset-expand, each of their refusals among them
+(VLA.10). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
 line names the case's own, counted from the case's first line, so an edit
 of the prelude moves nothing here.
 === car
@@ -1680,3 +1681,816 @@ broken
   (& "a" "b"))
 
 (m 1 2)
+=== a-binding-and-its-read
+(bind-expand ((self Screen!B2))
+  (formula-expand (last self)))
+=== a-binding-of-a-quoted-sheet
+(bind-expand ((self (ref "Q1 Data" "B2")))
+  (formula-expand (last self)))
+=== a-binding-s-word-folds
+(bind-expand ((SELF Screen!B2))
+  (formula-expand (last SeLf)))
+=== a-binding-s-self-bare-writes-its-reference
+(bind-expand ((self Screen!B2))
+  (formula-expand self))
+=== a-binding-gives-a-row-its-two-fields
+(bind-expand ((self Screen!B2))
+  (cell (sheet-expand self) (range-expand self) 1))
+=== a-binding-reads-through-the-first-cell
+(bind-expand ((self Screen!B2))
+  (first-cell-expand self))
+=== a-binding-of-a-define-s-word
+(define stop State!B12)
+
+(bind-expand ((self stop))
+  (formula-expand (last self)))
+=== a-binding-of-a-macro-s-result
+(defmacro (home)
+  "the cell a verb writes"
+  Screen!B2)
+
+(bind-expand ((self (home)))
+  (formula-expand (last self)))
+=== a-binding-of-a-marked-cell
+(bind-expand ((self (absolute Screen!B2)))
+  (formula-expand (last self)))
+=== a-binding-of-a-twin
+(bind-expand ((self (last Screen!B2)))
+  (formula-expand self))
+=== a-binding-s-several-forms-are-one-begin
+(bind-expand ((self Screen!B2))
+  (cell "Screen" "A1" 1)
+  (formula "Screen" "B2" (formula-expand (last self))))
+=== a-binding-in-a-statement
+(bind-expand ((self Screen!B2))
+  (set! x (formula-expand (last self))))
+=== a-binding-stands-in-an-expression
+(formula-expand
+  (+ 1
+     (bind-expand ((self A!B2))
+       (last self))))
+=== a-binding-replaces-the-word-a-program-holds
+(bind-expand ((self Screen!B2))
+  (debug-print self))
+=== a-head-is-no-word
+(bind-expand ((self A!B2))
+  (formula-expand (self 1)))
+=== a-text-is-no-word
+(bind-expand ((self A!B2))
+  (formula-expand "self"))
+=== a-quote-is-no-word
+(bind-expand ((self A!B2))
+  (quote self))
+=== a-ref-writes-a-name-so-spelled
+(bind-expand ((self A!B2))
+  (formula-expand (ref "self")))
+=== a-rule-binds-its-range-s-first-cell
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Screen" "B2:K11" (last self))
+=== a-rule-over-one-cell
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Tally" "B16" (+ (last self) Input!B16))
+=== a-rule-s-range-written-backwards
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Screen" "K11:B2" (last self))
+=== a-rule-on-a-quoted-sheet
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Q1 Data" "B2:K11" (last self))
+=== a-rule-at-a-word
+(defmacro (rule-at at expression)
+  "a formula row at a word, self its first cell"
+  (bind-expand ((self (ref (sheet-expand at) (first-cell-expand at))))
+    (formula (sheet-expand at) (range-expand at) (formula-expand expression))))
+
+(define board Screen!B2:K11)
+
+(rule-at board (last self))
+=== an-expression-macro-reads-the-verb-s-place
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (running event)
+  "its own last value plus an event"
+  (+ (last self) event))
+
+(rule "Tally" "B16" (running Input!B16))
+=== expression-macros-compose-where-a-verb-would-nest
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (running event)
+  "its own last value plus an event"
+  (+ (last self) event))
+
+(defmacro (edge button)
+  "a button's rising edge"
+  (and (= button 1) (= (last button) 0)))
+
+(defmacro (pressed button)
+  "1 in the frame a button goes down"
+  (if (edge button) 1 0))
+
+(rule "Tally" "B16" (running (pressed Input!B1)))
+=== a-verb-inside-a-verb-refused
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Tally" "B16" (+ (rule "Tally" "B17" 1) 1))
+=== a-whole-column-refused-at-the-verb
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(rule "Screen" "A:A" 1)
+=== offset-moves-a-cell
+(formula-expand (offset-expand Tally!B2 1 2))
+=== offset-moves-up-and-left
+(formula-expand (offset-expand Tally!C3 -1 -2))
+=== offset-of-no-distance
+(formula-expand (offset-expand Tally!C3 0 0))
+=== offset-moves-a-range-keeping-its-size
+(formula-expand (offset-expand Tally!B2:E10 1 1))
+=== offset-with-excel-s-height-and-width
+(formula-expand (offset-expand Screen!B2 -1 -1 3 3))
+=== offset-of-one-by-one-is-a-cell
+(formula-expand (offset-expand Screen!B2 1 1 1 1))
+=== offset-sizes-a-range-from-its-top-left
+(formula-expand (offset-expand Tally!B2:E10 0 0 2 2))
+=== offset-sizes-a-range-written-backwards-from-its-top-left
+(formula-expand (offset-expand Tally!E10:B2 0 0 2 2))
+=== offset-moves-a-range-written-backwards-corner-by-corner
+(formula-expand (offset-expand Tally!E10:B2 1 1))
+=== offset-keeps-a-cell-s-marks
+(formula-expand (offset-expand Tally!$B2 1 1))
+=== offset-keeps-each-corner-s-marks
+(formula-expand (offset-expand Tally!$B2:C$3 1 1))
+=== offset-sized-takes-the-top-left-s-marks
+(formula-expand (offset-expand Tally!$B$2 0 0 2 2))
+=== offset-of-no-sheet-stays-no-sheet
+(formula-expand (offset-expand B2 1 0))
+=== offset-of-a-quoted-sheet
+(formula-expand (offset-expand (ref "Q1 Data" "B2") 1 0))
+=== offset-of-a-twin
+(formula-expand (offset-expand (last Stay!C2) 1 1))
+=== offset-of-a-mark
+(formula-expand (offset-expand (absolute Stay!C2) 1 1))
+=== offset-answers-a-ref
+(offset-expand Tally!B2 1 0)
+=== offset-answers-a-ref-of-no-sheet
+(offset-expand B2 1 0)
+=== last-reads-an-offset
+(formula-expand (last (offset-expand Stay!C2 1 1)))
+=== a-mark-reads-an-offset
+(formula-expand (absolute-column (offset-expand Stay!C2 0 -1)))
+=== the-walk-s-forms-read-an-offset
+(cell
+  (sheet-expand (offset-expand Tally!B2 1 0))
+  (range-expand (offset-expand Tally!B2 1 0))
+  (first-cell-expand (offset-expand Tally!B2:C3 1 0)))
+=== offset-reads-a-define-s-word
+(define stop State!B12)
+
+(formula-expand (offset-expand stop 1 0))
+=== offset-reads-a-define-s-number
+(define rows 2)
+
+(formula-expand (offset-expand Tally!B2 rows 0))
+=== offset-reads-a-macro-s-number
+(defmacro (one-down)
+  "a distance by name"
+  1)
+
+(formula-expand (offset-expand Tally!B2 (one-down) 0))
+=== offset-reads-a-template-s-arithmetic
+(defmacro (around at radius)
+  "the square of a radius around a cell"
+  (offset-expand at
+    (-expand 0 radius)
+    (-expand 0 radius)
+    (+expand (*expand radius 2) 1)
+    (+expand (*expand radius 2) 1)))
+
+(formula-expand (around Screen!C3 2))
+=== offset-after-a-statement-a-macro-made
+(defmacro (m)
+  "a statement set aside, then a reference moved"
+  (debug-print 1)
+  (offset-expand Tally!B2 1 0))
+
+(m)
+=== offset-to-the-sheet-s-last-cell
+(formula-expand (offset-expand Tally!A1 1048575 16383))
+=== offset-past-the-top-refused
+(offset-expand Tally!B2 -2 0)
+=== offset-past-the-left-refused
+(offset-expand Tally!B2 0 -2)
+=== offset-past-the-bottom-refused
+(offset-expand Tally!A1 1048576 0)
+=== offset-past-the-right-refused
+(offset-expand Tally!A1 0 16384)
+=== offset-sized-past-the-bottom-refused
+(offset-expand Tally!A1048576 0 0 2 1)
+=== offset-sized-past-the-right-refused
+(offset-expand Tally!XFD1 0 0 1 2)
+=== offset-s-second-corner-past-the-top-refused
+(offset-expand Tally!B5:C2 -2 0)
+=== offset-a-row-before-a-column-refused
+(offset-expand Tally!B2 -9 -9)
+=== offset-of-a-whole-column-refused
+(offset-expand Tally!A:A 0 1)
+=== offset-of-a-whole-row-refused
+(offset-expand Tally!3:3 1 0)
+=== offset-of-one-argument-refused
+(offset-expand Tally!B2)
+=== offset-of-two-arguments-refused
+(offset-expand Tally!B2 1)
+=== offset-of-a-height-alone-refused
+(offset-expand Tally!B2 1 1 2)
+=== offset-of-six-arguments-refused
+(offset-expand Tally!B2 1 1 2 2 2)
+=== offset-of-a-text-for-a-number-refused
+(offset-expand Tally!B2 "1" 0)
+=== offset-of-a-word-for-a-number-refused
+(offset-expand Tally!B2 rows 0)
+=== offset-of-a-fraction-refused
+(offset-expand Tally!B2 1.5 0)
+=== offset-of-a-list-for-a-number-refused
+(offset-expand Tally!B2 (+ 1 1) 0)
+=== offset-of-a-height-of-zero-refused
+(offset-expand Tally!B2 0 0 0 1)
+=== offset-of-a-width-below-zero-refused
+(offset-expand Tally!B2 0 0 1 -1)
+=== offset-of-a-name-refused
+(offset-expand stop 1 0)
+=== offset-of-a-span-refused
+(offset-expand Jan:Dec!A1 1 0)
+=== offset-of-a-text-refused
+(offset-expand "B2" 1 0)
+=== offset-s-numbers-before-its-reference-refused
+(offset-expand "B2" "x" 0)
+=== offset-s-whole-line-before-its-size-refused
+(offset-expand Tally!A:A 0 0 0 0)
+=== offset-s-size-before-its-corner-refused
+(offset-expand Tally!B2 -9 0 0 1)
+=== life-s-rule-over-self
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (around at radius)
+  "the square of a radius around a cell"
+  (offset-expand at
+    (-expand 0 radius)
+    (-expand 0 radius)
+    (+expand (*expand radius 2) 1)
+    (+expand (*expand radius 2) 1)))
+
+(defmacro (neighbors-alive)
+  "the eight neighbors alive in the last frame"
+  (- (sum (last (around self 1))) (last self)))
+
+(rule "Screen" "B2:LG199"
+  (if (or (= (neighbors-alive) 3)
+          (and (= (last self) 1)
+               (= (neighbors-alive) 2)))
+      1
+      0))
+=== life-s-rule-by-addresses
+(defmacro (rule sheet range expression)
+  "one formula row"
+  (formula sheet range (formula-expand expression)))
+
+(rule "Screen" "B2:LG199"
+  (if (or (= (- (sum Screen.last!A1:C3) Screen.last!B2) 3)
+          (and (= Screen.last!B2 1)
+               (= (- (sum Screen.last!A1:C3) Screen.last!B2) 2)))
+      1
+      0))
+=== the-sound-card-s-rule-over-self
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (above at)
+  "the cell above a reference"
+  (offset-expand at -1 0))
+
+(rule "Screen" "A2:AV24" (last (above self)))
+=== the-sound-card-s-rule-by-addresses
+(defmacro (rule sheet range expression)
+  "one formula row"
+  (formula sheet range (formula-expand expression)))
+
+(rule "Screen" "A2:AV24" Screen.last!A1)
+=== sand-s-first-diagonal-over-self
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (near sheet rows columns)
+  "a sheet's cell at a distance from self"
+  (ref sheet (range-expand (offset-expand self rows columns))))
+
+(defmacro (was rows columns)
+  "the Screen as the last frame left it, at a distance from this cell"
+  (last (near "Screen" rows columns)))
+
+(defmacro (side rows columns)
+  "Side this frame, at a distance from this cell"
+  (near "Side" rows columns))
+
+(rule "Stay" "C2:LF199"
+  (and (= (side 1 1) 0)
+       (< (was 0 1) 2)))
+=== sand-s-first-diagonal-by-addresses
+(defmacro (rule sheet range expression)
+  "one formula row"
+  (formula sheet range (formula-expand expression)))
+
+(rule "Stay" "C2:LF199"
+  (and (= Side!D3 0)
+       (< Screen.last!D2 2)))
+=== a-word-over-self-over-any-reference
+(defmacro (above at)
+  "the cell above a reference"
+  (offset-expand at -1 0))
+
+(define stop State!B12)
+
+(formula-expand (above stop))
+(formula-expand (last (above stop)))
+(formula-expand (absolute (above (last stop))))
+=== a-bare-reference-by-ref
+(defmacro (above at)
+  "the cell above a reference"
+  (offset-expand at -1 0))
+
+(defmacro (here at)
+  "a reference on the sheet a formula stands on, with no sheet written"
+  (ref (range-expand at)))
+
+(bind-expand ((self Screen!B2))
+  (formula-expand (+ (here (above self)) 1)))
+=== an-anchored-column-by-a-distance
+(bind-expand ((self Stay!C2))
+  (formula-expand
+    (absolute-column
+      (ref "Gate" (range-expand (offset-expand self 0 -1))))))
+=== an-inner-binding-hides-the-outer-and-the-outer-stands-again
+(bind-expand ((self A!B2))
+  (formula-expand (last self))
+  (bind-expand ((self C!D4))
+    (formula-expand (last self)))
+  (formula-expand (last self)))
+=== a-binding-s-value-reads-the-outer
+(bind-expand ((self A!B2))
+  (bind-expand ((self (offset-expand self 1 0)))
+    (formula-expand (last self))))
+=== a-binding-reads-itself-and-is-free
+(bind-expand ((self self))
+  (formula-expand (last self)))
+=== two-siblings
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (both first-verb second-verb)
+  "two verbs as siblings in a begin a macro made, its last expanded first"
+  (begin first-verb second-verb))
+
+(both
+  (rule "A" "B2" (last self))
+  (rule "C" "D4" (last self)))
+=== two-siblings-in-the-other-order
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (both first-verb second-verb)
+  "two verbs as siblings in a begin a macro made, its last expanded first"
+  (begin first-verb second-verb))
+
+(both
+  (rule "C" "D4" (last self))
+  (rule "A" "B2" (last self)))
+=== siblings-by-a-walk-over-quasiquote
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (rules sheet & entries)
+  "one sheet named once, each entry a place and an expression"
+  (quote-if (null? entries)
+    (begin)
+    (begin
+      (rule sheet (car (car entries)) (car (cdr (car entries))))
+      (quasiquote (rules (unquote sheet) (unquote-splicing (cdr entries)))))))
+
+(rules "S"
+  ("B1" (last self))
+  ("B2" (last self))
+  ("B3" self))
+=== siblings-by-on
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(defmacro (on sheet & forms)
+  "rows of one sheet, each call written without its sheet"
+  (quote-if (null? forms)
+    (begin)
+    (begin
+      (cons (car (car forms)) (cons sheet (cdr (car forms))))
+      (quasiquote (on (unquote sheet) (unquote-splicing (cdr forms)))))))
+
+(on "S"
+  (rule "B1" (last self))
+  (rule "B2" (last self)))
+=== siblings-by-a-loop
+(defmacro (rule sheet range expression)
+  "one formula row, self its range's first cell"
+  (bind-expand ((self (ref sheet (first-cell-expand (ref sheet range)))))
+    (formula sheet range (formula-expand expression))))
+
+(each (at (quote ("B1" "B2" "B3")))
+  (rule "S" at (last self)))
+=== a-loop-in-a-binding
+(bind-expand ((self A!B2))
+  (each (n (quote (1 2)))
+    (formula-expand (+ (last self) n))))
+=== a-loop-names-a-binding-s-sheet
+(each (sheet-name (quote ("A" "B")))
+  (bind-expand ((self (ref sheet-name "B2")))
+    (formula-expand (last self))))
+=== a-loop-among-a-binding-s-forms
+(bind-expand ((self A!B2))
+  (cell "A" "A1" 1)
+  (each (n (quote (1 2)))
+    (cell "A" (range-expand self) n)))
+=== a-macro-made-begin-as-a-binding-s-body
+(defmacro (two)
+  "a begin a macro made, its set-aside form inside the binding"
+  (debug-print (formula-expand (last self)))
+  (formula-expand (+ (last self) 1)))
+
+(bind-expand ((self A!B2)) (two))
+=== a-binding-after-a-statement-a-macro-made
+(defmacro (m)
+  "a statement set aside, then a binding"
+  (debug-print 1)
+  (bind-expand ((self A!B2))
+    (formula-expand (last self))))
+
+(m)
+=== forms-set-aside-around-a-binding-read-the-outer
+(defmacro (m)
+  "a form set aside, expanded after the binding's pop"
+  (formula-expand (last self))
+  (bind-expand ((self C!D4))
+    (formula-expand (last self))))
+
+(bind-expand ((self A!B2)) (m))
+=== forms-set-aside-around-a-binding-at-no-outer-are-free
+(defmacro (m)
+  "a form set aside, expanded after the binding's pop, with none outside"
+  (formula-expand (last self))
+  (bind-expand ((self C!D4))
+    (formula-expand (last self))))
+
+(m)
+=== a-define-whose-form-is-self-reads-it-at-each-use
+(define me self)
+
+(bind-expand ((self A!B2))
+  (formula-expand (last me)))
+(bind-expand ((self C!D4))
+  (formula-expand (last me)))
+=== a-rule-by-name-reads-where-it-stands
+(define neighbors-last (last (offset-expand self -1 -1 3 3)))
+
+(bind-expand ((self Screen!B2))
+  (formula-expand (sum neighbors-last)))
+(bind-expand ((self Screen!C3))
+  (formula-expand (sum neighbors-last)))
+=== a-define-whose-form-is-self-at-no-binding-refused
+(define me self)
+
+(formula-expand (last me))
+=== a-define-in-a-binding-s-body-binds-the-forms-after
+(bind-expand ((self A!B2))
+  (define me self))
+
+(bind-expand ((self C!D4))
+  (formula-expand (last me)))
+=== a-define-in-a-formula-s-binding-refused
+(formula-expand
+  (bind-expand ((self A!B2))
+    (define me self)))
+=== a-piece-s-default-names-self
+(defmacro (twin (at self))
+  "a place's twin, self's unless the call says"
+  (last at))
+
+(bind-expand ((self A!B2))
+  (formula-expand (twin)))
+=== a-piece-s-default-given
+(defmacro (twin (at self))
+  "a place's twin, self's unless the call says"
+  (last at))
+
+(bind-expand ((self A!B2))
+  (formula-expand (twin (at Tally!B1))))
+=== a-piece-s-default-names-self-at-no-binding-refused
+(defmacro (twin (at self))
+  "a place's twin, self's unless the call says"
+  (last at))
+
+(formula-expand (twin))
+=== a-parameter-holds-the-word-and-reads-it-where-the-template-puts-it
+(defmacro (above at)
+  "the cell above a reference"
+  (offset-expand at -1 0))
+
+(bind-expand ((self A!B2))
+  (formula-expand (above self)))
+=== a-macro-called-a-second-time-reads-its-own-binding
+(defmacro (twin)
+  "the twin of the place this stands in"
+  (last self))
+
+(bind-expand ((self A!B2))
+  (formula-expand (twin)))
+(bind-expand ((self C!D4))
+  (formula-expand (twin)))
+=== a-recursive-verb-hands-off-into-another
+(defmacro (first-walk tag n)
+  "a chain handing off into another at its end"
+  (quote-if (=expand n 0)
+    (second-walk tag 25)
+    (first-walk tag (-expand n 1))))
+
+(defmacro (second-walk tag n)
+  "the second chain, its end reading self"
+  (quote-if (=expand n 0)
+    (f tag (formula-expand (last self)))
+    (second-walk tag (-expand n 1))))
+
+(bind-expand ((self A!B2)) (first-walk "first" 25))
+(bind-expand ((self C!D4)) (first-walk "second" 25))
+=== two-recursive-verbs-as-siblings
+(defmacro (walk n)
+  "a chain whose end reads self"
+  (quote-if (=expand n 0)
+    (formula-expand (last self))
+    (walk (-expand n 1))))
+
+(defmacro (both first-verb second-verb)
+  "two siblings in a begin a macro made, its last expanded first"
+  (begin first-verb second-verb))
+
+(both
+  (bind-expand ((self A!B2)) (walk 25))
+  (bind-expand ((self C!D4)) (walk 25)))
+=== self-moved-down-a-row-at-each-level
+(defmacro (down n)
+  "self moved down a row at each level"
+  (quote-if (=expand n 0)
+    (formula-expand (last self))
+    (bind-expand ((self (offset-expand self 1 0)))
+      (down (-expand n 1)))))
+
+(bind-expand ((self A!B2)) (down 20))
+=== a-binding-that-never-ends-refused
+(defmacro (forever)
+  "a binding around its own call"
+  (bind-expand ((self A!B2)) (forever)))
+
+(forever)
+=== a-refusal-inside-a-binding-s-body
+(bind-expand ((self A!B2))
+  (formula-expand (no-such-function-name 1)))
+=== after-a-refusal-self-is-free-again
+(formula-expand (last self))
+=== a-refusal-in-a-binding-s-second-form
+(bind-expand ((self A!B2))
+  (cell "A" "A1" 1)
+  (range-expand "no reference"))
+=== a-refusal-two-bindings-deep
+(bind-expand ((self A!B2))
+  (bind-expand ((self C!D4))
+    (bind-expand ((self B7))
+      1)))
+=== self-free-in-a-formula-refused
+(formula-expand (last self))
+=== self-free-bare-in-a-formula-refused
+(formula-expand (+ self 1))
+=== self-free-in-a-function-s-argument-refused
+(formula-expand (sum self 1))
+=== self-free-in-a-macro-s-result-refused
+(defmacro (twin)
+  "the twin of the place this stands in"
+  (last self))
+
+(formula-expand (twin))
+=== self-free-as-a-lambda-s-parameter-refused
+(formula-expand (lambda (self) (+ self 1)))
+=== self-free-in-the-sheet-part-refused
+(sheet-expand self)
+=== self-free-in-the-range-part-refused
+(range-expand self)
+=== self-free-in-the-range-part-through-last-refused
+(range-expand (last self))
+=== self-free-in-the-first-cell-refused
+(first-cell-expand self)
+=== self-free-in-offset-refused
+(offset-expand self 1 0)
+=== self-free-through-offset-in-a-formula-refused
+(formula-expand (last (offset-expand self 1 0)))
+=== self-free-stays-a-word-in-a-statement
+(set! self 1)
+=== self-free-stays-a-word-in-a-procedure
+(sub main ()
+  (dim self)
+  (set! self 1)
+  (debug-print self))
+=== self-free-stays-a-word-in-a-row-s-field
+(cell "S" "A1" self)
+=== a-standalone-branch-is-not-expanded-so-self-goes-unread
+(bind-expand ((self A!B2))
+  (formula-expand (quote-if (null? (quote ())) self 1)))
+=== a-standalone-branch-holding-a-reference-head-goes-unread
+(bind-expand ((self A!B2))
+  (formula-expand (quote-if (null? (quote ())) (last self) 1)))
+=== a-free-word-through-a-standalone-branch-refused
+(formula-expand (quote-if (null? (quote ())) self 1))
+=== a-template-s-branch-is-expanded-and-reads-self
+(defmacro (m)
+  "a branch in a template, walked after substitution"
+  (quote-if (null? (quote ())) (last self) 1))
+
+(bind-expand ((self A!B2))
+  (formula-expand (m)))
+=== a-define-named-self-refused
+(define self A!B1)
+=== a-define-named-bind-expand-refused
+(define bind-expand A!B1)
+=== a-define-named-offset-expand-refused
+(define offset-expand A!B1)
+=== a-macro-named-self-refused
+(defmacro (self)
+  "a macro of the word"
+  1)
+=== a-macro-named-bind-expand-refused
+(defmacro (bind-expand)
+  "a macro of the form's name"
+  1)
+=== a-macro-named-offset-expand-refused
+(defmacro (offset-expand)
+  "a macro of the form's name"
+  1)
+=== a-loop-named-self-refused
+(each (self (quote (1 2)))
+  (debug-print self))
+=== a-counting-loop-named-self-refused
+(each-index (self word (quote (a b)) 1)
+  (debug-print word))
+=== a-piece-named-self-refused
+(defmacro (m (self A!B1))
+  "a piece of the word"
+  (last self))
+
+(m)
+=== a-piece-named-offset-expand-refused
+(defmacro (m (offset-expand 1))
+  "a piece of the form's name"
+  1)
+
+(m)
+=== a-parameter-named-self-hides-the-word
+(defmacro (m self)
+  "a parameter of the word, replaced first"
+  (formula-expand (last self)))
+
+(m Tally!B1)
+=== a-parameter-named-self-hides-a-binding
+(defmacro (m self)
+  "a parameter of the word, replaced first"
+  (formula-expand (last self)))
+
+(bind-expand ((self A!B2))
+  (m Tally!B1))
+=== a-rest-named-self-hides-the-word
+(defmacro (m & self)
+  "a rest of the word, replaced first"
+  (f self))
+
+(m 1 2)
+=== a-parameter-named-self-in-a-macro-s-own-binding-refused
+(defmacro (m self)
+  "a parameter of the word replaces the binding's word too"
+  (bind-expand ((self self))
+    (formula-expand (last self))))
+
+(m Tally!B1)
+=== a-text-joined-of-self-refused
+(&expand "x" self)
+=== characters-of-self-refused
+(characters-expand self)
+=== the-row-of-self-refused
+(row-expand self)
+=== the-column-of-self-refused
+(column-expand self)
+=== a-word-fused-of-self-refused
+(symbol self "x")
+=== a-template-s-primitive-over-self-refused
+(defmacro (row-of at)
+  "the line's first reading of a word over self"
+  (row-expand at))
+
+(bind-expand ((self A!B2))
+  (formula-expand (row-of self)))
+=== a-primitive-over-the-word-in-any-case-refused
+(row-expand SELF)
+=== a-primitive-over-a-quoted-self-refused
+(&expand (quote self))
+=== a-text-spelled-self-is-a-text
+(&expand "self")
+=== a-word-fused-from-a-text-spelled-self
+(symbol "self" "-x")
+=== a-primitive-carries-the-word-as-data
+(car (quote (self 1)))
+(list? self)
+(cons self (quote (a)))
+(eq? self (quote self))
+(equal? (quote (self)) (list self))
+=== a-binding-of-no-forms-refused
+(bind-expand ((self A!B2)))
+=== a-binding-of-an-atom-refused
+(bind-expand self (formula-expand 1))
+=== a-binding-of-no-binding-refused
+(bind-expand () (formula-expand 1))
+=== a-binding-whose-entry-is-an-atom-refused
+(bind-expand (self) (formula-expand 1))
+=== a-binding-whose-entry-holds-one-form-refused
+(bind-expand ((self)) (formula-expand 1))
+=== a-binding-whose-entry-holds-three-forms-refused
+(bind-expand ((self A!B2 A!B3)) (formula-expand 1))
+=== a-binding-whose-word-is-a-text-refused
+(bind-expand (("self" A!B2)) (formula-expand 1))
+=== a-binding-whose-word-is-a-list-refused
+(bind-expand (((self) A!B2)) (formula-expand 1))
+=== a-binding-of-another-word-refused
+(bind-expand ((stop A!B2)) (formula-expand (last stop)))
+=== a-binding-of-two-places-refused
+(bind-expand ((self A!B2) (self C!D4)) (formula-expand (last self)))
+=== a-binding-s-other-word-before-its-count-refused
+(bind-expand ((self A!B2) (stop C!D4)) (formula-expand (last self)))
+=== a-binding-of-a-range-refused
+(bind-expand ((self A!B2:C3)) (formula-expand (last self)))
+=== a-binding-of-a-whole-column-refused
+(bind-expand ((self A!B:B)) (formula-expand (last self)))
+=== a-binding-of-a-whole-row-refused
+(bind-expand ((self A!3:3)) (formula-expand (last self)))
+=== a-binding-of-no-sheet-refused
+(bind-expand ((self B2)) (formula-expand (last self)))
+=== a-binding-of-a-text-refused
+(bind-expand ((self "B2")) (formula-expand (last self)))
+=== a-binding-of-a-name-refused
+(bind-expand ((self stop)) (formula-expand (last stop)))
+=== a-binding-of-a-span-refused
+(bind-expand ((self Jan:Dec!A1)) (formula-expand 1))
+=== a-binding-of-a-list-refused
+(bind-expand ((self (quote (a)))) (formula-expand 1))
+=== a-binding-s-value-refused-before-its-body
+(bind-expand ((self (range-expand "x")))
+  (formula-expand (no-such-function-name 1)))
