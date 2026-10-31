@@ -8,7 +8,9 @@
 //! by the code that planned or printed a workbook before, and a machine's
 //! grid and a workbook holding the same cells read alike. Both traits are
 //! the crate's own: a door hands a `Workbook` to the functions it always
-//! called.
+//! called. A draft's and a machine's sheet keep their cells' formats as
+//! rectangles ([`CellStyles`], KERNEL.67), so that a `style` row over a range
+//! holds its rectangle, as a fill holds its formula once.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
@@ -431,6 +433,150 @@ pub(crate) fn in_window<'a, V: Copy>(
         .map(|(&at, &v)| (at, v))
 }
 
+/// The cells of a rectangle outside rectangles that never overlap, as
+/// rectangles that never overlap (KERNEL.67): each hole cut from every piece
+/// it meets, at most four left of each ([`cut`]), the pieces kept by height
+/// so that a hole finds the few it meets.
+pub(crate) fn outside(range: A1Range, holes: &[A1Range]) -> Vec<A1Range> {
+    if holes.is_empty() {
+        return vec![range];
+    }
+    let mut left = Rects::default();
+    left.insert(range, 0);
+    for hole in holes {
+        let met: Vec<A1Range> = left.meeting(*hole).map(|(piece, _)| piece).collect();
+        for piece in met {
+            left.remove(&piece);
+            for rest in cut(piece, hole).0 {
+                left.insert(rest, 0);
+            }
+        }
+    }
+    left.iter().map(|(piece, _)| piece).collect()
+}
+
+/// A sheet's cells' formats (KERNEL.67): each format over rectangles of cells
+/// that never overlap, kept as a draft keeps its records, a rectangle of more
+/// than one cell among the rectangles of its height ([`Rects`]) and a cell
+/// alone by its place, so that a `style` row over a range holds its rectangle
+/// and never its cells. A cell's format is 0 where none is held. Nothing is
+/// made before a sheet's first format: a sheet with none holds a word, where
+/// its two maps would hold six.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct CellStyles(Option<Box<StyleRects>>);
+
+/// The formats of a sheet that has any: its rectangles of more than one cell,
+/// and its cells alone.
+#[derive(Clone, Debug, Default)]
+struct StyleRects {
+    ranges: Rects,
+    ones: BTreeMap<(u32, u32), u32>,
+}
+
+impl StyleRects {
+    fn put(&mut self, range: A1Range, format: u32) {
+        if range.cells() == 1 {
+            self.ones.insert((range.top, range.left), format);
+        } else {
+            self.ranges.insert(range, format);
+        }
+    }
+}
+
+impl CellStyles {
+    /// A cell's format: its own where it stands alone, else its rectangle's;
+    /// 0 where none is held.
+    pub(crate) fn at(&self, row: u32, col: u32) -> u32 {
+        let Some(s) = &self.0 else {
+            return 0;
+        };
+        if let Some(&format) = s.ones.get(&(row, col)) {
+            return format;
+        }
+        s.ranges.at(row, col).map_or(0, |(_, format)| format)
+    }
+
+    /// A rectangle given a format, none of its cells holding one.
+    pub(crate) fn put(&mut self, range: A1Range, format: u32) {
+        self.0.get_or_insert_with(Box::default).put(range, format);
+    }
+
+    /// The rectangles meeting an area, whole, each with its format: those of
+    /// more than one cell by height, then the cells alone among the area's
+    /// rows.
+    pub(crate) fn meeting(&self, area: A1Range) -> impl Iterator<Item = (A1Range, u32)> + '_ {
+        self.0.iter().flat_map(move |s| {
+            let ones = in_window(&s.ones, &area).map(|((row, col), format)| {
+                let cell = A1Range {
+                    top: row,
+                    left: col,
+                    bottom: row,
+                    right: col,
+                };
+                (cell, format)
+            });
+            s.ranges.meeting(area).chain(ones)
+        })
+    }
+
+    /// One cell's format taken out, the rest of its rectangle kept as at most
+    /// four ([`cut`]).
+    pub(crate) fn take(&mut self, row: u32, col: u32) {
+        let Some(s) = &mut self.0 else {
+            return;
+        };
+        if s.ones.remove(&(row, col)).is_some() {
+            return;
+        }
+        let Some((piece, format)) = s.ranges.at(row, col) else {
+            return;
+        };
+        s.ranges.remove(&piece);
+        let cell = A1Range {
+            top: row,
+            left: col,
+            bottom: row,
+            right: col,
+        };
+        for rest in cut(piece, &cell).0 {
+            s.put(rest, format);
+        }
+    }
+
+    /// Each cell inside a window that holds a format, row by row, with its
+    /// format: the rectangles meeting the window cut to it and swept
+    /// ([`RowMajor`]) beside the cells alone in it, so that a walk of the
+    /// window meets each cell's format beside it ([`Beside`]).
+    pub(crate) fn in_window(&self, w: &A1Range) -> impl Iterator<Item = ((u32, u32), u32)> + '_ {
+        let w = *w;
+        let s = self.0.as_deref();
+        let pieces: Vec<(A1Range, u32)> = s.map_or_else(Vec::new, |s| {
+            s.ranges
+                .meeting(w)
+                .filter_map(|(piece, format)| Some((overlap(&piece, &w)?, format)))
+                .collect()
+        });
+        let mut ranges = RowMajor::new(pieces).peekable();
+        let mut ones = s
+            .into_iter()
+            .flat_map(move |s| in_window(&s.ones, &w))
+            .peekable();
+        std::iter::from_fn(move || {
+            let take_range = match (ranges.peek(), ones.peek()) {
+                (None, None) => return None,
+                (Some(_), None) => true,
+                (None, Some(_)) => false,
+                (Some(&(row, col, _)), Some(&(at, _))) => (row, col) < at,
+            };
+            if take_range {
+                let (row, col, format) = ranges.next().expect("peeked");
+                return Some(((row, col), format));
+            }
+            ones.next()
+        })
+    }
+}
+
 /// A value cell's content as the record reads it: lent where the grid keeps
 /// it, owned where it makes it, as a machine makes a twin's cell from its
 /// sheet's.
@@ -840,5 +986,128 @@ mod tests {
             .collect();
         check(&rects, &kept, &mut next);
         assert_eq!(rects.remove(&r(1, 1, 5_000, 1)), None, "given up once");
+    }
+
+    /// The same 64-bit linear congruence as the test above, seeded.
+    fn dealer(mut seed: u64) -> impl FnMut(u32) -> u32 {
+        move |n: u32| {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 33) % u64::from(n)) as u32
+        }
+    }
+
+    #[test]
+    fn the_cells_outside_rectangles_are_rectangles_that_never_overlap() {
+        // KERNEL.67: a range less the rectangles a sheet's formats already
+        // hold, each hole cut from the pieces it meets.
+        assert_eq!(outside(r(2, 2, 4, 4), &[]), vec![r(2, 2, 4, 4)]);
+        assert_eq!(outside(r(2, 2, 4, 4), &[r(1, 1, 9, 9)]), vec![]);
+        let mut next = dealer(67);
+        for _ in 0..300 {
+            let range = r(1 + next(6), 1 + next(6), 7 + next(6), 7 + next(6));
+            // Holes that never overlap, some apart from the range.
+            let mut holes: Vec<A1Range> = Vec::new();
+            for _ in 0..next(9) {
+                let (top, left) = (1 + next(14), 1 + next(14));
+                let hole = r(top, left, top + next(4), left + next(4));
+                if holes.iter().all(|h| overlap(h, &hole).is_none()) {
+                    holes.push(hole);
+                }
+            }
+            let got = outside(range, &holes);
+            let cells = cells_of(&got);
+            let mut deduped = cells.clone();
+            deduped.dedup();
+            assert_eq!(cells, deduped, "{range:?} less {holes:?}: no cell twice");
+            let want: Vec<(u32, u32)> = cells_of(&[range])
+                .into_iter()
+                .filter(|&(row, col)| {
+                    holes
+                        .iter()
+                        .all(|h| overlap(h, &r(row, col, row, col)).is_none())
+                })
+                .collect();
+            assert_eq!(cells, want, "{range:?} less {holes:?}");
+        }
+    }
+
+    #[test]
+    fn a_sheet_s_formats_held_as_rectangles_read_as_each_cell_s() {
+        // KERNEL.67: formats put over rectangles that never overlap, cells
+        // alone among them and format 0 among the formats, each read at every
+        // cell, walked over windows row by row and found by the areas they
+        // meet as a map of each cell's format holds them, before and after
+        // cells are taken out of them; and a sheet with none a word.
+        assert_eq!(
+            std::mem::size_of::<CellStyles>(),
+            std::mem::size_of::<usize>()
+        );
+        let none = CellStyles::default();
+        assert_eq!(none.at(1, 1), 0);
+        assert_eq!(none.in_window(&r(1, 1, 9, 9)).count(), 0);
+        assert_eq!(none.meeting(r(1, 1, 9, 9)).count(), 0);
+        let mut next = dealer(1067);
+        for round in 0..40 {
+            let mut styles = CellStyles::default();
+            let mut each: BTreeMap<(u32, u32), u32> = BTreeMap::new();
+            for _ in 0..12 {
+                let (top, left) = (1 + next(30), 1 + next(20));
+                let x = match next(3) {
+                    0 => r(top, left, top, left),
+                    1 => r(top, left, top + next(12), left + next(2)),
+                    _ => r(top, left, top + next(3), left + next(6)),
+                };
+                if cells_of(&[x]).iter().any(|at| each.contains_key(at)) {
+                    continue;
+                }
+                let format = next(4);
+                styles.put(x, format);
+                for at in cells_of(&[x]) {
+                    each.insert(at, format);
+                }
+            }
+            let check = |styles: &CellStyles,
+                         each: &BTreeMap<(u32, u32), u32>,
+                         next: &mut dyn FnMut(u32) -> u32| {
+                for row in 1..=46 {
+                    for col in 1..=30 {
+                        let want = each.get(&(row, col)).copied().unwrap_or(0);
+                        assert_eq!(styles.at(row, col), want, "round {round}: ({row}, {col})");
+                    }
+                }
+                for _ in 0..20 {
+                    let (top, left) = (1 + next(40), 1 + next(26));
+                    let w = r(top, left, top + next(12), left + next(8));
+                    let want: Vec<((u32, u32), u32)> = each
+                        .iter()
+                        .filter(|(&(row, col), _)| {
+                            row >= w.top && row <= w.bottom && col >= w.left && col <= w.right
+                        })
+                        .map(|(&at, &format)| (at, format))
+                        .collect();
+                    let walked: Vec<((u32, u32), u32)> = styles.in_window(&w).collect();
+                    assert_eq!(walked, want, "round {round}: {w:?} walked");
+                    let mut met: Vec<((u32, u32), u32)> = Vec::new();
+                    for (piece, format) in styles.meeting(w) {
+                        let shared = overlap(&piece, &w).expect("a piece meeting the area");
+                        for at in cells_of(&[shared]) {
+                            met.push((at, format));
+                        }
+                    }
+                    met.sort_unstable();
+                    assert_eq!(met, want, "round {round}: {w:?} met");
+                }
+            };
+            check(&styles, &each, &mut next);
+            // Cells taken out, inside rectangles, alone and where none is.
+            for _ in 0..15 {
+                let (row, col) = (1 + next(40), 1 + next(26));
+                styles.take(row, col);
+                each.remove(&(row, col));
+            }
+            check(&styles, &each, &mut next);
+        }
     }
 }

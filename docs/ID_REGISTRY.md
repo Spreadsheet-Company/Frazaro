@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.66 | KERNEL.67 |
+| KERNEL | KERNEL.67 | KERNEL.68 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -366,6 +366,12 @@ a column's or a range's kind declared once, cents, a count, a date, a flag,
 a text, a ratio, held by the model and the record, a formula mixing kinds
 refused by name at the load and a kind's representation exact. `KERNEL.67`
 is next free.
+`KERNEL.67` was minted 2026-10-30 at the owner's word, from Alonzo's
+`ENGINE.28` (its *Found* after the close, for `vla-lang`: one `style` row over
+Superposition's 512 by 512 Field raised the frame floors' heap from 10.8 MB
+to 26.0 MB), for a style row over a range held by the machine as one range
+and never a style a cell, so that its heap stops growing with the area it
+covers. `KERNEL.68` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

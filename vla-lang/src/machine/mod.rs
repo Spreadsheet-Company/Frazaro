@@ -828,7 +828,7 @@ impl Machine {
             if s < self.sheets {
                 let store = &self.stores[s];
                 let mut formulas = grid::Beside::new(page.formulas_iter(&all));
-                let mut styles = grid::Beside::new(grid::in_window(&page.styles, &all));
+                let mut styles = grid::Beside::new(page.styles.in_window(&all));
                 // The cells in their order, the sheet's tree made from them at
                 // once rather than a cell at a time.
                 let mut cells: Vec<((u32, u32), Cell)> = Vec::with_capacity(page.cells);
@@ -2857,7 +2857,7 @@ impl Cells for Machine {
             // Each cell's formula, format and sentence met beside the store's
             // walk, in its order, and never looked up (KERNEL.49).
             let mut formulas = grid::Beside::new(page.formulas_iter(window));
-            let mut styles = grid::Beside::new(grid::in_window(&page.styles, window));
+            let mut styles = grid::Beside::new(page.styles.in_window(window));
             let mut sentences = grid::Beside::new(grid::in_window(&page.sheet.sentences, window));
             for (row, col) in store.walk(window) {
                 let holds = match formulas.at((row, col)) {
@@ -13940,6 +13940,269 @@ mod tests {
             assert_eq!(book.sheets[0], sheet, "seed {seed}\n{rows}");
             assert_eq!(draft.count(), written.len(), "seed {seed}: counted");
         }
+    }
+
+    #[test]
+    fn a_style_row_over_a_range_reads_and_refuses_as_it_did_cell_by_cell() {
+        // KERNEL.67: style rows over ranges of written cells on two sheets,
+        // overlapping, of one format and of another, format 0 among them, and
+        // now and then over a cell no row wrote or on a sheet no row made,
+        // each load held to today's loop, which walked a range cell by cell
+        // (written here): every cell's format as the draft's workbook, a
+        // machine's cell, its windows and its workbook read it, and a cell
+        // taken giving its format up; or the same refusal, at the same line,
+        // naming the same cell and the same first line.
+        let quoted = crate::rows::quoted;
+        let (mut taken, mut twice, mut unwritten) = (0, 0, 0);
+        for seed in 1..=240u64 {
+            let mut d = Dice(seed ^ 0x6767);
+            // A cell of each sheet beyond every range, so that S is the first
+            // sheet and T the second.
+            let mut rows = String::from("(cell \"S\" \"J12\" 0)\n(cell \"T\" \"J12\" 0)\n");
+            let mut written: BTreeSet<CellId> = BTreeSet::from([(0, 12, 10), (1, 12, 10)]);
+            let cells = |x: &A1Range| -> Vec<(u32, u32)> {
+                (x.top..=x.bottom)
+                    .flat_map(|row| (x.left..=x.right).map(move |col| (row, col)))
+                    .collect()
+            };
+            // Each sheet's rows 1 to 10 and columns A to H written by ranges
+            // in bands, a range now and then left out, a hole.
+            for (si, name) in ["S", "T"].into_iter().enumerate() {
+                let mut top = 1;
+                while top <= 10 {
+                    let bottom = (top + d.below(3) as u32).min(10);
+                    let mut left = 1;
+                    while left <= 8 {
+                        let right = (left + d.below(4) as u32).min(8);
+                        let x = A1Range {
+                            top,
+                            left,
+                            bottom,
+                            right,
+                        };
+                        if d.below(40) != 0 {
+                            written.extend(cells(&x).into_iter().map(|(row, col)| (si, row, col)));
+                            rows.push_str(&format!(
+                                "(cell \"{name}\" \"{}\" {})\n",
+                                x.text(),
+                                d.below(9)
+                            ));
+                        }
+                        left = right + 1;
+                    }
+                    top = bottom + 1;
+                }
+            }
+            // The style rows, each its line, its sheet's name and index, its
+            // range and its format, on half the seeds one format.
+            let mut style_rows: Vec<(u32, &str, Option<usize>, A1Range, u32)> = Vec::new();
+            let (base, spread) = (d.below(3), 1 + 2 * d.below(2));
+            for _ in 0..7 {
+                let (name, si) = match d.below(60) {
+                    0 => ("U", None),
+                    1..=20 => ("T", Some(1)),
+                    _ => ("S", Some(0)),
+                };
+                let (top, left) = (1 + d.below(10) as u32, 1 + d.below(8) as u32);
+                let x = A1Range {
+                    top,
+                    left,
+                    bottom: (top + d.below(5) as u32).min(10),
+                    right: (left + d.below(4) as u32).min(8),
+                };
+                let format = ((base + d.below(spread)) % 3) as u32;
+                let line = rows.lines().count() as u32 + 1;
+                rows.push_str(&format!("(style \"{name}\" \"{}\" {format})\n", x.text()));
+                style_rows.push((line, name, si, x, format));
+            }
+            let forms = read_forms(&rows).unwrap();
+            // Today's loop: the range's cells found written one by one, then
+            // walked row by row, the first of another format refused naming
+            // the line that styled it.
+            let today = || -> Result<BTreeMap<CellId, u32>, LineRefusal> {
+                let mut styled: BTreeMap<CellId, (u32, u32)> = BTreeMap::new();
+                for &(line, name, si, x, format) in &style_rows {
+                    let form = &forms[line as usize - 1];
+                    let Some(si) = si else {
+                        return Err(load::unwritten(line, form, "style", name, (x.top, x.left)));
+                    };
+                    if let Some(&(row, col)) = cells(&x)
+                        .iter()
+                        .find(|&&(row, col)| !written.contains(&(si, row, col)))
+                    {
+                        return Err(load::unwritten(line, form, "style", name, (row, col)));
+                    }
+                    for (row, col) in cells(&x) {
+                        match styled.get(&(si, row, col)) {
+                            Some(&(said, first)) if said != format => {
+                                let what = format!(
+                                    "(style {} {})",
+                                    quoted(name),
+                                    quoted(&cell_ref(row, col))
+                                );
+                                return Err(load::twice(line, &what, first));
+                            }
+                            Some(_) => {}
+                            None => {
+                                styled.insert((si, row, col), (format, line));
+                            }
+                        }
+                    }
+                }
+                Ok(written
+                    .iter()
+                    .map(|&id| (id, styled.get(&id).map_or(0, |&(format, _)| format)))
+                    .collect())
+            };
+            let when = format!("seed {seed}\n{rows}");
+            let (draft, want) = match (read_rows(&forms), today()) {
+                (Err(e), Err(want)) => {
+                    assert_eq!(e, want, "{when}");
+                    match e.refusal.id.as_str() {
+                        "grid-cell-written-twice" => twice += 1,
+                        _ => unwritten += 1,
+                    }
+                    continue;
+                }
+                (Ok(draft), Ok(want)) => (draft, want),
+                (got, want) => panic!("{when}: {:?} where {:?}", got.err(), want.err()),
+            };
+            let by_workbook = |d: &Draft| -> BTreeMap<CellId, u32> {
+                let book = d.workbook();
+                let mut out = BTreeMap::new();
+                for (si, sheet) in book.sheets.iter().enumerate() {
+                    for (&(row, col), cell) in &sheet.cells {
+                        out.insert((si, row, col), cell.style);
+                    }
+                }
+                out
+            };
+            assert_eq!(by_workbook(&draft), want, "{when}: the draft's workbook");
+            let m = Machine::new(draft.clone(), library::language())
+                .unwrap_or_else(|e| panic!("{when}: line {}: {}", e.line, e.refusal.text));
+            for (&(si, row, col), &format) in &want {
+                let held = Cells::cell(&m, si, row, col).map(|c| c.style);
+                assert_eq!(held, Some(format), "{when}: ({si}, {row}, {col})");
+            }
+            for _ in 0..6 {
+                let si = d.below(2);
+                let (top, left) = (1 + d.below(12) as u32, 1 + d.below(10) as u32);
+                let w = A1Range {
+                    top,
+                    left,
+                    bottom: top + d.below(6) as u32,
+                    right: left + d.below(5) as u32,
+                };
+                let mut seen: BTreeMap<CellId, u32> = BTreeMap::new();
+                Cells::cells(&m, si, &w, &mut |(row, col), held| {
+                    seen.insert((si, row, col), held.style);
+                });
+                let inside: BTreeMap<CellId, u32> = want
+                    .iter()
+                    .filter(|(&(s, row, col), _)| {
+                        s == si
+                            && row >= w.top
+                            && row <= w.bottom
+                            && col >= w.left
+                            && col <= w.right
+                    })
+                    .map(|(&id, &format)| (id, format))
+                    .collect();
+                assert_eq!(seen, inside, "{when}: the window {si} {}", w.text());
+            }
+            assert_eq!(styles(&m), want, "{when}: the machine's workbook");
+            // Cells taken out of the draft, each with its format, the others'
+            // kept; a value put again where one was taken holds none.
+            let mut less = draft;
+            let mut left = want;
+            let mut out: Vec<CellId> = Vec::new();
+            for _ in 0..5 {
+                let ids: Vec<CellId> = left.keys().copied().collect();
+                if ids.is_empty() {
+                    break;
+                }
+                let (si, row, col) = ids[d.below(ids.len())];
+                assert!(
+                    less.take(si, row, col),
+                    "{when}: ({si}, {row}, {col}) taken"
+                );
+                left.remove(&(si, row, col));
+                out.push((si, row, col));
+            }
+            assert_eq!(by_workbook(&less), left, "{when}: cells taken");
+            for &(si, row, col) in out.iter().step_by(2) {
+                less.put(si, row, col, Content::Number(1.0));
+                left.insert((si, row, col), 0);
+            }
+            assert_eq!(by_workbook(&less), left, "{when}: values put again");
+            taken += 1;
+        }
+        assert!(
+            taken > 60 && twice > 50 && unwritten > 50,
+            "taken {taken}, twice {twice}, unwritten {unwritten}"
+        );
+    }
+
+    #[test]
+    fn a_style_row_over_a_range_is_held_as_its_rectangle() {
+        // KERNEL.67: one row's format over a range four rows wrote, as
+        // Superposition's Field is written, is one rectangle in the draft and
+        // in the machine's page; a row of the same format inside it adds none;
+        // a cell taken out leaves four; and the record prints a style row a
+        // cell, as it did.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"B1:SR1\" 2)\n",
+            "(cell \"S\" \"A2:A512\" 3)\n",
+            "(cell \"S\" \"B2:SR512\" 4)\n",
+            "(format 13 none general nowrap (border (right thin \"D9D9D2\")))\n",
+            "(style \"S\" \"A1:SR512\" 13)\n",
+            "(style \"S\" \"B2:C3\" 13)\n",
+        );
+        let draft = read_rows(&read_forms(rows).unwrap())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+        let sheet = A1Range {
+            top: 1,
+            left: 1,
+            bottom: MAX_ROW,
+            right: MAX_COLUMN,
+        };
+        let field = A1Range {
+            top: 1,
+            left: 1,
+            bottom: 512,
+            right: 512,
+        };
+        let held = |s: &grid::CellStyles| -> Vec<(A1Range, u32)> { s.meeting(sheet).collect() };
+        assert_eq!(held(&draft.sheets[0].styles), vec![(field, 13)]);
+        let mut less = draft.clone();
+        assert!(less.take(0, 3, 3));
+        assert_eq!(held(&less.sheets[0].styles).len(), 4);
+        assert_eq!(
+            (
+                less.sheets[0].styles.at(3, 3),
+                less.sheets[0].styles.at(3, 4)
+            ),
+            (0, 13)
+        );
+        let m = Machine::new(draft, library::language())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+        assert_eq!(held(&m.book.pages[0].styles), vec![(field, 13)]);
+        let record = grid(&m, "S", Some("A1:B2"));
+        let styled: Vec<&str> = record
+            .lines()
+            .filter(|l| l.starts_with("(style "))
+            .collect();
+        assert_eq!(
+            styled,
+            [
+                "(style \"S\" \"A1\" 13)",
+                "(style \"S\" \"B1\" 13)",
+                "(style \"S\" \"A2\" 13)",
+                "(style \"S\" \"B2\" 13)",
+            ],
+            "{record}"
+        );
     }
 
     #[test]

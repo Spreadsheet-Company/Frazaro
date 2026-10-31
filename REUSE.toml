@@ -85,10 +85,12 @@ path = ["web/CALLOSUM.md"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "CC-BY-4.0"
 
-# The recalculation floors' two fixtures of rows (KERNEL.49, its first slice):
+# The recalculation floors' fixtures of rows (KERNEL.49, its first slice):
 # Superposition's board and Life on the size ladder's sixteenth rung, copied
 # from Alonzo's cartridges, which are 0BSD there, each keeping its own first
-# line, so they keep Alonzo's terms here. Decided 2026-10-21.
+# line, so they keep Alonzo's terms here. Decided 2026-10-21. The third
+# (KERNEL.67, 2026-10-30), the board's style row over its Field, Alonzo's
+# first way to edge it, keeps them too.
 [[annotations]]
 path = ["scripts/recalc/bench/*.vla"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"

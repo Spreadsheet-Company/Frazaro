@@ -2,10 +2,11 @@
 //! slice; `docs/BETA_REARVIEW.md`, the item's scoping, decision 12 and its
 //! addendum): every bench program of `scripts/recalc/bench/` built through the
 //! core's own surface and read back into rows, as the recalc runner builds it
-//! (`recalc.rs`), and the two fixtures of rows beside them, Superposition's
-//! board and Life on the size ladder's sixteenth rung, which the machine loads
-//! as they stand; each loaded into the machine under Excel's library inside a
-//! counting allocator, and stepped twice.
+//! (`recalc.rs`), and the fixtures of rows beside them, Superposition's board
+//! and Life on the size ladder's sixteenth rung, which the machine loads as
+//! they stand, and since `KERNEL.67` the board with one style row over its
+//! Field, loaded after the board's own rows; each loaded into the machine
+//! under Excel's library inside a counting allocator, and stepped twice.
 //!
 //! ```text
 //! cargo run --release -p frazaro-core --example memory               # every fixture, the baseline rows
@@ -123,7 +124,12 @@ fn peak() -> usize {
 const PROGRAMS: [&str; 7] = [
     "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
 ];
-const ROWS: [&str; 2] = ["superposition", "life-x16"];
+const ROWS: [&str; 3] = ["superposition", "life-x16", "superposition-styled"];
+
+/// A fixture of rows that adds to another's, its twin, and is loaded after
+/// it (KERNEL.67): Superposition's board with one style row over its Field,
+/// held by the floors' check within a constant of the board's own bytes.
+const AFTER: [(&str, &str); 1] = [("superposition-styled", "superposition")];
 
 /// The rounds a load is timed in, each a fresh machine.
 const ROUNDS: usize = 3;
@@ -189,16 +195,20 @@ fn program(root: &Path, name: &str, (prelude, english): (&str, &str)) -> Result<
     })
 }
 
-/// A fixture of rows, as it stands, its lines ended by LF.
+/// A fixture of rows, as it stands, its lines ended by LF; one that adds to a
+/// twin's loaded after the twin's rows, its SHA-256 its own file's, the
+/// twin's pinned by the twin's row.
 fn rows_fixture(root: &Path, name: &str) -> Result<Prepared, String> {
-    let path = root
-        .join("scripts/recalc/bench")
-        .join(format!("{name}.vla"));
-    let text = read_lf(&path)?;
+    let bench = root.join("scripts/recalc/bench");
+    let text = read_lf(&bench.join(format!("{name}.vla")))?;
+    let rows = match AFTER.iter().find(|(own, _)| *own == name) {
+        Some((_, twin)) => read_lf(&bench.join(format!("{twin}.vla")))? + &text,
+        None => text.clone(),
+    };
     Ok(Prepared {
         name: name.to_string(),
         sha: lf_sha(&text),
-        rows: text,
+        rows,
     })
 }
 

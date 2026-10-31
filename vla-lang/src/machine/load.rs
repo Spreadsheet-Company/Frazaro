@@ -21,8 +21,11 @@
 //! group holds that a format does not take. A `style` row names a cell or,
 //! since KERNEL.50, a range, every cell of it written by an earlier row, as
 //! a `sentence` row's cell is; a cell no earlier row wrote is refused by
-//! `grid-cell-unwritten`, naming it. Skipped by name, being a view's or a
-//! reader's own derivation or a thing no model holds before `KERNEL.8`:
+//! `grid-cell-unwritten`, naming it. Since KERNEL.67 a range's format is held
+//! as its rectangle and never a format a cell (`grid::CellStyles`), and its
+//! cells are found written by counting what its records hold of it. Skipped
+//! by name, being a view's or a reader's own derivation or a thing no model
+//! holds before `KERNEL.8`:
 //! `window`, `extent`, `refers`, `table` and `text`, a number's text under
 //! its code, which a save prints and the code makes again. A `sheet` row
 //! naming `X.last` is taken as the twin's own declaration, which every
@@ -43,7 +46,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::appearance::{self, Wrong};
 use crate::calc::{CellId, Computed, ErrorKind, Extent, Reason, Value};
 use crate::form::Form;
-use crate::grid::{overlap, Kind, Rects, RowMajor};
+use crate::grid::{outside, overlap, CellStyles, Kind, Rects, RowMajor};
 use crate::intrinsics::fold;
 use crate::messages::raise;
 use crate::numfmt::{Code, Unsupported};
@@ -102,8 +105,9 @@ pub(crate) struct DraftSheet {
     ranges: Rects,
     /// The records of one cell, by place.
     ones: BTreeMap<(u32, u32), usize>,
-    /// Each cell's format, where it is not 0.
-    pub(crate) styles: BTreeMap<(u32, u32), u32>,
+    /// Each cell's format, as rectangles (KERNEL.67): the cells a row's
+    /// format names, a row's format 0 among them, read as none.
+    pub(crate) styles: CellStyles,
 }
 
 /// One row's cells: their rectangle, the row's line, and what they hold.
@@ -175,7 +179,7 @@ impl DraftSheet {
             records: Vec::new(),
             ranges: Rects::default(),
             ones: BTreeMap::new(),
-            styles: BTreeMap::new(),
+            styles: CellStyles::default(),
         }
     }
 
@@ -228,6 +232,37 @@ impl DraftSheet {
             return Some(k);
         }
         self.ranges.at(row, col).map(|(_, k)| k as usize)
+    }
+
+    /// Whether the records hold every cell of a range (KERNEL.67): the cells
+    /// they hold in it counted, the ranges' by the rectangles they share with
+    /// it and the cells written alone among its rows, the records never
+    /// overlapping, so that no cell of the range is looked up.
+    fn covers(&self, range: &A1Range) -> bool {
+        let mut held: u64 = self
+            .ranges
+            .meeting(*range)
+            .filter_map(|(r, _)| overlap(&r, range))
+            .map(|shared| shared.cells())
+            .sum();
+        // The cells written alone, by the rows the range spans where they are
+        // fewer than its rows, else row by row.
+        let rows = u64::from(range.bottom - range.top) + 1;
+        held += if (self.ones.len() as u64) < rows {
+            self.ones
+                .range((range.top, 0)..=(range.bottom, u32::MAX))
+                .filter(|(&(_, col), _)| col >= range.left && col <= range.right)
+                .count() as u64
+        } else {
+            (range.top..=range.bottom)
+                .map(|row| {
+                    self.ones
+                        .range((row, range.left)..=(row, range.right))
+                        .count() as u64
+                })
+                .sum()
+        };
+        held == range.cells()
     }
 
     /// The first cell of a range, in row-major order, a record already
@@ -497,7 +532,7 @@ impl Draft {
         if !s.cut_cell(row, col) {
             return false;
         }
-        s.styles.remove(&(row, col));
+        s.styles.take(row, col);
         self.cells -= 1;
         true
     }
@@ -556,7 +591,7 @@ impl Draft {
                             },
                             What::Formula { si: Some(si), .. } => Content::SharedChild { si: *si },
                         };
-                        let style = s.styles.get(&(row, col)).copied().unwrap_or(0);
+                        let style = s.styles.at(row, col);
                         sheet.set(row, col, Cell { content, style });
                     }
                 }
@@ -628,7 +663,7 @@ impl Draft {
                     value => What::Value(value.clone()),
                 };
                 if cell.style != 0 {
-                    s.styles.insert((row, col), cell.style);
+                    s.styles.put(one, cell.style);
                 }
                 s.insert(Record {
                     range: one,
@@ -962,7 +997,10 @@ struct Reader {
     row_settings: HashMap<(usize, u32), u32>,
     formats: HashMap<u32, (Style, u32)>,
     looks: HashMap<(usize, String), (u32, u32)>,
-    styles: HashMap<CellId, (u32, u32)>,
+    /// Each `style` row taken, its sheet, its range and its line, in their
+    /// order: the first holding a cell gave it its format, and is the line a
+    /// `twice` refusal names (KERNEL.67).
+    styled: Vec<(usize, A1Range, u32)>,
     sentences: HashMap<CellId, (u32, u32)>,
     value_lines: HashMap<CellId, u32>,
 }
@@ -981,7 +1019,7 @@ pub fn read_rows(forms: &[Form]) -> Result<Draft, LineRefusal> {
         row_settings: HashMap::new(),
         formats: HashMap::new(),
         looks: HashMap::new(),
-        styles: HashMap::new(),
+        styled: Vec::new(),
         sentences: HashMap::new(),
         value_lines: HashMap::new(),
     };
@@ -1409,7 +1447,9 @@ impl Reader {
 
     /// The sheet of the cells a `style` or `sentence` row names, each of
     /// which an earlier row wrote; the first, in row-major order, that none
-    /// did refused by name (KERNEL.50).
+    /// did refused by name (KERNEL.50). The cells are found written by a count
+    /// of what the records hold of them (KERNEL.67), and only a range they
+    /// fall short of is walked, cell by cell, to the cell it names.
     fn written(
         &self,
         form: &Form,
@@ -1423,6 +1463,9 @@ impl Reader {
             return Err(unwritten(line, form, kind, sheet, first));
         };
         let s = &self.draft.sheets[si];
+        if s.covers(&range) {
+            return Ok(si);
+        }
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
                 if s.find(row, col).is_none() {
@@ -1435,7 +1478,12 @@ impl Reader {
 
     /// A `style` row: a cell's format, or since KERNEL.50 every cell of a
     /// range's, as `cell` and `formula` rows take a range; each cell's format
-    /// said once, a second alike taken.
+    /// said once, a second alike taken. Since KERNEL.67 the range is held as
+    /// its rectangle: the rectangles an earlier row left meeting it, the first
+    /// cell, row by row, it shares with one of another format refused, naming
+    /// the first row to name that cell, as the cell by cell walk named it;
+    /// and the cells its own format's rectangles leave given the format, as
+    /// rectangles.
     fn style(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
         let [Form::Str(sheet), Form::Str(addr), Form::Sym(index)] = items else {
             return Err(malformed(line, form, "style"));
@@ -1446,25 +1494,34 @@ impl Reader {
         };
         let range = parse_a1_range(addr).ok_or_else(|| malformed(line, form, "style"))?;
         let si = self.written(form, "style", sheet, range, line)?;
-        for row in range.top..=range.bottom {
-            for col in range.left..=range.right {
-                let id = (si, row, col);
-                if let Some((said, first)) = self.styles.get(&id) {
-                    if *said != index {
-                        let what =
-                            format!("(style {} {})", quoted(sheet), quoted(&cell_ref(row, col)));
-                        return Err(twice(line, &what, *first));
-                    }
-                    continue;
+        let mut other: Option<(u32, u32)> = None;
+        let mut alike: Vec<A1Range> = Vec::new();
+        for (piece, said) in self.draft.sheets[si].styles.meeting(range) {
+            if said == index {
+                alike.push(piece);
+            } else if let Some(shared) = overlap(&piece, &range) {
+                let at = (shared.top, shared.left);
+                if other.map_or(true, |first| at < first) {
+                    other = Some(at);
                 }
-                self.styles.insert(id, (index, line));
-                let styles = &mut self.draft.sheets[si].styles;
-                match index {
-                    0 => styles.remove(&(row, col)),
-                    index => styles.insert((row, col), index),
-                };
             }
         }
+        if let Some((row, col)) = other {
+            let first = self
+                .styled
+                .iter()
+                .find(|&&(s, r, _)| {
+                    s == si && row >= r.top && row <= r.bottom && col >= r.left && col <= r.right
+                })
+                .map(|&(_, _, first)| first)
+                .expect("a row gave the cell its format");
+            let what = format!("(style {} {})", quoted(sheet), quoted(&cell_ref(row, col)));
+            return Err(twice(line, &what, first));
+        }
+        for piece in outside(range, &alike) {
+            self.draft.sheets[si].styles.put(piece, index);
+        }
+        self.styled.push((si, range, line));
         Ok(())
     }
 

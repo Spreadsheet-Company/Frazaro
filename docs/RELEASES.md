@@ -45,6 +45,21 @@
   later field; nothing in this repository or Alonzo does either. So this release
   is 0.13.0.
 
+- **A style row over a range holds its rectangle.** A `style` row naming a
+  range, `(style "Field" "A1:SR512" 13)`, is held as its rectangle and its
+  format, where it held an entry for each of its cells; a row of the same
+  format over cells an earlier row styled adds only the rectangles it
+  leaves, and a cell taken out of a draft cuts its rectangle into at most
+  four and gives its format up, as before. The range's cells are found
+  written by counting what the rows wrote of it, never cell by cell. One row
+  over the large board's Field of 262,144 cells held 6.9 MB more after two
+  frames and 15.2 MB more at its peak; it now holds 520 bytes more at each,
+  and the rows read in 0.1 ms where they took 44. Every reader sees the
+  format it saw at every cell: the record still prints a `style` row a cell,
+  and the two refusals, a cell no row before it wrote and a cell a row gave
+  another format, name the cell and the line they named. A sheet with no
+  format holds 16 bytes less, and so does every sheet's twin (KERNEL.67).
+
 ## 0.12.0
 
 ### What changed

@@ -40755,6 +40755,447 @@ decision 1; and `KERNEL.59`, a number format's code kept through a file,
 from this item's two *Found*, the writer's built-ins 37 and 39 and an
 OpenDocument file's locale tag.
 
+**`KERNEL.67`, a style row over a range held as one range: the scoping,
+2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
+`ENGINE.28` session: one `style` row over a range held by the machine as one
+range instead of a style a cell, so that its heap stops growing with the area
+it covers; every reader seeing the same format at every cell, the `twice`
+refusal naming the same cell and line, a cell taken still losing its style;
+the oracle the memory runner's. Its ground is `ENGINE.28`'s *Found* for
+`vla-lang` (Alonzo's `docs/REARVIEW.md`, "After the close, the owner's look at
+Superposition, 2026-10-29"): one row, `(style "Field" "A1:SR512" 13)`,
+edging Superposition's lattice, raised the frame floors' heap from 10.8 MB to
+26.0 MB in each of their three Superposition rows, about 58 bytes a site, and
+Alonzo moved the edges onto its looks' formats at no cost, which stays. Minted
+as the next free `KERNEL` ID and nothing else (the owner's word of 2026-10-16
+on minting; the findings below under *Found*), the scoping written here, the
+decisions with recommendations and the predictions before any build, then a
+stop for the owner's approval. Nothing is built. HEAD `bc6dd77`, tagged
+`v0.12.0` and pushed, the tree clean at the start; Alonzo's HEAD `4c76b19`,
+read and never written.
+
+*The measurement, on this tree.* A scratch probe outside the repository (the
+session's scratchpad, `k67probe/`): `vla-lang` and `frazaro-core` at
+`bc6dd77` by path, a counting global allocator as `core/examples/memory.rs`
+counts, release at opt-level 3, natively; Superposition's rows
+(`scripts/recalc/bench/superposition.vla`) loaded under Excel's library and
+stepped twice, as they stand and with rows after them: a format of the sites'
+right and bottom edges, `(format 13 none general nowrap (border (right thin
+"D9D9D2") (bottom thin "D9D9D2")))`, and a style of it over the Field, as one
+row, as a row each of its 512 rows, and as a row each of its 262,144 cells,
+the way a save prints them. The phases apart: the rows read (`read_forms`,
+`read_rows`), the machine made (`Machine::new`), two frames. Bytes are the
+bytes asked of the allocator, the same in both rounds; `read_rows`' time the
+two rounds'. The library is made inside this count and outside the memory
+runner's, 10,853 bytes, the difference from the floors' row.
+
+| rows | `read_rows`' peak | held after the load | after two frames | peak | `read_rows` |
+|---|---|---|---|---|---|
+| Superposition's | 516,762 | 10,594,293 | 10,814,581 | 10,815,021 | 0.2 to 0.3 ms |
+| and one row over the Field | 25,988,158 | 17,484,789 | 17,705,077 | 25,988,158 | 41.6 to 44.6 |
+| and a row a row, 512 | 26,097,362 | 17,484,789 | 17,705,077 | 26,097,362 | 42.5 to 43.6 |
+| and a row a cell, 262,144 | 130,963,904 | 17,484,789 | 17,705,077 | 130,963,904 | 95.6 to 100.8 |
+
+One row over the Field holds 6,890,496 bytes more after the load and after
+two frames, 26.3 a cell, and 15,173,137 more at the peak: the high-water mark
+Alonzo's floors met, 10.8 MB to 26.0. A formula cell of the same board holds
+13.5 bytes since `KERNEL.49`; one line of format costs a quarter of the board
+twice that a cell.
+
+*Where the bytes go,* each structure's size read off its type and its count
+(*derived*), the sum held to the measured:
+
+- Held: the draft's `BTreeMap<(u32, u32), u32>` of each cell's format
+  (`DraftSheet::styles`), moved whole into the machine's page
+  (`Page::styles`, `Book::of`): 262,144 entries of 12 bytes, in leaves of 144
+  bytes holding six after ordered inserts, 20.6 bytes a cell, and the nodes
+  above them, 240 bytes each, 5.7; 6.89 MB.
+- At the peak: the reader's `HashMap<CellId, (u32, u32)>`, a cell's format
+  and line kept for the `twice` refusal (`Reader::styles`), 24 bytes an entry
+  and a control byte, grown to 524,288 buckets for 262,144 entries, 13.1 MB,
+  its table of 262,144 buckets, 6.6 MB, held while it grows; beside it the
+  draft's map at that moment, 6.0 MB. The reader is given up when `read_rows`
+  returns, so the load's peak is the read's, 15.2 MB over the unstyled peak.
+- The time: `Reader::written` finds each of the 262,144 cells among the
+  records (`DraftSheet::find`, the cells alone by place, then the ranges by
+  height), then `Reader::style` inserts it in both maps.
+- Nothing after the load: no write touches a page's formats, and a frame
+  reads none.
+
+*What a range's format must hold:* its rectangle and its format, 20 bytes;
+where a row's range meets the rectangles an earlier row of the same format
+left, the cells they do not cover, as rectangles; and a row's line, until the
+load ends, for the refusal. The draft keeps its records so already
+(`KERNEL.49`'s decision 8): a record of more than one cell by its rectangle
+among the rectangles of its height (`grid::Rects`), a record of one cell by
+its place; and the machine keeps a fill's pieces so (its decision 2), a write
+cutting a piece into at most four.
+
+*Who reads a cell's format,* read in the tree: the record and every
+projection through `Cells::cells` (a window's cells, each format met beside
+the store's walk by `grid::Beside`) and `Cells::cell` (one cell, the changes
+of `KERNEL.42` a cell at a time, every frame an engine draws);
+`Machine::workbook` (a door's and a test's copy); `Draft::workbook` (the
+core's appearance golden and its looks' tests); `Draft::of_workbook` (the language's
+tests, `laws.rs` and `loaded_again`). `Draft::take` gives a cell's format up
+(Alonzo's Clock's seed, `cartridge.rs`); `Draft::put` keeps it. A machine's
+write touches no format (`WRITE_ROWS` is `cell, formula and derived`), and
+`as_a_load` holds every format kept across a write. None of the nine
+fixtures the memory runner weighs has a `style` row: the two of rows hold
+none, and a built file's relations print none (`scripts/reflect/`'s
+`*_relations.vla`, 0 rows), so the item moves their bytes only where the
+page's own size moves.
+
+**The decisions**, the owner's, each with a recommendation:
+
+1. *The representation.* Recommended: a sheet's formats as rectangles that
+   never overlap, each with its format, kept as the draft keeps its records:
+   a rectangle of more than one cell among the rectangles of its height
+   (`grid::Rects`), a cell alone in an ordered map by place; one type,
+   `grid::CellStyles`, which the draft's sheet and the machine's page both
+   hold, the draft's moved into the page whole as today. A cell's format is a
+   lookup, the cell alone first and then the rectangles by height; a window's
+   formats are the rectangles meeting it, cut to it and swept row by row
+   (`grid::RowMajor`), beside the cells alone in it, met beside the store's
+   walk as today. It is made at a sheet's first format and is a word until
+   then: a page holds its formats in 24 bytes today, and two maps inline
+   would be 48, every page of every fixture, the twins' among them, holding
+   24 more and every ceiling rising (Superposition's 32 pages 768 bytes, a
+   program of two sheets 96); boxed, a page with no format holds 8, and every
+   fixture's ceilings fall by 16 bytes a page. A format 0 a row names is held
+   as a rectangle too and reads as no format everywhere (the record prints no
+   `style` row for it, a workbook's cell holds 0), so that a later row of
+   another format over it is refused as today. *Declined:* the rows kept in
+   their order, overlapping, a cell's format the first row's holding it
+   (every read a search of rows that may overlap); runs a row, a range's
+   format a run in each of its rows (512 entries for the Field, a heap growing
+   with its height); one map of rectangles for both kinds (a cell alone found
+   by a scan of its row's rectangles, 512 of them in a row of a saved Field).
+
+2. *The refusals, found by rectangles.* Recommended: `grid-cell-unwritten`
+   by a count, the cells of the records meeting the range (the ranges by
+   their rectangles, the cells alone among its rows) equal to the range's
+   cells, the records never overlapping (one write per cell); where they
+   fall short, the first cell no row wrote found cell by cell as today, on
+   the way to the refusal alone. `grid-cell-written-twice` by the rectangles
+   meeting the range: the first cell, row by row, of the cells it shares with
+   one of another format, and the line of the first row naming that cell,
+   read from a list of the rows taken (its sheet, its range and its line, 32
+   bytes a row) only when refusing. A row meeting rectangles of its own
+   format adds the rectangles its range leaves outside them, cut as
+   `grid::cut` cuts a fill, at most four for each it meets. Each refusal
+   names the cell and the line it names today: today's loop visits a range's
+   cells row by row and refuses the first another format holds, which is the
+   first, row by row, of the cells the range shares with the rectangles of
+   another format; and the row whose rectangle holds a cell is the first row
+   naming it, a later row of its format adding no rectangle over it.
+   *Declined:* the reader keeping a line beside each rectangle's format, a
+   second set of rectangles that no read but the refusal needs.
+
+3. *The file model, the draft's two conversions and the save.* Recommended:
+   unchanged. `sheet::Cell::style` stays a cell's: the core's writer, its
+   readers, `diff`, `audit` and the doors read a cell's format at the cell,
+   and an `.xlsx` holds one a cell, each `<c>`'s `s`, as Excel writes it.
+   `Draft::workbook` gives each cell its format from the rectangles;
+   `Draft::of_workbook` takes each cell's format as a rectangle of one cell,
+   as today. The record and the save (`KERNEL.49`'s fifth projection) print a
+   `style` row a cell (`KERNEL.50`'s decision 5), so a range's format saved and
+   loaded again holds a cell's entry for each cell, 26 bytes as today and no
+   worse (*Found* 1). `KERNEL.49`'s decision 1 declined the file model for
+   the fills for the same reasons: nobody has asked for a file model's
+   memory, and `KERNEL.32`'s road brings the doors to the machine.
+   *Declined:* the file model's cells keeping ranges (every reader of
+   `Sheet::cells` in the core taught them, for a door holding a large styled
+   workbook, which no door does); the save printing a row over each
+   rectangle in this item (*Found* 1).
+
+4. *The oracle.* Recommended: a third fixture of rows for the memory runner,
+   `scripts/recalc/bench/superposition-styled.vla`, the format and the style
+   row above and nothing else, loaded after Superposition's rows, its twin:
+   the runner weighs it and times its load as it does the others, its
+   SHA-256 its own file's, its twin's file pinned by its twin's row; and
+   `check_recalc_floors.ps1` holds it within 4,096 bytes of its twin after
+   the load, after two frames and at the peak, in the baseline's rows and in
+   the runner's check mode alike, a control mutant over the bound in each.
+   Its ceilings and its load floor join the histories, and every other
+   fixture's ceilings fall by its pages' 16 bytes, each with its reason. A
+   memory row carries its load's time, so the baseline's new row is the
+   owner's run of `tools/bench_recalc.ps1`, the native half, pasted from
+   `target/bench_recalc.txt`. Beside it a seeded law in the language's tests:
+   style rows over random ranges of written cells, overlapping, of equal and
+   unequal formats, every cell's format and every refusal's cell and line
+   held to a model of today's loop written cell by cell, through
+   `Draft::workbook`, `Cells::cell`, `Cells::cells` over random windows and
+   `Machine::workbook`; and `Draft::take` inside a range. *Declined:* the
+   fixture a whole copy of Superposition's rows with two more (32 KB twice in
+   the tree, the copy not following its source when that is copied from
+   Alonzo again); the rows added to `superposition.vla` itself (no longer
+   Alonzo's rows as they stand, which its header says it is); a bench program
+   (a built file's relations print no `style` row); a count in the language's
+   own tests under an allocator of their own (a second instrument beside the
+   one the floors read).
+
+5. *The release.* `v0.12.0` is tagged at `bc6dd77` and pushed, so this
+   ships after it, its note under a new section of `docs/RELEASES.md`, the
+   owner's call: `## 0.12.1`, a patch, no public signature moved and nothing
+   a reader sees changed but the bytes and the time (recommended; the
+   cadence's line puts larger features in the minors); or `## 0.13.0`, if
+   the next release is to be a minor for other items. Alonzo stays pinned to
+   0.11.0, and its pin's move is its own step; Superposition's edges stay on
+   its looks.
+
+**Predictions**, written before any build:
+- The styled fixture within 1 KB of its twin at all three points: format 13
+  in the table's room (Superposition's 13 formats in 16 slots, 0 bytes), the
+  box (48 bytes), the classes of rectangles to the Field's (ten of 24 bytes,
+  512 rows the class 9) and a leaf of its class (232 bytes), about 520 bytes,
+  held and at the peak alike. Today 6,890,496, 6,890,496 and 15,173,137.
+- Every other fixture's bytes held and at the peak 16 fewer a page, two pages
+  a sheet: Superposition's 16 sheets 512 bytes, Life ×16's 6 sheets 192, each
+  program by its sheets; nothing else moved.
+- `read_rows` over the styled rows from 42 to 45 ms to under 1 ms; the load
+  within 5% of its twin's.
+- No golden moves: the view goldens, the describe goldens, `tests/appearance.rs`
+  and every test of the language passing unchanged beside those the item adds.
+- `grid.rs` about 150 lines with its tests, `machine/load.rs` 60 to 100
+  changed, `machine/book.rs` and `machine/mod.rs` a few lines each, the law
+  about 120, the runner 20, the check 40 to 60.
+
+**What it touches.** `vla-lang`: `src/grid.rs` (`CellStyles` and its tests);
+`src/machine/load.rs` (`DraftSheet::styles`, the count of a range's written
+cells, `Reader::style`, `Reader::written`, the list of rows taken,
+`Draft::take`, `Draft::workbook`, `Draft::of_workbook`); `src/machine/book.rs`
+(`Page::styles`, `Page::style`); `src/machine/mod.rs` (`Machine::workbook`,
+`Cells::cells`, the law); no public signature. `core/examples/memory.rs`;
+`scripts/recalc/bench/superposition-styled.vla`;
+`tools/check_recalc_floors.ps1` (the fixture pinned, the twin's rule and its
+controls, the baseline's tenth memory row, the floors' and the ceilings'
+entries, its header's counts); `docs/RELEASES.md`; this entry, the roadmap's
+line, the ledger at the close; `Delta/CLAUDE.md`'s line for `grid.rs`. No
+VBA module, no golden, no exported table, no refusal's text: so no hand test
+in Excel, the owner's step the bench run alone.
+
+**Beside it.** The tree clean at `bc6dd77` at the start, no peer in it.
+
+**Found,** read, not minted:
+1. *A range's format through a save.* A save is the record, which prints a
+   `style` row a cell, so a range-styled grid saved and loaded again holds a
+   format a cell, 26 bytes each, and reads 262,144 rows of style for the
+   Field, 54.9 MB of forms at its read's peak (the table's fourth row). A
+   save's row over each rectangle must stand after the rows writing every
+   cell of it (`KERNEL.50`'s decision 10), out of the record's order of a
+   cell's rows together; or the loader joins a row of one cell onto the
+   rectangle of its format ending beside it as it reads. Either way a change
+   to the record every host's reader takes.
+2. *A door's workbook keeps a format a cell* (`sheet::Cell::style`), as
+   Excel's file does; a door holding a large range-styled workbook pays a
+   cell's entry for each, and no door holds one today.
+
+*Approved 2026-10-30* at the owner's word, "Recommendations approved;
+proceed with implementing KERNEL.67 as scoped.": the five decisions as
+recommended, the release `0.12.1`; the roadmap's line 🟡.
+
+*Built 2026-10-30*, in a detached worktree at `bc6dd77` (the session's
+scratchpad, `k67wt/`), a peer's `VLA.9` scoping being written in this
+file's METAMETAMACRO LINE in the shared tree meanwhile; its files moved in
+whole once they passed, each one the shared tree still held at HEAD, and
+compared byte for byte after.
+
+*What landed.*
+- `vla-lang/src/grid.rs`: `CellStyles`, a sheet's cells' formats, a box
+  made at the sheet's first format and holding its ranges by height
+  (`Rects`) and its cells alone by place: `at`, a cell's format, its own
+  then its rectangle's, 0 where none is held; `put`, a rectangle none of
+  whose cells holds one; `meeting`, the rectangles meeting an area, whole;
+  `take`, one cell's format given up, the rest of its rectangle kept as at
+  most four; `in_window`, a window's cells that hold a format, row by row,
+  the rectangles meeting it cut to it and swept beside the cells alone, for
+  `Beside`. And `outside`, a range less rectangles that never overlap, as
+  rectangles that never overlap. Its two tests: every cell's format, every
+  window walked and every area met, as a map of each cell's format holds
+  them, over forty rounds of rectangles, cells alone and format 0, before
+  and after fifteen cells taken out, and `CellStyles` a word; and 300 ranges,
+  each less up to eight holes, cell for cell.
+- `vla-lang/src/machine/load.rs`: `DraftSheet::styles` a `CellStyles`;
+  `DraftSheet::covers`, a range's cells counted among its records'
+  rectangles and its cells written alone; `Reader::written` by the count,
+  cell by cell only on the way to `grid-cell-unwritten`; `Reader::style` by
+  rectangles, the first cell, row by row, that the range shares with a
+  rectangle of another format refused naming the line of the first row
+  taken whose range holds it (`Reader::styled`, each row's sheet, range and
+  line, in order), and the cells its own format's rectangles leave put as
+  rectangles, format 0's among them. `Draft::take` gives a cell's format up
+  from its rectangle, `Draft::workbook` reads each cell's there, and
+  `Draft::of_workbook` puts each cell's as a rectangle of one cell.
+- `vla-lang/src/machine/book.rs`: `Page::styles` a `CellStyles`, moved
+  from the draft whole as before; `Page::style` its `at`.
+- `vla-lang/src/machine/mod.rs`: `Machine::workbook` and `Cells::cells`
+  walk `in_window` beside the store. The law,
+  `a_style_row_over_a_range_reads_and_refuses_as_it_did_cell_by_cell`:
+  240 seeds, two sheets written in bands of ranges with a hole now and
+  then, seven style rows, of one format on half the seeds and of three on
+  the others, now and then on a sheet no row made, each load held to
+  today's loop written in the test (a range's cells found written one by
+  one, then walked row by row): 82 loads with every cell's format the
+  loop's through the draft's workbook, the machine's cells one by one, six
+  windows and its workbook, then five cells taken out with every other
+  cell's format kept, and a value put again where one was taken holding
+  none; 75 refused as written twice and 83 as unwritten, each the loop's
+  `LineRefusal`, its line, its cell and its first line. Beside it,
+  `a_style_row_over_a_range_is_held_as_its_rectangle`: the Field as its
+  four rows write it, `A1:SR512`, one row of format 13 over it and one
+  inside it, one rectangle in the draft and one in the page, a cell taken
+  leaving four, the record's `style` rows a cell.
+- `core/examples/memory.rs`: `superposition-styled`, the third fixture of
+  rows, loaded after its twin's (`AFTER`), its SHA-256 its own file's;
+  `scripts/recalc/bench/superposition-styled.vla`, the format and the row,
+  0BSD as its twin, `REUSE.toml`'s comment saying so.
+- `tools/check_recalc_floors.ps1`: the fixture pinned; the twin's rule
+  (`$twins`, `$twinBound` 4,096, `$twinPoints`) in `Test-Memory` and
+  `Test-MemoryRunner`; five control cases, a fixture over its twin by the
+  bound and a byte after its load, after two frames and at the peak, each
+  failing by the rule alone, one at the bound passing, and a fake memory
+  runner over it failing; its header's counts. `tools/bench_recalc.ps1`:
+  the fixture's load floored, so that the runner's ten rows are the ones it
+  expects.
+- `docs/RELEASES.md`: its note, under `## 0.13.0` since the owner's word
+  below. `Delta/CLAUDE.md`: `grid.rs`'s line.
+
+*Held.*
+- In the worktree: `cargo fmt --all -- --check`; `cargo clippy --workspace
+  --all-targets -- -D warnings`; `cargo test --workspace`, the language's
+  419 (four new), the core's 225 and every other suite; both wasm modules
+  and the door built; `run_checks.ps1` 59 of 60, `check_recalc_floors`
+  failing for the four lines the bench run writes alone, the fixture's
+  memory row, its two ceilings and its load floor; `check_spdx` with the
+  fixture tracked, 0BSD.
+- Thirteen mutants, each one change asserted to occur once, the style
+  tests and `tests/appearance.rs` run, the file restored and its SHA-256
+  checked: `at` ignoring the cells alone; `covers` always true; the last
+  conflict named for the first; the last row naming the cell for the
+  first; a range put whole over its own format's rectangles; a cell taken
+  keeping its format; a cut piece losing its format; the walk preferring
+  the cells alone; `meeting` leaving them out; the page keeping no format;
+  `covers` counting the cells right of the range; `outside` dropping what a
+  hole leaves; the machine walking a window of `A1` alone. The law killed
+  all thirteen, the grid's tests, the rectangle test and the appearance
+  tests their own beside it. `covers` always false would be found by no
+  test, the cells then walked as before, costing the load its time and no
+  byte or refusal; the fixture's load floor holds that.
+- `check_recalc_floors.ps1 -Control` under Windows PowerShell 5.1: every
+  clean case passes and every mutant fails, the five new among them; pwsh
+  is not on this machine and is the `module` job's.
+- The memory runner's check mode, release: superposition-styled 10,583,448
+  bytes held after the load, 10,803,736 after two frames and 10,804,176 at
+  the peak, its twin 10,582,928, 10,803,216 and 10,803,656.
+- The probe again, over the worktree: one row over the Field holds 520
+  bytes over its twin at every point, `read_rows` 0.1 ms where 42 to 45;
+  a row a row of the Field 20,688 bytes over it, `read_rows` 0.3 ms; a row
+  a cell, a save's spelling, held as before, 6.9 MB, its read's peak the
+  forms', 131.0 MB, as before (*Found* 1).
+- Alonzo's engine at `a9f93b2` (its pin moved to `vla-lang` 0.12.0 since
+  the brief), a copy by `git archive` over this `vla-lang` by path,
+  `cargo test --release`: 82 and the doc test, its cartridges' describe
+  goldens and replays among them. Alonzo's tree was never written.
+
+*Against the predictions.*
+- The styled fixture within 1 KB of its twin: 520 bytes at each of the
+  three points, the predicted bytes.
+- Every other fixture 16 bytes fewer a page, held and at the peak: held so,
+  Superposition 512 fewer, Life ×16 192, Life 96 and every other program 64;
+  at the peak Superposition and Life ×16 so, the criteria and the netlist
+  112 fewer, and five programs' peaks unmoved, which come before the draft
+  holds a sheet (*derived*: no sheet's size moves them). The prediction
+  overstated the peaks; no ceiling rises.
+- `read_rows` under 1 ms: 0.1 ms; the machine made in 8.1 to 8.6 ms beside
+  its twin's 8.2 to 8.7.
+- No golden moved, here or in Alonzo.
+- The size: `grid.rs` 271 lines with its two tests (150 predicted, the
+  tests the larger part), `machine/load.rs` 115 changed (60 to 100),
+  `machine/book.rs` 17, `machine/mod.rs` 267 with the two tests (a few
+  lines and 120), the runner 32 (20), the check 65 (40 to 60).
+
+*The release, the owner's word the same day, after the build:* "Fold 0.12.1
+and 0.13.0 into one release" (`VLA.9`'s record, whose session moved the note
+and told this one). This item ships in `0.13.0`, its note the last of that
+section's, the heading `## 0.12.1` gone; decision 5 and the approval above
+stand as they were made, and no code or number of the item moves with it.
+
+*The owner's bench, 2026-10-30:* `tools\bench_recalc.ps1` over `5f04888` and
+this item, the tree holding nothing else but another session's line in
+`.gitattributes`. Pasted into `tools/check_recalc_floors.ps1` from
+`target\bench_recalc.txt`:
+- The ten memory rows, their bytes the check mode's exactly: the styled board
+  10,583,448, 10,803,736 and 10,804,176, 520 bytes over its twin at each point.
+- The floors' entry, no floor lower: Superposition's load 52,000,000 formulas
+  a second where 38,100,000, Life ×16's 56,100,000 where 42,200,000, and the
+  styled board's joining at 52,700,000, each this run's 13.1, 15.4 and 12.9 ms
+  less the margin.
+- The ceilings' entry, its reason written: thirteen of the eighteen lower, as
+  *Against the predictions* has them, five peaks the same, none higher, and
+  the styled board's two joining.
+
+Not pasted: `$baselineDate`, `$baselineNative` and the seven native rows, which
+stand at the run of 2026-10-23, a comment over the memory rows saying so. A
+native file must be the same bytes as Excel's half's, by its digest, and all
+seven have moved with the stamp or the writer since that run, as the check's
+own lines print, so pasting them needs Excel's half run over the same files.
+And this run's type stands under its floor (*Found* 3), which the check's paste
+note has recorded and never pasted over a better number.
+
+*Measured beside it,* to learn whose the type is: the instrument itself,
+`-NoBuild`, in three isolated copies with their own targets, the order turned
+each round, the same evening, no build, check or other instrument running and
+the owner's browser open:
+
+| | `1dd1260`, the last native paste | `5f04888` | `5f04888` and this item | the owner's run |
+|---|---|---|---|---|
+| the netlist's type, µs | 4.9, 4.2, 4.4 | 3.9, 4.2, 3.4 | 3.6, 4.2, 3.6 | 3.5 |
+| Superposition's load, ms | 13.1, 13.4, 12.8 | 13.3, 12.9, 12.9 | 13.9, 12.5, 12.9 | 13.1 |
+| Life ×16's load, ms | 14.7, 15.8, 14.8 | 15.6, 14.8, 15.6 | 17.0, 14.7, 15.0 | 15.4 |
+| the styled board's load, ms | | | 14.2, 12.3, 13.3 | 12.9 |
+| Superposition held, bytes | 10,803,728 | 10,803,728 | 10,803,216 | 10,803,216 |
+
+- This item moves no type: it is no slower than `5f04888`, and no write or
+  frame reads a page's formats (*read*: a format is read by the record and by a
+  grid's readers, `Cells`, alone).
+- The load floors' rise is not this item's doing: the last paste's code loads
+  as fast today, where its own run of 2026-10-23 took 17.8 and 20.5 ms, so the
+  rise is that day's machine against this one's. All nine runs clear the new
+  floors, which allow 15.4, 18.2 and 15.2 ms; the slowest took 13.9, 17.0 and
+  14.2.
+- Every frame's and edit's median within 2.4% of `5f04888`'s (*measurement*),
+  the netlist's edit 7.5% under it.
+- The bytes are `1dd1260`'s and `5f04888`'s alike, so `VLA.9` moved none, and
+  this item's are the owner's run's to the byte.
+
+*Held after the paste,* in the shared tree over `5f04888`: `cargo fmt --all --
+--check`; `cargo clippy --workspace --all-targets -- -D warnings`; `cargo test
+--workspace`, the language's 428 and the core's 225 among the suites;
+`run_checks.ps1` 60 of 60; `check_recalc_floors.ps1 -Control`.
+
+**Found,** after the bench, read, not minted:
+3. *The netlist's type floor is out of reach of the code that set it.*
+   `'netlist type' = 303000`, 3.3 µs, the entry of 2026-10-23, set from one run
+   of 2.8 µs. That run's own code takes 4.2 to 4.9 µs today, and no run of any
+   copy clears the floor, the fastest 3.4. The floor stands in the history and
+   holds the native row of that run; the next native paste meets it, beside
+   Excel's half, and needs a run that clears it or the owner's ruling, as
+   `column`'s floors had (`KERNEL.8`, "Lower, with reason"). Marked for a later
+   pass at the owner's word, 2026-10-30, and not minted: after `0.13.0`'s bump
+   moves the files' bytes again, both instruments run, both blocks pasted whole,
+   with this floor's ruling. The mark stands over the native rows in
+   `tools/check_recalc_floors.ps1` and on `KERNEL.64`'s line, the next item that
+   must run both halves.
+
+*Committed 2026-10-30* at the owner's word, "Commit KERNEL.67 and mark the
+native rows for a later pass where appropriate before suggesting next steps.":
+the item's files and its hunks of the shared documents alone, another session's
+line in `.gitattributes` left out, its tree verified alone before it was written
+(fmt, clippy with warnings denied, `cargo test --workspace`, the core's 225 and
+the language's 428, both wasm modules built, `run_checks.ps1` 60 of 60). The item
+closes: its line leaves the roadmap for the closed ledger. Not pushed.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -54247,6 +54688,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.56 — a value written into an empty cell costs its write and its readers: the cell taken where it stands by its sheet's store, its twin's and its plane, a twin's gain kept with no whole frame, and the extent's readers computed where an extent moved, so that typing into a fresh cell, or a cartridge writing a cell it never wrote, computes no frame whole.** Minted 2026-10-21 at the owner's word, from `KERNEL.54`'s scoping (its *Found*, and its second slice's probe); scoped 2026-10-22, its eight decisions approved whole, this item before `KERNEL.49`'s third slice, and built in two slices the same day, each at the owner's word: the bench's type row (`615ff82`: a value written into a fresh cell of the netlist and the frames until the grid is still, timed against Excel's, the owner's runs of both halves at today's numbers, 6.911 ms against Excel's 0.495) and the language (the second: a value cell added planning nothing, a twin's gain growing its extent with no whole frame, the extent's readers declared by the library and filed by the plan, a store's and a plane's growth taken where they stand, the changes whole only where an extent moved; a counted test, a law over generated grids with empty-cell writes and the extent's readers, twenty-three mutants, Alonzo's and Buffet's tests and frames over it). One value typed into an empty cell of the large board costs its next two frames 0.7 and 0.6 µs where they took 30.3 ms each, Life x16's 0.8 and 0.6 where 33.8, and the shuffled adder of 65,536 bits 2.0 and 0.3 µs where 107 and 100 ms; the netlist's type 3.5 µs where 6.911 ms; a row typed below 458,753 cells 6.0 µs where 16.5 ms; the first frame after a load 15 to 26% faster; every grid 20 bytes a sheet heavier and its library 1,065. To be released in 0.11.0. `~days`, taken in two days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 - ✅ **KERNEL.57 — a file's looks as rows: `frazaro reflect --looks` printing a workbook's gridlines, its columns' widths and formats, its rows' heights and each cell's format, its fill, number format, wrap, font, alignment and borders, from `.xlsx` and `.ods` alike, so that a reflected workbook keeps its looks and, behind a manifest, loads as a cartridge with them.** Minted 2026-10-22 at the owner's word of 2026-10-21, from `KERNEL.50`'s scoping (its decision 8) and `KERNEL.47`'s *Found*; scoped the same day, its fifteen decisions approved as recommended, and built in four slices the same day, each at the owner's word: the package (`b09c78a`: the record's own rows in `vla-lang`, the package reader's styles and theme, every package fixture's looks golden, a formula's saved value a `value` row so that a reflected workbook loads, the writer keeping a row's height and a sheet's state); Excel's golden (`a8e0884`: two hand-made workbooks of a case a row, 393 cases and 928 targets read through Excel's object model in two runs, the reader folded to Excel's tint, palette and built-ins); OpenDocument (`6b5e858`: an `.ods` file's styles, data styles and settings read as a package's, held to Excel's reading through Excel's own `.ods` save and LibreOffice's, each writer's gaps named, LibreOffice's extensions read and its family default's wrap passed over); and the page (`frazaro_reflect_looks`, its record's id what the record could not hold, and the Reflect pane's fourth Show choice). A workbook's looks the record holds are read as Excel draws them: a theme's slots and tints by ECMA's rule in Windows' HLS with each product truncated, 90 of 90; the palette, a workbook's own among them; every built-in number format by its id; each width by Excel's rule; and what the record cannot hold is left out, counted and said. The looks it counts and its two *Found* minted as `KERNEL.58` and `KERNEL.59`. To be released in 0.11.0. `~weeks`, taken in a day. *(more: the scoping and the four slices' records, under the KERNEL line)*
 - ✅ **KERNEL.49 — the grid held as what a person wrote: a fill one record, every value by place in nine bytes, a twin kept only where a formula reads it, and the plan by fills and levels, so that a formula cell costs bytes and a load its rows.** Minted 2026-10-19 at the owner's word, after Alonzo's `CART.12` hand test; scoped the same day, its fourteen decisions approved as recommended on 2026-10-21, and built in five slices, each at the owner's word: the floors (`c9f225c`: two fixtures of rows, Superposition's board and Life at sixteen times its window, and a runner of their bytes, held as exact ceilings); values by place (`45f5b43`: a slot of nine bytes in one store a sheet, a twin kept only where a formula reads it, the change lists as bits); the grid and the draft (`2e98ce5`: the machine's grid its own, a fill held once and cut by a write into at most four, the rows read as records); the plan by fills and levels (`1dd1260`: a fill's piece or a formula alone a node, edges by rectangles, levels as maps, the order kept as blocks, and an order of at most 262,144 cells listed too at the owner's word); and the fills (the view record's fifth projection, each fill's formula once over each of its rectangles, what a save prints). The large board holds 13.5 bytes a formula cell after two frames and at its peak where it held 401 and 424, Life at sixteen times its window 18.6 where 397 and 471, inside the item's 20 and 24; they load in 13 and 15 ms where 0.68 and 0.62 s; their saves are 29.7 and 27.8 MB where 521 and 562; every value, view and census line the same, and every frame of Alonzo's. To be released in 0.11.0. `~weeks`, taken in three days. *(more: the scoping and the five slices' records, under the KERNEL line)*
+- ✅ **KERNEL.67 — a style row over a range held as one range: a sheet's formats kept by the machine as rectangles that never overlap, each with its format, and never a format a cell, so that a `style` row's heap stops growing with the area it covers.** Minted 2026-10-30 at the owner's word, from Alonzo's `ENGINE.28` (its *Found* after the close, for `vla-lang`); scoped the same day, its five decisions approved as recommended; built, measured by the owner's native run and committed the same day at the owner's word. `grid::CellStyles`, one type the draft and the page share: a rectangle of more than one cell among the rectangles of its height and a cell alone by place, in a box made at a sheet's first format, so that a sheet with no format holds a word where it held three. A row over rectangles of its own format adds only the rectangles its range leaves outside them; a range's cells are found written by a count over its records' rectangles; the two refusals name the cell and the line they named, found by rectangles; a cell taken from a draft cuts its rectangle into at most four and gives its format up; the record, the save and the file model a format a cell as before. One row over Superposition's Field of 262,144 cells held 6.9 MB more after two frames and 15.2 MB more at its peak, and read in 44 ms where the rows unstyled read in 0.3; it holds 520 bytes over its twin after the load, after two frames and at the peak, and reads in 0.1. Every sheet and its twin 16 bytes fewer: thirteen of the eighteen ceilings fell, five peaks stayed, none rose. *Pins:* a seeded law of 240 deals of style rows, overlapping and refused, every cell's format and every refusal's cell and line held to today's loop (82 taken, 75 written twice, 83 unwritten), the thirteen mutants killed; the rectangle test; the grid's two. *Oracle:* `superposition-styled`, the third fixture of rows, held within 4,096 bytes of its twin at all three points by a rule of `check_recalc_floors.ps1`, with five control cases; no golden moved. Ships in `0.13.0`, into which the owner folded `0.12.1`. The owner's run pasted in part, the memory rows and both histories, the seven native rows marked for a later pass; three *Found* read, not minted, the third the floor `netlist type`, which the code that set it no longer clears. (Full entry: THE KERNEL LINE, after `KERNEL.57`.)
 
 ## 🛡 ADVERSARY · SECURITY
 

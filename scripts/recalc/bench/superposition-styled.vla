@@ -1,0 +1,8 @@
+; SPDX-License-Identifier: 0BSD
+; The recalculation floors' memory fixture of a style row over a range (KERNEL.67): loaded after
+; superposition.vla, its twin, whose rows it adds to, and held by check_recalc_floors.ps1 within a constant of
+; its twin's bytes. The way Alonzo's ENGINE.28 first edged Superposition's lattice after its close
+; (Alonzo/docs/REARVIEW.md, 2026-10-29): a format of the sites' right and bottom edges in the gridlines' gray, and
+; one row of it over the Field's 262,144 sites, which vla-lang 0.12.0 held a format a cell.
+(format 13 none general nowrap (border (right thin "D9D9D2") (bottom thin "D9D9D2")))
+(style "Field" "A1:SR512" 13)

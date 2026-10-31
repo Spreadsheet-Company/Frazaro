@@ -30,8 +30,9 @@ computation timed beside every frame, and prints no rows when it moved
 more than 10%.
 
 SINCE KERNEL.49's first slice it runs a second runner the same way,
-core/examples/memory.rs, which weighs every bench program and the two
-fixtures of rows (scripts/recalc/bench/superposition.vla and life-x16.vla)
+core/examples/memory.rs, which weighs every bench program and the fixtures
+of rows (scripts/recalc/bench/superposition.vla and life-x16.vla, and since
+KERNEL.67 superposition-styled.vla, loaded after superposition.vla's rows)
 under a counting allocator and times their loads: its rows join the block,
 the fixtures of rows' loads join the floors (formulas loaded a second, less
 the margin), and each fixture's bytes held and at the peak are the
@@ -42,8 +43,9 @@ WHAT IT DOES:
   1. builds the two runners, unless -NoBuild: cargo build --release -p
      frazaro-core --example recalc --example memory;
   2. runs each, opted out and on the performance cores, and reads its rows,
-     the recalc runner's seven and the memory runner's nine (the netlist
-     the seventh program since KERNEL.54's first slice);
+     the recalc runner's seven and the memory runner's ten (the netlist
+     the seventh program since KERNEL.54's first slice, the styled board
+     the third fixture of rows since KERNEL.67);
   3. prints the block: the date, the environment, the rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
@@ -73,7 +75,7 @@ $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::W
 $margin = 0.15
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
 # The memory runner's fixtures, and those whose loads are floored (KERNEL.49).
-$loadFloored = @('superposition', 'life-x16')
+$loadFloored = @('superposition', 'life-x16', 'superposition-styled')
 $weighed = @($fixtures) + @($loadFloored)
 
 function Find-Cargo {

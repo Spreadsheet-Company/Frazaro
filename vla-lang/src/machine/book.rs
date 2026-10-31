@@ -4,9 +4,10 @@
 //! writer, the readers and the doors. A sheet of it is its name and
 //! settings, its fills, each one formula written over a rectangle and held
 //! as the pieces the writes into it leave, its formulas alone, each a cell's
-//! own text, and the few cells' formats; its values stand by place in its
-//! store (`super::store`), so that no cell of a fill is ever made, and what a
-//! cell holds is found where it stands.
+//! own text, and its cells' formats, each over the rectangles its rows named
+//! (KERNEL.67); its values stand by place in its store (`super::store`), so
+//! that no cell of a fill is ever made, and what a cell holds is found where
+//! it stands.
 //!
 //! A write into part of a fill takes the written rectangle out of each piece
 //! it meets and keeps the rest as at most four, each the same fill, its
@@ -20,7 +21,7 @@
 use std::collections::BTreeMap;
 
 use crate::calc::graph::{Area, CellId, Extent};
-use crate::grid::{cut, overlap, Formula, Kind, Masters, Model, Rects, RowMajor};
+use crate::grid::{cut, overlap, CellStyles, Formula, Kind, Masters, Model, Rects, RowMajor};
 use crate::sheet::{A1Range, Sheet, Styles};
 
 use super::load::{Draft, What};
@@ -190,8 +191,8 @@ pub(crate) struct Page {
     /// The formulas of their own, a cell each: the text without its `=`,
     /// and its kind.
     pub(crate) alone: BTreeMap<(u32, u32), (String, Kind)>,
-    /// Each cell's format, where it is not 0.
-    pub(crate) styles: BTreeMap<(u32, u32), u32>,
+    /// Each cell's format, as rectangles (KERNEL.67).
+    pub(crate) styles: CellStyles,
     /// How many cells it holds, values and formulas.
     pub(crate) cells: usize,
 }
@@ -202,7 +203,7 @@ impl Page {
             sheet,
             fills: Fills::default(),
             alone: BTreeMap::new(),
-            styles: BTreeMap::new(),
+            styles: CellStyles::default(),
             cells: 0,
         }
     }
@@ -217,7 +218,7 @@ impl Page {
 
     /// A cell's format.
     pub(crate) fn style(&self, row: u32, col: u32) -> u32 {
-        self.styles.get(&(row, col)).copied().unwrap_or(0)
+        self.styles.at(row, col)
     }
 
     /// Every formula cell inside an area, row by row, with what it holds:

@@ -25,7 +25,11 @@ rung), each loaded into the machine under a counting allocator and stepped
 twice: the bytes it holds after its load and after two frames, and the most
 it held between; and its load timed. Bytes asked of the allocator are the
 same on every run of one build and on every 64-bit machine, so they are held
-exactly, as ceilings that never rise, here and on every push.
+exactly, as ceilings that never rise, here and on every push. Since KERNEL.67
+a third fixture of rows adds to a twin's: superposition-styled.vla, one style
+row over Superposition's Field, loaded after superposition.vla's rows, and
+held within a constant of its twin's bytes, so that a style row over a range
+holds its rectangle and never a format a cell.
 
 WHAT IT HOLDS, from the baseline pasted below:
   - a date and two environment lines, each saying, as its instrument
@@ -59,20 +63,23 @@ WHAT IT HOLDS, from the baseline pasted below:
     of 15%: measured over three rounds, a fixture's medians moved up to 11%
     between processes (chain's whole frame, 3.87 to 4.31 ms over three runs,
     2026-10-10, the slice's build), and Alonzo's 10% would not hold it;
-  - nine memory rows, the memory runner's, one a fixture: its bytes held
+  - ten memory rows, the memory runner's, one a fixture: its bytes held
     after its load, after two frames and at the peak, the peak at least the
     bytes held, its source's SHA-256 over LF bytes (the program's, or the
     rows' own file) the one pinned here; each load timed in at least three
     rounds, its clock within 10%, its formulas loaded a second agreeing
-    with its time; and the two fixtures of rows as they stand, each one's
+    with its time; and the three fixtures of rows as they stand, each one's
     SHA-256 over LF bytes the one measured;
+  - a fixture of rows that adds to a twin's within 4,096 bytes of its twin's
+    after its load, after two frames and at the peak (KERNEL.67), in the
+    baseline's rows and in the memory runner's check mode alike;
   - the ceilings, a dated history beside the floors', each fixture's bytes
     held and at the peak: each entry's ceiling at most the entry before it
     unless the entry gives its reason, a fixture's ceilings from the entry
     it joined on and every fixture's in the latest; each memory row's bytes
     at most the latest ceilings. A ceiling is the run's bytes exactly, with
     no margin, since the count is exact;
-  - two load floors among the floors, the fixtures of rows' formulas loaded
+  - three load floors among the floors, the fixtures of rows' formulas loaded
     a second, the run's number less the margin, held as a frame's are;
   - both histories appended to and never pasted over: every entry the last
     commit's copy of this file holds is still here, in its order, at the
@@ -124,16 +131,18 @@ program edited, a flag row with no verdict and a fixture Excel could not
 open must each fail, and so must a memory row missing, a memory row over its
 ceiling, a peak under the bytes held, a ceiling raised with no reason, a
 fixture's ceilings left out after it joined, a load under its floor, a load
-a second that disagrees with its time, and a fixture of rows edited; the
-histories,
+a second that disagrees with its time, a fixture of rows edited, and a
+fixture over its twin's bytes by more than the bound, while one at the bound
+passes; the histories,
 read from text as the commit's copy is: an entry added after the committed
 ones passes, and so does a history unchanged, while an entry pasted over a
 committed one and a committed entry edited in place must each fail; then
 fake runners: a clean one passes, and one whose values differ, one whose
 sums differ and one that leaves out a fixture must each fail; and fake
 memory runners: a clean one passes, and one over a ceiling, one whose
-formulas differ, one that leaves out a fixture and one that failed must
-each fail. Then the runners' finding, running and keeping (AS.10): of two
+formulas differ, one that leaves out a fixture, one that failed and one
+whose fixture holds more than its twin by more than the bound must each
+fail. Then the runners' finding, running and keeping (AS.10): of two
 built, the newer is found; a runner older than a source is named stale and
 one newer is not; two fake runners started together run at once, read off
 the times each writes; a clean output kept is read back from the cache
@@ -162,7 +171,7 @@ $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::W
 
 # --- the baseline, hand-maintained: the owner's run of the two instruments ---
 # Paste the native half's block (tools/bench_recalc.ps1) over $baselineDate,
-# $baselineNative and its seven rows and nine memory rows, Excel's half's
+# $baselineNative and its seven rows and ten memory rows, Excel's half's
 # (tools/bench_recalc_excel.ps1) over $baselineExcel and its seventeen rows, and
 # the two histories the native half prints over $floorHistory and
 # $ceilingHistory, whole: each is this file's history with the run's entry
@@ -173,7 +182,9 @@ $baselineDate = '2026-10-23'
 $baselineNative = 'Intel(R) Core(TM) Ultra 7 265KF, 20 logical processors | Microsoft Windows 11 Home 10.0.26200.0 | rustc 1.99.0 (b940084d7 2026-09-28) | frazaro-core 0.10.1 | power throttling opted out: the runner yes | high priority: the runner yes | on the performance cores, 8 of 20 logical processors (efficiency class 1): the runner yes'
 $baselineExcel = 'Excel''s half, 2026-10-22: Intel(R) Core(TM) Ultra 7 265KF | Microsoft Windows 11 Home 10.0.26200.0 | Excel 16.0 build 20430 | all threads 20; one thread on the performance cores, mask 0xC03C3 | power throttling opted out: yes'
 $baseline = @(
-    # the native rows:
+    # the native rows, of the run of 2026-10-23, the files Excel's half opened. Marked for a later pass,
+    # after 0.13.0's bump moves the files' bytes again: both instruments run, both blocks pasted whole, and
+    # the owner's ruling on the floor 'netlist type' (docs/BETA_REARVIEW.md, KERNEL.67, the third finding):
     @{ Half = 'native'; Fixture = 'column'; Formulas = 60000; Sha256 = '45AAE2432E1E74CB35187616478E5513DF3921EC3D99F6D18E4A220715B159F7'; Rounds = 3; Load = 221.4; First = 1.22; Whole = 0.505; Edit = 1.129; Calc = 218.6; WholePerSecond = 118694362; EditsPerSecond = 885.9; SumBuilt = 1100080000; SumEdited = 1425100000; ClockMs = 0.179; ClockSpread = 3.9; ClockDrift = -0.3 }
     @{ Half = 'native'; Fixture = 'chain'; Formulas = 39999; Sha256 = 'BB9A9EC4AFF95C4F469E85A240C2B0B5EE7F2BD78EE7B4855F1F2BCF137625C6'; Rounds = 3; Load = 141.3; First = 1.13; Whole = 0.599; Edit = 1.343; Calc = 121.5; WholePerSecond = 66776294; EditsPerSecond = 744.4; SumBuilt = 1200039974; SumEdited = 1200059975; ClockMs = 0.179; ClockSpread = 4.1; ClockDrift = -0.5 }
     @{ Half = 'native'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'CDF7FC5F0FD5DB43E92851722EA8B39E98ACD416ECF424DB561ECCC2CA7087C0'; Rounds = 3; Load = 107.6; First = 1.20; Whole = 0.823; Edit = 1.293; Calc = 150.7; WholePerSecond = 34043019; EditsPerSecond = 773.3; SumBuilt = 14800794; SumEdited = 14900794; ClockMs = 0.179; ClockSpread = 2.7; ClockDrift = -0.3 }
@@ -181,16 +192,17 @@ $baseline = @(
     @{ Half = 'native'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '8EB849667F0749A6850664C44431690CDBC61C853F977AA67F02515BD56085D4'; Rounds = 3; Load = 642.4; First = 11.33; Whole = 8.448; Edit = 9.482; Calc = 709.0; WholePerSecond = 16571185; EditsPerSecond = 105.5; SumBuilt = 51995036; SumEdited = 52005012; ClockMs = 0.179; ClockSpread = 3.7; ClockDrift = -0.3 }
     @{ Half = 'native'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'C09F43759275D4C6833102011F2FB333DA8B1638B0634D24C5DB3DDF59078A95'; Rounds = 3; Load = 192.4; First = 7.51; Whole = 5.447; Edit = 3.976; Calc = 269.0; WholePerSecond = 11267166; EditsPerSecond = 251.5; SumBuilt = 12010000; SumEdited = 12030000; ClockMs = 0.179; ClockSpread = 1.8; ClockDrift = -0.2 }
     @{ Half = 'native'; Fixture = 'netlist'; Formulas = 20480; Sha256 = '929FB12A2C658EF900139BEEBB743DC17ABD834EE6E9DA4D3306A17CE663881B'; Rounds = 3; Load = 285.9; First = 4.97; Whole = 4.033; Edit = 6.122; Calc = 77.3; WholePerSecond = 5077728; EditsPerSecond = 163.3; Type = 0.003; TypesPerSecond = 357142.9; SumBuilt = 8192; SumEdited = 12288; ClockMs = 0.179; ClockSpread = 2.2; ClockDrift = -0.2 }
-    # the memory rows (KERNEL.49):
-    @{ Half = 'memory'; Fixture = 'column'; Formulas = 60000; Sha256 = '751885133C249C25C8C4BB3854877A72E6054B2E0945BB2C1931C3FF05D55E2E'; Rounds = 3; Load = 264.9; LoadPerSecond = 226515; LoadHeld = 10438476; Held = 10463980; Peak = 62909797; ClockMs = 0.175; ClockSpread = 3.8; ClockDrift = -1.8 }
-    @{ Half = 'memory'; Fixture = 'chain'; Formulas = 39999; Sha256 = '72FA6E5DB80DF71796473E21B89432C598AD8719C473D8955B24B796417A8A5A'; Rounds = 3; Load = 170.7; LoadPerSecond = 234324; LoadHeld = 7031470; Held = 7064302; Peak = 37447954; ClockMs = 0.178; ClockSpread = 0.2; ClockDrift = 0.1 }
-    @{ Half = 'memory'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'A339D809DE2493BBA3A129FC3FC4A5AEC458A5A6F1B5FB590DB04D2CCB3F7348'; Rounds = 3; Load = 133.9; LoadPerSecond = 209180; LoadHeld = 4604179; Held = 4637011; Peak = 31769224; ClockMs = 0.177; ClockSpread = 1.5; ClockDrift = -0.4 }
-    @{ Half = 'memory'; Fixture = 'life'; Formulas = 62964; Sha256 = 'C2B7AC34005AB88CFE2F4CE98FAC3C704CCF26E8AEED90BE221BF800D63F1716'; Rounds = 3; Load = 1623.4; LoadPerSecond = 38786; LoadHeld = 40489741; Held = 40624685; Peak = 283714012; ClockMs = 0.179; ClockSpread = 0.6; ClockDrift = 0.3 }
-    @{ Half = 'memory'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '5D25CCE0460063145619F43B64ED898BA6A073F5F83003D53B92B8D1C8C1619A'; Rounds = 3; Load = 756.8; LoadPerSecond = 185000; LoadHeld = 25957966; Held = 29487670; Peak = 155549356; ClockMs = 0.178; ClockSpread = 0.9; ClockDrift = -0.0 }
-    @{ Half = 'memory'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'B80A36C00F9445793B061A2CCAA2138F7B0FC407469A87EC6259F1A878C48D63'; Rounds = 3; Load = 221.3; LoadPerSecond = 277343; LoadHeld = 10143338; Held = 12209986; Peak = 41898740; ClockMs = 0.179; ClockSpread = 0.7; ClockDrift = 0.4 }
-    @{ Half = 'memory'; Fixture = 'netlist'; Formulas = 20480; Sha256 = '31CA9658F01BDE413E66BB891552BAF279E939CE7B261080E3E0631F99EF82CF'; Rounds = 3; Load = 345.7; LoadPerSecond = 59251; LoadHeld = 53186112; Held = 53186144; Peak = 85038276; ClockMs = 0.178; ClockSpread = 0.6; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'superposition'; Formulas = 798731; Sha256 = '6A3AE552F614AC0CD5582D69ED0992E804032831798E92C0445EEFA478551B98'; Rounds = 3; Load = 17.8; LoadPerSecond = 44851362; LoadHeld = 10583440; Held = 10803728; Peak = 10804168; ClockMs = 0.175; ClockSpread = 2.7; ClockDrift = -1.5 }
-    @{ Half = 'memory'; Fixture = 'life-x16'; Formulas = 1019844; Sha256 = '7366BE8061601852C8447E246CA98E58D11DF699A965B659BB48826975ED001D'; Rounds = 3; Load = 20.5; LoadPerSecond = 49753099; LoadHeld = 18840124; Held = 18975068; Peak = 18975068; ClockMs = 0.178; ClockSpread = 1.4; ClockDrift = -0.2 }
+    # the memory rows (KERNEL.49), of the run of 2026-10-30 at frazaro-core 0.12.0 (KERNEL.67):
+    @{ Half = 'memory'; Fixture = 'column'; Formulas = 60000; Sha256 = '751885133C249C25C8C4BB3854877A72E6054B2E0945BB2C1931C3FF05D55E2E'; Rounds = 3; Load = 293.2; LoadPerSecond = 204657; LoadHeld = 10438412; Held = 10463916; Peak = 62909797; ClockMs = 0.180; ClockSpread = 5.1; ClockDrift = 0.1 }
+    @{ Half = 'memory'; Fixture = 'chain'; Formulas = 39999; Sha256 = '72FA6E5DB80DF71796473E21B89432C598AD8719C473D8955B24B796417A8A5A'; Rounds = 3; Load = 179.3; LoadPerSecond = 223080; LoadHeld = 7031406; Held = 7064238; Peak = 37447954; ClockMs = 0.180; ClockSpread = 0.4; ClockDrift = 0.4 }
+    @{ Half = 'memory'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'A339D809DE2493BBA3A129FC3FC4A5AEC458A5A6F1B5FB590DB04D2CCB3F7348'; Rounds = 3; Load = 147.0; LoadPerSecond = 190624; LoadHeld = 4604115; Held = 4636947; Peak = 31769224; ClockMs = 0.181; ClockSpread = 0.4; ClockDrift = 0.9 }
+    @{ Half = 'memory'; Fixture = 'life'; Formulas = 62964; Sha256 = 'C2B7AC34005AB88CFE2F4CE98FAC3C704CCF26E8AEED90BE221BF800D63F1716'; Rounds = 3; Load = 1737.9; LoadPerSecond = 36230; LoadHeld = 40489645; Held = 40624589; Peak = 283714012; ClockMs = 0.181; ClockSpread = 1.5; ClockDrift = 0.7 }
+    @{ Half = 'memory'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '5D25CCE0460063145619F43B64ED898BA6A073F5F83003D53B92B8D1C8C1619A'; Rounds = 3; Load = 802.4; LoadPerSecond = 174484; LoadHeld = 25957902; Held = 29487606; Peak = 155549356; ClockMs = 0.180; ClockSpread = 3.6; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'B80A36C00F9445793B061A2CCAA2138F7B0FC407469A87EC6259F1A878C48D63'; Rounds = 3; Load = 240.2; LoadPerSecond = 255514; LoadHeld = 10143274; Held = 12209922; Peak = 41898628; ClockMs = 0.181; ClockSpread = 5.9; ClockDrift = 0.6 }
+    @{ Half = 'memory'; Fixture = 'netlist'; Formulas = 20480; Sha256 = '31CA9658F01BDE413E66BB891552BAF279E939CE7B261080E3E0631F99EF82CF'; Rounds = 3; Load = 366.5; LoadPerSecond = 55884; LoadHeld = 53186048; Held = 53186080; Peak = 85038164; ClockMs = 0.180; ClockSpread = 1.4; ClockDrift = 0.1 }
+    @{ Half = 'memory'; Fixture = 'superposition'; Formulas = 798731; Sha256 = '6A3AE552F614AC0CD5582D69ED0992E804032831798E92C0445EEFA478551B98'; Rounds = 3; Load = 13.1; LoadPerSecond = 61201220; LoadHeld = 10582928; Held = 10803216; Peak = 10803656; ClockMs = 0.180; ClockSpread = 2.8; ClockDrift = -0.0 }
+    @{ Half = 'memory'; Fixture = 'life-x16'; Formulas = 1019844; Sha256 = '7366BE8061601852C8447E246CA98E58D11DF699A965B659BB48826975ED001D'; Rounds = 3; Load = 15.4; LoadPerSecond = 66011457; LoadHeld = 18839932; Held = 18974876; Peak = 18974876; ClockMs = 0.179; ClockSpread = 5.8; ClockDrift = -0.2 }
+    @{ Half = 'memory'; Fixture = 'superposition-styled'; Formulas = 798731; Sha256 = '67097ADEFC12CFDB5A0C99F564A239AAF811FD7E6B0005CE1DED53AB411024B3'; Rounds = 3; Load = 12.9; LoadPerSecond = 62026760; LoadHeld = 10583448; Held = 10803736; Peak = 10804176; ClockMs = 0.179; ClockSpread = 5.6; ClockDrift = -0.6 }
     # Excel's half, its flag first:
     @{ Half = 'excel-flag'; File = 'calcpr_built'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
     @{ Half = 'excel-flag'; File = 'calcpr_calcid'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
@@ -233,7 +245,8 @@ $floorHistory = @(
     @{ Date = '2026-10-22'; Reason = ''; Floors = @{ 'column whole' = 101000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29100000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 364; 'lookups whole' = 12600000; 'lookups edit' = 81; 'criteria whole' = 4960000; 'criteria edit' = 152; 'netlist whole' = 4180000; 'netlist edit' = 142; 'netlist type' = 122; 'superposition load' = 1160000; 'life-x16 load' = 1370000 } },
     @{ Date = '2026-10-22'; Reason = ''; Floors = @{ 'column whole' = 103000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29100000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 364; 'lookups whole' = 12600000; 'lookups edit' = 81; 'criteria whole' = 4960000; 'criteria edit' = 152; 'netlist whole' = 4250000; 'netlist edit' = 142; 'netlist type' = 242000; 'superposition load' = 1160000; 'life-x16 load' = 1370000 } },
     @{ Date = '2026-10-22'; Reason = ''; Floors = @{ 'column whole' = 103000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29500000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 364; 'lookups whole' = 14000000; 'lookups edit' = 90; 'criteria whole' = 9400000; 'criteria edit' = 218; 'netlist whole' = 4270000; 'netlist edit' = 155; 'netlist type' = 274000; 'superposition load' = 1670000; 'life-x16 load' = 2660000 } },
-    @{ Date = '2026-10-23'; Reason = ''; Floors = @{ 'column whole' = 103000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29500000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 367; 'lookups whole' = 14000000; 'lookups edit' = 90; 'criteria whole' = 9570000; 'criteria edit' = 218; 'netlist whole' = 4310000; 'netlist edit' = 155; 'netlist type' = 303000; 'superposition load' = 38100000; 'life-x16 load' = 42200000 } }
+    @{ Date = '2026-10-23'; Reason = ''; Floors = @{ 'column whole' = 103000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29500000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 367; 'lookups whole' = 14000000; 'lookups edit' = 90; 'criteria whole' = 9570000; 'criteria edit' = 218; 'netlist whole' = 4310000; 'netlist edit' = 155; 'netlist type' = 303000; 'superposition load' = 38100000; 'life-x16 load' = 42200000 } },
+    @{ Date = '2026-10-30'; Reason = ''; Floors = @{ 'column whole' = 103000000; 'column edit' = 778; 'chain whole' = 63000000; 'chain edit' = 667; 'sums whole' = 29500000; 'sums edit' = 684; 'life whole' = 30800000; 'life edit' = 367; 'lookups whole' = 14000000; 'lookups edit' = 90; 'criteria whole' = 9570000; 'criteria edit' = 218; 'netlist whole' = 4310000; 'netlist edit' = 155; 'netlist type' = 303000; 'superposition load' = 52000000; 'life-x16 load' = 56100000; 'superposition-styled load' = 52700000 } }
 )
 
 # --- the ceilings, a dated history that never rises (KERNEL.49) ---
@@ -252,7 +265,8 @@ $ceilingHistory = @(
     @{ Date = '2026-10-22'; Reason = 'KERNEL.56''s first slice, at the owner''s word: the netlist''s bytes held and its peak raised by its program, two lines longer (the bench''s type row and a line of its comment), each line a text cell of the Frazaro sheet a build writes; held 1,222 bytes more and at the peak 2,026, the other programs the same (docs/BETA_REARVIEW.md, KERNEL.56)'; Ceilings = @{ 'column held' = 17220986; 'column peak' = 62909797; 'chain held' = 10674075; 'chain peak' = 37447954; 'sums held' = 7144895; 'sums peak' = 31769224; 'life held' = 47510443; 'life peak' = 283714012; 'lookups held' = 45870596; 'lookups peak' = 155549356; 'criteria held' = 22549734; 'criteria peak' = 51926639; 'netlist held' = 62157411; 'netlist peak' = 90271712; 'superposition held' = 188069711; 'superposition peak' = 331719923; 'life-x16 held' = 269575847; 'life-x16 peak' = 430814741 } },
     @{ Date = '2026-10-22'; Reason = 'KERNEL.56''s second slice, at the owner''s word: every program''s bytes held, and four programs'' peaks, raised by what the slice keeps, each rows'' sheet''s rectangle of the twin cells a frame gained (20 bytes a sheet), the list of sheets whose extent moved, given room at the first frame''s end that grew a twin (32 bytes, the board''s 128), and the lookups'' four readers of an extent (32 bytes); held, a program of two sheets 72 bytes more, Life 92, the lookups 104, Life x16 152 and the board 448; at the peak the criteria, the netlist, the board and Life x16 24 more, the others the same (docs/BETA_REARVIEW.md, KERNEL.56)'; Ceilings = @{ 'column held' = 17221058; 'column peak' = 62909797; 'chain held' = 10674147; 'chain peak' = 37447954; 'sums held' = 7144967; 'sums peak' = 31769224; 'life held' = 47510535; 'life peak' = 283714012; 'lookups held' = 45870700; 'lookups peak' = 155549356; 'criteria held' = 22549806; 'criteria peak' = 51926663; 'netlist held' = 62157483; 'netlist peak' = 90271736; 'superposition held' = 188070159; 'superposition peak' = 331719947; 'life-x16 held' = 269575999; 'life-x16 peak' = 430814765 } },
     @{ Date = '2026-10-22'; Reason = ''; Ceilings = @{ 'column held' = 13697921; 'column peak' = 62909797; 'chain held' = 8325463; 'chain peak' = 37447954; 'sums held' = 5499027; 'sums peak' = 31769224; 'life held' = 43811180; 'life peak' = 283714012; 'lookups held' = 37652887; 'lookups peak' = 155549356; 'criteria held' = 18944123; 'criteria peak' = 50294479; 'netlist held' = 53238277; 'netlist peak' = 86925008; 'superposition held' = 76952156; 'superposition peak' = 194408556; 'life-x16 held' = 129893031; 'life-x16 peak' = 238717605 } },
-    @{ Date = '2026-10-23'; Reason = ''; Ceilings = @{ 'column held' = 10463980; 'column peak' = 62909797; 'chain held' = 7064302; 'chain peak' = 37447954; 'sums held' = 4637011; 'sums peak' = 31769224; 'life held' = 40624685; 'life peak' = 283714012; 'lookups held' = 29487670; 'lookups peak' = 155549356; 'criteria held' = 12209986; 'criteria peak' = 41898740; 'netlist held' = 53186144; 'netlist peak' = 85038276; 'superposition held' = 10803728; 'superposition peak' = 10804168; 'life-x16 held' = 18975068; 'life-x16 peak' = 18975068 } }
+    @{ Date = '2026-10-23'; Reason = ''; Ceilings = @{ 'column held' = 10463980; 'column peak' = 62909797; 'chain held' = 7064302; 'chain peak' = 37447954; 'sums held' = 4637011; 'sums peak' = 31769224; 'life held' = 40624685; 'life peak' = 283714012; 'lookups held' = 29487670; 'lookups peak' = 155549356; 'criteria held' = 12209986; 'criteria peak' = 41898740; 'netlist held' = 53186144; 'netlist peak' = 85038276; 'superposition held' = 10803728; 'superposition peak' = 10804168; 'life-x16 held' = 18975068; 'life-x16 peak' = 18975068 } },
+    @{ Date = '2026-10-30'; Reason = 'KERNEL.67, at the owner''s word: a style row over a range held as its rectangle, a page''s formats a word where they were three, boxed and made at a sheet''s first format; held, every sheet and its twin 16 bytes fewer, a program of two sheets 64, Life 96, Life x16 192 and the board 512; at the peak the board and Life x16 as much, the criteria and the netlist 112 fewer, and the column, the chain, the sums, Life and the lookups the same, their peaks coming before the draft holds a sheet; the third fixture of rows joins 520 bytes over its twin at every point (docs/BETA_REARVIEW.md, KERNEL.67)'; Ceilings = @{ 'column held' = 10463916; 'column peak' = 62909797; 'chain held' = 7064238; 'chain peak' = 37447954; 'sums held' = 4636947; 'sums peak' = 31769224; 'life held' = 40624589; 'life peak' = 283714012; 'lookups held' = 29487606; 'lookups peak' = 155549356; 'criteria held' = 12209922; 'criteria peak' = 41898628; 'netlist held' = 53186080; 'netlist peak' = 85038164; 'superposition held' = 10803216; 'superposition peak' = 10803656; 'life-x16 held' = 18974876; 'life-x16 peak' = 18974876; 'superposition-styled held' = 10803736; 'superposition-styled peak' = 10804176 } }
 )
 
 # --- the programs measured, each one's SHA-256 over LF bytes ---
@@ -272,11 +286,23 @@ $programs = [ordered]@{
     'netlist' = '31CA9658F01BDE413E66BB891552BAF279E939CE7B261080E3E0631F99EF82CF'
 }
 # 2026-10-21, KERNEL.49's first slice: the two fixtures of rows the memory
-# runner loads as they stand, scripts/recalc/bench/<name>.vla.
+# runner loads as they stand, scripts/recalc/bench/<name>.vla; 2026-10-30,
+# KERNEL.67: the third, which the runner loads after its twin's rows, its own
+# file pinned here and its twin's by its twin's line.
 $rowsFixtures = [ordered]@{
     'superposition' = '6A3AE552F614AC0CD5582D69ED0992E804032831798E92C0445EEFA478551B98'
     'life-x16'      = '7366BE8061601852C8447E246CA98E58D11DF699A965B659BB48826975ED001D'
+    'superposition-styled' = '67097ADEFC12CFDB5A0C99F564A239AAF811FD7E6B0005CE1DED53AB411024B3'
 }
+# A fixture of rows that adds to a twin's, held within a constant of it after
+# its load, after two frames and at the peak (KERNEL.67): one style row over
+# Superposition's Field holds its rectangle and never a format a cell, 520
+# bytes at its first measurement where a format a cell held 6.9 MB more and
+# 15.2 MB more at the peak. The bound is a page, not the measured bytes: the
+# ceilings hold those exactly.
+$twins = [ordered]@{ 'superposition-styled' = 'superposition' }
+$twinBound = 4096
+$twinPoints = [ordered]@{ LoadHeld = 'after its load'; Held = 'after two frames'; Peak = 'at the peak' }
 
 # --- the rules ---
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
@@ -445,6 +471,15 @@ function Test-Memory($rows, $ceilings, $measured, $rowsMeasured, $rowsNow) {
         $pinned = if ($rowsMeasured.Contains($f)) { $rowsMeasured[$f] } elseif ($measured.Contains($f)) { $measured[$f] } else { '' }
         if ($r.Sha256 -ne $pinned) { $problems.Add("memory $($f): weighed $($r.Sha256), not the source pinned here, $pinned; measure it again") }
     }
+    # A fixture that adds to a twin's, within the bound of it (KERNEL.67).
+    foreach ($f in $twins.Keys) {
+        $t = $twins[$f]
+        if (-not $mem.ContainsKey($f) -or -not $mem.ContainsKey($t)) { continue }
+        foreach ($point in $twinPoints.Keys) {
+            $more = [long]$mem[$f][$point] - [long]$mem[$t][$point]
+            if ($more -gt $twinBound) { $problems.Add("memory $($f): $more bytes more than its twin $t $($twinPoints[$point]), over the bound of $twinBound") }
+        }
+    }
     # The fixtures of rows as they stand.
     foreach ($f in $rowsMeasured.Keys) {
         if (-not $rowsNow.Contains($f)) { $problems.Add("the fixture $($f): not found"); continue }
@@ -563,6 +598,15 @@ function Test-MemoryRunner([string[]]$lines, $rows, $ceilings) {
             $ceiling = [long]$latest[$k]
             if ($bytes -gt $ceiling) { $problems.Add("the memory runner: $f $(if ($what -eq 'held') { 'holds' } else { 'peaks at' }) $bytes bytes today, over its ceiling of $ceiling") }
             elseif ($bytes -lt $ceiling) { $info.Add(("  {0}: {1} bytes {2} today, {3} under its ceiling of {4}: a new entry may lower it" -f $f, $bytes, $(if ($what -eq 'held') { 'held' } else { 'at the peak' }), ($ceiling - $bytes), $ceiling)) }
+        }
+    }
+    # A fixture that adds to a twin's, within the bound of it today (KERNEL.67).
+    foreach ($f in $twins.Keys) {
+        $t = $twins[$f]
+        if (-not $seen.ContainsKey($f) -or -not $seen.ContainsKey($t)) { continue }
+        foreach ($point in $twinPoints.Keys) {
+            $more = $seen[$f][$point] - $seen[$t][$point]
+            if ($more -gt $twinBound) { $problems.Add("the memory runner: $f holds $more bytes more than its twin $t $($twinPoints[$point]) today, over the bound of $twinBound") }
         }
     }
     return @{ Problems = $problems; Info = $info }
@@ -753,6 +797,11 @@ if ($Control) {
     $c = New-Clean; @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0].LoadPerSecond = 310000; Expect 'a load a second that disagrees with its time' $c $false
     $c = New-Clean; $c.RowsNow['superposition'] = ('0' * 64); Expect 'a fixture of rows edited' $c $false
     $c = New-Clean; @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'sums' })[0].Sha256 = ('E' * 64); Expect 'a memory row weighing another source' $c $false
+    # A fixture against its twin (KERNEL.67): over the bound at each point, and at it.
+    foreach ($point in $twinPoints.Keys) {
+        $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t[$point] = [long]$t[$point] - $twinBound - 1; Expect "a fixture over its twin's bytes $($twinPoints[$point]) by more than the bound" $c $false
+    }
+    $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t.Peak = [long]$t.Peak - $twinBound; Expect 'a fixture at its twin''s bound' $c $true
     # The history, from text.
     $committed = Get-HistoryLines "`$floorHistory = @(`r`n    @{ Date = '2026-10-10'; Reason = ''; Floors = @{ 'column whole' = 1 } },`r`n    @{ Date = '2026-10-11'; Reason = ''; Floors = @{ 'column whole' = 2 } }`r`n)"
     $cases = @(
@@ -820,7 +869,8 @@ if ($Control) {
             @{ What = 'a memory runner over a ceiling'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"life-x16"') { $_ -replace '\(peak 30000000\)', '(peak 30000001)' } else { $_ } }) },
             @{ What = 'a memory runner whose formulas differ'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"column"') { $_ -replace '\(formulas 60000\)', '(formulas 59999)' } else { $_ } }) },
             @{ What = 'a memory runner that leaves out a fixture'; Clean = $false; Lines = @($weighs.ToArray() | Where-Object { $_ -notmatch '"superposition"' }) },
-            @{ What = 'a memory runner that failed'; Clean = $false; Lines = @('(memory-failed "superposition: the machine refused line 3")') }
+            @{ What = 'a memory runner that failed'; Clean = $false; Lines = @('(memory-failed "superposition: the machine refused line 3")') },
+            @{ What = 'a memory runner whose fixture holds more than its twin by more than the bound'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"superposition"') { $_ -replace '\(peak 30000000\)', ('(peak ' + (30000000 - $twinBound - 1) + ')') } else { $_ } }) }
         )
         foreach ($fake in $memoryFakes) {
             $k++
