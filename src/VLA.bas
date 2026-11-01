@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.12.0"
+Public Const VLA_RELEASE_VERSION As String = "0.13.0"
 Public Const VLA_CORE_VERSION As String = "VLA.10"
 ' VLA.10: THE FILL'S OWN PLACE AS A WORD. (bind-expand ((self reference)) form
 ' ...) binds the word self to one cell on a sheet for every form the walk meets
