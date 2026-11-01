@@ -89,6 +89,7 @@ pub mod formula;
 pub(crate) mod formulas;
 pub mod graph;
 pub mod index;
+pub(crate) mod information;
 pub mod library;
 pub(crate) mod lookups;
 pub(crate) mod nodes;

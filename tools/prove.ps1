@@ -148,7 +148,10 @@ the formulas read by a formula's fixture (scripts/recalc/formulas.xlsx),
 and a twenty-first, the owner's second Excel save of it
 (formulas_saved.xlsx, no row differing). KERNEL.60: a twenty-second, ADDRESS's
 fixture (scripts/recalc/address.xlsx), and a twenty-third, the owner's second
-Excel save of it (address_saved.xlsx, no row differing). KERNEL.71: two more,
+Excel save of it (address_saved.xlsx, no row differing). KERNEL.68: a
+twenty-fourth, the information functions' fixture (scripts/recalc/info.xlsx), and
+a twenty-fifth, the owner's second Excel save of it (info_saved.xlsx, no row
+differing). KERNEL.71: two more,
 BITAND's, BITOR's and BITXOR's fixture (scripts/recalc/bits.xlsx), and the
 owner's Excel save of it (bits_saved.xlsx, no row differing).
 #>
@@ -403,6 +406,8 @@ function Get-Oracles([string]$root) {
         @('scripts/recalc/formulas_saved.xlsx', 'formulas_saved_calc'),
         @('scripts/recalc/address.xlsx',       'address_calc'),
         @('scripts/recalc/address_saved.xlsx', 'address_saved_calc'),
+        @('scripts/recalc/info.xlsx',          'info_calc'),
+        @('scripts/recalc/info_saved.xlsx',    'info_saved_calc'),
         @('scripts/recalc/bits.xlsx',          'bits_calc'),
         @('scripts/recalc/bits_saved.xlsx',    'bits_saved_calc'))) {
         $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
@@ -802,6 +807,8 @@ switch (`$kind) {
             'formulas_saved' { 'scripts/recalc/formulas_saved_calc.vla' }
             'address'        { 'scripts/recalc/address_calc.vla' }
             'address_saved'  { 'scripts/recalc/address_saved_calc.vla' }
+            'info'           { 'scripts/recalc/info_calc.vla' }
+            'info_saved'     { 'scripts/recalc/info_saved_calc.vla' }
             'bits'           { 'scripts/recalc/bits_calc.vla' }
             'bits_saved'     { 'scripts/recalc/bits_saved_calc.vla' }
             default          { exit 3 }

@@ -397,6 +397,9 @@ pub(crate) enum Known {
     /// register holds.
     IsError,
     IsNa,
+    /// The information functions of one value (KERNEL.68), called at each cell
+    /// and left to `Ctx` by a program as the error tests are.
+    Information,
     /// The lookups and the criteria (KERNEL.8), called at each cell, each
     /// searching one of its operands by an index or a bisection
     /// ([`Known::searches`]).

@@ -166,6 +166,22 @@
   save holds 895 formulas: 893 agree, none differs, and two are a text Excel shows
   with an `@` (KERNEL.71).
 
+- **The information functions.** `ISNUMBER`, `ISBLANK`, `ISTEXT`, `ISNONTEXT`,
+  `ISLOGICAL`, `ISERR`, `ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA`
+  compute in `vla-lang`, so that a cartridge can ask what a cell holds where a
+  load refused each by name, and a verdict can name an error's kind. `ROUND` and
+  `IFS` move down from `frazaro-core` with them, so that a door computes nothing an
+  engine refuses, and `excel::library()` is the language's library. Each edge is
+  Excel 365's own save of 787 formulas: `ISEVEN` of a range is `#VALUE!` even at its
+  own row, `TYPE` of an array of one is 64, `ISREF(+A1)` is false, and `ERROR.TYPE`
+  of `#CALC!` is 14. One answer moves: `INDEX` of an error where its array stands
+  answers that error, where past its one place it answered `#REF!` (KERNEL.68).
+
+- **A number too long for Excel's reading of a file.** The build wrote a cached
+  number in full, the 301 digits of `1E+300`, and Excel's opening repaired the
+  cell. A number whose digits pass 21 characters is written with an exponent, as
+  Excel writes one, reading back to the same bits (KERNEL.68).
+
 ## 0.12.0
 
 ### What changed

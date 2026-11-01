@@ -901,8 +901,9 @@ impl Lowering<'_> {
                 Err(Why::Form)
             }
             // An error is what the error tests read, and no register holds
-            // one (KERNEL.8).
-            Some(Known::IsError | Known::IsNa) => Err(Why::Error),
+            // one (KERNEL.8); and what the information functions read, nothing
+            // and a text among them (KERNEL.68).
+            Some(Known::IsError | Known::IsNa | Known::Information) => Err(Why::Error),
             Some(
                 Known::Match
                 | Known::XMatch

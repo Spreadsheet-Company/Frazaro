@@ -246,8 +246,10 @@ refused in the same words.
   for an array with nothing in it), and a cell's formula read by its
   reference (`calc::formulas`: `ISFORMULA`, and `FORMULATEXT`, the text
   the view record prints, labelled where Excel's formula bar may spell it
-  otherwise), and a cell's address as a text from its row and its column
-  (`calc::texts`: `ADDRESS`, an address in R1C1 labelled), and a mask read by one
+  otherwise), the information functions (`calc::information`: `ISNUMBER`,
+  `ISBLANK`, `ISREF`, `ERROR.TYPE`, `TYPE`, `NA` and the rest, what a value or a
+  reference is), `ROUND` and `IFS`, and a cell's address as a text from its row and its
+  column (`calc::texts`: `ADDRESS`, an address in R1C1 labelled), and a mask read by one
   call (`calc::library`: `BITAND`, `BITOR` and `BITXOR`, over whole numbers below
   2^48). A crate above registers more, as
   `frazaro-core` registers Excel's library by measurement. A lookup or a

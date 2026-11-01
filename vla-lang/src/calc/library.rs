@@ -49,8 +49,8 @@ use super::array::{self, Array, Lifted};
 use super::eval::{finite, intersection, ranges, values, Arg, Ctx, Known, Library, Param, Reason};
 use super::formula::Expr;
 use super::graph::Areas;
-use super::value::{ErrorKind, Value};
-use super::{aggregates, arrays, criteria, database, dates, formulas, lookups, texts};
+use super::value::{round15, ErrorKind, Value};
+use super::{aggregates, arrays, criteria, database, dates, formulas, information, lookups, texts};
 
 // The classes of the language's functions' parameters (KERNEL.8, slice f),
 // each by its place from 0, as Excel's documentation of each function gives
@@ -167,9 +167,12 @@ fn joined(j: usize) -> Param {
 /// it as `Ctx` does. Since KERNEL.56 the functions that read a sheet's
 /// extent itself are declared so ([`READS_EXTENT`]). Since KERNEL.60
 /// `ADDRESS` (`super::texts`), a cell's address as a text from its row and
-/// its column, a form a run computes at each cell. Since KERNEL.71 `BITAND`,
-/// `BITOR` and `BITXOR` ([`bitwise`]), a mask read by one call, which a program
-/// calls through its pointer.
+/// its column, a form a run computes at each cell. Since KERNEL.68 the
+/// information functions (`super::information`), and `ROUND` and `IFS` moved
+/// down from Excel's library with `ISNUMBER` and `ISBLANK`, so that a door
+/// computes nothing an engine refuses. Since KERNEL.71 `BITAND`, `BITOR` and
+/// `BITXOR` ([`bitwise`]), a mask read by one call, which a program calls through
+/// its pointer.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -280,11 +283,32 @@ pub fn language() -> Library {
     arrays::register(&mut lib);
     lib.register_arrayed("ISFORMULA", formulas::isformula, ranges);
     lib.register_arrayed("FORMULATEXT", formulas::formulatext, ranges);
+    for (name, f) in INFORMATION {
+        lib.register_known_strict(name, f, Known::Information, values);
+    }
+    lib.register_form("ISREF", information::isref);
+    lib.register_form("TYPE", information::type_);
+    lib.register_form("ISEVEN", information::iseven);
+    lib.register_form("ISODD", information::isodd);
+    lib.register("ROUND", round);
+    lib.register_form("IFS", ifs);
     for name in READS_EXTENT {
         lib.declare_reads_extent(name);
     }
     lib
 }
+
+/// The information functions of one value (KERNEL.68, `super::information`).
+const INFORMATION: [(&str, super::eval::Strict); 8] = [
+    ("ISNUMBER", information::isnumber),
+    ("ISTEXT", information::istext),
+    ("ISNONTEXT", information::isnontext),
+    ("ISLOGICAL", information::islogical),
+    ("ISBLANK", information::isblank),
+    ("ISERR", information::iserr),
+    ("ERROR.TYPE", information::error_type),
+    ("NA", information::na),
+];
 
 /// The language's functions whose answer the extent of a sheet they read
 /// decides beside its cells (KERNEL.56), each declared so
@@ -432,6 +456,26 @@ const KERNEL_53: [&str; 2] = ["ISFORMULA", "FORMULATEXT"];
 /// The function KERNEL.60 brought: a cell's address as a text.
 #[cfg(test)]
 const KERNEL_60: [&str; 1] = ["ADDRESS"];
+
+/// The functions KERNEL.68 brought: the information functions, and `ROUND` and
+/// `IFS` from Excel's library beside `ISNUMBER` and `ISBLANK`.
+#[cfg(test)]
+const KERNEL_68: [&str; 14] = [
+    "ISNUMBER",
+    "ISTEXT",
+    "ISNONTEXT",
+    "ISLOGICAL",
+    "ISBLANK",
+    "ISERR",
+    "ISREF",
+    "ISEVEN",
+    "ISODD",
+    "ERROR.TYPE",
+    "TYPE",
+    "NA",
+    "ROUND",
+    "IFS",
+];
 
 /// The functions KERNEL.71 brought: a mask read by one call.
 #[cfg(test)]
@@ -1201,6 +1245,68 @@ fn choose<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     }
 }
 
+/// `IFS(c1, v1, c2, v2, ...)`: the value beside the first condition that
+/// holds; a condition's error is the answer; none holding is `#N/A`. Only the
+/// value chosen is computed.
+fn ifs<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
+    if args.len() < 2 || args.len() % 2 == 1 {
+        return Ok(Arg::Scalar(Value::Error(ErrorKind::NA)));
+    }
+    for pair in args.chunks(2) {
+        match ctx.truth(&pair[0])? {
+            Ok(true) => return ctx.eval(&pair[1]),
+            Ok(false) => {}
+            Err(k) => return Ok(Arg::Scalar(Value::Error(k))),
+        }
+    }
+    Ok(Arg::Scalar(Value::Error(ErrorKind::NA)))
+}
+
+/// The powers of ten [`round`] scales by, each exact in a double.
+const TENS: [f64; 23] = [
+    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
+    1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+];
+
+/// `10^digits` for `ROUND`'s digits, at most 300: the nearest double to it, read
+/// from its decimal past the exact ones, the same on every platform, where
+/// `powi`'s rounding is the platform's to choose and a machine's frames are bit
+/// for bit between a native run and a browser's (KERNEL.68).
+fn ten_to(digits: f64) -> f64 {
+    let d = digits.min(300.0) as usize;
+    match TENS.get(d) {
+        Some(&power) => power,
+        None => format!("1e{d}").parse().unwrap_or(f64::INFINITY),
+    }
+}
+
+/// `ROUND(x, digits)`: half away from zero, the digits read down to a whole
+/// number, a negative count rounding to tens and hundreds. The scaled value is
+/// first rounded to Excel's fifteen significant digits, so that `ROUND(2.675, 2)`
+/// is 2.68 as Excel has it and not the 2.67 the double 267.49999999999997 would
+/// give.
+fn round(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    if args.len() != 2 {
+        return Ok(Value::Error(ErrorKind::Value));
+    }
+    let x = match number_arg(ctx, args, 0)? {
+        Ok(n) => n,
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    let digits = match number_arg(ctx, args, 1)? {
+        Ok(n) => n.trunc(),
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    let rounded = if digits >= 0.0 {
+        let m = ten_to(digits);
+        round15(x * m).round() / m
+    } else {
+        let p = ten_to(-digits);
+        round15(x / p).round() * p
+    };
+    Ok(finite(rounded))
+}
+
 /// `SIN` ([`sin_of`]).
 fn sin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
@@ -1556,6 +1662,18 @@ mod tests {
     }
 
     #[test]
+    fn round_scales_by_the_same_power_on_every_platform() {
+        // KERNEL.68: exact to 10^22, the nearest double to its decimal past it,
+        // and no power past the 300 digits a cell's number can hold.
+        for d in 0..=22 {
+            assert_eq!(ten_to(f64::from(d)), 10f64.powi(d), "10^{d}");
+        }
+        assert_eq!(ten_to(23.0), 1e23);
+        assert_eq!(ten_to(300.0), 1e300);
+        assert_eq!(ten_to(1000.0), 1e300);
+    }
+
+    #[test]
     fn the_language_declares_the_functions_that_read_an_extent_and_no_other() {
         // KERNEL.56: the lookups that bisect and the database functions are
         // declared to read a sheet's extent, each a function the language
@@ -1591,6 +1709,7 @@ mod tests {
             .chain(KERNEL_8.iter())
             .chain(KERNEL_53.iter())
             .chain(KERNEL_60.iter())
+            .chain(KERNEL_68.iter())
             .chain(KERNEL_71.iter())
             .copied()
             .collect();

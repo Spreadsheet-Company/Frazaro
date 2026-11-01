@@ -1913,6 +1913,7 @@ impl<'a> Many<'a> {
             | Known::IfNa
             | Known::IsError
             | Known::IsNa
+            | Known::Information
             | Known::Match
             | Known::XMatch
             | Known::VLookup

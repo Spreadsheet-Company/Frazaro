@@ -790,7 +790,9 @@ at `SUBTOTAL`'s 101 to 111 and its 1 to 11 over one showing `(not-computed
 theirs, with array constants (`{1,2;3,4}`) and `:` between two expressions
 that answer references (`A1:INDEX(A:A,5)`), `ISFORMULA` and `FORMULATEXT`
 on theirs, a cell's formula read by its reference, a text Excel 365 may show
-with an `@` showing `(not-computed "a formula Excel shows with @")`, `ADDRESS`
+with an `@` showing `(not-computed "a formula Excel shows with @")`, the
+information functions (`ISNUMBER`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISBLANK`,
+`ISERR`, `ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE`, `NA`) on theirs, `ADDRESS`
 on its own, a cell's address as a text, an address in R1C1 showing
 `(not-computed "an address in R1C1")`, `BITAND`, `BITOR` and `BITXOR` on
 theirs, over whole numbers below 2^48, and the

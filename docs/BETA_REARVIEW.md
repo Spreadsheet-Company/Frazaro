@@ -43093,6 +43093,197 @@ both wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 63 passed,
 the four goldens written again the same. The item closes: its line leaves the roadmap
 for the closed ledger. Not pushed.
 
+**`KERNEL.68`, the information functions in the language: the scoping,
+2026-10-30.** Begun at the owner's word, a brief pasted in chat from an Alonzo
+session: three asks out of `CART.9`'s short slice (Alonzo's `docs/REARVIEW.md`,
+its *Found* and that *Found*'s correction), each measured there over `vla-lang`
+0.12.0, one item an ask unless the scoping finds two are one or one already has
+a line. This ask has none. The registry's row and sentence were claimed before
+anything was written, `KERNEL.68` to `KERNEL.70`, the ask that may yet fold into
+`KERNEL.55` numbered last so that a fold leaves no gap. The decisions below stop
+for the owner; nothing is built in the language. `HEAD` `b4238af`, two ahead of
+origin (`KERNEL.67` committed, where the brief had it in the tree). In the tree
+beside this: a peer's `VLA.10` scoping in this file and a line in
+`.gitattributes`. Alonzo at `db054c2` and Buffet read and never written. The
+probes stand in the session's scratchpad (`k68/`).
+
+*What stands today, run at `b4238af`.* A load under the language's library
+refuses `ISNUMBER`, `ISBLANK`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISERR`,
+`ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA`, each
+`calc-function-not-computed` ("The formula in S!B2 calls ISNUMBER, which this
+version does not compute."), as the brief has it; `ISERROR`, `ISNA`, `N`, `T` and
+`ISFORMULA` compute. `ROUND` and `IFS` are refused the same way. Excel's library
+in the core adds four functions to the language's and only four (`excel.rs`,
+`library()`): `IFS`, `ROUND`, `ISNUMBER` and `ISBLANK`. So a door computes four
+functions an engine refuses. `library.rs`'s head has the rule for that: "a
+function the engine comes to need moves down here with its tests", as `KERNEL.8`
+moved `SUMIF`, `COUNTIF` and `AVERAGE`. No source in Alonzo or Buffet calls `ROUND`
+or `IFS`, which says little, a refusal leaving no call to find.
+
+Beyond the twelve and the language's own, Excel's information family holds
+`CELL`, `INFO`, `SHEET`, `SHEETS` and `ISOMITTED` (decision 1).
+
+*Decisions, the owner's; each with its recommendation.*
+1. **The set: the twelve the brief names.** Left out, under *Found*: `CELL` and
+   `INFO`, which read the host; `SHEET` and `SHEETS`, which count sheets, of which
+   an engine holds twins and devices, a question no one has asked; and
+   `ISOMITTED`, `KERNEL.29`'s. *Alternative:* `SHEET` and `SHEETS` now. *Recommended:*
+   the twelve.
+2. **The core's four move down, not its two.** The brief names `ISNUMBER` and
+   `ISBLANK` "beside `ROUND` and `IFS`", and all four are the one defect, a door
+   computing what an engine refuses. `ROUND` is Enron's fifth function and EUSES's
+   third. Each is already held by a fixture (`subset_saved.xlsx`), and no Excel
+   round is needed for the two that are not information functions. After it
+   `excel::library()` is the language's library: the seam stays, and `SUBSET` keeps
+   every row and its evidence. One thing moves with `ROUND`: it computes through
+   `10f64.powi`, which Rust does not promise alike across platforms, where a
+   machine's frames are bit for bit between the native run and the browser. A
+   power to 22 is exact under any order of multiplying, so that only `ROUND(x,d)`
+   past 22 digits could differ; such a power is read from its decimal instead.
+   *Alternative:* `ISNUMBER` and `ISBLANK` alone, the least, leaving the next ask
+   to be `ROUND`. *Recommended:* all four.
+3. **How each reads its argument, as Excel's first save settled it** (*Excel's first
+   save*, below). `ISNUMBER`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISBLANK`, `ISERR` and
+   `ERROR.TYPE` read one value, lifted over an array, a legacy formula meeting a range at
+   its cell and a span of sheets reading as `#REF!`. `ISREF` is true for a reference on one
+   sheet, `INDEX`'s, `IF`'s, `CHOOSE`'s and `XLOOKUP`'s among them, and false for a span, after
+   a sign (`+A1`), for `#REF!` and for an undefined name; never lifted. `TYPE` of an array is
+   64 whatever its size, of a range read as arrays 64, of a range in a legacy formula its cell's
+   type there; never lifted. `ISEVEN` and `ISODD` read a number down toward zero, a numeric
+   text as its number and nothing as 0; a truth value is `#VALUE!`, an error its own; a
+   reference of many cells is `#VALUE!` even at its own row, and an array lifts them. These
+   last four tell a reference from what a sign makes of it, so that each is a form or
+   answers an operand, where the others register as `ISERROR` does. *Recommended:* as
+   written, the second save confirming them.
+4. **A test of its own cell.** `=ISREF(A25)` in `A25` is a cycle, refused at an
+   engine's load and labelled in a door, as `ROW`, `ISFORMULA` and `FORMULATEXT` of
+   their own cell are (the owner's decision of 2026-10-21), where Excel answers
+   `TRUE`. *Alternative:* a reference read for its place makes no edge, `KERNEL.53`'s
+   *Found*, a change to the plan and an item of its own. *Recommended:* the same rule.
+5. **`ERROR.TYPE`'s numbers.** 1 to 7 are Microsoft's; `#CALC!` is what the save
+   says (I predict 14). `#SPILL!` and the others have no `ErrorKind` and stay
+   `KERNEL.55`'s. *Recommended:* so.
+6. **Computed by `Ctx`, as `ISERROR` is.** A run calls each at each cell and a
+   program leaves the shape to `Ctx` (`Why::Error`'s arm in `program.rs`, and `Why::Form`
+   for the four of decision 3): what a test reads, an error, an empty cell or a text, no
+   register holds, and its answer, a truth value, would fail a called function's guard at
+   every evaluation. Lowering them waits for a floor that asks. *Recommended:* so.
+7. **The library's bytes.** Each grid holds its library, fourteen names more here,
+   about 1 KB a grid. *Measured at the build:* the memory rows of
+   `check_recalc_floors` count no library, the runner making it outside its count,
+   and none moved by it; Alonzo's ceilings do at its next pin, as at `KERNEL.8` and
+   `KERNEL.56`. *Alternative:* a library shared among a table's grids, which nothing
+   here asks. *Recommended:* accept.
+8. **The oracle: one save, under this rule.** *The fixture*, below. At most two saves,
+   the second only to confirm what the first corrected; a deterministic rule the save
+   shows is folded and confirmed once; an edge Excel answers unstably, or one a planned
+   round cannot settle, is labelled and never chased. *Recommended:* so.
+
+*The fixture, built and in the tree* (`scripts/recalc/info.txt`, `info.xlsx`,
+uncommitted). Every probe of the item is in this one build, 787 formula cells. A
+Data sheet whose column A holds each kind of cell a test can read: a number, a text,
+nothing, a truth value, every error (`#CALC!` by a `FILTER` keeping nothing), an
+empty text and an empty read by formulas, a numeric text and a truth's, whole numbers
+to 2^53, a fraction, negatives, 1E+300 and a date; numbers in `C1:C3`; a mixed column
+in `D1:D5`. An Other sheet of one number, for a span of sheets. Then *Kinds*, each of
+the twelve tests (`ISERROR` and `ISNA` among them, to be held at the same cells, `NA`
+and `ISREF` apart) over every cell of `A1:A26`; *Given*, each over a value given
+directly and an array; *Ranges*, each over a range met at its row and off it, `#REF!`,
+a span of sheets, a reference through `INDEX` and `IF`, read as arrays (`SUMPRODUCT`,
+`ROWS`, a dynamic `INDEX`), handed to `SUM` in a legacy formula, and a cell past the
+extent; *Rest*, `ISREF`, `NA`, `ERROR.TYPE`, `TYPE`, `ISEVEN` and `ISODD` at their own
+edges and the tests as a cartridge writes them. The door today computes 237 of the
+787 and labels the rest; Excel's save needs no language built.
+
+*Excel's first save, 2026-10-30, at the owner's hand.* The stop rule stated before it.
+Excel opened the built file with its prompt that it had found a problem, its log naming the
+Data sheet's part ("Removed Records: Formula", "Repaired Records: Cell information"). The cell is
+`A22`, the fixture's own `=1E+308*10`: a formula's number is held to 9.99999999999999E+307, and
+Excel kept `#NUM!` as a value there and took the formula out. No other cell moved: 767 of the
+768 formulas stand as built, the door's 236 all agree and none differs. `A22` is now
+`=1E+307*100`, the fold unharmed, a kept error being what the column read. The save is kept
+in the scratchpad (`k68/saves/info_first.xlsx`).
+
+What it settled, against the predictions of decision 3 as first written:
+- *Held.* Every kind of cell at every test: `ISBLANK` true for nothing alone, an empty text and
+  an empty read by a formula false, `=A3` over nothing a number; `ISERR` true for each error but
+  `#N/A`, `#CALC!` among them; `TYPE` 1, 2, 4 and 16; `ERROR.TYPE` 1 to 7 and `#CALC!` 14, as
+  predicted, any other value `#N/A`. A legacy formula meets a range at its cell, `#VALUE!` off it
+  (`ERROR.TYPE` 3, `TYPE` 16). `SUMPRODUCT` and `ROWS` read the value tests as arrays, 1, 1, 4, 1,
+  1, 1, 1 and 0 of the mixed column, and `SUM(--ISNUMBER(D1:D5))` meets its cell. `ISEVEN(TRUE)`
+  `#VALUE!`, `ISEVEN("2")` true, and `ISEVEN` of a range `#VALUE!` inside `SUMPRODUCT`.
+- *Missed, and folded.* `ISEVEN(1E+300)` is true and `ISODD(-1E+300)` false, where I predicted
+  `#NUM!`: every double so large is even, the rule the arithmetic's own. `ISREF` of a span of sheets
+  is false, and of `+A1` false, where I predicted true for any reference. `ISEVEN` of a range is
+  `#VALUE!` in a legacy formula too, at its own row, where a value test meets it. `TYPE(SEQUENCE(1))`
+  and `TYPE({1})` are 64, an array of one still an array, and `INDEX(TYPE(D1:D5),2)` `#REF!`, its 64 one
+  value. `ERROR.TYPE` of a span is 4, `ISEVEN` of it `#VALUE!`.
+- *By the decision, labelled.* `=ISREF(A25)` in `A25` is true in Excel and a cycle here (decision 4).
+
+*The second save, under the same rule.* It confirms two things and nothing else: that the file now
+opens with no repair, and the corrected rules at nineteen new rows of *Rest* (`A105` to `A123`), `+`
+over a range and a cell, a one-cell range, a range through `INDEX` and `IF`, each for `ISEVEN`, `ISREF`
+and `TYPE`. What it leaves unsettled is labelled and not chased: a sign inside another's answer,
+`ISREF(IF(TRUE,+A1))`, true here since `IF` hands on what `+` hands on, is left unwitnessed.
+
+*Approved 2026-10-30,* the owner's word on the decisions brought, decision 3 as the
+first save reworded it: "Decision approved." Built the same evening, uncommitted, in
+the shared tree and verified in a worktree of `HEAD` with this item's files alone, a
+peer's work standing beside it.
+
+*Excel's second save, the stop rule's last.* Excel opened the rebuilt file with its
+prompt again, one record this time, "Repaired Records: Cell information" of the Data
+sheet's part, no formula removed, `A22`'s `=1E+307*100` standing at `#NUM!`. The one
+thing that sheet held no built file had held is a number's length: `A18` and `A19` cached
+the 301 digits of `1E+300`, where the longest `<v>` in any built file Excel has opened is
+21 characters (the fixtures scanned). The save cannot say which cell it repaired, Excel
+computing every value again on opening, so the cause stands by elimination. The writer
+now spells a number past 21 characters with an exponent (`cell_number`,
+`core/src/sheet/ooxml.rs`), as Excel's own save does, and reads back to the same bits; an
+opening of the rebuilt file with no prompt is the confirmation, the hand test's, with no
+third save, the 787 values of this one standing (`k68/saves/info_second.xlsx`). The nineteen
+confirming rows held as the first save corrected them, and `=ISEVEN(+Data!C1:C3)` in a
+legacy formula is `#VALUE!`, off its rows. One fold more: `INDEX(ISEVEN(D1:D5),2)` is
+`#VALUE!` where the language answered `#REF!`, an error where `INDEX`'s array stands being the
+answer whatever is picked of it, `INDEX(TYPE(D1:D5),2)`'s 64 still `#REF!` past its one place.
+
+*Built.* `calc/information.rs`, the twelve and their tests, each by what the saves
+settled; `library.rs`, `ROUND` and `IFS` moved down, `ROUND`'s powers from a table of the
+exact ones and past 22 digits from their decimal, its head and its test's list;
+`Known::Information`, left to `Ctx` by a program and called at each cell by a run;
+`formulas.rs`'s `may_show_at`, `TYPE` as `ROW` is and `ISREF`, `ISEVEN` and `ISODD` taking a
+reference whole, as Excel 365 stores each typed; `lookups.rs`'s `INDEX`; `core/src/excel.rs`,
+`library()` the language's, ten `SUBSET` rows with their evidence; `cell_number` in the writer;
+`check_recalc_golden`'s table, `info` and `info_saved` (788 lines; 783 and 786 agreeing),
+`check_shapes_golden`'s (407 lines each), the subset's two census goldens and one row of each of
+`ADDRESS`'s moved, `ISNUMBER` and `ISBLANK` `(unlowered error)`, their floors not; `tools/prove.ps1`'s twenty-fourth and twenty-fifth
+calc rows; `conformance/README.md`; `docs/RELEASES.md`; the
+language's page and the door's reference; the module's line in `Delta/CLAUDE.md`.
+
+*What the door answers over Excel's second save:* 786 of 787 computed and agreeing, none
+differing, `ISREF(A25)`'s cycle unchecked by decision 4. No value of any other fixture moved.
+
+*Held.* Ten mutants, each proved to apply, all caught, by the module's own tests: `ISEVEN`
+meeting a range at its cell; `ISEVEN` of `TRUE` reading 1; `ISREF` true after a sign and true
+for a span; `TYPE` of an array of one its value, and of a range 64 in a legacy formula;
+`ISBLANK` true of an empty text; `ISERR` true of `#N/A`; `#CALC!` numbered 13; `INDEX` of an
+error past its one place.
+
+*Found.* `CELL`, `INFO`, `SHEET`, `SHEETS` and `ISOMITTED` (decision 1). A formula's number past
+9.99999999999999E+307, which the door reads and the build writes and Excel's opening takes out, is one
+more case for `PORT.14`'s line. `ISREF(IF(TRUE,+A1))` is true here, `IF` handing on what `+` hands on,
+and no save witnesses it. `KERNEL.68` is also the number a prompt handed for the save's shape names (the owner's approved
+order of 2026-10-30): the registry is the claim, and that session takes the next free.
+
+*The owner's hand, 2026-11-01.* `scripts/recalc/info.xlsx`, built again with `cell_number`, opened in Excel with no
+prompt, which settles the cause the second save could name only by elimination.
+
+*Committed 2026-11-01* at the owner's word, "Recommendation approved; lower the netlist type floor and commit KERNEL.68-70 if everything checks out before suggesting next steps": the first of three commits
+over `cbbdcb8`, this item's files and its hunks of the shared files alone, by a worktree's own index; the
+others' and a peer's uncommitted `KERNEL.58` work and a line in `.gitattributes` left out. That tree verified
+alone before it was written: fmt, clippy with warnings denied, with and without `c-abi`, `cargo test --workspace`, the language's 471 and the core's 229, both wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 67 passed. The item closes: its line leaves the roadmap for the closed ledger. Not
+pushed.
+
 **`KERNEL.71`, `BITAND`, `BITOR` and `BITXOR` computed: the scoping, 2026-10-30.**
 Begun at the owner's word, a prompt relayed from Alonzo's `CART.14.1` ("What the
 language and the engine still lack", its `docs/REARVIEW.md`, whose order puts this
@@ -56856,6 +57047,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.67 — a style row over a range held as one range: a sheet's formats kept by the machine as rectangles that never overlap, each with its format, and never a format a cell, so that a `style` row's heap stops growing with the area it covers.** Minted 2026-10-30 at the owner's word, from Alonzo's `ENGINE.28` (its *Found* after the close, for `vla-lang`); scoped the same day, its five decisions approved as recommended; built, measured by the owner's native run and committed the same day at the owner's word. `grid::CellStyles`, one type the draft and the page share: a rectangle of more than one cell among the rectangles of its height and a cell alone by place, in a box made at a sheet's first format, so that a sheet with no format holds a word where it held three. A row over rectangles of its own format adds only the rectangles its range leaves outside them; a range's cells are found written by a count over its records' rectangles; the two refusals name the cell and the line they named, found by rectangles; a cell taken from a draft cuts its rectangle into at most four and gives its format up; the record, the save and the file model a format a cell as before. One row over Superposition's Field of 262,144 cells held 6.9 MB more after two frames and 15.2 MB more at its peak, and read in 44 ms where the rows unstyled read in 0.3; it holds 520 bytes over its twin after the load, after two frames and at the peak, and reads in 0.1. Every sheet and its twin 16 bytes fewer: thirteen of the eighteen ceilings fell, five peaks stayed, none rose. *Pins:* a seeded law of 240 deals of style rows, overlapping and refused, every cell's format and every refusal's cell and line held to today's loop (82 taken, 75 written twice, 83 unwritten), the thirteen mutants killed; the rectangle test; the grid's two. *Oracle:* `superposition-styled`, the third fixture of rows, held within 4,096 bytes of its twin at all three points by a rule of `check_recalc_floors.ps1`, with five control cases; no golden moved. Ships in `0.13.0`, into which the owner folded `0.12.1`. The owner's run pasted in part, the memory rows and both histories, the seven native rows marked for a later pass; three *Found* read, not minted, the third the floor `netlist type`, which the code that set it no longer clears. (Full entry: THE KERNEL LINE, after `KERNEL.57`.)
 - ✅ **KERNEL.60 — `ADDRESS` computed: a cell's address as a text from its row and column, so that a Write sheet row names its target by number and never by `CHOOSE` over the alphabet.** Minted 2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the helper-hungry style; scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1`, its nine decisions approved as recommended; built, held to two Excel saves and committed the same day at the owner's word. `ADDRESS(row, column, [abs], [a1], [sheet])` in `vla-lang`'s `language()`, so that a game reaches it (`AD-1`), in `calc/texts.rs`, a form handing its call to a strict function: `abs` 1 to 4; every argument read first, left to right, an error or a text spelling no number answering there, and only then their ranges; an argument left out its default, and a reference to an empty cell or an empty place of a lift read as any value is, which `Ctx::lifted_call`'s `place_of_lift` tells apart. A sheet's name is quoted as Excel's `ADDRESS` quotes it, unless it could be a defined name, the empty text written `!A1` and a name past 255 UTF-16 units `#VALUE!`, which is not `refers::quote_sheet`'s rule, as this line first said. Labelled by shape, as the stop rule stated before the saves: an address in R1C1, no notation of the house, where Excel's relative form reaches rows no A1 address has; a workbook's spelling; a character beyond ASCII that is no letter, which Excel quotes by a table of its own; an answer past 258 characters, where Excel cuts it; a name opening on a row's or a column's number with a tail no save reaches; and an `IF`'s branch left out, which Excel hands on as nothing and the language reads as 0. *Oracle:* a fixture of its own, `scripts/recalc/address.txt`, and not the subset's rows, as this line first said: 538 formulas, Excel's second save `address_saved.xlsx` at `no-differ`, 403 agreeing, none differing and 135 labelled, Excel's answer to each in its golden; fifty-seven mutants, none surviving; no other golden and no floor moved. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step, and Kairos's `letter` retired under Alonzo's `KIT.6`. Four *Found*, not minted, the first that `quote_sheet` parts from what `ADDRESS` writes. (Full entry: THE KERNEL LINE, after `KERNEL.67`.) `~hours`
 - ✅ **KERNEL.71 — `BITAND`, `BITOR` and `BITXOR` computed in the language: one meaning for the three, over whole numbers below 2^48, by `vla-lang`'s `language()`, so that a game's marks read as bit masks by one call where it writes `MOD(INT(x/2^k),2)` at every site.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1` ("What the language and the engine still lack"), whose order puts it before that item's slice 2, its ten decisions approved as recommended; built and held to one Excel save the same day, no fold wanted, and committed 2026-10-31 at the owner's word. In `calc/library.rs` beside `MOD`, three plain registrations, which a program calls through their pointers: both arguments read first, left to right, as an operand reads, an error or a text spelling no number answering there; only then each held, whole and from 0 to 2^48-1, exactly, or `#NUM!`, on all three, with no tolerance at any magnitude, where the pages of `BITOR` and `BITXOR` do not say. An empty cell, an empty place of a lift and an argument left out read 0, `CHOOSE(1,,2)` and `IF(TRUE,,2)` too. An array lifts each, and a legacy formula meets a range at its cell. *Oracle:* a fixture of its own, `scripts/recalc/bits.txt`: 895 formulas, Excel's one save `bits_saved.xlsx` at `no-differ`, 893 agreeing, none differing and two labelled, each a text Excel shows with an `@`, on the range and never on the name; thirty-three mutants, none surviving; no other golden and no floor moved. Seiyaku's `bit-of` rewritten over `bitand` in a copy moved no value. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step. Two *Found*, not minted, the first that `BITAND(m,m-1)` is `#NUM!` at the mask 0. (Full entry: THE KERNEL LINE, its last before `# MACHINE · OPTIMIZATION`.) `~hours`
+- ✅ **KERNEL.68 — the information functions in the language: `ISNUMBER`, `ISBLANK`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISERR`, `ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA` computed in `vla-lang`, the core's `ISNUMBER`, `ISBLANK`, `ROUND` and `IFS` moved down with them, so that a door and an engine answer alike and a verdict names an error's kind.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*), its eight decisions approved as recommended; built and held to two Excel saves, the second the stop rule's last, and committed 2026-11-01 at the owner's word. `calc/information.rs`: the eight tests of one value registered as `ISERROR` is and left to `Ctx` by a program, and `ISREF`, `TYPE`, `ISEVEN` and `ISODD` forms that see their expression, since Excel tells a reference from what a sign makes of it; every edge Excel's save, three of the first prediction's corrected: `ISEVEN(1E+300)` true, `ISREF` of a span and of `+A1` false, `ISEVEN` of a range `#VALUE!` at its own row. `ROUND` and `IFS` move down with `ISNUMBER` and `ISBLANK`, `ROUND`'s powers from a table of the exact ones and past 22 digits from their decimal, so that `excel::library()` is the language's. `INDEX` of an error where its array stands answers that error. The writer spells a cached number past 21 characters with an exponent, the 301 digits of `1E+300` having drawn Excel's repair. *Oracle:* a fixture of its own, `scripts/recalc/info.txt`: 787 formulas, Excel's second save `info_saved.xlsx` at `no-differ`, 786 agreeing, none differing, `ISREF(A25)`'s cycle unchecked by the decision of 2026-10-21; ten mutants, all caught. The subset's census and one row of each of `ADDRESS`'s moved, no floor. Alonzo's ceilings move at its pin, and Naught's verdict is its own to write.
 
 ## 🛡 ADVERSARY · SECURITY
 

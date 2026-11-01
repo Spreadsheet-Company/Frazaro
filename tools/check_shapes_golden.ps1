@@ -158,6 +158,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # program, its golden a head of two lines, the plan row and its readers row,
 # `(most 496)` as found: nearly every change of its sheet meets every
 # far-apart shape's reader, filed too wide to band.
+# 2026-10-30, KERNEL.68: the information functions' fixture and Excel's save of
+# it, 407 lines each; the subset's two goldens and one row of each of ADDRESS's
+# moved, not their floors, `ISNUMBER` and `ISBLANK` left to `Ctx` as the error
+# tests are (`(unlowered error)`).
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -182,6 +186,8 @@ $goldens = @(
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Floor = 68 },
     @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Floor = 531 },
     @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Floor = 531 },
+    @{ Name = 'info';          Fixture = 'scripts/recalc/info.xlsx';          Floor = 407 },
+    @{ Name = 'info_saved';    Fixture = 'scripts/recalc/info_saved.xlsx';    Floor = 407 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Floor = 623 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Floor = 621 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },

@@ -175,6 +175,12 @@ pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
         return error(ErrorKind::Value);
     }
     let reference = ctx.as_arrays(|| ctx.eval(&args[0]))?;
+    // An error where the array stands is the answer, whatever is picked of it,
+    // as Excel's save holds `INDEX(ISEVEN(D1:D5),2)` (KERNEL.68), where one value
+    // past its one place is `#REF!`.
+    if let Arg::Scalar(Value::Error(k)) = reference {
+        return error(k);
+    }
     let row = ctx.operand(&args[1])?;
     let column = match args.get(2) {
         None => None,

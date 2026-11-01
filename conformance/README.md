@@ -2310,6 +2310,23 @@ color.
   an accounting underline written as a single one. The language's third, ninth and
   eleventh laws hold over grids saying them.
 
+## Amendment of 2026-10-30: oracle 12's information functions (`KERNEL.68`)
+
+**What joins it.** `ISNUMBER`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISBLANK`, `ISERR`,
+`ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA` in the language's library,
+with `ROUND` and `IFS`, which the core's library computed alone.
+
+**The fixture.** `scripts/recalc/info.txt`, built by the door into `info.xlsx`, holds
+787 formulas: each of the twelve over each kind of cell, over a value given directly,
+over a range met at its row and off it and read as arrays, and each at its own edges.
+`info_calc.vla` is the door's record of it, 783 agreeing with what the build held; the
+three of `#CALC!`, which the build writes no value for, and `ISREF(A25)` in `A25`, a cycle
+as `ROW` of its own cell is, where Excel answers `TRUE`, unchecked. Excel 365's save,
+`info_saved.xlsx`, joins the table at `no-differ` (`info_saved_calc.vla`), 786 agreeing.
+
+**What it does not hold.** `ISREF` of a sign inside another's answer,
+`ISREF(IF(TRUE,+A1))`, true here, which no save witnesses.
+
 ## Amendment of 2026-10-30: oracle 12's `BITAND`, `BITOR` and `BITXOR` (`KERNEL.71`)
 
 **The functions.** `BITAND(number1, number2)`, `BITOR(number1, number2)` and

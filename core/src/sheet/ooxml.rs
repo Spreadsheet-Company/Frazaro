@@ -807,6 +807,22 @@ fn shares(text: &str) -> bool {
     crate::calc::parse(text).is_ok_and(|e| !e.has_range())
 }
 
+/// A number as a cell's `<v>` holds it: the writer's spelling, and past the
+/// longest any file Excel opened with no repair held, 21 characters, the shortest
+/// digits with an exponent, as Excel's own save spells it (`1.5E+300`). Excel's
+/// opening repaired a cell holding the 301 digits of `1E+300` (`KERNEL.68`).
+fn cell_number(v: f64) -> Option<String> {
+    let plain = number_text(v)?;
+    if plain.len() <= 21 {
+        return Some(plain);
+    }
+    let spelled = format!("{v:E}");
+    Some(match spelled.split_once('E') {
+        Some((digits, power)) if !power.starts_with('-') => format!("{digits}E+{power}"),
+        _ => spelled,
+    })
+}
+
 /// Whether a formula's text holds an array constant: a `{` outside its
 /// quoted texts.
 fn has_array_constant(text: &str) -> bool {
@@ -834,7 +850,7 @@ fn cached(value: Option<&Value>) -> (&'static str, String) {
         None => ("", String::new()),
         Some(Value::Error(e)) if !e.is_literal() => ("", String::new()),
         Some(Value::Number(n)) if *n == 0.0 => ("", "<v>0</v>".to_string()),
-        Some(Value::Number(n)) => match number_text(*n) {
+        Some(Value::Number(n)) => match cell_number(*n) {
             Some(t) => ("", format!("<v>{t}</v>")),
             None => (" t=\"e\"", "<v>#NUM!</v>".to_string()),
         },
@@ -956,7 +972,7 @@ fn sheet_text(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
                 xml::text(t)
             )),
-            Content::Number(v) => match number_text(*v) {
+            Content::Number(v) => match cell_number(*v) {
                 Some(n) => s.push_str(&format!("<c r=\"{r}\" s=\"{st}\"><v>{n}</v></c>")),
                 None => s.push_str(&format!(
                     "<c r=\"{r}\" s=\"{st}\" t=\"e\"><v>#NUM!</v></c>"
@@ -1043,6 +1059,45 @@ fn row_attrs(settings: &RowSettings) -> String {
 mod tests {
     use super::*;
     use crate::sheet::{Cell, Column, NumFmt, Rgb, Style};
+
+    #[test]
+    fn a_long_number_is_held_with_an_exponent_and_every_other_as_it_was() {
+        // KERNEL.68: Excel's opening repaired a cell holding the 301 digits of
+        // 1E+300. Past the 21 characters any built file has held, the shortest
+        // digits with an exponent, spelled as Excel's save spells one; every
+        // spelling reads back to the same bits, and no other moves.
+        let spelled = [
+            (1e300, "1E+300"),
+            (-1e300, "-1E+300"),
+            (1.5e300, "1.5E+300"),
+            (1e-300, "1E-300"),
+            (1e21, "1E+21"),
+            (1e20, "100000000000000000000"),
+            (9007199254740992.0, "9007199254740992"),
+            (0.30000000000000004, "0.30000000000000004"),
+            (0.0006828703703703704, "0.0006828703703703704"),
+            (46024.0, "46024"),
+        ];
+        for (v, want) in spelled {
+            let got = cell_number(v).expect("a number");
+            assert_eq!(got, want, "{v}");
+            assert_eq!(got.parse::<f64>().map(f64::to_bits), Ok(v.to_bits()), "{v}");
+        }
+        for v in [
+            f64::MAX,
+            f64::MIN,
+            f64::MIN_POSITIVE,
+            5e-324,
+            1.7976931348623157e308,
+            0.000012345678901234567,
+        ] {
+            let got = cell_number(v).expect("a number");
+            assert!(got.len() <= 24, "{got}");
+            assert_eq!(got.parse::<f64>().map(f64::to_bits), Ok(v.to_bits()), "{v}");
+        }
+        assert_eq!(cell_number(f64::INFINITY), None);
+        assert_eq!(cell_number(f64::NAN), None);
+    }
 
     fn a_workbook() -> Workbook {
         let mut wb = Workbook::new();

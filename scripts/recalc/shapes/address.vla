@@ -191,7 +191,7 @@
 (shape 186 "functions" "A190" "=ADDRESS(Data!R[-189]C+1,Data!R[-188]C+1,4)&\" is 5: the only place left for it in its row.\"" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "ADDRESS") (unlowered form))
 (shape 187 "functions" "A191" "=SUBSTITUTE(ADDRESS(1,28,4),\"1\",\"\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "ADDRESS" "SUBSTITUTE") (unlowered range))
 (shape 188 "functions" "A192" "=ADDRESS(3,2,4)=\"B\"&3" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "ADDRESS") (unlowered form))
-(shape 189 "functions" "A193" "=ISNUMBER(ADDRESS(1,1))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "ADDRESS" "ISNUMBER") (unlowered range))
+(shape 189 "functions" "A193" "=ISNUMBER(ADDRESS(1,1))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "ADDRESS" "ISNUMBER") (unlowered error))
 (shape 190 "functions" "A194" "=FORMULATEXT(Functions!R[-189]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
 (shape 191 "functions" "A195" "=FORMULATEXT(Lift!R[-193]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads lookup each) (calls "FORMULATEXT") (unlowered array))
 (shape 192 "lift" "A2" "=ADDRESS(Data!R[-1]C[2]:R[1]C[2],1)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (calls "ADDRESS") (unlowered form))

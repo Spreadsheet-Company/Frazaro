@@ -372,6 +372,16 @@ Superposition's 512 by 512 Field raised the frame floors' heap from 10.8 MB
 to 26.0 MB), for a style row over a range held by the machine as one range
 and never a style a cell, so that its heap stops growing with the area it
 covers. `KERNEL.68` is next free.
+`KERNEL.68`, `KERNEL.69` and `KERNEL.70` were minted 2026-10-30 at the owner's
+word, three asks from Alonzo's `CART.9` (`docs/REARVIEW.md`, the short slice's
+*Found* and its correction): `KERNEL.68` for the information functions in the
+language, the twelve a cartridge's load refuses by name, `ISNUMBER` and
+`ISBLANK` moved down from the core; `KERNEL.69` for a formula write's frame
+costing its reach, the written cells and those reading their values or their
+text, where it computed every cell; and `KERNEL.70` for a formula read as Excel
+365 reads it typed, a row's word for a dynamic formula of one cell, its spill
+labelled by name, a small item beside `KERNEL.55`, which keeps the spills and
+the writer's rule. `KERNEL.71` is next free.
 `KERNEL.71` was minted 2026-10-30 at the owner's word, from Alonzo's
 `CART.14.1` (`docs/REARVIEW.md`, "What the language and the engine still
 lack"), for `BITAND`, `BITOR` and `BITXOR` computed by `vla-lang`'s `language()`

@@ -33,12 +33,16 @@
 //! seventeen date functions (its fourth), and the thirty-one aggregates,
 //! `SUBTOTAL`, `SUMIFS` and its family and the database functions (its
 //! fifth), `AVERAGE` moved down from this file with them, and the
-//! twenty-one array functions (its sixth); and `ISFORMULA` and
+//! twenty-one array functions (its sixth); `ISFORMULA` and
 //! `FORMULATEXT`, a cell's formula read by its reference (`KERNEL.53`),
 //! which enter on their fixture alone as `IFS` did, Excel having added them
-//! in 2013, after both corpora were gathered; and `ADDRESS` (`KERNEL.60`) and
+//! in 2013, after both corpora were gathered; `ADDRESS` (`KERNEL.60`) and
 //! `BITAND`, `BITOR` and `BITXOR` (`KERNEL.71`), on their fixtures alone too, in
-//! neither table, for what a game asked of them.
+//! neither table, for what a game asked of them; and the
+//! information functions (`KERNEL.68`), with `ROUND`, `IFS`, `ISNUMBER` and
+//! `ISBLANK` moved down from this file, so that a door computes nothing an engine
+//! refuses and this file's library is the language's, the seam kept for what comes
+//! by measurement.
 //!
 //! Every function here is held to the language's exact tests or to its
 //! fixture: `scripts/recalc/subset.txt`, built by the door into
@@ -51,9 +55,8 @@
 //! with its name (`HORIZON.md` section 12.6), and the one line that admits
 //! it is a row in [`SUBSET`] with its evidence.
 
-use vla_lang::calc::library::{language, number_arg};
-use vla_lang::calc::value::round15;
-use vla_lang::calc::{Arg, Ctx, ErrorKind, Expr, Library, Reason, Value};
+use vla_lang::calc::library::language;
+use vla_lang::calc::Library;
 
 /// One function of the subset and why it is in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,10 +66,11 @@ pub struct Entry {
     pub evidence: &'static str,
 }
 
-/// The declared subset: the language's functions first, its day-one
-/// fourteen, the hundred and eight `KERNEL.8` brought, the two `KERNEL.53`
-/// brought, the one `KERNEL.60` brought and the three `KERNEL.71` brought, then
-/// Excel's.
+/// The declared subset: the language's functions, its day-one fourteen first,
+/// then the hundred and eight `KERNEL.8` brought, the two `KERNEL.53` brought, the
+/// one `KERNEL.60` brought, the fourteen of `KERNEL.68` and the three of
+/// `KERNEL.71`, each keeping the
+/// evidence that admitted it.
 pub const SUBSET: &[Entry] = &[
     Entry {
         name: "IF",
@@ -581,6 +585,46 @@ pub const SUBSET: &[Entry] = &[
         evidence: "a mask read by one call, KERNEL.71 for Alonzo's CART.14.1; scripts/recalc/bits.txt",
     },
     Entry {
+        name: "ISTEXT",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISNONTEXT",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISLOGICAL",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISERR",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISREF",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISEVEN",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ISODD",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "ERROR.TYPE",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "TYPE",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
+        name: "NA",
+        evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
+    },
+    Entry {
         name: "ROUND",
         evidence: "Enron 5, EUSES 3",
     },
@@ -620,76 +664,11 @@ pub const NAMED_NOT_COMPUTED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Excel's library: the language's functions and the four of its own below.
+/// Excel's library: the language's functions, none of its own since
+/// `KERNEL.68` moved its last four down; the one line that admits another is a
+/// registration here and a row in [`SUBSET`] with its evidence.
 pub fn library() -> Library {
-    let mut lib = language();
-    lib.register_form("IFS", ifs);
-    lib.register("ROUND", round);
-    lib.register("ISNUMBER", isnumber);
-    lib.register("ISBLANK", isblank);
-    lib
-}
-
-/// `IFS(c1, v1, c2, v2, ...)`: the value beside the first condition that
-/// holds; a condition's error is the answer; none holding is `#N/A`. Only
-/// the value chosen is computed.
-fn ifs<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
-    if args.len() < 2 || args.len() % 2 == 1 {
-        return Ok(Arg::Scalar(Value::Error(ErrorKind::NA)));
-    }
-    for pair in args.chunks(2) {
-        match ctx.truth(&pair[0])? {
-            Ok(true) => return ctx.eval(&pair[1]),
-            Ok(false) => {}
-            Err(k) => return Ok(Arg::Scalar(Value::Error(k))),
-        }
-    }
-    Ok(Arg::Scalar(Value::Error(ErrorKind::NA)))
-}
-
-/// `ROUND(x, digits)`: half away from zero, the digits read down to a
-/// whole number, a negative count rounding to tens and hundreds. The scaled
-/// value is first rounded to Excel's fifteen significant digits, so that
-/// `ROUND(2.675, 2)` is 2.68 as Excel has it and not the 2.67 the double
-/// 267.49999999999997 would give.
-fn round(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    if args.len() != 2 {
-        return Ok(Value::Error(ErrorKind::Value));
-    }
-    let x = match number_arg(ctx, args, 0)? {
-        Ok(n) => n,
-        Err(k) => return Ok(Value::Error(k)),
-    };
-    let digits = match number_arg(ctx, args, 1)? {
-        Ok(n) => n.trunc(),
-        Err(k) => return Ok(Value::Error(k)),
-    };
-    let rounded = if digits >= 0.0 {
-        let m = 10f64.powi(digits.min(300.0) as i32);
-        round15(x * m).round() / m
-    } else {
-        let p = 10f64.powi((-digits).min(300.0) as i32);
-        round15(x / p).round() * p
-    };
-    Ok(vla_lang::calc::eval::finite(rounded))
-}
-
-/// `ISNUMBER(x)`: whether the value is a number; an error is not, and does
-/// not propagate.
-fn isnumber(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    if args.len() != 1 {
-        return Ok(Value::Error(ErrorKind::Value));
-    }
-    Ok(Value::Bool(matches!(ctx.one(&args[0])?, Value::Number(_))))
-}
-
-/// `ISBLANK(x)`: whether the cell is empty; a formula's empty result is 0
-/// and so is not.
-fn isblank(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    if args.len() != 1 {
-        return Ok(Value::Error(ErrorKind::Value));
-    }
-    Ok(Value::Bool(ctx.one(&args[0])? == Value::Empty))
+    language()
 }
 
 /// The names the subset holds, for a page to list: the language's first.
@@ -701,7 +680,7 @@ pub fn subset_names() -> Vec<&'static str> {
 mod tests {
     use super::*;
     use vla_lang::calc::library::NAMES as LANGUAGE_NAMES;
-    use vla_lang::calc::{Calc, Computed};
+    use vla_lang::calc::{Calc, Computed, ErrorKind, Value};
     use vla_lang::sheet::{parse_a1_range, Cell, Content, Workbook};
 
     fn model(rows: &[(&str, &str, &str)]) -> Workbook {

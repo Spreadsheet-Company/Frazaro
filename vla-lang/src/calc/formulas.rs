@@ -205,7 +205,8 @@ impl Read {
 /// arrays, a call that answers an array where a dynamic formula reads it
 /// and one value where a legacy formula does, the page's exception for a
 /// range's parameter being a reference's: a function answering an operand,
-/// or `ROW`, `COLUMN`, `ISFORMULA` or `FORMULATEXT` of more than one cell.
+/// or `ROW`, `COLUMN`, `ISFORMULA`, `FORMULATEXT` or `TYPE` of more than one
+/// cell.
 /// The branches of `IF`, `CHOOSE` and `IFS` are read as their call is. It
 /// may say an `@` may show where Excel shows none, and the text is then
 /// labelled where it would have computed; Excel's save of the fixture tells.
@@ -281,7 +282,9 @@ fn call_may_show_at<'e>(
         }
         // A reference read for its place or its formula, never its values,
         // which answers an array of many cells where read as arrays.
-        "ROW" | "COLUMN" | "ISFORMULA" | "FORMULATEXT" => {
+        // And `TYPE`, 64 of many cells where read as arrays and its cell's
+        // type where not, as Excel 365 stores it typed (KERNEL.68).
+        "ROW" | "COLUMN" | "ISFORMULA" | "FORMULATEXT" | "TYPE" => {
             if let [a] = args {
                 if read != Read::Arrays && !one_cell(ctx, a, home, depth) {
                     return true;
@@ -289,6 +292,9 @@ fn call_may_show_at<'e>(
             }
             each(stack, &|_| Read::Whole);
         }
+        // A reference taken whole and never met at a cell, where read as arrays
+        // or not: no `@`, as Excel 365 stores each plain typed (KERNEL.68).
+        "ISREF" | "ISEVEN" | "ISODD" => each(stack, &|_| Read::Whole),
         _ if !lib.has(name) => {
             if one {
                 return true;
