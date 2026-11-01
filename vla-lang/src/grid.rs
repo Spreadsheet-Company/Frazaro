@@ -687,6 +687,13 @@ impl<'a> Page<'a> {
 /// A grid as the record and the plane read it: its sheets' settings, its
 /// formats, each sheet's extent, and its cells.
 pub(crate) trait Cells: Model {
+    /// Whether a formula's row in the record says its kind (KERNEL.70): a
+    /// machine's, whose rows can say it and whose save must keep it. A door's
+    /// record stays the file's own text, as the reader prints it.
+    fn spells_kinds(&self) -> bool {
+        false
+    }
+
     /// The format table.
     fn styles(&self) -> &Styles;
     /// A sheet's settings.

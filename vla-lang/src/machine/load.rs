@@ -679,9 +679,10 @@ impl Draft {
         draft
     }
 
-    /// A formula cell's kind said: a dynamic-array formula or a legacy array
-    /// formula, as a workbook may hold one and no row writes (a machine read
-    /// over either kind, the tests' own, KERNEL.8, slice f).
+    /// A formula cell's kind said: a legacy array formula, as a workbook may
+    /// hold one and no row writes, or a dynamic-array formula, which a row's
+    /// word says of one cell since KERNEL.70 (a machine read over either kind,
+    /// the tests' own, KERNEL.8, slice f).
     #[cfg(test)]
     pub(crate) fn set_kind(&mut self, sheet: usize, row: u32, col: u32, to: Kind) {
         let s = &mut self.sheets[sheet];
@@ -806,12 +807,38 @@ pub fn twin_base(name: &str) -> Option<&str> {
         .then(|| &name[..n - 5])
 }
 
+/// A `formula` row's fields: its sheet, its address and what it writes, and its
+/// kind, legacy, or dynamic by the word after them (KERNEL.70), as Excel 365
+/// reads the same text typed; `None` for any other shape. The third is any form,
+/// for the caller to read as it reads one.
+pub(crate) fn formula_row(items: &[Form]) -> Option<(&String, &String, &Form, Kind)> {
+    match items {
+        [Form::Str(sheet), Form::Str(addr), third] => Some((sheet, addr, third, Kind::Plain)),
+        [Form::Str(sheet), Form::Str(addr), third, Form::Sym(word)] if word == "dynamic" => {
+            Some((sheet, addr, third, Kind::Dynamic))
+        }
+        _ => None,
+    }
+}
+
+/// A dynamic formula's row over more than one cell (KERNEL.70): a person types
+/// one cell, a fill holds no kind, and a spill is no fill.
+pub(crate) fn dynamic_range(line: u32, sheet: &str, addr: &str) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-dynamic-range",
+            &[("target", &format!("{sheet}!{addr}"))],
+        ),
+    }
+}
+
 /// The shapes a row is held to, in the notation, for `grid-row-malformed`.
 pub(crate) fn shape_of(kind: &str) -> &'static str {
     match kind {
         "sheet" => "(sheet \"<name>\" visible|hidden|very-hidden)",
         "cell" => "(cell \"<sheet>\" \"<cell or range>\" <value>)",
-        "formula" => "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\")",
+        "formula" => "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") or (formula \"<sheet>\" \"<cell>\" \"=<text>\" dynamic)",
         "derived" => "(derived \"<sheet>\" \"<cell or range>\" <value>)",
         "value" => {
             "(formula \"<sheet>\" \"<cell>\" \"=<text>\") (value \"<sheet>\" \"<cell>\" <value>)"
@@ -1179,13 +1206,19 @@ impl Reader {
     }
 
     fn formula(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
-        let [Form::Str(sheet), Form::Str(addr), Form::Str(text)] = items else {
+        let Some((sheet, addr, third, kind)) = formula_row(items) else {
+            return Err(malformed(line, form, "formula"));
+        };
+        let Form::Str(text) = third else {
             return Err(malformed(line, form, "formula"));
         };
         let Some(body) = text.strip_prefix('=').filter(|b| !b.is_empty()) else {
             return Err(malformed(line, form, "formula"));
         };
         let (si, range) = self.target(form, "formula", sheet, addr, line)?;
+        if kind == Kind::Dynamic && range.cells() != 1 {
+            return Err(dynamic_range(line, sheet, addr));
+        }
         self.claim(si, range, sheet, addr, line)?;
         // A range's formula a shared formula, its index the sheet's next, as
         // `Sheet::set_formula` numbers them.
@@ -1198,7 +1231,7 @@ impl Reader {
                 anchor: (range.top, range.left),
                 si: shared,
                 written: range,
-                kind: Kind::Plain,
+                kind,
             },
         });
         Ok(())

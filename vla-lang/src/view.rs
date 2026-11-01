@@ -33,7 +33,9 @@
 //! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
 //!                                    holding the value draws with the format
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
-//! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it
+//! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it, and
+//!                                    after it, in a machine's record, the word
+//!                                    dynamic for one its rows said so (KERNEL.70)
 //! (value "Output" "B3" 10)           its computed value, once values exist
 //! (text "Output" "B3" "10.00")       a number's text under its format's code
 //!                                    (KERNEL.47), after its cell or value row
@@ -451,11 +453,20 @@ impl Grid<'_> {
                         match text_of(*formula, (row, col), walked) {
                             Some(text) => {
                                 let text = format!("={text}");
-                                out(&relation(&Row::Formula {
+                                let row = relation(&Row::Formula {
                                     sheet: name,
                                     addr: &over,
                                     text: &text,
-                                }));
+                                });
+                                match formula {
+                                    Formula::Own(_, crate::grid::Kind::Dynamic)
+                                        if model.spells_kinds() =>
+                                    {
+                                        let body = row.strip_suffix(')').unwrap_or(&row);
+                                        out(&format!("{body} dynamic)"));
+                                    }
+                                    _ => out(&row),
+                                }
                                 true
                             }
                             None => false,

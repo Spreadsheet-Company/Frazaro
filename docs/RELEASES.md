@@ -192,6 +192,16 @@
   a formula to force a whole frame calls `Machine::whole_next`, new here, which asks
   for one (KERNEL.69).
 
+- **A row's word for a dynamic formula.** `(formula "S" "A1" "=MAX(COLUMN(A2:L2))"
+  dynamic)` reads its text as Excel 365 reads it typed: 12, where the row without the
+  word, a legacy formula, is 1. A host writes it for what a person types; a row without
+  it reads as it did, and no cartridge moves. It is one cell's: a range is refused by
+  name (`grid-dynamic-range`). An answer of many values is labelled `(not-computed "a
+  spill")` at its cell, and `=A2:L2` takes that name too, where it named its range. A
+  machine's `grid` and `fills` records print the word, so that a save keeps it; a
+  door's record stays the file's own text. The spills themselves are `KERNEL.55`'s
+  (KERNEL.70).
+
 ## 0.12.0
 
 ### What changed

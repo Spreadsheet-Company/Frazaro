@@ -2327,6 +2327,23 @@ as `ROW` of its own cell is, where Excel answers `TRUE`, unchecked. Excel 365's 
 **What it does not hold.** `ISREF` of a sign inside another's answer,
 `ISREF(IF(TRUE,+A1))`, true here, which no save witnesses.
 
+## Amendment of 2026-10-30: oracle 12's formula read as typed (`KERNEL.70`)
+
+**What joins it.** A `formula` row's word, `dynamic`, of one cell, which reads a formula
+as `Content::DynamicFormula` reads it, as Excel 365 reads the same text typed.
+
+**The fixture.** `scripts/recalc/typed.txt`, built into `typed.xlsx`, holds 56 formulas as
+texts; the owner writes each into the cell beside it through `Range.Formula2`, as Excel's
+own typing is, and saves it. That save, `typed_saved.xlsx`, joins at `no-differ`
+(`typed_saved_calc.vla`), 49 agreeing, none differing and nine answers of many labelled
+`(not-computed "a spill")`, each read as Excel's writer held it: 36 dynamic, 20 plain.
+The core's own test writes each of the 54 without an `@` by a row with the word into a
+machine and holds its value to Excel's.
+
+**What it does not hold.** Excel's rule for which formula it stores dynamic, which the
+save shows and `KERNEL.55` takes; a spill's other cells; and a typed `@`, refused by name
+where the file's `SINGLE` computes.
+
 ## Amendment of 2026-10-30: oracle 12's `BITAND`, `BITOR` and `BITXOR` (`KERNEL.71`)
 
 **The functions.** `BITAND(number1, number2)`, `BITOR(number1, number2)` and

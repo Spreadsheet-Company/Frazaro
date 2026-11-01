@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.10"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.70"
+' KERNEL.70: a row's word for a dynamic formula, one refusal under VLA-Grid.
+' grid-dynamic-range - the word over a range, a dynamic formula being written
+' one cell at a time here.
+'
 ' VLA.10: the fill's own place as a word, seven refusals under VLA.
 ' vla-self-free - the word self nothing reads, free, or in a branch the walk
 ' does not expand; vla-self-in-a-primitive - a primitive that reads a word's
@@ -1736,6 +1740,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "A write cannot go into {target}: the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."
     AddMsg m, "grid-write-last", 5, "VLA-Grid", "{target} is a cell of {sheet}, the previous frame, which is read-only: write {source}, and the end of the next step copies it there."
     AddMsg m, "grid-write-during-step", 5, "VLA-Grid", "Frame {frame} is being computed, {evaluated} of {of} cells; a write waits until the step that finishes it."
+    AddMsg m, "grid-dynamic-range", 5, "VLA-Grid", "A dynamic formula is written one cell at a time here, and {target} is a range."
     AddMsg m, "grid-write-derived", 5, "VLA-Grid", "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
     AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
 

@@ -258,11 +258,12 @@ mod tests {
         }
         // The machine's family (KERNEL.22): eleven grid ids, a twelfth since
         // KERNEL.47 (`grid-format-code`), a thirteenth and a fourteenth since
-        // KERNEL.50 (`grid-format-property`, `grid-cell-unwritten`), and the
+        // KERNEL.50 (`grid-format-property`, `grid-cell-unwritten`), a fifteenth
+        // since KERNEL.70 (`grid-dynamic-range`), and the
         // view's and recalculation's own the machine adds.
         assert_eq!(
             ids().iter().filter(|id| id.starts_with("grid-")).count(),
-            14
+            15
         );
         // A row's line is the answer's own field (KERNEL.23): no grid text
         // says it, so a write of one row never reads "Line 1".

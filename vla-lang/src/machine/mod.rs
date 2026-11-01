@@ -112,7 +112,10 @@
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
-//! value that lands only in a value cell, never over a formula. A write
+//! value that lands only in a value cell, never over a formula. A `formula`
+//! row is a legacy formula, and one over one cell with the word `dynamic` after
+//! it reads as Excel 365 reads the same text typed, its answer of many labelled
+//! at its cell (KERNEL.70); what a host writes for a person's typing. A write
 //! costs what its cells cost, a fill rewritten whole in a frame's time
 //! rather than the square of its cells, and leaves the plan a load of the
 //! same grid makes, numbered and anchored as a load's (KERNEL.34). A write
@@ -2077,12 +2080,24 @@ impl Machine {
         if !matches!(head, "cell" | "formula" | "derived") {
             return Err(load::unknown(line, head, WRITE_ROWS));
         }
-        let [Form::Str(sheet), Form::Str(addr), third] = items else {
+        let parts = match head {
+            "formula" => load::formula_row(items),
+            _ => match items {
+                [Form::Str(sheet), Form::Str(addr), third] => {
+                    Some((sheet, addr, third, Kind::Plain))
+                }
+                _ => None,
+            },
+        };
+        let Some((sheet, addr, third, kind)) = parts else {
             return Err(load::malformed(line, form, head));
         };
         let Some(range) = parse_a1_range(addr) else {
             return Err(load::malformed(line, form, head));
         };
+        if kind == Kind::Dynamic && range.cells() != 1 {
+            return Err(load::dynamic_range(line, sheet, addr));
+        }
         let what = match head {
             "formula" => match third {
                 Form::Str(t) if t.len() > 1 && t.starts_with('=') => None,
@@ -2141,7 +2156,7 @@ impl Machine {
         }
         match (what, third) {
             (Some(value), _) => self.put_values(si, range, &value.content(), line, log),
-            (None, Form::Str(text)) => self.put_formula(si, range, &text[1..], line, log),
+            (None, Form::Str(text)) => self.put_formula(si, range, &text[1..], kind, line, log),
             (None, _) => Err(load::malformed(line, form, head)),
         }
     }
@@ -2288,11 +2303,13 @@ impl Machine {
         si: usize,
         range: A1Range,
         text: &str,
+        kind: Kind,
         line: u32,
         log: &mut Log,
     ) -> Result<(), LineRefusal> {
-        // A cell whose formula would read the same is not written.
-        let differs = self.differing(si, range, text, log).len();
+        // A cell whose formula would read the same, of the same kind, is not
+        // written (KERNEL.70).
+        let differs = self.differing(si, range, text, kind, log).len();
         if differs == 0 {
             return Ok(());
         }
@@ -2320,7 +2337,7 @@ impl Machine {
                 .add(index, range, (range.top, range.left), text, range),
             None => {
                 let at = (range.top, range.left);
-                let old = page.alone.insert(at, (text.to_string(), Kind::Plain));
+                let old = page.alone.insert(at, (text.to_string(), kind));
                 log.alone.push(((si, at.0, at.1), old));
             }
         }
@@ -2343,7 +2360,9 @@ impl Machine {
     /// formula the range covers (KERNEL.34). Comparing every cell moved two
     /// texts a cell, 1.8 s for Life's rule written again with its own text.
     ///
-    /// A cell holding no formula differs. A fill's cells are read through
+    /// A cell holding no formula differs, and one of another kind than `kind`,
+    /// which reads otherwise however it is spelled (KERNEL.70). A fill's cells,
+    /// each legacy, are read through
     /// its master: one whose master is the range's first cell and holds the
     /// written text is the same at every cell, nothing moved. Otherwise, so
     /// long as moving either text over the fill's cells keeps it whole
@@ -2361,7 +2380,14 @@ impl Machine {
     /// move might not keep whole, a plain formula of the written text's R1C1
     /// text, and a plain formula an earlier row of the same write placed
     /// where the plan has not seen it.
-    fn differing(&self, si: usize, range: A1Range, text: &str, log: &Log) -> Vec<(u32, u32)> {
+    fn differing(
+        &self,
+        si: usize,
+        range: A1Range,
+        text: &str,
+        kind: Kind,
+        log: &Log,
+    ) -> Vec<(u32, u32)> {
         let page = &self.book.pages[si];
         let masters = page.fills.masters();
         let start = (range.top, range.left);
@@ -2398,6 +2424,8 @@ impl Machine {
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
                 match page.formula(row, col) {
+                    Some(Formula::Fill(_)) if kind != Kind::Plain => differs.push((row, col)),
+                    Some(Formula::Own(_, held)) if held != kind => differs.push((row, col)),
                     Some(Formula::Fill(index)) => {
                         fills.entry(index).or_default().push((row, col));
                     }
@@ -2900,8 +2928,8 @@ impl Env for Machine {
     }
 
     /// Whether the cell being computed holds a dynamic-array formula, as its
-    /// grid says (KERNEL.8, slice b): a grid loaded from rows holds none, a
-    /// `formula` row making a plain or a shared formula. A fill is a plain
+    /// grid says (KERNEL.8, slice b): a `formula` row with the word (KERNEL.70),
+    /// or a door's workbook's. A fill is a plain
     /// formula, so only a formula alone is asked, one lookup at every
     /// evaluation that reads a range where one value is wanted, where asking
     /// the grid searched its fills too.
@@ -2965,6 +2993,12 @@ impl Model for Machine {
 }
 
 impl Cells for Machine {
+    /// A machine's rows can say a dynamic formula, so its record does
+    /// (KERNEL.70), and a save keeps it.
+    fn spells_kinds(&self) -> bool {
+        true
+    }
+
     fn styles(&self) -> &Styles {
         &self.book.styles
     }
@@ -7018,12 +7052,12 @@ mod tests {
         // formula would meet it at its cell (KERNEL.8, slice f).
         assert_eq!(number(&m, "S", "E3"), 18.0, "dynamic: ABS over A1:A6");
         // `INDEX`'s whole row read as a dynamic formula answers a range of
-        // two cells, labelled by its text as slice b labels one (a program
+        // two cells, a spill labelled (KERNEL.70; a program
         // lowered for a legacy formula leaves it to `Ctx` by its guard).
         assert_eq!(
             at(&m, "S", "F3"),
             Some(Computed::NotComputed(Reason::Construct(
-                "$A$1:$B$6".to_string()
+                "a spill".to_string()
             ))),
             "dynamic: INDEX's row 2 of A1:B6"
         );
@@ -9453,7 +9487,7 @@ mod tests {
     fn same_text(m: &Machine, sheet: &str, range: A1Range, text: &str, when: &str) -> usize {
         let si = m.find_sheet(sheet).expect("the sheet");
         let body = text.strip_prefix('=').expect("a formula");
-        let mut found = m.differing(si, range, body, &Log::default());
+        let mut found = m.differing(si, range, body, Kind::Plain, &Log::default());
         let mut every = m.differing_by_cell(si, range, body);
         found.sort_unstable();
         every.sort_unstable();
@@ -14076,6 +14110,221 @@ mod tests {
             "{followed} of {frames} frames followed what changed, {writes} formulas written, \
              {texts} texts read again: too few for the law to hold over"
         );
+    }
+
+    // ---- KERNEL.70: a row's word for a dynamic formula ----
+
+    /// A formula's value at a cell of `S`, as the frame left it, spelled.
+    fn spelled_at(m: &Machine, addr: &str) -> String {
+        at(m, "S", addr).map_or("(none)".to_string(), |c| c.spell())
+    }
+
+    const TYPED: &str = concat!(
+        "(sheet \"S\" visible)\n",
+        "(cell \"S\" \"A2:L2\" 2)\n",
+        "(cell \"S\" \"A3\" 3)\n(cell \"S\" \"A4\" 4)\n(cell \"S\" \"A5\" 5)\n",
+    );
+
+    #[test]
+    fn a_row_s_word_reads_a_formula_as_excel_365_reads_it_typed() {
+        // KERNEL.70: the three the ask measured and their neighbours, each with
+        // the word and without it, the same text one cell apart: a legacy
+        // reading stays what it was, and the word's is Excel 365's, whose save of
+        // `scripts/recalc/typed.txt` the core's test holds a machine to. Each read
+        // at a load and at a write, and a door's `Calc` over the machine's grid
+        // answers alike, a dynamic formula's kind kept in the grid lent.
+        let cases = [
+            ("=MAX(COLUMN(A2:L2))", "1", "12"),
+            ("=SUM(COLUMN(A2:L2))", "1", "78"),
+            ("=MAX(ROW(A2:A5))", "2", "5"),
+            ("=COUNT(COLUMN(A2:L2))", "1", "12"),
+            ("=SUMPRODUCT(COLUMN(A2:L2))", "78", "78"),
+            ("=SUM(A3:A5*2)", "(error \"#VALUE!\")", "24"),
+            ("=SUMPRODUCT(IF(A3:A5>3,1,0))", "(error \"#VALUE!\")", "2"),
+            ("=A3+1", "4", "4"),
+        ];
+        let mut rows = String::from(TYPED);
+        for (k, (text, _, _)) in cases.iter().enumerate() {
+            let text = crate::rows::quoted(text);
+            rows.push_str(&format!("(formula \"S\" \"N{}\" {text})\n", k + 20));
+            rows.push_str(&format!("(formula \"S\" \"O{}\" {text} dynamic)\n", k + 20));
+        }
+        let mut loaded = load(&rows);
+        assert!(loaded.step(0).done);
+        let mut written = load(TYPED);
+        assert!(written.step(0).done);
+        for (k, (text, _, _)) in cases.iter().enumerate() {
+            let text = crate::rows::quoted(text);
+            let row = format!("(formula \"S\" \"O{}\" {text} dynamic)", k + 20);
+            assert_eq!(written.write(&row), Ok(1), "{row}");
+        }
+        assert!(written.step(0).done);
+        let book = loaded.workbook();
+        let calc = crate::calc::Calc::run(&book, &loaded.library);
+        for (k, (text, legacy, dynamic)) in cases.iter().enumerate() {
+            let (n, o) = (format!("N{}", k + 20), format!("O{}", k + 20));
+            assert_eq!(spelled_at(&loaded, &n), *legacy, "{text}, legacy");
+            assert_eq!(spelled_at(&loaded, &o), *dynamic, "{text}, the word");
+            assert_eq!(spelled_at(&written, &o), *dynamic, "{text}, written");
+            let id = (0, parse_a1_range(&o).unwrap().top, 15);
+            assert_eq!(calc.computed(id).unwrap().spell(), *dynamic, "{text}, Calc");
+        }
+    }
+
+    #[test]
+    fn a_dynamic_formula_of_many_values_is_labelled_a_spill_at_its_cell() {
+        // KERNEL.70: an answer of many, an array's or a range's at the formula's
+        // top, is one thing with one name at the frame, where a write cannot know
+        // it: `INDEX`'s spills or not by what it reads. A dynamic formula whose
+        // answer comes to one value computes at the frame after its cell changes.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A2:L2\" 2)\n",
+            "(cell \"S\" \"M1\" 1)\n",
+            "(formula \"S\" \"N1\" \"=COLUMN(A2:L2)\" dynamic)\n",
+            "(formula \"S\" \"N2\" \"=A2:L2\" dynamic)\n",
+            "(formula \"S\" \"N3\" \"=A2:L2*2\" dynamic)\n",
+            "(formula \"S\" \"N4\" \"=SEQUENCE(2)\" dynamic)\n",
+            "(formula \"S\" \"N5\" \"=INDEX(A2:L2,1,M1)\" dynamic)\n",
+            "(formula \"S\" \"N6\" \"=FORMULATEXT(N1)\" dynamic)\n",
+        ));
+        assert!(m.step(0).done);
+        let spill = "(not-computed \"a spill\")";
+        for addr in ["N1", "N2", "N3", "N4"] {
+            assert_eq!(spelled_at(&m, addr), spill, "{addr}");
+        }
+        assert_eq!(spelled_at(&m, "N5"), "2");
+        assert_eq!(spelled_at(&m, "N6"), "\"=COLUMN(A2:L2)\"");
+        assert!(m.write("(cell \"S\" \"M1\" 0)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N5"), spill, "by what it reads");
+        assert!(m.write("(cell \"S\" \"M1\" 3)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N5"), "2", "and back");
+    }
+
+    #[test]
+    fn a_kind_is_part_of_what_a_write_changes() {
+        // KERNEL.70: the same text with the other kind is written, and reads
+        // otherwise, without the word as well as with it; the same text of the
+        // same kind is not; the word over a fill's cell cuts the fill, its other
+        // cells kept, and a fill written over the cell makes it legacy again.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A2:L2\" 2)\n",
+            "(cell \"S\" \"A3\" 1)\n",
+            "(formula \"S\" \"N1:N3\" \"=MAX(COLUMN($A$2:$L$2))\")\n",
+        ));
+        let word = "(formula \"S\" \"N2\" \"=MAX(COLUMN($A$2:$L$2))\" dynamic)";
+        assert!(m.step(0).done);
+        assert_eq!(m.write(word), Ok(1), "a fill's cell");
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N1"), "1");
+        assert_eq!(spelled_at(&m, "N2"), "12");
+        assert_eq!(spelled_at(&m, "N3"), "1");
+        assert_eq!(m.write(word), Ok(0), "the same text, the same kind");
+        let plain = "(formula \"S\" \"N2\" \"=MAX(COLUMN($A$2:$L$2))\")";
+        assert_eq!(m.write(plain), Ok(1), "the same text, the other kind");
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N2"), "1");
+        assert_eq!(m.write(plain), Ok(0));
+        assert_eq!(m.write(word), Ok(1));
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N2"), "12");
+        // A range's row over the cell: legacy again, as a fill is.
+        let fill = "(formula \"S\" \"N1:N3\" \"=MAX(COLUMN($A$2:$L$2))\")";
+        assert_eq!(m.write(fill), Ok(1), "the cell of the other kind alone");
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N2"), "1");
+        // Undone by a refusal with the rest of its write.
+        let refused = "(formula \"S\" \"N2\" \"=N2\" dynamic)";
+        assert!(m.write(refused).is_err());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "N2"), "1");
+    }
+
+    #[test]
+    fn a_row_s_word_is_one_word_over_one_cell() {
+        // KERNEL.70: a range refused by name at a load and a write, each naming
+        // the row's target and its line; any other word, and the word on any
+        // other row, a row out of its shape.
+        let refused = Machine::load(
+            "(sheet \"S\" visible)\n(formula \"S\" \"A1:A2\" \"=1\" dynamic)\n",
+            library::language(),
+        )
+        .expect_err("a range");
+        assert_eq!(
+            (refused.refusal.id.as_str(), refused.line),
+            ("grid-dynamic-range", 2)
+        );
+        assert!(
+            refused.refusal.text.contains("S!A1:A2"),
+            "{}",
+            refused.refusal.text
+        );
+        for row in [
+            "(formula \"S\" \"A1\" \"=1\" legacy)",
+            "(formula \"S\" \"A1\" \"=1\" dynamic dynamic)",
+            "(formula \"S\" \"A1\" \"=1\" \"dynamic\")",
+            "(cell \"S\" \"A1\" 1 dynamic)",
+        ] {
+            let text = format!("(sheet \"S\" visible)\n{row}\n");
+            let e = Machine::load(&text, library::language()).expect_err(row);
+            assert_eq!(e.refusal.id, "grid-row-malformed", "{row}");
+        }
+        let mut m = load("(sheet \"S\" visible)\n(cell \"S\" \"A1\" 1)\n");
+        let e = m
+            .write("(formula \"S\" \"B1:B2\" \"=1\" dynamic)")
+            .expect_err("a range");
+        assert_eq!(e.refusal.id, "grid-dynamic-range");
+        for row in [
+            "(formula \"S\" \"B1\" \"=1\" legacy)",
+            "(cell \"S\" \"B1\" 1 dynamic)",
+            "(derived \"S\" \"B1\" 1 dynamic)",
+        ] {
+            assert_eq!(
+                m.write(row).expect_err(row).refusal.id,
+                "grid-row-malformed",
+                "{row}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_machine_s_record_says_the_word_and_a_save_keeps_it() {
+        // KERNEL.70: the grid and the fills print the word where a door's record
+        // of the same workbook prints the file's own row; the values print no
+        // formula row at all; a save's rows load as the kinds they were and compute
+        // what they computed.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1:C1\" 2)\n",
+            "(formula \"S\" \"D1\" \"=MAX(COLUMN(A1:C1))\" dynamic)\n",
+            "(formula \"S\" \"D2\" \"=MAX(COLUMN(A1:C1))\")\n",
+            "(formula \"S\" \"E1:E2\" \"=D1+1\")\n",
+        );
+        let mut m = load(rows);
+        assert!(m.step(0).done);
+        let text = |m: &Machine, projection: &str| match m.view(projection, "S", None) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        };
+        let word = "(formula \"S\" \"D1\" \"=MAX(COLUMN(A1:C1))\" dynamic)";
+        let plain = "(formula \"S\" \"D2\" \"=MAX(COLUMN(A1:C1))\")";
+        for projection in ["grid", "fills"] {
+            let t = text(&m, projection);
+            assert!(t.contains(word) && t.contains(plain), "{projection}:\n{t}");
+        }
+        assert!(!text(&m, "values").contains("(formula "));
+        let book = m.workbook();
+        let door =
+            crate::view::view_text(&book, &crate::view::window_of(&book, "S", None).unwrap());
+        assert!(!door.contains(" dynamic)"), "a door's record:\n{door}");
+        let save = text(&m, "fills");
+        let mut again = load(&save);
+        assert!(again.step(0).done);
+        assert_eq!(values(&again), values(&m));
+        assert_eq!(text(&again, "fills"), save);
     }
 
     // ---- KERNEL.49's third slice: the machine's own grid ----

@@ -43509,6 +43509,144 @@ after a formula write (decision 6). Alonzo's frame floors read no formula write.
 over `KERNEL.68`'s, this item's files and its hunks of the shared files alone. That tree verified alone before it
 was written: the same, the language's 476 and the core's 229, `run_checks.ps1` 60 of 60 with both blocks pasted, `prove.ps1 -Impl` 67 passed. The item closes: its line leaves the roadmap for the closed ledger. Not pushed.
 
+**`KERNEL.70`, a formula read as Excel 365 reads it typed: the scoping, 2026-10-30.** The
+same brief, its second ask, weighed against `KERNEL.55` before minting. A prototype in a further
+copy of `HEAD`, scratchpad `k68/`; the decisions below stop for the owner.
+
+*What the language answers, run at `b4238af`*, `Content::Formula` beside
+`Content::DynamicFormula`, in a door's `Calc` and in a machine by `Draft::of_workbook`, the two
+alike at every row, at a cell outside the ranges' rows and columns:
+
+| the formula | legacy, as every row is | dynamic |
+|---|---|---|
+| `=MAX(COLUMN(A2:L2))` | 1 | 12 |
+| `=SUM(COLUMN(A2:L2))` | 1 | 78 |
+| `=MAX(ROW(A2:A5))` | 2 | 5 |
+| `=COUNT(COLUMN(A2:L2))` | 1 | 12 |
+| `=SUMPRODUCT(COLUMN(A2:L2))` | 78 | 78 |
+| `=SUM(A2:L2*2)` | `#VALUE!` | 1,560 |
+| `=SUMPRODUCT(IF(A3:A5>3,1,0))` | `#VALUE!` | 2 |
+| `=TEXTJOIN(",",TRUE,COLUMN(A2:C2))` | `"1"` | `"1,2,3"` |
+| `=COLUMN(A2:L2)` | 1 | `(not-computed "a spill")` |
+| `=A3:A5*2` | `#VALUE!` | `(not-computed "a spill")` |
+| `=A2:L2` | `#VALUE!` | `(not-computed "A2:L2")` |
+
+So the brief's first check clears. `position()` in `library.rs` does answer a reference's first
+cell, but `Ctx::strict_one` asks `placed_many` before it: under `Kind::Dynamic`, `COLUMN` and `ROW`
+of a range read as arrays answer their numbers, and the three the brief measured are already 12, 78
+and 5. The evaluator holds the answer, and only a row to say so is missing (`Draft::set_kind`,
+test-only; `put_formula`'s `Kind::Plain`).
+
+*Weighing `KERNEL.55`.* Its line holds a formula written dynamic wherever Excel 365 would store it so,
+and in an engine "a cartridge's spill refused by name, kept within a bound fixed at the load, or free"
+under `AD-7`; `~weeks`, unscoped, its decisions open. A row's word holds none of that. It lays no value
+beside its cell, decides no extent, and leaves `AD-7`'s question and the writer's rule where they are,
+while `KERNEL.55` will want the word on its first day. Folded, `=MAX(COLUMN(A2:L2))` typed into a palette
+waits on spills for an answer the evaluator already has. *So a small item, minted last so that a fold
+leaves no gap* (decision 1).
+
+*The prototype.* About sixty lines. The row read at a load and a write, a kind on `put_formula`, a kind in the
+same-text test, the word printed by a machine's record. Run: `N1` written with the word 12, `N2` without
+1, in one grid; `=FORMULATEXT(N1)` its text, and `=FORMULATEXT` of a dynamic `=SUM(A2:L2*2)`, which
+a legacy row labels `a formula Excel shows with @`, its text as typed; the same text written with the word
+over a legacy cell one cell changed and 1 turned to 12, written again nothing, written without it 12 turned
+to 1; a `fills` save reloaded with its words; the crate's tests but `KERNEL.69`'s two pins. *Cost*, a shape
+of a dynamic kind being computed by `Ctx` (`Why::Array`), a frame of gates alone reading one written value:
+148 to 195 ns a cell where a legacy gate's program is 97 to 150, so 1.3 to 1.5 times, on the cells a person
+typed.
+
+*Decisions, the owner's; each with its recommendation.*
+1. **A small item beside `KERNEL.55`.** *Alternative:* folded, its first slice, once it is scoped; or
+   `KERNEL.55` scoped first. *Recommended:* small, its line noting the brick.
+2. **The word: a fourth field, `(formula "S" "A1" "=..." dynamic)`.** Every reader of `formula` rows keeps
+   reading them: the page's viewport takes the row's text by its place and ignores what follows, where a
+   new head is counted unknown. *Alternative:* a row of its own, `(dynamic "S" "A1" "=...")`, which every host
+   and tool must learn before it shows the cell's text. *Recommended:* the fourth field, spelled `dynamic`, the word
+   Excel's documentation and this code use.
+3. **One cell. A range is refused by name.** A new `grid-dynamic-range` in `VLA_Messages.bas` and its export:
+   "A dynamic formula is written one cell at a time here, and {target} is a range." A person types one cell, a
+   fill holds no kind, and a spill is no fill. *Alternative:* a range written as a formula alone a cell. *Recommended:*
+   refused.
+4. **The word is held as written, whatever the formula.** A typed `=A3*A7`, whose two readings cannot differ, is
+   held dynamic, costing what is measured above. *Alternative:* Excel's own rule, held plain where no `@` could show.
+   The rule exists as `may_show_at`, but it has a hole for this use: `=SUMPRODUCT(IF(A3:A5>3,1,0))` shows no `@`
+   there and reads `#VALUE!` legacy against 2 dynamic. That rule is `KERNEL.55`'s, and this item's save gives it
+   its evidence. *Recommended:* as written.
+5. **A spill is labelled by name at its cell, at the frame: `(not-computed "a spill")`.** The brief says "refused by
+   name", and this is the one place I read it otherwise. A write cannot refuse what it cannot know:
+   `=INDEX(A2:L2,1,B1)` spills or not by `B1`'s value. The label is the doors' own, named in every record, and the
+   page draws its text. `=A2:L2`'s label moves from `"A2:L2"` to `"a spill"`, so that one thing has one name (two rows of
+   the lookups' goldens move, `A106` and `A107`). *Alternative:* the certain cases, `=A2:L2`, `=COLUMN(A2:L2)`,
+   `=A3:A5*2`, also refused at the write by a reading of the parse, the rest labelled: two answers for one thing, and
+   more code than the rest of the item. *Recommended:* the label alone.
+6. **A machine's record says the word; a door's does not.** A machine's `grid` and `fills` print it, so that a save
+   keeps the kind and laws 3 and 5 hold over it. A door's record stays the file's own text, as `reflect` prints it, which
+   is oracle 11's free oracle; printing it there moves the view and reflect goldens and the treaty's text. *Alternative:*
+   every record now, `KERNEL.55`'s to weigh when spills reach the record. *Recommended:* the machine's.
+7. **A kind is part of what a write changes.** The same text with the other kind is written; a `formula` row with no word
+   over a dynamic cell makes it legacy; a row with the word over a fill's cell cuts the fill. *Recommended:* so.
+8. **No `array` word.** A legacy array formula of one cell could be said the same way, and nothing asks; many cells are
+   `KERNEL.55`'s. Under *Found*: a door's record of a legacy array formula, or a dynamic one, loaded by a machine reads legacy.
+   *Recommended:* dynamic alone.
+9. **Who writes it: a host, for what a person types.** Nothing moves for a cartridge: every row without the word reads as it did
+   and no kit verb gains it. Alonzo's to adopt, named here and edited nowhere: `web/host.js`'s edit path; and
+   `Cartridge::check_row`, whose pattern of three fields lets a row of four past its device checks, so that a cell a
+   device reserves must learn the fourth field before the page writes it.
+   *Recommended:* so.
+10. **The oracle.** *The fixture*, below: Excel's values, a typed formula as Excel typed it, at `no-differ` in `check_recalc_golden`; a
+    core test writing each by a row with the word into a machine and holding its value to Excel's; and laws 3 and 5 over
+    generated rows bearing the word, with a machine's law beside them at every cell against `Calc` over `Content::DynamicFormula`.
+    The same stop rule as `KERNEL.68`'s. *Recommended:* so.
+
+*The fixture, built and in the tree* (`scripts/recalc/typed.txt`, `typed.xlsx`, uncommitted). A Data sheet, and a Typed sheet
+whose column A holds 56 formulas as texts, every tenth row, room left beneath each: the three the brief measured and their
+neighbours, a range where one value is wanted, where the two kinds read alike, a formula's text and kind read back, the
+information tests read as arrays (`KERNEL.68`'s, computed once it is built), nine answers of many, and two `@` typed. The owner
+writes each text into column B beside it by one line in the Immediate window, through `Range.Formula2`, as Excel's own typing
+is: Excel's values, and on each cell whether its writer held it dynamic. The file opened with no repair. The first hand wrote nothing,
+the save holding column A alone and no error shown. The second did, though it looked to the owner as if it had not, the Immediate
+window printing nothing for a statement: the 56 stand in `typed_saved.xlsx`, and `B1`, `B11` and `B21` are 12, 78 and 5. Excel had
+saved over `typed.xlsx` as well, so that it is built again from `typed.txt`.
+
+*What Excel's save says.* The door over it: 49 agreeing, none differing, the nine of many labelled, every
+dynamic reading of the language Excel's. Excel's writer held 36 dynamic and 20 plain: `=SUMPRODUCT(COLUMN(...))`,
+`=SUM(INDEX(...,1,0))`, `=COLUMN()`, `=COUNTIF(...)`, `=FORMULATEXT(B1)`, `=ISREF(range)` and
+`=SUM(--ISEVEN(range))` plain, `=SUMPRODUCT(IF(range>3,1,0))` dynamic, which is `may_show_at`'s hole of decision 4,
+witnessed. A typed `@` Excel holds as a legacy formula, `=@Data!A2:L2` saved as `data!A2:L2`, 20 at its column.
+
+*Approved 2026-10-30,* "Decision approved." Built the same evening, uncommitted.
+
+*Built.* `machine/load.rs`'s `formula_row` and `dynamic_range`, read by the load and the write alike, the row's shape's
+text; `machine/mod.rs`'s write and same-text test; `grid.rs`'s `Cells::spells_kinds`, a machine's alone, and `view.rs`'s
+word; `eval.rs`'s label, a range of many at a dynamic formula's top a spill, moving four rows of goldens where two
+were scoped, the intersection's two beside the lookups' two; `grid-dynamic-range` in `VLA_Messages.bas` and its export;
+`check_recalc_golden`'s and `check_shapes_golden`'s rows for `typed_saved`, and `tools/prove.ps1`'s twenty-sixth calc row; the tests: the word beside the legacy reading
+at a load, at a write and against `Calc`; a spill by name; a kind as part of a write; one word over one cell; a machine's
+record against a door's and a save; law 15; and the core's test, each of the 54 by a row with the word held to Excel's value and the
+two `@` refused by name; `conformance/README.md`; `docs/RELEASES.md`. `Draft::set_kind` stays the tests', for `Kind::Array`, and
+`Alonzo/docs/SPEC.md`'s row table is Alonzo's at its pin.
+
+*Held.* Eight mutants, each proved to apply, all caught: the word read and ignored at a load; a range taken at
+a load and at a write; the kind no part of a write; a write forgetting the kind; the record saying no word; a door's
+record saying it; and a range at the top keeping its text's label.
+
+*Found.* A typed `@`: `=@A2:L2` is refused by name at a load, the parser naming `@`, where `SINGLE(A2:L2)` computes and
+a file's `_xlfn.SINGLE` reads; a few lines of the parser if a person's typing asks, and the fixture's last two rows witness
+Excel's answer. `may_show_at`'s hole (decision 4). A door's record and a kind (decision 8).
+
+*The owner's hand, 2026-11-01.* After `VlaDevReload` and Debug > Compile, `? VlaSelfTests()`: pure PASS (2504/2504),
+host PASS (333/333), the catalogue's new row among them.
+
+*The three together.* Each its own commit, at the owner's word, in the order `KERNEL.68`, `KERNEL.69`, `KERNEL.70`,
+each `## 0.13.0`'s, whose bump is the owner's. `typed.txt`'s tests' rows compute once `KERNEL.68` stands, and the bench's
+one run of both halves, over all three, is pasted at `KERNEL.69`, which asked for it.
+
+*Committed 2026-11-01* at the owner's word, "Recommendation approved; lower the netlist type floor and commit KERNEL.68-70 if everything checks out before suggesting next steps": the last of three commits, over
+`KERNEL.69`'s, the rest of the three items' work. That tree verified alone before it was written: the same, the language's 481 and the core's 230, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 68 passed; the controls of `check_recalc_floors`, `check_recalc_golden`, `check_shapes_golden`, `prove.ps1` and `run_checks.ps1`; the Excel instrument on its stand-in and the runner's check mode; and the language's package tested from its tarball as CI's job does. Over
+that language by a path, in copies, their repositories read and never written, the patch proved used: Alonzo at `d639a2b`, its 89 tests and its doc test; Buffet at `f5dcde1`, both pins moved in a copy, 91 of its 92 with and without these items, `describe_holds_its_golden` failing at both, a pin's move, and the describe it writes the same byte for byte.
+The item closes: its line leaves the roadmap for the closed ledger, with its note on `KERNEL.55`'s line staying. Not
+pushed.
+
 **`KERNEL.71`, `BITAND`, `BITOR` and `BITXOR` computed: the scoping, 2026-10-30.**
 Begun at the owner's word, a prompt relayed from Alonzo's `CART.14.1` ("What the
 language and the engine still lack", its `docs/REARVIEW.md`, whose order puts this
@@ -57274,6 +57412,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.71 — `BITAND`, `BITOR` and `BITXOR` computed in the language: one meaning for the three, over whole numbers below 2^48, by `vla-lang`'s `language()`, so that a game's marks read as bit masks by one call where it writes `MOD(INT(x/2^k),2)` at every site.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1` ("What the language and the engine still lack"), whose order puts it before that item's slice 2, its ten decisions approved as recommended; built and held to one Excel save the same day, no fold wanted, and committed 2026-10-31 at the owner's word. In `calc/library.rs` beside `MOD`, three plain registrations, which a program calls through their pointers: both arguments read first, left to right, as an operand reads, an error or a text spelling no number answering there; only then each held, whole and from 0 to 2^48-1, exactly, or `#NUM!`, on all three, with no tolerance at any magnitude, where the pages of `BITOR` and `BITXOR` do not say. An empty cell, an empty place of a lift and an argument left out read 0, `CHOOSE(1,,2)` and `IF(TRUE,,2)` too. An array lifts each, and a legacy formula meets a range at its cell. *Oracle:* a fixture of its own, `scripts/recalc/bits.txt`: 895 formulas, Excel's one save `bits_saved.xlsx` at `no-differ`, 893 agreeing, none differing and two labelled, each a text Excel shows with an `@`, on the range and never on the name; thirty-three mutants, none surviving; no other golden and no floor moved. Seiyaku's `bit-of` rewritten over `bitand` in a copy moved no value. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step. Two *Found*, not minted, the first that `BITAND(m,m-1)` is `#NUM!` at the mask 0. (Full entry: THE KERNEL LINE, its last before `# MACHINE · OPTIMIZATION`.) `~hours`
 - ✅ **KERNEL.68 — the information functions in the language: `ISNUMBER`, `ISBLANK`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISERR`, `ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA` computed in `vla-lang`, the core's `ISNUMBER`, `ISBLANK`, `ROUND` and `IFS` moved down with them, so that a door and an engine answer alike and a verdict names an error's kind.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*), its eight decisions approved as recommended; built and held to two Excel saves, the second the stop rule's last, and committed 2026-11-01 at the owner's word. `calc/information.rs`: the eight tests of one value registered as `ISERROR` is and left to `Ctx` by a program, and `ISREF`, `TYPE`, `ISEVEN` and `ISODD` forms that see their expression, since Excel tells a reference from what a sign makes of it; every edge Excel's save, three of the first prediction's corrected: `ISEVEN(1E+300)` true, `ISREF` of a span and of `+A1` false, `ISEVEN` of a range `#VALUE!` at its own row. `ROUND` and `IFS` move down with `ISNUMBER` and `ISBLANK`, `ROUND`'s powers from a table of the exact ones and past 22 digits from their decimal, so that `excel::library()` is the language's. `INDEX` of an error where its array stands answers that error. The writer spells a cached number past 21 characters with an exponent, the 301 digits of `1E+300` having drawn Excel's repair. *Oracle:* a fixture of its own, `scripts/recalc/info.txt`: 787 formulas, Excel's second save `info_saved.xlsx` at `no-differ`, 786 agreeing, none differing, `ISREF(A25)`'s cycle unchecked by the decision of 2026-10-21; ten mutants, all caught. The subset's census and one row of each of `ADDRESS`'s moved, no floor. Alonzo's ceilings move at its pin, and Naught's verdict is its own to write.
 - ✅ **KERNEL.69 — a formula write's frame costs its reach: the frame after a write that changes a formula computes the written cells and those reading their values or their text, the last frame's changes and each part's value carried over the plan, where it computed every cell; and the write's own copy of the plan gone.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*), a prototype held and measured, its eleven decisions approved as recommended; built, and committed 2026-11-01 at the owner's word. A written formula's slot holds no value until it computes, so that its answer is a change whatever it is and its readers follow by the plan's edges, by value or by text: the written cells are marked at the frame's start, the last frame's changes go over the plan by their places and each part's value by its shape's text and first cell, the indexes are told each changed cell and kept, and a write past the room is a whole frame. Naught's frame after a formula write 1.20 ms to 0.05, Superposition's 29.8 ms to 0.003. No copy of the plan is kept for a refusal, which now makes the plan again: Naught's write 1.26 ms to 0.68, the netlist's 56.8 to 36.9. `Machine::whole_next`, public and additive, asks a whole frame. *Oracle:* law 14, a reach's frame held at every cell to a twin computing whole and to `Calc`, over generated grids whose readers read formulas' texts and kinds, in slices of any budget; the cells of each frame counted exactly; ten mutants, nine caught, the tenth no defect. *Floors:* the row `netlist rewrite` and `netlist rewrite write`, both halves, the frame 6 µs beside Excel's 347 to 1,913 and the write 30.7 ms beside its 0.5 to 0.6; the owner's two runs of 2026-11-01 pasted whole; `netlist type` lowered at the owner's ruling, `KERNEL.67`'s third finding; the netlist's ceilings raised by what its program's two comment lines carry, the code adding nothing. What is left of a write, the plan made whole, is measured and stays under *Found*: Sand's 206 ms, the netlist's 30.7.
+- ✅ **KERNEL.70 — a formula read as Excel 365 reads it typed: a row's word, `(formula "S" "A1" "=MAX(COLUMN(A2:L2))" dynamic)`, for a dynamic formula of one cell, read at a load and a write, kept by a machine's record and a save, its spill labelled by name, so that a host writes what a person types as that person expects it to read.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*, corrected), weighed against `KERNEL.55` and kept beside it, its ten decisions approved as recommended; built, held to Excel's save, and committed 2026-11-01 at the owner's word. The evaluator already answered 12, 78 and 5 under `Kind::Dynamic`, and only a row to say so was missing: `load.rs`'s `formula_row`, read by a load and a write alike, a kind part of what a write changes, a range refused by name (`grid-dynamic-range`), a machine's record printing the word so that a save keeps it and a door's staying the file's own text. An answer of many values is labelled `a spill` at its cell, `=A2:L2` taking that name, four rows of goldens moving. *Oracle:* `scripts/recalc/typed.txt`, 56 formulas written into Excel 365 through `Range.Formula2`, its save `typed_saved.xlsx` at `no-differ`, 49 agreeing, none differing, nine labelled; the core's test writing each of the 54 without an `@` by a row with the word and holding it to Excel's value; law 15 over generated rows bearing the word; eight mutants, all caught. Excel's writer held 36 dynamic and 20 plain, evidence for `KERNEL.55`'s rule. No cartridge moves. Alonzo adopts it at its pin: `web/host.js`'s edit path, and `Cartridge::check_row`, whose pattern of three fields must learn the fourth.
 
 ## 🛡 ADVERSARY · SECURITY
 

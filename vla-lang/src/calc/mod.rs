@@ -955,13 +955,13 @@ mod tests {
         assert_eq!(number(&calc, "S", "I3"), 3.0, "INDEX's column, met");
         assert_eq!(
             at(&calc, "S", "J3"),
-            Computed::NotComputed(Reason::Construct("A1:A5".to_string())),
-            "a dynamic formula's range is an array, labelled"
+            Computed::NotComputed(Reason::Construct("a spill".to_string())),
+            "a dynamic formula's range is an array, a spill labelled (KERNEL.70)"
         );
         assert_eq!(number(&calc, "S", "J4"), 4.0, "SINGLE in a dynamic formula");
         assert_eq!(
             at(&calc, "S", "J5"),
-            Computed::NotComputed(Reason::Construct("A1:B5".to_string())),
+            Computed::NotComputed(Reason::Construct("a spill".to_string())),
             "INDEX's column in a dynamic formula"
         );
     }

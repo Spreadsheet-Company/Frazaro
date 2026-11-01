@@ -1,0 +1,90 @@
+# A formula read as Excel 365 reads it typed (KERNEL.70): a Data sheet, and a Typed sheet whose column A holds each
+# formula as a text, every tenth row, room left beneath each for a spill. Built by frazaro into typed.xlsx. The owner
+# opens it in Excel 365 and writes each text into column B beside it through Range.Formula2, as a person's typing is,
+# by the one line of the hand-off in the Immediate window, and saves it as typed_saved.xlsx: Excel's own values and,
+# on each cell, whether Excel's writer held it dynamic.
+
+Work on sheet Data.
+Put 10 into cell A2.
+Put 20 into cell B2.
+Put 30 into cell C2.
+Put 40 into cell D2.
+Put 50 into cell E2.
+Put 60 into cell F2.
+Put 70 into cell G2.
+Put 80 into cell H2.
+Put 90 into cell I2.
+Put 100 into cell J2.
+Put 110 into cell K2.
+Put 120 into cell L2.
+Put 3 into cell A3.
+Put 4 into cell A4.
+Put 5 into cell A5.
+Put "a" into cell B3.
+Put "bb" into cell B4.
+Put "ccc" into cell B5.
+Put 1 into cell C7.
+Put 2 into cell C8.
+Put 3 into cell C9.
+Put 1 into cell D7.
+Put "a" into cell D8.
+Put formula "=TRUE" into cell D10.
+Put formula "=1/0" into cell D11.
+
+Work on sheet Typed.
+Put "=MAX(COLUMN(Data!A2:L2))" into cell A1.
+Put "=SUM(COLUMN(Data!A2:L2))" into cell A11.
+Put "=MAX(ROW(Data!A2:A5))" into cell A21.
+Put "=COUNT(COLUMN(Data!A2:L2))" into cell A31.
+Put "=SUMPRODUCT(COLUMN(Data!A2:L2))" into cell A41.
+Put "=MIN(ROW(Data!A2:A5))" into cell A51.
+Put "=SUM(ROW(Data!A2:A5)*2)" into cell A61.
+Put "=TEXTJOIN("","",TRUE,COLUMN(Data!A2:C2))" into cell A71.
+Put "=MIN(IF(ISERROR(Data!D7:D11),ROW(Data!D7:D11)))" into cell A81.
+Put "=SUM(Data!A2:L2*2)" into cell A91.
+Put "=SUM(Data!A3:A5*2)" into cell A101.
+Put "=SUMPRODUCT(IF(Data!A3:A5>3,1,0))" into cell A111.
+Put "=SUM(IF(Data!A3:A5>3,1,0))" into cell A121.
+Put "=SUM(LEN(Data!B3:B5))" into cell A131.
+Put "=MAX(LEN(Data!B3:B5))" into cell A141.
+Put "=AND(Data!A3:A5>2)" into cell A151.
+Put "=OR(Data!A3:A5>4)" into cell A161.
+Put "=SUM(COUNTIF(Data!A3:A5,Data!A3:A4))" into cell A171.
+Put "=SUM(VLOOKUP(Data!A3:A4,Data!A3:B5,1,FALSE))" into cell A181.
+Put "=INDEX(Data!A2:L2,1,3)" into cell A191.
+Put "=SUM(INDEX(Data!A2:L2,1,0))" into cell A201.
+Put "=SUM({1,2,3}*2)" into cell A211.
+Put "=COLUMN(Data!C2)" into cell A221.
+Put "=COLUMN()" into cell A231.
+Put "=ROW()" into cell A241.
+Put "=ROWS(Data!A2:A5)" into cell A251.
+Put "=Data!A2" into cell A261.
+Put "=Data!A2+1" into cell A271.
+Put "=SUM(Data!A2:L2)" into cell A281.
+Put "=IF(Data!A2>5,SUM(Data!A3:A5),0)" into cell A291.
+Put "=COUNTIF(Data!A3:A5,"">3"")" into cell A301.
+Put "=SUM(--ISFORMULA(Data!A2:L2))" into cell A311.
+Put "=FORMULATEXT(B1)" into cell A321.
+Put "=ISFORMULA(B1)" into cell A331.
+Put "=FORMULATEXT(B101)" into cell A341.
+Put "=SUM(--ISNUMBER(Data!D7:D11))" into cell A351.
+Put "=SUM(--ISBLANK(Data!D7:D11))" into cell A361.
+Put "=SUM(--ISTEXT(Data!D7:D11))" into cell A371.
+Put "=SUM(--ISEVEN(Data!C7:C9))" into cell A381.
+Put "=SUM(TYPE(Data!C7:C9))" into cell A391.
+Put "=TYPE(Data!C7:C9)" into cell A401.
+Put "=TYPE(Data!A2:A2)" into cell A411.
+Put "=ISREF(Data!C7:C9)" into cell A421.
+Put "=SUM(--ISREF(Data!C7:C9))" into cell A431.
+Put "=MAX(IFERROR(ERROR.TYPE(Data!D7:D11),0))" into cell A441.
+Put "=COLUMN(Data!A2:L2)" into cell A451.
+Put "=ROW(Data!A2:A5)" into cell A461.
+Put "=Data!A2:L2" into cell A471.
+Put "=Data!A3:A5*2" into cell A481.
+Put "=INDEX(Data!A2:L2,1,0)" into cell A491.
+Put "=SEQUENCE(2,2)" into cell A501.
+Put "={1,2,3}" into cell A511.
+Put "=ISNUMBER(Data!D7:D11)" into cell A521.
+Put "=LEN(Data!B3:B5)" into cell A531.
+Put "=@Data!A2:L2" into cell A541.
+Put "=SUM(@Data!A3:A5*2)" into cell A551.

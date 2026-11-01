@@ -266,7 +266,9 @@ refused in the same words.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
-  inverse; `write` takes `cell`, `formula` and `derived` rows, all or none;
+  inverse; `write` takes `cell`, `formula` and `derived` rows, all or none, a
+  `formula` row over one cell reading as Excel 365 reads the text typed where it
+  ends in the word `dynamic`;
   `step` computes every formula in dependency order with a budget in cells,
   yields and resumes, and at the end of each frame copies every sheet's
   values into its twin, `X.last`, a hidden sheet the next frame's formulas

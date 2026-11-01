@@ -256,6 +256,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # row, 786 agreeing with what the build held; info_saved, Excel's second save, the
 # same, none differing, 'ISREF(A25)' in A25 a cycle by the owner's decision of
 # 2026-10-21.
+# 2026-10-30, KERNEL.70, a formula read as Excel 365 reads it typed: typed_saved 58,
+# Excel's save of scripts/recalc/typed.txt with each text written through
+# Range.Formula2, 49 agreeing and nine answers of many labelled.
+#
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
 # holds formulas outside the subset, or a script's cached values, two
@@ -288,6 +292,7 @@ $goldens = @(
     @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Golden = 'scripts/recalc/address_saved_calc.vla'; Floor = 538;  Pin = 'no-differ'; AgreeFloor = 403 },
     @{ Name = 'info';          Fixture = 'scripts/recalc/info.xlsx';          Golden = 'scripts/recalc/info_calc.vla';          Floor = 788;  Pin = 'built';    AgreeFloor = 783 },
     @{ Name = 'info_saved';    Fixture = 'scripts/recalc/info_saved.xlsx';    Golden = 'scripts/recalc/info_saved_calc.vla';    Floor = 788;  Pin = 'no-differ'; AgreeFloor = 786 },
+    @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 58;   Pin = 'no-differ'; AgreeFloor = 49 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 }
 )

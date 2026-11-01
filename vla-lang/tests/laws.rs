@@ -65,6 +65,10 @@
 //!     holds a reason, which `Calc` reading a twin as a sheet would not see; the
 //!     readers of the formulas' texts and kinds among them, stepped in slices of
 //!     any budget (KERNEL.69).
+//! 15. A row's word keeps its formula's kind: the grid's view and its fills load
+//!     as a grid of the same kinds, a save resumed and stepped once is the grid
+//!     stepped once more, and at every cell the machine computes what `Calc`
+//!     computes over the grid it lends (KERNEL.70).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -1887,5 +1891,110 @@ fn a_frame_after_a_formula_written_computes_what_a_whole_frame_computes() {
         followed * 2 > frames && formulas > 100 && refused > 0 && by_calc > 50,
         "{followed} of {frames} frames followed, {formulas} formulas written, {refused} refused, \
          {by_calc} frames held to Calc: too few for the law to hold over"
+    );
+}
+
+// ---- 15. a row's word -------------------------------------------------------
+
+/// A grid of formulas each read as Excel 365 reads it typed, or not: numbers in
+/// the first row and the cell `A2` that `INDEX` reads; in column J, a row each, a
+/// text of the pool, some with the word and some the same text without, among them
+/// answers of many and texts read back; and a few of column K written alike.
+fn word_rows(r: &mut Rng) -> (String, usize) {
+    const POOL: &[&str] = &[
+        "=MAX(COLUMN(A1:F1))",
+        "=SUM(COLUMN(A1:F1))",
+        "=MAX(ROW(A1:A2))",
+        "=COUNT(COLUMN(A1:F1))",
+        "=SUMPRODUCT(COLUMN(A1:F1))",
+        "=SUM(A1:F1*2)",
+        "=SUM(ROW(A1:A2)*2)",
+        "=COLUMN(A1:F1)",
+        "=A1:F1",
+        "=A1:F1*2",
+        "=INDEX(A1:F1,1,A2)",
+        "=SUM(IF(A1:F1>1,1,0))",
+        "=TEXTJOIN(\",\",TRUE,COLUMN(A1:C1))",
+        "=FORMULATEXT(H1)",
+        "=ISFORMULA(A1:F1)",
+        "=TYPE(A1:F1)",
+        "=A1+1",
+        "=ROW()",
+    ];
+    let mut out = format!("(sheet \"{SHEET}\" visible)\n");
+    for col in COLUMNS {
+        out.push_str(&format!("(cell \"{SHEET}\" \"{col}1\" {})\n", r.below(5)));
+    }
+    out.push_str(&format!("(cell \"{SHEET}\" \"A2\" {})\n", r.below(4)));
+    out.push_str(&format!("(formula \"{SHEET}\" \"H1\" \"=A1*2\" dynamic)\n"));
+    let mut worded = 1;
+    for row in 1..=16 {
+        for col in ["J", "K"] {
+            if col == "K" && r.below(3) != 0 {
+                continue;
+            }
+            let text = quoted(r.pick(POOL));
+            let word = r.below(3) != 0;
+            worded += usize::from(word);
+            let word = if word { " dynamic" } else { "" };
+            out.push_str(&format!(
+                "(formula \"{SHEET}\" \"{col}{row}\" {text}{word})\n"
+            ));
+        }
+    }
+    (out, worded)
+}
+
+#[test]
+fn a_row_s_word_keeps_its_formula_s_kind() {
+    let (mut words, mut spills, mut read_otherwise) = (0, 0, 0);
+    let lib = library::language();
+    for seed in 1..=40u64 {
+        let mut r = Rng::new(seed ^ 0x7015);
+        let (rows, worded) = word_rows(&mut r);
+        words += worded;
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let when = format!("seed {seed}\n{rows}");
+        // At every cell, what `Calc` computes over the grid it lends: the kinds
+        // kept in it, and no twin read.
+        let book = m.workbook();
+        let want: Vec<(CellId, String)> = {
+            let calc = Calc::run(&book, &lib);
+            book.sheets[0]
+                .cells
+                .iter()
+                .filter(|(_, cell)| is_formula(&cell.content))
+                .map(|(&(row, col), _)| {
+                    let id = (0, row, col);
+                    (id, format!("{:?}", calc.computed(id).expect("computed")))
+                })
+                .collect()
+        };
+        assert!(m.step(0).done);
+        for (id, want) in &want {
+            let got = format!("{:?}", Values::computed(&m, *id).expect("computed"));
+            assert_eq!(&got, want, "{when}: {id:?} against Calc");
+            spills += usize::from(got.contains("a spill"));
+        }
+        // The grid's view and its fills load as the same kinds, stepped once.
+        for text in [save(&m), fills(&m)] {
+            let mut again = load(&text, &format!("seed {seed}'s record"));
+            again
+                .resume_at(m.frame())
+                .unwrap_or_else(|e| panic!("{when}: {}", e.text));
+            let mut once = load(&rows, &format!("seed {seed}"));
+            assert!(once.step(0).done && once.step(0).done && again.step(0).done);
+            assert_eq!(save(&again), save(&once), "{when}");
+            // Against the same text written with no word, somewhere it reads otherwise.
+            let plain = load(&rows.replace(" dynamic)", ")"), "the rows with no word");
+            let mut plain = plain;
+            assert!(plain.step(0).done && plain.step(0).done);
+            read_otherwise += usize::from(values(&plain) != values(&once));
+        }
+    }
+    assert!(
+        words > 300 && spills > 50 && read_otherwise > 50,
+        "{words} words, {spills} spills and {read_otherwise} grids that read otherwise with no \
+         word: too few for the law to hold over"
     );
 }

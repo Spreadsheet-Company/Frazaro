@@ -680,7 +680,7 @@ pub fn subset_names() -> Vec<&'static str> {
 mod tests {
     use super::*;
     use vla_lang::calc::library::NAMES as LANGUAGE_NAMES;
-    use vla_lang::calc::{Calc, Computed, ErrorKind, Value};
+    use vla_lang::calc::{Calc, Computed, ErrorKind, Value, Values};
     use vla_lang::sheet::{parse_a1_range, Cell, Content, Workbook};
 
     fn model(rows: &[(&str, &str, &str)]) -> Workbook {
@@ -737,6 +737,114 @@ mod tests {
         for (name, _) in NAMED_NOT_COMPUTED {
             assert!(!lib.has(name), "{name} is listed as not computed");
         }
+    }
+
+    /// The typed formulas' fixture as Excel 365 saved it, each written through
+    /// `Range.Formula2` as a person's typing is (KERNEL.70).
+    const TYPED_SAVED: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../scripts/recalc/typed_saved.xlsx"
+    );
+
+    #[test]
+    fn a_row_s_word_computes_what_excel_365_answers_the_same_text_typed() {
+        // KERNEL.70: each of the 56 written by a row with the word into a machine
+        // under Excel's library, at the cell Excel's save holds it in, and its
+        // frame's value held to the value Excel saved there; the nine of many
+        // values labelled, where Excel spilled them; and a typed `@`, which Excel
+        // holds as a legacy formula, refused by name. A package holds no fixture,
+        // and the test stands down.
+        use crate::reflect::calc::collect;
+        use vla_lang::machine::Machine;
+        use vla_lang::rows::{datum, quoted};
+        use vla_lang::sheet::cell_ref;
+        let Ok(bytes) = std::fs::read(TYPED_SAVED) else {
+            return;
+        };
+        let read = collect(&bytes, "typed_saved.xlsx").expect("the save");
+        let (data, typed) = (
+            read.model.find_sheet("data").expect("data"),
+            read.model.find_sheet("typed").expect("typed"),
+        );
+        let mut rows = String::from("(sheet \"data\" visible)\n(sheet \"typed\" visible)\n");
+        for (&(row, col), cell) in &read.model.sheets[data].cells {
+            let addr = cell_ref(row, col);
+            rows.push_str(&match &cell.content {
+                Content::Number(n) => format!("(cell \"data\" \"{addr}\" {n})\n"),
+                Content::Text(t) => format!("(cell \"data\" \"{addr}\" {})\n", quoted(t)),
+                Content::Formula(f) => {
+                    format!(
+                        "(formula \"data\" \"{addr}\" {})\n",
+                        quoted(&format!("={f}"))
+                    )
+                }
+                other => panic!("{addr}: {other:?}"),
+            });
+        }
+        let (mut written, mut refused) = (Vec::new(), 0);
+        for (&(row, col), cell) in &read.model.sheets[typed].cells {
+            if col != 2 {
+                continue;
+            }
+            // A spill's other cells hold its values, and no formula.
+            let (Content::Formula(f) | Content::DynamicFormula(f)) = &cell.content else {
+                continue;
+            };
+            let as_typed = match read.model.sheets[typed].cells.get(&(row, 1)) {
+                Some(Cell {
+                    content: Content::Text(t),
+                    ..
+                }) => t.clone(),
+                other => panic!("A{row}: {other:?}"),
+            };
+            // An `@` as typed, refused by name by the parser, and left out.
+            if as_typed.contains('@') {
+                let one = format!(
+                    "(sheet \"data\" visible)\n(sheet \"typed\" visible)\n(formula \"typed\" \"B{row}\" {} dynamic)\n",
+                    quoted(&as_typed)
+                );
+                let e = Machine::load(&one, library()).expect_err(&as_typed);
+                assert!(e.refusal.text.contains('@'), "{}", e.refusal.text);
+                refused += 1;
+                continue;
+            }
+            let addr = cell_ref(row, col);
+            let text = quoted(&format!("={f}"));
+            rows.push_str(&format!("(formula \"typed\" \"{addr}\" {text} dynamic)\n"));
+            written.push(((typed, row, col), addr));
+        }
+        assert_eq!((written.len(), refused), (54, 2));
+        let mut m = Machine::load(&rows, library()).unwrap_or_else(|e| {
+            panic!("line {}: {}", e.line, e.refusal.text);
+        });
+        let typed_in_machine = m.find_sheet("typed").expect("typed");
+        assert!(m.step(0).done);
+        let mut spills = Vec::new();
+        for (id, addr) in &written {
+            let got = m
+                .computed((typed_in_machine, id.1, id.2))
+                .unwrap_or_else(|| panic!("{addr}: no value"))
+                .spell();
+            let want = datum(
+                read.cached
+                    .get(id)
+                    .unwrap_or_else(|| panic!("{addr}: no cache")),
+            );
+            if got == "(not-computed \"a spill\")" {
+                spills.push(addr.as_str());
+                continue;
+            }
+            let same = match (got.parse::<f64>(), want.parse::<f64>()) {
+                (Ok(a), Ok(b)) => a == b,
+                _ => got == want,
+            };
+            assert!(same, "{addr}: {got} where Excel saved {want}");
+        }
+        assert_eq!(
+            spills,
+            ["B451", "B461", "B471", "B481", "B491", "B501", "B511", "B521", "B531"],
+            "Excel spilled these nine"
+        );
     }
 
     #[test]

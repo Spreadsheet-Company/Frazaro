@@ -236,12 +236,12 @@ pub trait Env {
 
     /// Whether the formula of the cell being computed is a dynamic-array
     /// formula (KERNEL.8, slice b): one a host saved as an array formula,
-    /// Excel 365's kind, in which a range where one value is wanted is read
+    /// Excel 365's kind, or a row's word said (KERNEL.70), in which a range
+    /// where one value is wanted is read
     /// whole as an array (slice f), an answer of many values being a spill,
     /// labelled at its cell until spills come; a formula of the legacy kind
     /// intersects such a range with its cell instead ([`Ctx::one`]).
-    /// `false`, the legacy kind, unless an environment says otherwise: an
-    /// engine's grid, loaded from rows, holds that kind alone.
+    /// `false`, the legacy kind, unless an environment says otherwise.
     fn dynamic(&self) -> bool {
         false
     }
@@ -636,6 +636,9 @@ fn key(name: &str) -> Cow<'_, str> {
 /// How deep a name may read a name before `#NAME?`.
 const NAME_DEPTH: u32 = 16;
 
+/// The label of a dynamic formula whose answer is many values.
+const SPILL: &str = "a spill";
+
 /// The construct a defined name leaves unread for a formula read at a sheet
 /// (KERNEL.8, slice b): the first name the parse reads, or a name such a
 /// name's text reads, as deep as an evaluation follows names, whose text the
@@ -936,12 +939,18 @@ impl<'a> Ctx<'a> {
     /// as [`Ctx::one`] reads it; of an array of many, its first value in a
     /// legacy formula, as Excel's `@` takes it, and a spill in a dynamic one,
     /// labelled at its cell until spills come; of a range, in a legacy array
-    /// formula, its first cell's.
+    /// formula, its first cell's, and of a range of many cells in a dynamic one a
+    /// spill as well, one thing with one name (KERNEL.70).
     pub fn result(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
             Arg::Array(a) if a.is_single() => Ok(a.get(0, 0).clone()),
-            Arg::Array(_) if self.env.dynamic() => Err(Reason::Construct("a spill".to_string())),
+            Arg::Array(_) if self.env.dynamic() => Err(Reason::Construct(SPILL.to_string())),
             Arg::Array(a) => Ok(a.get(0, 0).clone()),
+            Arg::Area { areas, .. }
+                if self.env.dynamic() && matches!(&areas[..], [a] if !a.is_cell()) =>
+            {
+                Err(Reason::Construct(SPILL.to_string()))
+            }
             Arg::Area { areas, .. } if self.env.array_formula() => match &areas[..] {
                 [a] => self.env.read((a.sheet, a.top, a.left)),
                 _ => Ok(Value::Error(ErrorKind::Ref)),
