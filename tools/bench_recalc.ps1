@@ -12,8 +12,10 @@ which builds each fixture through the core's own surface as frazaro build
 builds it, writes it to target/bench/ for Excel's half to open, loads it
 into the machine under Excel's library, holds every value before it prints
 a number, and times a whole frame and the frame after the fixture's edit,
-and for a fixture whose program names a type (KERNEL.56), a value written
-into a fresh cell with the frames to the grid's stillness.
+for a fixture whose program names a type (KERNEL.56), a value written
+into a fresh cell with the frames to the grid's stillness, and for one whose
+program names a rewrite (KERNEL.69), a formula written over and back, its write
+and its frames to the grid's stillness apart.
 
 THE TRAPS IT IS BUILT AROUND, both measured for Alonzo's CART.1 on this
 machine and its instrument tools/bench_frames.ps1, whose discipline this is:
@@ -279,6 +281,12 @@ foreach ($r in $rows) {
     # A typed fixture's types a second (KERNEL.56), where its row names them.
     $types = Get-Field $r 'TypesPerSecond'
     if ($types -ne '') { $floors.Add(("'{0} type' = {1}" -f $f, (Get-KeptFloor "$f type" (Get-Floor ([double]$types))))) }
+    # A rewritten fixture's frames a second and its writes a second (KERNEL.69).
+    $rewrites = Get-Field $r 'RewritesPerSecond'
+    if ($rewrites -ne '') {
+        $floors.Add(("'{0} rewrite' = {1}" -f $f, (Get-KeptFloor "$f rewrite" (Get-Floor ([double]$rewrites)))))
+        $floors.Add(("'{0} rewrite write' = {1}" -f $f, (Get-KeptFloor "$f rewrite write" (Get-Floor ([double](Get-Field $r 'RewriteWritesPerSecond'))))))
+    }
 }
 # The fixtures of rows' loads, formulas loaded a second (KERNEL.49).
 foreach ($r in $memoryRows) {

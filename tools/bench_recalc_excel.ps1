@@ -43,7 +43,10 @@ WHAT IT DOES:
      for a fixture whose comments name a type (KERNEL.56), 1 written into a
      fresh cell, a row further down each time, 21 times, the write and its
      Calculate timed together, the typed cells cleared after so that the
-     second mode types into cells as fresh; CalculateFull timed 11 times;
+     second mode types into cells as fresh; for one whose comments name a
+     rewrite (KERNEL.69), the cell's formula written over with a text of the same
+     value and back, 21 times, the write and its Calculate timed apart;
+     CalculateFull timed 11 times;
      CalculateFullRebuild timed 5 times; and a Calculate with nothing to
      compute, timed 21 times, the floor of what a COM call adds to each;
   4. Excel's multi-threaded setting put back as it was (Excel saves it in
@@ -75,6 +78,7 @@ $bench = Join-Path $repoRoot 'target/bench'
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
 $edits = 21
 $types = 21
+$rewrites = 21
 $wholeRuns = 11
 $rebuildRuns = 5
 $floorRuns = 21
@@ -140,7 +144,7 @@ function Get-PerformanceMask {
 # A fixture's "# bench:" comments, as the runner reads them.
 function Read-Bench([string]$name) {
     $path = Join-Path $repoRoot "scripts/recalc/bench/$name.txt"
-    $b = @{ Name = $name; Kind = ''; Sheet = ''; Cell = ''; Built = ''; Other = ''; Count = 0; Twin = ''; SumSheet = ''; SumArea = ''; TypeSheet = ''; TypeCell = '' }
+    $b = @{ Name = $name; Kind = ''; Sheet = ''; Cell = ''; Built = ''; Other = ''; Count = 0; Twin = ''; SumSheet = ''; SumArea = ''; TypeSheet = ''; TypeCell = ''; RewriteSheet = ''; RewriteCell = '' }
     foreach ($line in [System.IO.File]::ReadAllLines($path)) {
         $t = $line.Trim()
         if (-not $t.StartsWith('# bench:')) { continue }
@@ -153,6 +157,8 @@ function Read-Bench([string]$name) {
             $b.SumSheet, $b.SumArea = $w[1] -split '!', 2
         } elseif ($w[0] -eq 'type' -and $w.Count -eq 2) {
             $b.TypeSheet, $b.TypeCell = $w[1] -split '!', 2
+        } elseif ($w[0] -eq 'rewrite' -and $w.Count -eq 2) {
+            $b.RewriteSheet, $b.RewriteCell = $w[1] -split '!', 2
         } else { throw "$name.txt: a bench comment this script does not read: $t" }
     }
     if ($b.Kind -eq '' -or $b.SumArea -eq '') { throw "$name.txt: its bench comments do not say what changes and what is summed" }
@@ -254,6 +260,12 @@ function New-FakeRange([hashtable]$cells, [string]$key) {
     $r | Add-Member -MemberType ScriptMethod -Name PasteSpecial -Value { param($how) return $true }
     # Typed cells cleared after a fixture's types (KERNEL.56).
     $r | Add-Member -MemberType ScriptMethod -Name ClearContents -Value { return $true }
+    # A cell's formula read and written over (KERNEL.69).
+    $r | Add-Member -MemberType ScriptProperty -Name Formula -Value {
+        $k = $this.Key + ' formula'
+        if ($this.Cells.ContainsKey($k)) { return $this.Cells[$k] }
+        return '=1'
+    } -SecondValue { param($v) $this.Cells[$this.Key + ' formula'] = $v }
     return $r
 }
 function New-FakeExcel {
@@ -453,6 +465,24 @@ try {
                     [void]$typeWs.Range(("{0}{1}:{0}{2}" -f $typeColumn, $typeRow, ($typeRow + $types - 1))).ClearContents()
                     [void](Measure-Call { $xl.Calculate() })
                 }
+                # The rewrite (KERNEL.69): the cell's formula written over with
+                # a text of the same value and back, the write and its Calculate
+                # timed apart, as the runner times the write and its frames; an
+                # odd count, and one more that puts the formula back.
+                $rewriting = New-Object System.Collections.Generic.List[double]
+                $rewriteWrites = New-Object System.Collections.Generic.List[double]
+                if ($b.RewriteCell -ne '') {
+                    $rewriteAt = $wb.Worksheets.Item($b.RewriteSheet).Range($b.RewriteCell)
+                    $step = "reading the formula to rewrite, $mode thread(s)"
+                    $own = [string]$rewriteAt.Formula
+                    for ($k = 0; $k -le $rewrites; $k++) {
+                        $step = "rewrite $($k + 1), $mode thread(s)"
+                        $text = if ($k % 2 -eq 0) { $own + '+0' } else { $own }
+                        $writeMs = Measure-Call { $rewriteAt.Formula = $text }
+                        $calcMs = Measure-Call { $xl.Calculate() }
+                        if ($k -lt $rewrites) { $rewriteWrites.Add($writeMs); $rewriting.Add($calcMs) }
+                    }
+                }
                 $step = "CalculateFull, $mode thread(s)"
                 $whole = New-Object System.Collections.Generic.List[double]
                 for ($k = 0; $k -lt $wholeRuns; $k++) { $whole.Add((Measure-Call { $xl.CalculateFull() })) }
@@ -475,6 +505,7 @@ try {
                     if ($script:copyRefused.Count -gt 0) { $copyField += "; CopyRefused = '$($script:copyRefused -join ' | ')'" }
                 }
                 $typeField = if ($typing.Count -gt 0) { '; Type = {0:F3}' -f (Get-Median $typing.ToArray()) } else { '' }
+                if ($rewriting.Count -gt 0) { $typeField += ('; Rewrite = {0:F3}; RewriteWrite = {1:F3}' -f (Get-Median $rewriting.ToArray()), (Get-Median $rewriteWrites.ToArray())) }
                 $rows.Add(("    @{{ Half = 'excel'; Fixture = '{0}'; Threads = '{1}'; ThreadCount = {2}; Sha256 = '{3}'; Open = {4:F1}; Whole = {5:F3}; Rebuild = {6:F3}; Edit = {7:F3}{13}; Copy = {8:F1}; ComFloor = {9:F3}; SumBuilt = {10}; SumEdited = {11}{12} }}" -f $name, $mode, $threads, $sha, $open, (Get-Median $whole.ToArray()), (Get-Median $rebuild.ToArray()), (Get-Median $changes.ToArray()), $copy, (Get-Median $floor.ToArray()), $sumBuilt, $sumEdited, $copyField, $typeField))
                 $done[$mode] = $true
             }

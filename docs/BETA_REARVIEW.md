@@ -43284,6 +43284,231 @@ others' and a peer's uncommitted `KERNEL.58` work and a line in `.gitattributes`
 alone before it was written: fmt, clippy with warnings denied, with and without `c-abi`, `cargo test --workspace`, the language's 471 and the core's 229, both wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 67 passed. The item closes: its line leaves the roadmap for the closed ledger. Not
 pushed.
 
+**`KERNEL.69`, a formula write's frame costing its reach: the scoping,
+2026-10-30.** The same brief, its third ask; no line on the roadmap held it. Beside
+`KERNEL.54` (a change's cost set by the change) and `KERNEL.56` (a value written into
+an empty cell), which left this one whole frame. A prototype in a copy of `HEAD`,
+scratchpad `k68/`, nothing in the tree; the decisions below stop for the owner.
+
+*What stands today.* `Machine::settle`, for a write that changes a formula: clones
+the plan for an undo; places the written cells again and makes the plan a load's;
+sets `every_next`, so the next frame computes every cell; sets `reshaped`, so the
+changes answer whole; calls `fit`, which empties the shapes' parts and forgets the
+twin cells the last frame's end changed, their positions dying with the plan; and drops
+every index. The brief's numbers hold, through Alonzo's `Cartridge` over a copy of
+`HEAD` by `[patch.crates-io]`, Naught at Alonzo's `HEAD`, 1,804 formula cells in 224
+shapes, 100 writes of `=A3*A7` into a level's room, five rounds, native, release: the
+write 1.0 to 1.2 ms, the frame after it 1.0 to 1.4 ms, the frame after that 0.001 ms.
+
+*What the whole frame was covering for, read in the code.* Since `KERNEL.49` a value
+stands by its place, so that a plan moves none, and since `KERNEL.56` the readers of an
+extent are listed apart and an added cell is found by its place. So a whole frame after
+a formula write does six things a followed frame must then do itself: compute the
+written cells; compute those reading their values; compute those reading their text
+and kind, an edge in the plan like any other (`ISFORMULA`, `FORMULATEXT`); carry the
+last end's changed twin cells over the plan; keep each part's last value for the next
+comparison; and tell the indexes. A released cell of a cut fill reads as it did, its
+value kept (`KERNEL.34`). A cycle is refused at the write, so no reader stands earlier
+in the order than what it reads.
+
+*The prototype.* About a hundred lines in `machine/mod.rs`. A list of the formula cells
+written since the last frame, each marked at the frame's start; the twin cells changed,
+turned to places before the plan moves them; each part's value carried to the new plan by
+its shape's text and first cell; the indexes told each changed cell and kept. Held so far: the
+crate's 428 tests and its laws, two pins moving, each naming the old behaviour
+(`a_frame_s_count_names_each_kind_of_change`, "every cell computed", and
+`an_index_is_built_at_a_second_probe_and_kept_until_its_vector_changes`, "dropped with
+the plan"); Alonzo's 82 tests and its doc test at `db054c2` over the prototype by path, none
+moving (Buffet's 92 passed here too, and said nothing: its pin names `vla-lang` 0.10.0, so that the
+patch of 0.12.0 was never used; *What the consumers say*, below); and a generated differential,
+120 grids of 14 frames each beside a sheet reading the grids' texts and kinds
+(`ISFORMULA`, `FORMULATEXT`, `SUMPRODUCT(--ISFORMULA(range))`), an index's `VLOOKUP`,
+`MATCH` and `COUNTIF`, a twin and a part: 1,680 frames, 1,435 followed, in slices of
+any budget, 1,059 formula writes among them (a cell alone, a fill's part cut and given a
+text, a fill over fresh cells, a value over a formula), each frame held to the same
+grid computing every cell, values, twins, stores, extents and planes. Four mutants
+against that differential: a written cell unmarked fails at the first seed, and so do the
+changes not carried; its readers' marks at the frame's start, which the prototype also set,
+taken out, every frame still holds, so that the build leaves them out (decision 1); and
+an index left untold still holds, its whole-frame twin reading the same stale index,
+so that the law must hold to `Calc` too (decision 10).
+
+*Measured*, HEAD beside the prototype, medians of three alternated rounds of 60
+writes (the netlist's two rounds of 31), native, release at Alonzo's profile, not pinned to the
+performance cores, so a shape and not a floor. "Beside the copy" is the reach frame
+alone; "less the copy" adds decision 7's first half. The cells are those the frame
+computed. Each write is a formula into a fresh cell of a new sheet reading a value
+beside it; Naught's into a level's room; the netlist's through `Machine` alone.
+
+| grid | formulas, shapes | the write, ms: `HEAD`, beside the copy, less it | the frame after it, ms (cells): `HEAD`, reach, less the copy | an idle frame's |
+|---|---|---|---|---|
+| Naught | 1,804, 224 | 1.26, 1.24, 0.68 | 1.20 (1,835), 0.059 (10), 0.051 | 0.001 |
+| Buffet | 862, 255 | 1.20, 1.30, 0.77 | 0.174 (893), 0.006 (4), 0.004 | 0.003 |
+| Seiyaku | 2,834, 158 | 0.60, 0.62, 0.45 | 0.125 (2,865), 0.005 (1), 0.004 | 0.001 |
+| Kairos | 351, 65 | 0.21, 0.20, 0.13 | 0.025 (382), 0.006 (45), 0.005 | 0.003 |
+| the gun | 62,965, 2 | 0.53, 0.57, 0.51 | 0.832 (62,996), 0.015 (175), 0.013 | 0.012 |
+| Life's soup | 62,965, 2 | 0.68, 0.74, 0.55 | 1.36 (62,996), 1.17 (20,568), 1.09 | 1.1 |
+| Sand | 189,216, 16 | 206, 207, 207 | 5.69 (189,247), 3.21 (41,727), 3.22 | 3.1 |
+| Superposition | 798,732, 45 | 0.40, 0.23, 0.15 | 29.8 (798,763), 0.003 (1), 0.003 | 0.001 |
+| the netlist | 20,511, 19,986 | 56.8, 57.2, 36.9 | 3.95 (20,511), 0.008 (1), 0.006 | 0.0004 |
+
+The frame after a formula write comes to what its reach costs, the next idle frame's
+neighbour where nothing else moves. A busy game computes its own next frame on top: Life's
+soup's frame after a write computes 20,568 cells, its soup's own and the write's few, where
+it computed 62,996.
+
+*The plan's half, split*, timers in a further copy, the same writes, ms a write:
+
+| grid | the undo's copy | placing, `as_loaded` | the order, `nodes::plan` | the reach, `Reach::of` | dropping the copy |
+|---|---|---|---|---|---|
+| Naught, 1.21 | 0.35 | 0.10 | 0.33 | 0.28 | 0.17 |
+| the netlist, 55.7 | 13.6 | 9.4 | 15.7 | 11.1 | 5.8 |
+| Superposition, 0.19 | 0.05 | 0.01 | 0.06 | 0.05 | 0.02 |
+
+So 35% to 43% of a write is the copy a refused write would need, and nothing else
+reads. A refused write is rare, and without the copy it makes the plan again: Naught's
+refused write 1.9 to 2.4 ms becomes 1.7 to 3.3, the netlist's 62 ms becomes 72 to 83. What
+is left is the plan itself, and it scales with the nodes and the shapes and not the cells
+(a write over Superposition's 798,732 cells takes 0.15 ms, over the netlist's 20,511, each
+alone, 37), but for a fill reading itself, planned cell by cell: Sand's 206 ms a formula,
+unmoved by the copy, twelve frames of a 60-frame game.
+
+*Decisions, the owner's; each with its recommendation.*
+1. **What the frame computes: the written cells, and every reader follows as a changed
+   cell's does.** A written formula's slot holds no value until it computes, so that its answer
+   is a change whatever it is (`Machine::keep`), and its readers, by value or by text, one
+   edge in the plan, are marked at that change, later in the order. So a formula rewritten
+   to the value it had computes its readers once, those of its text among them.
+   *Alternative:* the readers of a text filed apart, so that such a write computes only
+   those: it saves one level of cells on the rarer write and adds a list to the plan.
+   *Recommended:* alike.
+2. **The last end's changes carried over the plan, by place.** Its cost the changes',
+   and a write that changes a formula is the only payer. There is no alternative but a
+   whole frame.
+3. **Each part's value carried by its shape's text and first cell.** *Alternative:*
+   forgotten, as `fit` does: safe, a forgotten part computing its shape whole at its next
+   comparison, and every Life cell reads `Clock!$B$1` through one, so that Life's frame
+   stays whole. A shape read again, or a part no longer one, has nothing carried and
+   computes whole, the safe side. *Recommended:* carried.
+4. **The indexes kept, told each changed cell,** as a value write tells them, where a plan
+   dropped them. *Alternative:* dropped, a scan and a build for each vector its next
+   readers probe; one pin stays. *Recommended:* kept.
+5. **A write past the room is a whole frame.** The written cells and the carried ones
+   counted against the room a frame's end keeps for its changes (half the cells):
+   past it a frame's marks cost what a whole frame costs. *Recommended:* so.
+6. **The changes stay whole after a formula write** (`reshaped`). A cell's row in a window's
+   values turns from `cell` to `value` where no twin cell need change. Measured, a level's
+   window of Naught: 0.09 ms whole, 0.002 ms by its changes, and a page's window bounds it.
+   *Alternative:* the changes name the written cells too, law 11 the oracle; a further
+   small gain, under *Found*. *Recommended:* whole.
+7. **The plan's half: the copy goes; the plan stays whole.** Measured above. The first half
+   takes the write from 1.26 ms to 0.68 on Naught and 56.8 to 36.9 on the netlist, for one
+   line of the settle and a refused write's plan again, the law's oracle (`KERNEL.34`) saying
+   the plan made again is the one it replaced. The second, a plan following a write by the
+   nodes it moved, must still leave the plan a load makes, numbered as a load numbers
+   it, and each shape's reach and each sheet's bands depend on that numbering: weeks, for
+   0.68 ms on a game and 37 on the netlist. It stays under *Found*, measured and not
+   minted, Sand's 206 ms its strongest case. *Alternative:* the copy kept, the least; or
+   mint the plan's half now. *Recommended:* as said.
+8. **A whole frame on request, a public call.** The floors' whole-frame row forces its frame
+   with a formula write (`core/examples/recalc.rs`, `Frazaro!E1`), which after this
+   item computes one cell, and `whole` would measure nothing. `Machine::whole_next()`, the
+   next frame computing every cell, additive, as Excel's `CalculateFull` is to its `Calculate`;
+   the law's twin takes it too. *Alternative:* the row times each frame after a load: another
+   frame, with cold caches. *Recommended:* the call.
+9. **The floors' row, and one bench run.** A program line, `# bench: rewrite Output!C2`, on the
+   netlist: a gate's formula written over with a text computing the same value and back, a row
+   beside `type`, two numbers (the write; the frames to stillness), each a floor, `netlist rewrite`
+   and `netlist rewrite write`, the runner holding each frame to `Calc` in its check. The line moves
+   the program's digest, so that both halves run, Excel's timing `.Formula =` and `Calculate` apart.
+   *Alternative:* `KERNEL.56`'s two slices, the instrument and its run at today's numbers first:
+   a second run for a floor that enters at its new height anyway, the before standing in the table
+   above. *Recommended:* one slice, one run of each half by the owner at its close, after
+   `KERNEL.68`'s bytes, so that the ceilings are raised once.
+10. **The law.** Law 14 in `tests/laws.rs`, through the public API: generated grids beside readers of
+    texts and kinds, formula writes between frames (a cell alone, a fill's part, a fill's first cell,
+    fresh cells, a value over a formula, a formula over a value, past the room), each frame stepped in
+    slices, held at every cell to a twin machine asking `whole_next()` before every frame and to `Calc`
+    over the grid as the frame began, twins as sheets (`KERNEL.34`'s oracle), the twin alone not
+    catching what it shares, as the index's mutant showed. The machine's own tests
+    count the cells a frame computes exactly, and a write's plan is held to a load's (law 7). Mutants,
+    each proved to apply and to fail for its own reason: a written cell unmarked; its readers not followed;
+    the changes not carried; a part carried stale; an index kept untold; the room ignored; a refused
+    write's plan not made again. *Recommended:* so.
+11. **Named nothing further.** The doc comments that say a formula write computes every cell
+    (`machine/mod.rs`'s head, `Library`'s, `calc/formulas.rs`'s, `tests/formula_reads.rs`'s) say what is now
+    true, and `docs/RELEASES.md` takes a note under the open `## 0.13.0`. *Recommended:* so.
+
+*Approved 2026-10-30,* "Decision approved." Built the same evening, uncommitted, as the
+prototype stood but for the marks of a written cell's readers at the frame's start, which decision
+1's mutant showed nothing reads, its answer's change marking them.
+
+*Built.* `machine/mod.rs`: `written_formulas` and `carried` beside `written`; `begin` marking each
+written formula and following each carried twin cell; `fit` keeping the changes it forgot;
+`settle` taking the changes to their places and the parts' values by `parts_kept` before the plan,
+carrying them over it, keeping the indexes, and making the plan again on a refusal where it restored
+a copy; a write past the room a whole frame; `Machine::whole_next`, public and additive. Its doc
+comments, `Library`'s and `calc/formulas.rs`'s. The two pins moved as scoped.
+`core/examples/recalc.rs`: the whole row asks `whole_next`; the rewrite, 21 of them and one that puts
+the text back, the write and the frames to stillness timed apart, held to `Calc` in the check.
+`bench/netlist.rs` and `netlist.txt`, the program's comment and `# bench: rewrite Output!C2`;
+`tools/bench_recalc.ps1`, `tools/bench_recalc_excel.ps1` (its stand-in reading and writing a formula)
+and `tools/check_recalc_floors.ps1`, with seven control cases.
+
+*The law.* Law 14 in `tests/laws.rs`, as decision 10 says, 600 frames, most followed, held to its twin
+and to `Calc` wherever the last frame left no twin a reason (a reason in a twin is what `Calc`, reading
+a twin as a sheet, cannot see). In the machine's own tests: the cells each frame computes, counted at each
+kind of place; the room; the changes and the parts over the plan; a refusal at each kind of place, the plan
+held to the one it found and to a load's; and the generated differential with `READERS`, held to the twin
+computing whole, to one with no index and to `Calc`.
+
+*Held.* Ten mutants, each proved to apply, nine caught: a written cell unmarked, the changes not
+carried, no part carried, an index left untold, the room ignored, a refused write leaving the plan it
+made, the written list never cleared, the carried list never cleared, and a whole frame asked and not
+given. The tenth survives rightly: a part carried from another shape's list where the two expressions
+are equal. A part is a constant, a reference every `$` holds and the operators over them
+(`calc/reach.rs`), so that two equal parts read the same cells and are one value, and either's is right.
+
+*What the consumers say, over the three items together,* in scratch copies, their repositories read
+and never written, the language patched by path and the patch proved used. Alonzo at `d639a2b`: its
+89 tests and its doc test pass. Buffet at `f5dcde1` pins `vla-lang` 0.10.0 and `alonzo` 0.2.0, so that
+a patch of the language alone is never used; with both pins moved in a copy, `alonzo` at `d639a2b`'s
+engine by path, 91 of its 92 pass over the language with and without these items, `describe_holds_its_golden`
+failing at both, a pin's move as `KERNEL.60` found it, and the describe it writes the same byte for byte
+(66,334 bytes) at both. So nothing here moves a test or a golden of either.
+
+*The bench, the owner's two runs of 2026-11-01,* over the three items together, both blocks pasted whole: every
+row of every fixture clears its floor. The rewrite over the netlist, a gate's formula written over with a text of
+the same value and back, in milliseconds:
+
+| | the frames to stillness | the write |
+|---|---|---|
+| the machine | 0.006 | 30.7 |
+| Excel, 20 threads | 1.913 | 0.592 |
+| Excel, one thread | 0.347 | 0.498 |
+
+So the frame this item asked for is 58 to 319 times faster than Excel's, beside the machine's whole frame of 1.621 ms.
+The write is the plan, decision 7's second half, 52 to 62 times slower than Excel's, so that the whole of a rewrite is
+30.75 ms here against 2.5 and 0.85. Every cell of this program is a formula alone, the plan's worst case, where Naught's whole write is
+0.68 ms; and each of Excel's rows holds a COM call's floor, 0.241 ms. `netlist rewrite` enters at 149000 a second and
+`netlist rewrite write` at 28.
+
+*The floor `netlist type`, the owner's ruling* on `KERNEL.67`'s third finding, "lower the netlist type floor". The
+run measured 3.1 µs, 322,581 a second, and cleared the floor of 303000 by 6%, which the recommendation had not
+foreseen, no run before it having cleared it. The ruling stands as given: 274000, 15% under the run, as every floor is
+set, and the hand-over says so.
+
+*The ceilings.* The netlist's rise by 178 bytes held and 848 at the peak, and no other fixture's. Measured: the program
+as `cbbdcb8` holds it, over this code, holds 53,186,088 and peaks at 85,038,180, the ceilings exactly, so that the code
+adds nothing; the rise is the program's two comment lines, 130 characters, carried with it into what the runner builds.
+
+*Found.* A write's remaining plan (decision 7), the bench's 30.7 ms beside Excel's 0.6 its plainest number. The changes
+after a formula write (decision 6). Alonzo's frame floors read no formula write.
+
+*Committed 2026-11-01* at the owner's word, "Recommendation approved; lower the netlist type floor and commit KERNEL.68-70 if everything checks out before suggesting next steps": the second of three commits,
+over `KERNEL.68`'s, this item's files and its hunks of the shared files alone. That tree verified alone before it
+was written: the same, the language's 476 and the core's 229, `run_checks.ps1` 60 of 60 with both blocks pasted, `prove.ps1 -Impl` 67 passed. The item closes: its line leaves the roadmap for the closed ledger. Not pushed.
+
 **`KERNEL.71`, `BITAND`, `BITOR` and `BITXOR` computed: the scoping, 2026-10-30.**
 Begun at the owner's word, a prompt relayed from Alonzo's `CART.14.1` ("What the
 language and the engine still lack", its `docs/REARVIEW.md`, whose order puts this
@@ -57048,6 +57273,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.60 — `ADDRESS` computed: a cell's address as a text from its row and column, so that a Write sheet row names its target by number and never by `CHOOSE` over the alphabet.** Minted 2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the helper-hungry style; scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1`, its nine decisions approved as recommended; built, held to two Excel saves and committed the same day at the owner's word. `ADDRESS(row, column, [abs], [a1], [sheet])` in `vla-lang`'s `language()`, so that a game reaches it (`AD-1`), in `calc/texts.rs`, a form handing its call to a strict function: `abs` 1 to 4; every argument read first, left to right, an error or a text spelling no number answering there, and only then their ranges; an argument left out its default, and a reference to an empty cell or an empty place of a lift read as any value is, which `Ctx::lifted_call`'s `place_of_lift` tells apart. A sheet's name is quoted as Excel's `ADDRESS` quotes it, unless it could be a defined name, the empty text written `!A1` and a name past 255 UTF-16 units `#VALUE!`, which is not `refers::quote_sheet`'s rule, as this line first said. Labelled by shape, as the stop rule stated before the saves: an address in R1C1, no notation of the house, where Excel's relative form reaches rows no A1 address has; a workbook's spelling; a character beyond ASCII that is no letter, which Excel quotes by a table of its own; an answer past 258 characters, where Excel cuts it; a name opening on a row's or a column's number with a tail no save reaches; and an `IF`'s branch left out, which Excel hands on as nothing and the language reads as 0. *Oracle:* a fixture of its own, `scripts/recalc/address.txt`, and not the subset's rows, as this line first said: 538 formulas, Excel's second save `address_saved.xlsx` at `no-differ`, 403 agreeing, none differing and 135 labelled, Excel's answer to each in its golden; fifty-seven mutants, none surviving; no other golden and no floor moved. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step, and Kairos's `letter` retired under Alonzo's `KIT.6`. Four *Found*, not minted, the first that `quote_sheet` parts from what `ADDRESS` writes. (Full entry: THE KERNEL LINE, after `KERNEL.67`.) `~hours`
 - ✅ **KERNEL.71 — `BITAND`, `BITOR` and `BITXOR` computed in the language: one meaning for the three, over whole numbers below 2^48, by `vla-lang`'s `language()`, so that a game's marks read as bit masks by one call where it writes `MOD(INT(x/2^k),2)` at every site.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1` ("What the language and the engine still lack"), whose order puts it before that item's slice 2, its ten decisions approved as recommended; built and held to one Excel save the same day, no fold wanted, and committed 2026-10-31 at the owner's word. In `calc/library.rs` beside `MOD`, three plain registrations, which a program calls through their pointers: both arguments read first, left to right, as an operand reads, an error or a text spelling no number answering there; only then each held, whole and from 0 to 2^48-1, exactly, or `#NUM!`, on all three, with no tolerance at any magnitude, where the pages of `BITOR` and `BITXOR` do not say. An empty cell, an empty place of a lift and an argument left out read 0, `CHOOSE(1,,2)` and `IF(TRUE,,2)` too. An array lifts each, and a legacy formula meets a range at its cell. *Oracle:* a fixture of its own, `scripts/recalc/bits.txt`: 895 formulas, Excel's one save `bits_saved.xlsx` at `no-differ`, 893 agreeing, none differing and two labelled, each a text Excel shows with an `@`, on the range and never on the name; thirty-three mutants, none surviving; no other golden and no floor moved. Seiyaku's `bit-of` rewritten over `bitand` in a copy moved no value. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step. Two *Found*, not minted, the first that `BITAND(m,m-1)` is `#NUM!` at the mask 0. (Full entry: THE KERNEL LINE, its last before `# MACHINE · OPTIMIZATION`.) `~hours`
 - ✅ **KERNEL.68 — the information functions in the language: `ISNUMBER`, `ISBLANK`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISERR`, `ISREF`, `ISEVEN`, `ISODD`, `ERROR.TYPE`, `TYPE` and `NA` computed in `vla-lang`, the core's `ISNUMBER`, `ISBLANK`, `ROUND` and `IFS` moved down with them, so that a door and an engine answer alike and a verdict names an error's kind.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*), its eight decisions approved as recommended; built and held to two Excel saves, the second the stop rule's last, and committed 2026-11-01 at the owner's word. `calc/information.rs`: the eight tests of one value registered as `ISERROR` is and left to `Ctx` by a program, and `ISREF`, `TYPE`, `ISEVEN` and `ISODD` forms that see their expression, since Excel tells a reference from what a sign makes of it; every edge Excel's save, three of the first prediction's corrected: `ISEVEN(1E+300)` true, `ISREF` of a span and of `+A1` false, `ISEVEN` of a range `#VALUE!` at its own row. `ROUND` and `IFS` move down with `ISNUMBER` and `ISBLANK`, `ROUND`'s powers from a table of the exact ones and past 22 digits from their decimal, so that `excel::library()` is the language's. `INDEX` of an error where its array stands answers that error. The writer spells a cached number past 21 characters with an exponent, the 301 digits of `1E+300` having drawn Excel's repair. *Oracle:* a fixture of its own, `scripts/recalc/info.txt`: 787 formulas, Excel's second save `info_saved.xlsx` at `no-differ`, 786 agreeing, none differing, `ISREF(A25)`'s cycle unchecked by the decision of 2026-10-21; ten mutants, all caught. The subset's census and one row of each of `ADDRESS`'s moved, no floor. Alonzo's ceilings move at its pin, and Naught's verdict is its own to write.
+- ✅ **KERNEL.69 — a formula write's frame costs its reach: the frame after a write that changes a formula computes the written cells and those reading their values or their text, the last frame's changes and each part's value carried over the plan, where it computed every cell; and the write's own copy of the plan gone.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*), a prototype held and measured, its eleven decisions approved as recommended; built, and committed 2026-11-01 at the owner's word. A written formula's slot holds no value until it computes, so that its answer is a change whatever it is and its readers follow by the plan's edges, by value or by text: the written cells are marked at the frame's start, the last frame's changes go over the plan by their places and each part's value by its shape's text and first cell, the indexes are told each changed cell and kept, and a write past the room is a whole frame. Naught's frame after a formula write 1.20 ms to 0.05, Superposition's 29.8 ms to 0.003. No copy of the plan is kept for a refusal, which now makes the plan again: Naught's write 1.26 ms to 0.68, the netlist's 56.8 to 36.9. `Machine::whole_next`, public and additive, asks a whole frame. *Oracle:* law 14, a reach's frame held at every cell to a twin computing whole and to `Calc`, over generated grids whose readers read formulas' texts and kinds, in slices of any budget; the cells of each frame counted exactly; ten mutants, nine caught, the tenth no defect. *Floors:* the row `netlist rewrite` and `netlist rewrite write`, both halves, the frame 6 µs beside Excel's 347 to 1,913 and the write 30.7 ms beside its 0.5 to 0.6; the owner's two runs of 2026-11-01 pasted whole; `netlist type` lowered at the owner's ruling, `KERNEL.67`'s third finding; the netlist's ceilings raised by what its program's two comment lines carry, the code adding nothing. What is left of a write, the plan made whole, is measured and stays under *Found*: Sand's 206 ms, the netlist's 30.7.
 
 ## 🛡 ADVERSARY · SECURITY
 

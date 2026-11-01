@@ -18,8 +18,8 @@
 //!
 //! **What is timed**, each one `step` with no budget, timed alone: a whole
 //! frame, every formula computed, as Excel's `CalculateFull` computes every
-//! formula (a formula written into the `Frazaro` sheet before each, which no
-//! formula reads, makes the next frame whole); and the frame after the
+//! formula (`Machine::whole_next` before each, since a formula written computes
+//! its reach, `KERNEL.69`); and the frame after the
 //! fixture's edit, as Excel's `Calculate` after the cell is written. For
 //! Life, the edit is the frame: the clock advanced, the previous frame being
 //! the machine's twin where Excel copies it into a sheet of its own. And for
@@ -29,7 +29,11 @@
 //! the frames to the grid's stillness, as Excel's half times the same value
 //! written into the same cell and its `Calculate`: a frame after a write
 //! proves nothing, so the frames go on until one with no write before it
-//! changes nothing (`KERNEL.48`). Beside them, printed and not floored: the
+//! changes nothing (`KERNEL.48`). For a fixture whose comments name a rewrite
+//! (`KERNEL.69`), a cell's formula written over with a text of the same value
+//! and back, its write and its frames to the grid's stillness timed apart, the
+//! plan's half and the reach's, as Excel's half times `.Formula =` and its
+//! `Calculate`. Beside them, printed and not floored: the
 //! load, the first frame, and `Calc`, the reference evaluator the doors
 //! compute with (`view`, `build`, `calc`).
 //!
@@ -86,7 +90,8 @@ use frazaro_core::reflect::calc::collect;
 use frazaro_core::sheet::zip;
 use frazaro_core::{api, excel, sha256};
 use vla_lang::calc::{Calc, CellId, Computed, Value, Values};
-use vla_lang::machine::Machine;
+use vla_lang::form::Form;
+use vla_lang::machine::{Machine, Viewed};
 use vla_lang::sheet::{parse_a1_range, A1Range, Content};
 
 /// The fixtures in the order the block prints them.
@@ -94,10 +99,12 @@ const FIXTURES: [&str; 7] = [
     "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
 ];
 
-/// The steps timed: whole frames, edits, types, and the reference's runs.
+/// The steps timed: whole frames, edits, types, rewrites, and the reference's
+/// runs.
 const WHOLE: usize = 11;
 const EDITS: usize = 21;
 const TYPES: usize = 21;
+const REWRITES: usize = 21;
 const CALCS: usize = 3;
 
 /// The most frames a type's grid takes to be still, past which the runner
@@ -289,6 +296,9 @@ struct Fixture {
     /// The first cell typed into, a fresh one each time down its column
     /// (`KERNEL.56`); none for a fixture whose comments name no type.
     typed: Option<At>,
+    /// The cell whose formula is written over and back (`KERNEL.69`); none for a
+    /// fixture whose comments name no rewrite.
+    rewrite: Option<At>,
 }
 
 fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
@@ -300,6 +310,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
     let mut change = None;
     let mut sum = None;
     let mut typed = None;
+    let mut rewrite = None;
     for line in program.lines() {
         let Some(rest) = line.trim().strip_prefix("# bench:") else {
             continue;
@@ -324,6 +335,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
             }
             ["sum", area] => sum = Some(at(area).ok_or_else(bad)?),
             ["type", cell] => typed = Some(at(cell).ok_or_else(bad)?),
+            ["rewrite", cell] => rewrite = Some(at(cell).ok_or_else(bad)?),
             _ => return Err(bad()),
         }
     }
@@ -333,6 +345,7 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
         change: change.ok_or_else(|| format!("{name}: no bench comment says what changes"))?,
         sum: sum.ok_or_else(|| format!("{name}: no bench comment names the sum"))?,
         typed,
+        rewrite,
     })
 }
 
@@ -522,6 +535,11 @@ struct Run {
     /// Each round's median of its types and every type's time (KERNEL.56).
     type_rounds: Vec<f64>,
     types: Vec<f64>,
+    /// Each round's median of its rewrites' frames and of their writes, and
+    /// every rewrite's frames' time (KERNEL.69).
+    rewrite_rounds: Vec<f64>,
+    rewrite_write_rounds: Vec<f64>,
+    rewrites: Vec<f64>,
     calcs: Vec<f64>,
     clocks: Vec<f64>,
     sums: Option<(f64, f64)>,
@@ -561,9 +579,8 @@ fn prepare(out: &Path, texts: (&str, &str), fx: &Fixture) -> Result<Prepared, St
 }
 
 /// One round: a fresh machine loaded, its first frame held to the file, the
-/// change (the edits, or Life's frames, each held), then whole frames, a
-/// formula no formula reads written before each, Life's held as well, since
-/// every frame of Life is a generation.
+/// change (the edits, or Life's frames, each held), then whole frames, each
+/// asked for, Life's held as well, since every frame of Life is a generation.
 fn round(
     prep: &Prepared,
     fx: &Fixture,
@@ -717,9 +734,49 @@ fn round(
         r.type_rounds.push(median(&types));
         r.types.extend(types);
     }
-    for k in 0..whole_n {
-        m.write(&format!("(formula \"Frazaro\" \"E1\" \"={}\")", k % 2))
-            .map_err(|e| format!("{name}: {}", e.refusal.text))?;
+    // The rewrite (KERNEL.69): the cell's formula written over with a text of
+    // the same value, and back, the write timed and, apart, its frames to the
+    // grid's stillness; held to `Calc` after each in the check.
+    if let Some(t) = &fx.rewrite {
+        let own = own_formula(&m, t).map_err(|e| format!("{name}: {e}"))?;
+        let rewrite_n = if check { 3 } else { REWRITES };
+        let mut frames = Vec::with_capacity(rewrite_n);
+        let mut writes = Vec::with_capacity(rewrite_n);
+        for k in 0..=rewrite_n {
+            let text = if k % 2 == 0 {
+                format!("{own}+0")
+            } else {
+                own.clone()
+            };
+            let w = format!(
+                "(formula \"{}\" \"{}\" {})",
+                t.sheet,
+                t.text,
+                vla_lang::rows::quoted(&text)
+            );
+            if !check {
+                r.clocks.push(probe.read());
+            }
+            let (wrote, write_ms) = timed(|| m.write(&w));
+            wrote.map_err(|e| format!("{name}: rewriting {}: {}", t.text, e.refusal.text))?;
+            let (still, frames_ms) = timed(|| stillness(&mut m));
+            still.map_err(|e| format!("{name}: rewriting {}: {e}", t.text))?;
+            if check {
+                r.held += held_to_calc(&m, &excel::library())
+                    .map_err(|e| format!("{name}: after rewriting {}: {e}", t.text))?;
+            }
+            // The last, an odd count's, only puts the formula back.
+            if k < rewrite_n {
+                frames.push(frames_ms);
+                writes.push(write_ms);
+            }
+        }
+        r.rewrite_rounds.push(median(&frames));
+        r.rewrite_write_rounds.push(median(&writes));
+        r.rewrites.extend(frames);
+    }
+    for _ in 0..whole_n {
+        m.whole_next();
         if !check {
             r.clocks.push(probe.read());
         }
@@ -746,6 +803,12 @@ fn round(
 /// until one changes nothing, within [`STILL_WITHIN`].
 fn typed(m: &mut Machine, write: &str) -> Result<usize, String> {
     m.write(write).map_err(|e| e.refusal.text)?;
+    stillness(m)
+}
+
+/// The frames to the grid's stillness after a write, one proving it
+/// (`KERNEL.48`), within [`STILL_WITHIN`].
+fn stillness(m: &mut Machine) -> Result<usize, String> {
     for frame in 1..=STILL_WITHIN {
         let s = m.step(0);
         if !s.done {
@@ -756,6 +819,23 @@ fn typed(m: &mut Machine, write: &str) -> Result<usize, String> {
         }
     }
     Err(format!("the grid not still within {STILL_WITHIN} frames"))
+}
+
+/// A cell's formula as its record's row spells it, its `=` kept.
+fn own_formula(m: &Machine, at: &At) -> Result<String, String> {
+    let record = match m.view("grid", &at.sheet, Some(&at.text)) {
+        Ok(Viewed::Text(text)) => text,
+        other => return Err(format!("{}: the grid's view answered {other:?}", at.text)),
+    };
+    let forms = vla_lang::reader::read_forms(&record).map_err(|e| e.text)?;
+    forms
+        .iter()
+        .filter_map(|f| f.as_list())
+        .find_map(|l| match l.items.as_slice() {
+            [Form::Sym(head), _, _, Form::Str(text), ..] if head == "formula" => Some(text.clone()),
+            _ => None,
+        })
+        .ok_or_else(|| format!("{} holds no formula", at.text))
 }
 
 /// The machine's plane of Life's sheet equal to the hand-written Life's.
@@ -937,6 +1017,9 @@ fn main() -> ExitCode {
                     edits: Vec::new(),
                     type_rounds: Vec::new(),
                     types: Vec::new(),
+                    rewrite_rounds: Vec::new(),
+                    rewrite_write_rounds: Vec::new(),
+                    rewrites: Vec::new(),
                     calcs: Vec::new(),
                     clocks: Vec::new(),
                     sums: None,
@@ -1051,6 +1134,17 @@ fn main() -> ExitCode {
                 1e3 / typed
             );
         }
+        if !r.rewrite_rounds.is_empty() {
+            let frames = median(&r.rewrite_rounds);
+            let (flo, fhi) = range(&r.rewrites);
+            let write = median(&r.rewrite_write_rounds);
+            println!(
+                "  the rewrite: a formula written over with a text of the same value and back, its write {write:.3} ms, {:.1} a second; its frames to the grid's stillness {frames:.3} ms, the median of the rounds' {} ({flo:.3} to {fhi:.3}), {:.1} a second",
+                1e3 / write,
+                rounds_text(&r.rewrite_rounds),
+                1e3 / frames
+            );
+        }
         println!(
             "  the clock: the hand-written Life {clock:.3} ms a generation beside every timed frame, spread {sp:.1}%, {dr:+.1}% from {start_clock:.3} at the start"
         );
@@ -1083,8 +1177,21 @@ fn main() -> ExitCode {
                 format!(" Type = {t:.3}; TypesPerSecond = {:.1};", 1e3 / t)
             }
         };
+        // A rewritten fixture's two, its frames and its write (KERNEL.69).
+        let rewritten = match r.rewrite_rounds.is_empty() {
+            true => String::new(),
+            false => {
+                let f = median(&r.rewrite_rounds);
+                let w = median(&r.rewrite_write_rounds);
+                format!(
+                    " Rewrite = {f:.3}; RewritesPerSecond = {:.1}; RewriteWrite = {w:.3}; RewriteWritesPerSecond = {:.1};",
+                    1e3 / f,
+                    1e3 / w
+                )
+            }
+        };
         println!(
-            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1};{typed} SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
+            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1};{typed}{rewritten} SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
             r.name,
             r.formulas,
             r.sha,

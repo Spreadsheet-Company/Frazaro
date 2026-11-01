@@ -17,9 +17,9 @@
 //! text longer than the 8,192 characters Excel holds, its `=` aside, is
 //! `#N/A`, as Excel answers.
 //!
-//! A formula changes only by a write, and a write that changes one has the
-//! next frame compute every cell (`crate::machine`), so that a formula
-//! rewritten to the value it had computes its readers again. The plan reads
+//! A formula changes only by a write, and a formula a write changes is a change
+//! at the next frame whatever it computes (`crate::machine`, KERNEL.69), so that
+//! a formula rewritten to the value it had computes its readers again. The plan reads
 //! the reference as it reads every reference, an edge, so that a cell
 //! reading its own formula is a cycle, as a `ROW` of its own cell is, where
 //! Excel computes it (the owner's decision of 2026-10-21).

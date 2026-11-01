@@ -43,11 +43,19 @@
 //! changed to the cells that read it (`crate::calc::reach`): from a twin's
 //! cell the last frame's end changed, from a cell written since, and from a
 //! cell the frame itself computed to a value whose bits differ from its last.
-//! The first frame computes every cell, and so does a frame after a write
-//! that changed a formula, or after a twin lost a cell. A value cell a write
-//! added, and a twin cell a frame's end gained, are followed as a changed one
-//! is (KERNEL.56): an added cell moves no formula's place and is found by its
-//! place, and a twin's extent grows by the cells it gained. A few functions
+//! The first frame computes every cell, and so does a frame after a twin lost
+//! a cell, or one a host asks for whole ([`Machine::whole_next`]). A value cell
+//! a write added, and a twin cell a frame's end gained, are followed as a
+//! changed one is (KERNEL.56): an added cell moves no formula's place and is
+//! found by its place, and a twin's extent grows by the cells it gained. A
+//! formula a write changed is computed at the next frame with the cells that
+//! read it (KERNEL.69): its slot holds no value until then, so that its answer
+//! is a change whatever it is, and those cells follow from it, the readers of
+//! its text and its kind among them, an edge in the plan like any other. The
+//! write makes the plan again and moves no value, each standing by place; what
+//! the positions held, the twin cells the last frame's end changed, is taken to
+//! its places first, and each part's last value goes over by its shape's text
+//! and first cell. A few functions
 //! read a sheet's extent itself, an approximate match's bisection and a
 //! database's last row (the library declares them), so a sheet whose extent
 //! moved, at a write or a twin at a frame's end, has every formula calling
@@ -131,6 +139,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::calc::blocks::Locator;
 use crate::calc::dense::{self, Slot as Stored};
+use crate::calc::formula::Expr;
 use crate::calc::graph::{Area, Extent, Names};
 use crate::calc::program::{Answer, Source};
 use crate::calc::reach::Reached;
@@ -434,9 +443,9 @@ pub struct Machine {
     /// decision 7).
     locator: Locator,
     /// Whether the next frame computes every cell (KERNEL.20): after a load,
-    /// a write that changed a formula, a twin that lost a cell, or more
-    /// changes than were kept; a value cell added and a twin cell gained are
-    /// followed as any change is (KERNEL.56).
+    /// a twin that lost a cell, more changes than were kept, or a host's asking
+    /// ([`Machine::whole_next`]); a value cell added and a twin cell gained are
+    /// followed as any change is (KERNEL.56), and a formula written (KERNEL.69).
     every_next: bool,
     /// Whether the frame in progress computes every cell.
     every: bool,
@@ -457,7 +466,7 @@ pub struct Machine {
     wholes: Vec<u32>,
     rechecked: Vec<u32>,
     /// Each such part's value as a frame's start last computed it.
-    parts: Vec<Option<Result<Value, Reason>>>,
+    parts: Vec<PartValue>,
     /// The formula cells whose values the frame in progress changed, a bit a
     /// position in the order (KERNEL.49's decision 6), where a list held room
     /// for every formula cell (KERNEL.36).
@@ -472,6 +481,9 @@ pub struct Machine {
     reaching: usize,
     /// The value cells written since the last frame completed.
     written: Vec<CellId>,
+    /// The formula cells written since the last frame completed, each computed
+    /// at the next frame (KERNEL.69).
+    written_formulas: Vec<CellId>,
     /// The twin cells the last frame's end changed, which the next frame
     /// follows to the cells that read them, kept until its end for a view
     /// of the changes (KERNEL.42): a formula's twin cell by its formula's
@@ -480,6 +492,10 @@ pub struct Machine {
     /// the cells.
     twin_changed: Bits,
     twin_written: Vec<CellId>,
+    /// The twin cells the last frame's end changed by their places, taken from
+    /// `twin_changed` before a write made the plan again and moved the positions
+    /// it knew them by (KERNEL.69).
+    carried: Vec<CellId>,
     /// How many twin cells the last frame's end changed, and how many it may
     /// change, half the cells, past which the next frame computes every cell
     /// rather than follow each (KERNEL.20), as when the list's room ran out.
@@ -563,6 +579,18 @@ impl std::fmt::Debug for Machine {
             .field("progress", &self.progress)
             .finish()
     }
+}
+
+/// A part's value as a frame's start last computed it, none before that.
+type PartValue = Option<Result<Value, Reason>>;
+
+/// A shape's parts the same at every cell as a plan held them, by its text and
+/// its first cell, each with its place among the plan's parts: what finds each
+/// its value again in the plan a write makes (KERNEL.69).
+struct PartsKept {
+    text: String,
+    anchor: CellId,
+    parts: Vec<(Expr, usize)>,
 }
 
 /// What one write changed, to settle or to undo (KERNEL.49's third slice):
@@ -720,8 +748,10 @@ impl Machine {
             last_reached: 0,
             reaching: 0,
             written: Vec::with_capacity(WRITTEN),
+            written_formulas: Vec::new(),
             twin_changed: Bits::default(),
             twin_written: Vec::with_capacity(WRITTEN),
+            carried: Vec::new(),
             twin_count: 0,
             room: 0,
             alike: Vec::with_capacity(ALIKE),
@@ -766,8 +796,8 @@ impl Machine {
     /// entry set at most once a frame (KERNEL.54), every shape made whole and
     /// every shape with parts rechecked; and the count of the twin cells'
     /// changes, half the cells, past which the next frame computes every
-    /// cell. A plan made again follows no change of the frame before: the
-    /// next frame computes every cell.
+    /// cell. What a plan made again would have lost a write keeps first: the
+    /// last frame's changes by their places, each part's value (KERNEL.69).
     fn fit(&mut self) {
         let of = self.shapes.len();
         self.marked.sized(of);
@@ -783,8 +813,6 @@ impl Machine {
         }
         self.changed.sized(of);
         self.twin_changed.sized(of);
-        self.twin_written.clear();
-        self.twin_count = 0;
         self.room = self.cells / 2 + 64;
         let reach = self.shapes.reach();
         let parted = (0..shapes).filter(|&s| !reach.parts(s).is_empty()).count();
@@ -902,6 +930,16 @@ impl Machine {
         }
         self.frame = frame;
         Ok(())
+    }
+
+    /// Has the next frame compute every cell (KERNEL.69), as Excel's
+    /// `CalculateFull` computes every formula where its `Calculate` computes
+    /// what changed: the same values, by the law that holds the one to the
+    /// other, at the cost of the whole grid. What a bench asks for a whole
+    /// frame's time, and a law for its twin to hold a followed frame to. A
+    /// frame in progress finishes as it began, and the next frame is whole.
+    pub fn whole_next(&mut self) {
+        self.every_next = true;
     }
 
     /// How many formula cells and how many shapes they make.
@@ -1148,6 +1186,8 @@ impl Machine {
             twin_changed,
             twin_written,
             written,
+            written_formulas,
+            carried,
             extent_moved,
             ..
         } = self;
@@ -1165,17 +1205,28 @@ impl Machine {
             }
         }
         extent_moved.clear();
+        // Each formula written since (KERNEL.69): its slot holds no value, so
+        // that its answer is a change whatever it is, and its readers, which
+        // stand later in the order, follow from that.
+        for &id in written_formulas.iter() {
+            if let Some(p) = shapes.position(id) {
+                marked.set(p);
+            }
+        }
         // The twin cells the last frame's end changed, a formula's by its
-        // position in the order, which no write since moved (a write that
-        // plans again makes this frame compute every cell); and the cells
-        // written since.
+        // position in the order, or by its place where a write since moved the
+        // positions (KERNEL.69); and the cells written since.
         let blocks = shapes.blocks();
         let mut at = Locator::default();
         let twins = twin_changed.iter().map(|p| {
             let ((s, row, col), _) = at.cell(blocks, p);
             (*sheets + s, row, col)
         });
-        let others = twin_written.iter().chain(written.iter()).copied();
+        let others = twin_written
+            .iter()
+            .chain(carried.iter())
+            .chain(written.iter())
+            .copied();
         for id in twins.chain(others) {
             shapes.reached(id, &mut |r| match r {
                 Reached::Cell(p) => marked.set(p),
@@ -1513,6 +1564,7 @@ impl Machine {
         walk::cleared(_words as u64);
         self.twin_changed.clear();
         self.twin_written.clear();
+        self.carried.clear();
         self.twin_count = 0;
         // The changes the frame spelled as before, the frame's now (KERNEL.42).
         std::mem::swap(&mut self.alike, &mut self.alike_next);
@@ -1551,6 +1603,7 @@ impl Machine {
         }
         self.changed.clear();
         self.written.clear();
+        self.written_formulas.clear();
         // The frame began with the next frame's flag clear, and no write
         // lands during a frame, so the flag is the end's own. A twin's extent
         // the end grew is named in every window's record of the twin, which
@@ -2466,9 +2519,13 @@ impl Machine {
 
     /// A write's rows all taken: the extents, the cells counted, the plan
     /// read again when a formula changed, and refused (and undone) when the
-    /// grid could no longer be stepped; each written sheet's store kept over
-    /// its extent, a changed value cell's slot written with what it now holds
-    /// and a changed formula's value forgotten (KERNEL.49).
+    /// grid could no longer be stepped, the plan then made again from the grid
+    /// the undo put back, which a load of it would make; each written sheet's
+    /// store kept over its extent, a changed value cell's slot written with what
+    /// it now holds and a changed formula's value forgotten (KERNEL.49). No copy
+    /// of the plan is kept for a refusal, which is rare: the copy was a third of
+    /// a write's time, and what the next frame needs of the old plan is taken
+    /// first (KERNEL.69).
     fn settle(&mut self, log: Log) -> Result<usize, LineRefusal> {
         if log.changed.is_empty() {
             return Ok(log.written);
@@ -2484,8 +2541,11 @@ impl Machine {
             .changed
             .keys()
             .any(|id| self.shapes.holds(*id) || self.book.formula(*id).is_some());
+        let carried_before = self.carried.len();
+        let mut parts_kept = Vec::new();
         if formula_changed {
-            let saved = self.shapes.clone();
+            self.carry_changes();
+            parts_kept = self.parts_kept();
             // Every cell the write changed or a release gave its own text,
             // placed again at once, and the plan made a load's (KERNEL.34).
             let again: BTreeSet<CellId> =
@@ -2510,8 +2570,11 @@ impl Machine {
                 } else {
                     log.changed.get(&cell).copied().unwrap_or(0)
                 };
-                self.shapes = saved;
                 self.undo(&log);
+                self.carried.truncate(carried_before);
+                self.shapes.replace_many(&self.book, &again, &self.library);
+                self.shapes
+                    .plan_model(&self.book, &self.names, &self.extents);
                 return Err(LineRefusal { line, refusal });
             }
             // The values stand where their cells stand, by place (KERNEL.49):
@@ -2522,36 +2585,39 @@ impl Machine {
         // until the next end (KERNEL.49), read off its slot before the slot
         // is written.
         self.remember(&log.changed);
-        // The indexes (KERNEL.8): every one dropped with a plan made again,
-        // else each whose vector holds a changed cell built again at its next
-        // probe.
-        if formula_changed {
-            self.indexes.clear();
-        } else if self.indexes.any() {
+        // The indexes (KERNEL.8): each whose vector holds a changed cell built
+        // again at its next probe, a plan made again moving no value (KERNEL.69).
+        if self.indexes.any() {
             for id in log.changed.keys() {
                 self.indexes.changed(*id);
             }
         }
         // A write never empties a cell: it only adds cells or changes them.
-        // A formula changed, and the next frame computes every cell; a value
-        // cell changed or added, and the next follows it to the cells that
-        // read it (KERNEL.20; KERNEL.56): a value cell added moves no
-        // formula's place, and its readers are found by its place as a
-        // changed one's are, whether or not it held a value. The room kept
-        // for the twin cells' changes grows with the cells, as `fit` keeps
-        // it, which a write that refitted the plan for an added cell emptied
-        // the shapes' parts to find.
+        // A formula changed, and the next frame computes it and what follows
+        // from its answer (KERNEL.69); a value cell changed or added, and the
+        // next follows it to the cells that read it (KERNEL.20; KERNEL.56): a
+        // value cell added moves no formula's place, and its readers are found
+        // by its place as a changed one's are, whether or not it held a value.
+        // The room kept for the twin cells' changes grows with the cells, as
+        // `fit` keeps it, which a write that refitted the plan for an added cell
+        // emptied the shapes' parts to find.
         self.cells += log.added;
         for (&s, &n) in &log.added_on {
             self.book.pages[s].cells += n;
         }
         if formula_changed {
-            self.every_next = true;
             // A cell's kind may have changed, which no twin cell's change
             // carries: the changes whole until the next frame's end and at
             // it (KERNEL.42).
             self.reshaped = true;
+            let parts = std::mem::take(&mut self.parts);
             self.fit();
+            self.parts_carried(&parts_kept, parts);
+            // Past the room a frame's end keeps for its changes, marking each
+            // costs what a whole frame costs.
+            if log.changed.len() + self.carried.len() > self.room {
+                self.every_next = true;
+            }
         } else if log.added > 0 {
             self.room = self.cells / 2 + 64;
         }
@@ -2600,7 +2666,9 @@ impl Machine {
                 Some(content) => self.stores[id.0].put_content(id.1, id.2, Some(content)),
                 None => self.stores[id.0].put_computed(id.1, id.2, None),
             }
-            if !self.shapes.holds(*id) {
+            if self.shapes.holds(*id) {
+                self.written_formulas.push(*id);
+            } else {
                 self.written.push(*id);
             }
         }
@@ -2631,6 +2699,74 @@ impl Machine {
             self.keep_twins();
         }
         Ok(log.written)
+    }
+
+    /// The twin cells the last frame's end changed, taken to their places
+    /// before a plan made again moves the positions they stand by (KERNEL.69),
+    /// for the next frame to follow as it follows a written cell's.
+    fn carry_changes(&mut self) {
+        let Machine {
+            twin_changed,
+            carried,
+            shapes,
+            sheets,
+            ..
+        } = self;
+        let mut at = Locator::default();
+        for p in twin_changed.iter() {
+            let ((s, row, col), _) = at.cell(shapes.blocks(), p);
+            carried.push((*sheets + s, row, col));
+        }
+    }
+
+    /// Every shape's parts as the plan holds them, by its text and first cell
+    /// (KERNEL.69); nothing where it holds none.
+    fn parts_kept(&self) -> Vec<PartsKept> {
+        let reach = self.shapes.reach();
+        if reach.part_count() == 0 {
+            return Vec::new();
+        }
+        (0..self.shapes.shapes())
+            .filter_map(|s| {
+                let parts = reach.parts(s);
+                let shape = self.shapes.shape(s).filter(|_| !parts.is_empty())?;
+                Some(PartsKept {
+                    text: shape.text.clone(),
+                    anchor: shape.anchor,
+                    parts: parts.map(|k| (reach.part(k).clone(), k)).collect(),
+                })
+            })
+            .collect()
+    }
+
+    /// Each part the plan a write made holds as it held it, its value as a
+    /// frame's start last computed it (KERNEL.69): where `fit` left every part
+    /// with none, so that a shape reading the Clock through one computed whole
+    /// at the next frame. A shape read again, a part new or no more than a read
+    /// of a formula now has none, and computes whole at its next comparison.
+    fn parts_carried(&mut self, kept: &[PartsKept], mut values: Vec<PartValue>) {
+        if kept.is_empty() {
+            return;
+        }
+        let by: FxHashMap<(&str, CellId), &PartsKept> = kept
+            .iter()
+            .map(|k| ((k.text.as_str(), k.anchor), k))
+            .collect();
+        let reach = self.shapes.reach();
+        for s in 0..self.shapes.shapes() {
+            let new = reach.parts(s);
+            let Some(shape) = self.shapes.shape(s).filter(|_| !new.is_empty()) else {
+                continue;
+            };
+            let Some(was) = by.get(&(shape.text.as_str(), shape.anchor)) else {
+                continue;
+            };
+            for k in new {
+                if let Some((_, j)) = was.parts.iter().find(|(e, _)| e == reach.part(k)) {
+                    self.parts[k] = values[*j].take();
+                }
+            }
+        }
     }
 }
 
@@ -7965,9 +8101,9 @@ mod tests {
             }
         }
         // The first frame of every grid computes every cell, as do those
-        // after a write that changes a formula and after a twin loses a
-        // cell, which a generated formula's reason often makes; a cell added
-        // and a twin cell gained are followed (KERNEL.56).
+        // after a twin loses a cell, which a generated formula's reason often
+        // makes; a cell added and a twin cell gained are followed (KERNEL.56),
+        // and a formula written (KERNEL.69).
         assert!(
             followed * 3 > frames && part * 3 > followed && computed * 2 < passed,
             "{followed} of {frames} frames followed what changed, {part} of them computing \
@@ -12868,7 +13004,7 @@ mod tests {
             (1, Some(1), Some(0)),
             "B2's first value, 14 again"
         );
-        assert_eq!(m.reached(), 5, "every cell computed");
+        assert_eq!(m.reached(), 2, "B2 and the cell reading it (KERNEL.69)");
     }
 
     #[test]
@@ -12998,8 +13134,8 @@ mod tests {
         // at the second probe; kept from frame to frame while nothing of its
         // vector changes, a write beside it among them; reached by a write to
         // a cell of it and by a change of the formula cell it holds, and
-        // built again at its next probe; and dropped with every other when a
-        // formula is written.
+        // built again at its next probe; and kept when a formula is written
+        // beside it, a plan made again moving no value (KERNEL.69).
         let mut m = load(concat!(
             "(sheet \"S\" visible)\n",
             "(cell \"S\" \"A1:A2\" 1)\n",
@@ -13047,11 +13183,19 @@ mod tests {
         assert!(m.step(0).done);
         assert_eq!(counted(&m), (1, 3, 2), "reached by a computed value");
         assert_eq!(at(&m, "S", "C3"), Some(Computed::Value(Value::Number(4.0))));
-        // A formula written: every index dropped with the plan.
+        // A formula written beside the vector: the index kept over the plan
+        // made again, which moves no value (KERNEL.69).
         assert!(m.write("(formula \"S\" \"F1\" \"=1\")").is_ok());
-        assert_eq!(counted(&m).0, 0, "dropped with the plan");
+        assert_eq!(counted(&m), (1, 3, 2), "kept over the plan");
         assert!(m.step(0).done);
-        assert_eq!(counted(&m), (1, 4, 2), "built again at the second probe");
+        assert_eq!(counted(&m), (1, 3, 2), "still kept, nothing of it computed");
+        // A formula written over a cell of its vector: reached at the write,
+        // and built again when its readers next probe it twice.
+        assert!(m.write("(formula \"S\" \"A2\" \"=5\")").is_ok());
+        assert_eq!(counted(&m), (0, 3, 3), "reached at the write");
+        assert!(m.step(0).done);
+        assert_eq!(counted(&m), (1, 4, 3), "built again at the second probe");
+        assert_eq!(at(&m, "S", "C3"), Some(Computed::Value(Value::Number(3.0))));
     }
 
     #[test]
@@ -13612,6 +13756,325 @@ mod tests {
             "{followed} of {frames} frames followed what changed, {placed} cells placed, \
              {moved} readers of an extent moved in frames that followed: too few for the law \
              to hold over"
+        );
+    }
+
+    // ---- KERNEL.69: a formula written ----
+
+    #[test]
+    fn a_formula_written_costs_its_reach_and_not_the_grid() {
+        // KERNEL.69, counted and not timed: a formula written at each kind of
+        // place, a fill's cell keeping its value, a fill's cell moving it, over
+        // a value, a value over a formula, a fresh cell, a fill's part and a
+        // fill whole. The next two frames compute the written cells and what
+        // follows, those reading their values and those reading their text and
+        // kind alike, the frame after them the cells reading a changed cell's
+        // twin; no frame's end sweeps a sheet; every frame is the same grid's
+        // computing every cell. Before this item a write that changed a formula
+        // made the next frame compute every cell.
+        let rows = concat!(
+            "(cell \"D\" \"A1:A100\" 1)\n",
+            "(formula \"D\" \"B1:B100\" \"=A1*2\")\n",
+            "(formula \"D\" \"C1:C100\" \"=D.last!B1+1\")\n",
+            "(formula \"D\" \"E1\" \"=B5+1\")\n",
+            "(formula \"D\" \"E2\" \"=E1+1\")\n",
+            "(formula \"R\" \"A1\" \"=FORMULATEXT(D!B5)\")\n",
+            "(formula \"R\" \"A2\" \"=ISFORMULA(D!A7)\")\n",
+            "(formula \"R\" \"A3\" \"=SUMPRODUCT(--ISFORMULA(D!A1:B100))\")\n",
+        );
+        let mut m = load(rows);
+        let mut whole = load(rows);
+        whole.incremental = false;
+        for _ in 0..3 {
+            assert!(m.step(0).done && whole.step(0).done);
+        }
+        // Each write, and the cells the next two frames compute.
+        let placements = [
+            // The value it had: the cell, E1 by its value, R!A1 by its text and
+            // R!A3 by its kind, and no twin's reader, its twin unchanged.
+            ("(formula \"D\" \"B5\" \"=A5*2+0\")", 4, 0),
+            // Another value: the cell and R!A3, then C6 through the twin.
+            ("(formula \"D\" \"B6\" \"=A6*3\")", 2, 1),
+            // Over a value, of the value it held: the cell, B7, R!A2 and R!A3.
+            ("(formula \"D\" \"A7\" \"=1\")", 4, 0),
+            // A value over a formula no cell reads.
+            ("(cell \"D\" \"E2\" 9)", 0, 0),
+            // A fresh cell past the sheet's extent.
+            ("(formula \"D\" \"H1\" \"=1+1\")", 1, 0),
+            // A fill's part: its three cells and R!A3.
+            ("(formula \"D\" \"B10:B12\" \"=A10*2+0\")", 4, 0),
+            // A fill whole: its hundred, E1, R!A1 and R!A3, then the hundred
+            // reading its twin.
+            ("(formula \"D\" \"B1:B100\" \"=A1*4\")", 103, 100),
+        ];
+        for (write, first, second) in placements {
+            assert!(
+                m.write(write).is_ok() && whole.write(write).is_ok(),
+                "{write}"
+            );
+            let (computed, work) = frame_of(&mut m);
+            assert!(whole.step(0).done);
+            same_state(&m, &whole, write);
+            assert_eq!(work.swept, 0, "{write}: the first frame's end");
+            let (again, work) = frame_of(&mut m);
+            assert!(whole.step(0).done);
+            same_state(&m, &whole, write);
+            assert_eq!(work.swept, 0, "{write}: the second frame's end");
+            assert_eq!(
+                (computed, again),
+                (first, second),
+                "{write}: the cells computed"
+            );
+        }
+        assert_eq!(
+            at(&m, "R", "A1"),
+            Some(Computed::Value(Value::Text("=A5*4".to_string()))),
+            "a text read follows its fill"
+        );
+    }
+
+    #[test]
+    fn a_write_past_the_room_computes_every_cell() {
+        // KERNEL.69: more cells written than the room a frame's end keeps for
+        // its changes, half the cells and 64, and the next frame computes every
+        // cell, marking each costing what computing all of them costs; at the
+        // room, it follows them.
+        let rows = concat!(
+            "(cell \"D\" \"A1:A400\" 1)\n",
+            "(formula \"D\" \"B1:B400\" \"=A1*2\")\n",
+            "(formula \"D\" \"C1:C400\" \"=A1*3\")\n",
+        );
+        let mut m = load(rows);
+        // The first frame's own changes, past the room, made the second whole.
+        assert!(m.step(0).done && m.step(0).done);
+        // 1,200 cells: a room of 664 the fill written fits in, the written cells
+        // counted, and one that grows with the cells a write adds.
+        let room = m.cells / 2 + 64;
+        assert!(m.write("(formula \"D\" \"B1:B400\" \"=A1*4\")").is_ok());
+        assert_eq!(frame_of(&mut m).0, 400, "the written cells alone");
+        assert!(m.step(0).done);
+        let past = format!("(formula \"D\" \"E1:E{}\" \"=1\")", room * 3);
+        assert!(m.write(&past).is_ok());
+        assert_eq!(
+            frame_of(&mut m).0,
+            m.shapes.formulas(),
+            "past the room, every cell"
+        );
+    }
+
+    #[test]
+    fn the_last_frame_s_changes_and_each_part_s_value_go_over_the_plan() {
+        // KERNEL.69: a formula written between two frames makes the plan again,
+        // which moves every position. The twin cells the last frame's end
+        // changed are still followed to the cells reading them; a part the same
+        // at every cell keeps its last value, so that a shape reading the Clock
+        // through one stays uncomputed when it computes the same and computes
+        // whole when it does not; and a formula written over the cell a part
+        // reads leaves it a read of the frame's, which computes the shape.
+        let rows = concat!(
+            "(cell \"Clock\" \"B1\" 1)\n",
+            "(cell \"D\" \"A1:A50\" 1)\n",
+            "(formula \"D\" \"B1:B50\" \"=IF(Clock!$B$1>0,A1*2,0)\")\n",
+            "(formula \"D\" \"C1:C50\" \"=D.last!B1+1\")\n",
+        );
+        let mut m = load(rows);
+        let mut whole = load(rows);
+        whole.incremental = false;
+        for _ in 0..3 {
+            assert!(m.step(0).done && whole.step(0).done);
+        }
+        let mut frame = |m: &mut Machine, write: &str, want: usize| {
+            assert!(
+                m.write(write).is_ok() && whole.write(write).is_ok(),
+                "{write}"
+            );
+            let (computed, _) = frame_of(m);
+            assert!(whole.step(0).done);
+            same_state(m, &whole, write);
+            assert_eq!(computed, want, "{write}: the cells computed");
+        };
+        // A value written: B7 at its frame; C7, reading B7's twin, waits.
+        frame(&mut m, "(cell \"D\" \"A7\" 5)", 1);
+        // A formula beside it: the formula, and C7 by the change carried.
+        frame(&mut m, "(formula \"D\" \"F1\" \"=1\")", 2);
+        // Another beside it, the Clock moving and its part computing the same.
+        frame(
+            &mut m,
+            "(cell \"Clock\" \"B1\" 2)\n(formula \"D\" \"F2\" \"=2\")",
+            1,
+        );
+        // The Clock moving its part: the shape's fifty and the formula.
+        frame(
+            &mut m,
+            "(cell \"Clock\" \"B1\" -1)\n(formula \"D\" \"F3\" \"=3\")",
+            51,
+        );
+        // The fifty reading the changed twins, and a formula beside them.
+        frame(&mut m, "(formula \"D\" \"F4\" \"=4\")", 51);
+        frame(&mut m, "(cell \"Clock\" \"B1\" -2)", 0);
+        // A formula over the cell the part reads: no more a part, the shape's
+        // fifty read it as a frame's cell.
+        frame(&mut m, "(formula \"Clock\" \"B1\" \"=1\")", 51);
+    }
+
+    #[test]
+    fn a_refused_formula_write_leaves_the_plan_the_changes_and_the_parts_it_found() {
+        // KERNEL.69: no copy of the plan is kept for a refusal: the plan is made
+        // again from the grid the undo put back. Each refusal, a cycle through a
+        // fill, a function the library does not hold over a fill's first cell,
+        // over a fill's part, over a fill whole and beside a value and a formula
+        // in one write, between a frame that changed cells and the frame after
+        // it: the plan a load's, the changes still followed, each part's value
+        // kept, and every frame the same grid's that was never written.
+        let rows = concat!(
+            "(cell \"Clock\" \"B1\" 1)\n",
+            "(cell \"D\" \"A1:A50\" 1)\n",
+            "(formula \"D\" \"B1:B50\" \"=IF(Clock!$B$1>0,A1*2,0)\")\n",
+            "(formula \"D\" \"C1:C50\" \"=D.last!B1+1\")\n",
+            "(formula \"D\" \"E1\" \"=A1+1\")\n",
+        );
+        let refused = [
+            "(formula \"D\" \"A3\" \"=B3\")",
+            "(formula \"D\" \"B1\" \"=NOSUCH(A1)\")",
+            "(formula \"D\" \"B2:B4\" \"=NOSUCH(A2)\")",
+            "(formula \"D\" \"B1:B50\" \"=NOSUCH(A1)\")",
+            "(cell \"D\" \"G1\" 5)\n(formula \"D\" \"G2\" \"=1\")\n(formula \"D\" \"E1\" \"=E1\")",
+        ];
+        for write in refused {
+            let mut m = load(rows);
+            let mut clean = load(rows);
+            for _ in 0..3 {
+                assert!(m.step(0).done && clean.step(0).done);
+            }
+            let value = "(cell \"D\" \"A7\" 5)";
+            assert!(m.write(value).is_ok() && clean.write(value).is_ok());
+            assert!(m.step(0).done && clean.step(0).done);
+            let kept = m.shapes.spelled();
+            assert!(m.write(write).is_err(), "{write} refused");
+            assert_eq!(m.shapes.spelled(), kept, "{write}: the plan it found");
+            assert_eq!(m.shapes.spelled(), plan_of_a_load(&m), "{write}: a load's");
+            let (computed, _) = frame_of(&mut m);
+            assert!(clean.step(0).done);
+            same_state(&m, &clean, write);
+            assert_eq!(computed, 1, "{write}: C7, reading B7's twin");
+            let clock = "(cell \"Clock\" \"B1\" 2)";
+            assert!(m.write(clock).is_ok() && clean.write(clock).is_ok());
+            let (computed, _) = frame_of(&mut m);
+            assert!(clean.step(0).done);
+            same_state(&m, &clean, write);
+            assert_eq!(computed, 0, "{write}: the part computing the same");
+        }
+    }
+
+    /// The readers of a grid's formulas' texts and kinds, of its value cells
+    /// through an index, of a twin and through a part, on a sheet of their own.
+    const READERS: &str = concat!(
+        "(sheet \"X\" visible)\n",
+        "(formula \"X\" \"A1\" \"=SUMPRODUCT(--ISFORMULA(A!A1:L30))\")\n",
+        "(formula \"X\" \"A2\" \"=ISFORMULA(A!C3)\")\n",
+        "(formula \"X\" \"A3\" \"=IFERROR(FORMULATEXT(A!D2),\\\"none\\\")\")\n",
+        "(formula \"X\" \"A4:A12\" \"=IFERROR(FORMULATEXT(B!D1),\\\"none\\\")\")\n",
+        "(formula \"X\" \"B4:B12\" \"=ISFORMULA(A!D1)\")\n",
+        "(formula \"X\" \"C1\" \"=COUNTIF(A!$A$1:$A$20,1)+IFERROR(MATCH(1,A!$A$1:$A$20,0),0)\")\n",
+        "(formula \"X\" \"C2:C9\" \"=IFERROR(VLOOKUP(X!$D$1,A!$A$1:$B$20,2,FALSE),-1)\")\n",
+        "(cell \"X\" \"D1\" 1)\n",
+        "(formula \"X\" \"E1:E6\" \"=X.last!E1+1\")\n",
+        "(formula \"X\" \"F1:F6\" \"=IF(A!$A$2=7,F!$A$1,2)\")\n",
+        "(sheet \"F\" visible)\n(cell \"F\" \"A1\" 3)\n",
+    );
+
+    /// A write between frames for [`READERS`]' grids: a formula at each kind of
+    /// place, or the law's own writes.
+    fn written_between(d: &mut Dice, frame: u32) -> Option<String> {
+        Some(match d.below(8) {
+            0 => format!(
+                "(formula \"A\" \"{}{}\" \"=A{}+{}\")",
+                d.pick(&LETTERS[2..8]),
+                1 + d.below(8),
+                1 + d.below(20),
+                d.below(9)
+            ),
+            1 => format!(
+                "(formula \"A\" \"D{}\" \"=A1+0*{}\")",
+                1 + d.below(4),
+                d.below(9)
+            ),
+            2 => format!(
+                "(formula \"B\" \"J1:K{}\" \"=A!$A$1*{}\")",
+                1 + d.below(4),
+                d.below(9)
+            ),
+            3 => format!("(cell \"A\" \"D{}\" 5)", 1 + d.below(4)),
+            4 => format!(
+                "(formula \"A\" \"L{}\" \"=SUM(A!$A$1:$A$20)\")",
+                1 + d.below(9)
+            ),
+            5 => format!("(formula \"F\" \"A1\" \"={}\")", d.below(9)),
+            _ => return write_between(d, frame),
+        })
+    }
+
+    #[test]
+    fn a_frame_after_a_formula_written_is_the_frame_computed_whole() {
+        // KERNEL.69: the generated grids beside [`READERS`], a formula written
+        // between most frames, every frame stepped in slices of any budget and
+        // held to the same grid computing every cell, values, twins, stores,
+        // extents and planes; to the same grid with no index; and the readers'
+        // cells to `Calc` over the grid as the frame began, twins as sheets,
+        // which shares nothing with the machine, as a twin computing whole shares
+        // an index left stale.
+        let (mut frames, mut followed, mut writes, mut texts) = (0, 0, 0, 0);
+        for seed in 1..=120u64 {
+            let mut d = Dice(seed ^ 0x69E5);
+            let rows = generated_grid(&mut d) + READERS;
+            let mut inc = load(&rows);
+            let mut whole = load(&rows);
+            whole.incremental = false;
+            let mut scanned = load(&rows);
+            scanned.indexed = false;
+            for m in [&inc, &whole, &scanned] {
+                m.view("plane", "A", None).expect("a plane of A");
+            }
+            let x = inc.find_sheet("X").expect("X");
+            for frame in 1..=14u32 {
+                let when = format!("seed {seed}, frame {frame}");
+                let calc = calc_of(&inc);
+                let before = format!("{:?}", inc.computed((x, 3, 1)));
+                let budget = 1 + d.below(200);
+                while !inc.step(budget).done {}
+                assert!(whole.step(0).done && scanned.step(0).done);
+                same_state(&inc, &whole, &format!("{when}\n{rows}"));
+                assert_eq!(values(&inc), values(&scanned), "{when}: no index\n{rows}");
+                for id in inc.shapes.order_cells() {
+                    if id.0 == x {
+                        let now = format!("{:?}", inc.computed(id));
+                        let want = calc.get(&id).map(|c| format!("Some({c})"));
+                        assert_eq!(Some(&now), want.as_ref(), "{when}: {id:?}, Calc\n{rows}");
+                    }
+                }
+                frames += 1;
+                followed += usize::from(!inc.every);
+                texts +=
+                    usize::from(!inc.every && format!("{:?}", inc.computed((x, 3, 1))) != before);
+                let Some(write) = written_between(&mut d, frame) else {
+                    continue;
+                };
+                writes += usize::from(write.contains("(formula"));
+                let (a, b, c) = (
+                    inc.write(&write),
+                    whole.write(&write),
+                    scanned.write(&write),
+                );
+                assert!(
+                    a.is_ok() == b.is_ok() && b.is_ok() == c.is_ok(),
+                    "{when}: {write}: {a:?} {b:?} {c:?}"
+                );
+            }
+        }
+        assert!(
+            followed * 2 > frames && writes > 200 && texts > 20,
+            "{followed} of {frames} frames followed what changed, {writes} formulas written, \
+             {texts} texts read again: too few for the law to hold over"
         );
     }
 

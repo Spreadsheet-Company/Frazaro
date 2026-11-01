@@ -435,8 +435,9 @@ impl Known {
 /// has changed (KERNEL.20, `super::reach`), so a function that answered
 /// differently over the same arguments would be computed once and kept.
 /// `ISFORMULA` and `FORMULATEXT` (KERNEL.53) read the formula a cell their
-/// reference names holds, which only a write changes, and a write that
-/// changes a formula has the next frame compute every cell. A function that
+/// reference names holds, which only a write changes, and a formula a write
+/// changes is a change at the next frame whatever it computes, so that the
+/// cells reading it compute again (KERNEL.69). A function that
 /// reads a sheet's extent itself ([`Env::extent`]), beside the cells it
 /// reads, is declared so ([`Library::declare_reads_extent`], KERNEL.56): a
 /// value written beyond the extent, which it reads by no place, has it

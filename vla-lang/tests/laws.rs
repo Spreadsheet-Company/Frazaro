@@ -59,12 +59,18 @@
 //!     a few texts each copied to scattered cells, one shape however far
 //!     apart its cells stand, which the machine cuts into pieces, held to
 //!     shapes never cut (KERNEL.54).
+//! 14. A frame after a write that changes a formula computes what a whole
+//!     frame computes, at every cell: its twin asking every frame whole, and
+//!     `Calc` over the grid as the frame began, twins as sheets, where no twin
+//!     holds a reason, which `Calc` reading a twin as a sheet would not see; the
+//!     readers of the formulas' texts and kinds among them, stepped in slices of
+//!     any budget (KERNEL.69).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use vla_lang::calc::graph::is_formula;
 use vla_lang::calc::library;
-use vla_lang::calc::{CellId, Values};
+use vla_lang::calc::{Calc, CellId, Values};
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
 use vla_lang::machine::{Draft, Machine, Viewed};
@@ -1761,5 +1767,125 @@ fn far_apart_cells_of_one_text_compute_what_each_written_alone_computes() {
     assert!(
         cut >= 20,
         "{cut} grids of 30 held a text whose shape is cut: too few for the law to hold over"
+    );
+}
+
+// ---- 14. a formula write's frame -------------------------------------------
+
+/// Readers of a generated grid's sheet: of its formulas' texts and kinds, of
+/// its cells' values, and of a twin of their own, each a formula no write below
+/// writes over.
+fn reach_readers() -> String {
+    let mut out = String::from("(sheet \"X\" visible)\n");
+    let last = format!("{}{ROWS}", COLUMNS[COLUMNS.len() - 1]);
+    out.push_str(&format!(
+        "(formula \"X\" \"A1\" \"=SUMPRODUCT(--ISFORMULA({SHEET}!A1:{last}))\")\n"
+    ));
+    for (k, col) in COLUMNS.iter().enumerate() {
+        out.push_str(&format!(
+            "(formula \"X\" \"B{0}\" \"=ISFORMULA({SHEET}!{col}{0})\")\n",
+            k + 1
+        ));
+        out.push_str(&format!(
+            "(formula \"X\" \"C{0}\" \"=IFERROR(LEN(FORMULATEXT({SHEET}!{col}{0})),-1)\")\n",
+            k + 1
+        ));
+        out.push_str(&format!(
+            "(formula \"X\" \"D{0}\" \"=IF(ISERROR({SHEET}!{col}{0}),0,1)\")\n",
+            k + 1
+        ));
+    }
+    out.push_str("(formula \"X\" \"E1:E4\" \"=X.last!E1+1\")\n");
+    out
+}
+
+/// A formula write of the law's: a cell alone, a fill's part, a fill over fresh
+/// cells, or a value over what stands there, or none.
+fn reach_write(r: &mut Rng, last: &mut Option<String>) -> Option<String> {
+    let at = |r: &mut Rng| format!("{}{}", COLUMNS[r.below(COLUMNS.len())], 1 + r.below(ROWS));
+    Some(match r.below(7) {
+        0 => format!(
+            "(formula \"{SHEET}\" \"{}\" \"={SHEET}.last!{}+{}\")",
+            at(r),
+            at(r),
+            r.below(9)
+        ),
+        1 => format!(
+            "(formula \"{SHEET}\" \"{}\" \"=SUM({SHEET}.last!A1:A{})\")",
+            at(r),
+            1 + r.below(ROWS)
+        ),
+        2 => format!("(cell \"{SHEET}\" \"{}\" {})", at(r), r.below(9)),
+        3 => format!(
+            "(formula \"{SHEET}\" \"Z1:Z{}\" \"={}\")",
+            1 + r.below(4),
+            r.below(9)
+        ),
+        4 => write_between(r, last),
+        // A cell reading itself, refused, and the plan made again.
+        5 => {
+            let a = at(r);
+            format!("(formula \"{SHEET}\" \"{a}\" \"={a}\")")
+        }
+        _ => return None,
+    })
+}
+
+#[test]
+fn a_frame_after_a_formula_written_computes_what_a_whole_frame_computes() {
+    let (mut frames, mut followed, mut formulas, mut refused, mut by_calc) = (0, 0, 0, 0, 0);
+    for seed in 1..=60u64 {
+        let mut r = Rng::new(seed ^ 0x6914);
+        let rows = grid_rows(&mut r) + &reach_readers();
+        let mut m = load(&rows, &format!("seed {seed}"));
+        let mut whole = load(&rows, &format!("seed {seed}, whole"));
+        let lib = library::language();
+        let mut last = None;
+        for frame in 1..=10 {
+            let when = format!("seed {seed}, frame {frame}\n{rows}");
+            // `Calc` over the grid as the frame begins, twins as sheets, at every
+            // formula, where the last frame left no twin a reason.
+            let was = formula_values(&mut m);
+            let book = m.workbook();
+            let calc = Calc::run(&book, &lib);
+            let want: Option<BTreeMap<CellId, String>> =
+                (!was.values().any(|v| v.contains("NotComputed"))).then(|| {
+                    was.keys()
+                        .map(|&id| (id, format!("{:?}", calc.computed(id).expect("computed"))))
+                        .collect()
+                });
+            drop(calc);
+            let budget = [0, 1, 7, 64][r.below(4)];
+            while !m.step(budget).done {}
+            whole.whole_next();
+            assert!(whole.step(0).done);
+            assert!(m.reached() <= whole.reached(), "{when}");
+            assert_eq!(
+                whole.reached(),
+                whole.formulas().0,
+                "{when}: its twin whole"
+            );
+            let now = formula_values(&mut m);
+            assert_eq!(now, formula_values(&mut whole), "{when}");
+            if let Some(want) = want {
+                for (id, want) in &want {
+                    assert_eq!(now.get(id), Some(want), "{when}: {id:?} against Calc");
+                }
+                by_calc += 1;
+            }
+            frames += 1;
+            followed += usize::from(m.reached() < m.formulas().0);
+            if let Some(w) = reach_write(&mut r, &mut last) {
+                let (a, b) = (m.write(&w), whole.write(&w));
+                assert_eq!(a.is_ok(), b.is_ok(), "{when}: {w}: {a:?} {b:?}");
+                formulas += usize::from(a.is_ok() && w.contains("(formula"));
+                refused += usize::from(a.is_err());
+            }
+        }
+    }
+    assert!(
+        followed * 2 > frames && formulas > 100 && refused > 0 && by_calc > 50,
+        "{followed} of {frames} frames followed, {formulas} formulas written, {refused} refused, \
+         {by_calc} frames held to Calc: too few for the law to hold over"
     );
 }

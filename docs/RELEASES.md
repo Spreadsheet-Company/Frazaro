@@ -182,6 +182,16 @@
   cell. A number whose digits pass 21 characters is written with an exponent, as
   Excel writes one, reading back to the same bits (KERNEL.68).
 
+- **A formula written between frames costs what it reaches.** The frame after a
+  write that changes a formula computes the written cells and the cells reading
+  them, by value or by text, where it computed every cell: over Naught's 1,804
+  formulas 1.20 ms becomes 0.05, and over the large board's 798,732 29.8 ms becomes
+  0.003. The write itself keeps no copy of the plan for a refusal, which now makes
+  the plan again: over Naught 1.26 ms becomes 0.68, and over a netlist of 20,511
+  formulas 56.8 ms becomes 36.9, the rest of a write being the plan. A host that wrote
+  a formula to force a whole frame calls `Machine::whole_next`, new here, which asks
+  for one (KERNEL.69).
+
 ## 0.12.0
 
 ### What changed
