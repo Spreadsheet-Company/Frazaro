@@ -225,6 +225,26 @@
   door's record stays the file's own text. The spills themselves are `KERNEL.55`'s
   (KERNEL.70).
 
+- **A save stays small, and loading it costs what the grid holds.** Superposition's
+  board saved in 29.7 MB and peaked at 527 MB to read back, against the 10.6 MB it
+  holds; it now saves in 2.4 MB and reads back in about 50 ms at 10.6 MB. Life at 1,280
+  by 800, 27.8 MB and 485 MB, is 2.05 MB and 18.8 MB; Sand, 4.8 MB, is 54 KB; Buffet's
+  game, 192 KB, is 117 KB. `fills`, what a save prints, keeps its name and its window
+  and changes its shape: each sheet's record names that sheet alone, where every record
+  named every sheet and twin, the square of them; a `cell` row and a `style` row stand
+  over each rectangle of a value and of a format, after the rows they need; a `value`
+  row takes a range, `(value "S" "A1:D1" 1 2 3 4)` each cell's in its order, or
+  `(value "S" "A1:Z40" 0)` one every cell's; and no `text` row is printed, which the
+  load skips and a code makes again. `grid`, `values` and `changes` do not move, and no
+  host reads `fills`. A save printed by an older version still loads, and is printed
+  in the new shape at its next save; a save printed now reads on no older one. A
+  `Machine::load` reads one form at a time, so that every load's peak falls, a save or
+  no: a door-built Life of 63,000 formulas 284 MB to 54. `reader::each_form` reads a
+  text's forms so, refusing what `read_forms` refuses before the first; `EachForm::heads`
+  finds a form by its head without making one; and `machine::read_rows_each` takes them,
+  for an engine that reads its rows itself. No signature moved. Compression is a host's:
+  gzip takes a new save 4 to 14 times more, and does nothing for a load (KERNEL.72).
+
 ## 0.12.0
 
 ### What changed

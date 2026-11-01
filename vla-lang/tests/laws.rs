@@ -69,6 +69,12 @@
 //!     as a grid of the same kinds, a save resumed and stepped once is the grid
 //!     stepped once more, and at every cell the machine computes what `Calc`
 //!     computes over the grid it lends (KERNEL.70).
+//! 16. A text's forms made one at a time are its forms made all at once, on the
+//!     same lines, and refused by the same words; and a board loaded from its
+//!     fills, or from the rows a save printed before them, views as the board,
+//!     prints the fills again, and stepped once is the board stepped once more:
+//!     over boards wider than a value's run and sheets taller than a stretch, of
+//!     numbers, texts, errors, formats and sentences (KERNEL.72).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -79,10 +85,10 @@ use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
 use vla_lang::machine::{Draft, Machine, Viewed};
 use vla_lang::printer::write_datum;
-use vla_lang::reader::read_forms;
+use vla_lang::reader::{each_form, read_forms};
 use vla_lang::refers::shift_a1_references;
 use vla_lang::rows::quoted;
-use vla_lang::sheet::{parse_a1_range, A1Range};
+use vla_lang::sheet::{column_letters, parse_a1_range, A1Range};
 use vla_lang::view::{view_text, window_of};
 
 const PRELUDE: &str = include_str!("../testdata/prelude.vla");
@@ -1996,5 +2002,297 @@ fn a_row_s_word_keeps_its_formula_s_kind() {
         words > 300 && spills > 50 && read_otherwise > 50,
         "{words} words, {spills} spills and {read_otherwise} grids that read otherwise with no \
          word: too few for the law to hold over"
+    );
+}
+
+// ---- 16. a save's shape ------------------------------------------------
+
+/// What a mutation may write: the reader's delimiters and its escape among
+/// them, and what a longer character is.
+const READER_CHARS: &[char] = &[
+    '(', ')', '"', '\\', ';', '\n', '\r', ' ', '\t', 'a', '0', 'é', 'λ',
+];
+
+/// A text with a few of its characters taken out, changed or added.
+fn mutated(r: &mut Rng, text: &[char]) -> String {
+    let mut chars = text.to_vec();
+    for _ in 0..1 + r.below(4) {
+        let at = r.below(chars.len() + 1);
+        match r.below(3) {
+            0 if at < chars.len() => {
+                chars.remove(at);
+            }
+            1 if at < chars.len() => chars[at] = *r.pick(READER_CHARS),
+            _ => chars.insert(at, *r.pick(READER_CHARS)),
+        }
+    }
+    chars.into_iter().collect()
+}
+
+/// Every list's line, depth first, which forms compared alike do not hold to.
+fn lines_of(forms: &[Form]) -> Vec<u32> {
+    let mut out = Vec::new();
+    for form in forms {
+        if let Form::List(l) = form {
+            out.push(l.line);
+            out.extend(lines_of(&l.items));
+        }
+    }
+    out
+}
+
+/// A text held to the one reading: the same forms on the same lines and the
+/// same heads, or the same refusal; which it was.
+fn read_alike(text: &str) -> Result<usize, String> {
+    match (read_forms(text), each_form(text)) {
+        (Ok(forms), Ok(each)) => {
+            let heads: Vec<(String, u32)> = each.heads().map(|(h, l)| (h.to_string(), l)).collect();
+            let made: Vec<Form> = each.collect();
+            assert_eq!(made, forms, "{text:?}");
+            assert_eq!(lines_of(&made), lines_of(&forms), "{text:?}");
+            let want: Vec<(String, u32)> = forms
+                .iter()
+                .filter_map(|f| {
+                    let l = f.as_list()?;
+                    match l.items.first() {
+                        Some(Form::Sym(head)) => Some((head.clone(), l.line)),
+                        _ => None,
+                    }
+                })
+                .collect();
+            assert_eq!(heads, want, "{text:?}");
+            Ok(forms.len())
+        }
+        (Err(a), Err(b)) => {
+            assert_eq!((&a.id, &a.text), (&b.id, &b.text), "{text:?}");
+            Err(a.id)
+        }
+        (a, b) => panic!(
+            "{text:?}: {:?} where {:?}",
+            a.map(|f| f.len()),
+            b.map(|f| f.count())
+        ),
+    }
+}
+
+#[test]
+fn each_form_reads_what_read_forms_reads() {
+    // The fixtures as they stand, with line feeds and with CR LF; a thousand
+    // generated forms; slices of the fixtures with a few characters changed,
+    // a form's delimiters, its escape and a longer character among them; and
+    // lists nested either side of the limit, opened and closed unevenly.
+    let mut refused: BTreeMap<String, usize> = BTreeMap::new();
+    let mut read = 0;
+    let mut note = |got: Result<usize, String>| match got {
+        Ok(_) => read += 1,
+        Err(id) => *refused.entry(id).or_default() += 1,
+    };
+    for text in [PRELUDE, GOLDEN] {
+        let lf = text.replace("\r\n", "\n");
+        note(read_alike(&lf));
+        note(read_alike(&lf.replace('\n', "\r\n")));
+    }
+    let mut r = Rng::new(0x72);
+    for _ in 0..1000 {
+        note(read_alike(&form_text(&mut r, 0)));
+    }
+    for text in [PRELUDE, GOLDEN] {
+        let chars: Vec<char> = text.chars().collect();
+        for _ in 0..4000 {
+            let from = r.below(chars.len());
+            let to = (from + 1 + r.below(300)).min(chars.len());
+            note(read_alike(&mutated(&mut r, &chars[from..to])));
+        }
+    }
+    for open in 62..=66 {
+        for closed in open - 2..=open + 1 {
+            let spaced = if open % 2 == 0 { "\n" } else { " " };
+            let text = format!("{}{}", "(a".repeat(open) + spaced, ")".repeat(closed));
+            note(read_alike(&text));
+        }
+    }
+    let counted = |id: &str| refused.get(id).copied().unwrap_or(0);
+    assert!(
+        read > 1000
+            && counted("vla-unbalanced-parens") > 1000
+            && counted("vla-unexpected-close-paren") > 1000
+            && counted("vla-form-too-deep") > 3,
+        "{read} texts read and {refused:?} refused: too few for the law to hold over"
+    );
+}
+
+/// A board for a save (KERNEL.72): a sheet `B` wider than a value's run, its
+/// bands of fills computing numbers along each row, runs of one number, texts
+/// and errors, and a sheet `C` of a tall fill and of formulas alone, some seeds'
+/// holding a cell far away, which makes its store a sparse sheet's; a sheet with
+/// no cell; rows of values, formats over ranges and cells, a code's among them
+/// so that the grid prints `text` rows, a look, and sentences.
+fn board_rows(r: &mut Rng) -> String {
+    let (wide, tall) = (34 + r.below(40) as u32, 3 + r.below(10) as u32);
+    let last = column_letters(1 + wide);
+    let mut out = String::from(concat!(
+        "(sheet \"B\" visible)\n(sheet \"N\" hidden)\n(sheet \"C\" visible)\n",
+        "(format 1 \"F7F4FC\" general nowrap)\n",
+        "(format 2 none \"0.00\" nowrap)\n",
+        "(format 3 (fill \"FFE699\"))\n",
+        "(format 4 none \"#,##0.0;(#,##0.0);\\\"zero\\\"\" nowrap)\n",
+        "(look \"B\" 7 3)\n",
+    ));
+    out.push_str(&format!("(cell \"B\" \"B1:{last}1\" {})\n", r.below(3)));
+    for row in 2..=tall {
+        out.push_str(&format!("(cell \"B\" \"A{row}\" {})\n", r.below(5)));
+    }
+    let mut top = 2;
+    while top <= tall {
+        let bottom = (top + r.below(3) as u32).min(tall);
+        let k = 1 + r.below(5);
+        let f = match r.below(5) {
+            0 => format!("=IF($A{top}>2,0,MOD(B$1+COLUMN()*ROW(),{k}))"),
+            1 => format!("=IF($A{top}>2,\\\"x\\\",\\\"y\\\")"),
+            2 => format!("=IF($A{top}>2,1/0,B.last!B{top}+1)"),
+            3 => format!("=B.last!B{top}*0"),
+            _ => format!("=COLUMN()+ROW()*{k}"),
+        };
+        out.push_str(&format!(
+            "(formula \"B\" \"B{top}:{last}{bottom}\" \"{f}\")\n"
+        ));
+        // A format over a band's columns, left and right of each other.
+        let split = 2 + r.below(wide as usize - 1) as u32;
+        let (a, b) = (column_letters(split), column_letters(split + 1));
+        if r.below(3) != 0 {
+            let style = r.below(5);
+            out.push_str(&format!("(style \"B\" \"B{top}:{a}{bottom}\" {style})\n"));
+        }
+        if r.below(3) == 0 {
+            let style = 1 + r.below(4);
+            out.push_str(&format!(
+                "(style \"B\" \"{b}{top}:{last}{bottom}\" {style})\n"
+            ));
+        }
+        top = bottom + 1;
+    }
+    out.push_str(&format!("(sentence \"B\" \"A2\" {})\n", 1 + r.below(9)));
+    let rows = 40 + r.below(200);
+    out.push_str(&format!(
+        "(formula \"C\" \"A1:B{rows}\" \"=ROW()*{}\")\n",
+        r.below(3)
+    ));
+    out.push_str("(formula \"C\" \"D1\" \"=COLUMN(A1:B1)\" dynamic)\n");
+    out.push_str("(formula \"C\" \"E1\" \"=SUM(A1:B9)\")\n");
+    if r.below(3) == 0 {
+        out.push_str("(cell \"C\" \"CV5000\" 1)\n");
+    }
+    out
+}
+
+/// A write between a board's frames: a value into a band, a fill over part of
+/// one, or nothing.
+fn board_write(r: &mut Rng) -> Option<String> {
+    let (top, col) = (2 + r.below(3), column_letters(2 + r.below(30) as u32));
+    match r.below(3) {
+        0 => Some(format!("(cell \"B\" \"{col}{top}\" {})", r.below(9))),
+        1 => {
+            let right = column_letters(32 + r.below(2) as u32);
+            Some(format!(
+                "(formula \"B\" \"{col}{top}:{right}{}\" \"=$A{top}+1\")",
+                top + r.below(2)
+            ))
+        }
+        _ => None,
+    }
+}
+
+/// The rows a machine's save printed before KERNEL.72, as far as a load tells:
+/// each record's every sheet's row and head, its fills' `formula` rows, and the
+/// values' rows, a `value`, a `text` and a `style` row a cell.
+fn as_it_was(m: &Machine) -> String {
+    let mut out = String::new();
+    for name in (0..m.sheets()).filter_map(|i| m.sheet_name(i)) {
+        let values = record(m, "values", name, None);
+        let head = |l: &&str| {
+            [
+                "sheet",
+                "window",
+                "extent",
+                "gridlines",
+                "column",
+                "row",
+                "format",
+                "look",
+            ]
+            .iter()
+            .any(|h| l.starts_with(&format!("({h} ")))
+        };
+        for line in values.lines().filter(|l| head(l)) {
+            out.push_str(line);
+            out.push('\n');
+        }
+        let fills = record(m, "fills", name, None);
+        for line in fills.lines().filter(|l| l.starts_with("(formula ")) {
+            out.push_str(line);
+            out.push('\n');
+        }
+        for line in values.lines().filter(|l| !head(l)) {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
+#[test]
+fn a_board_loaded_from_its_fills_views_as_the_board() {
+    let mut said: BTreeMap<&str, usize> = BTreeMap::new();
+    for seed in 1..=30u64 {
+        let mut r = Rng::new(seed ^ 0x7200);
+        let rows = board_rows(&mut r);
+        let mut m = load(&rows, &format!("seed {seed}"));
+        for frame in 0..=3 {
+            let what = format!("seed {seed}, frame {frame}\n{rows}");
+            let saved = fills(&m);
+            assert!(!saved.contains("(text "), "{what}");
+            let sheets = saved.lines().filter(|l| l.starts_with("(sheet ")).count();
+            assert_eq!(sheets, m.sheets(), "{what}: a sheet's row a record");
+            for line in saved.lines() {
+                let mut words = line.split(' ');
+                let (head, _) = (words.next().unwrap_or(""), words.next());
+                let over = words.next().is_some_and(|a| a.contains(':'));
+                let many = words.nth(1).is_some();
+                let kind = match (head, over, many) {
+                    ("(value", true, true) => "values in their order",
+                    ("(value", true, false) => "a value over a range",
+                    ("(style", true, _) => "a format over a range",
+                    ("(cell", true, _) => "a value cell's range",
+                    _ => "the rest",
+                };
+                *said.entry(kind).or_default() += 1;
+            }
+            let mut again = load(&saved, &format!("{what}'s fills"));
+            assert_eq!(save(&again), save(&m), "{what}");
+            assert_eq!(fills(&again), saved, "{what}");
+            let before = load(&as_it_was(&m), &format!("{what} as it was"));
+            assert_eq!(save(&before), save(&m), "{what}: as it was");
+            assert_eq!(fills(&before), saved, "{what}: as it was");
+            if m.frame() > 0 {
+                again
+                    .resume_at(m.frame())
+                    .unwrap_or_else(|e| panic!("{what}: {}", e.text));
+                assert!(m.step(0).done && again.step(0).done);
+                assert_eq!(save(&again), save(&m), "{what}, stepped");
+            } else {
+                assert!(m.step(0).done);
+            }
+            if let Some(write) = board_write(&mut r) {
+                m.write(&write)
+                    .unwrap_or_else(|e| panic!("{what}: {write}: {}", e.refusal.text));
+            }
+        }
+    }
+    assert!(
+        said["values in their order"] > 100
+            && said["a value over a range"] > 100
+            && said["a format over a range"] > 100
+            && said["a value cell's range"] > 100,
+        "{said:?}: too few for the law to hold over"
     );
 }

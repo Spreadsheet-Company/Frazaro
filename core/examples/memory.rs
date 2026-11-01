@@ -6,7 +6,9 @@
 //! and Life on the size ladder's sixteenth rung, which the machine loads as
 //! they stand, and since `KERNEL.67` the board with one style row over its
 //! Field, loaded after the board's own rows; each loaded into the machine
-//! under Excel's library inside a counting allocator, and stepped twice.
+//! under Excel's library inside a counting allocator, and stepped twice; and
+//! since `KERNEL.72` its save printed, every sheet's fills as a host prints
+//! them, and loaded again.
 //!
 //! ```text
 //! cargo run --release -p frazaro-core --example memory               # every fixture, the baseline rows
@@ -18,10 +20,13 @@
 //! rows' text read and the library made) to just after the second frame, which
 //! are the load's parse, its draft and its plan, the machine itself and what
 //! two frames add; and the most of them at any moment between, which a
-//! WebAssembly module, whose memory never shrinks, pays whole. Bytes asked are
-//! bytes asked: the same on every run of one build, and on every 64-bit
-//! machine, so the check holds them exactly, on every push, as ceilings that
-//! never rise.
+//! WebAssembly module, whose memory never shrinks, pays whole. Then, a pass of
+//! their own after the frames, a save's: its text's bytes, the most the printing
+//! of it held over what the machine holds, the bytes a load from it held after
+//! the load, and the most at any moment of that load, the text the caller's and
+//! outside the count. Bytes asked are bytes asked: the same on every run of one
+//! build, and on every 64-bit machine, so the check holds them exactly, on every
+//! push, as ceilings that never rise.
 //!
 //! **What is timed:** the load alone, `Machine::load` from the rows' text, the
 //! median of three rounds, each a fresh machine, beside the processor's clock
@@ -41,7 +46,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use frazaro_core::{api, excel, sha256};
-use vla_lang::machine::Machine;
+use vla_lang::machine::{Machine, Viewed};
 
 #[path = "bench/common.rs"]
 mod common;
@@ -215,12 +220,63 @@ fn rows_fixture(root: &Path, name: &str) -> Result<Prepared, String> {
 // ---- one fixture: weighed once, its load timed in rounds -------------------------
 
 /// What a fixture's machine held: after its load, after its frames, and at
-/// the most between.
+/// the most between; and its save.
 struct Weighed {
     formulas: usize,
     load_held: usize,
     held: usize,
     peak: usize,
+    save: Saved,
+}
+
+/// What a machine's save costs (`KERNEL.72`): its text's bytes, the most its
+/// printing held over the machine, and a load from it, held after the load and
+/// at the most, one load's time.
+struct Saved {
+    bytes: usize,
+    printing: usize,
+    held: usize,
+    peak: usize,
+    ms: f64,
+}
+
+/// A machine's save as a host prints it, every sheet's fills, weighed; and a
+/// load from it under Excel's library.
+fn weigh_save(m: &Machine, name: &str) -> Result<Saved, String> {
+    let held = live();
+    reset();
+    let mut save = String::new();
+    for i in 0..m.sheets() {
+        let Some(sheet) = m.sheet_name(i) else {
+            continue;
+        };
+        match m.view("fills", sheet, None) {
+            Ok(Viewed::Text(t)) => save.push_str(&t),
+            Ok(_) => return Err(format!("{name}: the fills of {sheet} are no text")),
+            Err(r) => return Err(format!("{name}: the fills of {sheet}: {}", r.text)),
+        }
+    }
+    let printing = peak() - held;
+    let library = excel::library();
+    let base = live();
+    reset();
+    let t = Instant::now();
+    let again = Machine::load(&save, library).map_err(|e| {
+        format!(
+            "{name}: its save refused at line {}: {}",
+            e.line, e.refusal.text
+        )
+    })?;
+    let ms = t.elapsed().as_secs_f64() * 1e3;
+    let saved = Saved {
+        bytes: save.len(),
+        printing,
+        held: live() - base,
+        peak: peak() - base,
+        ms,
+    };
+    drop(again);
+    Ok(saved)
 }
 
 fn weigh(p: &Prepared) -> Result<Weighed, String> {
@@ -244,6 +300,7 @@ fn weigh(p: &Prepared) -> Result<Weighed, String> {
     let formulas = m.formulas().0;
     let held = live() - base;
     let peak = peak() - base;
+    let save = weigh_save(&m, name)?;
     drop(m);
     if formulas == 0 {
         return Err(format!("{name}: no formula loaded"));
@@ -253,6 +310,7 @@ fn weigh(p: &Prepared) -> Result<Weighed, String> {
         load_held,
         held,
         peak,
+        save,
     })
 }
 
@@ -324,8 +382,8 @@ fn main() -> ExitCode {
     if check {
         for (p, w) in fixtures.iter().zip(&weighed) {
             println!(
-                "(memory-check \"{}\" (sha256 \"{}\") (formulas {}) (load-held {}) (held {}) (peak {}))",
-                p.name, p.sha, w.formulas, w.load_held, w.held, w.peak
+                "(memory-check \"{}\" (sha256 \"{}\") (formulas {}) (load-held {}) (held {}) (peak {}) (save {}) (save-peak {}) (saved-held {}) (saved-peak {}))",
+                p.name, p.sha, w.formulas, w.load_held, w.held, w.peak, w.save.bytes, w.save.printing, w.save.held, w.save.peak
             );
         }
         println!("(memory-check-done {})", fixtures.len());
@@ -376,6 +434,14 @@ fn main() -> ExitCode {
             bytes_a_formula(w.peak, w.formulas),
         );
         println!(
+            "  its save: {} bytes, {} over the machine to print; a load from it {:.1} ms, {} bytes held, {} at the peak",
+            thousands(w.save.bytes as u64),
+            thousands(w.save.printing as u64),
+            w.save.ms,
+            thousands(w.save.held as u64),
+            thousands(w.save.peak as u64),
+        );
+        println!(
             "  the clock: the hand-written Life {clock:.3} ms a generation beside every timed load, spread {sp:.1}%, {dr:+.1}% from {start_clock:.3} at the start"
         );
         if sp > CLOCK_SPREAD_MAX || dr.abs() > CLOCK_SPREAD_MAX {
@@ -394,7 +460,7 @@ fn main() -> ExitCode {
         let load = median(l);
         let (clock, sp, dr) = clocks_of[&p.name];
         println!(
-            "    @{{ Half = 'memory'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {}; Load = {load:.1}; LoadPerSecond = {}; LoadHeld = {}; Held = {}; Peak = {}; ClockMs = {clock:.3}; ClockSpread = {sp:.1}; ClockDrift = {dr:.1} }}",
+            "    @{{ Half = 'memory'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {}; Load = {load:.1}; LoadPerSecond = {}; LoadHeld = {}; Held = {}; Peak = {}; Save = {}; SavePeak = {}; SavedHeld = {}; SavedPeak = {}; ClockMs = {clock:.3}; ClockSpread = {sp:.1}; ClockDrift = {dr:.1} }}",
             p.name,
             w.formulas,
             p.sha,
@@ -403,6 +469,10 @@ fn main() -> ExitCode {
             w.load_held,
             w.held,
             w.peak,
+            w.save.bytes,
+            w.save.printing,
+            w.save.held,
+            w.save.peak,
         );
     }
     ExitCode::SUCCESS

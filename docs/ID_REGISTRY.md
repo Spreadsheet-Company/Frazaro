@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.71 | KERNEL.72 |
+| KERNEL | KERNEL.72 | KERNEL.73 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -387,6 +387,13 @@ the writer's rule. `KERNEL.71` is next free.
 lack"), for `BITAND`, `BITOR` and `BITXOR` computed by `vla-lang`'s `language()`
 as one item, so that a game's marks read as bit masks by one call where it
 writes `MOD(INT(x/2^k),2)` at every site. `KERNEL.72` is next free.
+`KERNEL.72` was minted 2026-11-01 at the owner's word of 2026-10-30, from the
+assessment of saving and persistence and `KERNEL.67`'s first *Found*, for the
+save's shape: `fills` printing a format over each rectangle, no row a load
+ignores, a formula's values over ranges, and a read that holds no file as forms,
+so that a grid's save stays small and loading it costs about what the grid
+holds. The brief named `KERNEL.68`, which `KERNEL.68` to `KERNEL.71` had taken.
+`KERNEL.73` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

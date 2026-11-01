@@ -152,7 +152,7 @@ mod store;
 pub(crate) use store::SparseWalk;
 
 use std::cell::Cell as Slot;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::calc::blocks::Locator;
 use crate::calc::dense::{self, Slot as Stored};
@@ -171,7 +171,7 @@ use crate::fx::FxHashMap;
 use crate::grid::{self, text_of, Cells, Constant, Formula, Holds, Kind, Masters, Model};
 use crate::messages::{raise, Refusal};
 use crate::projection::Window;
-use crate::reader::read_forms;
+use crate::reader::{each_form, read_forms};
 use crate::refers::shift_a1_references;
 use crate::rows::Visibility;
 use crate::sheet::{
@@ -182,7 +182,7 @@ use crate::view::{changes_text, fills_text, record_text, window_over};
 
 use bits::Bits;
 use book::{Book, Fills, Page};
-pub use load::{read_rows, sheet_name_ok, thousands, twin_base, Draft, Drafted};
+pub use load::{read_rows, read_rows_each, sheet_name_ok, thousands, twin_base, Draft, Drafted};
 use load::{Answering, What};
 use store::Store;
 
@@ -652,11 +652,13 @@ struct Log {
 }
 
 impl Machine {
-    /// A text of rows loaded under a library: [`read_rows`], then
-    /// [`Machine::new`].
+    /// A text of rows loaded under a library: [`read_rows_each`], then
+    /// [`Machine::new`]. The text is read through first, and its forms made one
+    /// at a time and given up, so that a load holds what the grid holds and no
+    /// more than a row besides (KERNEL.72).
     pub fn load(text: &str, library: Library) -> Result<Machine, LineRefusal> {
-        let forms = read_forms(text).map_err(|refusal| LineRefusal { line: 0, refusal })?;
-        let draft = read_rows(&forms)?;
+        let forms = each_form(text).map_err(|refusal| LineRefusal { line: 0, refusal })?;
+        let draft = read_rows_each(forms)?;
         Machine::new(draft, library)
     }
 
@@ -671,7 +673,12 @@ impl Machine {
     /// waits for the first step.
     pub fn new(mut draft: Draft, library: Library) -> Result<Machine, LineRefusal> {
         let (rules, rule_cells) = draft.answer_sheets()?;
-        let values = std::mem::take(&mut draft.values);
+        // The `value` rows, laid in the stores after the plan.
+        let said: Vec<load::SaidRows> = draft
+            .sheets
+            .iter_mut()
+            .map(|s| std::mem::take(&mut s.said))
+            .collect();
         let cells = draft.cells;
         let mut extents: Vec<Extent> = draft.sheets.iter().map(|s| s.extent()).collect();
         let mut book = Book::of(&mut draft);
@@ -711,9 +718,8 @@ impl Machine {
             };
             return Err(LineRefusal { line, refusal });
         }
-        let stores = stores_of(&laid, &book, &extents, &values);
+        let stores = stores_of(&laid, &book, &extents, said);
         drop(laid);
-        drop(values);
         Ok(Machine::made(
             (book, sheets, cells),
             (rules, rule_cells),
@@ -2003,10 +2009,11 @@ impl Machine {
     /// `values` for the record less its `formula` rows, what a host draws
     /// (KERNEL.37); `changes` for the rows of the values of the cells the
     /// last complete frame changed, or `whole` where the machine cannot say
-    /// which (KERNEL.42); `fills` for the record with each fill's `formula`
-    /// rows printed once, over each of its rectangles, what a save prints
-    /// and the load reads as the fills (KERNEL.49); or `plane` for a byte a
-    /// cell. `window` `None` is the sheet's extent, as the machine keeps it.
+    /// which (KERNEL.42); `fills` for what a save prints, the load reading
+    /// it as the grid, each fill's `formula` row once over each of its
+    /// rectangles and each kind of the other rows a cell prints over ranges
+    /// (KERNEL.49, KERNEL.72); or `plane` for a byte a cell. `window` `None`
+    /// is the sheet's extent, as the machine keeps it.
     pub fn view(
         &self,
         projection: &str,
@@ -3291,15 +3298,15 @@ impl Laid {
 /// Each rows' sheet's store from a draft's records (KERNEL.49's decision 8):
 /// over its extent, an array or a sparse sheet's by the rule at its cells,
 /// each value cell's content as written and each formula's value from its
-/// `value` row, none for a formula without one.
+/// `value` row (KERNEL.72), none for a formula without one.
 fn stores_of(
     laid: &[Vec<Laid>],
     book: &Book,
     extents: &[Extent],
-    values: &HashMap<CellId, Computed>,
+    said: Vec<load::SaidRows>,
 ) -> Vec<Store> {
     let mut stores = Vec::with_capacity(laid.len());
-    for (s, records) in laid.iter().enumerate() {
+    for ((s, records), said) in laid.iter().enumerate().zip(said) {
         let places = records.iter().flat_map(|r| {
             let x = r.range;
             (x.top..=x.bottom).flat_map(move |row| (x.left..=x.right).map(move |col| (row, col)))
@@ -3312,9 +3319,26 @@ fn stores_of(
                 for col in x.left..=x.right {
                     match &r.value {
                         Some(content) => store.put_content(row, col, Some(content)),
-                        None if values.is_empty() => store.put_computed(row, col, None),
-                        None => store.put_computed(row, col, values.get(&(s, row, col))),
+                        None => store.put_computed(row, col, None),
                     }
+                }
+            }
+        }
+        // Each `value` row over the cells that hold a formula with no value:
+        // not those an engine has written or taken out since its row, each row
+        // given up as it is laid.
+        for (x, _, said) in said.rows {
+            let mut k = 0;
+            for row in x.top..=x.bottom {
+                for col in x.left..=x.right {
+                    if matches!(store.slot_of(row, col), Some(Stored::Pending)) {
+                        match &said {
+                            load::Said::One(c) => store.put_computed(row, col, Some(c)),
+                            load::Said::Numbers(n) => store.put_number(row, col, n[k]),
+                            load::Said::Each(c) => store.put_computed(row, col, Some(&c[k])),
+                        }
+                    }
+                    k += 1;
                 }
             }
         }
@@ -3827,10 +3851,12 @@ mod tests {
     use crate::calc::library;
     use crate::calc::program;
     use crate::calc::shape::Shapes;
+    use crate::printer::write_datum;
     use crate::projection::Window;
     use crate::reader::read_forms;
     use crate::sheet::{cell_ref, formula_text, shared_masters};
     use crate::view::{view_text_valued, view_text_values};
+    use std::collections::HashMap;
 
     fn load(text: &str) -> Machine {
         Machine::load(text, labelling())
@@ -5633,7 +5659,7 @@ mod tests {
         // stands, a rectangle of one cell by its cell's address; a window
         // cuts each rectangle it meets to it, the text moved to the cut's
         // first cell; a formula of its own prints as the grid prints it;
-        // and every other row is the grid's.
+        // and each cell reads as the grid's record has it (KERNEL.72).
         let mut m = load(concat!(
             "(cell \"S\" \"A1:A6\" 2)\n",
             "(formula \"S\" \"B1:C6\" \"=A1*2\")\n",
@@ -5669,27 +5695,142 @@ mod tests {
             ]
         );
         for window in [None, Some("C2:C5"), Some("A3:D4")] {
-            let others: String = text("fills", window)
-                .lines()
-                .filter(|l| !l.starts_with("(formula "))
-                .map(|l| format!("{l}\n"))
-                .collect();
-            assert_eq!(others, text("values", window), "{window:?}");
+            assert_eq!(
+                cells_said(&text("fills", window)),
+                cells_said(&text("grid", window)),
+                "{window:?}"
+            );
         }
     }
 
+    /// What a record says of a cell, read back from its rows, whatever rows
+    /// say it (KERNEL.72).
+    #[derive(Clone, Debug, Default, PartialEq)]
+    struct CellSaid {
+        /// A value's spelling, or a formula's text moved to the cell, with its
+        /// word.
+        holds: Option<String>,
+        value: Option<String>,
+        style: Option<String>,
+        sentence: Option<String>,
+    }
+
+    /// What a record says of each cell its `cell`, `formula`, `value`, `style`
+    /// and `sentence` rows name, each row over a cell or a range; a row saying
+    /// a cell's value or format a second time fails, as a load refuses it.
+    fn cells_said(record: &str) -> BTreeMap<(u32, u32), CellSaid> {
+        let mut cells: BTreeMap<(u32, u32), CellSaid> = BTreeMap::new();
+        for form in read_forms(record).expect("a record reads") {
+            let Some((head, items, _)) = load::row_parts(&form) else {
+                continue;
+            };
+            if !matches!(head, "cell" | "formula" | "value" | "style" | "sentence") {
+                continue;
+            }
+            let [Form::Str(_), Form::Str(addr), said @ ..] = items else {
+                panic!("a row of the record: {form:?}");
+            };
+            let x = parse_a1_range(addr).expect("an address");
+            let mut k = 0;
+            for row in x.top..=x.bottom {
+                for col in x.left..=x.right {
+                    let spelled = write_datum(&said[if said.len() == 1 { 0 } else { k }]);
+                    let at = (row, col);
+                    let cell = cells.entry(at).or_default();
+                    let place = match head {
+                        "cell" | "formula" => &mut cell.holds,
+                        "value" => &mut cell.value,
+                        "style" => &mut cell.style,
+                        _ => &mut cell.sentence,
+                    };
+                    assert!(place.is_none(), "{head} said twice at {at:?}: {form:?}");
+                    *place = Some(match (head, &said[0]) {
+                        ("formula", Form::Str(text)) => {
+                            let moved = shift_a1_references(
+                                &text[1..],
+                                i64::from(row) - i64::from(x.top),
+                                i64::from(col) - i64::from(x.left),
+                            );
+                            let word = if said.len() == 2 { " dynamic" } else { "" };
+                            format!("={moved}{word}")
+                        }
+                        _ => spelled,
+                    });
+                    k += 1;
+                }
+            }
+        }
+        cells
+    }
+
+    /// The rows of a record no cell's rows are: the head a record's window
+    /// keeps.
+    fn head_rows(record: &str) -> Vec<&str> {
+        record
+            .lines()
+            .filter(|l| {
+                [
+                    "window",
+                    "extent",
+                    "gridlines",
+                    "column",
+                    "row",
+                    "format",
+                    "look",
+                ]
+                .iter()
+                .any(|head| l.starts_with(&format!("({head} ")))
+            })
+            .collect()
+    }
+
+    /// A generated grid dressed for a save (KERNEL.72): formats whose codes
+    /// print `text` rows, over its value cells and the fills' cells it wrote,
+    /// and now and then a sentence.
+    fn dressed_grid(d: &mut Dice) -> String {
+        let mut out = String::from(concat!(
+            "(format 1 \"F7F4FC\" general nowrap)\n",
+            "(format 2 none \"0.00\" nowrap)\n",
+            "(format 3 (fill \"FFE699\"))\n",
+        ));
+        for line in generated_grid(d).lines() {
+            out.push_str(line);
+            out.push('\n');
+            let mut parts = line.split('"');
+            let (head, sheet, addr) = (parts.next(), parts.next(), parts.next());
+            let addr = parts.next().filter(|_| addr.is_some());
+            let (Some(sheet), Some(addr)) = (sheet, addr) else {
+                continue;
+            };
+            if !matches!(head, Some("(cell " | "(formula ")) || d.below(3) != 0 {
+                continue;
+            }
+            out.push_str(&format!("(style \"{sheet}\" \"{addr}\" {})\n", d.below(4)));
+            if !addr.contains(':') {
+                out.push_str(&format!(
+                    "(sentence \"{sheet}\" \"{addr}\" {})\n",
+                    1 + d.below(9)
+                ));
+            }
+        }
+        out
+    }
+
     #[test]
-    fn the_fills_less_their_formula_rows_are_the_values_in_any_window() {
-        // KERNEL.49's decision 11: the fills print every row the grid
-        // prints but its `formula` rows, so that without them they are the
-        // values, byte for byte, in any window: generated grids of fills
-        // and formulas of their own on two sheets, values and fills written
-        // into them between frames, each sheet viewed whole and through
-        // windows that cut its fills.
-        let mut ranged = 0;
+    fn the_fills_hold_each_cell_as_the_grid_does_in_any_window() {
+        // KERNEL.72, where KERNEL.49's decision 11 held the fills less their
+        // formula rows to be the values: generated grids of fills and formulas
+        // of their own on two sheets, dressed with formats and sentences,
+        // values and fills written into them between frames, each sheet viewed
+        // whole and through windows that cut its fills. Every cell a record
+        // says anything of reads alike in the two, what it holds, its value,
+        // its format and its sentence, whatever rows say it; the head of the
+        // record is the same; and the fills name their own sheet alone and
+        // print no `text` row.
+        let (mut ranged, mut styled, mut listed) = (0, 0, 0);
         for seed in 1..=60u64 {
             let mut d = Dice(seed ^ 0x4905_F115);
-            let rows = generated_grid(&mut d);
+            let rows = dressed_grid(&mut d);
             let mut m = Machine::load(&rows, library::language()).unwrap_or_else(|e| {
                 panic!("seed {seed}: line {}: {}\n{rows}", e.line, e.refusal.text)
             });
@@ -5711,24 +5852,28 @@ mod tests {
                                 Ok(Viewed::Text(t)) => t,
                                 other => panic!("seed {seed}: {other:?}"),
                             };
-                        let fills = view("fills");
-                        ranged += fills
-                            .lines()
-                            .filter(|l| {
-                                l.starts_with("(formula ")
-                                    && l.split('"').nth(3).is_some_and(|a| a.contains(':'))
-                            })
-                            .count();
-                        let others: String = fills
-                            .lines()
-                            .filter(|l| !l.starts_with("(formula "))
-                            .map(|l| format!("{l}\n"))
-                            .collect();
-                        assert_eq!(
-                            others,
-                            view("values"),
-                            "seed {seed}, frame {frame}, {sheet} {window:?}\n{rows}"
-                        );
+                        let (fills, grid) = (view("fills"), view("grid"));
+                        let when =
+                            format!("seed {seed}, frame {frame}, {sheet} {window:?}\n{rows}");
+                        assert_eq!(cells_said(&fills), cells_said(&grid), "{when}");
+                        assert_eq!(head_rows(&fills), head_rows(&grid), "{when}");
+                        let own = format!("(sheet \"{sheet}\" visible)");
+                        let named: Vec<&str> =
+                            fills.lines().filter(|l| l.starts_with("(sheet ")).collect();
+                        assert_eq!(named, [own.as_str()], "{when}");
+                        assert!(!fills.contains("(text "), "{when}");
+                        let over = |head: &str| {
+                            fills
+                                .lines()
+                                .filter(|l| {
+                                    l.starts_with(head)
+                                        && l.split('"').nth(3).is_some_and(|a| a.contains(':'))
+                                })
+                                .count()
+                        };
+                        ranged += over("(formula ");
+                        styled += over("(style ");
+                        listed += over("(value ");
                     }
                 }
                 let write = match d.below(3) {
@@ -5754,8 +5899,9 @@ mod tests {
             }
         }
         assert!(
-            ranged > 1_000,
-            "{ranged} formula rows over rectangles: too few for the law to hold over"
+            ranged > 1_000 && styled > 400 && listed > 700,
+            "{ranged} formula rows, {styled} style rows and {listed} value rows over \
+             rectangles: too few for the law to hold over"
         );
     }
 
@@ -9153,9 +9299,9 @@ mod tests {
                 range: parse_a1_range(window).unwrap(),
             };
             let book = draft.workbook();
-            let again = view_text_valued(&book, &w, &Drafted(draft.values.clone()));
+            let again = view_text_valued(&book, &w, &Drafted(draft.values().clone()));
             assert_eq!(again, golden, "{sheet} {window}");
-            let values = view_text_values(&book, &w, &Drafted(draft.values.clone()));
+            let values = view_text_values(&book, &w, &Drafted(draft.values().clone()));
             assert_eq!(
                 values,
                 less_formulas(&golden),
@@ -15051,6 +15197,632 @@ mod tests {
                 "(style \"S\" \"B2\" 13)",
             ],
             "{record}"
+        );
+    }
+
+    // ---- KERNEL.72: a save's shape ----
+
+    /// A window's fills on a sheet, each sheet's after a frame.
+    fn fills_of(m: &Machine, sheet: &str, window: Option<&str>) -> String {
+        match m.view("fills", sheet, window) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// A machine's save: every sheet's fills, one record after another.
+    fn saved(m: &Machine) -> String {
+        (0..m.sheets())
+            .filter_map(|i| m.sheet_name(i))
+            .map(|name| fills_of(m, name, None))
+            .collect()
+    }
+
+    #[test]
+    fn the_fills_print_each_kind_of_row_over_what_it_says_alike() {
+        // KERNEL.72, a record to the byte: the sheet's own row and its head;
+        // the formulas as the walk meets them; a value over each rectangle of
+        // it; each formula's value over a range, one value where they are
+        // alike; a format over each rectangle, none for format 0; a sentence
+        // at its cell; and no `text` row, whose format here holds a code.
+        let mut m = load(concat!(
+            "(sheet \"Other\" hidden)\n",
+            "(sheet \"S\" visible)\n",
+            "(format 1 none \"0.00\" nowrap)\n",
+            "(format 2 \"FFE699\" general nowrap)\n",
+            "(cell \"S\" \"A1:A3\" 2)\n",
+            "(cell \"S\" \"B1\" \"x\")\n",
+            "(cell \"S\" \"A4\" 2)\n",
+            "(formula \"S\" \"C1:D4\" \"=$A1*2\")\n",
+            "(formula \"S\" \"E1\" \"=C1+1\")\n",
+            "(formula \"S\" \"F1:F2\" \"=ROW()\")\n",
+            "(style \"S\" \"A1:A4\" 1)\n",
+            "(style \"S\" \"C1:D2\" 2)\n",
+            "(style \"S\" \"C3\" 2)\n(style \"S\" \"D3\" 2)\n(style \"S\" \"C4:D4\" 2)\n",
+            "(style \"S\" \"B1\" 0)\n",
+            "(sentence \"S\" \"B1\" 7)\n",
+        ));
+        assert!(m.step(0).done);
+        assert_eq!(
+            fills_of(&m, "S", None),
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(window \"S\" \"A1:F4\")\n",
+                "(extent \"S\" \"A1:F4\")\n",
+                "(gridlines \"S\" on)\n",
+                "(format 0 none general nowrap)\n",
+                "(format 1 none \"0.00\" nowrap)\n",
+                "(format 2 \"FFE699\" general nowrap)\n",
+                "(formula \"S\" \"C1:D4\" \"=$A1*2\")\n",
+                "(formula \"S\" \"E1\" \"=C1+1\")\n",
+                "(formula \"S\" \"F1:F2\" \"=ROW()\")\n",
+                "(cell \"S\" \"A1:A4\" 2)\n",
+                "(cell \"S\" \"B1\" \"x\")\n",
+                "(value \"S\" \"C1:F1\" 4 4 5 1)\n",
+                "(value \"S\" \"C2:D4\" 4)\n",
+                "(value \"S\" \"F2\" 2)\n",
+                "(style \"S\" \"A1:A4\" 1)\n",
+                "(style \"S\" \"C1:D4\" 2)\n",
+                "(sentence \"S\" \"B1\" 7)\n",
+            )
+        );
+        assert_eq!(
+            fills_of(&m, "Other", None),
+            concat!(
+                "(sheet \"Other\" hidden)\n",
+                "(window \"Other\" \"A1\")\n",
+                "(extent \"Other\" none)\n",
+                "(gridlines \"Other\" on)\n",
+                "(format 0 none general nowrap)\n",
+            )
+        );
+        // A window cuts every rectangle it meets.
+        let cut = fills_of(&m, "S", Some("A2:C3"));
+        let rows: Vec<&str> = cut.lines().skip(5).collect();
+        assert_eq!(
+            rows,
+            [
+                "(format 1 none \"0.00\" nowrap)",
+                "(format 2 \"FFE699\" general nowrap)",
+                "(formula \"S\" \"C2:C3\" \"=$A2*2\")",
+                "(cell \"S\" \"A2:A3\" 2)",
+                "(value \"S\" \"C2:C3\" 4)",
+                "(style \"S\" \"A2:A3\" 1)",
+                "(style \"S\" \"C2:C3\" 2)",
+            ],
+            "{cut}"
+        );
+    }
+
+    #[test]
+    fn the_fills_say_a_formula_s_values_by_runs_and_in_their_order() {
+        // KERNEL.72: along a row, a run of 32 cells or more of one value is a
+        // row of its own, and what stands beside it the values in their order;
+        // rectangles of a run's, and of a stretch's in rows that follow one
+        // another, made one; a text, an error, a truth value and a label among
+        // the values; and at most 4,096 values a row.
+        let mut m = load(concat!(
+            "(formula \"R\" \"A1:AO1\" \"=IF(COLUMN()<4,COLUMN(),0)\")\n",
+            "(formula \"R\" \"A2:AO3\" \"=0\")\n",
+            "(formula \"T\" \"A1:B3\" \"=ROW()*COLUMN()\")\n",
+            "(formula \"M\" \"A1\" \"=\\\"a\\\"\")\n",
+            "(formula \"M\" \"B1\" \"=1/0\")\n",
+            "(formula \"M\" \"C1\" \"=TRUE\")\n",
+            "(formula \"M\" \"D1\" \"=3\")\n",
+            "(formula \"M\" \"E1\" \"=LABEL(A1:B1)\")\n",
+            "(formula \"W\" \"A1:FUZ1\" \"=COLUMN()\")\n",
+            "(formula \"H\" \"A1:A4100\" \"=ROW()\")\n",
+            // A run of 32 between two others, and of 31.
+            "(formula \"P\" \"A1:AH1\" \"=IF(COLUMN()=1,1,IF(COLUMN()=34,2,0))\")\n",
+            "(formula \"Q\" \"A1:AG1\" \"=IF(COLUMN()=1,1,IF(COLUMN()=33,2,0))\")\n",
+        ));
+        assert!(m.step(0).done);
+        let values = |sheet: &str| -> Vec<String> {
+            fills_of(&m, sheet, None)
+                .lines()
+                .filter(|l| l.starts_with("(value "))
+                .map(String::from)
+                .collect()
+        };
+        assert_eq!(
+            values("R"),
+            [
+                "(value \"R\" \"A1:C1\" 1 2 3)",
+                "(value \"R\" \"D1:AO1\" 0)",
+                "(value \"R\" \"A2:AO3\" 0)",
+            ]
+        );
+        assert_eq!(values("T"), ["(value \"T\" \"A1:B3\" 1 2 2 4 3 6)"]);
+        assert_eq!(
+            values("P"),
+            [
+                "(value \"P\" \"A1\" 1)",
+                "(value \"P\" \"B1:AG1\" 0)",
+                "(value \"P\" \"AH1\" 2)",
+            ]
+        );
+        let zeros = vec!["0"; 31].join(" ");
+        assert_eq!(
+            values("Q"),
+            [format!("(value \"Q\" \"A1:AG1\" 1 {zeros} 2)")]
+        );
+        assert_eq!(
+            values("M"),
+            ["(value \"M\" \"A1:E1\" \"a\" (error \"#DIV/0!\") true 3 (not-computed \"A1:B1\"))"]
+        );
+        // 4,200 columns and 4,100 rows, each cut at 4,096 values.
+        let wide = values("W");
+        assert_eq!(wide.len(), 2);
+        assert!(
+            wide[0].starts_with("(value \"W\" \"A1:FAN1\" 1 2 3 "),
+            "{}",
+            wide[0]
+        );
+        assert!(
+            wide[1].starts_with("(value \"W\" \"FAO1:FUZ1\" 4097 "),
+            "{}",
+            wide[1]
+        );
+        let tall = values("H");
+        assert_eq!(tall.len(), 2);
+        assert!(
+            tall[0].starts_with("(value \"H\" \"A1:A4096\" 1 2 3 "),
+            "{}",
+            tall[0]
+        );
+        assert!(
+            tall[1].starts_with("(value \"H\" \"A4097:A4100\" 4097 "),
+            "{}",
+            tall[1]
+        );
+        for row in wide.iter().chain(tall.iter()) {
+            assert!(row.split(' ').count() <= 3 + 4096, "{row}");
+        }
+        // And they load as the grid.
+        let again = load(&saved(&m));
+        assert_eq!(saved(&again), saved(&m));
+        for sheet in ["R", "T", "M", "W", "H", "P", "Q"] {
+            assert_eq!(grid(&again, sheet, None), grid(&m, sheet, None), "{sheet}");
+        }
+    }
+
+    #[test]
+    fn a_format_over_a_range_saved_and_loaded_is_held_as_its_rectangle() {
+        // KERNEL.72, KERNEL.67's first finding: one format over a range prints
+        // one row, and a grid loaded from it holds one rectangle, as the row it
+        // was first written by left it. A grid loaded from a format a cell, a
+        // save as it was, prints the same row at its next save, and a grid
+        // loaded from that holds one rectangle where the grid before it held a
+        // format a cell.
+        let sheet = A1Range {
+            top: 1,
+            left: 1,
+            bottom: MAX_ROW,
+            right: MAX_COLUMN,
+        };
+        let held = |m: &Machine| -> Vec<(A1Range, u32)> {
+            m.book.pages[0].styles.meeting(sheet).collect()
+        };
+        let field = parse_a1_range("A1:AD40").unwrap();
+        let written = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"B1:AD1\" 2)\n",
+            "(formula \"S\" \"A2:AD40\" \"=A1+1\")\n",
+            "(format 13 none general nowrap (border (right thin \"D9D9D2\")))\n",
+        );
+        let one = load(&format!("{written}(style \"S\" \"A1:AD40\" 13)\n"));
+        let row = "(style \"S\" \"A1:AD40\" 13)";
+        let printed = saved(&one);
+        assert_eq!(
+            printed.lines().filter(|l| l.starts_with("(style ")).count(),
+            1
+        );
+        assert!(printed.contains(row), "{printed}");
+        assert_eq!(held(&load(&printed)), vec![(field, 13)]);
+        let mut by_cell = String::from(written);
+        for row in 1..=40 {
+            for col in 1..=30 {
+                by_cell.push_str(&format!("(style \"S\" \"{}\" 13)\n", cell_ref(row, col)));
+            }
+        }
+        let cells = load(&by_cell);
+        assert_eq!(held(&cells).len(), 1200);
+        assert_eq!(
+            saved(&cells),
+            printed,
+            "a format a cell prints the same row"
+        );
+        assert_eq!(held(&load(&saved(&cells))), vec![(field, 13)]);
+    }
+
+    #[test]
+    fn a_save_as_it_was_printed_still_loads() {
+        // KERNEL.72: a save of two sheets as 0.12.0 printed it, every sheet named
+        // in each record, its twins among them, one `value`, `text` and `style`
+        // row a cell. It loads as the grid it was, prints the fills' shape at
+        // its next save, and a cell said twice is refused as it was.
+        let printed = concat!(
+            "(sheet \"S\" visible)\n",
+            "(sheet \"T\" hidden)\n",
+            "(sheet \"S.last\" hidden)\n",
+            "(sheet \"T.last\" hidden)\n",
+            "(window \"S\" \"A1:B2\")\n",
+            "(extent \"S\" \"A1:B2\")\n",
+            "(gridlines \"S\" on)\n",
+            "(format 0 none general nowrap)\n",
+            "(format 1 none \"0.00\" nowrap)\n",
+            "(cell \"S\" \"A1\" 2)\n",
+            "(text \"S\" \"A1\" \"2.00\")\n",
+            "(style \"S\" \"A1\" 1)\n",
+            "(sentence \"S\" \"A1\" 3)\n",
+            "(formula \"S\" \"B1:B2\" \"=$A$1*2\")\n",
+            "(value \"S\" \"B1\" 4)\n",
+            "(text \"S\" \"B1\" \"4.00\")\n",
+            "(style \"S\" \"B1\" 1)\n",
+            "(cell \"S\" \"A2\" 2)\n",
+            "(text \"S\" \"A2\" \"2.00\")\n",
+            "(style \"S\" \"A2\" 1)\n",
+            "(value \"S\" \"B2\" 4)\n",
+            "(text \"S\" \"B2\" \"4.00\")\n",
+            "(style \"S\" \"B2\" 1)\n",
+            "(sheet \"S\" visible)\n",
+            "(sheet \"T\" hidden)\n",
+            "(sheet \"S.last\" hidden)\n",
+            "(sheet \"T.last\" hidden)\n",
+            "(window \"T\" \"A1\")\n",
+            "(extent \"T\" none)\n",
+            "(gridlines \"T\" on)\n",
+            "(format 0 none general nowrap)\n",
+        );
+        let m = load(printed);
+        assert_eq!(m.sheet_name(1), Some("T"));
+        assert_eq!(number(&m, "S", "B2"), 4.0);
+        assert!(
+            grid(&m, "S", None).contains("(text \"S\" \"A1\" \"2.00\")"),
+            "the view makes the text again"
+        );
+        assert_eq!(
+            fills_of(&m, "S", None),
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(window \"S\" \"A1:B2\")\n",
+                "(extent \"S\" \"A1:B2\")\n",
+                "(gridlines \"S\" on)\n",
+                "(format 0 none general nowrap)\n",
+                "(format 1 none \"0.00\" nowrap)\n",
+                "(formula \"S\" \"B1:B2\" \"=$A$1*2\")\n",
+                "(cell \"S\" \"A1:A2\" 2)\n",
+                "(value \"S\" \"B1:B2\" 4)\n",
+                "(style \"S\" \"A1:B2\" 1)\n",
+                "(sentence \"S\" \"A1\" 3)\n",
+            )
+        );
+        let twice = format!("{printed}(value \"S\" \"b2\" 5)\n");
+        let e = Machine::load(&twice, library::language()).unwrap_err();
+        let line = printed.lines().count() as u32 + 1;
+        assert_eq!(
+            (e.refusal.id.as_str(), e.line),
+            ("grid-cell-written-twice", line)
+        );
+        assert!(
+            e.refusal.text.contains("(value \"S\" \"b2\")"),
+            "{}",
+            e.refusal.text
+        );
+        assert!(e.refusal.text.contains(" line 21"), "{}", e.refusal.text);
+    }
+
+    #[test]
+    fn a_reading_s_refusal_comes_before_any_row_s() {
+        // KERNEL.72: the whole text is read through before its first row, so
+        // that a row wrong on line 1 and a parenthesis wrong on line 3 is
+        // refused for the parenthesis, at no line, as a read of every form first
+        // refused it.
+        let text = "(nonsense)\n(cell \"S\" \"A1\" 1)\n(";
+        let e = Machine::load(text, library::language()).unwrap_err();
+        assert_eq!(
+            (e.refusal.id.as_str(), e.line),
+            ("vla-unbalanced-parens", 0),
+            "{}",
+            e.refusal.text
+        );
+        let e =
+            Machine::load("(nonsense)\n(cell \"S\" \"A1\" 1)\n", library::language()).unwrap_err();
+        assert_eq!((e.refusal.id.as_str(), e.line), ("grid-row-unknown", 1));
+    }
+
+    #[test]
+    fn a_value_row_says_of_formulas_alone() {
+        // KERNEL.72: a value cell in a `value` row's range is refused whichever
+        // way its cells are counted, the cells alone fewer than the range's rows
+        // or not, and two formulas alone the row spans are taken.
+        for rows in [
+            "(cell \"S\" \"A1\" 1)\n(value \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"A1\" 1)\n(formula \"S\" \"B1\" \"=1\")\n(value \"S\" \"A1:B1\" 1 2)\n",
+            "(cell \"S\" \"A1\" 1)\n(formula \"S\" \"A2:A5\" \"=1\")\n(value \"S\" \"A1:A5\" 1)\n",
+            "(formula \"S\" \"A2:A5\" \"=1\")\n(value \"S\" \"A1:A5\" 1)\n",
+        ] {
+            let e = Machine::load(rows, library::language()).unwrap_err();
+            assert_eq!(e.refusal.id, "grid-row-malformed", "{rows}");
+            assert_eq!(e.line as usize, rows.lines().count(), "{rows}");
+        }
+        let m = load("(formula \"S\" \"A1\" \"=1\")\n(formula \"S\" \"B1\" \"=2\")\n(value \"S\" \"A1:B1\" 7 8)\n");
+        assert_eq!((number(&m, "S", "A1"), number(&m, "S", "B1")), (7.0, 8.0));
+    }
+
+    #[test]
+    fn a_rule_s_rows_stand_where_a_load_needs_them_in_the_fills() {
+        // KERNEL.72 beside KERNEL.58: the conditional format among the head's
+        // rows, its format among the head's, and each lit cell's row after the
+        // cells' own, a cell holding nothing among them; and they load as the
+        // grid, the rule's answers as they were.
+        let mut m = load(concat!(
+            "(format 1 \"FFE699\" general nowrap)\n",
+            "(cell \"S\" \"A1:A2\" 2)\n",
+            "(conditional \"S\" 1 \"A1:B1\" \"=A1=A1\" 1)\n",
+            "(sentence \"S\" \"A1\" 3)\n",
+        ));
+        assert!(m.step(0).done);
+        let text = fills_of(&m, "S", None);
+        assert_eq!(
+            text,
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(window \"S\" \"A1:A2\")\n",
+                "(extent \"S\" \"A1:A2\")\n",
+                "(gridlines \"S\" on)\n",
+                "(format 0 none general nowrap)\n",
+                "(format 1 \"FFE699\" general nowrap)\n",
+                "(conditional \"S\" 1 \"A1:B1\" \"=A1=A1\" 1)\n",
+                "(cell \"S\" \"A1:A2\" 2)\n",
+                "(lit \"S\" \"A1\" 1)\n",
+                "(sentence \"S\" \"A1\" 3)\n",
+            )
+        );
+        let again = load(&saved(&m));
+        assert_eq!(saved(&again), saved(&m));
+        assert_eq!(grid(&again, "S", None), grid(&m, "S", None));
+        let wide = fills_of(&m, "S", Some("A1:B1"));
+        assert!(
+            wide.contains("(lit \"S\" \"A1\" 1)\n(lit \"S\" \"B1\" 1)\n"),
+            "{wide}"
+        );
+    }
+
+    #[test]
+    fn a_value_row_leaves_what_an_engine_wrote_or_took_since() {
+        // KERNEL.72: a `value` row over a range, then a cell of it written and a
+        // cell of it taken by an engine between the two calls, as Alonzo's own
+        // sheets are: the value written stands, the cell taken holds nothing,
+        // and the others hold what the row says. `Draft::values` answers the
+        // rows as they were read, as its table always has.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(formula \"S\" \"B1:D1\" \"=A1\")\n",
+            "(value \"S\" \"B1:D1\" 7 8 9)\n",
+        );
+        let mut draft = read_rows_each(each_form(rows).unwrap()).unwrap();
+        draft.put(0, 1, 3, Content::Number(5.0));
+        assert!(draft.take(0, 1, 4));
+        assert_eq!(draft.values().len(), 3);
+        assert_eq!(
+            draft.values().get(&(0, 1, 2)),
+            Some(&Computed::Value(Value::Number(7.0)))
+        );
+        let m = Machine::new(draft, library::language()).expect("a machine");
+        assert_eq!(number(&m, "S", "B1"), 7.0);
+        assert_eq!(at(&m, "S", "C1"), None, "a value cell now");
+        assert_eq!(at(&m, "S", "D1"), None);
+        let record = grid(&m, "S", None);
+        assert!(record.contains("(cell \"S\" \"C1\" 5)"), "{record}");
+        assert!(!record.contains("\"D1\""), "{record}");
+    }
+
+    #[test]
+    fn a_value_row_over_a_range_reads_and_refuses_as_the_rule_says_cell_by_cell() {
+        // KERNEL.72: `value` rows over cells and ranges of two sheets, whose
+        // rows 1 to 10 and columns A to H hold fills in bands, formulas alone,
+        // value cells and holes; one value, as many as the range's cells, or
+        // another count; of numbers, a text, a truth value, an error and the
+        // labels; overlapping, and now and then on a sheet no row made. Each
+        // load is held to the rule, written here cell by cell: the same refusal
+        // at the same line, naming the same cell and the same first line; or
+        // every value, by `Draft::values` and at the machine's every formula
+        // cell, whether a store is an array or a sparse sheet's.
+        let quoted = crate::rows::quoted;
+        let (mut taken, mut twice, mut malformed, mut sparse) = (0, 0, 0, 0);
+        let spelled = [
+            "0",
+            "-0",
+            "1.5",
+            "\"a\"",
+            "true",
+            "(error \"#N/A\")",
+            "(not-computed \"FACT\")",
+            "(not-computed cycle)",
+        ];
+        let read = |text: &str| -> Computed {
+            let forms = read_forms(&format!("(value \"S\" \"A1\" {text})")).unwrap();
+            let items = &forms[0].as_list().unwrap().items;
+            load::computed(&items[3]).expect("a value")
+        };
+        for seed in 1..=240u64 {
+            let mut d = Dice(seed ^ 0x7272);
+            let far = d.below(4) == 0;
+            // On even seeds every cell a formula and every count right, so that
+            // what a row meets is a row before it.
+            let clean = seed % 2 == 0;
+            let mut rows = String::from("(cell \"S\" \"J12\" 0)\n(cell \"T\" \"J12\" 0)\n");
+            if far {
+                rows.push_str("(cell \"S\" \"ZZ9000\" 0)\n");
+                sparse += 1;
+            }
+            let mut formulas: BTreeSet<CellId> = BTreeSet::new();
+            let cells = |x: &A1Range| -> Vec<(u32, u32)> {
+                (x.top..=x.bottom)
+                    .flat_map(|row| (x.left..=x.right).map(move |col| (row, col)))
+                    .collect()
+            };
+            for (si, name) in ["S", "T"].into_iter().enumerate() {
+                let mut top = 1;
+                while top <= 10 {
+                    let bottom = (top + d.below(3) as u32).min(10);
+                    let mut left = 1;
+                    while left <= 8 {
+                        let right = (left + d.below(4) as u32).min(8);
+                        let x = A1Range {
+                            top,
+                            left,
+                            bottom,
+                            right,
+                        };
+                        match d.below(if clean { 24 } else { 12 }) {
+                            0 if !clean => {}
+                            1 if !clean => rows.push_str(&format!(
+                                "(cell \"{name}\" \"{}\" {})\n",
+                                x.text(),
+                                d.below(9)
+                            )),
+                            _ => {
+                                formulas
+                                    .extend(cells(&x).into_iter().map(|(row, col)| (si, row, col)));
+                                rows.push_str(&format!(
+                                    "(formula \"{name}\" \"{}\" \"=$J$12+{}\")\n",
+                                    x.text(),
+                                    d.below(9)
+                                ));
+                            }
+                        }
+                        left = right + 1;
+                    }
+                    top = bottom + 1;
+                }
+            }
+            // Each value row: its line, its sheet's name and index, its range,
+            // its address as written and its values.
+            type SaidRow<'n> = (u32, &'n str, Option<usize>, A1Range, String, Vec<Computed>);
+            let mut said_rows: Vec<SaidRow> = Vec::new();
+            for _ in 0..(if clean {
+                3 + d.below(6)
+            } else {
+                1 + d.below(5)
+            }) {
+                let (name, si) = match d.below(if clean { 40 } else { 60 }) {
+                    0 if !clean => ("U", None),
+                    0..=20 => ("T", Some(1)),
+                    _ => ("S", Some(0)),
+                };
+                let (top, left) = (1 + d.below(10) as u32, 1 + d.below(8) as u32);
+                let (tall, wide) = match d.below(3) {
+                    0 => (0, 0),
+                    _ => (d.below(4) as u32, d.below(4) as u32),
+                };
+                let x = A1Range {
+                    top,
+                    left,
+                    bottom: (top + tall).min(10),
+                    right: (left + wide).min(8),
+                };
+                let count = match d.below(8) {
+                    0 if !clean => 2 + d.below(3),
+                    0..=3 => 1,
+                    _ => x.cells() as usize,
+                };
+                let texts: Vec<&str> = (0..count).map(|_| d.pick(&spelled)).collect();
+                let values: Vec<Computed> = texts.iter().map(|t| read(t)).collect();
+                // One cell by its address as a person might spell it.
+                let addr = match (x.cells(), d.below(4)) {
+                    (1, 0) => x.text().to_lowercase(),
+                    _ => x.text(),
+                };
+                let line = rows.lines().count() as u32 + 1;
+                rows.push_str(&format!(
+                    "(value \"{name}\" \"{addr}\" {})\n",
+                    texts.join(" ")
+                ));
+                said_rows.push((line, name, si, x, addr, values));
+            }
+            let forms = read_forms(&rows).unwrap();
+            let want = || -> Result<BTreeMap<CellId, Computed>, LineRefusal> {
+                let mut said: BTreeMap<CellId, (Computed, u32)> = BTreeMap::new();
+                for (line, name, si, x, addr, values) in &said_rows {
+                    let form = &forms[*line as usize - 1];
+                    let wrong = load::malformed(*line, form, "value");
+                    if values.len() != 1 && values.len() as u64 != x.cells() {
+                        return Err(wrong);
+                    }
+                    let Some(si) = *si else {
+                        return Err(wrong);
+                    };
+                    let places = cells(x);
+                    if places.iter().any(|&(r, c)| !formulas.contains(&(si, r, c))) {
+                        return Err(wrong);
+                    }
+                    for &(row, col) in &places {
+                        if let Some((_, first)) = said.get(&(si, row, col)) {
+                            let at = match x.cells() {
+                                1 => addr.clone(),
+                                _ => cell_ref(row, col),
+                            };
+                            let what = format!("(value {} {})", quoted(name), quoted(&at));
+                            return Err(load::twice(*line, &what, *first));
+                        }
+                    }
+                    for (k, &(row, col)) in places.iter().enumerate() {
+                        let value = values[if values.len() == 1 { 0 } else { k }].clone();
+                        said.insert((si, row, col), (value, *line));
+                    }
+                }
+                Ok(said.into_iter().map(|(id, (v, _))| (id, v)).collect())
+            };
+            let when = format!("seed {seed}\n{rows}");
+            let got = read_rows(&forms);
+            // The reader over forms one at a time reads as the reader over a slice.
+            let each = read_rows_each(each_form(&rows).unwrap());
+            assert_eq!(
+                each.as_ref().err(),
+                got.as_ref().err(),
+                "{when}: one at a time"
+            );
+            let (draft, want) = match (got, want()) {
+                (Err(e), Err(want)) => {
+                    assert_eq!(e, want, "{when}");
+                    match e.refusal.id.as_str() {
+                        "grid-cell-written-twice" => twice += 1,
+                        _ => malformed += 1,
+                    }
+                    continue;
+                }
+                (Ok(draft), Ok(want)) => (draft, want),
+                (got, want) => panic!("{when}: {:?} where {:?}", got.err(), want.err()),
+            };
+            taken += 1;
+            let by_cell: BTreeMap<CellId, Computed> = draft
+                .values()
+                .iter()
+                .map(|(&k, v)| (k, v.clone()))
+                .collect();
+            // By their spellings, which tell -0 from 0 where a comparison does not.
+            let spell = |m: &BTreeMap<CellId, Computed>| format!("{m:?}");
+            assert_eq!(spell(&by_cell), spell(&want), "{when}: Draft::values");
+            let m = Machine::new(draft, library::language())
+                .unwrap_or_else(|e| panic!("{when}: line {}: {}", e.line, e.refusal.text));
+            assert_eq!(m.stores[0].array().is_none(), far, "{when}: S's store");
+            for &id in &formulas {
+                assert_eq!(
+                    format!("{:?}", Values::computed(&m, id)),
+                    format!("{:?}", want.get(&id)),
+                    "{when}: {id:?}"
+                );
+            }
+            // What it says of each cell it prints again, and a load of that holds.
+            let again = load(&saved(&m));
+            assert_eq!(saved(&again), saved(&m), "{when}");
+        }
+        assert!(
+            taken > 40 && twice > 40 && malformed > 40 && sparse > 30,
+            "{taken} taken, {twice} twice, {malformed} malformed over {sparse} sparse sheets: too \
+             few for the law to hold over"
         );
     }
 

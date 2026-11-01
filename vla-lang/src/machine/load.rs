@@ -11,7 +11,10 @@
 //! The rows taken: `sheet`, `cell` and `formula` over a cell or a range (a
 //! value fills the range, a formula fills it as a shared formula, moved as
 //! Excel moves a filled formula), `value` after its formula (the formula's
-//! last value, never a second write), `name`, `gridlines`, `column`, `row`,
+//! last value, never a second write) or since KERNEL.72 over a range, every
+//! cell of it a formula, one value every cell's or as many as its cells, row
+//! by row, a save's spelling (`crate::view`), `name`, `gridlines`, `column`,
+//! `row`,
 //! `format`, `look`, `style` and `sentence`; a `format` row's number format
 //! is `general`, `text` or, since KERNEL.47, a code of Excel's in quotes,
 //! refused by `grid-format-code` naming what it holds that this version
@@ -40,13 +43,14 @@
 //! One write per cell (decision 23 of the page): a cell the rows write
 //! twice, by two rows or by a range and a row inside it, is refused naming
 //! both lines, at the first such cell in row-major order, found by the
-//! records' rectangles and never by a cell; a setting given twice, as a save repeats a sheet row and
-//! format 0 in every record it concatenates, is taken when it says the same
-//! thing and refused when it does not. A grid holds at most [`CELLS`] cells
-//! beside its twins, so that one range row cannot ask for the seventeen
-//! billion of Excel's sheet.
+//! records' rectangles and never by a cell; a setting given twice, as a save
+//! repeats format 0 in every record it concatenates, and until KERNEL.72 a
+//! sheet row, is taken when it says the same thing and refused when it does
+//! not. A grid holds at most [`CELLS`] cells beside its twins, so that one
+//! range row cannot ask for the seventeen billion of Excel's sheet.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::OnceLock;
 
 use crate::appearance::{self, Wrong};
 use crate::calc::{CellId, Computed, ErrorKind, Extent, Reason, Value};
@@ -95,8 +99,10 @@ pub struct Draft {
     pub(crate) rows: usize,
     pub(crate) styles: Styles,
     pub(crate) defined_names: Vec<(String, String)>,
-    /// Each formula cell's last value, from its `value` row.
-    pub(crate) values: HashMap<CellId, Computed>,
+    /// Each formula cell's last value by its cell, made from the `value` rows
+    /// the first time a caller asks ([`Draft::values`]), which a load never
+    /// does (KERNEL.72).
+    pub(crate) values: OnceLock<HashMap<CellId, Computed>>,
     /// How many cells the rows wrote.
     pub(crate) cells: usize,
 }
@@ -121,6 +127,8 @@ pub(crate) struct DraftSheet {
     rule_lines: BTreeMap<u32, u32>,
     /// Each `lit` row: the rules it says applied at a cell, and its line.
     lit: BTreeMap<(u32, u32), (Vec<u32>, u32)>,
+    /// Its `value` rows (KERNEL.72).
+    pub(crate) said: SaidRows,
 }
 
 /// A rule as a machine answers it (KERNEL.58): its priority, its answer sheet,
@@ -130,6 +138,88 @@ pub(crate) struct Answering {
     pub(crate) priority: u32,
     pub(crate) sheet: usize,
     pub(crate) stop: bool,
+}
+
+/// What a `value` row says of the formula cells of its range (KERNEL.72): one
+/// value, every cell's; or each cell's, row by row, kept as numbers where
+/// they all are, 8 bytes a cell where a value is 32.
+#[derive(Clone, Debug)]
+pub(crate) enum Said {
+    One(Computed),
+    Numbers(Vec<f64>),
+    Each(Vec<Computed>),
+}
+
+/// A sheet's `value` rows (KERNEL.72): each its range, its line and what it
+/// says, kept as a draft keeps its records, by rectangle or by place, so that
+/// a cell said twice is found by what its row's range meets, no cell of a
+/// range made, and no hashed entry a cell of a save.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SaidRows {
+    pub(crate) rows: Vec<(A1Range, u32, Said)>,
+    ranges: Rects,
+    ones: BTreeMap<(u32, u32), usize>,
+}
+
+impl SaidRows {
+    /// The first cell of a range, in row-major order, a row already says, and
+    /// that row's line.
+    fn first_said(&self, range: &A1Range) -> Option<((u32, u32), u32)> {
+        let (at, k) = first_in(&self.ranges, &self.ones, range)?;
+        Some((at, self.rows[k].1))
+    }
+
+    fn add(&mut self, range: A1Range, line: u32, said: Said) {
+        let k = self.rows.len();
+        if range.cells() == 1 {
+            self.ones.insert((range.top, range.left), k);
+        } else {
+            self.ranges.insert(range, k as u32);
+        }
+        self.rows.push((range, line, said));
+    }
+}
+
+/// The first cell of a range, in row-major order, among rectangles and cells
+/// alone that never overlap, and the record or row holding it: each rectangle
+/// meeting the range found by the rows they share, its first cell there the
+/// corner they share.
+fn first_in(
+    ranges: &Rects,
+    ones: &BTreeMap<(u32, u32), usize>,
+    range: &A1Range,
+) -> Option<((u32, u32), usize)> {
+    let mut first: Option<((u32, u32), usize)> = None;
+    let mut meet = |at: (u32, u32), k: usize| {
+        if !first.is_some_and(|(f, _)| at >= f) {
+            first = Some((at, k));
+        }
+    };
+    for (r, k) in ranges.meeting(*range) {
+        if let Some(shared) = overlap(&r, range) {
+            meet((shared.top, shared.left), k as usize);
+        }
+    }
+    // The cells written alone, by the rows the range spans where they are
+    // fewer than its rows, else row by row.
+    let rows = u64::from(range.bottom - range.top) + 1;
+    if (ones.len() as u64) < rows {
+        for (&(row, col), &k) in ones.range((range.top, 0)..=(range.bottom, u32::MAX)) {
+            if col >= range.left && col <= range.right {
+                meet((row, col), k);
+                break;
+            }
+        }
+    } else {
+        for row in range.top..=range.bottom {
+            let mut in_row = ones.range((row, range.left)..=(row, range.right));
+            if let Some((&at, &k)) = in_row.next() {
+                meet(at, k);
+                break;
+            }
+        }
+    }
+    first
 }
 
 /// One row's cells: their rectangle, the row's line, and what they hold.
@@ -204,6 +294,7 @@ impl DraftSheet {
             styles: CellStyles::default(),
             rule_lines: BTreeMap::new(),
             lit: BTreeMap::new(),
+            said: SaidRows::default(),
         }
     }
 
@@ -263,9 +354,23 @@ impl DraftSheet {
     /// it and the cells written alone among its rows, the records never
     /// overlapping, so that no cell of the range is looked up.
     fn covers(&self, range: &A1Range) -> bool {
+        self.held_in(range, &|_| true) == range.cells()
+    }
+
+    /// Whether every cell of a range holds a formula (KERNEL.72), counted as
+    /// [`DraftSheet::covers`] counts.
+    fn all_formulas(&self, range: &A1Range) -> bool {
+        self.held_in(range, &|r| matches!(r.what, What::Formula { .. })) == range.cells()
+    }
+
+    /// How many cells of a range the records `taken` lets by hold, the records
+    /// never overlapping.
+    fn held_in(&self, range: &A1Range, taken: &dyn Fn(&Record) -> bool) -> u64 {
+        let taken = |k: usize| self.records[k].as_ref().is_some_and(taken);
         let mut held: u64 = self
             .ranges
             .meeting(*range)
+            .filter(|&(_, k)| taken(k as usize))
             .filter_map(|(r, _)| overlap(&r, range))
             .map(|shared| shared.cells())
             .sum();
@@ -275,55 +380,25 @@ impl DraftSheet {
         held += if (self.ones.len() as u64) < rows {
             self.ones
                 .range((range.top, 0)..=(range.bottom, u32::MAX))
-                .filter(|(&(_, col), _)| col >= range.left && col <= range.right)
+                .filter(|(&(_, col), &k)| col >= range.left && col <= range.right && taken(k))
                 .count() as u64
         } else {
             (range.top..=range.bottom)
                 .map(|row| {
                     self.ones
                         .range((row, range.left)..=(row, range.right))
+                        .filter(|(_, &k)| taken(k))
                         .count() as u64
                 })
                 .sum()
         };
-        held == range.cells()
+        held
     }
 
     /// The first cell of a range, in row-major order, a record already
-    /// holds, and that record: each record meeting the range found by the
-    /// rows they share, its first cell there the corner they share.
+    /// holds, and that record.
     fn first_written(&self, range: &A1Range) -> Option<((u32, u32), usize)> {
-        let mut first: Option<((u32, u32), usize)> = None;
-        let mut meet = |at: (u32, u32), k: usize| {
-            if !first.is_some_and(|(f, _)| at >= f) {
-                first = Some((at, k));
-            }
-        };
-        for (r, k) in self.ranges.meeting(*range) {
-            if let Some(shared) = overlap(&r, range) {
-                meet((shared.top, shared.left), k as usize);
-            }
-        }
-        // The cells written alone, by the rows the range spans where they are
-        // fewer than its rows, else row by row.
-        let rows = u64::from(range.bottom - range.top) + 1;
-        if (self.ones.len() as u64) < rows {
-            for (&(row, col), &k) in self.ones.range((range.top, 0)..=(range.bottom, u32::MAX)) {
-                if col >= range.left && col <= range.right {
-                    meet((row, col), k);
-                    break;
-                }
-            }
-        } else {
-            for row in range.top..=range.bottom {
-                let mut in_row = self.ones.range((row, range.left)..=(row, range.right));
-                if let Some((&at, &k)) = in_row.next() {
-                    meet(at, k);
-                    break;
-                }
-            }
-        }
-        first
+        first_in(&self.ranges, &self.ones, range)
     }
 
     /// The cell's content as the draft holds it.
@@ -455,7 +530,7 @@ impl Draft {
             rows: 0,
             styles: Styles::new(),
             defined_names: Vec::new(),
-            values: HashMap::new(),
+            values: OnceLock::new(),
             cells: 0,
         }
     }
@@ -582,9 +657,29 @@ impl Draft {
         self.cells
     }
 
-    /// Each formula cell's last value, from its `value` row.
+    /// Each formula cell's last value, from its `value` row: made by its
+    /// cell the first time it is asked for (KERNEL.72).
     pub fn values(&self) -> &HashMap<CellId, Computed> {
-        &self.values
+        self.values.get_or_init(|| {
+            let mut out = HashMap::new();
+            for (si, s) in self.sheets.iter().enumerate() {
+                for (range, _, said) in &s.said.rows {
+                    let mut k = 0;
+                    for row in range.top..=range.bottom {
+                        for col in range.left..=range.right {
+                            let value = match said {
+                                Said::One(c) => c.clone(),
+                                Said::Numbers(n) => Computed::Value(Value::Number(n[k])),
+                                Said::Each(c) => c[k].clone(),
+                            };
+                            out.insert((si, row, col), value);
+                            k += 1;
+                        }
+                    }
+                }
+            }
+            out
+        })
     }
 
     /// The grid as a workbook, every cell of every record made, a formula
@@ -770,11 +865,20 @@ impl Draft {
             // Each rule a `lit` row names, by its priority, the rules being in
             // that order: a save of many rules and many lit cells is read in
             // the time of its rows.
-            for (&(row, col), (lit, _)) in &self.sheets[si].lit {
-                for priority in lit {
+            let lit = std::mem::take(&mut self.sheets[si].lit);
+            for ((row, col), (lit, line)) in lit {
+                for priority in &lit {
                     if let Ok(k) = mine.binary_search_by_key(priority, |a| a.priority) {
+                        let cell = A1Range {
+                            top: row,
+                            left: col,
+                            bottom: row,
+                            right: col,
+                        };
                         let answered = Computed::Value(Value::Number(1.0));
-                        self.values.insert((mine[k].sheet, row, col), answered);
+                        self.sheets[mine[k].sheet]
+                            .said
+                            .add(cell, line, Said::One(answered));
                     }
                 }
             }
@@ -945,7 +1049,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "formula" => "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") or (formula \"<sheet>\" \"<cell>\" \"=<text>\" dynamic)",
         "derived" => "(derived \"<sheet>\" \"<cell or range>\" <value>)",
         "value" => {
-            "(formula \"<sheet>\" \"<cell>\" \"=<text>\") (value \"<sheet>\" \"<cell>\" <value>)"
+            "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") (value \"<sheet>\" \"<cell or range>\" <value> ...)"
         }
         "name" => "(name \"<name>\" \"<refers-to>\")",
         "gridlines" => "(gridlines \"<sheet>\" on|off)",
@@ -1153,41 +1257,60 @@ struct Reader {
     /// `twice` refusal names (KERNEL.67).
     styled: Vec<(usize, A1Range, u32)>,
     sentences: HashMap<CellId, (u32, u32)>,
-    value_lines: HashMap<CellId, u32>,
 }
 
 /// The forms of a text of rows read into a draft, the inverse of the record:
 /// every row taken or skipped by name, or the first refusal with its line.
 /// Nothing is computed and no twin is made: that is `Machine::new`'s.
 pub fn read_rows(forms: &[Form]) -> Result<Draft, LineRefusal> {
-    let mut r = Reader {
-        draft: Draft::new(),
-        sheet_rows: HashMap::new(),
-        twin_rows: Vec::new(),
-        names: HashMap::new(),
-        gridlines: HashMap::new(),
-        columns: HashMap::new(),
-        row_settings: HashMap::new(),
-        formats: HashMap::new(),
-        looks: HashMap::new(),
-        styled: Vec::new(),
-        sentences: HashMap::new(),
-        value_lines: HashMap::new(),
-    };
+    let mut r = Reader::new();
     for form in forms {
         r.row(form)?;
     }
-    // A twin's declaration stands only beside the sheet it is the twin of.
-    for (name, line) in &r.twin_rows {
-        let base = twin_base(name).unwrap_or("");
-        if r.draft.find_sheet(base).is_none() {
-            return Err(bad_name(*line, name));
-        }
+    r.finish()
+}
+
+/// [`read_rows`] over forms made one at a time (KERNEL.72;
+/// [`crate::reader::each_form`]), each given up before the next is made, so
+/// that the read holds the draft and one row: [`super::Machine::load`]'s, and
+/// an engine's reading its rows between the two calls.
+pub fn read_rows_each(forms: impl IntoIterator<Item = Form>) -> Result<Draft, LineRefusal> {
+    let mut r = Reader::new();
+    for form in forms {
+        r.row(&form)?;
     }
-    Ok(r.draft)
+    r.finish()
 }
 
 impl Reader {
+    fn new() -> Reader {
+        Reader {
+            draft: Draft::new(),
+            sheet_rows: HashMap::new(),
+            twin_rows: Vec::new(),
+            names: HashMap::new(),
+            gridlines: HashMap::new(),
+            columns: HashMap::new(),
+            row_settings: HashMap::new(),
+            formats: HashMap::new(),
+            looks: HashMap::new(),
+            styled: Vec::new(),
+            sentences: HashMap::new(),
+        }
+    }
+
+    /// The rows all read: a twin's declaration stands only beside the sheet
+    /// it is the twin of.
+    fn finish(self) -> Result<Draft, LineRefusal> {
+        for (name, line) in &self.twin_rows {
+            let base = twin_base(name).unwrap_or("");
+            if self.draft.find_sheet(base).is_none() {
+                return Err(bad_name(*line, name));
+            }
+        }
+        Ok(self.draft)
+    }
+
     fn row(&mut self, form: &Form) -> Result<(), LineRefusal> {
         let Some((head, items, line)) = row_parts(form) else {
             let line = form.as_list().map(|l| l.line).unwrap_or(0);
@@ -1361,31 +1484,37 @@ impl Reader {
         Ok(())
     }
 
+    /// A `value` row: a formula's last value, or since KERNEL.72 a range's,
+    /// every cell of it a formula an earlier row wrote: one value, every
+    /// cell's, or as many as its cells, row by row. Each cell's value said
+    /// once, the first cell a row says again refused with the line of the row
+    /// that said it, spelled as the row spells it where the row names one cell.
     fn value(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
-        let [Form::Str(sheet), Form::Str(addr), v] = items else {
+        let [Form::Str(sheet), Form::Str(addr), values @ ..] = items else {
             return Err(malformed(line, form, "value"));
         };
-        let computed = computed(v).ok_or_else(|| malformed(line, form, "value"))?;
-        let Some(range) = parse_a1_range(addr).filter(|r| r.cells() == 1) else {
+        let said = said_of(values).ok_or_else(|| malformed(line, form, "value"))?;
+        let Some(range) =
+            parse_a1_range(addr).filter(|r| values.len() == 1 || values.len() as u64 == r.cells())
+        else {
             return Err(malformed(line, form, "value"));
         };
         let Some(si) = self.draft.find_sheet(sheet) else {
             return Err(malformed(line, form, "value"));
         };
-        let id = (si, range.top, range.left);
-        let is_formula = self
-            .draft
-            .content(si, range.top, range.left)
-            .is_some_and(|c| c.is_formula());
-        if !is_formula {
+        let s = &mut self.draft.sheets[si];
+        if !s.all_formulas(&range) {
             return Err(malformed(line, form, "value"));
         }
-        if let Some(first) = self.value_lines.get(&id) {
-            let what = format!("(value {} {})", quoted(sheet), quoted(addr));
-            return Err(twice(line, &what, *first));
+        if let Some(((row, col), first)) = s.said.first_said(&range) {
+            let at = match range.cells() {
+                1 => addr.clone(),
+                _ => cell_ref(row, col),
+            };
+            let what = format!("(value {} {})", quoted(sheet), quoted(&at));
+            return Err(twice(line, &what, first));
         }
-        self.value_lines.insert(id, line);
-        self.draft.values.insert(id, computed);
+        s.said.add(range, line, said);
         Ok(())
     }
 
@@ -1823,8 +1952,30 @@ impl Reader {
     }
 }
 
+/// What a `value` row's values say (KERNEL.72); `None` for no value, or for
+/// one that is neither a value nor a label.
+fn said_of(values: &[Form]) -> Option<Said> {
+    match values {
+        [] => None,
+        [one] => Some(Said::One(computed(one)?)),
+        many => {
+            let numbers: Option<Vec<f64>> = many
+                .iter()
+                .map(|f| match f {
+                    Form::Sym(s) => number(s),
+                    _ => None,
+                })
+                .collect();
+            Some(match numbers {
+                Some(numbers) => Said::Numbers(numbers),
+                None => Said::Each(many.iter().map(computed).collect::<Option<_>>()?),
+            })
+        }
+    }
+}
+
 /// A `value` row's value: a value, or the label of a formula not computed.
-fn computed(f: &Form) -> Option<Computed> {
+pub(crate) fn computed(f: &Form) -> Option<Computed> {
     if let Form::List(l) = f {
         match l.items.as_slice() {
             [Form::Sym(head), Form::Str(name)] if head == "not-computed" => {

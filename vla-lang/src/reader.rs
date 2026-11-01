@@ -17,6 +17,12 @@
 //! line N)` and ` for the list opened at vla line N`, or nothing at all when
 //! the line is the prelude's. The reference also maps lines spliced in by
 //! `(include ...)`; nothing here splices, so every line is the main file's.
+//!
+//! Beside them, [`each_form`] (KERNEL.72): the same forms of a whole text one
+//! at a time, no token kept, what a machine's load reads a save by, where
+//! [`read_forms`] holds the text four bytes a character, its tokens and its
+//! forms at once, many times the text at its peak. Nothing in the reference is
+//! its twin, and `each_form_reads_what_read_forms_reads` holds the two one.
 
 use crate::form::{Form, List};
 use crate::messages::{raise, Refusal};
@@ -232,6 +238,237 @@ pub fn read_forms_with_lines(text: &str) -> Result<Vec<(Form, u32)>, Refusal> {
         .collect())
 }
 
+/// One token as [`EachForm`] meets it: the text is lent, so that no token is
+/// kept and none is made for a form nobody asked for.
+enum Met<'a> {
+    Open,
+    Close,
+    /// A string literal's content as written, its escapes in it.
+    Literal(&'a str),
+    Word(&'a str),
+}
+
+/// The walk of a text, by byte (KERNEL.72): every delimiter is ASCII, which
+/// no byte of a longer UTF-8 character can be, so that it meets the tokens
+/// [`tokenize`] meets, by character, on the lines [`tokenize`] counts.
+#[derive(Clone, Debug)]
+struct Walk<'a> {
+    text: &'a str,
+    at: usize,
+    line: u32,
+}
+
+impl<'a> Walk<'a> {
+    /// The next token and the line it began on; `None` at the end of the text.
+    fn met(&mut self) -> Option<(Met<'a>, u32)> {
+        let b = self.text.as_bytes();
+        loop {
+            let c = *b.get(self.at)?;
+            match c {
+                b'\n' => {
+                    self.line += 1;
+                    self.at += 1;
+                }
+                b' ' | b'\t' | b'\r' => self.at += 1,
+                b';' => {
+                    while !matches!(b.get(self.at), None | Some(b'\r' | b'\n')) {
+                        self.at += 1;
+                    }
+                }
+                b'(' => {
+                    self.at += 1;
+                    return Some((Met::Open, self.line));
+                }
+                b')' => {
+                    self.at += 1;
+                    return Some((Met::Close, self.line));
+                }
+                b'"' => {
+                    let line = self.line;
+                    self.at += 1;
+                    let start = self.at;
+                    while let Some(&c) = b.get(self.at) {
+                        match c {
+                            b'"' => break,
+                            b'\\' if matches!(b.get(self.at + 1), Some(b'"' | b'\\')) => {
+                                self.at += 2;
+                            }
+                            b'\n' => {
+                                self.line += 1;
+                                self.at += 1;
+                            }
+                            _ => self.at += 1,
+                        }
+                    }
+                    let content = &self.text[start..self.at];
+                    // An unterminated string ends at the end of the text.
+                    self.at = (self.at + 1).min(b.len());
+                    return Some((Met::Literal(content), line));
+                }
+                _ => {
+                    let start = self.at;
+                    while !matches!(
+                        b.get(self.at),
+                        None | Some(b'(' | b')' | b' ' | b'\t' | b'\r' | b'\n' | b';' | b'"')
+                    ) {
+                        self.at += 1;
+                    }
+                    return Some((Met::Word(&self.text[start..self.at]), self.line));
+                }
+            }
+        }
+    }
+
+    /// The form that begins at a token already met, in a text [`each_form`]
+    /// has read through: nothing is left to refuse, and its lists nest no
+    /// deeper than the limit, so that this recursion is as shallow as
+    /// [`parse_form`]'s.
+    fn form(&mut self, met: Met<'_>, line: u32) -> Form {
+        match met {
+            Met::Open => {
+                let mut items = Vec::new();
+                while let Some((met, at)) = self.met() {
+                    if matches!(met, Met::Close) {
+                        break;
+                    }
+                    items.push(self.form(met, at));
+                }
+                Form::List(List::new(items, line))
+            }
+            Met::Literal(content) => Form::Str(unescaped(content)),
+            Met::Word(word) => Form::Sym(word.to_string()),
+            // Never met at a form's place in a text read through.
+            Met::Close => Form::List(List::new(Vec::new(), line)),
+        }
+    }
+}
+
+/// A string literal's content without its escapes: `\"` and `\\`, any other
+/// backslash standing.
+fn unescaped(content: &str) -> String {
+    if !content.contains('\\') {
+        return content.to_string();
+    }
+    let mut out = String::with_capacity(content.len());
+    let mut rest = content;
+    while let Some(k) = rest.find('\\') {
+        out.push_str(&rest[..k]);
+        let after = &rest[k + 1..];
+        if after.starts_with('"') || after.starts_with('\\') {
+            out.push_str(&after[..1]);
+            rest = &after[1..];
+        } else {
+            out.push('\\');
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The top-level forms of a text one at a time, each made when it is asked
+/// for and the caller's to give up (KERNEL.72): [`read_forms`]'s forms in its
+/// order, every list on its line, where that makes every form and every
+/// token of the text before the first is read, a text of a million rows many
+/// times its own size at the read's peak.
+#[derive(Clone, Debug)]
+pub struct EachForm<'a> {
+    walk: Walk<'a>,
+}
+
+/// A text's forms one at a time ([`EachForm`]), once the whole text has been
+/// read through and found to read: the refusal, if any, is [`read_forms`]'
+/// own, and no form or token is made to find it, so that a caller meets a
+/// refusal of the reading before anything a form says, as it does over
+/// [`read_forms`].
+pub fn each_form(text: &str) -> Result<EachForm<'_>, Refusal> {
+    let start = Walk {
+        text,
+        at: 0,
+        line: 1,
+    };
+    let mut walk = start.clone();
+    let mut open = [0u32; FORM_DEPTH_LIMIT as usize];
+    let mut depth = 0usize;
+    while let Some((met, line)) = walk.met() {
+        match met {
+            Met::Open => {
+                if depth == open.len() {
+                    return Err(raise(
+                        "vla-form-too-deep",
+                        &[
+                            ("limit", &FORM_DEPTH_LIMIT.to_string()),
+                            ("loc", &src_line_tag(line, 0)),
+                        ],
+                    ));
+                }
+                open[depth] = line;
+                depth += 1;
+            }
+            Met::Close => {
+                if depth == 0 {
+                    return Err(raise(
+                        "vla-unexpected-close-paren",
+                        &[("loc", &src_line_tag(line, 0))],
+                    ));
+                }
+                depth -= 1;
+            }
+            Met::Literal(_) | Met::Word(_) => {}
+        }
+    }
+    if depth > 0 {
+        return Err(raise(
+            "vla-unbalanced-parens",
+            &[("loc", &opened_at_tag(open[depth - 1], 0))],
+        ));
+    }
+    Ok(EachForm { walk: start })
+}
+
+impl<'a> EachForm<'a> {
+    /// Each form still to come that is a list headed by a word: its head and
+    /// the line it opened on, read from the text and no form made, so that a
+    /// caller who looks for a form by its head before reading the rest makes
+    /// no form twice.
+    pub fn heads(&self) -> impl Iterator<Item = (&'a str, u32)> {
+        let mut walk = self.walk.clone();
+        let mut depth = 0usize;
+        let mut opened = None;
+        std::iter::from_fn(move || {
+            while let Some((met, line)) = walk.met() {
+                let word = match met {
+                    Met::Open => {
+                        depth += 1;
+                        opened = (depth == 1).then_some(line);
+                        continue;
+                    }
+                    Met::Close => {
+                        depth = depth.saturating_sub(1);
+                        opened = None;
+                        continue;
+                    }
+                    Met::Word(word) => Some(word),
+                    Met::Literal(_) => None,
+                };
+                if let (Some(line), Some(word)) = (opened.take(), word) {
+                    return Some((word, line));
+                }
+            }
+            None
+        })
+    }
+}
+
+impl Iterator for EachForm<'_> {
+    type Item = Form;
+
+    fn next(&mut self) -> Option<Form> {
+        let (met, line) = self.walk.met()?;
+        Some(self.walk.form(met, line))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,6 +555,65 @@ mod tests {
             read_forms(&nest(100_000)).unwrap_err().id,
             "vla-form-too-deep"
         );
+    }
+
+    #[test]
+    fn each_form_refuses_a_text_before_its_first_form_as_read_forms_does() {
+        // KERNEL.72: the three refusals, their words and their lines, the first
+        // of them in the text; and no form is made before the whole text has
+        // been read through, so that a caller meets the last line's first.
+        for text in [
+            "(a\n(b",
+            "(a)\n)",
+            "(a)\n)\n(",
+            "(a\n\"open",
+            "(a) ; a comment\n(b ; a comment\n",
+        ] {
+            let e = each_form(text).unwrap_err();
+            let want = read_forms(text).unwrap_err();
+            assert_eq!((e.id, e.text), (want.id, want.text), "{text:?}");
+        }
+        let nest = |n: usize| format!("{}{}", "(".repeat(n), ")".repeat(n));
+        assert_eq!(each_form(&nest(64)).unwrap().count(), 1);
+        assert_eq!(each_form(&nest(65)).unwrap_err().id, "vla-form-too-deep");
+        assert_eq!(
+            each_form(&nest(100_000)).unwrap_err().id,
+            "vla-form-too-deep"
+        );
+    }
+
+    #[test]
+    fn each_form_gives_each_form_on_its_line_and_each_head_without_one() {
+        // KERNEL.72: a text of every token's kinds, its forms and their lists'
+        // lines read one at a time; what `heads` answers from any place in the
+        // walk, a list's first word and the line it opened on, and nothing for
+        // an atom, a list with no word first, or a list's own lists.
+        let text = "x\n(a\n \"two\nlines\" (b ; c)\n ) \"d\\\"e\"\n)\n( \"s\" t)\r\n(\nu (v))()";
+        let forms: Vec<Form> = each_form(text).unwrap().collect();
+        assert_eq!(forms, read_forms(text).unwrap());
+        let lines: Vec<u32> = forms
+            .iter()
+            .filter_map(|f| Some(f.as_list()?.line))
+            .collect();
+        assert_eq!(lines, [2, 7, 8, 9]);
+        let inner = forms[1].as_list().unwrap().items[2].as_list().unwrap().line;
+        assert_eq!(
+            inner, 4,
+            "a list inside a list, after a line feed in a string"
+        );
+        let mut each = each_form(text).unwrap();
+        let heads: Vec<(&str, u32)> = each.heads().collect();
+        assert_eq!(heads, [("a", 2), ("u", 8)]);
+        assert_eq!(each.next(), Some(Form::sym("x")));
+        assert_eq!(each.heads().next(), Some(("a", 2)));
+        each.next();
+        assert_eq!(
+            each.heads().next(),
+            Some(("u", 8)),
+            "from where the walk stands"
+        );
+        assert_eq!(each_form("").unwrap().count(), 0);
+        assert_eq!(each_form(" ; only a comment\n").unwrap().count(), 0);
     }
 
     const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");

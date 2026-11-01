@@ -37,9 +37,10 @@ of rows (scripts/recalc/bench/superposition.vla and life-x16.vla, and since
 KERNEL.67 superposition-styled.vla, loaded after superposition.vla's rows)
 under a counting allocator and times their loads: its rows join the block,
 the fixtures of rows' loads join the floors (formulas loaded a second, less
-the margin), and each fixture's bytes held and at the peak are the
-ceilings' new entry, exactly, a ceiling kept from the entry before where it
-stands lower (a heavier run is a finding, never a raised ceiling).
+the margin), and each fixture's bytes held and at the peak, and since
+KERNEL.72 its save's four, are the ceilings' new entry, exactly, a ceiling kept
+from the entry before where it stands lower (a heavier run is a finding, never a
+raised ceiling).
 
 WHAT IT DOES:
   1. builds the two runners, unless -NoBuild: cargo build --release -p
@@ -318,6 +319,11 @@ foreach ($r in $memoryRows) {
     $f = Get-Field $r 'Fixture'
     $ceilings.Add(("'{0} held' = {1}" -f $f, (Get-KeptCeiling "$f held" ([long](Get-Field $r 'Held')))))
     $ceilings.Add(("'{0} peak' = {1}" -f $f, (Get-KeptCeiling "$f peak" ([long](Get-Field $r 'Peak')))))
+    # A save's, and a load from it (KERNEL.72).
+    $ceilings.Add(("'{0} save' = {1}" -f $f, (Get-KeptCeiling "$f save" ([long](Get-Field $r 'Save')))))
+    $ceilings.Add(("'{0} save peak' = {1}" -f $f, (Get-KeptCeiling "$f save peak" ([long](Get-Field $r 'SavePeak')))))
+    $ceilings.Add(("'{0} saved held' = {1}" -f $f, (Get-KeptCeiling "$f saved held" ([long](Get-Field $r 'SavedHeld')))))
+    $ceilings.Add(("'{0} saved peak' = {1}" -f $f, (Get-KeptCeiling "$f saved peak" ([long](Get-Field $r 'SavedPeak')))))
 }
 $ceilingEntry = ("@{{ Date = '{0}'; Reason = ''; Ceilings = @{{ {1} }} }}" -f $today, ($ceilings -join '; '))
 $ceilingHistory = $committedCeilings + @($ceilingEntry)

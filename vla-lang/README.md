@@ -31,6 +31,8 @@ refused in the same words.
 
 - **Reads and prints VLA.** `reader::read_forms` takes a text to its forms,
   each a symbol, a string, a number or a list with the line it came from;
+  `reader::each_form` gives the same forms one at a time, for a text too long
+  to hold as forms, refusing what `read_forms` refuses before the first; and
   `printer::write_datum` and `printer::write_pretty` write a form back, as
   the add-in writes its goldens.
 - **Expands macros.** `expand::expand_text` takes a program's text and a
@@ -204,9 +206,12 @@ refused in the same words.
   same record with each formula's computed value after it. The second,
   `view::ValueGrid`, is the same record less its formula rows, the values a
   host draws every frame without moving every formula's text:
-  `view::view_text_values` prints it. The fifth, `view::FillGrid`, is the
-  record with each fill's formula row printed once over each of its
-  rectangles, what a save prints: `view::view_text_fills` prints it.
+  `view::view_text_values` prints it. The fifth, `view::FillGrid`, is what a
+  save prints, what the record says of each cell and no row a load does not
+  read: a fill's formula row once over each of its rectangles, a sheet's
+  formats and its value cells over theirs, a formula's values over ranges
+  (`(value "S" "A1:D1" 1 2 3 4)`, `(value "S" "A1:Z40" 0)`) and its own `sheet`
+  row alone: `view::view_text_fills` prints it.
 - **Computes the grid.** `calc::Calc::new` reads every formula off a
   `Workbook`, builds the dependency graph from the references and finds the
   order, naming every cycle; `Calc::step` evaluates the next cells of that
@@ -272,7 +277,8 @@ refused in the same words.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
-  inverse; `write` takes `cell`, `formula` and `derived` rows, all or none, a
+  inverse, one form at a time, so that a load peaks at about what it holds;
+  `write` takes `cell`, `formula` and `derived` rows, all or none, a
   `formula` row over one cell reading as Excel 365 reads the text typed where it
   ends in the word `dynamic`;
   `step` computes every formula in dependency order with a budget in cells,
@@ -282,9 +288,8 @@ refused in the same words.
   record with each formula's value, the values (the record less its formula
   rows, what a host draws), the changes (the values' rows of the cells the
   last frame changed, so that a host repaints those alone, or `whole` where
-  the machine cannot say), the fills (the record with each fill's formula
-  once over each of its rectangles, what a save prints and the load reads
-  as the fills), or the plane, a byte a cell. After each frame
+  the machine cannot say), the fills (what a save prints and the load reads
+  as the grid), or the plane, a byte a cell. After each frame
   `changed` says how many formula cells it changed the value of, to the
   bit, `changed_on` how many of them on a sheet and `reached` how many it
   computed, so that a host stepping a grid until a cascade settles stops
@@ -303,7 +308,8 @@ refused in the same words.
   into pieces by a write into part of it, and every value once, by place,
   nine bytes a cell, a twin keeping its own only where a formula reads it;
   `Machine::workbook` lends it as a workbook, and `load::Draft` holds the
-  rows as records between `read_rows` and `Machine::new`. `census` prints
+  rows as records between `read_rows`, or `read_rows_each` over `each_form`,
+  and `Machine::new`. `census` prints
   the plan as rows before a frame runs: each shape's cells, the levels of
   the order it spans, the runs it is computed in and the path each of its
   reads takes, so that a grid's cost is read ahead (`calc::Shapes::census`

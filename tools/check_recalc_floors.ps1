@@ -29,7 +29,11 @@ exactly, as ceilings that never rise, here and on every push. Since KERNEL.67
 a third fixture of rows adds to a twin's: superposition-styled.vla, one style
 row over Superposition's Field, loaded after superposition.vla's rows, and
 held within a constant of its twin's bytes, so that a style row over a range
-holds its rectangle and never a format a cell.
+holds its rectangle and never a format a cell. Since KERNEL.72 the runner prints
+each fixture's save after its frames, every sheet's fills, and loads it again,
+so that a grid's save stays small and loading it costs about what the grid
+holds: its text's bytes, the most its printing holds over the machine, and a
+load from it, held after the load and at the peak.
 
 WHAT IT HOLDS, from the baseline pasted below:
   - a date and two environment lines, each saying, as its instrument
@@ -74,10 +78,21 @@ WHAT IT HOLDS, from the baseline pasted below:
     with its time; and the three fixtures of rows as they stand, each one's
     SHA-256 over LF bytes the one measured;
   - a fixture of rows that adds to a twin's within 4,096 bytes of its twin's
-    after its load, after two frames and at the peak (KERNEL.67), in the
-    baseline's rows and in the memory runner's check mode alike;
+    after its load, after two frames and at the peak (KERNEL.67), and through
+    the round trip, in its save, printing it, after a load from it and at that
+    load's peak (KERNEL.72), in the baseline's rows and in the memory runner's
+    check mode alike;
+  - what a save costs (KERNEL.72), in the baseline's rows and in the memory
+    runner's check mode alike: a load from a save holds no more than the
+    machine that printed it; a save's printing peaks at no more than four times
+    its text; a fixture of rows, a machine's own fills, saves in at most 4 bytes
+    a formula cell, and a load from its save peaks within 4,096 bytes of what it
+    holds; a program's, a record a cell until the machine takes them, at no more
+    than four times. Each bound the rule of the item's title and no pinned
+    number: the ceilings hold those;
   - the ceilings, a dated history beside the floors', each fixture's bytes
-    held and at the peak: each entry's ceiling at most the entry before it
+    held and at the peak, and since KERNEL.72 its save's and a load from it:
+    each entry's ceiling at most the entry before it
     unless the entry gives its reason, a fixture's ceilings from the entry
     it joined on and every fixture's in the latest; each memory row's bytes
     at most the latest ceilings. A ceiling is the run's bytes exactly, with
@@ -194,17 +209,17 @@ $baseline = @(
     @{ Half = 'native'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '3A1D792702414449471A9ACF60E11D6E17B1F06716373A7B73ADD0FC519F08D1'; Rounds = 3; Load = 636.6; First = 11.40; Whole = 7.298; Edit = 9.236; Calc = 704.1; WholePerSecond = 19183601; EditsPerSecond = 108.3; SumBuilt = 51995036; SumEdited = 52005012; ClockMs = 0.187; ClockSpread = 5.8; ClockDrift = -0.1 }
     @{ Half = 'native'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'A16458EA427961F4F92A34B661E091715385692B8C6651844DD9C3E42F120AF6'; Rounds = 3; Load = 181.6; First = 7.43; Whole = 1.240; Edit = 3.944; Calc = 260.9; WholePerSecond = 49483954; EditsPerSecond = 253.6; SumBuilt = 12010000; SumEdited = 12030000; ClockMs = 0.178; ClockSpread = 6.2; ClockDrift = -4.5 }
     @{ Half = 'native'; Fixture = 'netlist'; Formulas = 20480; Sha256 = '1D707F4433CE055C8E7103BFFFFAAA8C4AB7F6502969CF6F45DC7AA74B902805'; Rounds = 3; Load = 279.0; First = 3.67; Whole = 1.621; Edit = 4.989; Calc = 75.3; WholePerSecond = 12638075; EditsPerSecond = 200.4; Type = 0.003; TypesPerSecond = 322580.6; Rewrite = 0.006; RewritesPerSecond = 175438.6; RewriteWrite = 30.746; RewriteWritesPerSecond = 32.5; SumBuilt = 8192; SumEdited = 12288; ClockMs = 0.180; ClockSpread = 6.2; ClockDrift = -3.4 }
-    # the memory rows (KERNEL.49), of the same run, its bytes the memory runner's check at KERNEL.58's third slice:
-    @{ Half = 'memory'; Fixture = 'column'; Formulas = 60000; Sha256 = '751885133C249C25C8C4BB3854877A72E6054B2E0945BB2C1931C3FF05D55E2E'; Rounds = 3; Load = 272.7; LoadPerSecond = 220009; LoadHeld = 10438452; Held = 10463956; Peak = 62909797; ClockMs = 0.182; ClockSpread = 0.8; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'chain'; Formulas = 39999; Sha256 = '72FA6E5DB80DF71796473E21B89432C598AD8719C473D8955B24B796417A8A5A'; Rounds = 3; Load = 177.2; LoadPerSecond = 225701; LoadHeld = 7031446; Held = 7064278; Peak = 37447954; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'A339D809DE2493BBA3A129FC3FC4A5AEC458A5A6F1B5FB590DB04D2CCB3F7348'; Rounds = 3; Load = 140.4; LoadPerSecond = 199512; LoadHeld = 4604155; Held = 4636987; Peak = 31769224; ClockMs = 0.182; ClockSpread = 0.5; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'life'; Formulas = 62964; Sha256 = 'C2B7AC34005AB88CFE2F4CE98FAC3C704CCF26E8AEED90BE221BF800D63F1716'; Rounds = 3; Load = 1627.9; LoadPerSecond = 38679; LoadHeld = 40489701; Held = 40624645; Peak = 283714012; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '5D25CCE0460063145619F43B64ED898BA6A073F5F83003D53B92B8D1C8C1619A'; Rounds = 3; Load = 722.9; LoadPerSecond = 193651; LoadHeld = 25957942; Held = 29487646; Peak = 155549356; ClockMs = 0.178; ClockSpread = 5.3; ClockDrift = -1.9 }
-    @{ Half = 'memory'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'B80A36C00F9445793B061A2CCAA2138F7B0FC407469A87EC6259F1A878C48D63'; Rounds = 3; Load = 220.7; LoadPerSecond = 278097; LoadHeld = 10143314; Held = 12209962; Peak = 41898892; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.3 }
-    @{ Half = 'memory'; Fixture = 'netlist'; Formulas = 20480; Sha256 = 'CD618419C5220021E55F9DDEE66699DDCBE9E384E2FFCC150A2C86FC56741C26'; Rounds = 3; Load = 342.6; LoadPerSecond = 59770; LoadHeld = 53186266; Held = 53186298; Peak = 85039276; ClockMs = 0.182; ClockSpread = 1.7; ClockDrift = 0.2 }
-    @{ Half = 'memory'; Fixture = 'superposition'; Formulas = 798731; Sha256 = '6A3AE552F614AC0CD5582D69ED0992E804032831798E92C0445EEFA478551B98'; Rounds = 3; Load = 12.3; LoadPerSecond = 64823117; LoadHeld = 10583312; Held = 10803600; Peak = 10804040; ClockMs = 0.182; ClockSpread = 0.7; ClockDrift = 0.1 }
-    @{ Half = 'memory'; Fixture = 'life-x16'; Formulas = 1019844; Sha256 = '7366BE8061601852C8447E246CA98E58D11DF699A965B659BB48826975ED001D'; Rounds = 3; Load = 14.4; LoadPerSecond = 70742424; LoadHeld = 18840036; Held = 18974980; Peak = 18974980; ClockMs = 0.182; ClockSpread = 0.1; ClockDrift = 0.1 }
-    @{ Half = 'memory'; Fixture = 'superposition-styled'; Formulas = 798731; Sha256 = '67097ADEFC12CFDB5A0C99F564A239AAF811FD7E6B0005CE1DED53AB411024B3'; Rounds = 3; Load = 11.7; LoadPerSecond = 67988679; LoadHeld = 10583832; Held = 10804120; Peak = 10804560; ClockMs = 0.182; ClockSpread = 1.9; ClockDrift = 0.2 }
+    # the memory rows (KERNEL.49), of the same run, their bytes the memory runner's check at KERNEL.72:
+    @{ Half = 'memory'; Fixture = 'column'; Formulas = 60000; Sha256 = '751885133C249C25C8C4BB3854877A72E6054B2E0945BB2C1931C3FF05D55E2E'; Rounds = 3; Load = 272.7; LoadPerSecond = 220009; LoadHeld = 10438452; Held = 10463956; Peak = 23110916; Save = 3261708; SavePeak = 9553164; SavedHeld = 10437445; SavedPeak = 23602317; ClockMs = 0.182; ClockSpread = 0.8; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'chain'; Formulas = 39999; Sha256 = '72FA6E5DB80DF71796473E21B89432C598AD8719C473D8955B24B796417A8A5A'; Rounds = 3; Load = 177.2; LoadPerSecond = 225701; LoadHeld = 7031446; Held = 7064278; Peak = 20219356; Save = 1963032; SavePeak = 5855654; SavedHeld = 7030439; SavedPeak = 20546575; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'sums'; Formulas = 28014; Sha256 = 'A339D809DE2493BBA3A129FC3FC4A5AEC458A5A6F1B5FB590DB04D2CCB3F7348'; Rounds = 3; Load = 140.4; LoadPerSecond = 199512; LoadHeld = 4604155; Held = 4636987; Peak = 11858469; Save = 1823353; SavePeak = 4969081; SavedHeld = 4603148; SavedPeak = 12086670; ClockMs = 0.182; ClockSpread = 0.5; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'life'; Formulas = 62964; Sha256 = 'C2B7AC34005AB88CFE2F4CE98FAC3C704CCF26E8AEED90BE221BF800D63F1716'; Rounds = 3; Load = 1627.9; LoadPerSecond = 38679; LoadHeld = 40489701; Held = 40624645; Peak = 53634545; Save = 32623420; SavePeak = 74173244; SavedHeld = 40488692; SavedPeak = 54175816; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'lookups'; Formulas = 140000; Sha256 = '5D25CCE0460063145619F43B64ED898BA6A073F5F83003D53B92B8D1C8C1619A'; Rounds = 3; Load = 722.9; LoadPerSecond = 193651; LoadHeld = 25957942; Held = 29487646; Peak = 74421446; Save = 8901488; SavePeak = 21484400; SavedHeld = 25956933; SavedPeak = 75556497; ClockMs = 0.178; ClockSpread = 5.3; ClockDrift = -1.9 }
+    @{ Half = 'memory'; Fixture = 'criteria'; Formulas = 61370; Sha256 = 'B80A36C00F9445793B061A2CCAA2138F7B0FC407469A87EC6259F1A878C48D63'; Rounds = 3; Load = 220.7; LoadPerSecond = 278097; LoadHeld = 10143314; Held = 12209962; Peak = 23344415; Save = 3372714; SavePeak = 9664170; SavedHeld = 10142305; SavedPeak = 23852392; ClockMs = 0.182; ClockSpread = 0.2; ClockDrift = 0.3 }
+    @{ Half = 'memory'; Fixture = 'netlist'; Formulas = 20480; Sha256 = 'CD618419C5220021E55F9DDEE66699DDCBE9E384E2FFCC150A2C86FC56741C26'; Rounds = 3; Load = 342.6; LoadPerSecond = 59770; LoadHeld = 53186266; Held = 53186298; Peak = 63014223; Save = 2530377; SavePeak = 6105357; SavedHeld = 53185253; SavedPeak = 60515836; ClockMs = 0.182; ClockSpread = 1.7; ClockDrift = 0.2 }
+    @{ Half = 'memory'; Fixture = 'superposition'; Formulas = 798731; Sha256 = '6A3AE552F614AC0CD5582D69ED0992E804032831798E92C0445EEFA478551B98'; Rounds = 3; Load = 12.3; LoadPerSecond = 64823117; LoadHeld = 10583312; Held = 10803600; Peak = 10804040; Save = 2372117; SavePeak = 4995415; SavedHeld = 10583312; SavedPeak = 10583376; ClockMs = 0.182; ClockSpread = 0.7; ClockDrift = 0.1 }
+    @{ Half = 'memory'; Fixture = 'life-x16'; Formulas = 1019844; Sha256 = '7366BE8061601852C8447E246CA98E58D11DF699A965B659BB48826975ED001D'; Rounds = 3; Load = 14.4; LoadPerSecond = 70742424; LoadHeld = 18840036; Held = 18974980; Peak = 18974980; Save = 2051565; SavePeak = 4189031; SavedHeld = 18840036; SavedPeak = 18840100; ClockMs = 0.182; ClockSpread = 0.1; ClockDrift = 0.1 }
+    @{ Half = 'memory'; Fixture = 'superposition-styled'; Formulas = 798731; Sha256 = '67097ADEFC12CFDB5A0C99F564A239AAF811FD7E6B0005CE1DED53AB411024B3'; Rounds = 3; Load = 11.7; LoadPerSecond = 67988679; LoadHeld = 10583832; Held = 10804120; Peak = 10804560; Save = 2372233; SavePeak = 4995647; SavedHeld = 10583832; SavedPeak = 10583896; ClockMs = 0.182; ClockSpread = 1.9; ClockDrift = 0.2 }
     # Excel's half, its flag first:
     @{ Half = 'excel-flag'; File = 'calcpr_built'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
     @{ Half = 'excel-flag'; File = 'calcpr_calcid'; C2 = 15; Saved = 'True'; Verdict = 'computed on opening' }
@@ -257,8 +272,9 @@ $floorHistory = @(
 # the entry before it: @{ Date = 'yyyy-mm-dd'; Reason = ''; Ceilings = @{
 # 'superposition held' = n; 'superposition peak' = n; ... } }, each fixture's
 # bytes held after its load and two frames, and its bytes at the peak, the
-# memory runner's exactly. An entry higher than the one before it in any
-# ceiling needs its Reason.
+# memory runner's exactly, and since KERNEL.72 its save's four, 'save', 'save
+# peak', 'saved held' and 'saved peak'. An entry higher than the one before it
+# in any ceiling needs its Reason.
 $ceilingHistory = @(
     @{ Date = '2026-10-21'; Reason = ''; Ceilings = @{ 'column held' = 29102875; 'column peak' = 62909797; 'chain held' = 15909993; 'chain peak' = 37447954; 'sums held' = 11888295; 'sums peak' = 31769224; 'life held' = 55883911; 'life peak' = 283714012; 'lookups held' = 77776017; 'lookups peak' = 155549356; 'criteria held' = 28977401; 'criteria peak' = 51926531; 'superposition held' = 320715071; 'superposition peak' = 338673647; 'life-x16 held' = 405270455; 'life-x16 peak' = 480767927 } },
     @{ Date = '2026-10-21'; Reason = ''; Ceilings = @{ 'column held' = 29102875; 'column peak' = 62909797; 'chain held' = 15909993; 'chain peak' = 37447954; 'sums held' = 11888295; 'sums peak' = 31769224; 'life held' = 55883911; 'life peak' = 283714012; 'lookups held' = 77776017; 'lookups peak' = 155549356; 'criteria held' = 28977401; 'criteria peak' = 51926531; 'netlist held' = 69154762; 'netlist peak' = 96352009; 'superposition held' = 320715071; 'superposition peak' = 338673647; 'life-x16 held' = 405270455; 'life-x16 peak' = 480767927 } },
@@ -272,7 +288,8 @@ $ceilingHistory = @(
     @{ Date = '2026-10-30'; Reason = 'KERNEL.67, at the owner''s word: a style row over a range held as its rectangle, a page''s formats a word where they were three, boxed and made at a sheet''s first format; held, every sheet and its twin 16 bytes fewer, a program of two sheets 64, Life 96, Life x16 192 and the board 512; at the peak the board and Life x16 as much, the criteria and the netlist 112 fewer, and the column, the chain, the sums, Life and the lookups the same, their peaks coming before the draft holds a sheet; the third fixture of rows joins 520 bytes over its twin at every point (docs/BETA_REARVIEW.md, KERNEL.67)'; Ceilings = @{ 'column held' = 10463916; 'column peak' = 62909797; 'chain held' = 7064238; 'chain peak' = 37447954; 'sums held' = 4636947; 'sums peak' = 31769224; 'life held' = 40624589; 'life peak' = 283714012; 'lookups held' = 29487606; 'lookups peak' = 155549356; 'criteria held' = 12209922; 'criteria peak' = 41898628; 'netlist held' = 53186080; 'netlist peak' = 85038164; 'superposition held' = 10803216; 'superposition peak' = 10803656; 'life-x16 held' = 18974876; 'life-x16 peak' = 18974876; 'superposition-styled held' = 10803736; 'superposition-styled peak' = 10804176 } },
     @{ Date = '2026-10-30'; Reason = 'KERNEL.58''s second slice, at the owner''s word: a format''s family a pointer in its table''s slot, a Style 64 bytes where 56, so every fixture''s bytes held and at the peak up by 8 a slot, Superposition''s 16 slots 128 and a fixture of one format 8; no frame or plan moves. The memory runner''s bytes, exact on every 64-bit machine; the rows'' timings stay the run''s of 2026-10-30.'; Ceilings = @{ 'column held' = 10463924; 'column peak' = 62909797; 'chain held' = 7064246; 'chain peak' = 37447954; 'sums held' = 4636955; 'sums peak' = 31769224; 'life held' = 40624597; 'life peak' = 283714012; 'lookups held' = 29487614; 'lookups peak' = 155549356; 'criteria held' = 12209930; 'criteria peak' = 41898644; 'netlist held' = 53186088; 'netlist peak' = 85038180; 'superposition held' = 10803344; 'superposition peak' = 10803784; 'life-x16 held' = 18974884; 'life-x16 peak' = 18974884; 'superposition-styled held' = 10803864; 'superposition-styled peak' = 10804304 } },
     @{ Date = '2026-11-01'; Reason = 'KERNEL.69, at the owner''s word: the netlist''s two ceilings alone, 178 bytes held and 848 at the peak, by the two comment lines its program gains, 130 characters carried with it into what the runner builds. Measured: the program before them over this code holds 53186088 and peaks at 85038180, the ceilings before, so that the code adds nothing, and no other fixture moved (docs/BETA_REARVIEW.md, KERNEL.69)'; Ceilings = @{ 'column held' = 10463924; 'column peak' = 62909797; 'chain held' = 7064246; 'chain peak' = 37447954; 'sums held' = 4636955; 'sums peak' = 31769224; 'life held' = 40624597; 'life peak' = 283714012; 'lookups held' = 29487614; 'lookups peak' = 155549356; 'criteria held' = 12209930; 'criteria peak' = 41898644; 'netlist held' = 53186266; 'netlist peak' = 85039028; 'superposition held' = 10803344; 'superposition peak' = 10803784; 'life-x16 held' = 18974884; 'life-x16 peak' = 18974884; 'superposition-styled held' = 10803864; 'superposition-styled peak' = 10804304 } },
-    @{ Date = '2026-11-01'; Reason = 'KERNEL.58''s third slice, at the owner''s word: a sheet''s conditional formats a word, boxed and made at its first, so every fixture''s bytes held up by 8 a sheet, twins among them, Superposition''s 32 sheets 256 and a program of two sheets 32, and the peaks of criteria and netlist, a load''s, up by 248, each draft sheet holding two maps more; a grid holding no rule moves no plan and no frame. The memory runner''s own bytes, exact on any 64-bit machine.'; Ceilings = @{ 'column held' = 10463956; 'column peak' = 62909797; 'chain held' = 7064278; 'chain peak' = 37447954; 'sums held' = 4636987; 'sums peak' = 31769224; 'life held' = 40624645; 'life peak' = 283714012; 'lookups held' = 29487646; 'lookups peak' = 155549356; 'criteria held' = 12209962; 'criteria peak' = 41898892; 'netlist held' = 53186298; 'netlist peak' = 85039276; 'superposition held' = 10803600; 'superposition peak' = 10804040; 'life-x16 held' = 18974980; 'life-x16 peak' = 18974980; 'superposition-styled held' = 10804120; 'superposition-styled peak' = 10804560 } }
+    @{ Date = '2026-11-01'; Reason = 'KERNEL.58''s third slice, at the owner''s word: a sheet''s conditional formats a word, boxed and made at its first, so every fixture''s bytes held up by 8 a sheet, twins among them, Superposition''s 32 sheets 256 and a program of two sheets 32, and the peaks of criteria and netlist, a load''s, up by 248, each draft sheet holding two maps more; a grid holding no rule moves no plan and no frame. The memory runner''s own bytes, exact on any 64-bit machine.'; Ceilings = @{ 'column held' = 10463956; 'column peak' = 62909797; 'chain held' = 7064278; 'chain peak' = 37447954; 'sums held' = 4636987; 'sums peak' = 31769224; 'life held' = 40624645; 'life peak' = 283714012; 'lookups held' = 29487646; 'lookups peak' = 155549356; 'criteria held' = 12209962; 'criteria peak' = 41898892; 'netlist held' = 53186298; 'netlist peak' = 85039276; 'superposition held' = 10803600; 'superposition peak' = 10804040; 'life-x16 held' = 18974980; 'life-x16 peak' = 18974980; 'superposition-styled held' = 10804120; 'superposition-styled peak' = 10804560 } },
+    @{ Date = '2026-11-01'; Reason = 'KERNEL.72, at the owner''s word: the save''s shape. A load reads its rows one form at a time and holds none past its row, so that the seven programs'' peaks fall, the read by forms gone from them, 283.7 MB to 53.6 for Life, 155.5 to 74.4 for the lookups, 62.9 to 23.1 for the column; no fixture''s bytes held move, and the fixtures of rows, whose peaks were the machine''s, stand. Each fixture''s save joins, its text''s bytes, the most its printing holds over the machine, and a load from it held and at the peak: Superposition''s 29.7 MB and 526.6 at the peak over `c1c03a1` are 2.4 and 10.6, and the styled board''s 36.7 and 573.5 stand within 4,096 bytes of its twin. The memory runner''s bytes, exact on every 64-bit machine; the rows'' timings stay the run''s of 2026-11-01.'; Ceilings = @{ 'column held' = 10463956; 'column peak' = 23110916; 'column save' = 3261708; 'column save peak' = 9553164; 'column saved held' = 10437445; 'column saved peak' = 23602317; 'chain held' = 7064278; 'chain peak' = 20219356; 'chain save' = 1963032; 'chain save peak' = 5855654; 'chain saved held' = 7030439; 'chain saved peak' = 20546575; 'sums held' = 4636987; 'sums peak' = 11858469; 'sums save' = 1823353; 'sums save peak' = 4969081; 'sums saved held' = 4603148; 'sums saved peak' = 12086670; 'life held' = 40624645; 'life peak' = 53634545; 'life save' = 32623420; 'life save peak' = 74173244; 'life saved held' = 40488692; 'life saved peak' = 54175816; 'lookups held' = 29487646; 'lookups peak' = 74421446; 'lookups save' = 8901488; 'lookups save peak' = 21484400; 'lookups saved held' = 25956933; 'lookups saved peak' = 75556497; 'criteria held' = 12209962; 'criteria peak' = 23344415; 'criteria save' = 3372714; 'criteria save peak' = 9664170; 'criteria saved held' = 10142305; 'criteria saved peak' = 23852392; 'netlist held' = 53186298; 'netlist peak' = 63014223; 'netlist save' = 2530377; 'netlist save peak' = 6105357; 'netlist saved held' = 53185253; 'netlist saved peak' = 60515836; 'superposition held' = 10803600; 'superposition peak' = 10804040; 'superposition save' = 2372117; 'superposition save peak' = 4995415; 'superposition saved held' = 10583312; 'superposition saved peak' = 10583376; 'life-x16 held' = 18974980; 'life-x16 peak' = 18974980; 'life-x16 save' = 2051565; 'life-x16 save peak' = 4189031; 'life-x16 saved held' = 18840036; 'life-x16 saved peak' = 18840100; 'superposition-styled held' = 10804120; 'superposition-styled peak' = 10804560; 'superposition-styled save' = 2372233; 'superposition-styled save peak' = 4995647; 'superposition-styled saved held' = 10583832; 'superposition-styled saved peak' = 10583896 } }
 )
 
 # --- the programs measured, each one's SHA-256 over LF bytes ---
@@ -309,7 +326,26 @@ $rowsFixtures = [ordered]@{
 # ceilings hold those exactly.
 $twins = [ordered]@{ 'superposition-styled' = 'superposition' }
 $twinBound = 4096
-$twinPoints = [ordered]@{ LoadHeld = 'after its load'; Held = 'after two frames'; Peak = 'at the peak' }
+$twinPoints = [ordered]@{ LoadHeld = 'after its load'; Held = 'after two frames'; Peak = 'at the peak'; Save = 'in its save'; SavePeak = 'printing its save'; SavedHeld = 'after a load from its save'; SavedPeak = 'at the peak of a load from its save' }
+# What a save costs (KERNEL.72), each the rule of the item's title and no pinned
+# number, the ceilings holding those. Measured 2026-11-01, where it stood before
+# the item: a fixture of rows' save 2.01 to 2.97 bytes a formula cell (27.3 to
+# 45.9); printing a save 2.04 to 2.98 times its text (1.85 to 3.92); a program's
+# load from its save 1.14 to 2.92 times what it holds (1.56 to 6.79); a fixture of
+# rows' load from its save 64 bytes over what it holds (516 MB over Superposition's).
+$saveBytesAFormula = 4
+$printingTimes = 4
+$savedPeakTimes = 4
+# The ceilings of a memory row: each ceiling's word, the row's field, and how a
+# line reads it.
+$ceilingFields = [ordered]@{
+    'held' = @('Held', 'bytes held')
+    'peak' = @('Peak', 'bytes at the peak')
+    'save' = @('Save', 'bytes in its save')
+    'save peak' = @('SavePeak', 'bytes over the machine, printing its save')
+    'saved held' = @('SavedHeld', 'bytes held after a load from its save')
+    'saved peak' = @('SavedPeak', 'bytes at the peak of a load from its save')
+}
 
 # --- the rules ---
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
@@ -476,6 +512,22 @@ function Test-Floors($date, $native, $excel, $rows, $history, $measured, $now) {
 
 # The memory half (KERNEL.49): its rows, the sources they weighed, and the
 # ceilings; the problems, one a line. The load floors are Test-Floors'.
+# What a save costs (KERNEL.72), of a memory row or a line of the memory
+# runner's check mode: each rule's words, where it does not hold.
+function Get-SaveProblems([string]$who, [string]$f, $s) {
+    $out = New-Object System.Collections.Generic.List[string]
+    if ([long]$s.Save -le 0 -or [long]$s.SavedHeld -le 0) { $out.Add("$who $($f): no save weighed") }
+    if ([long]$s.SavedPeak -lt [long]$s.SavedHeld) { $out.Add("$who $($f): a load from its save peaks at $($s.SavedPeak) bytes, under the $($s.SavedHeld) it holds") }
+    if ([long]$s.SavedHeld -gt [long]$s.Held) { $out.Add("$who $($f): a load from its save holds $($s.SavedHeld) bytes, more than the $($s.Held) the machine that printed it held") }
+    if ([long]$s.SavePeak -gt $printingTimes * [long]$s.Save) { $out.Add("$who $($f): printing its save of $($s.Save) bytes held $($s.SavePeak) over the machine, more than $printingTimes times its text") }
+    if ($rowsFixtures.Contains($f)) {
+        if ([long]$s.Save -gt $saveBytesAFormula * [long]$s.Formulas) { $out.Add("$who $($f): its save of $($s.Save) bytes is more than $saveBytesAFormula bytes a formula cell of its $($s.Formulas)") }
+        if ([long]$s.SavedPeak -gt [long]$s.SavedHeld + $twinBound) { $out.Add("$who $($f): a load from its save peaks at $($s.SavedPeak) bytes, more than $twinBound over the $($s.SavedHeld) it holds") }
+    }
+    elseif ([long]$s.SavedPeak -gt $savedPeakTimes * [long]$s.SavedHeld) { $out.Add("$who $($f): a load from its save peaks at $($s.SavedPeak) bytes, more than $savedPeakTimes times the $($s.SavedHeld) it holds") }
+    return $out.ToArray()
+}
+
 function Test-Memory($rows, $ceilings, $measured, $rowsMeasured, $rowsNow) {
     $problems = New-Object System.Collections.Generic.List[string]
     $rows = @($rows | Where-Object { $null -ne $_ })
@@ -495,6 +547,7 @@ function Test-Memory($rows, $ceilings, $measured, $rowsMeasured, $rowsNow) {
         if (-not (Test-Near ([double]$r.LoadPerSecond) ([double]$r.Formulas / ([double]$r.Load / 1000.0)))) { $problems.Add("memory $($f): $($r.LoadPerSecond) formulas loaded a second is not $($r.Formulas) formulas in $($r.Load) ms") }
         $pinned = if ($rowsMeasured.Contains($f)) { $rowsMeasured[$f] } elseif ($measured.Contains($f)) { $measured[$f] } else { '' }
         if ($r.Sha256 -ne $pinned) { $problems.Add("memory $($f): weighed $($r.Sha256), not the source pinned here, $pinned; measure it again") }
+        foreach ($p in @(Get-SaveProblems 'memory' $f $r)) { $problems.Add($p) }
     }
     # A fixture that adds to a twin's, within the bound of it (KERNEL.67).
     foreach ($f in $twins.Keys) {
@@ -515,7 +568,7 @@ function Test-Memory($rows, $ceilings, $measured, $rowsMeasured, $rowsNow) {
     $ceilings = @($ceilings | Where-Object { $null -ne $_ })
     if ($ceilings.Count -eq 0) { $problems.Add('the ceiling history is empty'); return $problems.ToArray() }
     $keys = New-Object System.Collections.Generic.List[string]
-    foreach ($f in $weighed) { $keys.Add("$f held"); $keys.Add("$f peak") }
+    foreach ($f in $weighed) { foreach ($what in $ceilingFields.Keys) { $keys.Add("$f $what") } }
     $joinedAt = @{}
     foreach ($k in $keys) {
         for ($j = 0; $j -lt $ceilings.Count; $j++) {
@@ -537,8 +590,10 @@ function Test-Memory($rows, $ceilings, $measured, $rowsMeasured, $rowsNow) {
     foreach ($f in $weighed) {
         if (-not $mem.ContainsKey($f)) { continue }
         $r = $mem[$f]
-        if ($latest.Ceilings.ContainsKey("$f held") -and [long]$r.Held -gt [long]$latest.Ceilings["$f held"]) { $problems.Add("memory $($f): $($r.Held) bytes held, over the ceiling of $($latest.Ceilings["$f held"])") }
-        if ($latest.Ceilings.ContainsKey("$f peak") -and [long]$r.Peak -gt [long]$latest.Ceilings["$f peak"]) { $problems.Add("memory $($f): $($r.Peak) bytes at the peak, over the ceiling of $($latest.Ceilings["$f peak"])") }
+        foreach ($what in $ceilingFields.Keys) {
+            $field = $ceilingFields[$what]
+            if ($latest.Ceilings.ContainsKey("$f $what") -and [long]$r[$field[0]] -gt [long]$latest.Ceilings["$f $what"]) { $problems.Add("memory $($f): $($r[$field[0]]) $($field[1]), over the ceiling of $($latest.Ceilings["$f $what"])") }
+        }
     }
     return $problems.ToArray()
 }
@@ -604,8 +659,8 @@ function Test-MemoryRunner([string[]]$lines, $rows, $ceilings) {
     $seen = @{}
     foreach ($l in $lines) {
         if ($l -match '^\(memory-failed ') { $problems.Add("the memory runner: $l") }
-        $m = [regex]::Match($l, '^\(memory-check "([a-z0-9-]+)" \(sha256 "([0-9A-F]{64})"\) \(formulas (\d+)\) \(load-held (\d+)\) \(held (\d+)\) \(peak (\d+)\)\)$')
-        if ($m.Success) { $seen[$m.Groups[1].Value] = @{ Sha256 = $m.Groups[2].Value; Formulas = [long]$m.Groups[3].Value; LoadHeld = [long]$m.Groups[4].Value; Held = [long]$m.Groups[5].Value; Peak = [long]$m.Groups[6].Value } }
+        $m = [regex]::Match($l, '^\(memory-check "([a-z0-9-]+)" \(sha256 "([0-9A-F]{64})"\) \(formulas (\d+)\) \(load-held (\d+)\) \(held (\d+)\) \(peak (\d+)\) \(save (\d+)\) \(save-peak (\d+)\) \(saved-held (\d+)\) \(saved-peak (\d+)\)\)$')
+        if ($m.Success) { $seen[$m.Groups[1].Value] = @{ Sha256 = $m.Groups[2].Value; Formulas = [long]$m.Groups[3].Value; LoadHeld = [long]$m.Groups[4].Value; Held = [long]$m.Groups[5].Value; Peak = [long]$m.Groups[6].Value; Save = [long]$m.Groups[7].Value; SavePeak = [long]$m.Groups[8].Value; SavedHeld = [long]$m.Groups[9].Value; SavedPeak = [long]$m.Groups[10].Value } }
     }
     if (-not ($lines -match ('^\(memory-check-done ' + $weighed.Count + '\)$'))) { $problems.Add("the memory runner did not finish its check mode over the $($weighed.Count) fixtures") }
     $ceilings = @($ceilings | Where-Object { $null -ne $_ })
@@ -616,14 +671,16 @@ function Test-MemoryRunner([string[]]$lines, $rows, $ceilings) {
         $n = @($rows | Where-Object { $null -ne $_ -and $_.Half -eq 'memory' -and $_.Fixture -eq $f })
         if ($n.Count -eq 1 -and [long]$n[0].Formulas -ne $s.Formulas) { $problems.Add("the memory runner: $f loads $($s.Formulas) formulas today where the baseline weighed $($n[0].Formulas)") }
         if ($n.Count -eq 1 -and $n[0].Sha256 -ne $s.Sha256) { $problems.Add("the memory runner: $f weighs $($s.Sha256) today, not the measured $($n[0].Sha256)") }
-        foreach ($what in @('held', 'peak')) {
+        foreach ($what in $ceilingFields.Keys) {
             $k = "$f $what"
             if (-not $latest.ContainsKey($k)) { continue }
-            $bytes = if ($what -eq 'held') { $s.Held } else { $s.Peak }
+            $field = $ceilingFields[$what]
+            $bytes = $s[$field[0]]
             $ceiling = [long]$latest[$k]
-            if ($bytes -gt $ceiling) { $problems.Add("the memory runner: $f $(if ($what -eq 'held') { 'holds' } else { 'peaks at' }) $bytes bytes today, over its ceiling of $ceiling") }
-            elseif ($bytes -lt $ceiling) { $info.Add(("  {0}: {1} bytes {2} today, {3} under its ceiling of {4}: a new entry may lower it" -f $f, $bytes, $(if ($what -eq 'held') { 'held' } else { 'at the peak' }), ($ceiling - $bytes), $ceiling)) }
+            if ($bytes -gt $ceiling) { $problems.Add("the memory runner: $f, $bytes $($field[1]) today, over its ceiling of $ceiling") }
+            elseif ($bytes -lt $ceiling) { $info.Add(("  {0}: {1} {2} today, {3} under its ceiling of {4}: a new entry may lower it" -f $f, $bytes, $field[1], ($ceiling - $bytes), $ceiling)) }
         }
+        foreach ($p in @(Get-SaveProblems 'the memory runner:' $f $s)) { $problems.Add($p) }
     }
     # A fixture that adds to a twin's, within the bound of it today (KERNEL.67).
     foreach ($f in $twins.Keys) {
@@ -775,12 +832,19 @@ if ($Control) {
         $ceilings = @{}
         foreach ($f in $weighed) {
             $source = if ($rowsFixtures.Contains($f)) { $rowsFixtures[$f] } else { $programs[$f] }
-            $rows.Add(@{ Half = 'memory'; Fixture = $f; Formulas = 60000; Sha256 = $source; Rounds = 3; Load = 200.0; LoadPerSecond = 300000; LoadHeld = 20000000; Held = 24000000; Peak = 30000000; ClockMs = 0.182; ClockSpread = 1.0; ClockDrift = 0.5 })
-            $ceilings["$f held"] = 24000000; $ceilings["$f peak"] = 30000000
+            $savedPeak = if ($rowsFixtures.Contains($f)) { 20000064 } else { 30000000 }
+            $rows.Add(@{ Half = 'memory'; Fixture = $f; Formulas = 60000; Sha256 = $source; Rounds = 3; Load = 200.0; LoadPerSecond = 300000; LoadHeld = 20000000; Held = 24000000; Peak = 30000000; Save = 200000; SavePeak = 400000; SavedHeld = 20000000; SavedPeak = $savedPeak; ClockMs = 0.182; ClockSpread = 1.0; ClockDrift = 0.5 })
+            $ceilings["$f held"] = 24000000; $ceilings["$f peak"] = 30000000; $ceilings["$f save"] = 200000; $ceilings["$f save peak"] = 400000; $ceilings["$f saved held"] = 20000000; $ceilings["$f saved peak"] = $savedPeak
         }
         return @{ Rows = $rows; History = @(@{ Date = '2026-10-10'; Reason = ''; Floors = $floors }); Ceilings = @(@{ Date = '2026-10-10'; Reason = ''; Ceilings = $ceilings }); Native = $okEnvNative; Excel = $okEnvExcel; Programs = $measured; Now = $now; RowsMeasured = $rowsMeasured; RowsNow = $rowsNow }
     }
     function Get-Problems($c) { return @(Test-Floors '2026-10-10' $c.Native $c.Excel $c.Rows $c.History $c.Programs $c.Now) + @(Test-Memory $c.Rows $c.Ceilings $c.Programs $c.RowsMeasured $c.RowsNow) }
+    # A case that fails by the rule meant, by a word of its line (KERNEL.72).
+    function Expect-Says([string]$what, $c, [string]$word) {
+        $p = @(Get-Problems $c)
+        if (-not @($p | Where-Object { $_ -like "*$word*" })) { $failures.Add("control: $what should say '$word' and says: $($p -join ' / ')") }
+        else { Write-Output ("  control: {0}: says so" -f $what) }
+    }
     function Expect([string]$what, $c, [bool]$clean) {
         $p = @(Get-Problems $c)
         if ($clean -and $p.Count -ne 0) { $failures.Add("control: $what should pass and fails: $($p -join ' / ')") }
@@ -833,11 +897,31 @@ if ($Control) {
     $c = New-Clean; @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0].LoadPerSecond = 310000; Expect 'a load a second that disagrees with its time' $c $false
     $c = New-Clean; $c.RowsNow['superposition'] = ('0' * 64); Expect 'a fixture of rows edited' $c $false
     $c = New-Clean; @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'sums' })[0].Sha256 = ('E' * 64); Expect 'a memory row weighing another source' $c $false
-    # A fixture against its twin (KERNEL.67): over the bound at each point, and at it.
+    # A fixture against its twin (KERNEL.67), through the round trip (KERNEL.72):
+    # over the bound at each point, by the rule itself, and at it.
     foreach ($point in $twinPoints.Keys) {
-        $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t[$point] = [long]$t[$point] - $twinBound - 1; Expect "a fixture over its twin's bytes $($twinPoints[$point]) by more than the bound" $c $false
+        $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t[$point] = [long]$t[$point] - $twinBound - 1; Expect-Says "a fixture over its twin's bytes $($twinPoints[$point]) by more than the bound" $c "more than its twin superposition $($twinPoints[$point])"
     }
     $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t.Peak = [long]$t.Peak - $twinBound; Expect 'a fixture at its twin''s bound' $c $true
+    $c = New-Clean; $t = @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq 'superposition' })[0]; $t.Save = [long]$t.Save - $twinBound; Expect 'a fixture''s save at its twin''s bound' $c $true
+    # What a save costs (KERNEL.72): each rule, by its own words, and at its bound.
+    function Get-MemoryRow($c, [string]$f) { return @($c.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq $f })[0] }
+    $c = New-Clean; (Get-MemoryRow $c 'sums').SavedHeld = 24000001; Expect-Says 'a load from a save holding more than the machine that printed it' $c 'more than the 24000000 the machine'
+    $c = New-Clean; (Get-MemoryRow $c 'sums').SavedHeld = 24000000; $c.Ceilings[0].Ceilings['sums saved held'] = 24000000; Expect 'a load from a save holding what the machine held' $c $true
+    $c = New-Clean; (Get-MemoryRow $c 'chain').SavePeak = 800001; Expect-Says 'a save''s printing over its bound' $c 'more than 4 times its text'
+    $c = New-Clean; (Get-MemoryRow $c 'chain').SavePeak = 800000; $c.Ceilings[0].Ceilings['chain save peak'] = 800000; Expect 'a save''s printing at its bound' $c $true
+    $c = New-Clean; (Get-MemoryRow $c 'life-x16').Save = 240001; Expect-Says 'a fixture of rows'' save over its bytes a formula cell' $c 'more than 4 bytes a formula cell'
+    $c = New-Clean; (Get-MemoryRow $c 'life-x16').Save = 240000; $c.Ceilings[0].Ceilings['life-x16 save'] = 240000; Expect 'a fixture of rows'' save at its bytes a formula cell' $c $true
+    $c = New-Clean; (Get-MemoryRow $c 'life-x16').SavedPeak = 20000000 + $twinBound + 1; Expect-Says 'a fixture of rows'' load from its save over what it holds' $c "more than $twinBound over the 20000000 it holds"
+    $c = New-Clean; (Get-MemoryRow $c 'life-x16').SavedPeak = 20000000 + $twinBound; $c.Ceilings[0].Ceilings['life-x16 saved peak'] = 20000000 + $twinBound; Expect 'a fixture of rows'' load from its save at its bound' $c $true
+    $c = New-Clean; (Get-MemoryRow $c 'lookups').SavedPeak = 80000001; Expect-Says 'a program''s load from its save over its bound' $c 'more than 4 times the 20000000 it holds'
+    $c = New-Clean; (Get-MemoryRow $c 'lookups').SavedPeak = 80000000; $c.Ceilings[0].Ceilings['lookups saved peak'] = 80000000; Expect 'a program''s load from its save at its bound' $c $true
+    $c = New-Clean; (Get-MemoryRow $c 'netlist').SavedPeak = 19999999; Expect-Says 'a load from a save peaking under what it holds' $c 'under the 20000000 it holds'
+    $c = New-Clean; (Get-MemoryRow $c 'netlist').Save = 0; Expect-Says 'a fixture with no save weighed' $c 'no save weighed'
+    foreach ($what in @('save', 'save peak', 'saved held', 'saved peak')) {
+        $c = New-Clean; $field = $ceilingFields[$what]; $r = Get-MemoryRow $c 'criteria'; $r[$field[0]] = [long]$r[$field[0]] + 1; Expect-Says "a row over its ceiling, $what" $c "$($field[1]), over the ceiling"
+        $c = New-Clean; $c.Ceilings[0].Ceilings.Remove("criteria $what"); Expect-Says "the history with no ceiling '$what'" $c "no ceiling 'criteria $what'"
+    }
     # The history, from text.
     $committed = Get-HistoryLines "`$floorHistory = @(`r`n    @{ Date = '2026-10-10'; Reason = ''; Floors = @{ 'column whole' = 1 } },`r`n    @{ Date = '2026-10-11'; Reason = ''; Floors = @{ 'column whole' = 2 } }`r`n)"
     $cases = @(
@@ -897,7 +981,7 @@ if ($Control) {
         $weighs = New-Object System.Collections.Generic.List[string]
         foreach ($f in $weighed) {
             $n = @($clean.Rows | Where-Object { $_.Half -eq 'memory' -and $_.Fixture -eq $f })[0]
-            $weighs.Add(('(memory-check "{0}" (sha256 "{1}") (formulas 60000) (load-held 20000000) (held 24000000) (peak 30000000))' -f $f, $n.Sha256))
+            $weighs.Add(('(memory-check "{0}" (sha256 "{1}") (formulas 60000) (load-held 20000000) (held 24000000) (peak 30000000) (save 200000) (save-peak 400000) (saved-held 20000000) (saved-peak {2}))' -f $f, $n.Sha256, $n.SavedPeak))
         }
         $weighs.Add('(memory-check-done ' + $weighed.Count + ')')
         $memoryFakes = @(
@@ -906,7 +990,12 @@ if ($Control) {
             @{ What = 'a memory runner whose formulas differ'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"column"') { $_ -replace '\(formulas 60000\)', '(formulas 59999)' } else { $_ } }) },
             @{ What = 'a memory runner that leaves out a fixture'; Clean = $false; Lines = @($weighs.ToArray() | Where-Object { $_ -notmatch '"superposition"' }) },
             @{ What = 'a memory runner that failed'; Clean = $false; Lines = @('(memory-failed "superposition: the machine refused line 3")') },
-            @{ What = 'a memory runner whose fixture holds more than its twin by more than the bound'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"superposition"') { $_ -replace '\(peak 30000000\)', ('(peak ' + (30000000 - $twinBound - 1) + ')') } else { $_ } }) }
+            @{ What = 'a memory runner whose fixture holds more than its twin by more than the bound'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"superposition"') { $_ -replace '\(peak 30000000\)', ('(peak ' + (30000000 - $twinBound - 1) + ')') } else { $_ } }) },
+            @{ What = 'a memory runner whose fixture''s save is more than its twin''s by more than the bound'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"superposition"') { $_ -replace '\(save 200000\)', ('(save ' + (200000 - $twinBound - 1) + ')') } else { $_ } }) },
+            @{ What = 'a memory runner over a save''s ceiling'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"column"') { $_ -replace '\(save 200000\)', '(save 200001)' } else { $_ } }) },
+            @{ What = 'a memory runner whose load from a save holds more than the machine that printed it'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"chain"') { $_ -replace '\(saved-held 20000000\)', '(saved-held 24000001)' } else { $_ } }) },
+            @{ What = 'a memory runner whose fixture of rows reads back over what it holds'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { if ($_ -match '"life-x16"') { $_ -replace '\(saved-peak 20000064\)', ('(saved-peak ' + (20000000 + $twinBound + 1) + ')') } else { $_ } }) },
+            @{ What = 'a memory runner that weighs no save'; Clean = $false; Lines = @($weighs.ToArray() | ForEach-Object { $_ -replace ' \(save 200000\).*\)$', ')' }) }
         )
         foreach ($fake in $memoryFakes) {
             $k++
@@ -1093,7 +1182,7 @@ if ($rows.Count -gt 0) {
     # The memory half, a formula's bytes (KERNEL.49).
     foreach ($r in @($rows | Where-Object { $_.Half -eq 'memory' })) {
         $each = { param($b) '{0:F1}' -f ([double]$b / [double]$r.Formulas) }
-        Write-Output ("  {0}: {1} formulas, {2} bytes a formula held after the load, {3} after two frames, {4} at the peak; the load {5} ms" -f $r.Fixture, $r.Formulas, (& $each $r.LoadHeld), (& $each $r.Held), (& $each $r.Peak), $r.Load)
+        Write-Output ("  {0}: {1} formulas, {2} bytes a formula held after the load, {3} after two frames, {4} at the peak; the load {5} ms; its save {6} bytes a formula, a load from it {7} held and {8} at the peak" -f $r.Fixture, $r.Formulas, (& $each $r.LoadHeld), (& $each $r.Held), (& $each $r.Peak), $r.Load, (& $each $r.Save), (& $each $r.SavedHeld), (& $each $r.SavedPeak))
     }
 }
 foreach ($i in $info) { Write-Output $i }
