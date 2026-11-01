@@ -1,0 +1,1194 @@
+source	excel 16.0 20527
+=== rules.xlsx!Truth!a test of the number 1
+shown:C2	"FFE699" general nowrap
+rule:C2	C2 expression - 1 go "=1"
+=== rules.xlsx!Truth!a test of the number 2.5
+shown:C4	"FFE699" general nowrap
+rule:C4	C4 expression - 2 go "=2.5"
+=== rules.xlsx!Truth!a test of the number -1
+shown:C6	"FFE699" general nowrap
+rule:C6	C6 expression - 3 go "=-1"
+=== rules.xlsx!Truth!a test of the number 0
+shown:C8	none general nowrap
+rule:C8	C8 expression - 4 go "=0"
+=== rules.xlsx!Truth!a test of TRUE
+shown:C10	"FFE699" general nowrap
+rule:C10	C10 expression - 5 go "=TRUE"
+=== rules.xlsx!Truth!a test of FALSE
+shown:C12	none general nowrap
+rule:C12	C12 expression - 6 go "=FALSE"
+=== rules.xlsx!Truth!a test of a text
+shown:C14	none general nowrap
+rule:C14	C14 expression - 7 go "=\"abc\""
+=== rules.xlsx!Truth!a test of the text TRUE
+shown:C16	"FFE699" general nowrap
+rule:C16	C16 expression - 8 go "=\"TRUE\""
+=== rules.xlsx!Truth!a test of the text FALSE
+shown:C18	none general nowrap
+rule:C18	C18 expression - 9 go "=\"FALSE\""
+=== rules.xlsx!Truth!a test of the text 1
+shown:C20	none general nowrap
+rule:C20	C20 expression - 10 go "=\"1\""
+=== rules.xlsx!Truth!a test of the empty text
+shown:C22	none general nowrap
+rule:C22	C22 expression - 11 go "=\"\""
+=== rules.xlsx!Truth!a test of a division by zero
+shown:C24	none general nowrap
+rule:C24	C24 expression - 12 go "=1/0"
+=== rules.xlsx!Truth!a test of NA
+shown:C26	none general nowrap
+rule:C26	C26 expression - 13 go "=NA()"
+=== rules.xlsx!Truth!a reference to the number 1
+shown:C28	"FFE699" general nowrap
+rule:C28	C28 expression - 14 go "=E28"
+=== rules.xlsx!Truth!a reference to the number 2.5
+shown:C30	"FFE699" general nowrap
+rule:C30	C30 expression - 15 go "=E30"
+=== rules.xlsx!Truth!a reference to the number 0
+shown:C32	none general nowrap
+rule:C32	C32 expression - 16 go "=E32"
+=== rules.xlsx!Truth!a reference to TRUE
+shown:C34	"FFE699" general nowrap
+rule:C34	C34 expression - 17 go "=E34"
+=== rules.xlsx!Truth!a reference to FALSE
+shown:C36	none general nowrap
+rule:C36	C36 expression - 18 go "=E36"
+=== rules.xlsx!Truth!a reference to a text
+shown:C38	none general nowrap
+rule:C38	C38 expression - 19 go "=E38"
+=== rules.xlsx!Truth!a reference to the text TRUE
+shown:C40	"FFE699" general nowrap
+rule:C40	C40 expression - 20 go "=E40"
+=== rules.xlsx!Truth!a reference to the text FALSE
+shown:C42	none general nowrap
+rule:C42	C42 expression - 21 go "=E42"
+=== rules.xlsx!Truth!a reference to the text 1
+shown:C44	none general nowrap
+rule:C44	C44 expression - 22 go "=E44"
+=== rules.xlsx!Truth!a reference to an empty cell
+shown:C46	none general nowrap
+rule:C46	C46 expression - 23 go "=E46"
+=== rules.xlsx!Truth!a reference to a division by zero
+shown:C48	none general nowrap
+rule:C48	C48 expression - 24 go "=E48"
+=== rules.xlsx!Truth!a reference to NA
+shown:C50	none general nowrap
+rule:C50	C50 expression - 25 go "=E50"
+=== rules.xlsx!Truth!a comparison answering true
+shown:C52	"FFE699" general nowrap
+rule:C52	C52 expression - 26 go "=E52=1"
+=== rules.xlsx!Truth!a comparison answering false
+shown:C54	none general nowrap
+rule:C54	C54 expression - 27 go "=E54=1"
+=== rules.xlsx!Truth!a comparison of a text
+shown:C56	none general nowrap
+rule:C56	C56 expression - 28 go "=E56=1"
+=== rules.xlsx!Truth!a comparison of an error
+shown:C58	none general nowrap
+rule:C58	C58 expression - 29 go "=E58=1"
+=== rules.xlsx!Truth!a range whose first answer is true
+shown:C60	"FFE699" general nowrap
+rule:C60	C60 expression - 30 go "=E60:F60"
+=== rules.xlsx!Truth!a range whose first answer is false
+shown:C62	none general nowrap
+rule:C62	C62 expression - 31 go "=E62:F62"
+=== rules.xlsx!Cell!less than 5
+shown:C2	"FFE699" general nowrap
+shown:E2	none general nowrap
+shown:G2	none general nowrap
+shown:I2	none general nowrap
+shown:K2	none general nowrap
+shown:M2	none general nowrap
+shown:O2	none general nowrap
+shown:Q2	"FFE699" general nowrap
+shown:S2	none general nowrap
+shown:U2	none general nowrap
+shown:W2	none general nowrap
+shown:Y2	none general nowrap
+rule:C2	C2:Y2 cell less 1 go "=5"
+=== rules.xlsx!Cell!less than or equal to 5
+shown:C4	"FFE699" general nowrap
+shown:E4	"FFE699" general nowrap
+shown:G4	none general nowrap
+shown:I4	none general nowrap
+shown:K4	none general nowrap
+shown:M4	none general nowrap
+shown:O4	none general nowrap
+shown:Q4	"FFE699" general nowrap
+shown:S4	none general nowrap
+shown:U4	none general nowrap
+shown:W4	none general nowrap
+shown:Y4	none general nowrap
+rule:C4	C4:Y4 cell less-or-equal 2 go "=5"
+=== rules.xlsx!Cell!equal to 5
+shown:C6	none general nowrap
+shown:E6	"FFE699" general nowrap
+shown:G6	none general nowrap
+shown:I6	none general nowrap
+shown:K6	none general nowrap
+shown:M6	none general nowrap
+shown:O6	none general nowrap
+shown:Q6	none general nowrap
+shown:S6	none general nowrap
+shown:U6	none general nowrap
+shown:W6	none general nowrap
+shown:Y6	none general nowrap
+rule:C6	C6:Y6 cell equal 3 go "=5"
+=== rules.xlsx!Cell!not equal to 5
+shown:C8	"FFE699" general nowrap
+shown:E8	none general nowrap
+shown:G8	"FFE699" general nowrap
+shown:I8	"FFE699" general nowrap
+shown:K8	"FFE699" general nowrap
+shown:M8	"FFE699" general nowrap
+shown:O8	"FFE699" general nowrap
+shown:Q8	"FFE699" general nowrap
+shown:S8	"FFE699" general nowrap
+shown:U8	"FFE699" general nowrap
+shown:W8	none general nowrap
+shown:Y8	"FFE699" general nowrap
+rule:C8	C8:Y8 cell not-equal 4 go "=5"
+=== rules.xlsx!Cell!greater than or equal to 5
+shown:C10	none general nowrap
+shown:E10	"FFE699" general nowrap
+shown:G10	"FFE699" general nowrap
+shown:I10	"FFE699" general nowrap
+shown:K10	"FFE699" general nowrap
+shown:M10	"FFE699" general nowrap
+shown:O10	"FFE699" general nowrap
+shown:Q10	none general nowrap
+shown:S10	"FFE699" general nowrap
+shown:U10	"FFE699" general nowrap
+shown:W10	none general nowrap
+shown:Y10	"FFE699" general nowrap
+rule:C10	C10:Y10 cell greater-or-equal 5 go "=5"
+=== rules.xlsx!Cell!greater than 5
+shown:C12	none general nowrap
+shown:E12	none general nowrap
+shown:G12	"FFE699" general nowrap
+shown:I12	"FFE699" general nowrap
+shown:K12	"FFE699" general nowrap
+shown:M12	"FFE699" general nowrap
+shown:O12	"FFE699" general nowrap
+shown:Q12	none general nowrap
+shown:S12	"FFE699" general nowrap
+shown:U12	"FFE699" general nowrap
+shown:W12	none general nowrap
+shown:Y12	"FFE699" general nowrap
+rule:C12	C12:Y12 cell greater 6 go "=5"
+=== rules.xlsx!Cell!between 5 and 9
+shown:C14	none general nowrap
+shown:E14	"FFE699" general nowrap
+shown:G14	"FFE699" general nowrap
+shown:I14	"FFE699" general nowrap
+shown:K14	none general nowrap
+shown:M14	none general nowrap
+shown:O14	none general nowrap
+shown:Q14	none general nowrap
+shown:S14	none general nowrap
+shown:U14	none general nowrap
+shown:W14	none general nowrap
+shown:Y14	none general nowrap
+rule:C14	C14:Y14 cell between 7 go "=5" "=9"
+=== rules.xlsx!Cell!not between 5 and 9
+shown:C16	"FFE699" general nowrap
+shown:E16	none general nowrap
+shown:G16	none general nowrap
+shown:I16	none general nowrap
+shown:K16	"FFE699" general nowrap
+shown:M16	"FFE699" general nowrap
+shown:O16	"FFE699" general nowrap
+shown:Q16	"FFE699" general nowrap
+shown:S16	"FFE699" general nowrap
+shown:U16	"FFE699" general nowrap
+shown:W16	none general nowrap
+shown:Y16	"FFE699" general nowrap
+rule:C16	C16:Y16 cell not-between 8 go "=5" "=9"
+=== rules.xlsx!Cell!between 9 and 5
+shown:C18	none general nowrap
+shown:E18	"FFE699" general nowrap
+shown:G18	"FFE699" general nowrap
+shown:I18	"FFE699" general nowrap
+shown:K18	none general nowrap
+shown:M18	none general nowrap
+shown:O18	none general nowrap
+shown:Q18	none general nowrap
+shown:S18	none general nowrap
+shown:U18	none general nowrap
+shown:W18	none general nowrap
+shown:Y18	none general nowrap
+rule:C18	C18:Y18 cell between 9 go "=9" "=5"
+=== rules.xlsx!Cell!not between 9 and 5
+shown:C20	"FFE699" general nowrap
+shown:E20	none general nowrap
+shown:G20	none general nowrap
+shown:I20	none general nowrap
+shown:K20	"FFE699" general nowrap
+shown:M20	"FFE699" general nowrap
+shown:O20	"FFE699" general nowrap
+shown:Q20	"FFE699" general nowrap
+shown:S20	"FFE699" general nowrap
+shown:U20	"FFE699" general nowrap
+shown:W20	none general nowrap
+shown:Y20	"FFE699" general nowrap
+rule:C20	C20:Y20 cell not-between 10 go "=9" "=5"
+=== rules.xlsx!Cell!equal to 0
+shown:C22	none general nowrap
+shown:E22	none general nowrap
+shown:G22	none general nowrap
+shown:I22	none general nowrap
+shown:K22	none general nowrap
+shown:M22	none general nowrap
+shown:O22	none general nowrap
+shown:Q22	"FFE699" general nowrap
+shown:S22	none general nowrap
+shown:U22	none general nowrap
+shown:W22	none general nowrap
+shown:Y22	none general nowrap
+rule:C22	C22:Y22 cell equal 11 go "=0"
+=== rules.xlsx!Cell!equal to the empty text
+shown:C24	none general nowrap
+shown:E24	none general nowrap
+shown:G24	none general nowrap
+shown:I24	none general nowrap
+shown:K24	none general nowrap
+shown:M24	none general nowrap
+shown:O24	none general nowrap
+shown:Q24	"FFE699" general nowrap
+shown:S24	none general nowrap
+shown:U24	none general nowrap
+shown:W24	none general nowrap
+shown:Y24	"FFE699" general nowrap
+rule:C24	C24:Y24 cell equal 12 go "=\"\""
+=== rules.xlsx!Cell!equal to the text ABC
+shown:C26	none general nowrap
+shown:E26	none general nowrap
+shown:G26	none general nowrap
+shown:I26	none general nowrap
+shown:K26	none general nowrap
+shown:M26	"FFE699" general nowrap
+shown:O26	none general nowrap
+shown:Q26	none general nowrap
+shown:S26	none general nowrap
+shown:U26	none general nowrap
+shown:W26	none general nowrap
+shown:Y26	none general nowrap
+rule:C26	C26:Y26 cell equal 13 go "=\"ABC\""
+=== rules.xlsx!Cell!less than the text abc
+shown:C28	"FFE699" general nowrap
+shown:E28	"FFE699" general nowrap
+shown:G28	"FFE699" general nowrap
+shown:I28	"FFE699" general nowrap
+shown:K28	"FFE699" general nowrap
+shown:M28	none general nowrap
+shown:O28	"FFE699" general nowrap
+shown:Q28	"FFE699" general nowrap
+shown:S28	none general nowrap
+shown:U28	none general nowrap
+shown:W28	none general nowrap
+shown:Y28	"FFE699" general nowrap
+rule:C28	C28:Y28 cell less 14 go "=\"abc\""
+=== rules.xlsx!Cell!equal to TRUE
+shown:C30	none general nowrap
+shown:E30	none general nowrap
+shown:G30	none general nowrap
+shown:I30	none general nowrap
+shown:K30	none general nowrap
+shown:M30	none general nowrap
+shown:O30	none general nowrap
+shown:Q30	none general nowrap
+shown:S30	"FFE699" general nowrap
+shown:U30	none general nowrap
+shown:W30	none general nowrap
+shown:Y30	none general nowrap
+rule:C30	C30:Y30 cell equal 15 go "=TRUE"
+=== rules.xlsx!Cell!equal to NA
+shown:C32	none general nowrap
+shown:E32	none general nowrap
+shown:G32	none general nowrap
+shown:I32	none general nowrap
+shown:K32	none general nowrap
+shown:M32	none general nowrap
+shown:O32	none general nowrap
+shown:Q32	none general nowrap
+shown:S32	none general nowrap
+shown:U32	none general nowrap
+shown:W32	none general nowrap
+shown:Y32	none general nowrap
+rule:C32	C32:Y32 cell equal 16 go "=NA()"
+=== rules.xlsx!Cell!not equal to NA
+shown:C34	none general nowrap
+shown:E34	none general nowrap
+shown:G34	none general nowrap
+shown:I34	none general nowrap
+shown:K34	none general nowrap
+shown:M34	none general nowrap
+shown:O34	none general nowrap
+shown:Q34	none general nowrap
+shown:S34	none general nowrap
+shown:U34	none general nowrap
+shown:W34	none general nowrap
+shown:Y34	none general nowrap
+rule:C34	C34:Y34 cell not-equal 17 go "=NA()"
+=== rules.xlsx!Cell!equal to a bound that moves
+shown:C36	"FFE699" general nowrap
+shown:E36	none general nowrap
+shown:G36	"FFE699" general nowrap
+shown:I36	none general nowrap
+shown:K36	none general nowrap
+shown:M36	none general nowrap
+shown:O36	none general nowrap
+shown:Q36	"FFE699" general nowrap
+shown:S36	none general nowrap
+shown:U36	none general nowrap
+shown:W36	none general nowrap
+shown:Y36	none general nowrap
+rule:C36	C36:Y36 cell equal 18 go "=AE36"
+=== rules.xlsx!Cell!equal to an empty cell
+shown:C38	none general nowrap
+shown:E38	none general nowrap
+shown:G38	none general nowrap
+shown:I38	none general nowrap
+shown:K38	none general nowrap
+shown:M38	none general nowrap
+shown:O38	none general nowrap
+shown:Q38	"FFE699" general nowrap
+shown:S38	none general nowrap
+shown:U38	none general nowrap
+shown:W38	none general nowrap
+shown:Y38	none general nowrap
+rule:C38	C38:Y38 cell equal 19 go "=$AA38"
+=== rules.xlsx!Cell!not equal to an empty cell
+shown:C40	"FFE699" general nowrap
+shown:E40	"FFE699" general nowrap
+shown:G40	"FFE699" general nowrap
+shown:I40	"FFE699" general nowrap
+shown:K40	"FFE699" general nowrap
+shown:M40	"FFE699" general nowrap
+shown:O40	"FFE699" general nowrap
+shown:Q40	none general nowrap
+shown:S40	"FFE699" general nowrap
+shown:U40	"FFE699" general nowrap
+shown:W40	none general nowrap
+shown:Y40	"FFE699" general nowrap
+rule:C40	C40:Y40 cell not-equal 20 go "=$AA40"
+=== rules.xlsx!Cell!less than an empty cell
+shown:C42	none general nowrap
+shown:E42	none general nowrap
+shown:G42	none general nowrap
+shown:I42	none general nowrap
+shown:K42	none general nowrap
+shown:M42	none general nowrap
+shown:O42	none general nowrap
+shown:Q42	none general nowrap
+shown:S42	none general nowrap
+shown:U42	none general nowrap
+shown:W42	none general nowrap
+shown:Y42	none general nowrap
+rule:C42	C42:Y42 cell less 21 go "=$AA42"
+=== rules.xlsx!Cell!less than or equal to an empty cell
+shown:C44	none general nowrap
+shown:E44	none general nowrap
+shown:G44	none general nowrap
+shown:I44	none general nowrap
+shown:K44	none general nowrap
+shown:M44	none general nowrap
+shown:O44	none general nowrap
+shown:Q44	"FFE699" general nowrap
+shown:S44	none general nowrap
+shown:U44	none general nowrap
+shown:W44	none general nowrap
+shown:Y44	none general nowrap
+rule:C44	C44:Y44 cell less-or-equal 22 go "=$AA44"
+=== rules.xlsx!Cell!greater than an empty cell
+shown:C46	"FFE699" general nowrap
+shown:E46	"FFE699" general nowrap
+shown:G46	"FFE699" general nowrap
+shown:I46	"FFE699" general nowrap
+shown:K46	"FFE699" general nowrap
+shown:M46	"FFE699" general nowrap
+shown:O46	"FFE699" general nowrap
+shown:Q46	none general nowrap
+shown:S46	"FFE699" general nowrap
+shown:U46	"FFE699" general nowrap
+shown:W46	none general nowrap
+shown:Y46	"FFE699" general nowrap
+rule:C46	C46:Y46 cell greater 23 go "=$AA46"
+=== rules.xlsx!Cell!greater than or equal to an empty cell
+shown:C48	"FFE699" general nowrap
+shown:E48	"FFE699" general nowrap
+shown:G48	"FFE699" general nowrap
+shown:I48	"FFE699" general nowrap
+shown:K48	"FFE699" general nowrap
+shown:M48	"FFE699" general nowrap
+shown:O48	"FFE699" general nowrap
+shown:Q48	"FFE699" general nowrap
+shown:S48	"FFE699" general nowrap
+shown:U48	"FFE699" general nowrap
+shown:W48	none general nowrap
+shown:Y48	"FFE699" general nowrap
+rule:C48	C48:Y48 cell greater-or-equal 24 go "=$AA48"
+=== rules.xlsx!Cell!between an empty cell and 9
+shown:C50	"FFE699" general nowrap
+shown:E50	"FFE699" general nowrap
+shown:G50	"FFE699" general nowrap
+shown:I50	"FFE699" general nowrap
+shown:K50	none general nowrap
+shown:M50	none general nowrap
+shown:O50	none general nowrap
+shown:Q50	"FFE699" general nowrap
+shown:S50	none general nowrap
+shown:U50	none general nowrap
+shown:W50	none general nowrap
+shown:Y50	none general nowrap
+rule:C50	C50:Y50 cell between 25 go "=$AA50" "=9"
+=== rules.xlsx!Cell!not between an empty cell and 9
+shown:C52	none general nowrap
+shown:E52	none general nowrap
+shown:G52	none general nowrap
+shown:I52	none general nowrap
+shown:K52	"FFE699" general nowrap
+shown:M52	"FFE699" general nowrap
+shown:O52	"FFE699" general nowrap
+shown:Q52	none general nowrap
+shown:S52	"FFE699" general nowrap
+shown:U52	"FFE699" general nowrap
+shown:W52	none general nowrap
+shown:Y52	"FFE699" general nowrap
+rule:C52	C52:Y52 cell not-between 26 go "=$AA52" "=9"
+=== rules.xlsx!Refs!a relative reference
+shown:C2	"FFE699" general nowrap
+shown:D2	none general nowrap
+shown:E2	"FFE699" general nowrap
+shown:C3	none general nowrap
+shown:D3	"FFE699" general nowrap
+shown:E3	none general nowrap
+rule:C2	C2:E3 expression - 1 go "=G2=1"
+=== rules.xlsx!Refs!a reference of a fixed column
+shown:C4	"FFE699" general nowrap
+shown:D4	"FFE699" general nowrap
+shown:E4	"FFE699" general nowrap
+shown:C5	none general nowrap
+shown:D5	none general nowrap
+shown:E5	none general nowrap
+rule:C4	C4:E5 expression - 2 go "=$G4=1"
+=== rules.xlsx!Refs!a reference of a fixed row
+shown:C6	"FFE699" general nowrap
+shown:D6	none general nowrap
+shown:E6	"FFE699" general nowrap
+shown:C7	"FFE699" general nowrap
+shown:D7	none general nowrap
+shown:E7	"FFE699" general nowrap
+rule:C6	C6:E7 expression - 3 go "=G$6=1"
+=== rules.xlsx!Refs!a reference of a fixed cell
+shown:C8	"FFE699" general nowrap
+shown:D8	"FFE699" general nowrap
+shown:E8	"FFE699" general nowrap
+shown:C9	"FFE699" general nowrap
+shown:D9	"FFE699" general nowrap
+shown:E9	"FFE699" general nowrap
+rule:C8	C8:E9 expression - 4 go "=$G$8=1"
+=== rules.xlsx!Refs!a range under AND
+shown:C10	"FFE699" general nowrap
+rule:C10	C10 expression - 5 go "=AND($G10:$I10=1)"
+=== rules.xlsx!Refs!a range under SUMPRODUCT
+shown:C12	"FFE699" general nowrap
+rule:C12	C12 expression - 6 go "=SUMPRODUCT(($G12:$I12=1)*1)=3"
+=== rules.xlsx!Refs!a range under COUNTIF
+shown:C14	"FFE699" general nowrap
+rule:C14	C14 expression - 7 go "=COUNTIF($G14:$I14,1)=3"
+=== rules.xlsx!Refs!a band by the row
+shown:C16	"FFE699" general nowrap
+shown:C17	none general nowrap
+rule:C16	C16:E17 expression - 8 go "=MOD(ROW(),2)=0"
+=== rules.xlsx!Refs!a band by the column
+shown:C18	none general nowrap
+shown:D18	"FFE699" general nowrap
+shown:E18	none general nowrap
+rule:C18	C18:E18 expression - 9 go "=MOD(COLUMN(),2)=0"
+=== rules.xlsx!Refs!a column read whole
+shown:C20	"FFE699" general nowrap
+shown:E20	none general nowrap
+rule:C20	C20,E20 expression - 10 go "=COUNTIF($K:$K,C20)>1"
+=== rules.xlsx!Refs!a merged range whose first cell answers false
+shown:C22	none general nowrap
+shown:D22	none general nowrap
+shown:E22	none general nowrap
+rule:C22	C22:E22 expression - 11 go "=G22=1"
+=== rules.xlsx!Refs!a merged range whose first cell answers true
+shown:C24	"FFE699" general nowrap
+shown:D24	"FFE699" general nowrap
+shown:E24	"FFE699" general nowrap
+rule:C24	C24:E24 expression - 12 go "=G24=1"
+=== rules.xlsx!Bases!the lower rectangle first
+shown:F4	"FFE699" general nowrap
+shown:F5	none general nowrap
+shown:D2	none general nowrap
+shown:D3	"FFE699" general nowrap
+rule:F4	D2:D3,F4:F5 expression - 1 go "=J4=1"
+=== rules.xlsx!Bases!the lower left rectangle first
+shown:D12	"FFE699" general nowrap
+shown:D13	"FFE699" general nowrap
+shown:F10	"FFE699" general nowrap
+shown:F11	"FFE699" general nowrap
+rule:D12	F10:F11,D12:D13 expression - 2 go "=H12=1"
+=== rules.xlsx!Bases!the upper left rectangle first
+shown:D18	"FFE699" general nowrap
+shown:D19	none general nowrap
+shown:F20	none general nowrap
+shown:F21	"FFE699" general nowrap
+rule:D18	D18:D19,F20:F21 expression - 3 go "=H18=1"
+=== rules.xlsx!Bases!the right rectangle first
+shown:F26	"FFE699" general nowrap
+shown:F27	none general nowrap
+shown:D26	none general nowrap
+shown:D27	"FFE699" general nowrap
+rule:F26	D26:D27,F26:F27 expression - 4 go "=J26=1"
+=== rules.xlsx!Bases!a bound over two rectangles, the lower first
+shown:F36	"FFE699" general nowrap
+shown:F37	none general nowrap
+shown:D34	"FFE699" general nowrap
+shown:D35	none general nowrap
+rule:F36	D34:D35,F36:F37 cell equal 5 go "=J36"
+=== rules.xlsx!Edges!a reference moved past the bottom
+shown:C2	none general nowrap
+shown:C3	"FFE699" general nowrap
+rule:C2	C2:C3 expression - 1 go "=E1048576=1"
+=== rules.xlsx!Edges!a reference moved past the right
+shown:C6	none general nowrap
+shown:E6	"FFE699" general nowrap
+rule:C6	C6:E6 expression - 2 go "=XFD7=1"
+=== rules.xlsx!Order!two true rules saying one property
+shown:C2	"FFE699" general nowrap
+rule:C2	C2 expression - 1 go "=1"
+rule:C2	C2 expression - 2 go "=1"
+=== rules.xlsx!Order!a false rule over a true one
+shown:C4	"9DC3E6" general nowrap
+rule:C4	C4 expression - 3 go "=0"
+rule:C4	C4 expression - 4 go "=1"
+=== rules.xlsx!Order!two true rules saying different properties
+shown:C6	"FFE699" general nowrap (font bold)
+rule:C6	C6 expression - 5 go "=1"
+rule:C6	C6 expression - 6 go "=1"
+=== rules.xlsx!Order!a file's order against its priorities
+shown:C8	"FFE699" general nowrap
+rule:C8	C8 expression - 7 go "=1"
+rule:C8	C8 expression - 8 go "=1"
+=== rules.xlsx!Order!two elements against their priorities
+shown:C10	"FFE699" general nowrap
+shown:D10	"9DC3E6" general nowrap
+rule:C10	C10 expression - 9 go "=1"
+rule:C10	C10:D10 expression - 10 go "=1"
+rule:D10	C10:D10 expression - 10 go "=1"
+=== rules.xlsx!Order!a true rule that stops
+shown:C12	"FFE699" general nowrap
+rule:C12	C12 expression - 11 stop "=1"
+rule:C12	C12 expression - 12 go "=1"
+=== rules.xlsx!Order!a second rule that stops
+shown:C14	"FFE699" general nowrap (font bold)
+rule:C14	C14 expression - 13 go "=1"
+rule:C14	C14 expression - 14 stop "=1"
+rule:C14	C14 expression - 15 go "=1"
+=== rules.xlsx!Order!a false rule that stops
+shown:C16	"FFE699" general nowrap
+rule:C16	C16 expression - 16 stop "=0"
+rule:C16	C16 expression - 17 go "=1"
+=== rules.xlsx!Order!a rule of no format that stops
+shown:C18	none general nowrap
+rule:C18	C18 expression - 18 stop "=1"
+rule:C18	C18 expression - 19 go "=1"
+=== rules.xlsx!Order!a rule of no format that goes on
+shown:C20	"FFE699" general nowrap
+rule:C20	C20 expression - 20 go "=1"
+rule:C20	C20 expression - 21 go "=1"
+=== rules.xlsx!Order!no fill said over a fill
+shown:C22	none general nowrap
+rule:C22	C22 expression - 22 go "=1"
+rule:C22	C22 expression - 23 go "=1"
+=== rules.xlsx!Order!not bold said over bold
+shown:C24	none general nowrap
+rule:C24	C24 expression - 24 go "=1"
+rule:C24	C24 expression - 25 go "=1"
+=== rules.xlsx!Order!two rules saying two edges
+shown:C26	none general nowrap (border (left thin "800020"))
+rule:C26	C26 expression - 26 go "=1"
+rule:C26	C26 expression - 27 go "=1"
+=== rules.xlsx!Order!two rules saying a side alone
+shown:C28	none general nowrap (border (left thin "800020") (right thin "0000FF"))
+rule:C28	C28 expression - 28 go "=1"
+rule:C28	C28 expression - 29 go "=1"
+=== rules.xlsx!Order!a color, a weight and a second color
+shown:C30	none general nowrap (font bold "800020")
+rule:C30	C30 expression - 30 go "=1"
+rule:C30	C30 expression - 31 go "=1"
+rule:C30	C30 expression - 32 go "=1"
+=== rules.xlsx!Order!two ranges meeting in a cell
+shown:C32	"9DC3E6" general nowrap
+shown:E32	"FFE699" general nowrap
+rule:C32	C32 expression - 33 go "=1"
+rule:C32	C32:E32 expression - 34 go "=1"
+rule:E32	C32:E32 expression - 34 go "=1"
+=== rules.xlsx!Order!a stop in the cell two ranges meet in
+shown:C34	"9DC3E6" general nowrap (font bold)
+shown:E34	none general nowrap (font bold)
+rule:C34	C34 expression - 35 stop "=1"
+rule:C34	C34,E34 expression - 36 go "=1"
+rule:E34	C34,E34 expression - 36 go "=1"
+=== rules.xlsx!Order!a stop and a second element of its range
+shown:C36	"9DC3E6" general nowrap
+rule:C36	C36 expression - 37 stop "=1"
+rule:C36	C36 expression - 38 go "=1"
+=== rules.xlsx!Order!a stop over a wider range
+shown:C38	"9DC3E6" general nowrap (font bold)
+shown:E38	"9DC3E6" general nowrap
+rule:C38	C38:E38 expression - 39 stop "=1"
+rule:C38	C38 expression - 40 go "=1"
+rule:E38	C38:E38 expression - 39 stop "=1"
+=== rules.xlsx!Order!a stop under a wider range
+shown:C40	"9DC3E6" general nowrap (font bold)
+shown:E40	none general nowrap (font bold)
+rule:C40	C40 expression - 41 stop "=1"
+rule:C40	C40:E40 expression - 42 go "=1"
+rule:E40	C40:E40 expression - 42 go "=1"
+=== rules.xlsx!Order!a stop and its range spelled the other way
+shown:C42	"9DC3E6" general nowrap
+shown:E42	"9DC3E6" general nowrap
+rule:C42	C42,E42 expression - 43 stop "=1"
+rule:C42	C42,E42 expression - 44 go "=1"
+rule:E42	C42,E42 expression - 43 stop "=1"
+rule:E42	C42,E42 expression - 44 go "=1"
+=== rules.xlsx!Order!a stop between two ranges
+shown:C44	"9DC3E6" general nowrap (font bold)
+shown:E44	"9DC3E6" general nowrap
+rule:C44	C44 expression - 45 go "=1"
+rule:C44	C44:E44 expression - 46 stop "=1"
+rule:C44	C44:E44 expression - 47 go "=1"
+rule:C44	C44 expression - 48 go "=1"
+rule:E44	C44:E44 expression - 46 stop "=1"
+rule:E44	C44:E44 expression - 47 go "=1"
+=== rules.xlsx!Order!a stop and a later rule of each range
+shown:C46	"9DC3E6" general nowrap
+shown:E46	none general nowrap (font bold)
+rule:C46	C46 expression - 49 stop "=1"
+rule:C46	C46 expression - 50 go "=1"
+rule:C46	C46:E46 expression - 51 go "=1"
+rule:E46	C46:E46 expression - 51 go "=1"
+=== rules.xlsx!Order!a stop of no format over a wider range
+shown:C48	"FFE699" general nowrap
+shown:E48	"FFE699" general nowrap
+rule:C48	C48 expression - 52 stop "=1"
+rule:C48	C48:E48 expression - 53 go "=1"
+rule:E48	C48:E48 expression - 53 go "=1"
+=== rules.xlsx!Alike!one priority twice, this fill first
+shown:C2	"9DC3E6" general nowrap
+rule:C2	C2 expression - 1 go "=1"
+rule:C2	C2 expression - 1 go "=1"
+=== rules.xlsx!Alike!one priority twice, that fill first
+shown:C4	"FFE699" general nowrap
+rule:C4	C4 expression - 2 go "=1"
+rule:C4	C4 expression - 2 go "=1"
+=== rules.xlsx!Alike!one priority three times
+shown:C6	"9DC3E6" general nowrap (font "0000FF")
+rule:C6	C6 expression - 3 go "=1"
+rule:C6	C6 expression - 3 go "=1"
+rule:C6	C6 expression - 3 go "=1"
+=== rules.xlsx!Alike!one priority in two elements
+shown:C8	"FFE699" general nowrap
+rule:C8	C8 expression - 4 go "=1"
+rule:C8	C8 expression - 5 go "=1"
+=== rules.xlsx!Partial!no rule
+shown:C2	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C2	"12.3"
+shown:E2	none general nowrap
+text:E2	"12.25"
+rule:C2	none
+=== rules.xlsx!Partial!a false rule
+shown:C4	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C4	"12.3"
+shown:E4	none general nowrap
+text:E4	"12.25"
+rule:C4	C4,E4 expression - 1 go "=0"
+=== rules.xlsx!Partial!a fill's bgColor
+shown:C6	"FFE699" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C6	"12.3"
+shown:E6	"FFE699" general nowrap
+text:E6	"12.25"
+rule:C6	C6,E6 expression - 2 go "=1"
+=== rules.xlsx!Partial!a fill's fgColor under solid
+shown:C8	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C8	"12.3"
+shown:E8	"FFFFFF" general nowrap
+text:E8	"12.25"
+rule:C8	C8,E8 expression - 3 go "=1"
+=== rules.xlsx!Partial!a fill's fgColor and bgColor under solid
+shown:C10	"FFE699" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C10	"12.3"
+shown:E10	"FFE699" general nowrap
+text:E10	"12.25"
+rule:C10	C10,E10 expression - 4 go "=1"
+=== rules.xlsx!Partial!a fill's pattern of none
+shown:C12	none "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C12	"12.3"
+shown:E12	none general nowrap
+text:E12	"12.25"
+rule:C12	C12,E12 expression - 5 go "=1"
+=== rules.xlsx!Partial!a fill of no color as Excel writes it
+shown:C14	none "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C14	"12.3"
+shown:E14	none general nowrap
+text:E14	"12.25"
+rule:C14	C14,E14 expression - 6 go "=1"
+=== rules.xlsx!Partial!a fill's pattern
+shown:C16	none "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000")) ! pattern 17
+text:C16	"12.3"
+shown:E16	none general nowrap ! pattern 17
+text:E16	"12.25"
+rule:C16	C16,E16 expression - 7 go "=1"
+=== rules.xlsx!Partial!a fill's theme color
+shown:C18	"8EA9DB" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C18	"12.3"
+shown:E18	"8EA9DB" general nowrap
+text:E18	"12.25"
+rule:C18	C18,E18 expression - 8 go "=1"
+=== rules.xlsx!Partial!a fill's indexed color
+shown:C20	"FF0000" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C20	"12.3"
+shown:E20	"FF0000" general nowrap
+text:E20	"12.25"
+rule:C20	C20,E20 expression - 9 go "=1"
+=== rules.xlsx!Partial!not bold
+shown:C22	"CCFFCC" "0.0" nowrap (font italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C22	"12.3"
+shown:E22	none general nowrap
+text:E22	"12.25"
+rule:C22	C22,E22 expression - 10 go "=1"
+=== rules.xlsx!Partial!not italic
+shown:C24	"CCFFCC" "0.0" nowrap (font bold "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C24	"12.3"
+shown:E24	none general nowrap
+text:E24	"12.25"
+rule:C24	C24,E24 expression - 11 go "=1"
+=== rules.xlsx!Partial!bold
+shown:C26	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C26	"12.3"
+shown:E26	none general nowrap (font bold)
+text:E26	"12.25"
+rule:C26	C26,E26 expression - 12 go "=1"
+=== rules.xlsx!Partial!italic
+shown:C28	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C28	"12.3"
+shown:E28	none general nowrap (font italic)
+text:E28	"12.25"
+rule:C28	C28,E28 expression - 13 go "=1"
+=== rules.xlsx!Partial!a font's color
+shown:C30	"CCFFCC" "0.0" nowrap (font bold italic "800020" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C30	"12.3"
+shown:E30	none general nowrap (font "800020")
+text:E30	"12.25"
+rule:C30	C30,E30 expression - 14 go "=1"
+=== rules.xlsx!Partial!a font's theme color
+shown:C32	"CCFFCC" "0.0" nowrap (font bold italic "4472C4" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C32	"12.3"
+shown:E32	none general nowrap (font "4472C4")
+text:E32	"12.25"
+rule:C32	C32,E32 expression - 15 go "=1"
+=== rules.xlsx!Partial!a font's automatic color
+shown:C34	"CCFFCC" "0.0" nowrap (font bold italic underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C34	"12.3"
+shown:E34	none general nowrap
+text:E34	"12.25"
+rule:C34	C34,E34 expression - 16 go "=1"
+=== rules.xlsx!Partial!an underline
+shown:C36	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C36	"12.3"
+shown:E36	none general nowrap (font underline)
+text:E36	"12.25"
+rule:C36	C36,E36 expression - 17 go "=1"
+=== rules.xlsx!Partial!a double underline
+shown:C38	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" double-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C38	"12.3"
+shown:E38	none general nowrap (font double-underline)
+text:E38	"12.25"
+rule:C38	C38,E38 expression - 18 go "=1"
+=== rules.xlsx!Partial!an accounting underline
+shown:C40	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" accounting-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C40	"12.3"
+shown:E40	none general nowrap (font accounting-underline)
+text:E40	"12.25"
+rule:C40	C40,E40 expression - 19 go "=1"
+=== rules.xlsx!Partial!a double accounting underline
+shown:C42	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" double-accounting-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C42	"12.3"
+shown:E42	none general nowrap (font double-accounting-underline)
+text:E42	"12.25"
+rule:C42	C42,E42 expression - 20 go "=1"
+=== rules.xlsx!Partial!no underline
+shown:C44	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C44	"12.3"
+shown:E44	none general nowrap
+text:E44	"12.25"
+rule:C44	C44,E44 expression - 21 go "=1"
+=== rules.xlsx!Partial!a strike
+shown:C46	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C46	"12.3"
+shown:E46	none general nowrap (font strike)
+text:E46	"12.25"
+rule:C46	C46,E46 expression - 22 go "=1"
+=== rules.xlsx!Partial!no strike
+shown:C48	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C48	"12.3"
+shown:E48	none general nowrap
+text:E48	"12.25"
+rule:C48	C48,E48 expression - 23 go "=1"
+=== rules.xlsx!Partial!a number format of its own
+shown:C50	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C50	"12.250"
+shown:E50	none general nowrap
+text:E50	"12.250"
+rule:C50	C50,E50 expression - 24 go "=1"
+=== rules.xlsx!Partial!a built-in number format
+shown:C52	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C52	"12.25"
+shown:E52	none general nowrap
+text:E52	"12.25"
+rule:C52	C52,E52 expression - 25 go "=1"
+=== rules.xlsx!Partial!the general number format
+shown:C54	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C54	"12.25"
+shown:E54	none general nowrap
+text:E54	"12.25"
+rule:C54	C54,E54 expression - 26 go "=1"
+=== rules.xlsx!Partial!the text number format
+shown:C56	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C56	"12.25"
+shown:E56	none general nowrap
+text:E56	"12.25"
+rule:C56	C56,E56 expression - 27 go "=1"
+=== rules.xlsx!Partial!a number format with a literal
+shown:C58	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C58	"12.25 kg"
+shown:E58	none general nowrap
+text:E58	"12.25 kg"
+rule:C58	C58,E58 expression - 28 go "=1"
+=== rules.xlsx!Partial!a number format with a color
+shown:C60	"CCFFCC" "0.0" nowrap (font bold italic "FF0000" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C60	"12.25"
+shown:E60	none general nowrap (font "FF0000")
+text:E60	"12.25"
+rule:C60	C60,E60 expression - 29 go "=1"
+=== rules.xlsx!Partial!a size
+shown:C62	"CCFFCC" "0.0" nowrap (font bold italic 20 "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C62	"12.3"
+shown:E62	none general nowrap (font 20)
+text:E62	"12.25"
+rule:C62	C62,E62 expression - 30 go "=1"
+=== rules.xlsx!Partial!a name
+shown:C64	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike (family "Consolas")) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C64	"12.3"
+shown:E64	none general nowrap (font (family "Consolas"))
+text:E64	"12.25"
+rule:C64	C64,E64 expression - 31 go "=1"
+=== rules.xlsx!Partial!a raised text
+shown:C66	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000")) ! superscript
+text:C66	"12.3"
+shown:E66	none general nowrap ! superscript
+text:E66	"12.25"
+rule:C66	C66,E66 expression - 32 go "=1"
+=== rules.xlsx!Partial!a horizontal alignment
+shown:C68	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align center top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C68	"12.3"
+shown:E68	none general nowrap (align center top)
+text:E68	"12.25"
+rule:C68	C68,E68 expression - 33 go "=1"
+=== rules.xlsx!Partial!a vertical alignment
+shown:C70	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C70	"12.3"
+shown:E70	none general nowrap (align top)
+text:E70	"12.25"
+rule:C70	C70,E70 expression - 34 go "=1"
+=== rules.xlsx!Partial!a wrap
+shown:C72	"CCFFCC" "0.0" wrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C72	"12.3"
+shown:E72	none general wrap (align top)
+text:E72	"12.25"
+rule:C72	C72,E72 expression - 35 go "=1"
+=== rules.xlsx!Partial!a size beside a fill
+shown:C74	"FFE699" "0.0" nowrap (font bold italic 20 "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C74	"12.3"
+shown:E74	"FFE699" general nowrap (font 20)
+text:E74	"12.25"
+rule:C74	C74,E74 expression - 36 go "=1"
+=== rules.xlsx!Partial!a right edge
+shown:C76	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (right thin "800020"))
+text:C76	"12.3"
+shown:E76	none general nowrap (border (right thin "800020"))
+text:E76	"12.25"
+rule:C76	C76,E76 expression - 37 go "=1"
+=== rules.xlsx!Partial!a top edge
+shown:C78	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (top thin "800020"))
+text:C78	"12.3"
+shown:E78	none general nowrap (border (top thin "800020"))
+text:E78	"12.25"
+rule:C78	C78,E78 expression - 38 go "=1"
+=== rules.xlsx!Partial!a bottom edge
+shown:C80	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (bottom thin "800020"))
+text:C80	"12.3"
+shown:E80	none general nowrap (border (bottom thin "800020"))
+text:E80	"12.25"
+rule:C80	C80,E80 expression - 39 go "=1"
+=== rules.xlsx!Partial!a thin left edge
+shown:C82	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "800020"))
+text:C82	"12.3"
+shown:E82	none general nowrap (border (left thin "800020"))
+text:E82	"12.25"
+rule:C82	C82,E82 expression - 40 go "=1"
+=== rules.xlsx!Partial!a medium left edge
+shown:C84	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium "800020"))
+text:C84	"12.3"
+shown:E84	none general nowrap (border (left medium "800020"))
+text:E84	"12.25"
+rule:C84	C84,E84 expression - 41 go "=1"
+=== rules.xlsx!Partial!a thick left edge
+shown:C86	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thick "800020"))
+text:C86	"12.3"
+shown:E86	none general nowrap (border (left thick "800020"))
+text:E86	"12.25"
+rule:C86	C86,E86 expression - 42 go "=1"
+=== rules.xlsx!Partial!a double left edge
+shown:C88	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left double "800020"))
+text:C88	"12.3"
+shown:E88	none general nowrap (border (left double "800020"))
+text:E88	"12.25"
+rule:C88	C88,E88 expression - 43 go "=1"
+=== rules.xlsx!Partial!a dashed left edge
+shown:C90	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dashed "800020"))
+text:C90	"12.3"
+shown:E90	none general nowrap (border (left dashed "800020"))
+text:E90	"12.25"
+rule:C90	C90,E90 expression - 44 go "=1"
+=== rules.xlsx!Partial!a left edge of an automatic color
+shown:C92	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin))
+text:C92	"12.3"
+shown:E92	none general nowrap (border (left thin))
+text:E92	"12.25"
+rule:C92	C92,E92 expression - 45 go "=1"
+=== rules.xlsx!Partial!a left edge alone
+shown:C94	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C94	"12.3"
+shown:E94	none general nowrap (border (left thin "800020"))
+text:E94	"12.25"
+rule:C94	C94,E94 expression - 46 go "=1"
+=== rules.xlsx!Partial!every side said empty
+shown:C96	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike)
+text:C96	"12.3"
+shown:E96	none general nowrap
+text:E96	"12.25"
+rule:C96	C96,E96 expression - 47 go "=1"
+=== rules.xlsx!Partial!a left edge of no style
+shown:C98	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:C98	"12.3"
+shown:E98	none general nowrap
+text:E98	"12.25"
+rule:C98	C98,E98 expression - 48 go "=1"
+=== rules.xlsx!Kinds!contains a text
+shown:C2	"FFE699" general nowrap
+shown:E2	none general nowrap
+shown:G2	none general nowrap
+shown:I2	none general nowrap
+shown:K2	none general nowrap
+shown:M2	none general nowrap
+shown:O2	none general nowrap
+rule:C2	C2:O2 text - 1 go "=NOT(ISERROR(SEARCH(\"ab\",C2)))"
+=== rules.xlsx!Kinds!contains no such text
+shown:C4	none general nowrap
+shown:E4	"FFE699" general nowrap
+shown:G4	"FFE699" general nowrap
+shown:I4	"FFE699" general nowrap
+shown:K4	"FFE699" general nowrap
+shown:M4	"FFE699" general nowrap
+shown:O4	"FFE699" general nowrap
+rule:C4	C4:O4 text - 2 go "=ISERROR(SEARCH(\"ab\",C4))"
+=== rules.xlsx!Kinds!begins with a text
+shown:C6	"FFE699" general nowrap
+shown:E6	none general nowrap
+shown:G6	none general nowrap
+shown:I6	none general nowrap
+shown:K6	none general nowrap
+shown:M6	none general nowrap
+shown:O6	none general nowrap
+rule:C6	C6:O6 text - 3 go "=LEFT(C6,LEN(\"xa\"))=\"xa\""
+=== rules.xlsx!Kinds!ends with a text
+shown:C8	"FFE699" general nowrap
+shown:E8	none general nowrap
+shown:G8	none general nowrap
+shown:I8	none general nowrap
+shown:K8	none general nowrap
+shown:M8	none general nowrap
+shown:O8	none general nowrap
+rule:C8	C8:O8 text - 4 go "=RIGHT(C8,LEN(\"by\"))=\"by\""
+=== rules.xlsx!Kinds!is blank
+shown:C10	none general nowrap
+shown:E10	none general nowrap
+shown:G10	none general nowrap
+shown:I10	"FFE699" general nowrap
+shown:K10	none general nowrap
+shown:M10	"FFE699" general nowrap
+shown:O10	"FFE699" general nowrap
+rule:C10	C10:O10 blanks - 5 go "=LEN(TRIM(C10))=0"
+=== rules.xlsx!Kinds!is not blank
+shown:C12	"FFE699" general nowrap
+shown:E12	"FFE699" general nowrap
+shown:G12	"FFE699" general nowrap
+shown:I12	none general nowrap
+shown:K12	"FFE699" general nowrap
+shown:M12	none general nowrap
+shown:O12	none general nowrap
+rule:C12	C12:O12 no-blanks - 6 go "=LEN(TRIM(C12))>0"
+=== rules.xlsx!Kinds!is an error
+shown:C14	none general nowrap
+shown:E14	none general nowrap
+shown:G14	none general nowrap
+shown:I14	none general nowrap
+shown:K14	"FFE699" general nowrap
+shown:M14	none general nowrap
+shown:O14	none general nowrap
+rule:C14	C14:O14 errors - 7 go "=ISERROR(C14)"
+=== rules.xlsx!Kinds!is not an error
+shown:C16	"FFE699" general nowrap
+shown:E16	"FFE699" general nowrap
+shown:G16	"FFE699" general nowrap
+shown:I16	"FFE699" general nowrap
+shown:K16	none general nowrap
+shown:M16	"FFE699" general nowrap
+shown:O16	"FFE699" general nowrap
+rule:C16	C16:O16 no-errors - 8 go "=NOT(ISERROR(C16))"
+=== rules.xlsx!Kinds!is today
+shown:C18	none general nowrap
+rule:C18	C18 time-period - 9 go "=FLOOR(C18,1)=TODAY()"
+=== rules.xlsx!Kinds!a color scale
+shown:C20	"F8696B" general nowrap
+shown:E20	"AE9373" general nowrap
+shown:G20	"63BE7B" general nowrap
+rule:C20	E20,C20,G20 color-scale - 10 go
+=== rules.xlsx!Kinds!a data bar
+shown:C22	none general nowrap
+shown:E22	none general nowrap
+shown:G22	none general nowrap
+rule:C22	E22,C22,G22 data-bar - 11 go
+=== rules.xlsx!Kinds!an icon set
+shown:C24	none general nowrap
+shown:E24	none general nowrap
+shown:G24	none general nowrap
+rule:C24	C24,E24,G24 icon-set - 12 go
+=== rules.xlsx!Kinds!the top value
+shown:C26	none general nowrap
+shown:E26	none general nowrap
+shown:G26	"FFE699" general nowrap
+rule:C26	C26,E26,G26 top10 - 13 go
+=== rules.xlsx!Kinds!above the average
+shown:C28	none general nowrap
+shown:E28	none general nowrap
+shown:G28	"FFE699" general nowrap
+rule:C28	C28,E28,G28 above-average - 14 go
+=== rules.xlsx!Kinds!a duplicate
+shown:C30	"FFE699" general nowrap
+shown:E30	"FFE699" general nowrap
+shown:G30	none general nowrap
+rule:C30	C30,E30,G30 unique-values - 15 go
+=== rules.xlsx!Kinds!a value alone
+shown:C32	none general nowrap
+shown:E32	none general nowrap
+shown:G32	"FFE699" general nowrap
+rule:C32	C32,E32,G32 unique-values - 16 go
+=== rules.xlsx!Names!a name of a cell holding 1
+shown:C2	"FFE699" general nowrap
+rule:C2	C2 expression - 1 go "=seen_one=1"
+=== rules.xlsx!Names!a name of a cell holding 0
+shown:C4	none general nowrap
+rule:C4	C4 expression - 2 go "=seen_zero=1"
+=== rules.xlsx!Names!a sheet's own name over the workbook's
+shown:C6	"FFE699" general nowrap
+rule:C6	C6 expression - 3 go "=pick=1"
+=== rules.xlsx!Elsewhere!the workbook's name, no name of its own
+shown:C2	none general nowrap
+rule:C2	C2 expression - 1 go "=pick=1"
+=== rules_plain.xlsx!Rules!a fixed cell on a visible sheet holding 1
+shown:C2	"FFE699" general nowrap
+rule:C2	C2 expression - 1 go "=Seen!$C$2=1"
+=== rules_plain.xlsx!Rules!a fixed cell on a visible sheet holding 0
+shown:C4	none general nowrap
+rule:C4	C4 expression - 2 go "=Seen!$C$4=1"
+=== rules_plain.xlsx!Rules!a relative cell on a visible sheet
+shown:C6	"FFE699" general nowrap
+shown:D6	none general nowrap
+shown:E6	"FFE699" general nowrap
+rule:C6	C6:E6 expression - 3 go "=Seen!C6=1"
+=== rules_plain.xlsx!Rules!a cell's value against a visible sheet
+shown:C8	"FFE699" general nowrap
+rule:C8	C8 cell equal 4 go "=Seen!$C$8"
+=== rules_plain.xlsx!Rules!a fixed cell on a hidden sheet holding 1
+shown:C10	"FFE699" general nowrap
+rule:C10	C10 expression - 5 go "=Unseen!$C$10=1"
+=== rules_plain.xlsx!Rules!a fixed cell on a hidden sheet holding 0
+shown:C12	none general nowrap
+rule:C12	C12 expression - 6 go "=Unseen!$C$12=1"
+=== rules_plain.xlsx!Rules!a relative cell on a hidden sheet
+shown:C14	"FFE699" general nowrap
+shown:D14	none general nowrap
+shown:E14	"FFE699" general nowrap
+rule:C14	C14:E14 expression - 7 go "=Unseen!C14=1"
+=== rules_plain.xlsx!Rules!a cell's value against a hidden sheet
+shown:C16	"FFE699" general nowrap
+rule:C16	C16 cell equal 8 go "=Unseen!$C$16"
+=== rules_plain.xlsx!Rules!a rule elsewhere over one of the sheet's own
+shown:C18	"FFE699" general nowrap
+rule:C18	C18 expression - 9 go "=Seen!$C$18=1"
+rule:C18	C18 expression - 10 go "=1"
+=== rules_plain.xlsx!Rules!a rule of the sheet's own over one elsewhere
+shown:C20	"9DC3E6" general nowrap
+rule:C20	C20 expression - 11 go "=1"
+rule:C20	C20 expression - 12 go "=Seen!$C$20=1"
+=== rules_plain.xlsx!Rules!a stop elsewhere over a rule of the sheet's own
+shown:C22	"FFE699" general nowrap
+rule:C22	C22 expression - 13 stop "=Seen!$C$22=1"
+rule:C22	C22 expression - 14 go "=1"
+=== rules_x14.xlsx!Rules!a fixed cell on a visible sheet holding 1
+shown:C2	"FFE699" general nowrap
+rule:C2	C2 expression - 1 go "=Seen!$C$2=1"
+=== rules_x14.xlsx!Rules!a fixed cell on a visible sheet holding 0
+shown:C4	none general nowrap
+rule:C4	C4 expression - 2 go "=Seen!$C$4=1"
+=== rules_x14.xlsx!Rules!a relative cell on a visible sheet
+shown:C6	"FFE699" general nowrap
+shown:D6	none general nowrap
+shown:E6	"FFE699" general nowrap
+rule:C6	C6:E6 expression - 3 go "=Seen!C6=1"
+=== rules_x14.xlsx!Rules!a cell's value against a visible sheet
+shown:C8	"FFE699" general nowrap
+rule:C8	C8 cell equal 4 go "=Seen!$C$8"
+=== rules_x14.xlsx!Rules!a fixed cell on a hidden sheet holding 1
+shown:C10	"FFE699" general nowrap
+rule:C10	C10 expression - 5 go "=Unseen!$C$10=1"
+=== rules_x14.xlsx!Rules!a fixed cell on a hidden sheet holding 0
+shown:C12	none general nowrap
+rule:C12	C12 expression - 6 go "=Unseen!$C$12=1"
+=== rules_x14.xlsx!Rules!a relative cell on a hidden sheet
+shown:C14	"FFE699" general nowrap
+shown:D14	none general nowrap
+shown:E14	"FFE699" general nowrap
+rule:C14	C14:E14 expression - 7 go "=Unseen!C14=1"
+=== rules_x14.xlsx!Rules!a cell's value against a hidden sheet
+shown:C16	"FFE699" general nowrap
+rule:C16	C16 cell equal 8 go "=Unseen!$C$16"
+=== rules_x14.xlsx!Rules!a rule elsewhere over one of the sheet's own
+shown:C18	"FFE699" general nowrap
+rule:C18	C18 expression - 9 go "=Seen!$C$18=1"
+rule:C18	C18 expression - 10 go "=1"
+=== rules_x14.xlsx!Rules!a rule of the sheet's own over one elsewhere
+shown:C20	"9DC3E6" general nowrap
+rule:C20	C20 expression - 11 go "=1"
+rule:C20	C20 expression - 12 go "=Seen!$C$20=1"
+=== rules_x14.xlsx!Rules!a stop elsewhere over a rule of the sheet's own
+shown:C22	"FFE699" general nowrap
+rule:C22	C22 expression - 13 stop "=Seen!$C$22=1"
+rule:C22	C22 expression - 14 go "=1"

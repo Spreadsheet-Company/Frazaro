@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.70"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.58"
+' KERNEL.58: a conditional format, one refusal under VLA-Grid. grid-rule-cells -
+' a rule's range past the cells one grid's rules answer for.
+'
 ' KERNEL.70: a row's word for a dynamic formula, one refusal under VLA-Grid.
 ' grid-dynamic-range - the word over a range, a dynamic formula being written
 ' one cell at a time here.
@@ -1743,6 +1746,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "grid-dynamic-range", 5, "VLA-Grid", "A dynamic formula is written one cell at a time here, and {target} is a range."
     AddMsg m, "grid-write-derived", 5, "VLA-Grid", "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
     AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
+    AddMsg m, "grid-rule-cells", 5, "VLA-Grid", "The rule over {target} would bring the cells rules answer for to {cells}, past the {limit} one grid computes beside its own; name a narrower range."
 
     ' KERNEL.7: recalculation's refusals. The language's evaluator (vla-lang,
     ' calc) computes a grid's formulas in dependency order, reading its

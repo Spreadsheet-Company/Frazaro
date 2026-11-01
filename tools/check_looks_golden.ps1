@@ -37,11 +37,25 @@ check holds those, host-free, on every push:
      every word of what the record has no word for; every kind of target;
   5. the floors below: the cases and the targets.
 
+KERNEL.58's second golden, scripts/reflect/rules_golden.txt, is Excel's
+reading of a conditional format, VlaWriteRulesGolden's of rules.xlsx,
+rules_plain.xlsx and rules_x14.xlsx (core/src/reflect/rules_golden.rs), and
+is held the same way: its source and its workbooks, with Excel's two saves of
+each once it is Excel's; its headers and targets; a shown: target in the
+looks' spelling, a text: target a quoted text, and a rule: target "none" or
+where the rule applies, its kind, its operator, its priority, stop or go and
+at most two quoted formulas; no target Excel refused, each a "!error"; every
+sheet of the probes, every kind of rule and every operator reached; and its
+floors. The core's test holds its cases to the builder's.
+
 -Control proves the check on scratch copies: the real golden must pass,
 and each of these must fail: one with a target's kind misspelled, one with
 its last case dropped, one reading a word the record has none for, one
 saying looks.xlsx's default size, one naming an unheld word of no such
-name, and one whose source is no one's.
+name, and one whose source is no one's; and of the rules golden, one with a
+target's kind misspelled, one with its last case dropped, one reading a word
+the record has none for, one reading a rule of no such kind, one reading an
+error, and one whose source is no one's.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -70,6 +84,23 @@ $saves = @('looks_saved.xlsx', 'looks_book_saved.xlsx')
 $defaultSize = @{ 'looks.xlsx' = '11'; 'looks_book.xlsx' = '10' }
 
 $kinds = @('cell', 'empty', 'blank', 'theme', 'col', 'row', 'merge', 'cf', 'grid', 'std')
+
+# The rules golden's floors, never lowered.
+# 2026-10-30, KERNEL.58's third slice: 195 cases, 998 targets, each rule a
+# target's a line, the golden the reference's second run in Excel.
+$rulesCaseFloor = 195
+$rulesTargetFloor = 998
+
+$rulesGoldenPath = Join-Path $repoRoot 'scripts/reflect/rules_golden.txt'
+$rulesBooks = @('rules.xlsx', 'rules_plain.xlsx', 'rules_x14.xlsx')
+$rulesSaves = @('rules_saved.xlsx', 'rules_plain_saved.xlsx', 'rules_x14_saved.xlsx',
+    'rules_saved.ods', 'rules_plain_saved.ods', 'rules_x14_saved.ods')
+$rulesKinds = @('shown', 'text', 'rule')
+$rulesSheets = @('Truth', 'Cell', 'Refs', 'Bases', 'Edges', 'Order', 'Alike', 'Partial', 'Kinds', 'Names', 'Elsewhere', 'Rules')
+$ruleKinds = @('cell', 'expression', 'color-scale', 'data-bar', 'top10', 'icon-set', 'unique-values', 'text', 'blanks',
+    'time-period', 'above-average', 'no-blanks', 'errors', 'no-errors')
+$ruleOperators = @('between', 'not-between', 'equal', 'not-equal', 'greater', 'less', 'greater-or-equal', 'less-or-equal')
+$rulesDefaultSize = '11'
 $words = @('superscript', 'subscript', 'outline', 'shadow',
     'runs', 'pattern', 'horizontal', 'vertical', 'indent', 'rotation', 'shrink', 'rtl', 'diagonal')
 
@@ -94,6 +125,11 @@ $readingPatterns = @{
     'grid'  = '^(?:on|off)$'
     'std'   = "^$number $number$"
 }
+
+$quotedText = '"(?:[^"\\]|\\.)*"'
+$sqrefText = '[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?(?:,[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?)*'
+$rulePattern = "^$sqrefText (?<kind>[a-z0-9-]+) (?<operator>-|[a-z-]+) \d+ (?<stop>stop|go)(?: $quotedText){0,2}$"
+$textPattern = "^$quotedText$"
 
 function Get-GoldenLines([string]$path) {
     $text = [System.IO.File]::ReadAllText($path)
@@ -234,6 +270,139 @@ function Test-LooksGolden([string]$golden) {
     return @{ Problems = $problems; Cases = $cases; Targets = $targets; Source = $source; Reached = $want.Count }
 }
 
+# Every problem of the rules golden, with the counts the floors read.
+function Test-RulesGolden([string]$golden) {
+    $problems = New-Object System.Collections.ArrayList
+    $lines = Get-GoldenLines $golden
+    $reached = New-OrdinalSet
+    $cases = 0
+    $targets = 0
+
+    # 1. the source and the workbooks
+    $source = ''
+    if ($lines.Count -gt 0 -and $lines[0] -cmatch '^source\t(excel \S+ \d+|prediction)$') {
+        $source = $Matches[1]
+    } else {
+        [void]$problems.Add('the rules golden''s first line names no source: source<TAB>excel <version> <build>, or source<TAB>prediction')
+    }
+    foreach ($b in $rulesBooks) {
+        if (-not (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/reflect/$b"))) {
+            [void]$problems.Add("scripts/reflect/$b is missing: FRAZARO_BLESS=1 and frazaro-core's tests write it")
+        }
+    }
+    if ($source.StartsWith('excel ')) {
+        foreach ($b in $rulesSaves) {
+            if (-not (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/reflect/$b"))) {
+                [void]$problems.Add("scripts/reflect/$b is missing: VlaWriteRulesGolden saves it beside the golden it writes")
+            }
+        }
+    }
+
+    # 2 and 3. the cases, their targets and the readings
+    $open = $false
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $ln = $lines[$i]
+        if ($ln.StartsWith('=== ')) {
+            $parts = $ln.Substring(4).Split([char[]]@('!'), 3)
+            if ($parts.Count -ne 3 -or ($rulesBooks -notcontains $parts[0]) -or $parts[1] -eq '' -or $parts[2] -eq '') {
+                [void]$problems.Add(("rules line {0}: a header that is no '=== <file>!<sheet>!<name>' of the three workbooks: '{1}'" -f ($i + 1), $ln))
+                $open = $false
+            } else {
+                $open = $true
+                $cases++
+                [void]$reached.Add("the sheet $($parts[1])")
+            }
+            continue
+        }
+        if (-not $open) {
+            [void]$problems.Add(("rules line {0}: a target before any case: '{1}'" -f ($i + 1), $ln))
+            continue
+        }
+        $tab = $ln.IndexOf("`t")
+        if ($tab -lt 0) {
+            [void]$problems.Add(("rules line {0}: neither a header nor <target><TAB><reading>: '{1}'" -f ($i + 1), $ln))
+            continue
+        }
+        $target = $ln.Substring(0, $tab)
+        $reading = $ln.Substring($tab + 1)
+        $kind = $target.Split([char]':')[0]
+        if ($rulesKinds -notcontains $kind) {
+            [void]$problems.Add(("rules line {0}: a target of no kind this version reads: '{1}'" -f ($i + 1), $target))
+            continue
+        }
+        $targets++
+        [void]$reached.Add("the $kind target")
+        if ($reading.StartsWith('!error')) {
+            [void]$problems.Add(("rules line {0}: Excel refused {1}: '{2}'" -f ($i + 1), $target, $reading))
+            continue
+        }
+        if ($kind -ceq 'shown') {
+            $look = $reading
+            $tail = ''
+            $bang = $reading.IndexOf(' !')
+            if ($bang -ge 0) { $look = $reading.Substring(0, $bang); $tail = $reading.Substring($bang + 2) }
+            $m = [regex]::Match($look, $lookPattern)
+            if (-not $m.Success) {
+                [void]$problems.Add(("rules line {0}: {1} reads '{2}', not in the record's spelling" -f ($i + 1), $target, $look))
+            } else {
+                if ($look -cmatch '\((font|align|border)\)') { [void]$problems.Add(("rules line {0}: {1} reads an empty group: '{2}'" -f ($i + 1), $target, $look)) }
+                if ($m.Groups['size'].Success -and $m.Groups['size'].Value -ceq $rulesDefaultSize) {
+                    [void]$problems.Add(("rules line {0}: {1} reads the default size: '{2}'" -f ($i + 1), $target, $look))
+                }
+            }
+            if ($bang -ge 0) {
+                foreach ($w in (Split-Words $tail)) {
+                    if ($null -eq $w -or -not ($w -cmatch $wordPattern)) {
+                        [void]$problems.Add(("rules line {0}: {1} reads a word of what the record cannot hold that is none this version names: '{2}'" -f ($i + 1), $target, $tail))
+                        break
+                    }
+                }
+            }
+        } elseif ($kind -ceq 'text') {
+            if (-not ($reading -cmatch $textPattern)) {
+                [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a quoted text" -f ($i + 1), $target, $reading))
+            }
+        } elseif ($reading -cne 'none') {
+            $m = [regex]::Match($reading, $rulePattern)
+            if (-not $m.Success) {
+                [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a rule's spelling" -f ($i + 1), $target, $reading))
+            } else {
+                $word = $m.Groups['kind'].Value
+                if ($ruleKinds -cnotcontains $word) {
+                    [void]$problems.Add(("rules line {0}: {1} reads a rule of no such kind: '{2}'" -f ($i + 1), $target, $word))
+                }
+                [void]$reached.Add("the rule kind $word")
+                $operatorWord = $m.Groups['operator'].Value
+                if ($operatorWord -cne '-') {
+                    if ($ruleOperators -cnotcontains $operatorWord) {
+                        [void]$problems.Add(("rules line {0}: {1} reads an operator of no such word: '{2}'" -f ($i + 1), $target, $operatorWord))
+                    }
+                    [void]$reached.Add("the operator $operatorWord")
+                }
+                [void]$reached.Add("a rule that says $($m.Groups['stop'].Value)")
+            }
+        }
+    }
+
+    # 4. what the cases reach
+    $want = New-Object System.Collections.ArrayList
+    foreach ($s in $rulesSheets) { [void]$want.Add("the sheet $s") }
+    foreach ($k in $rulesKinds) { [void]$want.Add("the $k target") }
+    foreach ($k in $ruleKinds) { [void]$want.Add("the rule kind $k") }
+    foreach ($o in $ruleOperators) { [void]$want.Add("the operator $o") }
+    [void]$want.Add('a rule that says stop')
+    [void]$want.Add('a rule that says go')
+    foreach ($x in $want) {
+        if (-not $reached.Contains($x)) { [void]$problems.Add("no rules case reaches $x") }
+    }
+
+    # 5. the floors
+    if ($cases -lt $rulesCaseFloor) { [void]$problems.Add(("{0} rules cases, below the floor of {1}" -f $cases, $rulesCaseFloor)) }
+    if ($targets -lt $rulesTargetFloor) { [void]$problems.Add(("{0} rules targets, below the floor of {1}" -f $targets, $rulesTargetFloor)) }
+
+    return @{ Problems = $problems; Cases = $cases; Targets = $targets; Source = $source; Reached = $want.Count }
+}
+
 if ($Control) {
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('frazaro_looks_' + [System.IO.Path]::GetRandomFileName())
     New-Item -ItemType Directory -Path $tmp | Out-Null
@@ -289,12 +458,59 @@ if ($Control) {
             if ($r.Problems.Count -lt 1) { $allFail = $false }
         }
         Write-Output ("control: the real golden has {0} problem(s); {1}" -f $real.Problems.Count, ($counts -join ', '))
-        if ($real.Problems.Count -eq 0 -and $allFail) {
-            Write-Output 'OK: the check passes the golden and fails each mutant'
+
+        # The rules golden's mutants.
+        $rulesReal = Test-RulesGolden $rulesGoldenPath
+        $lines = Get-GoldenLines $rulesGoldenPath
+        $firstShown = -1
+        $firstRule = -1
+        $lastHeader = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($firstShown -lt 0 -and $lines[$i] -cmatch '^shown:[A-Z]+\d+\tnone general nowrap$') { $firstShown = $i }
+            if ($firstRule -lt 0 -and $lines[$i] -cmatch '^rule:[A-Z]+\d+\t.* expression ') { $firstRule = $i }
+            if ($lines[$i].StartsWith('=== ')) { $lastHeader = $i }
+        }
+        if ($firstShown -lt 0 -or $firstRule -lt 0 -or $lastHeader -lt 1) {
+            Write-Output 'FAIL: the control found no plain cell, no rule or no last header to mutate'
+            exit 1
+        }
+        $mutants = New-Object System.Collections.ArrayList
+        $copy = { @($lines | ForEach-Object { $_ }) }
+        $a = & $copy
+        $a[$firstShown] = 'show' + $a[$firstShown].Substring(5)
+        [void]$mutants.Add(@('the misspelt kind', $a))
+        [void]$mutants.Add(@('the dropped case', @($lines[0..($lastHeader - 1)])))
+        $c = & $copy
+        $c[$firstShown] = $c[$firstShown].Replace('none general nowrap', 'none general nowrap (font heavy)')
+        [void]$mutants.Add(@('the word of none', $c))
+        $d = & $copy
+        $d[$firstRule] = $d[$firstRule].Replace(' expression ', ' expressions ')
+        [void]$mutants.Add(@('the rule of no kind', $d))
+        $e = & $copy
+        $e[$firstRule] = $e[$firstRule].Substring(0, $e[$firstRule].IndexOf("`t") + 1) + '!error 1004 no such member'
+        [void]$mutants.Add(@('the refused target', $e))
+        $f = & $copy
+        $f[0] = "source`tguess"
+        [void]$mutants.Add(@('the source of none', $f))
+        $rulesCounts = New-Object System.Collections.ArrayList
+        $rulesAllFail = $true
+        $k = 0
+        foreach ($mu in $mutants) {
+            $k++
+            $golden = Join-Path $tmp ("rules_$k.txt")
+            [System.IO.File]::WriteAllText($golden, ($mu[1] -join "`n"), $utf8)
+            $r = Test-RulesGolden $golden
+            [void]$rulesCounts.Add(("{0} {1}" -f $mu[0], $r.Problems.Count))
+            if ($r.Problems.Count -lt 1) { $rulesAllFail = $false }
+        }
+        Write-Output ("control: the real rules golden has {0} problem(s); {1}" -f $rulesReal.Problems.Count, ($rulesCounts -join ', '))
+        if ($real.Problems.Count -eq 0 -and $allFail -and $rulesReal.Problems.Count -eq 0 -and $rulesAllFail) {
+            Write-Output 'OK: the check passes both goldens and fails each mutant'
             exit 0
         }
         Write-Output 'FAIL: the control did not behave'
         foreach ($p in $real.Problems) { Write-Output ('  real: ' + $p) }
+        foreach ($p in $rulesReal.Problems) { Write-Output ('  real rules: ' + $p) }
         exit 1
     } finally {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
@@ -302,14 +518,18 @@ if ($Control) {
 }
 
 $r = Test-LooksGolden $goldenPath
-if ($r.Problems.Count -eq 0) {
+$rules = Test-RulesGolden $rulesGoldenPath
+if ($r.Problems.Count -eq 0 -and $rules.Problems.Count -eq 0) {
     $above = ($r.Cases -gt $caseFloor) -or ($r.Targets -gt $targetFloor)
     $note = ''
     if ($above) { $note = ' - above a floor: raise the floors in this file' }
     if ($r.Source -ceq 'prediction') { $note = $note + ' - the prediction, before the reference''s run in Excel' }
-    Write-Output ("OK: {0} cases, {1} targets in their kinds' spelling, from {2}; every one of the {3} looks and kinds reached (floors {4}, {5}){6}" -f $r.Cases, $r.Targets, $r.Source, $r.Reached, $caseFloor, $targetFloor, $note)
+    if (($rules.Cases -gt $rulesCaseFloor) -or ($rules.Targets -gt $rulesTargetFloor)) { $note = $note + ' - above a rules floor: raise the floors in this file' }
+    if ($rules.Source -ceq 'prediction') { $note = $note + ' - the rules golden is the prediction, before the reference''s run in Excel' }
+    Write-Output ("OK: {0} cases, {1} targets in their kinds' spelling, from {2}; every one of the {3} looks and kinds reached (floors {4}, {5}); rules {6} cases, {7} targets, from {8}; every one of the {9} sheets, kinds and operators reached (floors {10}, {11}){12}" -f $r.Cases, $r.Targets, $r.Source, $r.Reached, $caseFloor, $targetFloor, $rules.Cases, $rules.Targets, $rules.Source, $rules.Reached, $rulesCaseFloor, $rulesTargetFloor, $note)
     exit 0
 }
-Write-Output ("FAIL: the looks golden has {0} problem(s):" -f $r.Problems.Count)
+Write-Output ("FAIL: the looks golden has {0} problem(s), the rules golden {1}:" -f $r.Problems.Count, $rules.Problems.Count)
 foreach ($p in $r.Problems) { Write-Output ('  ' + $p) }
+foreach ($p in $rules.Problems) { Write-Output ('  ' + $p) }
 exit 1

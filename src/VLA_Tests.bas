@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
+' KERNEL.58: VlaWriteRulesGolden, dev-only, the reference's reading of a
+' conditional format: every target of rules.xlsx, rules_plain.xlsx and
+' rules_x14.xlsx through Range.DisplayFormat, Range.Text and
+' Range.FormatConditions, into rules_golden.txt. LooksRead takes an Object, so
+' that a DisplayFormat reads as a Range does, in one spelling.
 ' KERNEL.58: VlaWriteAppearanceGolden and VlaWriteLooksGolden take and read
 ' a font's underline, strike and family in the record's words, where the looks
 ' golden said them after its " !": AppearanceFont sets them, by Font.Underline,
@@ -4156,7 +4161,7 @@ End Function
 ' lowered text, an outline, a shadow, a
 ' horizontal or a vertical the record does not name, an indent, a
 ' rotation, shrinking to fit, a right-to-left order, a diagonal.
-Private Function LooksRead(ByVal target As Range, ByVal nName As String, ByVal nSize As Double, _
+Private Function LooksRead(ByVal target As Object, ByVal nName As String, ByVal nSize As Double, _
                            ByVal nColor As Long, ByVal nBold As Boolean, ByVal nItalic As Boolean) As String
     Dim s As String, said As String, unheld As String, j As Long, sides As Variant
     Dim pat As Long, f As Object
@@ -4263,6 +4268,252 @@ Private Function LooksNumber(ByVal x As Double) As String
     If Left$(s, 1) = "." Then s = "0" & s
     If Left$(s, 2) = "-." Then s = "-0" & Mid$(s, 2)
     LooksNumber = s
+End Function
+
+' KERNEL.58: the rules golden. scripts/reflect/rules.xlsx, rules_plain.xlsx
+' and rules_x14.xlsx, written by frazaro-core's test-only builder
+' (core/src/reflect/rules_golden.rs) and held there byte for byte, hold a case
+' a row, its name in column A and in column B the targets read of it,
+' separated by spaces. This opens each workbook in Excel, reads every target
+' through the object model, saves the workbook beside it as Excel's own
+' (<name>_saved.xlsx and <name>_saved.ods), with no personal information, and
+' writes rules_golden.txt beside them: a first line, source<TAB>excel <version>
+' <build>, then for each case "=== <file>!<sheet>!<name>" and a line for each
+' target. shown:<A1> is the look the cell shows, its rules applied, by
+' Range.DisplayFormat, in the looks golden's spelling; text:<A1> is the text it
+' shows, by Range.Text; rule:<A1> is a line for each rule over the cell: where
+' it applies, its kind, its operator, its priority, stop or go, and its formulas,
+' a member its kind has not read as "-" and a formula left out. The cell is
+' selected first; a rule's Formula1 read alike from every cell of the rule in
+' the first run, as its file wrote it, though a formula added reads relative to
+' the active cell, and DisplayFormat keeps a cell's own number format where a
+' rule says another, so that a rule's code shows by text:<A1> alone.
+' A case's target the object model refuses reads "!error", so that one edge
+' costs its line and not the run; a workbook Excel refuses is said in the
+' report and the others are read. rules_plain.xlsx and rules_x14.xlsx may be
+' repaired by Excel, which asks the person first: the window's caption, in the
+' report, says so, and a repair is itself the answer those two exist for.
+' Dev-only, like VlaWriteLooksGolden, and it opens workbooks, so click a
+' module's code window before the next command in the Immediate window.
+Public Function VlaWriteRulesGolden(Optional ByVal folder As String = "") As Boolean
+    Dim wb As Workbook
+    On Error GoTo failed
+    Dim sep As String
+    sep = Application.PathSeparator
+    If Len(folder) = 0 Then
+        folder = FindDevFile("reflect" & sep & "rules.xlsx")
+        folder = Left$(folder, InStrRev(folder, sep))
+    End If
+    If Right$(folder, 1) <> sep Then folder = folder & sep
+    Debug.Print "===== WRITE RULES GOLDEN ====="
+    Dim books As Variant, k As Long, outText As String
+    Dim nCases As Long, nTargets As Long
+    books = Array("rules", "rules_plain", "rules_x14")
+    outText = "source" & vbTab & "excel " & Application.Version & " " & CStr(Application.Build) & vbCrLf
+    For k = LBound(books) To UBound(books)
+        Dim bookPath As String
+        bookPath = folder & books(k) & ".xlsx"
+        If Len(Dir$(bookPath)) = 0 Then
+            Err.Raise 53, "VLA_Tests", bookPath & " not found: FRAZARO_BLESS=1 and frazaro-core's tests write it"
+        End If
+        Set wb = RulesBookOpen(bookPath)
+        If Not wb Is Nothing Then
+            Debug.Print "  opened: " & wb.Windows(1).Caption
+            Application.ScreenUpdating = False
+            outText = outText & RulesBookRead(wb, books(k) & ".xlsx", nCases, nTargets)
+            wb.RemovePersonalInformation = True
+            Application.DisplayAlerts = False
+            RulesBookSave wb, folder & books(k) & "_saved.xlsx", 51
+            RulesBookSave wb, folder & books(k) & "_saved.ods", 60
+            wb.Close SaveChanges:=False
+            Application.DisplayAlerts = True
+            Application.ScreenUpdating = True
+            Set wb = Nothing
+        End If
+    Next k
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = folder & "rules_golden.txt"
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & nCases & " cases, " & nTargets & " targets read -> " & goldenPath
+    Debug.Print "  Excel's own workbooks saved beside it, <name>_saved.xlsx and <name>_saved.ods"
+    Debug.Print "  (the witness: git diff --no-index between the prediction and the golden)"
+    Debug.Print "===== RULES GOLDEN WRITTEN ====="
+    VlaWriteRulesGolden = True
+    Exit Function
+failed:
+    Dim failNo As Long, failWords As String
+    failNo = Err.Number
+    failWords = Err.Description
+    On Error Resume Next
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    If Not wb Is Nothing Then wb.Close SaveChanges:=False
+    On Error GoTo 0
+    Debug.Print "  RULES GOLDEN FAILED: " & failWords & " (" & failNo & ")"
+End Function
+
+' A workbook opened to be read, Nothing where Excel refuses it or the person
+' declines its repair, which the report says.
+Private Function RulesBookOpen(ByVal bookPath As String) As Workbook
+    On Error GoTo refused
+    Set RulesBookOpen = Workbooks.Open(bookPath, UpdateLinks:=0, ReadOnly:=True)
+    Exit Function
+refused:
+    Debug.Print "  NOT OPENED: " & bookPath & ": " & Err.Description & " (" & Err.Number & ")"
+End Function
+
+' One save beside the golden; a save Excel refuses is said and the next goes on.
+Private Sub RulesBookSave(ByVal wb As Workbook, ByVal savedPath As String, ByVal fileKind As Long)
+    On Error GoTo refused
+    wb.SaveAs savedPath, FileFormat:=fileKind
+    Exit Sub
+refused:
+    Debug.Print "  NOT SAVED: " & savedPath & ": " & Err.Description & " (" & Err.Number & ")"
+End Sub
+
+' One workbook's cases, each sheet's in its row order, as LooksBookRead reads
+' the looks': a sheet of values alone has no case below its first row.
+Private Function RulesBookRead(ByVal wb As Workbook, ByVal label As String, _
+                               ByRef nCases As Long, ByRef nTargets As Long) As String
+    Dim nf As Object, nName As String, nSize As Double, nColor As Long
+    Dim nBold As Boolean, nItalic As Boolean
+    Set nf = wb.Styles("Normal").Font
+    nName = CStr(nf.Name)
+    nSize = nf.Size
+    nColor = nf.Color
+    nBold = nf.Bold
+    nItalic = nf.Italic
+    Dim ws As Worksheet, r As Long, lastRow As Long, caseName As String
+    Dim targets() As String, t As Long, s As String
+    For Each ws In wb.Worksheets
+        lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+        For r = 2 To lastRow
+            caseName = CStr(ws.Cells(r, 1).Value2)
+            If Len(caseName) > 0 Then
+                s = s & "=== " & label & "!" & ws.Name & "!" & caseName & vbCrLf
+                nCases = nCases + 1
+                targets = Split(CStr(ws.Cells(r, 2).Value2), " ")
+                For t = LBound(targets) To UBound(targets)
+                    If Len(targets(t)) > 0 Then
+                        s = s & RulesTargetLines(ws, targets(t), nName, nSize, nColor, nBold, nItalic)
+                        nTargets = nTargets + 1
+                    End If
+                Next t
+            End If
+        Next r
+    Next ws
+    RulesBookRead = s
+End Function
+
+' One target's lines: its kind before a colon, its place after it.
+Private Function RulesTargetLines(ByVal ws As Worksheet, ByVal target As String, _
+                                  ByVal nName As String, ByVal nSize As Double, ByVal nColor As Long, _
+                                  ByVal nBold As Boolean, ByVal nItalic As Boolean) As String
+    Dim kind As String, place As String, at As Long
+    On Error GoTo unread
+    at = InStr(target, ":")
+    kind = Left$(target, at - 1)
+    place = Mid$(target, at + 1)
+    Select Case kind
+    Case "shown"
+        RulesTargetLines = target & vbTab & _
+            LooksRead(ws.Range(place).DisplayFormat, nName, nSize, nColor, nBold, nItalic) & vbCrLf
+    Case "text"
+        RulesTargetLines = target & vbTab & RulesQuoted(CStr(ws.Range(place).Text)) & vbCrLf
+    Case "rule"
+        RulesTargetLines = RulesConditions(ws, target, place)
+    Case Else
+        Err.Raise 5, "VLA_Tests", "rules: a target of no such kind: " & target
+    End Select
+    Exit Function
+unread:
+    RulesTargetLines = target & vbTab & "!error " & CStr(Err.Number) & " " & Err.Description & vbCrLf
+End Function
+
+' A line for each rule over a cell, that cell selected; "none" where it has none.
+Private Function RulesConditions(ByVal ws As Worksheet, ByVal target As String, ByVal place As String) As String
+    Dim conditions As Object, i As Long, s As String
+    ws.Parent.Activate
+    ws.Activate
+    ws.Range(place).Select
+    Set conditions = ws.Range(place).FormatConditions
+    For i = 1 To conditions.Count
+        s = s & target & vbTab & RulesConditionRead(conditions.Item(i)) & vbCrLf
+    Next i
+    If conditions.Count = 0 Then s = target & vbTab & "none" & vbCrLf
+    RulesConditions = s
+End Function
+
+' One rule: where it applies, its kind, its operator, its priority, stop or go
+' and its formulas. The object model's kinds of rule share few members, so each
+' is asked by name and reads "-" where the kind has none.
+Private Function RulesConditionRead(ByVal rule As Object) As String
+    Dim s As String, first As String, second As String
+    s = rule.AppliesTo.Address(False, False)
+    s = s & " " & RulesKindWord(RulesMember(rule, "Type"))
+    s = s & " " & RulesOperatorWord(RulesMember(rule, "Operator"))
+    s = s & " " & RulesMember(rule, "Priority")
+    If RulesMember(rule, "StopIfTrue") = "True" Then s = s & " stop" Else s = s & " go"
+    first = RulesMember(rule, "Formula1")
+    second = RulesMember(rule, "Formula2")
+    If first <> "-" Then s = s & " " & RulesQuoted(first)
+    If second <> "-" Then s = s & " " & RulesQuoted(second)
+    RulesConditionRead = s
+End Function
+
+' A member of a rule as text, "-" where the rule's kind has none or none now.
+Private Function RulesMember(ByVal rule As Object, ByVal memberName As String) As String
+    On Error GoTo absent
+    RulesMember = CStr(CallByName(rule, memberName, VbGet))
+    If Len(RulesMember) = 0 Then RulesMember = "-"
+    Exit Function
+absent:
+    RulesMember = "-"
+End Function
+
+' A rule's kind by XlFormatConditionType, a kind of no word by its number.
+Private Function RulesKindWord(ByVal code As String) As String
+    Select Case code
+    Case "1": RulesKindWord = "cell"
+    Case "2": RulesKindWord = "expression"
+    Case "3": RulesKindWord = "color-scale"
+    Case "4": RulesKindWord = "data-bar"
+    Case "5": RulesKindWord = "top10"
+    Case "6": RulesKindWord = "icon-set"
+    Case "8": RulesKindWord = "unique-values"
+    Case "9": RulesKindWord = "text"
+    Case "10": RulesKindWord = "blanks"
+    Case "11": RulesKindWord = "time-period"
+    Case "12": RulesKindWord = "above-average"
+    Case "13": RulesKindWord = "no-blanks"
+    Case "16": RulesKindWord = "errors"
+    Case "17": RulesKindWord = "no-errors"
+    Case Else: RulesKindWord = "kind=" & code
+    End Select
+End Function
+
+' A rule's operator by XlFormatConditionOperator, in the conditional row's words.
+Private Function RulesOperatorWord(ByVal code As String) As String
+    Select Case code
+    Case "-": RulesOperatorWord = "-"
+    Case "1": RulesOperatorWord = "between"
+    Case "2": RulesOperatorWord = "not-between"
+    Case "3": RulesOperatorWord = "equal"
+    Case "4": RulesOperatorWord = "not-equal"
+    Case "5": RulesOperatorWord = "greater"
+    Case "6": RulesOperatorWord = "less"
+    Case "7": RulesOperatorWord = "greater-or-equal"
+    Case "8": RulesOperatorWord = "less-or-equal"
+    Case Else: RulesOperatorWord = "operator=" & code
+    End Select
+End Function
+
+' A text as the record quotes one.
+Private Function RulesQuoted(ByVal words As String) As String
+    RulesQuoted = Chr$(34) & Replace(Replace(words, "\", "\\"), Chr$(34), "\" & Chr$(34)) & Chr$(34)
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and

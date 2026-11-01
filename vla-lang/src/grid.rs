@@ -17,6 +17,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::calc::graph::{cells_in, Area, CellId, Extent};
 use crate::rows::Visibility;
+use crate::rule::Rule;
 use crate::sheet::{
     shared_masters, strip_future_prefixes, A1Range, Column, Content, RowSettings, Sheet, Styles,
     Workbook,
@@ -668,6 +669,8 @@ pub(crate) struct Page<'a> {
     pub(crate) columns: &'a [Column],
     pub(crate) rows: &'a BTreeMap<u32, RowSettings>,
     pub(crate) looks: &'a [(String, u32)],
+    /// Its conditional formats, the lowest priority first (KERNEL.58).
+    pub(crate) rules: &'a [Rule],
 }
 
 impl<'a> Page<'a> {
@@ -680,6 +683,7 @@ impl<'a> Page<'a> {
             columns: &sheet.columns,
             rows: &sheet.rows,
             looks: &sheet.looks,
+            rules: sheet.rules(),
         }
     }
 }
@@ -705,6 +709,21 @@ pub(crate) trait Cells: Model {
     fn cells<'a>(&'a self, sheet: usize, window: &A1Range, f: &mut dyn FnMut((u32, u32), Held<'a>));
     /// One cell; `None` for one holding nothing.
     fn cell(&self, sheet: usize, row: u32, col: u32) -> Option<Held<'_>>;
+    /// Whether a sheet is one a record lists no row of: a machine's rule's
+    /// answer sheet and its twin (KERNEL.58).
+    fn unlisted(&self, _sheet: usize) -> bool {
+        false
+    }
+    /// The priorities of the rules that apply at each cell of a window where
+    /// any does, in order, up to the first that stops (KERNEL.58): a machine's
+    /// answers, a workbook computing none.
+    fn lit_in(&self, _sheet: usize, _window: &A1Range) -> BTreeMap<(u32, u32), Vec<u32>> {
+        BTreeMap::new()
+    }
+    /// [`Cells::lit_in`] at one cell, `None` where none applies.
+    fn lit_at(&self, _sheet: usize, _row: u32, _col: u32) -> Option<Vec<u32>> {
+        None
+    }
 }
 
 impl Model for Workbook {

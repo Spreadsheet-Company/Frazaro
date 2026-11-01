@@ -142,6 +142,29 @@
   its family, its `Font` still `Copy`, and `font_element_of` writes a format's
   font with its family (KERNEL.58's second slice).
 
+- **A conditional format.** A sheet holds a rule as a row of its own,
+  `(conditional "Board" 1 "B2:J10" "=Lit!A1=1" 64)`: its priority, the lowest first;
+  the cells it answers for, a rectangle or several; its test, a formula or `(cell
+  greater "=5")`, a cell's value against one bound or two; the format it draws, or
+  `none`; and `stop`, which ends every later rule over the cell. A machine computes
+  each answer as it computes a formula and prints what applies at each cell, `(lit
+  "Board" "B2" 1 3)`, so that a highlight is declared where a sheet of flags and a
+  look stood in for one. A rule moves no value: nothing can read its answer, and a
+  grid's values at every frame are what they are without it. A window's changes name
+  a cell a rule's answer moved, `Machine::changed` and `changed_on` count it on the
+  rule's own sheet, and a grid viewed whole and loaded again views the same.
+  `Machine::sheets`, `loaded` and `formulas` keep the rows' own counts, and a step's
+  `of` holds the rules' cells, which are work a frame does. A formula moves from the
+  top left of the rectangle around its rectangles, as Excel moves one, and is true
+  as `IF` reads it. A range bringing the cells rules answer for past 1,048,576 is
+  refused by name (`grid-rule-cells`), so that a rule over a whole column fills that
+  room alone. A grid holding no rule plans, steps and prints as it did. No door holds
+  a rule yet: the writer and the readers take one in a later slice, and until then the
+  writer leaves a sheet's rules out, and a record viewed with no machine prints a
+  rule's row and no answer. `Sheet` gains the rules, 8 bytes a sheet, and is
+  `#[non_exhaustive]`, so a sheet is made by `Sheet::new`; `Record` gains `Conditional`
+  and `Lit`; the rule is `vla_lang::rule` (KERNEL.58's third slice).
+
 - **`ADDRESS` computes.** A cell's address as a text from its row and its column:
   `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and
   `=ADDRESS(3,2,4,TRUE,"My Sheet")` is `'My Sheet'!B3`. A cartridge's load refused

@@ -20,7 +20,10 @@
 //! (`crate::appearance`), refused by `grid-format-property` naming what a
 //! group holds that a format does not take; since KERNEL.58 a format of
 //! groups alone says no more than its groups, three more saying a fill, a
-//! number format and a wrap. A `style` row names a cell or,
+//! number format and a wrap; and a `conditional` row holds a rule on its
+//! sheet, whose range needs no earlier row, and a `lit` row a rule's last answer
+//! at a cell, as a `value` row a formula's, a rule with no such row waiting for
+//! the first step. A `style` row names a cell or,
 //! since KERNEL.50, a range, every cell of it written by an earlier row, as
 //! a `sentence` row's cell is; a cell no earlier row wrote is refused by
 //! `grid-cell-unwritten`, naming it. Since KERNEL.67 a range's format is held
@@ -55,6 +58,7 @@ use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
 use crate::refers::{quote_sheet, shift_a1_references};
 use crate::rows::{quoted, Visibility};
+use crate::rule::{Operator, Rule, Test};
 use crate::sheet::{
     cell_ref, number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb,
     RowSettings, Sheet, Style, Styles, Unsaid, Workbook, MAX_COLUMN, MAX_ROW,
@@ -64,7 +68,7 @@ use super::{LineRefusal, CELLS};
 
 /// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
-pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, style, sentence, window, extent, refers, table and text";
+pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, conditional, style, lit, sentence, window, extent, refers, table and text";
 
 /// The most formats a grid's table holds, Excel's own count of cell
 /// formats a workbook may hold, rounded to a power of two.
@@ -86,6 +90,9 @@ pub const FORMATS: u32 = 65_536;
 #[derive(Clone, Debug)]
 pub struct Draft {
     pub(crate) sheets: Vec<DraftSheet>,
+    /// How many of the sheets the rows name: all of them, until a machine
+    /// makes each rule's answer sheet after them (KERNEL.58).
+    pub(crate) rows: usize,
     pub(crate) styles: Styles,
     pub(crate) defined_names: Vec<(String, String)>,
     /// Each formula cell's last value, from its `value` row.
@@ -110,6 +117,19 @@ pub(crate) struct DraftSheet {
     /// Each cell's format, as rectangles (KERNEL.67): the cells a row's
     /// format names, a row's format 0 among them, read as none.
     pub(crate) styles: CellStyles,
+    /// The line of each rule on its sheet, by priority (KERNEL.58).
+    rule_lines: BTreeMap<u32, u32>,
+    /// Each `lit` row: the rules it says applied at a cell, and its line.
+    lit: BTreeMap<(u32, u32), (Vec<u32>, u32)>,
+}
+
+/// A rule as a machine answers it (KERNEL.58): its priority, its answer sheet,
+/// and whether it stops.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Answering {
+    pub(crate) priority: u32,
+    pub(crate) sheet: usize,
+    pub(crate) stop: bool,
 }
 
 /// One row's cells: their rectangle, the row's line, and what they hold.
@@ -182,6 +202,8 @@ impl DraftSheet {
             ranges: Rects::default(),
             ones: BTreeMap::new(),
             styles: CellStyles::default(),
+            rule_lines: BTreeMap::new(),
+            lit: BTreeMap::new(),
         }
     }
 
@@ -430,6 +452,7 @@ impl Draft {
     fn new() -> Draft {
         Draft {
             sheets: Vec::new(),
+            rows: 0,
             styles: Styles::new(),
             defined_names: Vec::new(),
             values: HashMap::new(),
@@ -491,13 +514,22 @@ impl Draft {
     /// Every formula the rows wrote, once a record: its sheet and the first
     /// cell of its range, its text without its `=` at its anchor, and its
     /// row's line; by sheet and first cell, the order a walk of the cells
-    /// meets a fill's first cell in.
+    /// meets a fill's first cell in. A rule's among them (KERNEL.58), at its
+    /// range's corner: it computes as a cell's does, so an engine's check of
+    /// what a formula may call holds it too.
     pub fn formulas(&self) -> impl Iterator<Item = (CellId, &str, u32)> + '_ {
         let mut out: Vec<(CellId, &str, u32)> = Vec::new();
         for (si, s) in self.sheets.iter().enumerate() {
             for r in s.records.iter().flatten() {
                 if let What::Formula { text, .. } = &r.what {
                     out.push(((si, r.range.top, r.range.left), text.as_str(), r.line));
+                }
+            }
+            for rule in s.sheet.rules() {
+                let (row, col) = rule.corner();
+                let line = s.rule_lines.get(&rule.priority).copied().unwrap_or(0);
+                for text in rule.formulas() {
+                    out.push(((si, row, col), text, line));
                 }
             }
         }
@@ -679,6 +711,78 @@ impl Draft {
         draft
     }
 
+    /// Each rule's answer sheet made after the rows' sheets (KERNEL.58's
+    /// decision 6), hidden and named as no reference can spell: its rectangles
+    /// one fill of the rule's answer, read at the range's corner, a rectangle
+    /// overlapping one before it cut, and each `lit` row its last answer, as a
+    /// `value` row a formula's. A grid of no rule makes none. For each rows'
+    /// sheet its rules, none at all where no sheet holds one, and how many
+    /// cells they answer for, at most [`CELLS`] beside the grid's.
+    pub(crate) fn answer_sheets(&mut self) -> Result<(Vec<Vec<Answering>>, usize), LineRefusal> {
+        let rows = self.sheets.len();
+        self.rows = rows;
+        if self.sheets.iter().all(|s| s.sheet.rules().is_empty()) {
+            return Ok((Vec::new(), 0));
+        }
+        let mut cells: u64 = 0;
+        let mut answering = Vec::with_capacity(rows);
+        for si in 0..rows {
+            let name = self.sheets[si].sheet.name.clone();
+            let rules: Vec<Rule> = self.sheets[si].sheet.rules().to_vec();
+            let mut mine = Vec::with_capacity(rules.len());
+            for rule in &rules {
+                let line = self.sheets[si]
+                    .rule_lines
+                    .get(&rule.priority)
+                    .copied()
+                    .unwrap_or(0);
+                let mut answer = DraftSheet::new(&format!("{name}[{}]", rule.priority));
+                answer.sheet.visibility = Visibility::Hidden;
+                let text = rule.answer_text(&name);
+                let mut before: Vec<A1Range> = Vec::new();
+                for &range in &rule.ranges {
+                    for piece in outside(range, &before) {
+                        cells += piece.cells();
+                        answer.insert(Record {
+                            range: piece,
+                            line,
+                            what: What::Formula {
+                                text: text.clone(),
+                                anchor: rule.corner(),
+                                si: Some(0),
+                                written: rule.around(),
+                                kind: Kind::Plain,
+                            },
+                        });
+                    }
+                    before.push(range);
+                }
+                if cells > CELLS as u64 {
+                    return Err(rule_cells(line, &name, &rule.range_text(), cells));
+                }
+                mine.push(Answering {
+                    priority: rule.priority,
+                    sheet: self.sheets.len(),
+                    stop: rule.stop,
+                });
+                self.sheets.push(answer);
+            }
+            // Each rule a `lit` row names, by its priority, the rules being in
+            // that order: a save of many rules and many lit cells is read in
+            // the time of its rows.
+            for (&(row, col), (lit, _)) in &self.sheets[si].lit {
+                for priority in lit {
+                    if let Ok(k) = mine.binary_search_by_key(priority, |a| a.priority) {
+                        let answered = Computed::Value(Value::Number(1.0));
+                        self.values.insert((mine[k].sheet, row, col), answered);
+                    }
+                }
+            }
+            answering.push(mine);
+        }
+        Ok((answering, cells as usize))
+    }
+
     /// A formula cell's kind said: a legacy array formula, as a workbook may
     /// hold one and no row writes, or a dynamic-array formula, which a row's
     /// word says of one cell since KERNEL.70 (a machine read over either kind,
@@ -849,6 +953,8 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
         "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)]) or a format of groups alone, (format <index> [(fill ...)] [(number ...)] [(wrap ...)] [(font ...)] [(align ...)] [(border ...)]), saying at least one",
         "look" => "(look \"<sheet>\" <value> <format>)",
+        "conditional" => "(conditional \"<sheet>\" <priority> \"<range>\" \"=<formula>\"|(cell <operator> \"=<bound>\" [\"=<bound>\"]) <format>|none [stop]), its operator one of less, less-or-equal, equal, not-equal, greater-or-equal, greater, between and not-between, the last two taking two bounds",
+        "lit" => "(conditional \"<sheet>\" <priority> \"<range>\" <test> <format>|none) (lit \"<sheet>\" \"<cell>\" <priority> ...)",
         "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
         "sentence" => {
             "(cell \"<sheet>\" \"<cell>\" <value>) (sentence \"<sheet>\" \"<cell>\" <row>)"
@@ -992,6 +1098,22 @@ pub(crate) fn too_many(line: u32, sheet: &str, addr: &str, count: u64) -> LineRe
     }
 }
 
+/// `grid-rule-cells`: a rule whose range would bring the cells rules answer for
+/// past their cap (KERNEL.58).
+pub(crate) fn rule_cells(line: u32, sheet: &str, range: &str, count: u64) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-rule-cells",
+            &[
+                ("target", &format!("{sheet}!{range}")),
+                ("cells", &thousands(count)),
+                ("limit", &thousands(CELLS as u64)),
+            ],
+        ),
+    }
+}
+
 /// A count with its thousands separated by commas, as the host's progress
 /// sentence spells one.
 pub fn thousands(n: u64) -> String {
@@ -1082,6 +1204,8 @@ impl Reader {
             "row" => self.row_settings(form, items, line),
             "format" => self.format(form, items, line),
             "look" => self.look(form, items, line),
+            "conditional" => self.conditional(form, items, line),
+            "lit" => self.lit(form, items, line),
             "style" => self.style(form, items, line),
             "sentence" => self.sentence(form, items, line),
             "window" | "extent" | "refers" | "table" | "text" => Ok(()),
@@ -1504,6 +1628,95 @@ impl Reader {
         Ok(())
     }
 
+    /// A `conditional` row (KERNEL.58): a rule on its sheet, the sheet made
+    /// when it is new, a twin refused as a setting naming one is. A second row
+    /// of its priority is taken when it says the same and refused when it does
+    /// not, as a look is.
+    fn conditional(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
+        let bad = || malformed(line, form, "conditional");
+        let (items, stop) = match items {
+            [before @ .., Form::Sym(word)] if word == "stop" => (before, true),
+            _ => (items, false),
+        };
+        let [Form::Str(sheet), Form::Sym(priority), Form::Str(range), test, Form::Sym(format)] =
+            items
+        else {
+            return Err(bad());
+        };
+        let priority = priority.parse::<u32>().map_err(|_| bad())?;
+        let ranges: Option<Vec<A1Range>> = range.split(' ').map(parse_a1_range).collect();
+        let ranges = ranges.ok_or_else(bad)?;
+        let test = rule_test(test).ok_or_else(bad)?;
+        let format = match format.as_str() {
+            "none" => None,
+            n => match n.parse::<u32>() {
+                Ok(i) if i < FORMATS => Some(i),
+                _ => return Err(bad()),
+            },
+        };
+        let rule = Rule {
+            priority,
+            ranges,
+            test,
+            format,
+            stop,
+        };
+        let si = self.sheet_index(sheet, line, None)?;
+        let s = &mut self.draft.sheets[si];
+        if let Some(&first) = s.rule_lines.get(&priority) {
+            if s.sheet.rules().contains(&rule) {
+                return Ok(());
+            }
+            return Err(twice(
+                line,
+                &format!("(conditional {} {priority})", quoted(sheet)),
+                first,
+            ));
+        }
+        s.rule_lines.insert(priority, line);
+        s.sheet.put_rule(rule);
+        Ok(())
+    }
+
+    /// A `lit` row (KERNEL.58): the rules a cell's record says applied, each
+    /// a rule of the sheet that answers for the cell; a second alike taken.
+    fn lit(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
+        let bad = || malformed(line, form, "lit");
+        let [Form::Str(sheet), Form::Str(addr), priorities @ ..] = items else {
+            return Err(bad());
+        };
+        if priorities.is_empty() {
+            return Err(bad());
+        }
+        let range = parse_a1_range(addr)
+            .filter(|r| r.cells() == 1)
+            .ok_or_else(bad)?;
+        let si = self.draft.find_sheet(sheet).ok_or_else(bad)?;
+        let s = &mut self.draft.sheets[si];
+        let mut lit = Vec::with_capacity(priorities.len());
+        for p in priorities {
+            let Form::Sym(p) = p else {
+                return Err(bad());
+            };
+            let p = p.parse::<u32>().map_err(|_| bad())?;
+            let rules = s.sheet.rules();
+            match rules.binary_search_by_key(&p, |r| r.priority) {
+                Ok(k) if rules[k].covers(range.top, range.left) => lit.push(p),
+                _ => return Err(bad()),
+            }
+        }
+        let at = (range.top, range.left);
+        if let Some((said, first)) = s.lit.get(&at) {
+            if *said != lit {
+                let what = format!("(lit {} {})", quoted(sheet), quoted(addr));
+                return Err(twice(line, &what, *first));
+            }
+            return Ok(());
+        }
+        s.lit.insert(at, (lit, line));
+        Ok(())
+    }
+
     /// The sheet of the cells a `style` or `sentence` row names, each of
     /// which an earlier row wrote; the first, in row-major order, that none
     /// did refused by name (KERNEL.50). The cells are found written by a count
@@ -1629,6 +1842,38 @@ fn computed(f: &Form) -> Option<Computed> {
         Datum::Bool(b) => Value::Bool(b),
         Datum::Error(e) => Value::Error(ErrorKind::parse(&e)?),
     }))
+}
+
+/// A rule's test off its row: a formula, `"=<text>"`, or `(cell <operator>
+/// "=<bound>" ["=<bound>"])`, its operator holding it to its bounds.
+fn rule_test(form: &Form) -> Option<Test> {
+    let text = |f: &Form| match f {
+        Form::Str(t) => t
+            .strip_prefix('=')
+            .filter(|b| !b.is_empty())
+            .map(str::to_string),
+        _ => None,
+    };
+    let Form::List(list) = form else {
+        return text(form).map(Test::Formula);
+    };
+    let [Form::Sym(head), Form::Sym(word), bounds @ ..] = list.items.as_slice() else {
+        return None;
+    };
+    if head != "cell" {
+        return None;
+    }
+    let operator = Operator::from_word(word)?;
+    let (first, second) = match (bounds, operator.takes_two()) {
+        ([first], false) => (text(first)?, None),
+        ([first, second], true) => (text(first)?, Some(text(second)?)),
+        _ => return None,
+    };
+    Some(Test::Cell {
+        operator,
+        first,
+        second,
+    })
 }
 
 /// A column's letters as its index, `A` to `XFD`.

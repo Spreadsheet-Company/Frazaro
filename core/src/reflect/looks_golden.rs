@@ -45,7 +45,7 @@ const BOOK: &str = concat!(
     "/../scripts/reflect/looks_book.xlsx"
 );
 
-const HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
+pub(super) const HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const NS_REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const NS_PKG: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
@@ -54,7 +54,8 @@ const CT: &str = "application/vnd.openxmlformats-officedocument";
 
 /// The workbook's font, Calibri 11 in the theme's ink, as Excel 2016 to
 /// 2022 wrote a new workbook's.
-const CALIBRI: &str = "<name val=\"Calibri\"/><family val=\"2\"/><scheme val=\"minor\"/>";
+pub(super) const CALIBRI: &str =
+    "<name val=\"Calibri\"/><family val=\"2\"/><scheme val=\"minor\"/>";
 /// The second workbook's font, Arial 10 with no color of its own.
 const ARIAL: &str = "<name val=\"Arial\"/><family val=\"2\"/>";
 
@@ -124,7 +125,7 @@ fn palette_tints(slot: usize) -> [&'static str; 5] {
 }
 
 /// An element's place in its list, appended where the list has it not.
-fn place(list: &mut Vec<String>, element: String) -> usize {
+pub(super) fn place(list: &mut Vec<String>, element: String) -> usize {
     match list.iter().position(|e| *e == element) {
         Some(i) => i,
         None => {
@@ -135,7 +136,7 @@ fn place(list: &mut Vec<String>, element: String) -> usize {
 }
 
 /// A solid fill of a color, its attributes as a file writes them.
-fn solid(color: &str) -> String {
+pub(super) fn solid(color: &str) -> String {
     format!("<fill><patternFill patternType=\"solid\"><fgColor {color}/><bgColor indexed=\"64\"/></patternFill></fill>")
 }
 
@@ -146,20 +147,20 @@ fn left_edge(line: &str, color: &str) -> String {
 
 /// A cell format as the fixture writes it.
 #[derive(Clone, Default)]
-struct Xf {
-    num_fmt: u32,
-    font: Option<String>,
-    fill: Option<String>,
-    border: Option<String>,
+pub(super) struct Xf {
+    pub(super) num_fmt: u32,
+    pub(super) font: Option<String>,
+    pub(super) fill: Option<String>,
+    pub(super) border: Option<String>,
     /// The alignment element's attributes.
-    alignment: Option<String>,
+    pub(super) alignment: Option<String>,
     /// The protection element's attributes.
-    protection: Option<String>,
+    pub(super) protection: Option<String>,
     /// The cell style's format, its `xfId`.
-    style: u32,
+    pub(super) style: u32,
     /// The `apply` flags as written; `None` writes Excel's, a flag for each
     /// property the format sets.
-    apply: Option<String>,
+    pub(super) apply: Option<String>,
 }
 
 /// The `apply` flags of a cell format's five properties.
@@ -209,7 +210,7 @@ fn bordered(border: String) -> Xf {
 }
 
 /// A styles part being written, each list's elements once, in order.
-struct Styles {
+pub(super) struct Styles {
     /// The default font's size and face, and its color element.
     size: &'static str,
     face: &'static str,
@@ -221,12 +222,12 @@ struct Styles {
     style_xfs: Vec<String>,
     xfs: Vec<String>,
     cell_styles: Vec<String>,
-    dxfs: Vec<String>,
+    pub(super) dxfs: Vec<String>,
     palette: Vec<String>,
 }
 
 impl Styles {
-    fn new(size: &'static str, face: &'static str, ink: &'static str) -> Styles {
+    pub(super) fn new(size: &'static str, face: &'static str, ink: &'static str) -> Styles {
         let mut s = Styles {
             size,
             face,
@@ -256,7 +257,7 @@ impl Styles {
 
     /// A font of the workbook's default face and size, `before` its flags
     /// and `color` its color element.
-    fn font(&self, before: &str, color: &str) -> String {
+    pub(super) fn font(&self, before: &str, color: &str) -> String {
         format!(
             "<font>{before}<sz val=\"{}\"/>{color}{}</font>",
             self.size, self.face
@@ -264,7 +265,7 @@ impl Styles {
     }
 
     /// The id of a code the part defines, from 164.
-    fn code(&mut self, code: &str) -> u32 {
+    pub(super) fn code(&mut self, code: &str) -> u32 {
         if let Some((id, _)) = self.codes.iter().find(|(_, c)| c == code) {
             return *id;
         }
@@ -274,7 +275,7 @@ impl Styles {
     }
 
     /// A cell format's index, the format written once.
-    fn xf(&mut self, x: Xf) -> u32 {
+    pub(super) fn xf(&mut self, x: Xf) -> u32 {
         let font = x.font.map_or(0, |f| place(&mut self.fonts, f));
         let fill = x.fill.map_or(0, |f| place(&mut self.fills, f));
         let border = x.border.map_or(0, |b| place(&mut self.borders, b));
@@ -360,21 +361,28 @@ impl Styles {
 
 /// A sheet being written: its view, its defaults, its columns, its rows of
 /// cells, its merges and its conditional formats.
-struct Part {
-    name: &'static str,
+pub(super) struct Part {
+    pub(super) name: &'static str,
     gridlines: bool,
     format_pr: String,
-    cols: Vec<String>,
+    pub(super) cols: Vec<String>,
     /// Each row's attributes and its cells by column.
     rows: BTreeMap<u32, (String, BTreeMap<u32, String>)>,
-    merges: Vec<String>,
-    conditional: Vec<String>,
+    pub(super) merges: Vec<String>,
+    pub(super) conditional: Vec<String>,
     /// Each case's name and its reads, in order.
-    cases: Vec<(String, String)>,
+    pub(super) cases: Vec<(String, String)>,
+    /// A sheet hidden by its workbook.
+    pub(super) hidden: bool,
+    /// What the part's `extLst` holds; nothing, no element.
+    pub(super) extension: String,
+    /// The rows of its rules, which the rules' golden's test loads beside the
+    /// reader's rows of its cells; the file never holds them.
+    pub(super) rule_rows: Vec<String>,
 }
 
 impl Part {
-    fn new(name: &'static str) -> Part {
+    pub(super) fn new(name: &'static str) -> Part {
         let mut p = Part {
             name,
             gridlines: true,
@@ -384,6 +392,9 @@ impl Part {
             merges: Vec::new(),
             conditional: Vec::new(),
             cases: Vec::new(),
+            hidden: false,
+            extension: String::new(),
+            rule_rows: Vec::new(),
         };
         p.text(1, 1, "case", 0);
         p.text(1, 2, "reads", 0);
@@ -391,20 +402,25 @@ impl Part {
     }
 
     /// The row the next case takes.
-    fn next_row(&self) -> u32 {
+    pub(super) fn next_row(&self) -> u32 {
         2 * (self.cases.len() as u32 + 1)
     }
 
     /// A case, its name in column A and its reads in column B: its row.
-    fn case(&mut self, name: &str, reads: &str) -> u32 {
+    pub(super) fn case(&mut self, name: &str, reads: &str) -> u32 {
         let row = self.next_row();
-        self.cases.push((name.to_string(), reads.to_string()));
-        self.text(row, 1, name, 0);
-        self.text(row, 2, reads, 0);
+        self.case_at(row, name, reads);
         row
     }
 
-    fn put(&mut self, row: u32, col: u32, s: u32, kind: &str, body: &str) {
+    /// A case at a row its builder chose, for one taller than two rows.
+    pub(super) fn case_at(&mut self, row: u32, name: &str, reads: &str) {
+        self.cases.push((name.to_string(), reads.to_string()));
+        self.text(row, 1, name, 0);
+        self.text(row, 2, reads, 0);
+    }
+
+    pub(super) fn put(&mut self, row: u32, col: u32, s: u32, kind: &str, body: &str) {
         let at = cell_ref(row, col);
         let s = if s == 0 {
             String::new()
@@ -419,7 +435,7 @@ impl Part {
         self.rows.entry(row).or_default().1.insert(col, element);
     }
 
-    fn text(&mut self, row: u32, col: u32, text: &str, s: u32) {
+    pub(super) fn text(&mut self, row: u32, col: u32, text: &str, s: u32) {
         let body = format!("<is><t>{}</t></is>", xml::text(text));
         self.put(row, col, s, " t=\"inlineStr\"", &body);
     }
@@ -428,7 +444,7 @@ impl Part {
         self.put(row, col, s, " t=\"inlineStr\"", &format!("<is>{runs}</is>"));
     }
 
-    fn number(&mut self, row: u32, col: u32, value: &str, s: u32) {
+    pub(super) fn number(&mut self, row: u32, col: u32, value: &str, s: u32) {
         self.put(row, col, s, "", &format!("<v>{value}</v>"));
     }
 
@@ -436,7 +452,7 @@ impl Part {
         self.put(row, col, s, " t=\"s\"", &format!("<v>{index}</v>"));
     }
 
-    fn empty(&mut self, row: u32, col: u32, s: u32) {
+    pub(super) fn empty(&mut self, row: u32, col: u32, s: u32) {
         self.put(row, col, s, "", "");
     }
 
@@ -497,6 +513,9 @@ impl Part {
             s.push('\n');
         }
         s.push_str("<pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>\n");
+        if !self.extension.is_empty() {
+            s.push_str(&format!("<extLst>{}</extLst>\n", self.extension));
+        }
         s.push_str("</worksheet>\n");
         s
     }
@@ -504,15 +523,17 @@ impl Part {
 
 /// A workbook being written: its styles, its sheets, its shared strings and
 /// whether it has a theme part.
-struct Book {
-    styles: Styles,
-    parts: Vec<Part>,
-    strings: Vec<String>,
-    theme: bool,
+pub(super) struct Book {
+    pub(super) styles: Styles,
+    pub(super) parts: Vec<Part>,
+    pub(super) strings: Vec<String>,
+    pub(super) theme: bool,
+    /// The `definedName` elements, each whole.
+    pub(super) names: Vec<String>,
 }
 
 impl Book {
-    fn bytes(&self) -> Vec<u8> {
+    pub(super) fn bytes(&self) -> Vec<u8> {
         let n = self.parts.len();
         let mut types = format!(
             "{HEAD}<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n\
@@ -556,9 +577,10 @@ impl Book {
         let mut rels = format!("{HEAD}<Relationships xmlns=\"{NS_PKG}\">\n");
         for (i, p) in self.parts.iter().enumerate() {
             workbook.push_str(&format!(
-                "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>\n",
+                "<sheet name=\"{}\" sheetId=\"{}\"{} r:id=\"rId{}\"/>\n",
                 p.name,
                 i + 1,
+                if p.hidden { " state=\"hidden\"" } else { "" },
                 i + 1
             ));
             rels.push_str(&format!(
@@ -567,7 +589,14 @@ impl Book {
                 i + 1
             ));
         }
-        workbook.push_str("</sheets>\n</workbook>\n");
+        workbook.push_str("</sheets>\n");
+        if !self.names.is_empty() {
+            workbook.push_str(&format!(
+                "<definedNames>{}</definedNames>\n",
+                self.names.concat()
+            ));
+        }
+        workbook.push_str("</workbook>\n");
         rels.push_str(&format!(
             "<Relationship Id=\"rId{}\" Type=\"{REL}/styles\" Target=\"styles.xml\"/>\n",
             n + 1
@@ -1137,6 +1166,7 @@ fn looks() -> Book {
         parts,
         strings,
         theme: true,
+        names: Vec::new(),
     }
 }
 
@@ -1245,6 +1275,7 @@ fn looks_book() -> Book {
         parts,
         strings: Vec::new(),
         theme: false,
+        names: Vec::new(),
     }
 }
 
@@ -1671,16 +1702,16 @@ fn reading(bytes: &[u8], label: &str) -> Reading {
 /// unsaid one drawing alike; with `colors` false every color is left out,
 /// as a workbook with no theme part leaves a theme's color unsaid.
 #[derive(Debug, PartialEq, Default)]
-struct Drawn {
-    fill: String,
-    num: String,
-    wrap: String,
-    font: Vec<String>,
-    align: Vec<String>,
-    edges: Vec<String>,
+pub(super) struct Drawn {
+    pub(super) fill: String,
+    pub(super) num: String,
+    pub(super) wrap: String,
+    pub(super) font: Vec<String>,
+    pub(super) align: Vec<String>,
+    pub(super) edges: Vec<String>,
 }
 
-fn drawn(text: &str, colors: bool) -> Drawn {
+pub(super) fn drawn(text: &str, colors: bool) -> Drawn {
     let forms = vla_lang::reader::read_forms(&format!("(f {text})"))
         .unwrap_or_else(|_| panic!("a format of the record's spelling: {text}"));
     let items = &forms[0].as_list().expect("a list").items;

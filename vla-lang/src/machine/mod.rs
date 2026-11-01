@@ -109,6 +109,20 @@
 //! are the twins it read, so the next frame with no write before it
 //! computes what it computed.
 //!
+//! **The rules** (KERNEL.58). A conditional format is computed as a fill of
+//! its answer ([`crate::rule`]) on an answer sheet of the rule's own, after the
+//! rows' sheets and before the twins, at the places of the cells it answers for;
+//! so that a rule is planned, followed, stored, stepped in runs and programs, and
+//! yielded as any fill is, and no path of the evaluator knows one. Its name can
+//! be spelled by no reference, so nothing reads an answer and no cycle can pass
+//! through one: a look still computes nothing and the logic depends on no look
+//! (`SD-32`). A grid of no rule holds no answer sheet and pays for none. The
+//! record lists none of them ([`Cells::unlisted`]), and the rows' own counts leave
+//! them out ([`Machine::sheets`], [`Machine::loaded`], [`Machine::formulas`]), but
+//! a step's order holds their cells, which are work a frame does, and a cell a
+//! rule's answer moved is a change of the rule's own sheet ([`Machine::changed`],
+//! [`Machine::changed_on`], a window's changes).
+//!
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
@@ -168,8 +182,8 @@ use crate::view::{changes_text, fills_text, record_text, window_over};
 
 use bits::Bits;
 use book::{Book, Fills, Page};
-use load::What;
 pub use load::{read_rows, sheet_name_ok, thousands, twin_base, Draft, Drafted};
+use load::{Answering, What};
 use store::Store;
 
 /// The most cells a grid holds beside its twins (KERNEL.22): a stated limit,
@@ -359,8 +373,16 @@ pub struct Machine {
     /// values standing in `stores`; `book.pages[sheets..]` are their twins,
     /// in order, which hold no cell.
     book: Book,
-    /// The rows' sheets.
+    /// The sheets that hold cells and a store: the rows', then each rule's
+    /// answer sheet (KERNEL.58); their twins stand after them, at this far from
+    /// each.
     sheets: usize,
+    /// By rows' sheet, its rules by priority; none at all in a grid holding
+    /// no rule.
+    rules: Vec<Vec<Answering>>,
+    /// How many cells the rules answer for, in the plan's count and not in
+    /// `cells`.
+    rule_cells: usize,
     library: Library,
     names: Names,
     extents: Vec<Extent>,
@@ -648,6 +670,7 @@ impl Machine {
     /// its `value` row. Nothing is computed: the frame is 0 and every formula
     /// waits for the first step.
     pub fn new(mut draft: Draft, library: Library) -> Result<Machine, LineRefusal> {
+        let (rules, rule_cells) = draft.answer_sheets()?;
         let values = std::mem::take(&mut draft.values);
         let cells = draft.cells;
         let mut extents: Vec<Extent> = draft.sheets.iter().map(|s| s.extent()).collect();
@@ -693,6 +716,7 @@ impl Machine {
         drop(values);
         Ok(Machine::made(
             (book, sheets, cells),
+            (rules, rule_cells),
             (library, names, extents),
             shapes,
             stores,
@@ -706,6 +730,7 @@ impl Machine {
     #[inline(never)]
     fn made(
         (book, sheets, cells): (Book, usize, usize),
+        (rules, rule_cells): (Vec<Vec<Answering>>, usize),
         (library, names, extents): (Library, Names, Vec<Extent>),
         shapes: Shapes,
         stores: Vec<Store>,
@@ -713,6 +738,8 @@ impl Machine {
         let mut m = Machine {
             book,
             sheets,
+            rules,
+            rule_cells,
             library,
             names,
             extents,
@@ -816,7 +843,7 @@ impl Machine {
         }
         self.changed.sized(of);
         self.twin_changed.sized(of);
-        self.room = self.cells / 2 + 64;
+        self.room = self.twin_room();
         let reach = self.shapes.reach();
         let parted = (0..shapes).filter(|&s| !reach.parts(s).is_empty()).count();
         self.wholes.clear();
@@ -825,12 +852,19 @@ impl Machine {
         room(&mut self.rechecked, parted);
     }
 
-    /// What the load made, for the load's row.
+    /// How many twin cells a frame's end may change, half the cells, a rule's
+    /// answers among them: past them the next frame computes every cell.
+    fn twin_room(&self) -> usize {
+        (self.cells + self.rule_cells) / 2 + 64
+    }
+
+    /// What the load made, for the load's row: the rows' own, no rule's cell
+    /// among them (KERNEL.58).
     pub fn loaded(&self) -> Loaded {
         Loaded {
-            sheets: self.sheets,
+            sheets: self.book.rows,
             cells: self.cells,
-            formulas: self.shapes.formulas(),
+            formulas: self.shapes.formulas() - self.rule_cells,
         }
     }
 
@@ -855,6 +889,11 @@ impl Machine {
             right: MAX_COLUMN,
         };
         for (s, page) in self.book.pages.iter().enumerate() {
+            // A rule's answer sheet is the machine's own (KERNEL.58); its rule
+            // is on the sheet lent.
+            if self.book.answer(s) {
+                continue;
+            }
             let mut sheet = page.sheet.clone();
             if s < self.sheets {
                 let store = &self.stores[s];
@@ -908,9 +947,11 @@ impl Machine {
         self.book.pages.get(index).map(|p| p.sheet.name.as_str())
     }
 
-    /// How many of the grid's sheets are the rows'; the rest are twins.
+    /// How many of the grid's sheets are the rows'; the rest are twins, and
+    /// where the rows hold a rule its answer sheet and its twin (KERNEL.58).
+    #[allow(clippy::misnamed_getters)]
     pub fn sheets(&self) -> usize {
-        self.sheets
+        self.book.rows
     }
 
     /// The last complete frame's number: 0 after a load.
@@ -945,9 +986,18 @@ impl Machine {
         self.every_next = true;
     }
 
-    /// How many formula cells and how many shapes they make.
+    /// How many formula cells and how many shapes they make, the rows' own,
+    /// no rule's among them (KERNEL.58).
     pub fn formulas(&self) -> (usize, usize) {
-        (self.shapes.formulas(), self.shapes.shapes())
+        let shapes = self.shapes.shapes();
+        let answers = match self.rule_cells {
+            0 => 0,
+            _ => (0..shapes)
+                .filter_map(|s| self.shapes.shape(s))
+                .filter(|shape| shape.anchor.0 >= self.book.rows)
+                .count(),
+        };
+        (self.shapes.formulas() - self.rule_cells, shapes - answers)
     }
 
     /// How many formula cells the last complete frame changed the value of
@@ -957,6 +1007,9 @@ impl Machine {
     /// and a value cell, written or not, never does. 0 before the first
     /// frame since the load; while a frame is in progress, the last complete
     /// one's; a write leaves it as it is.
+    ///
+    /// A rule's answer is counted as a formula's value is (KERNEL.58): a look
+    /// that still moves is work a host may be stepping for.
     ///
     /// A frame that changed nothing, with no write before it, is a fixed
     /// point: the twins at its end are the twins it read, so the next frame
@@ -972,12 +1025,19 @@ impl Machine {
 
     /// Of the cells [`Machine::changed`] counts, how many stand on a sheet,
     /// by its index as [`Machine::sheet_name`] takes one (KERNEL.48): 0 for a
-    /// twin, which holds no formula, and `None` past the grid's sheets.
+    /// twin, which holds no formula, and `None` past the grid's sheets. A rule's
+    /// answer stands on the rule's own sheet (KERNEL.58).
     pub fn changed_on(&self, sheet: usize) -> Option<usize> {
         if sheet >= self.book.pages.len() {
             return None;
         }
-        Some(self.changed_sheets.get(sheet).map_or(0, |&n| n as usize))
+        let answers: usize = self.rules.get(sheet).map_or(0, |rules| {
+            rules
+                .iter()
+                .map(|r| self.changed_sheets[r.sheet] as usize)
+                .sum()
+        });
+        Some(self.changed_sheets.get(sheet).map_or(0, |&n| n as usize) + answers)
     }
 
     /// How many formula cells the last complete frame computed (KERNEL.48):
@@ -2008,7 +2068,9 @@ impl Machine {
     /// changes are more than the lists tell, after a write since that
     /// changed a formula or moved a sheet's extent (KERNEL.56), and while a
     /// value written since lies in the window. A twin is written only at a
-    /// frame's end, so a value written since leaves its window still.
+    /// frame's end, so a value written since leaves its window still. A cell
+    /// whose rule's answer moved is named among a rows' sheet's (KERNEL.58),
+    /// even under a stop, its rows printed as they stand.
     fn changes(&self, w: &Window) -> String {
         let at = self.frame;
         let since = at.saturating_sub(1);
@@ -2033,8 +2095,19 @@ impl Machine {
         let s = t - self.sheets;
         let blocks = self.shapes.blocks();
         let mut finder = Locator::default();
+        // A sheet's rules' answer sheets stand together, in its rules' order.
+        let answers = match (rows, self.rules.get(s)) {
+            (true, Some(rules)) => {
+                rules.first().map_or(0, |r| r.sheet)..rules.last().map_or(0, |r| r.sheet + 1)
+            }
+            _ => 0..0,
+        };
+        let mut answered: Vec<(u32, u32)> = Vec::new();
         let formulas = self.twin_changed.iter().filter_map(|p| {
             let ((on, row, col), _) = finder.cell(blocks, p);
+            if answers.contains(&on) && inside(&(t, row, col)) {
+                answered.push((row, col));
+            }
             (on == s).then_some((t, row, col))
         });
         let written = self.twin_written.iter().copied().filter(|id| id.0 == t);
@@ -2044,6 +2117,7 @@ impl Machine {
             .filter(|id| !self.alike.iter().any(|(a, b)| a == id && b & bit != 0))
             .map(|id| (id.1, id.2))
             .collect();
+        cells.append(&mut answered);
         cells.sort_unstable();
         cells.dedup();
         changes_text(self, w, self, (since, at), Some(&cells))
@@ -2106,7 +2180,7 @@ impl Machine {
             _ => Some(load::datum(third).ok_or_else(|| load::malformed(line, form, head))?),
         };
         let Some(si) = self.book.find_sheet(sheet) else {
-            let sheets: Vec<&str> = self.book.pages[..self.sheets]
+            let sheets: Vec<&str> = self.book.pages[..self.book.rows]
                 .iter()
                 .map(|p| p.sheet.name.as_str())
                 .collect();
@@ -2647,7 +2721,7 @@ impl Machine {
                 self.every_next = true;
             }
         } else if log.added > 0 {
-            self.room = self.cells / 2 + 64;
+            self.room = self.twin_room();
         }
         // A sheet whose extent the write moved (KERNEL.56): every window's
         // record of it names its extent in its head, which no cell's change
@@ -2795,6 +2869,24 @@ impl Machine {
                 }
             }
         }
+    }
+}
+
+impl Machine {
+    /// Whether a rule's answer at a cell is true as the last complete frame
+    /// left it (KERNEL.58): false for a cell it answers nothing for and an
+    /// answer not computed yet, which waits for the first step.
+    fn answers_true(&self, sheet: usize, row: u32, col: u32) -> bool {
+        if self.before.is_empty() {
+            return matches!(
+                self.stores[sheet].slot_of(row, col),
+                Some(Stored::Number(n)) if n != 0.0
+            );
+        }
+        matches!(
+            self.computed((sheet, row, col)),
+            Some(Computed::Value(Value::Number(n))) if n != 0.0
+        )
     }
 }
 
@@ -3060,6 +3152,51 @@ impl Cells for Machine {
                 );
             }
         }
+    }
+
+    fn unlisted(&self, sheet: usize) -> bool {
+        self.book.answer(sheet)
+    }
+
+    /// The rules true at each cell of a window, walked by priority over the
+    /// pieces of each one's answer sheet there (KERNEL.58), a cell they have
+    /// stopped at given no more.
+    fn lit_in(&self, sheet: usize, window: &A1Range) -> BTreeMap<(u32, u32), Vec<u32>> {
+        let mut lit: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
+        let Some(rules) = self.rules.get(sheet) else {
+            return lit;
+        };
+        let mut stopped: BTreeSet<(u32, u32)> = BTreeSet::new();
+        for rule in rules {
+            for (piece, _) in self.book.pages[rule.sheet].fills.pieces_in(window) {
+                for row in piece.top..=piece.bottom {
+                    for col in piece.left..=piece.right {
+                        if !self.answers_true(rule.sheet, row, col) || stopped.contains(&(row, col))
+                        {
+                            continue;
+                        }
+                        lit.entry((row, col)).or_default().push(rule.priority);
+                        if rule.stop {
+                            stopped.insert((row, col));
+                        }
+                    }
+                }
+            }
+        }
+        lit
+    }
+
+    fn lit_at(&self, sheet: usize, row: u32, col: u32) -> Option<Vec<u32>> {
+        let mut lit = Vec::new();
+        for rule in self.rules.get(sheet)? {
+            if self.answers_true(rule.sheet, row, col) {
+                lit.push(rule.priority);
+                if rule.stop {
+                    break;
+                }
+            }
+        }
+        (!lit.is_empty()).then_some(lit)
     }
 
     fn cell(&self, sheet: usize, row: u32, col: u32) -> Option<grid::Held<'_>> {

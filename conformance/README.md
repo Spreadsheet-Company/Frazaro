@@ -2376,3 +2376,63 @@ range and never on the name.
 operand's rule leaves to the host for every function; a union of references; a whole
 column read as arrays; and a call of any count but two, which Excel refuses at entry
 and the language answers `#VALUE!`, held by a unit test.
+
+## Amendment of 2026-11-01: oracle 11's conditional format (`KERNEL.58`, its third slice)
+
+A sheet holds a rule as a row of its own, a machine computes its answer, and the
+record says what each cell draws. Nothing else moves: a grid holding no rule plans,
+steps and prints as it did, byte for byte, and no golden of oracle 11 moves.
+
+- **The row.** `(conditional "<sheet>" <priority> "<range>" <test> <format>|none
+  [stop])`: a whole number, the lowest first; a rectangle or several, as a file's
+  `sqref` spells them, whose cells need no earlier row; a formula, `"=<text>"`, or
+  `(cell <operator> "=<bound>" ["=<bound>"])`, the operator one of `less`,
+  `less-or-equal`, `equal`, `not-equal`, `greater-or-equal`, `greater`, `between` and
+  `not-between`, the last two taking two bounds; a format or `none`; and `stop`. A
+  second row of one priority is taken alike and refused unlike, and a twin holds no
+  rule. It is printed in every record of its sheet by priority, after the `look` rows
+  and before the cells, unclipped, and the formats rules name join the `format` rows.
+- **What a formula reads.** It moves from the corner of the range, the top left of the
+  rectangle around its rectangles, whatever order they are written in and whether or
+  not a rectangle holds that cell, a bound the same. A reference naming no sheet reads
+  the rule's, and a defined name is found from there.
+- **What is true.** As `IF` reads an answer: a number not 0, `TRUE` and the text `TRUE`;
+  an error and any other text are false. A bound reading a cell holding nothing is the
+  number 0 under every operator, whatever the cell compared holds, and a `between`
+  takes its two bounds in either order.
+- **The answer.** `(lit "<sheet>" "<addr>" <priority> ...)`, the rules true at a cell
+  by priority, up to the first that stops, after the cell's `style` row and before its
+  `sentence` row, in the grid, the values and the fills; a cell holding nothing prints
+  it alone at its place. A stop ends every later rule over the cell, whatever its range.
+  A load takes the row as a rule's last answer, as a `value` row is a formula's, and a
+  rule with no such row waits for the first step. A door computes no rule, and prints
+  the rule's row and no answer.
+- **What a cell draws.** Each rule that applies over the next, the last over the
+  cell's look and its own (`Style::over`), each property the first's that says it.
+  A `text` row draws under the first rule's code that says one, else as it did.
+- **A rule moves no value** (`SD-32`). Its answer stands on a sheet of its own that no
+  reference can spell, `Board[1]`, which no name finds and no record lists, so nothing
+  reads an answer and no cycle passes through one. `Machine::sheets`, `loaded` and
+  `formulas` keep the rows' own counts; a step's `of` holds the rules' cells, at most
+  1,048,576 in all beside the grid's (`grid-rule-cells`). A window's changes name a
+  cell a rule's answer moved, even under a stop, and `changed` and `changed_on` count
+  it on the rule's own sheet.
+- **The oracle.** Excel's own. `scripts/reflect/rules.xlsx`, `rules_plain.xlsx` and
+  `rules_x14.xlsx`, the core's hand-made workbooks of a case a row, are read through
+  `Range.DisplayFormat`, `Range.Text` and `Range.FormatConditions` by
+  `VlaWriteRulesGolden` into `scripts/reflect/rules_golden.txt`, 195 cases, with
+  Excel's `.xlsx` and `.ods` saves beside them and LibreOffice's `rules_calc.ods`;
+  `check_looks_golden` holds its shape. The core's
+  `the_machine_draws_each_case_as_excel_draws_it` loads their cells by the package
+  reader and their rules under Excel's library, and holds each target to it, every
+  difference named: a range read as an array (`KERNEL.55`), a reference moved past the
+  sheet's bottom or right, which Excel wraps, a look the record has no word for, the
+  kinds not computed, and what `DisplayFormat` reads and Excel's screen does not draw,
+  by the owner's look: a stop reaching only its own range, a rule's font name and its
+  vertical alignment. The language's `tests/rules.rs` holds the free laws over generated
+  grids: every frame's values equal to the same grid's without its rules, each `lit`
+  row to the rule's test written as ordinary formulas on ordinary sheets of a twin
+  grid, a window's values patched by its changes (`KERNEL.42`), and a grid viewed whole and loaded again
+  viewing and stepping the same. The painter's fixture
+  `vla-lang/testdata/appearance/rules.vla` is a record with rules, beside the same
+  record drawn.

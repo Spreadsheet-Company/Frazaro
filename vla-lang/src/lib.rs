@@ -20,7 +20,9 @@
 //! surface over them (`abi`) exported only under the `c-abi` feature;
 //! since KERNEL.25 (2026-10-09), the hash the machine's maps use (`fx`, the
 //! crate's own); and since KERNEL.47 (2026-10-17), a number format's code
-//! and the text a number draws as under it (`numfmt`).
+//! and the text a number draws as under it (`numfmt`); and since KERNEL.58
+//! (2026-11-01), a conditional format as a sheet holds it and the formula that
+//! answers it (`rule`).
 //!
 //! Since VLA.4 (2026-10-17) the language holds the formula syntax
 //! (`formula_syntax`): a VLA expression written as a formula's text in
@@ -59,6 +61,7 @@ pub mod projection;
 pub mod reader;
 pub mod refers;
 pub mod rows;
+pub mod rule;
 pub mod sheet;
 pub mod version;
 pub mod view;

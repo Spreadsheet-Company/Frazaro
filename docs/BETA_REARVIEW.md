@@ -41997,7 +41997,8 @@ put first.
     first; slice 3 is a rule with no writer, so it does not reach `main`
     before `0.13.0` is cut, and waits in its worktree if need be. *Declined:*
     `0.13.0` holding for this (a language change Alonzo wants now, behind
-    weeks of another).
+    weeks of another). *Amended 2026-11-01, at the third slice's landing: the slice
+    rides `0.13.0`.*
 
 16. *Alonzo's half,* Alonzo's to mint after the release that carries this (its
     next free `ENGINE.36`), named here so that nothing is assumed of it: the
@@ -42295,6 +42296,179 @@ standing side by side; that commit's own tree holds no code of this item's,
 and this slice's code and the module's version line land here. The worktree
 was laid again over `4bccb9b` from a saved patch, one conflict, that header,
 resolved by content. Waits on the owner's word to commit.
+
+*The second slice committed 2026-10-30* as `9311710`, at "Commit KERNEL.58 before
+suggesting next steps."
+
+*The third slice's probes, run 2026-10-30, Excel 16.0 build 20527,* the owner's: two
+runs of `VlaWriteRulesGolden`, as the stop rule allows, and two looks at Excel's own
+screen, which the rule did not foresee and the first run asked for. Nothing was
+repaired, no target was refused and no save carries a name. `rules_plain.xlsx`, a rule
+reading another sheet in the sheet's own part, and `rules_x14.xlsx`, the same in its
+extension, both open and draw alike, as predicted at 70%, and Excel's save writes both
+to the extension, a defined name staying in the main part. The first run, 171 cases,
+stood 64 lines of 976 from its prediction; the second, 195 cases with the first's
+corrections folded, 8 lines of 1,194 (the kept predictions, and the first run's golden,
+stood in the session's scratchpad). What they settled, each by its decision:
+
+- *Decision 3, where a formula moves from: corrected.* Not the first rectangle's first
+  cell, as predicted, but the corner of the range, the top left of the rectangle around
+  its rectangles, whatever order they are written in, and even where no rectangle holds
+  that cell: `D12:D13 F10:F11` moves from `D10`. Four cases, each lighting another set
+  of cells for each candidate; a `cellIs` bound the same, the second run's fifth. A
+  rule moves down and right from there, so a reference passes the bottom or the right
+  of the sheet and never the top, and the first run's case of the top is gone.
+- *The exhibit that `Formula1` reads relative to the active cell: wrong for a read.*
+  It read alike from every cell of a rule in both runs, the file's text, so the golden's
+  second `rule:` target of each case is gone. (A formula *added* reads so, which is
+  what is documented.)
+- *What is true, and `cellIs`: as predicted but one.* Every answer read as `IF` reads
+  it; a `between` takes its bounds in either order, the prediction's 55%. The one: a
+  bound reading a cell holding nothing is the number 0, under all eight operators,
+  whatever the cell compared holds, where `=FALSE=A1` answers true in a cell. The
+  language writes such a bound `IF(COUNTA(b)=0,0,b)`, and agrees.
+- *Decisions 6 and 7, the stop: stand as written.* `DisplayFormat` read a stop with no
+  later rule of its own range as not reaching a later rule of another. Nine cases fit
+  that stranger rule, which this session reported to the owner as Excel's. The owner's
+  look at `Order` says otherwise: on the screen `C34`, `C38` and `C40` are not bold and
+  `C48` is not lit. A stop ends every later rule over the cell, whatever its range, as
+  decision 6 said. `DisplayFormat` is not the screen there, and the golden keeps its
+  reading, named a gap in four places (*Found* 7).
+- *Decision 11, what a differential format cannot hold: the scoping's prediction wrong
+  for three.* The owner's look at `Partial`: a rule's size, its raised text, its
+  horizontal alignment and its medium, thick, double and dashed edges all draw, and a
+  pattern, and a code's `[Red]`. A rule's font name does not (row 64 is Calibri), nor its
+  vertical alignment (rows 68 and 70 sit where unaligned text sits), though `DisplayFormat`
+  reads both, an alignment element reading vertical `top` whichever it said. Wrap could
+  not be seen at this text's length. So the writer's left-out list is the family and
+  the vertical alone, and a reader leaves those two out.
+- *A format's parts: as predicted, and two more.* A said default takes the cell's own
+  away. An empty border side says no line and an absent one says nothing, so a format
+  with `<left .../><right/><top/><bottom/>` takes the cell's other edges away, and
+  `<left .../>` alone does not. `DisplayFormat` keeps the cell's own number format
+  wherever a rule says another, a rule's code showing by `Range.Text` alone, and takes a
+  code's `[Red]` as the font's color. `fgColor` alone under `solid` draws white over no
+  fill and nothing over a fill.
+- *Ties, for the reader of the fourth slice.* A file may tie a priority, as no row may.
+  In one element the later rule leads; of two elements of one range, which Excel merges
+  and renumbers, the first.
+- *Decision 5, one kind's formula.* `notContainsBlanks` lights an error, which its own
+  `<formula>` does not; spaces and the empty text are blank to both blank kinds. A
+  reader writes that kind's test `IFERROR(<formula>,TRUE)`.
+- *A merged range, for the sixth slice.* It draws by its first cell's answer at every
+  cell.
+- *LibreOffice's save,* `rules_calc.ods`, stands with the rest for the fifth slice.
+
+*The third slice built,* over `9311710`, 2026-11-01, decisions 3, 5 to 8, 13 and 14 as
+folded above, and laid again the same day over `4c291a9`, where `KERNEL.68` to `KERNEL.71`
+had landed: six conflicts, in `machine/load.rs`, `machine/mod.rs`, `messages.rs`,
+`VLA_Messages.bas`, the treaty and the floors, each resolved by content, and `NA()`'s rules
+in once `KERNEL.68` computed it, which moved no target. The measurements below are
+`9311710`'s; over `4c291a9` the ceilings moved by the same bytes.
+A rule is `vla_lang::rule::Rule`, in a module of its own, as a sheet holds it
+(`Sheet::rules`, boxed, 8 bytes a sheet) and its row spells it. `Machine::new` makes each
+rule's answer sheet after the rows' sheets before it plans, one fill of
+`IFERROR(IF(<test>,1,0),0)` whose anchor is the range's corner and whose pieces are its
+rectangles, the corner needing to be no cell of it, each reference naming no sheet
+qualified by the rule's (`refers::qualified`), a name found from there. Everything after
+that is the machine's as it stands: the answer sheets and their twins count among
+`sheets`, so that the twins' arithmetic, the plan, the stores, the runs and the programs,
+a yield and a frame's end know no rule, and no path of the evaluator changed. `Book`
+knows which pages they are by their place, which `find_sheet` finds by no name and
+`Cells::unlisted` lists in no record; the rows' own counts come from `book.rows`. A
+reference cannot spell `Board[1]`, so nothing reads an answer, and no cycle passes
+through one.
+
+*Measured against the predictions,* on this machine, medians, in the release profile:
+
+| | Predicted (the stand-in) | Measured |
+|---|---|---|
+| `Sheet` | 168 bytes | 168 |
+| Every ceiling, a grid of no rule | up 8 a sheet, Superposition 256 | exactly that, held and peak, but criteria's and netlist's load peak, up 248 (a draft sheet's two maps) |
+| Six rules over 81 cells: load | 0.112 ms, 0.031 without | 0.161, 0.040 without |
+| Held | 103,967 B, 48,863 without | 113,520, 48,990 without |
+| First frame | 11.6 µs | 11.1 |
+| An act | 1.3 µs, 1.1 without | 1.30, 1.10 without |
+| Idle | 0.1 µs | 0.10 |
+| A whole view, no cell lit | under 10 µs more | 56.7 µs, 50.8 without: 5.9 more |
+| A whole view, every cell lit | under 10 µs more | 99.3 µs, 48.5 without: 50.8 more. **Wrong**: I did not count the 81 rows it prints, 0.6 µs each, as a cell's rows cost. A host draws by a window's changes |
+| One rule over 512 by 512: load | 6.66 ms, 2.29 without | 6.06, 2.17 without |
+| Held | 9,059,613 B, 2,395,508 without | 9,063,948, 2,395,539 without |
+| First frame | 5.43 ms | 5.37 |
+| An act | 1.6 µs, 1.2 without | 1.60, 1.20 without |
+| Every cell's frame | 52.83 ms, 43.07 without | 48.82, 39.04 without |
+| Superposition with a rule over `A1:SR487` | 12,942,041 B, 10,593,758 without | 12,946,136, 10,594,149 without, 9.41 B a rule cell |
+
+Size: predicted about 1,000 lines with tests, the machine's own about 150, the view's
+100. Measured 4,443: the language's source 978, the machine's own 195 and its load's 251,
+the view's 103 and the rule's module 289; its tests 1,314; and the core's builder and
+oracle 2,245, which the prediction did not count, a case a row. The source was the
+prediction; the laws and the oracle were not.
+
+*The oracle.* The core's `the_machine_draws_each_case_as_excel_draws_it` loads the three
+workbooks' cells by the package reader and their rules from the builder's record of
+each, under Excel's library, and holds each of 752 targets to Excel's reading: 718 agree
+and 34 are named, in 23 entries of its `GAPS`, each said to differ or the test fails: a
+range read as an array (`KERNEL.55`), a merge (the sixth slice), a reference moved past
+the bottom or the right, which Excel wraps and a fill's mover makes `#REF!`, what the
+record has no word for (a pattern, an automatic color said, a code's color), the kinds
+not computed, and what `DisplayFormat` reads and the screen does not draw. The builder's
+`format_words` is what a reader is to say of each `dxf`, and the fourth slice's reader
+will be held to it. `rule:` targets wait for that reader. The language's `tests/rules.rs` holds the free laws over generated
+grids, at every frame and through value and formula writes: a grid's values and its
+every other row the same grid's without its rules, in the grid, the values and the
+fills, every sheet's and twin's; each `lit` row the rule's test written as ordinary
+formulas on ordinary sheets of a twin grid, walked by priority to the first stop; a
+window's values patched by its changes, its `lit` rows among them, through yields; a
+grid viewed whole, loaded again and resumed, viewing and stepping the same; a frame in
+slices the frame whole, a view during a yield the last complete frame's; and
+`a_rule_s_answer_moves_where_no_value_does`, the case the prompt named. The painter's
+fixture `testdata/appearance/rules.vla` and its drawn twin are for Alonzo to hold.
+Fifty-eight mutants, a control before and after: 52 caught by the language's tests, 4 by
+Excel's golden alone, among them two operators' edges and a whole column left
+unqualified, and 2 surviving, each a behavior pinned then (a stop in a window's changes,
+and a twin's window silent where an answer moved). Those two and six more, over the lines
+a later change wrote, all caught.
+Alonzo's `782faec`, a copy over this language by path, passes its 90 tests, its describe
+goldens among them, and its doc test.
+
+*Found:*
+
+7. *`DisplayFormat` is not the screen,* for a stop across two ranges, a rule's font name
+   and its vertical alignment. `KERNEL.50`, `KERNEL.57` and this item all read it as
+   Excel's reading. This item's first look was asked for because the second run's stop
+   rule looked wrong, and nothing else would have caught it: the golden was self-consistent
+   and I had reported its rule to the owner as Excel's. An oracle read through an object
+   model is that object model's. The looks golden's `cf:` target reads it too, over rules
+   with no stop, and no earlier golden reads a rule.
+8. *Two tracked saves name the owner:* `looks_saved.ods` and `opendocument_saved.ods`,
+   pushed, in their `meta.xml`, where `VlaWriteRulesGolden`'s saves of `.ods` name no one,
+   its `RemovePersonalInformation` set before them. Not touched.
+9. *A window's changes under a stop name a cell whose rows did not move,* as decision 8
+   said, so that `KERNEL.42`'s "a cell named exactly when its rows changed" holds of a grid
+   with no rule. A host patching the same rows is unharmed. Telling it would mean telling
+   each answer's change against the rules above it.
+10. *The host test `set-formula's array formula actually spills` failed once,* `b2=1 b3=
+    b4=`, with `rules.xlsx` open in Excel and calculation automatic, passed the run before
+    and the run after with nothing changed but a comment. Not chased.
+
+11. *A rule costs a sheet and a twin:* about 7 KB of a rule over one cell, 36.7 MB for
+    5,000 of them over a grid of 5,000 cells (85 KB without), an idle frame 15.4 µs and an
+    act 32.5 µs (0 and 1.4), loaded in 84 ms. Everything a rule is looked up by at a cell or
+    a changed cell goes by its place, so nothing here is worse than linear in the rules. A
+    workbook of fragmented formats can hold that many; a grid of no rule pays none of it.
+
+*Decision 15 amended 2026-11-01, at the owner's word.* The owner asked why this slice stayed
+out of `main` until `0.13.0` was cut, and the recommendation did not stand: "this item is
+weeks" was wrong, three of its seven slices built in two days; no door turns a grid's rows
+into a workbook, so that a rule with no writer loses a rule only for a crate's user calling
+the writer; and Alonzo, which the slice is for, never uses the writer. Withdrawn, and at
+"Land it" the slice rides `0.13.0`, its note under that heading, Alonzo's pin, its painter
+item and Seiyaku's highlight free to follow there.
+
+*The owner's run, 2026-11-01:* `VlaDevReload`, Debug > Compile and `? VlaSelfTests()`, over
+`VLA_Messages.bas`'s one new refusal, pure 2504/2504 and host 333/333. Committed at the owner's
+word, "Commit before suggesting next steps". Not pushed.
 
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's

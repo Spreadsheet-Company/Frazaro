@@ -259,13 +259,18 @@ impl Page {
     }
 }
 
-/// The machine's grid: its sheets, the rows' and then their twins', which
-/// hold no formula; its format table and its names.
+/// The machine's grid: its sheets, the rows', each rule's answer sheet
+/// (KERNEL.58), and then their twins', which hold no formula, in that order;
+/// its format table and its names.
 #[derive(Clone, Debug)]
 pub(crate) struct Book {
     pub(crate) pages: Vec<Page>,
     pub(crate) styles: Styles,
     pub(crate) defined_names: Vec<(String, String)>,
+    /// How many of the pages the rows name, the answer sheets standing after
+    /// them, and how many there are before the twins.
+    pub(crate) rows: usize,
+    pub(crate) sheets: usize,
 }
 
 impl Book {
@@ -306,19 +311,32 @@ impl Book {
             }
             pages.push(page);
         }
+        let rows = draft.rows;
+        let sheets = pages.len();
         Book {
             pages,
             styles: std::mem::take(&mut draft.styles),
             defined_names: std::mem::take(&mut draft.defined_names),
+            rows,
+            sheets,
         }
     }
 
+    /// Whether a page is a rule's answer sheet or the twin of one (KERNEL.58):
+    /// the machine's own, which no name finds and no record lists.
+    pub(crate) fn answer(&self, page: usize) -> bool {
+        (self.rows..self.sheets).contains(&page) || page >= self.sheets + self.rows
+    }
+
     /// A sheet's index by name, compared as Excel compares names
-    /// ([`crate::sheet::Workbook::find_sheet`]).
+    /// ([`crate::sheet::Workbook::find_sheet`]); a rule's answer sheet is
+    /// found by none (KERNEL.58).
     pub(crate) fn find_sheet(&self, name: &str) -> Option<usize> {
-        self.pages
+        let at = self
+            .pages
             .iter()
-            .position(|p| p.sheet.name.eq_ignore_ascii_case(name))
+            .position(|p| p.sheet.name.eq_ignore_ascii_case(name))?;
+        (!self.answer(at)).then_some(at)
     }
 }
 

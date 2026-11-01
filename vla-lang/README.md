@@ -182,6 +182,12 @@ refused in the same words.
   alone, `(format 64 (fill "FFE699") (font "800020"))`, says no more than its
   groups (`Style::partial`, `sheet::Unsaid`), so that a look of it draws the
   cell's own fill, number format and wrap for those it leaves unsaid.
+- **Holds a conditional format.** `rule::Rule` is a row of its own,
+  `(conditional "Board" 1 "B2:J10" "=Lit!A1=1" 64 stop)` or `(cell greater "=5")`
+  in the formula's place, as a sheet holds it (`Sheet::rules`, `Sheet::put_rule`). A
+  machine computes each rule's answer as a fill on a sheet of its own that no
+  reference can spell, so a rule moves no value, and prints what applies at a cell,
+  `(lit "Board" "B2" 1 3)`, by priority up to the first that stops.
 - **Reads references.** `refers::scan` finds every reference inside a
   formula's text, cells, ranges, columns, rows, names, Tables, external
   books and 3D spans, and names the calls it cannot read; `refers::r1c1`
@@ -394,8 +400,8 @@ this page gains its section when the item closes:
   Excel would cut it (KERNEL.51); and a database function's computed
   criteria, a formula computed at each record, where it is labelled today
   (KERNEL.52).
-- **More of a cell's look.** A merged range and a conditional format, held by
-  the model and the record, a rule's answer computed by the machine (KERNEL.58).
+- **More of a cell's look.** A merged range, held by the model and the record, and
+  a conditional format through the file formats (KERNEL.58).
 
 ## Where it comes from
 

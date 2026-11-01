@@ -825,6 +825,31 @@ pub fn shift_a1_references(formula: &str, d_row: i64, d_col: i64) -> String {
     rewrite(formula, |r| shifted_part(r, d_row, d_col))
 }
 
+/// The formula's text with every reference that names no sheet naming
+/// `sheet`, quoted as a reference quotes one (KERNEL.58: a rule's formula, read
+/// from a sheet of its own): a cell, a range, a whole column or row, a spill,
+/// and a defined name, found from there as from `sheet`.
+pub(crate) fn qualified(formula: &str, sheet: &str) -> String {
+    let chars: Vec<char> = formula.chars().collect();
+    let prefix = format!("{}!", quote_sheet(sheet));
+    let mut out = String::with_capacity(formula.len() + prefix.len());
+    let mut p = 0;
+    for r in &scan(formula) {
+        let bare = r.sheet_name.is_empty() && r.book.is_empty();
+        let moved = matches!(
+            r.kind,
+            Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::Name | Kind::Spill
+        );
+        if bare && moved {
+            out.extend(chars[p..r.pos].iter());
+            out.push_str(&prefix);
+            p = r.pos;
+        }
+    }
+    out.extend(chars[p..].iter());
+    out
+}
+
 /// Whether moving the text changes its references alone, each by the
 /// offset, for every offset from `low` to `high`, rows then columns: every
 /// part with numbers stays on the sheet at both ends, by the mover's own

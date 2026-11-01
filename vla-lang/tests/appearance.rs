@@ -20,17 +20,26 @@
 //!    more: it prints as said, loads back, draws the cell's own for what it
 //!    leaves unsaid, and has a painter's fixture of its own, `partial.vla`
 //!    and `partial_drawn.vla`, its `text` rows the drawn record's.
+//! 4. A conditional format draws as a look does, over one and over a cell's
+//!    own, the rules that apply folded in their order, and has a painter's
+//!    fixture of its own, `rules.vla` and `rules_drawn.vla`.
+
+use std::collections::BTreeMap;
 
 use vla_lang::calc::library;
 use vla_lang::machine::{LineRefusal, Machine, Viewed};
 use vla_lang::rows::quoted;
-use vla_lang::sheet::{number_text, Content, NumFmt, Rgb, Style, Unsaid, Workbook};
+use vla_lang::sheet::{
+    number_text, parse_a1_range, Cell, Content, NumFmt, Rgb, Style, Unsaid, Workbook,
+};
 use vla_lang::view::{view_text, window_of};
 
 const FIXTURE: &str = include_str!("../testdata/appearance/appearance.vla");
 const DRAWN: &str = include_str!("../testdata/appearance/appearance_drawn.vla");
 const PARTIAL: &str = include_str!("../testdata/appearance/partial.vla");
 const PARTIAL_DRAWN: &str = include_str!("../testdata/appearance/partial_drawn.vla");
+const RULES: &str = include_str!("../testdata/appearance/rules.vla");
+const RULES_DRAWN: &str = include_str!("../testdata/appearance/rules_drawn.vla");
 
 fn load(rows: &str) -> Machine {
     Machine::load(rows, library::language())
@@ -724,6 +733,170 @@ fn a_font_s_family_underline_and_strike_print_as_said_and_fall_over_a_cell_s_own
         "{}",
         e.refusal.text
     );
+}
+
+/// The third fixture's rows: a cell's own format that says everything, a look,
+/// and rules over them and over cells holding nothing.
+fn rules_rows() -> String {
+    let mut rows = String::from(concat!(
+        "(sheet \"Rules\" visible)\n",
+        "(gridlines \"Rules\" off)\n",
+        "(format 1 \"E8E0F7\" \"0.00\" wrap (font bold \"1D1D1B\") (align right) (border (left medium)))\n",
+        "(format 2 (fill \"FFE699\"))\n",
+        "(format 3 (font \"800020\"))\n",
+        "(format 4 (number \"0\"))\n",
+        "(format 5 (fill none) (font not-bold))\n",
+        "(format 6 (border (left none) (top thin \"6B4FC8\")))\n",
+        "(format 7 (font italic) (fill \"9DC3E6\"))\n",
+        "(look \"Rules\" 3 7)\n",
+        // A fill, over the look at nothing it says and over the cell's own.
+        "(conditional \"Rules\" 1 \"A1:F1\" (cell greater \"=4\") 2)\n",
+        // A color, reading its own cell, in a rectangle.
+        "(conditional \"Rules\" 2 \"A1:C2\" \"=A1=2\" 3)\n",
+        // A number format, and a stop over the rule after it.
+        "(conditional \"Rules\" 3 \"D1:D2\" (cell between \"=3\" \"=5\") 4 stop)\n",
+        // A fill taken away and a said default, under a fill above it.
+        "(conditional \"Rules\" 4 \"D1:F2\" \"=TRUE\" 5)\n",
+        // An edge, on cells holding nothing.
+        "(conditional \"Rules\" 5 \"A3:C3\" \"=$A$2=1\" 6)\n",
+        // False, drawing nothing.
+        "(conditional \"Rules\" 6 \"A4\" \"=FALSE\" 2)\n",
+        // A rule of no format that stops, so that the next draws nothing.
+        "(conditional \"Rules\" 7 \"E3\" \"=TRUE\" none stop)\n",
+        "(conditional \"Rules\" 8 \"E3\" \"=TRUE\" 2)\n",
+    ));
+    for (k, col) in ('A'..='F').enumerate() {
+        let value = k + 1;
+        rows.push_str(&format!(
+            "(cell \"Rules\" \"{col}1\" {value})\n(style \"Rules\" \"{col}1\" 1)\n"
+        ));
+        rows.push_str(&format!("(cell \"Rules\" \"{col}2\" {value})\n"));
+    }
+    rows.push_str("(cell \"Rules\" \"F4\" \"the corner\")\n");
+    rows
+}
+
+/// A record's `lit` rows, by cell.
+fn lit_of(record: &str) -> BTreeMap<(u32, u32), Vec<u32>> {
+    let mut lit = BTreeMap::new();
+    for line in record.lines().filter(|l| l.starts_with("(lit ")) {
+        let words: Vec<&str> = line.trim_end_matches(')').split(' ').collect();
+        let at = parse_a1_range(words[2].trim_matches('"')).expect("a cell");
+        let priorities = words[3..].iter().map(|p| p.parse().expect("a priority"));
+        lit.insert((at.top, at.left), priorities.collect::<Vec<u32>>());
+    }
+    lit
+}
+
+/// A sheet with its rules applied as a painter draws them, after its looks:
+/// each that applies folded over the next, the last over what the cell draws,
+/// and its rules dropped. A cell holding nothing that a rule lights is the
+/// empty text, which draws nothing but its format.
+fn rules_applied(mut wb: Workbook, sheet: &str, lit: &BTreeMap<(u32, u32), Vec<u32>>) -> Workbook {
+    let si = wb.find_sheet(sheet).expect("the sheet");
+    let rules = wb.sheets[si].rules().to_vec();
+    wb.sheets[si].drop_rules();
+    for (&at, priorities) in lit {
+        let own = wb.sheets[si].cells.get(&at).map_or(0, |c| c.style);
+        let mut draws = wb.styles.get(own).cloned().unwrap_or_default();
+        for priority in priorities.iter().rev() {
+            let rule = rules
+                .iter()
+                .find(|r| r.priority == *priority)
+                .expect("a rule");
+            if let Some(style) = rule.format.and_then(|f| wb.styles.get(f)) {
+                draws = style.over(&draws);
+            }
+        }
+        let style = wb.styles.id(draws);
+        match wb.sheets[si].cells.get_mut(&at) {
+            Some(cell) => cell.style = style,
+            None => {
+                let content = Content::Text(String::new());
+                wb.sheets[si].set(at.0, at.1, Cell { content, style });
+            }
+        }
+    }
+    wb
+}
+
+#[test]
+fn the_painter_s_fixture_of_rules_is_the_language_s() {
+    let mut m = load(&rules_rows());
+    assert!(m.step(0).done);
+    let record = grid(&m, "Rules");
+    let lit = lit_of(&record);
+    let wb = rules_applied(looks_applied(m.workbook(), "Rules"), "Rules", &lit);
+    let window = window_of(&wb, "Rules", None).expect("the window");
+    let drawn = view_text(&wb, &window);
+    if std::env::var("VLA_BLESS").as_deref() == Ok("1") {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/appearance/");
+        std::fs::write(format!("{dir}rules.vla"), record.replace('\n', "\r\n")).unwrap();
+        std::fs::write(format!("{dir}rules_drawn.vla"), drawn.replace('\n', "\r\n")).unwrap();
+        return;
+    }
+    assert_eq!(record, RULES.replace("\r\n", "\n"), "the fixture's record");
+    assert_eq!(
+        drawn,
+        RULES_DRAWN.replace("\r\n", "\n"),
+        "its rules applied"
+    );
+    // Each loads and views again the same record, the drawn one holding no
+    // look, no rule and no answer.
+    assert_eq!(grid(&load(&record), "Rules"), record);
+    assert_eq!(grid(&load(&drawn), "Rules"), drawn);
+    for row in ["(look ", "(conditional ", "(lit "] {
+        assert!(!drawn.contains(row), "{row}\n{drawn}");
+    }
+    assert!(!drawn.contains("(fill "), "{drawn}");
+    // Each cell's `text` row is the same in both: a rule's code draws it.
+    let texts = |r: &str| -> Vec<String> {
+        r.lines()
+            .filter(|l| l.starts_with("(text "))
+            .map(str::to_string)
+            .collect()
+    };
+    assert_eq!(texts(&record), texts(&drawn));
+    // Which rules apply, cell by cell.
+    let want: BTreeMap<(u32, u32), Vec<u32>> = [
+        ((1, 2), vec![2]),
+        ((1, 4), vec![3]),
+        ((1, 5), vec![1, 4]),
+        ((1, 6), vec![1, 4]),
+        ((2, 2), vec![2]),
+        ((2, 4), vec![3]),
+        ((2, 5), vec![4]),
+        ((2, 6), vec![4]),
+        ((3, 1), vec![5]),
+        ((3, 2), vec![5]),
+        ((3, 3), vec![5]),
+        ((3, 5), vec![7]),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(lit, want, "{record}");
+    // What they draw, a rule over a look over the cell's own.
+    let own = "(font bold \"1D1D1B\") (align right) (border (left medium))";
+    for (addr, look) in [
+        // The look's fill and slant, no rule applying, over the cell's own.
+        ("C1", "\"9DC3E6\" \"0.00\" wrap (font bold italic \"1D1D1B\") (align right) (border (left medium))".to_string()),
+        // A color alone over the cell's own.
+        ("B1", "\"E8E0F7\" \"0.00\" wrap (font bold \"800020\") (align right) (border (left medium))".to_string()),
+        // A number format alone, a stop leaving rule 4 out.
+        ("D1", format!("\"E8E0F7\" \"0\" wrap {own}")),
+        // A fill above a fill taken away, and a said default over a bold.
+        ("E1", "\"FFE699\" \"0.00\" wrap (font not-bold \"1D1D1B\") (align right) (border (left medium))".to_string()),
+        // An edge said on a cell holding nothing.
+        ("A3", "none general nowrap (border (left none) (top thin \"6B4FC8\"))".to_string()),
+    ] {
+        let style = drawn
+            .lines()
+            .find_map(|l| l.strip_prefix(&format!("(style \"Rules\" \"{addr}\" ")))
+            .and_then(|l| l.strip_suffix(')'))
+            .unwrap_or_else(|| panic!("{addr}: no style row\n{drawn}"));
+        let row = format!("(format {style} {look})");
+        assert!(drawn.lines().any(|l| l == row), "{addr}: {row}\n{drawn}");
+    }
 }
 
 /// The second fixture's rows: a cell's own format that says everything, and

@@ -26,6 +26,7 @@ pub use crate::appearance::{
 };
 use crate::numfmt::Code;
 use crate::rows::Visibility;
+use crate::rule::Rule;
 
 /// A colour, as `Interior.Color = RGB(r, g, b)` names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -399,8 +400,13 @@ pub struct RowSettings {
     pub hidden: bool,
 }
 
+/// A sheet's conditional formats, the box [`Sheet`] holds them in.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SheetRules(Vec<Rule>);
+
 /// One sheet: its cells by (row, column), both 1-based.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Sheet {
     pub name: String,
     pub cells: BTreeMap<(u32, u32), Cell>,
@@ -427,6 +433,9 @@ pub struct Sheet {
     /// sentence (KERNEL.4, the view record). Filled by the build's walker;
     /// empty for a sheet nothing wrote by sentence.
     pub sentences: BTreeMap<(u32, u32), u32>,
+    /// Its conditional formats by priority (KERNEL.58), boxed so that a sheet
+    /// holding none, nearly every sheet, pays for a pointer.
+    pub(crate) rules: Option<Box<SheetRules>>,
 }
 
 impl Sheet {
@@ -442,7 +451,28 @@ impl Sheet {
             active_cell: (1, 1),
             shared_formulas: 0,
             sentences: BTreeMap::new(),
+            rules: None,
         }
+    }
+
+    /// Its conditional formats, the lowest priority first.
+    pub fn rules(&self) -> &[Rule] {
+        self.rules
+            .as_deref()
+            .map_or(&[], |rules| rules.0.as_slice())
+    }
+
+    /// A conditional format added at its place by priority, after any of the
+    /// same priority.
+    pub fn put_rule(&mut self, rule: Rule) {
+        let rules = &mut self.rules.get_or_insert_with(Box::default).0;
+        let at = rules.partition_point(|r| r.priority <= rule.priority);
+        rules.insert(at, rule);
+    }
+
+    /// Its conditional formats given up.
+    pub fn drop_rules(&mut self) {
+        self.rules = None;
     }
 
     /// Record that the sentence on program row `row_of_sentence` wrote every

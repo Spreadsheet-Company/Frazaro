@@ -65,6 +65,8 @@ pub mod odf;
 mod odf_looks;
 pub mod ooxml;
 pub mod print;
+#[cfg(test)]
+mod rules_golden;
 
 use std::collections::HashSet;
 

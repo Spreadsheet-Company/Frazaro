@@ -120,7 +120,7 @@ download without asking.
 
 - **SD-30 — nothing fails silently, and nothing succeeds invisibly: every act shows its effect or refuses in words, and a clean result is a sentence.**
 - **SD-31 — speak in the user's names: a transcribed sentence prefers a Table, a defined name or a header to an address whenever one exists.**
-- **SD-32 — appearance is declared, not painted: formatting sentences live apart from logic sentences, and a palette is a library.**
+- **SD-32 — appearance is declared, not painted: formatting sentences live apart from logic sentences, and a palette is a library.** A conditional format is a declared row: its formula answers whether a declared format applies, no cell reads its answer, and the record says what each cell draws, so that a look still computes nothing and the logic still depends on no look (`KERNEL.58`, its decision 2).
 - **SD-33 — no blank page: the first screen shows a sentence already doing something in a cell.**
 - **SD-34 — the grid never freezes: every engine is interruptible and says how far it got.**
 - **SD-35 — the program is the accessible workbook: whatever the grid shows, the sentences say, so a keyboard and a screen reader reach everything the mouse does.**

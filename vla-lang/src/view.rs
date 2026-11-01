@@ -32,6 +32,10 @@
 //!                                    (wrap ...) among them, and no more
 //! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
 //!                                    holding the value draws with the format
+//! (conditional "Board" 1 "B2:J10"    a conditional format (KERNEL.58): its
+//!   "=Lit!A1=1" 64 stop)             priority, its range, its test, its format
+//!                                    or none, and stop; every rule of the sheet,
+//!                                    unclipped
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
 //! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it, and
 //!                                    after it, in a machine's record, the word
@@ -40,15 +44,20 @@
 //! (text "Output" "B3" "10.00")       a number's text under its format's code
 //!                                    (KERNEL.47), after its cell or value row
 //! (style "Output" "B2" 1)            the cell's format, when it is not 0
+//! (lit "Board" "B2" 1 3)             the rules that apply at the cell, in order,
+//!                                    up to the first that stops, a machine's
+//!                                    answers (KERNEL.58)
 //! (sentence "Output" "B2" 4)         the row of the sentence that wrote the cell
 //! ```
 //!
 //! The cells come in row-major order, each `cell` or `formula` row followed
 //! by its `value` row (a formula's, once values exist), its `text` row, its
-//! `style` row and its `sentence` row. A `text` row is the text Excel draws
+//! `style` row, its `lit` row and its `sentence` row, a lit cell holding nothing
+//! printing its `lit` row alone at its place. A `text` row is the text Excel draws
 //! for the cell's number, or for its text under a code's fourth section,
-//! under the code of the format the cell draws with, its look's where its
-//! value has one (KERNEL.47; `crate::numfmt`): so a viewport draws the text
+//! under the code of the format the cell draws with, the first rule's that
+//! says one, else its look's where its
+//! value has one (KERNEL.47; KERNEL.58; `crate::numfmt`): so a viewport draws the text
 //! and never respells a value. A record whose formats hold no code prints
 //! none. The `cell` and `formula` rows are the reader's own,
 //! spelled by `reflect::print`, which is the free oracle: the view of a
@@ -86,7 +95,9 @@
 //! cannot say which cells changed, the row ends `whole` and none follows,
 //! and the host views the window. A host holding the window's values at the
 //! first frame, and replacing each named cell's rows with the rows given it,
-//! holds the window's values at the second, byte for byte.
+//! holds the window's values at the second, byte for byte. A cell a rule's answer
+//! moved is named as one whose value moved (KERNEL.58), even where a stop leaves
+//! its rows as they were.
 //!
 //! The fills ([`FillGrid`], `fills`; KERNEL.49, 2026-10-23) are what a save
 //! prints: the grid's record with each fill's `formula` rows printed once, a
@@ -106,8 +117,9 @@ use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted, record_line, Record};
 use crate::rows::{Row, Value};
+use crate::rule::Rule;
 use crate::sheet::{
-    cell_ref, number_text, parse_a1_range, A1Range, Column, NumFmt, Sheet, Styles, Workbook,
+    cell_ref, number_text, parse_a1_range, A1Range, Column, NumFmt, Sheet, Style, Styles, Workbook,
 };
 
 /// The grid: the view record of one window, the first projection. With the
@@ -249,6 +261,9 @@ impl Grid<'_> {
         out: &mut dyn FnMut(&str),
     ) {
         for s in 0..model.sheet_count() {
+            if model.unlisted(s) {
+                continue;
+            }
             let page = model.page(s);
             out(&relation(&Row::Sheet {
                 name: page.name,
@@ -317,6 +332,7 @@ impl Grid<'_> {
         for (_, index) in page.looks {
             used.insert(*index);
         }
+        used.extend(page.rules.iter().filter_map(|r| r.format));
         for index in used {
             out(&record_line(&Record::Format {
                 index,
@@ -328,6 +344,11 @@ impl Grid<'_> {
         // with (KERNEL.22; Alonzo/SPEC.md decision 19).
         for (value, index) in page.looks {
             out(&format!("(look {} {} {})", quoted(name), value, index));
+        }
+        // The sheet's conditional formats, unclipped as its looks are, so that
+        // a save keeps a rule whose range lies past its extent (KERNEL.58).
+        for rule in page.rules {
+            out(&record_line(&Record::Conditional { sheet: name, rule }));
         }
         // The sheet's fills' masters, found at the first cell that needs
         // them (KERNEL.37): the grid moves a fill's cell's text from its
@@ -351,7 +372,19 @@ impl Grid<'_> {
         };
         #[cfg(test)]
         crate::sheet::work::viewed(cells.len());
+        // What the rules draw at the window's cells (KERNEL.58), met beside
+        // them in their order; a lit cell holding nothing at its own place.
+        let lits = model.lit_in(i, &range);
+        let mut lit_next = lits.iter().peekable();
         for (at, cell) in &cells {
+            let mut lit = None;
+            while let Some((&place, priorities)) = lit_next.next_if(|(&place, _)| place <= *at) {
+                if place == *at {
+                    lit = Some(priorities.as_slice());
+                } else {
+                    lit_row(name, place, priorities, out);
+                }
+            }
             self.cell_rows(
                 model,
                 &page,
@@ -361,8 +394,12 @@ impl Grid<'_> {
                 &texts,
                 &mut masters,
                 coded.as_ref(),
+                lit,
                 out,
             );
+        }
+        for (&place, priorities) in lit_next {
+            lit_row(name, place, priorities, out);
         }
     }
 
@@ -371,9 +408,10 @@ impl Grid<'_> {
     /// `formula` row where the record has them (a fill's, in the fills, over
     /// its rectangle at the rectangle's first cell and at no other) and its
     /// `value` row once it has one, then its `text` row where its value draws
-    /// under a code (KERNEL.47), then its `style` and `sentence` rows;
-    /// whether it printed any. `masters` are the sheet's fills', found once, and `coded` what a
-    /// `text` row needs, where the style table holds a code.
+    /// under a code (KERNEL.47), then its `style`, `lit` and `sentence` rows;
+    /// whether it printed any. `masters` are the sheet's fills', found once, `coded` what a
+    /// `text` row needs, where the style table holds a code, and `lit` the
+    /// rules that apply at the cell.
     #[allow(clippy::too_many_arguments)]
     fn cell_rows<'g, G: Cells + ?Sized>(
         &self,
@@ -385,6 +423,7 @@ impl Grid<'_> {
         texts: &Texts<'_>,
         masters: &mut Option<Masters<'g>>,
         coded: Option<&Coded<'_>>,
+        lit: Option<&[u32]>,
         out: &mut dyn FnMut(&str),
     ) -> bool {
         let name = page.name;
@@ -501,7 +540,8 @@ impl Grid<'_> {
             return false;
         }
         if let (Some(coded), Some(v)) = (coded, shown) {
-            if let Some(text) = coded.text(cell.style, &v) {
+            let rule = lit.and_then(|lit| rule_saying_number(coded.styles, page.rules, lit));
+            if let Some(text) = coded.text(cell.style, rule, &v) {
                 out(&format!(
                     "(text {} {} {})",
                     quoted(name),
@@ -517,6 +557,9 @@ impl Grid<'_> {
                 index: cell.style,
             }));
         }
+        if let Some(priorities) = lit {
+            lit_row(name, (row, col), priorities, out);
+        }
         if let Some(r) = cell.sentence {
             out(&format!(
                 "(sentence {} {} {})",
@@ -527,6 +570,24 @@ impl Grid<'_> {
         }
         true
     }
+}
+
+/// A cell's `lit` row (KERNEL.58).
+fn lit_row(name: &str, (row, col): (u32, u32), priorities: &[u32], out: &mut dyn FnMut(&str)) {
+    out(&record_line(&Record::Lit {
+        sheet: name,
+        addr: &cell_ref(row, col),
+        priorities,
+    }));
+}
+
+/// The format of the first rule applying at a cell that says a number format
+/// (KERNEL.58), which draws its text over a look's and the cell's own.
+fn rule_saying_number<'s>(styles: &'s Styles, rules: &[Rule], lit: &[u32]) -> Option<&'s Style> {
+    lit.iter().find_map(|&priority| {
+        let k = rules.binary_search_by_key(&priority, |r| r.priority).ok()?;
+        styles.get(rules[k].format?).filter(|s| !s.unsaid.number())
+    })
 }
 
 /// What a record needs for a cell's `text` row (KERNEL.47): the style table
@@ -567,24 +628,27 @@ impl<'m> Coded<'m> {
         Some(Coded { styles, looks })
     }
 
-    /// The text a value draws as in a cell of format `style`: under its
+    /// The text a value draws as in a cell of format `style`: under `rule`,
+    /// the format of the rule applying that says a number format, where one
+    /// does (KERNEL.58); else under its
     /// look's format in place of the cell's own where its value has one, as
     /// the viewport draws a look (Alonzo's `SPEC.md` decision 19), the first
     /// look of the record's that it meets, and under the cell's own where
     /// that look leaves its number format unsaid (KERNEL.58); `None` where
     /// that format holds no code or the code draws the value as the record
     /// spells it.
-    fn text(&self, style: u32, value: &calc::Value) -> Option<String> {
+    fn text(&self, style: u32, rule: Option<&Style>, value: &calc::Value) -> Option<String> {
         let met = self.looks.iter().find(|(look, _)| match (look, value) {
             (Look::Number(a), calc::Value::Number(b)) => a == b,
             (Look::Text(a), calc::Value::Text(b)) => a == b,
             _ => false,
         });
         let look = met.map(|(_, index)| self.styles.get(*index));
-        let draws = match look {
-            None => self.styles.get(style),
-            Some(Some(look)) if look.unsaid.number() => self.styles.get(style),
-            Some(look) => look,
+        let draws = match (rule, look) {
+            (Some(rule), _) => Some(rule),
+            (None, None) => self.styles.get(style),
+            (None, Some(Some(look))) if look.unsaid.number() => self.styles.get(style),
+            (None, Some(look)) => look,
         };
         match draws.map(|s| &s.num_fmt) {
             Some(NumFmt::Code(code)) => code.text(value),
@@ -655,6 +719,7 @@ pub(crate) fn window_over<G: Cells + ?Sized>(
 ) -> Result<Window, Refusal> {
     let Some(i) = model.find_sheet(sheet) else {
         let sheets = (0..model.sheet_count())
+            .filter(|&s| !model.unlisted(s))
             .filter_map(|s| model.sheet_name(s))
             .collect::<Vec<_>>()
             .join(", ");
@@ -776,7 +841,8 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
     };
     for &(row, col) in cells {
         // The cell as the grid holds it, an engine's twin's made from its
-        // sheet (KERNEL.49).
+        // sheet (KERNEL.49), and what the rules draw there (KERNEL.58).
+        let lit = model.lit_at(i, row, col);
         let printed = model.cell(i, row, col).is_some_and(|cell| {
             grid.cell_rows(
                 model,
@@ -787,10 +853,13 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
                 &Texts::None,
                 &mut masters,
                 coded.as_ref(),
+                lit.as_deref(),
                 &mut push,
             )
         });
-        if !printed {
+        if let (false, Some(priorities)) = (printed, lit.as_deref()) {
+            lit_row(page.name, (row, col), priorities, &mut push);
+        } else if !printed {
             push(&format!(
                 "(empty {} {})",
                 quoted(page.name),

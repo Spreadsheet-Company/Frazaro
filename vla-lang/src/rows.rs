@@ -23,6 +23,7 @@
 use crate::form::Form;
 use crate::printer::write_datum;
 use crate::refers::{self, FormulaRef, Kind};
+use crate::rule::{Rule, Test};
 use crate::sheet::{column_letters, number_text, Column, NumFmt, RowSettings, Style, Unsaid};
 
 /// A cell's value as the file holds it.
@@ -159,6 +160,17 @@ pub enum Record<'r> {
         addr: &'r str,
         index: u32,
     },
+    /// `(conditional "<sheet>" <priority> "<range>" <test> <format>|none
+    /// [stop])`, a test being `"=<formula>"` or `(cell <operator> "=<bound>"
+    /// ["=<bound>"])` (KERNEL.58).
+    Conditional { sheet: &'r str, rule: &'r Rule },
+    /// `(lit "<sheet>" "<addr>" <priority> ...)`: the rules that apply at a
+    /// cell, in order, up to the first that stops (KERNEL.58).
+    Lit {
+        sheet: &'r str,
+        addr: &'r str,
+        priorities: &'r [u32],
+    },
 }
 
 /// A record's row as its line, without the line break.
@@ -208,6 +220,48 @@ pub fn record_line(record: &Record<'_>) -> String {
         Record::Format { index, style, code } => format_text(*index, *style, *code),
         Record::Value { sheet, addr, value } => {
             format!("(value {} {} {})", quoted(sheet), quoted(addr), value)
+        }
+        Record::Conditional { sheet, rule } => {
+            let test = match &rule.test {
+                Test::Formula(text) => quoted(&format!("={text}")),
+                Test::Cell {
+                    operator,
+                    first,
+                    second,
+                } => {
+                    let second = second
+                        .as_ref()
+                        .map_or(String::new(), |b| format!(" {}", quoted(&format!("={b}"))));
+                    format!(
+                        "(cell {} {}{second})",
+                        operator.word(),
+                        quoted(&format!("={first}"))
+                    )
+                }
+            };
+            let format = rule
+                .format
+                .map_or_else(|| "none".to_string(), |f| f.to_string());
+            format!(
+                "(conditional {} {} {} {test} {format}{})",
+                quoted(sheet),
+                rule.priority,
+                quoted(&rule.range_text()),
+                if rule.stop { " stop" } else { "" }
+            )
+        }
+        Record::Lit {
+            sheet,
+            addr,
+            priorities,
+        } => {
+            let listed: Vec<String> = priorities.iter().map(u32::to_string).collect();
+            format!(
+                "(lit {} {} {})",
+                quoted(sheet),
+                quoted(addr),
+                listed.join(" ")
+            )
         }
         Record::Style { sheet, addr, index } => {
             format!("(style {} {} {})", quoted(sheet), quoted(addr), index)
