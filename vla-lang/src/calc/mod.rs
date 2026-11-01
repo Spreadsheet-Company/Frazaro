@@ -63,6 +63,9 @@
 //! A cell's address is a text since KERNEL.60 (2026-10-30, [`texts`]):
 //! `ADDRESS`, an address in R1C1 labelled.
 //!
+//! A mask reads by one call since KERNEL.71 (2026-10-30, [`library`]): `BITAND`,
+//! `BITOR` and `BITXOR`, over whole numbers below 2^48, exactly.
+//!
 //! What is not here, by name, each a slice of its own: the `SUMIFS` family
 //! and the database functions, arrays within a formula (`KERNEL.8`'s later
 //! slices), spills (an item of their own), `LET` and `LAMBDA`

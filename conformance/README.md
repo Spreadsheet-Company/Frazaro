@@ -2309,3 +2309,36 @@ color.
   `!`. Both `.ods` saves of `looks.xlsx` agree but for one gap, each writer's, named:
   an accounting underline written as a single one. The language's third, ninth and
   eleventh laws hold over grids saying them.
+
+## Amendment of 2026-10-30: oracle 12's `BITAND`, `BITOR` and `BITXOR` (`KERNEL.71`)
+
+**The functions.** `BITAND(number1, number2)`, `BITOR(number1, number2)` and
+`BITXOR(number1, number2)` are the bitwise and, or and exclusive or of two whole
+numbers, one meaning under three operators. Both arguments are read first, left to
+right, as an operand reads: a truth value 1 or 0, a text spelling a number its
+number, another text `#VALUE!`, an error that error, and a span of sheets `#REF!`.
+An empty cell, an empty place of an array it is lifted over and an argument left out
+read 0, however the nothing reaches it, `CHOOSE(1,,2)` and `IF(TRUE,,2)` too. Only
+then is each held: whole and from 0 to 2^48-1, exactly, or `#NUM!`, on all three,
+where the pages of `BITOR` and `BITXOR` do not say. There is no tolerance at any
+magnitude: `0.1*3*10`, `1+2^-52` and `2^47+0.5` are `#NUM!`. An array given lifts each
+and a range is met at the formula's cell in a legacy formula, as any parameter of one
+value.
+
+**The fixture.** `scripts/recalc/bits.txt`, built by the door into `bits.xlsx`, holds
+895 formulas: a Data sheet of the values read; a Functions sheet of 589, one a rule,
+among them 152 at a ladder of whole numbers above and below by 2^j units in the last
+place at seven magnitudes; a Bits sheet of four fills over every one of the 48 bits;
+and a Lift sheet where a legacy formula's row or column meets a range and where it does
+not, and four fills. `bits_calc.vla` is the door's record of it: 893 rows `agree` with
+the values the build wrote, and two labelled, `(not-computed "a formula Excel shows
+with @")`. Excel 365's one save, on 2026-10-30, `bits_saved.xlsx`, joins the table at
+`no-differ` (`bits_saved_calc.vla`): 895 formulas, the 893 the door computes agreeing
+with Excel's as built, no fold wanted, and the two labelled, Excel's texts standing in
+the golden, `=BITAND(@data!C1:C3,3)` and `=SUM(BITAND(@data!C1:C3,1))`, the `@` on the
+range and never on the name.
+
+**What it does not hold.** A text a locale reads, `"1,000"` or `"$5"`, which the
+operand's rule leaves to the host for every function; a union of references; a whole
+column read as arrays; and a call of any count but two, which Excel refuses at entry
+and the language answers `#VALUE!`, held by a unit test.

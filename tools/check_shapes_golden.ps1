@@ -148,6 +148,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-30, KERNEL.60: ADDRESS's fixture, a twenty-second, 531 lines: one fill
 # of six cells and every other formula a cell alone, a form computed at each
 # cell. The owner's second Excel save of it, a twenty-third, 531 lines.
+# 2026-10-30, KERNEL.71: BITAND's, BITOR's and BITXOR's fixture, 623 lines: seven
+# runs, the Bits sheet's four fills and the Lift sheet's three, and each call a
+# program's through its pointer, unlowered only where a text, an error, an array or
+# an argument left out stands in it. The owner's Excel save of it, 621 lines: the
+# build's but for two rows of -0, which Excel's opening writes as 0 and so joins to
+# an earlier text, and the sheet's name as Excel writes it.
 # 2026-10-21, KERNEL.54's first slice: the netlist program, a sixth bench
 # program, its golden a head of two lines, the plan row and its readers row,
 # `(most 496)` as found: nearly every change of its sheet meets every
@@ -176,6 +182,8 @@ $goldens = @(
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Floor = 68 },
     @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Floor = 531 },
     @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Floor = 531 },
+    @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Floor = 623 },
+    @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Floor = 621 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },

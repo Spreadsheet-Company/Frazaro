@@ -36,6 +36,14 @@
 //! evaluation of many cells at once calls them over its lanes, a function of
 //! numbers where every operand at a cell is a number and the function below
 //! at any other cell, so that a coercion is written here alone.
+//!
+//! `BITAND`, `BITOR` and `BITXOR` (KERNEL.71, 2026-10-30) stand beside `MOD`, which
+//! reads its numbers as they do: a game's marks read as bit masks by one call
+//! where its source wrote `MOD(INT(x/2^k),2)` (Alonzo's `CART.14.1`). One meaning
+//! ([`bitwise`]), held by Excel's save of `scripts/recalc/bits.txt` to what the
+//! pages of `BITOR` and `BITXOR` do not say: a number is whole exactly, on all
+//! three, with no tolerance at any magnitude ([`whole_bits`]). They need no arm of
+//! their own in `super::program`, which calls them through their pointers.
 
 use super::array::{self, Array, Lifted};
 use super::eval::{finite, intersection, ranges, values, Arg, Ctx, Known, Library, Param, Reason};
@@ -159,7 +167,9 @@ fn joined(j: usize) -> Param {
 /// it as `Ctx` does. Since KERNEL.56 the functions that read a sheet's
 /// extent itself are declared so ([`READS_EXTENT`]). Since KERNEL.60
 /// `ADDRESS` (`super::texts`), a cell's address as a text from its row and
-/// its column, a form a run computes at each cell.
+/// its column, a form a run computes at each cell. Since KERNEL.71 `BITAND`,
+/// `BITOR` and `BITXOR` ([`bitwise`]), a mask read by one call, which a program
+/// calls through its pointer.
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
@@ -216,6 +226,9 @@ pub fn language() -> Library {
     lib.register("CODE", texts::code);
     lib.register("TEXT", texts::text_);
     lib.register_form("ADDRESS", texts::address);
+    lib.register("BITAND", bitand);
+    lib.register("BITOR", bitor);
+    lib.register("BITXOR", bitxor);
     lib.register("DATE", dates::date);
     lib.register("YEAR", dates::year);
     lib.register("MONTH", dates::month);
@@ -419,6 +432,10 @@ const KERNEL_53: [&str; 2] = ["ISFORMULA", "FORMULATEXT"];
 /// The function KERNEL.60 brought: a cell's address as a text.
 #[cfg(test)]
 const KERNEL_60: [&str; 1] = ["ADDRESS"];
+
+/// The functions KERNEL.71 brought: a mask read by one call.
+#[cfg(test)]
+const KERNEL_71: [&str; 3] = ["BITAND", "BITOR", "BITXOR"];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
@@ -1029,6 +1046,58 @@ fn modulo(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     Ok(mod_of(n, d))
 }
 
+/// One past the largest number `BITAND`, `BITOR` and `BITXOR` take, 2^48.
+const BITS_PAST: f64 = 281_474_976_710_656.0;
+
+/// A number as `BITAND`, `BITOR` and `BITXOR` take it (KERNEL.71): whole and
+/// from 0 to 2^48-1, exactly, or `#NUM!`, so that `0.1*3*10`, which a double
+/// holds a little above 3, is refused.
+fn whole_bits(n: f64) -> Result<u64, ErrorKind> {
+    if (0.0..BITS_PAST).contains(&n) && n.fract() == 0.0 {
+        Ok(n as u64)
+    } else {
+        Err(ErrorKind::Num)
+    }
+}
+
+/// `BITAND`, `BITOR` and `BITXOR` (KERNEL.71), one meaning under `op`, as
+/// Excel's save of `scripts/recalc/bits.txt` holds it: both arguments read
+/// first, left to right, as an operand reads, an error or a text spelling no
+/// number answering there; only then each held to [`whole_bits`]. An answer is
+/// below 2^48, which a double holds exactly.
+fn bitwise(ctx: &Ctx<'_>, args: &[Arg], op: fn(u64, u64) -> u64) -> Result<Value, Reason> {
+    if args.len() != 2 {
+        return Ok(Value::Error(ErrorKind::Value));
+    }
+    let first = match number_arg(ctx, args, 0)? {
+        Ok(n) => n,
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    let second = match number_arg(ctx, args, 1)? {
+        Ok(n) => n,
+        Err(k) => return Ok(Value::Error(k)),
+    };
+    Ok(match (whole_bits(first), whole_bits(second)) {
+        (Ok(a), Ok(b)) => Value::Number(op(a, b) as f64),
+        (Err(k), _) | (_, Err(k)) => Value::Error(k),
+    })
+}
+
+/// `BITAND` ([`bitwise`]).
+fn bitand(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    bitwise(ctx, args, |a, b| a & b)
+}
+
+/// `BITOR` ([`bitwise`]).
+fn bitor(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    bitwise(ctx, args, |a, b| a | b)
+}
+
+/// `BITXOR` ([`bitwise`]).
+fn bitxor(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    bitwise(ctx, args, |a, b| a ^ b)
+}
+
 /// The row of the first cell of a reference, or of the cell being computed.
 fn row(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     position(ctx, args, Axis::Row)
@@ -1146,6 +1215,8 @@ fn sin(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calc::Calc;
+    use crate::sheet::{parse_a1_range, Cell, Content, Workbook};
 
     /// A rule's items of a number and of a truth value are its `given` and
     /// its `ranged` of them, to the bit (KERNEL.43).
@@ -1178,6 +1249,310 @@ mod tests {
     fn a_rule_s_items_of_numbers_and_truth_values_are_its_given_and_ranged() {
         items_agree::<OverNumbers>(|a, b| a.to_bits() == b.to_bits());
         items_agree::<OverTruths>(|a, b| a == b);
+    }
+
+    /// Each `(row, content)` of a sheet `F`'s column A, as `Calc` computes it and
+    /// spelled, beside a sheet `T` of the values the bit functions read: 13, a
+    /// text of digits, a text, a truth value, an empty cell, an error and a
+    /// fraction in A1:A7, 1, 10 and 100 in C1:C3, and 1 and 4 around an empty cell
+    /// in D1:D3.
+    fn bits_computed(rows: Vec<(u32, Content)>) -> Vec<String> {
+        let mut wb = Workbook::new();
+        let t = wb.ensure_sheet("T");
+        let cells = [
+            ("A1", Content::Number(13.0)),
+            ("A2", Content::Text("5".to_string())),
+            ("A3", Content::Text("x".to_string())),
+            ("A4", Content::Bool(true)),
+            ("A6", Content::Error("#DIV/0!".to_string())),
+            ("A7", Content::Number(0.5)),
+            ("C1", Content::Number(1.0)),
+            ("C2", Content::Number(10.0)),
+            ("C3", Content::Number(100.0)),
+            ("D1", Content::Number(1.0)),
+            ("D3", Content::Number(4.0)),
+        ];
+        for (addr, content) in cells {
+            let r = parse_a1_range(addr).unwrap();
+            wb.sheets[t].set(r.top, r.left, Cell { content, style: 0 });
+        }
+        let f = wb.ensure_sheet("F");
+        let at: Vec<u32> = rows.iter().map(|(row, _)| *row).collect();
+        for (row, content) in rows {
+            wb.sheets[f].set(row, 1, Cell { content, style: 0 });
+        }
+        let lib = language();
+        let calc = Calc::run(&wb, &lib);
+        at.into_iter()
+            .map(|row| match calc.computed((f, row, 1)) {
+                Some(c) => c.spell(),
+                None => "nothing".to_string(),
+            })
+            .collect()
+    }
+
+    /// Each legacy formula of the pairs against the value it is to compute, from
+    /// row 11 down, a row no range of `T` is met at.
+    fn bits_hold(cases: &[(&str, &str)]) {
+        let rows = cases
+            .iter()
+            .enumerate()
+            .map(|(i, (f, _))| (i as u32 + 11, Content::Formula(f.to_string())))
+            .collect();
+        for ((formula, want), got) in cases.iter().zip(bits_computed(rows)) {
+            assert_eq!(got, *want, "={formula}");
+        }
+    }
+
+    const NUM: &str = "(error \"#NUM!\")";
+    const VALUE: &str = "(error \"#VALUE!\")";
+    const DIV0: &str = "(error \"#DIV/0!\")";
+    const NA: &str = "(error \"#N/A\")";
+    const REF: &str = "(error \"#REF!\")";
+
+    #[test]
+    fn a_number_is_whole_bits_exactly_from_0_to_2_to_the_48_less_1() {
+        assert_eq!(whole_bits(0.0), Ok(0));
+        assert_eq!(whole_bits(-0.0), Ok(0));
+        assert_eq!(whole_bits(5.0), Ok(5));
+        assert_eq!(BITS_PAST, 2f64.powi(48));
+        assert_eq!(whole_bits(BITS_PAST - 1.0), Ok((1 << 48) - 1));
+        for n in [
+            BITS_PAST,
+            BITS_PAST + 2.0,
+            2f64.powi(53),
+            1e300,
+            f64::MAX,
+            -1.0,
+            -0.5,
+            -1e-300,
+            1e-300,
+            0.5,
+            1.5,
+            1.0 + f64::EPSILON,
+            1.0 - f64::EPSILON / 2.0,
+            0.1 * 3.0 * 10.0,
+            2f64.powi(47) + 0.5,
+            BITS_PAST - 1.0 + 2f64.powi(-5),
+            BITS_PAST - 2f64.powi(-5),
+        ] {
+            assert_eq!(whole_bits(n), Err(ErrorKind::Num), "{n}");
+        }
+    }
+
+    #[test]
+    fn the_bit_functions_compute_their_pages_examples_and_every_bit_to_the_top() {
+        bits_hold(&[
+            ("BITAND(1,5)", "1"),
+            ("BITAND(13,25)", "9"),
+            ("BITOR(23,10)", "31"),
+            ("BITXOR(5,3)", "6"),
+            ("bitxor(5,3)", "6"),
+            ("BITAND(0,7)", "0"),
+            ("BITOR(0,7)", "7"),
+            ("BITXOR(7,0)", "7"),
+            ("BITAND(13,13)", "13"),
+            ("BITOR(13,13)", "13"),
+            ("BITXOR(13,13)", "0"),
+            ("BITOR(2^31,2^32)", "6442450944"),
+            ("BITAND(2^32+1,2^31+1)", "1"),
+            ("BITXOR(2^47,1)", "140737488355329"),
+            ("BITAND(2^48-1,2^48-1)", "281474976710655"),
+            ("BITXOR(2^48-1,2^47)", "140737488355327"),
+            ("BITOR(2^47,2^46)", "211106232532992"),
+            ("BITOR(1E+14,0)", "100000000000000"),
+            ("BITOR(300%,0)", "3"),
+            ("BITOR(-0,5)", "5"),
+        ]);
+    }
+
+    #[test]
+    fn the_bit_functions_hold_one_range_at_each_argument() {
+        for name in ["BITAND", "BITOR", "BITXOR"] {
+            for x in [
+                "-1",
+                "-0.5",
+                "0.5",
+                "1.9",
+                "2^48",
+                "2^53",
+                "1E+300",
+                "1+2^-52",
+                "1-2^-53",
+                "0.1*3*10",
+                "2^47+0.5",
+                "2^48-1+2^-5",
+            ] {
+                let first = format!("{name}({x},1)");
+                let second = format!("{name}(1,{x})");
+                bits_hold(&[(&first, NUM), (&second, NUM)]);
+            }
+            let (first, second) = (format!("{name}(2^48-1,0)"), format!("{name}(0,2^48-1)"));
+            let top = if name == "BITAND" {
+                "0"
+            } else {
+                "281474976710655"
+            };
+            bits_hold(&[(&first, top), (&second, top)]);
+        }
+    }
+
+    #[test]
+    fn the_bit_functions_read_both_arguments_before_they_hold_a_range() {
+        for name in ["BITAND", "BITOR", "BITXOR"] {
+            for (a, b, want) in [
+                ("-1", "\"x\"", VALUE),
+                ("\"x\"", "-1", VALUE),
+                ("0.5", "\"x\"", VALUE),
+                ("\"x\"", "2^48", VALUE),
+                ("-1", "1/0", DIV0),
+                ("1/0", "-1", DIV0),
+                ("2^48", "T!A6", DIV0),
+                ("T!A6", "0.5", DIV0),
+                ("1/0", "\"x\"", DIV0),
+                ("\"x\"", "1/0", VALUE),
+                ("1/0", "#N/A", DIV0),
+                ("#N/A", "1/0", NA),
+            ] {
+                let formula = format!("{name}({a},{b})");
+                bits_hold(&[(&formula, want)]);
+            }
+        }
+    }
+
+    #[test]
+    fn the_bit_functions_read_each_kind_as_an_operand_reads_it() {
+        bits_hold(&[
+            ("BITOR(TRUE,0)", "1"),
+            ("BITOR(FALSE,0)", "0"),
+            ("BITOR(\"3\",0)", "3"),
+            ("BITOR(\" 3 \",0)", "3"),
+            ("BITOR(\"1E2\",0)", "100"),
+            ("BITOR(\"200%\",0)", "2"),
+            ("BITOR(\"x\",0)", VALUE),
+            ("BITOR(\"\",0)", VALUE),
+            ("BITOR(\"TRUE\",0)", VALUE),
+            ("BITOR(\"-1\",0)", NUM),
+            ("BITOR(\"1.5\",0)", NUM),
+            ("BITOR(\"281474976710655\",0)", "281474976710655"),
+            ("BITOR(\"281474976710656\",0)", NUM),
+            ("BITOR(#N/A,0)", NA),
+            ("BITOR(T!A1,0)", "13"),
+            ("BITOR(T!A2,0)", "5"),
+            ("BITOR(T!A3,0)", VALUE),
+            ("BITOR(T!A4,0)", "1"),
+            ("BITOR(T!A5,5)", "5"),
+            ("BITOR(5,T!A5)", "5"),
+            ("BITOR(T!A6,0)", DIV0),
+            ("BITOR(T!A7,0)", NUM),
+            ("BITOR(T:F!A1,0)", REF),
+            ("BITAND(1,T:F!A1)", REF),
+        ]);
+    }
+
+    #[test]
+    fn an_argument_left_out_of_a_bit_function_reads_0_however_it_is_left_out() {
+        bits_hold(&[
+            ("BITOR(,5)", "5"),
+            ("BITOR(5,)", "5"),
+            ("BITOR(,)", "0"),
+            ("BITAND(,5)", "0"),
+            ("BITAND(5,)", "0"),
+            ("BITXOR(,5)", "5"),
+            ("BITXOR(5,)", "5"),
+            ("BITOR(CHOOSE(1,,2),5)", "5"),
+            ("BITOR(5,CHOOSE(2,1,))", "5"),
+            ("BITOR(IF(TRUE,,2),5)", "5"),
+            ("BITOR(IF(FALSE,2,),5)", "5"),
+            ("BITOR(IF(FALSE,2),5)", "5"),
+        ]);
+    }
+
+    #[test]
+    fn a_bit_function_of_any_count_but_two_is_value() {
+        for name in ["BITAND", "BITOR", "BITXOR"] {
+            for args in ["", "1", "1,2,3", "{1,2}", "{1,2},3,4"] {
+                let formula = format!("{name}({args})");
+                bits_hold(&[(&formula, VALUE)]);
+            }
+        }
+    }
+
+    #[test]
+    fn the_bit_functions_lift_over_an_array_and_a_range_read_as_arrays() {
+        bits_hold(&[
+            ("BITAND({3,2,1},1)", "1"),
+            ("SUM(BITAND({1,2,3},1))", "2"),
+            ("SUM(BITOR({1,2,3},{4,8,16}))", "34"),
+            ("SUM(BITAND({1,-1,3},1))", NUM),
+            ("SUMPRODUCT(BITAND(T!C1:C3,1))", "1"),
+            ("SUMPRODUCT(BITOR(1,T!C1:C3))", "113"),
+            ("SUMPRODUCT(BITXOR(T!C1:C3,1))", "112"),
+            ("SUMPRODUCT(BITAND(T!C1:C3,T!D1:D3))", "5"),
+            ("SUMPRODUCT(BITOR(T!D1:D3,5))", "15"),
+            ("SUMPRODUCT(BITOR(5,T!D1:D3))", "15"),
+            ("SUMPRODUCT(BITAND(ROW(T!C1:C3),1))", "2"),
+            ("SUMPRODUCT(--ISERROR(BITAND({1,-1,3},1)))", "1"),
+            ("SUMPRODUCT(BITAND(T!C1:C3,T!C1:C2))", NA),
+            ("ROWS(BITOR({1,2,3},{1;2}))", "2"),
+            ("COLUMNS(BITOR({1,2,3},{1;2}))", "3"),
+            ("ROWS(BITAND(T!C1:C3,1))", "3"),
+        ]);
+        // A dynamic formula reads a range whole where a legacy one meets it.
+        let rows = vec![
+            (11, Content::DynamicFormula("BITOR(T!C1:C3,1)".to_string())),
+            (
+                12,
+                Content::DynamicFormula("INDEX(BITOR(T!C1:C3,1),3)".to_string()),
+            ),
+            (
+                13,
+                Content::DynamicFormula("INDEX(BITOR({1,2},{1,2,3}),1,3)".to_string()),
+            ),
+            (
+                14,
+                Content::DynamicFormula("INDEX(BITOR(T!D1:D3,5),2)".to_string()),
+            ),
+        ];
+        assert_eq!(
+            bits_computed(rows),
+            [
+                "(not-computed \"a spill\")".to_string(),
+                "101".to_string(),
+                NA.to_string(),
+                "5".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_legacy_bit_function_meets_a_range_at_its_row_and_off_it_is_value() {
+        let legacy = |text: &str| Content::Formula(text.to_string());
+        let rows = vec![
+            (1, legacy("BITAND(T!C1:C3,3)")),
+            (2, legacy("BITAND(T!C1:C3,3)")),
+            (3, legacy("BITAND(T!C1:C3,3)")),
+            (4, legacy("BITAND(T!C1:C3,3)")),
+            (5, legacy("SUM(BITAND(T!C1:C3,3))")),
+        ];
+        assert_eq!(bits_computed(rows), ["1", "2", "0", VALUE, VALUE]);
+    }
+
+    #[test]
+    fn a_mask_read_by_the_bit_functions_is_the_mask_read_by_mod_and_int() {
+        // What Seiyaku's source writes at every site (Alonzo's `CART.14.1`), for
+        // every mask of nine marks at every mark.
+        let mut cases = Vec::new();
+        for mask in [0, 1, 2, 3, 170, 256, 341, 510, 511] {
+            for k in 0..9 {
+                let bit = 1 << k;
+                let set = if mask & bit != 0 { "true" } else { "false" };
+                cases.push((format!("BITAND({mask},{bit})>0"), set));
+                cases.push((format!("MOD(INT({mask}/{bit}),2)=1"), set));
+            }
+        }
+        let cases: Vec<(&str, &str)> = cases.iter().map(|(f, w)| (f.as_str(), *w)).collect();
+        bits_hold(&cases);
     }
 
     #[test]
@@ -1216,6 +1591,7 @@ mod tests {
             .chain(KERNEL_8.iter())
             .chain(KERNEL_53.iter())
             .chain(KERNEL_60.iter())
+            .chain(KERNEL_71.iter())
             .copied()
             .collect();
         want.sort_unstable();

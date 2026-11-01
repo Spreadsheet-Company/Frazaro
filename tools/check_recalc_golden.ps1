@@ -245,6 +245,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # branch of IF left out, and a text Excel shows with an @. Excel's second save
 # of it, address_saved.xlsx, the stop rule's last, joins this table, 538 at
 # no-differ, its 403 computed agreeing with Excel's.
+# 2026-10-30, KERNEL.71, BITAND, BITOR and BITXOR: their own fixture, built by the
+# door (scripts/recalc/bits.txt), 895 formulas, 893 agreeing with the values it wrote
+# and the other two a text Excel shows with an @. Excel's one save of it,
+# bits_saved.xlsx, joins this table, 895 at no-differ, its 893 computed agreeing with
+# Excel's, no fold wanted.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -275,7 +280,9 @@ $goldens = @(
     @{ Name = 'formulas';      Fixture = 'scripts/recalc/formulas.xlsx';      Golden = 'scripts/recalc/formulas_calc.vla';      Floor = 95;   Pin = 'built';    AgreeFloor = 82 },
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Golden = 'scripts/recalc/formulas_saved_calc.vla'; Floor = 95;  Pin = 'no-differ'; AgreeFloor = 82 },
     @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Golden = 'scripts/recalc/address_calc.vla';       Floor = 538;  Pin = 'built';     AgreeFloor = 403 },
-    @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Golden = 'scripts/recalc/address_saved_calc.vla'; Floor = 538;  Pin = 'no-differ'; AgreeFloor = 403 }
+    @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Golden = 'scripts/recalc/address_saved_calc.vla'; Floor = 538;  Pin = 'no-differ'; AgreeFloor = 403 },
+    @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
+    @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

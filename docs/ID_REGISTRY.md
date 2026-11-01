@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.67 | KERNEL.68 |
+| KERNEL | KERNEL.71 | KERNEL.72 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -372,6 +372,11 @@ Superposition's 512 by 512 Field raised the frame floors' heap from 10.8 MB
 to 26.0 MB), for a style row over a range held by the machine as one range
 and never a style a cell, so that its heap stops growing with the area it
 covers. `KERNEL.68` is next free.
+`KERNEL.71` was minted 2026-10-30 at the owner's word, from Alonzo's
+`CART.14.1` (`docs/REARVIEW.md`, "What the language and the engine still
+lack"), for `BITAND`, `BITOR` and `BITXOR` computed by `vla-lang`'s `language()`
+as one item, so that a game's marks read as bit masks by one call where it
+writes `MOD(INT(x/2^k),2)` at every site. `KERNEL.72` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

@@ -155,6 +155,17 @@
   beyond ASCII that is no letter, which Excel quotes by a table of its own, and an
   answer past 258 characters (KERNEL.60).
 
+- **`BITAND`, `BITOR` and `BITXOR` compute.** A number's bits by one call:
+  `=BITAND(13,25)` is 9, `=BITOR(23,10)` 31 and `=BITXOR(5,3)` 6, over whole numbers
+  from 0 to 2^48-1. A cartridge's load refused the three names; they now compute in
+  the language, so that a game's marks read as a mask by one call where it wrote
+  `MOD(INT(x/2^k),2)`. Anything else is `#NUM!`, exactly, on all three, as Excel
+  answers where two of its pages do not say: `=BITOR(0.1*3*10,0)` is `#NUM!`, a double
+  holding that product a little above 3. An argument left out reads 0, an array
+  given lifts them, and a legacy formula meets a range at its cell. Excel 365's own
+  save holds 895 formulas: 893 agree, none differs, and two are a text Excel shows
+  with an `@` (KERNEL.71).
+
 ## 0.12.0
 
 ### What changed

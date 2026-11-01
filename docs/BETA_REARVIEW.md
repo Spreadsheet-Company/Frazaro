@@ -43093,6 +43093,273 @@ both wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 63 passed,
 the four goldens written again the same. The item closes: its line leaves the roadmap
 for the closed ledger. Not pushed.
 
+**`KERNEL.71`, `BITAND`, `BITOR` and `BITXOR` computed: the scoping, 2026-10-30.**
+Begun at the owner's word, a prompt relayed from Alonzo's `CART.14.1` ("What the
+language and the engine still lack", its `docs/REARVIEW.md`, whose order puts this
+before that item's slice 2). Minted here, the registry's row and sentence first, and
+nothing else minted. Seiyaku's marks are bit masks, read by about twenty sites of
+`MOD(INT(x/2^k),2)` and four more in its ladder, and its decision 13's filter is nine
+terms where one call would do. A game reaches the language alone (`AD-1`), and each of
+the three, tried through Alonzo's pass and load at 0.12.0, is refused by name,
+`calc-function-not-computed`. The decisions, the probes, the stop rule and the
+predictions are written before any build or number; then a stop for the owner's
+approval. Nothing is built. HEAD `9311710`, six ahead of origin, `KERNEL.58`'s second
+slice committed during this read; `run_checks` 59 of 60 in the shared tree,
+`check_recalc_floors` red for the peers' netlist; in the tree beside this, `KERNEL.68`
+to `KERNEL.70` uncommitted and a line in `.gitattributes`.
+
+*What it stands on, read in the code.*
+- `Library::register`: every parameter `Param::Value`, an array given lifting it, a
+  range read as arrays lifting it, and a legacy formula meeting a range at its cell. A
+  function so registered is lowered already: a program calls it through its pointer
+  (`program.rs`'s `called`, `Op::Call`), its answer guarded to be a number, and an
+  operand that may be nothing never reaches it (`Why::Omitted`). So a plain
+  registration is a `(calls "BITAND")` row of the census with no `(unlowered ...)`.
+- What a strict function can tell: an argument left out (`Arg::Scalar(Value::Empty)`,
+  `arrays::omitted`), a reference (`Arg::Area`, on both paths) and a lift's empty place
+  (`place_of_lift`'s array of one value). What it cannot: an `IF`'s branch left out,
+  which `Ctx` reads as 0 wherever it is read (`KERNEL.60`'s second finding).
+- `may_show_at` reads a parameter of one value as one value wanted, so that
+  `FORMULATEXT` of `=BITAND(Data!C1:C3,1)` is labelled, as `ADDRESS`'s was.
+- The door: `core/src/sheet/xlfn.rs` holds all three among the prefixed names and none
+  among those that can return an array. A sample built before this item writes
+  `_xlfn.BITAND(1,5)` legacy, `SUMPRODUCT(_xlfn.BITAND(Data!A1:A2,1))` legacy and
+  `INDEX(_xlfn.BITAND(Data!A1:A2,1),2)` dynamic, by `INDEX` alone; `calc` prints
+  `(not-computed "BITAND")` at each today.
+- Microsoft's three pages, a hypothesis. `BITAND`: below 0 `#NUM!`, "a non-integer or
+  ... greater than (2^48)-1" `#NUM!`, "a non-numeric value" `#VALUE!`; `BITAND(1,5)` 1
+  and `BITAND(13,25)` 9. `BITOR` and `BITXOR`: "outside" a constraint `#NUM!`, greater
+  than (2^48)-1 `#NUM!`, non-numeric `#VALUE!`, and no word of a non-integer; `BITOR(23,10)`
+  31 and `BITXOR(5,3)` 6. All three are silent on a number nearly whole, a truth value,
+  a text of digits, an empty cell, an argument left out, the order of errors and arrays.
+
+*The decisions.*
+
+1. *The route.* Recommended: a fixture of its own, `scripts/recalc/bits.txt`, built by
+   the door into `bits.xlsx` and saved by the owner as `bits_saved.xlsx`, joining
+   `check_recalc_golden.ps1` at `built` and at `no-differ`, `check_shapes_golden.ps1`,
+   `prove.ps1`'s next two calc rows and a conformance amendment, as every family since
+   `KERNEL.8` has. *Declined:* rows of `subset.txt` or `address.txt`, a new save of a
+   witness for rows that have nothing to do with it.
+
+2. *Where it lives.* Recommended: `calc/library.rs`, beside `MOD`, which reads numbers as
+   these do: one meaning, `bitwise`, over `whole_bits`, and three lines naming an
+   operator, about forty lines with no fold. *Alternative:* a small module,
+   `calc/bitwise.rs`, if the folds carry it past about a hundred. *Declined:* the name
+   `bits` for a module, which `machine/bits.rs` holds for the marks and change sets.
+
+3. *Registered how.* Recommended: plain `lib.register`, no `Known` and no operation:
+   by the read above a program already calls it through its pointer, so nothing asks
+   for a measurement unless decision 6 makes it a form. *Declined:* an operation of its
+   own, in a loop where one cost the chain fixture half its time again (`KERNEL.8`,
+   `program.rs`'s `index`), for a game at rate 0.
+
+4. *The order of its reading.* Recommended: both arguments read first, left to right,
+   an error or a text spelling no number answering there; only then each range held,
+   `#NUM!`. So `BITAND(-1,"x")` is `#VALUE!`, `BITAND(-1,1/0)` `#DIV/0!` and
+   `BITAND(1/0,"x")` `#DIV/0!`, as `MOD` reads and as Excel's saves have `ADDRESS` read.
+   *Alternative:* each range held as its argument is read, `BITAND(-1,"x")` `#NUM!`,
+   one line moved if the save says so.
+
+5. *What is whole.* Recommended: a number read exactly, whole and from 0 to 2^48-1, or
+   `#NUM!`, the plain reading of `BITAND`'s page, on all three: `0.1*3*10`, which a double
+   holds as 3.0000000000000004, and `2^47+0.5` are `#NUM!`. *Alternatives, each one line
+   of `whole_bits` if the save says so:* read to fifteen significant digits first
+   (`round15`), which takes those two as 3 and as `...329`; a tolerance of its own,
+   binary or decimal; read down to a whole number as `MID` and `ADDRESS` read theirs,
+   on `BITOR` and `BITXOR` alone if their pages' silence means that. The ladder below
+   locates any of them.
+
+6. *Left out, and empty.* Recommended: an argument left out reads 0, as a strict
+   function reads it, and an empty cell and a lift's empty place too, so `BITOR(,5)` is
+   5, `CHOOSE(1,,2)` and `IF(TRUE,,2)` read alike and the strict route stands.
+   *If Excel answers an error for one left out:* `arrays::omitted` answers it and
+   `CHOOSE` with it, and a strict function cannot see the `IF`: the three become forms
+   as `ADDRESS` is, `leaves_a_branch_out` shared and that shape labelled, at the price
+   of `(unlowered form)` at every call, measured at the fold and named to the owner.
+
+7. *Kinds.* Recommended: as any operand reads, by `Ctx::one` and `Value::number`: a
+   truth value 1 or 0, a text spelling a number its number, given or through a
+   reference, another text `#VALUE!`, an error that error, and a span of sheets `#REF!`,
+   as Excel's save of `ADDRESS` has it. *Each other answer is expressible before it is
+   probed:* a reference's truth value or text refused, or a span `#VALUE!`, by the
+   function telling `Arg::Area`; a lift's truth value or text read otherwise than one
+   given, by `place_of_lift` handing it as an array of one value, as it hands an empty
+   place, which `Ctx::one` reads alike so that no other function moves.
+
+8. *The lift.* Recommended: `register`'s, as `LEN`'s. *If a function of 2013 reads
+   otherwise:* `Param::Scalar`, one word, if a legacy formula forces one value inside
+   an array parameter; or `Param::Range` and `#VALUE!` of many, if it takes no array at
+   all. Do not assume: the save tells.
+
+9. *The count of arguments.* Not two: `#VALUE!`, as `MOD`, a unit test alone, since
+   Excel refuses such a call at entry and no fixture may hold one.
+
+10. *The release.* Additive, three names, no public call or record moved: a bullet
+    under `## 0.13.0`, riding it if the owner so decides. Alonzo's pin moves as its own
+    step. `BITLSHIFT` and `BITRSHIFT` are not this item.
+
+*The probes, all in the first build,* each placed by a boundary and each answer
+expressible by a decision above. A Data sheet of the values read; a Functions sheet of
+one formula a rule; a Lift sheet where a formula's row or column meets a range, with
+fills; a Bits sheet of a fill a bit. No function of `KERNEL.68` or of `KERNEL.70`'s word,
+so that their commits move no row. About 770 formulas, generated:
+- the forms (20): the pages' four, zero with zero and with a number on each side, each
+  number with itself, a name in lower case;
+- the range (76): 0, -1, -0.5, 2^48-1, 2^48, 2^53 and 1E+300 at each argument of each
+  function; and on `BITOR`, at each argument, -0, -1E-300, 1E-300, 2^31, 2^32, 2^63, 2^64,
+  -2^31, -2^32, -2^48, 1E+14, 2.9E+14, 1.79769313486231E+308 and its negative, 300% and
+  150%;
+- fractions on both sides of a whole number (30): 0.5, 0.9, 1.5, 1.9 and 2.5 at each
+  argument of each function, for the two pages that do not say;
+- the ladder (about 170): `BITOR(x,0)`, which shows the number read, for x a whole B
+  above and below by 2^j units in its last place, B each of 1, 3, 10, 1024, 2^20, 2^33
+  and 2^47 and j from 0 to 8, a range that holds the fifteen-digit boundary at every B
+  and a binary tolerance's; at 1 on to 2^-1 by wider steps; 2^47+0.5, 2^48-2^-5, 2^48-0.5
+  and 2^48-1+2^-5 at the top; the rungs that tell on `BITAND` and `BITXOR` and at the second
+  argument; and what a person's arithmetic leaves, `0.1*3*10`, `3.3/1.1`, `4.35*100`,
+  `1.1*1.1*100`, `1.15*100`, `0.07*100` and `1.005*1000`, given and read from a cell;
+- the bits (204): across 31 and 32 and up to 47, `BITOR(2^31,2^32)`, `BITXOR(2^47,1)`,
+  `BITAND(2^48-1,2^48-1)`, `BITXOR(2^48-1,2^47)` and their like; and on the Bits sheet a
+  fill of the 48 at each function, every bit alone against every other;
+- kinds (about 70): at each argument of `BITOR`, TRUE, FALSE, `"3"`, `" 3 "`, `"x"`, `""`,
+  `"TRUE"`, `"1E2"`, `"200%"`, `"-1"`, `"1.5"`, the largest whole number as a text and one
+  past it, each literal error, and a reference to each kind of cell, a number, a text of
+  digits, a text, each truth value, an empty cell, an error, the empty text a formula
+  answers, a fraction, a negative; a span of sheets; each argument left out, both left
+  out, `CHOOSE(1,,2)`, `CHOOSE(2,1,)`, `IF(TRUE,,2)`, `IF(FALSE,2,)` and `IF(FALSE,2)`; and
+  eight of those on `BITAND` and `BITXOR`;
+- the order of errors (30): a range's `#NUM!` of each cause beside a text's `#VALUE!`, beside
+  an error given and an error in a cell, and two errors, each pair in both orders;
+- the lift (50): an array constant and a range at each argument, read by `SUM`,
+  `SUMPRODUCT`, a dynamic `INDEX`, `ROWS` and `COLUMNS`; `ROW` of a range; a row of cells
+  and two columns; two arrays of different shapes and two ranges; an error at one place,
+  of a value and of the range; a truth value, a text of digits and a text at one place;
+  an empty cell in a range read as arrays, at each argument;
+- the Lift sheet (93): a legacy formula meeting a range at its row, at its column and at
+  none, at each argument, at both, a whole column, two columns; and three fills of
+  27 cells, the consumers' `BITAND(mask,2^(COLUMN()-1))` among them;
+- `FORMULATEXT` (5): of `=BITAND(1,5)`, of the legacy formula over a range with its `@`, and
+  of a `SUMPRODUCT`, a `SUM` and an `INDEX` of one;
+- the consumers' shapes (18): `BITAND(mask,2^(v-1))>0`, a mark's digit by `IF`, the marks'
+  text, a mark set, struck and toggled, the complement, a subset, one bit alone by
+  `BITAND(m,m-1)=0`, a popcount by `SUMPRODUCT` of a constant and of `ROW`, and the old
+  reading held equal to the new at every bit of a mask. Through the machine's public calls
+  too (`vla-lang/tests/bits.rs`), with a mask over its twin.
+
+Not probed, since neither answer would be this item's to express: a text a locale reads,
+`"1,000"` or `"$5"`, which `text_to_number` leaves to the host for every function; a union
+of references, which `Ctx::one` reads for every function; and a whole column read as
+arrays, a million places with no consumer.
+
+*The stop rule, before the first save.* One save is planned, with nothing to type:
+`bits.xlsx` opened in Excel 365 and saved as `bits_saved.xlsx`. The no-differ pin admits
+no exception: an answer Excel gives deterministically is folded and held to that same
+save, whose values a fold does not move, the built fixture written again; a second save
+only where a fold needs a formula the first did not hold, and never a third. An answer
+Excel gives otherwise from one copy of a formula to another in one save is labelled, and
+so is what no stated rule covers, by its shape, and not chased. Microsoft's pages bind
+nothing the save contradicts.
+
+*Predictions, before any number.*
+1. The build: about 770 formulas, two labelled, `FORMULATEXT` of the legacy formula with
+   its `@` and of the `SUM`, and every other agreeing with what the door writes.
+2. Excel's save agrees at every computed row as built, and no fold is wanted: one rule on
+   all three, whatever their pages leave unsaid; the reading first; every rung of the
+   ladder `#NUM!`; one left out 0; a reference read as a value given. Least sure, in
+   order: the ladder, where Excel's fifteen digits may enter; one left out of a required
+   parameter of a function of 2013, and with it `IF(TRUE,,2)`; a span of sheets; a truth
+   value through a reference; a text at a lift's place.
+3. The lift as `LEN`'s: `SUM(BITAND({1,2,3},1))` 2, `SUMPRODUCT(BITAND(Data!C1:C3,1))` 1 over
+   1, 10 and 100, and a legacy formula off the range `#VALUE!`.
+4. `FORMULATEXT`'s text carries no prefix, `=BITAND(1,5)`, and `=BITAND(@data!C1:C3,1)` shows
+   the `@` on the range and never on the name, the prefix moving nothing in the rule.
+5. One save. No golden moves but the new fixture's four. No floor moves, since the memory
+   runner makes its library outside its count and no program of the floors calls the
+   three; an Alonzo grid holds some bytes more, these names' letters, as at `KERNEL.53`,
+   at its pin's own step.
+
+*Approved 2026-10-30* at the owner's word, "Recommendations approved; proceed with
+implementing KERNEL.71 as scoped.": the ten decisions as recommended; the roadmap's line 🟡.
+
+*The build.* The function, its tests and the fixture, in a detached worktree at `9311710` (the
+session's scratchpad, `k71/wt/`): `whole_bits` and `bitwise` beside `MOD`, three lines naming an
+operator, and three plain registrations. The fixture came of a generator kept in the scratchpad
+(`k71/gen_bits.py`), each family's formula spelled there. The door's build: 895 formulas, 893 agreeing
+and two labelled, the labels prediction 1's and its count not: the scoping said about 770, and the
+kinds and the lift came out larger, written at each argument.
+
+*Excel's save, 2026-10-30, the one planned* (the scratchpad's `k71/saves/first.xlsx`; the fixture's
+`bits_saved.xlsx`). No notice and no repair. The door over it: 895 formulas, 893 agreeing, none
+differing, and the two labelled with Excel's texts standing in the golden. That Excel computed it and
+did not hold the door's values over: the built file's `fullCalcOnLoad="1"`, under which `KERNEL.60`'s
+first save differed at sixteen rows; the save's own `calcId` and calculation chain; the two rows the
+build left with no value holding Excel's texts; and two `FORMULATEXT` answers spelled `data!` where the
+build's spelled `Data!`. The predictions:
+1. As said above: two labelled, 895 where about 770.
+2. Held whole, and no fold was wanted. The ladder: 152 rows at seven magnitudes, 145 `#NUM!` from the
+   first unit in the last place at each, 1 above and below by 2^-52 and 2^-53 among them, and the other
+   seven whole numbers, the rungs at 2^47 where 2^j is itself whole, read as those numbers. No
+   tolerance, no fifteen digits, at either argument of any of the three: `0.1*3*10`, `3.3/1.1`, `4.35*100`,
+   `2^47+0.5` and `2^48-1+2^-5` all `#NUM!`, what the pages of `BITOR` and `BITXOR` do not say. One left out
+   reads 0 and so does what `CHOOSE` and `IF` hand on: `BITOR(,5)`, `BITOR(CHOOSE(1,,2),5)` and
+   `BITOR(IF(TRUE,,2),5)` are all 5, so that the strict route stands and no form is wanted. The reading
+   first: `BITAND(-1,"x")` `#VALUE!`, `BITAND(-1,1/0)` `#DIV/0!`, `BITAND(1/0,#N/A)` `#DIV/0!` and
+   `BITAND(#N/A,1/0)` `#N/A`, on all three. A span of sheets `#REF!`. A reference reads as a value given,
+   TRUE 1, `"5"` 5, and so does a place of a lift, the text `"x"` `#VALUE!` at its own place alone.
+3. Held: `SUM(BITAND({1,2,3},1))` 2, `SUMPRODUCT(BITAND(Data!C1:C3,1))` 1, and a legacy formula off the
+   range `#VALUE!`, a whole column and two columns met as `Ctx` meets them. Two shapes lift as `LEN`'s,
+   `SUMPRODUCT(BITOR(Data!C1:C3,Data!K1:M1))` 555 and `INDEX(BITOR({1,2},{1,2,3}),1,3)` `#N/A`.
+4. Held: `=BITAND(1,5)` with no prefix, `=BITAND(@data!C1:C3,3)` and `=SUM(BITAND(@data!C1:C3,1))` with
+   the `@` on the range and never on the name, and `=SUMPRODUCT(BITAND(data!C1:C3,1))` and
+   `=INDEX(BITOR(data!C1:C3,1),3)` with none.
+5. Held: one save; no golden moved but the fixture's four; `check_recalc_floors` as it stood, the
+   census calling each through its pointer, `(calls "BITAND")`, unlowered only where a text, an error,
+   an array or an argument left out stands. Excel's opening writes `-0` as 0 and `1E+14` as its digits,
+   so that two shapes of the save's census join an earlier text, 621 lines to the build's 623.
+
+*Found* (measured, unminted).
+1. `BITAND(m,m-1)=0`, the test of one bit alone, is `#NUM!` at the mask 0, whose `m-1` is -1, as Excel's
+   save has it: a consumer guards the empty mask first. Alonzo's `CART.14.1` should know before its
+   ladder's slice writes that test.
+2. `KERNEL.60`'s second finding gains one point: a numeric parameter of these three reads an `IF`'s branch
+   left out as 0, in Excel as in the language. What `&`, `LEN` or a comparison reads of it stays unmeasured.
+
+*Held, over `9311710`.*
+- `cargo fmt --all -- --check`; `cargo clippy --workspace --all-targets -- -D warnings`, and with `c-abi`;
+  `cargo test --workspace`, the language's 463 and the core's 228 and every other suite,
+  `vla-lang/tests/bits.rs` through the machine's public calls among them; both wasm modules;
+  `run_checks.ps1` 60 of 60 with the modules present; `prove.ps1 -Impl` 65 passed, the fixture's two calc
+  rows among them; `-Control` of `check_recalc_golden` and `check_shapes_golden`.
+- Thirty-three mutants (the scratchpad's `k71/mutants.py`), each one change asserted to occur once and
+  each file put back byte for byte, every one failing a named test: the range at each end and at 2^32 and
+  2^53, whole to fifteen digits and by two tolerances, the bits and the answer cut to 32 and signed at
+  bit 47, each operator, a third argument, the order of the reading, each error kept, one left out, an
+  empty place, a truth value and a text in a cell, a span, each class of parameter, a registration and
+  the subset's row.
+- Beside the peers' work: this item's lines merged over a scratch copy of the shared tree with
+  `KERNEL.68` to `KERNEL.70` in it. The four goldens the same byte for byte, the language's 481 and the
+  core's 230, and `prove.ps1 -Impl` 68: their commits move none of its rows, as the scoping meant.
+- Over this language by a path, in copies, never in their repositories, each patch proved used: Alonzo's
+  `ef0f62e`, its 82 tests and its doctest, every replay to its golden and `expand --check` the same.
+  Buffet's `f5dcde1` with both pins moved in the copy, its 91 of 92, the same verdicts over `9311710`'s
+  language, `describe_holds_its_golden` failing at both for the pin's own move and its describe the same
+  byte for byte, 66,334.
+- The consumer's own route, in Alonzo's copy: Seiyaku's `bit-of` rewritten over `bitand`, nothing else. The
+  pass writes 19 rows over `BITAND` where 20 held `MOD(INT(`, `(loads yes)`; `seiyaku_s_board_is_its_hand_at_every_frame`
+  holds; and with the replay's recorded hash moved to the new cartridge's, the owner's session plays to
+  its golden, no value moved. The describe golden moves, as the formulas' text does.
+
+*Committed 2026-10-31* at the owner's word, "Commit KERNEL.71 before suggesting next steps": over
+`9311710`, the item's files and its hunks of the shared documents alone, by a worktree's own index;
+other sessions' uncommitted `KERNEL.58`, `KERNEL.68`, `KERNEL.69` and `KERNEL.70` work and a line in
+`.gitattributes` left out. That tree verified alone before it was written: fmt, clippy with warnings
+denied, with and without `c-abi`, `cargo test --workspace`, the language's 463 and the core's 228, both
+wasm modules built, `run_checks.ps1` 60 of 60, `prove.ps1 -Impl` 65 passed, the language's package
+tested from its tarball as CI's job does, and the four goldens written again the same. The item closes:
+its line leaves the roadmap for the closed ledger. Not pushed. The registry names `KERNEL.71` ahead of
+the sentence of `KERNEL.68` to `KERNEL.70`, whose mints stand uncommitted in the tree.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -56588,6 +56855,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.49 — the grid held as what a person wrote: a fill one record, every value by place in nine bytes, a twin kept only where a formula reads it, and the plan by fills and levels, so that a formula cell costs bytes and a load its rows.** Minted 2026-10-19 at the owner's word, after Alonzo's `CART.12` hand test; scoped the same day, its fourteen decisions approved as recommended on 2026-10-21, and built in five slices, each at the owner's word: the floors (`c9f225c`: two fixtures of rows, Superposition's board and Life at sixteen times its window, and a runner of their bytes, held as exact ceilings); values by place (`45f5b43`: a slot of nine bytes in one store a sheet, a twin kept only where a formula reads it, the change lists as bits); the grid and the draft (`2e98ce5`: the machine's grid its own, a fill held once and cut by a write into at most four, the rows read as records); the plan by fills and levels (`1dd1260`: a fill's piece or a formula alone a node, edges by rectangles, levels as maps, the order kept as blocks, and an order of at most 262,144 cells listed too at the owner's word); and the fills (the view record's fifth projection, each fill's formula once over each of its rectangles, what a save prints). The large board holds 13.5 bytes a formula cell after two frames and at its peak where it held 401 and 424, Life at sixteen times its window 18.6 where 397 and 471, inside the item's 20 and 24; they load in 13 and 15 ms where 0.68 and 0.62 s; their saves are 29.7 and 27.8 MB where 521 and 562; every value, view and census line the same, and every frame of Alonzo's. To be released in 0.11.0. `~weeks`, taken in three days. *(more: the scoping and the five slices' records, under the KERNEL line)*
 - ✅ **KERNEL.67 — a style row over a range held as one range: a sheet's formats kept by the machine as rectangles that never overlap, each with its format, and never a format a cell, so that a `style` row's heap stops growing with the area it covers.** Minted 2026-10-30 at the owner's word, from Alonzo's `ENGINE.28` (its *Found* after the close, for `vla-lang`); scoped the same day, its five decisions approved as recommended; built, measured by the owner's native run and committed the same day at the owner's word. `grid::CellStyles`, one type the draft and the page share: a rectangle of more than one cell among the rectangles of its height and a cell alone by place, in a box made at a sheet's first format, so that a sheet with no format holds a word where it held three. A row over rectangles of its own format adds only the rectangles its range leaves outside them; a range's cells are found written by a count over its records' rectangles; the two refusals name the cell and the line they named, found by rectangles; a cell taken from a draft cuts its rectangle into at most four and gives its format up; the record, the save and the file model a format a cell as before. One row over Superposition's Field of 262,144 cells held 6.9 MB more after two frames and 15.2 MB more at its peak, and read in 44 ms where the rows unstyled read in 0.3; it holds 520 bytes over its twin after the load, after two frames and at the peak, and reads in 0.1. Every sheet and its twin 16 bytes fewer: thirteen of the eighteen ceilings fell, five peaks stayed, none rose. *Pins:* a seeded law of 240 deals of style rows, overlapping and refused, every cell's format and every refusal's cell and line held to today's loop (82 taken, 75 written twice, 83 unwritten), the thirteen mutants killed; the rectangle test; the grid's two. *Oracle:* `superposition-styled`, the third fixture of rows, held within 4,096 bytes of its twin at all three points by a rule of `check_recalc_floors.ps1`, with five control cases; no golden moved. Ships in `0.13.0`, into which the owner folded `0.12.1`. The owner's run pasted in part, the memory rows and both histories, the seven native rows marked for a later pass; three *Found* read, not minted, the third the floor `netlist type`, which the code that set it no longer clears. (Full entry: THE KERNEL LINE, after `KERNEL.57`.)
 - ✅ **KERNEL.60 — `ADDRESS` computed: a cell's address as a text from its row and column, so that a Write sheet row names its target by number and never by `CHOOSE` over the alphabet.** Minted 2026-10-23 at the owner's word, from the sitting of 2026-10-22 on the helper-hungry style; scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1`, its nine decisions approved as recommended; built, held to two Excel saves and committed the same day at the owner's word. `ADDRESS(row, column, [abs], [a1], [sheet])` in `vla-lang`'s `language()`, so that a game reaches it (`AD-1`), in `calc/texts.rs`, a form handing its call to a strict function: `abs` 1 to 4; every argument read first, left to right, an error or a text spelling no number answering there, and only then their ranges; an argument left out its default, and a reference to an empty cell or an empty place of a lift read as any value is, which `Ctx::lifted_call`'s `place_of_lift` tells apart. A sheet's name is quoted as Excel's `ADDRESS` quotes it, unless it could be a defined name, the empty text written `!A1` and a name past 255 UTF-16 units `#VALUE!`, which is not `refers::quote_sheet`'s rule, as this line first said. Labelled by shape, as the stop rule stated before the saves: an address in R1C1, no notation of the house, where Excel's relative form reaches rows no A1 address has; a workbook's spelling; a character beyond ASCII that is no letter, which Excel quotes by a table of its own; an answer past 258 characters, where Excel cuts it; a name opening on a row's or a column's number with a tail no save reaches; and an `IF`'s branch left out, which Excel hands on as nothing and the language reads as 0. *Oracle:* a fixture of its own, `scripts/recalc/address.txt`, and not the subset's rows, as this line first said: 538 formulas, Excel's second save `address_saved.xlsx` at `no-differ`, 403 agreeing, none differing and 135 labelled, Excel's answer to each in its golden; fifty-seven mutants, none surviving; no other golden and no floor moved. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step, and Kairos's `letter` retired under Alonzo's `KIT.6`. Four *Found*, not minted, the first that `quote_sheet` parts from what `ADDRESS` writes. (Full entry: THE KERNEL LINE, after `KERNEL.67`.) `~hours`
+- ✅ **KERNEL.71 — `BITAND`, `BITOR` and `BITXOR` computed in the language: one meaning for the three, over whole numbers below 2^48, by `vla-lang`'s `language()`, so that a game's marks read as bit masks by one call where it writes `MOD(INT(x/2^k),2)` at every site.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.14.1` ("What the language and the engine still lack"), whose order puts it before that item's slice 2, its ten decisions approved as recommended; built and held to one Excel save the same day, no fold wanted, and committed 2026-10-31 at the owner's word. In `calc/library.rs` beside `MOD`, three plain registrations, which a program calls through their pointers: both arguments read first, left to right, as an operand reads, an error or a text spelling no number answering there; only then each held, whole and from 0 to 2^48-1, exactly, or `#NUM!`, on all three, with no tolerance at any magnitude, where the pages of `BITOR` and `BITXOR` do not say. An empty cell, an empty place of a lift and an argument left out read 0, `CHOOSE(1,,2)` and `IF(TRUE,,2)` too. An array lifts each, and a legacy formula meets a range at its cell. *Oracle:* a fixture of its own, `scripts/recalc/bits.txt`: 895 formulas, Excel's one save `bits_saved.xlsx` at `no-differ`, 893 agreeing, none differing and two labelled, each a text Excel shows with an `@`, on the range and never on the name; thirty-three mutants, none surviving; no other golden and no floor moved. Seiyaku's `bit-of` rewritten over `bitand` in a copy moved no value. Ships in `0.13.0` if the owner so decides at the release; Alonzo's pin its own step. Two *Found*, not minted, the first that `BITAND(m,m-1)` is `#NUM!` at the mask 0. (Full entry: THE KERNEL LINE, its last before `# MACHINE · OPTIMIZATION`.) `~hours`
 
 ## 🛡 ADVERSARY · SECURITY
 
