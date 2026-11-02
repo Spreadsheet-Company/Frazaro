@@ -55,7 +55,7 @@ use std::sync::OnceLock;
 use crate::appearance::{self, Wrong};
 use crate::calc::{CellId, Computed, ErrorKind, Extent, Reason, Value};
 use crate::form::Form;
-use crate::grid::{outside, overlap, CellStyles, Kind, Rects, RowMajor};
+use crate::grid::{outside, outside_held, overlap, CellStyles, Kind, Rects, RowMajor};
 use crate::intrinsics::fold;
 use crate::messages::raise;
 use crate::numfmt::{Code, Unsupported};
@@ -834,26 +834,27 @@ impl Draft {
                 let mut answer = DraftSheet::new(&format!("{name}[{}]", rule.priority));
                 answer.sheet.visibility = Visibility::Hidden;
                 let text = rule.answer_text(&name);
-                let mut before: Vec<A1Range> = Vec::new();
+                let (anchor, written) = (rule.corner(), rule.around());
+                let mut before = Rects::default();
                 for &range in &rule.ranges {
-                    for piece in outside(range, &before) {
+                    for piece in outside_held(range, &before) {
+                        before.insert(piece, 0);
                         cells += piece.cells();
                         answer.insert(Record {
                             range: piece,
                             line,
                             what: What::Formula {
                                 text: text.clone(),
-                                anchor: rule.corner(),
+                                anchor,
                                 si: Some(0),
-                                written: rule.around(),
+                                written,
                                 kind: Kind::Plain,
                             },
                         });
                     }
-                    before.push(range);
-                }
-                if cells > CELLS as u64 {
-                    return Err(rule_cells(line, &name, &rule.range_text(), cells));
+                    if cells > CELLS as u64 {
+                        return Err(rule_cells(line, &name, &rule.range_text(), cells));
+                    }
                 }
                 mine.push(Answering {
                     priority: rule.priority,
@@ -1202,6 +1203,21 @@ pub(crate) fn too_many(line: u32, sheet: &str, addr: &str, count: u64) -> LineRe
     }
 }
 
+/// How many rectangles a `lit` row reads of a rule one by one: past them it reads
+/// the rule's pieces, found by their place.
+const FEW_RECTANGLES: usize = 16;
+
+/// A rule's cells as pieces that never overlap, what its answer sheet holds.
+fn rule_pieces(rule: &Rule) -> Rects {
+    let mut pieces = Rects::default();
+    for &range in &rule.ranges {
+        for piece in outside_held(range, &pieces) {
+            pieces.insert(piece, 0);
+        }
+    }
+    pieces
+}
+
 /// `grid-rule-cells`: a rule whose range would bring the cells rules answer for
 /// past their cap (KERNEL.58).
 pub(crate) fn rule_cells(line: u32, sheet: &str, range: &str, count: u64) -> LineRefusal {
@@ -1244,6 +1260,10 @@ pub(crate) fn row_parts(form: &Form) -> Option<(&str, &[Form], u32)> {
 /// The loader's state over one text of rows.
 struct Reader {
     draft: Draft,
+    /// The pieces of a rule of many rectangles a `lit` row has named, by its sheet
+    /// and its place, `None` for one past the room, whose pieces might be more than
+    /// its rows.
+    lit_rules: BTreeMap<(usize, usize), Option<Rects>>,
     sheet_rows: HashMap<usize, (Visibility, u32)>,
     twin_rows: Vec<(String, u32)>,
     names: HashMap<String, (String, u32)>,
@@ -1286,6 +1306,7 @@ impl Reader {
     fn new() -> Reader {
         Reader {
             draft: Draft::new(),
+            lit_rules: BTreeMap::new(),
             sheet_rows: HashMap::new(),
             twin_rows: Vec::new(),
             names: HashMap::new(),
@@ -1829,10 +1850,26 @@ impl Reader {
             };
             let p = p.parse::<u32>().map_err(|_| bad())?;
             let rules = s.sheet.rules();
-            match rules.binary_search_by_key(&p, |r| r.priority) {
-                Ok(k) if rules[k].covers(range.top, range.left) => lit.push(p),
-                _ => return Err(bad()),
+            let Ok(k) = rules.binary_search_by_key(&p, |r| r.priority) else {
+                return Err(bad());
+            };
+            let rule = &rules[k];
+            let covers = if rule.ranges.len() <= FEW_RECTANGLES {
+                rule.covers(range.top, range.left)
+            } else {
+                let pieces = self
+                    .lit_rules
+                    .entry((si, k))
+                    .or_insert_with(|| (rule.cells() <= CELLS as u64).then(|| rule_pieces(rule)));
+                match pieces {
+                    Some(pieces) => pieces.at(range.top, range.left).is_some(),
+                    None => rule.covers(range.top, range.left),
+                }
+            };
+            if !covers {
+                return Err(bad());
             }
+            lit.push(p);
         }
         let at = (range.top, range.left);
         if let Some((said, first)) = s.lit.get(&at) {

@@ -456,6 +456,84 @@ pub(crate) fn outside(range: A1Range, holes: &[A1Range]) -> Vec<A1Range> {
     left.iter().map(|(piece, _)| piece).collect()
 }
 
+/// What of a rectangle pieces that never overlap leave: [`outside`] over the pieces
+/// it meets alone, found by their height (KERNEL.58's *Found* 16), where every piece
+/// asked of made a rule of many rectangles cost their square.
+pub(crate) fn outside_held(range: A1Range, held: &Rects) -> Vec<A1Range> {
+    let holes: Vec<A1Range> = held.meeting(range).map(|(piece, _)| piece).collect();
+    outside(range, &holes)
+}
+
+/// How many cells rectangles hold, a cell two share once (KERNEL.58's *Found* 16): a
+/// sweep down their rows over the spans of columns their edges cut, each span keeping
+/// how many rectangles stand over it and how many of its columns any covers, so that no
+/// rectangle is cut and none is made, whatever they cross.
+pub(crate) fn union_cells(ranges: &[A1Range]) -> u64 {
+    match ranges {
+        [] => return 0,
+        [one] => return one.cells(),
+        _ => {}
+    }
+    let mut cuts: Vec<u32> = ranges.iter().flat_map(|r| [r.left, r.right + 1]).collect();
+    cuts.sort_unstable();
+    cuts.dedup();
+    let at = |col: u32| cuts.binary_search(&col).expect("an edge is a cut");
+    let mut edges: Vec<(u32, bool, usize, usize)> = Vec::with_capacity(ranges.len() * 2);
+    for r in ranges {
+        let (from, to) = (at(r.left), at(r.right + 1));
+        edges.push((r.top, true, from, to));
+        edges.push((r.bottom + 1, false, from, to));
+    }
+    edges.sort_unstable();
+    let mut spans = Spans {
+        cuts: &cuts,
+        stood: vec![(0, 0); cuts.len() * 4],
+    };
+    let (mut cells, mut row) = (0, edges[0].0);
+    for (next, opens, from, to) in edges {
+        cells += u64::from(spans.stood[1].1) * u64::from(next - row);
+        row = next;
+        spans.stand(1, 0, cuts.len() - 1, from, to, opens);
+    }
+    cells
+}
+
+/// The tree of a sweep's spans of columns: for each node, how many rectangles stand
+/// over it whole, and how many of its columns any rectangle covers.
+struct Spans<'c> {
+    cuts: &'c [u32],
+    stood: Vec<(u32, u32)>,
+}
+
+impl Spans<'_> {
+    /// A rectangle's columns, the cuts `from` to `to`, opened or closed under the
+    /// node of the cuts `low` to `high`.
+    fn stand(&mut self, node: usize, low: usize, high: usize, from: usize, to: usize, opens: bool) {
+        if from <= low && high <= to {
+            if opens {
+                self.stood[node].0 += 1;
+            } else {
+                self.stood[node].0 -= 1;
+            }
+        } else {
+            let middle = (low + high) / 2;
+            if from < middle {
+                self.stand(node * 2, low, middle, from, to, opens);
+            }
+            if middle < to {
+                self.stand(node * 2 + 1, middle, high, from, to, opens);
+            }
+        }
+        self.stood[node].1 = if self.stood[node].0 > 0 {
+            self.cuts[high] - self.cuts[low]
+        } else if high - low == 1 {
+            0
+        } else {
+            self.stood[node * 2].1 + self.stood[node * 2 + 1].1
+        };
+    }
+}
+
 /// A sheet's cells' formats (KERNEL.67): each format over rectangles of cells
 /// that never overlap, kept as a draft keeps its records, a rectangle of more
 /// than one cell among the rectangles of its height ([`Rects`]) and a cell
@@ -1022,6 +1100,72 @@ mod tests {
                 .wrapping_add(1_442_695_040_888_963_407);
             ((seed >> 33) % u64::from(n)) as u32
         }
+    }
+
+    /// A rule's cells, counted by a sweep, are the cells of its rectangles cut against
+    /// each other, and cut against what they meet is the same cut.
+    #[test]
+    fn rectangles_count_by_a_sweep_as_they_cut() {
+        let mut seed = 0x5EED_u64;
+        let mut next = |n: u32| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((seed >> 33) as u32) % n
+        };
+        for round in 0..400 {
+            let many = 1 + round % 24;
+            let spread = 1 + round % 30;
+            let ranges: Vec<A1Range> = (0..many)
+                .map(|_| {
+                    let (top, left) = (1 + next(spread), 1 + next(spread));
+                    r(top, left, top + next(5), left + next(5))
+                })
+                .collect();
+            let mut held = Rects::default();
+            let mut before: Vec<A1Range> = Vec::new();
+            let mut cut_cells = 0;
+            for &range in &ranges {
+                let pieces = outside_held(range, &held);
+                let same: u64 = outside(range, &before).iter().map(A1Range::cells).sum();
+                let cells: u64 = pieces.iter().map(A1Range::cells).sum();
+                assert_eq!(cells, same, "{ranges:?}");
+                cut_cells += cells;
+                for piece in pieces {
+                    assert!(
+                        held.meeting(piece).next().is_none(),
+                        "{ranges:?}: {piece:?}"
+                    );
+                    held.insert(piece, 0);
+                }
+                before.push(range);
+            }
+            let mut every = std::collections::BTreeSet::new();
+            for range in &ranges {
+                for row in range.top..=range.bottom {
+                    for col in range.left..=range.right {
+                        every.insert((row, col));
+                    }
+                }
+            }
+            assert_eq!(cut_cells, every.len() as u64, "{ranges:?}");
+            assert_eq!(union_cells(&ranges), every.len() as u64, "{ranges:?}");
+        }
+        assert_eq!(union_cells(&[]), 0);
+        // What crosses makes more pieces than cells to count, and counts at once: a
+        // grid of strips, and the sheet's whole, by the hundred.
+        let strips: Vec<A1Range> = (0..4_000)
+            .flat_map(|k| {
+                [
+                    r(k * 2 + 1, 1, k * 2 + 1, 16_384),
+                    r(1, k * 2 + 1, 1_048_576, k * 2 + 1),
+                ]
+            })
+            .collect();
+        let crossed = 4_000 * 16_384 + 4_000 * 1_048_576 - 4_000 * 4_000;
+        assert_eq!(union_cells(&strips), crossed);
+        let wholes = vec![r(1, 1, 1_048_576, 16_384); 200];
+        assert_eq!(union_cells(&wholes), 1_048_576 * 16_384);
     }
 
     #[test]

@@ -149,6 +149,8 @@ impl Rule {
     /// The top left of the rectangle around its rectangles, which its formulas
     /// are read at and move from.
     pub fn corner(&self) -> (u32, u32) {
+        #[cfg(test)]
+        crate::sheet::work::rectangles(self.ranges.len());
         let top = self.ranges.iter().map(|r| r.top).min().unwrap_or(1);
         let left = self.ranges.iter().map(|r| r.left).min().unwrap_or(1);
         (top, left)
@@ -156,6 +158,8 @@ impl Rule {
 
     /// The rectangle around its rectangles.
     pub fn around(&self) -> A1Range {
+        #[cfg(test)]
+        crate::sheet::work::rectangles(self.ranges.len());
         let (top, left) = self.corner();
         A1Range {
             top,
@@ -167,6 +171,8 @@ impl Rule {
 
     /// Whether it answers for a cell.
     pub fn covers(&self, row: u32, col: u32) -> bool {
+        #[cfg(test)]
+        crate::sheet::work::rectangles(self.ranges.len());
         self.ranges
             .iter()
             .any(|r| row >= r.top && row <= r.bottom && col >= r.left && col <= r.right)
@@ -175,16 +181,7 @@ impl Rule {
     /// How many cells it answers for, a cell two rectangles share once: what a
     /// load counts of it beside the grid's cells.
     pub fn cells(&self) -> u64 {
-        let mut before: Vec<A1Range> = Vec::new();
-        let mut cells = 0;
-        for &range in &self.ranges {
-            cells += crate::grid::outside(range, &before)
-                .iter()
-                .map(A1Range::cells)
-                .sum::<u64>();
-            before.push(range);
-        }
-        cells
+        crate::grid::union_cells(&self.ranges)
     }
 
     /// Its formulas' texts, each without its `=`.

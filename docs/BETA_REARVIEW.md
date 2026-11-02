@@ -42680,7 +42680,16 @@ file's order, and the difference is LibreOffice's own import's, the oracle being
     rectangles 10.2 ms, 4,000 139 ms, 16,000 2.2 s, of which `Rule::cells`, counted by each reader, 1.3 s (*measured*, release). A
     hostile file of a million would hold a reader for over an hour (*derived*), and an `.ods` of scattered styled cells gathers as many
     as it has runs. How many a real workbook holds is not measured, no real model being in the tree. The threat model names no such
-    bound, and nothing here promises one.
+    bound, and nothing here promises one. *Fixed at the owner's word, 2026-11-01.* The cut was the least of it: a load asked `Rule::corner`
+    and `Rule::around` for each piece, each reading every rectangle, 11 of 11.4 s at 64,000; the cut read every rectangle before it; `Rule::cells`
+    cut them over; and a `lit` row of a save read them again. Now `union_cells` counts by a sweep and makes no rectangle, so that a grid of crossing
+    strips, more pieces than a grid holds, counts at once; `outside_held` cuts a rectangle against the pieces it meets, found by their height; the
+    corner and the rectangle around are asked once; and a `lit` row reads a rule of more than 16 rectangles by its pieces. Disjoint rectangles cut
+    as they did, and overlapping ones may cut otherwise, into the same cells. *Measured,* release, scattered cells, the load then the load of a
+    view with a `lit` row each: 16,000 rectangles 2.2 s and 2.2 s to 15.5 ms and 30.5 ms; 64,000 11.5 s and 12.2 s to 63.9 ms and 130 ms; 256,000 186 s and
+    200 s to 275 ms and 540 ms, linear; `Rule::cells` of 16,000 1.34 s to 1.6 ms. Held by a count and no clock:
+    `a_rule_of_many_rectangles_is_read_once_a_load`, 8 readings of a rule's rectangles at most, and `rectangles_count_by_a_sweep_as_they_cut`,
+    400 generated sets against the cut and each cell. No row, golden or floor moved.
 
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's

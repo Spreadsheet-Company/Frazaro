@@ -4161,6 +4161,64 @@ mod tests {
         );
     }
 
+    /// A load reads a rule of many rectangles once for what stands for all of them,
+    /// and a `lit` row of it by its pieces: where each piece, or each row, read every
+    /// rectangle, and a rule of 256,000 took three minutes (KERNEL.58's *Found* 16).
+    #[test]
+    fn a_rule_of_many_rectangles_is_read_once_a_load() {
+        let many = 4_000;
+        let range: Vec<String> = (0..many)
+            .map(|k| crate::sheet::cell_ref(k / 100 + 1, (k % 100) * 2 + 1))
+            .collect();
+        let rule = format!(
+            "(conditional \"S\" 1 \"{}\" \"=1\" none)\n",
+            range.join(" ")
+        );
+        let lit: String = range
+            .iter()
+            .map(|cell| format!("(lit \"S\" \"{cell}\" 1)\n"))
+            .collect();
+        let rows = format!("{rule}{lit}");
+        crate::sheet::work::begin();
+        let m = load(&rows);
+        let work = crate::sheet::work::end();
+        assert!(
+            work.rectangles <= 8 * u64::from(many),
+            "{} rectangles read of {many}",
+            work.rectangles
+        );
+        assert_eq!(m.rule_cells, many as usize);
+        // Each row is held to the rule all the same, and a few rectangles read as they
+        // stand.
+        let e = Machine::load(&format!("{rule}(lit \"S\" \"B1\" 1)\n"), labelling())
+            .expect_err("a cell the rule does not answer for");
+        assert_eq!(e.refusal.id, "grid-row-malformed");
+        assert_eq!(e.line, 2);
+        assert!(Machine::load(
+            "(conditional \"S\" 1 \"A1 C1\" \"=1\" none)\n(lit \"S\" \"B1\" 1)\n",
+            labelling()
+        )
+        .is_err());
+        // A rule past the room is read by its rectangles, its pieces never made.
+        let wide: Vec<String> = (0..17)
+            .map(|k| {
+                format!(
+                    "{0}1:{0}1048576",
+                    crate::sheet::column_letters(k as u32 * 2 + 1)
+                )
+            })
+            .collect();
+        let e = Machine::load(
+            &format!(
+                "(conditional \"S\" 1 \"{}\" \"=1\" none)\n(lit \"S\" \"A1\" 1)\n(lit \"S\" \"B1\" 1)\n",
+                wide.join(" ")
+            ),
+            labelling(),
+        )
+        .expect_err("the second cell");
+        assert_eq!((e.line, e.refusal.id.as_str()), (3, "grid-row-malformed"));
+    }
+
     #[test]
     fn a_load_refuses_what_it_cannot_hold_by_name() {
         let cases: &[(&str, u32, &str)] = &[

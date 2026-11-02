@@ -662,6 +662,9 @@ pub(crate) mod work {
         pub(crate) relaid: u64,
         /// The fills read to make a sheet's masters (KERNEL.49).
         pub(crate) masters: u64,
+        /// The rectangles of rules read whole, each by its corner, the rectangle
+        /// around it or whether it covers a cell (KERNEL.58's *Found* 16).
+        pub(crate) rectangles: u64,
     }
 
     thread_local! {
@@ -678,6 +681,7 @@ pub(crate) mod work {
                 viewed: 0,
                 relaid: 0,
                 masters: 0,
+                rectangles: 0,
             })
         };
     }
@@ -712,6 +716,11 @@ pub(crate) mod work {
     /// A walk over a sheet of `cells` cells for its extent.
     pub(crate) fn extents(cells: usize) {
         add(|w| w.extents += cells as u64);
+    }
+
+    /// A rule's `rectangles` rectangles read whole.
+    pub(crate) fn rectangles(rectangles: usize) {
+        add(|w| w.rectangles += rectangles as u64);
     }
 
     /// One text moved.
