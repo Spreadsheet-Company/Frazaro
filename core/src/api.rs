@@ -141,6 +141,7 @@ pub fn english_rebuild_xlsx(
             let render = Render {
                 style_base: into.style_base,
                 cm: into.cm,
+                ..Render::FRESH
             };
             let mut matches = true;
             for (i, sheet) in wb.sheets.iter().enumerate() {

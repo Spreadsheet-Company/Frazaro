@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
+' KERNEL.58: VlaWriteRulesWrittenGolden, dev-only, the reference's reading of the
+' writer's own workbook of rules, rules_written.xlsx, into
+' rules_written_golden.txt, by VlaWriteRulesGolden's readers.
 ' KERNEL.58: VlaWriteRulesGolden, dev-only, the reference's reading of a
 ' conditional format: every target of rules.xlsx, rules_plain.xlsx and
 ' rules_x14.xlsx through Range.DisplayFormat, Range.Text and
@@ -4514,6 +4517,69 @@ End Function
 ' A text as the record quotes one.
 Private Function RulesQuoted(ByVal words As String) As String
     RulesQuoted = Chr$(34) & Replace(Replace(words, "\", "\\"), Chr$(34), "\" & Chr$(34)) & Chr$(34)
+End Function
+
+' KERNEL.58's fourth slice: the writer's own workbook. scripts/reflect/
+' rules_written.xlsx, which frazaro-core's writer writes from the rows of its
+' test-only builder (core/src/reflect/rules_golden.rs) and holds there byte for
+' byte, holds every form it writes of a rule and a differential format, a case a
+' row as the rules golden's workbooks do. This opens it in Excel, reads every
+' target as VlaWriteRulesGolden reads them, saves it beside it as Excel's own
+' (rules_written_saved.xlsx), with no personal information, and writes
+' rules_written_golden.txt beside them. A file Excel repairs asks the person
+' first, and the window's caption, in the report, says so: that is the answer
+' this run exists for. Dev-only, and it opens a workbook, so click a module's code
+' window before the next command in the Immediate window.
+Public Function VlaWriteRulesWrittenGolden(Optional ByVal folder As String = "") As Boolean
+    Dim wb As Workbook
+    On Error GoTo failed
+    Dim sep As String
+    sep = Application.PathSeparator
+    If Len(folder) = 0 Then
+        folder = FindDevFile("reflect" & sep & "rules_written.xlsx")
+        folder = Left$(folder, InStrRev(folder, sep))
+    End If
+    If Right$(folder, 1) <> sep Then folder = folder & sep
+    Debug.Print "===== WRITE THE WRITER'S RULES GOLDEN ====="
+    Dim nCases As Long, nTargets As Long, outText As String
+    Set wb = RulesBookOpen(folder & "rules_written.xlsx")
+    If wb Is Nothing Then
+        Debug.Print "  no golden written: Excel did not open the writer's workbook"
+        Exit Function
+    End If
+    Debug.Print "  opened: " & wb.Windows(1).Caption
+    Application.ScreenUpdating = False
+    outText = "source" & vbTab & "excel " & Application.Version & " " & CStr(Application.Build) & vbCrLf
+    outText = outText & RulesBookRead(wb, "rules_written.xlsx", nCases, nTargets)
+    wb.RemovePersonalInformation = True
+    Application.DisplayAlerts = False
+    RulesBookSave wb, folder & "rules_written_saved.xlsx", 51
+    wb.Close SaveChanges:=False
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    Set wb = Nothing
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = folder & "rules_written_golden.txt"
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & nCases & " cases, " & nTargets & " targets read -> " & goldenPath
+    Debug.Print "  Excel's own workbook saved beside it, rules_written_saved.xlsx"
+    Debug.Print "  (the witness: git diff --no-index between the prediction and the golden)"
+    Debug.Print "===== THE WRITER'S RULES GOLDEN WRITTEN ====="
+    VlaWriteRulesWrittenGolden = True
+    Exit Function
+failed:
+    Dim failNo As Long, failWords As String
+    failNo = Err.Number
+    failWords = Err.Description
+    On Error Resume Next
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    If Not wb Is Nothing Then wb.Close SaveChanges:=False
+    On Error GoTo 0
+    Debug.Print "  THE WRITER'S RULES GOLDEN FAILED: " & failWords & " (" & failNo & ")"
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and

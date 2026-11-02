@@ -36,11 +36,24 @@
 //! its columns, the rows a person set a height or hid, the extent of the
 //! cells the walk prints and the formats they use, and what the record
 //! cannot hold, counted: a cell that keeps a format and no value, a look
-//! the record has no word for, a merged range, a conditional format, a row
-//! formatted whole.
+//! the record has no word for, a merged range, a row formatted whole.
+//!
+//! A conditional format (KERNEL.58, under `--looks` alone): each `cfRule` of a
+//! sheet's part and of its extension a row of its own, read as Excel read each
+//! case of `scripts/reflect/rules_golden.txt`. Every kind holding a formula of
+//! its own is that formula, `cellIs` a cell's value against its bounds, and a
+//! formula the bar's text, as a `formula` row's is; a kind the language does not
+//! compute is counted and left out. A file may tie a priority, as no row may:
+//! in one element the later rule leads, and of two elements the first, so that
+//! a tie and what follows it move up by as little as they can. A rule's format
+//! is a format of its own past the cell formats, a `dxfs` entry at `cellXfs` and
+//! its id, an extension's inline ones after them, saying what the file says and
+//! no more, its colors resolved as any; what Excel does not draw of one, a font's
+//! name and a vertical alignment (the owner's look at `Partial`), is left out,
+//! and what the record has no word for counted.
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 
 use super::cursor::{attr, element_text, skip_element, Cursor, Event};
@@ -58,10 +71,12 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip::{self, Entry};
 use crate::sheet::{
-    cell_ref, number_text, parse_a1_range, xlfn, Edge, Family, Generic, Horizontal, Line, Rgb,
-    RowSettings, Underline, Vertical,
+    cell_ref, number_text, parse_a1_range, xlfn, A1Range, Edge, Family, Generic, Horizontal, Line,
+    Rgb, RowSettings, Style, Underline, Vertical,
 };
+use vla_lang::machine::load::FORMATS;
 use vla_lang::rows::{datum, ArrayKind};
+use vla_lang::rule::{Operator, Rule, Test};
 
 /// The most distinct R1C1 formulas a count keeps, per sheet and per
 /// workbook; past it the count stands still (AXM.1's own cap).
@@ -110,6 +125,9 @@ pub struct Package<'a> {
     /// The cell formats as the looks read them, read the first time a walk
     /// asks for them (KERNEL.57).
     looks: OnceCell<Result<StyleTable, Refusal>>,
+    /// The formats the sheets' extensions hold inline, each different one once,
+    /// in the order a walk first meets it (KERNEL.58).
+    inline_looks: RefCell<Vec<Look>>,
 }
 
 impl std::fmt::Debug for Package<'_> {
@@ -543,6 +561,7 @@ impl<'a> Package<'a> {
             styles_part,
             theme_part,
             looks: OnceCell::new(),
+            inline_looks: RefCell::new(Vec::new()),
         })
     }
 
@@ -834,9 +853,9 @@ impl<'a> Package<'a> {
     /// view's gridlines, its own default width and height, its columns, the
     /// rows a person set a height for or hid, the extent of the cells the
     /// walk prints and the formats they use, and what the record cannot hold
-    /// among them, counted; its merged ranges and conditional formats after
-    /// its cells. A cell or a column naming a format past the styles part's
-    /// list is refused by name.
+    /// among them, counted; its merged ranges counted and its conditional
+    /// formats read, after its cells. A cell or a column naming a format past
+    /// the styles part's list is refused by name.
     fn first_pass(
         &self,
         text: &str,
@@ -846,19 +865,20 @@ impl<'a> Package<'a> {
     ) -> Result<SheetScan, Refusal> {
         let mut scan = SheetScan::new();
         let mut cursor = Cursor::new(text);
+        let mut rules = RuleReading::new(table, label, part);
         let mut views = 0u32;
         let mut in_data = false;
         let mut row_no: u32 = 0;
         let mut col_no: u32 = 0;
         while let Some(event) = step(&mut cursor, label, part)? {
             match event {
-                // An extension's elements, conditional formats Excel writes
-                // twice among them, are no look of the record's.
+                // An extension's conditional formats; its other elements are
+                // no look of the record's.
                 Event::Start {
                     name: "extLst",
                     empty: false,
                     ..
-                } => skip_element(&mut cursor).map_err(|why| xml_refused(label, part, why))?,
+                } => self.read_extension(&mut cursor, &mut rules, &mut scan)?,
                 Event::Start {
                     name: "sheetView",
                     attrs,
@@ -995,11 +1015,215 @@ impl<'a> Package<'a> {
                 Event::Start {
                     name: "mergeCell", ..
                 } => scan.stats.merged += 1,
-                Event::Start { name: "cfRule", .. } => scan.stats.conditional += 1,
+                Event::Start {
+                    name: "conditionalFormatting",
+                    attrs,
+                    empty: false,
+                } => self.read_conditional(&mut cursor, attrs, &mut rules, &mut scan)?,
                 _ => {}
             }
         }
+        scan.rules = rules.in_order();
         Ok(scan)
+    }
+
+    /// A sheet's extension list just opened: each conditional format of its
+    /// `ext` elements read, everything else passed over.
+    fn read_extension(
+        &self,
+        cursor: &mut Cursor,
+        rules: &mut RuleReading,
+        scan: &mut SheetScan,
+    ) -> Result<(), Refusal> {
+        let (label, part) = (rules.label, rules.part);
+        while let Some(event) = step(cursor, label, part)? {
+            match event {
+                Event::End { name: "extLst" } => break,
+                Event::Start {
+                    name: "ext" | "conditionalFormattings",
+                    ..
+                } => {}
+                Event::Start {
+                    name: "conditionalFormatting",
+                    attrs,
+                    empty: false,
+                } => self.read_conditional(cursor, attrs, rules, scan)?,
+                Event::Start { empty: false, .. } => {
+                    skip_element(cursor).map_err(|why| xml_refused(label, part, why))?
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// A `conditionalFormatting` element just opened, of the part or of its
+    /// extension, whose cursor reads their names alike: its rules, and its range,
+    /// an attribute in the part and an element after them in the extension.
+    fn read_conditional(
+        &self,
+        cursor: &mut Cursor,
+        attrs: &str,
+        rules: &mut RuleReading,
+        scan: &mut SheetScan,
+    ) -> Result<(), Refusal> {
+        let (label, part) = (rules.label, rules.part);
+        rules.element += 1;
+        let mut sqref = attr(attrs, "sqref").map(Cow::into_owned);
+        let mut found: Vec<FileRule> = Vec::new();
+        while let Some(event) = step(cursor, label, part)? {
+            match event {
+                Event::End {
+                    name: "conditionalFormatting",
+                } => break,
+                Event::Start {
+                    name: "cfRule",
+                    attrs,
+                    empty,
+                } => found.push(read_rule(cursor, attrs, empty, label, part)?),
+                Event::Start {
+                    name: "sqref",
+                    empty: false,
+                    ..
+                } => sqref = Some(inner_text(cursor, &[], false, label, part)?),
+                Event::Start { empty: false, .. } => {
+                    skip_element(cursor).map_err(|why| xml_refused(label, part, why))?
+                }
+                _ => {}
+            }
+        }
+        for (place, rule) in found.into_iter().enumerate() {
+            self.take_rule(rule, place as u32, sqref.as_deref(), rules, scan);
+        }
+        Ok(())
+    }
+
+    /// A rule read, as a row or as a count: one of a kind the language does not
+    /// compute counted and left out, and one the record cannot say, for want of
+    /// a formula, a range or an operator, counted as a look of no word. A rule
+    /// the part's own element says the extension also holds is that one rule,
+    /// as Excel writes a data bar twice.
+    fn take_rule(
+        &self,
+        rule: FileRule,
+        place: u32,
+        sqref: Option<&str>,
+        rules: &mut RuleReading,
+        scan: &mut SheetScan,
+    ) {
+        if rule.twin.is_some() {
+            rules.twins.extend(rule.twin.clone());
+        } else if rule.id.as_ref().is_some_and(|id| rules.twins.contains(id)) {
+            return;
+        }
+        scan.stats.conditional += 1;
+        if NOT_COMPUTED.contains(&rule.kind.as_str()) {
+            scan.stats.not_computed += 1;
+            return;
+        }
+        let ranges: Option<Vec<A1Range>> = sqref.and_then(|text| {
+            let spelled: Vec<&str> = text.split_whitespace().collect();
+            (!spelled.is_empty())
+                .then(|| spelled.into_iter().map(parse_a1_range).collect())
+                .flatten()
+        });
+        let (Some(priority), Some(ranges), Some(test)) =
+            (rule.priority, ranges, self.rule_test(&rule))
+        else {
+            scan.stats.unheld += 1;
+            return;
+        };
+        let format = self.rule_format(&rule, rules.table, scan);
+        let rule = Rule {
+            priority,
+            ranges,
+            test,
+            format,
+            stop: rule.stop,
+        };
+        scan.stats.rule_cells += rule.cells();
+        rules.found.push((rules.element, place, rule));
+    }
+
+    /// What a rule tests, its formulas the bar's text: a kind holding a formula
+    /// of its own is that formula, Excel lighting an error as not blank where
+    /// this kind's own formula answers the error; `None` where the rule says too
+    /// little.
+    fn rule_test(&self, rule: &FileRule) -> Option<Test> {
+        let formula = |at: usize| {
+            let text = rule.formulas.get(at).filter(|f| !f.trim().is_empty())?;
+            Some(self.bar_text(text))
+        };
+        let first = formula(0);
+        match rule.kind.as_str() {
+            "cellIs" => {
+                let operator = Operator::from_excel(rule.operator.as_deref()?)?;
+                let second = match operator.takes_two() {
+                    true => Some(formula(1)?),
+                    false => None,
+                };
+                Some(Test::Cell {
+                    operator,
+                    first: first?,
+                    second,
+                })
+            }
+            "notContainsBlanks" => Some(Test::Formula(format!("IFERROR({},TRUE)", first?))),
+            _ => Some(Test::Formula(first?)),
+        }
+    }
+
+    /// A formula of a file's as a `formula` row holds it, without its `=`: its
+    /// newer functions' prefixes dropped and a link resolved to its file's name.
+    fn bar_text(&self, formula: &str) -> String {
+        let text = format!("={}", xlfn::strip_future_prefixes(formula));
+        let text = refers::resolve_books(&text, &self.external_books);
+        text.strip_prefix('=').unwrap_or(&text).to_string()
+    }
+
+    /// The format a rule names, as the record numbers it, and that format kept
+    /// for the sheet's rows: `None` for a rule with none, and for one whose format
+    /// says nothing the record has a word for, or names what the file does not
+    /// hold or a grid cannot, which is counted.
+    fn rule_format(
+        &self,
+        rule: &FileRule,
+        table: &StyleTable,
+        scan: &mut SheetScan,
+    ) -> Option<u32> {
+        let cells = table.looks.len();
+        let (index, look) = match (&rule.inline, rule.dxf_id) {
+            (Some(dxf), _) => {
+                let look = dxf.look(&table.colors);
+                let mut inline = self.inline_looks.borrow_mut();
+                let at = inline.iter().position(|l| *l == look).unwrap_or_else(|| {
+                    inline.push(look.clone());
+                    inline.len() - 1
+                });
+                (cells + table.dxfs.len() + at, look)
+            }
+            (None, Some(id)) => {
+                let Some(look) = table.dxfs.get(id as usize) else {
+                    scan.stats.unheld += 1;
+                    return None;
+                };
+                (cells + id as usize, look.clone())
+            }
+            (None, None) => return None,
+        };
+        if look.unheld {
+            scan.stats.unheld += 1;
+        }
+        if look.style == Style::partial() {
+            return None;
+        }
+        let index = u32::try_from(index).ok().filter(|i| *i < FORMATS);
+        let Some(index) = index else {
+            scan.stats.unheld += 1;
+            return None;
+        };
+        scan.rule_formats.insert(index, look);
+        Some(index)
     }
 
     /// The workbook's cell formats as the looks read them, read the first
@@ -1021,6 +1245,8 @@ impl<'a> Package<'a> {
         };
         let none = StyleTable {
             looks: vec![Look::default()],
+            dxfs: Vec::new(),
+            colors: Colors::new(None, None),
             part: false,
         };
         let Some(styles_part) = self.styles_part.as_deref() else {
@@ -1334,9 +1560,406 @@ fn truthy_off(value: Option<Cow<'_, str>>) -> bool {
 #[derive(Debug)]
 pub(crate) struct StyleTable {
     looks: Vec<Look>,
+    /// Each `dxfs` entry as the record says it, what a file's differential
+    /// format says and no more (KERNEL.58).
+    dxfs: Vec<Look>,
+    /// What resolves a color, which an extension's inline format also asks.
+    colors: Colors,
     /// Whether the package has a styles part: one with none reads every
     /// cell at format 0.
     part: bool,
+}
+
+/// The kinds of a rule the language does not compute (decision 5), left out and
+/// counted. Each is what a formula of the file's own does not say.
+const NOT_COMPUTED: [&str; 7] = [
+    "colorScale",
+    "dataBar",
+    "iconSet",
+    "top10",
+    "aboveAverage",
+    "duplicateValues",
+    "uniqueValues",
+];
+
+/// A `cfRule` as a sheet's part or its extension holds it, read whole.
+#[derive(Debug, Default)]
+struct FileRule {
+    kind: String,
+    priority: Option<u32>,
+    stop: bool,
+    operator: Option<String>,
+    dxf_id: Option<u32>,
+    /// Its `formula` elements, or its `xm:f` elements in the extension.
+    formulas: Vec<String>,
+    /// The format the extension holds inside it.
+    inline: Option<FileDxf>,
+    /// Its id in the extension, and in the part the id its twin there has.
+    id: Option<String>,
+    twin: Option<String>,
+}
+
+/// A rule read to its end from the tag just opened.
+fn read_rule(
+    cursor: &mut Cursor,
+    attrs: &str,
+    empty: bool,
+    label: &str,
+    part: &str,
+) -> Result<FileRule, Refusal> {
+    let mut rule = FileRule {
+        kind: attr(attrs, "type").map(Cow::into_owned).unwrap_or_default(),
+        priority: attr(attrs, "priority").and_then(|v| v.trim().parse().ok()),
+        stop: truthy(attr(attrs, "stopIfTrue")),
+        operator: attr(attrs, "operator").map(Cow::into_owned),
+        dxf_id: attr(attrs, "dxfId").and_then(|v| v.trim().parse().ok()),
+        id: attr(attrs, "id").map(Cow::into_owned),
+        ..FileRule::default()
+    };
+    if empty {
+        return Ok(rule);
+    }
+    let skip =
+        |cursor: &mut Cursor| skip_element(cursor).map_err(|why| xml_refused(label, part, why));
+    while let Some(event) = step(cursor, label, part)? {
+        match event {
+            Event::End { name: "cfRule" } => break,
+            Event::Start {
+                name: "formula" | "f",
+                empty: false,
+                ..
+            } => rule
+                .formulas
+                .push(inner_text(cursor, &[], false, label, part)?),
+            Event::Start {
+                name: "dxf", empty, ..
+            } => {
+                rule.inline = Some(if empty {
+                    FileDxf::default()
+                } else {
+                    read_dxf(cursor, label, part)?
+                });
+            }
+            // A rule's own extension names its twin: `x14:id`, in an `ext`.
+            Event::Start {
+                name: "extLst" | "ext",
+                empty: false,
+                ..
+            } => {}
+            Event::End {
+                name: "extLst" | "ext",
+            } => {}
+            Event::Start {
+                name: "id",
+                empty: false,
+                ..
+            } => rule.twin = Some(inner_text(cursor, &[], false, label, part)?),
+            Event::Start { empty: false, .. } => skip(cursor)?,
+            _ => {}
+        }
+    }
+    Ok(rule)
+}
+
+/// A sheet's rules as a first pass finds them.
+struct RuleReading<'p> {
+    table: &'p StyleTable,
+    label: &'p str,
+    part: &'p str,
+    /// The `conditionalFormatting` elements met.
+    element: u32,
+    /// Each rule by its element and its place there.
+    found: Vec<(u32, u32, Rule)>,
+    /// The ids the part's rules name of their twins in the extension.
+    twins: HashSet<String>,
+}
+
+impl<'p> RuleReading<'p> {
+    fn new(table: &'p StyleTable, label: &'p str, part: &'p str) -> RuleReading<'p> {
+        RuleReading {
+            table,
+            label,
+            part,
+            element: 0,
+            found: Vec::new(),
+            twins: HashSet::new(),
+        }
+    }
+
+    /// The rules by priority. A file may tie one, as no row may: of two rules of
+    /// one element the later leads, and of two elements the first, as Excel read
+    /// them; each then takes its file's priority or the next free after the rule
+    /// before it, so that a file with no tie reads as it stands.
+    fn in_order(mut self) -> Vec<Rule> {
+        self.found.sort_by_key(|(element, place, rule)| {
+            (rule.priority, *element, std::cmp::Reverse(*place))
+        });
+        let mut next = 0;
+        self.found
+            .into_iter()
+            .map(|(_, _, mut rule)| {
+                rule.priority = rule.priority.max(next);
+                next = rule.priority.saturating_add(1);
+                rule
+            })
+            .collect()
+    }
+}
+
+/// A differential format as a file holds it (`dxf`): what it says and no more,
+/// where a cell's format says all of it. Its colors stand as named until the
+/// workbook's theme and palette are read.
+#[derive(Clone, Debug, Default)]
+struct FileDxf {
+    bold: Option<bool>,
+    italic: Option<bool>,
+    strike: Option<bool>,
+    underline: Option<Underline>,
+    size: Option<f64>,
+    color: Option<ColorRef>,
+    /// A number format's id and code.
+    number: Option<(Option<u32>, Option<String>)>,
+    /// A fill: a pattern of `none`, of `solid`, its two colors.
+    no_fill: bool,
+    solid: bool,
+    fg: Option<ColorRef>,
+    bg: Option<ColorRef>,
+    horizontal: Option<String>,
+    wrap: Option<bool>,
+    /// Each edge it says, an empty side saying no line and an absent one
+    /// nothing: its line's name, where it has one, and its color.
+    edges: [Option<(Option<String>, Option<ColorRef>)>; 4],
+    /// What no word of the record's says.
+    unheld: bool,
+}
+
+/// A `dxf` element read to its end from the tag just opened. A font's name, its
+/// family and a vertical alignment pass as nothing said, since Excel does not
+/// draw them.
+fn read_dxf(cursor: &mut Cursor, label: &str, part: &str) -> Result<FileDxf, Refusal> {
+    let mut dxf = FileDxf::default();
+    let mut within = "";
+    let mut side: Option<usize> = None;
+    while let Some(event) = step(cursor, label, part)? {
+        let (name, attrs, empty) = match event {
+            Event::End { name: "dxf" } => break,
+            Event::End { name } => {
+                if name == within {
+                    within = "";
+                }
+                side = None;
+                continue;
+            }
+            Event::Text { .. } => continue,
+            Event::Start { name, attrs, empty } => (name, attrs, empty),
+        };
+        match (within, name) {
+            ("", "font" | "fill" | "border") => {
+                if !empty {
+                    within = name;
+                }
+            }
+            ("", "numFmt") => {
+                dxf.number = Some((
+                    attr(attrs, "numFmtId").and_then(|v| v.trim().parse().ok()),
+                    attr(attrs, "formatCode").map(Cow::into_owned),
+                ));
+            }
+            ("", "alignment") => {
+                dxf.horizontal = attr(attrs, "horizontal").map(Cow::into_owned);
+                dxf.wrap = attr(attrs, "wrapText").map(|v| truthy(Some(v)));
+                let nonzero = |name: &str| {
+                    attr(attrs, name)
+                        .and_then(|v| v.trim().parse::<f64>().ok())
+                        .is_some_and(|v| v != 0.0)
+                };
+                if nonzero("indent")
+                    || nonzero("textRotation")
+                    || nonzero("relativeIndent")
+                    || truthy(attr(attrs, "shrinkToFit"))
+                    || truthy(attr(attrs, "justifyLastLine"))
+                    || attr(attrs, "readingOrder").as_deref() == Some("2")
+                {
+                    dxf.unheld = true;
+                }
+            }
+            ("font", "b") => dxf.bold = Some(flag_on(attrs)),
+            ("font", "i") => dxf.italic = Some(flag_on(attrs)),
+            ("font", "strike") => dxf.strike = Some(flag_on(attrs)),
+            ("font", "outline" | "shadow" | "condense" | "extend") => {
+                if flag_on(attrs) {
+                    dxf.unheld = true;
+                }
+            }
+            ("font", "u") => {
+                let val = attr(attrs, "val");
+                match Underline::from_excel(val.as_deref().unwrap_or("single")) {
+                    Some(u) => dxf.underline = Some(u),
+                    None => dxf.unheld = true,
+                }
+            }
+            ("font", "vertAlign") => {
+                if attr(attrs, "val").as_deref() != Some("baseline") {
+                    dxf.unheld = true;
+                }
+            }
+            ("font", "sz") => dxf.size = attr(attrs, "val").and_then(|v| v.trim().parse().ok()),
+            ("font", "color") => {
+                dxf.color = color_of(attrs);
+                dxf.unheld |= dxf.color.is_none();
+            }
+            ("fill", "patternFill") => match attr(attrs, "patternType").as_deref() {
+                Some("none") => dxf.no_fill = true,
+                Some("solid") => dxf.solid = true,
+                None => {}
+                Some(_) => {
+                    dxf.unheld = true;
+                    if !empty {
+                        skip_element(cursor).map_err(|why| xml_refused(label, part, why))?;
+                    }
+                }
+            },
+            ("fill", "fgColor") => dxf.fg = color_of(attrs),
+            ("fill", "bgColor") => dxf.bg = color_of(attrs),
+            ("fill", "gradientFill") => {
+                dxf.unheld = true;
+                if !empty {
+                    skip_element(cursor).map_err(|why| xml_refused(label, part, why))?;
+                }
+            }
+            (
+                "border",
+                "left" | "start" | "right" | "end" | "top" | "bottom" | "diagonal" | "vertical"
+                | "horizontal",
+            ) => {
+                let style = attr(attrs, "style").map(Cow::into_owned);
+                let at = match name {
+                    "left" | "start" => Some(0),
+                    "right" | "end" => Some(1),
+                    "top" => Some(2),
+                    "bottom" => Some(3),
+                    _ => None,
+                };
+                match at {
+                    Some(i) => {
+                        dxf.edges[i] = Some((style, None));
+                        side = (!empty).then_some(i);
+                    }
+                    None => dxf.unheld |= style.is_some_and(|s| s != "none"),
+                }
+            }
+            ("border", "color") => {
+                if let Some(edge) = side.and_then(|i| dxf.edges[i].as_mut()) {
+                    edge.1 = color_of(attrs);
+                }
+            }
+            ("font", _) => {}
+            (_, _) => {
+                if !empty {
+                    skip_element(cursor).map_err(|why| xml_refused(label, part, why))?;
+                }
+            }
+        }
+    }
+    Ok(dxf)
+}
+
+impl FileDxf {
+    /// The format as the record says it: a format of groups alone, saying what
+    /// the file says, its colors resolved as any, what the record has no word
+    /// for counted. Each rule here is held to `format_words`, what the rules'
+    /// golden's cases show Excel draws.
+    fn look(&self, colors: &Colors) -> Look {
+        let mut look = Look {
+            style: Style::partial(),
+            ..Look::default()
+        };
+        look.unheld = self.unheld;
+        let style = &mut look.style;
+        style.font.bold = self.bold;
+        style.font.italic = self.italic;
+        style.font.strike = self.strike;
+        style.font.underline = self.underline;
+        let mut unheld = false;
+        if let Some(points) = self.size {
+            match font_size(points) {
+                Some(size) => style.font.size = Some(size),
+                None => unheld = true,
+            }
+        }
+        match self.color.map(|c| colors.resolve(&c)) {
+            Some(Resolved::Rgb(c)) => style.font.color = Some(c),
+            Some(Resolved::Automatic | Resolved::Unresolved) => unheld = true,
+            None => {}
+        }
+        if let Some((id, code)) = &self.number {
+            let text = code.as_deref().or_else(|| {
+                id.map(super::looks::builtin_twin)
+                    .and_then(super::looks::builtin_code)
+            });
+            let mut read = Look::default();
+            match text {
+                Some(text) => read.set_code(text),
+                None => unheld = true,
+            }
+            match (text, read.undrawn) {
+                (Some(_), None) => style.say_number(read.style.num_fmt),
+                _ => unheld = true,
+            }
+        }
+        // A pattern of `none` says no fill whatever its colors; any other draws
+        // its `bgColor`, the color a differential format's solid fill takes, and
+        // one with no such color has no word.
+        if self.no_fill {
+            style.say_fill(None);
+        } else {
+            match self.bg.map(|c| colors.resolve(&c)) {
+                Some(Resolved::Rgb(c)) => style.say_fill(Some(c)),
+                Some(Resolved::Automatic | Resolved::Unresolved) => unheld = true,
+                None => unheld |= self.solid || self.fg.is_some(),
+            }
+        }
+        match self.horizontal.as_deref().map(Horizontal::from_word) {
+            Some(Some(h)) => style.align.horizontal = Some(h),
+            Some(None) => unheld = true,
+            None => {}
+        }
+        if let Some(wrap) = self.wrap {
+            style.say_wrap(wrap);
+        }
+        for (i, edge) in self.edges.iter().enumerate() {
+            let Some((line, color)) = edge else {
+                continue;
+            };
+            let line = match line.as_deref() {
+                None => Line::None,
+                Some(name) => match Line::from_excel(name) {
+                    Some(line) => line,
+                    None => {
+                        unheld = true;
+                        continue;
+                    }
+                },
+            };
+            let color = match color.map(|c| colors.resolve(&c)) {
+                Some(Resolved::Rgb(c)) => Some(c),
+                Some(Resolved::Unresolved) => {
+                    unheld = true;
+                    None
+                }
+                Some(Resolved::Automatic) | None => None,
+            };
+            let edge = Some(Edge::new(line, color));
+            match i {
+                0 => style.border.left = edge,
+                1 => style.border.right = edge,
+                2 => style.border.top = edge,
+                _ => style.border.bottom = edge,
+            }
+        }
+        look.unheld |= unheld;
+        look
+    }
 }
 
 impl StyleTable {
@@ -1430,6 +2053,8 @@ struct Parsed {
     normal: Option<usize>,
     /// The workbook's own palette, where it has one.
     palette: Vec<Rgb>,
+    /// The differential formats its rules name (KERNEL.58).
+    dxfs: Vec<FileDxf>,
 }
 
 /// A color element's attributes as a color, `None` for one naming none.
@@ -1467,11 +2092,12 @@ enum List {
     CellXfs,
     CellStyles,
     IndexedColors,
+    Dxfs,
 }
 
 /// A styles part read: its number formats, fonts, fills, borders, cell
-/// styles' fonts, cell formats, the Normal style and the palette; its
-/// differential formats, its table styles and its extensions passed over.
+/// styles' fonts, cell formats, the Normal style, the palette and its
+/// differential formats; its table styles and its extensions passed over.
 fn read_styles(text: &str, label: &str, part: &str) -> Result<Parsed, Refusal> {
     let mut parsed = Parsed::default();
     let mut list = List::None;
@@ -1487,9 +2113,13 @@ fn read_styles(text: &str, label: &str, part: &str) -> Result<Parsed, Refusal> {
     while let Some(event) = step(&mut cursor, label, part)? {
         match event {
             Event::Start { name, attrs, empty } => match (name, list) {
-                ("extLst" | "dxfs" | "tableStyles" | "mruColors", _) if !empty => {
-                    skip(&mut cursor)?
-                }
+                ("extLst" | "tableStyles" | "mruColors", _) if !empty => skip(&mut cursor)?,
+                ("dxfs", _) => list = if empty { List::None } else { List::Dxfs },
+                ("dxf", List::Dxfs) => parsed.dxfs.push(if empty {
+                    FileDxf::default()
+                } else {
+                    read_dxf(&mut cursor, label, part)?
+                }),
                 ("numFmts", _) => list = if empty { List::None } else { List::NumFmts },
                 ("numFmt", List::NumFmts) => {
                     if let (Some(id), Some(code)) = (
@@ -1698,7 +2328,7 @@ fn read_styles(text: &str, label: &str, part: &str) -> Result<Parsed, Refusal> {
                     }
                 }
                 "numFmts" | "fonts" | "fills" | "borders" | "cellStyleXfs" | "cellXfs"
-                | "cellStyles" | "indexedColors" => list = List::None,
+                | "cellStyles" | "indexedColors" | "dxfs" => list = List::None,
                 _ => {}
             },
             Event::Text { .. } => {}
@@ -1731,7 +2361,13 @@ impl Parsed {
         if looks.is_empty() {
             looks.push(Look::default());
         }
-        StyleTable { looks, part: true }
+        let dxfs = self.dxfs.iter().map(|d| d.look(&colors)).collect();
+        StyleTable {
+            looks,
+            dxfs,
+            colors,
+            part: true,
+        }
     }
 
     /// One cell format as the record says it (decision 5): its own number
@@ -2640,6 +3276,8 @@ mod tests {
             "(format 8 none \"m/d/yyyy\" nowrap)".to_string(),
             "(format 9 none text nowrap (align right top))".to_string(),
             "(format 11 none general nowrap (font \"FFFFFF\"))".to_string(),
+            "(format 12 (fill \"FF0000\") (font bold))".to_string(),
+            "(conditional \"Model\" 1 \"A1:A10\" (cell equal \"=1\") 12)".to_string(),
             "(cell \"Model\" \"A1\" \"Title\")".to_string(),
             "(style \"Model\" \"A1\" 1)".to_string(),
             "(cell \"Model\" \"B1\" 1.5)".to_string(),
@@ -2669,13 +3307,16 @@ mod tests {
         assert_eq!(
             stats,
             LooksStats {
-                formats: 11,
+                formats: 12,
                 styled: 10,
                 formatted_empty: 1,
                 unheld: 3,
                 undrawn: 2,
                 merged: 1,
-                conditional: 1,
+                conditional: 2,
+                not_computed: 1,
+                rule_cells: 10,
+                rules_unread: 0,
                 row_formats: 1,
             }
         );
@@ -2696,9 +3337,377 @@ mod tests {
             "(format ",
             "(value ",
             "(style ",
+            "(conditional ",
         ] {
             assert!(!relations.contains(head), "{head} in the relations");
         }
+    }
+
+    /// Two cell formats and a differential format of each kind of saying.
+    const RULE_STYLES: &str = concat!(
+        "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>",
+        "<fills count=\"2\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill></fills>",
+        "<borders count=\"1\"><border/></borders>",
+        "<cellStyleXfs count=\"1\"><xf fontId=\"0\"/></cellStyleXfs>",
+        "<cellXfs count=\"2\"><xf fontId=\"0\"/><xf fontId=\"0\"/></cellXfs>",
+        "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>",
+        "<dxfs count=\"5\">",
+        "<dxf><font><b/></font></dxf>",
+        "<dxf/>",
+        "<dxf><font><name val=\"Arial\"/><family val=\"2\"/></font><alignment vertical=\"top\"/></dxf>",
+        "<dxf><font><color auto=\"1\"/></font></dxf>",
+        "<dxf><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill></dxf>",
+        "</dxfs>",
+    );
+
+    /// What the rule reader reads of a sheet of rules: its rows after the cell's
+    /// format, and the counts.
+    fn rules_read(rules: &str) -> (Vec<String>, LooksStats) {
+        let sheet =
+            format!("<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>{rules}");
+        let bytes = styled(&sheet, RULE_STYLES, None, "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "rules.xlsx").unwrap();
+        let rows = text
+            .lines()
+            .filter(|l| l.starts_with("(format ") || l.starts_with("(conditional "))
+            .map(str::to_string)
+            .collect();
+        (rows, stats)
+    }
+
+    #[test]
+    fn a_rule_is_read_from_the_part_and_its_extension_or_counted() {
+        let (rows, stats) = rules_read(concat!(
+            // Each kind holding a formula is that formula, the bar's text; a
+            // format past the cell formats, by its id.
+            "<conditionalFormatting sqref=\"B2:J10\">",
+            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"2\" stopIfTrue=\"1\"><formula>_xlfn.IFNA($A$1,0)=1</formula></cfRule>",
+            "<cfRule type=\"containsText\" dxfId=\"4\" priority=\"3\" operator=\"containsText\" text=\"ab\"><formula>NOT(ISERROR(SEARCH(\"ab\",B2)))</formula></cfRule>",
+            "<cfRule type=\"notContainsBlanks\" priority=\"4\"><formula>LEN(TRIM(B2))&gt;0</formula></cfRule>",
+            "<cfRule type=\"colorScale\" priority=\"5\"><colorScale><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "</conditionalFormatting>",
+            // A format saying nothing, saying only what Excel does not draw, saying
+            // what no word has, and one the file does not hold.
+            "<conditionalFormatting sqref=\"C1:C3 A5\">",
+            "<cfRule type=\"cellIs\" dxfId=\"1\" priority=\"6\" operator=\"between\"><formula>1</formula><formula>&quot;a&amp;b&quot;</formula></cfRule>",
+            "<cfRule type=\"cellIs\" dxfId=\"2\" priority=\"7\" operator=\"greaterThan\"><formula>5</formula></cfRule>",
+            "<cfRule type=\"cellIs\" dxfId=\"3\" priority=\"8\" operator=\"lessThan\"><formula>5</formula></cfRule>",
+            "<cfRule type=\"expression\" dxfId=\"9\" priority=\"9\"><formula>1</formula></cfRule>",
+            "</conditionalFormatting>",
+            // What says too little to be a row.
+            "<conditionalFormatting sqref=\"D1\">",
+            "<cfRule type=\"cellIs\" priority=\"10\" operator=\"between\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"cellIs\" priority=\"11\" operator=\"containsText\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"cellIs\" priority=\"12\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"13\"/>",
+            "<cfRule type=\"expression\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"-1\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"23\"><formula> </formula></cfRule>",
+            "<cfRule type=\"cellIs\" priority=\"24\" operator=\"between\"><formula>1</formula><formula></formula></cfRule>",
+            "</conditionalFormatting>",
+            "<conditionalFormatting sqref=\"nonsense\"><cfRule type=\"expression\" priority=\"14\"><formula>1</formula></cfRule></conditionalFormatting>",
+            "<conditionalFormatting><cfRule type=\"expression\" priority=\"15\"><formula>1</formula></cfRule></conditionalFormatting>",
+            "<conditionalFormatting sqref=\"\"><cfRule type=\"expression\" priority=\"16\"><formula>1</formula></cfRule></conditionalFormatting>",
+            // A rule written twice, as Excel writes a data bar, is one.
+            "<conditionalFormatting sqref=\"E1\"><cfRule type=\"dataBar\" priority=\"17\"><dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/></dataBar><extLst><ext xmlns:x14=\"x\" uri=\"{B025F937-C7B1-47D3-B67F-A62EFF666E3E}\"><x14:id>{AAA}</x14:id></ext></extLst></cfRule></conditionalFormatting>",
+            "<extLst>",
+            "<ext uri=\"{78C0D931-6437-407d-A8EE-F0AAD7539E65}\"><x14:conditionalFormattings xmlns:x14=\"x\">",
+            "<x14:conditionalFormatting xmlns:xm=\"m\"><x14:cfRule type=\"dataBar\" id=\"{AAA}\"><x14:dataBar/></x14:cfRule><xm:sqref>E1</xm:sqref></x14:conditionalFormatting>",
+            "<x14:conditionalFormatting xmlns:xm=\"m\"><x14:cfRule type=\"iconSet\" priority=\"18\" id=\"{BBB}\"><x14:iconSet><x14:cfvo type=\"percent\"><xm:f>0</xm:f></x14:cfvo></x14:iconSet></x14:cfRule><xm:sqref>E2</xm:sqref></x14:conditionalFormatting>",
+            // A format beside its rule takes a place past the styles part's, each
+            // different one once.
+            "<x14:conditionalFormatting xmlns:xm=\"m\">",
+            "<x14:cfRule type=\"expression\" priority=\"19\" stopIfTrue=\"1\" id=\"{CCC}\"><xm:f>Other!$A$1=1</xm:f><x14:dxf><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill></x14:dxf></x14:cfRule>",
+            "<x14:cfRule type=\"cellIs\" priority=\"20\" operator=\"notBetween\" id=\"{DDD}\"><xm:f>Other!$A$1</xm:f><xm:f>9</xm:f><x14:dxf><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill></x14:dxf></x14:cfRule>",
+            "<x14:cfRule type=\"expression\" priority=\"21\" id=\"{EEE}\"><xm:f>Other!$A$2=1</xm:f><x14:dxf><font><i/></font></x14:dxf></x14:cfRule>",
+            "<x14:cfRule type=\"expression\" priority=\"22\" id=\"{FFF}\"><xm:f>Other!$A$3=1</xm:f><x14:dxf/></x14:cfRule>",
+            "<xm:sqref>F1:F2</xm:sqref>",
+            "</x14:conditionalFormatting>",
+            "</x14:conditionalFormattings></ext>",
+            // Another extension's elements are none of these, whatever their names.
+            "<ext uri=\"{05C60535-1F16-4fd2-B633-F4F36F0B64E0}\"><x14:sparklineGroups xmlns:x14=\"x\"><x14:conditionalFormatting><x14:cfRule type=\"expression\" priority=\"1\"/></x14:conditionalFormatting></x14:sparklineGroups></ext>",
+            "</extLst>",
+        ));
+        assert_eq!(
+            rows,
+            [
+                "(format 0 none general nowrap)",
+                "(format 2 (font bold))",
+                "(format 6 (fill \"FFE699\"))",
+                "(format 7 (fill \"FFE699\"))",
+                "(format 8 (font italic))",
+                "(conditional \"Model\" 2 \"B2:J10\" \"=IFNA($A$1,0)=1\" 2 stop)",
+                "(conditional \"Model\" 3 \"B2:J10\" \"=NOT(ISERROR(SEARCH(\\\"ab\\\",B2)))\" 6)",
+                "(conditional \"Model\" 4 \"B2:J10\" \"=IFERROR(LEN(TRIM(B2))>0,TRUE)\" none)",
+                "(conditional \"Model\" 6 \"C1:C3 A5\" (cell between \"=1\" \"=\\\"a&b\\\"\") none)",
+                "(conditional \"Model\" 7 \"C1:C3 A5\" (cell greater \"=5\") none)",
+                "(conditional \"Model\" 8 \"C1:C3 A5\" (cell less \"=5\") none)",
+                "(conditional \"Model\" 9 \"C1:C3 A5\" \"=1\" none)",
+                "(conditional \"Model\" 19 \"F1:F2\" \"=Other!$A$1=1\" 7 stop)",
+                "(conditional \"Model\" 20 \"F1:F2\" (cell not-between \"=Other!$A$1\" \"=9\") 7)",
+                "(conditional \"Model\" 21 \"F1:F2\" \"=Other!$A$2=1\" 8)",
+                "(conditional \"Model\" 22 \"F1:F2\" \"=Other!$A$3=1\" none)",
+            ]
+        );
+        assert_eq!(
+            stats,
+            LooksStats {
+                formats: 5,
+                // Each rule the file holds, a rule written twice once.
+                conditional: 25,
+                not_computed: 3,
+                // Three over 81, four over 4, four over 2.
+                rule_cells: 267,
+                // Eleven too little to be a row, a format of no word, one the file
+                // does not hold.
+                unheld: 13,
+                ..LooksStats::default()
+            }
+        );
+        assert!(
+            stats.left_out().unwrap().contains(
+                "13 looks the record has no word for, 3 conditional formats of a kind the language does not compute"
+            ),
+            "{:?}",
+            stats.left_out()
+        );
+    }
+
+    /// What an element or a rule holds beside its rules and its formulas is
+    /// passed over whole, whatever its own elements are named.
+    #[test]
+    fn what_a_rule_holds_beside_its_formulas_is_passed_over() {
+        let (rows, stats) = rules_read(concat!(
+            "<conditionalFormatting sqref=\"A1\">",
+            "<extLst><ext uri=\"x\"><x14:cfRule xmlns:x14=\"x\" type=\"expression\" priority=\"5\"><xm:f xmlns:xm=\"m\">5</xm:f></x14:cfRule><sqref>Z9</sqref></ext></extLst>",
+            "<cfRule type=\"expression\" priority=\"1\"><other><formula>2</formula><dxf><font><b/></font></dxf></other><formula>1</formula></cfRule>",
+            "</conditionalFormatting>",
+        ));
+        assert_eq!(
+            rows[1..],
+            ["(conditional \"Model\" 1 \"A1\" \"=1\" none)"],
+            "{stats:?}"
+        );
+        assert_eq!(stats.conditional, 1);
+    }
+
+    #[test]
+    fn a_tie_reads_as_excel_reads_it_and_no_other_priority_moves() {
+        let (rows, _) = rules_read(concat!(
+            "<conditionalFormatting sqref=\"A1\">",
+            "<cfRule type=\"expression\" priority=\"1\"><formula>1</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"1\"><formula>2</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"2\"><formula>3</formula></cfRule>",
+            "</conditionalFormatting>",
+            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" priority=\"2\"><formula>4</formula></cfRule></conditionalFormatting>",
+            "<conditionalFormatting sqref=\"A2\"><cfRule type=\"expression\" priority=\"9\"><formula>5</formula></cfRule></conditionalFormatting>",
+        ));
+        assert_eq!(
+            rows[1..],
+            [
+                // In one element the later leads, and of two elements the first.
+                "(conditional \"Model\" 1 \"A1\" \"=2\" none)",
+                "(conditional \"Model\" 2 \"A1\" \"=1\" none)",
+                "(conditional \"Model\" 3 \"A1\" \"=3\" none)",
+                "(conditional \"Model\" 4 \"A1\" \"=4\" none)",
+                "(conditional \"Model\" 9 \"A2\" \"=5\" none)",
+            ]
+        );
+        // Of two elements the first, whatever a rule's place in its own.
+        let (rows, _) = rules_read(concat!(
+            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" priority=\"2\"><formula>1</formula></cfRule></conditionalFormatting>",
+            "<conditionalFormatting sqref=\"A2\"><cfRule type=\"expression\" priority=\"9\"><formula>3</formula></cfRule><cfRule type=\"expression\" priority=\"2\"><formula>2</formula></cfRule></conditionalFormatting>",
+        ));
+        assert_eq!(
+            rows[1..],
+            [
+                "(conditional \"Model\" 2 \"A1\" \"=1\" none)",
+                "(conditional \"Model\" 3 \"A2\" \"=2\" none)",
+                "(conditional \"Model\" 9 \"A2\" \"=3\" none)",
+            ]
+        );
+        // A file of no tie reads as it stands, whatever order it writes them in.
+        let (rows, _) = rules_read(concat!(
+            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" priority=\"8\"><formula>8</formula></cfRule></conditionalFormatting>",
+            "<conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" priority=\"0\"><formula>0</formula></cfRule></conditionalFormatting>",
+        ));
+        assert_eq!(
+            rows[1..],
+            [
+                "(conditional \"Model\" 0 \"A1\" \"=0\" none)",
+                "(conditional \"Model\" 8 \"A1\" \"=8\" none)",
+            ]
+        );
+    }
+
+    /// A rule naming one differential format, as the rows say it: the format's
+    /// row's body, or nothing for a rule of none, and the looks of no word.
+    fn said_of(dxf: &str) -> (String, u64) {
+        let styles = format!(
+            "<fonts count=\"1\"><font><sz val=\"11\"/></font></fonts><cellXfs count=\"1\"><xf/></cellXfs><dxfs count=\"1\"><dxf>{dxf}</dxf></dxfs>"
+        );
+        let sheet = "<sheetData/><conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" dxfId=\"0\" priority=\"1\"><formula>1</formula></cfRule></conditionalFormatting>";
+        let bytes = styled(sheet, &styles, None, "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "said.xlsx").unwrap();
+        let body = text
+            .lines()
+            .find_map(|l| l.strip_prefix("(format 1 "))
+            .map_or("", |b| b.strip_suffix(')').unwrap());
+        assert_eq!(
+            text.contains("\"=1\" none)"),
+            body.is_empty(),
+            "a format of no words is no format: {text}"
+        );
+        (body.to_string(), stats.unheld)
+    }
+
+    /// What `format_words` does not reach of a differential format, what no case
+    /// of Excel's golden asks: each what its element says, or counted.
+    #[test]
+    fn a_differential_format_says_what_its_file_says_or_counts_it() {
+        for (dxf, says, unheld) in [
+            // A font's flags, said off saying nothing the record has no word for.
+            ("<font><outline/></font>", "", 1),
+            ("<font><outline val=\"0\"/></font>", "", 0),
+            ("<font><shadow/></font>", "", 1),
+            ("<font><condense/></font>", "", 1),
+            ("<font><extend/></font>", "", 1),
+            ("<font><vertAlign val=\"baseline\"/></font>", "", 0),
+            ("<font><vertAlign val=\"subscript\"/></font>", "", 1),
+            ("<font><u val=\"wavy\"/></font>", "", 1),
+            ("<font><sz val=\"10.33\"/></font>", "", 1),
+            ("<font><color theme=\"99\"/></font>", "", 1),
+            ("<font><color/></font>", "", 1),
+            // A rule's font name and family draw nothing, and cost nothing.
+            ("<font><name val=\"Arial\"/><family val=\"2\"/><scheme val=\"minor\"/><charset val=\"1\"/></font>", "", 0),
+            ("<font/>", "", 0),
+            // A fill.
+            ("<fill/>", "", 0),
+            ("<fill><patternFill/></fill>", "", 0),
+            ("<fill><patternFill patternType=\"solid\"/></fill>", "", 1),
+            ("<fill><patternFill><fgColor rgb=\"FF800020\"/></patternFill></fill>", "", 1),
+            ("<fill><patternFill><bgColor auto=\"1\"/></patternFill></fill>", "", 1),
+            ("<fill><patternFill><bgColor indexed=\"64\"/></patternFill></fill>", "", 1),
+            ("<fill><patternFill><bgColor theme=\"99\"/></patternFill></fill>", "", 1),
+            ("<fill><patternFill patternType=\"lightGray\"/></fill>", "", 1),
+            ("<fill><gradientFill degree=\"90\"><stop position=\"0\"><color rgb=\"FFFF0000\"/></stop></gradientFill></fill>", "", 1),
+            // An alignment.
+            ("<alignment horizontal=\"justify\"/>", "", 1),
+            ("<alignment indent=\"1\"/>", "", 1),
+            ("<alignment indent=\"0\"/>", "", 0),
+            ("<alignment textRotation=\"45\"/>", "", 1),
+            ("<alignment relativeIndent=\"1\"/>", "", 1),
+            ("<alignment shrinkToFit=\"1\"/>", "", 1),
+            ("<alignment justifyLastLine=\"1\"/>", "", 1),
+            ("<alignment readingOrder=\"2\"/>", "", 1),
+            ("<alignment readingOrder=\"1\"/>", "", 0),
+            ("<alignment vertical=\"center\"/>", "", 0),
+            ("<alignment horizontal=\"left\" vertical=\"top\"/>", "(align left)", 0),
+            ("<alignment horizontal=\"general\"/>", "(align general)", 0),
+            ("<alignment wrapText=\"0\"/>", "(wrap nowrap)", 0),
+            ("<alignment wrapText=\"false\"/>", "(wrap nowrap)", 0),
+            ("<alignment wrapText=\"true\"/>", "(wrap wrap)", 0),
+            // A border's sides, and what is no side of the record's.
+            ("<border/>", "", 0),
+            ("<border><diagonal/><vertical/><horizontal/></border>", "", 0),
+            ("<border><diagonal style=\"thin\"/></border>", "", 1),
+            ("<border><vertical style=\"thin\"/></border>", "", 1),
+            ("<border><horizontal style=\"thin\"/></border>", "", 1),
+            ("<border><diagonal style=\"none\"/></border>", "", 0),
+            ("<border><left style=\"wavy\"/></border>", "", 1),
+            ("<border><start style=\"thin\"/></border>", "(border (left thin))", 0),
+            ("<border><end style=\"thin\"/></border>", "(border (right thin))", 0),
+            ("<border><left style=\"thin\"><color theme=\"99\"/></left></border>", "(border (left thin))", 1),
+            ("<border><left style=\"thin\"><color indexed=\"64\"/></left></border>", "(border (left thin))", 0),
+            // Two sides, each its own color.
+            (
+                "<border><left style=\"thin\"><color rgb=\"FF800020\"/></left><right style=\"thick\"><color rgb=\"FF0000FF\"/></right></border>",
+                "(border (left thin \"800020\") (right thick \"0000FF\"))",
+                0,
+            ),
+            // A side with no color of its own takes none of the side before it.
+            (
+                "<border><left style=\"thin\"><color rgb=\"FF800020\"/></left><right style=\"thin\"/></border>",
+                "(border (left thin \"800020\") (right thin))",
+                0,
+            ),
+            // A number format by its code, or by its id alone.
+            ("<numFmt numFmtId=\"2\"/>", "(number \"0.00\")", 0),
+            ("<numFmt numFmtId=\"23\"/>", "(number general)", 0),
+            ("<numFmt/>", "", 1),
+            ("<numFmt numFmtId=\"300\" formatCode=\"[Red]0.00\"/>", "", 1),
+            // What a format may hold beside these, passed over whole.
+            ("<protection locked=\"0\"/>", "", 0),
+            ("<extLst><ext uri=\"x\"><fill><patternFill><bgColor rgb=\"FFFF0000\"/></patternFill></fill></ext></extLst>", "", 0),
+            // After one element the next is read, whatever was passed over.
+            (
+                "<protection locked=\"0\"></protection><font><b/></font><fill><patternFill patternType=\"lightGray\"><bgColor rgb=\"FFFF0000\"/></patternFill></fill><border><top style=\"thin\"/></border>",
+                "(font bold) (border (top thin))",
+                1,
+            ),
+            (
+                "<fill><gradientFill><stop position=\"0\"/></gradientFill></fill><font><i/></font>",
+                "(font italic)",
+                1,
+            ),
+        ] {
+            assert_eq!(said_of(dxf), (says.to_string(), unheld), "{dxf}");
+        }
+    }
+
+    /// A rule's formula is the bar's text: a link's number its file's name, as a
+    /// `formula` row's is.
+    #[test]
+    fn a_rule_s_link_reads_as_the_bar_shows_it() {
+        const REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        let parts: Vec<(String, Vec<u8>)> = vec![
+            (
+                "xl/workbook.xml".to_string(),
+                format!("<workbook {NS}><sheets><sheet name=\"Model\" sheetId=\"1\" r:id=\"rId1\"/></sheets><externalReferences><externalReference r:id=\"rId3\"/></externalReferences></workbook>").into_bytes(),
+            ),
+            (
+                "xl/_rels/workbook.xml.rels".to_string(),
+                format!("<Relationships><Relationship Id=\"rId1\" Type=\"{REL}/worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId3\" Type=\"{REL}/externalLink\" Target=\"externalLinks/externalLink1.xml\"/></Relationships>").into_bytes(),
+            ),
+            (
+                "xl/worksheets/sheet1.xml".to_string(),
+                format!("<worksheet {NS}><sheetData/><conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" priority=\"1\"><formula>[1]Sheet1!A1=1</formula></cfRule></conditionalFormatting></worksheet>").into_bytes(),
+            ),
+            (
+                "xl/externalLinks/externalLink1.xml".to_string(),
+                format!("<externalLink {NS}><externalBook r:id=\"rId1\"/></externalLink>").into_bytes(),
+            ),
+            (
+                "xl/externalLinks/_rels/externalLink1.xml.rels".to_string(),
+                format!("<Relationships><Relationship Id=\"rId1\" Type=\"{REL}/externalLinkPath\" Target=\"Rates.xlsx\" TargetMode=\"External\"/></Relationships>").into_bytes(),
+            ),
+        ];
+        let bytes = zip::write_stored(&parts).unwrap();
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "link.xlsx").unwrap();
+        assert!(
+            text.contains("(conditional \"Model\" 1 \"A1\" \"=[Rates.xlsx]Sheet1!A1=1\" none)"),
+            "{text}"
+        );
+        assert_eq!(stats.conditional, 1);
+        assert_eq!(stats.rule_cells, 1);
+    }
+
+    /// A rule's format past what a grid holds is no row a load would refuse: its
+    /// rule draws nothing, and says so.
+    #[test]
+    fn a_rule_s_format_past_a_grid_s_formats_is_counted() {
+        let cells = "<xf/>".repeat(65_536);
+        let styles = format!(
+            "<fonts count=\"1\"><font/></fonts><cellXfs>{cells}</cellXfs><dxfs><dxf><font><b/></font></dxf></dxfs>"
+        );
+        let sheet = "<sheetData/><conditionalFormatting sqref=\"A1\"><cfRule type=\"expression\" dxfId=\"0\" priority=\"1\"><formula>1</formula></cfRule></conditionalFormatting>";
+        let bytes = styled(sheet, &styles, None, "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "many.xlsx").unwrap();
+        assert!(
+            text.contains("(conditional \"Model\" 1 \"A1\" \"=1\" none)"),
+            "{text}"
+        );
+        assert_eq!(stats.unheld, 1, "{stats:?}");
     }
 
     #[test]

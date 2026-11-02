@@ -891,6 +891,8 @@ impl Document {
                 .map(|n| u64::from(looks.rules_of(n)))
                 .sum()
         };
+        // No row says them yet (KERNEL.58's fifth slice), so the note does.
+        scan.stats.rules_unread = scan.stats.conditional;
         if let Some(extent) = scan.extent {
             for (first, count, settings) in runs {
                 let last = first.saturating_add(count - 1).min(extent.bottom);
@@ -1959,6 +1961,13 @@ mod tests {
                 stats.row_formats
             ),
             (8, 2, 1, 0, 1, 2, 1)
+        );
+        // No row says its rules yet, so that the note does (KERNEL.58's fifth slice).
+        assert_eq!(stats.rules_unread, 2);
+        assert!(
+            stats.left_out().unwrap().contains("2 conditional formats"),
+            "{:?}",
+            stats.left_out()
         );
         // A document of 1904's dates counts its serials from its null date.
         let nineteen_o_four = calc_document(

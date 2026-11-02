@@ -2436,3 +2436,58 @@ steps and prints as it did, byte for byte, and no golden of oracle 11 moves.
   viewing and stepping the same. The painter's fixture
   `vla-lang/testdata/appearance/rules.vla` is a record with rules, beside the same
   record drawn.
+
+## Amendment of 2026-11-01: a conditional format through a file (`KERNEL.58`, its fourth slice)
+
+Oracles 7 and 8 take the rule the third slice's amendment defines, a package's
+through the writer and the reader. No golden of either moves: none of their workbooks
+holds a rule, and `looks.xlsx`, whose rules no `<name>_looks.vla` reads, gains its rows
+alone.
+
+- **The writer.** Each format a written rule names is one `dxf` of the styles part's
+  `dxfs`, after `cellStyles`, each different one once, saying what the format says and
+  no more: a fill as `bgColor`, `(fill none)` a pattern of `none`; a word said off an
+  element with `val="0"`; `(wrap nowrap)` `wrapText="0"`; an edge said `none` an empty
+  side and one not said no side. A format's family and vertical alignment are left out,
+  which Excel reads and does not draw. Each rule stands under a `conditionalFormatting`
+  element after the sheet's data, the rules of one range under one, as `expression` or
+  `cellIs`, its formula under its file prefixes and escaped. A rule reading another sheet
+  stands in the sheet's extension, `x14:cfRule`, its format beside it and its id from
+  the sheet's name and its priority, as Excel's save writes one; a rule reading a sheet's
+  last frame or another workbook, which a file cannot spell, is left out whole.
+  `ooxml::rules_left_out` names each. A workbook holding no rule writes what it wrote,
+  byte for byte. `--into` appends a build's formats past the host's, a host's own rules
+  naming what they named.
+- **The package reader,** under `--looks` alone; the relations print no rule. Each
+  `cfRule` of a sheet's part and its extension is a `conditional` row, after the
+  `format` rows and before the cells: `cellIs` a cell's value against its bounds, and
+  every other kind holding a formula that formula, the bar's text, `notContainsBlanks`
+  written `IFERROR(<formula>,TRUE)`, since Excel lights an error as not blank where the
+  kind's own formula answers the error. A file's priority stands, and a tie moves up by
+  as little as it can, in one element the later rule first and of two elements the
+  first. A rule's format is a format of groups alone at the cell formats' count and its
+  `dxfId`, an extension's inline ones after them, each different one once, its colors
+  resolved as any and the default font not subtracted; one that says nothing is `none`.
+  Left out and counted: `colorScale`, `dataBar`, `iconSet`, `top10`, `aboveAverage`,
+  `duplicateValues` and `uniqueValues`, under `not-computed`, a rule the part's element
+  names a twin of in the extension being one; and what the record has no word for, or
+  says too little to be a row, under `unheld`. `--counts` gains `not-computed` and
+  `rule-cells`, and `conditional` leaves the note's list. An OpenDocument file's rules are
+  counted and said, and no row says them, until the fifth slice.
+- **The oracle.** The core's `the_machine_draws_each_case_as_excel_draws_it` loads the
+  reader's own rows of `rules.xlsx`, `rules_plain.xlsx` and `rules_x14.xlsx`, and its
+  `the_machine_draws_excel_s_own_saves_as_excel_drew_them` those of Excel's `.xlsx` saves
+  of them, a tie of two elements renumbered, formats written again and rules moved to the
+  extension, each of 752 targets to Excel's reading, 722 agreeing and 30 named.
+  `the_reader_reads_each_rule_as_excel_reads_it` holds each rule of both, 476, to
+  `Range.FormatConditions`: where it applies, its kind, its operator, stop or go and its
+  formulas, by the order of its priority.
+  `the_reader_says_each_rule_as_its_builder_wrote_it` holds each to the row the builder
+  keeps beside its element, a format to the words `format_words` gives it. The writer's
+  own workbook, `scripts/reflect/rules_written.xlsx`, held byte for byte, is every form it
+  writes, 115 cases, read by `VlaWriteRulesWrittenGolden` into
+  `scripts/reflect/rules_written_golden.txt` with Excel's save beside it, each form drawn
+  there as the language draws it and each rule read as Excel reads it, which takes the name
+  of a rule's own sheet out of its formula; and `a_rule_written_and_read_is_itself` holds the rows
+  through the writer and the reader, what `rules_left_out` names apart.
+  `check_looks_golden` holds that golden as it holds the other two.

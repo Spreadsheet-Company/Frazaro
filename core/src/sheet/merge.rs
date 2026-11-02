@@ -206,6 +206,34 @@ fn append_list(
     Ok(count)
 }
 
+/// A styles part with this build's differential formats at the end of its
+/// `dxfs`: a list closed on itself, as a workbook of none writes it, opened, and
+/// one where a part has none made after its `cellStyles`, or its `cellXfs`, which
+/// a model always has, as the schema orders them.
+fn append_dxfs(styles: &str, dxfs: &[String]) -> Option<String> {
+    let added = dxfs.concat();
+    let n = dxfs.len();
+    let Some(&(s, e)) = tags(styles, "dxfs").first() else {
+        let list = format!("<dxfs count=\"{n}\">{added}</dxfs>");
+        let anchor = if styles.contains("</cellStyles>") {
+            "</cellStyles>"
+        } else {
+            "</cellXfs>"
+        };
+        return insert_after(styles, anchor, &list);
+    };
+    if styles[s..e].ends_with("/>") {
+        let list = format!("<dxfs count=\"{n}\">{added}</dxfs>");
+        return Some(format!("{}{list}{}", &styles[..s], &styles[e..]));
+    }
+    let longer = insert_before(styles, "</dxfs>", &added)?;
+    // A count is the schema's to leave out, so that one none wrote stays unwritten.
+    match count_of(&longer, "dxfs") {
+        Some(_) => bump_count(&longer, "dxfs", n as u32),
+        None => Some(longer),
+    }
+}
+
 /// The `count` attribute of the first `<element ...>` tag.
 fn count_of(text: &str, element: &str) -> Option<u32> {
     let (s, e) = *tags(text, element).first()?;
@@ -649,10 +677,6 @@ pub(crate) fn rich_errors_of(
 /// was, the four it must edit edited, this build's parts appended. `cm` is
 /// the metadata index the build's dynamic-array formulas were given.
 pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal> {
-    let render = Render {
-        style_base: model.cellxfs_count,
-        cm,
-    };
     let add_metadata = ours.has_dynamic_formulas() && model.metadata.is_none();
     let too_large = || raise("build-workbook-too-large", &[]);
 
@@ -848,6 +872,20 @@ pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal
         .ok_or_else(too_large)?;
         styles = bump_count(&styles, "cellXfs", own_xfs).ok_or_else(too_large)?;
     }
+    // This build's differential formats (KERNEL.58) past the model's own, so
+    // that a rule of the model's names what it named, its parts copied as they
+    // stand.
+    let rule_looks = ooxml::RuleLooks::of(ours, &codes);
+    let dxf_base = tags(&styles, "dxf").len() as u32;
+    if !rule_looks.dxfs.is_empty() {
+        styles = append_dxfs(&styles, &rule_looks.dxfs).ok_or_else(too_large)?;
+    }
+    let render = Render {
+        style_base: model.cellxfs_count,
+        cm,
+        dxf_base,
+        rules: Some(&rule_looks),
+    };
 
     // The entries: the model's in its order, ours after.
     let edited: Vec<(&str, &str)> = vec![
@@ -1181,6 +1219,111 @@ mod tests {
         let model = Model::read(with_styles(|s| s.replace("<fonts", own)), "model.xlsx").unwrap();
         let st = styles_of(&write(&model, &ours(), 1).unwrap());
         assert!(st.contains(&own.replace("<fonts", "")), "{st}");
+    }
+
+    /// A workbook of one sheet holding one rule of each kind of place.
+    fn ours_with_rules() -> Workbook {
+        let rows = r##"
+(sheet "Ours" visible)
+(sheet "There" visible)
+(format 1 (fill "FFE699"))
+(format 2 (font bold))
+(cell "Ours" "A1" 1)
+(cell "There" "A1" 1)
+(conditional "Ours" 1 "A1" "=A1=1" 1)
+(conditional "Ours" 2 "A2" "=There!A1=1" 2)
+"##;
+        let forms = vla_lang::reader::read_forms(rows).unwrap();
+        vla_lang::machine::read_rows(&forms)
+            .unwrap_or_else(|r| panic!("line {}: {}", r.line, r.refusal))
+            .workbook()
+    }
+
+    /// A model's own differential formats and a rule of its own, in each shape a
+    /// styles part holds them.
+    #[test]
+    fn a_build_s_rules_take_their_formats_past_the_model_s_own() {
+        let fill = "<dxf><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill></dxf>";
+        // An edit of the part, the id the build's first takes, and what it writes.
+        type Shape = (fn(&str) -> String, u32, String);
+        let shapes: [Shape; 5] = [
+            // A part with none closes on itself, as a workbook of none writes it.
+            (
+                |s: &str| s.replace("</cellStyles>", "</cellStyles><dxfs count=\"0\"/>"),
+                0,
+                format!("</cellStyles><dxfs count=\"1\">{fill}</dxfs></styleSheet>"),
+            ),
+            // A part with no list makes one where the schema has it.
+            (
+                |s: &str| s.to_string(),
+                0,
+                format!("</cellStyles><dxfs count=\"1\">{fill}</dxfs></styleSheet>"),
+            ),
+            // A part's own formats keep their ids.
+            (
+                |s: &str| {
+                    s.replace(
+                        "</cellStyles>",
+                        "</cellStyles><dxfs count=\"2\"><dxf><font><i/></font></dxf><dxf><font><b/></font></dxf></dxfs>",
+                    )
+                },
+                2,
+                format!("<dxfs count=\"3\"><dxf><font><i/></font></dxf><dxf><font><b/></font></dxf>{fill}</dxfs>"),
+            ),
+            // A count is the schema's to leave out.
+            (
+                |s: &str| {
+                    s.replace(
+                        "</cellStyles>",
+                        "</cellStyles><dxfs><dxf><font><i/></font></dxf></dxfs>",
+                    )
+                },
+                1,
+                format!("<dxfs><dxf><font><i/></font></dxf>{fill}</dxfs>"),
+            ),
+            // No `cellStyles`, which the schema does not ask of a part.
+            (
+                |s: &str| {
+                    let start = s.find("<cellStyles").unwrap();
+                    let end = s.find("</cellStyles>").unwrap() + "</cellStyles>".len();
+                    format!("{}{}", &s[..start], &s[end..])
+                },
+                0,
+                format!("</cellXfs><dxfs count=\"1\">{fill}</dxfs></styleSheet>"),
+            ),
+        ];
+        for (edit, base, want) in shapes {
+            let model = Model::read(with_styles(edit), "model.xlsx").unwrap();
+            let bytes = write(&model, &ours_with_rules(), 1).unwrap();
+            let entries = zip::entries(&bytes).unwrap();
+            let styles = part_text(&bytes, &entries, STYLES, "out").unwrap().unwrap();
+            assert!(styles.contains(&want), "{want} is not in {styles}");
+            let sheet = part_text(&bytes, &entries, &ooxml::sheet_part(1), "out")
+                .unwrap()
+                .unwrap();
+            assert!(
+                sheet.contains(&format!(
+                    "<cfRule type=\"expression\" dxfId=\"{base}\" priority=\"1\"><formula>A1=1</formula></cfRule>"
+                )),
+                "{sheet}"
+            );
+            // A rule reading another sheet holds its format beside it, and adds
+            // none to the list.
+            assert!(
+                sheet.contains("<xm:f>There!A1=1</xm:f><x14:dxf><font><b/></font></x14:dxf>"),
+                "{sheet}"
+            );
+            // What the build wrote reads back past the model's own.
+            let (read, _) = crate::reflect::reflect_looks(&bytes, "out.xlsx").unwrap();
+            let format_row = format!(
+                "(format {} (fill \"FFE699\"))",
+                model.cellxfs_count + 2 + base
+            );
+            assert!(
+                read.lines().any(|l| l == format_row),
+                "{format_row}:\n{read}"
+            );
+        }
     }
 
     #[test]

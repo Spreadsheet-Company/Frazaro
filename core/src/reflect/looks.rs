@@ -7,6 +7,11 @@
 //! column's width as Excel reads one; an ISO date as Excel's serial; and
 //! what the record cannot hold, counted and said ([`LooksStats`]).
 //!
+//! A sheet's conditional formats (KERNEL.58) are rows of their own, each with
+//! the partial format it names, past the cell formats, saying what the file's
+//! differential format says; the kinds the language does not compute are
+//! left out and counted.
+//!
 //! A format prints what it changes: a property the workbook's default font
 //! has is unsaid, and so is Excel's automatic color. What the record has no
 //! word for, a raised text, a pattern, a rotation, a diagonal, is left out
@@ -30,6 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use vla_lang::numfmt::Code;
 use vla_lang::rows::{Record, Sink};
+use vla_lang::rule::Rule;
 use vla_lang::sheet::{A1Range, Column, NumFmt, Rgb, RowSettings, Style};
 
 /// How a file names a color, before the workbook's theme and palette
@@ -460,6 +466,10 @@ pub(crate) struct SheetScan {
     pub(crate) extent: Option<A1Range>,
     /// The formats the printed cells use.
     pub(crate) used: BTreeSet<u32>,
+    /// Its conditional formats by priority, and each format they name, as the
+    /// file says it (KERNEL.58).
+    pub(crate) rules: Vec<Rule>,
+    pub(crate) rule_formats: BTreeMap<u32, Look>,
     pub(crate) stats: LooksStats,
 }
 
@@ -472,6 +482,8 @@ impl SheetScan {
             rows: BTreeMap::new(),
             extent: None,
             used: BTreeSet::new(),
+            rules: Vec::new(),
+            rule_formats: BTreeMap::new(),
             stats: LooksStats::default(),
         }
     }
@@ -495,11 +507,11 @@ impl SheetScan {
     }
 
     /// The sheet's own rows of the record, before its cells: its gridlines,
-    /// the columns and the rows of its window that have settings, and
-    /// format 0 and every format its printed cells and columns use,
-    /// ascending, each as `looks` says it; the window the sheet's extent,
-    /// or `A1` for a sheet with no cell, as the record of a sheet whole has
-    /// it.
+    /// the columns and the rows of its window that have settings, format 0
+    /// and every format its printed cells, columns and rules use, ascending,
+    /// each as `looks` says it or as its rule's file does, and its conditional
+    /// formats by priority; the window the sheet's extent, or `A1` for a sheet
+    /// with no cell, as the record of a sheet whole has it.
     pub(crate) fn print(&mut self, sheet: &str, looks: &[Look], sink: &mut dyn Sink) {
         sink.record(&Record::Gridlines {
             sheet,
@@ -544,8 +556,12 @@ impl SheetScan {
                 settings,
             });
         }
+        formats.extend(self.rule_formats.keys().copied());
         for index in &formats {
-            let look = &looks[*index as usize];
+            let look = self
+                .rule_formats
+                .get(index)
+                .unwrap_or_else(|| &looks[*index as usize]);
             sink.record(&Record::Format {
                 index: *index,
                 style: Some(&look.style),
@@ -553,6 +569,9 @@ impl SheetScan {
             });
         }
         self.stats.formats = formats.len() as u64;
+        for rule in &self.rules {
+            sink.record(&Record::Conditional { sheet, rule });
+        }
     }
 }
 
@@ -630,8 +649,19 @@ pub struct LooksStats {
     pub undrawn: u64,
     /// The merged ranges, which no row says.
     pub merged: u64,
-    /// The conditional formats' rules, which no row says.
+    /// The conditional formats' rules the file holds, each said by a row of
+    /// its own but those counted below (KERNEL.58).
     pub conditional: u64,
+    /// Those of a kind the language does not compute, a color scale, a data bar,
+    /// an icon set, a top value, an average, a duplicate or a value alone: left
+    /// out.
+    pub not_computed: u64,
+    /// The cells the rules printed answer for, which a load counts beside the
+    /// grid's and refuses past its 1,048,576.
+    pub rule_cells: u64,
+    /// Those a reader of this version does not read yet, an OpenDocument file's
+    /// until the item's fifth slice: left out.
+    pub rules_unread: u64,
     /// The rows formatted whole, a row's own format, which no row says.
     pub row_formats: u64,
 }
@@ -646,13 +676,16 @@ impl LooksStats {
         self.undrawn += other.undrawn;
         self.merged += other.merged;
         self.conditional += other.conditional;
+        self.not_computed += other.not_computed;
+        self.rule_cells += other.rule_cells;
+        self.rules_unread += other.rules_unread;
         self.row_formats += other.row_formats;
     }
 
     /// The counts as `--looks --counts` prints them beside a sheet's.
     pub fn line(&self) -> String {
         format!(
-            "looks formats {} styled {} formatted-empty {} unheld {} undrawn {} merged {} conditional {} row-formats {}",
+            "looks formats {} styled {} formatted-empty {} unheld {} undrawn {} merged {} conditional {} not-computed {} rule-cells {} row-formats {}",
             self.formats,
             self.styled,
             self.formatted_empty,
@@ -660,6 +693,8 @@ impl LooksStats {
             self.undrawn,
             self.merged,
             self.conditional,
+            self.not_computed,
+            self.rule_cells,
             self.row_formats
         )
     }
@@ -696,9 +731,16 @@ impl LooksStats {
         if self.merged > 0 {
             left.push(count(self.merged, "merged range", "merged ranges"));
         }
-        if self.conditional > 0 {
+        if self.not_computed > 0 {
             left.push(count(
-                self.conditional,
+                self.not_computed,
+                "conditional format of a kind the language does not compute",
+                "conditional formats of a kind the language does not compute",
+            ));
+        }
+        if self.rules_unread > 0 {
+            left.push(count(
+                self.rules_unread,
                 "conditional format",
                 "conditional formats",
             ));
@@ -1064,7 +1106,32 @@ mod tests {
         );
         assert_eq!(
             stats.line(),
-            "looks formats 0 styled 0 formatted-empty 2 unheld 0 undrawn 1 merged 1 conditional 0 row-formats 0"
+            "looks formats 0 styled 0 formatted-empty 2 unheld 0 undrawn 1 merged 1 conditional 0 not-computed 0 rule-cells 0 row-formats 0"
+        );
+        // A rule the record says is left out of nothing; one it cannot is.
+        let stats = LooksStats {
+            conditional: 3,
+            rule_cells: 90,
+            ..LooksStats::default()
+        };
+        assert_eq!(stats.note(), None, "{stats:?}");
+        let stats = LooksStats {
+            conditional: 3,
+            not_computed: 2,
+            ..LooksStats::default()
+        };
+        assert_eq!(
+            stats.left_out().unwrap(),
+            "the looks leave out what the record cannot hold: 2 conditional formats of a kind the language does not compute"
+        );
+        let stats = LooksStats {
+            conditional: 1,
+            rules_unread: 1,
+            ..LooksStats::default()
+        };
+        assert_eq!(
+            stats.left_out().unwrap(),
+            "the looks leave out what the record cannot hold: 1 conditional format"
         );
     }
 }

@@ -70,6 +70,29 @@ impl Operator {
             .map(|(o, _)| *o)
     }
 
+    /// Its name in a file, a `cfRule`'s `operator`.
+    pub fn excel(self) -> &'static str {
+        match self {
+            Operator::Less => "lessThan",
+            Operator::LessOrEqual => "lessThanOrEqual",
+            Operator::Equal => "equal",
+            Operator::NotEqual => "notEqual",
+            Operator::GreaterOrEqual => "greaterThanOrEqual",
+            Operator::Greater => "greaterThan",
+            Operator::Between => "between",
+            Operator::NotBetween => "notBetween",
+        }
+    }
+
+    /// The operator a file's name spells; `None` for the names of no
+    /// comparison, `containsText` and its kin, which hold a formula of their own.
+    pub fn from_excel(name: &str) -> Option<Operator> {
+        Self::WORDS
+            .iter()
+            .map(|(o, _)| *o)
+            .find(|o| o.excel() == name)
+    }
+
     /// Whether it takes two bounds.
     pub fn takes_two(self) -> bool {
         matches!(self, Operator::Between | Operator::NotBetween)
@@ -138,6 +161,21 @@ impl Rule {
         self.ranges
             .iter()
             .any(|r| row >= r.top && row <= r.bottom && col >= r.left && col <= r.right)
+    }
+
+    /// How many cells it answers for, a cell two rectangles share once: what a
+    /// load counts of it beside the grid's cells.
+    pub fn cells(&self) -> u64 {
+        let mut before: Vec<A1Range> = Vec::new();
+        let mut cells = 0;
+        for &range in &self.ranges {
+            cells += crate::grid::outside(range, &before)
+                .iter()
+                .map(A1Range::cells)
+                .sum::<u64>();
+            before.push(range);
+        }
+        cells
     }
 
     /// Its formulas' texts, each without its `=`.
@@ -242,6 +280,9 @@ mod tests {
         assert_eq!(rule.range_text(), "D12:D13 F10:F11");
         assert!(rule.covers(12, 4) && rule.covers(11, 6));
         assert!(!rule.covers(10, 4), "the corner answers for nothing");
+        assert_eq!(rule.cells(), 4);
+        let rule = over(&["A1:B2", "B2:C3"], Test::Formula("1".to_string()));
+        assert_eq!(rule.cells(), 7, "a cell two rectangles share is one");
     }
 
     #[test]
@@ -282,8 +323,11 @@ mod tests {
         for (operator, word) in Operator::WORDS {
             assert_eq!(operator.word(), word);
             assert_eq!(Operator::from_word(word), Some(operator));
+            assert_eq!(Operator::from_excel(operator.excel()), Some(operator));
         }
         assert_eq!(Operator::from_word("greater-than"), None);
+        assert_eq!(Operator::from_excel("greater"), None);
+        assert_eq!(Operator::from_excel("containsText"), None);
         assert!(Operator::Between.takes_two() && !Operator::Equal.takes_two());
     }
 }

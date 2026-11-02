@@ -1620,6 +1620,9 @@ fn golden() -> (String, Vec<Read>) {
     (source, cases)
 }
 
+/// A conditional format's row: its sheet, its priority, its range and its format.
+type RuleRow = (String, u32, String, String);
+
 /// What a workbook's reading under the looks says, sheet by sheet.
 #[derive(Default)]
 struct Reading {
@@ -1631,6 +1634,7 @@ struct Reading {
     /// A row's height and `shown` or `hidden`.
     rows: HashMap<(String, u32), [String; 2]>,
     gridlines: HashMap<String, String>,
+    rules: Vec<RuleRow>,
     stats: LooksStats,
 }
 
@@ -1689,6 +1693,16 @@ fn reading(bytes: &[u8], label: &str) -> Reading {
             }
             "gridlines" => {
                 r.gridlines.insert(word(1), word(2));
+            }
+            "conditional" => {
+                let stop = word(items.len() - 1) == "stop";
+                let format = word(items.len() - 1 - usize::from(stop));
+                r.rules.push((
+                    word(1),
+                    word(2).parse().expect("a priority"),
+                    word(3),
+                    format,
+                ));
             }
             _ => {}
         }
@@ -2279,12 +2293,41 @@ fn differences(
                     }
                 }
                 "cf" => {
-                    let rules: u64 = excel
-                        .split(' ')
-                        .next()
-                        .and_then(|n| n.parse().ok())
-                        .expect("the rules counted");
+                    let (rules, fill) = excel.split_once(' ').expect("the rules and their fill");
+                    let rules: u64 = rules.parse().expect("the rules counted");
                     want.conditional += rules;
+                    // An OpenDocument file's are the fifth slice's. A package's
+                    // are rows: as many over the cell as Excel reads, the first by
+                    // priority drawing the fill it reads.
+                    if ods.is_some() {
+                        continue;
+                    }
+                    let cell = crate::sheet::parse_a1_range(place).expect("a rule's cell");
+                    let mut over: Vec<&RuleRow> = r
+                        .rules
+                        .iter()
+                        .filter(|(sheet, _, range, _)| {
+                            *sheet == case.sheet
+                                && range.split(' ').any(|piece| {
+                                    let piece = crate::sheet::parse_a1_range(piece)
+                                        .expect("a rule's range");
+                                    (piece.top..=piece.bottom).contains(&cell.top)
+                                        && (piece.left..=piece.right).contains(&cell.left)
+                                })
+                        })
+                        .collect();
+                    over.sort_by_key(|rule| rule.1);
+                    let says = over
+                        .first()
+                        .and_then(|rule| rule.3.parse::<u32>().ok())
+                        .and_then(|format| r.formats.get(&format));
+                    if over.len() as u64 != rules
+                        || !says.is_some_and(|format| format.contains(&format!("(fill {fill})")))
+                    {
+                        found.push(format!(
+                            "{at}: the reader's rows {over:?} and format {says:?}, where Excel reads {excel}"
+                        ));
+                    }
                 }
                 "grid" => {
                     let ours = r.gridlines.get(&case.sheet).map(String::as_str);

@@ -42494,6 +42494,111 @@ and move the hashes this record cites. A hand save names the owner again unless 
 `VlaWriteRulesGolden` and its kin do. And `scripts/polyglotta/english_coverage.txt`, an Excel
 export, holds the home folder on 158 lines and this file on one, no name; not touched.
 
+*The fourth slice built,* over `aa1a7de` and moved onto `ae748ec` when `KERNEL.72` and the version
+constant landed, no file shared, 2026-11-01, at the owner's word, "proceed with slice 4 of
+KERNEL.58": decision 11 and decision 12's package half, in the detached worktree. It rides
+`0.13.0`, whose cut waits on this item.
+
+*What landed.* `vla-lang`'s `rule.rs`: `Operator::excel` and `from_excel`, `Rule::cells`, what a
+load counts of a rule. The writer, `sheet/ooxml.rs`: `dxf_body`, a format as a differential
+format's children, saying what it says and no more; `rule_place`, a rule's part, extension or
+nowhere; `RuleLooks`, each format a rule names and the `dxfs` list, each different one once;
+`rules_text`, a sheet's `conditionalFormatting` elements and its `extLst`; the public
+`rules_left_out`. `Render` gains `dxf_base` and `rules`, takes a lifetime and is
+`#[non_exhaustive]`, as decision 13 had it; no literal outside the crate. `--into`,
+`sheet/merge.rs`: `append_dxfs`, a part's list closed on itself opened, a part with none given one
+where the schema has it, a count left unwritten where none was; `dxf_base` the part's own `dxf`s
+counted. The package reader, `reflect/ooxml.rs`: `FileDxf` and `read_dxf`, what a differential
+format says, its colors resolved after the theme is read; `read_conditional`, `read_extension` and
+`read_rule`, whose cursor reads a part's elements and the extension's alike by their local names;
+`take_rule`, a rule a row or a count; `rule_format`; `RuleReading::in_order`, the ties.
+`reflect/looks.rs`: `SheetScan`'s rules and their formats printed, `LooksStats`' `not_computed`,
+`rule_cells` and `rules_unread`. `odf.rs`: its count said by `rules_unread` until the fifth slice,
+in the note's words as they stood, so that an `.ods` file's rules do not vanish from it.
+`VLA_Tests.bas`: `VlaWriteRulesWrittenGolden`, over `VlaWriteRulesGolden`'s readers.
+
+*What the build settled that the scoping left open.* Which rule goes to the extension: one whose
+formula names a sheet other than its own, by `refers::scan`; a defined name and the rule's own
+sheet named stay in the part, as Excel's save keeps the first. What is left out whole: a sheet's
+last frame, as decision 11 said, and another workbook, which Excel's dialog refuses as well. The
+extension's `id`: the low 16 bits of the sheet name's checksum and the priority, so that a sheet
+gives the same bytes whichever workbook it is built into. An edge of no color in a `dxf`: `auto="1"`,
+the form the probes showed Excel taking, where a cell's border writes `indexed="64"`. A file's
+priority stands, so that a file of no tie reads as it stands, gaps and all, and a tie and what
+follows it move up by as little as they can. Formats are deduplicated by what they say on both
+sides, the writer's `dxfs` and the reader's inline ones, which also keeps a reader's numbering the
+same over two walks of one package; `dxfs` entries keep their own indexes, so that Excel's save of
+`looks.xlsx` prints its three as three, as predicted. A rule's format that says nothing is `none`; a
+format of no word counts once a rule under `unheld`; a font's name and a vertical alignment, which
+Excel does not draw, count nothing, since what is left out draws what Excel draws. A format past a
+grid's 65,536 or a `dxfId` past the list is `none` and counted, not refused as a cell's is: a cell's
+would be a wrong look on a value, and a rule's draws nothing for one rule.
+
+*The oracle.* `the_machine_draws_each_case_as_excel_draws_it` now loads the reader's own rows, where
+it loaded the builder's beside the reader's cells, and holds the same 752 targets: 722 agree and 30 are
+named, in 21 entries. The four fewer are `DisplayFormat`'s `top` on a rule's alignment element, one
+rule of the reading now where they were two entries, and it serves the writer's workbook too.
+`the_machine_draws_excel_s_own_saves_as_excel_drew_them` holds the three `.xlsx` saves to the same
+targets and the same entries: Excel's tie of two elements renumbered, its `dxfs` written again, its rules moved to the
+extension, every target as the fixture's. `the_reader_reads_each_rule_as_excel_reads_it` is the `rule:`
+targets the third slice left waiting, 238 rules of the fixtures and 238 of the saves, to
+`Range.FormatConditions`, by the order of their priorities, since Excel reads a tie inside one element
+alike where a reader numbers its two apart. `the_reader_says_each_rule_as_its_builder_wrote_it` holds each rule to the row
+the builder keeps beside its element, and each format to `format_words`, by `Style` itself; and the file's
+rules are all accounted for, `conditional` each `cfRule` of the file and each a row, one refused
+`TODAY`'s or `not_computed`. `the_looks_read_each_case_as_excel_reads_it`'s `cf:` target, which counted, now
+holds the rows, as many over the cell as Excel reads and the first by priority's fill. The writer's own
+workbook, `scripts/reflect/rules_written.xlsx`, 115 cases and 123 rules from the rows of `written()`,
+is every format of `format_words` over a plain cell and a dressed one, every line on two edges, every
+operator lit and unlit, references, rectangles out of order, what markup must escape, a newer function,
+the order of several, and rules reading a visible and a hidden sheet in the extension, every group of a
+format among them. `a_rule_written_and_read_is_itself` holds the rows through the writer and the reader,
+priority, range, test, stop and format by `Style`, what `rules_left_out` names apart. Unit tests hold each
+form of the writer's XML, `--into`'s five shapes of a styles part, and 58 cases of a differential
+format `format_words` does not reach.
+
+*Measured against the predictions.* Every `<name>_looks.vla` and build golden stands byte for byte:
+held. `looks.xlsx` read gains three rule rows and two format rows, and Excel's save three and three:
+held, formats 657 and 658 and formats 600 to 602. The stderr line of `reflect --looks` over it loses "3
+conditional formats": held. `run_checks` stays at its count, `check_looks_golden` taking the third golden:
+60, 59 passing over `ae748ec`, `check_version_twin` the one failure, as that commit says it is until the
+release's commit. No refusal moved. Of 113 mutants, a control before and after, 106 were caught at once. Of the seven not: two lines did nothing, a pattern's colors forgotten where the element holding them is skipped, and went; one is no change at all, a side's color kept for the next where every end tag clears it; one wanted its spelling and one the language's own test, and each is caught; and three were behaviors pinned then, a tie across two elements whatever a rule's place in its own, and what an element and a rule hold beside what is read. Alonzo's `782faec`, a copy over this language by path, passes
+its 90 tests, its describe goldens among them, and its doc test: `vla-lang` gains three methods and no row.
+
+*The owner's run,* 2026-11-01, Excel 16.0 build 20527. `? VlaSelfTests()`: pure 2504 of 2504, host 333 of
+333. `? VlaWriteRulesWrittenGolden()`: `opened: rules_written.xlsx`, no repair in the caption, 115 cases and 493
+targets read, Excel's save beside it. No form of the writer's was repaired, so none leaves the fixture, and the
+stop rule's second run was not needed, no byte of the workbook having moved since. The witness, `git diff
+--no-index` from the prediction kept outside the repository: of the golden's 501 lines of targets 499 stand, every
+`shown:` and `text:` among them, so that what the language drew of each form ahead of the run is what Excel draws.
+The two that moved are `rule:` lines, each a reading of a rule. `AppliesTo` reads `C184,E184` where the file says
+`E184 C184`, as predicted, held by set. "The rule's own sheet named" reads `=$F$186=1` where the file says
+`Written!$F$186=1`, in `Formula1` and again in Excel's save, which was not predicted: Excel takes a rule's own
+sheet's name out of its formula. The two mean one cell and `shown:C186` stands, so the writer goes on writing what
+its row says, and `rule_differs` takes the fold, by `refers::scan` and for that sheet alone, `Seen!` and `'Not
+Seen'!` standing in the same golden; three mutants of it, each caught. An expectation that did not hold, and cost
+nothing: Excel did not renumber these priorities. It reads a file's numbers as they stand, 10 to 1230 by tens here
+and in its save, and of the 369 rule readings over the four fixtures one number alone is not its sheet's, the
+second of a tie of two elements on `Alike`, which Excel numbers apart on opening and in its save, making the two
+one; a tie inside one element reads alike and stays in the save. The holds go by order because a reader numbers
+that tie's two apart, not because Excel counts for itself, as the oracle's paragraph above first had it. Excel's
+save puts the part's 109 rules and the extension's 14 where the writer put them, every one of the 377 targets and
+124 rule readings holds over it as over the fixture, and it names no one, `RemovePersonalInformation` set before
+it. `check_looks_golden` holds the golden at its floors, 115 cases and 501 targets, with the save beside it.
+
+*Found:*
+
+12. *A rule calling what the language lacks keeps a whole workbook out of a load.* Decision 5 said so of
+    `timePeriod`'s `TODAY`, and the fixture's refusal names `FLOOR`, which comes first; any rule calling a
+    function the library has not does the same, where decision 5 declined exactly that for a color scale ("one
+    data bar would keep a whole workbook out"). The reader prints the row as decided. Whether a kind whose
+    formula the language cannot compute should be counted as not computed instead is the owner's, and real
+    workbooks' `--counts` can say how often it arises, which they do not yet: `not-computed` counts only the
+    seven kinds.
+13. *The extension's other uses are passed over whole,* a sparkline group, a data validation. Nothing here
+    changed; the reader used to skip them with everything else, and a rule's twin in an `ext` is the one
+    thing read from one.
+
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
 `ENGINE.28` session: one `style` row over a range held by the machine as one

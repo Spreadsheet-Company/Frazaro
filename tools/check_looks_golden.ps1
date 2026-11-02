@@ -48,6 +48,11 @@ at most two quoted formulas; no target Excel refused, each a "!error"; every
 sheet of the probes, every kind of rule and every operator reached; and its
 floors. The core's test holds its cases to the builder's.
 
+Its third, scripts/reflect/rules_written_golden.txt, is the same of the writer's
+own workbook, VlaWriteRulesWrittenGolden's of rules_written.xlsx, with Excel's
+save of it once it is Excel's, and is held by the same rules: its one sheet, the
+two kinds of rule the writer writes, every operator, and its floors.
+
 -Control proves the check on scratch copies: the real golden must pass,
 and each of these must fail: one with a target's kind misspelled, one with
 its last case dropped, one reading a word the record has none for, one
@@ -55,7 +60,8 @@ saying looks.xlsx's default size, one naming an unheld word of no such
 name, and one whose source is no one's; and of the rules golden, one with a
 target's kind misspelled, one with its last case dropped, one reading a word
 the record has none for, one reading a rule of no such kind, one reading an
-error, and one whose source is no one's.
+error, and one whose source is no one's; and of the writer's, one with its
+last case dropped and one whose source is no one's.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -101,6 +107,23 @@ $ruleKinds = @('cell', 'expression', 'color-scale', 'data-bar', 'top10', 'icon-s
     'time-period', 'above-average', 'no-blanks', 'errors', 'no-errors')
 $ruleOperators = @('between', 'not-between', 'equal', 'not-equal', 'greater', 'less', 'greater-or-equal', 'less-or-equal')
 $rulesDefaultSize = '11'
+$rulesSpec = @{
+    Name = 'rules'; Writer = 'VlaWriteRulesGolden'
+    Books = $rulesBooks; Saves = $rulesSaves; Sheets = $rulesSheets
+    RuleKinds = $ruleKinds; Operators = $ruleOperators
+    CaseFloor = $rulesCaseFloor; TargetFloor = $rulesTargetFloor
+}
+
+# The writer's own workbook (the item's fourth slice): every form it writes. Its
+# floors, never lowered: 2026-11-01, 115 cases, 501 targets, each rule a target's a
+# line, the golden the reference's first run in Excel.
+$writtenGoldenPath = Join-Path $repoRoot 'scripts/reflect/rules_written_golden.txt'
+$writtenSpec = @{
+    Name = 'written'; Writer = 'VlaWriteRulesWrittenGolden'
+    Books = @('rules_written.xlsx'); Saves = @('rules_written_saved.xlsx'); Sheets = @('Written')
+    RuleKinds = @('cell', 'expression'); Operators = $ruleOperators
+    CaseFloor = 115; TargetFloor = 501
+}
 $words = @('superscript', 'subscript', 'outline', 'shadow',
     'runs', 'pattern', 'horizontal', 'vertical', 'indent', 'rotation', 'shrink', 'rtl', 'diagonal')
 
@@ -271,7 +294,7 @@ function Test-LooksGolden([string]$golden) {
 }
 
 # Every problem of the rules golden, with the counts the floors read.
-function Test-RulesGolden([string]$golden) {
+function Test-RulesGolden([string]$golden, [hashtable]$spec) {
     $problems = New-Object System.Collections.ArrayList
     $lines = Get-GoldenLines $golden
     $reached = New-OrdinalSet
@@ -285,15 +308,15 @@ function Test-RulesGolden([string]$golden) {
     } else {
         [void]$problems.Add('the rules golden''s first line names no source: source<TAB>excel <version> <build>, or source<TAB>prediction')
     }
-    foreach ($b in $rulesBooks) {
+    foreach ($b in $spec.Books) {
         if (-not (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/reflect/$b"))) {
             [void]$problems.Add("scripts/reflect/$b is missing: FRAZARO_BLESS=1 and frazaro-core's tests write it")
         }
     }
     if ($source.StartsWith('excel ')) {
-        foreach ($b in $rulesSaves) {
+        foreach ($b in $spec.Saves) {
             if (-not (Test-Path -LiteralPath (Join-Path $repoRoot "scripts/reflect/$b"))) {
-                [void]$problems.Add("scripts/reflect/$b is missing: VlaWriteRulesGolden saves it beside the golden it writes")
+                [void]$problems.Add("scripts/reflect/$b is missing: $($spec.Writer) saves it beside the golden it writes")
             }
         }
     }
@@ -304,8 +327,8 @@ function Test-RulesGolden([string]$golden) {
         $ln = $lines[$i]
         if ($ln.StartsWith('=== ')) {
             $parts = $ln.Substring(4).Split([char[]]@('!'), 3)
-            if ($parts.Count -ne 3 -or ($rulesBooks -notcontains $parts[0]) -or $parts[1] -eq '' -or $parts[2] -eq '') {
-                [void]$problems.Add(("rules line {0}: a header that is no '=== <file>!<sheet>!<name>' of the three workbooks: '{1}'" -f ($i + 1), $ln))
+            if ($parts.Count -ne 3 -or ($spec.Books -notcontains $parts[0]) -or $parts[1] -eq '' -or $parts[2] -eq '') {
+                [void]$problems.Add(("rules line {0}: a header that is no '=== <file>!<sheet>!<name>' of its workbooks: '{1}'" -f ($i + 1), $ln))
                 $open = $false
             } else {
                 $open = $true
@@ -368,13 +391,13 @@ function Test-RulesGolden([string]$golden) {
                 [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a rule's spelling" -f ($i + 1), $target, $reading))
             } else {
                 $word = $m.Groups['kind'].Value
-                if ($ruleKinds -cnotcontains $word) {
+                if ($spec.RuleKinds -cnotcontains $word) {
                     [void]$problems.Add(("rules line {0}: {1} reads a rule of no such kind: '{2}'" -f ($i + 1), $target, $word))
                 }
                 [void]$reached.Add("the rule kind $word")
                 $operatorWord = $m.Groups['operator'].Value
                 if ($operatorWord -cne '-') {
-                    if ($ruleOperators -cnotcontains $operatorWord) {
+                    if ($spec.Operators -cnotcontains $operatorWord) {
                         [void]$problems.Add(("rules line {0}: {1} reads an operator of no such word: '{2}'" -f ($i + 1), $target, $operatorWord))
                     }
                     [void]$reached.Add("the operator $operatorWord")
@@ -386,10 +409,10 @@ function Test-RulesGolden([string]$golden) {
 
     # 4. what the cases reach
     $want = New-Object System.Collections.ArrayList
-    foreach ($s in $rulesSheets) { [void]$want.Add("the sheet $s") }
+    foreach ($s in $spec.Sheets) { [void]$want.Add("the sheet $s") }
     foreach ($k in $rulesKinds) { [void]$want.Add("the $k target") }
-    foreach ($k in $ruleKinds) { [void]$want.Add("the rule kind $k") }
-    foreach ($o in $ruleOperators) { [void]$want.Add("the operator $o") }
+    foreach ($k in $spec.RuleKinds) { [void]$want.Add("the rule kind $k") }
+    foreach ($o in $spec.Operators) { [void]$want.Add("the operator $o") }
     [void]$want.Add('a rule that says stop')
     [void]$want.Add('a rule that says go')
     foreach ($x in $want) {
@@ -397,8 +420,8 @@ function Test-RulesGolden([string]$golden) {
     }
 
     # 5. the floors
-    if ($cases -lt $rulesCaseFloor) { [void]$problems.Add(("{0} rules cases, below the floor of {1}" -f $cases, $rulesCaseFloor)) }
-    if ($targets -lt $rulesTargetFloor) { [void]$problems.Add(("{0} rules targets, below the floor of {1}" -f $targets, $rulesTargetFloor)) }
+    if ($cases -lt $spec.CaseFloor) { [void]$problems.Add(("{0} {1} cases, below the floor of {2}" -f $cases, $spec.Name, $spec.CaseFloor)) }
+    if ($targets -lt $spec.TargetFloor) { [void]$problems.Add(("{0} {1} targets, below the floor of {2}" -f $targets, $spec.Name, $spec.TargetFloor)) }
 
     return @{ Problems = $problems; Cases = $cases; Targets = $targets; Source = $source; Reached = $want.Count }
 }
@@ -460,7 +483,7 @@ if ($Control) {
         Write-Output ("control: the real golden has {0} problem(s); {1}" -f $real.Problems.Count, ($counts -join ', '))
 
         # The rules golden's mutants.
-        $rulesReal = Test-RulesGolden $rulesGoldenPath
+        $rulesReal = Test-RulesGolden $rulesGoldenPath $rulesSpec
         $lines = Get-GoldenLines $rulesGoldenPath
         $firstShown = -1
         $firstRule = -1
@@ -499,18 +522,41 @@ if ($Control) {
             $k++
             $golden = Join-Path $tmp ("rules_$k.txt")
             [System.IO.File]::WriteAllText($golden, ($mu[1] -join "`n"), $utf8)
-            $r = Test-RulesGolden $golden
+            $r = Test-RulesGolden $golden $rulesSpec
             [void]$rulesCounts.Add(("{0} {1}" -f $mu[0], $r.Problems.Count))
             if ($r.Problems.Count -lt 1) { $rulesAllFail = $false }
         }
         Write-Output ("control: the real rules golden has {0} problem(s); {1}" -f $rulesReal.Problems.Count, ($rulesCounts -join ', '))
-        if ($real.Problems.Count -eq 0 -and $allFail -and $rulesReal.Problems.Count -eq 0 -and $rulesAllFail) {
-            Write-Output 'OK: the check passes both goldens and fails each mutant'
+
+        # The writer's golden's mutants.
+        $writtenReal = Test-RulesGolden $writtenGoldenPath $writtenSpec
+        $lines = Get-GoldenLines $writtenGoldenPath
+        $lastHeader = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i].StartsWith('=== ')) { $lastHeader = $i }
+        }
+        $g = @($lines | ForEach-Object { $_ })
+        $g[0] = "source`tguess"
+        $writtenCounts = New-Object System.Collections.ArrayList
+        $writtenAllFail = $true
+        $k = 0
+        foreach ($mu in @(@('the dropped case', @($lines[0..($lastHeader - 1)])), @('the source of none', $g))) {
+            $k++
+            $golden = Join-Path $tmp ("written_$k.txt")
+            [System.IO.File]::WriteAllText($golden, ($mu[1] -join "`n"), $utf8)
+            $r = Test-RulesGolden $golden $writtenSpec
+            [void]$writtenCounts.Add(("{0} {1}" -f $mu[0], $r.Problems.Count))
+            if ($r.Problems.Count -lt 1) { $writtenAllFail = $false }
+        }
+        Write-Output ("control: the real written golden has {0} problem(s); {1}" -f $writtenReal.Problems.Count, ($writtenCounts -join ', '))
+        if ($real.Problems.Count -eq 0 -and $allFail -and $rulesReal.Problems.Count -eq 0 -and $rulesAllFail -and $writtenReal.Problems.Count -eq 0 -and $writtenAllFail) {
+            Write-Output 'OK: the check passes the three goldens and fails each mutant'
             exit 0
         }
         Write-Output 'FAIL: the control did not behave'
         foreach ($p in $real.Problems) { Write-Output ('  real: ' + $p) }
         foreach ($p in $rulesReal.Problems) { Write-Output ('  real rules: ' + $p) }
+        foreach ($p in $writtenReal.Problems) { Write-Output ('  real written: ' + $p) }
         exit 1
     } finally {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
@@ -518,18 +564,22 @@ if ($Control) {
 }
 
 $r = Test-LooksGolden $goldenPath
-$rules = Test-RulesGolden $rulesGoldenPath
-if ($r.Problems.Count -eq 0 -and $rules.Problems.Count -eq 0) {
+$rules = Test-RulesGolden $rulesGoldenPath $rulesSpec
+$written = Test-RulesGolden $writtenGoldenPath $writtenSpec
+if ($r.Problems.Count -eq 0 -and $rules.Problems.Count -eq 0 -and $written.Problems.Count -eq 0) {
     $above = ($r.Cases -gt $caseFloor) -or ($r.Targets -gt $targetFloor)
     $note = ''
     if ($above) { $note = ' - above a floor: raise the floors in this file' }
     if ($r.Source -ceq 'prediction') { $note = $note + ' - the prediction, before the reference''s run in Excel' }
     if (($rules.Cases -gt $rulesCaseFloor) -or ($rules.Targets -gt $rulesTargetFloor)) { $note = $note + ' - above a rules floor: raise the floors in this file' }
     if ($rules.Source -ceq 'prediction') { $note = $note + ' - the rules golden is the prediction, before the reference''s run in Excel' }
-    Write-Output ("OK: {0} cases, {1} targets in their kinds' spelling, from {2}; every one of the {3} looks and kinds reached (floors {4}, {5}); rules {6} cases, {7} targets, from {8}; every one of the {9} sheets, kinds and operators reached (floors {10}, {11}){12}" -f $r.Cases, $r.Targets, $r.Source, $r.Reached, $caseFloor, $targetFloor, $rules.Cases, $rules.Targets, $rules.Source, $rules.Reached, $rulesCaseFloor, $rulesTargetFloor, $note)
+    if (($written.Cases -gt $writtenSpec.CaseFloor) -or ($written.Targets -gt $writtenSpec.TargetFloor)) { $note = $note + ' - above a written floor: raise the floors in this file' }
+    if ($written.Source -ceq 'prediction') { $note = $note + ' - the written golden is the prediction, before the reference''s run in Excel' }
+    Write-Output ("OK: {0} cases, {1} targets in their kinds' spelling, from {2}; every one of the {3} looks and kinds reached (floors {4}, {5}); rules {6} cases, {7} targets, from {8}; every one of the {9} sheets, kinds and operators reached (floors {10}, {11}); the writer's {12} cases, {13} targets, from {14}; every one of its {15} reached (floors {16}, {17}){18}" -f $r.Cases, $r.Targets, $r.Source, $r.Reached, $caseFloor, $targetFloor, $rules.Cases, $rules.Targets, $rules.Source, $rules.Reached, $rulesCaseFloor, $rulesTargetFloor, $written.Cases, $written.Targets, $written.Source, $written.Reached, $writtenSpec.CaseFloor, $writtenSpec.TargetFloor, $note)
     exit 0
 }
-Write-Output ("FAIL: the looks golden has {0} problem(s), the rules golden {1}:" -f $r.Problems.Count, $rules.Problems.Count)
+Write-Output ("FAIL: the looks golden has {0} problem(s), the rules golden {1}, the written golden {2}:" -f $r.Problems.Count, $rules.Problems.Count, $written.Problems.Count)
 foreach ($p in $r.Problems) { Write-Output ('  ' + $p) }
 foreach ($p in $rules.Problems) { Write-Output ('  ' + $p) }
+foreach ($p in $written.Problems) { Write-Output ('  ' + $p) }
 exit 1

@@ -49,23 +49,37 @@
 //! is bold and edged in any host; a style table whose formats say none of
 //! them writes the styles part it wrote before, byte for byte.
 //!
+//! Since `KERNEL.58` (2026-11-01) a sheet may hold conditional formats
+//! (`vla_lang::rule`): each format a rule names is written as the differential
+//! format it is, saying what the format says and no more, a fill as `bgColor`
+//! as Excel's save keeps one, in the styles part's `dxfs`; each rule under a
+//! `conditionalFormatting` element of its range, after the sheet's data, and a
+//! rule reading another sheet in the sheet's extension with its format beside
+//! it, as Excel's save writes one. A rule is written as `expression` or
+//! `cellIs`, whatever kind it was read from. What a file cannot hold or Excel
+//! would not draw is left out and named by [`rules_left_out`]. A workbook
+//! holding no rule writes what it wrote before, byte for byte.
+//!
 //! Every name here is fixed and every order is fixed, so that the same model
 //! gives the same bytes: the parts in the order [`parts`] lists them, a
 //! sheet's rows and cells in row-then-column order (the model's map), the
-//! fills, formats and codes in the order the style table holds them.
+//! fills, formats and codes in the order the style table holds them, a sheet's
+//! rules by priority.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use super::xml;
 use super::zip;
 use super::{
-    cell_ref, column_width_attr, number_text, shared_masters, Border, Content, Family, Font,
+    cell_ref, column_width_attr, number_text, shared_masters, xlfn, Border, Content, Family, Font,
     Horizontal, Line, NumFmt, RowSettings, Sheet, Style, Underline, Vertical, Workbook,
 };
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
+use vla_lang::machine::load::twin_base;
 use vla_lang::numfmt::Code;
 use vla_lang::rows::Visibility;
+use vla_lang::rule::{Rule, Test};
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -97,6 +111,11 @@ pub(super) const CT_METADATA: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml";
 pub(super) const REL_METADATA: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata";
+/// The extension a sheet's rules reading another sheet stand in, and the two
+/// namespaces of its elements, as Excel's save writes them.
+const EXT_RULES: &str = "{78C0D931-6437-407d-A8EE-F0AAD7539E65}";
+const NS_X14: &str = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main";
+const NS_XM: &str = "http://schemas.microsoft.com/office/excel/2006/main";
 /// The relationship id of the cell-metadata part, present only when a
 /// dynamic-array formula is.
 pub(super) const METADATA_RID: &str = "rIdFrazaroMetadata";
@@ -128,6 +147,12 @@ pub fn parts_valued(wb: &Workbook, values: &dyn Values) -> Vec<(String, Vec<u8>)
 }
 
 fn parts_with(wb: &Workbook, values: Option<&dyn Values>) -> Vec<(String, Vec<u8>)> {
+    let codes = code_ids(&wb.styles, FIRST_CODE_ID);
+    let rule_looks = RuleLooks::of(wb, &codes);
+    let render = Render {
+        rules: Some(&rule_looks),
+        ..Render::FRESH
+    };
     let mut list: Vec<(String, Vec<u8>)> = vec![
         (
             "[Content_Types].xml".to_string(),
@@ -141,7 +166,10 @@ fn parts_with(wb: &Workbook, values: Option<&dyn Values>) -> Vec<(String, Vec<u8
             "xl/_rels/workbook.xml.rels".to_string(),
             workbook_rels(wb).into_bytes(),
         ),
-        ("xl/styles.xml".to_string(), styles_xml(wb).into_bytes()),
+        (
+            "xl/styles.xml".to_string(),
+            styles_xml(wb, &codes, &rule_looks).into_bytes(),
+        ),
     ];
     if wb.has_dynamic_formulas() {
         list.push(("xl/metadata.xml".to_string(), metadata_xml().into_bytes()));
@@ -150,7 +178,7 @@ fn parts_with(wb: &Workbook, values: Option<&dyn Values>) -> Vec<(String, Vec<u8
         let selected = i == wb.active_sheet;
         list.push((
             sheet_part(i + 1),
-            sheet_text(sheet, selected, &Render::FRESH, values.map(|v| (v, i))).into_bytes(),
+            sheet_text(sheet, selected, &render, values.map(|v| (v, i))).into_bytes(),
         ));
     }
     list
@@ -602,11 +630,11 @@ fn xf_element(xf: &Style, num_fmt_id: u32, font_id: u32, fill_id: u32, border_id
 /// fills the format requires first (none and gray125) then each fill the
 /// model uses, the borders its formats draw with, an empty one first
 /// (KERNEL.50), and one cell format per entry of the style table, in its
-/// order. A table whose formats say no font, alignment or border writes the
-/// part it wrote before them, byte for byte.
-fn styles_xml(wb: &Workbook) -> String {
+/// order, and the differential formats its rules name (KERNEL.58). A table
+/// whose formats say no font, alignment or border writes the part it wrote
+/// before them, byte for byte, and a workbook of no rule no `dxfs`.
+fn styles_xml(wb: &Workbook, codes: &[(Code, u32)], rule_looks: &RuleLooks) -> String {
     let fills = wb.styles.fills();
-    let codes = code_ids(&wb.styles, FIRST_CODE_ID);
     let looks = Looks::of(&wb.styles, DEFAULT_FONT);
     let mut s = String::from(XML_HEAD);
     s.push_str(&format!("<styleSheet xmlns=\"{NS_MAIN}\">\n"));
@@ -614,7 +642,7 @@ fn styles_xml(wb: &Workbook) -> String {
         s.push_str(&format!(
             "<numFmts count=\"{}\">{}</numFmts>\n",
             codes.len(),
-            numfmts_fragment(&codes)
+            numfmts_fragment(codes)
         ));
     }
     s.push_str(&format!(
@@ -648,7 +676,7 @@ fn styles_xml(wb: &Workbook) -> String {
         };
         s.push_str(&xf_element(
             xf,
-            num_fmt_id(&xf.num_fmt, &codes),
+            num_fmt_id(&xf.num_fmt, codes),
             looks.font_id(i, 1),
             fill_id,
             looks.border_id(i, 1),
@@ -659,7 +687,324 @@ fn styles_xml(wb: &Workbook) -> String {
     s.push_str(
         "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>\n",
     );
+    if !rule_looks.dxfs.is_empty() {
+        s.push_str(&format!(
+            "<dxfs count=\"{}\">{}</dxfs>\n",
+            rule_looks.dxfs.len(),
+            rule_looks.dxfs.concat()
+        ));
+    }
     s.push_str("</styleSheet>\n");
+    s
+}
+
+/// A flag of a differential format, said on or said off: an element said off
+/// takes the cell's own away.
+fn said_flag(s: &mut String, name: &str, said: Option<bool>) {
+    match said {
+        Some(true) => s.push_str(&format!("<{name}/>")),
+        Some(false) => s.push_str(&format!("<{name} val=\"0\"/>")),
+        None => {}
+    }
+}
+
+/// A format as a differential format's children, in the order Excel writes
+/// them: what it says and no more, an element's absence saying nothing, so that
+/// a rule draws over a cell's own (decision 11). A fill's color is a `bgColor`,
+/// which a differential format draws where a cell's fill draws its `fgColor`;
+/// an edge said with no line is an empty side, and one not said no side. A
+/// format's family and vertical alignment are left out, which Excel reads and
+/// does not draw (the owner's look at `Partial`), and [`rules_left_out`] names
+/// them. Empty where the format says nothing else.
+fn dxf_body(xf: &Style, codes: &[(Code, u32)]) -> String {
+    let mut font = String::new();
+    said_flag(&mut font, "b", xf.font.bold);
+    said_flag(&mut font, "i", xf.font.italic);
+    said_flag(&mut font, "strike", xf.font.strike);
+    match xf.font.underline {
+        None => {}
+        Some(Underline::Single) => font.push_str("<u/>"),
+        Some(u) => font.push_str(&format!("<u val=\"{}\"/>", u.excel())),
+    }
+    if let Some(size) = xf.font.size {
+        font.push_str(&format!("<sz val=\"{}\"/>", size.spell()));
+    }
+    if let Some(color) = xf.font.color {
+        font.push_str(&format!("<color rgb=\"{}\"/>", color.argb_hex()));
+    }
+    let mut s = String::new();
+    if !font.is_empty() {
+        s.push_str(&format!("<font>{font}</font>"));
+    }
+    if !xf.unsaid.number() {
+        let code = match &xf.num_fmt {
+            NumFmt::General => "General",
+            NumFmt::Text => "@",
+            NumFmt::Code(code) => code.as_str(),
+        };
+        s.push_str(&format!(
+            "<numFmt numFmtId=\"{}\" formatCode=\"{}\"/>",
+            num_fmt_id(&xf.num_fmt, codes),
+            xml::attr(code)
+        ));
+    }
+    if !xf.unsaid.fill() {
+        match xf.fill {
+            Some(color) => s.push_str(&format!(
+                "<fill><patternFill><bgColor rgb=\"{}\"/></patternFill></fill>",
+                color.argb_hex()
+            )),
+            None => s.push_str("<fill><patternFill patternType=\"none\"/></fill>"),
+        }
+    }
+    let mut align = String::new();
+    if let Some(h) = xf.align.horizontal {
+        align.push_str(&format!(" horizontal=\"{}\"", h.excel()));
+    }
+    if !xf.unsaid.wrap() {
+        align.push_str(&format!(" wrapText=\"{}\"", u8::from(xf.wrap)));
+    }
+    if !align.is_empty() {
+        s.push_str(&format!("<alignment{align}/>"));
+    }
+    let mut edges = String::new();
+    for (side, edge) in xf.border.edges() {
+        match edge {
+            None => {}
+            Some(e) if e.line == Line::None => edges.push_str(&format!("<{side}/>")),
+            Some(e) => {
+                edges.push_str(&format!("<{side} style=\"{}\">", e.line.excel()));
+                match e.color {
+                    Some(c) => edges.push_str(&format!("<color rgb=\"{}\"/>", c.argb_hex())),
+                    None => edges.push_str("<color auto=\"1\"/>"),
+                }
+                edges.push_str(&format!("</{side}>"));
+            }
+        }
+    }
+    if !edges.is_empty() {
+        s.push_str(&format!("<border>{edges}</border>"));
+    }
+    s
+}
+
+/// Where a rule goes in a file: the sheet's own part; its extension, for a rule
+/// reading another sheet, as Excel's save writes one, a defined name staying in
+/// the part as Excel's does; or nowhere, for what a file has no spelling of, and
+/// Excel's dialog takes none of: a sheet's last frame, and another workbook.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RulePlace {
+    Part,
+    Extension,
+    Nowhere(&'static str),
+}
+
+fn rule_place(rule: &Rule, sheet: &str) -> RulePlace {
+    let mut place = RulePlace::Part;
+    for formula in rule.formulas() {
+        for reference in refers::scan(formula) {
+            if reference.kind == Kind::External || !reference.book.is_empty() {
+                return RulePlace::Nowhere("reads another workbook");
+            }
+            if reference.sheet_name.is_empty() {
+                continue;
+            }
+            if twin_base(&reference.sheet_name).is_some() {
+                return RulePlace::Nowhere("reads a sheet's last frame");
+            }
+            if !reference.sheet_name.eq_ignore_ascii_case(sheet) {
+                place = RulePlace::Extension;
+            }
+        }
+    }
+    place
+}
+
+/// What a workbook's rules draw as a file's differential formats say it
+/// (KERNEL.58): each format a written rule names, by its index, as a `dxf`'s
+/// children; and the list the styles part holds, each different one once, in the
+/// order the sheets' rules first name it, a rule in the extension holding its
+/// own format beside it and none here.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RuleLooks {
+    bodies: BTreeMap<u32, String>,
+    /// The `<dxf>` elements of the rules in the sheets' own parts.
+    pub dxfs: Vec<String>,
+}
+
+impl RuleLooks {
+    /// A workbook's, its codes taking the ids `codes` gives them.
+    pub fn of(wb: &Workbook, codes: &[(Code, u32)]) -> RuleLooks {
+        let mut looks = RuleLooks::default();
+        for sheet in &wb.sheets {
+            for rule in sheet.rules() {
+                let place = rule_place(rule, &sheet.name);
+                let Some((index, xf)) = rule
+                    .format
+                    .and_then(|index| wb.styles.get(index).map(|xf| (index, xf)))
+                else {
+                    continue;
+                };
+                if matches!(place, RulePlace::Nowhere(_)) {
+                    continue;
+                }
+                let body = dxf_body(xf, codes);
+                let element = format!("<dxf>{body}</dxf>");
+                if place == RulePlace::Part && !body.is_empty() && !looks.dxfs.contains(&element) {
+                    looks.dxfs.push(element);
+                }
+                looks.bodies.insert(index, body);
+            }
+        }
+        looks
+    }
+
+    /// What a format says as a `dxf`'s children, empty where it says nothing a
+    /// file's rule draws.
+    fn body(&self, rule: &Rule) -> &str {
+        rule.format
+            .and_then(|index| self.bodies.get(&index))
+            .map_or("", String::as_str)
+    }
+
+    /// The place of a rule's format in the list.
+    fn dxf_id(&self, rule: &Rule) -> Option<u32> {
+        let element = format!("<dxf>{}</dxf>", self.body(rule));
+        self.dxfs
+            .iter()
+            .position(|e| *e == element)
+            .map(|i| i as u32)
+    }
+}
+
+/// What the writer leaves out of a workbook's rules, each in words, for a door
+/// to say beside what it writes (decision 11), as `reflect --looks` says what it
+/// leaves: a rule no file can spell, and what a rule's format says and Excel does
+/// not draw, its font's family and its vertical alignment.
+pub fn rules_left_out(wb: &Workbook) -> Vec<String> {
+    let mut left = Vec::new();
+    for sheet in &wb.sheets {
+        for rule in sheet.rules() {
+            let at = format!("{}'s rule of priority {}", sheet.name, rule.priority);
+            if let RulePlace::Nowhere(why) = rule_place(rule, &sheet.name) {
+                left.push(format!(
+                    "{at} {why}, which a file cannot spell, and is left out"
+                ));
+                continue;
+            }
+            let Some(xf) = rule.format.and_then(|index| wb.styles.get(index)) else {
+                continue;
+            };
+            if xf.family.is_some() {
+                left.push(format!(
+                    "{at} says a font's family, which Excel does not draw"
+                ));
+            }
+            if xf.align.vertical.is_some() {
+                left.push(format!(
+                    "{at} says a vertical alignment, which Excel does not draw"
+                ));
+            }
+        }
+    }
+    left
+}
+
+/// A rule's attributes after its priority: a stop, and a `cellIs`'s operator.
+fn rule_attrs(rule: &Rule) -> String {
+    let mut s = String::new();
+    if rule.stop {
+        s.push_str(" stopIfTrue=\"1\"");
+    }
+    if let Test::Cell { operator, .. } = &rule.test {
+        s.push_str(&format!(" operator=\"{}\"", operator.excel()));
+    }
+    s
+}
+
+/// The `type` of a rule's element.
+fn rule_kind(rule: &Rule) -> &'static str {
+    match rule.test {
+        Test::Formula(_) => "expression",
+        Test::Cell { .. } => "cellIs",
+    }
+}
+
+/// A formula of a rule as a file holds it: its newer functions under their
+/// prefixes and its markup escaped.
+fn rule_formula(text: &str) -> String {
+    xml::text(&xlfn::prefix_future_functions(text))
+}
+
+/// A sheet's rules as its part holds them (KERNEL.58): the `conditionalFormatting`
+/// elements, the rules of one range under one, each in the order of its first
+/// rule's priority; and the extension's list, a rule an element. No rule, nothing:
+/// a sheet of none writes what it wrote before.
+fn rules_text(sheet: &Sheet, render: &Render) -> String {
+    let Some(looks) = render.rules else {
+        return String::new();
+    };
+    let mut elements: Vec<(String, String)> = Vec::new();
+    let mut extended = String::new();
+    // An id of the extension's from the sheet and the priority, so that the same
+    // sheet gives the same bytes whichever workbook it is built into.
+    let sheet_id = zip::crc32(sheet.name.as_bytes()) & 0xFFFF;
+    for rule in sheet.rules() {
+        let sqref = rule.range_text();
+        let formulas = rule.formulas();
+        match rule_place(rule, &sheet.name) {
+            RulePlace::Nowhere(_) => {}
+            RulePlace::Part => {
+                let dxf = looks.dxf_id(rule).map_or(String::new(), |id| {
+                    format!(" dxfId=\"{}\"", render.dxf_base + id)
+                });
+                let bodies: String = formulas
+                    .iter()
+                    .map(|f| format!("<formula>{}</formula>", rule_formula(f)))
+                    .collect();
+                let element = format!(
+                    "<cfRule type=\"{}\"{dxf} priority=\"{}\"{}>{bodies}</cfRule>",
+                    rule_kind(rule),
+                    rule.priority,
+                    rule_attrs(rule)
+                );
+                match elements.iter_mut().find(|(range, _)| *range == sqref) {
+                    Some((_, rules)) => rules.push_str(&element),
+                    None => elements.push((sqref, element)),
+                }
+            }
+            RulePlace::Extension => {
+                let bodies: String = formulas
+                    .iter()
+                    .map(|f| format!("<xm:f>{}</xm:f>", rule_formula(f)))
+                    .collect();
+                let body = looks.body(rule);
+                let dxf = if body.is_empty() {
+                    String::new()
+                } else {
+                    format!("<x14:dxf>{body}</x14:dxf>")
+                };
+                extended.push_str(&format!(
+                    "<x14:conditionalFormatting xmlns:xm=\"{NS_XM}\"><x14:cfRule type=\"{}\" priority=\"{}\"{} id=\"{{00000000-0000-4000-8000-{sheet_id:04X}{:08X}}}\">{bodies}{dxf}</x14:cfRule><xm:sqref>{sqref}</xm:sqref></x14:conditionalFormatting>",
+                    rule_kind(rule),
+                    rule.priority,
+                    rule_attrs(rule),
+                    rule.priority
+                ));
+            }
+        }
+    }
+    let mut s = String::new();
+    for (sqref, rules) in elements {
+        s.push_str(&format!(
+            "<conditionalFormatting sqref=\"{sqref}\">{rules}</conditionalFormatting>\n"
+        ));
+    }
+    if !extended.is_empty() {
+        s.push_str(&format!(
+            "<extLst><ext xmlns:x14=\"{NS_X14}\" uri=\"{EXT_RULES}\"><x14:conditionalFormattings>{extended}</x14:conditionalFormattings></ext></extLst>\n"
+        ));
+    }
     s
 }
 
@@ -730,18 +1075,26 @@ pub fn metadata_xml() -> String {
 
 /// How a sheet's cells name the workbook's shared tables: the number of
 /// cell formats the workbook already has before this build's (0 for a
-/// fresh workbook, where this build's table is the whole table), and the
-/// index of the dynamic-array cell metadata (1 in a fresh workbook).
+/// fresh workbook, where this build's table is the whole table), the
+/// index of the dynamic-array cell metadata (1 in a fresh workbook), and
+/// since KERNEL.58 the number of differential formats it has before this
+/// build's and what its rules draw, a sheet's rules written only where given.
+/// A list that may grow (`#[non_exhaustive]`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Render {
+#[non_exhaustive]
+pub struct Render<'r> {
     pub style_base: u32,
     pub cm: u32,
+    pub dxf_base: u32,
+    pub rules: Option<&'r RuleLooks>,
 }
 
-impl Render {
-    pub const FRESH: Render = Render {
+impl Render<'_> {
+    pub const FRESH: Render<'static> = Render {
         style_base: 0,
         cm: 1,
+        dxf_base: 0,
+        rules: None,
     };
 
     /// A cell's `s` attribute: this build's format 0 is the workbook's
@@ -1038,6 +1391,7 @@ fn sheet_text(
         s.push_str(&format!("<row r=\"{n}\"{}/>\n", row_attrs(settings)));
     }
     s.push_str("</sheetData>\n");
+    s.push_str(&rules_text(sheet, render));
     s.push_str("</worksheet>\n");
     s
 }
@@ -1058,6 +1412,230 @@ fn row_attrs(settings: &RowSettings) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The styles part of a workbook, as [`parts`] writes it.
+    fn styles_of(wb: &Workbook) -> String {
+        let codes = code_ids(&wb.styles, FIRST_CODE_ID);
+        styles_xml(wb, &codes, &RuleLooks::of(wb, &codes))
+    }
+
+    /// A workbook of rows, as a draft holds it.
+    fn of_rows(rows: &str) -> Workbook {
+        let forms = vla_lang::reader::read_forms(rows).unwrap();
+        vla_lang::machine::read_rows(&forms)
+            .unwrap_or_else(|r| panic!("line {}: {}", r.line, r.refusal))
+            .workbook()
+    }
+
+    /// What a rule's format says as a differential format's children: a format
+    /// of its words, by its index 1.
+    fn dxf_of(words: &str) -> String {
+        let wb = of_rows(&format!("(sheet \"S\" visible)\n(format 1 {words})\n"));
+        let codes = code_ids(&wb.styles, FIRST_CODE_ID);
+        dxf_body(wb.styles.get(1).unwrap(), &codes)
+    }
+
+    #[test]
+    fn a_rule_s_format_is_a_differential_format_saying_what_it_says_and_no_more() {
+        for (words, want) in [
+            (
+                "(fill \"FFE699\")",
+                "<fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill>",
+            ),
+            (
+                "(fill none)",
+                "<fill><patternFill patternType=\"none\"/></fill>",
+            ),
+            ("(font bold)", "<font><b/></font>"),
+            ("(font not-bold)", "<font><b val=\"0\"/></font>"),
+            ("(font italic)", "<font><i/></font>"),
+            ("(font not-italic)", "<font><i val=\"0\"/></font>"),
+            ("(font strike)", "<font><strike/></font>"),
+            ("(font not-strike)", "<font><strike val=\"0\"/></font>"),
+            ("(font underline)", "<font><u/></font>"),
+            (
+                "(font double-underline)",
+                "<font><u val=\"double\"/></font>",
+            ),
+            (
+                "(font accounting-underline)",
+                "<font><u val=\"singleAccounting\"/></font>",
+            ),
+            (
+                "(font double-accounting-underline)",
+                "<font><u val=\"doubleAccounting\"/></font>",
+            ),
+            ("(font not-underline)", "<font><u val=\"none\"/></font>"),
+            ("(font 20)", "<font><sz val=\"20\"/></font>"),
+            (
+                "(font \"800020\")",
+                "<font><color rgb=\"FF800020\"/></font>",
+            ),
+            // In the order Excel writes a font's children.
+            (
+                "(font bold italic 9.5 \"800020\" underline strike)",
+                "<font><b/><i/><strike/><u/><sz val=\"9.5\"/><color rgb=\"FF800020\"/></font>",
+            ),
+            (
+                "(number \"0.00\")",
+                "<numFmt numFmtId=\"2\" formatCode=\"0.00\"/>",
+            ),
+            (
+                "(number \"0.000\")",
+                "<numFmt numFmtId=\"164\" formatCode=\"0.000\"/>",
+            ),
+            (
+                "(number general)",
+                "<numFmt numFmtId=\"0\" formatCode=\"General\"/>",
+            ),
+            (
+                "(number text)",
+                "<numFmt numFmtId=\"49\" formatCode=\"@\"/>",
+            ),
+            (
+                "(number \"0.00\\\" kg\\\"\")",
+                "<numFmt numFmtId=\"164\" formatCode=\"0.00&quot; kg&quot;\"/>",
+            ),
+            ("(wrap wrap)", "<alignment wrapText=\"1\"/>"),
+            ("(wrap nowrap)", "<alignment wrapText=\"0\"/>"),
+            ("(align center)", "<alignment horizontal=\"center\"/>"),
+            (
+                "(align right) (wrap wrap)",
+                "<alignment horizontal=\"right\" wrapText=\"1\"/>",
+            ),
+            // An edge said with no line an empty side, and one not said no side.
+            (
+                "(border (left thin \"800020\"))",
+                "<border><left style=\"thin\"><color rgb=\"FF800020\"/></left></border>",
+            ),
+            (
+                "(border (right none) (bottom double))",
+                "<border><right/><bottom style=\"double\"><color auto=\"1\"/></bottom></border>",
+            ),
+            // In the order Excel writes a format's parts, whatever the row's.
+            (
+                "(border (top thin)) (fill \"FFE699\") (wrap wrap) (number \"0.00\") (font bold)",
+                "<font><b/></font><numFmt numFmtId=\"2\" formatCode=\"0.00\"/><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill><alignment wrapText=\"1\"/><border><top style=\"thin\"><color auto=\"1\"/></top></border>",
+            ),
+            // A format spelling its three places says all three.
+            (
+                "\"FFE699\" general nowrap",
+                "<numFmt numFmtId=\"0\" formatCode=\"General\"/><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill><alignment wrapText=\"0\"/>",
+            ),
+            (
+                "none text wrap (font bold)",
+                "<font><b/></font><numFmt numFmtId=\"49\" formatCode=\"@\"/><fill><patternFill patternType=\"none\"/></fill><alignment wrapText=\"1\"/>",
+            ),
+            // What Excel does not draw of a rule's format, named by
+            // `rules_left_out`.
+            ("(font (family \"Consolas\" mono))", ""),
+            ("(align top)", ""),
+            (
+                "(align center top)",
+                "<alignment horizontal=\"center\"/>",
+            ),
+            (
+                "(font bold (family \"Consolas\"))",
+                "<font><b/></font>",
+            ),
+        ] {
+            assert_eq!(dxf_of(words), want, "{words}");
+        }
+    }
+
+    const RULES_ROWS: &str = r##"
+(sheet "Board" visible)
+(sheet "Lit Up" hidden)
+(name "seen" "'Lit Up'!$A$1")
+(format 1 (fill "FFE699"))
+(format 2 (font bold))
+(format 3 (fill "FFE699"))
+(format 4 (font (family "Consolas" mono)))
+(format 5 (align top) (font italic))
+(format 6 (number "0.000"))
+(cell "Board" "A1" 1)
+(cell "Lit Up" "A1" 1)
+(conditional "Board" 2 "B2:J10" "=$A$1=1" 1)
+(conditional "Board" 3 "A1:A3 C1:C3" (cell between "=1" "=5") 2 stop)
+(conditional "Board" 5 "B2:J10" (cell greater "=A1&\"<\"") 3)
+(conditional "Board" 6 "D1" "=seen=1" none stop)
+(conditional "Board" 7 "D2" "=Board!$A$1=1" 4)
+(conditional "Board" 8 "D3" "=IFNA(A1,0)=1" 5)
+(conditional "Board" 9 "E1:F2" "='Lit Up'!A1=1" 6 stop)
+(conditional "Board" 10 "E3" (cell not-between "='Lit Up'!$A$1" "=9") none)
+(conditional "Board" 11 "E4" "=Board.last!A1=1" 1)
+(conditional "Board" 12 "E5" "=[Other.xlsx]S!A1=1" 2)
+"##;
+
+    #[test]
+    fn a_sheet_s_rules_stand_in_its_part_and_its_extension_as_excel_writes_them() {
+        let wb = of_rows(RULES_ROWS);
+        let parts = parts(&wb);
+        let text = |name: &str| {
+            let (_, bytes) = parts.iter().find(|(n, _)| n == name).unwrap();
+            String::from_utf8(bytes.clone()).unwrap()
+        };
+        // Each format the part's rules name, once, a format saying the same as
+        // another the same one, what is left out naming none, and the
+        // extension's formats beside their rules.
+        let styles = text("xl/styles.xml");
+        assert!(
+            styles.ends_with(
+                "</cellStyles>\n<dxfs count=\"3\"><dxf><fill><patternFill><bgColor rgb=\"FFFFE699\"/></patternFill></fill></dxf><dxf><font><b/></font></dxf><dxf><font><i/></font></dxf></dxfs>\n</styleSheet>\n"
+            ),
+            "{styles}"
+        );
+        let board = text("xl/worksheets/frazaro_1.xml");
+        let after = board.split("</sheetData>\n").nth(1).unwrap();
+        let want = concat!(
+            "<conditionalFormatting sqref=\"B2:J10\">",
+            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"2\"><formula>$A$1=1</formula></cfRule>",
+            "<cfRule type=\"cellIs\" dxfId=\"0\" priority=\"5\" operator=\"greaterThan\"><formula>A1&amp;\"&lt;\"</formula></cfRule>",
+            "</conditionalFormatting>\n",
+            "<conditionalFormatting sqref=\"A1:A3 C1:C3\">",
+            "<cfRule type=\"cellIs\" dxfId=\"1\" priority=\"3\" stopIfTrue=\"1\" operator=\"between\"><formula>1</formula><formula>5</formula></cfRule>",
+            "</conditionalFormatting>\n",
+            "<conditionalFormatting sqref=\"D1\">",
+            "<cfRule type=\"expression\" priority=\"6\" stopIfTrue=\"1\"><formula>seen=1</formula></cfRule>",
+            "</conditionalFormatting>\n",
+            "<conditionalFormatting sqref=\"D2\">",
+            "<cfRule type=\"expression\" priority=\"7\"><formula>Board!$A$1=1</formula></cfRule>",
+            "</conditionalFormatting>\n",
+            "<conditionalFormatting sqref=\"D3\">",
+            "<cfRule type=\"expression\" dxfId=\"2\" priority=\"8\"><formula>_xlfn.IFNA(A1,0)=1</formula></cfRule>",
+            "</conditionalFormatting>\n",
+        );
+        assert!(after.starts_with(want), "{after}");
+        let id = zip::crc32(b"Board") & 0xFFFF;
+        let extension = format!(
+            "<extLst><ext xmlns:x14=\"http://schemas.microsoft.com/office/spreadsheetml/2009/9/main\" uri=\"{{78C0D931-6437-407d-A8EE-F0AAD7539E65}}\"><x14:conditionalFormattings>\
+             <x14:conditionalFormatting xmlns:xm=\"http://schemas.microsoft.com/office/excel/2006/main\"><x14:cfRule type=\"expression\" priority=\"9\" stopIfTrue=\"1\" id=\"{{00000000-0000-4000-8000-{id:04X}00000009}}\"><xm:f>'Lit Up'!A1=1</xm:f><x14:dxf><numFmt numFmtId=\"164\" formatCode=\"0.000\"/></x14:dxf></x14:cfRule><xm:sqref>E1:F2</xm:sqref></x14:conditionalFormatting>\
+             <x14:conditionalFormatting xmlns:xm=\"http://schemas.microsoft.com/office/excel/2006/main\"><x14:cfRule type=\"cellIs\" priority=\"10\" operator=\"notBetween\" id=\"{{00000000-0000-4000-8000-{id:04X}0000000A}}\"><xm:f>'Lit Up'!$A$1</xm:f><xm:f>9</xm:f></x14:cfRule><xm:sqref>E3</xm:sqref></x14:conditionalFormatting>\
+             </x14:conditionalFormattings></ext></extLst>\n</worksheet>\n"
+        );
+        assert_eq!(&after[want.len()..], extension);
+        assert_eq!(
+            rules_left_out(&wb),
+            [
+                "Board's rule of priority 7 says a font's family, which Excel does not draw",
+                "Board's rule of priority 8 says a vertical alignment, which Excel does not draw",
+                "Board's rule of priority 11 reads a sheet's last frame, which a file cannot spell, and is left out",
+                "Board's rule of priority 12 reads another workbook, which a file cannot spell, and is left out",
+            ]
+        );
+        // No rule, no bytes.
+        let lit = text("xl/worksheets/frazaro_2.xml");
+        assert!(
+            !lit.contains("conditional") && !lit.contains("extLst"),
+            "{lit}"
+        );
+        let none = of_rows("(sheet \"S\" visible)\n(format 1 (fill \"FFE699\"))\n");
+        assert!(!styles_of(&none).contains("dxfs"));
+        assert!(rules_left_out(&none).is_empty());
+        // A sheet's part given no looks writes no rule.
+        assert!(!sheet_xml(&wb.sheets[0], false, &Render::FRESH).contains("cfRule"));
+    }
+
     use crate::sheet::{Cell, Column, NumFmt, Rgb, Style};
 
     #[test]
@@ -1190,7 +1768,7 @@ mod tests {
 
     #[test]
     fn the_styles_part_keeps_the_two_required_fills_first() {
-        let st = styles_xml(&a_workbook());
+        let st = styles_of(&a_workbook());
         assert!(st.contains("<fills count=\"3\">\n<fill><patternFill patternType=\"none\"/></fill>\n<fill><patternFill patternType=\"gray125\"/></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF7F4FC\"/>"));
         assert!(st.contains("<cellXfs count=\"2\">"));
         assert!(st.contains("<xf numFmtId=\"49\" fontId=\"0\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"));
@@ -1215,14 +1793,14 @@ mod tests {
             .styles
             .id(Style::new(None, code("▲0.00;▼0.00;=0.00"), true));
         assert_eq!((two, glyph, kg, again), (2, 3, 4, 5));
-        let st = styles_xml(&wb);
+        let st = styles_of(&wb);
         assert!(st.contains("<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"▲0.00;▼0.00;=0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.00&quot; kg &amp; &lt;g&gt;&quot;\"/></numFmts>\n<fonts"), "{st}");
         assert!(st.contains("<xf numFmtId=\"2\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>"), "{st}");
         assert!(st.contains("<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>"), "{st}");
         assert!(st.contains("<xf numFmtId=\"165\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"), "{st}");
         assert!(st.contains("<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyAlignment=\"1\"><alignment wrapText=\"1\"/></xf>"), "{st}");
         // A workbook whose formats hold no code writes no list, as before.
-        assert!(!styles_xml(&a_workbook()).contains("numFmts"));
+        assert!(!styles_of(&a_workbook()).contains("numFmts"));
     }
 
     /// The codes and values of the workbook the owner opens in Excel and in
@@ -1278,7 +1856,7 @@ mod tests {
             }
         }
         wb.sheets.push(sh);
-        let st = styles_xml(&wb);
+        let st = styles_of(&wb);
         // The built-ins among them by their ids, the rest defined.
         assert!(st.contains("<numFmts count=\"8\">"), "{st}");
         assert!(st.contains("<xf numFmtId=\"2\" "), "{st}");
@@ -1314,6 +1892,7 @@ mod tests {
         let hosted = Render {
             style_base: 7,
             cm: 2,
+            ..Render::FRESH
         };
         assert_eq!(hosted.style(0), 0);
         assert_eq!(hosted.style(1), 7);
@@ -1371,7 +1950,7 @@ mod tests {
         plain.border.right = Some(Edge::new(Line::None, None));
         let p = wb.styles.id(plain);
         assert_eq!((b, s, x, p), (2, 3, 4, 5));
-        let st = styles_xml(&wb);
+        let st = styles_of(&wb);
         assert!(st.contains("<fonts count=\"2\"><font><sz val=\"11\"/><name val=\"Calibri\"/><family val=\"2\"/></font><font><b/><sz val=\"11\"/><color rgb=\"FFFFFFFF\"/><name val=\"Calibri\"/><family val=\"2\"/></font></fonts>\n"), "{st}");
         assert!(st.contains("<borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style=\"medium\"><color indexed=\"64\"/></left><right/><top style=\"thin\"><color rgb=\"FF6B4FC8\"/></top><bottom/><diagonal/></border></borders>\n"), "{st}");
         let xfs: Vec<&str> = st.lines().filter(|l| l.starts_with("<xf ")).collect();
@@ -1386,7 +1965,7 @@ mod tests {
             "{st}"
         );
         // A table whose formats say none of them writes the part it wrote.
-        let before = styles_xml(&a_workbook());
+        let before = styles_of(&a_workbook());
         assert!(before.contains(&format!(
             "<fonts count=\"1\">{DEFAULT_FONT}</fonts>\n<fills"
         )));
@@ -1534,6 +2113,7 @@ mod tests {
             &Render {
                 style_base: 4,
                 cm: 3,
+                ..Render::FRESH
             },
         );
         assert!(hosted.contains("<c r=\"F2\" s=\"0\" cm=\"3\"><f t=\"array\" ref=\"F2\">"));

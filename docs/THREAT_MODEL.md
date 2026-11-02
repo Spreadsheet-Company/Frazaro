@@ -383,3 +383,18 @@ the language does not draw. The relations without the flag read no more
 than before. The page's Reflect pane prints the looks too, and the C
 linkage gains one function (`frazaro_reflect_looks`) and no capability; the
 module's import section is still empty.
+
+*Appended 2026-11-01, `KERNEL.58`'s fourth slice: a conditional format.* `--looks` reads
+two more places of the parts it already reads: the styles part's differential formats,
+and each sheet part's `conditionalFormatting` elements and its extension list, of which
+it reads the conditional formats and passes over the rest whole. What comes of them is
+data, as above: a format's properties, a range, and a rule's formula as text, printed as
+the file holds it and never run by the reader or a door. A person loading those rows
+gives the formula to the machine, which computes it as it computes a formula in a cell,
+under the same bounds and refusing the same calls, and whose answer no cell can read.
+So a rule that reads a hidden sheet or spells a game's state is printed where it stands,
+and `diff`, `audit` and `--cone`, which see no look, do not see it (the item's *Found*).
+The writer writes a rule's formula through the same escapes as a cell's, and leaves out
+whole what a file cannot spell, a sheet's last frame and another workbook, rather than
+write what would cost the file a repair. No capability is added, and the module's import
+section is still empty.

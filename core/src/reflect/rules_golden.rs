@@ -28,20 +28,30 @@
 //!
 //! The builder keeps each rule's row beside its element, as a `Part`'s
 //! `rule_rows`, and each format's words beside its XML ([`format_words`]), what
-//! a reader of the file is to say of them. A test loads the rows the reader
-//! prints of the cells, and those, into the language's machine under Excel's
-//! library, and holds what each cell draws to Excel's reading, case by case,
-//! each difference named in [`GAPS`].
+//! a reader of the file is to say of them, and a test holds the reader to them
+//! (the fourth slice). Tests load the rows the reader prints of each workbook
+//! and of Excel's saves of it into the language's machine under Excel's library,
+//! and hold what each cell draws to Excel's reading, case by case, each
+//! difference named in [`GAPS`], and each rule to its `rule:` targets.
+//!
+//! `scripts/reflect/rules_written.xlsx` is the writer's own: every form it writes
+//! of a rule and a differential format, from the rows of [`written`], held byte
+//! for byte. `VlaWriteRulesWrittenGolden` reads it into
+//! `scripts/reflect/rules_written_golden.txt` as the others are read, saving it as
+//! `rules_written_saved.xlsx`, so that a file Excel repairs says so and what the
+//! writer writes is held to what Excel draws of it.
 
 use std::collections::{BTreeSet, HashMap};
 
 use vla_lang::form::Form;
 use vla_lang::machine::{Machine, Viewed};
 use vla_lang::rows::{quoted, record_line, Record};
-use vla_lang::sheet::{parse_a1_range, Style, Workbook};
+use vla_lang::rule::{Rule, Test};
+use vla_lang::sheet::{parse_a1_range, Line, Style, Vertical, Workbook};
 
 use super::looks_golden::{drawn, place, solid, Book, Drawn, Part, Styles, Xf, CALIBRI};
-use crate::sheet::{cell_ref, column_letters};
+use crate::refers;
+use crate::sheet::{cell_ref, column_letters, ooxml};
 
 const RULES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/reflect/rules.xlsx");
 const PLAIN: &str = concat!(
@@ -55,6 +65,18 @@ const X14: &str = concat!(
 const GOLDEN: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scripts/reflect/rules_golden.txt"
+);
+const WRITTEN: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/reflect/rules_written.xlsx"
+);
+const WRITTEN_GOLDEN: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/reflect/rules_written_golden.txt"
+);
+const WRITTEN_SAVED: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/reflect/rules_written_saved.xlsx"
 );
 
 /// The fill most cases light a cell with, and the second where two rules
@@ -1685,11 +1707,11 @@ fn the_rules_fixtures_are_their_builder_s() {
     }
 }
 
-/// The golden's cases, in order: a header and the targets read, each once
+/// A golden's cases, in order: a header and the targets read, each once
 /// however many rules a `rule:` target found.
-fn golden_cases() -> Vec<(String, Vec<String>)> {
-    let text = std::fs::read_to_string(GOLDEN)
-        .unwrap_or_else(|_| panic!("{GOLDEN}: VlaWriteRulesGolden writes it"));
+fn golden_cases(path: &str) -> Vec<(String, Vec<String>)> {
+    let text = std::fs::read_to_string(path)
+        .unwrap_or_else(|_| panic!("{path}: Excel's golden writer writes it"));
     let mut cases: Vec<(String, Vec<String>)> = Vec::new();
     for line in text.lines().skip(1) {
         if let Some(header) = line.strip_prefix("=== ") {
@@ -1713,8 +1735,8 @@ struct GoldenCase {
     targets: Vec<(String, String)>,
 }
 
-fn golden_read() -> Vec<GoldenCase> {
-    let text = std::fs::read_to_string(GOLDEN).expect("the golden");
+fn golden_read(path: &str) -> Vec<GoldenCase> {
+    let text = std::fs::read_to_string(path).expect("the golden");
     let mut cases: Vec<GoldenCase> = Vec::new();
     for line in text.lines().skip(1) {
         if let Some(header) = line.strip_prefix("=== ") {
@@ -1764,6 +1786,45 @@ fn lit_at(record: &str) -> Vec<u32> {
 /// cell's own number format wherever a rule says another, so that part of the
 /// reading is the cell's own, and the text is held by `text:`.
 fn folded(wb: &Workbook, sheet: &str, (row, col): (u32, u32), lit: &[u32]) -> Drawn {
+    let fold = fold_of(wb, sheet, (row, col), lit);
+    let line = record_line(&Record::Format {
+        index: 0,
+        style: Some(&fold),
+        code: None,
+    });
+    let body = line
+        .strip_prefix("(format 0 ")
+        .and_then(|l| l.strip_suffix(')'))
+        .expect("a format's row");
+    let mut d = drawn(body, true);
+    // A word that says a default draws as nothing said.
+    d.font.retain(|w| !w.starts_with("not-"));
+    d.edges.retain(|e| !e.ends_with(" none"));
+    d.align.retain(|w| w != "general");
+    d
+}
+
+/// Whether a rule that applies at a cell says anything of an alignment element,
+/// which `DisplayFormat` reads as vertical `top` too, whatever it said and where
+/// the screen draws no such thing (the owner's look at `Partial`).
+fn reads_top(wb: &Workbook, sheet: &str, lit: &[u32]) -> bool {
+    let page = wb
+        .sheets
+        .iter()
+        .find(|s| s.name == sheet)
+        .expect("the sheet");
+    lit.iter().any(|priority| {
+        page.rules()
+            .iter()
+            .find(|r| r.priority == *priority)
+            .and_then(|r| r.format)
+            .and_then(|f| wb.styles.get(f))
+            .is_some_and(|style| style.align.horizontal.is_some() || !style.unsaid.wrap())
+    })
+}
+
+/// The format [`folded`] folds.
+fn fold_of(wb: &Workbook, sheet: &str, (row, col): (u32, u32), lit: &[u32]) -> Style {
     let page = wb
         .sheets
         .iter()
@@ -1784,20 +1845,7 @@ fn folded(wb: &Workbook, sheet: &str, (row, col): (u32, u32), lit: &[u32]) -> Dr
         }
     }
     fold.num_fmt = own.num_fmt.clone();
-    let line = record_line(&Record::Format {
-        index: 0,
-        style: Some(&fold),
-        code: None,
-    });
-    let body = line
-        .strip_prefix("(format 0 ")
-        .and_then(|l| l.strip_suffix(')'))
-        .expect("a format's row");
-    let mut d = drawn(body, true);
-    // A word that says a default draws as nothing said.
-    d.font.retain(|w| !w.starts_with("not-"));
-    d.edges.retain(|e| !e.ends_with(" none"));
-    d
+    fold
 }
 
 /// Excel's reading of a cell's look, what the record has no word for left out.
@@ -1821,11 +1869,21 @@ fn shown_text(record: &str) -> String {
     "\"\"".to_string()
 }
 
+/// A place the language draws otherwise than Excel's reading: its file, its
+/// sheet, its case, its targets and why.
+type Gap = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static [&'static str],
+    &'static str,
+);
+
 /// Every place the language draws otherwise than Excel's reading, by its file,
 /// sheet, case and target, and why: a gap the scoping named, a word the record
 /// has none for, a rule a reader rewrites, and what `DisplayFormat` reads and
 /// Excel's screen does not draw (the owner's look, `Partial` and `Order`).
-const GAPS: &[(&str, &str, &str, &[&str], &str)] = &[
+const GAPS: &[Gap] = &[
     // A range read as an array, `KERNEL.55`'s.
     (
         "rules.xlsx",
@@ -1914,20 +1972,6 @@ const GAPS: &[(&str, &str, &str, &[&str], &str)] = &[
         &["shown:C70", "shown:E70"],
         "the screen draws it where it was: a reader leaves a rule's vertical out",
     ),
-    (
-        "rules.xlsx",
-        "Partial",
-        "a horizontal alignment",
-        &["shown:C68", "shown:E68"],
-        "drawn centered; the top DisplayFormat adds is not drawn",
-    ),
-    (
-        "rules.xlsx",
-        "Partial",
-        "a wrap",
-        &["shown:C72", "shown:E72"],
-        "the top DisplayFormat adds is not drawn",
-    ),
     // What the record has no word for.
     (
         "rules.xlsx",
@@ -1995,23 +2039,370 @@ const GAPS: &[(&str, &str, &str, &[&str], &str)] = &[
     ),
 ];
 
-fn gap(file: &str, sheet: &str, case: &str, target: &str) -> Option<usize> {
-    GAPS.iter().position(|(f, s, c, targets, _)| {
-        *f == file && *s == sheet && *c == case && targets.contains(&target)
-    })
+/// A workbook's rows a load takes: what the reader prints but a rule calling
+/// `TODAY`, which the language has not and a load refuses, as it does in a cell
+/// (decision 5).
+fn loadable(rows: &str) -> String {
+    rows.lines()
+        .filter(|l| !(l.starts_with("(conditional ") && l.contains("TODAY()")))
+        .flat_map(|l| [l, "\n"])
+        .collect()
+}
+
+/// A text of rows as a draft's workbook, computing nothing.
+fn workbook_of(rows: &str) -> Workbook {
+    let forms = vla_lang::reader::read_forms(rows).expect("rows");
+    vla_lang::machine::read_rows(&forms)
+        .unwrap_or_else(|r| panic!("line {}: {}\n{rows}", r.line, r.refusal))
+        .workbook()
+}
+
+/// What the machine draws of `bytes`, a workbook of `golden`'s cases of `file`,
+/// against each target: how many it held, and each that differs and is named no
+/// gap, each gap that agrees and each no target met.
+fn drawn_against(
+    file: &str,
+    bytes: &[u8],
+    golden: &[GoldenCase],
+    gaps: &[Gap],
+) -> (usize, Vec<String>) {
+    let (rows, _) =
+        crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
+    let rows = loadable(&rows);
+    let mut m = Machine::load(&rows, crate::excel::library())
+        .unwrap_or_else(|e| panic!("{file}: line {}: {}\n{rows}", e.line, e.refusal.text));
+    assert!(m.step(0).done);
+    let wb = m.workbook();
+    let gap = |sheet: &str, case: &str, target: &str| {
+        gaps.iter().position(|(f, s, c, targets, _)| {
+            *f == file && *s == sheet && *c == case && targets.contains(&target)
+        })
+    };
+    let mut seen = vec![false; gaps.len()];
+    let mut wrong: Vec<String> = Vec::new();
+    let mut held = 0;
+    for case in golden.iter().filter(|c| c.file == file) {
+        for (target, reading) in &case.targets {
+            let (kind, place) = target.split_once(':').expect("a kind and a place");
+            if kind == "rule" {
+                continue;
+            }
+            let record = one_cell(&m, &case.sheet, place);
+            let at = parse_a1_range(place).expect("a cell");
+            let agrees = match kind {
+                "shown" => {
+                    let lit = lit_at(&record);
+                    let mut read = read_look(reading);
+                    if reads_top(&wb, &case.sheet, &lit) {
+                        read.align.retain(|w| w != "top");
+                    }
+                    folded(&wb, &case.sheet, (at.top, at.left), &lit) == read
+                }
+                "text" => shown_text(&record) == *reading,
+                other => panic!("a target of no kind: {other}"),
+            };
+            held += 1;
+            match (agrees, gap(&case.sheet, &case.name, target)) {
+                (true, None) => {}
+                (true, Some(k)) => {
+                    wrong.push(format!(
+                        "{file}!{}!{}: {target} agrees, and is named a gap: {}",
+                        case.sheet, case.name, gaps[k].4
+                    ));
+                }
+                (false, Some(k)) => seen[k] = true,
+                (false, None) => {
+                    let ours: Vec<&str> = record
+                        .lines()
+                        .filter(|l| {
+                            l.starts_with("(lit ")
+                                || l.starts_with("(text ")
+                                || l.starts_with("(style ")
+                        })
+                        .collect();
+                    wrong.push(format!(
+                        "{file}!{}!{}: {target}: Excel reads {reading}; the machine's rows {ours:?}",
+                        case.sheet, case.name
+                    ));
+                }
+            }
+        }
+    }
+    for (k, (f, s, c, _, why)) in gaps.iter().enumerate() {
+        if *f == file && !seen[k] {
+            wrong.push(format!("{f}!{s}!{c}: a gap no target met: {why}"));
+        }
+    }
+    (held, wrong)
 }
 
 #[test]
 fn the_machine_draws_each_case_as_excel_draws_it() {
-    let golden = golden_read();
-    let mut seen = vec![false; GAPS.len()];
+    let golden = golden_read(GOLDEN);
     let mut wrong: Vec<String> = Vec::new();
     let mut held = 0;
     for (_, file, book) in books() {
-        let bytes = book.bytes();
-        let (cells, _) = crate::reflect::reflect_looks(&bytes, file)
+        let (n, found) = drawn_against(file, &book.bytes(), &golden, GAPS);
+        held += n;
+        wrong.extend(found);
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {held} targets:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}
+
+/// Excel's saves of the three workbooks, each with the name its golden gives the
+/// file it was saved from.
+const SAVES: [(&str, &str); 3] = [
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_saved.xlsx"
+        ),
+        "rules.xlsx",
+    ),
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_plain_saved.xlsx"
+        ),
+        "rules_plain.xlsx",
+    ),
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_x14_saved.xlsx"
+        ),
+        "rules_x14.xlsx",
+    ),
+];
+
+/// A package's rules as Excel's save writes them are read as Excel read the
+/// workbook it saved: a tie of two elements renumbered, its formats written again,
+/// a rule reading another sheet moved to the extension.
+#[test]
+fn the_machine_draws_excel_s_own_saves_as_excel_drew_them() {
+    let golden = golden_read(GOLDEN);
+    let mut wrong: Vec<String> = Vec::new();
+    let mut held = 0;
+    for (path, file) in SAVES {
+        let bytes = std::fs::read(path).expect("Excel's save");
+        let (n, found) = drawn_against(file, &bytes, &golden, GAPS);
+        held += n;
+        wrong.extend(found);
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {held} targets:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}
+
+/// A rule as Excel's object model reads it: where it applies, its kind, its
+/// operator, its priority, stop or go and its formulas.
+#[derive(Debug)]
+struct ExcelRule {
+    ranges: BTreeSet<String>,
+    kind: String,
+    operator: String,
+    priority: u32,
+    stop: bool,
+    formulas: Vec<String>,
+}
+
+fn excel_rule(reading: &str) -> ExcelRule {
+    let mut parts = reading.splitn(6, ' ');
+    let mut next = || parts.next().expect("a rule's five words").to_string();
+    let ranges = next().split(',').map(str::to_string).collect();
+    let kind = next();
+    let operator = next();
+    let priority = next().parse().expect("a priority");
+    let stop = next() == "stop";
+    let formulas = match parts.next() {
+        Some(rest) => vla_lang::reader::read_forms(rest)
+            .expect("quoted formulas")
+            .iter()
+            .map(|f| match f {
+                Form::Str(s) => s.clone(),
+                other => panic!("{other:?}"),
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    ExcelRule {
+        ranges,
+        kind,
+        operator,
+        priority,
+        stop,
+        formulas,
+    }
+}
+
+/// The kinds a row says as a formula.
+const FORMULA_KINDS: [&str; 7] = [
+    "expression",
+    "text",
+    "blanks",
+    "no-blanks",
+    "errors",
+    "no-errors",
+    "time-period",
+];
+
+/// A formula as Excel reads a rule's: a reference to the rule's own sheet no longer
+/// names it, in `Formula1` and in Excel's save, though the file said it.
+fn own_sheet_unnamed(formula: &str, sheet: &str) -> String {
+    let mut chars: Vec<char> = formula.chars().collect();
+    for reference in refers::scan(formula).iter().rev() {
+        if reference.sheet_name.eq_ignore_ascii_case(sheet) {
+            chars.drain(reference.pos..reference.part_pos);
+        }
+    }
+    chars.into_iter().collect()
+}
+
+/// What differs between the reader's rule on `sheet` and Excel's reading of one, if
+/// anything: a row's formula being Excel's `Formula1`, but for the kind a reader
+/// rewrites and the name of the rule's own sheet.
+fn rule_differs(ours: &Rule, sheet: &str, excel: &ExcelRule) -> Option<String> {
+    let ranges: BTreeSet<String> = ours.ranges.iter().map(|r| r.text()).collect();
+    if ranges != excel.ranges {
+        return Some(format!("ranges {ranges:?}"));
+    }
+    if ours.stop != excel.stop {
+        return Some(format!("stop {}", ours.stop));
+    }
+    match &ours.test {
+        Test::Cell {
+            operator,
+            first,
+            second,
+        } => {
+            if excel.kind != "cell" || excel.operator != operator.word() {
+                return Some(format!("the operator {}", operator.word()));
+            }
+            let mut said = vec![format!("={first}")];
+            said.extend(second.as_ref().map(|s| format!("={s}")));
+            (said != excel.formulas).then(|| format!("the bounds {said:?}"))
+        }
+        Test::Formula(text) => {
+            if !FORMULA_KINDS.contains(&excel.kind.as_str()) {
+                return Some(format!("a formula, where the kind is {}", excel.kind));
+            }
+            let said = match excel.kind.as_str() {
+                "no-blanks" => text
+                    .strip_prefix("IFERROR(")
+                    .and_then(|t| t.strip_suffix(",TRUE)"))
+                    .unwrap_or(text),
+                _ => text.as_str(),
+            };
+            let said = own_sheet_unnamed(said, sheet);
+            (vec![format!("={said}")] != excel.formulas).then(|| format!("the formula {said}"))
+        }
+    }
+}
+
+/// Each rule of a reading of `bytes` over each `rule:` target's cell, against
+/// Excel's: by the order of its priority, since Excel reads a tie inside one element
+/// alike where a reader numbers its two apart; a kind the language does not compute
+/// no row.
+fn rules_against(file: &str, bytes: &[u8], golden: &[GoldenCase]) -> (usize, Vec<String>) {
+    let (rows, _) =
+        crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
+    let wb = workbook_of(&rows);
+    let mut wrong = Vec::new();
+    let mut held = 0;
+    for case in golden.iter().filter(|c| c.file == file) {
+        let page = wb
+            .sheets
+            .iter()
+            .find(|s| s.name == case.sheet)
+            .expect("the case's sheet");
+        let targets: BTreeSet<&str> = case
+            .targets
+            .iter()
+            .filter(|(t, _)| t.starts_with("rule:"))
+            .map(|(t, _)| t.as_str())
+            .collect();
+        for target in targets {
+            let at = parse_a1_range(&target["rule:".len()..]).expect("a cell");
+            let mut excel: Vec<ExcelRule> = case
+                .targets
+                .iter()
+                .filter(|(t, r)| t == target && r != "none")
+                .map(|(_, r)| excel_rule(r))
+                .filter(|r| r.kind == "cell" || FORMULA_KINDS.contains(&r.kind.as_str()))
+                .collect();
+            excel.sort_by_key(|r| r.priority);
+            let ours: Vec<&Rule> = page
+                .rules()
+                .iter()
+                .filter(|r| r.covers(at.top, at.left))
+                .collect();
+            let name = format!("{file}!{}!{}: {target}", case.sheet, case.name);
+            if ours.len() != excel.len() {
+                wrong.push(format!(
+                    "{name}: {} rules, where Excel reads {}: {ours:?}",
+                    ours.len(),
+                    excel.len()
+                ));
+                continue;
+            }
+            for (o, e) in ours.iter().zip(&excel) {
+                held += 1;
+                if let Some(why) = rule_differs(o, &case.sheet, e) {
+                    wrong.push(format!("{name}: {why}, where Excel reads {e:?}"));
+                }
+            }
+        }
+    }
+    (held, wrong)
+}
+
+#[test]
+fn the_reader_reads_each_rule_as_excel_reads_it() {
+    let golden = golden_read(GOLDEN);
+    let mut wrong: Vec<String> = Vec::new();
+    let mut held = 0;
+    for (_, file, book) in books() {
+        let (n, found) = rules_against(file, &book.bytes(), &golden);
+        held += n;
+        wrong.extend(found);
+    }
+    for (path, file) in SAVES {
+        let bytes = std::fs::read(path).expect("Excel's save");
+        let (n, found) = rules_against(file, &bytes, &golden);
+        held += n;
+        wrong.extend(found.into_iter().map(|w| format!("the save: {w}")));
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {held} rules:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+    assert!(held > 400, "only {held} rules held");
+}
+
+/// The rows the builder keeps of each rule are what the reader says of its
+/// element: each rule of each sheet in its order, its range, its test, its stop
+/// and what its format says, each `dxf` the words [`format_words`] gives it.
+#[test]
+fn the_reader_says_each_rule_as_its_builder_wrote_it() {
+    for (_, file, book) in books() {
+        let (read, stats) = crate::reflect::reflect_looks(&book.bytes(), file)
             .unwrap_or_else(|r| panic!("{file}: {}", r.text));
-        let mut rows = cells;
+        let ours = workbook_of(&loadable(&read));
+        let mut rows: String = read
+            .lines()
+            .filter(|l| !l.starts_with("(conditional "))
+            .flat_map(|l| [l, "\n"])
+            .collect();
         for (k, (_, words)) in format_words().iter().enumerate() {
             if !words.is_empty() {
                 rows.push_str(&format!("(format {} {words})\n", 1000 + k));
@@ -2020,65 +2411,658 @@ fn the_machine_draws_each_case_as_excel_draws_it() {
         for part in &book.parts {
             rows.extend(part.rule_rows.iter().cloned());
         }
-        let mut m = Machine::load(&rows, crate::excel::library())
-            .unwrap_or_else(|e| panic!("{file}: line {}: {}\n{rows}", e.line, e.refusal.text));
-        assert!(m.step(0).done);
-        let wb = m.workbook();
-        for case in golden.iter().filter(|c| c.file == file) {
-            for (target, reading) in &case.targets {
-                let (kind, place) = target.split_once(':').expect("a kind and a place");
-                if kind == "rule" {
-                    continue;
-                }
-                let record = one_cell(&m, &case.sheet, place);
-                let at = parse_a1_range(place).expect("a cell");
-                let agrees = match kind {
-                    "shown" => {
-                        let lit = lit_at(&record);
-                        folded(&wb, &case.sheet, (at.top, at.left), &lit) == read_look(reading)
-                    }
-                    "text" => shown_text(&record) == *reading,
-                    other => panic!("a target of no kind: {other}"),
+        let built = workbook_of(&rows);
+        let mut rules = 0;
+        for (o, b) in ours.sheets.iter().zip(&built.sheets) {
+            assert_eq!(
+                o.rules().len(),
+                b.rules().len(),
+                "{file}!{}: the reader's rules, against the builder's",
+                o.name
+            );
+            for (r, w) in o.rules().iter().zip(b.rules()) {
+                rules += 1;
+                let at = format!("{file}!{} rule {}", o.name, r.priority);
+                assert_eq!(r.range_text(), w.range_text(), "{at}");
+                assert_eq!(r.test, w.test, "{at}");
+                assert_eq!(r.stop, w.stop, "{at}");
+                let says = |wb: &Workbook, rule: &Rule| {
+                    rule.format
+                        .map(|f| wb.styles.get(f).expect("a format").clone())
                 };
-                held += 1;
-                match (agrees, gap(file, &case.sheet, &case.name, target)) {
-                    (true, None) => {}
-                    (true, Some(k)) => {
-                        wrong.push(format!(
-                            "{file}!{}!{}: {target} agrees, and is named a gap: {}",
-                            case.sheet, case.name, GAPS[k].4
-                        ));
+                assert_eq!(says(&ours, r), says(&built, w), "{at}");
+            }
+        }
+        // Every rule in the file a row or counted, and the priorities ordered.
+        let in_file: u64 = book
+            .parts
+            .iter()
+            .map(|p| {
+                let main: usize = p
+                    .conditional
+                    .iter()
+                    .map(|c| c.matches("<cfRule").count())
+                    .sum();
+                (main + p.extension.matches("<x14:cfRule").count()) as u64
+            })
+            .sum();
+        assert_eq!(stats.conditional, in_file, "{file}");
+        let today = u64::from(read.contains("TODAY()"));
+        assert_eq!(
+            rules as u64 + stats.not_computed + today,
+            in_file,
+            "{file}: {stats:?}"
+        );
+        let not_computed = if file == "rules.xlsx" { 7 } else { 0 };
+        assert_eq!(stats.not_computed, not_computed, "{file}");
+    }
+}
+
+/// What a sheet's own rows of a rule read back from `rules.xlsx`: the formats a
+/// file says and no word has are counted, a rule's name and vertical alignment
+/// are not, since they draw nothing, and the note says what a kind leaves.
+#[test]
+fn the_rules_left_out_are_counted_and_said() {
+    let [(_, file, book), ..] = books();
+    let (read, stats) = crate::reflect::reflect_looks(&book.bytes(), file).unwrap();
+    // The cases' five formats with no word: a fill's fgColor under solid, a
+    // pattern, an automatic color, a code's color and a raised text.
+    assert_eq!(stats.unheld, 5, "{stats:?}");
+    assert!(stats.rule_cells > 0);
+    assert_eq!(
+        stats.left_out().as_deref(),
+        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 2 merged ranges, 7 conditional formats of a kind the language does not compute")
+    );
+    assert!(
+        read.contains("=FLOOR(C18,1)=TODAY()"),
+        "a rule a load refuses is still its row"
+    );
+    // A load refuses that one by name, as it refuses the call in a cell.
+    let refused = Machine::load(&read, crate::excel::library()).expect_err("a call of no meaning");
+    assert!(
+        refused.refusal.text.contains("does not compute"),
+        "{}",
+        refused.refusal.text
+    );
+}
+
+/// The writer's own workbook being written: its rows, the row and priority its
+/// next case and rule take, and each case's name and reads.
+struct Written {
+    formats: String,
+    rules: String,
+    cells: String,
+    cases: Vec<(String, String)>,
+    row: u32,
+    priority: u32,
+    format: u32,
+}
+
+impl Written {
+    /// A case at its row, its name in column A and its reads in column B.
+    fn case(&mut self, name: &str, reads: &str) -> u32 {
+        self.row += 2;
+        let row = self.row;
+        let reads = reads.replace("{r}", &row.to_string());
+        self.cells.push_str(&format!(
+            "(cell \"Written\" \"A{row}\" {})\n(cell \"Written\" \"B{row}\" {})\n",
+            quoted(name),
+            quoted(&reads)
+        ));
+        self.cases.push((name.to_string(), reads));
+        row
+    }
+
+    fn format(&mut self, words: &str) -> String {
+        self.format += 1;
+        self.formats
+            .push_str(&format!("(format {} {words})\n", self.format));
+        self.format.to_string()
+    }
+
+    /// A rule at the sheet's next priority: each ten from the last, so that a
+    /// file's gaps stand in what it holds.
+    fn rule(&mut self, range: &str, test: &str, format: &str, stop: bool) {
+        self.priority += 10;
+        self.rules.push_str(&format!(
+            "(conditional \"Written\" {} {} {test} {format}{})\n",
+            self.priority,
+            quoted(range),
+            if stop { " stop" } else { "" }
+        ));
+    }
+
+    fn cell(&mut self, sheet: &str, at: &str, value: &str) {
+        self.cells.push_str(&format!(
+            "(cell {} {} {value})\n",
+            quoted(sheet),
+            quoted(at)
+        ));
+    }
+}
+
+/// A rule's formula as its row spells it.
+fn said(formula: &str) -> String {
+    quoted(&format!("={formula}"))
+}
+
+/// The rows of `rules_written.xlsx` and its cases: every form the writer writes
+/// of a rule and a differential format.
+fn written() -> (String, Vec<(String, String)>) {
+    let mut w = Written {
+        formats: String::new(),
+        rules: String::new(),
+        cells: String::new(),
+        cases: Vec::new(),
+        row: 0,
+        priority: 0,
+        format: 1,
+    };
+    let lit = w.format("(fill \"FFE699\")");
+    let other = w.format("(fill \"9DC3E6\")");
+    let bold = w.format("(font bold)");
+
+    // Each format a rule may say, over a plain cell and a dressed one.
+    let mut words: Vec<String> = format_words()
+        .iter()
+        .map(|(_, words)| words.to_string())
+        .filter(|words| !words.is_empty())
+        .collect();
+    for line in Line::all() {
+        if line != Line::None {
+            words.push(format!("(border (left {} \"800020\"))", line.word()));
+            words.push(format!("(border (top {}))", line.word()));
+        }
+    }
+    words.extend(
+        [
+            "(font bold italic 9.5 \"800020\" underline strike)",
+            "(fill \"FFE699\") (number \"0.000\") (wrap wrap) (font bold) (align right) (border (bottom thin \"800020\"))",
+            "\"FFE699\" general nowrap",
+            "none text wrap (font italic)",
+            "(align general)",
+            "(wrap nowrap)",
+            // What the writer leaves out, which Excel does not draw.
+            "(font (family \"Consolas\" mono))",
+            "(font bold (family \"Consolas\"))",
+            "(align top)",
+            "(align center top)",
+        ]
+        .map(str::to_string),
+    );
+    let mut said_before: BTreeSet<String> = BTreeSet::new();
+    for words in words {
+        if !said_before.insert(words.clone()) {
+            continue;
+        }
+        let row = w.case(
+            &format!("a format saying {words}"),
+            "shown:C{r} text:C{r} shown:E{r} text:E{r} rule:C{r}",
+        );
+        let format = w.format(&words);
+        w.rule(&format!("C{row} E{row}"), &said("1"), &format, false);
+        w.cell("Written", &format!("C{row}"), "12.25");
+        w.cell("Written", &format!("E{row}"), "12.25");
+        w.cells
+            .push_str(&format!("(style \"Written\" \"E{row}\" 1)\n"));
+    }
+
+    // Each operator, a cell it lights and one it does not.
+    for (word, bounds, on, off) in [
+        ("less", &["5"][..], "3", "7"),
+        ("less-or-equal", &["5"], "5", "7"),
+        ("equal", &["5"], "5", "7"),
+        ("not-equal", &["5"], "7", "5"),
+        ("greater-or-equal", &["5"], "5", "3"),
+        ("greater", &["5"], "7", "5"),
+        ("between", &["1", "5"], "3", "7"),
+        ("between", &["5", "1"], "3", "7"),
+        ("not-between", &["1", "5"], "7", "3"),
+    ] {
+        let bounds: Vec<String> = bounds.iter().map(|b| said(b)).collect();
+        let bounds = bounds.join(" ");
+        let row = w.case(
+            &format!("a cell {word} {bounds}"),
+            "shown:C{r} shown:D{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}:D{row}"),
+            &format!("(cell {word} {bounds})"),
+            &lit,
+            false,
+        );
+        w.cell("Written", &format!("C{row}"), on);
+        w.cell("Written", &format!("D{row}"), off);
+    }
+    let row = w.case("a bound reading a cell", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &format!("(cell equal {})", said(&format!("$F{row}"))),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("C{row}"), "5");
+    w.cell("Written", &format!("D{row}"), "7");
+    w.cell("Written", &format!("F{row}"), "5");
+    let row = w.case("a bound of a text", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &format!("(cell equal {})", said("\"abc\"")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("C{row}"), "\"abc\"");
+    w.cell("Written", &format!("D{row}"), "\"xyz\"");
+
+    // References, and the rectangles of a range.
+    let row = w.case("a reference moving", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &said(&format!("F{row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("F{row}"), "1");
+    w.cell("Written", &format!("G{row}"), "0");
+    let row = w.case("a reference fixed", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &said(&format!("$F${row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("F{row}"), "1");
+    let row = w.case("rectangles out of order", "shown:C{r} shown:E{r} rule:C{r}");
+    w.rule(
+        &format!("E{row} C{row}"),
+        &said(&format!("G{row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("G{row}"), "1");
+    w.cell("Written", &format!("I{row}"), "0");
+    let row = w.case("the rule's own sheet named", "shown:C{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}"),
+        &said(&format!("Written!$F${row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("F{row}"), "1");
+    let row = w.case("a name reading another sheet", "shown:C{r} rule:C{r}");
+    w.rule(&format!("C{row}"), &said("seen_one=1"), &lit, false);
+    let row = w.case("what markup must escape", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &said(&format!("AND(C{row}<5,C{row}&\"<&>\"=\"3<&>\")")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("C{row}"), "3");
+    w.cell("Written", &format!("D{row}"), "4");
+    let row = w.case("a newer function", "shown:C{r} shown:D{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}:D{row}"),
+        &said(&format!("IFNA(C{row},0)=5")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("C{row}"), "5");
+    w.cell("Written", &format!("D{row}"), "7");
+
+    // The order of several.
+    let row = w.case(
+        "two rules saying different properties",
+        "shown:C{r} rule:C{r}",
+    );
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    w.rule(&format!("C{row}"), &said("1"), &bold, false);
+    let row = w.case("two rules saying one property", "shown:C{r} rule:C{r}");
+    w.rule(&format!("C{row}"), &said("1"), &other, false);
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    let row = w.case("a stop", "shown:C{r} rule:C{r}");
+    w.rule(&format!("C{row}"), &said("1"), &lit, true);
+    w.rule(&format!("C{row}"), &said("1"), &bold, false);
+    let row = w.case("a stop saying nothing", "shown:C{r} rule:C{r}");
+    w.rule(&format!("C{row}"), &said("1"), "none", true);
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    let row = w.case("two ranges", "shown:C{r} shown:D{r} rule:C{r} rule:D{r}");
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    w.rule(&format!("C{row}:D{row}"), &said("1"), &other, false);
+
+    // Rules reading another sheet, in the extension.
+    for (name, sheet, spelled) in [
+        ("visible", "Seen", "Seen"),
+        ("hidden", "Not Seen", "'Not Seen'"),
+    ] {
+        let row = w.case(
+            &format!("a fixed cell on a {name} sheet holding 1"),
+            "shown:C{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}"),
+            &said(&format!("{spelled}!$C${row}=1")),
+            &lit,
+            false,
+        );
+        w.cell(sheet, &format!("C{row}"), "1");
+        let row = w.case(
+            &format!("a fixed cell on a {name} sheet holding 0"),
+            "shown:C{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}"),
+            &said(&format!("{spelled}!$C${row}=1")),
+            &lit,
+            false,
+        );
+        w.cell(sheet, &format!("C{row}"), "0");
+        let row = w.case(
+            &format!("a relative cell on a {name} sheet"),
+            "shown:C{r} shown:D{r} shown:E{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}:E{row}"),
+            &said(&format!("{spelled}!C{row}=1")),
+            &lit,
+            false,
+        );
+        for (col, value) in ["C", "D", "E"].into_iter().zip(["1", "0", "1"]) {
+            w.cell(sheet, &format!("{col}{row}"), value);
+        }
+        let row = w.case(
+            &format!("a cell against a {name} sheet"),
+            "shown:C{r} shown:D{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}:D{row}"),
+            &format!("(cell equal {})", said(&format!("{spelled}!$C${row}"))),
+            &lit,
+            false,
+        );
+        w.cell("Written", &format!("C{row}"), "7");
+        w.cell("Written", &format!("D{row}"), "8");
+        w.cell(sheet, &format!("C{row}"), "7");
+        let row = w.case(
+            &format!("a cell between two of a {name} sheet"),
+            "shown:C{r} shown:D{r} rule:C{r}",
+        );
+        w.rule(
+            &format!("C{row}:D{row}"),
+            &format!(
+                "(cell between {} {})",
+                said(&format!("{spelled}!$C${row}")),
+                said(&format!("{spelled}!$D${row}"))
+            ),
+            &lit,
+            false,
+        );
+        w.cell("Written", &format!("C{row}"), "5");
+        w.cell("Written", &format!("D{row}"), "50");
+        w.cell(sheet, &format!("C{row}"), "1");
+        w.cell(sheet, &format!("D{row}"), "9");
+    }
+    let row = w.case(
+        "a stop elsewhere over a rule of the sheet's own",
+        "shown:C{r} rule:C{r}",
+    );
+    w.rule(
+        &format!("C{row}"),
+        &said(&format!("Seen!$C${row}=1")),
+        &lit,
+        true,
+    );
+    w.rule(&format!("C{row}"), &said("1"), &bold, false);
+    w.cell("Seen", &format!("C{row}"), "1");
+    let row = w.case(
+        "a rule of the sheet's own over one elsewhere",
+        "shown:C{r} rule:C{r}",
+    );
+    w.rule(&format!("C{row}"), &said("1"), &other, false);
+    w.rule(
+        &format!("C{row}"),
+        &said(&format!("Seen!$C${row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Seen", &format!("C{row}"), "1");
+    let row = w.case("a stop elsewhere saying nothing", "shown:C{r} rule:C{r}");
+    w.rule(
+        &format!("C{row}"),
+        &said(&format!("Seen!$C${row}=1")),
+        "none",
+        true,
+    );
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    w.cell("Seen", &format!("C{row}"), "1");
+    let row = w.case(
+        "every group of a format elsewhere",
+        "shown:C{r} text:C{r} shown:E{r} text:E{r} rule:C{r}",
+    );
+    let every = w.format("(fill \"FFE699\") (number \"0.000\") (wrap wrap) (font bold \"800020\" underline strike) (align right) (border (bottom thin \"800020\") (top none))");
+    w.rule(
+        &format!("C{row} E{row}"),
+        &said(&format!("Seen!$C${row}=1")),
+        &every,
+        false,
+    );
+    w.cell("Written", &format!("C{row}"), "12.25");
+    w.cell("Written", &format!("E{row}"), "12.25");
+    w.cells
+        .push_str(&format!("(style \"Written\" \"E{row}\" 1)\n"));
+    w.cell("Seen", &format!("C{row}"), "1");
+
+    let rows = format!(
+        "(sheet \"Written\" visible)\n(sheet \"Seen\" visible)\n(sheet \"Not Seen\" hidden)\n\
+         (name \"seen_one\" \"Seen!$C$1\")\n\
+         (column \"Written\" \"A\" 40 shown none)\n(column \"Written\" \"B\" 40 shown none)\n\
+         (column \"Written\" \"C\" 14 shown none)\n(column \"Written\" \"E\" 14 shown none)\n\
+         (format 1 \"CCFFCC\" \"0.0\" nowrap (font bold italic \"0000FF\" underline strike) (border (left thin \"000000\") (right thin \"000000\") (top thin \"000000\") (bottom thin \"000000\")))\n\
+         {}{}(cell \"Written\" \"A1\" \"case\")\n(cell \"Written\" \"B1\" \"reads\")\n(cell \"Seen\" \"C1\" 1)\n{}",
+        w.formats, w.rules, w.cells
+    );
+    (rows, w.cases)
+}
+
+/// `rules_written.xlsx`, as the writer writes its rows.
+fn written_bytes() -> Vec<u8> {
+    let (rows, _) = written();
+    ooxml::workbook_bytes(&workbook_of(&rows)).expect("the file's sizes")
+}
+
+/// The golden as the language predicts it, written before Excel's run: its first
+/// line says so, and `git diff --no-index` against it is the run's witness.
+fn predicted_written() -> String {
+    let (_, cases) = written();
+    let bytes = written_bytes();
+    let (rows, _) = crate::reflect::reflect_looks(&bytes, "rules_written.xlsx").unwrap();
+    let mut m = Machine::load(&loadable(&rows), crate::excel::library())
+        .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+    assert!(m.step(0).done);
+    let wb = m.workbook();
+    let page = wb.sheets.iter().find(|s| s.name == "Written").unwrap();
+    let mut out = String::from("source\tprediction\r\n");
+    for (name, reads) in &cases {
+        out.push_str(&format!("=== rules_written.xlsx!Written!{name}\r\n"));
+        for target in reads.split(' ') {
+            let (kind, place) = target.split_once(':').unwrap();
+            let at = parse_a1_range(place).unwrap();
+            let record = one_cell(&m, "Written", place);
+            match kind {
+                "shown" => {
+                    let lit = lit_at(&record);
+                    let mut fold = fold_of(&wb, "Written", (at.top, at.left), &lit);
+                    // A word saying a default is nothing to read.
+                    fold.font.bold = fold.font.bold.filter(|on| *on);
+                    fold.font.italic = fold.font.italic.filter(|on| *on);
+                    fold.font.strike = fold.font.strike.filter(|on| *on);
+                    fold.font.underline = fold
+                        .font
+                        .underline
+                        .filter(|u| *u != vla_lang::sheet::Underline::None);
+                    fold.align.horizontal = fold
+                        .align
+                        .horizontal
+                        .filter(|h| *h != vla_lang::sheet::Horizontal::General);
+                    let none = |e: &Option<vla_lang::sheet::Edge>| {
+                        e.filter(|edge| edge.line != Line::None)
+                    };
+                    fold.border.left = none(&fold.border.left);
+                    fold.border.right = none(&fold.border.right);
+                    fold.border.top = none(&fold.border.top);
+                    fold.border.bottom = none(&fold.border.bottom);
+                    if reads_top(&wb, "Written", &lit) {
+                        fold.align.vertical = Some(Vertical::Top);
                     }
-                    (false, Some(k)) => seen[k] = true,
-                    (false, None) => {
-                        let ours: Vec<&str> = record
-                            .lines()
-                            .filter(|l| {
-                                l.starts_with("(lit ")
-                                    || l.starts_with("(text ")
-                                    || l.starts_with("(style ")
-                            })
+                    let line = record_line(&Record::Format {
+                        index: 0,
+                        style: Some(&fold),
+                        code: None,
+                    });
+                    let body = line
+                        .strip_prefix("(format 0 ")
+                        .and_then(|l| l.strip_suffix(')'))
+                        .unwrap();
+                    out.push_str(&format!("{target}\t{body}\r\n"));
+                }
+                "text" => out.push_str(&format!("{target}\t{}\r\n", shown_text(&record))),
+                _ => {
+                    let over: Vec<&Rule> = page
+                        .rules()
+                        .iter()
+                        .filter(|r| r.covers(at.top, at.left))
+                        .collect();
+                    if over.is_empty() {
+                        out.push_str(&format!("{target}\tnone\r\n"));
+                    }
+                    for rule in over {
+                        let ranges: Vec<String> = rule.ranges.iter().map(|r| r.text()).collect();
+                        let (kind, operator) = match &rule.test {
+                            Test::Formula(_) => ("expression", "-"),
+                            Test::Cell { operator, .. } => ("cell", operator.word()),
+                        };
+                        let formulas: Vec<String> = rule
+                            .formulas()
+                            .iter()
+                            .map(|f| quoted(&format!("={f}")))
                             .collect();
-                        wrong.push(format!(
-                            "{file}!{}!{}: {target}: Excel reads {reading}; the machine's rows {ours:?}",
-                            case.sheet, case.name
+                        out.push_str(&format!(
+                            "{target}\t{} {kind} {operator} {} {} {}\r\n",
+                            ranges.join(","),
+                            rule.priority,
+                            if rule.stop { "stop" } else { "go" },
+                            formulas.join(" ")
                         ));
                     }
                 }
             }
         }
     }
-    for (k, (f, s, c, _, why)) in GAPS.iter().enumerate() {
-        if !seen[k] {
-            wrong.push(format!("{f}!{s}!{c}: a gap no target met: {why}"));
+    out
+}
+
+/// Every form the writer writes is what its rows said, read back: a rule's range,
+/// test, stop and what its format says, but what `rules_left_out` names; the
+/// bytes held, which the owner opens in Excel.
+#[test]
+fn a_rule_written_and_read_is_itself() {
+    let (rows, _) = written();
+    let wb = workbook_of(&rows);
+    let bytes = written_bytes();
+    if std::env::var("FRAZARO_BLESS").as_deref() == Ok("1") {
+        std::fs::write(WRITTEN, &bytes).expect("the fixture written");
+        let golden = std::fs::read_to_string(WRITTEN_GOLDEN).unwrap_or_default();
+        if !golden.starts_with("source\texcel") {
+            std::fs::write(WRITTEN_GOLDEN, predicted_written()).expect("the prediction written");
         }
+    }
+    let held = std::fs::read(WRITTEN)
+        .unwrap_or_else(|_| panic!("{WRITTEN}: FRAZARO_BLESS=1 and the core's tests write it"));
+    assert!(
+        held == bytes,
+        "{WRITTEN} is not what the writer writes today: FRAZARO_BLESS=1 writes it again"
+    );
+    let (read, stats) = crate::reflect::reflect_looks(&bytes, "rules_written.xlsx").unwrap();
+    assert_eq!(stats.left_out(), None, "{stats:?}");
+    assert_eq!(stats.not_computed, 0);
+    let back = workbook_of(&read);
+    let sheet = |wb: &'_ Workbook| wb.sheets.iter().find(|s| s.name == "Written").cloned();
+    let (ours, theirs) = (sheet(&wb).unwrap(), sheet(&back).unwrap());
+    assert!(ours.rules().len() > 100, "{}", ours.rules().len());
+    assert_eq!(ours.rules().len(), theirs.rules().len());
+    // What the writer leaves out of a format, which Excel does not draw.
+    let without = |style: &Style| {
+        let mut s = style.clone();
+        s.family = None;
+        s.align.vertical = None;
+        (s != Style::partial()).then_some(s)
+    };
+    for (o, t) in ours.rules().iter().zip(theirs.rules()) {
+        let at = format!("rule {}: {}", o.priority, o.range_text());
+        assert_eq!(o.priority, t.priority, "{at}");
+        assert_eq!(o.ranges, t.ranges, "{at}");
+        assert_eq!(o.test, t.test, "{at}");
+        assert_eq!(o.stop, t.stop, "{at}");
+        let said = o.format.and_then(|f| without(wb.styles.get(f).unwrap()));
+        let got = t.format.map(|f| back.styles.get(f).unwrap().clone());
+        assert_eq!(said, got, "{at}");
+    }
+    // A rule's rows name each left-out word, and each sheet's other rows stand.
+    assert_eq!(
+        ooxml::rules_left_out(&wb).len(),
+        4,
+        "{:?}",
+        ooxml::rules_left_out(&wb)
+    );
+    // The cells read as they were written: the machine draws the same either way
+    // once the left-out words are gone.
+    for line in rows.lines().filter(|l| l.starts_with("(cell ")) {
+        assert!(read.lines().any(|l| l == line), "{line}");
+    }
+}
+
+/// What the machine draws of the writer's workbook, and of Excel's save of it,
+/// each to Excel's reading of the workbook: the writer's forms, opened by Excel
+/// with no repair, draw there as the language draws them.
+#[test]
+fn the_machine_draws_the_written_workbook_as_excel_draws_it() {
+    let golden = golden_read(WRITTEN_GOLDEN);
+    let source = std::fs::read_to_string(WRITTEN_GOLDEN).unwrap();
+    let excel = source.starts_with("source\texcel");
+    let bytes = written_bytes();
+    let (held, mut wrong) = drawn_against("rules_written.xlsx", &bytes, &golden, &[]);
+    let (rules, found) = rules_against("rules_written.xlsx", &bytes, &golden);
+    wrong.extend(found);
+    if excel {
+        let saved = std::fs::read(WRITTEN_SAVED).expect("Excel's save");
+        let (_, found) = drawn_against("rules_written.xlsx", &saved, &golden, &[]);
+        wrong.extend(found.into_iter().map(|w| format!("the save: {w}")));
+        let (_, found) = rules_against("rules_written.xlsx", &saved, &golden);
+        wrong.extend(found.into_iter().map(|w| format!("the save: {w}")));
     }
     assert!(
         wrong.is_empty(),
-        "{} of {held} targets:\n{}",
+        "{} of {held} targets and {rules} rules:\n{}",
         wrong.len(),
         wrong.join("\n")
     );
+    assert!(held > 300 && rules > 100, "{held} targets, {rules} rules");
+}
+
+#[test]
+fn the_written_golden_reads_every_case_of_the_workbook() {
+    let (_, cases) = written();
+    let got = golden_cases(WRITTEN_GOLDEN);
+    assert_eq!(
+        got.len(),
+        cases.len(),
+        "the golden's cases, against the rows'"
+    );
+    for ((got_name, got_targets), (name, reads)) in got.iter().zip(&cases) {
+        assert_eq!(got_name, &format!("rules_written.xlsx!Written!{name}"));
+        let reads: Vec<&str> = reads.split(' ').collect();
+        assert_eq!(got_targets, &reads, "{name}");
+    }
 }
 
 #[test]
@@ -2094,7 +3078,7 @@ fn the_rules_golden_reads_every_case_of_the_builder() {
             }
         }
     }
-    let got = golden_cases();
+    let got = golden_cases(GOLDEN);
     let names: BTreeSet<&String> = want.iter().map(|(name, _)| name).collect();
     assert_eq!(names.len(), want.len(), "two cases of one name");
     assert_eq!(

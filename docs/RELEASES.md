@@ -158,12 +158,29 @@
   top left of the rectangle around its rectangles, as Excel moves one, and is true
   as `IF` reads it. A range bringing the cells rules answer for past 1,048,576 is
   refused by name (`grid-rule-cells`), so that a rule over a whole column fills that
-  room alone. A grid holding no rule plans, steps and prints as it did. No door holds
-  a rule yet: the writer and the readers take one in a later slice, and until then the
-  writer leaves a sheet's rules out, and a record viewed with no machine prints a
-  rule's row and no answer. `Sheet` gains the rules, 8 bytes a sheet, and is
-  `#[non_exhaustive]`, so a sheet is made by `Sheet::new`; `Record` gains `Conditional`
-  and `Lit`; the rule is `vla_lang::rule` (KERNEL.58's third slice).
+  room alone. A grid holding no rule plans, steps and prints as it did. A record
+  viewed with no machine prints a rule's row and no answer. `Sheet` gains the rules, 8
+  bytes a sheet, and is `#[non_exhaustive]`, so a sheet is made by `Sheet::new`; `Record`
+  gains `Conditional` and `Lit`; the rule is `vla_lang::rule` (KERNEL.58's third slice).
+
+- **A conditional format through a file.** `frazaro reflect --looks` prints a
+  package's conditional formats as rows, where it counted them as left out, each with
+  the format it names, so that a workbook's highlights load with it; an `.ods` file's
+  are still counted and said. Each kind holding a formula of its own is that formula. A
+  color scale, a data bar, an icon set, a top value, an average, a duplicate and a value
+  alone are left out, counted and said, and `--counts` gains `not-computed` and
+  `rule-cells`, the cells the rules answer for. A load refuses a rule calling a function
+  the language does not compute, as it refuses that call in a cell, and a date rule's
+  `TODAY` is one such. The writer writes a sheet's rules: each format a rule names as
+  the differential format it is, saying what it says and no more, and a rule reading
+  another sheet in the sheet's extension, as Excel's save writes one. What Excel does not
+  draw of a rule's format, a font's family and a vertical alignment, and a rule no file
+  can spell, a sheet's last frame or another workbook, it leaves out, and the new
+  `ooxml::rules_left_out` names them for a door to say. A workbook holding no rule writes
+  what it wrote, byte for byte. `Render` gains `dxf_base` and `rules`, takes a lifetime
+  and is `#[non_exhaustive]`, and `LooksStats` gains `not_computed`, `rule_cells` and
+  `rules_unread`; `Operator` gains `excel` and `from_excel`, and `Rule` gains `cells`
+  (KERNEL.58's fourth slice).
 
 - **`ADDRESS` computes.** A cell's address as a text from its row and its column:
   `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and

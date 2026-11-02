@@ -90,7 +90,9 @@ usage:
                          extent that have settings and the formats its cells
                          use before its cells, a formula's saved value as a
                          value row after it, a date as its serial, each
-                         cell's style row after its rows; what the record
+                         cell's style row after its rows, and a package's
+                         conditional formats as rows of their own, each with
+                         the format it names; what the record
                          cannot hold is left out and said on stderr, and
                          --looks --counts counts it (an .ods file's looks
                          read from its styles, its data styles and its

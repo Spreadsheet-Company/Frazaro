@@ -1,0 +1,617 @@
+source	excel 16.0 20527
+=== rules_written.xlsx!Written!a format saying (fill "FFE699")
+shown:C2	"FFE699" general nowrap
+text:C2	"12.25"
+shown:E2	"FFE699" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E2	"12.3"
+rule:C2	C2,E2 expression - 10 go "=1"
+=== rules_written.xlsx!Written!a format saying (fill "9DC3E6")
+shown:C4	"9DC3E6" general nowrap
+text:C4	"12.25"
+shown:E4	"9DC3E6" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E4	"12.3"
+rule:C4	C4,E4 expression - 20 go "=1"
+=== rules_written.xlsx!Written!a format saying (font bold)
+shown:C6	none general nowrap (font bold)
+text:C6	"12.25"
+shown:E6	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E6	"12.3"
+rule:C6	C6,E6 expression - 30 go "=1"
+=== rules_written.xlsx!Written!a format saying (font italic)
+shown:C8	none general nowrap (font italic)
+text:C8	"12.25"
+shown:E8	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E8	"12.3"
+rule:C8	C8,E8 expression - 40 go "=1"
+=== rules_written.xlsx!Written!a format saying (fill none)
+shown:C10	none general nowrap
+text:C10	"12.25"
+shown:E10	none "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E10	"12.3"
+rule:C10	C10,E10 expression - 50 go "=1"
+=== rules_written.xlsx!Written!a format saying (fill "8EA9DB")
+shown:C12	"8EA9DB" general nowrap
+text:C12	"12.25"
+shown:E12	"8EA9DB" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E12	"12.3"
+rule:C12	C12,E12 expression - 60 go "=1"
+=== rules_written.xlsx!Written!a format saying (fill "FF0000")
+shown:C14	"FF0000" general nowrap
+text:C14	"12.25"
+shown:E14	"FF0000" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E14	"12.3"
+rule:C14	C14,E14 expression - 70 go "=1"
+=== rules_written.xlsx!Written!a format saying (font not-bold)
+shown:C16	none general nowrap
+text:C16	"12.25"
+shown:E16	"CCFFCC" "0.0" nowrap (font italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E16	"12.3"
+rule:C16	C16,E16 expression - 80 go "=1"
+=== rules_written.xlsx!Written!a format saying (font not-italic)
+shown:C18	none general nowrap
+text:C18	"12.25"
+shown:E18	"CCFFCC" "0.0" nowrap (font bold "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E18	"12.3"
+rule:C18	C18,E18 expression - 90 go "=1"
+=== rules_written.xlsx!Written!a format saying (font "800020")
+shown:C20	none general nowrap (font "800020")
+text:C20	"12.25"
+shown:E20	"CCFFCC" "0.0" nowrap (font bold italic "800020" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E20	"12.3"
+rule:C20	C20,E20 expression - 100 go "=1"
+=== rules_written.xlsx!Written!a format saying (font "0000FF")
+shown:C22	none general nowrap (font "0000FF")
+text:C22	"12.25"
+shown:E22	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E22	"12.3"
+rule:C22	C22,E22 expression - 110 go "=1"
+=== rules_written.xlsx!Written!a format saying (font "800020") (fill "FFE699")
+shown:C24	"FFE699" general nowrap (font "800020")
+text:C24	"12.25"
+shown:E24	"FFE699" "0.0" nowrap (font bold italic "800020" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E24	"12.3"
+rule:C24	C24,E24 expression - 120 go "=1"
+=== rules_written.xlsx!Written!a format saying (font "4472C4")
+shown:C26	none general nowrap (font "4472C4")
+text:C26	"12.25"
+shown:E26	"CCFFCC" "0.0" nowrap (font bold italic "4472C4" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E26	"12.3"
+rule:C26	C26,E26 expression - 130 go "=1"
+=== rules_written.xlsx!Written!a format saying (font underline)
+shown:C28	none general nowrap (font underline)
+text:C28	"12.25"
+shown:E28	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E28	"12.3"
+rule:C28	C28,E28 expression - 140 go "=1"
+=== rules_written.xlsx!Written!a format saying (font double-underline)
+shown:C30	none general nowrap (font double-underline)
+text:C30	"12.25"
+shown:E30	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" double-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E30	"12.3"
+rule:C30	C30,E30 expression - 150 go "=1"
+=== rules_written.xlsx!Written!a format saying (font accounting-underline)
+shown:C32	none general nowrap (font accounting-underline)
+text:C32	"12.25"
+shown:E32	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" accounting-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E32	"12.3"
+rule:C32	C32,E32 expression - 160 go "=1"
+=== rules_written.xlsx!Written!a format saying (font double-accounting-underline)
+shown:C34	none general nowrap (font double-accounting-underline)
+text:C34	"12.25"
+shown:E34	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" double-accounting-underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E34	"12.3"
+rule:C34	C34,E34 expression - 170 go "=1"
+=== rules_written.xlsx!Written!a format saying (font not-underline)
+shown:C36	none general nowrap
+text:C36	"12.25"
+shown:E36	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E36	"12.3"
+rule:C36	C36,E36 expression - 180 go "=1"
+=== rules_written.xlsx!Written!a format saying (font strike)
+shown:C38	none general nowrap (font strike)
+text:C38	"12.25"
+shown:E38	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E38	"12.3"
+rule:C38	C38,E38 expression - 190 go "=1"
+=== rules_written.xlsx!Written!a format saying (font not-strike)
+shown:C40	none general nowrap
+text:C40	"12.25"
+shown:E40	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E40	"12.3"
+rule:C40	C40,E40 expression - 200 go "=1"
+=== rules_written.xlsx!Written!a format saying (number "0.000")
+shown:C42	none general nowrap
+text:C42	"12.250"
+shown:E42	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E42	"12.250"
+rule:C42	C42,E42 expression - 210 go "=1"
+=== rules_written.xlsx!Written!a format saying (number "0.00")
+shown:C44	none general nowrap
+text:C44	"12.25"
+shown:E44	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E44	"12.25"
+rule:C44	C44,E44 expression - 220 go "=1"
+=== rules_written.xlsx!Written!a format saying (number general)
+shown:C46	none general nowrap
+text:C46	"12.25"
+shown:E46	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E46	"12.25"
+rule:C46	C46,E46 expression - 230 go "=1"
+=== rules_written.xlsx!Written!a format saying (number text)
+shown:C48	none general nowrap
+text:C48	"12.25"
+shown:E48	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E48	"12.25"
+rule:C48	C48,E48 expression - 240 go "=1"
+=== rules_written.xlsx!Written!a format saying (number "0.00\" kg\"")
+shown:C50	none general nowrap
+text:C50	"12.25 kg"
+shown:E50	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E50	"12.25 kg"
+rule:C50	C50,E50 expression - 250 go "=1"
+=== rules_written.xlsx!Written!a format saying (font 20)
+shown:C52	none general nowrap (font 20)
+text:C52	"12.25"
+shown:E52	"CCFFCC" "0.0" nowrap (font bold italic 20 "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E52	"12.3"
+rule:C52	C52,E52 expression - 260 go "=1"
+=== rules_written.xlsx!Written!a format saying (align center)
+shown:C54	none general nowrap (align center top)
+text:C54	"12.25"
+shown:E54	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align center top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E54	"12.3"
+rule:C54	C54,E54 expression - 270 go "=1"
+=== rules_written.xlsx!Written!a format saying (wrap wrap)
+shown:C56	none general wrap (align top)
+text:C56	"12.25"
+shown:E56	"CCFFCC" "0.0" wrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E56	"12.3"
+rule:C56	C56,E56 expression - 280 go "=1"
+=== rules_written.xlsx!Written!a format saying (font 20) (fill "FFE699")
+shown:C58	"FFE699" general nowrap (font 20)
+text:C58	"12.25"
+shown:E58	"FFE699" "0.0" nowrap (font bold italic 20 "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E58	"12.3"
+rule:C58	C58,E58 expression - 290 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thin "800020") (right none) (top none) (bottom none))
+shown:C60	none general nowrap (border (left thin "800020"))
+text:C60	"12.25"
+shown:E60	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "800020"))
+text:E60	"12.3"
+rule:C60	C60,E60 expression - 300 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thin "800020"))
+shown:C62	none general nowrap (border (left thin "800020"))
+text:C62	"12.25"
+shown:E62	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E62	"12.3"
+rule:C62	C62,E62 expression - 310 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (right thin "0000FF"))
+shown:C64	none general nowrap (border (right thin "0000FF"))
+text:C64	"12.25"
+shown:E64	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "0000FF") (top thin "000000") (bottom thin "000000"))
+text:E64	"12.3"
+rule:C64	C64,E64 expression - 320 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thin "0000FF") (right thin "0000FF") (top none) (bottom none))
+shown:C66	none general nowrap (border (left thin "0000FF") (right thin "0000FF"))
+text:C66	"12.25"
+shown:E66	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "0000FF") (right thin "0000FF"))
+text:E66	"12.3"
+rule:C66	C66,E66 expression - 330 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left none) (right thin "800020") (top none) (bottom none))
+shown:C68	none general nowrap (border (right thin "800020"))
+text:C68	"12.25"
+shown:E68	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (right thin "800020"))
+text:E68	"12.3"
+rule:C68	C68,E68 expression - 340 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left none) (right none) (top thin "800020") (bottom none))
+shown:C70	none general nowrap (border (top thin "800020"))
+text:C70	"12.25"
+shown:E70	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (top thin "800020"))
+text:E70	"12.3"
+rule:C70	C70,E70 expression - 350 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left none) (right none) (top none) (bottom thin "800020"))
+shown:C72	none general nowrap (border (bottom thin "800020"))
+text:C72	"12.25"
+shown:E72	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (bottom thin "800020"))
+text:E72	"12.3"
+rule:C72	C72,E72 expression - 360 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left medium "800020") (right none) (top none) (bottom none))
+shown:C74	none general nowrap (border (left medium "800020"))
+text:C74	"12.25"
+shown:E74	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium "800020"))
+text:E74	"12.3"
+rule:C74	C74,E74 expression - 370 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thick "800020") (right none) (top none) (bottom none))
+shown:C76	none general nowrap (border (left thick "800020"))
+text:C76	"12.25"
+shown:E76	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thick "800020"))
+text:E76	"12.3"
+rule:C76	C76,E76 expression - 380 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left double "800020") (right none) (top none) (bottom none))
+shown:C78	none general nowrap (border (left double "800020"))
+text:C78	"12.25"
+shown:E78	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left double "800020"))
+text:E78	"12.3"
+rule:C78	C78,E78 expression - 390 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left dashed "800020") (right none) (top none) (bottom none))
+shown:C80	none general nowrap (border (left dashed "800020"))
+text:C80	"12.25"
+shown:E80	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dashed "800020"))
+text:E80	"12.3"
+rule:C80	C80,E80 expression - 400 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thin) (right none) (top none) (bottom none))
+shown:C82	none general nowrap (border (left thin))
+text:C82	"12.25"
+shown:E82	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin))
+text:E82	"12.3"
+rule:C82	C82,E82 expression - 410 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left none) (right none) (top none) (bottom none))
+shown:C84	none general nowrap
+text:C84	"12.25"
+shown:E84	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike)
+text:E84	"12.3"
+rule:C84	C84,E84 expression - 420 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left none))
+shown:C86	none general nowrap
+text:C86	"12.25"
+shown:E86	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E86	"12.3"
+rule:C86	C86,E86 expression - 430 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top thin))
+shown:C88	none general nowrap (border (top thin))
+text:C88	"12.25"
+shown:E88	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin) (bottom thin "000000"))
+text:E88	"12.3"
+rule:C88	C88,E88 expression - 440 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left medium "800020"))
+shown:C90	none general nowrap (border (left medium "800020"))
+text:C90	"12.25"
+shown:E90	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E90	"12.3"
+rule:C90	C90,E90 expression - 450 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top medium))
+shown:C92	none general nowrap (border (top medium))
+text:C92	"12.25"
+shown:E92	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top medium) (bottom thin "000000"))
+text:E92	"12.3"
+rule:C92	C92,E92 expression - 460 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left thick "800020"))
+shown:C94	none general nowrap (border (left thick "800020"))
+text:C94	"12.25"
+shown:E94	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thick "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E94	"12.3"
+rule:C94	C94,E94 expression - 470 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top thick))
+shown:C96	none general nowrap (border (top thick))
+text:C96	"12.25"
+shown:E96	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thick) (bottom thin "000000"))
+text:E96	"12.3"
+rule:C96	C96,E96 expression - 480 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left double "800020"))
+shown:C98	none general nowrap (border (left double "800020"))
+text:C98	"12.25"
+shown:E98	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left double "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E98	"12.3"
+rule:C98	C98,E98 expression - 490 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top double))
+shown:C100	none general nowrap (border (top double))
+text:C100	"12.25"
+shown:E100	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top double) (bottom thin "000000"))
+text:E100	"12.3"
+rule:C100	C100,E100 expression - 500 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left hair "800020"))
+shown:C102	none general nowrap (border (left hair "800020"))
+text:C102	"12.25"
+shown:E102	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left hair "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E102	"12.3"
+rule:C102	C102,E102 expression - 510 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top hair))
+shown:C104	none general nowrap (border (top hair))
+text:C104	"12.25"
+shown:E104	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top hair) (bottom thin "000000"))
+text:E104	"12.3"
+rule:C104	C104,E104 expression - 520 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left dotted "800020"))
+shown:C106	none general nowrap (border (left dotted "800020"))
+text:C106	"12.25"
+shown:E106	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dotted "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E106	"12.3"
+rule:C106	C106,E106 expression - 530 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top dotted))
+shown:C108	none general nowrap (border (top dotted))
+text:C108	"12.25"
+shown:E108	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top dotted) (bottom thin "000000"))
+text:E108	"12.3"
+rule:C108	C108,E108 expression - 540 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left dashed "800020"))
+shown:C110	none general nowrap (border (left dashed "800020"))
+text:C110	"12.25"
+shown:E110	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dashed "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E110	"12.3"
+rule:C110	C110,E110 expression - 550 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top dashed))
+shown:C112	none general nowrap (border (top dashed))
+text:C112	"12.25"
+shown:E112	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top dashed) (bottom thin "000000"))
+text:E112	"12.3"
+rule:C112	C112,E112 expression - 560 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left dash-dot "800020"))
+shown:C114	none general nowrap (border (left dash-dot "800020"))
+text:C114	"12.25"
+shown:E114	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dash-dot "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E114	"12.3"
+rule:C114	C114,E114 expression - 570 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top dash-dot))
+shown:C116	none general nowrap (border (top dash-dot))
+text:C116	"12.25"
+shown:E116	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top dash-dot) (bottom thin "000000"))
+text:E116	"12.3"
+rule:C116	C116,E116 expression - 580 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left dash-dot-dot "800020"))
+shown:C118	none general nowrap (border (left dash-dot-dot "800020"))
+text:C118	"12.25"
+shown:E118	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left dash-dot-dot "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E118	"12.3"
+rule:C118	C118,E118 expression - 590 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top dash-dot-dot))
+shown:C120	none general nowrap (border (top dash-dot-dot))
+text:C120	"12.25"
+shown:E120	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top dash-dot-dot) (bottom thin "000000"))
+text:E120	"12.3"
+rule:C120	C120,E120 expression - 600 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left medium-dashed "800020"))
+shown:C122	none general nowrap (border (left medium-dashed "800020"))
+text:C122	"12.25"
+shown:E122	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium-dashed "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E122	"12.3"
+rule:C122	C122,E122 expression - 610 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top medium-dashed))
+shown:C124	none general nowrap (border (top medium-dashed))
+text:C124	"12.25"
+shown:E124	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top medium-dashed) (bottom thin "000000"))
+text:E124	"12.3"
+rule:C124	C124,E124 expression - 620 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left medium-dash-dot "800020"))
+shown:C126	none general nowrap (border (left medium-dash-dot "800020"))
+text:C126	"12.25"
+shown:E126	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium-dash-dot "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E126	"12.3"
+rule:C126	C126,E126 expression - 630 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top medium-dash-dot))
+shown:C128	none general nowrap (border (top medium-dash-dot))
+text:C128	"12.25"
+shown:E128	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top medium-dash-dot) (bottom thin "000000"))
+text:E128	"12.3"
+rule:C128	C128,E128 expression - 640 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left medium-dash-dot-dot "800020"))
+shown:C130	none general nowrap (border (left medium-dash-dot-dot "800020"))
+text:C130	"12.25"
+shown:E130	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left medium-dash-dot-dot "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E130	"12.3"
+rule:C130	C130,E130 expression - 650 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top medium-dash-dot-dot))
+shown:C132	none general nowrap (border (top medium-dash-dot-dot))
+text:C132	"12.25"
+shown:E132	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top medium-dash-dot-dot) (bottom thin "000000"))
+text:E132	"12.3"
+rule:C132	C132,E132 expression - 660 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (left slant-dash-dot "800020"))
+shown:C134	none general nowrap (border (left slant-dash-dot "800020"))
+text:C134	"12.25"
+shown:E134	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left slant-dash-dot "800020") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E134	"12.3"
+rule:C134	C134,E134 expression - 670 go "=1"
+=== rules_written.xlsx!Written!a format saying (border (top slant-dash-dot))
+shown:C136	none general nowrap (border (top slant-dash-dot))
+text:C136	"12.25"
+shown:E136	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top slant-dash-dot) (bottom thin "000000"))
+text:E136	"12.3"
+rule:C136	C136,E136 expression - 680 go "=1"
+=== rules_written.xlsx!Written!a format saying (font bold italic 9.5 "800020" underline strike)
+shown:C138	none general nowrap (font bold italic 9.5 "800020" underline strike)
+text:C138	"12.25"
+shown:E138	"CCFFCC" "0.0" nowrap (font bold italic 9.5 "800020" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E138	"12.3"
+rule:C138	C138,E138 expression - 690 go "=1"
+=== rules_written.xlsx!Written!a format saying (fill "FFE699") (number "0.000") (wrap wrap) (font bold) (align right) (border (bottom thin "800020"))
+shown:C140	"FFE699" general wrap (font bold) (align right top) (border (bottom thin "800020"))
+text:C140	"12.250"
+shown:E140	"FFE699" "0.0" wrap (font bold italic "0000FF" underline strike) (align right top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "800020"))
+text:E140	"12.250"
+rule:C140	C140,E140 expression - 700 go "=1"
+=== rules_written.xlsx!Written!a format saying "FFE699" general nowrap
+shown:C142	"FFE699" general nowrap (align top)
+text:C142	"12.25"
+shown:E142	"FFE699" "0.0" nowrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E142	"12.25"
+rule:C142	C142,E142 expression - 710 go "=1"
+=== rules_written.xlsx!Written!a format saying none text wrap (font italic)
+shown:C144	none general wrap (font italic) (align top)
+text:C144	"12.25"
+shown:E144	none "0.0" wrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E144	"12.25"
+rule:C144	C144,E144 expression - 720 go "=1"
+=== rules_written.xlsx!Written!a format saying (align general)
+shown:C146	none general nowrap (align top)
+text:C146	"12.25"
+shown:E146	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E146	"12.3"
+rule:C146	C146,E146 expression - 730 go "=1"
+=== rules_written.xlsx!Written!a format saying (wrap nowrap)
+shown:C148	none general nowrap (align top)
+text:C148	"12.25"
+shown:E148	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E148	"12.3"
+rule:C148	C148,E148 expression - 740 go "=1"
+=== rules_written.xlsx!Written!a format saying (font (family "Consolas" mono))
+shown:C150	none general nowrap
+text:C150	"12.25"
+shown:E150	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E150	"12.3"
+rule:C150	C150,E150 expression - 750 go "=1"
+=== rules_written.xlsx!Written!a format saying (font bold (family "Consolas"))
+shown:C152	none general nowrap (font bold)
+text:C152	"12.25"
+shown:E152	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E152	"12.3"
+rule:C152	C152,E152 expression - 760 go "=1"
+=== rules_written.xlsx!Written!a format saying (align top)
+shown:C154	none general nowrap
+text:C154	"12.25"
+shown:E154	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E154	"12.3"
+rule:C154	C154,E154 expression - 770 go "=1"
+=== rules_written.xlsx!Written!a format saying (align center top)
+shown:C156	none general nowrap (align center top)
+text:C156	"12.25"
+shown:E156	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (align center top) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:E156	"12.3"
+rule:C156	C156,E156 expression - 780 go "=1"
+=== rules_written.xlsx!Written!a cell less "=5"
+shown:C158	"FFE699" general nowrap
+shown:D158	none general nowrap
+rule:C158	C158:D158 cell less 790 go "=5"
+=== rules_written.xlsx!Written!a cell less-or-equal "=5"
+shown:C160	"FFE699" general nowrap
+shown:D160	none general nowrap
+rule:C160	C160:D160 cell less-or-equal 800 go "=5"
+=== rules_written.xlsx!Written!a cell equal "=5"
+shown:C162	"FFE699" general nowrap
+shown:D162	none general nowrap
+rule:C162	C162:D162 cell equal 810 go "=5"
+=== rules_written.xlsx!Written!a cell not-equal "=5"
+shown:C164	"FFE699" general nowrap
+shown:D164	none general nowrap
+rule:C164	C164:D164 cell not-equal 820 go "=5"
+=== rules_written.xlsx!Written!a cell greater-or-equal "=5"
+shown:C166	"FFE699" general nowrap
+shown:D166	none general nowrap
+rule:C166	C166:D166 cell greater-or-equal 830 go "=5"
+=== rules_written.xlsx!Written!a cell greater "=5"
+shown:C168	"FFE699" general nowrap
+shown:D168	none general nowrap
+rule:C168	C168:D168 cell greater 840 go "=5"
+=== rules_written.xlsx!Written!a cell between "=1" "=5"
+shown:C170	"FFE699" general nowrap
+shown:D170	none general nowrap
+rule:C170	C170:D170 cell between 850 go "=1" "=5"
+=== rules_written.xlsx!Written!a cell between "=5" "=1"
+shown:C172	"FFE699" general nowrap
+shown:D172	none general nowrap
+rule:C172	C172:D172 cell between 860 go "=5" "=1"
+=== rules_written.xlsx!Written!a cell not-between "=1" "=5"
+shown:C174	"FFE699" general nowrap
+shown:D174	none general nowrap
+rule:C174	C174:D174 cell not-between 870 go "=1" "=5"
+=== rules_written.xlsx!Written!a bound reading a cell
+shown:C176	"FFE699" general nowrap
+shown:D176	none general nowrap
+rule:C176	C176:D176 cell equal 880 go "=$F176"
+=== rules_written.xlsx!Written!a bound of a text
+shown:C178	"FFE699" general nowrap
+shown:D178	none general nowrap
+rule:C178	C178:D178 cell equal 890 go "=\"abc\""
+=== rules_written.xlsx!Written!a reference moving
+shown:C180	"FFE699" general nowrap
+shown:D180	none general nowrap
+rule:C180	C180:D180 expression - 900 go "=F180=1"
+=== rules_written.xlsx!Written!a reference fixed
+shown:C182	"FFE699" general nowrap
+shown:D182	"FFE699" general nowrap
+rule:C182	C182:D182 expression - 910 go "=$F$182=1"
+=== rules_written.xlsx!Written!rectangles out of order
+shown:C184	"FFE699" general nowrap
+shown:E184	none general nowrap
+rule:C184	C184,E184 expression - 920 go "=G184=1"
+=== rules_written.xlsx!Written!the rule's own sheet named
+shown:C186	"FFE699" general nowrap
+rule:C186	C186 expression - 930 go "=$F$186=1"
+=== rules_written.xlsx!Written!a name reading another sheet
+shown:C188	"FFE699" general nowrap
+rule:C188	C188 expression - 940 go "=seen_one=1"
+=== rules_written.xlsx!Written!what markup must escape
+shown:C190	"FFE699" general nowrap
+shown:D190	none general nowrap
+rule:C190	C190:D190 expression - 950 go "=AND(C190<5,C190&\"<&>\"=\"3<&>\")"
+=== rules_written.xlsx!Written!a newer function
+shown:C192	"FFE699" general nowrap
+shown:D192	none general nowrap
+rule:C192	C192:D192 expression - 960 go "=IFNA(C192,0)=5"
+=== rules_written.xlsx!Written!two rules saying different properties
+shown:C194	"FFE699" general nowrap (font bold)
+rule:C194	C194 expression - 970 go "=1"
+rule:C194	C194 expression - 980 go "=1"
+=== rules_written.xlsx!Written!two rules saying one property
+shown:C196	"9DC3E6" general nowrap
+rule:C196	C196 expression - 990 go "=1"
+rule:C196	C196 expression - 1000 go "=1"
+=== rules_written.xlsx!Written!a stop
+shown:C198	"FFE699" general nowrap
+rule:C198	C198 expression - 1010 stop "=1"
+rule:C198	C198 expression - 1020 go "=1"
+=== rules_written.xlsx!Written!a stop saying nothing
+shown:C200	none general nowrap
+rule:C200	C200 expression - 1030 stop "=1"
+rule:C200	C200 expression - 1040 go "=1"
+=== rules_written.xlsx!Written!two ranges
+shown:C202	"FFE699" general nowrap
+shown:D202	"9DC3E6" general nowrap
+rule:C202	C202 expression - 1050 go "=1"
+rule:C202	C202:D202 expression - 1060 go "=1"
+rule:D202	C202:D202 expression - 1060 go "=1"
+=== rules_written.xlsx!Written!a fixed cell on a visible sheet holding 1
+shown:C204	"FFE699" general nowrap
+rule:C204	C204 expression - 1070 go "=Seen!$C$204=1"
+=== rules_written.xlsx!Written!a fixed cell on a visible sheet holding 0
+shown:C206	none general nowrap
+rule:C206	C206 expression - 1080 go "=Seen!$C$206=1"
+=== rules_written.xlsx!Written!a relative cell on a visible sheet
+shown:C208	"FFE699" general nowrap
+shown:D208	none general nowrap
+shown:E208	"FFE699" general nowrap
+rule:C208	C208:E208 expression - 1090 go "=Seen!C208=1"
+=== rules_written.xlsx!Written!a cell against a visible sheet
+shown:C210	"FFE699" general nowrap
+shown:D210	none general nowrap
+rule:C210	C210:D210 cell equal 1100 go "=Seen!$C$210"
+=== rules_written.xlsx!Written!a cell between two of a visible sheet
+shown:C212	"FFE699" general nowrap
+shown:D212	none general nowrap
+rule:C212	C212:D212 cell between 1110 go "=Seen!$C$212" "=Seen!$D$212"
+=== rules_written.xlsx!Written!a fixed cell on a hidden sheet holding 1
+shown:C214	"FFE699" general nowrap
+rule:C214	C214 expression - 1120 go "='Not Seen'!$C$214=1"
+=== rules_written.xlsx!Written!a fixed cell on a hidden sheet holding 0
+shown:C216	none general nowrap
+rule:C216	C216 expression - 1130 go "='Not Seen'!$C$216=1"
+=== rules_written.xlsx!Written!a relative cell on a hidden sheet
+shown:C218	"FFE699" general nowrap
+shown:D218	none general nowrap
+shown:E218	"FFE699" general nowrap
+rule:C218	C218:E218 expression - 1140 go "='Not Seen'!C218=1"
+=== rules_written.xlsx!Written!a cell against a hidden sheet
+shown:C220	"FFE699" general nowrap
+shown:D220	none general nowrap
+rule:C220	C220:D220 cell equal 1150 go "='Not Seen'!$C$220"
+=== rules_written.xlsx!Written!a cell between two of a hidden sheet
+shown:C222	"FFE699" general nowrap
+shown:D222	none general nowrap
+rule:C222	C222:D222 cell between 1160 go "='Not Seen'!$C$222" "='Not Seen'!$D$222"
+=== rules_written.xlsx!Written!a stop elsewhere over a rule of the sheet's own
+shown:C224	"FFE699" general nowrap
+rule:C224	C224 expression - 1170 stop "=Seen!$C$224=1"
+rule:C224	C224 expression - 1180 go "=1"
+=== rules_written.xlsx!Written!a rule of the sheet's own over one elsewhere
+shown:C226	"9DC3E6" general nowrap
+rule:C226	C226 expression - 1190 go "=1"
+rule:C226	C226 expression - 1200 go "=Seen!$C$226=1"
+=== rules_written.xlsx!Written!a stop elsewhere saying nothing
+shown:C228	none general nowrap
+rule:C228	C228 expression - 1210 stop "=Seen!$C$228=1"
+rule:C228	C228 expression - 1220 go "=1"
+=== rules_written.xlsx!Written!every group of a format elsewhere
+shown:C230	"FFE699" general wrap (font bold "800020" underline strike) (align right top) (border (bottom thin "800020"))
+text:C230	"12.250"
+shown:E230	"FFE699" "0.0" wrap (font bold italic "800020" underline strike) (align right top) (border (left thin "000000") (right thin "000000") (bottom thin "800020"))
+text:E230	"12.250"
+rule:C230	C230,E230 expression - 1230 go "=Seen!$C$230=1"

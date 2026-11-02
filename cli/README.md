@@ -519,10 +519,34 @@ What the record cannot hold is left out of its row, the rest of the row
 printed, and one line on stderr says how much was: a cell that keeps a
 format and no value, a look the record has no word for (a raised text, an
 outline, a pattern, a rotation, an indent, a diagonal, a run of rich text),
-a merged range, a conditional format, a row formatted whole. A
+a merged range, a conditional format of a kind the language does not compute,
+a row formatted whole. A
 number format the language does not draw is printed as the file holds it,
 and a load refuses it by name. With `--counts` beside it, each line gains
-the looks' counts, the formats, the cells styled and each kind left out.
+the looks' counts, the formats, the cells styled, each kind left out, a
+sheet's `conditional` rules, those `not-computed` and the `rule-cells` they
+answer for.
+
+A package's conditional formats print as rows of their own, after the formats
+and before the cells, each with the format it names, a format of its own past
+the cell formats that says what the file's differential format says and no more:
+
+```text
+(format 12 (fill "FFE699") (font bold))
+(conditional "Board" 1 "B2:J10" "=Lit!A1=1" 12 stop)
+(conditional "Board" 2 "B2:J10" (cell greater "=5") none)
+```
+
+Each kind holding a formula of its own is that formula, a rule reading another
+sheet from the sheet's extension as from its part, its formula printed and never
+run. A file's tied priorities read as Excel reads them, in one element the later
+first and of two elements the first, each moved up by as little as it can. A
+color scale, a data bar, an icon set, a top value, an average, a duplicate and a
+value alone are left out, counted and said. What Excel reads and does not draw of
+a rule's format, a font's name and a vertical alignment, is left out and not
+counted. An `.ods` file's rules are counted and said, and no row says them yet. A
+load refuses a rule calling a function the language does not compute, as it
+refuses that call in a cell.
 
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,
