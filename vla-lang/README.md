@@ -260,8 +260,9 @@ refused in the same words.
   otherwise), the information functions (`calc::information`: `ISNUMBER`,
   `ISBLANK`, `ISREF`, `ERROR.TYPE`, `TYPE`, `NA` and the rest, what a value or a
   reference is), `ROUND` and `IFS`, and a cell's address as a text from its row and its
-  column (`calc::texts`: `ADDRESS`, an address in R1C1 labelled), and a mask read by one
-  call (`calc::library`: `BITAND`, `BITOR` and `BITXOR`, over whole numbers below
+  column (`calc::texts`: `ADDRESS`, an address in R1C1 labelled), a boolean as a function
+  (`calc::information`: `TRUE()` and `FALSE()`), and a mask read by one call
+  (`calc::library`: `BITAND`, `BITOR` and `BITXOR`, over whole numbers below
   2^48). A crate above registers more, as
   `frazaro-core` registers Excel's library by measurement. A lookup or a
   criterion asked of one range again and again searches the range's

@@ -2058,17 +2058,7 @@ fn drawn_against(
 ) -> (usize, Vec<String>) {
     let (rows, _) =
         crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
-    rows_drawn_against(file, &rows, golden, gaps)
-}
-
-/// [`drawn_against`] over a reader's rows.
-fn rows_drawn_against(
-    file: &str,
-    rows: &str,
-    golden: &[GoldenCase],
-    gaps: &[Gap],
-) -> (usize, Vec<String>) {
-    let mut m = Machine::load(rows, crate::excel::library())
+    let mut m = Machine::load(&rows, crate::excel::library())
         .unwrap_or_else(|e| panic!("{file}: line {}: {}\n{rows}", e.line, e.refusal.text));
     assert!(m.step(0).done);
     let wb = m.workbook();
@@ -2793,14 +2783,7 @@ fn the_machine_draws_the_opendocument_saves_as_excel_drew_them() {
         wrong.extend(found.into_iter().map(|w| format!("excel: {w}")));
     }
     let bytes = std::fs::read(CALC_ODS).expect("LibreOffice's save");
-    let (rows, _) = crate::reflect::reflect_looks(&bytes, "rules.xlsx").unwrap();
-    // LibreOffice writes a boolean as OpenFormula's `TRUE()`, its one spelling of one,
-    // which the language does not compute (the item's *Found*): read here as the
-    // literal it saved.
-    let rows = rows
-        .replace("\"=TRUE()\"", "\"=TRUE\"")
-        .replace("\"=FALSE()\"", "\"=FALSE\"");
-    let (n, found) = rows_drawn_against("rules.xlsx", &rows, &golden, CALC_ODS_GAPS);
+    let (n, found) = drawn_against("rules.xlsx", &bytes, &golden, CALC_ODS_GAPS);
     held += n;
     wrong.extend(found.into_iter().map(|w| format!("calc: {w}")));
     assert!(

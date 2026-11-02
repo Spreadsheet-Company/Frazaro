@@ -2377,6 +2377,15 @@ operand's rule leaves to the host for every function; a union of references; a w
 column read as arrays; and a call of any count but two, which Excel refuses at entry
 and the language answers `#VALUE!`, held by a unit test.
 
+## Amendment of 2026-11-01: oracle 12's `TRUE()` and `FALSE()` (`KERNEL.58`'s *Found* 14)
+
+`TRUE()` and `FALSE()` answer the values their literals are, given nothing, and `#VALUE!`
+given anything, as `NA` is: Excel's entry refuses an argument and a file may hold one.
+OpenFormula has no boolean literal, so that LibreOffice writes every one so. No Excel save
+holds either: their oracle is LibreOffice's `rules_calc.ods`, whose 54 such cells stand
+where Excel read the literals they were saved from, drawn to Excel's reading of that workbook
+with no fold, and the library's own tests.
+
 ## Amendment of 2026-11-01: oracle 11's conditional format (`KERNEL.58`, its third slice)
 
 A sheet holds a rule as a row of its own, a machine computes its answer, and the

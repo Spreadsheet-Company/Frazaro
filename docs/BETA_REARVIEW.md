@@ -42668,7 +42668,10 @@ file's order, and the difference is LibreOffice's own import's, the oracle being
     the function, and a load refuses it (`calc-function-not-computed`): `rules_calc.ods` holds 54 such cells, and any LibreOffice
     file with a boolean in a cell's formula is refused whole, as a workbook of Excel's calling `=TRUE()` is. Filling it moves no
     row, so nothing here waited on it: the oracle reads those cells as the literal they were saved from, said at the line that
-    does. It is two registrations in the library.
+    does. It is two registrations in the library. *Fixed at the owner's word, 2026-11-01,* "Recommendations approved for fixing
+    found 14-16": `information::true_` and `false_`, `#VALUE!` given a value as `NA` is, each with its row in `SUBSET`, its evidence
+    LibreOffice's 54 cells, which the oracle now draws with no fold, every target standing. No Excel save holds either and none was
+    asked for: Excel documents both, and each is the value of the literal its save's cells held. Every row, golden and floor stands.
 15. *Two rules over whole columns keep a workbook out,* a different refusal for the same harm as *Found* 12: `A1:A1048576` and
     `B1:B1048576` beside it are refused by `grid-rule-cells`, one taking the room alone (*measured*, 14.9 ms to load, the scoping's
     *Found* 2). A reader could count a rule past the room as not computed, or a machine could leave a rule's answers past a sheet's

@@ -625,6 +625,14 @@ pub const SUBSET: &[Entry] = &[
         evidence: "the information functions, KERNEL.68 for Alonzo's CART.9; scripts/recalc/info.txt",
     },
     Entry {
+        name: "TRUE",
+        evidence: "OpenFormula's one spelling of a boolean, KERNEL.58's Found 14; scripts/reflect/rules_calc.ods, its 27 drawn as Excel drew the literal it saved them from",
+    },
+    Entry {
+        name: "FALSE",
+        evidence: "OpenFormula's one spelling of a boolean, KERNEL.58's Found 14; scripts/reflect/rules_calc.ods, its 27 drawn as Excel drew the literal it saved them from",
+    },
+    Entry {
         name: "ROUND",
         evidence: "Enron 5, EUSES 3",
     },

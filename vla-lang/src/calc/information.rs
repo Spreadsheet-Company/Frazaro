@@ -107,6 +107,23 @@ pub(crate) fn na(_: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
     }))
 }
 
+/// `TRUE()`: the value, as a literal is, and OpenFormula's one spelling of it, as
+/// LibreOffice writes a boolean (KERNEL.58's *Found* 14).
+pub(crate) fn true_(_: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
+    Ok(match args {
+        [] => Value::Bool(true),
+        _ => Value::Error(ErrorKind::Value),
+    })
+}
+
+/// `FALSE()`: as [`true_`].
+pub(crate) fn false_(_: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
+    Ok(match args {
+        [] => Value::Bool(false),
+        _ => Value::Error(ErrorKind::Value),
+    })
+}
+
 /// `ISREF(value)`: whether its argument answers a reference on one sheet, and
 /// not what a sign makes of one, which Excel reads as a value.
 pub(crate) fn isref<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {

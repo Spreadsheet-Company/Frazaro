@@ -202,6 +202,11 @@
   beyond ASCII that is no letter, which Excel quotes by a table of its own, and an
   answer past 258 characters (KERNEL.60).
 
+- **`TRUE()` and `FALSE()` compute.** Each is the value its literal is. A cell of
+  Excel's calling either, and every boolean in a LibreOffice file's formula, which
+  OpenFormula has no other way to write, kept a whole workbook out of a load
+  (KERNEL.58's *Found* 14).
+
 - **`BITAND`, `BITOR` and `BITXOR` compute.** A number's bits by one call:
   `=BITAND(13,25)` is 9, `=BITOR(23,10)` 31 and `=BITXOR(5,3)` 6, over whole numbers
   from 0 to 2^48-1. A cartridge's load refused the three names; they now compute in

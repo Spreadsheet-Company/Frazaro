@@ -299,7 +299,7 @@ pub fn language() -> Library {
 }
 
 /// The information functions of one value (KERNEL.68, `super::information`).
-const INFORMATION: [(&str, super::eval::Strict); 8] = [
+const INFORMATION: [(&str, super::eval::Strict); 10] = [
     ("ISNUMBER", information::isnumber),
     ("ISTEXT", information::istext),
     ("ISNONTEXT", information::isnontext),
@@ -308,6 +308,8 @@ const INFORMATION: [(&str, super::eval::Strict); 8] = [
     ("ISERR", information::iserr),
     ("ERROR.TYPE", information::error_type),
     ("NA", information::na),
+    ("TRUE", information::true_),
+    ("FALSE", information::false_),
 ];
 
 /// The language's functions whose answer the extent of a sheet they read
@@ -480,6 +482,10 @@ const KERNEL_68: [&str; 14] = [
 /// The functions KERNEL.71 brought: a mask read by one call.
 #[cfg(test)]
 const KERNEL_71: [&str; 3] = ["BITAND", "BITOR", "BITXOR"];
+
+/// The functions KERNEL.58 brought: a boolean as OpenFormula spells one.
+#[cfg(test)]
+const KERNEL_58: [&str; 2] = ["TRUE", "FALSE"];
 
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
@@ -1446,6 +1452,29 @@ mod tests {
         }
     }
 
+    /// `TRUE()` and `FALSE()` are the values their literals are (KERNEL.58's *Found*
+    /// 14), as LibreOffice's every boolean is written; given a value, which Excel's
+    /// entry refuses and a file may hold, `#VALUE!`, as `NA` is.
+    #[test]
+    fn true_and_false_are_the_values_their_literals_are() {
+        bits_hold(&[
+            ("TRUE()", "true"),
+            ("FALSE()", "false"),
+            ("true()", "true"),
+            ("NOT(TRUE())", "false"),
+            ("TRUE()+1", "2"),
+            ("IF(FALSE(),1,2)", "2"),
+            ("AND(TRUE(),FALSE())", "false"),
+            ("OR(TRUE(),FALSE())", "true"),
+            ("ISLOGICAL(TRUE())", "true"),
+            ("TYPE(FALSE())", "4"),
+            ("TRUE()=TRUE", "true"),
+            ("FALSE()=TRUE", "false"),
+            ("TRUE(1)", VALUE),
+            ("FALSE(1)", VALUE),
+        ]);
+    }
+
     #[test]
     fn the_bit_functions_compute_their_pages_examples_and_every_bit_to_the_top() {
         bits_hold(&[
@@ -1711,6 +1740,7 @@ mod tests {
             .chain(KERNEL_60.iter())
             .chain(KERNEL_68.iter())
             .chain(KERNEL_71.iter())
+            .chain(KERNEL_58.iter())
             .copied()
             .collect();
         want.sort_unstable();
