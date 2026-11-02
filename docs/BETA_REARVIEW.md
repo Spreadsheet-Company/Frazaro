@@ -42443,7 +42443,8 @@ goldens among them, and its doc test.
    with no stop, and no earlier golden reads a rule.
 8. *Two tracked saves name the owner:* `looks_saved.ods` and `opendocument_saved.ods`,
    pushed, in their `meta.xml`, where `VlaWriteRulesGolden`'s saves of `.ods` name no one,
-   its `RemovePersonalInformation` set before them. Not touched.
+   its `RemovePersonalInformation` set before them. Not touched. *Undercounted, and stripped
+   at the owner's word:* the fourth slice's record below.
 9. *A window's changes under a stop name a cell whose rows did not move,* as decision 8
    said, so that `KERNEL.42`'s "a cell named exactly when its rows changed" holds of a grid
    with no rule. A host patching the same rows is unharmed. Telling it would mean telling
@@ -42469,6 +42470,29 @@ item and Seiyaku's highlight free to follow there.
 *The owner's run, 2026-11-01:* `VlaDevReload`, Debug > Compile and `? VlaSelfTests()`, over
 `VLA_Messages.bas`'s one new refusal, pure 2504/2504 and host 333/333. Committed at the owner's
 word, "Commit before suggesting next steps". Not pushed.
+
+*The tracked saves stripped, 2026-11-01, at the owner's word,* "Strip the fields from all 17 by
+script". *Found* 8 undercounted: of the 66 tracked packages, 17 named the owner or the home
+folder, not two: `docProps/core.xml`'s `dc:creator` and `cp:lastModifiedBy`, `xl/workbook.xml`'s
+`x15ac:absPath`, `meta.xml`'s `meta:initial-creator` and `dc:creator`. A script of the session's
+(kept outside the repository) took them out in the form Excel's own `RemovePersonalInformation`
+leaves, the elements gone and not blanked, `rules_saved.xlsx` and `rules_saved.ods` its
+witnesses, and only where the value names the owner, so that `examples/00 Weekly Expense
+Reimbursement.docx` keeps `dc:creator`, "Spreadsheet Company", which its builder writes. Every
+other member keeps its stream and its header byte for byte, in its place in the file; each
+package was read back, every member the old one's but those edited, those well formed, a second
+run changing nothing; a scan finds none of the 66 naming either. The owner opened one of each kind with no
+repair: `examples/00 Weekly Expense Reimbursement.docx` in Word, `scripts/recalc/bits_saved.xlsx` and
+`scripts/reflect/looks_saved.ods` in Excel. Nothing reads those fields:
+`cargo test --workspace` and `run_checks` pass over them unchanged, every golden standing. What
+this does not reach, plainly. The 13 pushed stay in the public history. The 4 local ones
+(`address_saved`, `bits_saved`, `info_saved`, `typed_saved`) stand named in the unpushed commits
+that added them, `3059936`, `cbbdcb8`, `f760542` and `c1c03a1`, so that a push publishes those
+blobs whatever a later commit does. The owner's word, 2026-11-01, is not to rewrite them: their saves carry
+the same two fields, the name and the folder, as nine pushed saves, so that a rewrite would hide nothing new
+and move the hashes this record cites. A hand save names the owner again unless it sets `RemovePersonalInformation`, as
+`VlaWriteRulesGolden` and its kin do. And `scripts/polyglotta/english_coverage.txt`, an Excel
+export, holds the home folder on 158 lines and this file on one, no name; not touched.
 
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
