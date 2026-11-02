@@ -604,10 +604,7 @@ impl Shapes {
             .into_iter()
             .filter(|name| !library.has(name))
             .collect();
-        let risky = refers::scan(&text).iter().any(|r| {
-            r.kind == refers::Kind::ThreeD
-                || (r.kind == refers::Kind::Broken && r.shape != refers::Shape::None)
-        });
+        let risky = moves_unread(&text);
         missing.sort_unstable();
         missing.dedup();
         // A shape of dynamic formulas or legacy array formulas, read as
@@ -1196,6 +1193,15 @@ impl Shapes {
         };
         Some((id, formula::unread_refusal(&spell_at(model, id), &label)))
     }
+}
+
+/// Whether a formula's text holds a reference that a move may leave a text the
+/// parse does not read: a shape's `risky`.
+pub(crate) fn moves_unread(text: &str) -> bool {
+    refers::scan(text).iter().any(|r| {
+        r.kind == refers::Kind::ThreeD
+            || (r.kind == refers::Kind::Broken && r.shape != refers::Shape::None)
+    })
 }
 
 /// A cell as a rectangle of one.

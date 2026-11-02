@@ -18,7 +18,7 @@
 use std::collections::BTreeMap;
 
 use vla_lang::calc::library;
-use vla_lang::calc::{Computed, Value, Values};
+use vla_lang::calc::{Computed, Names, Value, Values};
 use vla_lang::form::Form;
 use vla_lang::machine::{read_rows, Machine, Viewed};
 use vla_lang::reader::read_forms;
@@ -1136,4 +1136,103 @@ fn a_rectangle_overlapping_one_before_it_answers_once() {
     assert_eq!(step.of, 7, "the cell they share computed once");
     let lit = lit_rows(&record(&m, "values", "S", Some("A1:D4")));
     assert_eq!(lit.len(), 7);
+}
+
+/// What a reader asks of a rule before it prints it is what a load answers of it:
+/// a function the library lacks, in a formula or a bound; a text the parse does
+/// not read, alone or inside the answer a load makes of it; a defined name the
+/// parse does not read, at any remove, by its scope; and a reference moved off the
+/// sheet at any rectangle's cell. Each case is held to the load itself.
+#[test]
+fn a_rule_is_computable_exactly_where_a_load_takes_it() {
+    let months = "(sheet \"Jan\" visible)\n(sheet \"Dec\" visible)\n";
+    // Under the parse's 8,192 characters alone, and past them inside the answer.
+    let long = format!("\"A1\" \"=1{}\"", "+1".repeat(4_092));
+    // At the parse's 64 levels alone, and past them inside the answer.
+    let deep = format!("\"A1\" \"={}1{}\"", "ABS(".repeat(64), ")".repeat(64));
+    let deep_enough = format!("\"A1\" \"={}1{}\"", "ABS(".repeat(62), ")".repeat(62));
+    let cases: Vec<(&str, &str, bool)> = vec![
+        ("", "\"A1\" \"=A1=1\"", true),
+        ("", "\"A1\" \"=IFERROR(A1,0)=1\"", true),
+        ("", "\"A1\" \"=_xlfn.IFNA(A1,0)=1\"", true),
+        ("", "\"A1\" (cell greater \"=1\")", true),
+        ("", "\"A1\" (cell between \"=1\" \"=A1\")", true),
+        ("", "\"A1\" \"=NOSUCH(A1)=1\"", false),
+        ("", "\"A1\" \"=FLOOR(A1,1)=TODAY()\"", false),
+        ("", "\"A1\" \"=IF(A1,NOW(),0)\"", false),
+        ("", "\"A1\" (cell greater \"=NOW()\")", false),
+        ("", "\"A1\" (cell between \"=1\" \"=NOW()\")", false),
+        ("", "\"A1\" \"=A1#\"", false),
+        ("", "\"A1\" \"=[Rates.xlsx]Sheet1!A1=1\"", false),
+        ("", "\"A1\" \"=[1]Sheet1!A1=1\"", false),
+        ("", "\"A1\" \"=#REF!B1048576=1\"", true),
+        ("", "\"A1:A2\" \"=#REF!B1048576=1\"", false),
+        ("", "\"A1\" (cell greater \"=A1#\")", false),
+        ("", &long, false),
+        ("", &deep, false),
+        ("", &deep_enough, true),
+        ("(name \"Fine\" \"A1\")\n", "\"A1\" \"=Fine=1\"", true),
+        ("(name \"Odd\" \"A1#\")\n", "\"A1\" \"=A1=1\"", true),
+        ("(name \"Odd\" \"A1#\")\n", "\"A1\" \"=Odd=1\"", false),
+        (
+            "(name \"Far\" \"Odd\")\n(name \"Odd\" \"A1#\")\n",
+            "\"A1\" \"=Far=1\"",
+            false,
+        ),
+        (
+            "(sheet \"S\" visible)\n(sheet \"T\" visible)\n(name \"S!Odd\" \"A1#\")\n",
+            "\"A1\" \"=Odd=1\"",
+            false,
+        ),
+        (
+            "(sheet \"S\" visible)\n(sheet \"T\" visible)\n(name \"T!Odd\" \"A1#\")\n",
+            "\"A1\" \"=Odd=1\"",
+            true,
+        ),
+        (months, "\"A1\" \"=SUM(Jan:Dec!B1048576)>0\"", true),
+        (months, "\"A1:A2\" \"=SUM(Jan:Dec!B1048576)>0\"", false),
+        (months, "\"A1 A3\" \"=SUM(Jan:Dec!B1048576)>0\"", false),
+        (months, "\"A3 A1\" \"=SUM(Jan:Dec!B1048575)>0\"", false),
+        (months, "\"A1:A2\" \"=SUM(Jan:Dec!B1048575)>0\"", true),
+        (months, "\"A1:A2\" \"=SUM(Jan:Dec!$B$1048576)>0\"", true),
+        (months, "\"A1:XFD1\" \"=SUM(Jan:Dec!A1)>0\"", true),
+        (months, "\"A1:XFD1\" \"=SUM(Jan:Dec!B1)>0\"", false),
+    ];
+    for (before, rule, taken) in cases {
+        let rows = format!("{before}(conditional \"S\" 1 {rule} none)\n");
+        let what = &rows[..rows.len().min(160)];
+        let load = Machine::load(&rows, library::language());
+        assert_eq!(
+            load.as_ref().err().map(|e| e.refusal.id.as_str()).is_none(),
+            taken,
+            "{what}: {:?}",
+            load.as_ref().err().map(|e| e.refusal.id.as_str())
+        );
+        if let Err(refused) = &load {
+            let id = refused.refusal.id.as_str();
+            assert!(
+                [
+                    "calc-function-not-computed",
+                    "calc-construct-not-read",
+                    "calc-formula-too-long",
+                    "calc-formula-too-deep",
+                ]
+                .contains(&id),
+                "{what}: {id}"
+            );
+        }
+        let wb = read_rows(&read_forms(&rows).unwrap()).unwrap().workbook();
+        let home = wb.sheets.iter().position(|s| s.name == "S").unwrap();
+        let names = Names::of(&wb);
+        let rule = &wb.sheets[home].rules()[0];
+        assert_eq!(
+            rule.computable(&wb, &names, home, &library::language()),
+            taken,
+            "{what}"
+        );
+        assert!(
+            !rule.computable(&wb, &names, wb.sheets.len(), &library::language()),
+            "{what}: a sheet the workbook does not hold"
+        );
+    }
 }

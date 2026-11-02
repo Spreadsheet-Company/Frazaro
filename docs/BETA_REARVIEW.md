@@ -42594,7 +42594,19 @@ it. `check_looks_golden` holds the golden at its floors, 115 cases and 501 targe
     data bar would keep a whole workbook out"). The reader prints the row as decided. Whether a kind whose
     formula the language cannot compute should be counted as not computed instead is the owner's, and real
     workbooks' `--counts` can say how often it arises, which they do not yet: `not-computed` counts only the
-    seven kinds.
+    seven kinds. *Decided at the owner's word, 2026-11-01, as recommended,* and built: such a rule is counted as
+    not computed. `Rule::computable` asks of a rule's answer what a load asks of a formula, each of a load's refusals
+    of a text held case by case to the load itself (`a_rule_is_computable_exactly_where_a_load_takes_it`): a function the
+    library lacks, in a formula or a bound; a text the parse does not read, alone or past its limits inside the answer;
+    a defined name the parse does not read, at any remove and by its scope; a reference a move takes off the sheet, at each
+    rectangle's far corner. A reader's `RuleGate` asks it of each rule before its format is read, so that `not-computed`
+    counts them and nothing of their formats prints or counts. `looks.xlsx` and its saves hold no such rule and stand;
+    `rules.xlsx` loses its one row and its note says 8, as predicted, every target of the oracle standing. A rule reading
+    another workbook, which the reader had printed with its link resolved, is one such, so that the reader resolves no
+    rule's link now. A load still refuses such a row written by hand, as it refuses the call in a cell. Twenty-one
+    mutants, a control before and after: 18 caught at once, two held once the test gained a broken reference moved off the
+    sheet and a sheet the workbook does not hold, and one equivalent, asking every rule's far corners where a move may
+    spoil no other's text. Alonzo's `782faec` over it by path: its 90 tests and its doc test.
 13. *The extension's other uses are passed over whole,* a sparkline group, a data validation. Nothing here
     changed; the reader used to skip them with everything else, and a rule's twin in an `ext` is the one
     thing read from one.

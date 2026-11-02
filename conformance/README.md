@@ -2470,7 +2470,11 @@ alone.
   resolved as any and the default font not subtracted; one that says nothing is `none`.
   Left out and counted: `colorScale`, `dataBar`, `iconSet`, `top10`, `aboveAverage`,
   `duplicateValues` and `uniqueValues`, under `not-computed`, a rule the part's element
-  names a twin of in the extension being one; and what the record has no word for, or
+  names a twin of in the extension being one; a rule whose formula a load would refuse,
+  `Rule::computable` asking what the load asks, under `not-computed` too, so that one rule
+  does not keep a workbook out, a `timePeriod`'s `TODAY` among them and any function the
+  library lacks, a text or a defined name the parse does not read, and a reference a move
+  takes off the sheet; and what the record has no word for, or
   says too little to be a row, under `unheld`. `--counts` gains `not-computed` and
   `rule-cells`, and `conditional` leaves the note's list. An OpenDocument file's rules are
   counted and said, and no row says them, until the fifth slice.

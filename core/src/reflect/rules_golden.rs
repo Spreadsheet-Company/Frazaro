@@ -144,8 +144,8 @@ struct Made {
 }
 
 /// A rule's test as its row spells it; `None` for a kind the language does
-/// not compute, and for `timePeriod`, whose `TODAY` a load refuses as it does
-/// in a cell.
+/// not compute, and for `timePeriod`, whose `TODAY` a load would refuse, which a
+/// reader leaves out with them.
 fn row_test(kind: &str, extra: &str, formulas: &[&str]) -> Option<String> {
     let spelled = |f: &str| quoted(&format!("={f}"));
     match kind {
@@ -2039,16 +2039,6 @@ const GAPS: &[Gap] = &[
     ),
 ];
 
-/// A workbook's rows a load takes: what the reader prints but a rule calling
-/// `TODAY`, which the language has not and a load refuses, as it does in a cell
-/// (decision 5).
-fn loadable(rows: &str) -> String {
-    rows.lines()
-        .filter(|l| !(l.starts_with("(conditional ") && l.contains("TODAY()")))
-        .flat_map(|l| [l, "\n"])
-        .collect()
-}
-
 /// A text of rows as a draft's workbook, computing nothing.
 fn workbook_of(rows: &str) -> Workbook {
     let forms = vla_lang::reader::read_forms(rows).expect("rows");
@@ -2068,7 +2058,6 @@ fn drawn_against(
 ) -> (usize, Vec<String>) {
     let (rows, _) =
         crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
-    let rows = loadable(&rows);
     let mut m = Machine::load(&rows, crate::excel::library())
         .unwrap_or_else(|e| panic!("{file}: line {}: {}\n{rows}", e.line, e.refusal.text));
     assert!(m.step(0).done);
@@ -2243,15 +2232,15 @@ fn excel_rule(reading: &str) -> ExcelRule {
     }
 }
 
-/// The kinds a row says as a formula.
-const FORMULA_KINDS: [&str; 7] = [
+/// The kinds a row says as a formula; a `timePeriod`'s calls `TODAY`, which a
+/// reader leaves out.
+const FORMULA_KINDS: [&str; 6] = [
     "expression",
     "text",
     "blanks",
     "no-blanks",
     "errors",
     "no-errors",
-    "time-period",
 ];
 
 /// A formula as Excel reads a rule's: a reference to the rule's own sheet no longer
@@ -2397,7 +2386,7 @@ fn the_reader_says_each_rule_as_its_builder_wrote_it() {
     for (_, file, book) in books() {
         let (read, stats) = crate::reflect::reflect_looks(&book.bytes(), file)
             .unwrap_or_else(|r| panic!("{file}: {}", r.text));
-        let ours = workbook_of(&loadable(&read));
+        let ours = workbook_of(&read);
         let mut rows: String = read
             .lines()
             .filter(|l| !l.starts_with("(conditional "))
@@ -2447,13 +2436,12 @@ fn the_reader_says_each_rule_as_its_builder_wrote_it() {
             })
             .sum();
         assert_eq!(stats.conditional, in_file, "{file}");
-        let today = u64::from(read.contains("TODAY()"));
         assert_eq!(
-            rules as u64 + stats.not_computed + today,
+            rules as u64 + stats.not_computed,
             in_file,
             "{file}: {stats:?}"
         );
-        let not_computed = if file == "rules.xlsx" { 7 } else { 0 };
+        let not_computed = if file == "rules.xlsx" { 8 } else { 0 };
         assert_eq!(stats.not_computed, not_computed, "{file}");
     }
 }
@@ -2471,14 +2459,21 @@ fn the_rules_left_out_are_counted_and_said() {
     assert!(stats.rule_cells > 0);
     assert_eq!(
         stats.left_out().as_deref(),
-        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 2 merged ranges, 7 conditional formats of a kind the language does not compute")
+        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 2 merged ranges, 8 conditional formats the language does not compute")
     );
     assert!(
-        read.contains("=FLOOR(C18,1)=TODAY()"),
-        "a rule a load refuses is still its row"
+        !read.contains("TODAY()"),
+        "a rule a load would refuse is no row"
     );
-    // A load refuses that one by name, as it refuses the call in a cell.
-    let refused = Machine::load(&read, crate::excel::library()).expect_err("a call of no meaning");
+    Machine::load(&read, crate::excel::library())
+        .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+    // That rule's row written by hand a load still refuses by name, as it refuses
+    // the call in a cell.
+    let refused = Machine::load(
+        "(conditional \"S\" 1 \"A1\" \"=FLOOR(A1,1)=TODAY()\" none)\n",
+        crate::excel::library(),
+    )
+    .expect_err("a call of no meaning");
     assert!(
         refused.refusal.text.contains("does not compute"),
         "{}",
@@ -2876,7 +2871,7 @@ fn predicted_written() -> String {
     let (_, cases) = written();
     let bytes = written_bytes();
     let (rows, _) = crate::reflect::reflect_looks(&bytes, "rules_written.xlsx").unwrap();
-    let mut m = Machine::load(&loadable(&rows), crate::excel::library())
+    let mut m = Machine::load(&rows, crate::excel::library())
         .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
     assert!(m.step(0).done);
     let wb = m.workbook();

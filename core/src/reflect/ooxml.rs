@@ -59,7 +59,7 @@ use std::collections::{HashMap, HashSet};
 use super::cursor::{attr, element_text, skip_element, Cursor, Event};
 use super::looks::{
     font_size, iso_serial, rgb_from_hex, width_chars, Color, ColorRef, Colors, ColumnSpec, Look,
-    LooksStats, Resolved, SheetScan, THEME_SLOTS,
+    LooksStats, Resolved, RuleGate, SheetScan, THEME_SLOTS,
 };
 use super::{
     emit_formula, emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source,
@@ -128,6 +128,8 @@ pub struct Package<'a> {
     /// The formats the sheets' extensions hold inline, each different one once,
     /// in the order a walk first meets it (KERNEL.58).
     inline_looks: RefCell<Vec<Look>>,
+    /// What a walk asks of a rule, made for the first rule it meets.
+    rule_gate: OnceCell<RuleGate>,
 }
 
 impl std::fmt::Debug for Package<'_> {
@@ -562,6 +564,7 @@ impl<'a> Package<'a> {
             theme_part,
             looks: OnceCell::new(),
             inline_looks: RefCell::new(Vec::new()),
+            rule_gate: OnceCell::new(),
         })
     }
 
@@ -680,7 +683,7 @@ impl<'a> Package<'a> {
         // before any cell's (KERNEL.57).
         let scan = match looks {
             Some(table) => {
-                let mut scan = self.first_pass(&text, table, label, part)?;
+                let mut scan = self.first_pass(&text, table, index, label, part)?;
                 scan.print(&info.name, &table.looks, sink);
                 Some(scan)
             }
@@ -860,12 +863,13 @@ impl<'a> Package<'a> {
         &self,
         text: &str,
         table: &StyleTable,
+        index: usize,
         label: &str,
         part: &str,
     ) -> Result<SheetScan, Refusal> {
         let mut scan = SheetScan::new();
         let mut cursor = Cursor::new(text);
-        let mut rules = RuleReading::new(table, label, part);
+        let mut rules = RuleReading::new(table, index, label, part);
         let mut views = 0u32;
         let mut in_data = false;
         let mut row_no: u32 = 0;
@@ -1099,10 +1103,10 @@ impl<'a> Package<'a> {
     }
 
     /// A rule read, as a row or as a count: one of a kind the language does not
-    /// compute counted and left out, and one the record cannot say, for want of
-    /// a formula, a range or an operator, counted as a look of no word. A rule
-    /// the part's own element says the extension also holds is that one rule,
-    /// as Excel writes a data bar twice.
+    /// compute, or whose formula a load would refuse, counted and left out, and
+    /// one the record cannot say, for want of a formula, a range or an operator,
+    /// counted as a look of no word. A rule the part's own element says the
+    /// extension also holds is that one rule, as Excel writes a data bar twice.
     fn take_rule(
         &self,
         rule: FileRule,
@@ -1128,31 +1132,36 @@ impl<'a> Package<'a> {
                 .flatten()
         });
         let (Some(priority), Some(ranges), Some(test)) =
-            (rule.priority, ranges, self.rule_test(&rule))
+            (rule.priority, ranges, Self::rule_test(&rule))
         else {
             scan.stats.unheld += 1;
             return;
         };
-        let format = self.rule_format(&rule, rules.table, scan);
-        let rule = Rule {
+        let mut row = Rule {
             priority,
             ranges,
             test,
-            format,
+            format: None,
             stop: rule.stop,
         };
-        scan.stats.rule_cells += rule.cells();
-        rules.found.push((rules.element, place, rule));
+        let gate = self.rule_gate.get_or_init(|| RuleGate::of(self));
+        if !gate.takes(&row, rules.home) {
+            scan.stats.not_computed += 1;
+            return;
+        }
+        row.format = self.rule_format(&rule, rules.table, scan);
+        scan.stats.rule_cells += row.cells();
+        rules.found.push((rules.element, place, row));
     }
 
-    /// What a rule tests, its formulas the bar's text: a kind holding a formula
-    /// of its own is that formula, Excel lighting an error as not blank where
-    /// this kind's own formula answers the error; `None` where the rule says too
-    /// little.
-    fn rule_test(&self, rule: &FileRule) -> Option<Test> {
+    /// What a rule tests, its formulas the bar's text, a newer function's prefix
+    /// dropped: a kind holding a formula of its own is that formula, Excel lighting
+    /// an error as not blank where this kind's own formula answers the error;
+    /// `None` where the rule says too little.
+    fn rule_test(rule: &FileRule) -> Option<Test> {
         let formula = |at: usize| {
             let text = rule.formulas.get(at).filter(|f| !f.trim().is_empty())?;
-            Some(self.bar_text(text))
+            Some(xlfn::strip_future_prefixes(text))
         };
         let first = formula(0);
         match rule.kind.as_str() {
@@ -1171,14 +1180,6 @@ impl<'a> Package<'a> {
             "notContainsBlanks" => Some(Test::Formula(format!("IFERROR({},TRUE)", first?))),
             _ => Some(Test::Formula(first?)),
         }
-    }
-
-    /// A formula of a file's as a `formula` row holds it, without its `=`: its
-    /// newer functions' prefixes dropped and a link resolved to its file's name.
-    fn bar_text(&self, formula: &str) -> String {
-        let text = format!("={}", xlfn::strip_future_prefixes(formula));
-        let text = refers::resolve_books(&text, &self.external_books);
-        text.strip_prefix('=').unwrap_or(&text).to_string()
     }
 
     /// The format a rule names, as the record numbers it, and that format kept
@@ -1664,6 +1665,8 @@ fn read_rule(
 /// A sheet's rules as a first pass finds them.
 struct RuleReading<'p> {
     table: &'p StyleTable,
+    /// The sheet's place among the workbook's.
+    home: usize,
     label: &'p str,
     part: &'p str,
     /// The `conditionalFormatting` elements met.
@@ -1675,9 +1678,10 @@ struct RuleReading<'p> {
 }
 
 impl<'p> RuleReading<'p> {
-    fn new(table: &'p StyleTable, label: &'p str, part: &'p str) -> RuleReading<'p> {
+    fn new(table: &'p StyleTable, home: usize, label: &'p str, part: &'p str) -> RuleReading<'p> {
         RuleReading {
             table,
+            home,
             label,
             part,
             element: 0,
@@ -3150,9 +3154,20 @@ mod tests {
 
     /// A package of one sheet with a styles part and, when given, a theme.
     fn styled(sheet: &str, styles: &str, theme: Option<&str>, sst: &str) -> Vec<u8> {
+        styled_named("", sheet, styles, theme, sst)
+    }
+
+    /// [`styled`] over a workbook defining `names`, its `definedNames` element.
+    fn styled_named(
+        names: &str,
+        sheet: &str,
+        styles: &str,
+        theme: Option<&str>,
+        sst: &str,
+    ) -> Vec<u8> {
         let mut rels = format!("<Relationships><Relationship Id=\"rId1\" Type=\"{REL_SHEET}\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"{REL_SST}\" Target=\"sharedStrings.xml\"/><Relationship Id=\"rId3\" Type=\"{REL_STYLES}\" Target=\"styles.xml\"/>");
         let mut parts: Vec<(String, Vec<u8>)> = vec![
-            ("xl/workbook.xml".to_string(), format!("<workbook {NS}><sheets><sheet name=\"Model\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>").into_bytes()),
+            ("xl/workbook.xml".to_string(), format!("<workbook {NS}><sheets><sheet name=\"Model\" sheetId=\"1\" r:id=\"rId1\"/></sheets>{names}</workbook>").into_bytes()),
             ("xl/worksheets/sheet1.xml".to_string(), format!("<worksheet {NS}>{sheet}</worksheet>").into_bytes()),
             ("xl/sharedStrings.xml".to_string(), format!("<sst {NS}>{sst}</sst>").into_bytes()),
             ("xl/styles.xml".to_string(), format!("<styleSheet {NS}>{styles}</styleSheet>").into_bytes()),
@@ -3375,6 +3390,81 @@ mod tests {
         (rows, stats)
     }
 
+    /// A rule a load would refuse is left out and counted as a data bar is, with
+    /// nothing of its format printed or counted, so that its workbook loads and a
+    /// rule beside it stands: a function the language lacks, in a formula or a
+    /// bound, a date rule's among them; a text no load reads; a name no load reads.
+    #[test]
+    fn a_rule_a_load_would_refuse_is_left_out_and_counted() {
+        let names = concat!(
+            "<definedNames><definedName name=\"Odd\">A1#</definedName>",
+            "<definedName name=\"Fine\">Model!$A$1</definedName></definedNames>"
+        );
+        let sheet = concat!(
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>",
+            "<conditionalFormatting sqref=\"A1:A3\">",
+            "<cfRule type=\"expression\" dxfId=\"2\" priority=\"1\"><formula>NOSUCH(A1)</formula></cfRule>",
+            "<cfRule type=\"timePeriod\" dxfId=\"3\" priority=\"2\" timePeriod=\"today\"><formula>FLOOR(A1,1)=TODAY()</formula></cfRule>",
+            "<cfRule type=\"cellIs\" dxfId=\"0\" priority=\"3\" operator=\"between\"><formula>1</formula><formula>NOW()</formula></cfRule>",
+            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"4\"><formula>A1#</formula></cfRule>",
+            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"5\"><formula>Odd=1</formula></cfRule>",
+            "<cfRule type=\"expression\" priority=\"6\"><formula>Fine=1</formula></cfRule>",
+            "</conditionalFormatting>",
+        );
+        let bytes = styled_named(names, sheet, RULE_STYLES, None, "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "rules.xlsx").unwrap();
+        let rows: Vec<&str> = text
+            .lines()
+            .filter(|l| l.starts_with("(conditional ") || l.starts_with("(format "))
+            .collect();
+        assert_eq!(
+            rows[1..],
+            ["(conditional \"Model\" 6 \"A1:A3\" \"=Fine=1\" none)"],
+            "{stats:?}"
+        );
+        assert_eq!(stats.conditional, 6);
+        assert_eq!(stats.not_computed, 5);
+        assert_eq!(stats.rule_cells, 3, "the rule printed alone");
+        assert_eq!(stats.unheld, 0, "no format of a rule left out");
+        assert_eq!(
+            stats.left_out().as_deref(),
+            Some("the looks leave out what the record cannot hold: 5 conditional formats the language does not compute")
+        );
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+    }
+
+    /// The gate asks of a rule on the sheet that holds it, as a load does: a name
+    /// scoped to another sheet keeps no rule out.
+    #[test]
+    fn a_rule_is_asked_of_on_its_own_sheet() {
+        let names = concat!(
+            "<definedNames><definedName name=\"Odd\" localSheetId=\"1\">A1#</definedName>",
+            "</definedNames>"
+        );
+        let rule = concat!(
+            "<sheetData/><conditionalFormatting sqref=\"A1\">",
+            "<cfRule type=\"expression\" priority=\"1\"><formula>Odd=1</formula></cfRule>",
+            "</conditionalFormatting>",
+        );
+        let parts: Vec<(String, Vec<u8>)> = vec![
+            ("xl/workbook.xml".to_string(), format!("<workbook {NS}><sheets><sheet name=\"First\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"Second\" sheetId=\"2\" r:id=\"rId2\"/></sheets>{names}</workbook>").into_bytes()),
+            ("xl/_rels/workbook.xml.rels".to_string(), format!("<Relationships><Relationship Id=\"rId1\" Type=\"{REL_SHEET}\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"{REL_SHEET}\" Target=\"worksheets/sheet2.xml\"/></Relationships>").into_bytes()),
+            ("xl/worksheets/sheet1.xml".to_string(), format!("<worksheet {NS}>{rule}</worksheet>").into_bytes()),
+            ("xl/worksheets/sheet2.xml".to_string(), format!("<worksheet {NS}>{rule}</worksheet>").into_bytes()),
+        ];
+        let bytes = zip::write_stored(&parts).unwrap();
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "two.xlsx").unwrap();
+        assert!(
+            text.contains("(conditional \"First\" 1 \"A1\" \"=Odd=1\" none)"),
+            "{text}"
+        );
+        assert!(!text.contains("(conditional \"Second\""), "{text}");
+        assert_eq!(stats.not_computed, 1);
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
+    }
+
     #[test]
     fn a_rule_is_read_from_the_part_and_its_extension_or_counted() {
         let (rows, stats) = rules_read(concat!(
@@ -3466,7 +3556,7 @@ mod tests {
         );
         assert!(
             stats.left_out().unwrap().contains(
-                "13 looks the record has no word for, 3 conditional formats of a kind the language does not compute"
+                "13 looks the record has no word for, 3 conditional formats the language does not compute"
             ),
             "{:?}",
             stats.left_out()
@@ -3658,7 +3748,7 @@ mod tests {
     /// A rule's formula is the bar's text: a link's number its file's name, as a
     /// `formula` row's is.
     #[test]
-    fn a_rule_s_link_reads_as_the_bar_shows_it() {
+    fn a_rule_reading_another_workbook_is_left_out_and_counted() {
         const REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
         let parts: Vec<(String, Vec<u8>)> = vec![
             (
@@ -3684,12 +3774,10 @@ mod tests {
         ];
         let bytes = zip::write_stored(&parts).unwrap();
         let (text, stats) = crate::reflect::reflect_looks(&bytes, "link.xlsx").unwrap();
-        assert!(
-            text.contains("(conditional \"Model\" 1 \"A1\" \"=[Rates.xlsx]Sheet1!A1=1\" none)"),
-            "{text}"
-        );
+        assert!(!text.contains("(conditional "), "{text}");
         assert_eq!(stats.conditional, 1);
-        assert_eq!(stats.rule_cells, 1);
+        assert_eq!(stats.not_computed, 1);
+        assert_eq!(stats.rule_cells, 0);
     }
 
     /// A rule's format past what a grid holds is no row a load would refuse: its
@@ -3941,7 +4029,7 @@ mod tests {
                     let text = part_text_raw(&bytes, &package.entries, &part)
                         .unwrap()
                         .unwrap();
-                    let scan = package.first_pass(&text, table, &label, &part).unwrap();
+                    let scan = package.first_pass(&text, table, i, &label, &part).unwrap();
                     let places: Vec<(u32, u32)> = related
                         .0
                         .iter()

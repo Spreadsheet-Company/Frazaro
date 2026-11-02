@@ -168,10 +168,11 @@
   the format it names, so that a workbook's highlights load with it; an `.ods` file's
   are still counted and said. Each kind holding a formula of its own is that formula. A
   color scale, a data bar, an icon set, a top value, an average, a duplicate and a value
-  alone are left out, counted and said, and `--counts` gains `not-computed` and
-  `rule-cells`, the cells the rules answer for. A load refuses a rule calling a function
-  the language does not compute, as it refuses that call in a cell, and a date rule's
-  `TODAY` is one such. The writer writes a sheet's rules: each format a rule names as
+  alone are left out, counted and said, and so is a rule whose formula a load would
+  refuse, one calling a function the language does not compute as a date rule's `TODAY`
+  does, so that one rule does not keep a workbook out; a load still refuses that row
+  written by hand, as it refuses that call in a cell. `--counts` gains `not-computed` and
+  `rule-cells`, the cells the rules answer for. The writer writes a sheet's rules: each format a rule names as
   the differential format it is, saying what it says and no more, and a rule reading
   another sheet in the sheet's extension, as Excel's save writes one. What Excel does not
   draw of a rule's format, a font's family and a vertical alignment, and a rule no file
@@ -179,8 +180,8 @@
   `ooxml::rules_left_out` names them for a door to say. A workbook holding no rule writes
   what it wrote, byte for byte. `Render` gains `dxf_base` and `rules`, takes a lifetime
   and is `#[non_exhaustive]`, and `LooksStats` gains `not_computed`, `rule_cells` and
-  `rules_unread`; `Operator` gains `excel` and `from_excel`, and `Rule` gains `cells`
-  (KERNEL.58's fourth slice).
+  `rules_unread`; `Operator` gains `excel` and `from_excel`, and `Rule` gains `cells` and
+  `computable` (KERNEL.58's fourth slice).
 
 - **`ADDRESS` computes.** A cell's address as a text from its row and its column:
   `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and

@@ -9,8 +9,8 @@
 //!
 //! A sheet's conditional formats (KERNEL.58) are rows of their own, each with
 //! the partial format it names, past the cell formats, saying what the file's
-//! differential format says; the kinds the language does not compute are
-//! left out and counted.
+//! differential format says; the kinds the language does not compute, and a rule
+//! whose formula a load would refuse ([`RuleGate`]), are left out and counted.
 //!
 //! A format prints what it changes: a property the workbook's default font
 //! has is unsaid, and so is Excel's automatic color. What the record has no
@@ -33,10 +33,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::Source;
+use vla_lang::calc::eval::Library;
+use vla_lang::calc::Names;
 use vla_lang::numfmt::Code;
 use vla_lang::rows::{Record, Sink};
 use vla_lang::rule::Rule;
-use vla_lang::sheet::{A1Range, Column, NumFmt, Rgb, RowSettings, Style};
+use vla_lang::sheet::{A1Range, Column, NumFmt, Rgb, RowSettings, Style, Workbook};
 
 /// How a file names a color, before the workbook's theme and palette
 /// resolve it.
@@ -453,6 +456,42 @@ pub(crate) struct ColumnSpec {
     pub(crate) style: Option<u32>,
 }
 
+/// What a reader asks of a rule before it prints it (KERNEL.58's *Found* 12):
+/// whether a load under Excel's library computes it, a rule that would be refused
+/// being left out and counted as a data bar is, so that one rule does not keep a
+/// whole workbook out, where a cell's formula still does.
+pub(crate) struct RuleGate {
+    model: Workbook,
+    names: Names,
+    library: Library,
+}
+
+impl RuleGate {
+    /// The gate of a file: its sheets and names as a load of its rows holds them.
+    pub(crate) fn of(source: &dyn Source) -> RuleGate {
+        let mut model = Workbook::new();
+        for sheet in source.sheets() {
+            model.ensure_sheet(&sheet.name);
+        }
+        model.defined_names = source
+            .names()
+            .iter()
+            .filter(|n| !n.placeholder)
+            .map(|n| (source.printed_name(n), n.refers_to.clone()))
+            .collect();
+        RuleGate {
+            names: Names::of(&model),
+            model,
+            library: crate::excel::library(),
+        }
+    }
+
+    /// Whether a load computes `rule` on the sheet at `home`.
+    pub(crate) fn takes(&self, rule: &Rule, home: usize) -> bool {
+        rule.computable(&self.model, &self.names, home, &self.library)
+    }
+}
+
 /// What a reader's first pass over a sheet found (KERNEL.57): its
 /// gridlines, its columns, its rows of settings, the extent of the cells
 /// the walk prints, the formats they use, and the counts of the looks.
@@ -652,9 +691,10 @@ pub struct LooksStats {
     /// The conditional formats' rules the file holds, each said by a row of
     /// its own but those counted below (KERNEL.58).
     pub conditional: u64,
-    /// Those of a kind the language does not compute, a color scale, a data bar,
-    /// an icon set, a top value, an average, a duplicate or a value alone: left
-    /// out.
+    /// Those the language does not compute: a color scale, a data bar, an icon
+    /// set, a top value, an average, a duplicate or a value alone, and a rule whose
+    /// formula a load would refuse, one calling a function it lacks among them.
+    /// Left out.
     pub not_computed: u64,
     /// The cells the rules printed answer for, which a load counts beside the
     /// grid's and refuses past its 1,048,576.
@@ -734,8 +774,8 @@ impl LooksStats {
         if self.not_computed > 0 {
             left.push(count(
                 self.not_computed,
-                "conditional format of a kind the language does not compute",
-                "conditional formats of a kind the language does not compute",
+                "conditional format the language does not compute",
+                "conditional formats the language does not compute",
             ));
         }
         if self.rules_unread > 0 {
@@ -1122,7 +1162,7 @@ mod tests {
         };
         assert_eq!(
             stats.left_out().unwrap(),
-            "the looks leave out what the record cannot hold: 2 conditional formats of a kind the language does not compute"
+            "the looks leave out what the record cannot hold: 2 conditional formats the language does not compute"
         );
         let stats = LooksStats {
             conditional: 1,

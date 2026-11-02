@@ -25,9 +25,18 @@
 //! rule over the cell, as Excel draws one and as its object model's
 //! `DisplayFormat` does not say across two ranges (the owner's look at the
 //! `Order` sheet).
+//!
+//! A load refuses a rule as it refuses a cell's formula, for a function its
+//! library lacks or a text its parse does not read. [`Rule::computable`] asks
+//! the same before a load does, for a reader of a file, which leaves such a rule
+//! out so that one rule does not keep a whole workbook out.
 
+use crate::calc::eval::{unread_name, Library};
+use crate::calc::formula;
+use crate::calc::shape::moves_unread;
+use crate::calc::Names;
 use crate::refers;
-use crate::sheet::{cell_ref, A1Range};
+use crate::sheet::{cell_ref, strip_future_prefixes, A1Range, Workbook};
 
 /// Excel's eight comparisons of a cell's value, in the row's words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -209,6 +218,42 @@ impl Rule {
             }
         };
         format!("IFERROR(IF({test},1,0),0)")
+    }
+
+    /// Whether a load computes it on the sheet at `home` of `model`, which names
+    /// a workbook's sheets and defined names (`names`): what a load asks of its
+    /// answer, that `library` holds each function it calls, that the parse reads
+    /// its text and each name it reads, and, of a reference a move may spoil, its
+    /// text at the far corner of each rectangle, a cell there moved furthest.
+    pub fn computable(
+        &self,
+        model: &Workbook,
+        names: &Names,
+        home: usize,
+        library: &Library,
+    ) -> bool {
+        let Some(sheet) = model.sheets.get(home) else {
+            return false;
+        };
+        let text = strip_future_prefixes(&self.answer_text(&sheet.name));
+        if formula::calls(&text).iter().any(|name| !library.has(name)) {
+            return false;
+        }
+        let Ok(parsed) = formula::parse(&text) else {
+            return false;
+        };
+        if unread_name(model, names, &parsed, home).is_some() {
+            return false;
+        }
+        if !moves_unread(&text) {
+            return true;
+        }
+        let (top, left) = self.corner();
+        self.ranges.iter().all(|range| {
+            let (d_row, d_col) = (range.bottom - top, range.right - left);
+            let moved = refers::shift_a1_references(&text, i64::from(d_row), i64::from(d_col));
+            formula::parse(&moved).is_ok()
+        })
     }
 }
 
