@@ -157,9 +157,10 @@
   `of` holds the rules' cells, which are work a frame does. A formula moves from the
   top left of the rectangle around its rectangles, as Excel moves one, and is true
   as `IF` reads it. A range bringing the cells rules answer for past 1,048,576 is
-  refused by name (`grid-rule-cells`), so that a rule over a whole column fills that
-  room alone. A grid holding no rule plans, steps and prints as it did. A record
-  viewed with no machine prints a rule's row and no answer. `Sheet` gains the rules, 8
+  planned no further than its sheet's extent, following it as writes grow it, and what
+  still passes the room is refused by name (`grid-rule-cells`), so that rules over whole
+  columns cost what their sheets hold. A grid holding no rule plans, steps and prints as
+  it did. A record viewed with no machine prints a rule's row and no answer. `Sheet` gains the rules, 8
   bytes a sheet, and is `#[non_exhaustive]`, so a sheet is made by `Sheet::new`; `Record`
   gains `Conditional` and `Lit`; the rule is `vla_lang::rule` (KERNEL.58's third slice).
 

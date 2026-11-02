@@ -697,7 +697,8 @@ pub struct LooksStats {
     /// Left out.
     pub not_computed: u64,
     /// The cells the rules printed answer for, which a load counts beside the
-    /// grid's and refuses past its 1,048,576.
+    /// grid's: past its 1,048,576 each rule answers inside its sheet's extent alone,
+    /// and what still passes them is refused.
     pub rule_cells: u64,
     /// The rows formatted whole, a row's own format, which no row says.
     pub row_formats: u64,

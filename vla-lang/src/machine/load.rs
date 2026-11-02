@@ -140,6 +140,50 @@ pub(crate) struct Answering {
     pub(crate) stop: bool,
 }
 
+/// A rule a machine plans only inside its sheet's extent, its grid's rules past the
+/// room (KERNEL.58's *Found* 15): its rows' sheet, its place among that sheet's rules,
+/// its answer sheet, and how far it is planned.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Planned {
+    pub(crate) sheet: usize,
+    pub(crate) at: usize,
+    pub(crate) answer: usize,
+    pub(crate) area: Option<A1Range>,
+}
+
+/// An extent as the rectangle it is.
+pub(crate) fn extent_area(extent: Extent) -> Option<A1Range> {
+    extent.map(|((top, left), (bottom, right))| A1Range {
+        top,
+        left,
+        bottom,
+        right,
+    })
+}
+
+/// What of a rule's cells stands inside `area` and outside `was`, as pieces that never
+/// overlap: what a write growing its sheet's extent plans of it.
+pub(crate) fn pieces_past(
+    rule: &Rule,
+    was: Option<A1Range>,
+    area: Option<A1Range>,
+) -> Vec<A1Range> {
+    let mut held = Rects::default();
+    let mut past = Vec::new();
+    for (inside, new) in [(was, false), (area, true)] {
+        let Some(inside) = inside else { continue };
+        for range in rule.ranges.iter().filter_map(|r| overlap(r, &inside)) {
+            for piece in outside_held(range, &held) {
+                held.insert(piece, 0);
+                if new {
+                    past.push(piece);
+                }
+            }
+        }
+    }
+    past
+}
+
 /// What a `value` row says of the formula cells of its range (KERNEL.72): one
 /// value, every cell's; or each cell's, row by row, kept as numbers where
 /// they all are, 8 bytes a cell where a value is 32.
@@ -812,20 +856,32 @@ impl Draft {
     /// overlapping one before it cut, and each `lit` row its last answer, as a
     /// `value` row a formula's. A grid of no rule makes none. For each rows'
     /// sheet its rules, none at all where no sheet holds one, and how many
-    /// cells they answer for, at most [`CELLS`] beside the grid's.
-    pub(crate) fn answer_sheets(&mut self) -> Result<(Vec<Vec<Answering>>, usize), LineRefusal> {
+    /// cells they answer for, at most [`CELLS`] beside the grid's. Rules asking
+    /// more than that room are each planned only inside their sheet's extent, and
+    /// said so ([`Planned`]): what no record of a sheet whole shows, so that rules over
+    /// whole columns cost what their sheets hold (KERNEL.58's *Found* 15).
+    pub(crate) fn answer_sheets(&mut self) -> Result<Answers, LineRefusal> {
         let rows = self.sheets.len();
         self.rows = rows;
         if self.sheets.iter().all(|s| s.sheet.rules().is_empty()) {
-            return Ok((Vec::new(), 0));
+            return Ok((Vec::new(), 0, Vec::new()));
         }
+        let asked: u64 = self
+            .sheets
+            .iter()
+            .flat_map(|s| s.sheet.rules())
+            .map(Rule::cells)
+            .sum();
+        let past_room = asked > CELLS as u64;
+        let mut planned = Vec::new();
         let mut cells: u64 = 0;
         let mut answering = Vec::with_capacity(rows);
         for si in 0..rows {
             let name = self.sheets[si].sheet.name.clone();
             let rules: Vec<Rule> = self.sheets[si].sheet.rules().to_vec();
+            let area = extent_area(self.sheets[si].extent()).filter(|_| past_room);
             let mut mine = Vec::with_capacity(rules.len());
-            for rule in &rules {
+            for (at, rule) in rules.iter().enumerate() {
                 let line = self.sheets[si]
                     .rule_lines
                     .get(&rule.priority)
@@ -837,6 +893,14 @@ impl Draft {
                 let (anchor, written) = (rule.corner(), rule.around());
                 let mut before = Rects::default();
                 for &range in &rule.ranges {
+                    let range = if past_room {
+                        match area.and_then(|area| overlap(&range, &area)) {
+                            Some(inside) => inside,
+                            None => continue,
+                        }
+                    } else {
+                        range
+                    };
                     for piece in outside_held(range, &before) {
                         before.insert(piece, 0);
                         cells += piece.cells();
@@ -861,6 +925,14 @@ impl Draft {
                     sheet: self.sheets.len(),
                     stop: rule.stop,
                 });
+                if past_room {
+                    planned.push(Planned {
+                        sheet: si,
+                        at,
+                        answer: self.sheets.len(),
+                        area,
+                    });
+                }
                 self.sheets.push(answer);
             }
             // Each rule a `lit` row names, by its priority, the rules being in
@@ -869,7 +941,7 @@ impl Draft {
             let lit = std::mem::take(&mut self.sheets[si].lit);
             for ((row, col), (lit, line)) in lit {
                 for priority in &lit {
-                    if let Ok(k) = mine.binary_search_by_key(priority, |a| a.priority) {
+                    if let Ok(k) = mine.binary_search_by_key(priority, |a: &Answering| a.priority) {
                         let cell = A1Range {
                             top: row,
                             left: col,
@@ -885,7 +957,7 @@ impl Draft {
             }
             answering.push(mine);
         }
-        Ok((answering, cells as usize))
+        Ok((answering, cells as usize, planned))
     }
 
     /// A formula cell's kind said: a legacy array formula, as a workbook may
@@ -1217,6 +1289,10 @@ fn rule_pieces(rule: &Rule) -> Rects {
     }
     pieces
 }
+
+/// What a draft's rules make of it: each sheet's rules as a machine answers them,
+/// how many cells they answer for, and each planned inside its sheet's extent.
+pub(crate) type Answers = (Vec<Vec<Answering>>, usize, Vec<Planned>);
 
 /// `grid-rule-cells`: a rule whose range would bring the cells rules answer for
 /// past their cap (KERNEL.58).

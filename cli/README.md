@@ -547,7 +547,9 @@ would refuse, one calling a function the language does not compute among them, s
 that one rule does not keep a workbook out; a load still refuses that row written
 by hand, as it refuses that call in a cell. What Excel reads and does not draw of
 a rule's format, a font's name and a vertical alignment, is left out and not
-counted.
+counted. Rules asking for more than the 1,048,576 cells a load keeps beside the grid's
+each answer only inside their sheet's extent, which a record of the sheet whole shows, and
+follow it as writes grow it, so that rules over whole columns cost what their sheets hold.
 
 An `.ods` file's rules are the same rows: LibreOffice's own elements where a sheet
 holds any, else the conditions on its cell styles, each over the cells naming its

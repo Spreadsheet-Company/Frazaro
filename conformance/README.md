@@ -2446,6 +2446,19 @@ steps and prints as it did, byte for byte, and no golden of oracle 11 moves.
   `vla-lang/testdata/appearance/rules.vla` is a record with rules, beside the same
   record drawn.
 
+## Amendment of 2026-11-01: rules past the room (`KERNEL.58`'s *Found* 15)
+
+A grid whose rules ask for at most the 1,048,576 cells beside its own plans each whole, as
+the last amendment has it, and a rule lights an empty cell anywhere it answers for. Rules
+asking more are each planned only inside their sheet's extent, its rectangle of held cells:
+the window of a record of the sheet whole, which shows no other. They answer for nothing past
+it, so that a rule true of an empty cell, `=ISBLANK(A1)` or `=MOD(ROW(),2)=0`, lights none
+there where Excel lights it, a gap this names. A cell written past the extent grows it and its
+sheet's rules with it, so that a value typed below the data is answered for at the next frame,
+and a refused write takes that back. What still passes the room is refused by name
+(`grid-rule-cells`), at the load or at the write that grows to it. The free laws hold it: such
+a grid's save loaded again views and steps the same through writes that grow its sheets.
+
 ## Amendment of 2026-11-01: a conditional format through a file (`KERNEL.58`, its fourth slice)
 
 Oracles 7 and 8 take the rule the third slice's amendment defines, a package's

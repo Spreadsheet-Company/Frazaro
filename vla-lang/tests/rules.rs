@@ -1046,11 +1046,12 @@ fn a_rule_s_cells_stand_beside_the_grid_s_at_most_the_cap() {
     );
     let m = load(fits, "the sheet");
     assert_eq!(m.loaded().cells, 1_048_576);
+    // Past the room each answers inside its sheet's extent; past it there too, by name.
     let refused = Machine::load(
         concat!(
-            "(cell \"S\" \"A1\" 1)\n",
-            "(conditional \"S\" 1 \"A1:B524288\" \"=1\" none)\n",
-            "(conditional \"S\" 2 \"C1\" \"=1\" none)\n",
+            "(cell \"S\" \"A1:C349525\" 1)\n",
+            "(conditional \"S\" 1 \"A1:C349525\" \"=1\" none)\n",
+            "(conditional \"S\" 2 \"A1:A2\" \"=1\" none)\n",
         ),
         library::language(),
     )
@@ -1058,7 +1059,7 @@ fn a_rule_s_cells_stand_beside_the_grid_s_at_most_the_cap() {
     assert_eq!(refused.refusal.id, "grid-rule-cells");
     assert_eq!(refused.line, 3);
     assert!(
-        refused.refusal.text.contains("S!C1"),
+        refused.refusal.text.contains("S!A1:A2"),
         "{}",
         refused.refusal.text
     );
@@ -1235,4 +1236,197 @@ fn a_rule_is_computable_exactly_where_a_load_takes_it() {
             "{what}: a sheet the workbook does not hold"
         );
     }
+}
+
+/// Rules over a whole column, a third of the room's: the grid's cells and the rules' rows.
+const PAST_THE_ROOM: &str = concat!(
+    "(cell \"S\" \"A1\" 1)\n",
+    "(cell \"S\" \"A2\" 2)\n",
+    "(cell \"S\" \"A3\" 1)\n",
+    "(cell \"S\" \"B2\" 2)\n",
+    "(conditional \"S\" 1 \"A1:A1048576\" \"=A1=1\" none)\n",
+    "(conditional \"S\" 2 \"B1:B1048576\" \"=A1=2\" none)\n",
+);
+
+/// The rules a window's record lights, each its cell and its priorities.
+fn lit_in(m: &Machine, window: &str) -> Vec<String> {
+    record(m, "values", "S", Some(window))
+        .lines()
+        .filter(|l| l.starts_with("(lit "))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Rules asking more than the room are each planned only inside their sheet's extent:
+/// so that two whole columns load, cost what the sheet holds and draw as they do there,
+/// and the cells past it, which no record of the sheet whole shows, answer nothing.
+#[test]
+fn rules_past_the_room_answer_inside_their_sheet_s_extent() {
+    let mut m = load(PAST_THE_ROOM, "two whole columns");
+    let step = m.step(0);
+    assert!(step.done);
+    assert_eq!(step.of, 3 + 3, "each rule's cells of A1:B3, the extent");
+    assert_eq!(
+        lit_in(&m, "A1:B9"),
+        [
+            "(lit \"S\" \"A1\" 1)",
+            "(lit \"S\" \"B2\" 2)",
+            "(lit \"S\" \"A3\" 1)",
+        ]
+    );
+    // A cell the plan left out holds no answer a `lit` row could say.
+    let said = format!("{PAST_THE_ROOM}(lit \"S\" \"A9\" 1)\n");
+    let held = load(&said, "a lit row past the extent");
+    assert_eq!(lit_in(&held, "A9:A9"), Vec::<String>::new());
+    // What the sheet's whole record prints is the rules' rows as written.
+    let whole = record(&m, "values", "S", None);
+    assert!(whole.contains("\"A1:A1048576\""), "{whole}");
+    assert!(whole.contains("\"B1:B1048576\""), "{whole}");
+    // One column alone fits the room, and answers for every cell of it as it did: a rule
+    // true of an empty cell lights it past the extent, which past the room it does not.
+    let empty =
+        "(cell \"S\" \"A1\" 1)\n(conditional \"S\" 1 \"A1:A1048576\" \"=A1=\\\"\\\"\" none)\n";
+    let mut whole = load(empty, "one whole column");
+    assert_eq!(whole.step(0).of, 1_048_576);
+    assert_eq!(lit_in(&whole, "A1:A3").len(), 2, "its two empty cells");
+    let both = format!("{empty}(conditional \"S\" 2 \"B1:B1048576\" \"=1\" none)\n");
+    let mut past = load(&both, "two");
+    assert_eq!(past.step(0).of, 1);
+    assert_eq!(lit_in(&past, "A1:B3"), Vec::<String>::new());
+}
+
+/// A rule planned inside its sheet's extent follows it as writes grow it: a value typed
+/// below the data is answered for, on every rule of its sheet and of no other, and a
+/// refused write takes the plan back with it.
+#[test]
+fn a_rule_past_the_room_follows_its_sheet_s_extent() {
+    let mut m = load(PAST_THE_ROOM, "two whole columns");
+    assert!(m.step(0).done);
+    m.write("(cell \"S\" \"A6\" 1)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        lit_in(&m, "A1:B9"),
+        [
+            "(lit \"S\" \"A1\" 1)",
+            "(lit \"S\" \"B2\" 2)",
+            "(lit \"S\" \"A3\" 1)",
+            "(lit \"S\" \"A6\" 1)",
+        ]
+    );
+    m.write("(cell \"S\" \"A7\" 2)").unwrap();
+    assert!(m.step(0).done);
+    assert!(lit_in(&m, "A1:B9").contains(&"(lit \"S\" \"B7\" 2)".to_string()));
+    // A formula's write grows it too, and its answer reads the formula's value.
+    m.write("(formula \"S\" \"A8\" \"=A6\")").unwrap();
+    while !m.step(0).done {}
+    while !m.step(0).done {}
+    assert!(lit_in(&m, "A1:B9").contains(&"(lit \"S\" \"A8\" 1)".to_string()));
+    // A rule that planned nothing, its sheet's cells nowhere near its column, grows
+    // from its own corner: B5 reads A5 as it would have.
+    let far = concat!(
+        "(cell \"S\" \"A5\" 2)\n",
+        "(conditional \"S\" 1 \"A1:A1048576\" \"=A1=9\" none)\n",
+        "(conditional \"S\" 2 \"B1:B1048576\" \"=A1=2\" none)\n",
+    );
+    let mut grown = load(far, "a rule of no cell yet");
+    assert_eq!(grown.step(0).of, 1);
+    grown.write("(cell \"S\" \"B6\" 0)").unwrap();
+    assert!(grown.step(0).done);
+    assert_eq!(lit_in(&grown, "A1:B9"), ["(lit \"S\" \"B5\" 2)"]);
+    // A cell on another sheet grows nothing of this one.
+    let other = format!("{PAST_THE_ROOM}(cell \"T\" \"A1\" 1)\n");
+    let mut m = load(&other, "two sheets");
+    let of = m.step(0).of;
+    m.write("(cell \"T\" \"A9\" 1)").unwrap();
+    assert_eq!(m.step(0).of, of, "the plan stands");
+    // A write refused takes the plan back: the same grid as before it, at every frame.
+    let mut refused = load(PAST_THE_ROOM, "refused");
+    let mut stood = load(PAST_THE_ROOM, "stood");
+    assert!(refused.step(0).done && stood.step(0).done);
+    let e = refused
+        .write("(formula \"S\" \"A9\" \"=A9\")")
+        .expect_err("a cycle");
+    assert_eq!(e.refusal.id, "calc-cycle");
+    assert_eq!(
+        record(&refused, "values", "S", None),
+        record(&stood, "values", "S", None)
+    );
+    assert_eq!(refused.loaded().formulas, stood.loaded().formulas);
+    refused.write("(cell \"S\" \"A5\" 1)").unwrap();
+    stood.write("(cell \"S\" \"A5\" 1)").unwrap();
+    assert_eq!(refused.step(0).of, stood.step(0).of);
+    assert_eq!(lit_in(&refused, "A1:B9"), lit_in(&stood, "A1:B9"));
+}
+
+/// What a machine past the room holds is what a load of its record holds, through writes
+/// that grow its sheets: its answers, its changes and what it steps from there.
+#[test]
+fn a_grid_past_the_room_loaded_again_views_the_same() {
+    for seed in 0..12 {
+        let mut rng = Rng(0x5EED_0000 + seed);
+        let mut rows = String::from("(cell \"S\" \"A1\" 1)\n(cell \"T\" \"A1\" 1)\n");
+        for (k, column) in ["A", "B", "C"].iter().enumerate() {
+            let test = rng.pick(&[
+                "=A1=1",
+                "=$A1>1",
+                "=A1=T!$A$1",
+                "=B2=1",
+                "=ISBLANK(A1)",
+                "=1",
+            ]);
+            rows.push_str(&format!(
+                "(conditional \"S\" {} \"{column}1:{column}1048576\" \"{test}\" none {})\n",
+                k + 1,
+                *rng.pick(&["", "stop"]),
+            ));
+        }
+        rows = rows.replace(" none )", " none)");
+        let mut m = load(&rows, "a grid past the room");
+        assert!(m.step(0).done);
+        let mut frame = 1;
+        for _ in 0..8 {
+            let (row, col) = (1 + rng.below(12) as u32, 1 + rng.below(4) as u32);
+            let cell = cell_ref(row, col);
+            let write = match rng.below(3) {
+                0 => format!("(cell \"S\" \"{cell}\" {})", rng.below(3)),
+                1 => format!("(formula \"S\" \"{cell}\" \"=1+{}\")", rng.below(3)),
+                _ => format!("(cell \"T\" \"{cell}\" {})", rng.below(3)),
+            };
+            m.write(&write).unwrap();
+            assert!(m.step(0).done && m.step(0).done);
+            frame += 2;
+            let saved = save(&m);
+            let mut again = load(&saved, "its save");
+            assert_eq!(save(&again), saved, "seed {seed}");
+            again.resume_at(frame).unwrap();
+            assert!(again.step(0).done && m.step(0).done);
+            frame += 1;
+            assert_eq!(save(&again), save(&m), "seed {seed}: a frame from there");
+        }
+    }
+}
+
+/// Past the room and past it inside the extents too is refused by name, at the load and
+/// at the write that would grow to it, the write taken back.
+#[test]
+fn what_still_passes_the_room_is_refused() {
+    let wide = "(cell \"S\" \"A1:B262144\" 1)\n";
+    let rule = |k: u32, column: &str| {
+        format!("(conditional \"S\" {k} \"A1:{column}1048576\" \"=1\" none)\n")
+    };
+    let rows = format!("{wide}{}{}{}", rule(1, "B"), rule(2, "B"), rule(3, "B"));
+    let e = Machine::load(&rows, library::language()).expect_err("three of half a million");
+    assert_eq!(e.refusal.id, "grid-rule-cells", "{}", e.refusal.text);
+    assert_eq!(e.line, 4);
+    let narrow = "(cell \"S\" \"A1:B262143\" 1)\n";
+    let rows = format!("{narrow}{}{}", rule(1, "XFD"), rule(2, "XFD"));
+    let mut m = load(&rows, "two at the room's edge");
+    assert!(m.step(0).done);
+    let e = m
+        .write("(cell \"S\" \"A262146\" 1)")
+        .expect_err("grown past the room");
+    assert_eq!(e.refusal.id, "grid-rule-cells", "{}", e.refusal.text);
+    // Taken back, the grid steps as it stood.
+    m.write("(cell \"S\" \"A1\" 2)").unwrap();
+    assert!(m.step(0).done);
 }

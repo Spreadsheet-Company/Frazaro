@@ -42675,7 +42675,22 @@ file's order, and the difference is LibreOffice's own import's, the oracle being
 15. *Two rules over whole columns keep a workbook out,* a different refusal for the same harm as *Found* 12: `A1:A1048576` and
     `B1:B1048576` beside it are refused by `grid-rule-cells`, one taking the room alone (*measured*, 14.9 ms to load, the scoping's
     *Found* 2). A reader could count a rule past the room as not computed, or a machine could leave a rule's answers past a sheet's
-    extent unplanned; the second keeps the highlight, and either is the owner's.
+    extent unplanned; the second keeps the highlight, and either is the owner's. *Fixed at the owner's word, 2026-11-01, the second.* A
+    grid whose rules ask at most the room plans as it did, every floor standing. Rules asking more are each planned only inside their
+    own sheet's extent (`Planned`, `answer_sheets`), what a record of the sheet whole shows and no more, so that a rule costs what its sheet
+    holds. A write growing the extent plans the rule's new cells as pieces of its fill, changed as a written formula's are (`plan_answers`), so
+    that a value typed below the data is answered for at the next frame, and an undo takes them back. What still passes the room is refused by
+    name, at the load or the write. *The gap, named in the treaty:* such a rule answers for nothing past the extent, so that one true of an
+    empty cell, or reading inside the extent from a column past it, `=$A1=1` over `A:Z`, lights nothing there where Excel lights it, shown by a
+    window past the extent alone. Reading the extents of the other sheets a rule reads was weighed and left: a rule reading a long sheet from
+    a short one would plan that sheet's length, and twenty such pass the room, keeping out the workbook this was to let in. *What it leaves:* a
+    workbook whose rules pass the room inside their extents, eleven whole columns over a sheet of 100,000 rows, is still refused whole, a reader
+    being unable to tell without the extents. Held by `rules_past_the_room_answer_inside_their_sheet_s_extent`,
+    `a_rule_past_the_room_follows_its_sheet_s_extent`, `a_grid_past_the_room_loaded_again_views_the_same`, 12 generated grids through writes
+    that grow their sheets, saved, loaded and stepped, and `what_still_passes_the_room_is_refused`. Thirty mutants of this and *Found* 14 and 16, a
+    control before and after: 27 caught at once; two showed code doing nothing, a fill of its own for each growth and a `lit` row's check a store
+    already makes, and it is gone; one held once a test compared the counts after a refused write, and a further one, a piece's anchor, once a test
+    grew a rule that had planned nothing.
 16. *A rule of many rectangles costs a load their square,* each cut against those before it (`grid::outside`): 1,000 scattered
     rectangles 10.2 ms, 4,000 139 ms, 16,000 2.2 s, of which `Rule::cells`, counted by each reader, 1.3 s (*measured*, release). A
     hostile file of a million would hold a reader for over an hour (*derived*), and an `.ods` of scattered styled cells gathers as many

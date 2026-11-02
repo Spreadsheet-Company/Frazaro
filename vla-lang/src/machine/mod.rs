@@ -183,7 +183,7 @@ use crate::view::{changes_text, fills_text, record_text, window_over};
 use bits::Bits;
 use book::{Book, Fills, Page};
 pub use load::{read_rows, read_rows_each, sheet_name_ok, thousands, twin_base, Draft, Drafted};
-use load::{Answering, What};
+use load::{Answering, Planned, What};
 use store::Store;
 
 /// The most cells a grid holds beside its twins (KERNEL.22): a stated limit,
@@ -380,6 +380,9 @@ pub struct Machine {
     /// By rows' sheet, its rules by priority; none at all in a grid holding
     /// no rule.
     rules: Vec<Vec<Answering>>,
+    /// The rules planned only inside their sheet's extent, none where the rules fit
+    /// the room (KERNEL.58's *Found* 15).
+    planned: Vec<Planned>,
     /// How many cells the rules answer for, in the plan's count and not in
     /// `cells`.
     rule_cells: usize,
@@ -649,6 +652,10 @@ struct Log {
     /// Each formula alone the write set or gave up, with what its cell held
     /// as one before, in order.
     alone: Vec<(CellId, Option<(String, Kind)>)>,
+    /// Each rule the write planned further, with how far it was planned, and the
+    /// cells that added (KERNEL.58's *Found* 15).
+    planned: Vec<(usize, Option<A1Range>)>,
+    rule_cells: usize,
 }
 
 impl Machine {
@@ -672,7 +679,7 @@ impl Machine {
     /// its `value` row. Nothing is computed: the frame is 0 and every formula
     /// waits for the first step.
     pub fn new(mut draft: Draft, library: Library) -> Result<Machine, LineRefusal> {
-        let (rules, rule_cells) = draft.answer_sheets()?;
+        let (rules, rule_cells, planned) = draft.answer_sheets()?;
         // The `value` rows, laid in the stores after the plan.
         let said: Vec<load::SaidRows> = draft
             .sheets
@@ -722,7 +729,7 @@ impl Machine {
         drop(laid);
         Ok(Machine::made(
             (book, sheets, cells),
-            (rules, rule_cells),
+            (rules, rule_cells, planned),
             (library, names, extents),
             shapes,
             stores,
@@ -736,7 +743,7 @@ impl Machine {
     #[inline(never)]
     fn made(
         (book, sheets, cells): (Book, usize, usize),
-        (rules, rule_cells): (Vec<Vec<Answering>>, usize),
+        (rules, rule_cells, planned): load::Answers,
         (library, names, extents): (Library, Names, Vec<Extent>),
         shapes: Shapes,
         stores: Vec<Store>,
@@ -745,6 +752,7 @@ impl Machine {
             book,
             sheets,
             rules,
+            planned,
             rule_cells,
             library,
             names,
@@ -2624,6 +2632,63 @@ impl Machine {
         for (&s, &extent) in &log.sheets {
             self.extents[s] = extent;
         }
+        for &(k, area) in log.planned.iter().rev() {
+            self.planned[k].area = area;
+        }
+        self.rule_cells -= log.rule_cells;
+    }
+
+    /// Each rule planned inside its sheet's extent planned as far as the write has
+    /// grown it (KERNEL.58's *Found* 15): the cells it answers for there, pieces of its
+    /// answer's fill as a load's are, changed as a written formula's are, so that the
+    /// settle places them and the next frame computes them, and an undo takes them
+    /// back; refused where they bring the rules past the room.
+    fn plan_answers(&mut self, log: &mut Log) -> Result<(), LineRefusal> {
+        let line = log.changed.values().copied().min().unwrap_or(0);
+        for k in 0..self.planned.len() {
+            let Planned {
+                sheet,
+                at,
+                answer,
+                area: was,
+            } = self.planned[k];
+            let area = load::extent_area(self.extents[sheet]);
+            if area == was {
+                continue;
+            }
+            let name = self.book.pages[sheet].sheet.name.clone();
+            let rule = self.book.pages[sheet].sheet.rules()[at].clone();
+            let (anchor, written) = (rule.corner(), rule.around());
+            let text = rule.answer_text(&name);
+            log.planned.push((k, was));
+            self.planned[k].area = area;
+            for piece in load::pieces_past(&rule, was, area) {
+                let cells = piece.cells() as usize;
+                self.rule_cells += cells;
+                log.rule_cells += cells;
+                if self.rule_cells > CELLS {
+                    return Err(load::rule_cells(
+                        line,
+                        &name,
+                        &rule.range_text(),
+                        self.rule_cells as u64,
+                    ));
+                }
+                let page = &mut self.book.pages[answer];
+                log.fills
+                    .entry(answer)
+                    .or_insert_with(|| (page.fills.clone(), page.sheet.shared_formulas));
+                page.fills.add(0, piece, anchor, &text, written);
+                *log.added_on.entry(answer).or_default() += cells;
+                log.sheets.entry(answer).or_insert(self.extents[answer]);
+                for r in piece.top..=piece.bottom {
+                    for c in piece.left..=piece.right {
+                        log.changed.entry((answer, r, c)).or_insert(line);
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// A write's rows all taken: the extents, the cells counted, the plan
@@ -2635,7 +2700,7 @@ impl Machine {
     /// of the plan is kept for a refusal, which is rare: the copy was a third of
     /// a write's time, and what the next frame needs of the old plan is taken
     /// first (KERNEL.69).
-    fn settle(&mut self, log: Log) -> Result<usize, LineRefusal> {
+    fn settle(&mut self, mut log: Log) -> Result<usize, LineRefusal> {
         if log.changed.is_empty() {
             return Ok(log.written);
         }
@@ -2645,6 +2710,15 @@ impl Machine {
         // a sheet of 458,753 cells cost 5.2 ms.
         for &(s, row, col) in log.changed.keys() {
             self.extents[s] = grown(self.extents[s], row, col);
+        }
+        if !self.planned.is_empty() {
+            if let Err(refused) = self.plan_answers(&mut log) {
+                self.undo(&log);
+                return Err(refused);
+            }
+            for &(s, row, col) in log.changed.keys() {
+                self.extents[s] = grown(self.extents[s], row, col);
+            }
         }
         let formula_changed = log
             .changed
