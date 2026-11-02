@@ -43,13 +43,15 @@
 //! one reference reader, `crate::refers`, reads both formats, and the
 //! goldens keep one spelling.
 
-use std::cell::OnceCell;
-use std::collections::{BTreeSet, HashSet};
+use std::cell::{OnceCell, RefCell};
+use std::collections::{HashMap, HashSet};
 
 use super::cursor::{
     attr, attr_full, attributes_full, skip_element, unescape_entities, Cursor, Event,
 };
-use super::looks::{iso_duration_days, iso_serial, ColumnSpec, LooksStats, SheetScan};
+use super::looks::{
+    iso_duration_days, iso_serial, ColumnSpec, Look, LooksStats, RuleGate, SheetScan,
+};
 use super::odf_looks::{self, OdsLooks};
 use super::ooxml::{not_a_workbook, step, xml_refused};
 use super::{
@@ -61,8 +63,12 @@ use crate::messages::Refusal;
 use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip;
-use crate::sheet::{cell_ref, number_text, RowSettings, MAX_COLUMN, MAX_ROW};
+use crate::sheet::{
+    cell_ref, number_text, parse_a1_range, A1Range, RowSettings, Style, MAX_COLUMN, MAX_ROW,
+};
+use vla_lang::machine::load::FORMATS;
 use vla_lang::rows::{datum, ArrayKind};
+use vla_lang::rule::{Operator, Rule, Test};
 
 const MIMETYPE: &str = "application/vnd.oasis.opendocument.spreadsheet";
 const CONTENT: &str = "content.xml";
@@ -105,6 +111,11 @@ pub struct Document {
     date1904: bool,
     /// The styles as the looks read them, the first time a walk asks.
     looks: OnceCell<Result<OdsLooks, Refusal>>,
+    /// The formats the rules name, each different one once, past the cell formats,
+    /// in the order a walk first meets it (KERNEL.58).
+    rule_looks: RefCell<Vec<Look>>,
+    /// What a walk asks of a rule, made for the first rule it meets.
+    rule_gate: OnceCell<RuleGate>,
 }
 
 impl std::fmt::Debug for Document {
@@ -214,6 +225,8 @@ impl Document {
                 .as_deref()
                 .is_some_and(|d| d.starts_with("1904")),
             looks: OnceCell::new(),
+            rule_looks: RefCell::new(Vec::new()),
+            rule_gate: OnceCell::new(),
         })
     }
 }
@@ -531,12 +544,14 @@ fn read_cell(
         Some("date") => attr(attrs, "date-value").map(|v| Value::Date(v.trim().to_string())),
         Some("time") => attr(attrs, "time-value").map(|v| Value::Date(v.trim().to_string())),
         Some("string") => {
+            // LibreOffice writes an error's `string-value` empty, its text in the
+            // paragraph.
+            let error = extension_type.as_deref() == Some("error");
             let text = attr(attrs, "string-value")
+                .filter(|v| !(error && v.is_empty()))
                 .map(|v| v.into_owned())
                 .unwrap_or(text);
-            if extension_type.as_deref() == Some("error")
-                || (formula.is_some() && is_error_literal(text.trim()))
-            {
+            if error || (formula.is_some() && is_error_literal(text.trim())) {
                 Some(Value::Error(text.trim().to_string()))
             } else {
                 Some(Value::Text(text))
@@ -707,7 +722,9 @@ impl Document {
     /// among them, counted: a cell that keeps a format of its own and no
     /// value, a row formatted whole (its default cell style, or, as Excel's
     /// save writes one, its empty cells to the last column in a style of
-    /// their own), a merge, a conditional format's rules, a look of no word.
+    /// their own), a merge, a look of no word; and the sheet's conditional formats
+    /// as rows (KERNEL.58): LibreOffice's `calcext` elements where the sheet holds
+    /// any, else its cell styles' conditions, each style's over the cells naming it.
     fn first_pass(
         &self,
         index: usize,
@@ -725,10 +742,13 @@ impl Document {
         let mut row_no: u32 = 0;
         // The rows of settings as runs, kept to the extent at the end.
         let mut runs: Vec<(u32, u32, RowSettings)> = Vec::new();
-        // The styles naming conditions the sheet's cells take, and the
-        // conditional formats LibreOffice writes beside its table.
-        let mut conditioned: BTreeSet<String> = BTreeSet::new();
-        let mut calc_rules: u64 = 0;
+        // The styles naming conditions the sheet's cells take, each with its
+        // cells, in the order first met; the conditions LibreOffice writes beside
+        // its table; and the range of the format holding the condition being read.
+        let mut conditioned: Vec<(String, Gathered)> = Vec::new();
+        let mut conditioned_at: HashMap<String, usize> = HashMap::new();
+        let mut calc_rules: Vec<FileCondition> = Vec::new();
+        let mut target: Option<Vec<A1Range>> = None;
         let mut opened = false;
         while let Some(event) = step(&mut cursor, label, part)? {
             match event {
@@ -815,9 +835,35 @@ impl Document {
                             .as_deref()
                             .or_else(|| column_default(&columns, first));
                         let named = cell.style.as_deref().or(inherited);
-                        if let Some(n) = named {
-                            if looks.rules_of(n) > 0 {
-                                conditioned.insert(n.to_string());
+                        // The conditions these cells take, a repeated cell of no
+                        // style of its own or its row's by each column's.
+                        let last = col.min(MAX_COLUMN);
+                        let mut gather = |style: &str, left: u32, right: u32| {
+                            if looks.maps_of(style).is_empty() {
+                                return;
+                            }
+                            let at =
+                                *conditioned_at.entry(style.to_string()).or_insert_with(|| {
+                                    conditioned.push((style.to_string(), Gathered::default()));
+                                    conditioned.len() - 1
+                                });
+                            conditioned[at].1.add(A1Range {
+                                top: row_no.saturating_add(1).min(MAX_ROW),
+                                left,
+                                bottom: row_no.saturating_add(repeat).min(MAX_ROW),
+                                right,
+                            });
+                        };
+                        match cell.style.as_deref().or(row_default.as_deref()) {
+                            Some(style) => gather(style, first, last),
+                            None => {
+                                for (min, max, default) in &columns {
+                                    if let Some(style) = default {
+                                        if *min <= last && first <= *max {
+                                            gather(style, first.max(*min), last.min(*max));
+                                        }
+                                    }
+                                }
                             }
                         }
                         if cell.spans {
@@ -862,9 +908,31 @@ impl Document {
                     row_no = row_no.saturating_add(repeat);
                 }
                 Event::Start {
-                    name: "condition" | "date-is" | "color-scale" | "data-bar" | "icon-set",
+                    name: "conditional-format",
+                    attrs,
                     ..
-                } => calc_rules += 1,
+                } => target = attr(attrs, "target-range-address").and_then(|a| range_list(&a)),
+                Event::Start {
+                    name: "condition",
+                    attrs,
+                    ..
+                } => calc_rules.push(FileCondition {
+                    ranges: target.clone(),
+                    condition: calc_condition(&attr(attrs, "value").unwrap_or_default()),
+                    base: attr(attrs, "base-cell-address").map(|b| b.into_owned()),
+                    applied: attr(attrs, "apply-style-name").map(|s| s.into_owned()),
+                }),
+                // A date's rule calls `TODAY`, and the other three compute a look no
+                // row says.
+                Event::Start {
+                    name: "date-is" | "color-scale" | "data-bar" | "icon-set",
+                    ..
+                } => calc_rules.push(FileCondition {
+                    ranges: target.clone(),
+                    condition: Condition::NotComputed,
+                    base: None,
+                    applied: None,
+                }),
                 Event::Start {
                     name:
                         "table-header-rows"
@@ -873,8 +941,7 @@ impl Document {
                         | "table-columns"
                         | "table-header-columns"
                         | "table-column-group"
-                        | "conditional-formats"
-                        | "conditional-format",
+                        | "conditional-formats",
                     ..
                 } => {}
                 Event::Start { empty: false, .. } => {
@@ -883,16 +950,27 @@ impl Document {
                 _ => {}
             }
         }
-        scan.stats.conditional = if calc_rules > 0 {
-            calc_rules
-        } else {
+        let conditions = if calc_rules.is_empty() {
+            conditioned
+                .iter_mut()
+                .for_each(|(_, cells)| cells.close_row());
             conditioned
                 .iter()
-                .map(|n| u64::from(looks.rules_of(n)))
-                .sum()
+                .flat_map(|(style, cells)| {
+                    looks.maps_of(style).iter().map(|map| FileCondition {
+                        ranges: Some(cells.ranges.clone()),
+                        condition: style_condition(&map.condition),
+                        base: map.base.clone(),
+                        applied: Some(map.applied.clone()),
+                    })
+                })
+                .collect()
+        } else {
+            calc_rules
         };
-        // No row says them yet (KERNEL.58's fifth slice), so the note does.
-        scan.stats.rules_unread = scan.stats.conditional;
+        for (at, condition) in conditions.into_iter().enumerate() {
+            self.take_rule(condition, at as u32 + 1, index, looks, &mut scan);
+        }
         if let Some(extent) = scan.extent {
             for (first, count, settings) in runs {
                 let last = first.saturating_add(count - 1).min(extent.bottom);
@@ -902,6 +980,79 @@ impl Document {
             }
         }
         Ok((scan, columns))
+    }
+
+    /// A condition read, as a row or as a count: one the language does not compute,
+    /// or whose formula a load would refuse, counted and left out; and one the record
+    /// cannot say, for want of a range, a test or a style it applies, counted as a look
+    /// of no word, a style the document does not declare applying nothing. A cell
+    /// takes the style of the first condition true over it and no other, across
+    /// formats too: LibreOffice's help and its `ScDocument::GetCondResult`. So each
+    /// row stops, what a file's rule is here where a package's may go on.
+    fn take_rule(
+        &self,
+        read: FileCondition,
+        priority: u32,
+        home: usize,
+        looks: &OdsLooks,
+        scan: &mut SheetScan,
+    ) {
+        scan.stats.conditional += 1;
+        if matches!(read.condition, Condition::NotComputed) {
+            scan.stats.not_computed += 1;
+            return;
+        }
+        let (Some(ranges), Some(applied)) = (read.ranges, read.applied) else {
+            scan.stats.unheld += 1;
+            return;
+        };
+        let mut row = Rule {
+            priority,
+            ranges,
+            test: Test::Formula(String::new()),
+            format: None,
+            stop: true,
+        };
+        let Some(test) = read.condition.test(row.corner(), read.base.as_deref()) else {
+            scan.stats.unheld += 1;
+            return;
+        };
+        row.test = test;
+        let Some(look) = looks.rule_look(&applied) else {
+            scan.stats.unheld += 1;
+            return;
+        };
+        let gate = self.rule_gate.get_or_init(|| RuleGate::of(self));
+        if !gate.takes(&row, home) {
+            scan.stats.not_computed += 1;
+            return;
+        }
+        row.format = self.rule_format(look, looks.looks.len(), scan);
+        scan.stats.rule_cells += row.cells();
+        scan.rules.push(row);
+    }
+
+    /// The format a rule's style says, as the record numbers it past the `cells`
+    /// formats, each different one once, and kept for the sheet's rows: `None` for one
+    /// that says nothing the record has a word for or that a grid cannot hold, counted.
+    fn rule_format(&self, look: Look, cells: usize, scan: &mut SheetScan) -> Option<u32> {
+        if look.unheld {
+            scan.stats.unheld += 1;
+        }
+        if look.style == Style::partial() {
+            return None;
+        }
+        let mut kept = self.rule_looks.borrow_mut();
+        let at = kept.iter().position(|l| *l == look).unwrap_or_else(|| {
+            kept.push(look.clone());
+            kept.len() - 1
+        });
+        let Some(index) = u32::try_from(cells + at).ok().filter(|i| *i < FORMATS) else {
+            scan.stats.unheld += 1;
+            return None;
+        };
+        scan.rule_formats.insert(index, look);
+        Some(index)
     }
 
     /// One sheet's walk: the relations' rows, or, given the document's
@@ -1126,6 +1277,303 @@ impl Document {
         stats.distinct_r1c1 = sheet_distinct.len() as u64;
         Ok((stats, pass.map(|(scan, _)| scan.stats).unwrap_or_default()))
     }
+}
+
+// ---- A conditional format's condition, as a rule ---------------------------
+
+/// The rectangles a style's conditions answer for, gathered from the cells naming
+/// it, in the order rows come: a row's runs whole, each then growing the rectangle
+/// above it where that is the same run of columns.
+#[derive(Debug, Default)]
+struct Gathered {
+    ranges: Vec<A1Range>,
+    /// The last rectangle of each run of columns.
+    open: HashMap<(u32, u32), usize>,
+    /// The runs of the row being read.
+    runs: Vec<A1Range>,
+}
+
+impl Gathered {
+    /// A cell's rectangle, or a repeated cell's, the next this style's cells hold.
+    fn add(&mut self, cells: A1Range) {
+        if self.runs.first().is_some_and(|run| run.top != cells.top) {
+            self.close_row();
+        }
+        match self.runs.last_mut() {
+            Some(run) if run.right.saturating_add(1) == cells.left => run.right = cells.right,
+            _ => self.runs.push(cells),
+        }
+    }
+
+    /// The row being read, each of its runs growing a rectangle or making one.
+    fn close_row(&mut self) {
+        for run in std::mem::take(&mut self.runs) {
+            match self.open.get(&(run.left, run.right)) {
+                Some(&at) if self.ranges[at].bottom.saturating_add(1) == run.top => {
+                    self.ranges[at].bottom = run.bottom;
+                }
+                _ => {
+                    self.open.insert((run.left, run.right), self.ranges.len());
+                    self.ranges.push(run);
+                }
+            }
+        }
+    }
+}
+
+/// A condition as a file holds it: the range it answers for, what it asks, the
+/// cell its references are read at, and the style it applies.
+struct FileCondition {
+    ranges: Option<Vec<A1Range>>,
+    condition: Condition,
+    base: Option<String>,
+    applied: Option<String>,
+}
+
+/// What a condition asks of a cell.
+enum Condition {
+    /// A test, its formulas the bar's text, read at the condition's base.
+    Test(Test),
+    /// A formula around the cell the rule is read at, what a kind of LibreOffice's
+    /// own says, Excel's formula for its kin: the text before the cell and after it.
+    AtCell(String, String),
+    /// A kind the language does not compute.
+    NotComputed,
+    /// A text this version does not read.
+    Unread,
+}
+
+impl Condition {
+    /// The test a rule's row holds, read at `corner`: a formula read at a base
+    /// other than the corner moved from it, as a row's are read at the corner.
+    fn test(self, corner: (u32, u32), base: Option<&str>) -> Option<Test> {
+        let (row, col) = corner;
+        match self {
+            Condition::Test(test) => {
+                let (from_row, from_col) = base.and_then(base_cell).unwrap_or(corner);
+                let (d_row, d_col) = (
+                    i64::from(row) - i64::from(from_row),
+                    i64::from(col) - i64::from(from_col),
+                );
+                let moved = |text: &str| refers::shift_a1_references(text, d_row, d_col);
+                Some(match test {
+                    Test::Formula(text) => Test::Formula(moved(&text)),
+                    Test::Cell {
+                        operator,
+                        first,
+                        second,
+                    } => Test::Cell {
+                        operator,
+                        first: moved(&first),
+                        second: second.as_deref().map(moved),
+                    },
+                })
+            }
+            Condition::AtCell(before, after) => {
+                let cell = cell_ref(row, col);
+                Some(Test::Formula(format!("{before}{cell}{after}")))
+            }
+            Condition::NotComputed | Condition::Unread => None,
+        }
+    }
+}
+
+/// A cell an OpenDocument address names, `Sheet.C2`, `$'Q1 Data'.$C$2`: its row and
+/// its column.
+fn base_cell(address: &str) -> Option<(u32, u32)> {
+    let (_, cell) = parse_part(address.trim());
+    let range = parse_a1_range(cell)?;
+    Some((range.top, range.left))
+}
+
+/// A range list an OpenDocument file writes, `S.C2:S.Y2 'Q1 Data'.C4:'Q1 Data'.C4`,
+/// as its rectangles; `None` for a list of none or one this version does not read.
+fn range_list(address: &str) -> Option<Vec<A1Range>> {
+    let mut ranges = Vec::new();
+    let mut quoted = false;
+    let mut start = 0;
+    let mut pieces: Vec<&str> = Vec::new();
+    for (i, c) in address.char_indices() {
+        match c {
+            '\'' => quoted = !quoted,
+            ' ' if !quoted => {
+                pieces.push(&address[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    pieces.push(&address[start..]);
+    for piece in pieces.into_iter().filter(|p| !p.is_empty()) {
+        let (first, second) = split_range(piece)?;
+        let (_, from) = parse_part(first);
+        let to = if second.is_empty() {
+            from
+        } else {
+            parse_part(second).1
+        };
+        ranges.push(parse_a1_range(&format!("{from}:{to}"))?);
+    }
+    (!ranges.is_empty()).then_some(ranges)
+}
+
+/// An OpenFormula text as a row holds it, without its `=`; `None` for one of nothing.
+fn bar_text(text: &str) -> Option<String> {
+    let text = formula_to_a1(text.trim(), &mut Vec::new());
+    let text = text.strip_prefix('=').unwrap_or(&text).trim();
+    (!text.is_empty()).then(|| text.to_string())
+}
+
+/// The inside of `<word>(...)`.
+fn inside<'t>(text: &'t str, word: &str) -> Option<&'t str> {
+    text.strip_prefix(word)?
+        .strip_prefix('(')?
+        .strip_suffix(')')
+}
+
+/// A cell's value against one bound, `<5`, `!=[.A1]`, as a condition.
+fn compared(text: &str) -> Condition {
+    const SYMBOLS: [(&str, Operator); 6] = [
+        ("<=", Operator::LessOrEqual),
+        (">=", Operator::GreaterOrEqual),
+        ("!=", Operator::NotEqual),
+        ("<", Operator::Less),
+        (">", Operator::Greater),
+        ("=", Operator::Equal),
+    ];
+    let said = SYMBOLS.iter().find_map(|(symbol, operator)| {
+        let first = bar_text(text.strip_prefix(symbol)?)?;
+        Some(Test::Cell {
+            operator: *operator,
+            first,
+            second: None,
+        })
+    });
+    said.map_or(Condition::Unread, Condition::Test)
+}
+
+/// A cell's value against two bounds, `5,9`, split at the comma outside any text,
+/// reference or call, as a condition.
+fn between(operator: Operator, text: &str) -> Condition {
+    let chars: Vec<char> = text.chars().collect();
+    let mut depth = 0u32;
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '"' => {
+                i += 1;
+                while i < chars.len() && chars[i] != '"' {
+                    i += 1;
+                }
+            }
+            '[' | '(' => depth += 1,
+            ']' | ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                let first: String = chars[..i].iter().collect();
+                let second: String = chars[i + 1..].iter().collect();
+                return match (bar_text(&first), bar_text(&second)) {
+                    (Some(first), Some(second)) => Condition::Test(Test::Cell {
+                        operator,
+                        first,
+                        second: Some(second),
+                    }),
+                    _ => Condition::Unread,
+                };
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    Condition::Unread
+}
+
+/// A formula, as a condition.
+fn formula_is(text: &str) -> Condition {
+    bar_text(text).map_or(Condition::Unread, |f| Condition::Test(Test::Formula(f)))
+}
+
+/// A cell style's condition (`style:map`): Excel's save writes `of:is-true-formula(...)`,
+/// `of:cell-content()<5` and `of:cell-content-is-between(5,9)`, and LibreOffice's the same
+/// with no prefix.
+fn style_condition(text: &str) -> Condition {
+    let text = text.trim();
+    let text = match text.split_once(':') {
+        Some((prefix, rest)) if prefix.chars().all(|c| c.is_ascii_alphanumeric()) => rest,
+        _ => text,
+    };
+    if let Some(inner) = inside(text, "is-true-formula") {
+        return formula_is(inner);
+    }
+    if let Some(inner) = inside(text, "cell-content-is-between") {
+        return between(Operator::Between, inner);
+    }
+    if let Some(inner) = inside(text, "cell-content-is-not-between") {
+        return between(Operator::NotBetween, inner);
+    }
+    match text.strip_prefix("cell-content()") {
+        Some(rest) => compared(rest),
+        None => Condition::Unread,
+    }
+}
+
+/// A condition of LibreOffice's (`calcext:value`): a formula, `formula-is(...)`; a
+/// cell's value against its bounds; a kind of its own over a cell's text or an error,
+/// as Excel's formula for that kind; or a kind the language does not compute.
+fn calc_condition(value: &str) -> Condition {
+    let value = value.trim();
+    if let Some(inner) = inside(value, "formula-is") {
+        return formula_is(inner);
+    }
+    if let Some(inner) = inside(value, "between") {
+        return between(Operator::Between, inner);
+    }
+    if let Some(inner) = inside(value, "not-between") {
+        return between(Operator::NotBetween, inner);
+    }
+    type Around = fn(&str) -> (String, String);
+    let over_text: [(&str, Around); 4] = [
+        ("contains-text", |t| {
+            (format!("NOT(ISERROR(SEARCH({t},"), ")))".to_string())
+        }),
+        ("not-contains-text", |t| {
+            (format!("ISERROR(SEARCH({t},"), "))".to_string())
+        }),
+        ("begins-with", |t| {
+            ("LEFT(".to_string(), format!(",LEN({t}))={t}"))
+        }),
+        ("ends-with", |t| {
+            ("RIGHT(".to_string(), format!(",LEN({t}))={t}"))
+        }),
+    ];
+    for (word, around) in over_text {
+        if let Some(inner) = inside(value, word) {
+            return bar_text(inner).map_or(Condition::Unread, |text| {
+                let (before, after) = around(&text);
+                Condition::AtCell(before, after)
+            });
+        }
+    }
+    match value {
+        "is-error" => return Condition::AtCell("ISERROR(".to_string(), ")".to_string()),
+        "is-no-error" => return Condition::AtCell("NOT(ISERROR(".to_string(), "))".to_string()),
+        "duplicate"
+        | "unique"
+        | "above-average"
+        | "below-average"
+        | "above-equal-average"
+        | "below-equal-average" => return Condition::NotComputed,
+        _ => {}
+    }
+    const RANKS: [&str; 4] = [
+        "top-elements",
+        "bottom-elements",
+        "top-percent",
+        "bottom-percent",
+    ];
+    if RANKS.iter().any(|word| inside(value, word).is_some()) {
+        return Condition::NotComputed;
+    }
+    compared(value)
 }
 
 // ---- OpenFormula to the formula bar's spelling -----------------------------
@@ -1871,6 +2319,431 @@ mod tests {
 
     /// The document in Calc's dialect, its three parts beside its
     /// mimetype, its content's spreadsheet opening with `settings`.
+    /// A document of a sheet `S` holding `table`, its automatic styles `automatic` and
+    /// its named ones `named`: its `format` rows but format 0, its `conditional` rows,
+    /// and its counts.
+    fn rules_read(automatic: &str, named: &str, table: &str) -> (Vec<String>, LooksStats) {
+        let namespaces = format!("{OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:number=\"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0\"");
+        let content = format!("<office:document-content {namespaces}><office:automatic-styles>{automatic}</office:automatic-styles><office:body><office:spreadsheet><table:table table:name=\"S\">{table}</table:table><table:table table:name=\"T\"><table:table-row><table:table-cell/></table:table-row></table:table></office:spreadsheet></office:body></office:document-content>");
+        let styles = format!("<office:document-styles {namespaces}><office:styles><style:style style:name=\"Default\" style:family=\"table-cell\"/>{named}</office:styles></office:document-styles>");
+        let bytes = zip::write_stored(&[
+            ("mimetype".to_string(), MIMETYPE.as_bytes().to_vec()),
+            (CONTENT.to_string(), content.into_bytes()),
+            ("styles.xml".to_string(), styles.into_bytes()),
+        ])
+        .unwrap();
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "rules.ods").unwrap();
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
+        let rows = text
+            .lines()
+            .filter(|l| {
+                (l.starts_with("(format ") && !l.starts_with("(format 0 "))
+                    || l.starts_with("(conditional ")
+            })
+            .map(str::to_string)
+            .collect();
+        (rows, stats)
+    }
+
+    const LIT: &str = "<style:style style:name=\"Lit\" style:display-name=\"Lit Up\" style:family=\"table-cell\"><style:table-cell-properties fo:background-color=\"#FFE699\"/></style:style>";
+
+    /// A value in a cell, in a row's cell text.
+    const ONE: &str = "<table:table-cell office:value-type=\"float\" office:value=\"1\"><text:p>1</text:p></table:table-cell>";
+
+    /// Each condition LibreOffice's save writes is its row, the first true alone
+    /// drawing; a range of several rectangles, a sheet's name quoted, an address's `$`.
+    #[test]
+    fn libreoffice_s_conditions_read_as_rows() {
+        let condition = |range: &str, value: &str, base: &str| {
+            format!("<calcext:conditional-format calcext:target-range-address=\"{range}\"><calcext:condition calcext:apply-style-name=\"Lit Up\" calcext:value=\"{value}\" calcext:base-cell-address=\"{base}\"/></calcext:conditional-format>")
+        };
+        let mut formats = String::new();
+        for (range, value, base) in [
+            ("S.A1:S.B2", "formula-is([.$A$1]=1)", "S.A1"),
+            (
+                "S.A1:S.A1 S.C3:S.D4",
+                "formula-is(COUNTIF([.A1:.A9];1)&gt;0)",
+                "S.A1",
+            ),
+            ("$S.$A$1:$S.$A$2", "&lt;5", "S.A1"),
+            ("S.A1", "&lt;=5", "S.A1"),
+            ("S.A1", "=&quot;a,b&quot;", "S.A1"),
+            ("S.A1", "!=[.B1]", "S.A1"),
+            ("S.A1", "&gt;=5", "S.A1"),
+            ("S.A1", "&gt;5", "S.A1"),
+            ("S.A1", "between(1,9)", "S.A1"),
+            ("S.A1", "not-between([.B1],MAX(1;2))", "S.A1"),
+            ("S.C3", "contains-text(&quot;a&quot;)", "S.C3"),
+            ("S.C3", "not-contains-text(&quot;a&quot;)", "S.C3"),
+            ("S.C3", "begins-with(&quot;a&quot;)", "S.C3"),
+            ("S.C3", "ends-with(&quot;a&quot;)", "S.C3"),
+            ("S.C3", "is-error", "S.C3"),
+            ("S.C3", "is-no-error", "S.C3"),
+            ("'S'.C3:'S'.C4", "formula-is(1)", "S.C3"),
+            (
+                "'My S'.C3:'My S'.C4 'My S'.E5",
+                "between(&quot;a,b&quot;,['a,b'.A1])",
+                "'My S'.C3",
+            ),
+            ("S.C3", "not-between(['a,b'.A1],(1))", "S.C3"),
+        ] {
+            formats.push_str(&condition(range, value, base));
+        }
+        let table = format!("<table:table-row>{ONE}</table:table-row><calcext:conditional-formats>{formats}</calcext:conditional-formats>");
+        let (rows, stats) = rules_read("", LIT, &table);
+        let spelled = |priority: u32, range: &str, test: &str| {
+            format!("(conditional \"S\" {priority} \"{range}\" {test} 2 stop)")
+        };
+        let want = [
+            "(format 2 (fill \"FFE699\"))".to_string(),
+            spelled(1, "A1:B2", "\"=$A$1=1\""),
+            spelled(2, "A1 C3:D4", "\"=COUNTIF(A1:A9,1)>0\""),
+            spelled(3, "A1:A2", "(cell less \"=5\")"),
+            spelled(4, "A1", "(cell less-or-equal \"=5\")"),
+            spelled(5, "A1", "(cell equal \"=\\\"a,b\\\"\")"),
+            spelled(6, "A1", "(cell not-equal \"=B1\")"),
+            spelled(7, "A1", "(cell greater-or-equal \"=5\")"),
+            spelled(8, "A1", "(cell greater \"=5\")"),
+            spelled(9, "A1", "(cell between \"=1\" \"=9\")"),
+            spelled(10, "A1", "(cell not-between \"=B1\" \"=MAX(1,2)\")"),
+            spelled(11, "C3", "\"=NOT(ISERROR(SEARCH(\\\"a\\\",C3)))\""),
+            spelled(12, "C3", "\"=ISERROR(SEARCH(\\\"a\\\",C3))\""),
+            spelled(13, "C3", "\"=LEFT(C3,LEN(\\\"a\\\"))=\\\"a\\\"\""),
+            spelled(14, "C3", "\"=RIGHT(C3,LEN(\\\"a\\\"))=\\\"a\\\"\""),
+            spelled(15, "C3", "\"=ISERROR(C3)\""),
+            spelled(16, "C3", "\"=NOT(ISERROR(C3))\""),
+            spelled(17, "C3:C4", "\"=1\""),
+            spelled(
+                18,
+                "C3:C4 E5",
+                "(cell between \"=\\\"a,b\\\"\" \"='a,b'!A1\")",
+            ),
+            spelled(19, "C3", "(cell not-between \"='a,b'!A1\" \"=(1)\")"),
+        ];
+        assert_eq!(rows, want, "{stats:?}");
+        assert_eq!(stats.conditional, 19);
+        assert_eq!(stats.not_computed, 0);
+        assert_eq!(stats.unheld, 0);
+        assert_eq!(stats.rule_cells, 4 + 5 + 2 + 7 + 6 + 2 + 3 + 1);
+    }
+
+    /// A formula is read at its base and a row's at its corner, so that one moves from
+    /// the first to the second: LibreOffice's base, and a style's that a cell's own
+    /// other rule cut away from it. An absolute reference stands.
+    #[test]
+    fn a_formula_moves_from_its_base_to_the_rule_s_corner() {
+        let table = format!(
+            "<table:table-row>{ONE}</table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.D12:S.D13 S.F10:S.F11\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is([.H12]=[.$H$12])\" calcext:base-cell-address=\"S.D12\"/><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"between([.H12],[.H13])\" calcext:base-cell-address=\"$S.$D$12\"/></calcext:conditional-format></calcext:conditional-formats>"
+        );
+        let (rows, _) = rules_read("", LIT, &table);
+        assert_eq!(
+            rows[1..],
+            [
+                "(conditional \"S\" 1 \"D12:D13 F10:F11\" \"=H10=$H$12\" 2 stop)",
+                "(conditional \"S\" 2 \"D12:D13 F10:F11\" (cell between \"=H10\" \"=H11\") 2 stop)",
+            ]
+        );
+    }
+
+    /// What the language does not compute is left out and counted, each kind of
+    /// LibreOffice's and a condition a load would refuse; what says too little to be a
+    /// row, or applies a style the document does not declare, counts as a look of no word.
+    #[test]
+    fn what_a_condition_cannot_say_is_counted() {
+        let condition = |value: &str| {
+            format!(
+                "<calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"{value}\"/>"
+            )
+        };
+        let mut conditions = String::new();
+        for value in [
+            "duplicate",
+            "unique",
+            "above-average",
+            "below-average",
+            "above-equal-average",
+            "below-equal-average",
+            "top-elements(1)",
+            "bottom-elements(1)",
+            "top-percent(1)",
+            "bottom-percent(1)",
+            "formula-is(TODAY()=[.A1])",
+            "formula-is([.A1#])",
+        ] {
+            conditions.push_str(&condition(value));
+        }
+        let not_computed = 12 + 4;
+        for value in [
+            "no-such-kind",
+            "formula-is()",
+            "between(1)",
+            "between(,1)",
+            "between(1,)",
+            "&lt;",
+            "contains-text()",
+        ] {
+            conditions.push_str(&condition(value));
+        }
+        let table = format!(
+            "<table:table-row>{ONE}</table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.A1\">{conditions}<calcext:condition calcext:apply-style-name=\"Nowhere\" calcext:value=\"formula-is(1)\"/><calcext:condition calcext:value=\"formula-is(1)\"/><calcext:date-is calcext:style=\"Lit\" calcext:date=\"today\"/><calcext:color-scale><calcext:color-scale-entry calcext:value=\"0\" calcext:type=\"minimum\" calcext:color=\"#f8696b\"/></calcext:color-scale><calcext:data-bar calcext:min-length=\"10\"/><calcext:icon-set calcext:icon-set-type=\"3Arrows\"/></calcext:conditional-format><calcext:conditional-format calcext:target-range-address=\"not an address\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(1)\"/></calcext:conditional-format><calcext:conditional-format calcext:target-range-address=\" \"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(1)\"/></calcext:conditional-format><calcext:conditional-format><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(1)\"/></calcext:conditional-format></calcext:conditional-formats>"
+        );
+        let (rows, stats) = rules_read("", LIT, &table);
+        assert_eq!(rows, Vec::<String>::new(), "{stats:?}");
+        assert_eq!(stats.conditional, 12 + 7 + 2 + 4 + 3);
+        assert_eq!(stats.not_computed, not_computed);
+        assert_eq!(stats.unheld, 7 + 2 + 3);
+        assert_eq!(stats.rule_cells, 0);
+        assert_eq!(
+            stats.left_out().as_deref(),
+            Some("the looks leave out what the record cannot hold: 12 looks the record has no word for, 16 conditional formats the language does not compute")
+        );
+    }
+
+    /// Excel's save writes a sheet's conditions on the styles its cells name: each a row
+    /// over those cells, in the order first met, each style's in the order written, with
+    /// or without a namespace; a row's run whole and the rows' grown into a rectangle, a
+    /// repeated row and cell among them, a style a column or a row gives its cells; a
+    /// sheet of `calcext` elements reads them alone.
+    #[test]
+    fn a_style_s_conditions_read_as_rows_over_the_cells_naming_it() {
+        let map = |condition: &str, base: &str| {
+            format!(
+                "<style:map style:condition=\"{condition}\" style:apply-style-name=\"Lit\"{base}/>"
+            )
+        };
+        let cell_style = |name: &str, maps: &str| {
+            format!("<style:style style:name=\"{name}\" style:family=\"table-cell\">{maps}</style:style>")
+        };
+        let automatic = [
+            cell_style(
+                "two",
+                &[
+                    map("of:is-true-formula([.$A$1]=1)", ""),
+                    map("of:cell-content()&lt;5", ""),
+                ]
+                .concat(),
+            ),
+            cell_style(
+                "near",
+                &map(
+                    "is-true-formula([.E2]=1)",
+                    " style:base-cell-address=\"S.B2\"",
+                ),
+            ),
+            cell_style("span", &map("of:cell-content-is-between(1,[.$A$1])", "")),
+            cell_style("out", &map("of:cell-content-is-not-between(1,2)", "")),
+            cell_style("column", &map("cell-content()&gt;=1", "")),
+            cell_style("row", &map("ooow:cell-content()!=1", "")),
+            cell_style("odd", &map("value()&gt;1", "")),
+            cell_style(
+                "no-style",
+                &map("of:cell-content()=1", "").replace("Lit", "Nowhere"),
+            ),
+            cell_style("step", &map("of:is-true-formula(2)", "")),
+        ]
+        .concat();
+        let cell = |style: &str| format!("<table:table-cell table:style-name=\"{style}\"/>");
+        let table = [
+            "<table:table-column table:default-cell-style-name=\"Default\" table:number-columns-repeated=\"7\"/>".to_string(),
+            "<table:table-column table:default-cell-style-name=\"column\"/>".to_string(),
+            // Two rows of a run of two cells and of one repeated.
+            format!("<table:table-row>{ONE}{}{}<table:table-cell table:style-name=\"span\" table:number-columns-repeated=\"2\"/></table:table-row>", cell("two"), cell("two")),
+            format!("<table:table-row><table:table-cell/>{}{}<table:table-cell table:number-columns-repeated=\"2\" table:style-name=\"span\"/>{}</table:table-row>", cell("two"), cell("two"), cell("near")),
+            // A cut in the run below it, a run apart in its row, and a repeated row.
+            format!("<table:table-row table:number-rows-repeated=\"2\">{}<table:table-cell/>{}{}</table:table-row>", cell("two"), cell("two"), cell("out")),
+            // A style a column gives the cell, and one the row gives it, nearer.
+            "<table:table-row><table:table-cell table:number-columns-repeated=\"8\"/></table:table-row>".to_string(),
+            "<table:table-row table:default-cell-style-name=\"row\"><table:table-cell/></table:table-row>".to_string(),
+            format!("<table:table-row>{}{}</table:table-row>", cell("odd"), cell("no-style")),
+            // A run the column after the last row's, and one a row below a gap.
+            format!("<table:table-row>{}</table:table-row>", cell("step")),
+            format!("<table:table-row><table:table-cell/>{}</table:table-row>", cell("step")),
+            "<table:table-row><table:table-cell/></table:table-row>".to_string(),
+            format!("<table:table-row><table:table-cell/>{}</table:table-row>", cell("step")),
+        ]
+        .concat();
+        let (rows, stats) = rules_read(&automatic, LIT, &table);
+        assert_eq!(
+            rows,
+            [
+                "(format 11 (fill \"FFE699\"))",
+                "(conditional \"S\" 1 \"B1:C2 A3:A4 C3:C4\" \"=$A$1=1\" 11 stop)",
+                "(conditional \"S\" 2 \"B1:C2 A3:A4 C3:C4\" (cell less \"=5\") 11 stop)",
+                "(conditional \"S\" 3 \"D1:E2\" (cell between \"=1\" \"=$A$1\") 11 stop)",
+                "(conditional \"S\" 4 \"F2\" \"=I2=1\" 11 stop)",
+                "(conditional \"S\" 5 \"D3:D4\" (cell not-between \"=1\" \"=2\") 11 stop)",
+                "(conditional \"S\" 6 \"H5\" (cell greater-or-equal \"=1\") 11 stop)",
+                "(conditional \"S\" 7 \"A6\" (cell not-equal \"=1\") 11 stop)",
+                "(conditional \"S\" 10 \"A8 B9 B11\" \"=2\" 11 stop)",
+            ],
+            "{stats:?}"
+        );
+        assert_eq!(stats.conditional, 10);
+        assert_eq!(stats.unheld, 2);
+    }
+
+    /// A rule is asked of on the sheet that holds it: a name scoped to another sheet,
+    /// which a load would not read from there, keeps no rule out.
+    #[test]
+    fn a_condition_is_asked_of_on_its_own_sheet() {
+        let rule = "<calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"X.A1\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(Odd=1)\"/></calcext:conditional-format></calcext:conditional-formats>";
+        let names = "<table:named-expressions><table:named-expression table:name=\"Odd\" table:base-cell-address=\"$S.$A$1\" table:expression=\"of:A1#\"/></table:named-expressions>";
+        let namespaces = format!(
+            "{OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\""
+        );
+        let row = format!("<table:table-row>{ONE}</table:table-row>");
+        let content = format!("<office:document-content {namespaces}><office:body><office:spreadsheet><table:table table:name=\"First\">{row}{rule}</table:table><table:table table:name=\"Second\">{row}{rule}{names}</table:table></office:spreadsheet></office:body></office:document-content>");
+        let styles = format!("<office:document-styles {namespaces}><office:styles>{LIT}</office:styles></office:document-styles>");
+        let bytes = zip::write_stored(&[
+            ("mimetype".to_string(), MIMETYPE.as_bytes().to_vec()),
+            (CONTENT.to_string(), content.into_bytes()),
+            ("styles.xml".to_string(), styles.into_bytes()),
+        ])
+        .unwrap();
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "two.ods").unwrap();
+        assert!(
+            text.contains("(conditional \"First\" 1 \"A1\" \"=Odd=1\" "),
+            "{text}"
+        );
+        assert!(!text.contains("(conditional \"Second\""), "{text}");
+        assert_eq!(stats.not_computed, 1);
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
+    }
+
+    /// A rule's format past what a grid holds is none, and counted.
+    #[test]
+    fn a_rule_s_format_past_a_grid_s_formats_is_counted() {
+        let document = Document::open(&calc_document(""), "calc.ods").unwrap();
+        let mut scan = SheetScan::new();
+        let look = |fill| {
+            let mut style = Style::partial();
+            style.say_fill(Some(fill));
+            Look {
+                style,
+                ..Look::default()
+            }
+        };
+        let at = document.rule_format(look(crate::sheet::Rgb(1, 2, 3)), 65_535, &mut scan);
+        assert_eq!(at, Some(65_535));
+        assert_eq!(scan.stats.unheld, 0);
+        let past = document.rule_format(look(crate::sheet::Rgb(4, 5, 6)), 65_535, &mut scan);
+        assert_eq!(past, None);
+        assert_eq!(scan.stats.unheld, 1);
+        assert_eq!(scan.rule_formats.len(), 1);
+    }
+
+    /// A sheet of LibreOffice's elements reads them alone, its styles' conditions being
+    /// the same rules written again, and each sheet decides for itself.
+    #[test]
+    fn a_format_of_libreoffice_s_goes_before_a_style_s_condition() {
+        let automatic = "<style:style style:name=\"two\" style:family=\"table-cell\"><style:map style:condition=\"is-true-formula(2)\" style:apply-style-name=\"Lit\"/></style:style>";
+        let table = "<table:table-row><table:table-cell table:style-name=\"two\"/></table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.A1\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(1)\"/></calcext:conditional-format></calcext:conditional-formats>";
+        let (rows, stats) = rules_read(automatic, LIT, table);
+        assert_eq!(rows[1..], ["(conditional \"S\" 1 \"A1\" \"=1\" 3 stop)"]);
+        assert_eq!(stats.conditional, 1);
+    }
+
+    /// A rule's format says what its style's chain says less `Default`, each word and a
+    /// said default among them, and no more; the same format twice is one; a family and a
+    /// vertical alignment are left out and count nothing, and a word of no row counts.
+    #[test]
+    fn a_rule_s_style_reads_as_a_format_of_groups_alone() {
+        let style = |name: &str, attrs: &str, body: &str| {
+            format!("<style:style style:name=\"{name}\" style:family=\"table-cell\"{attrs}>{body}</style:style>")
+        };
+        let cases: Vec<(String, &str, u64)> = vec![
+            (style("A", "", "<style:table-cell-properties fo:background-color=\"transparent\"/>"), "(fill none)", 0),
+            (style("A", "", "<style:text-properties fo:font-weight=\"normal\" fo:font-style=\"normal\"/>"), "(font not-bold not-italic)", 0),
+            (style("A", "", "<style:text-properties fo:font-weight=\"bold\" fo:font-style=\"italic\" fo:font-size=\"20pt\" fo:color=\"#0000FF\"/>"), "(font bold italic 20 \"0000FF\")", 0),
+            (style("A", "", "<style:text-properties style:text-underline-style=\"none\" style:text-line-through-style=\"none\"/>"), "(font not-underline not-strike)", 0),
+            (style("A", "", "<style:text-properties style:text-underline-style=\"solid\" style:text-underline-type=\"double\" style:text-line-through-style=\"solid\"/>"), "(font double-underline strike)", 0),
+            (style("A", "", "<style:paragraph-properties fo:text-align=\"center\"/>"), "(align center)", 0),
+            (style("A", "", "<style:table-cell-properties fo:wrap-option=\"wrap\"/>"), "(wrap wrap)", 0),
+            (style("A", "", "<style:table-cell-properties fo:wrap-option=\"no-wrap\"/>"), "(wrap nowrap)", 0),
+            (style("A", "", "<style:table-cell-properties fo:border-left=\"thin solid #800020\" fo:border-right=\"none\"/>"), "(border (left thin \"800020\") (right none))", 0),
+            (style("A", "", "<style:table-cell-properties fo:border=\"none\"/>"), "(border (left none) (right none) (top none) (bottom none))", 0),
+            (style("A", " style:data-style-name=\"N2\"", ""), "(number \"0.00\")", 0),
+            (style("A", " style:data-style-name=\"N0\"", ""), "(number general)", 0),
+            (style("A", " style:data-style-name=\"Nowhere\"", ""), "", 0),
+            // The chain: nearest first, `Default` said by no rule.
+            (
+                format!("{}{}{}", style("A", " style:parent-style-name=\"B\"", "<style:text-properties fo:font-weight=\"bold\"/>"), style("B", " style:parent-style-name=\"Default\"", "<style:text-properties fo:font-weight=\"normal\" fo:font-style=\"italic\"/>"), style("Default", "", "<style:text-properties fo:font-size=\"20pt\"/>")),
+                "(font bold italic)",
+                0,
+            ),
+            // What Excel does not draw of a rule, left out and uncounted.
+            (style("A", "", "<style:text-properties style:font-name=\"Consolas\"/><style:table-cell-properties style:vertical-align=\"top\"/>"), "", 0),
+            // A word of no row beside a word.
+            (style("A", "", "<style:text-properties fo:font-weight=\"bold\" style:text-position=\"super 58%\"/>"), "(font bold)", 1),
+            (style("A", "", "<style:table-cell-properties fo:background-color=\"red\"/>"), "", 1),
+            (style("A", "", "<style:text-properties style:use-window-font-color=\"true\"/>"), "", 1),
+            (style("A", "", "<style:text-properties fo:color=\"red\"/>"), "", 1),
+            (style("A", "", "<style:text-properties fo:font-size=\"0.01pt\"/>"), "", 1),
+            (style("A", " style:data-style-name=\"Odd\"", ""), "", 1),
+        ];
+        let data = "<number:number-style style:name=\"N2\"><number:number number:decimal-places=\"2\" number:min-decimal-places=\"2\" number:min-integer-digits=\"1\"/></number:number-style><number:number-style style:name=\"N0\"><number:number number:min-integer-digits=\"1\"/></number:number-style><number:number-style style:name=\"Odd\"><style:text-properties fo:color=\"#ff0000\"/><number:number number:decimal-places=\"2\" number:min-decimal-places=\"2\" number:min-integer-digits=\"1\"/></number:number-style>";
+        for (styles, words, unheld) in &cases {
+            let table = format!("<table:table-row>{ONE}</table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.A1\"><calcext:condition calcext:apply-style-name=\"A\" calcext:value=\"formula-is(1)\"/></calcext:conditional-format></calcext:conditional-formats>");
+            let named = format!("{data}{styles}");
+            let (rows, stats) = rules_read("", &named, &table);
+            let row = rows.last().expect("its rule");
+            if words.is_empty() {
+                assert_eq!(rows.len(), 1, "{styles}: {rows:?}");
+                assert_eq!(
+                    row, "(conditional \"S\" 1 \"A1\" \"=1\" none stop)",
+                    "{styles}"
+                );
+            } else {
+                assert_eq!(rows.len(), 2, "{styles}: {rows:?}");
+                assert!(
+                    rows[0].ends_with(&format!(" {words})")),
+                    "{styles}: {}",
+                    rows[0]
+                );
+            }
+            assert_eq!(stats.unheld, *unheld, "{styles}");
+        }
+        // One format of two rules alike.
+        let table = format!("<table:table-row>{ONE}</table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.A1\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(1)\"/><calcext:condition calcext:apply-style-name=\"Lit Up\" calcext:value=\"formula-is(2)\"/><calcext:condition calcext:apply-style-name=\"Other\" calcext:value=\"formula-is(3)\"/></calcext:conditional-format></calcext:conditional-formats>");
+        let other = "<style:style style:name=\"Other\" style:family=\"table-cell\"><style:text-properties fo:font-weight=\"bold\"/></style:style>";
+        let (rows, _) = rules_read("", &format!("{LIT}{other}"), &table);
+        assert_eq!(
+            rows,
+            [
+                "(format 3 (fill \"FFE699\"))",
+                "(format 4 (font bold))",
+                "(conditional \"S\" 1 \"A1\" \"=1\" 3 stop)",
+                "(conditional \"S\" 2 \"A1\" \"=2\" 3 stop)",
+                "(conditional \"S\" 3 \"A1\" \"=3\" 4 stop)",
+            ]
+        );
+    }
+
+    /// LibreOffice writes an error cell's `string-value` empty and its text in the
+    /// paragraph, which a load takes where it refuses an error of no name.
+    #[test]
+    fn libreoffice_s_error_value_reads_from_its_paragraph() {
+        let table = "<table:table-row><table:table-cell table:formula=\"of:=#DIV/0!\" office:value-type=\"string\" office:string-value=\"\" calcext:value-type=\"error\"><text:p>#DIV/0!</text:p></table:table-cell><table:table-cell office:value-type=\"string\" office:string-value=\"\"><text:p>shown</text:p></table:table-cell></table:table-row>";
+        let namespaces = format!(
+            "{OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\""
+        );
+        let content = format!("<office:document-content {namespaces}><office:body><office:spreadsheet><table:table table:name=\"S\">{table}</table:table></office:spreadsheet></office:body></office:document-content>");
+        let bytes = ods(&content, MIMETYPE);
+        let (text, _) = crate::reflect::reflect_looks(&bytes, "error.ods").unwrap();
+        assert!(
+            text.contains("(value \"S\" \"A1\" (error \"#DIV/0!\"))"),
+            "{text}"
+        );
+        assert!(
+            text.contains("(cell \"S\" \"B1\" \"\")"),
+            "the text a file says: {text}"
+        );
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
+    }
+
     fn calc_document(settings: &str) -> Vec<u8> {
         let part = |text: &str| text.replace("{OFFICE}", OFFICE).into_bytes();
         let content = CALC_CONTENT.replace(
@@ -1921,6 +2794,8 @@ mod tests {
                 "(format 6 \"CCFFCC\" general nowrap (font \"006600\"))\n",
                 "(format 7 \"FFFF00\" general nowrap)\n",
                 "(format 9 none general nowrap (font (family \"DejaVu Serif\" serif)))\n",
+                "(format 14 (fill \"CCFFCC\") (font \"006600\"))\n",
+                "(conditional \"Sheet1\" 1 \"B6\" (cell greater \"=5\") 14 stop)\n",
                 "(cell \"Sheet1\" \"A1\" \"Title\")\n",
                 "(style \"Sheet1\" \"A1\" 2)\n",
                 "(cell \"Sheet1\" \"B1\" 1.5)\n",
@@ -1949,7 +2824,8 @@ mod tests {
         );
         // The covered cell and B5 keep a format and no value; the run of
         // A5 and C5's family the record cannot hold; LibreOffice's two
-        // rules beside the table, its style's map passed over for them.
+        // rules beside the table, its style's map passed over for them, its color
+        // scale counted and the other a row.
         assert_eq!(
             (
                 stats.styled,
@@ -1961,13 +2837,6 @@ mod tests {
                 stats.row_formats
             ),
             (8, 2, 1, 0, 1, 2, 1)
-        );
-        // No row says its rules yet, so that the note does (KERNEL.58's fifth slice).
-        assert_eq!(stats.rules_unread, 2);
-        assert!(
-            stats.left_out().unwrap().contains("2 conditional formats"),
-            "{:?}",
-            stats.left_out()
         );
         // A document of 1904's dates counts its serials from its null date.
         let nineteen_o_four = calc_document(

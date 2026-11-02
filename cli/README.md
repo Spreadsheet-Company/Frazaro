@@ -527,7 +527,7 @@ the looks' counts, the formats, the cells styled, each kind left out, a
 sheet's `conditional` rules, those `not-computed` and the `rule-cells` they
 answer for.
 
-A package's conditional formats print as rows of their own, after the formats
+A workbook's conditional formats print as rows of their own, after the formats
 and before the cells, each with the format it names, a format of its own past
 the cell formats that says what the file's differential format says and no more:
 
@@ -547,7 +547,14 @@ would refuse, one calling a function the language does not compute among them, s
 that one rule does not keep a workbook out; a load still refuses that row written
 by hand, as it refuses that call in a cell. What Excel reads and does not draw of
 a rule's format, a font's name and a vertical alignment, is left out and not
-counted. An `.ods` file's rules are counted and said, and no row says them yet.
+counted.
+
+An `.ods` file's rules are the same rows: LibreOffice's own elements where a sheet
+holds any, else the conditions on its cell styles, each over the cells naming its
+style, as Excel's save writes them. A cell of such a file takes the style of the
+first condition true over it and no other, so each of its rows stops. LibreOffice's
+kinds over a text or an error are Excel's formula for their kin, and its duplicates,
+averages, ranks and dates are left out, counted and said.
 
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,

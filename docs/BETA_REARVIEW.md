@@ -42611,6 +42611,74 @@ it. `check_looks_golden` holds the golden at its floors, 115 cases and 501 targe
     changed; the reader used to skip them with everything else, and a rule's twin in an `ext` is the one
     thing read from one.
 
+*The fifth slice built,* over `f179a7d` and *Found* 12's fix, 2026-11-01, at the owner's word, "then
+proceed with slice 5 of KERNEL.58": decision 12's OpenDocument half, in the detached worktree. No Excel pass:
+Excel's three `.ods` saves and LibreOffice's `rules_calc.ods` stood ready from the third slice's runs.
+
+*What landed.* `reflect/odf.rs`: `Document::first_pass` reads a sheet's `calcext:conditional-format` elements where
+it holds any, and otherwise each cell style's `style:map` over the cells naming it, `Gathered` growing a row's runs and
+the rows' rectangles; `style_condition` and `calc_condition` read each spelling, its formulas by `formula_to_a1`;
+`Condition::test` moves a formula from its base to the rule's corner; `take_rule` and `rule_format`, the package's
+twins, asking the same `RuleGate`. `reflect/odf_looks.rs`: a style's `maps`, the name a style shows, `rule_look` and
+`partial_look`. `LooksStats::rules_unread` is gone, unreleased, and the note says what is left out as a package's does.
+`read_cell`: LibreOffice writes an error's `string-value` empty and its text in the paragraph, which the reader had
+printed as `(error "")` and a load refused, any LibreOffice `.ods` holding an error value among them, rules or none.
+
+*What the build settled that the scoping left open.* That each row stops. A cell of such a file takes the style of the
+first condition true over it and no other: LibreOffice's help, "The cell style corresponding to the first condition that
+evaluates to true is applied", and its `ScDocument::GetCondResult`, which returns at the first format of the cell's with
+a true condition, so across formats too (*exhibit*, both read 2026-11-01); the specification's own list asks the question
+and leaves it open. Rows that went on would agree with Excel on the eleven cases where it folds and draw what no reader of
+an `.ods` draws. That a rule of Excel's save is a row a style and a map, since a cell names one style, so that rules of
+two styles share no cell and no order between them matters, and a rule a save cut among styles is one piece a style, each
+moved from its base to its own corner. That a formula read at a base other than the corner moves from it, what
+LibreOffice's save needs of one rule. That LibreOffice's kinds over a text or an error are Excel's formula for their kin,
+at the rule's corner. That a style the file does not declare applies nothing, as LibreOffice's source has it, counted. That a
+data style of General says General, which a cell's format leaves unsaid. That a repeated cell of no style of its own or its
+row's takes each column's it spans, for the rules; a cell's format still takes its first's.
+
+*The oracle.* `the_machine_draws_the_opendocument_saves_as_excel_drew_them` loads the reader's rows of Excel's three `.ods`
+saves and of `rules_calc.ods` against Excel's reading of the workbooks they were saved from: of Excel's 752 targets 707 agree
+and 45 are named, in 33 entries; of LibreOffice's 722, 661 and 61, in 42. Each was read off the file's own text, a listing of
+the case's applied style in each save, before it was named: what the package draws otherwise too (an array reading, a merge,
+a reference past the edge, a pattern, a name); the first true condition (11 entries in each); what Excel's save drops (a default
+said, a horizontal alignment, a top value) and what LibreOffice's import changes (a bound of `TRUE` respelled `1`, a formula read at
+the first rectangle, a theme's tint a digit off, a dashed edge written `fine-dashed`, the other sides of an edge said none). One
+difference was this reader's own, a General said by a data style, and is fixed. `the_looks_read_each_case_as_excel_reads_it`'s
+`cf:` target now holds the rows of `looks_saved.ods` and `looks_calc.ods` too. The reader's tests hold each spelling, the gathering,
+the move, a sheet's elements over its styles', a format's every word, the gate on a rule's own sheet and a format past a grid's.
+
+*Measured.* Every `<name>_looks.vla` and build golden stands; no refusal moved; `run_checks` stays at 60, 59 passing,
+`check_version_twin` the one failure. `rules_saved.ods` prints 258 rows of its 259 conditions, its date rule counted; `rules_calc.ods`
+194 of its 202, the eight kinds counted; `looks_saved.ods` and `looks_calc.ods` their three each. Sixty-seven mutants, a control before and after: 59 caught at once; two showed code that did nothing, an address's marks, which the parse takes itself, and it is gone; six held once the tests gained a case each, all caught. `vla-lang` is untouched
+by this slice.
+
+*The owner's look,* 2026-11-01, LibreOffice Calc over `rules_calc.ods`, its `Order` sheet by screenshot, against the reader's
+rows worked cell by cell. Every case of its 24 draws as the rows draw but one: `C6` filled and not bold, `C14` bold and no fill,
+`C20` nothing, its first true condition a style of no word, and across two formats `C34` and `C40` filled and not bold, `E34` and `E40`
+bold and no fill. So each row's stop stands, read on LibreOffice's own screen. The one is `C46`, bold where its rows fill it. Its own
+format comes first in the file, but LibreOffice's import joins a format of constant conditions to an earlier equal one, which
+keeps that one's key and goes before (`ScXMLConditionalFormatContext::endFastElement`, read 2026-11-01), so that the wider format's
+bold stands ahead there. That moves a format's place by what its neighbors hold, and only over constant conditions; the reader keeps the
+file's order, and the difference is LibreOffice's own import's, the oracle being Excel's.
+
+*Found:*
+
+14. *The language computes `TRUE` and not `TRUE()`.* OpenFormula has no boolean literal, so that LibreOffice writes one as
+    the function, and a load refuses it (`calc-function-not-computed`): `rules_calc.ods` holds 54 such cells, and any LibreOffice
+    file with a boolean in a cell's formula is refused whole, as a workbook of Excel's calling `=TRUE()` is. Filling it moves no
+    row, so nothing here waited on it: the oracle reads those cells as the literal they were saved from, said at the line that
+    does. It is two registrations in the library.
+15. *Two rules over whole columns keep a workbook out,* a different refusal for the same harm as *Found* 12: `A1:A1048576` and
+    `B1:B1048576` beside it are refused by `grid-rule-cells`, one taking the room alone (*measured*, 14.9 ms to load, the scoping's
+    *Found* 2). A reader could count a rule past the room as not computed, or a machine could leave a rule's answers past a sheet's
+    extent unplanned; the second keeps the highlight, and either is the owner's.
+16. *A rule of many rectangles costs a load their square,* each cut against those before it (`grid::outside`): 1,000 scattered
+    rectangles 10.2 ms, 4,000 139 ms, 16,000 2.2 s, of which `Rule::cells`, counted by each reader, 1.3 s (*measured*, release). A
+    hostile file of a million would hold a reader for over an hour (*derived*), and an `.ods` of scattered styled cells gathers as many
+    as it has runs. How many a real workbook holds is not measured, no real model being in the tree. The threat model names no such
+    bound, and nothing here promises one.
+
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
 `ENGINE.28` session: one `style` row over a range held by the machine as one

@@ -3331,7 +3331,6 @@ mod tests {
                 conditional: 2,
                 not_computed: 1,
                 rule_cells: 10,
-                rules_unread: 0,
                 row_formats: 1,
             }
         );

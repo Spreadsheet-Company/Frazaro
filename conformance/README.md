@@ -2477,7 +2477,7 @@ alone.
   takes off the sheet; and what the record has no word for, or
   says too little to be a row, under `unheld`. `--counts` gains `not-computed` and
   `rule-cells`, and `conditional` leaves the note's list. An OpenDocument file's rules are
-  counted and said, and no row says them, until the fifth slice.
+  the next amendment's.
 - **The oracle.** The core's `the_machine_draws_each_case_as_excel_draws_it` loads the
   reader's own rows of `rules.xlsx`, `rules_plain.xlsx` and `rules_x14.xlsx`, and its
   `the_machine_draws_excel_s_own_saves_as_excel_drew_them` those of Excel's `.xlsx` saves
@@ -2495,3 +2495,46 @@ alone.
   of a rule's own sheet out of its formula; and `a_rule_written_and_read_is_itself` holds the rows
   through the writer and the reader, what `rules_left_out` names apart.
   `check_looks_golden` holds that golden as it holds the other two.
+
+## Amendment of 2026-11-01: a conditional format in an OpenDocument file (`KERNEL.58`, its fifth slice)
+
+Oracle 8 takes an `.ods` file's rules, the same rows as a package's. No golden of it
+moves, none of its workbooks holding a rule.
+
+- **The reader,** under `--looks` alone. LibreOffice's `calcext:conditional-format`
+  elements where a sheet holds any, its style conditions being the same rules again; else
+  each cell style's `style:map` over the cells naming it, a cell's own style, else its
+  row's, else its column's, a repeated cell by each column it spans, one row a condition,
+  the rectangles gathered in the order rows come. So that a cell names one style, rules of
+  two styles share no cell, and their order is nothing. A file's rules are numbered as they
+  are met.
+- **What a row says.** `is-true-formula(<formula>)` and `formula-is(<formula>)` a formula,
+  `cell-content()<5` and `<5` a cell's value against a bound,
+  `cell-content-is-between(a,b)` and `between(a,b)` against two and their `not-` twins,
+  with an `of:` or another namespace or none; each formula the bar's text as a cell's is
+  read. LibreOffice's `contains-text`, `not-contains-text`, `begins-with`, `ends-with`,
+  `is-error` and `is-no-error` are Excel's formula for their kin, read at the rule's corner.
+  A formula read at a `base-cell-address` other than the rule's corner moves from it, as a
+  row's are read at the corner. Each row stops: a cell takes the style of the first
+  condition true over it and no other, across formats too (LibreOffice's help, and its
+  `ScDocument::GetCondResult`), where a package's rule goes on unless it says.
+- **A rule's format** is what the applied style's chain says less `Default`, by its name or
+  the name it shows (`ConditionalStyle_1`, named `ConditionalStyle_5f_1`), as a format of
+  groups alone past the cell formats, each different one once: `transparent` a fill said
+  none, `normal` and an underline or a strike of `none` said off, an edge of `none` said
+  none, a data style a code and one of General `(number general)`. A font's family and a
+  vertical alignment are left out and count nothing, as a package's. A word of no row, an
+  automatic ink or a code the language does not draw counts under `unheld`, and a style the
+  file does not declare applies nothing, as LibreOffice takes it, counted the same.
+- **Left out and counted,** under `not-computed`: `duplicate`, `unique`, each average and
+  rank, `date-is`, `color-scale`, `data-bar` and `icon-set`, and a rule whose formula a load
+  would refuse, by `Rule::computable`. A text this version does not read counts under
+  `unheld`. `LooksStats` holds no `rules_unread`, which these rows replace.
+- **The oracle.** The core's `the_machine_draws_the_opendocument_saves_as_excel_drew_them`
+  loads the reader's rows of Excel's three `.ods` saves and of LibreOffice's `rules_calc.ods`
+  against Excel's reading of the workbooks they were saved from: of Excel's 752 targets 707
+  agree and 45 are named, of LibreOffice's 722, 661 and 61. Each named difference is read off
+  the file's own text or stands in the package's gaps too: the first true condition, what a
+  save drops or its import changes. `the_looks_read_each_case_as_excel_reads_it`'s `cf:`
+  target holds the rows of `looks_saved.ods` and `looks_calc.ods`. The reader's tests hold
+  each spelling, the gathering, the move, and a format's every word.

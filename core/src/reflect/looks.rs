@@ -699,9 +699,6 @@ pub struct LooksStats {
     /// The cells the rules printed answer for, which a load counts beside the
     /// grid's and refuses past its 1,048,576.
     pub rule_cells: u64,
-    /// Those a reader of this version does not read yet, an OpenDocument file's
-    /// until the item's fifth slice: left out.
-    pub rules_unread: u64,
     /// The rows formatted whole, a row's own format, which no row says.
     pub row_formats: u64,
 }
@@ -718,7 +715,6 @@ impl LooksStats {
         self.conditional += other.conditional;
         self.not_computed += other.not_computed;
         self.rule_cells += other.rule_cells;
-        self.rules_unread += other.rules_unread;
         self.row_formats += other.row_formats;
     }
 
@@ -776,13 +772,6 @@ impl LooksStats {
                 self.not_computed,
                 "conditional format the language does not compute",
                 "conditional formats the language does not compute",
-            ));
-        }
-        if self.rules_unread > 0 {
-            left.push(count(
-                self.rules_unread,
-                "conditional format",
-                "conditional formats",
             ));
         }
         if self.row_formats > 0 {
@@ -1164,14 +1153,11 @@ mod tests {
             stats.left_out().unwrap(),
             "the looks leave out what the record cannot hold: 2 conditional formats the language does not compute"
         );
+        // A rule a row says is left out of nothing.
         let stats = LooksStats {
             conditional: 1,
-            rules_unread: 1,
             ..LooksStats::default()
         };
-        assert_eq!(
-            stats.left_out().unwrap(),
-            "the looks leave out what the record cannot hold: 1 conditional format"
-        );
+        assert_eq!(stats.left_out(), None);
     }
 }

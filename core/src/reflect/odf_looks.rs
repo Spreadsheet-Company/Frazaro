@@ -40,6 +40,12 @@
 //! default wrap is passed over: LibreOffice 26.8 writes it on where its own
 //! drawing of the same cells, its save's thumbnail and its fitted heights,
 //! wraps none (the third slice's save of `looks.xlsx`).
+//!
+//! A cell style's `style:map` conditions are kept for the walk, which gathers
+//! each one's cells (KERNEL.58's fifth slice), and the style a condition applies
+//! is read as a format of groups alone ([`OdsLooks::rule_look`]): what that style's
+//! chain says less `Default`, a rule's font family and vertical alignment left out,
+//! which Excel does not draw of a rule either.
 
 use std::collections::HashMap;
 
@@ -47,11 +53,20 @@ use super::cursor::{attr, attributes_full, skip_element, Cursor, Event};
 use super::looks::{font_size, Look};
 use super::ooxml::{step, xml_refused};
 use crate::messages::Refusal;
-use crate::sheet::{Edge, Family, Generic, Horizontal, Line, Rgb, Underline, Vertical};
+use crate::sheet::{Edge, Family, Generic, Horizontal, Line, Rgb, Style, Underline, Vertical};
 
 /// A style's properties as its part writes them: every attribute of its
 /// property elements, by its name as written.
 type Props = HashMap<String, String>;
+
+/// A cell style's condition (`style:map`), a conditional format's rule: its
+/// text, the style it applies, and the cell its references are read at.
+#[derive(Clone, Debug)]
+pub(crate) struct StyleMap {
+    pub(crate) condition: String,
+    pub(crate) applied: String,
+    pub(crate) base: Option<String>,
+}
 
 /// A cell style as a part declares it.
 #[derive(Clone, Debug, Default)]
@@ -59,8 +74,8 @@ struct CellStyle {
     parent: Option<String>,
     data: Option<String>,
     props: Props,
-    /// Its conditions, `style:map`, each a conditional format's rule.
-    rules: u32,
+    /// Its conditions, in the order written.
+    maps: Vec<StyleMap>,
 }
 
 /// A part of a data style, in the order it is written.
@@ -142,8 +157,15 @@ pub(crate) struct OdsLooks {
     pub(crate) looks: Vec<Look>,
     /// A cell style's format by its name.
     index: HashMap<String, u32>,
-    /// Each format's conditions, a conditional format's rules.
-    rules: Vec<u32>,
+    /// Every cell style by its name, its conditions among what it says.
+    styles: HashMap<String, CellStyle>,
+    /// A style's name by the name it shows, what LibreOffice's conditions name
+    /// (`ConditionalStyle_1`, its name `ConditionalStyle_5f_1`).
+    display: HashMap<String, String>,
+    /// The data styles of both parts, and the document's country, for a rule's
+    /// format's code.
+    data: HashMap<String, DataStyle>,
+    country: Option<String>,
     /// A column style's width in the record's characters, `None` for
     /// Excel's default.
     columns: HashMap<String, Option<f64>>,
@@ -170,13 +192,39 @@ impl OdsLooks {
         }
     }
 
-    /// The conditional rules of a cell style by its name, `style:map`.
-    pub(crate) fn rules_of(&self, style: &str) -> u32 {
-        self.index
-            .get(style)
-            .and_then(|i| self.rules.get(*i as usize))
-            .copied()
-            .unwrap_or(0)
+    /// A cell style's conditions by its name, `style:map`.
+    pub(crate) fn maps_of(&self, style: &str) -> &[StyleMap] {
+        self.styles.get(style).map_or(&[], |s| s.maps.as_slice())
+    }
+
+    /// What a style a condition applies says, as a format of groups alone: its
+    /// chain less `Default`, by its name or the name it shows; `None` for a style
+    /// the document does not declare, whose condition applies nothing.
+    pub(crate) fn rule_look(&self, style: &str) -> Option<Look> {
+        let name = if self.styles.contains_key(style) {
+            style
+        } else {
+            self.display.get(style)?
+        };
+        let mut chain: Vec<&CellStyle> = Vec::new();
+        let mut at = Some(name);
+        while let Some(n) = at.filter(|n| *n != "Default" && chain.len() <= 64) {
+            let Some(s) = self.styles.get(n) else { break };
+            chain.push(s);
+            at = s.parent.as_deref();
+        }
+        let mut props = Props::new();
+        let mut data_style: Option<&str> = None;
+        for s in chain.iter().rev() {
+            props.extend(s.props.clone());
+            data_style = s.data.as_deref().or(data_style);
+        }
+        // A data style of General says General, as a rule's format may where the
+        // cell's own says a code.
+        let code = data_style.filter(|d| self.data.contains_key(*d)).map(|d| {
+            code(&self.data, d, self.country.as_deref()).unwrap_or_else(|| "General".to_string())
+        });
+        Some(partial_look(&props, code.as_deref()))
     }
 
     /// A column style's width, as the record says one.
@@ -206,6 +254,8 @@ struct Declared {
     default_style: Props,
     /// Cell styles in the order the part declares them.
     cells: Vec<(String, CellStyle)>,
+    /// A style's name by the name it shows, where the two differ.
+    display: HashMap<String, String>,
     data: HashMap<String, DataStyle>,
     columns: HashMap<String, Option<f64>>,
     rows: HashMap<String, Option<f64>>,
@@ -325,6 +375,9 @@ fn declared(text: &str, label: &str, part: &str, out: &mut Declared) -> Result<(
                     };
                     match family.as_ref() {
                         "table-cell" => {
+                            if let Some(shown) = attr(attrs, "display-name") {
+                                out.display.insert(shown.into_owned(), style.clone());
+                            }
                             let declared = CellStyle {
                                 parent: attr(attrs, "parent-style-name").map(|p| p.into_owned()),
                                 data: attr(attrs, "data-style-name").map(|d| d.into_owned()),
@@ -367,7 +420,13 @@ fn declared(text: &str, label: &str, part: &str, out: &mut Declared) -> Result<(
                 }
                 "map" => {
                     if let Some((_, c)) = cell.as_mut() {
-                        c.rules += 1;
+                        c.maps.push(StyleMap {
+                            condition: attr(attrs, "condition").unwrap_or_default().into_owned(),
+                            applied: attr(attrs, "apply-style-name")
+                                .unwrap_or_default()
+                                .into_owned(),
+                            base: attr(attrs, "base-cell-address").map(|b| b.into_owned()),
+                        });
                     } else if let Some((_, d)) = data.as_mut() {
                         if let (Some(condition), Some(applied)) =
                             (attr(attrs, "condition"), attr(attrs, "apply-style-name"))
@@ -816,6 +875,98 @@ fn look_of(props: &Props, default: &Props, code: Option<&str>, faces: &Faces) ->
     look
 }
 
+/// What a style's chain says as a format of groups alone, a rule's: each word
+/// the chain says and no other, a said default taking the cell's own away, as a
+/// differential format's does. A rule's font family and vertical alignment are left
+/// out, which Excel does not draw of a rule.
+fn partial_look(props: &Props, code: Option<&str>) -> Look {
+    let mut look = Look {
+        style: Style::partial(),
+        ..Look::default()
+    };
+    let mut no_word = unheld(props, props, &Faces::default());
+    let style = &mut look.style;
+    match props.get("fo:background-color").map(String::as_str) {
+        None => {}
+        Some("transparent") => style.say_fill(None),
+        Some(_) => match color(props, "fo:background-color") {
+            Some(fill) => style.say_fill(Some(fill)),
+            None => no_word = true,
+        },
+    }
+    if props.contains_key("fo:font-weight") {
+        style.font.bold = Some(bold(props));
+    }
+    if props.contains_key("fo:font-style") {
+        style.font.italic = Some(italic(props));
+    }
+    if let Some(points) = size(props) {
+        match font_size(points) {
+            Some(s) => style.font.size = Some(s),
+            None => no_word = true,
+        }
+    }
+    if props
+        .get("style:use-window-font-color")
+        .is_some_and(|w| w == "true")
+    {
+        no_word = true;
+    } else if props.contains_key("fo:color") {
+        match color(props, "fo:color") {
+            Some(ink) => style.font.color = Some(ink),
+            None => no_word = true,
+        }
+    }
+    if props.contains_key("style:text-underline-style")
+        || props.contains_key("style:text-underline-type")
+    {
+        style.font.underline = Some(underline(props));
+    }
+    if props.contains_key("style:text-line-through-style")
+        || props.contains_key("style:text-line-through-type")
+    {
+        style.font.strike = Some(strike(props));
+    }
+    match props.get("fo:text-align").map(String::as_str) {
+        Some("start" | "left") => style.align.horizontal = Some(Horizontal::Left),
+        Some("center") => style.align.horizontal = Some(Horizontal::Center),
+        Some("end" | "right") => style.align.horizontal = Some(Horizontal::Right),
+        _ => {}
+    }
+    if let Some(wrap) = props.get("fo:wrap-option") {
+        style.say_wrap(wrap == "wrap");
+    }
+    for (i, side) in ["left", "right", "top", "bottom"].iter().enumerate() {
+        let Some(spec) = props
+            .get(&format!("fo:border-{side}"))
+            .or_else(|| props.get("fo:border"))
+        else {
+            continue;
+        };
+        // An edge of no line says none, taking the cell's own away.
+        let said = match edge(spec) {
+            Some((line, rgb)) => Edge::new(line, rgb),
+            None => Edge::new(Line::None, None),
+        };
+        match i {
+            0 => style.border.left = Some(said),
+            1 => style.border.right = Some(said),
+            2 => style.border.top = Some(said),
+            _ => style.border.bottom = Some(said),
+        }
+    }
+    if let Some(code) = code {
+        let mut read = Look::default();
+        read.set_code(code);
+        match read.undrawn {
+            None => style.say_number(read.style.num_fmt),
+            Some(_) => no_word = true,
+        }
+    }
+    look.unheld = no_word;
+    look
+}
+
 // ---- A data style as Excel's code ------------------------------------------
 
 /// The characters a code draws as themselves outside quotes.
@@ -1139,6 +1290,8 @@ pub(crate) fn read(
     faces.generics.extend(automatic.faces.generics.clone());
     let mut data = named.data.clone();
     data.extend(automatic.data.clone());
+    let mut display = named.display.clone();
+    display.extend(automatic.display.clone());
     // Every cell style by its name, and the formats in their order: Default
     // first, the automatic styles, then the named ones.
     let mut by_name: HashMap<String, CellStyle> = HashMap::new();
@@ -1210,11 +1363,14 @@ pub(crate) fn read(
         }
         looks.looks.push(look);
         looks.index.insert(n.clone(), i as u32);
-        looks.rules.push(by_name.get(n).map_or(0, |s| s.rules));
     }
     if let Some(s) = settings {
         gridlines(s, label, &mut looks)?;
     }
+    looks.styles = by_name;
+    looks.display = display;
+    looks.data = data;
+    looks.country = country;
     Ok(looks)
 }
 

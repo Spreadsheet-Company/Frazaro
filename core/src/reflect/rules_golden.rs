@@ -2058,7 +2058,17 @@ fn drawn_against(
 ) -> (usize, Vec<String>) {
     let (rows, _) =
         crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
-    let mut m = Machine::load(&rows, crate::excel::library())
+    rows_drawn_against(file, &rows, golden, gaps)
+}
+
+/// [`drawn_against`] over a reader's rows.
+fn rows_drawn_against(
+    file: &str,
+    rows: &str,
+    golden: &[GoldenCase],
+    gaps: &[Gap],
+) -> (usize, Vec<String>) {
+    let mut m = Machine::load(rows, crate::excel::library())
         .unwrap_or_else(|e| panic!("{file}: line {}: {}\n{rows}", e.line, e.refusal.text));
     assert!(m.step(0).done);
     let wb = m.workbook();
@@ -2183,6 +2193,616 @@ fn the_machine_draws_excel_s_own_saves_as_excel_drew_them() {
         held += n;
         wrong.extend(found);
     }
+    assert!(
+        wrong.is_empty(),
+        "{} of {held} targets:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}
+
+/// Excel's saves of the three workbooks as `.ods`, each with the name its golden
+/// gives the file it was saved from, and what each differs in, named.
+const ODS_SAVES: [(&str, &str, &[Gap]); 3] = [
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_saved.ods"
+        ),
+        "rules.xlsx",
+        EXCEL_ODS_GAPS,
+    ),
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_plain_saved.ods"
+        ),
+        "rules_plain.xlsx",
+        EXCEL_ODS_GAPS,
+    ),
+    (
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scripts/reflect/rules_x14_saved.ods"
+        ),
+        "rules_x14.xlsx",
+        EXCEL_ODS_GAPS,
+    ),
+];
+
+/// A cell takes the style of the first condition true over it and no other, across
+/// formats too, as LibreOffice's help and `ScDocument::GetCondResult` have it and as a
+/// file's row says by its stop, where Excel folds its rules property by property.
+const FIRST_TRUE: &str = "the first true condition draws alone, where Excel folds them";
+
+/// What Excel's `.ods` saves draw otherwise than Excel drew the workbooks it saved,
+/// each read off the save's own text: what the `.xlsx` draws otherwise too, the first
+/// true condition, and what the save drops.
+const EXCEL_ODS_GAPS: &[Gap] = &[
+    (
+        "rules.xlsx",
+        "Truth",
+        "a range whose first answer is true",
+        &["shown:C60"],
+        "Excel answers by a range's first value; a cell's reading intersects it",
+    ),
+    (
+        "rules.xlsx",
+        "Refs",
+        "a range under AND",
+        &["shown:C10"],
+        "Excel reads the comparison as an array; a cell's reading intersects it",
+    ),
+    (
+        "rules.xlsx",
+        "Refs",
+        "a merged range whose first cell answers true",
+        &["shown:D24", "shown:E24"],
+        "a merged range draws by its first cell's answer",
+    ),
+    (
+        "rules.xlsx",
+        "Edges",
+        "a reference moved past the bottom",
+        &["shown:C3"],
+        "Excel wraps it to the top; a fill's mover makes it #REF!, false",
+    ),
+    (
+        "rules.xlsx",
+        "Edges",
+        "a reference moved past the right",
+        &["shown:E6"],
+        "Excel wraps it to the left; a fill's mover makes it #REF!, false",
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "two true rules saying different properties",
+        &["shown:C6"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a second rule that stops",
+        &["shown:C14"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a rule of no format that goes on",
+        &["shown:C20"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "two rules saying a side alone",
+        &["shown:C28"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a color, a weight and a second color",
+        &["shown:C30"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop in the cell two ranges meet in",
+        &["shown:C34"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop over a wider range",
+        &["shown:C38"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop under a wider range",
+        &["shown:C40"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop between two ranges",
+        &["shown:C44"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop of no format over a wider range",
+        &["shown:C48"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Alike",
+        "one priority three times",
+        &["shown:C6"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's fgColor under solid",
+        &["shown:C8", "shown:E8"],
+        "a pattern said with no color draws white over no fill and nothing over a fill",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "an accounting underline",
+        &["shown:C40", "shown:E40"],
+        "an accounting line, which a file of this kind has no word for: a single, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a double accounting underline",
+        &["shown:C42", "shown:E42"],
+        "an accounting line, which a file of this kind has no word for: a single, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a number format with a color",
+        &["shown:C60", "text:C60", "shown:E60"],
+        "a code's color, which a format's code refuses by name",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a name",
+        &["shown:C64", "shown:E64"],
+        "the screen draws the cell's own face: a reader leaves a rule's name out",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a vertical alignment",
+        &["shown:C70", "shown:E70"],
+        "the screen draws it where it was: a reader leaves a rule's vertical out",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a left edge of an automatic color",
+        &["shown:C92", "shown:E92"],
+        "an automatic edge written black, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "is not blank",
+        &["shown:K12"],
+        "Excel lights an error as not blank, where the kind's own formula, all a save holds, answers the error",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "a color scale",
+        &["shown:C20", "shown:E20", "shown:G20"],
+        "a color scale computes a color no row says",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's pattern",
+        &["shown:C16"],
+        "a pattern, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "not bold",
+        &["shown:C22"],
+        "a default said, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "not italic",
+        &["shown:C24"],
+        "a default said, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "no underline",
+        &["shown:C44"],
+        "a default said, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "no strike",
+        &["shown:C48"],
+        "a default said, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "every side said empty",
+        &["shown:C96"],
+        "a default said, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a horizontal alignment",
+        &["shown:C68", "shown:E68"],
+        "an alignment, of which the save says nothing",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "the top value",
+        &["shown:G26"],
+        "a kind the save drops whole",
+    ),
+];
+
+/// LibreOffice's save of `rules.xlsx`.
+const CALC_ODS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/reflect/rules_calc.ods"
+);
+
+/// What LibreOffice's save draws otherwise than Excel drew the workbook it opened,
+/// each read off the save's own text: as Excel's `.ods`, and what its import of the
+/// `.xlsx` changes.
+const CALC_ODS_GAPS: &[Gap] = &[
+    (
+        "rules.xlsx",
+        "Truth",
+        "a range whose first answer is true",
+        &["shown:C60"],
+        "Excel answers by a range's first value; a cell's reading intersects it",
+    ),
+    (
+        "rules.xlsx",
+        "Refs",
+        "a range under AND",
+        &["shown:C10"],
+        "Excel reads the comparison as an array; a cell's reading intersects it",
+    ),
+    (
+        "rules.xlsx",
+        "Refs",
+        "a merged range whose first cell answers true",
+        &["shown:D24", "shown:E24"],
+        "a merged range draws by its first cell's answer",
+    ),
+    (
+        "rules.xlsx",
+        "Edges",
+        "a reference moved past the bottom",
+        &["shown:C3"],
+        "Excel wraps it to the top; a fill's mover makes it #REF!, false",
+    ),
+    (
+        "rules.xlsx",
+        "Edges",
+        "a reference moved past the right",
+        &["shown:E6"],
+        "Excel wraps it to the left; a fill's mover makes it #REF!, false",
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "two true rules saying different properties",
+        &["shown:C6"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a second rule that stops",
+        &["shown:C14"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a rule of no format that goes on",
+        &["shown:C20"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "two rules saying a side alone",
+        &["shown:C28"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a color, a weight and a second color",
+        &["shown:C30"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop in the cell two ranges meet in",
+        &["shown:C34"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop over a wider range",
+        &["shown:C38"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop under a wider range",
+        &["shown:C40"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop between two ranges",
+        &["shown:C44"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Order",
+        "a stop of no format over a wider range",
+        &["shown:C48"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Alike",
+        "one priority three times",
+        &["shown:C6"],
+        FIRST_TRUE,
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's fgColor under solid",
+        &["shown:C8", "shown:E8"],
+        "a pattern said with no color draws white over no fill and nothing over a fill",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "an accounting underline",
+        &["shown:C40", "shown:E40"],
+        "an accounting line, which a file of this kind has no word for: a single, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a double accounting underline",
+        &["shown:C42", "shown:E42"],
+        "an accounting line, which a file of this kind has no word for: a single, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a number format with a color",
+        &["shown:C60", "text:C60", "shown:E60"],
+        "a code's color, which a format's code refuses by name",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a name",
+        &["shown:C64", "shown:E64"],
+        "the screen draws the cell's own face: a reader leaves a rule's name out",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a vertical alignment",
+        &["shown:C70", "shown:E70"],
+        "the screen draws it where it was: a reader leaves a rule's vertical out",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a left edge of an automatic color",
+        &["shown:C92", "shown:E92"],
+        "an automatic edge written black, in each save",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "is not blank",
+        &["shown:K12"],
+        "Excel lights an error as not blank, where the kind's own formula, all a save holds, answers the error",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "a color scale",
+        &["shown:C20", "shown:E20", "shown:G20"],
+        "a color scale computes a color no row says",
+    ),
+    (
+        "rules.xlsx",
+        "Cell",
+        "equal to TRUE",
+        &["shown:S30"],
+        "its import respells a bound of TRUE as 1",
+    ),
+    (
+        "rules.xlsx",
+        "Refs",
+        "a merged range whose first cell answers false",
+        &["shown:D22", "shown:E22"],
+        "a merged range draws by its first cell's answer",
+    ),
+    (
+        "rules.xlsx",
+        "Bases",
+        "the lower left rectangle first",
+        &["shown:D13", "shown:F10"],
+        "its import reads a formula at the first rectangle, where Excel reads it at the corner",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's pattern of none",
+        &["shown:C12"],
+        "a format's word its import of the file loses",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill of no color as Excel writes it",
+        &["shown:C14"],
+        "a format's word its import of the file loses",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's pattern",
+        &["shown:C16", "shown:E16"],
+        "its import reads a pattern as a color",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a fill's theme color",
+        &["shown:C18", "shown:E18"],
+        "its import computes a theme's tint by a digit otherwise",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a font's automatic color",
+        &["shown:C34"],
+        "the automatic color said over a cell's own, which a format has no word for",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a horizontal alignment",
+        &["shown:C68", "shown:E68"],
+        "a format's word its import of the file loses",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a wrap",
+        &["shown:C72", "shown:E72"],
+        "a format's word its import of the file loses",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a dashed left edge",
+        &["shown:C90", "shown:E90"],
+        "its import writes a dashed edge fine-dashed, Excel's hair by this reader",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a left edge alone",
+        &["shown:C94"],
+        "its import says the other three sides none",
+    ),
+    (
+        "rules.xlsx",
+        "Partial",
+        "a left edge of no style",
+        &["shown:C98"],
+        "its import says all four sides none",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "the top value",
+        &["shown:G26"],
+        "not computed",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "above the average",
+        &["shown:G28"],
+        "not computed",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "a duplicate",
+        &["shown:C30", "shown:E30"],
+        "not computed",
+    ),
+    (
+        "rules.xlsx",
+        "Kinds",
+        "a value alone",
+        &["shown:G32"],
+        "not computed",
+    ),
+];
+
+/// A file's rules as each writer's `.ods` holds them, drawn against Excel's reading
+/// of the workbook it saved, every difference a named gap: Excel's maps over the
+/// cells naming each style, and LibreOffice's own elements.
+#[test]
+fn the_machine_draws_the_opendocument_saves_as_excel_drew_them() {
+    let golden = golden_read(GOLDEN);
+    let mut wrong: Vec<String> = Vec::new();
+    let mut held = 0;
+    for (path, file, gaps) in ODS_SAVES {
+        let bytes = std::fs::read(path).expect("Excel's save");
+        let (n, found) = drawn_against(file, &bytes, &golden, gaps);
+        held += n;
+        wrong.extend(found.into_iter().map(|w| format!("excel: {w}")));
+    }
+    let bytes = std::fs::read(CALC_ODS).expect("LibreOffice's save");
+    let (rows, _) = crate::reflect::reflect_looks(&bytes, "rules.xlsx").unwrap();
+    // LibreOffice writes a boolean as OpenFormula's `TRUE()`, its one spelling of one,
+    // which the language does not compute (the item's *Found*): read here as the
+    // literal it saved.
+    let rows = rows
+        .replace("\"=TRUE()\"", "\"=TRUE\"")
+        .replace("\"=FALSE()\"", "\"=FALSE\"");
+    let (n, found) = rows_drawn_against("rules.xlsx", &rows, &golden, CALC_ODS_GAPS);
+    held += n;
+    wrong.extend(found.into_iter().map(|w| format!("calc: {w}")));
     assert!(
         wrong.is_empty(),
         "{} of {held} targets:\n{}",

@@ -398,3 +398,12 @@ The writer writes a rule's formula through the same escapes as a cell's, and lea
 whole what a file cannot spell, a sheet's last frame and another workbook, rather than
 write what would cost the file a repair. No capability is added, and the module's import
 section is still empty.
+
+*Appended 2026-11-01, `KERNEL.58`'s fifth slice: a conditional format in an OpenDocument file.*
+`--looks` reads two more things of `content.xml` and `styles.xml`, which it already reads: a
+cell style's `style:map` and a table's `calcext:conditional-formats`. What comes of them is
+data, as a package's: a range, a format and a rule's formula as text, printed and never run.
+Asking whether a load would compute a rule parses its text and looks each name up in the
+library, which runs nothing, and a rule that would be refused is left out and counted, of a
+package and of this file alike. No capability is added, and the module's import section is
+still empty.

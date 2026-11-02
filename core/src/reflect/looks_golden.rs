@@ -2296,12 +2296,8 @@ fn differences(
                     let (rules, fill) = excel.split_once(' ').expect("the rules and their fill");
                     let rules: u64 = rules.parse().expect("the rules counted");
                     want.conditional += rules;
-                    // An OpenDocument file's are the fifth slice's. A package's
-                    // are rows: as many over the cell as Excel reads, the first by
+                    // Rows: as many over the cell as Excel reads, the first by
                     // priority drawing the fill it reads.
-                    if ods.is_some() {
-                        continue;
-                    }
                     let cell = crate::sheet::parse_a1_range(place).expect("a rule's cell");
                     let mut over: Vec<&RuleRow> = r
                         .rules
