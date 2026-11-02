@@ -1,6 +1,8 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
+' KERNEL.58: a rules target of the kind merge, Range.MergeArea, which the writer's
+' own workbook reads since its merged ranges.
 ' KERNEL.58: VlaWriteRulesWrittenGolden, dev-only, the reference's reading of the
 ' writer's own workbook of rules, rules_written.xlsx, into
 ' rules_written_golden.txt, by VlaWriteRulesGolden's readers.
@@ -4426,6 +4428,8 @@ Private Function RulesTargetLines(ByVal ws As Worksheet, ByVal target As String,
             LooksRead(ws.Range(place).DisplayFormat, nName, nSize, nColor, nBold, nItalic) & vbCrLf
     Case "text"
         RulesTargetLines = target & vbTab & RulesQuoted(CStr(ws.Range(place).Text)) & vbCrLf
+    Case "merge"
+        RulesTargetLines = target & vbTab & ws.Range(place).MergeArea.Address(False, False) & vbCrLf
     Case "rule"
         RulesTargetLines = RulesConditions(ws, target, place)
     Case Else

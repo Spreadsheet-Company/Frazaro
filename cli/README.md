@@ -519,13 +519,12 @@ What the record cannot hold is left out of its row, the rest of the row
 printed, and one line on stderr says how much was: a cell that keeps a
 format and no value, a look the record has no word for (a raised text, an
 outline, a pattern, a rotation, an indent, a diagonal, a run of rich text),
-a merged range, a conditional format the language does not compute,
-a row formatted whole. A
+a conditional format the language does not compute, a row formatted whole. A
 number format the language does not draw is printed as the file holds it,
 and a load refuses it by name. With `--counts` beside it, each line gains
 the looks' counts, the formats, the cells styled, each kind left out, a
-sheet's `conditional` rules, those `not-computed` and the `rule-cells` they
-answer for.
+sheet's `merged` ranges and its `conditional` rules, those `not-computed` and
+the `rule-cells` they answer for.
 
 A workbook's conditional formats print as rows of their own, after the formats
 and before the cells, each with the format it names, a format of its own past
@@ -557,6 +556,12 @@ style, as Excel's save writes them. A cell of such a file takes the style of the
 first condition true over it and no other, so each of its rows stops. LibreOffice's
 kinds over a text or an error are Excel's formula for their kin, and its duplicates,
 averages, ranks and dates are left out, counted and said.
+
+A merged range is a row of its own after a sheet's rules, `(merge "Report" "C6:E6")`,
+from a package's `mergeCell` and an `.ods` file's spanning cell alike; one of no more
+than a cell, or overlapping one before it, is left out and counted under `unheld`. It
+moves no value, and a load prints each of its cells by the rules true at its first, or
+its first alone where a sheet's merged cells by its rules pass 1,048,576.
 
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,

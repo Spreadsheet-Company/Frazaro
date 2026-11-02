@@ -407,3 +407,13 @@ Asking whether a load would compute a rule parses its text and looks each name u
 library, which runs nothing, and a rule that would be refused is left out and counted, of a
 package and of this file alike. No capability is added, and the module's import section is
 still empty.
+
+*Appended 2026-11-01, `KERNEL.58`'s sixth slice: a merged range.* `--looks` reads the `ref` of a
+`mergeCell` and the spans of a cell, which it passed by, as rectangles, data printed and never run;
+one a load would refuse is left out and counted. Each is held against those before it by the index
+a fill's rectangles use: a package of a million of a row each, 34 MB, reads through the door in 1.4 s,
+and one of a million of 1,024 rows side by side, which that search reads most of, in 9.4 s (*measured*).
+A record prints each as a row, and each of a range's cells a rule's row only while its sheet's merged
+cells by its rules are at most the 1,048,576 cells rules may answer for, so that a merge of the whole
+sheet in a file of three rows costs a record one row and not seventeen billion. No capability is added,
+and the module's import section is still empty.

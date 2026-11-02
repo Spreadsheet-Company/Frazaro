@@ -601,6 +601,14 @@ impl Grid<'_> {
         for rule in page.rules {
             out(&record_line(&Record::Conditional { sheet: name, rule }));
         }
+        // Its merged ranges, unclipped too: a range is the sheet's, and a window
+        // over a covered cell draws by a first cell it may not show.
+        for merge in page.merges.ranges() {
+            out(&record_line(&Record::Merge {
+                sheet: name,
+                addr: &merge.text(),
+            }));
+        }
         if mode == Mode::Fills {
             self.fills_rows(model, &page, i, &range, out);
             return;

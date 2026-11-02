@@ -175,8 +175,8 @@ use crate::reader::{each_form, read_forms};
 use crate::refers::shift_a1_references;
 use crate::rows::Visibility;
 use crate::sheet::{
-    parse_a1_range, strip_future_prefixes, A1Range, Cell, Content, RowSettings, Sheet, Styles,
-    Workbook, MAX_COLUMN, MAX_ROW,
+    parse_a1_range, strip_future_prefixes, A1Range, Cell, Content, Merges, RowSettings, Sheet,
+    Styles, Workbook, MAX_COLUMN, MAX_ROW,
 };
 use crate::view::{changes_text, fills_text, record_text, window_over};
 
@@ -2085,7 +2085,9 @@ impl Machine {
     /// value written since lies in the window. A twin is written only at a
     /// frame's end, so a value written since leaves its window still. A cell
     /// whose rule's answer moved is named among a rows' sheet's (KERNEL.58),
-    /// even under a stop, its rows printed as they stand.
+    /// even under a stop, its rows printed as they stand: a merged range's first
+    /// cell's names the cells it prints at in the window ([`lit_cells`]), and a
+    /// covered cell's, which draws nothing, none.
     fn changes(&self, w: &Window) -> String {
         let at = self.frame;
         let since = at.saturating_sub(1);
@@ -2118,10 +2120,28 @@ impl Machine {
             _ => 0..0,
         };
         let mut answered: Vec<(u32, u32)> = Vec::new();
+        let merges = self.book.pages[s].sheet.merges();
+        let ruled = self.rules.get(s).map_or(0, Vec::len);
         let formulas = self.twin_changed.iter().filter_map(|p| {
             let ((on, row, col), _) = finder.cell(blocks, p);
-            if answers.contains(&on) && inside(&(t, row, col)) {
-                answered.push((row, col));
+            if answers.contains(&on) {
+                let drawn = match merges.at(row, col) {
+                    Some(merge) if (merge.top, merge.left) != (row, col) => None,
+                    Some(merge) => Some(lit_cells(merges, ruled, merge)),
+                    None => Some(A1Range {
+                        top: row,
+                        left: col,
+                        bottom: row,
+                        right: col,
+                    }),
+                };
+                if let Some(shown) = drawn.and_then(|d| grid::overlap(&d, &r)) {
+                    for row in shown.top..=shown.bottom {
+                        for col in shown.left..=shown.right {
+                            answered.push((row, col));
+                        }
+                    }
+                }
             }
             (on == s).then_some((t, row, col))
         });
@@ -2953,6 +2973,23 @@ impl Machine {
     }
 }
 
+/// The cells of a merged range its first cell's answers print at (KERNEL.58): each
+/// of them, so that a page knowing no merge draws a rule over the range as Excel does.
+/// A record's rows then multiply, each of a sheet's merged cells by each of its `ruled`
+/// rules: where that passes the cells a grid's rules may answer for, its first alone,
+/// the `merge` row saying the rest, so that three rows merging a whole sheet do not ask
+/// a record for seventeen billion.
+fn lit_cells(merges: &Merges, ruled: usize, merge: A1Range) -> A1Range {
+    if merges.cells().saturating_mul(ruled as u64) <= CELLS as u64 {
+        return merge;
+    }
+    A1Range {
+        bottom: merge.top,
+        right: merge.left,
+        ..merge
+    }
+}
+
 impl Machine {
     /// Whether a rule's answer at a cell is true as the last complete frame
     /// left it (KERNEL.58): false for a cell it answers nothing for and an
@@ -3241,7 +3278,8 @@ impl Cells for Machine {
 
     /// The rules true at each cell of a window, walked by priority over the
     /// pieces of each one's answer sheet there (KERNEL.58), a cell they have
-    /// stopped at given no more.
+    /// stopped at given no more; a merged range's its first cell's, in the window
+    /// or not, at the cells [`lit_cells`] gives.
     fn lit_in(&self, sheet: usize, window: &A1Range) -> BTreeMap<(u32, u32), Vec<u32>> {
         let mut lit: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
         let Some(rules) = self.rules.get(sheet) else {
@@ -3264,12 +3302,39 @@ impl Cells for Machine {
                 }
             }
         }
+        let merges = self.book.pages[sheet].sheet.merges();
+        lit.retain(|&(row, col), _| merges.at(row, col).is_none());
+        for merge in merges.meeting(*window) {
+            let Some(first) = self.lit_at(sheet, merge.top, merge.left) else {
+                continue;
+            };
+            let Some(shown) = grid::overlap(&lit_cells(merges, rules.len(), merge), window) else {
+                continue;
+            };
+            for row in shown.top..=shown.bottom {
+                for col in shown.left..=shown.right {
+                    lit.insert((row, col), first.clone());
+                }
+            }
+        }
         lit
     }
 
     fn lit_at(&self, sheet: usize, row: u32, col: u32) -> Option<Vec<u32>> {
+        let rules = self.rules.get(sheet)?;
+        let merges = self.book.pages[sheet].sheet.merges();
+        let (row, col) = match merges.at(row, col) {
+            Some(merge) => {
+                let shown = lit_cells(merges, rules.len(), merge);
+                if row > shown.bottom || col > shown.right {
+                    return None;
+                }
+                (merge.top, merge.left)
+            }
+            None => (row, col),
+        };
         let mut lit = Vec::new();
-        for rule in self.rules.get(sheet)? {
+        for rule in rules {
             if self.answers_true(rule.sheet, row, col) {
                 lit.push(rule.priority);
                 if rule.stop {

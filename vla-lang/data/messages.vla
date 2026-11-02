@@ -249,6 +249,7 @@
 (message grid-write-derived 5 "VLA-Grid" "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula.")
 (message grid-too-many-cells 5 "VLA-Grid" "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins.")
 (message grid-rule-cells 5 "VLA-Grid" "The rule over {target} would bring the cells rules answer for to {cells}, past the {limit} one grid computes beside its own; name a narrower range.")
+(message grid-merge-overlap 5 "VLA-Grid" "The merged range {target} overlaps {held}, merged already, and two merged ranges cannot share a cell.")
 (message calc-cycle 5 "VLA-Calc" "The formulas in {cells} read one another in a circle, so none of them can be computed first. Break the circle: one of them must read a value, not a formula that reads it back.")
 (message calc-function-not-computed 5 "VLA-Calc" "The formula in {cell} calls {function}, which this version does not compute.")
 (message calc-construct-not-read 5 "VLA-Calc" "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed.")

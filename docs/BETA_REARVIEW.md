@@ -42706,6 +42706,88 @@ file's order, and the difference is LibreOffice's own import's, the oracle being
     `a_rule_of_many_rectangles_is_read_once_a_load`, 8 readings of a rule's rectangles at most, and `rectangles_count_by_a_sweep_as_they_cut`,
     400 generated sets against the cut and each cell. No row, golden or floor moved.
 
+*The sixth slice built,* over `e80381d`, 2026-11-02, at the owner's word, "then commit and proceed with slice 6 of KERNEL.58":
+decision 10, and the third slice's fold that a merged range draws by its first cell's answer at every cell, in the detached worktree.
+
+*The code.* `vla-lang/src/sheet.rs`: `Merges`, public, over `grid::Rects`: `add`, a second alike taken and an overlap refused with
+the range it meets; `at`, `ranges` by first cell, `len`, `is_empty` and `cells`. `SheetRules` holds the rules and the merges in the one
+box, so that `Sheet` is the size it was and no ceiling moved. `Sheet::merges`, `put_merge`; `drop_rules` keeps the merges. `rows.rs`:
+`Record::Merge`. `view.rs`: the rows after the rules, before a save's branch. `machine/load.rs`: the row, `LOAD_ROWS`, `merge_overlap`, and
+a `lit` row held to its merge's first cell. `machine/mod.rs`: `lit_cells`, `lit_in`, `lit_at` and `changes`. `sheet/ooxml.rs`:
+`merges_text`. `reflect/looks.rs`: `SheetScan::merges`, `merge` and its print, and `merged` out of the note. `reflect/ooxml.rs` and
+`reflect/odf.rs`, whose `CellData::spanned` is the columns and rows where it was whether. `src/VLA_Messages.bas`:
+`grid-merge-overlap`, a second new refusal beside the one the scoping's *Throughout* predicted, which decision 10's "refused by name" asks.
+`src/VLA_Tests.bas`: a rules target of the kind `merge`, `Range.MergeArea`.
+
+*What the build settled that the scoping left open.* That a covered cell's own `lit` row says its first cell's answers, its first
+inside the window or not: a window of covered cells is what a page holds when it scrolls off a first cell, and a page knowing no merge,
+each released one, then draws a rule over the range as Excel does. So `lit_at` and `lit_in` give it, and a window's changes name the
+range's cells in the window when the first's answer moves, and none when a covered cell's own does. That a `lit` row at a covered cell
+therefore names rules over its first cell, a rule over the first alone printing one at each, and is refused of a rule over itself alone.
+That a load says it as the cell's own answer all the same: it draws nothing, a store lays it only on a pending slot, and a filter written to
+keep it out did nothing and went. That a rule's answers at covered cells stay planned, decision 10's "no plan". That `Merges` is a public
+type so that a reader leaves out and counts what a load would refuse by the load's own rule, `merged` counting the ranges held. That a
+repeated spanning cell in an `.ods` is its first alone, a span past the sheet's edge is kept to it, and a span of 0 is 1.
+
+*A defect the slice's own review found, before any run.* A record printing a row at each covered cell makes a window's rows scale with the
+window: `(merge "S" "A1:XFD1048576")`, a rule true at `A1` and a cell at `XFD1048576`, three rows, would have asked a whole record for seventeen
+billion of them, where a rule's are capped by the room. And those rows multiply: ten thousand rules over one first cell, 600 KB of a file, by a
+merged column would ask 60 GB of text (*derived*). A cap on the merge would keep a workbook out, as *Found* 12 and 15 had, and a cap on a record would make the
+answer depend on the window. So the bound is the sheet's and fixed at its load: where a sheet's merged cells by its rules pass the 1,048,576 cells
+rules may answer for, each range's rules print at its first cell alone (`lit_cells`), its covered cells print none, of their own or their first's,
+and the `merge` row says the rest. So that no record of covered cells prints more rules than the room. Named in the treaty, a gap for a page that
+reads no `merge` row alone. Held by `a_merged_range_past_the_room_prints_at_its_first_cell_alone`, the whole sheet's record, the room's edge, a rule
+more and another sheet beside it. No workbook in the tree is near it.
+
+*The oracle.* `the_machine_draws_each_case_as_excel_draws_it` loses its two merge entries: of the 752 targets, 726 agree and 26 are named, as
+predicted when the gaps were named, and Excel's `.ods` saves 709 and 43, LibreOffice's 722 targets 665 and 57. `the_looks_read_each_case_as_excel_reads_it`'s
+`merge:` target now holds each reader's row, packages and `.ods` alike, and `looks.xlsx`'s note loses its merged range. No `<name>_looks.vla` and no
+build golden moved, as the scoping measured. `rules_written.xlsx` gains seven cases at its end, so that no earlier row moved: 122 cases, 537 targets,
+the floors raised. Each reads a `merge:` target: a first cell true and false, each covered cell answering otherwise; a rule over the first
+alone and over a covered cell alone, which have no reading in `rules.xlsx`; a covered cell holding a value a formula reads (`text:`); one in a format of
+its own (`shown:`, `text:`); and a range of two rows. *Predicted,* before the run: every one as the language draws it; `text:D` of a covered cell its
+value, `shown:` of one in a format of its own that format. The prediction, kept at
+`kept/kernel58/rules_written_golden.slice6_prediction.txt`, folds the one thing Excel's last reading showed that the language does not say, a rule's own
+sheet's name, and differs from that reading in its source line and `rule:C184`'s order of two rectangles, a set to the test, and the seven new cases.
+`check_looks_golden` reads the kinds by golden, `merge` the written one's alone, its control gaining three mutants. `tests/rules.rs`'s free laws take
+grids holding up to six merged ranges: law 1 that a merge moves no value, its rows taken away with a rule's, in every projection of every sheet and twin;
+law 2 each `lit` row against the twin grid's first cell, on 139 cells that draw otherwise than they answer; laws 3 to 5 through windows that clip them,
+saves and resumes. Direct cases hold the record's order, a covered cell read, the rule's four shapes over a range, a save of either shape, the changes, each
+refusal and the door.
+
+*Excel's run and the owner's look, 2026-11-02.* `? VlaSelfTests()`, 2504 and 333. `? VlaWriteRulesWrittenGolden()`: `opened: rules_written.xlsx`, no repair, 122 cases and
+529 targets read, the check's 537 counting each rule a line. The witness, `git diff --no-index` from the kept prediction: the source line; `rule:C184`'s two rectangles in Excel's
+order, a set to the test; and four targets, every other as predicted. Among those: a covered cell's value through `Range.Text`, a formula reading it and its own format, and Excel's
+save keeping each (`<c r="D240" s="2"><v>7</v></c>`), decision 10's prediction now an *exhibit*. The four: `shown:D236` and `E236`, a rule over the first cell alone, read none where the
+prediction lit them; `shown:D238`, a rule over a covered cell alone, reads lit where it lit none; `shown:C242` reads a right edge, `D242`'s left. So `DisplayFormat` at a covered cell
+reads the rules over that cell, each answered at the range's first, which fits every target of both workbooks. It is not the screen. The owner's screenshot of the sheet, rows 231 to
+246: 232, 236 and the block of 244 and 245 yellow whole; 234 and 238 no fill anywhere; 240 `Aa`, its 7 hidden and 8 beside it; 242 `Aa` plain, no green and no line inside. So the rows
+stand as built, each covered cell its first's, and the four are named in `WRITTEN_GAPS` by the look, for the file and its save. No code moved for the run. The look shows one thing no
+reading could: `D242`'s own top and bottom edges draw, along the range's rim in their own column, where its fill, its number format and its left and right edges do not (*Found* 20).
+
+*The measures,* a rough scratch runner, release: a load of 100,000 merges of a row each 47 ms. A window of 20 by 20 over a sheet of none 0.011 ms, 1,000 0.62 ms and
+24 KB, 10,000 6.6 ms, 100,000 66 ms and 2.8 MB, a window's changes 2 µs at each. Through the door (dev), a package of a million merges of a row each, 34 MB,
+1.4 s; of a million of 1,024 rows side by side, which a search of `Rects` reads most of, 9.4 s. `Merges::len` counted by iterating at first, the reader asking it
+for each range, a quadratic the review caught before this measure: it holds its count.
+
+*Mutants.* Seventy-eight in three runs, a control before and after each, the language's over its library's tests and `tests/rules.rs`, the core's over its reader's and writer's: 75 caught at once. One, a range lit by its last cell, was equivalent as first written, `lit_at` taking any cell of a range to its first, and was caught once the bound made them differ. Two, a covered cell past the room in the range's first row alone and in its first column alone, showed a test naming a cell in neither, and held once a case named each.
+
+*Run:* 2026-11-02, in the worktree: the workspace's tests, 0 failed; `run_checks` 59 of 60, `check_version_twin` alone; clippy `-D warnings` and fmt clean; Alonzo's
+`782faec` over it by path, its 90 tests and its doc test.
+
+*Found:*
+17. *Every record of a sheet prints every merge,* decision 10's word: the table above, 6.6 µs a merge a record, a window's changes untouched. A window over a sheet of 100,000
+    merges costs 66 ms and 2.8 MB where its rules alone would cost nothing. Clipping a window's record to the ranges meeting it, a save's keeping all, is a line of `view.rs`
+    and a change to the decision; no real workbook here holds a thousand, and it is left as the decision has it.
+18. *A rule's answers at covered cells are computed and never drawn,* decision 10's "no plan": a rule over a range merged whole computes each cell to draw by one.
+    Nothing reads them but `changed` and `changed_on`, which count one moving though nothing it draws does, as a rule's stopped answer already counts.
+19. *That Excel repairs two overlapping merges stands a prediction,* unprobed: a file of two would ask a repair dialog of the owner to confirm what no behavior here turns on, a
+    load refusing them by name and a reader leaving out the later either way. The refusal's text says nothing of Excel.
+20. *A covered cell's edges draw on a range's rim, and one holding no value is no row.* Row 242 of the owner's look. A save writes a covered cell in a format and with no value
+    (the `merge:` target's rule in `looks_golden.rs`, *measured*), and a border around a merged range is such formats, each edge on its own cell's format (*prediction*, no bordered range
+    in the tree). `--looks` leaves such a cell out and counts it under `formatted-empty`, `KERNEL.57`'s decision, so that a reflected merged range keeps its first cell's edges alone. For
+    the painter's item, when Alonzo mints it; no row changes here.
+
 **`KERNEL.67`, a style row over a range held as one range: the scoping,
 2026-10-30.** Begun at the owner's word, a prompt relayed from Alonzo's
 `ENGINE.28` session: one `style` row over a range held by the machine as one

@@ -19,8 +19,8 @@ use crate::calc::graph::{cells_in, Area, CellId, Extent};
 use crate::rows::Visibility;
 use crate::rule::Rule;
 use crate::sheet::{
-    shared_masters, strip_future_prefixes, A1Range, Column, Content, RowSettings, Sheet, Styles,
-    Workbook,
+    shared_masters, strip_future_prefixes, A1Range, Column, Content, Merges, RowSettings, Sheet,
+    Styles, Workbook,
 };
 
 /// What a formula cell holds, as a reader finds its text: a fill's cell, by
@@ -243,6 +243,13 @@ fn class(r: &A1Range) -> usize {
 }
 
 impl Rects {
+    /// None yet.
+    pub(crate) const fn new() -> Rects {
+        Rects {
+            classes: Vec::new(),
+        }
+    }
+
     /// A rectangle kept with its tag.
     pub(crate) fn insert(&mut self, r: A1Range, tag: u32) {
         let c = class(&r);
@@ -749,6 +756,8 @@ pub(crate) struct Page<'a> {
     pub(crate) looks: &'a [(String, u32)],
     /// Its conditional formats, the lowest priority first (KERNEL.58).
     pub(crate) rules: &'a [Rule],
+    /// Its merged ranges (KERNEL.58).
+    pub(crate) merges: &'a Merges,
 }
 
 impl<'a> Page<'a> {
@@ -762,6 +771,7 @@ impl<'a> Page<'a> {
             rows: &sheet.rows,
             looks: &sheet.looks,
             rules: sheet.rules(),
+            merges: sheet.merges(),
         }
     }
 }

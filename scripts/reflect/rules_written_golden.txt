@@ -615,3 +615,46 @@ text:C230	"12.250"
 shown:E230	"FFE699" "0.0" wrap (font bold italic "800020" underline strike) (align right top) (border (left thin "000000") (right thin "000000") (bottom thin "800020"))
 text:E230	"12.250"
 rule:C230	C230,E230 expression - 1230 go "=Seen!$C$230=1"
+=== rules_written.xlsx!Written!a merged range whose first cell answers true
+merge:C232	C232:E232
+merge:D232	C232:E232
+merge:F232	F232
+shown:C232	"FFE699" general nowrap
+shown:D232	"FFE699" general nowrap
+shown:E232	"FFE699" general nowrap
+rule:C232	C232:E232 expression - 1240 go "=G232=1"
+=== rules_written.xlsx!Written!a merged range whose first cell answers false
+merge:C234	C234:E234
+merge:D234	C234:E234
+merge:F234	F234
+shown:C234	none general nowrap
+shown:D234	none general nowrap
+shown:E234	none general nowrap
+rule:C234	C234:E234 expression - 1250 go "=G234=1"
+=== rules_written.xlsx!Written!a rule over a merged range's first cell alone
+merge:C236	C236:E236
+shown:C236	"FFE699" general nowrap
+shown:D236	none general nowrap
+shown:E236	none general nowrap
+=== rules_written.xlsx!Written!a rule over a covered cell alone
+merge:C238	C238:E238
+shown:C238	none general nowrap
+shown:D238	"FFE699" general nowrap
+shown:E238	none general nowrap
+=== rules_written.xlsx!Written!a covered cell holding a value a formula reads
+merge:C240	C240:E240
+text:C240	"Aa"
+text:D240	"7"
+text:G240	"8"
+=== rules_written.xlsx!Written!a covered cell in a format of its own
+merge:C242	C242:E242
+shown:C242	none general nowrap (border (right thin "000000"))
+shown:D242	"CCFFCC" "0.0" nowrap (font bold italic "0000FF" underline strike) (border (left thin "000000") (right thin "000000") (top thin "000000") (bottom thin "000000"))
+text:D242	"7.0"
+=== rules_written.xlsx!Written!a merged range of two rows
+merge:C244	C244:D245
+merge:D245	C244:D245
+shown:C244	"FFE699" general nowrap
+shown:D244	"FFE699" general nowrap
+shown:C245	"FFE699" general nowrap
+shown:D245	"FFE699" general nowrap

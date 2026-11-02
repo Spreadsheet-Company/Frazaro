@@ -190,6 +190,17 @@
   value reads by its name, where `reflect` read it as an error of no name, which a load
   refused.
 
+- **A merged range.** A sheet holds a merge as a row of its own, `(merge "Report" "C6:E6")`,
+  printed in every record of its sheet after its rules. `frazaro reflect --looks` prints a
+  workbook's merged ranges where it counted them as left out, from a package and an `.ods` file
+  alike, and a workbook the core writes keeps them. A merge moves no value: a cell it covers holds
+  what its rows wrote, and a formula reads it as it stands. Each of its cells prints the rules true
+  at its first, as Excel draws them, whichever cells a window shows, and where a sheet's merged cells
+  by its rules pass 1,048,576 at its first alone; drawing the range as one is a page's. Two
+  overlapping are refused by name (`grid-merge-overlap`). `Sheet` gains `merges` and
+  `put_merge`, `vla_lang::sheet::Merges` is new, and `Record` gains `Merge` (KERNEL.58's sixth
+  slice).
+
 - **`ADDRESS` computes.** A cell's address as a text from its row and its column:
   `=ADDRESS(3,2)` is `$B$3`, `=ADDRESS(3,2,4)` is `B3` and
   `=ADDRESS(3,2,4,TRUE,"My Sheet")` is `'My Sheet'!B3`. A cartridge's load refused

@@ -1635,6 +1635,8 @@ struct Reading {
     rows: HashMap<(String, u32), [String; 2]>,
     gridlines: HashMap<String, String>,
     rules: Vec<RuleRow>,
+    /// A merged range's sheet and range.
+    merges: HashSet<(String, String)>,
     stats: LooksStats,
 }
 
@@ -1693,6 +1695,9 @@ fn reading(bytes: &[u8], label: &str) -> Reading {
             }
             "gridlines" => {
                 r.gridlines.insert(word(1), word(2));
+            }
+            "merge" => {
+                r.merges.insert((word(1), word(2)));
             }
             "conditional" => {
                 let stop = word(items.len() - 1) == "stop";
@@ -2281,6 +2286,9 @@ fn differences(
                 "merge" => {
                     if let Some((first, last)) = excel.split_once(':') {
                         want.merged += 1;
+                        if !r.merges.contains(&(case.sheet.clone(), excel.to_string())) {
+                            found.push(format!("{at}: Excel merges {excel}; no row says so"));
+                        }
                         // Excel's save writes the cells a merge covers, each
                         // in its first cell's format and with no value.
                         if saved {

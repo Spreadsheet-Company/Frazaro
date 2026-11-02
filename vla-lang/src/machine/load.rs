@@ -72,7 +72,7 @@ use super::{LineRefusal, CELLS};
 
 /// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
-pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, conditional, style, lit, sentence, window, extent, refers, table and text";
+pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, conditional, merge, style, lit, sentence, window, extent, refers, table and text";
 
 /// The most formats a grid's table holds, Excel's own count of cell
 /// formats a workbook may hold, rounded to a power of two.
@@ -1131,6 +1131,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)]) or a format of groups alone, (format <index> [(fill ...)] [(number ...)] [(wrap ...)] [(font ...)] [(align ...)] [(border ...)]), saying at least one",
         "look" => "(look \"<sheet>\" <value> <format>)",
         "conditional" => "(conditional \"<sheet>\" <priority> \"<range>\" \"=<formula>\"|(cell <operator> \"=<bound>\" [\"=<bound>\"]) <format>|none [stop]), its operator one of less, less-or-equal, equal, not-equal, greater-or-equal, greater, between and not-between, the last two taking two bounds",
+        "merge" => "(merge \"<sheet>\" \"<range of more than one cell>\")",
         "lit" => "(conditional \"<sheet>\" <priority> \"<range>\" <test> <format>|none) (lit \"<sheet>\" \"<cell>\" <priority> ...)",
         "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
         "sentence" => {
@@ -1294,6 +1295,20 @@ fn rule_pieces(rule: &Rule) -> Rects {
 /// how many cells they answer for, and each planned inside its sheet's extent.
 pub(crate) type Answers = (Vec<Vec<Answering>>, usize, Vec<Planned>);
 
+/// `grid-merge-overlap`: a merged range over one already merged (KERNEL.58).
+fn merge_overlap(line: u32, sheet: &str, range: &A1Range, held: &A1Range) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-merge-overlap",
+            &[
+                ("target", &format!("{sheet}!{}", range.text())),
+                ("held", &held.text()),
+            ],
+        ),
+    }
+}
+
 /// `grid-rule-cells`: a rule whose range would bring the cells rules answer for
 /// past their cap (KERNEL.58).
 pub(crate) fn rule_cells(line: u32, sheet: &str, range: &str, count: u64) -> LineRefusal {
@@ -1425,6 +1440,7 @@ impl Reader {
             "format" => self.format(form, items, line),
             "look" => self.look(form, items, line),
             "conditional" => self.conditional(form, items, line),
+            "merge" => self.merge(form, items, line),
             "lit" => self.lit(form, items, line),
             "style" => self.style(form, items, line),
             "sentence" => self.sentence(form, items, line),
@@ -1904,8 +1920,26 @@ impl Reader {
         Ok(())
     }
 
+    /// A `merge` row (KERNEL.58): a range of more than one cell, a second alike
+    /// taken and one overlapping another refused by name.
+    fn merge(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
+        let bad = || malformed(line, form, "merge");
+        let [Form::Str(sheet), Form::Str(range)] = items else {
+            return Err(bad());
+        };
+        let area = parse_a1_range(range)
+            .filter(|r| r.cells() > 1)
+            .ok_or_else(bad)?;
+        let si = self.sheet_index(sheet, line, None)?;
+        self.draft.sheets[si]
+            .sheet
+            .put_merge(area)
+            .map_err(|held| merge_overlap(line, sheet, &area, &held))
+    }
+
     /// A `lit` row (KERNEL.58): the rules a cell's record says applied, each
-    /// a rule of the sheet that answers for the cell; a second alike taken.
+    /// a rule of the sheet that answers for the cell, or for a covered cell its
+    /// merge's first; a second alike taken.
     fn lit(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
         let bad = || malformed(line, form, "lit");
         let [Form::Str(sheet), Form::Str(addr), priorities @ ..] = items else {
@@ -1919,6 +1953,11 @@ impl Reader {
             .ok_or_else(bad)?;
         let si = self.draft.find_sheet(sheet).ok_or_else(bad)?;
         let s = &mut self.draft.sheets[si];
+        let (row, col) = s
+            .sheet
+            .merges()
+            .at(range.top, range.left)
+            .map_or((range.top, range.left), |first| (first.top, first.left));
         let mut lit = Vec::with_capacity(priorities.len());
         for p in priorities {
             let Form::Sym(p) = p else {
@@ -1931,15 +1970,15 @@ impl Reader {
             };
             let rule = &rules[k];
             let covers = if rule.ranges.len() <= FEW_RECTANGLES {
-                rule.covers(range.top, range.left)
+                rule.covers(row, col)
             } else {
                 let pieces = self
                     .lit_rules
                     .entry((si, k))
                     .or_insert_with(|| (rule.cells() <= CELLS as u64).then(|| rule_pieces(rule)));
                 match pieces {
-                    Some(pieces) => pieces.at(range.top, range.left).is_some(),
-                    None => rule.covers(range.top, range.left),
+                    Some(pieces) => pieces.at(row, col).is_some(),
+                    None => rule.covers(row, col),
                 }
             };
             if !covers {

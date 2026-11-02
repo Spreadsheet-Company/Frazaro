@@ -35,8 +35,8 @@
 //! difference named in [`GAPS`], and each rule to its `rule:` targets.
 //!
 //! `scripts/reflect/rules_written.xlsx` is the writer's own: every form it writes
-//! of a rule and a differential format, from the rows of [`written`], held byte
-//! for byte. `VlaWriteRulesWrittenGolden` reads it into
+//! of a rule, a differential format and a merged range, from the rows of
+//! [`written`], held byte for byte. `VlaWriteRulesWrittenGolden` reads it into
 //! `scripts/reflect/rules_written_golden.txt` as the others are read, saving it as
 //! `rules_written_saved.xlsx`, so that a file Excel repairs says so and what the
 //! writer writes is held to what Excel draws of it.
@@ -1869,6 +1869,16 @@ fn shown_text(record: &str) -> String {
     "\"\"".to_string()
 }
 
+/// The merged range holding a cell as Excel's `MergeArea` reads it: the cell
+/// itself where none does.
+fn merged_at(wb: &Workbook, sheet: &str, place: &str) -> String {
+    let at = parse_a1_range(place).expect("a cell");
+    let page = wb.sheets.iter().find(|s| s.name == sheet).expect("a sheet");
+    page.merges()
+        .at(at.top, at.left)
+        .map_or(place.to_string(), |merge| merge.text())
+}
+
 /// A place the language draws otherwise than Excel's reading: its file, its
 /// sheet, its case, its targets and why.
 type Gap = (
@@ -1898,21 +1908,6 @@ const GAPS: &[Gap] = &[
         "a range under AND",
         &["shown:C10"],
         "Excel reads the comparison as an array; a cell's reading intersects it",
-    ),
-    // A merge, the item's sixth slice.
-    (
-        "rules.xlsx",
-        "Refs",
-        "a merged range whose first cell answers false",
-        &["shown:D22", "shown:E22"],
-        "a merged range draws by its first cell's answer",
-    ),
-    (
-        "rules.xlsx",
-        "Refs",
-        "a merged range whose first cell answers true",
-        &["shown:D24", "shown:E24"],
-        "a merged range draws by its first cell's answer",
     ),
     // A reference moved past the sheet's edge.
     (
@@ -2088,6 +2083,7 @@ fn drawn_against(
                     folded(&wb, &case.sheet, (at.top, at.left), &lit) == read
                 }
                 "text" => shown_text(&record) == *reading,
+                "merge" => merged_at(&wb, &case.sheet, place) == *reading,
                 other => panic!("a target of no kind: {other}"),
             };
             held += 1;
@@ -2242,13 +2238,6 @@ const EXCEL_ODS_GAPS: &[Gap] = &[
         "a range under AND",
         &["shown:C10"],
         "Excel reads the comparison as an array; a cell's reading intersects it",
-    ),
-    (
-        "rules.xlsx",
-        "Refs",
-        "a merged range whose first cell answers true",
-        &["shown:D24", "shown:E24"],
-        "a merged range draws by its first cell's answer",
     ),
     (
         "rules.xlsx",
@@ -2488,13 +2477,6 @@ const CALC_ODS_GAPS: &[Gap] = &[
     ),
     (
         "rules.xlsx",
-        "Refs",
-        "a merged range whose first cell answers true",
-        &["shown:D24", "shown:E24"],
-        "a merged range draws by its first cell's answer",
-    ),
-    (
-        "rules.xlsx",
         "Edges",
         "a reference moved past the bottom",
         &["shown:C3"],
@@ -2653,13 +2635,6 @@ const CALC_ODS_GAPS: &[Gap] = &[
         "equal to TRUE",
         &["shown:S30"],
         "its import respells a bound of TRUE as 1",
-    ),
-    (
-        "rules.xlsx",
-        "Refs",
-        "a merged range whose first cell answers false",
-        &["shown:D22", "shown:E22"],
-        "a merged range draws by its first cell's answer",
     ),
     (
         "rules.xlsx",
@@ -3062,7 +3037,7 @@ fn the_rules_left_out_are_counted_and_said() {
     assert!(stats.rule_cells > 0);
     assert_eq!(
         stats.left_out().as_deref(),
-        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 2 merged ranges, 8 conditional formats the language does not compute")
+        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 8 conditional formats the language does not compute")
     );
     assert!(
         !read.contains("TODAY()"),
@@ -3089,6 +3064,7 @@ fn the_rules_left_out_are_counted_and_said() {
 struct Written {
     formats: String,
     rules: String,
+    merges: String,
     cells: String,
     cases: Vec<(String, String)>,
     row: u32,
@@ -3137,6 +3113,11 @@ impl Written {
             quoted(at)
         ));
     }
+
+    fn merge(&mut self, range: &str) {
+        self.merges
+            .push_str(&format!("(merge \"Written\" {})\n", quoted(range)));
+    }
 }
 
 /// A rule's formula as its row spells it.
@@ -3150,6 +3131,7 @@ fn written() -> (String, Vec<(String, String)>) {
     let mut w = Written {
         formats: String::new(),
         rules: String::new(),
+        merges: String::new(),
         cells: String::new(),
         cases: Vec::new(),
         row: 0,
@@ -3450,14 +3432,89 @@ fn written() -> (String, Vec<(String, String)>) {
         .push_str(&format!("(style \"Written\" \"E{row}\" 1)\n"));
     w.cell("Seen", &format!("C{row}"), "1");
 
+    // A merged range (the item's sixth slice): its cells draw by its first's answers,
+    // whatever their own, and a covered cell holds what its rows wrote.
+    for (name, answers) in [
+        (
+            "a merged range whose first cell answers true",
+            ["1", "0", "0"],
+        ),
+        (
+            "a merged range whose first cell answers false",
+            ["0", "1", "1"],
+        ),
+    ] {
+        let row = w.case(
+            name,
+            "merge:C{r} merge:D{r} merge:F{r} shown:C{r} shown:D{r} shown:E{r} rule:C{r}",
+        );
+        w.merge(&format!("C{row}:E{row}"));
+        w.rule(
+            &format!("C{row}:E{row}"),
+            &said(&format!("G{row}=1")),
+            &lit,
+            false,
+        );
+        w.cell("Written", &format!("C{row}"), "\"Aa\"");
+        for (at, answer) in ["G", "H", "I"].iter().zip(answers) {
+            w.cell("Written", &format!("{at}{row}"), answer);
+        }
+    }
+    let row = w.case(
+        "a rule over a merged range's first cell alone",
+        "merge:C{r} shown:C{r} shown:D{r} shown:E{r}",
+    );
+    w.merge(&format!("C{row}:E{row}"));
+    w.rule(&format!("C{row}"), &said("1"), &lit, false);
+    let row = w.case(
+        "a rule over a covered cell alone",
+        "merge:C{r} shown:C{r} shown:D{r} shown:E{r}",
+    );
+    w.merge(&format!("C{row}:E{row}"));
+    w.rule(&format!("D{row}"), &said("1"), &lit, false);
+    let row = w.case(
+        "a covered cell holding a value a formula reads",
+        "merge:C{r} text:C{r} text:D{r} text:G{r}",
+    );
+    w.merge(&format!("C{row}:E{row}"));
+    w.cell("Written", &format!("C{row}"), "\"Aa\"");
+    w.cell("Written", &format!("D{row}"), "7");
+    w.cells
+        .push_str(&format!("(formula \"Written\" \"G{row}\" \"=D{row}+1\")\n"));
+    let row = w.case(
+        "a covered cell in a format of its own",
+        "merge:C{r} shown:C{r} shown:D{r} text:D{r}",
+    );
+    w.merge(&format!("C{row}:E{row}"));
+    w.cell("Written", &format!("C{row}"), "\"Aa\"");
+    w.cell("Written", &format!("D{row}"), "7");
+    w.cells
+        .push_str(&format!("(style \"Written\" \"D{row}\" 1)\n"));
+    let row = w.row + 2;
+    let below = row + 1;
+    w.case(
+        "a merged range of two rows",
+        &format!(
+            "merge:C{row} merge:D{below} shown:C{row} shown:D{row} shown:C{below} shown:D{below}"
+        ),
+    );
+    w.merge(&format!("C{row}:D{below}"));
+    w.rule(
+        &format!("C{row}:D{below}"),
+        &said(&format!("G{row}=1")),
+        &lit,
+        false,
+    );
+    w.cell("Written", &format!("G{row}"), "1");
+
     let rows = format!(
         "(sheet \"Written\" visible)\n(sheet \"Seen\" visible)\n(sheet \"Not Seen\" hidden)\n\
          (name \"seen_one\" \"Seen!$C$1\")\n\
          (column \"Written\" \"A\" 40 shown none)\n(column \"Written\" \"B\" 40 shown none)\n\
          (column \"Written\" \"C\" 14 shown none)\n(column \"Written\" \"E\" 14 shown none)\n\
          (format 1 \"CCFFCC\" \"0.0\" nowrap (font bold italic \"0000FF\" underline strike) (border (left thin \"000000\") (right thin \"000000\") (top thin \"000000\") (bottom thin \"000000\")))\n\
-         {}{}(cell \"Written\" \"A1\" \"case\")\n(cell \"Written\" \"B1\" \"reads\")\n(cell \"Seen\" \"C1\" 1)\n{}",
-        w.formats, w.rules, w.cells
+         {}{}{}(cell \"Written\" \"A1\" \"case\")\n(cell \"Written\" \"B1\" \"reads\")\n(cell \"Seen\" \"C1\" 1)\n{}",
+        w.formats, w.rules, w.merges, w.cells
     );
     (rows, w.cases)
 }
@@ -3524,6 +3581,10 @@ fn predicted_written() -> String {
                     out.push_str(&format!("{target}\t{body}\r\n"));
                 }
                 "text" => out.push_str(&format!("{target}\t{}\r\n", shown_text(&record))),
+                "merge" => out.push_str(&format!(
+                    "{target}\t{}\r\n",
+                    merged_at(&wb, "Written", place)
+                )),
                 _ => {
                     let over: Vec<&Rule> = page
                         .rules()
@@ -3539,10 +3600,11 @@ fn predicted_written() -> String {
                             Test::Formula(_) => ("expression", "-"),
                             Test::Cell { operator, .. } => ("cell", operator.word()),
                         };
+                        // Excel drops the rule's own sheet's name, as its reading has shown.
                         let formulas: Vec<String> = rule
                             .formulas()
                             .iter()
-                            .map(|f| quoted(&format!("={f}")))
+                            .map(|f| quoted(&format!("={}", own_sheet_unnamed(f, "Written"))))
                             .collect();
                         out.push_str(&format!(
                             "{target}\t{} {kind} {operator} {} {} {}\r\n",
@@ -3588,6 +3650,8 @@ fn a_rule_written_and_read_is_itself() {
     let (ours, theirs) = (sheet(&wb).unwrap(), sheet(&back).unwrap());
     assert!(ours.rules().len() > 100, "{}", ours.rules().len());
     assert_eq!(ours.rules().len(), theirs.rules().len());
+    assert_eq!(ours.merges().len(), 7);
+    assert_eq!(ours.merges(), theirs.merges());
     // What the writer leaves out of a format, which Excel does not draw.
     let without = |style: &Style| {
         let mut s = style.clone();
@@ -3619,6 +3683,35 @@ fn a_rule_written_and_read_is_itself() {
     }
 }
 
+/// What Excel reads of the writer's merged ranges and its screen does not draw, by the
+/// owner's look at the sheet (the item's sixth slice). At a covered cell `DisplayFormat`
+/// reads the rules over that cell, each answered at the range's first, where the screen
+/// draws the range as one by its first cell's rules, as the rows say; and `Borders` reads
+/// an edge a neighbor says as the cell's own, where no edge draws inside a range.
+const WRITTEN_GAPS: &[Gap] = &[
+    (
+        "rules_written.xlsx",
+        "Written",
+        "a rule over a merged range's first cell alone",
+        &["shown:D236", "shown:E236"],
+        "the screen draws the range by its first cell's rule; DisplayFormat reads none over these",
+    ),
+    (
+        "rules_written.xlsx",
+        "Written",
+        "a rule over a covered cell alone",
+        &["shown:D238"],
+        "the screen draws nothing of a covered cell's own rule; DisplayFormat reads it",
+    ),
+    (
+        "rules_written.xlsx",
+        "Written",
+        "a covered cell in a format of its own",
+        &["shown:C242"],
+        "Borders reads the neighbor's left edge as this cell's right; none draws inside a range",
+    ),
+];
+
 /// What the machine draws of the writer's workbook, and of Excel's save of it,
 /// each to Excel's reading of the workbook: the writer's forms, opened by Excel
 /// with no repair, draw there as the language draws them.
@@ -3628,12 +3721,12 @@ fn the_machine_draws_the_written_workbook_as_excel_draws_it() {
     let source = std::fs::read_to_string(WRITTEN_GOLDEN).unwrap();
     let excel = source.starts_with("source\texcel");
     let bytes = written_bytes();
-    let (held, mut wrong) = drawn_against("rules_written.xlsx", &bytes, &golden, &[]);
+    let (held, mut wrong) = drawn_against("rules_written.xlsx", &bytes, &golden, WRITTEN_GAPS);
     let (rules, found) = rules_against("rules_written.xlsx", &bytes, &golden);
     wrong.extend(found);
     if excel {
         let saved = std::fs::read(WRITTEN_SAVED).expect("Excel's save");
-        let (_, found) = drawn_against("rules_written.xlsx", &saved, &golden, &[]);
+        let (_, found) = drawn_against("rules_written.xlsx", &saved, &golden, WRITTEN_GAPS);
         wrong.extend(found.into_iter().map(|w| format!("the save: {w}")));
         let (_, found) = rules_against("rules_written.xlsx", &saved, &golden);
         wrong.extend(found.into_iter().map(|w| format!("the save: {w}")));

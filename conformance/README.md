@@ -2560,3 +2560,52 @@ moves, none of its workbooks holding a rule.
   save drops or its import changes. `the_looks_read_each_case_as_excel_reads_it`'s `cf:`
   target holds the rows of `looks_saved.ods` and `looks_calc.ods`. The reader's tests hold
   each spelling, the gathering, the move, and a format's every word.
+
+## Amendment of 2026-11-01: a merged range (`KERNEL.58`, its sixth slice)
+
+A sheet's merged ranges are rows. No golden of oracles 7 or 8 moves but `rules_written.xlsx`,
+the writer's own workbook, which gains seven cases: no build golden and no `<name>_looks.vla`
+holds a merge.
+
+- **The row.** `(merge "Report" "C6:E6")`, of more than one cell, prints in every record of its
+  sheet after its `conditional` rows, by first cell and row by row, whatever the window shows, a
+  range being the sheet's. A second alike is the first, and one overlapping another is refused by
+  name (`grid-merge-overlap`), as Excel by prediction repairs a file holding two. A load takes it,
+  `Sheet::merges` holds it, and no write row writes one.
+- **It moves no value and no plan.** A covered cell holds what its rows wrote, nothing where it
+  holds nothing, and a formula reads it as it stands. `Machine::sheets`, `loaded` and `formulas`
+  and a frame's values are what they are without it.
+- **It draws by its first cell.** Each cell of a merged range prints the rules true at its first,
+  in a window of any of them, that first inside it or not: a rule over the first cell alone lights
+  the range, one over a covered cell alone lights none of it, and a stop at the first ends the walk
+  at every cell. So a `lit` row at a covered cell says its first cell's answers, and names rules over
+  that cell. Only the first cell's row is its answers to a load. A window's changes name the range's
+  cells in the window when the first cell's answer moves, and none when a covered cell's own does.
+  Of a covered cell's own format the screen draws its edges on the range's rim and nothing else,
+  which, with the range drawn as one, is a page's. Where a sheet's
+  merged cells by its rules pass the 1,048,576 cells rules may answer for, a range's rules print at
+  its first cell alone and the `merge` row says the rest, so that a merge of the whole sheet does
+  not cost a record a row a cell: a gap this names, for a page that reads no `merge` row.
+- **The writer** writes `<mergeCells>` after `</sheetData>` and before `conditionalFormatting`, as
+  Excel orders them, by first cell. A sheet merging nothing writes no byte of it, every build golden
+  standing.
+- **The readers.** A package's `mergeCell`, and an OpenDocument cell's
+  `table:number-columns-spanned` and `table:number-rows-spanned`, are rows, a repeated spanning
+  cell's first alone and a span past the sheet's edge kept to it. One of no more than a cell, no
+  range, or overlapping one before it is left out and counted under `unheld`. `merged` stays a count
+  of `--counts` and leaves the note's list.
+- **The oracle.** The cases of `rules.xlsx` over a merged range close, so that of the 752 targets of
+  the fourth slice's oracle 726 now agree and 26 are named, of Excel's `.ods` saves 709 and 43, and of
+  LibreOffice's 722, 665 and 57. `rules_written.xlsx` is 122 cases, read with a `merge:` target,
+  `Range.MergeArea`: a first cell true and false, a rule over the first alone and over a covered cell
+  alone, a covered cell holding a value a formula reads, one in a format of its own, and a range of
+  two rows. Excel opened it with no repair, and reads a covered cell's value, a formula reading it,
+  its own format and every `merge:` target as the language holds them, and a rule over a whole range
+  by its first cell. Four targets it reads otherwise than its screen draws, by the owner's look, named
+  in `WRITTEN_GAPS`: at a covered cell `DisplayFormat` reads the rules over that cell, each answered at
+  the range's first, where the screen draws the range as one by its first cell's rules, as the rows
+  say; and `Borders` reads a neighbor's edge as the cell's own, where none draws inside a range.
+  `the_looks_read_each_case_as_excel_reads_it`'s `merge:` target holds each reader's row,
+  packages and `.ods` alike. The language's free laws take grids holding merged ranges: every frame's
+  values are the same grid's without them, each `lit` row is its first cell's answers as ordinary
+  formulas compute them, and a window's changes and a save hold it as they hold any lit cell.

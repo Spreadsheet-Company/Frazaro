@@ -51,7 +51,8 @@ floors. The core's test holds its cases to the builder's.
 Its third, scripts/reflect/rules_written_golden.txt, is the same of the writer's
 own workbook, VlaWriteRulesWrittenGolden's of rules_written.xlsx, with Excel's
 save of it once it is Excel's, and is held by the same rules: its one sheet, the
-two kinds of rule the writer writes, every operator, and its floors.
+two kinds of rule the writer writes, every operator, a merge's target, which no
+other golden reads and each of its readings a range, and its floors.
 
 -Control proves the check on scratch copies: the real golden must pass,
 and each of these must fail: one with a target's kind misspelled, one with
@@ -60,8 +61,10 @@ saying looks.xlsx's default size, one naming an unheld word of no such
 name, and one whose source is no one's; and of the rules golden, one with a
 target's kind misspelled, one with its last case dropped, one reading a word
 the record has none for, one reading a rule of no such kind, one reading an
-error, and one whose source is no one's; and of the writer's, one with its
-last case dropped and one whose source is no one's.
+error, one whose source is no one's, and one with a merge's target, which it
+has none of; and of the writer's, one with its last case dropped, one whose
+source is no one's, one reading a merge that is no range, and one with no
+merge's target.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -109,20 +112,20 @@ $ruleOperators = @('between', 'not-between', 'equal', 'not-equal', 'greater', 'l
 $rulesDefaultSize = '11'
 $rulesSpec = @{
     Name = 'rules'; Writer = 'VlaWriteRulesGolden'
-    Books = $rulesBooks; Saves = $rulesSaves; Sheets = $rulesSheets
+    Books = $rulesBooks; Saves = $rulesSaves; Sheets = $rulesSheets; Kinds = $rulesKinds
     RuleKinds = $ruleKinds; Operators = $ruleOperators
     CaseFloor = $rulesCaseFloor; TargetFloor = $rulesTargetFloor
 }
 
 # The writer's own workbook (the item's fourth slice): every form it writes. Its
-# floors, never lowered: 2026-11-01, 115 cases, 501 targets, each rule a target's a
-# line, the golden the reference's first run in Excel.
+# floors, never lowered: 2026-11-01, 122 cases, 537 targets, each rule a target's a
+# line, the merged ranges of the item's sixth slice among them.
 $writtenGoldenPath = Join-Path $repoRoot 'scripts/reflect/rules_written_golden.txt'
 $writtenSpec = @{
     Name = 'written'; Writer = 'VlaWriteRulesWrittenGolden'
-    Books = @('rules_written.xlsx'); Saves = @('rules_written_saved.xlsx'); Sheets = @('Written')
+    Books = @('rules_written.xlsx'); Saves = @('rules_written_saved.xlsx'); Sheets = @('Written'); Kinds = ($rulesKinds + 'merge')
     RuleKinds = @('cell', 'expression'); Operators = $ruleOperators
-    CaseFloor = 115; TargetFloor = 501
+    CaseFloor = 122; TargetFloor = 537
 }
 $words = @('superscript', 'subscript', 'outline', 'shadow',
     'runs', 'pattern', 'horizontal', 'vertical', 'indent', 'rotation', 'shrink', 'rtl', 'diagonal')
@@ -349,7 +352,7 @@ function Test-RulesGolden([string]$golden, [hashtable]$spec) {
         $target = $ln.Substring(0, $tab)
         $reading = $ln.Substring($tab + 1)
         $kind = $target.Split([char]':')[0]
-        if ($rulesKinds -notcontains $kind) {
+        if ($spec.Kinds -notcontains $kind) {
             [void]$problems.Add(("rules line {0}: a target of no kind this version reads: '{1}'" -f ($i + 1), $target))
             continue
         }
@@ -385,6 +388,10 @@ function Test-RulesGolden([string]$golden, [hashtable]$spec) {
             if (-not ($reading -cmatch $textPattern)) {
                 [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a quoted text" -f ($i + 1), $target, $reading))
             }
+        } elseif ($kind -ceq 'merge') {
+            if (-not ($reading -cmatch '^[A-Z]+\d+(:[A-Z]+\d+)?$')) {
+                [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a range" -f ($i + 1), $target, $reading))
+            }
         } elseif ($reading -cne 'none') {
             $m = [regex]::Match($reading, $rulePattern)
             if (-not $m.Success) {
@@ -410,7 +417,7 @@ function Test-RulesGolden([string]$golden, [hashtable]$spec) {
     # 4. what the cases reach
     $want = New-Object System.Collections.ArrayList
     foreach ($s in $spec.Sheets) { [void]$want.Add("the sheet $s") }
-    foreach ($k in $rulesKinds) { [void]$want.Add("the $k target") }
+    foreach ($k in $spec.Kinds) { [void]$want.Add("the $k target") }
     foreach ($k in $spec.RuleKinds) { [void]$want.Add("the rule kind $k") }
     foreach ($o in $spec.Operators) { [void]$want.Add("the operator $o") }
     [void]$want.Add('a rule that says stop')
@@ -515,6 +522,9 @@ if ($Control) {
         $f = & $copy
         $f[0] = "source`tguess"
         [void]$mutants.Add(@('the source of none', $f))
+        $h = & $copy
+        $h[$firstShown] = 'merge' + $h[$firstShown].Substring(5, $h[$firstShown].IndexOf("`t") - 5) + "`tC1:E1"
+        [void]$mutants.Add(@('the merge no rules golden reads', $h))
         $rulesCounts = New-Object System.Collections.ArrayList
         $rulesAllFail = $true
         $k = 0
@@ -537,10 +547,21 @@ if ($Control) {
         }
         $g = @($lines | ForEach-Object { $_ })
         $g[0] = "source`tguess"
+        $firstMerge = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($firstMerge -lt 0 -and $lines[$i].StartsWith('merge:')) { $firstMerge = $i }
+        }
+        if ($firstMerge -lt 0) {
+            Write-Output 'FAIL: the control found no merged range to mutate'
+            exit 1
+        }
+        $h = @($lines | ForEach-Object { $_ })
+        $h[$firstMerge] = $h[$firstMerge].Substring(0, $h[$firstMerge].IndexOf("`t")) + "`tnope"
+        $noMerge = @($lines | Where-Object { -not $_.StartsWith('merge:') })
         $writtenCounts = New-Object System.Collections.ArrayList
         $writtenAllFail = $true
         $k = 0
-        foreach ($mu in @(@('the dropped case', @($lines[0..($lastHeader - 1)])), @('the source of none', $g))) {
+        foreach ($mu in @(@('the dropped case', @($lines[0..($lastHeader - 1)])), @('the source of none', $g), @('the range of none', $h), @('the merge of none', $noMerge))) {
             $k++
             $golden = Join-Path $tmp ("written_$k.txt")
             [System.IO.File]::WriteAllText($golden, ($mu[1] -join "`n"), $utf8)

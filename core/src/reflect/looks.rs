@@ -39,7 +39,7 @@ use vla_lang::calc::Names;
 use vla_lang::numfmt::Code;
 use vla_lang::rows::{Record, Sink};
 use vla_lang::rule::Rule;
-use vla_lang::sheet::{A1Range, Column, NumFmt, Rgb, RowSettings, Style, Workbook};
+use vla_lang::sheet::{A1Range, Column, Merges, NumFmt, Rgb, RowSettings, Style, Workbook};
 
 /// How a file names a color, before the workbook's theme and palette
 /// resolve it.
@@ -509,6 +509,8 @@ pub(crate) struct SheetScan {
     /// file says it (KERNEL.58).
     pub(crate) rules: Vec<Rule>,
     pub(crate) rule_formats: BTreeMap<u32, Look>,
+    /// Its merged ranges (KERNEL.58).
+    pub(crate) merges: Merges,
     pub(crate) stats: LooksStats,
 }
 
@@ -523,7 +525,22 @@ impl SheetScan {
             used: BTreeSet::new(),
             rules: Vec::new(),
             rule_formats: BTreeMap::new(),
+            merges: Merges::default(),
             stats: LooksStats::default(),
+        }
+    }
+
+    /// A merged range as a file says it (KERNEL.58). One that is no rectangle of more
+    /// than a cell, or that overlaps one before it, a load would refuse: left out and
+    /// counted.
+    pub(crate) fn merge(&mut self, range: Option<A1Range>) {
+        let held = range
+            .filter(|range| range.cells() > 1)
+            .is_some_and(|range| self.merges.add(range).is_ok());
+        if held {
+            self.stats.merged = self.merges.len() as u64;
+        } else {
+            self.stats.unheld += 1;
         }
     }
 
@@ -611,6 +628,12 @@ impl SheetScan {
         for rule in &self.rules {
             sink.record(&Record::Conditional { sheet, rule });
         }
+        for merge in self.merges.ranges() {
+            sink.record(&Record::Merge {
+                sheet,
+                addr: &merge.text(),
+            });
+        }
     }
 }
 
@@ -686,7 +709,7 @@ pub struct LooksStats {
     /// The cells whose number format the language does not draw, printed as
     /// the file holds it, which a load refuses by name.
     pub undrawn: u64,
-    /// The merged ranges, which no row says.
+    /// The merged ranges, each a `merge` row since KERNEL.58's sixth slice.
     pub merged: u64,
     /// The conditional formats' rules the file holds, each said by a row of
     /// its own but those counted below (KERNEL.58).
@@ -764,9 +787,6 @@ impl LooksStats {
                 "look the record has no word for",
                 "looks the record has no word for",
             ));
-        }
-        if self.merged > 0 {
-            left.push(count(self.merged, "merged range", "merged ranges"));
         }
         if self.not_computed > 0 {
             left.push(count(
@@ -1132,7 +1152,7 @@ mod tests {
         };
         assert_eq!(
             stats.note().unwrap(),
-            "the looks leave out what the record cannot hold: 2 cells that keep a format and no value, 1 merged range; and 1 cell's number format this version does not draw is printed as the file holds it, which a load refuses by name; --looks --counts counts each sheet's."
+            "the looks leave out what the record cannot hold: 2 cells that keep a format and no value; and 1 cell's number format this version does not draw is printed as the file holds it, which a load refuses by name; --looks --counts counts each sheet's."
         );
         assert_eq!(
             stats.line(),

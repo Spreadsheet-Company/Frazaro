@@ -24,6 +24,7 @@ pub use crate::appearance::{
     Align, Border, Edge, Family, Font, FontSize, Generic, Horizontal, Line, Underline, Unsaid,
     Vertical,
 };
+use crate::grid::Rects;
 use crate::numfmt::Code;
 use crate::rows::Visibility;
 use crate::rule::Rule;
@@ -400,9 +401,78 @@ pub struct RowSettings {
     pub hidden: bool,
 }
 
-/// A sheet's conditional formats, the box [`Sheet`] holds them in.
+/// A sheet's conditional formats and its merged ranges, the box [`Sheet`]
+/// holds them in.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct SheetRules(Vec<Rule>);
+pub(crate) struct SheetRules {
+    rules: Vec<Rule>,
+    merges: Merges,
+}
+
+/// A sheet's merged ranges (KERNEL.58): each of more than one cell, no two
+/// overlapping. A merge moves no value and no plan; a cell it covers holds what
+/// its rows wrote and is read as any cell, and draws by the range's first cell.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Merges {
+    ranges: Rects,
+    count: usize,
+    cells: u64,
+}
+
+/// What a sheet merging nothing holds.
+static NO_MERGES: Merges = Merges {
+    ranges: Rects::new(),
+    count: 0,
+    cells: 0,
+};
+
+impl Merges {
+    /// A range merged, a second alike taken; refused with the range it overlaps.
+    pub fn add(&mut self, range: A1Range) -> Result<(), A1Range> {
+        let met = self.ranges.meeting(range).next();
+        match met.map(|(held, _)| held) {
+            Some(held) if held == range => Ok(()),
+            Some(held) => Err(held),
+            None => {
+                self.ranges.insert(range, 0);
+                self.count += 1;
+                self.cells += range.cells();
+                Ok(())
+            }
+        }
+    }
+
+    /// The range holding a cell.
+    pub fn at(&self, row: u32, col: u32) -> Option<A1Range> {
+        self.ranges.at(row, col).map(|(range, _)| range)
+    }
+
+    /// The ranges meeting an area, whole.
+    pub(crate) fn meeting(&self, area: A1Range) -> impl Iterator<Item = A1Range> + '_ {
+        self.ranges.meeting(area).map(|(range, _)| range)
+    }
+
+    /// The ranges by their first cells, row by row.
+    pub fn ranges(&self) -> Vec<A1Range> {
+        let mut ranges: Vec<A1Range> = self.ranges.iter().map(|(range, _)| range).collect();
+        ranges.sort_unstable_by_key(|r| (r.top, r.left));
+        ranges
+    }
+
+    /// How many it holds.
+    pub fn len(&self) -> usize {
+        self.count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    /// The cells they hold, each first cell among them.
+    pub fn cells(&self) -> u64 {
+        self.cells
+    }
+}
 
 /// One sheet: its cells by (row, column), both 1-based.
 #[derive(Clone, Debug, PartialEq)]
@@ -433,8 +503,9 @@ pub struct Sheet {
     /// sentence (KERNEL.4, the view record). Filled by the build's walker;
     /// empty for a sheet nothing wrote by sentence.
     pub sentences: BTreeMap<(u32, u32), u32>,
-    /// Its conditional formats by priority (KERNEL.58), boxed so that a sheet
-    /// holding none, nearly every sheet, pays for a pointer.
+    /// Its conditional formats by priority and its merged ranges (KERNEL.58),
+    /// boxed so that a sheet holding neither, nearly every sheet, pays for a
+    /// pointer.
     pub(crate) rules: Option<Box<SheetRules>>,
 }
 
@@ -459,20 +530,40 @@ impl Sheet {
     pub fn rules(&self) -> &[Rule] {
         self.rules
             .as_deref()
-            .map_or(&[], |rules| rules.0.as_slice())
+            .map_or(&[], |rules| rules.rules.as_slice())
     }
 
     /// A conditional format added at its place by priority, after any of the
     /// same priority.
     pub fn put_rule(&mut self, rule: Rule) {
-        let rules = &mut self.rules.get_or_insert_with(Box::default).0;
+        let rules = &mut self.rules.get_or_insert_with(Box::default).rules;
         let at = rules.partition_point(|r| r.priority <= rule.priority);
         rules.insert(at, rule);
     }
 
-    /// Its conditional formats given up.
+    /// Its conditional formats given up, its merged ranges kept.
     pub fn drop_rules(&mut self) {
-        self.rules = None;
+        if let Some(rules) = &mut self.rules {
+            rules.rules.clear();
+            if rules.merges.is_empty() {
+                self.rules = None;
+            }
+        }
+    }
+
+    /// Its merged ranges.
+    pub fn merges(&self) -> &Merges {
+        self.rules
+            .as_deref()
+            .map_or(&NO_MERGES, |rules| &rules.merges)
+    }
+
+    /// A range merged, a second alike taken; refused with the range it overlaps.
+    pub fn put_merge(&mut self, range: A1Range) -> Result<(), A1Range> {
+        self.rules
+            .get_or_insert_with(Box::default)
+            .merges
+            .add(range)
     }
 
     /// Record that the sentence on program row `row_of_sentence` wrote every
@@ -935,6 +1026,54 @@ pub fn strip_future_prefixes(formula: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rule::Test;
+
+    #[test]
+    fn a_sheet_s_merges_are_rectangles_by_their_first_cells_no_two_overlapping() {
+        let range = |text: &str| parse_a1_range(text).unwrap();
+        let mut sheet = Sheet::new("S");
+        assert!(sheet.merges().is_empty());
+        assert_eq!(sheet.merges().len(), 0);
+        assert_eq!(sheet.merges().cells(), 0);
+        assert_eq!(sheet.merges().at(1, 1), None);
+        // Row by row, whatever classes their heights are kept in.
+        for text in ["A10:B10", "A1:A9", "B1:C1", "B1:C1"] {
+            sheet.put_merge(range(text)).unwrap();
+        }
+        assert_eq!(sheet.put_merge(range("C1:D1")), Err(range("B1:C1")));
+        assert_eq!(sheet.put_merge(range("A9:A10")), Err(range("A10:B10")));
+        assert!(!sheet.merges().is_empty());
+        assert_eq!(sheet.merges().len(), 3);
+        assert_eq!(sheet.merges().cells(), 13);
+        assert_eq!(
+            sheet.merges().ranges(),
+            [range("A1:A9"), range("B1:C1"), range("A10:B10")]
+        );
+        assert_eq!(sheet.merges().at(5, 1), Some(range("A1:A9")));
+        assert_eq!(sheet.merges().at(5, 2), None);
+    }
+
+    #[test]
+    fn a_sheet_gives_up_its_rules_and_keeps_its_merges() {
+        let rule = || Rule {
+            priority: 1,
+            ranges: vec![parse_a1_range("A1").unwrap()],
+            test: Test::Formula("1".to_string()),
+            format: None,
+            stop: false,
+        };
+        let mut sheet = Sheet::new("S");
+        sheet.put_rule(rule());
+        sheet.put_merge(parse_a1_range("A1:B1").unwrap()).unwrap();
+        sheet.drop_rules();
+        assert!(sheet.rules().is_empty());
+        assert_eq!(sheet.merges().len(), 1);
+        // One holding neither is as one that never held either.
+        let mut sheet = Sheet::new("S");
+        sheet.put_rule(rule());
+        sheet.drop_rules();
+        assert_eq!(sheet, Sheet::new("S"));
+    }
 
     #[test]
     fn references_and_letters() {

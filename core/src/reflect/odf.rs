@@ -399,8 +399,8 @@ struct CellData {
     matrix: bool,
     /// Its own style, `table:style-name`, which the looks read (KERNEL.57).
     style: Option<String>,
-    /// Whether it merges the cells after it or below it.
-    spans: bool,
+    /// The columns and the rows it merges, itself among them, each at least one.
+    spanned: (u32, u32),
     /// Whether its text holds a run of a style of its own, `text:span`.
     rich: bool,
 }
@@ -578,7 +578,7 @@ fn read_cell(
     let spanned = |name: &str| {
         attr(attrs, name)
             .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(1)
+            .map_or(1, |n| n.max(1))
     };
     Ok(CellData {
         repeat,
@@ -586,7 +586,10 @@ fn read_cell(
         formula,
         matrix,
         style: attr(attrs, "style-name").map(|s| s.into_owned()),
-        spans: spanned("number-columns-spanned") > 1 || spanned("number-rows-spanned") > 1,
+        spanned: (
+            spanned("number-columns-spanned"),
+            spanned("number-rows-spanned"),
+        ),
         rich,
     })
 }
@@ -722,7 +725,8 @@ impl Document {
     /// among them, counted: a cell that keeps a format of its own and no
     /// value, a row formatted whole (its default cell style, or, as Excel's
     /// save writes one, its empty cells to the last column in a style of
-    /// their own), a merge, a look of no word; and the sheet's conditional formats
+    /// their own), a look of no word; its merged ranges, a repeated spanning cell's
+    /// first alone; and the sheet's conditional formats
     /// as rows (KERNEL.58): LibreOffice's `calcext` elements where the sheet holds
     /// any, else its cell styles' conditions, each style's over the cells naming it.
     fn first_pass(
@@ -866,8 +870,15 @@ impl Document {
                                 }
                             }
                         }
-                        if cell.spans {
-                            scan.stats.merged += 1;
+                        if cell.spanned != (1, 1) {
+                            let (across, down) = cell.spanned;
+                            let top = row_no.saturating_add(1).min(MAX_ROW);
+                            scan.merge(Some(A1Range {
+                                top,
+                                left: first,
+                                bottom: top.saturating_add(down - 1).min(MAX_ROW),
+                                right: first.saturating_add(across - 1).min(MAX_COLUMN),
+                            }));
                         }
                         let format = looks.format(named);
                         if cell.value.is_none() && cell.formula.is_none() {
@@ -2340,6 +2351,7 @@ mod tests {
             .filter(|l| {
                 (l.starts_with("(format ") && !l.starts_with("(format 0 "))
                     || l.starts_with("(conditional ")
+                    || l.starts_with("(merge ")
             })
             .map(str::to_string)
             .collect();
@@ -2612,6 +2624,40 @@ mod tests {
             .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
     }
 
+    /// A spanning cell is a merged range: its columns, its rows or both, a repeated
+    /// one's first alone, one past the sheet's edge kept to it, and one overlapping
+    /// another or of no more than a cell no row (KERNEL.58).
+    #[test]
+    fn a_spanning_cell_reads_as_a_row() {
+        let span = |across: &str, down: &str, repeated: &str| {
+            format!("<table:table-cell table:number-columns-spanned=\"{across}\" table:number-rows-spanned=\"{down}\" table:number-columns-repeated=\"{repeated}\"/>")
+        };
+        let table = format!(
+            "<table:table-row>{}<table:covered-table-cell/>{}<table:covered-table-cell table:number-columns-repeated=\"2\"/>{}{}</table:table-row>\
+             <table:table-row><table:table-cell/>{}{}{}</table:table-row>\
+             <table:table-row>{}</table:table-row>",
+            span("2", "1", "1"),
+            span("3", "2", "1"),
+            span("1", "1", "1"),
+            span("99999", "1", "1"),
+            span("0", "0", "1"),
+            span("1", "2", "1"),
+            span("1", "1", "1"),
+            span("2", "2000000", "2"),
+        );
+        let (rows, stats) = rules_read("", "", &table);
+        assert_eq!(
+            rows,
+            [
+                "(merge \"S\" \"A1:B1\")",
+                "(merge \"S\" \"C1:E2\")",
+                "(merge \"S\" \"G1:XFD1\")",
+                "(merge \"S\" \"A3:B1048576\")",
+            ]
+        );
+        assert_eq!((stats.merged, stats.unheld), (4, 1), "{stats:?}");
+    }
+
     /// A rule's format past what a grid holds is none, and counted.
     #[test]
     fn a_rule_s_format_past_a_grid_s_formats_is_counted() {
@@ -2796,6 +2842,7 @@ mod tests {
                 "(format 9 none general nowrap (font (family \"DejaVu Serif\" serif)))\n",
                 "(format 14 (fill \"CCFFCC\") (font \"006600\"))\n",
                 "(conditional \"Sheet1\" 1 \"B6\" (cell greater \"=5\") 14 stop)\n",
+                "(merge \"Sheet1\" \"A3:B3\")\n",
                 "(cell \"Sheet1\" \"A1\" \"Title\")\n",
                 "(style \"Sheet1\" \"A1\" 2)\n",
                 "(cell \"Sheet1\" \"B1\" 1.5)\n",

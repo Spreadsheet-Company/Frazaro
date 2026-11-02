@@ -936,6 +936,21 @@ fn rule_formula(text: &str) -> String {
     xml::text(&xlfn::prefix_future_functions(text))
 }
 
+/// A sheet's merged ranges (KERNEL.58), by first cell, after its data and before its
+/// rules as Excel orders them. None, nothing: a sheet of none writes what it wrote before.
+fn merges_text(sheet: &Sheet) -> String {
+    let merges = sheet.merges().ranges();
+    if merges.is_empty() {
+        return String::new();
+    }
+    let mut s = format!("<mergeCells count=\"{}\">\n", merges.len());
+    for merge in &merges {
+        s.push_str(&format!("<mergeCell ref=\"{}\"/>\n", merge.text()));
+    }
+    s.push_str("</mergeCells>\n");
+    s
+}
+
 /// A sheet's rules as its part holds them (KERNEL.58): the `conditionalFormatting`
 /// elements, the rules of one range under one, each in the order of its first
 /// rule's priority; and the extension's list, a rule an element. No rule, nothing:
@@ -1391,6 +1406,7 @@ fn sheet_text(
         s.push_str(&format!("<row r=\"{n}\"{}/>\n", row_attrs(settings)));
     }
     s.push_str("</sheetData>\n");
+    s.push_str(&merges_text(sheet));
     s.push_str(&rules_text(sheet, render));
     s.push_str("</worksheet>\n");
     s
@@ -1749,6 +1765,48 @@ mod tests {
                 "xl/styles.xml",
                 "xl/worksheets/frazaro_1.xml",
             ]
+        );
+    }
+
+    /// A merge stands between a sheet's data and its rules, as Excel orders them, by
+    /// its first cell; a sheet merging none writes no byte of it (KERNEL.58).
+    #[test]
+    fn a_merged_range_is_written_after_the_data_and_before_the_rules() {
+        let mut sheet = Sheet::new("S");
+        sheet.set(
+            1,
+            1,
+            Cell {
+                content: Content::Number(1.0),
+                style: 0,
+            },
+        );
+        let render = Render::FRESH;
+        let plain = sheet_xml(&sheet, true, &render);
+        assert!(!plain.contains("mergeCell"), "{plain}");
+        for range in ["F9:G9", "C2:C4", "D2:E2"] {
+            sheet
+                .put_merge(crate::sheet::parse_a1_range(range).unwrap())
+                .unwrap();
+        }
+        let merged = sheet_xml(&sheet, true, &render);
+        assert!(
+            merged.contains(concat!(
+                "</sheetData>\n<mergeCells count=\"3\">\n<mergeCell ref=\"C2:C4\"/>\n",
+                "<mergeCell ref=\"D2:E2\"/>\n<mergeCell ref=\"F9:G9\"/>\n</mergeCells>\n"
+            )),
+            "{merged}"
+        );
+        assert_eq!(
+            merged.replace(
+                concat!(
+                    "<mergeCells count=\"3\">\n<mergeCell ref=\"C2:C4\"/>\n",
+                    "<mergeCell ref=\"D2:E2\"/>\n<mergeCell ref=\"F9:G9\"/>\n</mergeCells>\n"
+                ),
+                ""
+            ),
+            plain,
+            "the merge is its element and no other byte"
         );
     }
 

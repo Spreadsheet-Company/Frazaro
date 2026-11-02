@@ -164,6 +164,9 @@ pub enum Record<'r> {
     /// [stop])`, a test being `"=<formula>"` or `(cell <operator> "=<bound>"
     /// ["=<bound>"])` (KERNEL.58).
     Conditional { sheet: &'r str, rule: &'r Rule },
+    /// `(merge "<sheet>" "<range>")`: a merged range, its cells drawing by its
+    /// first (KERNEL.58).
+    Merge { sheet: &'r str, addr: &'r str },
     /// `(lit "<sheet>" "<addr>" <priority> ...)`: the rules that apply at a
     /// cell, in order, up to the first that stops (KERNEL.58).
     Lit {
@@ -249,6 +252,9 @@ pub fn record_line(record: &Record<'_>) -> String {
                 quoted(&rule.range_text()),
                 if rule.stop { " stop" } else { "" }
             )
+        }
+        Record::Merge { sheet, addr } => {
+            format!("(merge {} {})", quoted(sheet), quoted(addr))
         }
         Record::Lit {
             sheet,

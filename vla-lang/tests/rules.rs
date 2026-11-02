@@ -14,6 +14,10 @@
 //!    answers kept; and resumed and stepped, steps as the original does.
 //! 5. A frame stepped in slices of any budget is the frame stepped whole, a
 //!    view during a yield the last complete frame's.
+//!
+//! The grids hold merged ranges (the item's sixth slice), whose rows are among
+//! those law 1 takes away, so that a merge moves no value and no plan, and whose
+//! cells each draw by their first in law 2, and through laws 3 to 5 with it.
 
 use std::collections::BTreeMap;
 
@@ -199,8 +203,12 @@ fn generated(r: &mut Rng, priority: u32) -> Generated {
     }
 }
 
-/// A generated grid's rows of cells and formulas, and its rules.
-fn generated_grid(r: &mut Rng) -> (String, Vec<Generated>) {
+/// The merged ranges a generated grid may hold, no two overlapping: over its
+/// values, its formulas and its empty cells, each inside [`ALL`].
+const MERGES: [&str; 6] = ["A1:B2", "C3:D3", "F2:F4", "H6:J7", "E9:G9", "B8:C10"];
+
+/// A generated grid's rows of cells and formulas, its rules and its merged ranges.
+fn generated_grid(r: &mut Rng) -> (String, Vec<Generated>, Vec<A1Range>) {
     let mut rows = String::from("(sheet \"G\" visible)\n");
     rows.push_str(FORMATS);
     for row in 1..=5 {
@@ -218,14 +226,22 @@ fn generated_grid(r: &mut Rng) -> (String, Vec<Generated>) {
     let rules = (0..count)
         .map(|k| generated(r, 1 + 2 * k as u32))
         .collect::<Vec<_>>();
-    (rows, rules)
+    let merges = MERGES
+        .iter()
+        .filter(|_| r.below(3) == 0)
+        .map(|range| parse_a1_range(range).expect("a range"))
+        .collect();
+    (rows, rules, merges)
 }
 
-/// The grid with its rules' rows.
-fn with_rules(rows: &str, rules: &[Generated]) -> String {
+/// The grid with its rules' rows and its merged ranges'.
+fn with_rules(rows: &str, rules: &[Generated], merges: &[A1Range]) -> String {
     let mut out = rows.to_string();
     for rule in rules {
         out.push_str(&rule.row());
+    }
+    for merge in merges {
+        out.push_str(&format!("(merge \"G\" \"{}\")\n", merge.text()));
     }
     out
 }
@@ -277,6 +293,7 @@ fn less_the_rules(record: &str) -> String {
         .lines()
         .filter(|l| {
             !l.starts_with("(conditional ")
+                && !l.starts_with("(merge ")
                 && !l.starts_with("(lit ")
                 && !l.starts_with("(format ")
                 && !l.starts_with("(text ")
@@ -310,8 +327,13 @@ fn lit_rows(record: &str) -> BTreeMap<(u32, u32), Vec<u32>> {
 }
 
 /// What each cell's rules draw as the twin grid computes them: by priority,
-/// each true rule listed, up to the first that stops.
-fn lit_by_hand(twin: &Machine, rules: &[Generated]) -> BTreeMap<(u32, u32), Vec<u32>> {
+/// each true rule listed, up to the first that stops, and a merged range's cells
+/// each its first's.
+fn lit_by_hand(
+    twin: &Machine,
+    rules: &[Generated],
+    merges: &[A1Range],
+) -> BTreeMap<(u32, u32), Vec<u32>> {
     let mut lit: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
     let mut stopped: Vec<(u32, u32)> = Vec::new();
     for rule in rules {
@@ -336,6 +358,17 @@ fn lit_by_hand(twin: &Machine, rules: &[Generated]) -> BTreeMap<(u32, u32), Vec<
             }
         }
     }
+    for merge in merges {
+        let first = lit.get(&(merge.top, merge.left)).cloned();
+        for row in merge.top..=merge.bottom {
+            for col in merge.left..=merge.right {
+                match &first {
+                    Some(first) => lit.insert((row, col), first.clone()),
+                    None => lit.remove(&(row, col)),
+                };
+            }
+        }
+    }
     lit
 }
 
@@ -346,10 +379,11 @@ const ALL: &str = "A1:J12";
 fn a_rule_moves_no_value_and_each_lit_row_is_its_test_s_answer() {
     let mut lit_rows_held = 0;
     let mut stops_met = 0;
+    let mut drawn_by_a_first = 0;
     for seed in 1..=60u64 {
         let mut r = Rng(seed);
-        let (rows, rules) = generated_grid(&mut r);
-        let ruled_rows = with_rules(&rows, &rules);
+        let (rows, rules, merges) = generated_grid(&mut r);
+        let ruled_rows = with_rules(&rows, &rules, &merges);
         let what = format!("seed {seed}");
         let mut ruled = load(&ruled_rows, &what);
         let mut plain = load(&rows, &what);
@@ -379,9 +413,12 @@ fn a_rule_moves_no_value_and_each_lit_row_is_its_test_s_answer() {
             }
             // Law 2.
             let lit = lit_rows(&record(&ruled, "values", "G", Some(ALL)));
-            let want = lit_by_hand(&twin, &rules);
+            let want = lit_by_hand(&twin, &rules, &merges);
             assert_eq!(lit, want, "{what}, frame {frame}\n{ruled_rows}");
             lit_rows_held += lit.len();
+            let own = lit_by_hand(&twin, &rules, &[]);
+            drawn_by_a_first += want.iter().filter(|(at, l)| own.get(at) != Some(l)).count()
+                + own.keys().filter(|at| !want.contains_key(at)).count();
             stops_met += lit
                 .values()
                 .filter(|l| {
@@ -393,6 +430,10 @@ fn a_rule_moves_no_value_and_each_lit_row_is_its_test_s_answer() {
     }
     assert!(lit_rows_held >= 1_000, "too few lit rows: {lit_rows_held}");
     assert!(stops_met >= 300, "too few stops met: {stops_met}");
+    assert!(
+        drawn_by_a_first >= 100,
+        "too few cells drawn otherwise than they answer: {drawn_by_a_first}"
+    );
 }
 
 /// The cell a record's row belongs to, a `lit` row among them.
@@ -465,8 +506,8 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now_under_rules() {
     let mut lit_given = 0;
     for seed in 1..=40u64 {
         let mut r = Rng(1000 + seed);
-        let (rows, rules) = generated_grid(&mut r);
-        let ruled_rows = with_rules(&rows, &rules);
+        let (rows, rules, merges) = generated_grid(&mut r);
+        let ruled_rows = with_rules(&rows, &rules, &merges);
         let what = format!("seed {seed}");
         let mut m = load(&ruled_rows, &what);
         let budget = [0, 1, 7][seed as usize % 3];
@@ -535,8 +576,8 @@ fn a_grid_viewed_whole_and_loaded_again_views_the_same_and_steps_the_same() {
     let mut lit_saved = 0;
     for seed in 1..=40u64 {
         let mut r = Rng(2000 + seed);
-        let (rows, rules) = generated_grid(&mut r);
-        let ruled_rows = with_rules(&rows, &rules);
+        let (rows, rules, merges) = generated_grid(&mut r);
+        let ruled_rows = with_rules(&rows, &rules, &merges);
         let what = format!("seed {seed}");
         let mut m = load(&ruled_rows, &what);
         for frame in 0..=3u64 {
@@ -566,8 +607,8 @@ fn a_grid_viewed_whole_and_loaded_again_views_the_same_and_steps_the_same() {
 fn a_frame_stepped_in_slices_is_the_frame_stepped_whole_and_a_yield_shows_the_last() {
     for seed in 1..=30u64 {
         let mut r = Rng(3000 + seed);
-        let (rows, rules) = generated_grid(&mut r);
-        let ruled_rows = with_rules(&rows, &rules);
+        let (rows, rules, merges) = generated_grid(&mut r);
+        let ruled_rows = with_rules(&rows, &rules, &merges);
         let what = format!("seed {seed}");
         let mut whole = load(&ruled_rows, &what);
         let mut sliced = load(&ruled_rows, &what);
@@ -1429,4 +1470,439 @@ fn what_still_passes_the_room_is_refused() {
     // Taken back, the grid steps as it stood.
     m.write("(cell \"S\" \"A1\" 2)").unwrap();
     assert!(m.step(0).done);
+}
+
+/// A merged range and a rule over it, the first cell's answer `G1`'s and the
+/// covered cells' their own, `H1`'s and `I1`'s.
+const MERGED: &str = concat!(
+    "(cell \"S\" \"C1\" \"Aa\")\n",
+    "(cell \"S\" \"G1\" 1)\n",
+    "(cell \"S\" \"H1\" 0)\n",
+    "(cell \"S\" \"I1\" 0)\n",
+    "(format 7 (font bold))\n",
+    "(conditional \"S\" 1 \"C1:E1\" \"=G1=1\" 7)\n",
+    "(merge \"S\" \"C1:E1\")\n",
+);
+
+/// A sheet's merged ranges print by their first cells after its rules, unclipped, in
+/// every record of it and no other's, and a load and a workbook keep them.
+#[test]
+fn a_merge_prints_after_the_rules_in_every_record_of_its_sheet() {
+    let rows = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(merge \"S\" \"H9:I9\")\n",
+        "(merge \"S\" \"D2:E2\")\n",
+        "(conditional \"S\" 1 \"A1\" \"=A1>0\" none)\n",
+        "(merge \"S\" \"C2:C4\")\n",
+        "(cell \"T\" \"A1\" 1)\n",
+    );
+    let m = load(rows, "the sheet");
+    let want = [
+        "(conditional \"S\" 1 \"A1\" \"=A1>0\" none)",
+        "(merge \"S\" \"C2:C4\")",
+        "(merge \"S\" \"D2:E2\")",
+        "(merge \"S\" \"H9:I9\")",
+    ];
+    for projection in ["grid", "values", "fills"] {
+        for window in [None, Some("A1"), Some("Z100")] {
+            let text = record(&m, projection, "S", window);
+            let held: Vec<&str> = text
+                .lines()
+                .filter(|l| l.starts_with("(conditional ") || l.starts_with("(merge "))
+                .collect();
+            assert_eq!(held, want, "{projection} {window:?}\n{text}");
+        }
+        assert!(!record(&m, projection, "T", None).contains("(merge "));
+    }
+    let saved = save(&m);
+    assert_eq!(save(&load(&saved, "the save")), saved);
+    let ranges: Vec<String> = m.workbook().sheets[0]
+        .merges()
+        .ranges()
+        .iter()
+        .map(A1Range::text)
+        .collect();
+    assert_eq!(ranges, ["C2:C4", "D2:E2", "H9:I9"]);
+}
+
+/// A covered cell holds what its rows wrote and a formula reads it as it stands.
+#[test]
+fn a_merge_moves_no_value_and_a_covered_cell_is_read_as_any_cell() {
+    let rows = concat!(
+        "(cell \"S\" \"C1\" 5)\n",
+        "(cell \"S\" \"D1\" 7)\n",
+        "(formula \"S\" \"F1\" \"=D1+1\")\n",
+        "(merge \"S\" \"C1:E1\")\n",
+    );
+    let mut m = load(rows, "the sheet");
+    assert!(m.step(0).done);
+    let at = record(&m, "values", "S", None);
+    assert!(at.contains("(cell \"S\" \"D1\" 7)\n"), "{at}");
+    assert!(at.contains("(value \"S\" \"F1\" 8)\n"), "{at}");
+    m.write("(cell \"S\" \"D1\" 9)").unwrap();
+    assert!(m.step(0).done);
+    let at = record(&m, "values", "S", None);
+    assert!(at.contains("(cell \"S\" \"D1\" 9)\n"), "{at}");
+    assert!(at.contains("(value \"S\" \"F1\" 10)\n"), "{at}");
+}
+
+/// Every cell of a merged range draws what its first answers, whatever it answers
+/// itself, in a window of any of them.
+#[test]
+fn a_merged_range_draws_by_its_first_cell_s_answers_at_every_cell() {
+    let mut m = load(MERGED, "the sheet");
+    assert!(m.step(0).done);
+    assert_eq!(
+        lit_in(&m, "A1:J1"),
+        [
+            "(lit \"S\" \"C1\" 1)",
+            "(lit \"S\" \"D1\" 1)",
+            "(lit \"S\" \"E1\" 1)"
+        ]
+    );
+    assert_eq!(lit_in(&m, "D1"), ["(lit \"S\" \"D1\" 1)"]);
+    assert_eq!(
+        lit_in(&m, "D1:J9"),
+        ["(lit \"S\" \"D1\" 1)", "(lit \"S\" \"E1\" 1)"]
+    );
+    m.write("(cell \"S\" \"G1\" 0)\n(cell \"S\" \"H1\" 1)\n(cell \"S\" \"I1\" 1)")
+        .unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:J1"), Vec::<String>::new());
+    assert_eq!(lit_in(&m, "D1"), Vec::<String>::new());
+}
+
+/// A rule over the first cell alone draws over the range, one over a covered cell
+/// alone over none of it, a stop ends the walk at every cell as at the first, and a
+/// cell beside it draws as its own.
+#[test]
+fn a_rule_draws_over_a_merged_range_as_its_first_cell_answers_it() {
+    let rows = concat!(
+        "(cell \"S\" \"A5\" 1)\n",
+        "(format 7 (font bold))\n",
+        "(conditional \"S\" 1 \"C1\" \"=$A$5=1\" 7)\n",
+        "(merge \"S\" \"C1:E1\")\n",
+        "(conditional \"S\" 2 \"D2\" \"=$A$5=1\" 7)\n",
+        "(merge \"S\" \"C2:E2\")\n",
+        "(conditional \"S\" 3 \"C3\" \"=$A$5=1\" 7 stop)\n",
+        "(conditional \"S\" 4 \"C3:E3\" \"=$A$5=1\" 7)\n",
+        "(merge \"S\" \"C3:E3\")\n",
+        "(conditional \"S\" 5 \"G1\" \"=$A$5=1\" 7)\n",
+        "(merge \"S\" \"G1:H2\")\n",
+        "(conditional \"S\" 6 \"F1:F3\" \"=$A$5=1\" 7)\n",
+    );
+    let mut m = load(rows, "the sheet");
+    assert!(m.step(0).done);
+    assert_eq!(
+        lit_in(&m, "A1:J3"),
+        [
+            "(lit \"S\" \"C1\" 1)",
+            "(lit \"S\" \"D1\" 1)",
+            "(lit \"S\" \"E1\" 1)",
+            "(lit \"S\" \"F1\" 6)",
+            "(lit \"S\" \"G1\" 5)",
+            "(lit \"S\" \"H1\" 5)",
+            "(lit \"S\" \"F2\" 6)",
+            "(lit \"S\" \"G2\" 5)",
+            "(lit \"S\" \"H2\" 5)",
+            "(lit \"S\" \"C3\" 3)",
+            "(lit \"S\" \"D3\" 3)",
+            "(lit \"S\" \"E3\" 3)",
+            "(lit \"S\" \"F3\" 6)",
+        ]
+    );
+    assert_eq!(lit_in(&m, "H2"), ["(lit \"S\" \"H2\" 5)"]);
+    assert_eq!(lit_in(&m, "D2"), Vec::<String>::new());
+    // A save of either shape holds them, a covered cell's row over a rule of its first's.
+    let drawn = lit_in(&m, "A1:J3");
+    for projection in ["grid", "fills"] {
+        let saved = record(&m, projection, "S", Some("A1:J5"));
+        assert!(saved.contains("(lit \"S\" \"D1\" 1)\n"), "{saved}");
+        let mut again = load(&saved, projection);
+        assert_eq!(lit_in(&again, "A1:J3"), drawn, "{projection} at rest");
+        assert!(again.step(0).done);
+        assert_eq!(lit_in(&again, "A1:J3"), drawn, "{projection} stepped");
+    }
+}
+
+/// A first cell's answer moving names the range's cells in the window, its first
+/// inside it or not; a covered cell's own moving names none.
+#[test]
+fn a_first_cell_s_answer_moving_names_the_range_s_cells_in_the_window() {
+    let mut m = load(MERGED, "the sheet");
+    assert!(m.step(0).done);
+    m.write("(cell \"S\" \"G1\" 0)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("C1:E1")),
+        concat!(
+            "(changes \"S\" \"C1:E1\" 1 2 3)\n",
+            "(cell \"S\" \"C1\" \"Aa\")\n",
+            "(empty \"S\" \"D1\")\n",
+            "(empty \"S\" \"E1\")\n",
+        )
+    );
+    assert_eq!(
+        record(&m, "changes", "S", Some("D1")),
+        "(changes \"S\" \"D1\" 1 2 1)\n(empty \"S\" \"D1\")\n"
+    );
+    assert_eq!(
+        record(&m, "changes", "S", Some("A1:B1")),
+        "(changes \"S\" \"A1:B1\" 1 2 0)\n"
+    );
+    m.write("(cell \"S\" \"H1\" 1)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("C1:E1")),
+        "(changes \"S\" \"C1:E1\" 2 3 0)\n"
+    );
+    m.write("(cell \"S\" \"G1\" 1)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("D1:E1")),
+        "(changes \"S\" \"D1:E1\" 3 4 2)\n(lit \"S\" \"D1\" 1)\n(lit \"S\" \"E1\" 1)\n"
+    );
+}
+
+/// On a sheet whose merged cells by its rules pass what rules may answer for, a range's
+/// rules print at its first cell alone, so that a merge of the whole sheet costs a record
+/// no row a cell, and its covered cells draw nothing of their own either way.
+#[test]
+fn a_merged_range_past_the_room_prints_at_its_first_cell_alone() {
+    let rows = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(formula \"S\" \"C1\" \"=$XFD$1048576\")\n",
+        "(formula \"S\" \"A5\" \"=$XFD$1048576\")\n",
+        "(formula \"S\" \"C5\" \"=$XFD$1048576\")\n",
+        "(cell \"S\" \"XFD1048576\" 1)\n",
+        "(conditional \"S\" 1 \"A1:A3\" \"=$XFD$1048576>0\" none)\n",
+        "(merge \"S\" \"A1:XFD1048576\")\n",
+    );
+    let mut m = load(rows, "the whole sheet");
+    assert!(m.step(0).done);
+    assert_eq!(
+        lit_in(&m, "A1:C3"),
+        ["(lit \"S\" \"A1\" 1)"],
+        "a covered cell's own and its first's, past the room"
+    );
+    assert_eq!(lit_in(&m, "A2"), Vec::<String>::new());
+    let whole = record(&m, "values", "S", None);
+    let lit: Vec<&str> = whole.lines().filter(|l| l.starts_with("(lit ")).collect();
+    assert_eq!(lit, ["(lit \"S\" \"A1\" 1)"]);
+    // A covered cell a value names prints no rule, its first's or its own.
+    m.write("(cell \"S\" \"XFD1048576\" 2)").unwrap();
+    assert!(m.step(0).done);
+    for at in ["C1", "A5", "C5"] {
+        assert_eq!(
+            record(&m, "changes", "S", Some(at)),
+            format!("(changes \"S\" \"{at}\" 1 2 1)\n(value \"S\" \"{at}\" 2)\n")
+        );
+    }
+    m.write("(cell \"S\" \"XFD1048576\" 0)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("A1:C3")),
+        "(changes \"S\" \"A1:C3\" 2 3 2)\n(cell \"S\" \"A1\" 1)\n(value \"S\" \"C1\" 0)\n"
+    );
+    assert_eq!(
+        record(&m, "changes", "S", Some("A2")),
+        "(changes \"S\" \"A2\" 2 3 0)\n"
+    );
+    // At the room, every cell; a cell past it, on the sheet and whichever range, the first;
+    // and a rule more counts each merged cell again.
+    let at_the_room = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(conditional \"S\" 1 \"A1\" \"=1=1\" none)\n",
+        "(merge \"S\" \"A1:A1048576\")\n",
+    );
+    let mut m = load(at_the_room, "at the room");
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:A3").len(), 3);
+    let mut m = load(
+        &format!("{at_the_room}(merge \"S\" \"B1:C1\")\n"),
+        "past it",
+    );
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:A3"), ["(lit \"S\" \"A1\" 1)"]);
+    let half = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(conditional \"S\" 1 \"A1\" \"=1=1\" none)\n",
+        "(conditional \"S\" 2 \"A1\" \"=1=1\" none)\n",
+        "(merge \"S\" \"A1:A524288\")\n",
+    );
+    let mut m = load(half, "half the room, twice");
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:A3").len(), 3);
+    let mut m = load(
+        &format!("{half}(conditional \"S\" 3 \"Z1\" \"=1=1\" none)\n"),
+        "half the room, three times",
+    );
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:A3"), ["(lit \"S\" \"A1\" 1 2)"]);
+    // The rules counted where a covered cell's value names it and where a first's answer moves.
+    let moving = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(cell \"S\" \"Z9\" 1)\n",
+        "(formula \"S\" \"A5\" \"=$Z$9\")\n",
+        "(conditional \"S\" 1 \"A1\" \"=$Z$9>0\" none)\n",
+        "(conditional \"S\" 2 \"A1\" \"=$Z$9>0\" none)\n",
+        "(conditional \"S\" 3 \"Z1\" \"=1=1\" none)\n",
+        "(merge \"S\" \"A1:A524288\")\n",
+    );
+    let mut m = load(moving, "half the room, three times, moving");
+    assert!(m.step(0).done);
+    m.write("(cell \"S\" \"Z9\" 2)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("A5")),
+        "(changes \"S\" \"A5\" 1 2 1)\n(value \"S\" \"A5\" 2)\n"
+    );
+    m.write("(cell \"S\" \"Z9\" 0)").unwrap();
+    assert!(m.step(0).done);
+    assert_eq!(
+        record(&m, "changes", "S", Some("A1:A3")),
+        "(changes \"S\" \"A1:A3\" 2 3 1)\n(cell \"S\" \"A1\" 1)\n"
+    );
+    // Another sheet's cells are another sheet's.
+    let mut m = load(
+        &format!("{at_the_room}(merge \"T\" \"B1:C1\")\n"),
+        "beside it",
+    );
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1:A3").len(), 3);
+}
+
+#[test]
+fn a_merge_row_is_refused_by_what_it_gets_wrong() {
+    let bad = |rows: &str, id: &str| {
+        let refusal = Machine::load(rows, library::language())
+            .err()
+            .unwrap_or_else(|| panic!("{rows} was taken"));
+        assert_eq!(refusal.refusal.id, id, "{rows}: {}", refusal.refusal.text);
+        refusal
+    };
+    for row in [
+        "(merge \"S\")",
+        "(merge \"S\" \"C6\")",
+        "(merge \"S\" \"C6:C6\")",
+        "(merge \"S\" \"nope\")",
+        "(merge \"S\" \"C6:E6\" 1)",
+        "(merge S \"C6:E6\")",
+        "(merge \"S\" C6:E6)",
+    ] {
+        let refused = bad(row, "grid-row-malformed");
+        assert!(refused.refusal.text.contains("more than one cell"), "{row}");
+    }
+    bad("(merge \"S.last\" \"A1:B1\")", "grid-sheet-name-invalid");
+    for (first, second) in [
+        ("C6:E6", "E6:F7"),
+        ("E6:F7", "C6:E6"),
+        ("A1:D4", "B2:C3"),
+        ("B2:C3", "A1:D4"),
+        ("C6:E6", "C6:D6"),
+    ] {
+        let rows =
+            format!("(merge \"S\" \"{first}\")\n(cell \"S\" \"A9\" 1)\n(merge \"S\" \"{second}\")");
+        let refused = bad(&rows, "grid-merge-overlap");
+        assert_eq!(refused.line, 3);
+        let text = &refused.refusal.text;
+        assert!(
+            text.contains(&format!("S!{second}")) && text.contains(first),
+            "{text}"
+        );
+    }
+    // A second alike is the first, however it is spelled.
+    let m = load(
+        "(merge \"S\" \"C6:E6\")\n(merge \"S\" \"C6:E6\")\n(merge \"S\" \"E6:C6\")\n",
+        "alike",
+    );
+    assert_eq!(record(&m, "grid", "S", None).matches("(merge ").count(), 1);
+    // Beside it, and on another sheet, is none of it.
+    let beside = concat!(
+        "(merge \"S\" \"C6:E6\")\n",
+        "(merge \"S\" \"F6:G6\")\n",
+        "(merge \"S\" \"C7:E7\")\n",
+        "(merge \"T\" \"C6:E6\")\n",
+    );
+    let m = load(beside, "beside");
+    assert_eq!(record(&m, "grid", "S", None).matches("(merge ").count(), 3);
+}
+
+/// A covered cell's `lit` row says its first cell's answers, so that it names a rule
+/// over that cell, and a load draws by the first cell's own row alone.
+#[test]
+fn a_covered_cell_s_lit_row_is_held_to_its_range_s_first_cell() {
+    let head = concat!(
+        "(cell \"S\" \"A5\" 1)\n",
+        "(conditional \"S\" 1 \"C1\" \"=$A$5=1\" none)\n",
+        "(conditional \"S\" 2 \"D1\" \"=$A$5=1\" none)\n",
+        "(merge \"S\" \"C1:E1\")\n",
+    );
+    load(&format!("{head}(lit \"S\" \"D1\" 1)\n"), "over its first");
+    for row in [
+        "(lit \"S\" \"D1\" 2)",
+        "(lit \"S\" \"C1\" 2)",
+        "(lit \"S\" \"D1\" 1 2)",
+    ] {
+        let refused = Machine::load(&format!("{head}{row}\n"), library::language())
+            .err()
+            .unwrap_or_else(|| panic!("{row} was taken"));
+        assert_eq!(refused.refusal.id, "grid-row-malformed", "{row}");
+    }
+    let m = load(&format!("{head}(lit \"S\" \"C1\" 1)\n"), "the first's");
+    assert_eq!(
+        lit_in(&m, "C1:E1"),
+        [
+            "(lit \"S\" \"C1\" 1)",
+            "(lit \"S\" \"D1\" 1)",
+            "(lit \"S\" \"E1\" 1)"
+        ]
+    );
+    // A row at a covered cell alone says nothing of its first.
+    let m = load(&format!("{head}(lit \"S\" \"D1\" 1)\n"), "the covered's");
+    assert_eq!(lit_in(&m, "C1:E1"), Vec::<String>::new());
+    // A rule of many rectangles, read by its pieces.
+    let many: Vec<String> = (1..=20).map(|row| format!("C{row}")).collect();
+    let rows = format!(
+        "(conditional \"S\" 1 \"{}\" \"=1=1\" none)\n(conditional \"S\" 2 \"{}\" \"=1=1\" none)\n(merge \"S\" \"C5:E5\")\n",
+        many.join(" "),
+        many.join(" ").replace('C', "F")
+    );
+    load(&format!("{rows}(lit \"S\" \"D5\" 1)\n"), "by its pieces");
+    let refused = Machine::load(
+        &format!("{rows}(lit \"S\" \"D5\" 2)\n"),
+        library::language(),
+    )
+    .expect_err("a rule over no first cell");
+    assert_eq!(refused.refusal.id, "grid-row-malformed");
+    // One of many rectangles past the room, whose pieces no load makes.
+    let columns: Vec<String> = (0..17)
+        .map(|k| {
+            let at = cell_ref(1, 3 + 3 * k);
+            let column = at.strip_suffix('1').expect("a first row");
+            format!("{column}1:{column}1048576")
+        })
+        .collect();
+    let rows = format!(
+        "(cell \"S\" \"A1\" 1)\n(conditional \"S\" 1 \"{}\" \"=1=1\" none)\n(conditional \"S\" 2 \"D1:D1048576\" \"=1=1\" none)\n(merge \"S\" \"C5:D5\")\n",
+        columns.join(" "),
+    );
+    load(&format!("{rows}(lit \"S\" \"D5\" 1)\n"), "past the room");
+    let refused = Machine::load(
+        &format!("{rows}(lit \"S\" \"D5\" 2)\n"),
+        library::language(),
+    )
+    .expect_err("a rule over no first cell, past the room");
+    assert_eq!(refused.refusal.id, "grid-row-malformed");
+}
+
+#[test]
+fn a_door_prints_a_merge_s_row() {
+    let rows = "(cell \"G\" \"A1\" 1)\n(merge \"G\" \"C1:D1\")\n";
+    let forms = read_forms(rows).unwrap();
+    let wb = read_rows(&forms).unwrap().workbook();
+    let window = window_of(&wb, "G", None).unwrap();
+    let got = view_text(&wb, &window);
+    assert!(got.contains("(merge \"G\" \"C1:D1\")\n"), "{got}");
+    assert_eq!(wb.sheets[0].merges().len(), 1);
 }

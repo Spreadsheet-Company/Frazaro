@@ -36,7 +36,7 @@
 //! its columns, the rows a person set a height or hid, the extent of the
 //! cells the walk prints and the formats they use, and what the record
 //! cannot hold, counted: a cell that keeps a format and no value, a look
-//! the record has no word for, a merged range, a row formatted whole.
+//! the record has no word for, a row formatted whole.
 //!
 //! A conditional format (KERNEL.58, under `--looks` alone): each `cfRule` of a
 //! sheet's part and of its extension a row of its own, read as Excel read each
@@ -856,8 +856,8 @@ impl<'a> Package<'a> {
     /// view's gridlines, its own default width and height, its columns, the
     /// rows a person set a height for or hid, the extent of the cells the
     /// walk prints and the formats they use, and what the record cannot hold
-    /// among them, counted; its merged ranges counted and its conditional
-    /// formats read, after its cells. A cell or a column naming a format past
+    /// among them, counted; its merged ranges and its conditional formats
+    /// read, after its cells. A cell or a column naming a format past
     /// the styles part's list is refused by name.
     fn first_pass(
         &self,
@@ -1017,8 +1017,10 @@ impl<'a> Package<'a> {
                     scan.hold(cell.row, cell.col);
                 }
                 Event::Start {
-                    name: "mergeCell", ..
-                } => scan.stats.merged += 1,
+                    name: "mergeCell",
+                    attrs,
+                    ..
+                } => scan.merge(attr(attrs, "ref").and_then(|r| parse_a1_range(&r))),
                 Event::Start {
                     name: "conditionalFormatting",
                     attrs,
@@ -3245,6 +3247,35 @@ mod tests {
 
     const SST: &str = "<si><t>Title</t></si><si><r><rPr><b/></rPr><t>rich</t></r></si>";
 
+    /// A file's merged ranges are rows by their first cells; one of a cell, one
+    /// no range and one overlapping another are counted and no row, and a second
+    /// alike is the first (KERNEL.58).
+    #[test]
+    fn a_file_s_merged_ranges_read_as_rows() {
+        let sheet = concat!(
+            "<sheetData><row r=\"1\"><c r=\"A1\"><v>1</v></c></row></sheetData>",
+            "<mergeCells count=\"7\">",
+            "<mergeCell ref=\"H9:I9\"/><mergeCell ref=\"C2:C4\"/><mergeCell ref=\"D2:E2\"/>",
+            "<mergeCell ref=\"F1\"/><mergeCell ref=\"nope\"/>",
+            "<mergeCell ref=\"C3:D3\"/><mergeCell ref=\"H9:I9\"/>",
+            "</mergeCells>",
+        );
+        let bytes = styled_named("", sheet, RULE_STYLES, None, "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "merges.xlsx").unwrap();
+        let rows: Vec<&str> = text.lines().filter(|l| l.starts_with("(merge ")).collect();
+        assert_eq!(
+            rows,
+            [
+                "(merge \"Model\" \"C2:C4\")",
+                "(merge \"Model\" \"D2:E2\")",
+                "(merge \"Model\" \"H9:I9\")",
+            ]
+        );
+        assert_eq!((stats.merged, stats.unheld), (3, 3), "{stats:?}");
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
+    }
+
     #[test]
     fn a_workbook_s_looks_print_as_the_record_prints_a_sheet_whole() {
         // Decisions 2 to 10 over one sheet: its gridlines; the columns of
@@ -3293,6 +3324,7 @@ mod tests {
             "(format 11 none general nowrap (font \"FFFFFF\"))".to_string(),
             "(format 12 (fill \"FF0000\") (font bold))".to_string(),
             "(conditional \"Model\" 1 \"A1:A10\" (cell equal \"=1\") 12)".to_string(),
+            "(merge \"Model\" \"A5:B5\")".to_string(),
             "(cell \"Model\" \"A1\" \"Title\")".to_string(),
             "(style \"Model\" \"A1\" 1)".to_string(),
             "(cell \"Model\" \"B1\" 1.5)".to_string(),
