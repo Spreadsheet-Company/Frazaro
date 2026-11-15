@@ -64,11 +64,11 @@ use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip;
 use crate::sheet::{
-    cell_ref, number_text, parse_a1_range, A1Range, RowSettings, Style, MAX_COLUMN, MAX_ROW,
+    cell_ref, number_text, parse_a1_range, A1Range, Rgb, RowSettings, Style, MAX_COLUMN, MAX_ROW,
 };
 use vla_lang::machine::load::FORMATS;
 use vla_lang::rows::{datum, ArrayKind};
-use vla_lang::rule::{Operator, Rule, Test};
+use vla_lang::rule::{is_number, Operator, Rule, Stop, StopKind, Test, Uncomputed, BAR_LENGTHS};
 
 const MIMETYPE: &str = "application/vnd.oasis.opendocument.spreadsheet";
 const CONTENT: &str = "content.xml";
@@ -933,17 +933,77 @@ impl Document {
                     base: attr(attrs, "base-cell-address").map(|b| b.into_owned()),
                     applied: attr(attrs, "apply-style-name").map(|s| s.into_owned()),
                 }),
-                // A date's rule calls `TODAY`, and the other three compute a look no
-                // row says.
+                // A date's rule calls `TODAY`.
                 Event::Start {
-                    name: "date-is" | "color-scale" | "data-bar" | "icon-set",
-                    ..
+                    name: "date-is", ..
                 } => calc_rules.push(FileCondition {
                     ranges: target.clone(),
                     condition: Condition::NotComputed,
                     base: None,
                     applied: None,
                 }),
+                // A scale, a bar and a set of icons, whose entries follow.
+                Event::Start {
+                    name: "color-scale",
+                    ..
+                } => calc_rules.push(FileCondition {
+                    ranges: target.clone(),
+                    condition: Condition::Measured(FileMeasure::default()),
+                    base: None,
+                    applied: None,
+                }),
+                Event::Start {
+                    name: "data-bar",
+                    attrs,
+                    ..
+                } => calc_rules.push(FileCondition {
+                    ranges: target.clone(),
+                    condition: Condition::Measured(FileMeasure {
+                        bar: Some(attr(attrs, "positive-color").map(|c| c.into_owned())),
+                        lengths: (
+                            attr(attrs, "min-length").and_then(|v| v.trim().parse().ok()),
+                            attr(attrs, "max-length").and_then(|v| v.trim().parse().ok()),
+                        ),
+                        hides_value: attr(attrs, "show-value").as_deref() == Some("false"),
+                        ..FileMeasure::default()
+                    }),
+                    base: None,
+                    applied: None,
+                }),
+                Event::Start {
+                    name: "icon-set",
+                    attrs,
+                    ..
+                } => calc_rules.push(FileCondition {
+                    ranges: target.clone(),
+                    condition: Condition::Measured(FileMeasure {
+                        // A set of no type says none a file names.
+                        icons: Some(
+                            attr(attrs, "icon-set-type")
+                                .map_or_else(String::new, |set| set.into_owned()),
+                        ),
+                        hides_value: attr(attrs, "show-value").as_deref() == Some("false"),
+                        ..FileMeasure::default()
+                    }),
+                    base: None,
+                    applied: None,
+                }),
+                Event::Start {
+                    name: "color-scale-entry" | "formatting-entry",
+                    attrs,
+                    ..
+                } => {
+                    if let Some(FileCondition {
+                        condition: Condition::Measured(measure),
+                        ..
+                    }) = calc_rules.last_mut()
+                    {
+                        measure.stops.push(calc_stop(attrs));
+                        if let Some(color) = attr(attrs, "color") {
+                            measure.colors.push(rgb_of_calc(&color));
+                        }
+                    }
+                }
                 Event::Start {
                     name:
                         "table-header-rows"
@@ -1013,6 +1073,26 @@ impl Document {
             scan.stats.not_computed += 1;
             return;
         }
+        if let Condition::Measured(measure) = &read.condition {
+            let (Some(ranges), Some(held)) = (read.ranges, measure.uncomputed()) else {
+                scan.stats.unheld += 1;
+                return;
+            };
+            // What LibreOffice's bar says past a row's words: its negative color, its
+            // axis and an automatic stop, as a package's extension adds them.
+            if measure.bar.is_some() {
+                scan.stats.unheld += 1;
+            }
+            scan.stats.undrawn_rules += 1;
+            scan.rules.push(Rule {
+                priority,
+                ranges,
+                test: Test::Uncomputed(held),
+                format: None,
+                stop: false,
+            });
+            return;
+        }
         let (Some(ranges), Some(applied)) = (read.ranges, read.applied) else {
             scan.stats.unheld += 1;
             return;
@@ -1039,7 +1119,11 @@ impl Document {
             return;
         }
         row.format = self.rule_format(look, looks.looks.len(), scan);
-        scan.stats.rule_cells += row.cells();
+        if row.computed() {
+            scan.stats.rule_cells += row.cells();
+        } else {
+            scan.stats.undrawn_rules += 1;
+        }
         scan.rules.push(row);
     }
 
@@ -1348,10 +1432,97 @@ enum Condition {
     /// A formula around the cell the rule is read at, what a kind of LibreOffice's
     /// own says, Excel's formula for its kin: the text before the cell and after it.
     AtCell(String, String),
-    /// A kind the language does not compute.
+    /// A kind the language does not compute and a row of whose words says it, with a
+    /// style of its own.
+    Styled(Uncomputed),
+    /// A scale, a bar or a set of icons, with none.
+    Measured(FileMeasure),
+    /// A kind no row says, a date's, which calls `TODAY`.
     NotComputed,
     /// A text this version does not read.
     Unread,
+}
+
+/// A scale, a bar or a set of icons of LibreOffice's, read to its entries.
+#[derive(Default)]
+struct FileMeasure {
+    /// A bar's color, whatever it says.
+    bar: Option<Option<String>>,
+    icons: Option<String>,
+    lengths: (Option<u32>, Option<u32>),
+    hides_value: bool,
+    stops: Vec<Option<Stop>>,
+    colors: Vec<Option<Rgb>>,
+}
+
+impl FileMeasure {
+    /// As a row says it: `None` where it says what no row does.
+    fn uncomputed(&self) -> Option<Uncomputed> {
+        let stops: Vec<Stop> = self.stops.iter().cloned().collect::<Option<_>>()?;
+        let held = match (&self.bar, &self.icons) {
+            (Some(color), _) => {
+                let [low, high] = stops.as_slice() else {
+                    return None;
+                };
+                Uncomputed::DataBar {
+                    low: low.clone(),
+                    high: high.clone(),
+                    color: rgb_of_calc(color.as_deref()?)?,
+                    lengths: (
+                        self.lengths.0.unwrap_or(BAR_LENGTHS.0),
+                        self.lengths.1.unwrap_or(BAR_LENGTHS.1),
+                    ),
+                    shows_value: !self.hides_value,
+                }
+            }
+            (None, Some(set)) => Uncomputed::IconSet {
+                set: set.clone(),
+                stops,
+                reverse: false,
+                shows_value: !self.hides_value,
+            },
+            (None, None) => Uncomputed::ColorScale {
+                stops,
+                colors: self.colors.iter().cloned().collect::<Option<_>>()?,
+            },
+        };
+        held.well_said().then_some(held)
+    }
+}
+
+/// A color as LibreOffice's elements spell one, `#f8696b`.
+fn rgb_of_calc(text: &str) -> Option<Rgb> {
+    Rgb::from_hex(text.trim().strip_prefix('#')?)
+}
+
+/// An entry of LibreOffice's scale, bar or set of icons as a stop: an automatic lowest
+/// or highest as its plain one, what a package's part says beside its extension's.
+fn calc_stop(attrs: &str) -> Option<Stop> {
+    let kind = match attr(attrs, "type")?.trim() {
+        "minimum" | "auto-minimum" => StopKind::Min,
+        "maximum" | "auto-maximum" => StopKind::Max,
+        "number" => StopKind::Number,
+        "percent" => StopKind::Percent,
+        "percentile" => StopKind::Percentile,
+        "formula" => StopKind::Formula,
+        _ => return None,
+    };
+    let value = if kind.says_a_value() {
+        let value = attr(attrs, "value")?;
+        let value = value.trim();
+        if kind != StopKind::Formula && is_number(value) {
+            value.to_string()
+        } else {
+            bar_text(value)?
+        }
+    } else {
+        String::new()
+    };
+    Some(Stop {
+        kind,
+        value,
+        greater: false,
+    })
 }
 
 impl Condition {
@@ -1378,13 +1549,15 @@ impl Condition {
                         first: moved(&first),
                         second: second.as_deref().map(moved),
                     },
+                    held @ Test::Uncomputed(_) => held,
                 })
             }
             Condition::AtCell(before, after) => {
                 let cell = cell_ref(row, col);
                 Some(Test::Formula(format!("{before}{cell}{after}")))
             }
-            Condition::NotComputed | Condition::Unread => None,
+            Condition::Styled(held) => Some(Test::Uncomputed(held)),
+            Condition::Measured(_) | Condition::NotComputed | Condition::Unread => None,
         }
     }
 }
@@ -1564,25 +1737,43 @@ fn calc_condition(value: &str) -> Condition {
             });
         }
     }
-    match value {
+    let average = |below: bool, equal: bool| Uncomputed::Average {
+        below,
+        equal,
+        deviations: 0,
+    };
+    let held = match value {
         "is-error" => return Condition::AtCell("ISERROR(".to_string(), ")".to_string()),
         "is-no-error" => return Condition::AtCell("NOT(ISERROR(".to_string(), "))".to_string()),
-        "duplicate"
-        | "unique"
-        | "above-average"
-        | "below-average"
-        | "above-equal-average"
-        | "below-equal-average" => return Condition::NotComputed,
-        _ => {}
+        "duplicate" => Some(Uncomputed::Duplicate),
+        "unique" => Some(Uncomputed::Unique),
+        "above-average" => Some(average(false, false)),
+        "below-average" => Some(average(true, false)),
+        "above-equal-average" => Some(average(false, true)),
+        "below-equal-average" => Some(average(true, true)),
+        _ => None,
+    };
+    if let Some(held) = held {
+        return Condition::Styled(held);
     }
-    const RANKS: [&str; 4] = [
-        "top-elements",
-        "bottom-elements",
-        "top-percent",
-        "bottom-percent",
+    const RANKS: [(&str, bool, bool); 4] = [
+        ("top-elements", false, false),
+        ("bottom-elements", true, false),
+        ("top-percent", false, true),
+        ("bottom-percent", true, true),
     ];
-    if RANKS.iter().any(|word| inside(value, word).is_some()) {
-        return Condition::NotComputed;
+    for (word, bottom, percent) in RANKS {
+        if let Some(rank) = inside(value, word) {
+            let held = rank.trim().parse().ok().map(|rank| Uncomputed::Rank {
+                bottom,
+                rank,
+                percent,
+            });
+            return match held.filter(Uncomputed::well_said) {
+                Some(held) => Condition::Styled(held),
+                None => Condition::Unread,
+            };
+        }
     }
     compared(value)
 }
@@ -2469,23 +2660,11 @@ mod tests {
             )
         };
         let mut conditions = String::new();
-        for value in [
-            "duplicate",
-            "unique",
-            "above-average",
-            "below-average",
-            "above-equal-average",
-            "below-equal-average",
-            "top-elements(1)",
-            "bottom-elements(1)",
-            "top-percent(1)",
-            "bottom-percent(1)",
-            "formula-is(TODAY()=[.A1])",
-            "formula-is([.A1#])",
-        ] {
+        for value in ["formula-is(TODAY()=[.A1])", "formula-is([.A1#])"] {
             conditions.push_str(&condition(value));
         }
-        let not_computed = 12 + 4;
+        // Those two and a date's.
+        let not_computed = 2 + 1;
         for value in [
             "no-such-kind",
             "formula-is()",
@@ -2494,6 +2673,9 @@ mod tests {
             "between(1,)",
             "&lt;",
             "contains-text()",
+            "top-elements()",
+            "top-elements(0)",
+            "top-percent(101)",
         ] {
             conditions.push_str(&condition(value));
         }
@@ -2502,14 +2684,133 @@ mod tests {
         );
         let (rows, stats) = rules_read("", LIT, &table);
         assert_eq!(rows, Vec::<String>::new(), "{stats:?}");
-        assert_eq!(stats.conditional, 12 + 7 + 2 + 4 + 3);
+        assert_eq!(stats.conditional, 2 + 10 + 2 + 4 + 3);
         assert_eq!(stats.not_computed, not_computed);
-        assert_eq!(stats.unheld, 7 + 2 + 3);
+        assert_eq!(stats.undrawn_rules, 0);
+        // The ten unread, the two of no style, the scale of one entry, the bar and the
+        // icons of none, and the three past a range.
+        assert_eq!(stats.unheld, 10 + 2 + 3 + 3);
         assert_eq!(stats.rule_cells, 0);
         assert_eq!(
             stats.left_out().as_deref(),
-            Some("the looks leave out what the record cannot hold: 12 looks the record has no word for, 16 conditional formats the language does not compute")
+            Some("the looks leave out what the record cannot hold: 18 looks the record has no word for, 3 conditional formats the language does not compute")
         );
+    }
+
+    /// Each kind LibreOffice says and the language does not compute is a row of its own
+    /// words: a condition's with its style, stopping as each of a file's rows does; a
+    /// scale's, a bar's and a set of icons' with none, what a bar says past its words
+    /// counted, as a package's extension is.
+    #[test]
+    fn a_kind_not_computed_of_libreoffice_s_reads_as_its_words() {
+        let condition = |value: &str| {
+            format!(
+                "<calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"{value}\"/>"
+            )
+        };
+        let mut conditions = String::new();
+        for value in [
+            "duplicate",
+            "unique",
+            "above-average",
+            "below-average",
+            "above-equal-average",
+            "below-equal-average",
+            "top-elements(10)",
+            "bottom-elements(2)",
+            "top-percent(20)",
+            "bottom-percent(5)",
+        ] {
+            conditions.push_str(&condition(value));
+        }
+        let entry = |value: &str, kind: &str| {
+            format!("<calcext:formatting-entry calcext:value=\"{value}\" calcext:type=\"{kind}\"/>")
+        };
+        conditions.push_str(concat!(
+            "<calcext:color-scale>",
+            "<calcext:color-scale-entry calcext:value=\"0\" calcext:type=\"minimum\" calcext:color=\"#f8696b\"/>",
+            "<calcext:color-scale-entry calcext:value=\"50\" calcext:type=\"percentile\" calcext:color=\"#ffeb84\"/>",
+            "<calcext:color-scale-entry calcext:value=\"[.$B$1]\" calcext:type=\"formula\" calcext:color=\"#63be7b\"/>",
+            "</calcext:color-scale>",
+        ));
+        conditions.push_str(&format!(
+            "<calcext:data-bar calcext:min-length=\"10\" calcext:max-length=\"90\" calcext:negative-color=\"#ff0000\" calcext:axis-position=\"none\" calcext:positive-color=\"#638ec6\" calcext:axis-color=\"#000000\">{}{}</calcext:data-bar>",
+            entry("0", "auto-minimum"),
+            entry("0", "auto-maximum")
+        ));
+        conditions.push_str(&format!(
+            "<calcext:data-bar calcext:min-length=\"5\" calcext:max-length=\"95\" calcext:show-value=\"false\" calcext:positive-color=\"#638ec6\">{}{}</calcext:data-bar>",
+            entry("1", "number"),
+            entry("90", "percent")
+        ));
+        conditions.push_str(&format!(
+            "<calcext:icon-set calcext:icon-set-type=\"3Arrows\">{}{}{}</calcext:icon-set>",
+            entry("0", "percent"),
+            entry("33", "percent"),
+            entry("67", "percent")
+        ));
+        conditions.push_str(&format!(
+            "<calcext:icon-set calcext:icon-set-type=\"4Rating\" calcext:show-value=\"false\">{}{}{}{}</calcext:icon-set>",
+            entry("0", "number"),
+            entry("[.$B$1]", "number"),
+            entry("50", "percentile"),
+            entry("75", "percent")
+        ));
+        // What no row says: an icon set Excel's files do not name, one of no type, and a
+        // bar of no color.
+        conditions.push_str(&format!(
+            "<calcext:icon-set calcext:icon-set-type=\"3Smilies\">{}{}{}</calcext:icon-set>",
+            entry("0", "percent"),
+            entry("33", "percent"),
+            entry("67", "percent")
+        ));
+        conditions.push_str(&format!(
+            "<calcext:icon-set>{}{}{}</calcext:icon-set>",
+            entry("0", "percent"),
+            entry("33", "percent"),
+            entry("67", "percent")
+        ));
+        conditions.push_str(&format!(
+            "<calcext:data-bar>{}{}</calcext:data-bar>",
+            entry("0", "minimum"),
+            entry("0", "maximum")
+        ));
+        let table = format!(
+            "<table:table-row>{ONE}</table:table-row><calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"S.A1:S.A9\">{conditions}</calcext:conditional-format></calcext:conditional-formats>"
+        );
+        let (rows, stats) = rules_read("", LIT, &table);
+        let rules: Vec<&str> = rows
+            .iter()
+            .filter(|row| row.starts_with("(conditional "))
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            rules,
+            [
+                "(conditional \"S\" 1 \"A1:A9\" (duplicate) 2 stop)",
+                "(conditional \"S\" 2 \"A1:A9\" (unique) 2 stop)",
+                "(conditional \"S\" 3 \"A1:A9\" (above-average) 2 stop)",
+                "(conditional \"S\" 4 \"A1:A9\" (below-average) 2 stop)",
+                "(conditional \"S\" 5 \"A1:A9\" (above-average equal) 2 stop)",
+                "(conditional \"S\" 6 \"A1:A9\" (below-average equal) 2 stop)",
+                "(conditional \"S\" 7 \"A1:A9\" (top 10) 2 stop)",
+                "(conditional \"S\" 8 \"A1:A9\" (bottom 2) 2 stop)",
+                "(conditional \"S\" 9 \"A1:A9\" (top 20 percent) 2 stop)",
+                "(conditional \"S\" 10 \"A1:A9\" (bottom 5 percent) 2 stop)",
+                "(conditional \"S\" 11 \"A1:A9\" (color-scale (min) (percentile 50) (formula \"=$B$1\") \"F8696B\" \"FFEB84\" \"63BE7B\") none)",
+                "(conditional \"S\" 12 \"A1:A9\" (data-bar (min) (max) \"638EC6\") none)",
+                "(conditional \"S\" 13 \"A1:A9\" (data-bar (number 1) (percent 90) \"638EC6\" (length 5 95) no-value) none)",
+                "(conditional \"S\" 14 \"A1:A9\" (icon-set \"3Arrows\" (percent 0) (percent 33) (percent 67)) none)",
+                "(conditional \"S\" 15 \"A1:A9\" (icon-set \"4Rating\" (number 0) (number \"=$B$1\") (percentile 50) (percent 75) no-value) none)",
+            ],
+            "{stats:?}"
+        );
+        assert_eq!(stats.conditional, 18);
+        assert_eq!(stats.undrawn_rules, 15);
+        assert_eq!(stats.not_computed, 0);
+        // Each of the two bars said past its words, and the three no row says.
+        assert_eq!(stats.unheld, 2 + 3);
+        assert_eq!(stats.rule_cells, 0);
     }
 
     /// Excel's save writes a sheet's conditions on the styles its cells name: each a row
@@ -2842,6 +3143,7 @@ mod tests {
                 "(format 9 none general nowrap (font (family \"DejaVu Serif\" serif)))\n",
                 "(format 14 (fill \"CCFFCC\") (font \"006600\"))\n",
                 "(conditional \"Sheet1\" 1 \"B6\" (cell greater \"=5\") 14 stop)\n",
+                "(conditional \"Sheet1\" 2 \"A1:A6\" (color-scale (min) (max) \"FF0000\" \"00A933\") none)\n",
                 "(merge \"Sheet1\" \"A3:B3\")\n",
                 "(cell \"Sheet1\" \"A1\" \"Title\")\n",
                 "(style \"Sheet1\" \"A1\" 2)\n",

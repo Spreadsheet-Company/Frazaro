@@ -17,7 +17,10 @@
 //!
 //! The grids hold merged ranges (the item's sixth slice), whose rows are among
 //! those law 1 takes away, so that a merge moves no value and no plan, and whose
-//! cells each draw by their first in law 2, and through laws 3 to 5 with it.
+//! cells each draw by their first in law 2, and through laws 3 to 5 with it. They
+//! hold rules of the kinds not computed (its seventh) between the others by priority,
+//! one that stops among them, which law 2's twin grid knows nothing of: each moves
+//! no value, draws nothing and stops nothing, and a save keeps it.
 
 use std::collections::BTreeMap;
 
@@ -240,11 +243,20 @@ fn with_rules(rows: &str, rules: &[Generated], merges: &[A1Range]) -> String {
     for rule in rules {
         out.push_str(&rule.row());
     }
+    out.push_str(UNCOMPUTED);
     for merge in merges {
         out.push_str(&format!("(merge \"G\" \"{}\")\n", merge.text()));
     }
     out
 }
+
+/// Rules of the kinds not computed, each at a priority no generated rule takes.
+const UNCOMPUTED: &str = concat!(
+    "(conditional \"G\" 2 \"A1:C5\" (duplicate) 3)\n",
+    "(conditional \"G\" 4 \"A1:J12\" (top 1) 3 stop)\n",
+    "(conditional \"G\" 6 \"B2:D4\" (color-scale (min) (max) \"F8696B\" \"63BE7B\") none)\n",
+    "(conditional \"G\" 8 \"A1:E5\" (data-bar (number 0) (formula \"=$A$1\") \"638EC6\") none)\n",
+);
 
 /// The twin grid: each rule's test written as ordinary formulas over its
 /// rectangles, on an ordinary sheet of its own at the same places, moved as
@@ -1239,6 +1251,11 @@ fn a_rule_is_computable_exactly_where_a_load_takes_it() {
         (months, "\"A1:A2\" \"=SUM(Jan:Dec!$B$1048576)>0\"", true),
         (months, "\"A1:XFD1\" \"=SUM(Jan:Dec!A1)>0\"", true),
         (months, "\"A1:XFD1\" \"=SUM(Jan:Dec!B1)>0\"", false),
+        (
+            "",
+            "\"A1\" (color-scale (formula \"=NOSUCH(A1)\") (max) \"F8696B\" \"63BE7B\")",
+            true,
+        ),
     ];
     for (before, rule, taken) in cases {
         let rows = format!("{before}(conditional \"S\" 1 {rule} none)\n");
@@ -1905,4 +1922,199 @@ fn a_door_prints_a_merge_s_row() {
     let got = view_text(&wb, &window);
     assert!(got.contains("(merge \"G\" \"C1:D1\")\n"), "{got}");
     assert_eq!(wb.sheets[0].merges().len(), 1);
+}
+
+/// A row of each kind not computed, as a load takes it and a record prints it back.
+const KINDS: [&str; 18] = [
+    "(color-scale (min) (max) \"F8696B\" \"63BE7B\")",
+    "(color-scale (formula \"=5\") (max) \"F8696B\" \"63BE7B\")",
+    "(color-scale (formula \"=_xlfn.IFNA($G$3,0)\") (max) \"F8696B\" \"63BE7B\")",
+    "(top 1000)",
+    "(color-scale (number 1) (percent 50) (percentile 90) \"F8696B\" \"FFEB84\" \"63BE7B\")",
+    "(color-scale (formula \"=$G$1\") (number \"=$G$2\") \"F8696B\" \"63BE7B\")",
+    "(data-bar (min) (max) \"638EC6\")",
+    "(data-bar (number 0) (percent 90) \"638EC6\" (length 5 95) no-value)",
+    "(data-bar (min) (max) \"638EC6\" (length 0 100))",
+    "(icon-set \"3Arrows\" (percent 0) (percent 33) (percent 67))",
+    "(icon-set \"4Rating\" (percent 0) (number 25 greater) (percent 50) (percent 75) reverse no-value)",
+    "(icon-set \"5Quarters\" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80) reverse)",
+    "(top 10)",
+    "(bottom 20 percent)",
+    "(above-average equal)",
+    "(below-average (deviations 3))",
+    "(duplicate)",
+    "(unique)",
+];
+
+/// Each kind is a row a record prints back as it was written, in a save of either shape,
+/// that plans nothing and draws nothing, whatever it says.
+#[test]
+fn a_kind_not_computed_is_a_row_printed_back_that_draws_nothing() {
+    let plain = "(cell \"S\" \"A1\" 1)\n(formula \"S\" \"A2\" \"=A1+1\")\n";
+    let mut rows = plain.to_string();
+    let mut said = Vec::new();
+    for (k, words) in KINDS.iter().enumerate() {
+        let row = format!("(conditional \"S\" {} \"A1:B3\" {words} none)", k + 1);
+        rows.push_str(&row);
+        rows.push('\n');
+        said.push(row);
+    }
+    let mut m = load(&rows, "the kinds");
+    let without = load(plain, "without them");
+    assert_eq!(m.sheets(), without.sheets());
+    assert_eq!(m.formulas(), without.formulas());
+    assert_eq!(m.loaded(), without.loaded());
+    let mut bare = load(plain, "without them");
+    let (step, bare_step) = (m.step(0), bare.step(0));
+    assert!(step.done);
+    assert_eq!(step.of, bare_step.of, "it plans nothing");
+    for projection in ["grid", "values", "fills"] {
+        let text = record(&m, projection, "S", None);
+        let rules: Vec<&str> = text
+            .lines()
+            .filter(|l| l.starts_with("(conditional "))
+            .collect();
+        assert_eq!(rules, said, "{projection}");
+        assert!(!text.contains("(lit "), "{projection}: {text}");
+    }
+    for projection in ["grid", "fills"] {
+        let text = record(&m, projection, "S", None);
+        let mut again = load(&text, projection);
+        assert!(again.step(0).done);
+        assert_eq!(record(&again, projection, "S", None), text);
+    }
+    assert_eq!(lit_in(&m, "A1:B3"), Vec::<String>::new());
+    // A door prints them too, and a machine's workbook keeps them.
+    let forms = read_forms(&rows).unwrap();
+    let wb = read_rows(&forms).unwrap().workbook();
+    let window = window_of(&wb, "S", None).unwrap();
+    assert!(view_text(&wb, &window).contains(&said[0]));
+    assert_eq!(m.workbook().sheets[0].rules().len(), KINDS.len());
+    // A stop's formula is listed among a draft's, for an engine's check of what one calls.
+    let draft = read_rows(&forms).unwrap();
+    let listed: Vec<&str> = draft.formulas().map(|(_, text, _)| text).collect();
+    for text in ["$G$1", "$G$2", "5", "_xlfn.IFNA($G$3,0)"] {
+        assert!(listed.contains(&text), "{text}: {listed:?}");
+    }
+}
+
+/// A kind not computed takes a format and a stop where it may, draws by neither, and
+/// stops no rule after it; each computed rule beside it draws as it would.
+#[test]
+fn a_kind_not_computed_stops_nothing_and_a_rule_beside_it_draws() {
+    let rows = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(format 7 (font bold))\n",
+        "(conditional \"S\" 1 \"A1\" (top 1) 7 stop)\n",
+        "(conditional \"S\" 2 \"A1\" \"=A1=1\" 7)\n",
+        "(conditional \"S\" 3 \"A1\" (duplicate) 7)\n",
+        "(conditional \"S\" 4 \"A1\" \"=A1=1\" none)\n",
+    );
+    let mut m = load(rows, "the sheet");
+    assert!(m.step(0).done);
+    assert_eq!(lit_in(&m, "A1"), ["(lit \"S\" \"A1\" 2 4)"]);
+    // A save of them loads, and a `lit` row naming one is refused: it answers nothing.
+    let saved = record(&m, "grid", "S", None);
+    assert!(
+        saved.contains("(conditional \"S\" 1 \"A1\" (top 1) 7 stop)\n"),
+        "{saved}"
+    );
+    load(&saved, "the save");
+    let refused = Machine::load(
+        &format!("{saved}(lit \"S\" \"A1\" 1)\n"),
+        library::language(),
+    )
+    .err()
+    .map(|e| e.refusal.id);
+    assert_eq!(refused.as_deref(), Some("grid-row-malformed"));
+    // Nothing runs a stop's formula, so that a function no library holds is no matter; and
+    // none of its range counts toward the room, so that a rule beside it is planned whole,
+    // past its sheet's extent.
+    let wide = concat!(
+        "(cell \"S\" \"A1\" 1)\n",
+        "(conditional \"S\" 1 \"A1:XFD1048576\" (color-scale (formula \"=NOSUCH(A1)\") (max) \"F8696B\" \"63BE7B\") none)\n",
+        "(conditional \"S\" 2 \"A1:B1\" \"=1=1\" none)\n",
+    );
+    let mut m = load(wide, "over the whole sheet");
+    assert!(m.step(0).done);
+    assert_eq!(
+        lit_in(&m, "A1:B1"),
+        ["(lit \"S\" \"A1\" 2)", "(lit \"S\" \"B1\" 2)"]
+    );
+}
+
+#[test]
+fn a_kind_not_computed_s_row_is_refused_by_what_it_gets_wrong() {
+    for test in [
+        "(heat-map)",
+        // A scale of too few stops or too many, its colors not one each.
+        "(color-scale (min) \"F8696B\")",
+        "(color-scale (min) (percentile 25) (percentile 50) (max) \"F8696B\" \"F8696B\" \"F8696B\" \"F8696B\")",
+        "(color-scale (min) (max) \"F8696B\")",
+        "(color-scale (min) (max) \"F8696B\" \"63BE7B\" \"63BE7B\")",
+        "(color-scale (min) (max) \"F8696B\" \"nope\")",
+        "(color-scale (min) (max) F8696B \"63BE7B\")",
+        // A stop: a word of no kind, a value it does not say, one it says amiss, `greater`
+        // away from an icon's, a formula the parse does not read.
+        "(color-scale (lowest) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (min 1) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (number) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (number five) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (number inf) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (number \"5\") (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (formula 5) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (percent 5 greater) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (percent 5 less) (max) \"F8696B\" \"63BE7B\")",
+        "(color-scale (formula \"=1+\") (max) \"F8696B\" \"63BE7B\")",
+        // A bar of a stop too few, too many, or no color; a length of no sense.
+        "(data-bar (min) \"638EC6\")",
+        "(data-bar (min) (percent 5) (max) \"638EC6\")",
+        "(data-bar (min) (max))",
+        "(data-bar (min) (max) \"638EC6\" (length 90 10))",
+        "(data-bar (min) (max) \"638EC6\" (length 5 101))",
+        "(data-bar (min) (max) \"638EC6\" (length 5))",
+        "(data-bar (min) (max) \"638EC6\" (wide 5 95))",
+        "(data-bar (min) (max) \"638EC6\" no-value reverse)",
+        // A set no file names, its icons not one each, its words out of order.
+        "(icon-set \"3Stars\" (percent 0) (percent 33) (percent 67))",
+        "(icon-set \"3Arrows\" (percent 0) (percent 33))",
+        "(icon-set \"4Arrows\" (percent 0) (percent 33) (percent 67))",
+        "(icon-set \"3Arrows\" (percent 0) (percent 33) (percent 67) no-value reverse)",
+        "(icon-set 3Arrows (percent 0) (percent 33) (percent 67))",
+        // A rank past what Excel's dialogs say.
+        "(top)",
+        "(top 0)",
+        "(top 1001)",
+        "(bottom 101 percent)",
+        "(top 1.5)",
+        "(top 10 percent percent)",
+        // An average by no deviations, too many, or both ways.
+        "(above-average (deviations 0))",
+        "(above-average (deviations 4))",
+        "(above-average (standard 1))",
+        "(above-average near)",
+        "(above-average equal (deviations 1))",
+        "(duplicate 1)",
+        "(unique please)",
+    ] {
+        let row = format!("(conditional \"S\" 1 \"A1\" {test} none)");
+        let refused = Machine::load(&row, library::language())
+            .err()
+            .unwrap_or_else(|| panic!("{row} was taken"));
+        assert_eq!(refused.refusal.id, "grid-row-malformed", "{row}");
+    }
+    // A scale, a bar and a set of icons draw by their own words: no format, and no stop.
+    for row in [
+        "(conditional \"S\" 1 \"A1\" (color-scale (min) (max) \"F8696B\" \"63BE7B\") 7)",
+        "(conditional \"S\" 1 \"A1\" (color-scale (min) (max) \"F8696B\" \"63BE7B\") none stop)",
+        "(conditional \"S\" 1 \"A1\" (data-bar (min) (max) \"638EC6\") 7)",
+        "(conditional \"S\" 1 \"A1\" (data-bar (min) (max) \"638EC6\") none stop)",
+        "(conditional \"S\" 1 \"A1\" (icon-set \"3Arrows\" (percent 0) (percent 33) (percent 67)) 7)",
+        "(conditional \"S\" 1 \"A1\" (icon-set \"3Arrows\" (percent 0) (percent 33) (percent 67)) none stop)",
+    ] {
+        let refused = Machine::load(row, library::language())
+            .err()
+            .unwrap_or_else(|| panic!("{row} was taken"));
+        assert_eq!(refused.refusal.id, "grid-row-malformed", "{row}");
+    }
 }

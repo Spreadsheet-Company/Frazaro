@@ -23,7 +23,7 @@
 use crate::form::Form;
 use crate::printer::write_datum;
 use crate::refers::{self, FormulaRef, Kind};
-use crate::rule::{Rule, Test};
+use crate::rule::Rule;
 use crate::sheet::{column_letters, number_text, Column, NumFmt, RowSettings, Style, Unsaid};
 
 /// A cell's value as the file holds it.
@@ -161,8 +161,8 @@ pub enum Record<'r> {
         index: u32,
     },
     /// `(conditional "<sheet>" <priority> "<range>" <test> <format>|none
-    /// [stop])`, a test being `"=<formula>"` or `(cell <operator> "=<bound>"
-    /// ["=<bound>"])` (KERNEL.58).
+    /// [stop])`, a test being `"=<formula>"`, `(cell <operator> "=<bound>"
+    /// ["=<bound>"])` or a kind not computed's words (KERNEL.58).
     Conditional { sheet: &'r str, rule: &'r Rule },
     /// `(merge "<sheet>" "<range>")`: a merged range, its cells drawing by its
     /// first (KERNEL.58).
@@ -225,23 +225,7 @@ pub fn record_line(record: &Record<'_>) -> String {
             format!("(value {} {} {})", quoted(sheet), quoted(addr), value)
         }
         Record::Conditional { sheet, rule } => {
-            let test = match &rule.test {
-                Test::Formula(text) => quoted(&format!("={text}")),
-                Test::Cell {
-                    operator,
-                    first,
-                    second,
-                } => {
-                    let second = second
-                        .as_ref()
-                        .map_or(String::new(), |b| format!(" {}", quoted(&format!("={b}"))));
-                    format!(
-                        "(cell {} {}{second})",
-                        operator.word(),
-                        quoted(&format!("={first}"))
-                    )
-                }
-            };
+            let test = rule.test.words();
             let format = rule
                 .format
                 .map_or_else(|| "none".to_string(), |f| f.to_string());

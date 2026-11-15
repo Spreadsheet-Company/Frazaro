@@ -714,6 +714,9 @@ pub struct LooksStats {
     /// The conditional formats' rules the file holds, each said by a row of
     /// its own but those counted below (KERNEL.58).
     pub conditional: u64,
+    /// Those of a kind the language does not compute, each a row that draws nothing
+    /// (`rule::Uncomputed`).
+    pub undrawn_rules: u64,
     /// Those the language does not compute: a color scale, a data bar, an icon
     /// set, a top value, an average, a duplicate or a value alone, and a rule whose
     /// formula a load would refuse, one calling a function it lacks among them.
@@ -737,6 +740,7 @@ impl LooksStats {
         self.undrawn += other.undrawn;
         self.merged += other.merged;
         self.conditional += other.conditional;
+        self.undrawn_rules += other.undrawn_rules;
         self.not_computed += other.not_computed;
         self.rule_cells += other.rule_cells;
         self.row_formats += other.row_formats;
@@ -745,7 +749,7 @@ impl LooksStats {
     /// The counts as `--looks --counts` prints them beside a sheet's.
     pub fn line(&self) -> String {
         format!(
-            "looks formats {} styled {} formatted-empty {} unheld {} undrawn {} merged {} conditional {} not-computed {} rule-cells {} row-formats {}",
+            "looks formats {} styled {} formatted-empty {} unheld {} undrawn {} merged {} conditional {} undrawn-rules {} not-computed {} rule-cells {} row-formats {}",
             self.formats,
             self.styled,
             self.formatted_empty,
@@ -753,6 +757,7 @@ impl LooksStats {
             self.undrawn,
             self.merged,
             self.conditional,
+            self.undrawn_rules,
             self.not_computed,
             self.rule_cells,
             self.row_formats
@@ -821,6 +826,29 @@ impl LooksStats {
                     "cells' number formats this version does not draw are"
                 ),
                 if self.undrawn == 1 { "it" } else { "them" }
+            ));
+        }
+        if self.undrawn_rules > 0 {
+            if !note.is_empty() {
+                note.push_str("; and ");
+            }
+            note.push_str(&format!(
+                "{} printed as the file holds {} and {} nothing",
+                count(
+                    self.undrawn_rules,
+                    "conditional format of a kind this version does not compute is",
+                    "conditional formats of a kind this version does not compute are"
+                ),
+                if self.undrawn_rules == 1 {
+                    "it"
+                } else {
+                    "them"
+                },
+                if self.undrawn_rules == 1 {
+                    "draws"
+                } else {
+                    "draw"
+                }
             ));
         }
         (!note.is_empty()).then_some(note)
@@ -1156,7 +1184,33 @@ mod tests {
         );
         assert_eq!(
             stats.line(),
-            "looks formats 0 styled 0 formatted-empty 2 unheld 0 undrawn 1 merged 1 conditional 0 not-computed 0 rule-cells 0 row-formats 0"
+            "looks formats 0 styled 0 formatted-empty 2 unheld 0 undrawn 1 merged 1 conditional 0 undrawn-rules 0 not-computed 0 rule-cells 0 row-formats 0"
+        );
+        // A rule of a kind not computed is left out of nothing, and said.
+        let one = LooksStats {
+            undrawn_rules: 1,
+            ..LooksStats::default()
+        };
+        assert_eq!(
+            one.left_out().unwrap(),
+            "1 conditional format of a kind this version does not compute is printed as the file holds it and draws nothing"
+        );
+        let two = LooksStats {
+            formatted_empty: 1,
+            undrawn_rules: 2,
+            ..LooksStats::default()
+        };
+        assert_eq!(
+            two.left_out().unwrap(),
+            "the looks leave out what the record cannot hold: 1 cell that keeps a format and no value; and 2 conditional formats of a kind this version does not compute are printed as the file holds them and draw nothing"
+        );
+        assert_eq!(
+            LooksStats {
+                undrawn_rules: 7,
+                ..LooksStats::default()
+            }
+            .line(),
+            "looks formats 0 styled 0 formatted-empty 0 unheld 0 undrawn 0 merged 0 conditional 0 undrawn-rules 7 not-computed 0 rule-cells 0 row-formats 0"
         );
         // A rule the record says is left out of nothing; one it cannot is.
         let stats = LooksStats {

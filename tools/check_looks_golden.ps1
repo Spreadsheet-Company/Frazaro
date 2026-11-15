@@ -51,8 +51,9 @@ floors. The core's test holds its cases to the builder's.
 Its third, scripts/reflect/rules_written_golden.txt, is the same of the writer's
 own workbook, VlaWriteRulesWrittenGolden's of rules_written.xlsx, with Excel's
 save of it once it is Excel's, and is held by the same rules: its one sheet, the
-two kinds of rule the writer writes, every operator, a merge's target, which no
-other golden reads and each of its readings a range, and its floors.
+kinds of rule the writer writes, every operator, a merge's target, each of its
+readings a range, and a held target, each of its readings a row's words for a kind
+the language does not compute, which no other golden reads, and its floors.
 
 -Control proves the check on scratch copies: the real golden must pass,
 and each of these must fail: one with a target's kind misspelled, one with
@@ -63,8 +64,8 @@ target's kind misspelled, one with its last case dropped, one reading a word
 the record has none for, one reading a rule of no such kind, one reading an
 error, one whose source is no one's, and one with a merge's target, which it
 has none of; and of the writer's, one with its last case dropped, one whose
-source is no one's, one reading a merge that is no range, and one with no
-merge's target.
+source is no one's, one reading a merge that is no range, one with no merge's
+target, one reading a held target of no kind, and one with no held target.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -118,14 +119,15 @@ $rulesSpec = @{
 }
 
 # The writer's own workbook (the item's fourth slice): every form it writes. Its
-# floors, never lowered: 2026-11-01, 122 cases, 537 targets, each rule a target's a
-# line, the merged ranges of the item's sixth slice among them.
+# floors, never lowered: 2026-11-02, 162 cases, 617 targets, each rule a target's a
+# line, the merged ranges of the item's sixth slice and the kinds not computed of its
+# seventh among them.
 $writtenGoldenPath = Join-Path $repoRoot 'scripts/reflect/rules_written_golden.txt'
 $writtenSpec = @{
     Name = 'written'; Writer = 'VlaWriteRulesWrittenGolden'
-    Books = @('rules_written.xlsx'); Saves = @('rules_written_saved.xlsx'); Sheets = @('Written'); Kinds = ($rulesKinds + 'merge')
-    RuleKinds = @('cell', 'expression'); Operators = $ruleOperators
-    CaseFloor = 122; TargetFloor = 537
+    Books = @('rules_written.xlsx'); Saves = @('rules_written_saved.xlsx'); Sheets = @('Written'); Kinds = ($rulesKinds + 'merge' + 'held')
+    RuleKinds = @('cell', 'expression', 'color-scale', 'data-bar', 'icon-set', 'top10', 'above-average', 'unique-values'); Operators = $ruleOperators
+    CaseFloor = 162; TargetFloor = 617
 }
 $words = @('superscript', 'subscript', 'outline', 'shadow',
     'runs', 'pattern', 'horizontal', 'vertical', 'indent', 'rotation', 'shrink', 'rtl', 'diagonal')
@@ -392,6 +394,10 @@ function Test-RulesGolden([string]$golden, [hashtable]$spec) {
             if (-not ($reading -cmatch '^[A-Z]+\d+(:[A-Z]+\d+)?$')) {
                 [void]$problems.Add(("rules line {0}: {1} reads '{2}', not a range" -f ($i + 1), $target, $reading))
             }
+        } elseif ($kind -ceq 'held') {
+            if (-not ($reading -cmatch '^(none|\((color-scale|data-bar|icon-set|top|bottom|above-average|below-average|duplicate|unique)\b.*\))$')) {
+                [void]$problems.Add(("rules line {0}: {1} reads '{2}', no row's words" -f ($i + 1), $target, $reading))
+            }
         } elseif ($reading -cne 'none') {
             $m = [regex]::Match($reading, $rulePattern)
             if (-not $m.Success) {
@@ -558,10 +564,21 @@ if ($Control) {
         $h = @($lines | ForEach-Object { $_ })
         $h[$firstMerge] = $h[$firstMerge].Substring(0, $h[$firstMerge].IndexOf("`t")) + "`tnope"
         $noMerge = @($lines | Where-Object { -not $_.StartsWith('merge:') })
+        $firstHeld = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($firstHeld -lt 0 -and $lines[$i].StartsWith('held:')) { $firstHeld = $i }
+        }
+        if ($firstHeld -lt 0) {
+            Write-Output 'FAIL: the control found no held target to mutate'
+            exit 1
+        }
+        $j = @($lines | ForEach-Object { $_ })
+        $j[$firstHeld] = $j[$firstHeld].Substring(0, $j[$firstHeld].IndexOf("`t")) + "`t(heat-map)"
+        $noHeld = @($lines | Where-Object { -not $_.StartsWith('held:') })
         $writtenCounts = New-Object System.Collections.ArrayList
         $writtenAllFail = $true
         $k = 0
-        foreach ($mu in @(@('the dropped case', @($lines[0..($lastHeader - 1)])), @('the source of none', $g), @('the range of none', $h), @('the merge of none', $noMerge))) {
+        foreach ($mu in @(@('the dropped case', @($lines[0..($lastHeader - 1)])), @('the source of none', $g), @('the range of none', $h), @('the merge of none', $noMerge), @('the words of none', $j), @('the held of none', $noHeld))) {
             $k++
             $golden = Join-Path $tmp ("written_$k.txt")
             [System.IO.File]::WriteAllText($golden, ($mu[1] -join "`n"), $utf8)

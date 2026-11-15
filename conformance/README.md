@@ -2609,3 +2609,42 @@ holds a merge.
   packages and `.ods` alike. The language's free laws take grids holding merged ranges: every frame's
   values are the same grid's without them, each `lit` row is its first cell's answers as ordinary
   formulas compute them, and a window's changes and a save hold it as they hold any lit cell.
+
+## Amendment of 2026-11-02: the kinds no formula says (`KERNEL.58`, its seventh slice)
+
+A rule of a kind that says no formula of its own is a row of its own words, which the language
+holds and does not compute. No golden of oracles 7 or 8 moves but `rules_written.xlsx`, and each
+workbook of the third slice's oracle prints the rows it left out, every target standing.
+
+- **The rows,** in a test's place: `(color-scale (min) (percentile 50) (max) "F8696B" "FFEB84"
+  "63BE7B")`, two stops or three and a color for each; `(data-bar (min) (max) "638EC6" (length 5 95)
+  no-value)`, the length and the word optional; `(icon-set "3Arrows" (percent 0) (percent 33 greater)
+  (percent 67) reverse no-value)`, one of the seventeen sets a file's own `iconSet` names and a stop
+  for each icon; `(top 10)`, `(bottom 20 percent)`; `(above-average)`, `(below-average equal)`,
+  `(above-average (deviations 1))`; `(duplicate)`; `(unique)`. A stop is `(min)`, `(max)`, `(number 5)`,
+  `(percent 33)`, `(percentile 50)` or `(formula "=$A$1")`, a number's place holding a formula in
+  its quotes. A rank, an average, a duplicate and a value alone take a format and `stop`, and a scale, a
+  bar and a set of icons neither. What Excel's dialogs do not let a rule say a load refuses
+  (`Uncomputed::well_said`, `grid-row-malformed`): a rank past 1,000, or 100 by percent, an average of
+  more than 3 deviations or of equal and deviations both, a bar's length past 100.
+- **Not computed.** A load takes each and plans nothing: no answer sheet, no cell toward the room, and
+  a `lit` row naming one is refused. A record prints it back and a save keeps it. It draws nothing and
+  stops nothing, a gap this names: `(top 1) 7 stop` lights no cell and ends no rule where Excel's does. A
+  stop's formula is parsed and never run, so that a function no library holds is no matter, and
+  `Rule::formulas` lists it, for an engine's check of what a formula may call.
+- **The writer** writes each in the part, as a file says it, what a row leaves unsaid unwritten. One
+  whose stop reads another sheet, which only the extension spells, is left out and named
+  (`ooxml::rules_left_out`).
+- **The readers.** A package's part, each color resolved as any, a stop's `gte` at an icon's alone. What
+  a bar's twin in the extension adds, its negative color and its axis among it, is counted under
+  `unheld`, its part's row standing, and a rule the extension alone holds is left out, under
+  `not-computed`. LibreOffice's `calcext` elements are the same words, its automatic stops the plain
+  ones and what its bar says past them counted the same, and a condition's rows stop as each of a
+  file's do. What no row says is counted under `unheld`. `--counts` gains `undrawn-rules`, and the note
+  says how many are printed and draw nothing (`SD-30`); `not-computed` falls to what is left out.
+- **The oracle.** `rules_written.xlsx` gains 40 cases at its end, each with a `held:` target: what Excel's
+  object model says of the rule (`ColorScaleCriteria`, `MinPoint`, `IconCriteria`, `Rank`, `AboveBelow`,
+  `DupeUnique` and the rest), in the row's own words, by `VlaWriteRulesWrittenGolden`. The third slice's
+  gaps for what these kinds draw stand, and the reader's rules of them join `rule:`. The free laws take
+  grids holding four such rules between the others by priority, one that stops: each moves no value,
+  draws nothing and stops nothing, and a save keeps it.

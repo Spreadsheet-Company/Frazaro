@@ -523,8 +523,8 @@ a conditional format the language does not compute, a row formatted whole. A
 number format the language does not draw is printed as the file holds it,
 and a load refuses it by name. With `--counts` beside it, each line gains
 the looks' counts, the formats, the cells styled, each kind left out, a
-sheet's `merged` ranges and its `conditional` rules, those `not-computed` and
-the `rule-cells` they answer for.
+sheet's `merged` ranges and its `conditional` rules, those `undrawn-rules`, those
+`not-computed` and the `rule-cells` they answer for.
 
 A workbook's conditional formats print as rows of their own, after the formats
 and before the cells, each with the format it names, a format of its own past
@@ -540,11 +540,10 @@ Each kind holding a formula of its own is that formula, a rule reading another
 sheet from the sheet's extension as from its part, its formula printed and never
 run. A file's tied priorities read as Excel reads them, in one element the later
 first and of two elements the first, each moved up by as little as it can. A
-color scale, a data bar, an icon set, a top value, an average, a duplicate and a
-value alone are left out, counted and said, and so is a rule whose formula a load
-would refuse, one calling a function the language does not compute among them, so
-that one rule does not keep a workbook out; a load still refuses that row written
-by hand, as it refuses that call in a cell. What Excel reads and does not draw of
+rule whose formula a load would refuse, one calling a function the language does
+not compute among them, is left out, counted and said, so that one rule does not
+keep a workbook out; a load still refuses that row written by hand, as it refuses
+that call in a cell. What Excel reads and does not draw of
 a rule's format, a font's name and a vertical alignment, is left out and not
 counted. Rules asking for more than the 1,048,576 cells a load keeps beside the grid's
 each answer only inside their sheet's extent, which a record of the sheet whole shows, and
@@ -554,8 +553,33 @@ An `.ods` file's rules are the same rows: LibreOffice's own elements where a she
 holds any, else the conditions on its cell styles, each over the cells naming its
 style, as Excel's save writes them. A cell of such a file takes the style of the
 first condition true over it and no other, so each of its rows stops. LibreOffice's
-kinds over a text or an error are Excel's formula for their kin, and its duplicates,
-averages, ranks and dates are left out, counted and said.
+kinds over a text or an error are Excel's formula for their kin, its duplicates,
+averages, ranks, scales, bars and icons the words below, and its dates are left out,
+counted and said.
+
+A color scale, a data bar, a set of icons, a top or bottom value, an average, a
+duplicate and a value alone say no formula of their own and are rows of their own
+words, which the language does not compute: a load takes each and plans nothing, it
+draws nothing and stops nothing, a record prints it back and the writer writes it. The
+note says how many, and `--counts` counts them under `undrawn-rules`:
+
+```text
+(conditional "Board" 3 "B2:J10" (color-scale (min) (percentile 50) (max) "F8696B" "FFEB84" "63BE7B") none)
+(conditional "Board" 4 "B2:J10" (data-bar (min) (max) "638EC6" (length 5 95) no-value) none)
+(conditional "Board" 5 "B2:J10" (icon-set "3Arrows" (percent 0) (percent 33 greater) (percent 67) reverse) none)
+(conditional "Board" 6 "B2:J10" (top 10 percent) 12 stop)
+(conditional "Board" 7 "B2:J10" (below-average equal) 12)
+(conditional "Board" 8 "B2:J10" (above-average (deviations 1)) none)
+(conditional "Board" 9 "B2:J10" (duplicate) 12)
+(conditional "Board" 10 "B2:J10" (unique) none)
+```
+
+A stop says `(min)`, `(max)`, `(number 5)`, `(percent 33)`, `(percentile 50)` or
+`(formula "=$A$1")`, a number's place holding a formula in its quotes, parsed and never
+run. What a bar's twin in a file's extension adds, its negative color and its axis among
+it, is counted under `unheld`, and a rule only the extension holds is left out, counted
+under `not-computed`. What Excel's dialogs do not let a rule say, a load refuses and a
+reader counts under `unheld`.
 
 A merged range is a row of its own after a sheet's rules, `(merge "Report" "C6:E6")`,
 from a package's `mergeCell` and an `.ods` file's spanning cell alike; one of no more

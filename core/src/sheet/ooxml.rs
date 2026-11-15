@@ -72,14 +72,14 @@ use super::xml;
 use super::zip;
 use super::{
     cell_ref, column_width_attr, number_text, shared_masters, xlfn, Border, Content, Family, Font,
-    Horizontal, Line, NumFmt, RowSettings, Sheet, Style, Underline, Vertical, Workbook,
+    Horizontal, Line, NumFmt, Rgb, RowSettings, Sheet, Style, Underline, Vertical, Workbook,
 };
 use crate::calc::{Computed, Value, Values};
 use crate::refers::{self, Kind};
 use vla_lang::machine::load::twin_base;
 use vla_lang::numfmt::Code;
 use vla_lang::rows::Visibility;
-use vla_lang::rule::{Rule, Test};
+use vla_lang::rule::{Rule, Stop, Test, Uncomputed, BAR_LENGTHS};
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -813,6 +813,9 @@ fn rule_place(rule: &Rule, sheet: &str) -> RulePlace {
                 return RulePlace::Nowhere("reads a sheet's last frame");
             }
             if !reference.sheet_name.eq_ignore_ascii_case(sheet) {
+                if !rule.computed() {
+                    return RulePlace::Nowhere("reads another sheet from a stop");
+                }
                 place = RulePlace::Extension;
             }
         }
@@ -916,17 +919,111 @@ fn rule_attrs(rule: &Rule) -> String {
     if rule.stop {
         s.push_str(" stopIfTrue=\"1\"");
     }
-    if let Test::Cell { operator, .. } = &rule.test {
-        s.push_str(&format!(" operator=\"{}\"", operator.excel()));
+    match &rule.test {
+        Test::Cell { operator, .. } => {
+            s.push_str(&format!(" operator=\"{}\"", operator.excel()));
+        }
+        Test::Uncomputed(Uncomputed::Rank {
+            bottom,
+            rank,
+            percent,
+        }) => {
+            if *percent {
+                s.push_str(" percent=\"1\"");
+            }
+            if *bottom {
+                s.push_str(" bottom=\"1\"");
+            }
+            s.push_str(&format!(" rank=\"{rank}\""));
+        }
+        Test::Uncomputed(Uncomputed::Average {
+            below,
+            equal,
+            deviations,
+        }) => {
+            if *below {
+                s.push_str(" aboveAverage=\"0\"");
+            }
+            if *equal {
+                s.push_str(" equalAverage=\"1\"");
+            }
+            if *deviations > 0 {
+                s.push_str(&format!(" stdDev=\"{deviations}\""));
+            }
+        }
+        _ => {}
     }
     s
 }
 
 /// The `type` of a rule's element.
 fn rule_kind(rule: &Rule) -> &'static str {
-    match rule.test {
+    match &rule.test {
         Test::Formula(_) => "expression",
         Test::Cell { .. } => "cellIs",
+        Test::Uncomputed(held) => held.excel(),
+    }
+}
+
+/// A stop as a file's `cfvo` says it.
+fn stop_element(stop: &Stop) -> String {
+    let value = if stop.kind.says_a_value() {
+        let text = xlfn::prefix_future_functions(&stop.value);
+        format!(" val=\"{}\"", xml::attr(&text))
+    } else {
+        String::new()
+    };
+    let greater = if stop.greater { " gte=\"0\"" } else { "" };
+    format!("<cfvo type=\"{}\"{value}{greater}/>", stop.kind.excel())
+}
+
+/// What a rule holds inside its element: its formulas, or a kind not computed's own
+/// element, which a rank, an average, a duplicate and a value alone have none of.
+fn rule_body(rule: &Rule) -> String {
+    let Test::Uncomputed(held) = &rule.test else {
+        return rule
+            .formulas()
+            .iter()
+            .map(|f| format!("<formula>{}</formula>", rule_formula(f)))
+            .collect();
+    };
+    let stops: String = held.stops().into_iter().map(stop_element).collect();
+    let color = |color: &Rgb| format!("<color rgb=\"{}\"/>", color.argb_hex());
+    let value = |shows: bool| if shows { "" } else { " showValue=\"0\"" };
+    match held {
+        Uncomputed::ColorScale { colors, .. } => {
+            let colors: String = colors.iter().map(color).collect();
+            format!("<colorScale>{stops}{colors}</colorScale>")
+        }
+        Uncomputed::DataBar {
+            color: bar,
+            lengths,
+            shows_value,
+            ..
+        } => {
+            let length = if *lengths == BAR_LENGTHS {
+                String::new()
+            } else {
+                format!(" minLength=\"{}\" maxLength=\"{}\"", lengths.0, lengths.1)
+            };
+            format!(
+                "<dataBar{length}{}>{stops}{}</dataBar>",
+                value(*shows_value),
+                color(bar)
+            )
+        }
+        Uncomputed::IconSet {
+            set,
+            reverse,
+            shows_value,
+            ..
+        } => format!(
+            "<iconSet iconSet=\"{}\"{}{}>{stops}</iconSet>",
+            xml::attr(set),
+            value(*shows_value),
+            if *reverse { " reverse=\"1\"" } else { "" }
+        ),
+        _ => String::new(),
     }
 }
 
@@ -973,15 +1070,12 @@ fn rules_text(sheet: &Sheet, render: &Render) -> String {
                 let dxf = looks.dxf_id(rule).map_or(String::new(), |id| {
                     format!(" dxfId=\"{}\"", render.dxf_base + id)
                 });
-                let bodies: String = formulas
-                    .iter()
-                    .map(|f| format!("<formula>{}</formula>", rule_formula(f)))
-                    .collect();
                 let element = format!(
-                    "<cfRule type=\"{}\"{dxf} priority=\"{}\"{}>{bodies}</cfRule>",
+                    "<cfRule type=\"{}\"{dxf} priority=\"{}\"{}>{}</cfRule>",
                     rule_kind(rule),
                     rule.priority,
-                    rule_attrs(rule)
+                    rule_attrs(rule),
+                    rule_body(rule)
                 );
                 match elements.iter_mut().find(|(range, _)| *range == sqref) {
                     Some((_, rules)) => rules.push_str(&element),
@@ -1765,6 +1859,62 @@ mod tests {
                 "xl/styles.xml",
                 "xl/worksheets/frazaro_1.xml",
             ]
+        );
+    }
+
+    /// Each kind not computed is written as a file says it, its defaults unsaid; and one
+    /// whose stop reads another sheet, which only an extension spells, is left out and named.
+    #[test]
+    fn a_kind_not_computed_is_written_as_a_file_says_it() {
+        let rows = concat!(
+            "(format 7 (font bold))\n",
+            "(cell \"S\" \"A1\" 1)\n",
+            "(conditional \"S\" 1 \"A1\" (color-scale (min) (percentile 50) (formula \"=$B$1<\\\"a\\\"\") \"F8696B\" \"FFEB84\" \"63BE7B\") none)\n",
+            "(conditional \"S\" 2 \"A1\" (data-bar (min) (max) \"638EC6\") none)\n",
+            "(conditional \"S\" 3 \"A1\" (data-bar (number 0) (number \"=IFNA($B$1,0)\") \"638EC6\" (length 5 95) no-value) none)\n",
+            "(conditional \"S\" 4 \"A1\" (icon-set \"3Arrows\" (percent 0) (percent 33 greater) (percentile 67)) none)\n",
+            "(conditional \"S\" 5 \"A1\" (icon-set \"3Flags\" (percent 0) (percent 33) (percent 67) reverse no-value) none)\n",
+            "(conditional \"S\" 6 \"A1\" (top 10) 7 stop)\n",
+            "(conditional \"S\" 7 \"A1\" (bottom 20 percent) none)\n",
+            "(conditional \"S\" 8 \"A1\" (above-average) 7)\n",
+            "(conditional \"S\" 9 \"A1\" (below-average equal) none)\n",
+            "(conditional \"S\" 10 \"A1\" (above-average (deviations 2)) none)\n",
+            "(conditional \"S\" 11 \"A1\" (duplicate) none)\n",
+            "(conditional \"S\" 12 \"A1\" (unique) none)\n",
+            "(conditional \"S\" 13 \"A1\" (color-scale (formula \"=Other!$A$1\") (max) \"F8696B\" \"63BE7B\") none)\n",
+        );
+        let forms = vla_lang::reader::read_forms(rows).unwrap();
+        let wb = vla_lang::machine::read_rows(&forms)
+            .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal))
+            .workbook();
+        let codes = Vec::new();
+        let looks = RuleLooks::of(&wb, &codes);
+        let render = Render {
+            rules: Some(&looks),
+            ..Render::FRESH
+        };
+        let part = sheet_xml(&wb.sheets[0], true, &render);
+        for element in [
+            "<cfRule type=\"colorScale\" priority=\"1\"><colorScale><cfvo type=\"min\"/><cfvo type=\"percentile\" val=\"50\"/><cfvo type=\"formula\" val=\"$B$1&lt;&quot;a&quot;\"/><color rgb=\"FFF8696B\"/><color rgb=\"FFFFEB84\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "<cfRule type=\"dataBar\" priority=\"2\"><dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/></dataBar></cfRule>",
+            "<cfRule type=\"dataBar\" priority=\"3\"><dataBar minLength=\"5\" maxLength=\"95\" showValue=\"0\"><cfvo type=\"num\" val=\"0\"/><cfvo type=\"num\" val=\"_xlfn.IFNA($B$1,0)\"/><color rgb=\"FF638EC6\"/></dataBar></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"4\"><iconSet iconSet=\"3Arrows\"><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"33\" gte=\"0\"/><cfvo type=\"percentile\" val=\"67\"/></iconSet></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"5\"><iconSet iconSet=\"3Flags\" showValue=\"0\" reverse=\"1\"><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"33\"/><cfvo type=\"percent\" val=\"67\"/></iconSet></cfRule>",
+            "<cfRule type=\"top10\" dxfId=\"0\" priority=\"6\" stopIfTrue=\"1\" rank=\"10\"></cfRule>",
+            "<cfRule type=\"top10\" priority=\"7\" percent=\"1\" bottom=\"1\" rank=\"20\"></cfRule>",
+            "<cfRule type=\"aboveAverage\" dxfId=\"0\" priority=\"8\"></cfRule>",
+            "<cfRule type=\"aboveAverage\" priority=\"9\" aboveAverage=\"0\" equalAverage=\"1\"></cfRule>",
+            "<cfRule type=\"aboveAverage\" priority=\"10\" stdDev=\"2\"></cfRule>",
+            "<cfRule type=\"duplicateValues\" priority=\"11\"></cfRule>",
+            "<cfRule type=\"uniqueValues\" priority=\"12\"></cfRule>",
+        ] {
+            assert!(part.contains(element), "{element}\n{part}");
+        }
+        assert!(!part.contains("priority=\"13\""), "{part}");
+        assert!(!part.contains("x14:"), "{part}");
+        assert_eq!(
+            rules_left_out(&wb),
+            ["S's rule of priority 13 reads another sheet from a stop, which a file cannot spell, and is left out"]
         );
     }
 

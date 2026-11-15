@@ -189,7 +189,10 @@ refused in the same words.
   in the formula's place, as a sheet holds it (`Sheet::rules`, `Sheet::put_rule`). A
   machine computes each rule's answer as a fill on a sheet of its own that no
   reference can spell, so a rule moves no value, and prints what applies at a cell,
-  `(lit "Board" "B2" 1 3)`, by priority up to the first that stops.
+  `(lit "Board" "B2" 1 3)`, by priority up to the first that stops. A color scale, a
+  data bar, a set of icons, a rank, an average, a duplicate and a value alone, which say
+  no formula, are rows of their own words (`rule::Uncomputed`), planned for nothing and
+  drawing nothing, so that a workbook keeps them.
 - **Holds a merged range.** `(merge "Board" "B2:D2")` is a row of its own, printed in
   every record of its sheet after its rules (`Sheet::merges`, `Sheet::put_merge`), of more
   than one cell, no two overlapping (`grid-merge-overlap`). It moves no value and no plan:

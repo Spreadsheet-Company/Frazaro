@@ -417,3 +417,11 @@ A record prints each as a row, and each of a range's cells a rule's row only whi
 cells by its rules are at most the 1,048,576 cells rules may answer for, so that a merge of the whole
 sheet in a file of three rows costs a record one row and not seventeen billion. No capability is added,
 and the module's import section is still empty.
+
+*Appended 2026-11-02, `KERNEL.58`'s seventh slice: the kinds no formula says.* `--looks` reads what a
+color scale, a data bar, a set of icons, a rank and an average say beside a rule's element, and
+LibreOffice's twins of them. What comes of them is data, printed: a stop's text and a color. A stop may
+hold a formula: a load parses it and nothing runs it, so that it reads no cell and calls no function, and
+the writer writes it through a value's escapes, a file's attribute where a rule's formula is an element's
+text. Each is bounded as a row is: a rule of these plans nothing and answers for no cell, however wide its
+range. No capability is added, and the module's import section is still empty.

@@ -76,7 +76,7 @@ use crate::sheet::{
 };
 use vla_lang::machine::load::FORMATS;
 use vla_lang::rows::{datum, ArrayKind};
-use vla_lang::rule::{Operator, Rule, Test};
+use vla_lang::rule::{Operator, Rule, Stop, StopKind, Test, Uncomputed, BAR_LENGTHS};
 
 /// The most distinct R1C1 formulas a count keeps, per sheet and per
 /// workbook; past it the count stands still (AXM.1's own cap).
@@ -1025,7 +1025,7 @@ impl<'a> Package<'a> {
                     name: "conditionalFormatting",
                     attrs,
                     empty: false,
-                } => self.read_conditional(&mut cursor, attrs, &mut rules, &mut scan)?,
+                } => self.read_conditional(&mut cursor, attrs, false, &mut rules, &mut scan)?,
                 _ => {}
             }
         }
@@ -1053,7 +1053,7 @@ impl<'a> Package<'a> {
                     name: "conditionalFormatting",
                     attrs,
                     empty: false,
-                } => self.read_conditional(cursor, attrs, rules, scan)?,
+                } => self.read_conditional(cursor, attrs, true, rules, scan)?,
                 Event::Start { empty: false, .. } => {
                     skip_element(cursor).map_err(|why| xml_refused(label, part, why))?
                 }
@@ -1070,6 +1070,7 @@ impl<'a> Package<'a> {
         &self,
         cursor: &mut Cursor,
         attrs: &str,
+        extension: bool,
         rules: &mut RuleReading,
         scan: &mut SheetScan,
     ) -> Result<(), Refusal> {
@@ -1099,7 +1100,7 @@ impl<'a> Package<'a> {
             }
         }
         for (place, rule) in found.into_iter().enumerate() {
-            self.take_rule(rule, place as u32, sqref.as_deref(), rules, scan);
+            self.take_rule(rule, place as u32, sqref.as_deref(), extension, rules, scan);
         }
         Ok(())
     }
@@ -1114,6 +1115,7 @@ impl<'a> Package<'a> {
         rule: FileRule,
         place: u32,
         sqref: Option<&str>,
+        extension: bool,
         rules: &mut RuleReading,
         scan: &mut SheetScan,
     ) {
@@ -1123,7 +1125,8 @@ impl<'a> Package<'a> {
             return;
         }
         scan.stats.conditional += 1;
-        if NOT_COMPUTED.contains(&rule.kind.as_str()) {
+        // An extension's alone says what its own elements say, which no row holds.
+        if extension && NOT_COMPUTED.contains(&rule.kind.as_str()) {
             scan.stats.not_computed += 1;
             return;
         }
@@ -1133,12 +1136,35 @@ impl<'a> Package<'a> {
                 .then(|| spelled.into_iter().map(parse_a1_range).collect())
                 .flatten()
         });
-        let (Some(priority), Some(ranges), Some(test)) =
-            (rule.priority, ranges, Self::rule_test(&rule))
-        else {
+        let (Some(priority), Some(ranges), Some(test)) = (
+            rule.priority,
+            ranges,
+            Self::rule_test(&rule, &rules.table.colors),
+        ) else {
             scan.stats.unheld += 1;
             return;
         };
+        if let Test::Uncomputed(held) = test {
+            // What a part's twin in the extension adds, a bar's negative color and
+            // its axis among it, no row says.
+            if rule.twin.is_some() {
+                scan.stats.unheld += 1;
+            }
+            let takes = held.takes_a_format();
+            let mut row = Rule {
+                priority,
+                ranges,
+                test: Test::Uncomputed(held),
+                format: None,
+                stop: rule.stop && takes,
+            };
+            if takes {
+                row.format = self.rule_format(&rule, rules.table, scan);
+            }
+            scan.stats.undrawn_rules += 1;
+            rules.found.push((rules.element, place, row));
+            return;
+        }
         let mut row = Rule {
             priority,
             ranges,
@@ -1158,9 +1184,14 @@ impl<'a> Package<'a> {
 
     /// What a rule tests, its formulas the bar's text, a newer function's prefix
     /// dropped: a kind holding a formula of its own is that formula, Excel lighting
-    /// an error as not blank where this kind's own formula answers the error;
-    /// `None` where the rule says too little.
-    fn rule_test(rule: &FileRule) -> Option<Test> {
+    /// an error as not blank where this kind's own formula answers the error; a kind
+    /// holding none its own words, each color resolved as any; `None` where the rule
+    /// says too little or more than a load takes.
+    fn rule_test(rule: &FileRule, colors: &Colors) -> Option<Test> {
+        if NOT_COMPUTED.contains(&rule.kind.as_str()) {
+            let held = rule.uncomputed(colors)?;
+            return held.well_said().then_some(Test::Uncomputed(held));
+        }
         let formula = |at: usize| {
             let text = rule.formulas.get(at).filter(|f| !f.trim().is_empty())?;
             Some(xlfn::strip_future_prefixes(text))
@@ -1573,8 +1604,8 @@ pub(crate) struct StyleTable {
     part: bool,
 }
 
-/// The kinds of a rule the language does not compute (decision 5), left out and
-/// counted. Each is what a formula of the file's own does not say.
+/// The kinds of a rule the language does not compute (decision 5), each a row of its
+/// own words that draws nothing. Each is what a formula of the file's own does not say.
 const NOT_COMPUTED: [&str; 7] = [
     "colorScale",
     "dataBar",
@@ -1600,6 +1631,98 @@ struct FileRule {
     /// Its id in the extension, and in the part the id its twin there has.
     id: Option<String>,
     twin: Option<String>,
+    /// Its `cfvo` elements, each `None` where it says no stop of a row's, and its
+    /// `color` elements, each `None` where it says no color a row holds.
+    stops: Vec<Option<Stop>>,
+    colors: Vec<Option<ColorRef>>,
+    /// What its own element, of a scale, a bar or a set of icons, says beside them.
+    icons: Option<String>,
+    lengths: Option<(u32, u32)>,
+    reverse: bool,
+    hides_value: bool,
+    /// What a rank's and an average's attributes say.
+    rank: Option<u32>,
+    percent: bool,
+    bottom: bool,
+    below: bool,
+    equal: bool,
+    deviations: u32,
+}
+
+impl FileRule {
+    /// A kind not computed as a row says it, its colors resolved; `None` where the
+    /// file says what no row does.
+    fn uncomputed(&self, colors: &Colors) -> Option<Uncomputed> {
+        // A stop's `gte` means something at an icon's alone.
+        let plain = |stop: &Option<Stop>| {
+            stop.clone().map(|stop| Stop {
+                greater: false,
+                ..stop
+            })
+        };
+        let resolved = |color: &Option<ColorRef>| match colors.resolve(color.as_ref()?) {
+            Resolved::Rgb(rgb) => Some(rgb),
+            _ => None,
+        };
+        Some(match self.kind.as_str() {
+            "colorScale" => Uncomputed::ColorScale {
+                stops: self.stops.iter().map(plain).collect::<Option<_>>()?,
+                colors: self.colors.iter().map(resolved).collect::<Option<_>>()?,
+            },
+            "dataBar" => {
+                let ([low, high], [color]) = (self.stops.as_slice(), self.colors.as_slice()) else {
+                    return None;
+                };
+                Uncomputed::DataBar {
+                    low: plain(low)?,
+                    high: plain(high)?,
+                    color: resolved(color)?,
+                    lengths: self.lengths.unwrap_or(BAR_LENGTHS),
+                    shows_value: !self.hides_value,
+                }
+            }
+            "iconSet" => Uncomputed::IconSet {
+                set: self
+                    .icons
+                    .clone()
+                    .unwrap_or_else(|| "3TrafficLights1".to_string()),
+                stops: self.stops.iter().cloned().collect::<Option<_>>()?,
+                reverse: self.reverse,
+                shows_value: !self.hides_value,
+            },
+            "top10" => Uncomputed::Rank {
+                bottom: self.bottom,
+                rank: self.rank?,
+                percent: self.percent,
+            },
+            "aboveAverage" => Uncomputed::Average {
+                below: self.below,
+                equal: self.equal,
+                deviations: self.deviations,
+            },
+            "duplicateValues" => Uncomputed::Duplicate,
+            "uniqueValues" => Uncomputed::Unique,
+            _ => return None,
+        })
+    }
+}
+
+/// A `cfvo`'s attributes as a stop: its value the formula bar's text, a newer
+/// function's prefix dropped; `None` for a kind or a value no row says.
+fn file_stop(attrs: &str) -> Option<Stop> {
+    let kind = StopKind::from_excel(attr(attrs, "type")?.trim())?;
+    let value = if kind.says_a_value() {
+        let val = attr(attrs, "val")?;
+        let val = val.trim();
+        xlfn::strip_future_prefixes(val.strip_prefix('=').unwrap_or(val))
+    } else {
+        String::new()
+    };
+    Some(Stop {
+        kind,
+        value,
+        greater: truthy_off(attr(attrs, "gte")),
+    })
 }
 
 /// A rule read to its end from the tag just opened.
@@ -1617,6 +1740,14 @@ fn read_rule(
         operator: attr(attrs, "operator").map(Cow::into_owned),
         dxf_id: attr(attrs, "dxfId").and_then(|v| v.trim().parse().ok()),
         id: attr(attrs, "id").map(Cow::into_owned),
+        rank: attr(attrs, "rank").and_then(|v| v.trim().parse().ok()),
+        percent: truthy(attr(attrs, "percent")),
+        bottom: truthy(attr(attrs, "bottom")),
+        below: truthy_off(attr(attrs, "aboveAverage")),
+        equal: truthy(attr(attrs, "equalAverage")),
+        deviations: attr(attrs, "stdDev")
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0),
         ..FileRule::default()
     };
     if empty {
@@ -1642,6 +1773,38 @@ fn read_rule(
                 } else {
                     read_dxf(cursor, label, part)?
                 });
+            }
+            // A scale's, a bar's and a set of icons' own element, and what it holds.
+            Event::Start {
+                name: "colorScale" | "dataBar" | "iconSet",
+                attrs,
+                ..
+            } => {
+                rule.icons = attr(attrs, "iconSet").map(Cow::into_owned);
+                rule.reverse = truthy(attr(attrs, "reverse"));
+                rule.hides_value = truthy_off(attr(attrs, "showValue"));
+                let length = |name: &str| attr(attrs, name).and_then(|v| v.trim().parse().ok());
+                rule.lengths = match (length("minLength"), length("maxLength")) {
+                    (None, None) => None,
+                    (low, high) => {
+                        Some((low.unwrap_or(BAR_LENGTHS.0), high.unwrap_or(BAR_LENGTHS.1)))
+                    }
+                };
+            }
+            Event::Start {
+                name: "cfvo",
+                attrs,
+                ..
+            } => rule.stops.push(file_stop(attrs)),
+            Event::Start {
+                name: "color",
+                attrs,
+                empty,
+            } => {
+                rule.colors.push(color_of(attrs));
+                if !empty {
+                    skip(cursor)?;
+                }
             }
             // A rule's own extension names its twin: `x14:id`, in an `ext`.
             Event::Start {
@@ -3361,6 +3524,7 @@ mod tests {
                 undrawn: 2,
                 merged: 1,
                 conditional: 2,
+                undrawn_rules: 0,
                 not_computed: 1,
                 rule_cells: 10,
                 row_formats: 1,
@@ -3465,6 +3629,81 @@ mod tests {
             .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
     }
 
+    /// Each kind not computed is a row of its own words, its colors resolved, its
+    /// defaults unsaid; what no row says of one, or a load would refuse, is counted.
+    #[test]
+    fn a_kind_not_computed_reads_as_its_words() {
+        let theme = "<a:theme xmlns:a=\"a\"><a:themeElements><a:clrScheme name=\"x\"><a:dk1><a:sysClr val=\"windowText\" lastClr=\"000000\"/></a:dk1><a:lt1><a:sysClr val=\"window\" lastClr=\"FFFFFF\"/></a:lt1><a:dk2><a:srgbClr val=\"44546A\"/></a:dk2><a:lt2><a:srgbClr val=\"E7E6E6\"/></a:lt2><a:accent1><a:srgbClr val=\"4472C4\"/></a:accent1></a:clrScheme></a:themeElements></a:theme>";
+        let sheet = concat!(
+            "<sheetData/><conditionalFormatting sqref=\"A1:A9\">",
+            "<cfRule type=\"colorScale\" priority=\"1\"><colorScale><cfvo type=\"min\"/><cfvo type=\"percentile\" val=\"50\"/><cfvo type=\"num\" val=\"$B$1\"/><color rgb=\"FFF8696B\"/><color theme=\"4\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "<cfRule type=\"dataBar\" priority=\"2\"><dataBar minLength=\"5\" maxLength=\"95\" showValue=\"0\"><cfvo type=\"num\" val=\"0\"/><cfvo type=\"formula\" val=\"_xlfn.IFNA($B$1,0)\"/><color rgb=\"FF638EC6\"/></dataBar></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"3\"><iconSet><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"33\" gte=\"0\"/><cfvo type=\"percent\" val=\"67\"/></iconSet></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"4\"><iconSet iconSet=\"4Rating\" reverse=\"1\" showValue=\"0\"><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"25\"/><cfvo type=\"percent\" val=\"50\"/><cfvo type=\"percent\" val=\"75\"/></iconSet></cfRule>",
+            "<cfRule type=\"top10\" dxfId=\"0\" priority=\"5\" rank=\"10\" stopIfTrue=\"1\"/>",
+            "<cfRule type=\"top10\" priority=\"6\" rank=\"20\" percent=\"1\" bottom=\"1\"/>",
+            "<cfRule type=\"aboveAverage\" dxfId=\"0\" priority=\"7\"/>",
+            "<cfRule type=\"aboveAverage\" priority=\"8\" aboveAverage=\"0\" equalAverage=\"1\"/>",
+            "<cfRule type=\"aboveAverage\" priority=\"9\" stdDev=\"2\"/>",
+            "<cfRule type=\"duplicateValues\" dxfId=\"0\" priority=\"10\"/>",
+            "<cfRule type=\"uniqueValues\" priority=\"11\"/>",
+            // What a file may say of them and draws nothing here: a stop, a format
+            // and a `gte` of a kind that takes none.
+            "<cfRule type=\"colorScale\" dxfId=\"0\" priority=\"12\" stopIfTrue=\"1\"><colorScale><cfvo type=\"min\" gte=\"0\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            // A bar's longest alone, its shortest the default.
+            "<cfRule type=\"dataBar\" priority=\"13\"><dataBar maxLength=\"95\"><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/></dataBar></cfRule>",
+            // What no row says.
+            "<cfRule type=\"colorScale\" priority=\"20\"><colorScale><cfvo type=\"min\"/><color rgb=\"FFF8696B\"/></colorScale></cfRule>",
+            "<cfRule type=\"colorScale\" priority=\"21\"><colorScale><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/></colorScale></cfRule>",
+            "<cfRule type=\"colorScale\" priority=\"22\"><colorScale><cfvo type=\"min\"/><cfvo type=\"max\"/><color auto=\"1\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "<cfRule type=\"colorScale\" priority=\"23\"><colorScale><cfvo type=\"bad\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "<cfRule type=\"colorScale\" priority=\"24\"><colorScale><cfvo type=\"num\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "<cfRule type=\"dataBar\" priority=\"25\"><dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/></dataBar></cfRule>",
+            "<cfRule type=\"dataBar\" priority=\"26\"><dataBar minLength=\"90\" maxLength=\"10\"><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/></dataBar></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"27\"><iconSet iconSet=\"3Stars\"><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"33\"/><cfvo type=\"percent\" val=\"67\"/></iconSet></cfRule>",
+            "<cfRule type=\"iconSet\" priority=\"28\"><iconSet iconSet=\"4Arrows\"><cfvo type=\"percent\" val=\"0\"/></iconSet></cfRule>",
+            "<cfRule type=\"top10\" priority=\"29\"/>",
+            "<cfRule type=\"top10\" priority=\"30\" rank=\"0\"/>",
+            "<cfRule type=\"top10\" priority=\"31\" rank=\"101\" percent=\"1\"/>",
+            "<cfRule type=\"aboveAverage\" priority=\"32\" stdDev=\"4\"/>",
+            "<cfRule type=\"aboveAverage\" priority=\"33\" stdDev=\"1\" equalAverage=\"1\"/>",
+            "<cfRule type=\"colorScale\" priority=\"34\"><colorScale><cfvo type=\"formula\" val=\"1+\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale></cfRule>",
+            "</conditionalFormatting>",
+        );
+        let bytes = styled_named("", sheet, RULE_STYLES, Some(theme), "");
+        let (text, stats) = crate::reflect::reflect_looks(&bytes, "kinds.xlsx").unwrap();
+        let rows: Vec<&str> = text
+            .lines()
+            .filter(|l| l.starts_with("(conditional "))
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                "(conditional \"Model\" 1 \"A1:A9\" (color-scale (min) (percentile 50) (number \"=$B$1\") \"F8696B\" \"4472C4\" \"63BE7B\") none)",
+                "(conditional \"Model\" 2 \"A1:A9\" (data-bar (number 0) (formula \"=IFNA($B$1,0)\") \"638EC6\" (length 5 95) no-value) none)",
+                "(conditional \"Model\" 3 \"A1:A9\" (icon-set \"3TrafficLights1\" (percent 0) (percent 33 greater) (percent 67)) none)",
+                "(conditional \"Model\" 4 \"A1:A9\" (icon-set \"4Rating\" (percent 0) (percent 25) (percent 50) (percent 75) reverse no-value) none)",
+                "(conditional \"Model\" 5 \"A1:A9\" (top 10) 2 stop)",
+                "(conditional \"Model\" 6 \"A1:A9\" (bottom 20 percent) none)",
+                "(conditional \"Model\" 7 \"A1:A9\" (above-average) 2)",
+                "(conditional \"Model\" 8 \"A1:A9\" (below-average equal) none)",
+                "(conditional \"Model\" 9 \"A1:A9\" (above-average (deviations 2)) none)",
+                "(conditional \"Model\" 10 \"A1:A9\" (duplicate) 2)",
+                "(conditional \"Model\" 11 \"A1:A9\" (unique) none)",
+                "(conditional \"Model\" 12 \"A1:A9\" (color-scale (min) (max) \"F8696B\" \"63BE7B\") none)",
+                "(conditional \"Model\" 13 \"A1:A9\" (data-bar (min) (max) \"638EC6\" (length 10 95)) none)",
+            ],
+            "{stats:?}"
+        );
+        assert_eq!(stats.conditional, 13 + 15);
+        assert_eq!(stats.undrawn_rules, 13);
+        assert_eq!(stats.not_computed, 0);
+        assert_eq!(stats.unheld, 15);
+        assert_eq!(stats.rule_cells, 0, "a rule of these answers for nothing");
+        vla_lang::machine::Machine::load(&text, crate::excel::library())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{text}", e.line, e.refusal.text));
+    }
+
     /// The gate asks of a rule on the sheet that holds it, as a load does: a name
     /// scoped to another sheet keeps no rule out.
     #[test]
@@ -3560,10 +3799,12 @@ mod tests {
                 "(conditional \"Model\" 2 \"B2:J10\" \"=IFNA($A$1,0)=1\" 2 stop)",
                 "(conditional \"Model\" 3 \"B2:J10\" \"=NOT(ISERROR(SEARCH(\\\"ab\\\",B2)))\" 6)",
                 "(conditional \"Model\" 4 \"B2:J10\" \"=IFERROR(LEN(TRIM(B2))>0,TRUE)\" none)",
+                "(conditional \"Model\" 5 \"B2:J10\" (color-scale (min) (max) \"F8696B\" \"63BE7B\") none)",
                 "(conditional \"Model\" 6 \"C1:C3 A5\" (cell between \"=1\" \"=\\\"a&b\\\"\") none)",
                 "(conditional \"Model\" 7 \"C1:C3 A5\" (cell greater \"=5\") none)",
                 "(conditional \"Model\" 8 \"C1:C3 A5\" (cell less \"=5\") none)",
                 "(conditional \"Model\" 9 \"C1:C3 A5\" \"=1\" none)",
+                "(conditional \"Model\" 17 \"E1\" (data-bar (min) (max) \"638EC6\") none)",
                 "(conditional \"Model\" 19 \"F1:F2\" \"=Other!$A$1=1\" 7 stop)",
                 "(conditional \"Model\" 20 \"F1:F2\" (cell not-between \"=Other!$A$1\" \"=9\") 7)",
                 "(conditional \"Model\" 21 \"F1:F2\" \"=Other!$A$2=1\" 8)",
@@ -3576,18 +3817,20 @@ mod tests {
                 formats: 5,
                 // Each rule the file holds, a rule written twice once.
                 conditional: 25,
-                not_computed: 3,
+                // The scale and the bar, and the extension's set of icons no row says.
+                undrawn_rules: 2,
+                not_computed: 1,
                 // Three over 81, four over 4, four over 2.
                 rule_cells: 267,
                 // Eleven too little to be a row, a format of no word, one the file
-                // does not hold.
-                unheld: 13,
+                // does not hold, and what the bar's twin in the extension adds.
+                unheld: 14,
                 ..LooksStats::default()
             }
         );
         assert!(
             stats.left_out().unwrap().contains(
-                "13 looks the record has no word for, 3 conditional formats the language does not compute"
+                "14 looks the record has no word for, 1 conditional format the language does not compute"
             ),
             "{:?}",
             stats.left_out()

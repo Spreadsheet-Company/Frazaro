@@ -167,11 +167,10 @@
 - **A conditional format through a file.** `frazaro reflect --looks` prints a package's
   conditional formats as rows, where it counted them as left out, each with the format
   it names, so that a workbook's highlights load with it. Each kind holding a formula of
-  its own is that formula. A color scale, a data bar, an icon set, a top value, an
-  average, a duplicate and a value alone are left out, counted and said, and so is a
-  rule whose formula a load would refuse, one calling a function the language does not
-  compute as a date rule's `TODAY` does, so that one rule does not keep a workbook out;
-  a load still refuses that row written by hand, as it refuses that call in a cell.
+  its own is that formula. A rule whose formula a load would refuse, one calling a
+  function the language does not compute as a date rule's `TODAY` does, is left out,
+  counted and said, so that one rule does not keep a workbook out; a load still refuses
+  that row written by hand, as it refuses that call in a cell.
   `--counts` gains `not-computed` and `rule-cells`, the cells the rules answer for. The
   writer writes a sheet's rules: each format a rule names as the differential format it
   is, saying what it says and no more, and a rule reading another sheet in the sheet's
@@ -189,6 +188,16 @@
   a package's goes on unless it says (the fifth slice). And a LibreOffice file's error
   value reads by its name, where `reflect` read it as an error of no name, which a load
   refused.
+
+- **The kinds no formula says.** A color scale, a data bar, a set of icons, a top or bottom
+  value, an average, a duplicate and a value alone are rows of words of their own,
+  `(color-scale (min) (percentile 50) (max) "F8696B" "FFEB84" "63BE7B")`, `(top 10 percent)`,
+  from a package and an `.ods` file alike, and the writer writes them, so that a workbook keeps
+  them. The language does not compute them: a load takes each and plans nothing, it draws nothing
+  and stops nothing, and the note says how many, `--counts` under `undrawn-rules`. What a bar's
+  extension adds is counted under `unheld`, and a rule only the extension holds is left out, under
+  `not-computed`. `vla_lang::rule` gains `Uncomputed`, `Stop` and `StopKind`, `Test` gains
+  `Uncomputed`, and `LooksStats` `undrawn_rules` (KERNEL.58's seventh slice).
 
 - **A merged range.** A sheet holds a merge as a row of its own, `(merge "Report" "C6:E6")`,
   printed in every record of its sheet after its rules. `frazaro reflect --looks` prints a

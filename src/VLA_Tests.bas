@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
+' KERNEL.58: a rules target of the kind held, what a rule of a kind the language does
+' not compute says through the object model, in its row's words, which the writer's
+' own workbook reads since it writes them.
 ' KERNEL.58: a rules target of the kind merge, Range.MergeArea, which the writer's
 ' own workbook reads since its merged ranges.
 ' KERNEL.58: VlaWriteRulesWrittenGolden, dev-only, the reference's reading of the
@@ -4430,6 +4433,8 @@ Private Function RulesTargetLines(ByVal ws As Worksheet, ByVal target As String,
         RulesTargetLines = target & vbTab & RulesQuoted(CStr(ws.Range(place).Text)) & vbCrLf
     Case "merge"
         RulesTargetLines = target & vbTab & ws.Range(place).MergeArea.Address(False, False) & vbCrLf
+    Case "held"
+        RulesTargetLines = RulesHeld(ws, target, place)
     Case "rule"
         RulesTargetLines = RulesConditions(ws, target, place)
     Case Else
@@ -4452,6 +4457,108 @@ Private Function RulesConditions(ByVal ws As Worksheet, ByVal target As String, 
     Next i
     If conditions.Count = 0 Then s = target & vbTab & "none" & vbCrLf
     RulesConditions = s
+End Function
+
+' A line for the rule over a cell of a kind the language does not compute, in its
+' row's words, that cell selected; "none" where none is over it.
+Private Function RulesHeld(ByVal ws As Worksheet, ByVal target As String, ByVal place As String) As String
+    Dim conditions As Object, i As Long, s As String
+    ws.Parent.Activate
+    ws.Activate
+    ws.Range(place).Select
+    Set conditions = ws.Range(place).FormatConditions
+    For i = 1 To conditions.Count
+        Select Case RulesMember(conditions.Item(i), "Type")
+        Case "3", "4", "5", "6", "8", "12"
+            s = s & target & vbTab & RulesHeldWords(conditions.Item(i)) & vbCrLf
+        End Select
+    Next i
+    If Len(s) = 0 Then s = target & vbTab & "none" & vbCrLf
+    RulesHeld = s
+End Function
+
+' A rule of a kind the language does not compute, in its row's words: each kind by
+' its own object, by XlFormatConditionType.
+Private Function RulesHeldWords(ByVal rule As Object) As String
+    Dim i As Long, s As String, colors As String
+    Select Case RulesMember(rule, "Type")
+    Case "3"
+        For i = 1 To rule.ColorScaleCriteria.Count
+            s = s & " " & RulesStopWords(rule.ColorScaleCriteria(i), False)
+            colors = colors & " " & Chr$(34) & AppearanceHex(rule.ColorScaleCriteria(i).FormatColor.Color) & Chr$(34)
+        Next i
+        RulesHeldWords = "(color-scale" & s & colors & ")"
+    Case "4"
+        s = "(data-bar " & RulesStopWords(rule.MinPoint, False) & " " & RulesStopWords(rule.MaxPoint, False) & _
+            " " & Chr$(34) & AppearanceHex(rule.BarColor.Color) & Chr$(34)
+        If rule.PercentMin <> 10 Or rule.PercentMax <> 90 Then
+            s = s & " (length " & CStr(rule.PercentMin) & " " & CStr(rule.PercentMax) & ")"
+        End If
+        If Not rule.ShowValue Then s = s & " no-value"
+        RulesHeldWords = s & ")"
+    Case "6"
+        s = "(icon-set " & Chr$(34) & RulesIconSetWord(CLng(rule.IconSet.ID)) & Chr$(34)
+        For i = 1 To rule.IconCriteria.Count
+            s = s & " " & RulesStopWords(rule.IconCriteria(i), i > 1)
+        Next i
+        If rule.ReverseOrder Then s = s & " reverse"
+        If rule.ShowIconOnly Then s = s & " no-value"
+        RulesHeldWords = s & ")"
+    Case "5"
+        If rule.TopBottom = 0 Then s = "(bottom " Else s = "(top "
+        s = s & CStr(rule.Rank)
+        If rule.Percent Then s = s & " percent"
+        RulesHeldWords = s & ")"
+    Case "12"
+        Select Case rule.AboveBelow
+        Case 0: s = "(above-average"
+        Case 1: s = "(below-average"
+        Case 2: s = "(above-average equal"
+        Case 3: s = "(below-average equal"
+        Case 4: s = "(above-average (deviations " & CStr(rule.NumStdDev) & ")"
+        Case 5: s = "(below-average (deviations " & CStr(rule.NumStdDev) & ")"
+        Case Else: s = "(average=" & CStr(rule.AboveBelow)
+        End Select
+        RulesHeldWords = s & ")"
+    Case "8"
+        If rule.DupeUnique = 1 Then RulesHeldWords = "(duplicate)" Else RulesHeldWords = "(unique)"
+    End Select
+End Function
+
+' A point of a scale, a bar or a set of icons in its row's words, by
+' XlConditionValueTypes; at an icon after the first, whether a value must pass it.
+Private Function RulesStopWords(ByVal point As Object, ByVal icon As Boolean) As String
+    Dim s As String
+    Select Case RulesMember(point, "Type")
+    Case "1": s = "(min"
+    Case "2": s = "(max"
+    Case "0": s = "(number " & RulesStopValue(RulesMember(point, "Value"))
+    Case "3": s = "(percent " & RulesStopValue(RulesMember(point, "Value"))
+    Case "5": s = "(percentile " & RulesStopValue(RulesMember(point, "Value"))
+    Case "4": s = "(formula " & RulesStopValue(RulesMember(point, "Value"))
+    Case Else: s = "(type=" & RulesMember(point, "Type")
+    End Select
+    If icon Then
+        If RulesMember(point, "Operator") = "5" Then s = s & " greater"
+    End If
+    RulesStopWords = s & ")"
+End Function
+
+' A point's value: a number as it stands, a formula in its quotes.
+Private Function RulesStopValue(ByVal value As String) As String
+    If Left$(value, 1) = "=" Then RulesStopValue = RulesQuoted(value) Else RulesStopValue = value
+End Function
+
+' A set of icons by XlIconSet, in a file's name for it.
+Private Function RulesIconSetWord(ByVal id As Long) As String
+    Dim names As Variant
+    names = Array("3Arrows", "3ArrowsGray", "3Flags", "3TrafficLights1", "3TrafficLights2", "3Signs", _
+                  "3Symbols", "3Symbols2", "4Arrows", "4ArrowsGray", "4RedToBlack", "4Rating", _
+                  "4TrafficLights", "5Arrows", "5ArrowsGray", "5Rating", "5Quarters")
+    Select Case id
+    Case 1 To 17: RulesIconSetWord = names(id - 1)
+    Case Else: RulesIconSetWord = "set=" & CStr(id)
+    End Select
 End Function
 
 ' One rule: where it applies, its kind, its operator, its priority, stop or go

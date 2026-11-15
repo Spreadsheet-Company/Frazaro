@@ -62,7 +62,7 @@ use crate::numfmt::{Code, Unsupported};
 use crate::printer::write_datum;
 use crate::refers::{quote_sheet, shift_a1_references};
 use crate::rows::{quoted, Visibility};
-use crate::rule::{Operator, Rule, Test};
+use crate::rule::{is_number, Operator, Rule, Stop, StopKind, Test, Uncomputed, BAR_LENGTHS};
 use crate::sheet::{
     cell_ref, number_text, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb,
     RowSettings, Sheet, Style, Styles, Unsaid, Workbook, MAX_COLUMN, MAX_ROW,
@@ -870,6 +870,7 @@ impl Draft {
             .sheets
             .iter()
             .flat_map(|s| s.sheet.rules())
+            .filter(|rule| rule.computed())
             .map(Rule::cells)
             .sum();
         let past_room = asked > CELLS as u64;
@@ -882,6 +883,9 @@ impl Draft {
             let area = extent_area(self.sheets[si].extent()).filter(|_| past_room);
             let mut mine = Vec::with_capacity(rules.len());
             for (at, rule) in rules.iter().enumerate() {
+                if !rule.computed() {
+                    continue;
+                }
                 let line = self.sheets[si]
                     .rule_lines
                     .get(&rule.priority)
@@ -1130,7 +1134,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
         "format" => "(format <index> \"<RRGGBB>\"|none general|text|\"<code>\" wrap|nowrap [(font ...)] [(align ...)] [(border ...)]) or a format of groups alone, (format <index> [(fill ...)] [(number ...)] [(wrap ...)] [(font ...)] [(align ...)] [(border ...)]), saying at least one",
         "look" => "(look \"<sheet>\" <value> <format>)",
-        "conditional" => "(conditional \"<sheet>\" <priority> \"<range>\" \"=<formula>\"|(cell <operator> \"=<bound>\" [\"=<bound>\"]) <format>|none [stop]), its operator one of less, less-or-equal, equal, not-equal, greater-or-equal, greater, between and not-between, the last two taking two bounds",
+        "conditional" => "(conditional \"<sheet>\" <priority> \"<range>\" \"=<formula>\"|(color-scale ...)|(data-bar ...)|(icon-set ...)|(top <rank> [percent])|(bottom <rank> [percent])|(above-average ...)|(below-average ...)|(duplicate)|(unique)|(cell <operator> \"=<bound>\" [\"=<bound>\"]) <format>|none [stop]), its operator one of less, less-or-equal, equal, not-equal, greater-or-equal, greater, between and not-between, the last two taking two bounds",
         "merge" => "(merge \"<sheet>\" \"<range of more than one cell>\")",
         "lit" => "(conditional \"<sheet>\" <priority> \"<range>\" <test> <format>|none) (lit \"<sheet>\" \"<cell>\" <priority> ...)",
         "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
@@ -1896,6 +1900,11 @@ impl Reader {
                 _ => return Err(bad()),
             },
         };
+        if let Test::Uncomputed(held) = &test {
+            if !held.takes_a_format() && (format.is_some() || stop) {
+                return Err(bad());
+            }
+        }
         let rule = Rule {
             priority,
             ranges,
@@ -1969,6 +1978,9 @@ impl Reader {
                 return Err(bad());
             };
             let rule = &rules[k];
+            if !rule.computed() {
+                return Err(bad());
+            }
             let covers = if rule.ranges.len() <= FEW_RECTANGLES {
                 rule.covers(row, col)
             } else {
@@ -2147,25 +2159,195 @@ pub(crate) fn computed(f: &Form) -> Option<Computed> {
     }))
 }
 
-/// A rule's test off its row: a formula, `"=<text>"`, or `(cell <operator>
-/// "=<bound>" ["=<bound>"])`, its operator holding it to its bounds.
-fn rule_test(form: &Form) -> Option<Test> {
-    let text = |f: &Form| match f {
+/// A row's `"=<text>"`, without its `=`.
+fn formula_said(form: &Form) -> Option<String> {
+    match form {
         Form::Str(t) => t
             .strip_prefix('=')
             .filter(|b| !b.is_empty())
             .map(str::to_string),
         _ => None,
+    }
+}
+
+/// A word of a row, or a list of a word and what follows it.
+fn word_of(form: &Form) -> Option<(&str, &[Form])> {
+    match form {
+        Form::Sym(word) => Some((word, &[])),
+        Form::List(list) => match list.items.as_slice() {
+            [Form::Sym(word), rest @ ..] => Some((word, rest)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// A stop off its row: `(min)`, `(percent 33)`, `(number "=$A$1")`, `(formula
+/// "=$A$1")`, and `greater` after its value.
+fn rule_stop(form: &Form) -> Option<Stop> {
+    let (word, rest) = word_of(form)?;
+    let kind = StopKind::from_word(word)?;
+    let (value, rest) = match (kind.says_a_value(), rest) {
+        (false, rest) => (String::new(), rest),
+        (true, [Form::Sym(n), rest @ ..]) if kind != StopKind::Formula && is_number(n) => {
+            (n.clone(), rest)
+        }
+        (true, [said, rest @ ..]) => (formula_said(said)?, rest),
+        _ => return None,
     };
+    let greater = match rest {
+        [] => false,
+        [Form::Sym(word)] if word == "greater" => true,
+        _ => return None,
+    };
+    Some(Stop {
+        kind,
+        value,
+        greater,
+    })
+}
+
+/// Stops off a row, as many lists as come first, each a stop; and what follows them.
+fn rule_stops(items: &[Form]) -> Option<(Vec<Stop>, &[Form])> {
+    let count = items
+        .iter()
+        .take_while(|form| matches!(form, Form::List(_)))
+        .count();
+    let (stops, rest) = items.split_at(count);
+    Some((stops.iter().map(rule_stop).collect::<Option<_>>()?, rest))
+}
+
+/// A kind not computed off its row's words, its head taken: `None` for words no such
+/// row says.
+fn rule_uncomputed(head: &str, items: &[Form]) -> Option<Uncomputed> {
+    let color = |form: &Form| match form {
+        Form::Str(hex) => Rgb::from_hex(hex),
+        _ => None,
+    };
+    let number = |form: &Form| match form {
+        Form::Sym(n) => n.parse::<u32>().ok(),
+        _ => None,
+    };
+    // A word at the end of its row, once; and what stands before it.
+    let last_word = |items: &'_ [Form], said: &str| -> (bool, usize) {
+        match items.last() {
+            Some(Form::Sym(word)) if word == said => (true, items.len() - 1),
+            _ => (false, items.len()),
+        }
+    };
+    let held = match head {
+        "color-scale" => {
+            let (stops, colors) = rule_stops(items)?;
+            Uncomputed::ColorScale {
+                stops,
+                colors: colors.iter().map(color).collect::<Option<_>>()?,
+            }
+        }
+        "data-bar" => {
+            let (mut stops, rest) = rule_stops(items)?;
+            let (no_value, before) = last_word(rest, "no-value");
+            let (bar, lengths) = match &rest[..before] {
+                [bar] => (color(bar)?, BAR_LENGTHS),
+                [bar, length] => {
+                    let (word, sizes) = word_of(length)?;
+                    let [low, high] = sizes else {
+                        return None;
+                    };
+                    if word != "length" {
+                        return None;
+                    }
+                    (color(bar)?, (number(low)?, number(high)?))
+                }
+                _ => return None,
+            };
+            let high = stops.pop()?;
+            let low = stops.pop()?;
+            if !stops.is_empty() {
+                return None;
+            }
+            Uncomputed::DataBar {
+                low,
+                high,
+                color: bar,
+                lengths,
+                shows_value: !no_value,
+            }
+        }
+        "icon-set" => {
+            let [Form::Str(set), rest @ ..] = items else {
+                return None;
+            };
+            let (stops, rest) = rule_stops(rest)?;
+            let (no_value, before) = last_word(rest, "no-value");
+            let (reverse, before) = last_word(&rest[..before], "reverse");
+            if before != 0 {
+                return None;
+            }
+            Uncomputed::IconSet {
+                set: set.clone(),
+                stops,
+                reverse,
+                shows_value: !no_value,
+            }
+        }
+        "top" | "bottom" => {
+            let (percent, before) = last_word(items, "percent");
+            let [rank] = &items[..before] else {
+                return None;
+            };
+            Uncomputed::Rank {
+                bottom: head == "bottom",
+                rank: number(rank)?,
+                percent,
+            }
+        }
+        "above-average" | "below-average" => {
+            let below = head == "below-average";
+            let (equal, deviations) = match items {
+                [] => (false, 0),
+                [Form::Sym(word)] if word == "equal" => (true, 0),
+                [by] => {
+                    let (word, count) = word_of(by)?;
+                    let [count] = count else {
+                        return None;
+                    };
+                    if word != "deviations" {
+                        return None;
+                    }
+                    (false, number(count).filter(|n| *n > 0)?)
+                }
+                _ => return None,
+            };
+            Uncomputed::Average {
+                below,
+                equal,
+                deviations,
+            }
+        }
+        "duplicate" if items.is_empty() => Uncomputed::Duplicate,
+        "unique" if items.is_empty() => Uncomputed::Unique,
+        _ => return None,
+    };
+    held.well_said().then_some(held)
+}
+
+/// A rule's test off its row: a formula, `"=<text>"`; `(cell <operator>
+/// "=<bound>" ["=<bound>"])`, its operator holding it to its bounds; or a kind not
+/// computed's words.
+fn rule_test(form: &Form) -> Option<Test> {
+    let text = formula_said;
     let Form::List(list) = form else {
         return text(form).map(Test::Formula);
     };
-    let [Form::Sym(head), Form::Sym(word), bounds @ ..] = list.items.as_slice() else {
+    let [Form::Sym(head), after @ ..] = list.items.as_slice() else {
         return None;
     };
     if head != "cell" {
-        return None;
+        return rule_uncomputed(head, after).map(Test::Uncomputed);
     }
+    let [Form::Sym(word), bounds @ ..] = after else {
+        return None;
+    };
     let operator = Operator::from_word(word)?;
     let (first, second) = match (bounds, operator.takes_two()) {
         ([first], false) => (text(first)?, None),

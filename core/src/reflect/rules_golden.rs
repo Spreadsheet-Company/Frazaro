@@ -46,7 +46,7 @@ use std::collections::{BTreeSet, HashMap};
 use vla_lang::form::Form;
 use vla_lang::machine::{Machine, Viewed};
 use vla_lang::rows::{quoted, record_line, Record};
-use vla_lang::rule::{Rule, Test};
+use vla_lang::rule::{Rule, Test, Uncomputed, ICON_SETS};
 use vla_lang::sheet::{parse_a1_range, Line, Style, Vertical, Workbook};
 
 use super::looks_golden::{drawn, place, solid, Book, Drawn, Part, Styles, Xf, CALIBRI};
@@ -166,6 +166,10 @@ fn row_test(kind: &str, extra: &str, formulas: &[&str]) -> Option<String> {
             Some(format!("(cell {word} {})", bounds.join(" ")))
         }
         "timePeriod" => None,
+        "top10" => Some(format!("(top {})", extra.split('"').nth(1)?)),
+        "aboveAverage" => Some("(above-average)".to_string()),
+        "duplicateValues" => Some("(duplicate)".to_string()),
+        "uniqueValues" => Some("(unique)".to_string()),
         // Excel lights an error as not blank, where this kind's own formula
         // answers the error: a reader says so, and every other value as the
         // formula does (its `is not blank` and `is blank` cases).
@@ -338,8 +342,8 @@ impl<'s> Sheet<'s> {
             "<conditionalFormatting sqref=\"{sqref}\">{}</conditionalFormatting>",
             rules.concat()
         ));
-        // A kind with no formula and no format of the language's is made here
-        // by its element alone, and has no row.
+        // A kind a load would refuse is made here by its element alone, and has
+        // no row.
         let made: Vec<Made> = rules
             .iter()
             .filter_map(|rule| {
@@ -1366,19 +1370,22 @@ fn kinds(styles: &mut Styles) -> Part {
             "a color scale",
             "colorScale",
             "<colorScale><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FFF8696B\"/><color rgb=\"FF63BE7B\"/></colorScale>",
+            "(color-scale (min) (max) \"F8696B\" \"63BE7B\")",
         ),
         (
             "a data bar",
             "dataBar",
             "<dataBar><cfvo type=\"min\"/><cfvo type=\"max\"/><color rgb=\"FF638EC6\"/></dataBar>",
+            "(data-bar (min) (max) \"638EC6\")",
         ),
         (
             "an icon set",
             "iconSet",
             "<iconSet><cfvo type=\"percent\" val=\"0\"/><cfvo type=\"percent\" val=\"33\"/><cfvo type=\"percent\" val=\"67\"/></iconSet>",
+            "(icon-set \"3TrafficLights1\" (percent 0) (percent 33) (percent 67))",
         ),
     ];
-    for (name, kind, body) in scales {
+    for (name, kind, body, words) in scales {
         let row = s.part.next_row();
         let cells = [format!("C{row}"), format!("E{row}"), format!("G{row}")];
         s.part.case(name, &reads_of(&cells));
@@ -1387,6 +1394,15 @@ fn kinds(styles: &mut Styles) -> Part {
         }
         let priority = s.priority();
         let rule = format!("<cfRule type=\"{kind}\" priority=\"{priority}\">{body}</cfRule>");
+        s.made.push((
+            rule.clone(),
+            Made {
+                priority,
+                test: Some(words.to_string()),
+                format: "none".to_string(),
+                stop: false,
+            },
+        ));
         s.block(&format!("C{row} E{row} G{row}"), &[rule]);
     }
     for (name, kind, extra, values) in [
@@ -1879,6 +1895,29 @@ fn merged_at(wb: &Workbook, sheet: &str, place: &str) -> String {
         .map_or(place.to_string(), |merge| merge.text())
 }
 
+/// What the rule of a kind not computed over a cell says, in its row's words: `none`
+/// where no such rule is over it.
+fn held_at(wb: &Workbook, sheet: &str, place: &str) -> String {
+    let at = parse_a1_range(place).expect("a cell");
+    let page = wb.sheets.iter().find(|s| s.name == sheet).expect("a sheet");
+    page.rules()
+        .iter()
+        .find(|rule| !rule.computed() && rule.covers(at.top, at.left))
+        .map_or("none".to_string(), |rule| rule.test.words())
+}
+
+/// The kind Excel's object model reads of a kind not computed.
+fn held_kind(held: &Uncomputed) -> &'static str {
+    match held {
+        Uncomputed::ColorScale { .. } => "color-scale",
+        Uncomputed::DataBar { .. } => "data-bar",
+        Uncomputed::IconSet { .. } => "icon-set",
+        Uncomputed::Rank { .. } => "top10",
+        Uncomputed::Average { .. } => "above-average",
+        Uncomputed::Duplicate | Uncomputed::Unique => "unique-values",
+    }
+}
+
 /// A place the language draws otherwise than Excel's reading: its file, its
 /// sheet, its case, its targets and why.
 type Gap = (
@@ -2084,6 +2123,7 @@ fn drawn_against(
                 }
                 "text" => shown_text(&record) == *reading,
                 "merge" => merged_at(&wb, &case.sheet, place) == *reading,
+                "held" => held_at(&wb, &case.sheet, place) == *reading,
                 other => panic!("a target of no kind: {other}"),
             };
             held += 1;
@@ -2821,6 +2861,16 @@ const FORMULA_KINDS: [&str; 6] = [
     "no-errors",
 ];
 
+/// The kinds Excel's object model reads that a row says in its own words.
+const HELD_KINDS: [&str; 6] = [
+    "color-scale",
+    "data-bar",
+    "icon-set",
+    "top10",
+    "above-average",
+    "unique-values",
+];
+
 /// A formula as Excel reads a rule's: a reference to the rule's own sheet no longer
 /// names it, in `Formula1` and in Excel's save, though the file said it.
 fn own_sheet_unnamed(formula: &str, sheet: &str) -> String {
@@ -2871,13 +2921,16 @@ fn rule_differs(ours: &Rule, sheet: &str, excel: &ExcelRule) -> Option<String> {
             let said = own_sheet_unnamed(said, sheet);
             (vec![format!("={said}")] != excel.formulas).then(|| format!("the formula {said}"))
         }
+        Test::Uncomputed(held) => {
+            let kind = held_kind(held);
+            (excel.kind != kind).then(|| format!("the kind {kind}"))
+        }
     }
 }
 
 /// Each rule of a reading of `bytes` over each `rule:` target's cell, against
 /// Excel's: by the order of its priority, since Excel reads a tie inside one element
-/// alike where a reader numbers its two apart; a kind the language does not compute
-/// no row.
+/// alike where a reader numbers its two apart; a rule a load would refuse no row.
 fn rules_against(file: &str, bytes: &[u8], golden: &[GoldenCase]) -> (usize, Vec<String>) {
     let (rows, _) =
         crate::reflect::reflect_looks(bytes, file).unwrap_or_else(|r| panic!("{file}: {}", r.text));
@@ -2903,7 +2956,11 @@ fn rules_against(file: &str, bytes: &[u8], golden: &[GoldenCase]) -> (usize, Vec
                 .iter()
                 .filter(|(t, r)| t == target && r != "none")
                 .map(|(_, r)| excel_rule(r))
-                .filter(|r| r.kind == "cell" || FORMULA_KINDS.contains(&r.kind.as_str()))
+                .filter(|r| {
+                    r.kind == "cell"
+                        || FORMULA_KINDS.contains(&r.kind.as_str())
+                        || HELD_KINDS.contains(&r.kind.as_str())
+                })
                 .collect();
             excel.sort_by_key(|r| r.priority);
             let ours: Vec<&Rule> = page
@@ -3019,8 +3076,9 @@ fn the_reader_says_each_rule_as_its_builder_wrote_it() {
             in_file,
             "{file}: {stats:?}"
         );
-        let not_computed = if file == "rules.xlsx" { 8 } else { 0 };
+        let (not_computed, undrawn) = if file == "rules.xlsx" { (1, 7) } else { (0, 0) };
         assert_eq!(stats.not_computed, not_computed, "{file}");
+        assert_eq!(stats.undrawn_rules, undrawn, "{file}");
     }
 }
 
@@ -3037,7 +3095,7 @@ fn the_rules_left_out_are_counted_and_said() {
     assert!(stats.rule_cells > 0);
     assert_eq!(
         stats.left_out().as_deref(),
-        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 8 conditional formats the language does not compute")
+        Some("the looks leave out what the record cannot hold: 5 looks the record has no word for, 1 conditional format the language does not compute; and 7 conditional formats of a kind this version does not compute are printed as the file holds them and draw nothing")
     );
     assert!(
         !read.contains("TODAY()"),
@@ -3507,6 +3565,69 @@ fn written() -> (String, Vec<(String, String)>) {
     );
     w.cell("Written", &format!("G{row}"), "1");
 
+    // The kinds the language does not compute (the item's seventh slice), each over cells
+    // holding 1, 5 and 9, its row's words held to what Excel's object model says of them.
+    let held = |w: &mut Written, test: &str, format: &str, stop: bool| {
+        let row = w.row + 2;
+        let test = test.replace("{r}", &row.to_string());
+        w.case(
+            &format!(
+                "a kind not computed: {test}{}",
+                if stop { " stop" } else { "" }
+            ),
+            "held:C{r} rule:C{r}",
+        );
+        w.rule(&format!("C{row}:E{row}"), &test, format, stop);
+        for (at, value) in ["C", "D", "E"].iter().zip(["1", "5", "9"]) {
+            w.cell("Written", &format!("{at}{row}"), value);
+        }
+        w.cell("Written", &format!("G{row}"), "4");
+    };
+    for test in [
+        r#"(color-scale (min) (max) "F8696B" "63BE7B")"#,
+        r#"(color-scale (min) (percentile 50) (max) "F8696B" "FFEB84" "63BE7B")"#,
+        r#"(color-scale (number 1) (percent 50) (percentile 90) "F8696B" "FFEB84" "63BE7B")"#,
+        r#"(color-scale (formula "=$G${r}") (max) "F8696B" "63BE7B")"#,
+        r#"(color-scale (number "=$G${r}") (max) "F8696B" "63BE7B")"#,
+        r#"(data-bar (min) (max) "638EC6")"#,
+        r#"(data-bar (number 0) (percent 90) "638EC6" (length 5 95) no-value)"#,
+        r#"(data-bar (percentile 10) (formula "=$G${r}") "638EC6")"#,
+        r#"(icon-set "3Arrows" (number 0) (number 5 greater) (percentile 90) reverse no-value)"#,
+    ] {
+        held(&mut w, test, "none", false);
+    }
+    for set in ICON_SETS {
+        let stops = match set.chars().next() {
+            Some('3') => "(percent 0) (percent 33) (percent 67)",
+            Some('4') => "(percent 0) (percent 25) (percent 50) (percent 75)",
+            _ => "(percent 0) (percent 20) (percent 40) (percent 60) (percent 80)",
+        };
+        held(
+            &mut w,
+            &format!("(icon-set \"{set}\" {stops})"),
+            "none",
+            false,
+        );
+    }
+    for test in [
+        "(top 1)",
+        "(top 10 percent)",
+        "(bottom 2)",
+        "(bottom 20 percent)",
+        "(above-average)",
+        "(below-average)",
+        "(above-average equal)",
+        "(below-average equal)",
+        "(above-average (deviations 1))",
+        "(below-average (deviations 2))",
+        "(duplicate)",
+        "(unique)",
+    ] {
+        held(&mut w, test, &lit, false);
+    }
+    held(&mut w, "(top 2)", &lit, true);
+    held(&mut w, "(bottom 3)", "none", false);
+
     let rows = format!(
         "(sheet \"Written\" visible)\n(sheet \"Seen\" visible)\n(sheet \"Not Seen\" hidden)\n\
          (name \"seen_one\" \"Seen!$C$1\")\n\
@@ -3585,6 +3706,9 @@ fn predicted_written() -> String {
                     "{target}\t{}\r\n",
                     merged_at(&wb, "Written", place)
                 )),
+                "held" => {
+                    out.push_str(&format!("{target}\t{}\r\n", held_at(&wb, "Written", place)))
+                }
                 _ => {
                     let over: Vec<&Rule> = page
                         .rules()
@@ -3599,19 +3723,26 @@ fn predicted_written() -> String {
                         let (kind, operator) = match &rule.test {
                             Test::Formula(_) => ("expression", "-"),
                             Test::Cell { operator, .. } => ("cell", operator.word()),
+                            Test::Uncomputed(held) => (held_kind(held), "-"),
                         };
                         // Excel drops the rule's own sheet's name, as its reading has shown.
                         let formulas: Vec<String> = rule
                             .formulas()
                             .iter()
-                            .map(|f| quoted(&format!("={}", own_sheet_unnamed(f, "Written"))))
+                            .filter(|_| rule.computed())
+                            .map(|f| {
+                                format!(
+                                    " {}",
+                                    quoted(&format!("={}", own_sheet_unnamed(f, "Written")))
+                                )
+                            })
                             .collect();
                         out.push_str(&format!(
-                            "{target}\t{} {kind} {operator} {} {} {}\r\n",
+                            "{target}\t{} {kind} {operator} {} {}{}\r\n",
                             ranges.join(","),
                             rule.priority,
                             if rule.stop { "stop" } else { "go" },
-                            formulas.join(" ")
+                            formulas.concat()
                         ));
                     }
                 }
@@ -3643,7 +3774,11 @@ fn a_rule_written_and_read_is_itself() {
         "{WRITTEN} is not what the writer writes today: FRAZARO_BLESS=1 writes it again"
     );
     let (read, stats) = crate::reflect::reflect_looks(&bytes, "rules_written.xlsx").unwrap();
-    assert_eq!(stats.left_out(), None, "{stats:?}");
+    assert_eq!(
+        stats.left_out().as_deref(),
+        Some("40 conditional formats of a kind this version does not compute are printed as the file holds them and draw nothing"),
+        "{stats:?}"
+    );
     assert_eq!(stats.not_computed, 0);
     let back = workbook_of(&read);
     let sheet = |wb: &'_ Workbook| wb.sheets.iter().find(|s| s.name == "Written").cloned();

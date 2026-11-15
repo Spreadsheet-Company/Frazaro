@@ -658,3 +658,123 @@ shown:C244	"FFE699" general nowrap
 shown:D244	"FFE699" general nowrap
 shown:C245	"FFE699" general nowrap
 shown:D245	"FFE699" general nowrap
+=== rules_written.xlsx!Written!a kind not computed: (color-scale (min) (max) "F8696B" "63BE7B")
+held:C246	(color-scale (min) (max) "F8696B" "63BE7B")
+rule:C246	C246:E246 color-scale - 1290 go
+=== rules_written.xlsx!Written!a kind not computed: (color-scale (min) (percentile 50) (max) "F8696B" "FFEB84" "63BE7B")
+held:C248	(color-scale (min) (percentile 50) (max) "F8696B" "FFEB84" "63BE7B")
+rule:C248	C248:E248 color-scale - 1300 go
+=== rules_written.xlsx!Written!a kind not computed: (color-scale (number 1) (percent 50) (percentile 90) "F8696B" "FFEB84" "63BE7B")
+held:C250	(color-scale (number 1) (percent 50) (percentile 90) "F8696B" "FFEB84" "63BE7B")
+rule:C250	C250:E250 color-scale - 1310 go
+=== rules_written.xlsx!Written!a kind not computed: (color-scale (formula "=$G$252") (max) "F8696B" "63BE7B")
+held:C252	(color-scale (formula "=$G$252") (max) "F8696B" "63BE7B")
+rule:C252	C252:E252 color-scale - 1320 go
+=== rules_written.xlsx!Written!a kind not computed: (color-scale (number "=$G$254") (max) "F8696B" "63BE7B")
+held:C254	(color-scale (number "=$G$254") (max) "F8696B" "63BE7B")
+rule:C254	C254:E254 color-scale - 1330 go
+=== rules_written.xlsx!Written!a kind not computed: (data-bar (min) (max) "638EC6")
+held:C256	(data-bar (min) (max) "638EC6")
+rule:C256	C256:E256 data-bar - 1340 go
+=== rules_written.xlsx!Written!a kind not computed: (data-bar (number 0) (percent 90) "638EC6" (length 5 95) no-value)
+held:C258	(data-bar (number 0) (percent 90) "638EC6" (length 5 95) no-value)
+rule:C258	C258:E258 data-bar - 1350 go
+=== rules_written.xlsx!Written!a kind not computed: (data-bar (percentile 10) (formula "=$G$260") "638EC6")
+held:C260	(data-bar (percentile 10) (formula "=$G$260") "638EC6")
+rule:C260	C260:E260 data-bar - 1360 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Arrows" (number 0) (number 5 greater) (percentile 90) reverse no-value)
+held:C262	(icon-set "3Arrows" (number 0) (number 5 greater) (percentile 90) reverse no-value)
+rule:C262	C262:E262 icon-set - 1370 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Arrows" (percent 0) (percent 33) (percent 67))
+held:C264	(icon-set "3Arrows" (percent 0) (percent 33) (percent 67))
+rule:C264	C264:E264 icon-set - 1380 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3ArrowsGray" (percent 0) (percent 33) (percent 67))
+held:C266	(icon-set "3ArrowsGray" (percent 0) (percent 33) (percent 67))
+rule:C266	C266:E266 icon-set - 1390 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Flags" (percent 0) (percent 33) (percent 67))
+held:C268	(icon-set "3Flags" (percent 0) (percent 33) (percent 67))
+rule:C268	C268:E268 icon-set - 1400 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3TrafficLights1" (percent 0) (percent 33) (percent 67))
+held:C270	(icon-set "3TrafficLights1" (percent 0) (percent 33) (percent 67))
+rule:C270	C270:E270 icon-set - 1410 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3TrafficLights2" (percent 0) (percent 33) (percent 67))
+held:C272	(icon-set "3TrafficLights2" (percent 0) (percent 33) (percent 67))
+rule:C272	C272:E272 icon-set - 1420 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Signs" (percent 0) (percent 33) (percent 67))
+held:C274	(icon-set "3Signs" (percent 0) (percent 33) (percent 67))
+rule:C274	C274:E274 icon-set - 1430 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Symbols" (percent 0) (percent 33) (percent 67))
+held:C276	(icon-set "3Symbols" (percent 0) (percent 33) (percent 67))
+rule:C276	C276:E276 icon-set - 1440 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "3Symbols2" (percent 0) (percent 33) (percent 67))
+held:C278	(icon-set "3Symbols2" (percent 0) (percent 33) (percent 67))
+rule:C278	C278:E278 icon-set - 1450 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "4Arrows" (percent 0) (percent 25) (percent 50) (percent 75))
+held:C280	(icon-set "4Arrows" (percent 0) (percent 25) (percent 50) (percent 75))
+rule:C280	C280:E280 icon-set - 1460 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "4ArrowsGray" (percent 0) (percent 25) (percent 50) (percent 75))
+held:C282	(icon-set "4ArrowsGray" (percent 0) (percent 25) (percent 50) (percent 75))
+rule:C282	C282:E282 icon-set - 1470 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "4RedToBlack" (percent 0) (percent 25) (percent 50) (percent 75))
+held:C284	(icon-set "4RedToBlack" (percent 0) (percent 25) (percent 50) (percent 75))
+rule:C284	C284:E284 icon-set - 1480 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "4Rating" (percent 0) (percent 25) (percent 50) (percent 75))
+held:C286	(icon-set "4Rating" (percent 0) (percent 25) (percent 50) (percent 75))
+rule:C286	C286:E286 icon-set - 1490 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "4TrafficLights" (percent 0) (percent 25) (percent 50) (percent 75))
+held:C288	(icon-set "4TrafficLights" (percent 0) (percent 25) (percent 50) (percent 75))
+rule:C288	C288:E288 icon-set - 1500 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "5Arrows" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+held:C290	(icon-set "5Arrows" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+rule:C290	C290:E290 icon-set - 1510 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "5ArrowsGray" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+held:C292	(icon-set "5ArrowsGray" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+rule:C292	C292:E292 icon-set - 1520 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "5Rating" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+held:C294	(icon-set "5Rating" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+rule:C294	C294:E294 icon-set - 1530 go
+=== rules_written.xlsx!Written!a kind not computed: (icon-set "5Quarters" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+held:C296	(icon-set "5Quarters" (percent 0) (percent 20) (percent 40) (percent 60) (percent 80))
+rule:C296	C296:E296 icon-set - 1540 go
+=== rules_written.xlsx!Written!a kind not computed: (top 1)
+held:C298	(top 1)
+rule:C298	C298:E298 top10 - 1550 go
+=== rules_written.xlsx!Written!a kind not computed: (top 10 percent)
+held:C300	(top 10 percent)
+rule:C300	C300:E300 top10 - 1560 go
+=== rules_written.xlsx!Written!a kind not computed: (bottom 2)
+held:C302	(bottom 2)
+rule:C302	C302:E302 top10 - 1570 go
+=== rules_written.xlsx!Written!a kind not computed: (bottom 20 percent)
+held:C304	(bottom 20 percent)
+rule:C304	C304:E304 top10 - 1580 go
+=== rules_written.xlsx!Written!a kind not computed: (above-average)
+held:C306	(above-average)
+rule:C306	C306:E306 above-average - 1590 go
+=== rules_written.xlsx!Written!a kind not computed: (below-average)
+held:C308	(below-average)
+rule:C308	C308:E308 above-average - 1600 go
+=== rules_written.xlsx!Written!a kind not computed: (above-average equal)
+held:C310	(above-average equal)
+rule:C310	C310:E310 above-average - 1610 go
+=== rules_written.xlsx!Written!a kind not computed: (below-average equal)
+held:C312	(below-average equal)
+rule:C312	C312:E312 above-average - 1620 go
+=== rules_written.xlsx!Written!a kind not computed: (above-average (deviations 1))
+held:C314	(above-average (deviations 1))
+rule:C314	C314:E314 above-average - 1630 go
+=== rules_written.xlsx!Written!a kind not computed: (below-average (deviations 2))
+held:C316	(below-average (deviations 2))
+rule:C316	C316:E316 above-average - 1640 go
+=== rules_written.xlsx!Written!a kind not computed: (duplicate)
+held:C318	(duplicate)
+rule:C318	C318:E318 unique-values - 1650 go
+=== rules_written.xlsx!Written!a kind not computed: (unique)
+held:C320	(unique)
+rule:C320	C320:E320 unique-values - 1660 go
+=== rules_written.xlsx!Written!a kind not computed: (top 2) stop
+held:C322	(top 2)
+rule:C322	C322:E322 top10 - 1670 stop
+=== rules_written.xlsx!Written!a kind not computed: (bottom 3)
+held:C324	(bottom 3)
+rule:C324	C324:E324 top10 - 1680 go

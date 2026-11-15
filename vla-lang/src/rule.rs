@@ -30,13 +30,19 @@
 //! library lacks or a text its parse does not read. [`Rule::computable`] asks
 //! the same before a load does, for a reader of a file, which leaves such a rule
 //! out so that one rule does not keep a whole workbook out.
+//!
+//! The kinds a file holds that say no formula of their own, a color scale, a data
+//! bar, a set of icons, a rank, an average, a duplicate and a value alone, are
+//! [`Uncomputed`]: a row of words a machine plans nothing for and draws nothing
+//! by, printed back and written as it was read, so that a workbook keeps them.
 
 use crate::calc::eval::{unread_name, Library};
 use crate::calc::formula;
 use crate::calc::shape::moves_unread;
 use crate::calc::Names;
 use crate::refers;
-use crate::sheet::{cell_ref, strip_future_prefixes, A1Range, Workbook};
+use crate::rows::quoted;
+use crate::sheet::{cell_ref, strip_future_prefixes, A1Range, Rgb, Workbook};
 
 /// Excel's eight comparisons of a cell's value, in the row's words.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,6 +114,306 @@ impl Operator {
     }
 }
 
+/// What a point of a color scale, a data bar or a set of icons is measured by.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopKind {
+    Min,
+    Max,
+    Number,
+    Percent,
+    Percentile,
+    Formula,
+}
+
+impl StopKind {
+    const WORDS: [(StopKind, &'static str, &'static str); 6] = [
+        (StopKind::Min, "min", "min"),
+        (StopKind::Max, "max", "max"),
+        (StopKind::Number, "number", "num"),
+        (StopKind::Percent, "percent", "percent"),
+        (StopKind::Percentile, "percentile", "percentile"),
+        (StopKind::Formula, "formula", "formula"),
+    ];
+
+    /// As a row spells it.
+    pub fn word(self) -> &'static str {
+        Self::WORDS[self as usize].1
+    }
+
+    /// From a row's word.
+    pub fn from_word(word: &str) -> Option<StopKind> {
+        Self::WORDS.iter().find(|w| w.1 == word).map(|w| w.0)
+    }
+
+    /// As a file's `cfvo` names it.
+    pub fn excel(self) -> &'static str {
+        Self::WORDS[self as usize].2
+    }
+
+    /// From a file's `cfvo`.
+    pub fn from_excel(name: &str) -> Option<StopKind> {
+        Self::WORDS.iter().find(|w| w.2 == name).map(|w| w.0)
+    }
+
+    /// Whether it says a value: all but the lowest and the highest.
+    pub fn says_a_value(self) -> bool {
+        !matches!(self, StopKind::Min | StopKind::Max)
+    }
+}
+
+/// A point of a color scale, a data bar or a set of icons, a file's `cfvo`, as a
+/// row spells it: `(min)`, `(percent 33)`, `(formula "=$A$1")`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Stop {
+    pub kind: StopKind,
+    /// A number as it was written, or a formula's text without its `=`; empty
+    /// where its kind says none.
+    pub value: String,
+    /// Whether, at an icon's, a value must pass it where it may otherwise equal it.
+    pub greater: bool,
+}
+
+impl Stop {
+    /// Its value's formula: its kind's own, or a number's place held by one.
+    pub fn formula(&self) -> Option<&str> {
+        let numbered = self.kind != StopKind::Formula && is_number(&self.value);
+        (self.kind.says_a_value() && !numbered).then_some(self.value.as_str())
+    }
+
+    fn words(&self) -> String {
+        let mut s = format!("({}", self.kind.word());
+        if self.kind.says_a_value() {
+            s.push(' ');
+            match self.formula() {
+                Some(text) => s.push_str(&quoted(&format!("={text}"))),
+                None => s.push_str(&self.value),
+            }
+        }
+        if self.greater {
+            s.push_str(" greater");
+        }
+        s.push(')');
+        s
+    }
+}
+
+/// Whether a text is a number a stop may say as it stands.
+pub fn is_number(text: &str) -> bool {
+    text.parse::<f64>().is_ok_and(f64::is_finite)
+}
+
+/// The sets of icons a file's own `iconSet` names, each by its count of icons first.
+pub const ICON_SETS: [&str; 17] = [
+    "3Arrows",
+    "3ArrowsGray",
+    "3Flags",
+    "3TrafficLights1",
+    "3TrafficLights2",
+    "3Signs",
+    "3Symbols",
+    "3Symbols2",
+    "4Arrows",
+    "4ArrowsGray",
+    "4RedToBlack",
+    "4Rating",
+    "4TrafficLights",
+    "5Arrows",
+    "5ArrowsGray",
+    "5Rating",
+    "5Quarters",
+];
+
+/// A data bar's shortest and longest as percents of its cell, when a file says neither.
+pub const BAR_LENGTHS: (u32, u32) = (10, 90);
+
+/// A kind of rule the language does not compute: a machine plans nothing for it and
+/// draws nothing by it, and it is held so that a workbook keeps it. What each draws
+/// is computed for each cell or over its whole range, which no `lit` row says.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Uncomputed {
+    /// Two stops or three, and a color for each.
+    ColorScale { stops: Vec<Stop>, colors: Vec<Rgb> },
+    /// Its lowest and its highest, its color, its shortest and longest as percents
+    /// of its cell, and whether the cell's value is drawn beside it.
+    DataBar {
+        low: Stop,
+        high: Stop,
+        color: Rgb,
+        lengths: (u32, u32),
+        shows_value: bool,
+    },
+    /// One of [`ICON_SETS`], a stop for each icon, whether they run the other way,
+    /// and whether the cell's value is drawn beside them.
+    IconSet {
+        set: String,
+        stops: Vec<Stop>,
+        reverse: bool,
+        shows_value: bool,
+    },
+    /// The highest values, or the lowest, by count or by percent.
+    Rank {
+        bottom: bool,
+        rank: u32,
+        percent: bool,
+    },
+    /// Above the range's average or below it, or equal to it too, or by a count of
+    /// standard deviations.
+    Average {
+        below: bool,
+        equal: bool,
+        deviations: u32,
+    },
+    /// A value more than one cell of the range holds.
+    Duplicate,
+    /// A value one cell of the range holds.
+    Unique,
+}
+
+impl Uncomputed {
+    /// Its stops.
+    pub fn stops(&self) -> Vec<&Stop> {
+        match self {
+            Uncomputed::ColorScale { stops, .. } | Uncomputed::IconSet { stops, .. } => {
+                stops.iter().collect()
+            }
+            Uncomputed::DataBar { low, high, .. } => vec![low, high],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Whether it draws by a format and may stop a rule after it. A scale, a bar
+    /// and a set of icons draw by their own words and neither.
+    pub fn takes_a_format(&self) -> bool {
+        !matches!(
+            self,
+            Uncomputed::ColorScale { .. } | Uncomputed::DataBar { .. } | Uncomputed::IconSet { .. }
+        )
+    }
+
+    /// The `type` of a file's element.
+    pub fn excel(&self) -> &'static str {
+        match self {
+            Uncomputed::ColorScale { .. } => "colorScale",
+            Uncomputed::DataBar { .. } => "dataBar",
+            Uncomputed::IconSet { .. } => "iconSet",
+            Uncomputed::Rank { .. } => "top10",
+            Uncomputed::Average { .. } => "aboveAverage",
+            Uncomputed::Duplicate => "duplicateValues",
+            Uncomputed::Unique => "uniqueValues",
+        }
+    }
+
+    /// Whether it says only what a file can: what Excel's dialogs let a rule say,
+    /// `greater` at an icon's alone, and each stop's formula one the parse reads, though
+    /// nothing runs it, so that a function no library holds is no matter. A load refuses
+    /// the rest, and a reader leaves it out.
+    pub fn well_said(&self) -> bool {
+        let stops = self.stops();
+        let greater =
+            matches!(self, Uncomputed::IconSet { .. }) || stops.iter().all(|stop| !stop.greater);
+        let own = match self {
+            Uncomputed::ColorScale { stops, colors } => {
+                (2..=3).contains(&stops.len()) && colors.len() == stops.len()
+            }
+            Uncomputed::DataBar { lengths, .. } => lengths.0 <= lengths.1 && lengths.1 <= 100,
+            Uncomputed::IconSet { set, stops, .. } => {
+                ICON_SETS.contains(&set.as_str())
+                    && set
+                        .chars()
+                        .next()
+                        .and_then(|icons| icons.to_digit(10))
+                        .is_some_and(|icons| icons as usize == stops.len())
+            }
+            Uncomputed::Rank { rank, percent, .. } => {
+                let most = if *percent { 100 } else { 1000 };
+                (1..=most).contains(rank)
+            }
+            Uncomputed::Average {
+                equal, deviations, ..
+            } => *deviations <= 3 && !(*equal && *deviations > 0),
+            Uncomputed::Duplicate | Uncomputed::Unique => true,
+        };
+        let formulas = stops
+            .iter()
+            .filter_map(|stop| stop.formula())
+            .all(|text| formula::parse(text).is_ok());
+        greater && own && formulas
+    }
+
+    fn words(&self) -> String {
+        let stops = |stops: &[&Stop]| -> String {
+            stops
+                .iter()
+                .map(|stop| format!(" {}", stop.words()))
+                .collect()
+        };
+        let color = |color: &Rgb| format!(" {}", quoted(&color.hex()));
+        match self {
+            Uncomputed::ColorScale { colors, .. } => {
+                let colors: String = colors.iter().map(color).collect();
+                format!("(color-scale{}{colors})", stops(&self.stops()))
+            }
+            Uncomputed::DataBar {
+                color: bar,
+                lengths,
+                shows_value,
+                ..
+            } => {
+                let length = if *lengths == BAR_LENGTHS {
+                    String::new()
+                } else {
+                    format!(" (length {} {})", lengths.0, lengths.1)
+                };
+                let hidden = if *shows_value { "" } else { " no-value" };
+                format!(
+                    "(data-bar{}{}{length}{hidden})",
+                    stops(&self.stops()),
+                    color(bar)
+                )
+            }
+            Uncomputed::IconSet {
+                set,
+                reverse,
+                shows_value,
+                ..
+            } => format!(
+                "(icon-set {}{}{}{})",
+                quoted(set),
+                stops(&self.stops()),
+                if *reverse { " reverse" } else { "" },
+                if *shows_value { "" } else { " no-value" }
+            ),
+            Uncomputed::Rank {
+                bottom,
+                rank,
+                percent,
+            } => format!(
+                "({} {rank}{})",
+                if *bottom { "bottom" } else { "top" },
+                if *percent { " percent" } else { "" }
+            ),
+            Uncomputed::Average {
+                below,
+                equal,
+                deviations,
+            } => {
+                let by = if *deviations > 0 {
+                    format!(" (deviations {deviations})")
+                } else {
+                    String::new()
+                };
+                format!(
+                    "({}-average{}{by})",
+                    if *below { "below" } else { "above" },
+                    if *equal { " equal" } else { "" }
+                )
+            }
+            Uncomputed::Duplicate => "(duplicate)".to_string(),
+            Uncomputed::Unique => "(unique)".to_string(),
+        }
+    }
+}
+
 /// What a rule tests: each formula's text without its `=`, as a `formula` row
 /// holds one.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -121,6 +427,32 @@ pub enum Test {
         first: String,
         second: Option<String>,
     },
+    /// A kind the language does not compute.
+    Uncomputed(Uncomputed),
+}
+
+impl Test {
+    /// As its row spells it.
+    pub fn words(&self) -> String {
+        match self {
+            Test::Formula(text) => quoted(&format!("={text}")),
+            Test::Cell {
+                operator,
+                first,
+                second,
+            } => {
+                let second = second
+                    .as_ref()
+                    .map_or(String::new(), |b| format!(" {}", quoted(&format!("={b}"))));
+                format!(
+                    "(cell {} {}{second})",
+                    operator.word(),
+                    quoted(&format!("={first}"))
+                )
+            }
+            Test::Uncomputed(held) => held.words(),
+        }
+    }
 }
 
 /// One conditional format, as a sheet holds it and its row spells it.
@@ -184,7 +516,7 @@ impl Rule {
         crate::grid::union_cells(&self.ranges)
     }
 
-    /// Its formulas' texts, each without its `=`.
+    /// Its formulas' texts, each without its `=`: a kind not computed's its stops'.
     pub fn formulas(&self) -> Vec<&str> {
         match &self.test {
             Test::Formula(text) => vec![text],
@@ -193,7 +525,13 @@ impl Rule {
                 texts.extend(second.as_deref());
                 texts
             }
+            Test::Uncomputed(held) => held.stops().into_iter().filter_map(Stop::formula).collect(),
         }
+    }
+
+    /// Whether a machine answers it: not one of the [`Uncomputed`] kinds.
+    pub fn computed(&self) -> bool {
+        !matches!(self.test, Test::Uncomputed(_))
     }
 
     /// The formula an answer sheet holds for it, without its `=`, read at
@@ -213,6 +551,8 @@ impl Rule {
                 let second = second.as_deref().map(|b| bound(b, sheet));
                 compared(*operator, &cell, &first, second.as_deref())
             }
+            // No machine plans it.
+            Test::Uncomputed(_) => "0".to_string(),
         };
         format!("IFERROR(IF({test},1,0),0)")
     }
@@ -221,7 +561,8 @@ impl Rule {
     /// a workbook's sheets and defined names (`names`): what a load asks of its
     /// answer, that `library` holds each function it calls, that the parse reads
     /// its text and each name it reads, and, of a reference a move may spoil, its
-    /// text at the far corner of each rectangle, a cell there moved furthest.
+    /// text at the far corner of each rectangle, a cell there moved furthest. Of a kind
+    /// it does not compute, whether a load takes it: [`Uncomputed::well_said`].
     pub fn computable(
         &self,
         model: &Workbook,
@@ -232,6 +573,9 @@ impl Rule {
         let Some(sheet) = model.sheets.get(home) else {
             return false;
         };
+        if let Test::Uncomputed(held) = &self.test {
+            return held.well_said();
+        }
         let text = strip_future_prefixes(&self.answer_text(&sheet.name));
         if formula::calls(&text).iter().any(|name| !library.has(name)) {
             return false;
@@ -295,6 +639,60 @@ fn compared(operator: Operator, cell: &str, first: &str, second: Option<&str>) -
 mod tests {
     use super::*;
     use crate::sheet::parse_a1_range;
+
+    /// A kind not computed is computable where it is well said, on a sheet the
+    /// workbook holds, a stop calling what no library holds among it.
+    #[test]
+    fn a_kind_not_computed_is_computable_where_it_is_well_said() {
+        let mut wb = Workbook::new();
+        wb.sheets.push(crate::sheet::Sheet::new("S"));
+        let names = Names::of(&wb);
+        let library = crate::calc::library::language();
+        let stop = |kind, value: &str| Stop {
+            kind,
+            value: value.to_string(),
+            greater: false,
+        };
+        let scale = |first: Stop| {
+            over(
+                &["A1"],
+                Test::Uncomputed(Uncomputed::ColorScale {
+                    stops: vec![first, stop(StopKind::Max, "")],
+                    colors: vec![Rgb(1, 2, 3), Rgb(4, 5, 6)],
+                }),
+            )
+        };
+        let well = scale(stop(StopKind::Formula, "NOSUCH(A1)"));
+        assert!(well.computable(&wb, &names, 0, &library));
+        assert!(!well.computable(&wb, &names, 1, &library));
+        assert!(!scale(stop(StopKind::Formula, "1+")).computable(&wb, &names, 0, &library));
+        assert!(!Uncomputed::Average {
+            below: false,
+            equal: true,
+            deviations: 1,
+        }
+        .well_said());
+    }
+
+    /// A stop's kinds, in a row's words and a file's.
+    #[test]
+    fn a_stop_s_kinds_are_a_row_s_words_and_a_file_s() {
+        let kinds = [
+            (StopKind::Min, "min", "min"),
+            (StopKind::Max, "max", "max"),
+            (StopKind::Number, "number", "num"),
+            (StopKind::Percent, "percent", "percent"),
+            (StopKind::Percentile, "percentile", "percentile"),
+            (StopKind::Formula, "formula", "formula"),
+        ];
+        for (kind, word, excel) in kinds {
+            assert_eq!((kind.word(), kind.excel()), (word, excel));
+            assert_eq!(StopKind::from_word(word), Some(kind));
+            assert_eq!(StopKind::from_excel(excel), Some(kind));
+        }
+        assert_eq!(StopKind::from_excel("number"), None);
+        assert_eq!(StopKind::from_word("num"), None);
+    }
 
     fn over(ranges: &[&str], test: Test) -> Rule {
         Rule {
