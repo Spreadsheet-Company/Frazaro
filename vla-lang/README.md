@@ -416,8 +416,6 @@ this page gains its section when the item closes:
   Excel would cut it (KERNEL.51); and a database function's computed
   criteria, a formula computed at each record, where it is labelled today
   (KERNEL.52).
-- **More of a cell's look.** A merged range, held by the model and the record, and
-  a conditional format through the file formats (KERNEL.58).
 
 ## Where it comes from
 
