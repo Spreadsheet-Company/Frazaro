@@ -154,7 +154,10 @@ a twenty-fifth, the owner's second Excel save of it (info_saved.xlsx, no row
 differing). KERNEL.70: a twenty-sixth, the owner's Excel save of the formulas
 written as typed (typed_saved.xlsx, no row differing). KERNEL.71: two more,
 BITAND's, BITOR's and BITXOR's fixture (scripts/recalc/bits.xlsx), and the
-owner's Excel save of it (bits_saved.xlsx, no row differing).
+owner's Excel save of it (bits_saved.xlsx, no row differing). KERNEL.29: one
+more, LET's, LAMBDA's and their helpers' fixture, which the core writes with its
+defined names (scripts/recalc/lambda.xlsx), and one more, the owner's Excel save
+of it (lambda_saved.xlsx, one row differing, the recursion its stop rule keeps).
 #>
 param(
     [string]$Impl = '',
@@ -411,7 +414,9 @@ function Get-Oracles([string]$root) {
         @('scripts/recalc/info_saved.xlsx',    'info_saved_calc'),
         @('scripts/recalc/typed_saved.xlsx',   'typed_saved_calc'),
         @('scripts/recalc/bits.xlsx',          'bits_calc'),
-        @('scripts/recalc/bits_saved.xlsx',    'bits_saved_calc'))) {
+        @('scripts/recalc/bits_saved.xlsx',    'bits_saved_calc'),
+        @('scripts/recalc/lambda.xlsx',        'lambda_calc'),
+        @('scripts/recalc/lambda_saved.xlsx',  'lambda_saved_calc'))) {
         $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
                      Input = $c[0]; Golden = ('scripts/recalc/' + $c[1] + '.vla') })
     }
@@ -814,6 +819,8 @@ switch (`$kind) {
             'typed_saved'    { 'scripts/recalc/typed_saved_calc.vla' }
             'bits'           { 'scripts/recalc/bits_calc.vla' }
             'bits_saved'     { 'scripts/recalc/bits_saved_calc.vla' }
+            'lambda'         { 'scripts/recalc/lambda_calc.vla' }
+            'lambda_saved'   { 'scripts/recalc/lambda_saved_calc.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

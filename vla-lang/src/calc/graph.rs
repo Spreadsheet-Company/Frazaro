@@ -140,7 +140,10 @@ impl Names {
                 NameEntry {
                     key: fold(bare),
                     scope,
-                    text: text.clone(),
+                    // As a cell's formula is read: the file's prefixes
+                    // dropped, a named function's `_xlfn.LAMBDA` and its
+                    // `_xlpm.` names among them (KERNEL.29).
+                    text: crate::sheet::strip_future_prefixes(text),
                 }
             })
             .collect();
@@ -191,7 +194,10 @@ impl Names {
 
 /// `Model!Local` or `'Q1 Data'!Local` as its scope and its bare name; a
 /// name with no `!` is the workbook's.
-fn split_scope<'a, M: Model + ?Sized>(model: &M, printed: &'a str) -> (Option<usize>, &'a str) {
+pub(crate) fn split_scope<'a, M: Model + ?Sized>(
+    model: &M,
+    printed: &'a str,
+) -> (Option<usize>, &'a str) {
     let Some(bang) = printed.rfind('!') else {
         return (None, printed);
     };
@@ -506,6 +512,53 @@ fn formulas_of<M: Model + ?Sized>(
     }
 }
 
+/// A text the reference scanner would misread (KERNEL.29), parsed: one
+/// holding `LET`, `LAMBDA` or a value called in place, whose bound names the
+/// scanner reads as defined names, and one calling a defined name, a named
+/// function whose body's reads the scanner never sees. `None` for any other
+/// text, which the scanner reads as before, and for one that does not parse.
+fn bound_text(text: &str, names: &Names, home: usize) -> Option<super::formula::Expr> {
+    let has = |needle: &str| {
+        text.as_bytes()
+            .windows(needle.len())
+            .any(|w| w.eq_ignore_ascii_case(needle.as_bytes()))
+    };
+    let binds = has("LET(") || has("LAMBDA(") || text.contains(")(");
+    let named = !binds
+        && !names.is_empty()
+        && super::formula::calls(text)
+            .iter()
+            .any(|n| names.resolve(n, None, home).is_some());
+    if !binds && !named {
+        return None;
+    }
+    super::formula::parse(text).ok()
+}
+
+/// A parsed text's reads ([`bound_text`]): each reference to `on_ref`, and
+/// each defined name it reads or calls by name, with the sheet a name read
+/// is scoped by, for its reader to follow.
+fn bound_reads<'e>(
+    e: &'e super::formula::Expr,
+    find: &dyn Fn(&str) -> Option<usize>,
+    mut on_ref: impl FnMut(&'e RefExpr),
+) -> Vec<(&'e str, Option<usize>)> {
+    let mut named: Vec<(&'e str, Option<usize>)> = Vec::new();
+    e.each_read(&mut |r| match r {
+        super::formula::Read::Ref(re) => on_ref(re),
+        super::formula::Read::Name { name, sheet } => match sheet {
+            None => named.push((name, None)),
+            Some(s) => {
+                if let Some(i) = find(s) {
+                    named.push((name, Some(i)));
+                }
+            }
+        },
+    });
+    e.each_call(&mut |name| named.push((name, None)));
+    named
+}
+
 fn collect<M: Model + ?Sized>(
     model: &M,
     names: &Names,
@@ -515,6 +568,30 @@ fn collect<M: Model + ?Sized>(
     depth: u32,
     out: &mut Vec<CellId>,
 ) {
+    if let Some(e) = bound_text(text, names, home) {
+        let find = |n: &str| model.find_sheet(n);
+        let named = bound_reads(&e, &find, |re| {
+            if let Ok(areas) = areas_found(find, home, re, 0, 0) {
+                formulas_of(model, extents, &areas, out);
+            }
+        });
+        if depth < NAME_DEPTH {
+            for (name, scope) in named {
+                if let Some(t) = names.resolve(name, scope, home) {
+                    collect(
+                        model,
+                        names,
+                        extents,
+                        scope.unwrap_or(home),
+                        t,
+                        depth + 1,
+                        out,
+                    );
+                }
+            }
+        }
+        return;
+    }
     let scanned = refers::scan(text);
     let reaches = range_reaches(text, &scanned);
     for r in scanned {
@@ -585,6 +662,21 @@ fn reads<M: Model + ?Sized>(
     depth: u32,
     (cells, areas): (&mut Vec<CellId>, &mut Vec<Area>),
 ) {
+    if let Some(e) = bound_text(text, names, home) {
+        let find = |n: &str| model.find_sheet(n);
+        let named = bound_reads(&e, &find, |re| {
+            read_ref(model, home, re, (&mut *cells, &mut *areas));
+        });
+        if depth < NAME_DEPTH {
+            for (name, scope) in named {
+                if let Some(t) = names.resolve(name, scope, home) {
+                    let home = scope.unwrap_or(home);
+                    reads(model, names, home, t, depth + 1, (&mut *cells, &mut *areas));
+                }
+            }
+        }
+        return;
+    }
     let scanned = refers::scan(text);
     let reaches = range_reaches(text, &scanned);
     for r in scanned {
@@ -675,6 +767,11 @@ fn range_reaches(text: &str, scanned: &[refers::FormulaRef]) -> Vec<RefExpr> {
                 stack.push(a);
                 stack.push(b);
             }
+            // A binding's values and body, a function's body and a value
+            // called with its arguments (KERNEL.29).
+            super::formula::Expr::Let(_)
+            | super::formula::Expr::Lambda(_)
+            | super::formula::Expr::Apply(_) => x.push_children(&mut stack),
             _ => {}
         }
     }

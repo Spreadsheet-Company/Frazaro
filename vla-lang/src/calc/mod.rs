@@ -66,11 +66,20 @@
 //! A mask reads by one call since KERNEL.71 (2026-10-30, [`library`]): `BITAND`,
 //! `BITOR` and `BITXOR`, over whole numbers below 2^48, exactly.
 //!
-//! What is not here, by name, each a slice of its own: the `SUMIFS` family
-//! and the database functions, arrays within a formula (`KERNEL.8`'s later
-//! slices), spills (an item of their own), `LET` and `LAMBDA`
-//! (`KERNEL.29`); the rest of speed, content-addressed evaluation among
-//! them (`KERNEL.20`). A formula that reaches any of them is not computed,
+//! A function is written in formulas since KERNEL.29's first slice (2026-11-15):
+//! `LET` and `LAMBDA`, the names they bind resolved by the parse, a named
+//! function a defined name whose text is a `LAMBDA`, and `MAP`, `REDUCE`,
+//! `SCAN`, `BYROW`, `BYCOL`, `MAKEARRAY` and `ISOMITTED` (`helpers`). Each call
+//! a formula makes is written into it at a shape's placement and by the door
+//! before it evaluates (`lambda`), so that a run, a program and the plan meet
+//! the formula written out; a recursion runs as calls (`calls`), each counted,
+//! to a depth of 4,096 on a stack of the language's own.
+//!
+//! What is not here, by name, each a slice of its own: spills (`KERNEL.55`),
+//! a `LET`'s value computed once across `IF`'s branches in a run and a program
+//! and sheet-defined functions (`KERNEL.29`'s later slices); the rest of
+//! speed, content-addressed evaluation among them (`KERNEL.20`). A formula
+//! that reaches any of them is not computed,
 //! and says so naming the function or the construct ([`Reason`]), which is
 //! the honest static label of `HORIZON.md` section 12.6; a cell that reads
 //! such a cell inherits the reason.
@@ -79,6 +88,7 @@ pub(crate) mod aggregates;
 pub mod array;
 pub(crate) mod arrays;
 pub(crate) mod blocks;
+pub(crate) mod calls;
 pub(crate) mod census;
 pub mod criteria;
 pub(crate) mod database;
@@ -88,8 +98,10 @@ pub mod eval;
 pub mod formula;
 pub(crate) mod formulas;
 pub mod graph;
+pub(crate) mod helpers;
 pub mod index;
 pub(crate) mod information;
+pub(crate) mod lambda;
 pub mod library;
 pub(crate) mod lookups;
 pub(crate) mod nodes;
@@ -143,6 +155,10 @@ pub struct Calc<'m> {
     /// The vectors its lookups and criteria search, indexed at a second
     /// probe (KERNEL.8): its one pass changes none of their cells.
     indexes: index::Indexes,
+    /// The workbook's named functions (KERNEL.29), which every formula's
+    /// inlining writes in as an engine's placement does, so that the door
+    /// and an engine read a formula alike.
+    functions: lambda::Functions,
 }
 
 impl<'m> Calc<'m> {
@@ -180,6 +196,7 @@ impl<'m> Calc<'m> {
             next: 0,
             here: Slot::new((0, 1, 1)),
             indexes: index::Indexes::new(),
+            functions: lambda::Functions::of_model(model),
         }
     }
 
@@ -276,11 +293,16 @@ impl<'m> Calc<'m> {
             return Computed::NotComputed(Reason::Construct(String::new()));
         };
         self.here.set(id);
-        let parsed = match formula::parse(text) {
+        let parsed = match lambda::parsed(text, &self.functions, self.library) {
             Ok(e) => e,
             Err(construct) => return Computed::NotComputed(Reason::Construct(construct)),
         };
         let ctx = Ctx::new(self, self.library);
+        // How deep the formula nests, so that a call it keeps is entered
+        // where its body fits the stack (KERNEL.29).
+        if parsed.has_lambda() {
+            ctx.nests(lambda::kept_depth(&parsed));
+        }
         match ctx.eval(&parsed).and_then(|arg| ctx.result(&arg)) {
             Ok(v) => Computed::Value(v.settled()),
             Err(reason) => Computed::NotComputed(reason),
@@ -293,7 +315,14 @@ impl<'m> Calc<'m> {
     pub fn missing_functions(&self) -> Vec<(CellId, String)> {
         let mut seen: HashMap<String, CellId> = HashMap::new();
         for id in self.formula_cells() {
-            for name in formula::calls(&self.texts[&id]) {
+            // The calls the parse makes, written in, as an engine's placement
+            // reads them (KERNEL.29); a text not read, its tokens'.
+            let text = &self.texts[&id];
+            let calls = match lambda::parsed(text, &self.functions, self.library) {
+                Ok(e) => lambda::calls_of(&e),
+                Err(_) => formula::calls(text),
+            };
+            for name in calls {
                 if !self.library.has(&name) {
                     seen.entry(name).or_insert(id);
                 }
@@ -342,7 +371,7 @@ impl<'m> Calc<'m> {
         let named = self.names.any_unread();
         let (id, construct) =
             self.formula_cells().into_iter().find_map(|id| {
-                match formula::parse(&self.texts[&id]) {
+                match lambda::parsed(&self.texts[&id], &self.functions, self.library) {
                     Err(construct) => Some((id, construct)),
                     Ok(parsed) if named => {
                         eval::unread_name(self.model, &self.names, &parsed, id.0).map(|c| (id, c))
@@ -471,6 +500,10 @@ impl Env for Calc<'_> {
 
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str> {
         self.names.resolve(name, scope, home)
+    }
+
+    fn function(&self, name: &str, home: usize) -> Option<std::rc::Rc<formula::Lambda>> {
+        self.functions.resolve(name, home)
     }
 
     fn indexes(&self) -> Option<&index::Indexes> {

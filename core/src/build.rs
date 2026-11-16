@@ -654,7 +654,9 @@ impl<'a> Walker<'a> {
                 ));
             }
             if let Some(body) = t.strip_prefix('=') {
-                let text = prefix_future_functions(body);
+                // Its newer functions under their prefixes, and the names its
+                // `LET`s and `LAMBDA`s bind under `_xlpm.` (KERNEL.29).
+                let text = crate::sheet::xlfn::prefix_parameters(&prefix_future_functions(body));
                 if can_return_array(&text) {
                     // What Excel stores for a Formula2 entry of such a formula,
                     // and reads back without its @.

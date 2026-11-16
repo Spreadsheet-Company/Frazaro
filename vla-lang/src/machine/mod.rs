@@ -3127,6 +3127,14 @@ impl Env for Machine {
         self.names.resolve(name, scope, home)
     }
 
+    fn function(
+        &self,
+        name: &str,
+        home: usize,
+    ) -> Option<std::rc::Rc<crate::calc::formula::Lambda>> {
+        self.shapes.function(name, home)
+    }
+
     /// A rows' sheet's store where it is an array (KERNEL.49), and a twin's
     /// store kept as one (KERNEL.20), a reason among the slots of either
     /// meeting a walk where it stands, as a walk of the sheet meets it.
@@ -3781,6 +3789,7 @@ fn reason_spelled(r: Option<&Reason>) -> Option<Option<&str>> {
     r.map(|r| match r {
         Reason::Function(name) | Reason::Construct(name) => Some(name.as_str()),
         Reason::Cycle => None,
+        Reason::Deep => Some("a call too deep for the stack"),
     })
 }
 
@@ -9633,6 +9642,25 @@ mod tests {
                             }
                             _ => true,
                         }
+                }
+                // A binding's values and body, a function's body, a value
+                // called and its arguments, each moved as every reference is
+                // (KERNEL.29); a name bound the same name.
+                (Expr::Let(x), Expr::Let(y)) => {
+                    x.binds.len() == y.binds.len()
+                        && x.binds
+                            .iter()
+                            .zip(&y.binds)
+                            .all(|((l, v), (m, w))| l == m && same(v, w, d))
+                        && same(&x.body, &y.body, d)
+                }
+                (Expr::Lambda(x), Expr::Lambda(y)) => {
+                    x.params == y.params && same(&x.body, &y.body, d)
+                }
+                (Expr::Apply(x), Expr::Apply(y)) => {
+                    same(&x.callee, &y.callee, d)
+                        && x.args.len() == y.args.len()
+                        && x.args.iter().zip(&y.args).all(|(p, q)| same(p, q, d))
                 }
                 _ => a == b,
             }

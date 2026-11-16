@@ -648,6 +648,42 @@ pub const SUBSET: &[Entry] = &[
         name: "IFS",
         evidence: "scripts/reflect/saved.xlsx, the first Excel-saved fixture",
     },
+    Entry {
+        name: "LET",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "LAMBDA",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "MAP",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "REDUCE",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "SCAN",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "BYROW",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "BYCOL",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "MAKEARRAY",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "ISOMITTED",
+        evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
 ];
 
 /// The functions named by the two corpora's top fifteen that the subset

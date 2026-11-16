@@ -29,6 +29,15 @@
 //! (`[Rates.xlsx]Sheet1!A1`). A range where one value is wanted (`=B1:B2*2`)
 //! a legacy formula intersects and a dynamic one reads whole (`KERNEL.8`'s
 //! second and sixth slices), by the kind the file gives the formula.
+//!
+//! `LET` and `LAMBDA` are read since `KERNEL.29`: a name either binds is
+//! resolved in the parse itself, a [`Local`] where it is read and never a
+//! defined name, so that no walk of a parse takes a name's slow road for it
+//! and no defined name of the same spelling is read in its place; a call of
+//! such a name, and a value called in place (`LAMBDA(x,x)(1)`, its `(`
+//! straight after the call's `)`), is an [`Apply`] (`super::lambda`).
+
+use std::rc::Rc;
 
 use crate::messages::{raise, Refusal};
 use crate::refers::{self, is_ident_char, FormulaRef, Kind, Shape};
@@ -213,6 +222,58 @@ pub enum Expr {
     Pos(Box<Expr>),
     Percent(Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
+    /// A name a `LET` binds or a `LAMBDA` takes, read where it is written
+    /// (KERNEL.29).
+    Local(Local),
+    /// `LET(name, value, ..., body)` (KERNEL.29).
+    Let(Box<Let>),
+    /// `LAMBDA(parameter, ..., body)`, a function's value (KERNEL.29).
+    Lambda(Rc<Lambda>),
+    /// A value called (KERNEL.29).
+    Apply(Box<Apply>),
+}
+
+/// A name a `LET` binds or a `LAMBDA` takes, as a parse reads it where it is
+/// written (KERNEL.29): its binder's slot, which no other binder of the same
+/// formula holds, and the name as written, for a label.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Local {
+    pub slot: u32,
+    pub name: String,
+}
+
+/// `LET` read (KERNEL.29): each name and the expression it stands for, in
+/// order, each value seeing the names bound before it and the body seeing
+/// them all. A name stands for its expression, substituted where it is read
+/// (the owner's decision 2), which an evaluation computes once a reading; a
+/// value shared by a count, so that what keeps it for a reading keeps no
+/// copy of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Let {
+    pub binds: Vec<(Local, Rc<Expr>)>,
+    pub body: Expr,
+}
+
+/// `LAMBDA` read (KERNEL.29): a function's value, its parameters and its
+/// body, shared by a count so that it is handed about as an array is.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Lambda {
+    pub params: Vec<Local>,
+    pub body: Expr,
+    /// How deep the body nests as an evaluation recurses
+    /// (`super::lambda::depth`), found once, which a call adds to its count
+    /// of the stack.
+    pub depth: u32,
+}
+
+/// A value called (KERNEL.29): a name a `LET` or a `LAMBDA` binds, called
+/// (`f(1)`); a call answering a function, called in place
+/// (`LAMBDA(x,x)(1)`); and, after the inlining, a named function some cycle
+/// of named functions holds, its callee its name.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Apply {
+    pub callee: Expr,
+    pub args: Vec<Expr>,
 }
 
 /// `:` between two expressions that answer references (KERNEL.8, slice f):
@@ -537,6 +598,16 @@ impl Expr {
                 stack.push(&r.right);
                 stack.push(&r.left);
             }
+            // A binding's values in order, then its body (KERNEL.29).
+            Expr::Let(l) => {
+                stack.push(&l.body);
+                stack.extend(l.binds.iter().rev().map(|(_, v)| &**v));
+            }
+            Expr::Lambda(l) => stack.push(&l.body),
+            Expr::Apply(a) => {
+                stack.extend(a.args.iter().rev());
+                stack.push(&a.callee);
+            }
             Expr::Ref(_)
             | Expr::Name { .. }
             | Expr::Number(_)
@@ -544,8 +615,26 @@ impl Expr {
             | Expr::Bool(_)
             | Expr::Error(_)
             | Expr::Empty
-            | Expr::Array(_) => {}
+            | Expr::Array(_)
+            | Expr::Local(_) => {}
         }
+    }
+
+    /// Whether the parse holds a node of `LET` or `LAMBDA` anywhere
+    /// (KERNEL.29): a binding, a name it binds, a function's value or a value
+    /// called, which only `Ctx` computes.
+    pub fn has_lambda(&self) -> bool {
+        let mut stack = vec![self];
+        while let Some(e) = stack.pop() {
+            if matches!(
+                e,
+                Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_)
+            ) {
+                return true;
+            }
+            e.push_children(&mut stack);
+        }
+        false
     }
 }
 
@@ -567,6 +656,10 @@ enum Tok {
     Percent,
     LParen,
     RParen,
+    /// A `(` straight after a `)`, nothing between them (KERNEL.29): a value
+    /// called in place where a call stands before it, `LAMBDA(x,x)(1)`; a
+    /// space's intersection anywhere else, as a `(` after a space is.
+    Invoke,
     Comma,
     /// An array constant's braces and its row separator, and `:` between
     /// two expressions (KERNEL.8, slice f).
@@ -726,6 +819,7 @@ fn tokenize(text: &str) -> Vec<Tok> {
                     '^' => (Tok::Op(BinOp::Pow), 1),
                     '&' => (Tok::Op(BinOp::Concat), 1),
                     '%' => (Tok::Percent, 1),
+                    '(' if i > 0 && s[i - 1] == ')' => (Tok::Invoke, 1),
                     '(' => (Tok::LParen, 1),
                     ')' => (Tok::RParen, 1),
                     ',' => (Tok::Comma, 1),
@@ -844,6 +938,9 @@ struct Parser {
     at: usize,
     /// The nesting levels open where the parser stands (VLA.1).
     depth: u32,
+    /// Whether the text calls `LET` or `LAMBDA` or calls a value in place
+    /// (KERNEL.29), whose names the parse resolves when it has read the rest.
+    binds: bool,
 }
 
 impl Parser {
@@ -897,7 +994,7 @@ impl Parser {
             }
             .to_string(),
             Tok::Percent => "%".to_string(),
-            Tok::LParen => "(".to_string(),
+            Tok::LParen | Tok::Invoke => "(".to_string(),
             Tok::RParen => ")".to_string(),
             Tok::Comma => ",".to_string(),
             Tok::LBrace => "{".to_string(),
@@ -925,6 +1022,7 @@ impl Parser {
                 | Tok::Name { .. }
                 | Tok::Func(_)
                 | Tok::LParen
+                | Tok::Invoke
                 | Tok::LBrace
         )
     }
@@ -1019,6 +1117,13 @@ impl Parser {
                 return Err(why);
             }
         }
+        // A value called in place, a frame of its own entered only where
+        // one is (KERNEL.29).
+        if self.peek() == Some(&Tok::Invoke) && callable(&e) {
+            if let Err(why) = self.invoked(&mut e) {
+                return Err(why);
+            }
+        }
         let mut percents = 0;
         while self.peek() == Some(&Tok::Percent) {
             // Each `%` wraps what came before, a level its evaluation
@@ -1057,6 +1162,20 @@ impl Parser {
             let right = self.primary()?;
             let left = std::mem::replace(e, Expr::Empty);
             *e = Expr::Range(Box::new(RangeExpr::new(left, right)));
+        }
+        Ok(())
+    }
+
+    /// Calls of a value in place after a call (KERNEL.29), as many as are
+    /// chained, `LAMBDA(x,LAMBDA(y,x+y))(1)(2)`, each a level deeper as a
+    /// call's arguments are, written into the call's place.
+    fn invoked(&mut self, e: &mut Expr) -> Result<(), String> {
+        while self.peek() == Some(&Tok::Invoke) && callable(e) {
+            self.at += 1;
+            self.binds = true;
+            let args = self.nested(Self::arguments)?;
+            let callee = std::mem::replace(e, Expr::Empty);
+            *e = Expr::Apply(Box::new(Apply { callee, args }));
         }
         Ok(())
     }
@@ -1126,9 +1245,12 @@ impl Parser {
                 if self.take() != Some(Tok::LParen) {
                     return Err(name);
                 }
+                if name == "LET" || name == "LAMBDA" {
+                    self.binds = true;
+                }
                 self.nested(|p| p.call(name))
             }
-            Tok::LParen => {
+            Tok::LParen | Tok::Invoke => {
                 let e = self.nested(Self::comparison)?;
                 match self.take() {
                     Some(Tok::RParen) => Ok(e),
@@ -1143,10 +1265,16 @@ impl Parser {
 
     /// A call's arguments after its `(`, through its `)`, a level deeper.
     fn call(&mut self, name: String) -> Result<Expr, String> {
+        Ok(Expr::Call(name, self.arguments()?))
+    }
+
+    /// The arguments after a `(`, through its `)`, an argument left out read
+    /// as [`Expr::Empty`].
+    fn arguments(&mut self) -> Result<Vec<Expr>, String> {
         let mut args = Vec::new();
         if self.peek() == Some(&Tok::RParen) {
             self.at += 1;
-            return Ok(Expr::Call(name, args));
+            return Ok(args);
         }
         loop {
             match self.peek() {
@@ -1160,8 +1288,15 @@ impl Parser {
                 None => return Err("end of formula".to_string()),
             }
         }
-        Ok(Expr::Call(name, args))
+        Ok(args)
     }
+}
+
+/// Whether an expression may answer a function's value, so that a `(` straight
+/// after it calls it (KERNEL.29): a call, which may be `LAMBDA`'s, `LET`'s, a
+/// named function's or one answering what it is given, and a value called.
+fn callable(e: &Expr) -> bool {
+    matches!(e, Expr::Call(..) | Expr::Apply(_))
 }
 
 /// A formula's text, with or without its leading `=`, as an expression; or
@@ -1175,12 +1310,16 @@ pub fn parse(text: &str) -> Result<Expr, String> {
         toks: tokenize(text),
         at: 0,
         depth: 0,
+        binds: false,
     };
     if p.toks.is_empty() {
         return Err("end of formula".to_string());
     }
     let e = p.comparison()?;
     match p.peek() {
+        // The names `LET` and `LAMBDA` bind, resolved once the whole text is
+        // read (KERNEL.29); a text calling neither is the parse as it was.
+        None if p.binds => Ok(super::lambda::resolve(e)),
         None => Ok(e),
         Some(t) => Err(Parser::label(t)),
     }

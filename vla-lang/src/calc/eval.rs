@@ -29,6 +29,8 @@ use crate::rows::quoted;
 use crate::sheet::{strip_future_prefixes, RowSettings};
 
 use super::array::{self, Array, Lifted};
+use super::calls::Calls;
+pub use super::calls::Function;
 use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RangeExpr, RefExpr};
 use super::graph::{areas_found, clamped, places, Area, Areas, CellId, Extent, Names, Walked};
@@ -46,6 +48,11 @@ pub enum Reason {
     Construct(String),
     /// The cell is in a cycle, or reads one.
     Cycle,
+    /// A call too deep for the stack where it stands (KERNEL.29): the
+    /// evaluation steps back to the outermost call, computes it there on a
+    /// fresh stack and remembers it (`super::lambda`), so that no cell ever
+    /// holds it.
+    Deep,
 }
 
 impl Reason {
@@ -56,6 +63,7 @@ impl Reason {
                 format!("(not-computed {})", quoted(name))
             }
             Reason::Cycle => "(not-computed cycle)".to_string(),
+            Reason::Deep => "(not-computed \"a call too deep for the stack\")".to_string(),
         }
     }
 }
@@ -100,6 +108,10 @@ pub enum Arg<'e> {
     /// array is wanted, a function's answer, or a lift over one of those
     /// (`super::array`).
     Array(Array),
+    /// A function's value (KERNEL.29): a `LAMBDA`, called where it is
+    /// handed, never a cell's value, which `#CALC!` stands for as a cell's
+    /// answer and `#VALUE!` wherever else one value is wanted (Excel's save).
+    Function(Function),
 }
 
 impl Arg<'_> {
@@ -118,6 +130,7 @@ impl Arg<'_> {
                 moved,
             },
             Arg::Array(a) => Arg::Array(a),
+            Arg::Function(f) => Arg::Function(f),
         }
     }
 }
@@ -205,6 +218,14 @@ pub trait Env {
     /// The text of a defined name, resolved as `graph::Names::resolve`
     /// resolves it.
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str>;
+    /// The named function a name calls from a sheet, a defined name whose
+    /// text is a `LAMBDA`, as the grid read it once (KERNEL.29), so that no
+    /// evaluation parses a name's text where it stands, which may be as deep
+    /// as a formula nests. `None`, its text parsed where it is called, unless
+    /// an environment says otherwise.
+    fn function(&self, _name: &str, _home: usize) -> Option<std::rc::Rc<formula::Lambda>> {
+        None
+    }
     /// A sheet's values kept as an array over its extent, when the
     /// environment keeps one (KERNEL.20: an engine's machine, for each
     /// `.last` twin; and since KERNEL.31 for each of its frame's own sheets
@@ -696,11 +717,18 @@ pub struct Ctx<'a> {
     /// The offset of the cell being computed from the cell its formula was
     /// read at: (0, 0) but in an engine's machine, which parses a shape once
     /// and evaluates it at each of its cells (KERNEL.22).
-    offset: Counter<(i64, i64)>,
+    pub(super) offset: Counter<(i64, i64)>,
     /// How many array parameters the expression being evaluated stands
     /// inside (KERNEL.8, slice f): above none, a range where one value is
     /// wanted is read whole, as a formula read as arrays reads one.
-    inside: Counter<u32>,
+    pub(super) inside: Counter<u32>,
+    /// What an evaluation of `LET` and `LAMBDA` keeps (KERNEL.29): the
+    /// bindings in scope, the calls made and open, and the calls computed on
+    /// a fresh stack (`super::calls`).
+    pub(super) calls: std::cell::RefCell<Calls>,
+    /// Whether an evaluation is under way, so that the outermost [`Ctx::eval`]
+    /// is the top a call too deep for the stack steps back to (KERNEL.29).
+    pub(super) running: Counter<bool>,
 }
 
 impl<'a> Ctx<'a> {
@@ -720,6 +748,8 @@ impl<'a> Ctx<'a> {
             depth: Counter::new(0),
             offset: Counter::new((d_row, d_col)),
             inside: Counter::new(0),
+            calls: std::cell::RefCell::new(Calls::default()),
+            running: Counter::new(false),
         }
     }
 
@@ -765,6 +795,15 @@ impl<'a> Ctx<'a> {
         })
     }
 
+    /// The bindings of `LET` and `LAMBDA` in scope where the evaluation
+    /// stands, replaced, and those it replaced (KERNEL.29).
+    pub(super) fn swap_frame(
+        &self,
+        frame: Option<std::rc::Rc<super::calls::Frame>>,
+    ) -> Option<std::rc::Rc<super::calls::Frame>> {
+        std::mem::replace(&mut self.calls.borrow_mut().frame, frame)
+    }
+
     /// Whether a parameter of this class lifts its function over an array
     /// given to it.
     fn lifting(&self, class: Param) -> bool {
@@ -775,8 +814,20 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    /// An expression as an operand.
+    /// An expression as an operand. The outermost evaluation on a context is
+    /// its top (KERNEL.29, [`Ctx::top`]), where a call too deep for the stack
+    /// where it stood is computed and the expression evaluated again.
     pub fn eval<'e>(&self, e: &'e Expr) -> Result<Arg<'e>, Reason> {
+        if !self.running.get() {
+            return self.top(e);
+        }
+        self.node(e)
+    }
+
+    /// An expression as an operand, the evaluation under way: one level of
+    /// nesting's frame, as `eval`'s was (VLA.1).
+    #[inline(always)]
+    pub(super) fn node<'e>(&self, e: &'e Expr) -> Result<Arg<'e>, Reason> {
         match e {
             Expr::Number(v) => Ok(Arg::Scalar(Value::Number(*v))),
             Expr::Text(t) => Ok(Arg::Scalar(Value::Text(t.clone()))),
@@ -800,6 +851,11 @@ impl<'a> Ctx<'a> {
                 Ok(self.operated(*op, a, b)?)
             }
             Expr::Binary(..) => self.chain(e),
+            // KERNEL.29's, `super::lambda`.
+            Expr::Local(l) => self.local(l),
+            Expr::Let(l) => self.let_in(l),
+            Expr::Lambda(l) => Ok(self.function_value(l)),
+            Expr::Apply(a) => self.applied(a),
         }
     }
 
@@ -841,6 +897,9 @@ impl<'a> Ctx<'a> {
             Arg::Scalar(v) => Ok(Lifted::One(v)),
             Arg::Array(a) if a.is_single() => Ok(Lifted::One(a.get(0, 0).clone())),
             Arg::Array(a) => Ok(Lifted::Many(a)),
+            // A function's value where an operator wants one value: `#VALUE!`,
+            // Excel's save (KERNEL.29); a cell's answer alone is `#CALC!`.
+            Arg::Function(_) => Ok(Lifted::One(Value::Error(ErrorKind::Value))),
             Arg::Area { ref areas, .. } => match &areas[..] {
                 [a] if a.is_cell() => Ok(Lifted::One(self.env.read((a.sheet, a.top, a.left))?)),
                 [a] if self.arrays() => Ok(Lifted::Many(self.area_array(a)?)),
@@ -943,6 +1002,9 @@ impl<'a> Ctx<'a> {
     /// spill as well, one thing with one name (KERNEL.70).
     pub fn result(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
+            // A formula whose value is a function's, as Excel's `LAMBDA` in a
+            // cell not called is (KERNEL.29).
+            Arg::Function(_) => Ok(Value::Error(ErrorKind::Calc)),
             Arg::Array(a) if a.is_single() => Ok(a.get(0, 0).clone()),
             Arg::Array(_) if self.env.dynamic() => Err(Reason::Construct(SPILL.to_string())),
             Arg::Array(a) => Ok(a.get(0, 0).clone()),
@@ -1013,6 +1075,8 @@ impl<'a> Ctx<'a> {
     pub fn one(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
             Arg::Scalar(v) => Ok(v.clone()),
+            // A function's value read as one value (KERNEL.29, Excel's save).
+            Arg::Function(_) => Ok(Value::Error(ErrorKind::Value)),
             Arg::Array(a) if a.is_single() || !self.arrays() => Ok(a.get(0, 0).clone()),
             Arg::Array(_) => Err(Reason::Construct(
                 "an array where one value is wanted".to_string(),
@@ -1117,6 +1181,14 @@ impl<'a> Ctx<'a> {
                 None => return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
             },
         };
+        // A name whose text is a `LAMBDA`, a named function read as a value
+        // (KERNEL.29), read once an evaluation so that it is one function
+        // however often it is read.
+        if sheet.is_none() {
+            if let Some(f) = self.named_function(name) {
+                return Ok(Arg::Function(f));
+            }
+        }
         let Some(text) = self.env.name(name, scope, home) else {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Name)));
         };
@@ -1124,11 +1196,14 @@ impl<'a> Ctx<'a> {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Name)));
         }
         let parsed = formula::parse(text).map_err(Reason::Construct)?;
-        // A name's references are where the name says, whatever cell reads it.
+        // A name's references are where the name says, whatever cell reads
+        // it, and no binding of the formula reading it is its (KERNEL.29).
         let offset = self.offset.replace((0, 0));
+        let frame = self.swap_frame(None);
         self.depth.set(self.depth.get() + 1);
         let result = self.eval(&parsed).map(Arg::into_owned);
         self.depth.set(self.depth.get() - 1);
+        self.swap_frame(frame);
         self.offset.set(offset);
         result
     }
@@ -1156,6 +1231,11 @@ impl<'a> Ctx<'a> {
             }
             return f(self, &values);
         }
+        // A named function called by its name (KERNEL.29), where the inlining
+        // has not written it in: with its arguments' values.
+        if let Some(f) = self.named_function(name) {
+            return self.call_named(&f, args);
+        }
         Err(Reason::Function(name.to_string()))
     }
 
@@ -1182,6 +1262,9 @@ impl<'a> Ctx<'a> {
         a: &Expr,
     ) -> Result<Arg<'static>, Reason> {
         let x = self.argument(classes(0), a)?;
+        if matches!(x, Arg::Function(_)) {
+            return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+        }
         if let Some(k @ (Known::Row | Known::Column)) = known {
             if let Some(placed) = self.placed_many(k, &x) {
                 return placed;
@@ -1202,6 +1285,9 @@ impl<'a> Ctx<'a> {
         b: &Expr,
     ) -> Result<Arg<'static>, Reason> {
         let pair = [self.argument(classes(0), a)?, self.argument(classes(1), b)?];
+        if pair.iter().any(|v| matches!(v, Arg::Function(_))) {
+            return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+        }
         if (self.lifting(classes(0)) && self.lifts(&pair[0]))
             || (self.lifting(classes(1)) && self.lifts(&pair[1]))
         {
@@ -1222,6 +1308,11 @@ impl<'a> Ctx<'a> {
         for (j, a) in args.iter().enumerate() {
             values.push(self.argument(classes(j), a)?);
         }
+        // A function's value handed to a function of values, which no such
+        // function reads (KERNEL.29): `#VALUE!`, as one value read.
+        if values.iter().any(|v| matches!(v, Arg::Function(_))) {
+            return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+        }
         if values
             .iter()
             .enumerate()
@@ -1240,7 +1331,7 @@ impl<'a> Ctx<'a> {
         match v {
             Arg::Array(_) => true,
             Arg::Area { areas, .. } => self.lifts_area(areas),
-            Arg::Scalar(_) => false,
+            Arg::Scalar(_) | Arg::Function(_) => false,
         }
     }
 
@@ -1356,6 +1447,7 @@ impl<'a> Ctx<'a> {
                 }
                 Ok(())
             }
+            Arg::Function(_) => f(Value::Error(ErrorKind::Value), true),
         }
     }
 }

@@ -58,6 +58,8 @@ pub mod cone;
 pub mod cursor;
 pub mod diff;
 pub mod histogram;
+#[cfg(test)]
+mod lambda_golden;
 pub mod looks;
 #[cfg(test)]
 mod looks_golden;

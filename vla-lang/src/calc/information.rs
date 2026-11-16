@@ -161,6 +161,9 @@ pub(crate) fn type_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
             [_] if ctx.arrays() => 64.0,
             _ => type_of(&ctx.one(&answer)?),
         },
+        // A function's value: Excel's compound data, a probe of KERNEL.29's
+        // save.
+        Arg::Function(_) => 128.0,
     };
     Ok(Arg::Scalar(Value::Number(number)))
 }

@@ -50,7 +50,9 @@ use super::eval::{finite, intersection, ranges, values, Arg, Ctx, Known, Library
 use super::formula::Expr;
 use super::graph::Areas;
 use super::value::{round15, ErrorKind, Value};
-use super::{aggregates, arrays, criteria, database, dates, formulas, information, lookups, texts};
+use super::{
+    aggregates, arrays, criteria, database, dates, formulas, helpers, information, lookups, texts,
+};
 
 // The classes of the language's functions' parameters (KERNEL.8, slice f),
 // each by its place from 0, as Excel's documentation of each function gives
@@ -292,10 +294,22 @@ pub fn language() -> Library {
     lib.register_form("ISODD", information::isodd);
     lib.register("ROUND", round);
     lib.register_form("IFS", ifs);
+    // `LET` and `LAMBDA` are read by the parse (KERNEL.29, `super::lambda`),
+    // which leaves no call of either; a form of each holds the name, so that
+    // a text calling them, read or not, calls no function the library lacks.
+    lib.register_form("LET", bound);
+    lib.register_form("LAMBDA", bound);
+    helpers::register(&mut lib);
     for name in READS_EXTENT {
         lib.declare_reads_extent(name);
     }
     lib
+}
+
+/// `LET` or `LAMBDA` as a call, which a parse never leaves (KERNEL.29): a
+/// malformed binding's answer, `#VALUE!`.
+fn bound<'e>(_: &Ctx<'_>, _: &'e [Expr]) -> Result<Arg<'e>, Reason> {
+    Ok(Arg::Scalar(Value::Error(ErrorKind::Value)))
 }
 
 /// The information functions of one value (KERNEL.68, `super::information`).
@@ -487,6 +501,21 @@ const KERNEL_71: [&str; 3] = ["BITAND", "BITOR", "BITXOR"];
 #[cfg(test)]
 const KERNEL_58: [&str; 2] = ["TRUE", "FALSE"];
 
+/// The functions KERNEL.29 brought: `LET` and `LAMBDA`, whose names a form
+/// holds, and the functions that take a function (`super::helpers`).
+#[cfg(test)]
+const KERNEL_29: [&str; 9] = [
+    "LET",
+    "LAMBDA",
+    "MAP",
+    "REDUCE",
+    "SCAN",
+    "BYROW",
+    "BYCOL",
+    "MAKEARRAY",
+    "ISOMITTED",
+];
+
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
 
@@ -610,6 +639,8 @@ fn each_item<R: Rule, F: FnMut(R::Item)>(
                 Ok(x) => f(x),
                 Err(k) => return Ok(Err(k)),
             },
+            // A function's value, read as one value (KERNEL.29).
+            Arg::Function(_) => return Ok(Err(ErrorKind::Value)),
             Arg::Area { areas, .. } => {
                 let mut err: Option<ErrorKind> = None;
                 ctx.each(areas, |v| {
@@ -1741,6 +1772,7 @@ mod tests {
             .chain(KERNEL_68.iter())
             .chain(KERNEL_71.iter())
             .chain(KERNEL_58.iter())
+            .chain(KERNEL_29.iter())
             .copied()
             .collect();
         want.sort_unstable();

@@ -265,8 +265,17 @@ impl Lanes {
 pub(crate) fn holds(lib: &Library, e: &Expr) -> (usize, usize) {
     match e {
         Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => (0, 0),
-        // A parse holding an array is computed at each cell by `Ctx` whole.
-        Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => (1, 0),
+        // A parse holding an array is computed at each cell by `Ctx` whole,
+        // and so is one holding what the inlining kept of `LET` and `LAMBDA`
+        // (KERNEL.29).
+        Expr::Ref(_)
+        | Expr::Name { .. }
+        | Expr::Array(_)
+        | Expr::Range(_)
+        | Expr::Local(_)
+        | Expr::Let(_)
+        | Expr::Lambda(_)
+        | Expr::Apply(_) => (1, 0),
         Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => holds(lib, x),
         Expr::Binary(..) => {
             // The accumulated lane held while each right operand is evaluated.
@@ -421,6 +430,9 @@ pub(crate) fn ref_operand<'e>(lib: &Library, a: &'e Expr) -> Option<&'e RefExpr>
 pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
     match e {
         Expr::Ref(_) | Expr::Name { .. } | Expr::Range(_) | Expr::Array(_) => false,
+        // A binding, a call and a function's value may answer a reference or
+        // a function (KERNEL.29).
+        Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => false,
         Expr::Pos(x) => yields_value(lib, x),
         Expr::Call(name, args) => match lib.known(name) {
             Some(Known::If | Known::Choose) => args.iter().skip(1).all(|a| yields_value(lib, a)),
@@ -463,6 +475,9 @@ pub(crate) fn arrays_in(lib: &Library, e: &Expr) -> bool {
     while let Some(e) = stack.pop() {
         match e {
             Expr::Array(_) | Expr::Range(_) => return true,
+            // What the inlining kept of `LET` and `LAMBDA` (KERNEL.29), which
+            // `Ctx` alone computes.
+            Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => return true,
             Expr::Call(name, args) => {
                 if lib.arrayed(name).is_some() {
                     return true;
@@ -808,7 +823,15 @@ fn node_hash(e: &Expr, h: &mut crate::fx::FxHasher) {
         }
         Expr::Binary(op, ..) => std::mem::discriminant(op).hash(h),
         Expr::Array(a) => (a.rows(), a.columns()).hash(h),
-        Expr::Empty | Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) | Expr::Range(_) => {}
+        Expr::Local(l) => l.slot.hash(h),
+        Expr::Empty
+        | Expr::Neg(_)
+        | Expr::Pos(_)
+        | Expr::Percent(_)
+        | Expr::Range(_)
+        | Expr::Let(_)
+        | Expr::Lambda(_)
+        | Expr::Apply(_) => {}
     }
 }
 
@@ -1282,11 +1305,16 @@ impl<'a> Many<'a> {
             Expr::Binary(..) => self.chain(e, sel),
             Expr::Call(name, args) => self.call(e, name, args, sel),
             // A range where one value is wanted, a defined name: each cell's;
-            // and an array, which a parse holding one is never run by
-            // (`arrays_in`).
-            Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => {
-                self.each_cell(e, sel)
-            }
+            // and an array, or what the inlining kept of `LET` and `LAMBDA`,
+            // which a parse holding one is never run by (`arrays_in`).
+            Expr::Ref(_)
+            | Expr::Name { .. }
+            | Expr::Array(_)
+            | Expr::Range(_)
+            | Expr::Local(_)
+            | Expr::Let(_)
+            | Expr::Lambda(_)
+            | Expr::Apply(_) => self.each_cell(e, sel),
         }
     }
 
@@ -3101,7 +3129,14 @@ impl Walk<'_> {
                 stack.push(a);
             }
             Expr::Call(name, args) => self.call(e, name, args, stack),
-            Expr::Ref(_) | Expr::Name { .. } | Expr::Array(_) | Expr::Range(_) => self.each(e),
+            Expr::Ref(_)
+            | Expr::Name { .. }
+            | Expr::Array(_)
+            | Expr::Range(_)
+            | Expr::Local(_)
+            | Expr::Let(_)
+            | Expr::Lambda(_)
+            | Expr::Apply(_) => self.each(e),
         }
     }
 
@@ -3180,13 +3215,17 @@ impl Walk<'_> {
                     stack.push(a);
                     stack.push(b);
                 }
+                // A binding's values and body, a function's body, a value
+                // called and its arguments (KERNEL.29).
+                Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => x.push_children(&mut stack),
                 Expr::Name { .. }
                 | Expr::Number(_)
                 | Expr::Text(_)
                 | Expr::Bool(_)
                 | Expr::Error(_)
                 | Expr::Empty
-                | Expr::Array(_) => {}
+                | Expr::Array(_)
+                | Expr::Local(_) => {}
             }
         }
     }

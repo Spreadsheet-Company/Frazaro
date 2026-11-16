@@ -2,6 +2,36 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.14.0
+
+### What changed
+
+- **Functions written in formulas.** `LET` binds a name within a formula and
+  `LAMBDA` makes a function of named parameters, called where it is written
+  (`=LAMBDA(x,x+1)(5)`), bound by `LET` and called by its name
+  (`=LET(f,LAMBDA(x,x*x),f(3)+f(4))`), handed to `MAP`, `REDUCE`, `SCAN`,
+  `BYROW`, `BYCOL` or `MAKEARRAY`, or held by a defined name and called by it
+  from any formula, as Excel's Name Manager holds one. `ISOMITTED` tells an
+  argument left out. A name stands for its expression, substituted where it
+  is read, so a formula written with `LET` computes what the same formula
+  written out computes. Every call of a named function that does not call
+  itself, and every `LET`, is written into the formula when an engine loads
+  it, so that a function costs what the formula it stands for costs: the
+  same plan, the same program, the same frame. A function that calls itself,
+  by its name or through a parameter, runs as calls, each counted, to a depth
+  of 4,096 and a million calls a cell, `#NUM!` past either as Excel answers a
+  recursion too deep; a call too deep for the stack is computed on a stack of
+  the language's own, so the depth is the same in every build and on every
+  host. A formula whose value is a function's is `#CALC!`, as Excel answers a
+  `LAMBDA` in a cell that does not call it; a function's value where one
+  value is wanted, a defined name holding no function called, and a
+  `MAKEARRAY` count that is not a whole number are `#VALUE!`, as Excel 365's
+  save of the fixture answers them. A file holds a name `LET` or `LAMBDA` binds as
+  Excel does, under `_xlpm.`, in a cell, a rule and a defined name; a defined
+  name's text is read without the file's prefixes, as a cell's formula is.
+  `frazaro calc` computes all of it, and an engine's load no longer refuses
+  `LET` (KERNEL.29, its first slice).
+
 ## 0.13.0
 
 ### What changed

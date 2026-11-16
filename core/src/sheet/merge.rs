@@ -707,7 +707,7 @@ pub fn write(model: &Model, ours: &Workbook, cm: u32) -> Result<Vec<u8>, Refusal
             names.push_str(&format!(
                 "<definedName name=\"{}\">{}</definedName>",
                 xml::attr(name),
-                xml::text(formula)
+                xml::text(&super::xlfn::name_as_filed(formula))
             ));
         }
         workbook = if workbook.contains("</definedNames>") {

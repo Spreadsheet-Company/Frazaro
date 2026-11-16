@@ -2648,3 +2648,34 @@ workbook of the third slice's oracle prints the rows it left out, every target s
   gaps for what these kinds draw stand, and the reader's rules of them join `rule:`. The free laws take
   grids holding four such rules between the others by priority, one that stops: each moves no value,
   draws nothing and stops nothing, and a save keeps it.
+
+## Amendment of 2026-11-15: `LET`, `LAMBDA` and the functions that take a function (`KERNEL.29`, its first slice)
+
+Oracle 12 gains its first fixture a sentence cannot write, since it holds defined names.
+
+- **What is held.** `LET(name, value, ..., body)`, a name standing for its expression wherever its
+  scope reads it, a defined name of its spelling shadowed; `LAMBDA(parameter, ..., body)`, called in
+  place, bound, called by its name, handed to a function and held by a defined name, its arguments'
+  values bound where the call stands; `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` and `MAKEARRAY`, a
+  range's cells handed to the function as references to them; `ISOMITTED`. A count of arguments not
+  a function's parameters, a value called that is no function, a defined name's among them, and a
+  `MAKEARRAY` count not a whole number, `#VALUE!`; a function's value read where one value is wanted,
+  `#VALUE!`, and a cell's answer that is one, `#CALC!`; a recursion past 4,096 calls
+  open, or a cell's evaluation past a million calls, `#NUM!`. The writer spells each name a `LET` or a
+  `LAMBDA` binds under `_xlpm.`, in a cell, a rule and a defined name; the reader reads a defined
+  name's text without the file's prefixes, as a cell's formula.
+- **The fixture.** `scripts/recalc/lambda.xlsx`, written by the core with its seventeen defined names
+  (`core/src/reflect/lambda_golden.rs`, `FRAZARO_BLESS=1`), holds 93 formulas over a Data sheet, one a
+  probe, and a ladder of recursions from 251 calls deep to 4,097, so that Excel's save measures its own
+  limit. `lambda_calc.vla` is the door's record of it at `built`: 88 rows `agree` with the values it
+  wrote, four `#CALC!` with no value held, since a file holds that error as a rich value alone, and the
+  spill of `MAP` labelled until spills come (`KERNEL.55`). Excel 365's first save, `lambda_saved.xlsx`,
+  of its first 85 formulas, joins the table at `no-differ` (2026-11-16): 83 rows `agree` once the
+  three rules it showed were folded, the spill unchecked, and `CNT(4096)` left out of the pin by name
+  and held to differ, a recursion 4,097 calls deep that Excel computes and the language answers
+  `#NUM!` past its depth, Excel's own limit measured no further (the stop rule). The second save, of
+  the eight formulas that confirm the folds, takes its place when the owner makes it.
+- **What it does not hold.** A `LET` or a `LAMBDA` Excel refuses to read, a binder that is no name or
+  a parameter twice, which a file cannot carry without Excel repairing it, held by the language's unit
+  tests as `#VALUE!`; a parameter in brackets, `LAMBDA(x,[y],...)`, a construct not read; and a
+  sheet-defined function, `KERNEL.29`'s third slice.

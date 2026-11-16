@@ -250,6 +250,21 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # and the other two a text Excel shows with an @. Excel's one save of it,
 # bits_saved.xlsx, joins this table, 895 at no-differ, its 893 computed agreeing with
 # Excel's, no fold wanted.
+# 2026-11-15, KERNEL.29, LET, LAMBDA and the functions that take a function: their
+# own fixture, written by the core with its defined names, which no sentence defines
+# (core/src/reflect/lambda_golden.rs, FRAZARO_BLESS=1), 85 formulas, 78 agreeing with
+# the values it wrote, five a function's value or BYROW's row read as one value
+# (#CALC!, which the file holds only as a rich value), one a spill and one a name
+# holding no function called, labelled. 2026-11-16: Excel's save of it,
+# lambda_saved.xlsx, joins this table at no-differ, 83 agreeing once three rules
+# it showed were folded (a function's value read as a value #VALUE!, a cell's
+# answer alone #CALC!; a MAKEARRAY count not whole #VALUE!; a defined name called
+# its value called, RATEN(1) #VALUE!), the spill unchecked, and CNT(4096), 4,097
+# calls deep, which Excel computes and the language answers #NUM! past its depth
+# of 4,096 (the owner's decision), left out of the pin by name and held to differ,
+# the measurement recorded and never chased (the stop rule). The fixture written
+# again for the second save, 93 formulas, eight confirming the folds, 88 agreeing
+# and four a function's value as a cell's answer, #CALC!.
 #
 # 2026-10-30, KERNEL.68, the information functions: info 788 lines, the fixture
 # built by the door (scripts/recalc/info.txt), its 787 formulas and one cycle's
@@ -265,7 +280,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # holds formulas outside the subset, or a script's cached values, two
 # lineages agreeing); 'built' - no verdict differ and no computed value
 # missing from the file (the door's own build, which folds every value it
-# computes and no other).
+# computes and no other). Left - the cells a fixture leaves out of its pin by
+# name, each a measured difference a stop rule keeps, held to differ.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/recalc/saved_calc.vla';         Floor = 5;   Pin = 'agree';     AgreeFloor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
@@ -294,7 +310,9 @@ $goldens = @(
     @{ Name = 'info_saved';    Fixture = 'scripts/recalc/info_saved.xlsx';    Golden = 'scripts/recalc/info_saved_calc.vla';    Floor = 788;  Pin = 'no-differ'; AgreeFloor = 786 },
     @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 58;   Pin = 'no-differ'; AgreeFloor = 49 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
-    @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 }
+    @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
+    @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 93;   Pin = 'built';     AgreeFloor = 88 },
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 85;   Pin = 'no-differ'; AgreeFloor = 83; Left = @('Functions!A57') }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
@@ -360,9 +378,14 @@ function Get-CalcFields([string]$line) {
 
 # The fixed order and the row shapes, read off a golden's lines, and the
 # counts of each verdict: problems (empty when they hold) and the counts.
-function Test-Order($lines) {
+# $left names the cells (Sheet!A1) a fixture leaves out of its pin, each a
+# measured difference the stop rule keeps (KERNEL.29): counted apart, each
+# held to differ, so that a change on either side is seen.
+function Test-Order($lines, $left) {
     $problems = New-Object System.Collections.Generic.List[string]
-    $counts = @{ agree = 0; differ = 0; unchecked = 0; cycles = 0; rows = 0; bare = 0 }
+    $counts = @{ agree = 0; differ = 0; unchecked = 0; cycles = 0; rows = 0; bare = 0; left = 0 }
+    $leftNames = if ($null -eq $left) { @() } else { $left }
+    $leftSeen = @{}
     $inCalc = $false
     $sheet = $null
     $seenSheets = @{}
@@ -385,7 +408,14 @@ function Test-Order($lines) {
         if (-not $strings[2].StartsWith('=')) { $problems.Add("line ${n}: the formula does not begin with =: $line") }
         $f = Get-CalcFields $line
         if ($null -eq $f) { $problems.Add("line ${n}: not shaped as a calc row (computed, cached, verdict): $line"); continue }
-        $counts[$f.Verdict]++
+        $at = "$($strings[0])!$($strings[1])"
+        if ($leftNames -contains $at) {
+            $leftSeen[$at] = $true
+            $counts.left++
+            if ($f.Verdict -ne 'differ') { $problems.Add("line ${n}: $at is left out of the pin as a measured difference, but its verdict is $($f.Verdict): $line") }
+        } else {
+            $counts[$f.Verdict]++
+        }
         $notComputed = $f.Computed.StartsWith('(not-computed ')
         # A computed value the file holds nothing for, but a #CALC! answer,
         # which the build writes with no value (KERNEL.8, slice f).
@@ -401,6 +431,9 @@ function Test-Order($lines) {
         if ($null -eq $rc) { $problems.Add("line ${n}: not an address: $line") }
         elseif ($null -ne $lastCell -and ($rc[0] -lt $lastCell[0] -or ($rc[0] -eq $lastCell[0] -and $rc[1] -le $lastCell[1]))) { $problems.Add("line ${n}: a cell out of row-major order: $line") }
         $lastCell = $rc
+    }
+    foreach ($a in $leftNames) {
+        if (-not $leftSeen.ContainsKey($a)) { $problems.Add("$a is left out of the pin by name, but no calc row is its") }
     }
     return @{ Problems = $problems; Counts = $counts }
 }
@@ -494,10 +527,11 @@ function Test-Goldens() {
         } else {
             $lines.Add("  $($g.Name): $($g.Floor) lines, at its floor")
         }
-        $order = Test-Order $rows
+        $order = Test-Order $rows $g.Left
         foreach ($p in $order.Problems) { $problems.Add("$($g.Name): $p"); $lines.Add("  $($g.Name): $p  FAIL") }
         $c = $order.Counts
-        if ($order.Problems.Count -eq 0) { $lines.Add("  $($g.Name): the fixed order holds; $($c.cycles) cycle(s), $($c.rows) calc rows: agree $($c.agree) differ $($c.differ) unchecked $($c.unchecked)") }
+        $leftNote = if ($c.left -gt 0) { " left $($c.left)" } else { '' }
+        if ($order.Problems.Count -eq 0) { $lines.Add("  $($g.Name): the fixed order holds; $($c.cycles) cycle(s), $($c.rows) calc rows: agree $($c.agree) differ $($c.differ) unchecked $($c.unchecked)$leftNote") }
         $pin = Test-Pin $g $c
         foreach ($p in $pin) { $problems.Add($p); $lines.Add("  $p  FAIL") }
         if ($pin.Count -eq 0) { $lines.Add("  $($g.Name): the pin holds ($($g.Pin); agree floor $($g.AgreeFloor))") }

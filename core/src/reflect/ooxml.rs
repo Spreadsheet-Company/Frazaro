@@ -424,7 +424,13 @@ impl<'a> Package<'a> {
                     } else {
                         inner_text(&mut cursor, &[], false, label, WORKBOOK)?
                     };
-                    let placeholder = fold(&name).starts_with("_xlfn.");
+                    // Excel's placeholders: a newer function's name, and a name
+                    // a `LET` or a `LAMBDA` binds, which it may keep hidden
+                    // (KERNEL.29).
+                    let placeholder = {
+                        let f = fold(&name);
+                        f.starts_with("_xlfn.") || f.starts_with("_xlpm.")
+                    };
                     names.push(NameInfo {
                         name,
                         refers_to,

@@ -286,7 +286,7 @@ fn workbook_xml(wb: &Workbook) -> String {
             s.push_str(&format!(
                 "<definedName name=\"{}\">{}</definedName>\n",
                 xml::attr(name),
-                xml::text(formula)
+                xml::text(&xlfn::name_as_filed(formula))
             ));
         }
         s.push_str("</definedNames>\n");
@@ -968,7 +968,7 @@ fn rule_kind(rule: &Rule) -> &'static str {
 /// A stop as a file's `cfvo` says it.
 fn stop_element(stop: &Stop) -> String {
     let value = if stop.kind.says_a_value() {
-        let text = xlfn::prefix_future_functions(&stop.value);
+        let text = xlfn::as_filed(&stop.value);
         format!(" val=\"{}\"", xml::attr(&text))
     } else {
         String::new()
@@ -1030,7 +1030,7 @@ fn rule_body(rule: &Rule) -> String {
 /// A formula of a rule as a file holds it: its newer functions under their
 /// prefixes and its markup escaped.
 fn rule_formula(text: &str) -> String {
-    xml::text(&xlfn::prefix_future_functions(text))
+    xml::text(&xlfn::as_filed(text))
 }
 
 /// A sheet's merged ranges (KERNEL.58), by first cell, after its data and before its

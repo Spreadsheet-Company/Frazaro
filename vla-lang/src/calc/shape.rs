@@ -62,6 +62,7 @@ use super::blocks::Blocks;
 use super::eval::{unread_name, Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, RefExpr};
 use super::graph::{CellId, Extent, Names};
+use super::lambda::{self, Functions};
 use super::nodes::{self, Alone, Located, Run};
 use super::program::{Program, Why};
 use super::reach::{Reach, Reached};
@@ -117,6 +118,11 @@ pub struct Shape {
     /// once a shape as `missing` is: the reach files the shape by every sheet
     /// it reads, for a moved extent to have it computed whole.
     pub(crate) reads_extent: bool,
+    /// How deep the parse nests as `Ctx` evaluates it, a binding read and a
+    /// call's arguments each a level (KERNEL.29, `lambda::kept_depth`), found
+    /// once for a parse `Ctx` computes whole, so that a call in it is entered
+    /// where its body fits the stack; 0 for any other.
+    depth: u32,
 }
 
 impl Shape {
@@ -204,6 +210,10 @@ pub struct Shapes {
     /// `stretches[stretch_firsts[s]..stretch_firsts[s + 1]]`.
     stretches: Vec<(u32, u32)>,
     stretch_firsts: Vec<u32>,
+    /// The grid's named functions (KERNEL.29), read once at the plan's
+    /// first placement, which every shape's inlining writes in: a machine's
+    /// names are its load's.
+    functions: Option<Functions>,
 }
 
 /// The fewest cells a run is evaluated at once for; fewer are evaluated one
@@ -591,14 +601,23 @@ impl Shapes {
         anchor: CellId,
         library: &Library,
     ) -> usize {
-        let mut expr = formula::parse(&text);
+        let functions = self
+            .functions
+            .get_or_insert_with(|| Functions::of_model(model));
+        // The parse with its bindings substituted and its calls written in
+        // (KERNEL.29), so that a run, a program and the plan meet the formula
+        // written out.
+        let mut expr = lambda::parsed(&text, functions, library);
         if let Ok(e) = expr.as_mut() {
             find_sheets(e, model);
         }
-        // The calls as the text's tokens hold them, parsed or not, as
-        // `Calc::missing_functions` reads them; and whether one reads an
-        // extent (KERNEL.56).
-        let calls = formula::calls(&text);
+        // The calls the parse makes, or the text's tokens where it does not
+        // parse, as `Calc::missing_functions` reads them; and whether one
+        // reads an extent (KERNEL.56).
+        let calls = match &expr {
+            Ok(e) => lambda::calls_of(e),
+            Err(_) => formula::calls(&text),
+        };
         let reads_extent = calls.iter().any(|name| library.reads_extent(name));
         let mut missing: Vec<String> = calls
             .into_iter()
@@ -657,6 +676,10 @@ impl Shapes {
             Ok(e) if !risky => Some(Program::lower(library, e)),
             _ => None,
         };
+        let depth = match &expr {
+            Ok(e) if arrayed && e.has_lambda() => lambda::kept_depth(e),
+            _ => 0,
+        };
         self.shapes.push(Shape {
             text,
             expr,
@@ -669,6 +692,7 @@ impl Shapes {
             lowered,
             arrayed,
             reads_extent: false,
+            depth,
         });
         self.shapes.len() - 1
     }
@@ -1018,6 +1042,12 @@ impl Shapes {
         &self.shapes
     }
 
+    /// The named function a name calls from a sheet, as the plan read the
+    /// grid's names at its first placement (KERNEL.29, [`Env::function`]).
+    pub(crate) fn function(&self, name: &str, home: usize) -> Option<std::rc::Rc<formula::Lambda>> {
+        self.functions.as_ref()?.resolve(name, home)
+    }
+
     /// One formula cell evaluated against the grid as `env` shows it, the
     /// cell being computed being `env.here()`.
     pub fn evaluate(&self, env: &dyn Env, library: &Library, id: CellId) -> Computed {
@@ -1046,6 +1076,9 @@ impl Shapes {
                 let d_row = i64::from(id.1) - i64::from(s.anchor.1);
                 let d_col = i64::from(id.2) - i64::from(s.anchor.2);
                 let ctx = Ctx::at(env, library, d_row, d_col);
+                if s.depth > 0 {
+                    ctx.nests(s.depth);
+                }
                 match ctx.eval(e).and_then(|arg| ctx.result(&arg)) {
                     Ok(v) => Computed::Value(v.settled()),
                     Err(reason) => Computed::NotComputed(reason),
@@ -1291,13 +1324,31 @@ fn find_sheets<M: Model + ?Sized>(expr: &mut Expr, model: &M) {
                 stack.push(a);
                 stack.push(b);
             }
+            // What the inlining kept of `LET` and `LAMBDA` (KERNEL.29): each
+            // binding's value, each function's body, each call's callee and
+            // arguments, their references found as every other's, a value
+            // shared by a count made the shape's own first.
+            Expr::Let(l) => {
+                let crate::calc::formula::Let { binds, body } = &mut **l;
+                for (_, value) in binds.iter_mut() {
+                    stack.push(std::rc::Rc::make_mut(value));
+                }
+                stack.push(body);
+            }
+            Expr::Lambda(l) => stack.push(&mut std::rc::Rc::make_mut(l).body),
+            Expr::Apply(a) => {
+                let crate::calc::formula::Apply { callee, args } = &mut **a;
+                stack.push(callee);
+                stack.extend(args.iter_mut());
+            }
             Expr::Name { .. }
             | Expr::Number(_)
             | Expr::Text(_)
             | Expr::Bool(_)
             | Expr::Error(_)
             | Expr::Empty
-            | Expr::Array(_) => {}
+            | Expr::Array(_)
+            | Expr::Local(_) => {}
         }
     }
 }

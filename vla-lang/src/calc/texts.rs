@@ -712,6 +712,8 @@ fn each_value(
             }
             Ok(error)
         }
+        // A function's value, read as one value (KERNEL.29).
+        Arg::Function(_) => Ok(Some(ErrorKind::Value)),
     }
 }
 

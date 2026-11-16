@@ -1344,7 +1344,13 @@ pub(crate) fn followed(shape: &Shape) -> bool {
     let mut stack = vec![e];
     while let Some(e) = stack.pop() {
         match e {
-            Expr::Name { .. } => return false,
+            // A defined name, and what the inlining kept of `LET` and
+            // `LAMBDA` (KERNEL.29), whose reads `Ctx` makes as it computes.
+            Expr::Name { .. }
+            | Expr::Local(_)
+            | Expr::Let(_)
+            | Expr::Lambda(_)
+            | Expr::Apply(_) => return false,
             Expr::Ref(r) if r.last_sheet.is_some() => return false,
             Expr::Range(r) if r.reach.as_ref().map_or(true, |x| x.last_sheet.is_some()) => {
                 return false
@@ -1415,7 +1421,11 @@ impl At<'_, '_> {
                 // A range is read by its reach, the cells any span it
                 // answers may name (KERNEL.8, slice f).
                 Expr::Range(_) => false,
-                Expr::Name { .. } => {
+                Expr::Name { .. }
+                | Expr::Local(_)
+                | Expr::Let(_)
+                | Expr::Lambda(_)
+                | Expr::Apply(_) => {
                     followed = false;
                     false
                 }

@@ -103,6 +103,9 @@ pub(crate) enum Why {
     /// An array anywhere in the parse (KERNEL.8, slice f, `vector::arrays_in`),
     /// which no register holds.
     Array,
+    /// What the inlining kept of `LET` and `LAMBDA` (KERNEL.29): a binding, a
+    /// function's value or a call, which `Ctx` computes.
+    Lambda,
 }
 
 impl Why {
@@ -120,6 +123,7 @@ impl Why {
             Why::Omitted => "omitted",
             Why::Deep => "deep",
             Why::Array => "array",
+            Why::Lambda => "lambda",
         }
     }
 }
@@ -374,7 +378,12 @@ fn guard<T>(_which: usize) -> Option<T> {
 impl Program {
     /// A parse lowered, or why it is left to [`Ctx`].
     pub(crate) fn lower(lib: &Library, e: &Expr) -> Result<Program, Why> {
-        // A parse holding an array anywhere is `Ctx`'s (KERNEL.8, slice f).
+        // A parse holding what the inlining kept of `LET` and `LAMBDA` is
+        // `Ctx`'s (KERNEL.29), and so is one holding an array anywhere
+        // (KERNEL.8, slice f).
+        if e.has_lambda() {
+            return Err(Why::Lambda);
+        }
         if super::vector::arrays_in(lib, e) {
             return Err(Why::Array);
         }
@@ -772,6 +781,7 @@ impl Lowering<'_> {
             Expr::Empty => Err(Why::Omitted),
             Expr::Name { .. } => Err(Why::Name),
             Expr::Array(_) | Expr::Range(_) => Err(Why::Array),
+            Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => Err(Why::Lambda),
         }
     }
 

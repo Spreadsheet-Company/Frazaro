@@ -262,6 +262,8 @@ fn pick<'e>(reference: &Arg<'e>, row: f64, column: Option<f64>) -> Result<Arg<'e
             Ok(_) => Ok(Arg::Scalar(v.clone())),
             Err(k) => error(k),
         },
+        // A function's value, no reference's or array's (KERNEL.29).
+        Arg::Function(_) => error(ErrorKind::Value),
     }
 }
 
@@ -897,6 +899,7 @@ fn xlooked<'e>(
                     Ok(sub_array(r, (k, 0, k, r.columns() - 1)))
                 }
             }
+            Arg::Function(_) => error(ErrorKind::Value),
         }
     };
     match found {

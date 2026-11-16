@@ -155,6 +155,8 @@ fn array_of(ctx: &Ctx<'_>, arg: &Arg<'_>) -> Got<Array> {
             _ => Err(ErrorKind::Value),
         },
         Arg::Scalar(v) => Ok(Array::single(v.clone())),
+        // A function's value, no array's (KERNEL.29).
+        Arg::Function(_) => Err(ErrorKind::Value),
     })
 }
 
@@ -644,6 +646,7 @@ fn measure(args: &[Arg<'_>], across: bool) -> Result<Value, Reason> {
         Arg::Array(x) => x.rows(),
         Arg::Scalar(Value::Error(k)) => return Ok(Value::Error(*k)),
         Arg::Scalar(_) => 1,
+        Arg::Function(_) => return Ok(Value::Error(ErrorKind::Value)),
     };
     Ok(Value::Number(f64::from(n)))
 }

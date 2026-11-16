@@ -233,6 +233,8 @@ fn aggregate(ctx: &Ctx<'_>, args: &[Arg], stat: Stat) -> Result<Value, Reason> {
                     return Ok(Value::Error(k));
                 }
             }
+            // A function's value, read as one value (KERNEL.29).
+            Arg::Function(_) => return Ok(Value::Error(ErrorKind::Value)),
             Arg::Area { areas, .. } => ctx.each(areas, |v| {
                 tally.ranged(&v);
                 Ok(())

@@ -163,6 +163,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # moved, not their floors, `ISNUMBER` and `ISBLANK` left to `Ctx` as the error
 # tests are (`(unlowered error)`).
 # 2026-10-30, KERNEL.70: Excel's save of the typed formulas, 61 lines.
+# 2026-11-16, KERNEL.29: LET's, LAMBDA's and their helpers' fixture, 95 lines,
+# each formula a cell alone, 59 computed every frame, `(every-frame lambda)`,
+# each holding a function's value or a call the inlining kept, the reach
+# following none. The owner's Excel save of it, 87 lines, its first 85 rows.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },
@@ -192,6 +196,8 @@ $goldens = @(
     @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Floor = 61 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Floor = 623 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Floor = 621 },
+    @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Floor = 95 },
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Floor = 87 },
     @{ Name = 'column';        Program = 'scripts/recalc/bench/column.txt';   Floor = 5 },
     @{ Name = 'chain';         Program = 'scripts/recalc/bench/chain.txt';    Floor = 5 },
     @{ Name = 'sums';          Program = 'scripts/recalc/bench/sums.txt';     Floor = 6 },
@@ -221,8 +227,8 @@ $q = '"((?:[^"\\]|\\.)*)"'
 $planRow = '^\(plan \(shapes (\d+)\) \(texts (\d+)\) \(formulas (\d+)\) \(levels (\d+)\) \(runs (\d+)\) \(lanes (\d+)\) \(alone (\d+)\) \(every-frame (\d+)\) \(cycles (\d+)\)\)$'
 $readersRow = '^\(readers ' + $q + ' (\d+)(?: \(most (\d+)\))?\)$'
 $shapeRow = '^\(shape (\d+) ' + $q + ' ' + $q + ' ' + $q + ' \(cells (\d+)\) \(levels(?: (\d+) (\d+) (\d+) (\d+))?\) \(runs (\d+) (\d+) (\d+) (\d+)\) \(alone (\d+)\) \(reads((?: [a-z]+)*)\)' +
-    '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread)\))?' +
-    '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep|array)\))?\)$'
+    '(?: \(calls((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(missing((?: "(?:[^"\\]|\\.)*")+)\))?(?: \(sheets (\d+)\))?(?: \(same (\d+)\))?(?: \(every-frame (name|span|broken|unread|lambda)\))?' +
+    '(?: \(unlowered (text|error|name|range|form|kinds|span|sheet|omitted|deep|array|lambda)\))?\)$'
 
 # The order, the forms and the totals read off a golden's lines: problems,
 # empty when they hold, and what was counted. A head golden's lines are its

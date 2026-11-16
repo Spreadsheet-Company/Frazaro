@@ -11,9 +11,11 @@
 //! as this writer knows it; a function missing from it shows up as `#NAME?`
 //! in a built workbook, and the fix is one more row here.
 //!
-//! What is not done here: the parameter names of `LET` and `LAMBDA`, which
-//! Excel stores under `_xlpm.`; they are written as given, and the owner's
-//! live pass says whether Excel accepts them (step 0, slice 7b).
+//! The names `LET` binds and `LAMBDA` takes are stored under `_xlpm.` where
+//! they are bound and wherever they are read (KERNEL.29,
+//! [`prefix_parameters`]): a name the file holds bare reads as a defined name,
+//! which Excel answers `#NAME?`. Excel strips that prefix too, and so does the
+//! reader (`strip_future_prefixes`).
 
 pub use super::strip_future_prefixes;
 use super::{is_name_char, is_name_start};
@@ -382,9 +384,348 @@ pub fn prefix_future_functions(formula: &str) -> String {
     out
 }
 
+/// A formula's text as a file holds it (without its `=`): its newer functions
+/// under their prefixes and the names its `LET`s and `LAMBDA`s bind under
+/// `_xlpm.` (KERNEL.29), a cell's, a rule's and a defined name's alike.
+pub fn as_filed(formula: &str) -> String {
+    prefix_parameters(&prefix_future_functions(formula))
+}
+
+/// A defined name's text as a file holds it: [`as_filed`], with no `=`,
+/// which a machine's `name` row writes before its text and a file never does.
+pub fn name_as_filed(text: &str) -> String {
+    as_filed(text.strip_prefix('=').unwrap_or(text))
+}
+
+/// One piece of a formula's text as [`prefix_parameters`] reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Piece {
+    /// A name: letters, digits, `_` and `.` from a letter or `_`.
+    Name,
+    LParen,
+    RParen,
+    Comma,
+    Bang,
+    /// A string literal, a quoted sheet's name, a bracket, a space or any
+    /// other character, written as it stands.
+    Other,
+}
+
+/// A formula's text in pieces, each with where it starts and ends.
+fn pieces(chars: &[char]) -> Vec<(Piece, usize, usize)> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    // To the closing `close` of a literal opened at `i`, a doubled one inside.
+    let literal = |i: usize, close: char| {
+        let mut k = i + 1;
+        while k < chars.len() {
+            if chars[k] == close {
+                if k + 1 < chars.len() && chars[k + 1] == close {
+                    k += 2;
+                    continue;
+                }
+                return k + 1;
+            }
+            k += 1;
+        }
+        k
+    };
+    while i < chars.len() {
+        let c = chars[i];
+        let (piece, end) = match c {
+            '"' => (Piece::Other, literal(i, '"')),
+            '\'' => (Piece::Other, literal(i, '\'')),
+            '[' => {
+                let mut depth = 0;
+                let mut k = i;
+                while k < chars.len() {
+                    match chars[k] {
+                        '[' => depth += 1,
+                        ']' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                k += 1;
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    k += 1;
+                }
+                (Piece::Other, k)
+            }
+            '(' => (Piece::LParen, i + 1),
+            ')' => (Piece::RParen, i + 1),
+            ',' => (Piece::Comma, i + 1),
+            '!' => (Piece::Bang, i + 1),
+            c if is_name_start(c) && (i == 0 || !is_name_char(chars[i - 1])) => {
+                let mut k = i;
+                while k < chars.len() && is_name_char(chars[k]) {
+                    k += 1;
+                }
+                (Piece::Name, k)
+            }
+            _ => (Piece::Other, i + 1),
+        };
+        out.push((piece, i, end));
+        i = end;
+    }
+    out
+}
+
+/// A name's text as a binding keys it, its `_xlpm.` and its case aside.
+fn binding_key(name: &str) -> String {
+    let bare = match name.get(..6) {
+        Some(p) if p.eq_ignore_ascii_case("_xlpm.") => &name[6..],
+        _ => name,
+    };
+    bare.to_ascii_lowercase()
+}
+
+/// A formula's text (without its leading `=`) with every name a `LET` binds
+/// or a `LAMBDA` takes written under `_xlpm.`, where it is bound and wherever
+/// it is read or called in its scope, as Excel's files hold them (KERNEL.29):
+/// `LET(x,1,x+1)` is `LET(_xlpm.x,1,_xlpm.x+1)`. A string literal, a quoted
+/// sheet's name and a bracket are left as they stand, and so are a name a
+/// sheet is named by or scopes and a name already prefixed. A `LET` or a
+/// `LAMBDA` whose binders are not each one name is left to Excel's reading.
+pub fn prefix_parameters(formula: &str) -> String {
+    let chars: Vec<char> = formula.chars().collect();
+    let ps = pieces(&chars);
+    // Each `(`'s `)`.
+    let mut close = vec![usize::MAX; ps.len()];
+    let mut open: Vec<usize> = Vec::new();
+    for (k, p) in ps.iter().enumerate() {
+        match p.0 {
+            Piece::LParen => open.push(k),
+            Piece::RParen => {
+                if let Some(o) = open.pop() {
+                    close[o] = k;
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out = String::with_capacity(formula.len() + 16);
+    let mut scope: Vec<String> = Vec::new();
+    Prefixer {
+        chars: &chars,
+        ps: &ps,
+        close: &close,
+    }
+    .write(0, ps.len(), &mut scope, &mut out);
+    out
+}
+
+struct Prefixer<'a> {
+    chars: &'a [char],
+    ps: &'a [(Piece, usize, usize)],
+    close: &'a [usize],
+}
+
+impl Prefixer<'_> {
+    fn text(&self, k: usize) -> String {
+        let (_, a, b) = self.ps[k];
+        self.chars[a..b].iter().collect()
+    }
+
+    /// Whether piece `k` is a space, which a binder's argument may hold
+    /// around its name.
+    fn blank(&self, k: usize) -> bool {
+        let (p, a, b) = self.ps[k];
+        p == Piece::Other && self.chars[a..b].iter().all(|c| c.is_whitespace())
+    }
+
+    /// The arguments of the call whose `(` is piece `o`: each the pieces
+    /// between its commas at the call's own depth.
+    fn arguments(&self, o: usize) -> Vec<(usize, usize)> {
+        let end = self.close[o];
+        let mut args = Vec::new();
+        let mut from = o + 1;
+        let mut k = o + 1;
+        while k < end {
+            match self.ps[k].0 {
+                Piece::LParen if self.close[k] != usize::MAX => {
+                    k = self.close[k] + 1;
+                    continue;
+                }
+                Piece::Comma => {
+                    args.push((from, k));
+                    from = k + 1;
+                }
+                _ => {}
+            }
+            k += 1;
+        }
+        args.push((from, end));
+        args
+    }
+
+    /// The one name an argument holds, spaces aside, by its piece.
+    fn binder(&self, (a, b): (usize, usize)) -> Option<usize> {
+        let mut found = None;
+        for k in a..b {
+            if self.blank(k) {
+                continue;
+            }
+            if self.ps[k].0 != Piece::Name || found.is_some() {
+                return None;
+            }
+            found = Some(k);
+        }
+        found
+    }
+
+    fn binding_word(&self, k: usize) -> Option<&'static str> {
+        if self.ps[k].0 != Piece::Name {
+            return None;
+        }
+        let name = self.text(k).to_ascii_uppercase();
+        match name.strip_prefix("_XLFN.").unwrap_or(&name) {
+            "LET" => Some("LET"),
+            "LAMBDA" => Some("LAMBDA"),
+            _ => None,
+        }
+    }
+
+    fn name(&self, k: usize, out: &mut String) {
+        let t = self.text(k);
+        if t.len() >= 6 && t[..6].eq_ignore_ascii_case("_xlpm.") {
+            out.push_str(&t);
+        } else {
+            out.push_str("_xlpm.");
+            out.push_str(&t);
+        }
+    }
+
+    fn write(&self, from: usize, to: usize, scope: &mut Vec<String>, out: &mut String) {
+        let mut k = from;
+        while k < to {
+            let (piece, _, _) = self.ps[k];
+            if let Some(word) = self.binding_word(k) {
+                if k + 1 < to
+                    && self.ps[k + 1].0 == Piece::LParen
+                    && self.close[k + 1] != usize::MAX
+                {
+                    let o = k + 1;
+                    let end = self.close[o];
+                    out.push_str(&self.text(k));
+                    out.push('(');
+                    self.binding(word, o, scope, out);
+                    out.push(')');
+                    k = end + 1;
+                    continue;
+                }
+            }
+            let bound = piece == Piece::Name
+                && !(k + 1 < self.ps.len() && self.ps[k + 1].0 == Piece::Bang)
+                && !(k > 0 && self.ps[k - 1].0 == Piece::Bang)
+                && scope.contains(&binding_key(&self.text(k)));
+            if bound {
+                self.name(k, out);
+            } else {
+                out.push_str(&self.text(k));
+            }
+            k += 1;
+        }
+    }
+
+    /// A `LET`'s or a `LAMBDA`'s arguments, its binders under `_xlpm.` and
+    /// each in scope where it binds.
+    fn binding(&self, word: &str, o: usize, scope: &mut Vec<String>, out: &mut String) {
+        let args = self.arguments(o);
+        let n = args.len();
+        let binders: Vec<usize> = match word {
+            "LAMBDA" => (0..n.saturating_sub(1)).collect(),
+            _ if n >= 3 && n % 2 == 1 => (0..n - 1).step_by(2).collect(),
+            _ => Vec::new(),
+        };
+        let found: Option<Vec<usize>> = binders.iter().map(|&j| self.binder(args[j])).collect();
+        let Some(found) = found else {
+            // Not each binder one name: the arguments as they stand.
+            let end = self.close[o];
+            self.write(o + 1, end, scope, out);
+            return;
+        };
+        let mark = scope.len();
+        // A `LET`'s name waits for its value, in scope for every value after
+        // it and its body; a `LAMBDA`'s parameters are in scope for its body.
+        let mut waiting: Option<String> = None;
+        for (j, &(a, b)) in args.iter().enumerate() {
+            if j > 0 {
+                out.push(',');
+            }
+            match binders.iter().position(|&x| x == j) {
+                Some(at) => {
+                    for k in a..b {
+                        if k == found[at] {
+                            self.name(k, out);
+                        } else {
+                            out.push_str(&self.text(k));
+                        }
+                    }
+                    let key = binding_key(&self.text(found[at]));
+                    if word == "LET" {
+                        waiting = Some(key);
+                    } else {
+                        scope.push(key);
+                    }
+                }
+                None => {
+                    self.write(a, b, scope, out);
+                    if let Some(key) = waiting.take() {
+                        scope.push(key);
+                    }
+                }
+            }
+        }
+        scope.truncate(mark);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn let_and_lambda_s_names_are_written_under_their_prefix() {
+        assert_eq!(
+            prefix_parameters("_xlfn.LET(x,1,x*2)"),
+            "_xlfn.LET(_xlpm.x,1,_xlpm.x*2)"
+        );
+        assert_eq!(
+            prefix_parameters("LAMBDA(x,y,x+y)(1,2)"),
+            "LAMBDA(_xlpm.x,_xlpm.y,_xlpm.x+_xlpm.y)(1,2)"
+        );
+        // A name in scope for the values after it and the body, a call of
+        // one prefixed, a shadow inside its own scope.
+        assert_eq!(
+            prefix_parameters("LET(f,LAMBDA(n,n+1),g,f(2),LET(f,3,f+g))"),
+            "LET(_xlpm.f,LAMBDA(_xlpm.n,_xlpm.n+1),_xlpm.g,_xlpm.f(2),LET(_xlpm.f,3,_xlpm.f+_xlpm.g))"
+        );
+        // Outside its scope a name is a defined name; a name's own value
+        // does not see it; text, quoted sheets and a sheet's name untouched.
+        assert_eq!(
+            prefix_parameters("LET(x,x,x)+x"),
+            "LET(_xlpm.x,x,_xlpm.x)+x"
+        );
+        assert_eq!(
+            prefix_parameters("LET(x,\"x\",'x'!A1&x&x!B2)"),
+            "LET(_xlpm.x,\"x\",'x'!A1&_xlpm.x&x!B2)"
+        );
+        // Already prefixed, and spaces around a binder.
+        assert_eq!(
+            prefix_parameters("LET(_xlpm.x,1,_xlpm.x)"),
+            "LET(_xlpm.x,1,_xlpm.x)"
+        );
+        assert_eq!(
+            prefix_parameters("LET( x ,1, x )"),
+            "LET( _xlpm.x ,1, _xlpm.x )"
+        );
+        // A binding whose binders are not names is left as it stands.
+        assert_eq!(prefix_parameters("LET(A1+1,2,3)"), "LET(A1+1,2,3)");
+        assert_eq!(prefix_parameters("SUM(A1:A3)"), "SUM(A1:A3)");
+    }
 
     #[test]
     fn newer_functions_take_their_prefix_and_older_ones_do_not() {

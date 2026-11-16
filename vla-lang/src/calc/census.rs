@@ -133,6 +133,9 @@ pub(crate) enum Why {
     Broken,
     /// Its text is one this version does not read.
     Unread,
+    /// It holds what the inlining kept of `LET` and `LAMBDA` (KERNEL.29), a
+    /// function's value or a call, whose reads `Ctx` makes as it computes.
+    Lambda,
 }
 
 impl Why {
@@ -142,6 +145,7 @@ impl Why {
             Why::Span => "span",
             Why::Broken => "broken",
             Why::Unread => "unread",
+            Why::Lambda => "lambda",
         }
     }
 }
@@ -350,7 +354,8 @@ pub(crate) fn of<M: Model + ?Sized>(
 
 /// Why no change is followed to a shape the reach computes every frame: a
 /// text not read, a risky one (a span of sheets, or a broken reference with
-/// a cell after it), or else a defined name it reads.
+/// a cell after it), what the inlining kept of `LET` and `LAMBDA`
+/// (KERNEL.29), or else a defined name it reads.
 fn why(shape: &super::shape::Shape) -> Why {
     let Ok(e) = &shape.expr else {
         return Why::Unread;
@@ -360,6 +365,9 @@ fn why(shape: &super::shape::Shape) -> Why {
             .iter()
             .any(|r| r.kind == refers::Kind::ThreeD);
         return if span { Why::Span } else { Why::Broken };
+    }
+    if e.has_lambda() {
+        return Why::Lambda;
     }
     let mut name = false;
     e.each_read(&mut |r| {

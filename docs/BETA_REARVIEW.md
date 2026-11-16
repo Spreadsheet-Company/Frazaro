@@ -44956,6 +44956,302 @@ after it fail that check alone, `run_checks.ps1` 59 of 60, until the release's c
 strings of `Cargo.toml` and the goldens: `release.ps1` will not tag before then, and CI's `ratchets`
 would fail on a push.
 
+**`KERNEL.29`, `LET` and `LAMBDA`: the scoping, 2026-11-15.** Begun at the owner's word, "Scope and
+implement KERNEL.29 from Frazaro's BETA_ROADMAP.md and explain how it will ripple up the stack to
+benefit the other repos (Alonzo, Buffet)". Minted 2026-10-12; nothing minted here. HEAD `78a6dc1`, the
+`0.13.0` release, level with origin, the tree clean; Alonzo's HEAD `32ff4b3`, nine ahead (`ENGINE.37`'s
+first slice), and Buffet's tree holding a peer's uncommitted `PLATE.6`, both read and neither written.
+
+*What it stands on, read in the code.*
+- The parse reads `LET` and `LAMBDA` as calls (`Expr::Call`) and their names as defined names
+  (`Expr::Name`, the reference scanner reading `x` as one, `refers::scan`); a call of a local, `f(1)`, as a
+  call of `F`; and `LAMBDA(x,x)(1)`'s second parenthesis as a space's intersection, a construct not read.
+- Every walk of a parse reads a name as a defined name and takes its slow road for it: a program leaves
+  the shape (`Why::Name`), the reach does not follow it (`reach::followed`), the plan reads the name's text
+  cell by cell (`nodes::reads_of`), a run computes it at each cell by `Ctx`. And a workbook's defined name
+  `x` beside a formula's `LET(x, ...)` would give the cell an edge to that name's cells, a false cycle where
+  they read the cell. So a binding is resolved in the parse itself, a local and never a name.
+- A load refuses `LET` today, `calc-function-not-computed` (the calls read off the text's tokens,
+  `formula::calls`, by `Shapes::add` and `Calc::missing_functions`), and a call of a named function the
+  same, by its name; `frazaro calc` labels the cell `(not-computed "LET")`.
+- A run computes a part a formula writes twice once where its places share a branch of every `IF` around
+  them (`KERNEL.27`'s `Repeats`); a program computes it twice, and `Ctx` twice.
+- `#CALC!` is an error kind since `KERNEL.8`'s sixth slice, and `Expr`, `Arg` and `Reason` are
+  non-exhaustive since `0.11.0`: the item adds kinds to all three and changes no signature.
+- The door: `core/src/sheet/xlfn.rs` prefixes `LET`, `LAMBDA`, `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL`,
+  `MAKEARRAY` and `ISOMITTED` with `_xlfn.` and holds the first eight array-capable, so the build writes a
+  formula calling one dynamic; it writes a parameter as given, where Excel's files say `_xlpm.` (the file's
+  header: "the owner's live pass says whether Excel accepts them"), and a defined name's text as given, no
+  prefix at all (`sheet/ooxml.rs`'s `workbook_xml`). The reader drops all three prefixes
+  (`sheet::strip_future_prefixes`). No sentence defines a name: the build writes the stamp's alone.
+- A machine takes a `name` row at its load and never at a write (`Machine::write_row`: `cell`, `formula`,
+  `derived`).
+- `VLA.4`'s formula syntax writes `(let x 1 (lambda (y) (+ x y)))` as `=LET(x,1,LAMBDA(y,x+y))` and reads
+  it back, refusing a LAMBDA called in place: a cartridge's source can write both today through
+  `formula-expand`, and its load refuses them.
+- The stack, measured today by a probe never committed (a nest built and evaluated on a thread of 1 MiB,
+  the deepest that finished): 255 levels of `ABS(...)` and 101 of a recursive body's shape,
+  `IF(TRUE,1*ABS(...),0)`, in the test profile (`opt-level` 1, which `VLA.1`'s limits are pinned on); 765
+  and 255 in release. A call's depth stated the same in every build holds about 64 such calls natively.
+
+*Excel's pages*, hypotheses for the save. `LAMBDA`: at most 253 parameters, past them `#VALUE!`; a count
+of arguments not its parameters' `#VALUE!`; "If you create a LAMBDA function in a cell without also
+calling it from within the cell, Excel returns a #CALC! error"; a recursion "can return a #NUM! error if
+there are too many recursive calls", no number given (community measurements: 1,024 divided by one more
+than the parameters in 2021, about 8,190 calls of one parameter since); no `.` in a parameter's name.
+`LET`: one pair to 126, a name "Must start with a letter. Cannot be the output of a formula or conflict
+with range syntax" (`c` and `r` being R1C1's), its scope the call's. `BYROW`: "anything but a single
+value returned from the LAMBDA function returns a #CALC error". `MAP`: "an invalid LAMBDA function or an
+incorrect number of parameters returns a #VALUE! error".
+
+*The decisions, the owner's, asked 2026-11-15 in two rounds.*
+1. **Recursion.** Offered refusal or calls under counted limits, the owner asked for more: "Recursive
+   functions are the heart and soul of Lisp, but infinite recursion is largely unuseful. Disallowing
+   recursion feels Draconian, but 60 levels feels like a toy. What are our golden mean alternatives to have
+   our cake and eat it too?" Four were laid out: refusal; Emacs's answer, calls counted to the depth the
+   pinned stack holds, about 64, tail calls looping at any depth; Excel's depth on a stack of the
+   language's own; a larger stack asked of every host. The owner took the third. A call that is not
+   inlined (a call of a named function some cycle of named functions holds, and a function value applied
+   through a parameter past the inlining's budget) runs as a call, counted against a depth of 4,096 and a
+   million calls a cell's evaluation, `#NUM!` past either, as Excel answers past its own; and when the
+   native stack nears its bound, the evaluation steps back to the top of the cell, computes the deepest
+   pending call alone on a fresh stack, remembers its value, and starts the cell again, meeting that call
+   answered. Exact because every function the library holds is pure (`KERNEL.20`'s premise, an evaluation
+   having no effect but its answer); about twice the work of a plain deep recursion; every frame still
+   ends, the plan still static (a recursive function reads the cells its body names and its arguments'),
+   and every call no cycle holds still inlined. A call that runs as a call takes its arguments' values,
+   the second round's words, so that a remembered call is known by its function and those values. *Tried
+   and declined at the build, and said to the owner:* knowing a remembered call by its place in the
+   evaluation instead, so that every call would read by substitution, since a binding `Ctx` computes once
+   and keeps can be computed inside a remembered call on one descent and outside it on the next, which
+   moves every place after it.
+2. **What a name stands for.** Asked for the edge cases, the owner: "substituting the expression does feel
+   like the better options since that's technically the naming purpose behind LET". Substitution:
+   `LET(x, e, body)` is the body with `e` written for `x`, and a parameter is its argument. The two readings
+   agree on every value but (i) a binding nothing reaches that the language cannot compute, which
+   substitution computes as Excel does (`LET(x,"1,5"*1,IF(A1>0,1,x))` is 1; binding it would label the cell
+   a locale's number), and (ii) a legacy formula's binding that reads a range where one value is wanted
+   and is used inside an array parameter, which only a cartridge can hold (`LET(x,A1:A3*10,SUMPRODUCT(x))`
+   in B2 is 10×(A1+A2+A3), the formula written out; binding it would meet `A1:A3` at row 2). Otherwise they
+   differ in cost alone: a run computes a binding once where its uses share a branch, slice 2's lane once
+   wherever they stand, and `Ctx` once a reading.
+3. **Visibility** (Alonzo's `AD-6`): "Both in this item", the view record's `name` rows and sheet-defined
+   functions, in a slice of their own after a design sitting of their own.
+4. **The first slice**: "All but the binding lane".
+
+*My decisions in the build, each the owner's to overrule.*
+- The parse resolves a formula holding `LET`, `LAMBDA` or a call in place, and no other: `Expr::Local` a
+  name a `LET` binds or a `LAMBDA` takes, read where it is written; `Expr::Let`; `Expr::Lambda`, shared by
+  a count, a function's value; `Expr::Apply`, a value called, `f(1)` for a local `f` and `LAMBDA(x,x)(1)`.
+  Each binder's slot is its own within its formula, so that no substitution captures a name.
+- A malformed binding answers `#VALUE!`: a `LET` of an even count or fewer than three, a binder that is no
+  name, a `LAMBDA` of a name twice or of more than 253 parameters, a `LET` of more than 126 pairs.
+- A name a `LET` or a `LAMBDA` binds shadows a function of the library called by it (`LET(sum,...,sum(3))`
+  calls the binding), as it shadows a defined name: a probe of the save.
+- A function's value read where one value is wanted, an operand or a cell's answer, is `#CALC!`, as a
+  LAMBDA in a cell is: probes of the save for the operand.
+- The inlining, at a shape's placement and never at a step: every `LET`, every application of a
+  `LAMBDA` and every call of a named function that no cycle holds substituted, each copy's own binders
+  given fresh slots, a named function's references made absolute (`$`), since a name's references do not
+  move with the cell that reads it (`Ctx::named`'s rule). A formula whose inlining would nest deeper than
+  64 (`VLA.1`) or copy more than 65,536 nodes is kept as written, which `Ctx` computes by the same reading,
+  each binding once a reading (first set at 8,192, raised at the build: Excel's longest `LET`, 126 names
+  each its predecessor and one, copies about 16,000 nodes as it substitutes, to write 250).
+- The helpers answer an operand (`Library::register_arrayed`, as `SEQUENCE` does): an element of a range
+  handed to the function as a reference to its cell, of an array as its value (a probe:
+  `MAP(A1:A3,LAMBDA(c,ROW(c)))`).
+- The fixture: a workbook the core writes, cells and defined names, as `looks_golden.rs` writes its own
+  (`FRAZARO_BLESS=1`), since no sentence defines a name; saved once by the owner in Excel.
+
+*The slices.* (1) `LET`, `LAMBDA`, a call in place, named functions with recursion as decided, the
+inlining at load, `#CALC!` for a function as a value, the writer's `_xlpm.` in a cell and in a name, the
+seven helpers. (2) The binding lane: a `LET`'s value computed once over the cells that reach it in a run
+and in a program, read across `IF` branches (Sand's first frame computes its soup twice, Alonzo's
+`docs/REARVIEW.md`); the parity floor, a bench program written inline and through named functions
+(`scripts/recalc/bench/`); Alonzo's frames over a cartridge written both ways. (3) The view record's
+`name` rows and sheet-defined functions.
+
+*The oracle of slice 1.* Excel's save of the fixture at `no-differ`, the door's verdict over it; the law,
+a resolved parse inlined and left to `Ctx` equal at every cell over generated formulas (`tests/laws.rs`),
+and a grid written with `LET` and without stepping to the same values; `VLA.1`'s limits over a deep
+recursion and a long chain of `LET`s on 1 MiB; every refusal and limit named in the `calc` family; and
+Alonzo's and Buffet's engine tests and frames over the language by a path.
+
+*The stop rule*, stated before the first save: two saves at most, the second only to confirm what the
+first corrected; a deterministic rule the first save shows is folded and confirmed by the second; an edge
+Excel answers unstably, or one a planned round cannot settle, Excel's recursion limit among them,
+labelled and never chased.
+
+*Predictions.* A shape of `LET`s and calls of named functions no cycle holds is its formula written out,
+its census rows and every frame bit for bit; its load costs the inlining once a shape. A factorial to 170
+computes, `#NUM!` at a depth of 4,097. Alonzo's and Buffet's frames move by nothing; their grids gain the
+helpers' names, a few hundred bytes a grid, as every slice of `KERNEL.8` cost.
+
+*Input from Alonzo's `CART.9.3`, 2026-11-15*, relayed by the owner mid-build, for slices 2 and 3 and
+changing nothing in slice 1. Alonzo closed `CART.9` that day (`f3301ed`) and minted `CART.9.3`, Naught's
+chips: a passed level's room placed as one gate in a later level, so that XV calls VII's half adder
+instead of retyping it, this item's first client in a game (Alonzo's `docs/ROADMAP.md`; its
+`docs/REARVIEW.md`, `CART.9`'s close and its scoping's decision 6, the regularity premium).
+- *Slice 3's sitting takes a level's room as its reference case*, a sheet-defined function whose
+  parameters are the switches in column A from row 3, whose body is the room, C to I, and whose outputs
+  are J, and puts four questions to it: (a) a body of many outputs, a full adder's sum and carry, where a
+  `LAMBDA` answers one value: a call an output, an array of the outputs, or a call naming its output;
+  (b) a definition fixed at the load and a body a person edits at a step (`AD-7`): the callers' inlined
+  copies must follow a write to a body cell, where `KERNEL.69`'s reach decides what a formula's write
+  computes again; or, a chip as a named `LAMBDA` written from the room when the level passes, a `name`
+  row writable on a person's act, re-planning the shapes that call it, which a machine refuses today
+  (`Machine::write_row`); (c) what a person can view of a call (`AD-6`), or the body's sheet as its view;
+  (d) Naught's Gates sheet reads every gate by `FORMULATEXT` and counts it by `ISFORMULA`, so a cell
+  calling a chip must read back as written. (d) is slice 1's already: the inlining rewrites a shape's
+  parse alone, never the text a cell holds, which `FORMULATEXT` reads (`eval::Written::text`); slice 1
+  holds it by a test.
+- *Slice 2's parity floor, an irregular placement beside the filled one.* Alonzo's floors hold Naught's
+  bench laid by fill (`naught-f`, 32 shapes) and shuffled, each gate its own shape (`naught-s`, 44,548),
+  at the nineteenth baseline natively 20.6 ms against 513.8 to load, 3.39 MB against 128.7, a steady frame
+  of 5.0 ms against 20.6. The inlining substitutes a call's arguments into the calling shape, so calls at
+  irregular places inline into as many shapes as places, and the premium should stay, where a body planned
+  once and called from many places would not pay it. `core/examples/bench/netlist.rs` (`KERNEL.54`) is that
+  adder, shuffled, five gates a bit; written a third way, each bit a call of a named full adder, measured
+  filled and shuffled beside the gates, it says which, the floor stating what it holds equal, since a full
+  adder inlined into its two output cells is fewer cells than its five gates. It needs a named `LAMBDA`
+  alone, no sheet-defined function, so it can stand in slice 2; where it stands is the owner's. Should
+  the premium stay, that is the evidence for a second design, a body planned once: a Found, nothing minted.
+- *What Alonzo will pin for `CART.9.3`'s scoping:* `LET`, `LAMBDA` and named functions computed for a
+  cartridge (`AD-1`) and `FORMULATEXT` and `ISFORMULA` over a call, slice 1's; `name` rows in a
+  cartridge's rows, which a load already takes, and in the view record, slice 3's; each refusal by name.
+  The release, recommended and the owner's: slice 1's half in `0.14.0`, the section `RELEASES.md` holds, a
+  minor since the cadence sends larger features to the minors and no signature moves; slice 3's in a minor
+  after its sitting.
+
+*Slice 1, built 2026-11-15, before Excel's save; nothing committed.* Over `78a6dc1` in the shared tree,
+no peer in it.
+- *The parse* (`calc/formula.rs`): four nodes, `Local`, `Let`, `Lambda` (shared by a count) and `Apply`,
+  `Expr` non-exhaustive so no signature moves; `Tok::Invoke`, a `(` straight after a `)`, so that a call
+  answering a function is called in place where a space's intersection is still refused; and the
+  resolution (`calc/lambda.rs`'s `resolve`), run only over a text calling `LET` or `LAMBDA` or calling in
+  place, each binder a slot of its own, a call of a bound name an `Apply` of it.
+- *The inlining* (`calc/lambda.rs`'s `inline`), at a shape's placement (`Shapes::add`) and before the door
+  evaluates (`Calc::evaluate`, so that the two read a formula alike): substitution, hygienic by fresh slots
+  above 2^31, which no parse reaches; a named function no sheet scopes and no cycle holds written in, its
+  references made absolute, read as a value too (`TWICE(SQ,3)` inlines whole and lowers to a program); a
+  function applied inside its own application, and a named function a cycle holds or a sheet scopes, kept
+  a call of it, `Apply`. The missing functions a load refuses are read off the inlined parse. The named
+  functions are read once a grid (`Functions`), their cycles by `graph::tarjan` over the calls their
+  bodies make by name.
+- *The evaluation* (`calc/calls.rs`): a `LET`'s value a thunk, computed where a name reads it by the
+  reading there, once a reading (two slots, `Ctx::arrays`); a frame a binding; a function's value
+  `Arg::Function`, its closure the frames it was made among; a call by its arguments' values; the depth of
+  4,096 and the million calls; and the step back, `Reason::Deep`: a body is entered only where its nesting
+  fits `VLA.1`'s 64 levels below where it stands, each formula and body taken to stand as deep as it nests
+  anywhere (`lambda::kept_depth`, a function's counting the bindings it reads from around it), and a call
+  that would not fit is asked of the top of the cell's evaluation (`Ctx::top`, its outermost `eval`), which
+  computes the calls asked of it deepest first on a list of the language's own, remembers each by the
+  function and its arguments' values, and evaluates the cell again. A named function is read from the
+  table the grid read once (`Env::function`, a provided method), never parsed where it is called. A function's value where one value is wanted is `#CALC!` in `Ctx::one`,
+  `lifted`, `result` and `each_value`, at a strict call's arguments, and in the eight matches of the
+  library's functions over `Arg` that the new kind reached; `TYPE` of one is 128, a probe.
+- *The helpers* (`calc/helpers.rs`), registered as functions answering an operand, so that every path
+  computes them by `Ctx`; and `LET` and `LAMBDA` registered as forms answering `#VALUE!`, which no parse
+  reaches, so that `Library::has` names them.
+- *The walks the new nodes meet*: `push_children` and `has_lambda`; the run (`vector.rs`: `holds`,
+  `yields_value`, `arrays_in`, the dispatch and its census walk), which leaves a shape holding a kept node
+  to `Ctx` whole; the program (`Why::Lambda`, `(unlowered lambda)`); the reach, which follows no such
+  shape, so that it is computed every frame as a shape reading a defined name is, the census's
+  `(every-frame lambda)`; `find_sheets` through a binding's shared values; the door's plan of texts and the
+  name-following both plans share (`graph::bound_text`), which read a text holding `LET`, `LAMBDA` or a
+  call in place, or calling a defined name, by its parse; and the machine's law of a shape at an offset.
+- *The door*: `xlfn::prefix_parameters`, scope-aware, a `LET`'s name in scope after its value; the
+  build's formula, the writer's defined names (a leading `=` dropped), the host merge's names and a
+  rule's formulas through it; Excel's hidden `_xlpm.` names placeholders as its `_xlfn.` ones; a defined
+  name's text read without the file's prefixes where the language reads it (`Names::of_model`), the reader
+  keeping it as filed, since the stamp's check reads `_xlfn._LONGTEXT`. The subset table's nine rows.
+- *Held by:* `tests/lambda.rs`, 11, door and engine over 25 cases and an inlined shape's census the
+  formula written out's but its text; the law (`calc/lambda.rs`), 400 generated formulas, inlined and as
+  written alike, at least 150 written in whole and 50 kept, two mutants of the inliner (arguments to the
+  wrong parameters, a name not substituted) each failing it; `tests/limits.rs`'s two, `CNT(4095)` called
+  from a cell nested 63 deep with a body nested 58, on a thread of 1 MiB in the test profile, and
+  `CNT(4096)` `#NUM!`, and 126 names each read once beside 40 each read twice, which would write 2^40
+  nodes and is computed as written; the core's `prefix_parameters` test and the fixture's two. After the
+  step back moved (Found 6): the language's 508 and the core's 270, their report printers ignored as
+  before, and every integration test; the package from its tarball, built with no optimization on a
+  target of its own, the language's 508, `lambda` 11 and `limits` 6; fmt; clippy with and without
+  `c-abi`; both wasm modules, importing nothing and exporting their lists; `run_checks` 60 of 60; the
+  door's job in its order, `prove -Impl` 69, one more, and every golden the door writes reproduced whole;
+  the floors' two runners, every value held and every byte under its ceiling; Alonzo's suite over the
+  language by a path (`git archive` of `32ff4b3`, a target of its own), 95, none failing; and Buffet's,
+  whose pins (`alonzo` 0.3.0 over `vla-lang` 0.12.0) leave a path to this tree unused, run as a pair of
+  copies of its HEAD `6f215a1` with both pins moved, `alonzo` to that archive and `vla-lang` to 0.13.0:
+  107 over this tree and 107 over the published 0.13.0, the same tests and verdicts, every frame held to
+  its hand.
+- *The fixture*, `scripts/recalc/lambda.xlsx` (`core/src/reflect/lambda_golden.rs`): 85 probes, 78 agree,
+  five `#CALC!` held by no value, the spill and `RATEN(1)` labelled; joined at `built`
+  (`check_recalc_golden`, `check_shapes_golden`, `prove.ps1`, the treaty's amendment of this day).
+
+*Found in the build*, read, nothing minted:
+1. *Excel's `LET` is dynamic.* The build writes a formula calling `LET`, `LAMBDA` or a helper dynamic, as
+   Excel stores one, and a dynamic shape is computed by `Ctx` at each cell (`(unlowered array)`), so a
+   workbook's `LET` is inlined but not lowered until `KERNEL.55` lowers dynamic shapes; a cartridge's rows,
+   legacy, are lowered and run as the formula written out.
+2. *A defined name holding no function, called* (`RATEN(1)`), is labelled `(not-computed "RATEN")` and
+   refused at an engine's load; the save says Excel's answer.
+3. *A defined name's text was read with its file's prefixes*, so a name calling a newer function was a
+   call of `_XLFN.<NAME>`, a function no library holds; read without them now, it computes.
+4. *A sheet-scoped named function* is kept a call wherever it is called, since a shape of one text stands
+   on several sheets; the plan reads it by its name.
+5. *The inlining's budget*, 8,192 nodes in the decisions, is 65,536: Excel's longest `LET`, 126 names each
+   its predecessor and one, copies about 16,000 nodes as it substitutes.
+6. *The step back went to the outermost call first, and the package's build found it short.* Built with no
+   optimization, as a crate's tests are from its tarball, a thread of 1 MiB holds a formula's 64 levels and
+   little more, and the outermost call stood where its cell nested: a cell 63 deep calling a body 58 deep
+   overflowed with no recursion at all, and so did a named function's text parsed where it was first
+   called, 63 levels down. The top of the cell is now the place a call steps back to, a body is entered
+   only where it fits, and named functions come from the grid's table; `limits` holds both at no
+   optimization. The first test of the fixed tarball compiled nothing: its files carry the archive's old
+   times, so the old binary in its target was reused and overflowed again. It passed on an empty target.
+
+*The save, and its stop rule restated:* the owner opens `lambda.xlsx` in Excel 365, which computes every
+formula on opening, and saves it beside as `lambda_saved.xlsx`; two saves at most, the second only to
+confirm what the first corrected; a deterministic rule the first shows is folded and confirmed; Excel's
+recursion limit read off the ladder, the rows past it, where Excel answers `#NUM!` and the language does
+not, left out of the joined fixture with the measurement recorded and never chased.
+
+*Excel's first save, 2026-11-16.* The owner opened `lambda.xlsx` in Excel 365, no repair asked, and saved
+`lambda_saved.xlsx`. The door's verdict over it: 79 of 85 agree, four differ, two unchecked.
+- `LET(f,LAMBDA(x,x),f+1)` and `SUM(LAMBDA(x,x))`, predicted `#CALC!`, are `#VALUE!` in Excel; `=LAMBDA(x,x)`,
+  `=SQ` and `BYROW`'s row of two agree at `#CALC!`. The rule, folded: a function's value read where one value
+  is wanted, as an operand or a function's argument, is `#VALUE!`, and a cell's answer that is one alone
+  `#CALC!`. `Ctx::lifted`, `one`, the strict calls' arguments, `each_value` and the library's eight matches over
+  `Arg` answer `#VALUE!`; `Ctx::result`, and `BYROW`'s and `BYCOL`'s own rule for what their function answers,
+  keep `#CALC!`.
+- `RATEN(1)`, labelled by Found 2, is `#VALUE!` in Excel, as `LET(f,3,f(1))` is. Folded: `Functions` keeps the
+  keys of the grid's other defined names, and the inlining writes a call of one, where no function of the
+  library or named function answers to it, as its value called (`Apply` of the name), so that a name whose value
+  is a function's is applied and any other answers `#VALUE!`; its shape is computed every frame as a kept call's
+  is, so that a write reaches a function it names. A formula too large to inline keeps such a call as written,
+  which the door labels and an engine's load refuses by its name, as the load refuses a named function's call
+  there that the door computes: an edge past the inlining's budget, read and not minted.
+- `SUM(MAKEARRAY(2.7,2,...))`, predicted 4 (the count read down, as `SEQUENCE`'s), is `#VALUE!` in Excel.
+  Folded: a `MAKEARRAY` count not a whole number is `#VALUE!`.
+- `CNT(4096)`, a recursion 4,097 calls deep, predicted `#NUM!`, is 4096 in Excel, and `CNTT(4095,0)`, of two
+  parameters, computes too: Excel's limit lies past the ladder's top. The language's depth of 4,096 stands as the
+  owner decided it; the row is left out of the pin by name (`check_recalc_golden.ps1`'s `Left`, the row held to
+  differ, so that a change on either side is seen), the measurement recorded and never chased. The community's
+  measurements, 1,024 over one more than the parameters in 2021 and about 8,190 calls of one parameter since,
+  point to a limit that falls as the parameters grow, which no single depth matches.
+- `MAP(Data!A1:A3,...)` in a cell, labelled a spill (`KERNEL.55`), is `#SPILL!` in Excel, the cells below it
+  in its way; unchecked, as before.
+
+After the folds: 83 agree, the spill unchecked, the recursion left; `lambda_saved.xlsx` joins
+`check_recalc_golden` at `no-differ`, `check_shapes_golden` (87 lines, the fixture's first 85 rows as built),
+`prove.ps1` (70 cases) and the treaty. The fixture is written again for the second save, the stop rule's last:
+two names more, `SPOT` (a reference) and `ALIAS` (whose text is `SQ`), and eight formulas that confirm what
+the first corrected and where the rule stops: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))` and `LAMBDA(x,x)&"a"`
+`#VALUE!`, `IF(TRUE,LAMBDA(x,x))` `#CALC!`, a `MAKEARRAY` of 2.5 columns `#VALUE!` and of `4/2` rows 4,
+`SPOT(1)` `#VALUE!` and `ALIAS(3)` 9. It holds 93 formulas, 88 agreeing with the values it wrote, four
+`#CALC!` held by no value, the spill labelled. Held by `tests/lambda.rs`, 13: the save's answers, a
+`MAKEARRAY` count, a defined name called (a number, a reference, a function), each through the door and an
+engine alike, and an engine's call through a name followed by a write to a cell its function reads.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
