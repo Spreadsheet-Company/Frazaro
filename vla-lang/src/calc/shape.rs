@@ -667,6 +667,7 @@ impl Shapes {
             Ok(e) => {
                 let repeats = Repeats::of(library, e);
                 let (values, positions) = vector::holds(library, e);
+                let positions = positions + repeats.positions();
                 ((values + repeats.parts(), positions), repeats)
             }
             Err(_) => ((0, 0), Repeats::default()),

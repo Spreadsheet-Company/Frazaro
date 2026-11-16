@@ -205,7 +205,7 @@ pub(crate) struct Lanes {
     truths: Vec<Vec<bool>>,
     positions: Vec<Vec<u32>>,
     found: Vec<Key>,
-    kept: Vec<Option<Lane>>,
+    kept: Vec<Option<(Lane, At)>>,
     /// By a run's cell, where the cells side by side in its row from it end
     /// (KERNEL.43).
     ends: Vec<u32>,
@@ -523,6 +523,15 @@ pub(crate) fn arrays_in(lib: &Library, e: &Expr) -> bool {
 /// child's index a step, so that a copy of the parse is found the same way.
 /// Found once a shape, as [`holds`] is; most parses have none, and hold
 /// nothing.
+///
+/// A part of more than one node is also the same part at a later place in a
+/// branch inside the first place's own (KERNEL.29's binding lane): the
+/// condition of `IF(x>0,x,-x)` and either branch, as a `LET`'s name read
+/// there is written out, or a threshold tested in an `IF`'s condition and
+/// again in its else; a cell that reaches the later place has met the first,
+/// so the later place takes the first's lane at its own cells (a part that
+/// crosses, [`Repeats::crosses`]), and computes its own wherever they were
+/// not all the first's.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Repeats {
     /// Each place in the parse's preorder: its part, whether it is the
@@ -531,6 +540,8 @@ pub(crate) struct Repeats {
     /// The places' paths, one after another.
     steps: Vec<u16>,
     parts: usize,
+    /// By part, whether its places stand in more than one branch.
+    crosses: Vec<bool>,
 }
 
 impl Repeats {
@@ -605,16 +616,37 @@ impl Repeats {
             }
             nodes[i].hash = h.finish();
         }
-        // The places a run reaches, by hash, branch and place, each place
-        // once, so that the order is the parse's whatever a sort keeps.
+        // The places a run reaches, by hash and place, each place once, so
+        // that the order within a hash is the parse's whatever a sort keeps.
         let mut reached: Vec<Key> = (1..nodes.len() as u32)
             .filter(|&i| nodes[i as usize].reached && !literal(nodes[i as usize].e))
-            .map(|i| (nodes[i as usize].hash as usize, nodes[i as usize].branch, i))
+            .map(|i| (nodes[i as usize].hash as usize, i, 0))
             .collect();
         reached.sort_unstable();
-        // Among the places of one hash and branch, those the same to the
-        // bit, each part's places one after another in `members`, each part
-        // by its size, the largest first, and where its places begin.
+        // Whether a run reaching place `b` has met place `a` before it at the
+        // same cell: `b` in `a`'s branch, or, for a part of more than one
+        // node, in a branch inside it (an `IF`'s branch encloses the
+        // branches written within it, each the `IF` node's own, `branch / 4`).
+        let over = |a: u32, b: u32| -> bool {
+            let (from, mut at) = (nodes[a as usize].branch, nodes[b as usize].branch);
+            if from == at {
+                return true;
+            }
+            if nodes[a as usize].size < 2 {
+                return false;
+            }
+            while at != 0 {
+                at = nodes[(at / 4) as usize].branch;
+                if at == from {
+                    return true;
+                }
+            }
+            false
+        };
+        // Among the places of one hash, those the same to the bit that the
+        // first of them stands over, each part's places one after another
+        // in `members`, each part by its size, the largest first, and where
+        // its places begin.
         let mut members: Vec<u32> = Vec::new();
         let mut groups: Vec<Key> = Vec::new();
         let mut taken = vec![false; reached.len()];
@@ -622,13 +654,16 @@ impl Repeats {
             if taken[a] {
                 continue;
             }
-            let (hash, branch, first) = reached[a];
+            let (hash, first, _) = reached[a];
             let start = members.len();
-            for (b, &(h, br, i)) in reached.iter().enumerate().skip(a) {
-                if (h, br) != (hash, branch) {
+            for (b, &(h, i, _)) in reached.iter().enumerate().skip(a) {
+                if h != hash {
                     break;
                 }
-                if !taken[b] && same_part(nodes[first as usize].e, nodes[i as usize].e) {
+                if !taken[b]
+                    && same_part(nodes[first as usize].e, nodes[i as usize].e)
+                    && over(first, i)
+                {
                     taken[b] = true;
                     members.push(i);
                 }
@@ -646,6 +681,7 @@ impl Repeats {
         // places inside a later place of a part kept before it never being.
         let mut hidden = vec![false; nodes.len()];
         let mut kept: Vec<Key> = Vec::new();
+        let mut crosses: Vec<bool> = Vec::new();
         let mut parts = 0;
         for &(_, start, n) in &groups {
             let at = start as usize;
@@ -657,6 +693,13 @@ impl Repeats {
             if places.len() < 2 || parts == usize::from(u16::MAX) {
                 continue;
             }
+            let branch = nodes[places[0] as usize].branch;
+            crosses.push(places.iter().any(|&i| nodes[i as usize].branch != branch));
+            // A part's first place is never inside a later place of a larger
+            // part, whose first place would hold an earlier copy, so it is the
+            // place the grouping stood over the others from: a cell reaching
+            // any of them has met it, which a program's registers rely on.
+            debug_assert!(places[1..].iter().all(|&i| over(places[0], i)));
             for (k, &i) in places.iter().enumerate() {
                 kept.push((i as usize, parts as u32, u32::from(k + 1 == places.len())));
                 if k > 0 {
@@ -675,6 +718,7 @@ impl Repeats {
         // Each place's path: the child's index at each step from the root.
         let mut out = Repeats {
             parts,
+            crosses,
             ..Repeats::default()
         };
         let mut path: Vec<u16> = Vec::new();
@@ -703,6 +747,36 @@ impl Repeats {
     /// How many lanes a run keeps for them at once: one a part.
     pub(crate) fn parts(&self) -> usize {
         self.parts
+    }
+
+    /// How many buffers of positions a run holds for them at once: for each
+    /// part that crosses a branch, the first place's cells kept beside its
+    /// lane and a later place's found among them (KERNEL.29).
+    pub(crate) fn positions(&self) -> usize {
+        2 * self.crosses.iter().filter(|&&c| c).count()
+    }
+
+    /// Whether a part's places stand in more than one branch.
+    fn crosses(&self, part: usize) -> bool {
+        self.crosses.get(part).copied().unwrap_or(false)
+    }
+
+    /// The places of the parts, which a program computes once where the
+    /// first stands, every other standing in its branch or one inside it
+    /// (KERNEL.29): each by its node's address in `root`, a parse of the
+    /// same shape, with its part, sorted by address.
+    pub(crate) fn shared(&self, root: &Expr, out: &mut Vec<(usize, u16)>) {
+        out.clear();
+        if self.parts == 0 {
+            return;
+        }
+        let mut found = Vec::new();
+        self.found(root, &mut found);
+        out.extend(
+            found
+                .iter()
+                .map(|&(at, place, _)| (at, (place >> 1) as u16)),
+        );
     }
 
     /// How many places the parts are written at that a run reaches.
@@ -891,6 +965,25 @@ impl Sel<'_> {
     }
 }
 
+/// The cells a part's first place was computed at, kept beside its lane
+/// where the part crosses a branch (KERNEL.29): none kept, for a part whose
+/// places all stand in one branch and so meet the same cells; every cell of
+/// the run; or these positions, in the run's order.
+#[derive(Debug)]
+enum At {
+    Unkept,
+    All(usize),
+    Some(Vec<u32>),
+}
+
+/// A later place's cells against the first's (KERNEL.29): the same cells,
+/// the first's lane at each found among them, or not all of them there.
+enum Gathered {
+    Same,
+    Lane(Lane),
+    Not,
+}
+
 /// An operand of a strict call at every cell: a reference written as one,
 /// made at each cell as [`Ctx::eval`] makes it, or a value.
 enum Operand<'e> {
@@ -960,8 +1053,11 @@ struct Many<'a> {
     /// sorted by address.
     found: Vec<Key>,
     /// By part, the lane its first place computed, while a later place has
-    /// yet to take it.
-    kept: RefCell<Vec<Option<Lane>>>,
+    /// yet to take it, and the cells it was computed at where the part
+    /// crosses a branch (KERNEL.29).
+    kept: RefCell<Vec<Option<(Lane, At)>>>,
+    /// The parse's repeated parts.
+    repeats: &'a Repeats,
     /// The address of the place [`Many::again`] has just asked
     /// [`Many::scalars`] to compute, 0 for none, so that the node's own
     /// frame computes it, the question of whether it is a place asked of
@@ -1006,6 +1102,7 @@ pub(crate) fn evaluate(
         lanes: RefCell::new(lanes),
         found,
         kept: RefCell::new(kept),
+        repeats,
         computing: Cell::new(0),
     };
     match many.scalars(expr, Sel::All(cells.len())) {
@@ -1035,9 +1132,10 @@ pub(crate) fn evaluate(
     // A lane kept for a part whose last place was not reached given back,
     // and the buffers of the places to the caller (KERNEL.27).
     for k in 0..repeats.parts() {
-        let lane = many.kept.borrow_mut()[k].take();
-        if let Some(lane) = lane {
+        let held = many.kept.borrow_mut()[k].take();
+        if let Some((lane, at)) = held {
             many.give_lane(lane);
+            many.give_at(at);
         }
     }
     let Many {
@@ -1338,7 +1436,9 @@ impl<'a> Many<'a> {
     /// A place of a repeated part, in a frame of its own (KERNEL.27): the
     /// lane its part's first place computed and kept, copied, or taken at
     /// the last place; at the first, the part computed by [`Many::scalars`]
-    /// and a copy kept.
+    /// and a copy kept. A part that crosses a branch (KERNEL.29) keeps the
+    /// cells beside the lane, and a later place takes the lane at its own
+    /// cells, or computes the part where they are not all the first's.
     #[inline(never)]
     fn again(&self, e: &Expr, sel: &Sel) -> Lane {
         let at = e as *const Expr as usize;
@@ -1350,22 +1450,146 @@ impl<'a> Many<'a> {
         let k = usize::from(part);
         let held = self.kept.borrow_mut()[k].take();
         match held {
-            Some(lane) if last => lane,
-            Some(lane) => {
-                let copy = self.copied(&lane);
-                self.kept.borrow_mut()[k] = Some(lane);
-                copy
+            Some((lane, from)) => {
+                let gathered = match from {
+                    At::Unkept => Gathered::Same,
+                    ref from => self.gathered(&lane, from, *sel),
+                };
+                match gathered {
+                    Gathered::Same if last => {
+                        self.give_at(from);
+                        lane
+                    }
+                    Gathered::Same => {
+                        let copy = self.copied(&lane);
+                        self.kept.borrow_mut()[k] = Some((lane, from));
+                        copy
+                    }
+                    Gathered::Lane(mine) => {
+                        self.keep_or_give(k, last, lane, from);
+                        mine
+                    }
+                    // Never as a run reaches a part today, a later place's
+                    // cells all among the first's; kept so that a reach that
+                    // parted a branch's cells otherwise would compute the
+                    // place where it stands, never read a cell not computed.
+                    Gathered::Not => {
+                        self.keep_or_give(k, last, lane, from);
+                        self.computing.set(at);
+                        self.scalars(e, *sel)
+                    }
+                }
             }
             None => {
                 self.computing.set(at);
                 let lane = self.scalars(e, *sel);
                 if !last {
                     let copy = self.copied(&lane);
-                    self.kept.borrow_mut()[k] = Some(copy);
+                    let from = if self.repeats.crosses(k) {
+                        self.kept_at(*sel)
+                    } else {
+                        At::Unkept
+                    };
+                    self.kept.borrow_mut()[k] = Some((copy, from));
                 }
                 lane
             }
         }
+    }
+
+    /// A part's kept lane and its cells kept for a later place, or given
+    /// back at its last (KERNEL.29).
+    fn keep_or_give(&self, k: usize, last: bool, lane: Lane, from: At) {
+        if last {
+            self.give_lane(lane);
+            self.give_at(from);
+        } else {
+            self.kept.borrow_mut()[k] = Some((lane, from));
+        }
+    }
+
+    /// The cells of a selection, kept beside a crossing part's lane.
+    fn kept_at(&self, sel: Sel) -> At {
+        match sel {
+            Sel::All(n) => At::All(n),
+            Sel::Some(at) => {
+                let mut kept = self.positions();
+                kept.extend_from_slice(at);
+                At::Some(kept)
+            }
+        }
+    }
+
+    fn give_at(&self, at: At) {
+        if let At::Some(kept) = at {
+            self.give_positions(kept);
+        }
+    }
+
+    /// A later place's lane taken from the first's (KERNEL.29): at the same
+    /// cells the whole lane; at cells all among the first's, each its value
+    /// there, both selections in the run's order; else none, the place
+    /// computing its own.
+    fn gathered(&self, lane: &Lane, from: &At, sel: Sel) -> Gathered {
+        let same = match (from, sel) {
+            (At::All(n), Sel::All(m)) => *n == m,
+            (At::All(n), Sel::Some(b)) => b.len() == *n,
+            (At::Some(a), Sel::All(m)) => a.len() == m,
+            (At::Some(a), Sel::Some(b)) => a.as_slice() == b,
+            (At::Unkept, _) => true,
+        };
+        if same {
+            return Gathered::Same;
+        }
+        // Each of this place's cells, its index in the first's lane.
+        let mut index = self.positions();
+        let found = match (from, sel) {
+            (At::All(n), Sel::Some(b)) => {
+                index.extend_from_slice(b);
+                b.iter().all(|&p| (p as usize) < *n)
+            }
+            (At::Some(a), Sel::Some(b)) => {
+                let mut j = 0;
+                b.iter().all(|&p| {
+                    while j < a.len() && a[j] < p {
+                        j += 1;
+                    }
+                    let found = j < a.len() && a[j] == p;
+                    if found {
+                        index.push(j as u32);
+                        j += 1;
+                    }
+                    found
+                })
+            }
+            // A selection of every cell is the first's only where the
+            // first's is every cell too, which is the same.
+            _ => false,
+        };
+        if !found {
+            self.give_positions(index);
+            return Gathered::Not;
+        }
+        let mine = match lane {
+            Lane::Same(got) => Lane::Same(got.clone()),
+            Lane::Numbers(numbers) => {
+                let mut out = self.take_numbers();
+                out.extend(index.iter().map(|&j| numbers[j as usize]));
+                Lane::Numbers(out)
+            }
+            Lane::Truths(truths) => {
+                let mut out = self.take_truths();
+                out.extend(index.iter().map(|&j| truths[j as usize]));
+                Lane::Truths(out)
+            }
+            Lane::Each(each) => {
+                let mut out = self.take();
+                out.extend(index.iter().map(|&j| each[j as usize].clone()));
+                Lane::Each(out)
+            }
+        };
+        self.give_positions(index);
+        Gathered::Lane(mine)
     }
 
     /// A lane copied into a buffer of its own kind (KERNEL.27).

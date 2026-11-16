@@ -5643,14 +5643,19 @@ mod tests {
             }
             // A part written more than once: beside itself in a chain, as a
             // call's operands, in a condition and its branches, in both
-            // branches of an `IF`, and inside a part itself written twice.
+            // branches of an `IF`, and inside a part itself written twice;
+            // and in a condition and again in a condition of its else, as
+            // Sand's thresholds, and before an `IFERROR` and in its fallback
+            // (KERNEL.29's binding lane).
             18 => {
                 let p = e(d);
-                match d.below(5) {
+                match d.below(7) {
                     0 => format!("({p})+({p})*({p})"),
                     1 => format!("{}(({p}),({p}))", d.pick(&["SUM", "MAX", "AND", "MOD"])),
                     2 => format!("IF({p},{p},({p})-1)"),
                     3 => format!("IF({},({p})*2,({p})&\"x\")", e(d)),
+                    4 => format!("IF({},0,IF(({p})<1,2,IF(({p})<3,3,0)))", e(d)),
+                    5 => format!("({p})+IFERROR(1/({}),({p})*2)", e(d)),
                     _ => format!("NOT({p})+({p})"),
                 }
             }
@@ -8229,6 +8234,18 @@ mod tests {
             ("IF(A1>0,A1,A1)", (0, 0)),
             ("IF(B1,A1+A1,0)", (1, 2)),
             ("IF(B1,A1,0)+IF(B1,A1,0)", (1, 2)),
+            // KERNEL.29's binding lane: a part of more than one node in a
+            // condition and in its branches, or in a condition and again in a
+            // condition of its else, read where a cell has met it; never in
+            // two branches apart, which no cell takes both of.
+            ("IF(A1+B1>0,A1+B1,-(A1+B1))", (1, 3)),
+            (
+                "IF(ROW()>67,0,IF(MOD(A1*A1,7)<3,2,IF(MOD(A1*A1,7)<5,3,0)))",
+                (2, 4),
+            ),
+            ("IF(C1,A1+B1,A1+B1)", (0, 0)),
+            ("A1+B1+IF(C1,A1+B1,0)", (1, 2)),
+            ("A1+B1+IFERROR(1/C1,A1+B1)", (1, 2)),
             ("CHOOSE(1,A1+A1,A1)", (0, 0)),
             ("CHOOSE(1,A1,B1)*CHOOSE(1,A1,B1)", (1, 2)),
             ("(A1+B1)*(A1+B1)+A1", (2, 4)),
@@ -12212,7 +12229,7 @@ mod tests {
                 .collect();
             parts.join(",")
         };
-        match d.below(22) {
+        match d.below(23) {
             0 => format!("-({})", e(d)),
             1 => format!("({})%", e(d)),
             2 => format!("+{}", reference(d, at)),
@@ -12301,6 +12318,19 @@ mod tests {
                 ),
                 _ => format!("COUNTIF({},{})", range(d, at), e(d)),
             },
+            // A part written more than once, which a program computes once
+            // where its first place stands over the rest (KERNEL.29): in a
+            // condition and its branches, in a condition and a condition of
+            // its else, beside itself in a chain; and in both branches apart.
+            22 => {
+                let p = e(d);
+                match d.below(4) {
+                    0 => format!("IF(({p})>0.5,{p},IF(({p})<0.25,({p})*2,-({p})))"),
+                    1 => format!("IF({},0,IF(({p})<1,2,IF(({p})<3,3,0)))", e(d)),
+                    2 => format!("({p})+({p})*({p})"),
+                    _ => format!("IF({},({p})*2,({p})+1)", e(d)),
+                }
+            }
             _ => format!("{}*{}", reference(d, at), reference(d, at)),
         }
     }

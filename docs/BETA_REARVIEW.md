@@ -45251,6 +45251,51 @@ the first corrected and where the rule stops: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`
 `#CALC!` held by no value, the spill labelled. Held by `tests/lambda.rs`, 13: the save's answers, a
 `MAKEARRAY` count, a defined name called (a number, a reference, a function), each through the door and an
 engine alike, and an engine's call through a name followed by a write to a cell its function reads.
+Committed `def270b` at the owner's word, "If everything looks good, then commit before proceeding with slice 2".
+
+*Slice 2, begun 2026-11-16 over `def270b`: the binding lane built, nothing committed.*
+- *In a run* (`vector.rs`'s `Repeats`): a part of more than one node is now the same part at a later place in
+  a branch inside its first place's own, not only in its own branch (`KERNEL.27`'s rule). The condition of
+  `IF(x>0,x,-x)` and either branch, as a `LET`'s name read there is written out, is one; so is a threshold
+  tested in a condition and again in a condition of its else. Such a part crosses: its first place's cells
+  are kept beside its lane (`At`), and a later place takes the lane at its own cells (`Many::gathered`, a
+  merge of two selections in the run's order), or computes its own where its cells are not all the first's,
+  which no run reaches today. A bare reference never crosses, since reading it again costs what taking it
+  does. A crossing part takes two buffers of positions, reserved at the plan (`Repeats::positions`), so no
+  later frame allocates.
+- *In a program* (`program.rs`): every part a run finds is computed once. Its first place's value moves
+  into a register of its own from the top (`Op::Move`), and every later place is a move from it; a parse
+  whose own registers would reach them is lowered as written. A part's first place stands over every
+  other by construction: it is never inside a later place of a larger part, whose first place would hold
+  an earlier copy (a debug assertion over the laws). A flag that said so was always true, its mutant
+  equivalent, and is gone.
+- *Measured* (release, natively):
+  - A `LET` read in a condition and its branches, `LET(x,h,IF(x>0.5,x,IF(x>0.25,x*2,-x)))` with `h` the
+    soup's hash, over 100,000 cells of a fill: its first frame 12.51 ms without the lane and 6.48 with it,
+    `h` alone 5.16, so the binding is computed once a cell, as Excel's `LET` computes it.
+  - 5,000 such cells alone, each its own shape: 1.200 ms and 1.064.
+  - Sand's first frame over this tree: 11.5 ms before and 10.9 to 11.4 after, in three runs. Its one
+    crossing part is the soup's square tested at the second threshold. Its first frame is now mostly the
+    other sheets' fills, where Alonzo's 62 ms of `0.x` was the soup's.
+- *Held by:*
+  - The run's parts test, five cases more: a part in a condition and its branches; Sand's thresholds; two
+    branches apart, no part; a part before an `IF` and in its branch; before an `IFERROR` and in its
+    fallback.
+  - The run's law over 80 generated grids, and the program's; both generators now write such parts.
+  - Mutants. A later place taking the whole lane fails the run's law, and a first place's register never
+    kept fails the program's. A subset test that accepts any cell survives: that fallback is one no run
+    reaches.
+  - The workspace's 891 tests; fmt, and clippy with and without `c-abi`; both wasm modules; `run_checks`
+    60 of 60; the CI door job's 21 steps, no golden, census, floor or memory ceiling moved. Alonzo's
+    `32ff4b3` (95, Sand's frames held to its hand) and Buffet's `6f215a1` (107) over the language by a
+    path.
+- *Left of the slice:* the parity floors and Alonzo's frames over a cartridge written both ways, measured
+  in a copy by a path.
+  - The parity floors: a bench program written inline and through named functions, and the netlist
+    written a third way through a named full adder, filled and shuffled (`CART.9.3`'s question, its
+    place recommended here).
+- The owner's decisions, approved as recommended: the lane committed now, as the slice's first part;
+  the depth of 4,096 kept.
 
 ---
 

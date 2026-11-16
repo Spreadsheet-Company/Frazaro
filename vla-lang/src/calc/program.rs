@@ -45,6 +45,15 @@
 //! run's selection of fewer cells than `shape::SHORT`, its reads through
 //! [`Source`]; nothing here allocates but a call through the library's
 //! pointer of three operands or more, which `Ctx` allocates for too.
+//!
+//! A part the parse writes more than once, as a run finds it (`vector`'s
+//! `Repeats`), is computed once (KERNEL.29's binding lane): its first place
+//! lowered and its value moved into a register of its own from the top, and
+//! every later place a move from it, each later place standing in the
+//! first's branch or one inside it, so that a cell reaching it has passed
+//! the first; a `LET` read in a condition and its branches is computed once,
+//! as Excel computes one. A parse whose own registers would reach those is
+//! lowered as written.
 
 use std::borrow::Cow;
 
@@ -239,6 +248,13 @@ enum Op {
     Done {
         from: u8,
     },
+    /// A register's value into another: a repeated part's, kept where its
+    /// first place computed it and read where a later place stands
+    /// (KERNEL.29's binding lane).
+    Move {
+        to: u8,
+        from: u8,
+    },
 }
 
 /// A reference as a program holds it: the sheet its placement found, or
@@ -387,6 +403,32 @@ impl Program {
         if super::vector::arrays_in(lib, e) {
             return Err(Why::Array);
         }
+        // The parts written more than once whose first place stands over
+        // every other, each computed once into a register of its own from the
+        // top (KERNEL.29's binding lane), where the evaluation's own stay
+        // below them; else the parse lowered as written.
+        let mut shared = Vec::new();
+        super::vector::Repeats::of(lib, e).shared(e, &mut shared);
+        let parts = shared
+            .iter()
+            .map(|&(_, p)| usize::from(p) + 1)
+            .max()
+            .unwrap_or(0);
+        if parts > 0 && parts <= REGISTERS / 4 {
+            if let Ok(p) = Self::lowered(lib, e, shared, parts) {
+                return Ok(p);
+            }
+        }
+        Self::lowered(lib, e, Vec::new(), 0)
+    }
+
+    /// A parse lowered with the places of `parts` parts computed once.
+    fn lowered(
+        lib: &Library,
+        e: &Expr,
+        shared: Vec<(usize, u16)>,
+        parts: usize,
+    ) -> Result<Program, Why> {
         let mut l = Lowering {
             lib,
             code: Vec::new(),
@@ -397,8 +439,15 @@ impl Program {
             calls: Vec::new(),
             depth: 0,
             root: None,
+            shared,
+            held: vec![None; parts],
+            floor: REGISTERS - parts,
+            most: 0,
         };
         let kind = l.expr(e, 0)?;
+        if l.most >= l.floor {
+            return Err(Why::Deep);
+        }
         l.code.push(Op::Done { from: 0 });
         if l.code.len() > usize::from(u16::MAX) {
             return Err(Why::Deep);
@@ -526,6 +575,7 @@ impl Program {
                     pc = usize::from(self.table[usize::from(from) + k - 1]);
                     continue;
                 }
+                Op::Move { to, from } => reg[usize::from(to)] = reg[usize::from(from)],
                 Op::Done { from } => {
                     let x = reg[usize::from(from)];
                     return Some(match self.kind {
@@ -711,6 +761,15 @@ struct Lowering<'l> {
     depth: u32,
     /// The call at the root, where the formula is one (KERNEL.8).
     root: Option<u16>,
+    /// The places of the parts a program computes once (KERNEL.29), each
+    /// by its node's address, with its part, sorted by address; by part,
+    /// the register its first place left it in and its kind; and the
+    /// registers below which the evaluation's own stand, and the highest
+    /// the evaluation took.
+    shared: Vec<(usize, u16)>,
+    held: Vec<Option<(u8, Kind)>>,
+    floor: usize,
+    most: usize,
 }
 
 impl Lowering<'_> {
@@ -730,6 +789,39 @@ impl Lowering<'_> {
     /// The expression's value into register `at`, as `Ctx::scalar` computes
     /// it, the registers above it its scratch; its kind.
     fn expr(&mut self, e: &Expr, at: usize) -> Result<Kind, Why> {
+        if !self.shared.is_empty() {
+            if let Some(part) = self.part_of(e) {
+                return self.shared_part(e, at, part);
+            }
+        }
+        self.walked(e, at)
+    }
+
+    /// A place of a part computed once (KERNEL.29): the register its first
+    /// place left it in, moved into `at`; at the first, the part computed
+    /// there and kept in its own register.
+    fn shared_part(&mut self, e: &Expr, at: usize, part: usize) -> Result<Kind, Why> {
+        let to = Self::reg(at)?;
+        self.most = self.most.max(at);
+        if let Some((from, kind)) = self.held[part] {
+            self.code.push(Op::Move { to, from });
+            return Ok(kind);
+        }
+        let kind = self.walked(e, at)?;
+        let keep = Self::reg(REGISTERS - 1 - part)?;
+        self.code.push(Op::Move { to: keep, from: to });
+        self.held[part] = Some((keep, kind));
+        Ok(kind)
+    }
+
+    /// A place's part, by its node's address.
+    fn part_of(&self, e: &Expr) -> Option<usize> {
+        let at = e as *const Expr as usize;
+        let i = self.shared.binary_search_by_key(&at, |&(a, _)| a).ok()?;
+        Some(usize::from(self.shared[i].1))
+    }
+
+    fn walked(&mut self, e: &Expr, at: usize) -> Result<Kind, Why> {
         self.depth += 1;
         let kind = if self.depth > DEPTH {
             Err(Why::Deep)
@@ -742,6 +834,7 @@ impl Lowering<'_> {
 
     fn node(&mut self, e: &Expr, at: usize) -> Result<Kind, Why> {
         let to = Self::reg(at)?;
+        self.most = self.most.max(at);
         match e {
             Expr::Number(v) => {
                 self.code.push(Op::Const { to, x: *v });
