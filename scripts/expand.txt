@@ -383,6 +383,8 @@ of the prelude moves nothing here.
 (formula-expand (funcall + 1 2))
 === formula-expand-funcall-a-sum-refused
 (formula-expand (funcall (+ a b) 1))
+=== formula-expand-funcall-iferror-refused
+(formula-expand (funcall (iferror SQ PLUS1) 3))
 === formula-expand-a-statement-refused
 (formula-expand (set! x 1))
 === formula-expand-a-vba-form-refused

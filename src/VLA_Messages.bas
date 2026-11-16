@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.58"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.17"
+' VLA.17: funcall in the formula syntax, one refusal under VLA:
+' vla-formula-not-called-in-place - a funcall of what IFERROR answers, which
+' Excel removes from a workbook (KERNEL.29's third save), telling the author
+' to bind it with let and call the name.
+'
 ' KERNEL.58: a conditional format and a merged range, two refusals under VLA-Grid.
 ' grid-rule-cells - a rule's range past the cells one grid's rules answer for;
 ' grid-merge-overlap - a merged range over one already merged.
@@ -879,6 +884,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-formula-head-refused", 5, "VLA", "formula: '({head} ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls"
     AddMsg m, "vla-formula-arity", 5, "VLA", "formula: ({head} ...) takes {want}, got {n}"
     AddMsg m, "vla-formula-unsupported", 5, "VLA", "formula: {construct} is not in this version's formula syntax"
+    AddMsg m, "vla-formula-not-called-in-place", 5, "VLA", "formula: Excel calls nothing in place that {head} answers - bind it with let first and call the name, (let f ({head} ...) (funcall f ...))"
     AddMsg m, "vla-formula-lambda-params", 5, "VLA", "formula: a lambda's parameters are names, got '{tok}'"
     AddMsg m, "vla-formula-ref-invalid", 5, "VLA", "formula: (ref ...) names one reference from a sheet and an address, such as (ref ""Data"" ""B2"") - '{text}' is not one"
     AddMsg m, "vla-formula-text-too-long", 5, "VLA", "formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds {n}"

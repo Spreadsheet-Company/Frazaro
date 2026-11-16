@@ -932,7 +932,10 @@ by its name.
 | `(funcall sq 3)` | `SQ(3)` |
 
 Anything a formula cannot call, an operator, a number or a reference, is
-refused by name.
+refused by name. So is what `IFERROR` answers, since Excel calls nothing in
+place that `IFERROR` answers: bind it with `let` and call the name,
+`(let f (iferror SQ PLUS1) (funcall f 3))`, which writes
+`LET(f,IFERROR(SQ,PLUS1),F(3))`.
 
 **A reference's twin.** `(last X)` is the twin of the one reference on a
 sheet that X is: the same cells on the sheet whose name is X's sheet's with

@@ -453,7 +453,10 @@ fn funcall_form(head: &str, args: &[Form], depth: u32) -> Result<String, Refusal
             }
             text(&named, depth)
         }
-        Form::List(_) if writes_as_call(f) => {
+        Form::List(l) if writes_as_call(f) => {
+            if let Some(head) = not_called_in_place(l) {
+                return Err(raise("vla-formula-not-called-in-place", &[("head", head)]));
+            }
             let mut out = text(f, depth + 1)?;
             out.push('(');
             for (k, a) in rest.iter().enumerate() {
@@ -467,6 +470,24 @@ fn funcall_form(head: &str, args: &[Form], depth: u32) -> Result<String, Refusal
         }
         _ => Err(not_a_function()),
     }
+}
+
+/// The functions whose answer Excel calls nothing in place of: a formula
+/// that does is one Excel removes from the workbook it opens (`KERNEL.29`'s
+/// third save removed `IFERROR(SQ,PLUS1)(3)` and `IFERROR(1/0,SQ)(3)`, and
+/// called `IF`'s and `CHOOSE`'s answers). No other function was measured.
+const NOT_CALLED_IN_PLACE: &[&str] = &["iferror"];
+
+/// A call's head as written where its answer is one Excel calls nothing in
+/// place of ([`NOT_CALLED_IN_PLACE`]).
+fn not_called_in_place(l: &List) -> Option<&str> {
+    let Some(Form::Sym(head)) = l.items.first() else {
+        return None;
+    };
+    let h = headtable::resolve_head_alias(&fold(head));
+    NOT_CALLED_IN_PLACE
+        .contains(&h.as_str())
+        .then_some(head.as_str())
 }
 
 /// Whether a list writes as a call, `NAME(...)`, which a formula may call
@@ -1629,6 +1650,14 @@ impl Reader {
     /// answers (VLA.17), curried calls one inside another; else the call.
     fn invoked(&mut self, mut form: Form, name: &str) -> Result<Form, Refusal> {
         while self.peek() == Some(&Tok::Open) {
+            if let Form::List(l) = &form {
+                if let Some(head) = not_called_in_place(l) {
+                    return Err(malformed(&format!(
+                        "{} answers nothing Excel calls in place",
+                        head.to_ascii_uppercase()
+                    )));
+                }
+            }
             self.at += 1;
             let args = self.arguments(name)?;
             let mut items = Vec::with_capacity(args.len() + 2);
@@ -1845,6 +1874,16 @@ mod tests {
             w_err("(funcall (ref \"Data\" \"A1\") 1)"),
             "vla-formula-head-not-a-function"
         );
+        // And IFERROR's answer, which Excel calls nothing in place of: its
+        // third save of KERNEL.29's fixture removed both formulas that did.
+        assert_eq!(
+            w_err("(funcall (iferror SQ PLUS1) 3)"),
+            "vla-formula-not-called-in-place"
+        );
+        assert_eq!(
+            w_err("(funcall (IFERROR (/ 1 0) SQ) 3)"),
+            "vla-formula-not-called-in-place"
+        );
         assert_eq!(
             w_err("(_xlfn.xlookup 1)"),
             "vla-formula-head-not-a-function"
@@ -1954,6 +1993,8 @@ mod tests {
             "=1}",
             "=1;2",
             "=A1:",
+            // VLA.17: what IFERROR answers called in place, which Excel removes.
+            "=IFERROR(SQ,PLUS1)(3)",
         ] {
             assert_eq!(r_err(bad), "vla-formula-read-malformed", "{bad}");
         }

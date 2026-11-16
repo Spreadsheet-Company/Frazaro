@@ -200,6 +200,7 @@
 (message vla-formula-head-refused 5 "VLA" "formula: '({head} ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls")
 (message vla-formula-arity 5 "VLA" "formula: ({head} ...) takes {want}, got {n}")
 (message vla-formula-unsupported 5 "VLA" "formula: {construct} is not in this version's formula syntax")
+(message vla-formula-not-called-in-place 5 "VLA" "formula: Excel calls nothing in place that {head} answers - bind it with let first and call the name, (let f ({head} ...) (funcall f ...))")
 (message vla-formula-lambda-params 5 "VLA" "formula: a lambda's parameters are names, got '{tok}'")
 (message vla-formula-ref-invalid 5 "VLA" "formula: (ref ...) names one reference from a sheet and an address, such as (ref \"Data\" \"B2\") - '{text}' is not one")
 (message vla-formula-text-too-long 5 "VLA" "formula: a text in a formula holds at most 255 characters, Excel's own limit - this one holds {n}")

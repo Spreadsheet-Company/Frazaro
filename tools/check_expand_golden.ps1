@@ -138,9 +138,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-11-16, VLA.16 and VLA.17: 686 cases, 354 expanded, 72 distinct ids, an
 # entry's names' 20 and funcall's 10 written by the port ahead of the reference's
 # run, vla-each-entry-shape the one id more.
-$caseFloor = 686
+# 2026-11-16, VLA.17's IFERROR, from KERNEL.29's third save: 687 cases, 354
+# expanded, 73 distinct ids, vla-formula-not-called-in-place the one id more.
+$caseFloor = 687
 $expandedFloor = 354
-$idFloor = 72
+$idFloor = 73
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',

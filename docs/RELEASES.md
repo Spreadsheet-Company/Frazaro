@@ -50,8 +50,10 @@
   `funcall` does: `(funcall (if c SQ PLUS1) 5)` writes `=IF(c,SQ,PLUS1)(5)`,
   `(funcall (lambda (x) (+ x 1)) 5)` writes `=LAMBDA(x,x+1)(5)`, and a name
   is called by its name, as `(f a)` is written. Anything no formula calls, an
-  operator, a number or a reference, is refused by name. The reader reads a
-  call in place back as a `funcall`, where it refused one (VLA.17).
+  operator, a number or a reference, is refused by name, and so is what
+  `IFERROR` answers, which Excel calls nothing in place of: bind it with `let`
+  and call the name. The reader reads a call in place back as a `funcall`,
+  where it refused one (VLA.17).
 
 ## 0.13.0
 

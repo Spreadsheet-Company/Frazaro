@@ -1,11 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "VLA.17"
-' VLA.17: TestFormulaFuncall - (funcall f a ...) in the formula syntax, 14
+' VLA.17: TestFormulaFuncall - (funcall f a ...) in the formula syntax, 15
 ' pins: a name called by its name, a call, a LAMBDA and a funcall called
 ' where they are written, curried calls, no argument, an operand, a LET's
 ' name; and its refusals by id: no function, a number, a text, an operator,
-' a sum, an array and a reference. Wired after TestFormulaSyntax.
+' a sum, an array, a reference, and what IFERROR answers. Wired after TestFormulaSyntax.
 '
 ' VLA.16: TestEachNames - an entry's parts named in a loop, 20 pins: each name
 ' bound to its part (cells by address and value, the rows car and cdr wrote;
@@ -8704,6 +8704,8 @@ Private Sub TestFormulaFuncall()
     CheckV "funcall: nor a sum", ExpandRefusalId("(formula-expand (funcall (+ a b) 1))"), "vla-formula-head-not-a-function"
     CheckV "funcall: nor an array", ExpandRefusalId("(formula-expand (funcall (quote (1 2)) 1))"), "vla-formula-head-not-a-function"
     CheckV "funcall: nor a reference", ExpandRefusalId("(formula-expand (funcall (ref ""Data"" ""A1"") 1))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor what IFERROR answers, which Excel calls nothing in place of", _
+        ExpandRefusalId("(formula-expand (funcall (iferror SQ PLUS1) 3))"), "vla-formula-not-called-in-place"
 End Sub
 
 ' ---------------------------------------------------------------------

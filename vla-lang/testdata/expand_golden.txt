@@ -454,6 +454,8 @@ REFUSED	vla-formula-head-not-a-function	formula: '3' cannot name a function - a 
 REFUSED	vla-formula-head-not-a-function	formula: '+' cannot name a function - a function's name is letters, digits, . and _, beginning with a letter
 === formula-expand-funcall-a-sum-refused
 REFUSED	vla-formula-head-not-a-function	formula: '(+ a b)' cannot name a function - a function's name is letters, digits, . and _, beginning with a letter
+=== formula-expand-funcall-iferror-refused
+REFUSED	vla-formula-not-called-in-place	formula: Excel calls nothing in place that iferror answers - bind it with let first and call the name, (let f (iferror ...) (funcall f ...))
 === formula-expand-a-statement-refused
 REFUSED	vla-formula-head-refused	formula: '(set! ...)' is a form of a program, which no formula has - a formula is one expression of values, references, operators and function calls
 === formula-expand-a-vba-form-refused
