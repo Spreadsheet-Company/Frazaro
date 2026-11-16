@@ -45297,6 +45297,42 @@ Committed `def270b` at the owner's word, "If everything looks good, then commit 
 - The owner's decisions, approved as recommended: the lane committed now, as the slice's first part;
   the depth of 4,096 kept.
 
+*Excel's second save, 2026-11-16, the stop rule's last.* The owner saved the fixture of 93 formulas
+over the first save's file. The door's verdict: 90 agree, two differ, the spill unchecked.
+- Seven of the eight formulas written to confirm the folds agree: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`
+  and `LAMBDA(x,x)&"a"` `#VALUE!`; `IF(TRUE,LAMBDA(x,x))` `#CALC!`, a function passed through to the
+  cell's answer; a `MAKEARRAY` of 2.5 columns `#VALUE!` and of `4/2` rows 4; `ALIAS(3)` 9.
+- `SPOT(1)`, a defined name holding a reference called, is `#REF!` in Excel, where `RATEN(1)`, a name
+  holding a number, was `#VALUE!` and the language answers `#VALUE!` for both. Shown by the last save
+  and confirmed by none, it is left out of the pin by name beside `CNT(4096)` and held to differ.
+- Joined in the first save's place: `check_recalc_golden` at `no-differ` (93 rows, 90 agreeing, two
+  left), `check_shapes_golden` (95 lines, the build's), `prove.ps1` and the treaty.
+
+*The owner's question at the save, "A function used as a value is #VALUE! doesn't feel very Lispy.
+Case in point: APPLY. Must we throw APPLY out with the bath water?"* No; the rule is narrower than
+that line of the summary said.
+- *Where a function is wanted, it is first-class:* bound by `LET`, passed to a parameter, returned
+  by `IF` or `CHOOSE`, and called. Computed by the language at the save:
+  - `LET(apply,LAMBDA(f,x,f(x)),apply(SQ,7))` is 49.
+  - `IF(FALSE,SQ,PLUS1)(5)` and `CHOOSE(2,SQ,PLUS1)(5)` are 6.
+  - `LET(table,LAMBDA(k,CHOOSE(k,SQ,PLUS1)),table(1)(6))` is 36.
+  - `APPLY2(LAMBDA(a,b,a*b),6,7)` is 42, where `APPLY2` is `LAMBDA(f,a,b,f(a,b))`.
+  - `TYPE(SQ)` is 128, as Excel answers, Lisp's `functionp`.
+- *Where a number or a text is wanted, it is `#VALUE!`:* an operator's operand, or a function of
+  values' argument. That is the type error every Lisp signals for `(+ #'sq 1)`, which Excel spells
+  `#VALUE!`.
+- *Where the language is short of Lisp, apart from the fold:*
+  - VLA's formula syntax writes no call of a computed function, `(funcall (if c sq plus1) 5)` for
+    `IF(c,SQ,PLUS1)(5)`: `formula_syntax.rs` refuses "a function called in place", so a source calls
+    a function by its name alone.
+  - No formula spreads a list into arguments, as Lisp's `apply` does: Excel has no such function, so
+    a door could write none it computes. A function of a fixed count, `APPLY2`, is the nearest.
+- *Found by the probes, read and not minted:*
+  - `ISERROR(SQ)` answers `#VALUE!`, a predicate answering an error: a strict call answers for a
+    function's value before its function sees it, where `TYPE` reads it as a kind of its own.
+  - `IFERROR(SQ,PLUS1)(3)` is `#VALUE!`, `IFERROR` reading both its arguments as values.
+  - Excel's answer to either is in no save.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

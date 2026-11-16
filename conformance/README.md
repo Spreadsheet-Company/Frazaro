@@ -2669,12 +2669,13 @@ Oracle 12 gains its first fixture a sentence cannot write, since it holds define
   probe, and a ladder of recursions from 251 calls deep to 4,097, so that Excel's save measures its own
   limit. `lambda_calc.vla` is the door's record of it at `built`: 88 rows `agree` with the values it
   wrote, four `#CALC!` with no value held, since a file holds that error as a rich value alone, and the
-  spill of `MAP` labelled until spills come (`KERNEL.55`). Excel 365's first save, `lambda_saved.xlsx`,
-  of its first 85 formulas, joins the table at `no-differ` (2026-11-16): 83 rows `agree` once the
-  three rules it showed were folded, the spill unchecked, and `CNT(4096)` left out of the pin by name
-  and held to differ, a recursion 4,097 calls deep that Excel computes and the language answers
-  `#NUM!` past its depth, Excel's own limit measured no further (the stop rule). The second save, of
-  the eight formulas that confirm the folds, takes its place when the owner makes it.
+  spill of `MAP` labelled until spills come (`KERNEL.55`). Excel 365's second save, `lambda_saved.xlsx`,
+  the stop rule's last, joins the table at `no-differ` (2026-11-16): 90 rows `agree`, the three rules
+  the first save showed folded and seven of the eight formulas that confirm them agreeing; the spill
+  unchecked; and two rows left out of the pin by name, each held to differ. `CNT(4096)` is a
+  recursion 4,097 calls deep that Excel computes and the language answers `#NUM!` past its depth,
+  Excel's own limit measured no further. `SPOT(1)` calls a defined name holding a reference, `#REF!`
+  in Excel where the language answers `#VALUE!`: a rule the last save showed and none confirms.
 - **What it does not hold.** A `LET` or a `LAMBDA` Excel refuses to read, a binder that is no name or
   a parameter twice, which a file cannot carry without Excel repairing it, held by the language's unit
   tests as `#VALUE!`; a parameter in brackets, `LAMBDA(x,[y],...)`, a construct not read; and a

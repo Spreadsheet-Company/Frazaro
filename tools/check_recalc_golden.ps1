@@ -264,7 +264,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # of 4,096 (the owner's decision), left out of the pin by name and held to differ,
 # the measurement recorded and never chased (the stop rule). The fixture written
 # again for the second save, 93 formulas, eight confirming the folds, 88 agreeing
-# and four a function's value as a cell's answer, #CALC!.
+# and four a function's value as a cell's answer, #CALC!. Excel's second save, the
+# stop rule's last, in its place: 93 formulas, 90 agreeing, the eight confirming the
+# folds but SPOT(1), a name holding a reference called, #REF! in Excel where the
+# language answers #VALUE!, a rule a second save shows and none confirms, left out
+# of the pin by name beside the recursion.
 #
 # 2026-10-30, KERNEL.68, the information functions: info 788 lines, the fixture
 # built by the door (scripts/recalc/info.txt), its 787 formulas and one cycle's
@@ -312,7 +316,7 @@ $goldens = @(
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
     @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 93;   Pin = 'built';     AgreeFloor = 88 },
-    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 85;   Pin = 'no-differ'; AgreeFloor = 83; Left = @('Functions!A57') }
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 93;   Pin = 'no-differ'; AgreeFloor = 90; Left = @('Functions!A57', 'Functions!A92') }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
