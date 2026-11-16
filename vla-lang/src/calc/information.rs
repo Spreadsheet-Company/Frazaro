@@ -37,9 +37,18 @@ use super::formula::Expr;
 use super::value::{ErrorKind, Value};
 
 /// A test's answer over the one value its call's one argument reads as;
-/// `#VALUE!` for a call of more arguments or fewer.
-fn tested(ctx: &Ctx<'_>, args: &[Arg<'_>], test: fn(&Value) -> Value) -> Result<Value, Reason> {
+/// `#VALUE!` for a call of more arguments or fewer; and `on_function` for a
+/// function's value, which Excel's save reads as a kind of its own, `TYPE`'s
+/// 128, neither an error, a number, a text, a truth value nor nothing
+/// (KERNEL.29: `ISERROR`, `ISNUMBER`, `ISNONTEXT` and `ERROR.TYPE` of one).
+fn tested(
+    ctx: &Ctx<'_>,
+    args: &[Arg<'_>],
+    test: fn(&Value) -> Value,
+    on_function: Value,
+) -> Result<Value, Reason> {
     match args {
+        [Arg::Function(_)] => Ok(on_function),
         [a] => Ok(test(&ctx.one(a)?)),
         _ => Ok(Value::Error(ErrorKind::Value)),
     }
@@ -48,55 +57,88 @@ fn tested(ctx: &Ctx<'_>, args: &[Arg<'_>], test: fn(&Value) -> Value) -> Result<
 /// `ISNUMBER(value)`: whether it is a number; an error is not, and does not
 /// propagate. A formula's empty result is 0 and so is one.
 pub(crate) fn isnumber(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| Value::Bool(matches!(v, Value::Number(_))))
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(matches!(v, Value::Number(_))),
+        Value::Bool(false),
+    )
 }
 
 /// `ISTEXT(value)`: whether it is a text, the empty text among them.
 pub(crate) fn istext(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| Value::Bool(matches!(v, Value::Text(_))))
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(matches!(v, Value::Text(_))),
+        Value::Bool(false),
+    )
 }
 
 /// `ISNONTEXT(value)`: whether it is anything but a text, nothing and an error
 /// among them.
 pub(crate) fn isnontext(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| Value::Bool(!matches!(v, Value::Text(_))))
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(!matches!(v, Value::Text(_))),
+        Value::Bool(true),
+    )
 }
 
 /// `ISLOGICAL(value)`: whether it is a truth value.
 pub(crate) fn islogical(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| Value::Bool(matches!(v, Value::Bool(_))))
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(matches!(v, Value::Bool(_))),
+        Value::Bool(false),
+    )
 }
 
 /// `ISBLANK(value)`: whether a cell holds nothing; a formula's empty result is
 /// 0 and an empty text a text, and neither is.
 pub(crate) fn isblank(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| Value::Bool(*v == Value::Empty))
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(*v == Value::Empty),
+        Value::Bool(false),
+    )
 }
 
 /// `ISERR(value)`: whether it is an error other than `#N/A`.
 pub(crate) fn iserr(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| {
-        Value::Bool(matches!(v, Value::Error(k) if *k != ErrorKind::NA))
-    })
+    tested(
+        ctx,
+        args,
+        |v| Value::Bool(matches!(v, Value::Error(k) if *k != ErrorKind::NA)),
+        Value::Bool(false),
+    )
 }
 
 /// `ERROR.TYPE(value)`: an error's number, Microsoft's 1 to 7 and Excel's save's
 /// 14 for `#CALC!`, and `#N/A` for anything else. Excel's other errors, `#SPILL!`
 /// and the rest, are no value of the language (`KERNEL.55`).
 pub(crate) fn error_type(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
-    tested(ctx, args, |v| match v {
-        Value::Error(k) => Value::Number(match k {
-            ErrorKind::Null => 1.0,
-            ErrorKind::Div0 => 2.0,
-            ErrorKind::Value => 3.0,
-            ErrorKind::Ref => 4.0,
-            ErrorKind::Name => 5.0,
-            ErrorKind::Num => 6.0,
-            ErrorKind::NA => 7.0,
-            ErrorKind::Calc => 14.0,
-        }),
-        _ => Value::Error(ErrorKind::NA),
-    })
+    tested(
+        ctx,
+        args,
+        |v| match v {
+            Value::Error(k) => Value::Number(match k {
+                ErrorKind::Null => 1.0,
+                ErrorKind::Div0 => 2.0,
+                ErrorKind::Value => 3.0,
+                ErrorKind::Ref => 4.0,
+                ErrorKind::Name => 5.0,
+                ErrorKind::Num => 6.0,
+                ErrorKind::NA => 7.0,
+                ErrorKind::Calc => 14.0,
+            }),
+            _ => Value::Error(ErrorKind::NA),
+        },
+        Value::Error(ErrorKind::NA),
+    )
 }
 
 /// `NA()`: the error itself.

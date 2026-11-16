@@ -2658,24 +2658,27 @@ Oracle 12 gains its first fixture a sentence cannot write, since it holds define
   place, bound, called by its name, handed to a function and held by a defined name, its arguments'
   values bound where the call stands; `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` and `MAKEARRAY`, a
   range's cells handed to the function as references to them; `ISOMITTED`. A count of arguments not
-  a function's parameters, a value called that is no function, a defined name's among them, and a
-  `MAKEARRAY` count not a whole number, `#VALUE!`; a function's value read where one value is wanted,
-  `#VALUE!`, and a cell's answer that is one, `#CALC!`; a recursion past 4,096 calls
+  a function's parameters, a value called that is no function nor reference, a defined name's among
+  them, and a `MAKEARRAY` count not a whole number, `#VALUE!`; a reference called, a cell's or a
+  range's, by its name or a local's, `#REF!`; a function's value read where one value is wanted,
+  `#VALUE!`, but by the information functions, which read it as a kind of its own (`ISERROR` and
+  `ISNUMBER` FALSE, `ISNONTEXT` TRUE, `ERROR.TYPE` `#N/A`, `TYPE` 128); and a cell's answer that is
+  one, `#CALC!`; a recursion past 4,096 calls
   open, or a cell's evaluation past a million calls, `#NUM!`. The writer spells each name a `LET` or a
   `LAMBDA` binds under `_xlpm.`, in a cell, a rule and a defined name; the reader reads a defined
   name's text without the file's prefixes, as a cell's formula.
-- **The fixture.** `scripts/recalc/lambda.xlsx`, written by the core with its seventeen defined names
-  (`core/src/reflect/lambda_golden.rs`, `FRAZARO_BLESS=1`), holds 93 formulas over a Data sheet, one a
+- **The fixture.** `scripts/recalc/lambda.xlsx`, written by the core with its eighteen defined names
+  (`core/src/reflect/lambda_golden.rs`, `FRAZARO_BLESS=1`), holds 104 formulas over a Data sheet, one a
   probe, and a ladder of recursions from 251 calls deep to 4,097, so that Excel's save measures its own
-  limit. `lambda_calc.vla` is the door's record of it at `built`: 88 rows `agree` with the values it
+  limit. `lambda_calc.vla` is the door's record of it at `built`: 99 rows `agree` with the values it
   wrote, four `#CALC!` with no value held, since a file holds that error as a rich value alone, and the
-  spill of `MAP` labelled until spills come (`KERNEL.55`). Excel 365's second save, `lambda_saved.xlsx`,
-  the stop rule's last, joins the table at `no-differ` (2026-11-16): 90 rows `agree`, the three rules
-  the first save showed folded and seven of the eight formulas that confirm them agreeing; the spill
-  unchecked; and two rows left out of the pin by name, each held to differ. `CNT(4096)` is a
-  recursion 4,097 calls deep that Excel computes and the language answers `#NUM!` past its depth,
-  Excel's own limit measured no further. `SPOT(1)` calls a defined name holding a reference, `#REF!`
-  in Excel where the language answers `#VALUE!`: a rule the last save showed and none confirms.
+  spill of `MAP` labelled until spills come (`KERNEL.55`). Excel 365's third save, `lambda_saved.xlsx`,
+  made at the owner's word of a copy Excel repaired, joins the table at `no-differ` (2026-11-16). Excel
+  removed two formulas, each calling in place what `IFERROR` answers, and kept 102: 100 rows `agree`,
+  the rules three saves showed folded; the spill unchecked; and `CNT(4096)` left out of the pin by
+  name and held to differ, a recursion 4,097 calls deep that Excel computes and the language answers
+  `#NUM!` past its depth, Excel's own limit measured no further. The fixture writes those two through
+  a name, `LET(f,IFERROR(SQ,PLUS1),f(3))`, so that Excel opens the build whole.
 - **What it does not hold.** A `LET` or a `LAMBDA` Excel refuses to read, a binder that is no name or
   a parameter twice, which a file cannot carry without Excel repairing it, held by the language's unit
   tests as `#VALUE!`; a parameter in brackets, `LAMBDA(x,[y],...)`, a construct not read; and a

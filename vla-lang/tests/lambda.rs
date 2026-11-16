@@ -118,21 +118,39 @@ fn a_function_s_value_is_no_cell_s() {
 }
 
 #[test]
+fn the_information_functions_read_a_function_as_a_kind_of_its_own() {
+    // Excel's third save: neither an error, a number nor a text, as `TYPE`'s
+    // 128 says, and `ERROR.TYPE` of what is no error `#N/A`.
+    let sq = [("SQ", "=LAMBDA(x,x*x)")];
+    let truth = |b| Computed::Value(Value::Bool(b));
+    assert_eq!(one("=ISERROR(SQ)", &sq), truth(false));
+    assert_eq!(one("=ISNUMBER(SQ)", &sq), truth(false));
+    assert_eq!(one("=ISNONTEXT(SQ)", &sq), truth(true));
+    assert_eq!(one("=ERROR.TYPE(SQ)", &sq), err(ErrorKind::NA));
+    assert_eq!(one("=TYPE(SQ)", &sq), num(128.0));
+    // A function of values still reads it as `#VALUE!`.
+    assert_eq!(one("=ABS(SQ)", &sq), err(ErrorKind::Value));
+}
+
+#[test]
 fn a_count_of_arguments_not_its_parameters_is_value() {
     assert_eq!(one("=LAMBDA(x,y,x+y)(1)", &[]), err(ErrorKind::Value));
     assert_eq!(one("=LAMBDA(x,x)(1,2)", &[]), err(ErrorKind::Value));
     // A value called that is no function's.
     assert_eq!(one("=LET(f,3,f(1))", &[]), err(ErrorKind::Value));
-    // A defined name called: its value called, a number's and a reference's
-    // `#VALUE!` (Excel's save of `RATEN(1)`), a function's applied.
+    // A defined name called: its value called, a number's `#VALUE!` (Excel's
+    // save of `RATEN(1)`), a reference's `#REF!`, a cell's, a range's and a
+    // local's alike (its third save), a function's applied.
     assert_eq!(
         one("=RATEN(1)", &[("RATEN", "=0.2")]),
         err(ErrorKind::Value)
     );
+    assert_eq!(one("=SPOT(1)", &[("SPOT", "=S!$B$2")]), err(ErrorKind::Ref));
     assert_eq!(
-        one("=SPOT(1)", &[("SPOT", "=S!$B$2")]),
-        err(ErrorKind::Value)
+        one("=BLOCK(1)", &[("BLOCK", "=S!$B$1:$B$3")]),
+        err(ErrorKind::Ref)
     );
+    assert_eq!(one("=LET(r,B2,r(1))", &[]), err(ErrorKind::Ref));
     assert_eq!(
         one("=ALIAS(3)", &[("SQ", "=LAMBDA(x,x*x)"), ("ALIAS", "=SQ")]),
         num(9.0)
@@ -268,6 +286,10 @@ const CASES: &[(&str, &[(&str, &str)])] = &[
     ("=LAMBDA(x,y,x+y)(1)", &[]),
     ("=LET(f,3,f(1))", &[]),
     ("=RATEN(1)", &[("RATEN", "=0.2")]),
+    ("=SPOT(1)", &[("SPOT", "=S!$B$2")]),
+    ("=LET(r,B2,r(1))", &[]),
+    ("=ISERROR(SQ)", &[("SQ", "=LAMBDA(x,x*x)")]),
+    ("=ERROR.TYPE(SQ)", &[("SQ", "=LAMBDA(x,x*x)")]),
     ("=ALIAS(3)", &[("SQ", "=LAMBDA(x,x*x)"), ("ALIAS", "=SQ")]),
     (
         "=ALIAS(B3)",

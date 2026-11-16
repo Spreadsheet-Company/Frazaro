@@ -268,7 +268,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # stop rule's last, in its place: 93 formulas, 90 agreeing, the eight confirming the
 # folds but SPOT(1), a name holding a reference called, #REF! in Excel where the
 # language answers #VALUE!, a rule a second save shows and none confirms, left out
-# of the pin by name beside the recursion.
+# of the pin by name beside the recursion. The fixture written again for a third save at
+# the owner's word, 104 formulas, 99 agreeing: eleven more, what the information
+# functions and IFERROR make of a function, a function chosen by IF or CHOOSE and
+# called, and a reference called, as a local and as a range's name. Excel's
+# third save, repaired at the owner's word, in the second's place: 102 formulas, Excel
+# having removed the two that call IFERROR's answer in place, 100 agreeing once two
+# rules it showed were folded (the information functions read a function as a kind
+# of its own; a reference called #REF!), so SPOT(1) leaves the pin's left; the spill
+# unchecked and CNT(4096) left. The fixture's two IFERRORs called through a name.
 #
 # 2026-10-30, KERNEL.68, the information functions: info 788 lines, the fixture
 # built by the door (scripts/recalc/info.txt), its 787 formulas and one cycle's
@@ -315,8 +323,8 @@ $goldens = @(
     @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 58;   Pin = 'no-differ'; AgreeFloor = 49 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
-    @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 93;   Pin = 'built';     AgreeFloor = 88 },
-    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 93;   Pin = 'no-differ'; AgreeFloor = 90; Left = @('Functions!A57', 'Functions!A92') }
+    @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 104;  Pin = 'built';     AgreeFloor = 99 },
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 100; Left = @('Functions!A57') }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

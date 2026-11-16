@@ -927,7 +927,7 @@ pub(crate) fn address<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Re
             "a branch of IF left out as an argument of ADDRESS".to_string(),
         ));
     }
-    ctx.strict_many(address_of, values, args)
+    ctx.strict_many(address_of, values, args, false)
 }
 
 /// Whether an argument is an `IF` with a branch left out, at any depth of the

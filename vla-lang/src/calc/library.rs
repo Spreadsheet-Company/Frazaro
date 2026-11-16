@@ -303,8 +303,25 @@ pub fn language() -> Library {
     for name in READS_EXTENT {
         lib.declare_reads_extent(name);
     }
+    for name in READS_KINDS {
+        lib.declare_reads_kinds(name);
+    }
     lib
 }
+
+/// The information functions of one value, which read what kind it is, a
+/// function's among them (KERNEL.29, [`Library::declare_reads_kinds`]).
+const READS_KINDS: [&str; 9] = [
+    "ISERROR",
+    "ISNA",
+    "ISNUMBER",
+    "ISTEXT",
+    "ISNONTEXT",
+    "ISLOGICAL",
+    "ISBLANK",
+    "ISERR",
+    "ERROR.TYPE",
+];
 
 /// `LET` or `LAMBDA` as a call, which a parse never leaves (KERNEL.29): a
 /// malformed binding's answer, `#VALUE!`.

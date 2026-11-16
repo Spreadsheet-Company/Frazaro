@@ -24,9 +24,13 @@
   the language's own, so the depth is the same in every build and on every
   host. A formula whose value is a function's is `#CALC!`, as Excel answers a
   `LAMBDA` in a cell that does not call it; a function's value where one
-  value is wanted, a defined name holding no function called, and a
-  `MAKEARRAY` count that is not a whole number are `#VALUE!`, as Excel 365's
-  save of the fixture answers them. A file holds a name `LET` or `LAMBDA` binds as
+  value is wanted, a defined name holding a number called, and a
+  `MAKEARRAY` count that is not a whole number are `#VALUE!`; a reference
+  called, a name's or a local's, is `#REF!`; and the information functions
+  read a function as a kind of its own, `ISERROR(SQ)` FALSE and
+  `ISNONTEXT(SQ)` TRUE, as Excel 365's saves of the fixture answer them. A
+  formula calling in place what a call answers is written dynamic, the one
+  kind Excel reads it in. A file holds a name `LET` or `LAMBDA` binds as
   Excel does, under `_xlpm.`, in a cell, a rule and a defined name; a defined
   name's text is read without the file's prefixes, as a cell's formula is.
   `frazaro calc` computes all of it, and an engine's load no longer refuses

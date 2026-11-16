@@ -477,6 +477,9 @@ pub struct Library {
     arrayed: BTreeMap<String, (Arrayed, Classes)>,
     /// The functions declared to read a sheet's extent itself (KERNEL.56).
     extent: BTreeSet<String>,
+    /// The functions declared to read what kind a value is, a function's
+    /// among them (KERNEL.29).
+    kinds: BTreeSet<String>,
 }
 
 impl Library {
@@ -494,6 +497,7 @@ impl Library {
         self.forms.remove(&key);
         self.arrayed.remove(&key);
         self.extent.remove(&key);
+        self.kinds.remove(&key);
         key
     }
 
@@ -562,6 +566,21 @@ impl Library {
     /// a sheet's extent itself (KERNEL.56).
     pub fn reads_extent(&self, name: &str) -> bool {
         self.extent.contains(&*key(name))
+    }
+
+    /// Declare that the strict function of that name reads what kind its one
+    /// value is, and so is handed a function's value as one (KERNEL.29): the
+    /// information functions, which Excel's save answers of a `LAMBDA` as of a
+    /// kind of its own, `TYPE`'s 128, where a function of values is `#VALUE!`.
+    /// A registration of the name takes the declaration away.
+    pub fn declare_reads_kinds(&mut self, name: &str) {
+        self.kinds.insert(name.to_ascii_uppercase());
+    }
+
+    /// Whether the function of that name, without case, reads what kind its
+    /// value is, a function's among them (KERNEL.29).
+    pub fn reads_kinds(&self, name: &str) -> bool {
+        self.kinds.contains(&*key(name))
     }
 
     /// The known function registered under that name, without case: a form
@@ -1218,10 +1237,13 @@ impl<'a> Ctx<'a> {
             // which evaluation stacks once a level of nesting, holds no array
             // (`VLA.1`'s limits are pinned on a small stack); any other count
             // in a vector. Left to right, stopping at the first not computed.
+            // A function that reads what kind its value is is handed a
+            // function's value as one (KERNEL.29).
+            let kinds = self.lib.reads_kinds(name);
             return match args {
-                [a] => self.strict_one(f, known, classes, a),
-                [a, b] => self.strict_two(f, classes, a, b),
-                _ => self.strict_many(f, classes, args),
+                [a] => self.strict_one(f, known, classes, a, kinds),
+                [a, b] => self.strict_two(f, classes, a, b, kinds),
+                _ => self.strict_many(f, classes, args, kinds),
             };
         }
         if let Some((f, classes)) = self.lib.arrayed_entry(name) {
@@ -1260,9 +1282,10 @@ impl<'a> Ctx<'a> {
         known: Option<Known>,
         classes: Classes,
         a: &Expr,
+        kinds: bool,
     ) -> Result<Arg<'static>, Reason> {
         let x = self.argument(classes(0), a)?;
-        if matches!(x, Arg::Function(_)) {
+        if !kinds && matches!(x, Arg::Function(_)) {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
         }
         if let Some(k @ (Known::Row | Known::Column)) = known {
@@ -1283,9 +1306,10 @@ impl<'a> Ctx<'a> {
         classes: Classes,
         a: &Expr,
         b: &Expr,
+        kinds: bool,
     ) -> Result<Arg<'static>, Reason> {
         let pair = [self.argument(classes(0), a)?, self.argument(classes(1), b)?];
-        if pair.iter().any(|v| matches!(v, Arg::Function(_))) {
+        if !kinds && pair.iter().any(|v| matches!(v, Arg::Function(_))) {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
         }
         if (self.lifting(classes(0)) && self.lifts(&pair[0]))
@@ -1303,14 +1327,16 @@ impl<'a> Ctx<'a> {
         f: Strict,
         classes: Classes,
         args: &[Expr],
+        kinds: bool,
     ) -> Result<Arg<'static>, Reason> {
         let mut values = Vec::with_capacity(args.len());
         for (j, a) in args.iter().enumerate() {
             values.push(self.argument(classes(j), a)?);
         }
         // A function's value handed to a function of values, which no such
-        // function reads (KERNEL.29): `#VALUE!`, as one value read.
-        if values.iter().any(|v| matches!(v, Arg::Function(_))) {
+        // function reads (KERNEL.29): `#VALUE!`, as one value read; a
+        // function that reads what kind a value is sees it.
+        if !kinds && values.iter().any(|v| matches!(v, Arg::Function(_))) {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
         }
         if values

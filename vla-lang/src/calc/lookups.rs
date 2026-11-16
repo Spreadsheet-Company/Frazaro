@@ -974,6 +974,10 @@ pub(crate) fn iserror(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
     }
+    // A function's value is no error (KERNEL.29, Excel's save).
+    if matches!(args[0], Arg::Function(_)) {
+        return Ok(Value::Bool(false));
+    }
     Ok(Value::Bool(matches!(ctx.one(&args[0])?, Value::Error(_))))
 }
 
@@ -981,6 +985,9 @@ pub(crate) fn iserror(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
 pub(crate) fn isna(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
+    }
+    if matches!(args[0], Arg::Function(_)) {
+        return Ok(Value::Bool(false));
     }
     Ok(Value::Bool(matches!(
         ctx.one(&args[0])?,

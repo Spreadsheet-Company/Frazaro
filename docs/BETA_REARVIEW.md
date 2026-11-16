@@ -45526,6 +45526,69 @@ that line of the summary said.
   - `IFERROR(SQ,PLUS1)(3)` is `#VALUE!`, `IFERROR` reading both its arguments as values.
   - Excel's answer to either is in no save.
 
+*A third save, at the owner's word, 2026-11-16* ("Add a third Excel save of about 10 formulas"), past
+the two the stop rule held, beside `VLA.17` (`funcall`) minted the same day. The fixture is written again
+with a name more, `BLOCK` (a range, `Data!$A$1:$A$3`), and eleven formulas, at least two for each question,
+so that a rule the save shows rests on more than one cell:
+- what the information functions make of a function: `ISERROR(SQ)`, `ISNUMBER(SQ)`, `ISNONTEXT(SQ)`,
+  `ERROR.TYPE(SQ)`;
+- what `IFERROR` hands on of one: `IFERROR(SQ,PLUS1)(3)`, `IFERROR(1/0,SQ)(3)`;
+- a function chosen and called, the texts `funcall` writes: `IF(FALSE,SQ,PLUS1)(5)`,
+  `CHOOSE(2,SQ,PLUS1)(5)`, `LET(table,LAMBDA(k,CHOOSE(k,SQ,PLUS1)),table(1)(6))`;
+- a reference called, as a local and as a range's name, beside `SPOT(1)`: `LET(r,Data!A2,r(1))`,
+  `BLOCK(1)`.
+
+The fixture holds 104 formulas, 99 agreeing with the values the language wrote. *The rule for this
+save,* stated before it: a rule two or more of its cells show is folded; a cell alone that differs is left
+out of the pin by name, as `SPOT(1)` and `CNT(4096)` are; no fourth save.
+
+*Its first attempt, 2026-11-16, and the writer's defect it found.* Excel 365 asked to repair the file
+("Removed Records: Formula from /xl/worksheets/frazaro_2.xml part"); the owner saved nothing. Three of
+the new formulas were stored as legacy formulas holding a call in place, `IFERROR(SQ,PLUS1)(3)`,
+`IFERROR(1/0,SQ)(3)` and `IF(FALSE,SQ,PLUS1)(5)`. Every call in place Excel had read was stored dynamic,
+its text holding `LAMBDA` or `LET`, and `CHOOSE(2,SQ,PLUS1)(5)` was dynamic only because `CHOOSE` may
+answer an array. The writer chose the kind by the functions a text calls
+(`core/src/sheet/xlfn.rs`'s `can_return_array`), so any file the door built with such a formula, a
+function a call answers called in place, was one Excel repairs. Fixed: a text holding `)(` outside a
+text literal is stored dynamic, held by that function's test. Stored dynamic, the two `IFERROR`s compute
+otherwise: a dynamic formula hands `IFERROR`'s fallback on as a function, which is called, where a legacy
+one forced it to a value. The fixture is written again, still 104 formulas, 99 agreeing. The language's
+answers stand as predictions:
+- `#VALUE!` for each of the four information functions, a strict call answering for a function before
+  its function sees it;
+- `IFERROR(SQ,PLUS1)(3)` 6, `SQ` read as a value `#VALUE!` and so `PLUS1` called; `IFERROR(1/0,SQ)(3)` 9;
+- 8, 8 and 36 for the three calls chosen;
+- `#VALUE!` for both references.
+
+*Its second attempt, 2026-11-16, repaired too, and saved repaired at the owner's word.* Excel removed a
+formula again, so the calls in place stored dynamic were not the whole cause. The owner opened the file,
+let Excel repair it and saved it as `lambda_saved.xlsx`, in the second save's place, so that the copy
+says what Excel removed and what it computed of the rest. It removed two formulas, `IFERROR(SQ,PLUS1)(3)`
+and `IFERROR(1/0,SQ)(3)`, and kept 102, among them `IF(FALSE,SQ,PLUS1)(5)` and `CHOOSE(2,SQ,PLUS1)(5)`, 8
+each, and `table(1)(6)`, 36, as the language computes them. Excel calls in place what `IF`, `CHOOSE`, a
+`LAMBDA` and a name answer, and nothing `IFERROR` answers; no other function was measured. Of the 102:
+93 agree, eight differ, the spill unchecked. Folded by the rule stated before the save:
+- *The information functions read a function's value as a kind of its own* (four cells): `ISERROR(SQ)`
+  and `ISNUMBER(SQ)` FALSE, `ISNONTEXT(SQ)` TRUE, `ERROR.TYPE(SQ)` `#N/A`, as `TYPE`'s 128 reads it.
+  The library declares the nine that read what kind a value is (`Library::declare_reads_kinds`):
+  `ISERROR`, `ISNA`, `ISNUMBER`, `ISTEXT`, `ISNONTEXT`, `ISLOGICAL`, `ISBLANK`, `ISERR` and
+  `ERROR.TYPE`. A strict call hands them a function's value, which every other function of values
+  still reads as `#VALUE!`, and each answers for it as for neither an error, a number, a text, a truth
+  value nor nothing. Four of the nine were measured; the others follow the same reading.
+- *A reference called is `#REF!`* (three cells): `SPOT(1)`, again, `LET(r,Data!A2,r(1))` and
+  `BLOCK(1)`, a cell's name, a local and a range's name (`Ctx::applied`). A number called stays
+  `#VALUE!`, as `RATEN(1)` was. `SPOT(1)` leaves the pin's left.
+- *What `IFERROR` answers is never called in place* (two cells): `VLA.17`'s question, whose `funcall`
+  now refuses it by name (that item's record). The fixture's two such formulas are written through a
+  name instead, `LET(f,IFERROR(SQ,PLUS1),f(3))` and `LET(f,IFERROR(1/0,SQ),f(3))`, which Excel reads,
+  so that the build is a file Excel opens whole; their values, 6 and 9, are the language's alone, no
+  save left to say Excel's.
+
+After the folds, 100 of the 102 agree; the spill is unchecked and `CNT(4096)` left by name. Joined at
+`no-differ` (`check_recalc_golden`, `check_shapes_golden`, `prove.ps1`, the treaty). Held by
+`tests/lambda.rs`, 14: the information functions of a function, and a reference called as a cell's name,
+a range's and a local, each through the door and an engine alike.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

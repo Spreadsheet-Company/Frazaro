@@ -263,7 +263,10 @@ const ARRAY_CAPABLE: &[&str] = &[
 
 /// Whether a formula's text (without its `=`, prefixes applied or not)
 /// calls a function that can return a reference or an array, and so must be
-/// stored as a dynamic-array formula to read without `@`.
+/// stored as a dynamic-array formula to read without `@`; or calls in place
+/// what a call answers, `IF(c,SQ,PLUS1)(5)` (KERNEL.29), which Excel reads in
+/// a dynamic-array formula alone, repairing the file where a legacy one holds
+/// it (the third save of `scripts/recalc/lambda.xlsx`).
 pub fn can_return_array(formula: &str) -> bool {
     let chars: Vec<char> = formula.chars().collect();
     let mut i = 0;
@@ -283,6 +286,9 @@ pub fn can_return_array(formula: &str) -> bool {
                 i += 1;
             }
             continue;
+        }
+        if c == ')' && chars.get(i + 1) == Some(&'(') {
+            return true;
         }
         if is_name_start(c) && (i == 0 || !is_name_char(chars[i - 1])) {
             let start = i;
@@ -785,5 +791,12 @@ mod tests {
         assert!(!can_return_array("VLOOKUP(A1,B:C,2,FALSE)"));
         assert!(!can_return_array("\"INDEX(\"&A1"));
         assert!(!can_return_array("INDEX+1"));
+        // KERNEL.29: a call in place, which a legacy formula cannot hold.
+        assert!(can_return_array("IF(FALSE,SQ,PLUS1)(5)"));
+        assert!(can_return_array("IFERROR(SQ,PLUS1)(3)"));
+        assert!(can_return_array("_xlfn.LAMBDA(_xlpm.x,_xlpm.x+1)(5)"));
+        assert!(!can_return_array("\")(\"&A1"));
+        assert!(!can_return_array("(A1)+(B1)"));
+        assert!(!can_return_array("SQ(3)"));
     }
 }

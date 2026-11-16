@@ -327,13 +327,16 @@ impl Ctx<'_> {
     }
 
     /// A value called: a function's, with its arguments' values (the owner's
-    /// decision 1), each read where the call stands; `#VALUE!` where the
-    /// value called is no function's, as where its count of arguments is not
-    /// its parameters'.
+    /// decision 1), each read where the call stands; `#REF!` where it is a
+    /// reference, a cell's or a range's, and `#VALUE!` where it is any other
+    /// value, as where its count of arguments is not its parameters' (Excel's
+    /// saves: `SPOT(1)`, `LET(r,Data!A2,r(1))` and `BLOCK(1)`; `RATEN(1)`).
     pub(super) fn applied<'e>(&self, a: &'e Apply) -> Result<Arg<'e>, Reason> {
         let callee = self.eval(&a.callee)?;
-        let Arg::Function(f) = callee else {
-            return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
+        let f = match callee {
+            Arg::Function(f) => f,
+            Arg::Area { .. } => return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
+            _ => return Ok(Arg::Scalar(Value::Error(ErrorKind::Value))),
         };
         let args = self.arguments(&a.args)?;
         self.call_function(&f, args, true)

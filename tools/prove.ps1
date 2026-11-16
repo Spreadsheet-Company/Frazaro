@@ -157,8 +157,8 @@ BITAND's, BITOR's and BITXOR's fixture (scripts/recalc/bits.xlsx), and the
 owner's Excel save of it (bits_saved.xlsx, no row differing). KERNEL.29: one
 more, LET's, LAMBDA's and their helpers' fixture, which the core writes with its
 defined names (scripts/recalc/lambda.xlsx), and one more, the owner's Excel save
-of it (lambda_saved.xlsx, two rows differing, each left by name: the recursion its
-stop rule keeps and a reference called).
+of it (lambda_saved.xlsx, its third, repaired, one row differing, the recursion its
+stop rule keeps, left by name).
 #>
 param(
     [string]$Impl = '',

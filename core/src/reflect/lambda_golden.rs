@@ -38,9 +38,10 @@ const DATA: &[(&str, &str)] = &[
     ("F2", "4"),
 ];
 
-/// The named functions, and four names a formula reads otherwise: `rate`, a
-/// name a `LET` shadows; `RATEN` and `SPOT`, a number and a reference called
-/// as functions; and `ALIAS`, a name whose value is a named function's.
+/// The named functions, and five names a formula reads otherwise: `rate`, a
+/// name a `LET` shadows; `RATEN`, `SPOT` and `BLOCK`, a number, a cell and a
+/// range called as functions; and `ALIAS`, a name whose value is a named
+/// function's.
 pub(crate) const NAMES: &[(&str, &str)] = &[
     ("SQ", "LAMBDA(x,x*x)"),
     ("PLUS1", "LAMBDA(x,x+Data!$A$1)"),
@@ -62,6 +63,7 @@ pub(crate) const NAMES: &[(&str, &str)] = &[
     ("RATEN", "0.2"),
     ("SPOT", "Data!$A$2"),
     ("ALIAS", "SQ"),
+    ("BLOCK", "Data!$A$1:$A$3"),
 ];
 
 /// The probes, one formula a row of the Functions sheet from row 1, by
@@ -172,6 +174,22 @@ pub(crate) const PROBES: &[&str] = &[
     "=SUM(MAKEARRAY(4/2,2,LAMBDA(r,c,1)))",
     "=SPOT(1)",
     "=ALIAS(3)",
+    // The third save's, at the owner's word: what the information functions
+    // and IFERROR make of a function, a function chosen by IF or CHOOSE and
+    // called, and a reference called, as a local and as a range's name.
+    "=ISERROR(SQ)",
+    "=ISNUMBER(SQ)",
+    "=ISNONTEXT(SQ)",
+    "=ERROR.TYPE(SQ)",
+    // IFERROR's answer called through a name, since Excel calls none in
+    // place (the third save: `IFERROR(SQ,PLUS1)(3)` was removed).
+    "=LET(f,IFERROR(SQ,PLUS1),f(3))",
+    "=LET(f,IFERROR(1/0,SQ),f(3))",
+    "=IF(FALSE,SQ,PLUS1)(5)",
+    "=CHOOSE(2,SQ,PLUS1)(5)",
+    "=LET(table,LAMBDA(k,CHOOSE(k,SQ,PLUS1)),table(1)(6))",
+    "=LET(r,Data!A2,r(1))",
+    "=BLOCK(1)",
 ];
 
 /// The fixture's workbook, each formula as the build writes it.
