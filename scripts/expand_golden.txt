@@ -550,6 +550,62 @@ REFUSED	vla-arith-expand-not-number-value	each-index: expected a number, got 'on
 REFUSED	vla-arith-expand-not-number-list	each-index: expected a number, got a list
 === each-index-from-a-fraction-refused
 REFUSED	vla-arith-expand-not-whole	each-index: expected a whole number, got '1.5'
+=== each-names-each-part-of-an-entry
+EXPANDED	0
+(begin (f 1 2) (f 3 4))
+=== cells-written-by-names
+EXPANDED	1
+(begin (cell "S" "A1" 1) (cell "S" "B1" 2) (cell "S" "C1:C3" 0))
+=== each-of-one-name-in-a-list-reads-an-entry-of-one
+EXPANDED	0
+(begin (f x) (f y))
+=== each-names-a-part-that-is-a-list
+EXPANDED	0
+(begin (f A1 (1 2)) (f B1 ()))
+=== each-names-of-the-empty-list-write-nothing
+EXPANDED	0
+(begin)
+=== each-index-names-the-palette-s-parts
+EXPANDED	3
+(begin
+    (begin
+        (cell "Palette" "A1" 0)
+        (cell "Palette" "B1" "#000000")
+        (cell "Palette" "C1" "black"))
+    (cell "Palette" "A2" 1)
+    (cell "Palette" "B2" "#0000AA")
+    (cell "Palette" "C2" "blue"))
+=== each-names-inside-each-names
+EXPANDED	0
+(begin (f 1 p (a b)) (f 2 p (c)))
+=== each-names-spliced-as-an-element
+EXPANDED	0
+(+ (* A1 2) (* B1 3))
+=== each-names-inside-formula-expand
+EXPANDED	1
+"=A1*2+B1*3"
+=== each-names-an-entry-too-short-refused
+REFUSED	vla-each-entry-shape	each: the names (a b) read each entry as a list of 2, a part for each name, and the entry (3) is a list of 1
+=== each-names-an-entry-too-long-refused
+REFUSED	vla-each-entry-shape	each: the names (a b) read each entry as a list of 2, a part for each name, and the entry (1 2 3) is a list of 3
+=== each-names-an-atom-entry-refused
+REFUSED	vla-each-entry-shape	each: the names (a b) read each entry as a list of 2, a part for each name, and the entry x is no list
+=== each-index-names-a-text-entry-refused
+REFUSED	vla-each-entry-shape	each-index: the names (a b) read each entry as a list of 2, a part for each name, and the entry "t" is no list
+=== each-of-no-names-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-names-a-text-among-them-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-names-a-list-among-them-refused
+REFUSED	vla-each-shape	each: write (each (name list) form ...): the binding a list of that shape, its names symbols, and at least one form after it
+=== each-names-two-alike-refused
+REFUSED	vla-each-name-bound	each: 'A' is already a name in this template - give the name each binds a word of its own
+=== each-index-names-the-index-among-them-refused
+REFUSED	vla-each-name-bound	each-index: 'i' is already a name in this template - give the name each-index binds a word of its own
+=== each-names-car-refused
+REFUSED	vla-each-name-reserved	each 'car': 'car' is the list-head primitive and cannot be a name each binds
+=== each-names-the-macro-s-parameter-refused
+REFUSED	vla-each-name-bound	each: 'sheet' is already a name in this template - give the name each binds a word of its own
 === assoc-expand-finds-the-first-entry
 EXPANDED	0
 (b 2)

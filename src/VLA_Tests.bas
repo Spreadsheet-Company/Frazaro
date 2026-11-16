@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.58"
+Public Const VLA_TESTS_VERSION As String = "VLA.16"
+' VLA.16: TestEachNames - an entry's parts named in a loop, 20 pins: each name
+' bound to its part (cells by address and value, the rows car and cdr wrote;
+' one name in a list; a part that is a list; the empty list; each-index's count
+' beside the parts; a loop of names inside another; spliced as an element), and
+' every refusal by its words: an entry too short, too long, an atom, a text; no
+' names, a text or a list among them; two alike, the index among them, an
+' expand-time name, the macro's parameter. Wired after TestSelfForms.
+'
 ' KERNEL.58: a rules target of the kind held, what a rule of a kind the language does
 ' not compute says through the object model, in its row's words, which the writer's
 ' own workbook reads since it writes them.
@@ -598,6 +606,7 @@ Public Function VlaSelfTest() As Boolean
     TestAddressForms
     TestNamedPieces
     TestSelfForms
+    TestEachNames
     TestFormulaSyntax
     TestCond
     TestListopsDepthSafety
@@ -7444,6 +7453,61 @@ Private Sub TestEachForms()
         "(cells ""S"" " & Join(parts, " ") & ")")
     Report "each: 2,500 rows in one loop, past the walker's 2,499", _
         InStr(1, t, "(cell ""S"" ""A2500"" 2500)", vbBinaryCompare) > 0, Left$(t, 160)
+End Sub
+
+' ---------------------------------------------------------------------
+'  VLA.16: a list of names where a loop's name stands, each bound to its
+'  part of the element, (each ((address value) entries) form ...) and
+'  (each-index (index (color name) entries 0) form ...); an element that
+'  is no list of as many parts refused by name, the entry shown.
+'  scripts/expand.txt holds these cases' whole records and vla-lang is
+'  held to its golden; these pins say what each one means, with no file.
+' ---------------------------------------------------------------------
+Private Sub TestEachNames()
+    ' --- each name bound to its part of the element.
+    CheckV "each names: each part of an entry", _
+        ExpandTrimmed("(each ((a b) (quote ((1 2) (3 4)))) (f a b))"), "(begin (f 1 2) (f 3 4))"
+    CheckV "each names: cells by address and value, the rows car and cdr wrote", _
+        ExpandTrimmed("(defmacro (cells sheet & entries) (each ((address value) entries) (cell sheet address value))) " & _
+            "(cells ""S"" (""A1"" 1) (""C1:C3"" 0))"), "(begin (cell ""S"" ""A1"" 1) (cell ""S"" ""C1:C3"" 0))"
+    CheckV "each names: one name in a list reads an entry of one", _
+        ExpandTrimmed("(each ((a) (quote ((x) (y)))) (f a))"), "(begin (f x) (f y))"
+    CheckV "each names: a part that is a list", _
+        ExpandTrimmed("(each ((at fill) (quote ((A1 (1 2)) (B1 ())))) (f at fill))"), "(begin (f A1 (1 2)) (f B1 ()))"
+    CheckV "each names: the empty list writes nothing", _
+        ExpandTrimmed("(each ((a b) (quote ())) (f a b))"), "(begin)"
+    CheckV "each-index names: the count beside the parts", _
+        ExpandTrimmed("(each-index (i (color name) (quote ((c0 black) (c1 blue))) 0) (f i color name))"), "(begin (f 0 c0 black) (f 1 c1 blue))"
+    CheckV "each names: inside another loop of names", _
+        ExpandTrimmed("(each ((row xs) (quote ((1 (a b)) (2 (c))))) (each ((x) (quote ((p)))) (f row x xs)))"), "(begin (f 1 p (a b)) (f 2 p (c)))"
+    CheckV "each names: spliced as a list's element", _
+        ExpandTrimmed("(+ (each ((c k) (quote ((A1 2) (B1 3)))) (* c k)))"), "(+ (* A1 2) (* B1 3))"
+
+    ' --- the names' refusals, each by name.
+    CheckExpandErr "each names: an entry too short refused", _
+        "(each ((a b) (quote ((1 2) (3)))) (f a b))", "each: the names (a b) read each entry as a list of 2, a part for each name, and the entry (3) is a list of 1"
+    CheckExpandErr "each names: an entry too long refused", _
+        "(each ((a b) (quote ((1 2 3)))) (f a b))", "and the entry (1 2 3) is a list of 3"
+    CheckExpandErr "each names: an atom entry refused", _
+        "(each ((a b) (quote (x))) (f a b))", "and the entry x is no list"
+    CheckExpandErr "each-index names: a text entry refused", _
+        "(each-index (i (a b) (quote (""t"")) 0) (f a b))", "each-index: the names (a b) read each entry as a list of 2, a part for each name, and the entry ""t"" is no list"
+    CheckExpandErr "each names: no names refused", _
+        "(each (() (quote ((1)))) (f))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each names: a text among them refused", _
+        "(each ((a ""b"") (quote ((1 2)))) (f a))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each names: a list among them refused", _
+        "(each ((a (b c)) (quote ((1 (2 3))))) (f a))", "each: write (each (name list) form ...)"
+    CheckExpandErr "each-index names: a text among them refused", _
+        "(each-index (i (a ""b"") (quote ((1 2))) 0) (f a))", "each-index: write (each-index (index name list start) form ...)"
+    CheckExpandErr "each names: two alike refused", _
+        "(each ((a A) (quote ((1 2)))) (f a))", "each: 'A' is already a name in this template"
+    CheckExpandErr "each-index names: the index among them refused", _
+        "(each-index (i (x i) (quote ((1 2))) 0) (f x))", "each-index: 'i' is already a name in this template"
+    CheckExpandErr "each names: an expand-time name refused", _
+        "(each ((at car) (quote ((1 2)))) (f at))", "each 'car': 'car' is the list-head primitive and cannot be a name each binds"
+    CheckExpandErr "each names: the macro's parameter refused", _
+        "(defmacro (m sheet & xs) (each ((sheet v) xs) (f v))) (m ""S"" (1 2))", "each: 'sheet' is already a name in this template"
 End Sub
 
 ' VLA.6: a name at expand time, (define name form), and a reference's twin,

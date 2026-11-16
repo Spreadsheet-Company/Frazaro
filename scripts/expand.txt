@@ -9,7 +9,8 @@ applications that fired>" and the text VlaExpandText prints, or
 held to that file by tests/expand_golden.rs, and
 tools/check_expand_golden.ps1 holds the pair's shape and every one of the
 twenty-nine expand-time primitives reached, with the walk's forms,
-formula-expand and the loop, each and each-index (VLA.5), and define and
+formula-expand and the loop, each and each-index (VLA.5), an entry's parts
+named by a loop's list of names (VLA.16), and define and
 a reference's two parts, sheet-expand and range-expand, beside the
 formula syntax's last (VLA.6), and a reference's first cell,
 first-cell-expand, beside the formula syntax's three marks, absolute,
@@ -567,6 +568,88 @@ of the prelude moves nothing here.
 === each-index-from-a-fraction-refused
 (each-index (i x (quote (a)) 1.5)
   (f i))
+=== each-names-each-part-of-an-entry
+(each ((a b) (quote ((1 2) (3 4))))
+  (f a b))
+=== cells-written-by-names
+(defmacro (cells sheet & entries)
+  "Puts values in cells of one sheet. Each entry is a cell's address, or a range of cells, and the value that goes there."
+  (each ((address value) entries)
+    (cell sheet address value)))
+(cells "S"
+  ("A1" 1)
+  ("B1" 2)
+  ("C1:C3" 0))
+=== each-of-one-name-in-a-list-reads-an-entry-of-one
+(each ((a) (quote ((x) (y))))
+  (f a))
+=== each-names-a-part-that-is-a-list
+(each ((at fill) (quote ((A1 (1 2)) (B1 ()))))
+  (f at fill))
+=== each-names-of-the-empty-list-write-nothing
+(each ((a b) (quote ()))
+  (f a b))
+=== each-index-names-the-palette-s-parts
+(defmacro (palette & entries)
+  "The Palette's rows. Each entry is a color and its name, and its place counts from 0."
+  (each-index (index (color name) entries 0)
+    (palette-entry index color name)))
+(defmacro (palette-entry index color name)
+  "One Palette row: the index in column A, the color in column B, the name in column C."
+  (cell "Palette" (address-expand (+expand index 1) 1) index)
+  (cell "Palette" (address-expand (+expand index 1) 2) color)
+  (cell "Palette" (address-expand (+expand index 1) 3) name))
+(palette
+  ("#000000" "black")
+  ("#0000AA" "blue"))
+=== each-names-inside-each-names
+(each ((row xs) (quote ((1 (a b)) (2 (c)))))
+  (each ((x) (quote ((p))))
+    (f row x xs)))
+=== each-names-spliced-as-an-element
+(+ (each ((c k) (quote ((A1 2) (B1 3))))
+  (* c k)))
+=== each-names-inside-formula-expand
+(defmacro (weighted & terms)
+  "a sum of cells, each times its weight"
+  (formula-expand (+ (each ((cell weight) terms) (* cell weight)))))
+(weighted (A1 2) (B1 3))
+=== each-names-an-entry-too-short-refused
+(each ((a b) (quote ((1 2) (3))))
+  (f a b))
+=== each-names-an-entry-too-long-refused
+(each ((a b) (quote ((1 2 3))))
+  (f a b))
+=== each-names-an-atom-entry-refused
+(each ((a b) (quote (x)))
+  (f a b))
+=== each-index-names-a-text-entry-refused
+(each-index (i (a b) (quote ("t")) 0)
+  (f a b))
+=== each-of-no-names-refused
+(each (() (quote ((1))))
+  (f))
+=== each-names-a-text-among-them-refused
+(each ((a "b") (quote ((1 2))))
+  (f a))
+=== each-names-a-list-among-them-refused
+(each ((a (b c)) (quote ((1 (2 3)))))
+  (f a))
+=== each-names-two-alike-refused
+(each ((a A) (quote ((1 2))))
+  (f a))
+=== each-index-names-the-index-among-them-refused
+(each-index (i (x i) (quote ((1 2))) 0)
+  (f x))
+=== each-names-car-refused
+(each ((at car) (quote ((1 2))))
+  (f at))
+=== each-names-the-macro-s-parameter-refused
+(defmacro (m sheet & xs)
+  "f of each entry's second part"
+  (each ((sheet v) xs)
+    (f v)))
+(m "S" (1 2))
 === assoc-expand-finds-the-first-entry
 (assoc-expand (quote b) (quote ((a 1) (b 2) (b 3))))
 === assoc-expand-of-no-entry-is-the-empty-list

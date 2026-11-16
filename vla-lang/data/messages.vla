@@ -211,6 +211,7 @@
 (message vla-each-name-reserved 5 "VLA" "{op} '{word}': '{word}' is the {desc} and cannot be a name {op} binds")
 (message vla-each-name-bound 5 "VLA" "{op}: '{word}' is already a name in this template - give the name {op} binds a word of its own")
 (message vla-each-list-a-call 5 "VLA" "{op}: the list to walk is a call of the macro '{head}', which does not expand where a list is walked - give the list itself, quoted or as a parameter")
+(message vla-each-entry-shape 5 "VLA" "{op}: the names {names} read each entry as a list of {n}, a part for each name, and the entry {entry} is {held}")
 (message vla-expand-expected-list 5 "VLA" "{op}: expected a list, got '{value}'")
 (message vla-assoc-expand-entry 5 "VLA" "assoc-expand: an entry is a list with a head, got '{value}'")
 (message vla-define-shape 5 "VLA" "define: write (define name form), a name and the one form it stands for - got {form}")

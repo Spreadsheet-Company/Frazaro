@@ -32,6 +32,16 @@
   `frazaro calc` computes all of it, and an engine's load no longer refuses
   `LET` (KERNEL.29, its first slice).
 
+- **A loop names an entry's parts.** A list of names where a loop's name
+  stands, `(each ((address value) entries) (cell sheet address value))`,
+  binds each name to its part of the entry, and `each-index` takes the same
+  beside its count, `(each-index (index (color name) entries 0) ...)`, so
+  that a macro reads an entry's parts by what they are and never as `(car
+  (cdr entry))`. An entry of another size is refused by name, the entry
+  shown: `each: the names (address value) read each entry as a list of 2, a
+  part for each name, and the entry ("A1") is a list of 1`. A loop of one
+  name writes what it wrote (VLA.16).
+
 ## 0.13.0
 
 ### What changed

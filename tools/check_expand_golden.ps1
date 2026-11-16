@@ -156,11 +156,12 @@ $formulaIds = @('vla-formula-atom-unspelled', 'vla-formula-numeral-unspelled',
     'vla-formula-text-too-long', 'vla-formula-expand-arity', 'vla-formula-expand-nested')
 
 # VLA.5's loop, a form of the walks and of the substitution, its primitive,
-# and its six ids, which rule 7 holds to both implementations and the fixture.
+# and its seven ids, VLA.16's vla-each-entry-shape among them, which rule 7 holds to both implementations and the fixture.
 $loopForms = @('each', 'each-index')
 $loopPrimitives = @('assoc-expand')
 $loopIds = @('vla-each-shape', 'vla-each-name-reserved', 'vla-each-name-bound',
-    'vla-each-list-a-call', 'vla-expand-expected-list', 'vla-assoc-expand-entry')
+    'vla-each-list-a-call', 'vla-expand-expected-list', 'vla-assoc-expand-entry',
+    'vla-each-entry-shape')
 
 # VLA.6's forms of the walk alone, the formula syntax's head, and the ten ids,
 # which rule 8 holds to both implementations and the fixture.

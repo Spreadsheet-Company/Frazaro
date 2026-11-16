@@ -69,6 +69,10 @@ Public Const VLA_MESSAGES_VERSION As String = "KERNEL.58"
 ' a list belongs, a loop's list or assoc-expand's entries; and
 ' vla-assoc-expand-entry - an entry that is no list with a head.
 '
+' VLA.16: a list of names where a loop's name stands, one refusal under VLA:
+' vla-each-entry-shape - an element the names read that is no list of as
+' many parts as there are names, shown with the names and what it is.
+'
 ' KERNEL.49: view-projection-unknown names the fifth projection, fills,
 ' the rows of a window with each fill's formula once over each of its
 ' rectangles, what a save prints and the loader reads as the fills.
@@ -890,6 +894,10 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-each-name-reserved", 5, "VLA", "{op} '{word}': '{word}' is the {desc} and cannot be a name {op} binds"
     AddMsg m, "vla-each-name-bound", 5, "VLA", "{op}: '{word}' is already a name in this template - give the name {op} binds a word of its own"
     AddMsg m, "vla-each-list-a-call", 5, "VLA", "{op}: the list to walk is a call of the macro '{head}', which does not expand where a list is walked - give the list itself, quoted or as a parameter"
+    ' VLA.16 - a list of names where a loop's name stands, each bound to its
+    ' part of the element: an element read by them that is no list of as
+    ' many parts, shown with the names.
+    AddMsg m, "vla-each-entry-shape", 5, "VLA", "{op}: the names {names} read each entry as a list of {n}, a part for each name, and the entry {entry} is {held}"
     AddMsg m, "vla-expand-expected-list", 5, "VLA", "{op}: expected a list, got '{value}'"
     AddMsg m, "vla-assoc-expand-entry", 5, "VLA", "assoc-expand: an entry is a list with a head, got '{value}'"
     ' VLA.6 - a name at expand time, (define name form), binding the forms of

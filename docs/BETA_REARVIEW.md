@@ -20371,6 +20371,118 @@ built.
   `VLA.8`'s, `VLA.11`'s and `VLA.13`'s lines. The ten decisions stand as built.
   **Closed ✅ and committed 2026-10-30 at the owner's word.**
 
+- ✅ **VLA.16 — an entry's parts named in a loop: a list of names where a
+  loop's name stands, `(each ((address value) entries) form ...)` and
+  `(each-index (index (color name) entries 0) form ...)`, each name bound
+  to its part of the element, so that a template reads aloud as what it
+  does and never reads a part as `(car (cdr entry))`.** *Minted, scoped and
+  built 2026-11-16 at the owner's word, from Alonzo's `KIT.6`, whose second
+  slice showed the owner the kit's `cells` as a loop over `(car entry)` and
+  `(car (cdr entry))`: "Does not read as human-friendly as one would a
+  common.vla metacartridge to read ... I want VLA files to be readable by
+  middle school and high school students, let alone CS grad students and
+  industry mages." Four ways were laid out with their costs: helpers in the
+  kit, plain list words (`first`, `second`, `rest`), names in the loop, and
+  the last two together. The owner took the third ("proceed with
+  implementing option #3 to improve readability").*
+
+  **What needs it.** `car` and `cdr` name the two halves of a word of the
+  IBM 704's, in 1958; no reader guesses them. Counted 2026-11-16 over the
+  7,037 lines of template source in Alonzo's kit, its games' sources and
+  Buffet's kitchen and source: 45 of them in 24 lines, 17 of those lines in
+  the kit and Kairos. Of the seventeen, seven read an entry of a fixed
+  shape, `cells`, `formulas`, `rules`, the Palette's row and Kairos's
+  `colors`; the other ten walk a list of no fixed shape (`priority`, `on`,
+  the picture's legend) or fold a text (`first-of` and `twin-of`, which
+  `KIT.6`'s third slice retires). `each` took one name, `(name list)`, and
+  refused anything else (`vla-each-shape`), so the parts of an entry could
+  be read only by position. The gap is the language's, and the item fills
+  it there before the kit builds around it.
+
+  **The decisions,** taken at the owner's word with the option, each the
+  smallest that serves the kit and each widened later without breaking a
+  source. The one-way door is a release: once a crate carries the
+  spelling, a cartridge may depend on it.
+  1. A list of names may stand where `each`'s one name stands,
+     `((address value) entries)`, and where `each-index`'s name stands,
+     `(index (color name) entries 0)`; the index stays one name.
+  2. Each name is checked as a loop's name is: an expand-time name refused
+     (`vla-each-name-reserved`), one the template holds refused
+     (`vla-each-name-bound`). Two names alike by the fold, or a name the
+     index takes, are refused at the second (`vla-each-name-bound`).
+  3. An element the names read is a list of as many parts as there are
+     names, each name bound to its part in order. Anything else is refused
+     by a new id, `vla-each-entry-shape`, which shows the names, the count
+     they read, the entry and what it is: "each: the names (a b) read each
+     entry as a list of 2, a part for each name, and the entry (3) is a list
+     of 1", or "... and the entry x is no list".
+  4. No rest among the names, `(verb & pieces)`, and no list among them,
+     `(a (b c))`: both refused by `vla-each-shape`. Its text stands, since
+     "its names symbols" holds, and the new shape folded into its slot would
+     read "write (each (name list) or ((name ...) list) form ...)" and move
+     four golden lines and six pins for nothing a reader gains.
+  5. A loop of one name writes what it wrote: every expansion before this
+     item stands byte for byte.
+
+  **What was built.** `src/VLA.bas`: `EachBinding` takes the list
+  (`EachNamesOk`); `EachFormResults` checks each name in turn and binds each
+  to its part (`EachEntryParts`), a Collection key a name;
+  `VLA_CORE_VERSION` `VLA.16`. `src/VLA_Messages.bas`: `vla-each-entry-shape`,
+  exported to `vla-lang/data/messages.vla` by `tools/export_messages.ps1`,
+  one entry. `vla-lang/src/expand.rs`: the twins, `each_binding`,
+  `each_names_ok`, `each_results` and `each_entry_parts`, and two tests,
+  what the names write (8 cases) and what they refuse (12).
+  `src/VLA_Tests.bas`: `TestEachNames`, 20 pins, wired after
+  `TestSelfForms`. `scripts/expand.txt` and the crate's copy: 20 cases, 9
+  written and 11 refused, the fixture 656 to 676; `scripts/expand_golden.txt`
+  and its copy, the port's prediction, every record before them unmoved;
+  `vla-lang/tests/expand_golden.rs`: the floor 676, and `cells` by names
+  held to `cells` by `car`, the same rows under one application each.
+  `tools/check_expand_golden.ps1`'s rule 7 names the seventh id;
+  `tools/check_data_exports.ps1` raises the language's half to 259, three
+  grid refusals unraised before it (`KERNEL.58`'s two, `KERNEL.70`'s one).
+
+  **Alonzo's kit over it, in a copy.** Alonzo's `e9b1619` with `vla-lang`
+  patched to this worktree (`Compiling vla-lang v0.13.0` from its path, so
+  the patch was read): `cells` `(each ((address value) entries) (cell sheet
+  address value))`, `formulas` over `(address text)`, `rules` over `(address
+  expression)`, the Palette's row `(palette-entry index color name)` under
+  `(index (color name) entries 0)`, Kairos's `colors` over `(fill name)`,
+  each docstring a plain sentence, and a rule for it in the kit's head. The
+  eleven cartridges `same`; `cargo test --release`, 94 and the doc test,
+  every cartridge required. It lands in Alonzo at a pin carrying this item,
+  the release the owner's.
+
+  **Held** in a worktree of `def270b` with the item: `cargo test
+  --workspace`, 894 passed, 0 failed and 5 ignored, the language's library
+  510 of them; `cargo clippy -p vla-lang --all-targets` and `cargo fmt --all
+  --check` clean; `run_checks.ps1`, 60 of 60.
+
+  **Found.**
+  - *A number is a name to the loop.* `IsSym` and the port's `Node::Sym`
+    each take a number for a symbol, so `(each (1 xs) (f 1))` binds the word
+    `1` and replaces every 1 in its template, as `(each ((a 1) xs) ...)`
+    now does. The two implementations agree, and `VLA.5`'s one name did the
+    same. Unruled: a refusal would close a trap no source has fallen into.
+  - *The palette's record nests a begin.* A loop whose form is a macro of
+    several rows prints its first element's rows inside a `begin` of their
+    own, in the reference's golden since `VLA.5`
+    (`each-index-counts-the-palette-from-0`) and here alike; the rows
+    flatten the same, and Alonzo's pass reads them so.
+
+  **The owner's pass, 2026-11-16:** `VlaSelfTests`, pure 2524/2524,
+  `TestEachNames`' 20 pins among them, the new VBA's first compile, and host
+  333/333; `VlaWriteExpandGolden` wrote 676 cases, 328 refused, byte for byte
+  the port's prediction, held apart in the worktree (`cmp`, and the crate's
+  copy the same bytes). `git diff` against `HEAD` is no witness of a golden
+  the item grows: it prints the new records themselves, 56 lines. A first
+  pass ran before the item was landed in the tree and so tested `HEAD`, 2504
+  pins and 656 cases; the landing came after it, the seventeen files whole
+  and this record by its hunks, a peer's `KERNEL.29` uncommitted beside it.
+  Verified again over this commit's tree alone, on `dfed933`, the peer's
+  `KERNEL.29` committed meanwhile: `cargo test --workspace`, 894 passed, 0 failed and 5 ignored; `cargo clippy -p vla-lang --all-targets` and `cargo fmt --all --check` clean; `run_checks.ps1`, 60 of 60. The five decisions stand as built.
+  **Closed ✅ and committed 2026-11-16 at the owner's word.**
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
@@ -58764,6 +58876,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.15 — a name where an address stands: `list?`, a word told from a list; the anchored reference in the formula syntax; and a reference's first cell, a third form of the walk.** Minted 2026-10-29 from Alonzo's `KIT.6`, whose first slice found what its third asks of the language; scoped, approved, built, owner-tested and committed 2026-10-29 at the owner's word. `(list? x)`, the twenty-ninth primitive, is `true` for every list, the empty one among them, and `false` for a word or a text, the one test of a form's kind that refuses neither, so a template tells a word from a pair. `(absolute X)`, `(absolute-row X)` and `(absolute-column X)` write a reference with the `$` marks each adds, Excel's absolute reference and its two mixed ones, and never take one away, so the three and `last` stand in either order and a fill cites a defined word anchored: `(last (absolute stop))` writes `State.last!$B$12`. `(first-cell-expand X)` gives a reference's first cell, a range's top-left as the grid reads it, as the text `ref` takes, so a verb twins the cell its fill is written for at a word as at an address. The syntax's reference heads and the walk's three forms read one reference one way, inside out; a whole column or row where a cell is needed is refused by name, and the formula reader refuses a call named `ABSOLUTE`. No compiled golden moved, nor any of Alonzo's eleven cartridges, nor did any with the kit's twins rewritten over the new forms as `KIT.6`'s tenth decision writes them. The owner's pass: pure 2218/2218, host 333/333 on a second run, the first having met a transient recorded under Found; the reference's expand golden, 362 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second and third slices, once a release carries it; `VLA.13`. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **VLA.9 — named pieces with defaults: a parameter declared `(sheet "Screen")` after a macro's positional ones, a caller writing `(sheet "Tower")` in any order for what differs, and a piece the macro does not declare refused by name.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, item 4); scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. A list in a macro's signature, after its positional parameters, declares a piece, `(word default)`, or `(word)` for one the call must give; a call gives each as `(word value)` after its positional arguments. The pieces are bound in the declaration's order and never the call's, so one call in two orders writes the same rows; a default is a form of the macro's, substituted at each call that leaves its piece out under the parameters bound before it, and expanded with the rest of what the call wrote. Six refusals at the definition, a word declared twice among them, positional, piece or rest, which ends a divergence found while scoping; five at the call, each naming the call's line, or none for a call a macro made, a positional argument written as one of the pieces among them, so that a call reads the same by position and by its pieces' words. `Macro` gains `pieces`, and it and `Piece` are `#[non_exhaustive]`, one break that ends the struct's breaks: 0.13.0, into which the owner folded `KERNEL.67`'s 0.12.1. `&` keeps its one meaning in a signature, the owner's question answered with no item. No compiled golden moved; in an Alonzo copy `put` over declared pieces, `put-from` retired, left the eleven cartridges byte for byte. The owner's pass: pure 2328/2328, host 333/333, the first run's one failure this item's own pin, moved; the reference's expand golden, 471 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's `KIT.6`, its second slice, five calls of `put` and not three, once a release carries it; Alonzo's `KIT.8`, with `VLA.12`. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **VLA.10 — verbs that compose: the fill's own place as a word, `self`, bound by `bind-expand` and read by the walk alone, with `offset-expand`, Excel's `OFFSET` at expand time; and a verb an expression over it, so that the nest stays refused.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, items 2 and 3), its one condition set by the determinism wall's paragraph of 2026-10-29; scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. `(bind-expand ((self reference)) form ...)` binds the word to one cell on a sheet for every form the walk meets in its body: the cell computed first under any binding outside it, `let`'s rule, the body expanded to its fixpoint inside, an inner binding hiding an outer, and the stack restored on every exit, a refusal's among them, so that no sibling sees another's place. The walk alone reads the word, as it reads a define's, and `Substitute` did not change, so LISTOPS-CONFLUENCE's premise stands as written. `(offset-expand reference rows columns [height width])`, brought forward from `VLA.13` at the owner's word, is a form of the walk answering `(ref sheet part)`, so that the words over `self` read any reference. A verb is an expression macro over `self` with `rule` the one row-writer, the kit's shapes Alonzo's; what is left of the nest is its refusal, reworded. A free `self` is refused by name only where it would be read, since `Set self to 1.` compiles today and SD-4 keeps a sentence's reading; five primitives that read a word's text refuse it, bound or free. Found while scoping and fixed: the walk's forms computed at a spent budget, so the stepper refused the frames of any verb since `VLA.4`; each now stands. Seven ids. No compiled golden moved; in an Alonzo copy the kit bound `self`, Life, the gun, Sand and the sound card wrote their rules over it, `count` became `running` with its nineteen calls moved, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2504/2504, host 333/333; the reference's expand golden, 656 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's kit, its verbs over `self` at a pin that carries 0.13.0; `2030.md` §7.4's sketch. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **VLA.16 — an entry's parts named in a loop: a list of names where a loop's name stands, `(each ((address value) entries) (cell sheet address value))` and `(each-index (index (color name) entries 0) ...)`, each name bound to its part of the element, so that a template reads aloud as what it does and never reads a part as `(car (cdr entry))`.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("proceed with implementing option #3 to improve readability"), from Alonzo's `KIT.6`: the owner wants a VLA file readable by a middle or high school student. Each name is checked as a loop's name is, none alike another or the index; an element of another size is refused by a new id, `vla-each-entry-shape`, the entry shown; no rest and no list among the names, refused by `vla-each-shape`, whose text stands; a loop of one name writes what it wrote. One id; 20 cases, the expand golden 656 to 676; `TestEachNames`, 20 pins. In an Alonzo copy over the patched language the kit's `cells`, `formulas`, `rules`, the Palette's row and Kairos's `colors` named their parts, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2524/2524, host 333/333; the reference's expand golden the port's byte for byte. Found, unruled: a number is a name to the loop, in both implementations, as it was to `VLA.5`'s one name. *Pays into:* Alonzo's kit at a pin that carries 0.14.0. *(more: the full entry, earlier in this file)* `~hours`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

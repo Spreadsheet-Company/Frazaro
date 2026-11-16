@@ -20,7 +20,18 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.13.0"
-Public Const VLA_CORE_VERSION As String = "VLA.10"
+Public Const VLA_CORE_VERSION As String = "VLA.16"
+' VLA.16: AN ENTRY'S PARTS NAMED IN A LOOP. A list of names where a loop's
+' name stands, (each ((address value) entries) form ...) and (each-index
+' (index (color name) entries 0) form ...), binds each name to its part of
+' the element, so that a template names an entry's parts by what they are
+' and never as (car (cdr entry)). EachBinding takes the list, at least one
+' name and each a symbol; EachFormResults checks each name as a loop's name
+' is checked, none alike another or the index, and binds each to its part
+' (EachEntryParts), an element that is no list of as many parts refused by
+' name with the names and the entry shown (vla-each-entry-shape). No rest
+' and no list among the names; a loop of one name writes what it wrote.
+' vla-lang's expand.rs mirrors each; the expand golden holds the two.
 ' VLA.10: THE FILL'S OWN PLACE AS A WORD. (bind-expand ((self reference)) form
 ' ...) binds the word self to one cell on a sheet for every form the walk meets
 ' in its body (ExpandBindCall): its value expanded first, under the binding
@@ -4484,7 +4495,9 @@ End Function
 ' bound to the element - and the index to the element's count, the start
 ' up by one - beside the template's own bindings its forms read: those,
 ' found once by a walk of the forms (EachReadBindings), since a Collection
-' cannot list its keys to be copied.
+' cannot list its keys to be copied. VLA.16: where a list of names stands
+' for the name, each name is checked in turn, none alike another or the
+' index, and each is bound to its part of the element (EachEntryParts).
 Private Function EachFormResults(eachForm As Variant, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
     Dim lst As Object
     Set lst = eachForm
@@ -4494,41 +4507,69 @@ Private Function EachFormResults(eachForm As Variant, bindings As Collection, By
     Set binding = EachBinding(lst, op)
     Dim indexed As Boolean
     indexed = (op = "each-index")
-    Dim indexName As String, varName As String
-    Dim indexFold As String, varFold As String
-    Dim listAt As Long
+    Dim indexName As String
+    Dim indexFold As String
+    Dim listAt As Long, namesAt As Long
     If indexed Then
         indexName = CStr(binding.Item(1))
-        varName = CStr(binding.Item(2))
+        namesAt = 2
         listAt = 3
         EachCheckName op, indexName, bindings, restName
         indexFold = VLA_Identity.Fold(indexName)
     Else
-        varName = CStr(binding.Item(1))
+        namesAt = 1
         listAt = 2
     End If
-    EachCheckName op, varName, bindings, restName
-    varFold = VLA_Identity.Fold(varName)
-    If indexed Then
-        If varFold = indexFold Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", op, "word", varName
+    Dim parted As Boolean
+    parted = IsList(binding.Item(namesAt))
+    Dim names As New Collection, folds As New Collection
+    Dim ni As Long
+    If parted Then
+        For ni = 1 To binding.Item(namesAt).Count
+            names.Add CStr(binding.Item(namesAt).Item(ni))
+        Next
+    Else
+        names.Add CStr(binding.Item(namesAt))
     End If
+    Dim nameFold As String, seen As Boolean
+    For ni = 1 To names.Count
+        EachCheckName op, CStr(names.Item(ni)), bindings, restName
+        nameFold = VLA_Identity.Fold(CStr(names.Item(ni)))
+        CollGet folds, nameFold, seen
+        If indexed Then
+            If nameFold = indexFold Then seen = True
+        End If
+        If seen Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", op, "word", CStr(names.Item(ni))
+        folds.Add nameFold, nameFold
+    Next
     Dim walked As Object
     Set walked = EachList(op, binding.Item(listAt), bindings, restName, restItems)
     Dim startN As Double
     If indexed Then startN = EachStartValue(op, binding.Item(4), bindings, restName, restItems)
 
+    ' the names a loop binds are refused where the template binds them
+    ' (EachCheckName), so the walk finds none of them; the first is skipped
+    ' as the one name always was.
     Dim readKeys As New Collection, readVals As New Collection, readSeen As New Collection
     Dim fi As Long
     For fi = 3 To lst.Count
-        EachReadBindings lst.Item(fi), bindings, varFold, indexFold, readKeys, readVals, readSeen
+        EachReadBindings lst.Item(fi), bindings, CStr(folds.Item(1)), indexFold, readKeys, readVals, readSeen
     Next
 
     Dim results As New Collection
     Dim scope As Collection
+    Dim parts As Object
     Dim wi As Long, ki As Long
     For wi = 1 To walked.Count
         Set scope = New Collection          ' trap 2: a new scope each element
-        scope.Add walked.Item(wi), varFold
+        If parted Then
+            Set parts = EachEntryParts(op, binding.Item(namesAt), walked.Item(wi))
+            For ni = 1 To folds.Count
+                scope.Add parts.Item(ni), CStr(folds.Item(ni))
+            Next
+        Else
+            scope.Add walked.Item(wi), CStr(folds.Item(1))
+        End If
         If indexed Then scope.Add Trim$(Str$(startN + wi - 1)), indexFold
         For ki = 1 To readKeys.Count
             scope.Add readVals.Item(ki), CStr(readKeys.Item(ki))
@@ -4543,7 +4584,9 @@ End Function
 
 ' VLA.5: the loop's binding, or the refusal that shows its shape: (name
 ' list) for each, (index name list start) for each-index, each name a
-' symbol, and at least one form after it.
+' symbol, and at least one form after it. VLA.16: the name, each's first
+' and each-index's second, may be a list of names, at least one and each
+' a symbol (EachNamesOk).
 Private Function EachBinding(lst As Object, ByVal op As String) As Object
     Dim want As Long
     If op = "each-index" Then want = 4 Else want = 2
@@ -4555,8 +4598,8 @@ Private Function EachBinding(lst As Object, ByVal op As String) As Object
         Set b = lst.Item(2)
         ok = (b.Count = want)
     End If
-    If ok Then ok = IsSym(b.Item(1))
-    If ok And want = 4 Then ok = IsSym(b.Item(2))
+    If ok And want = 4 Then ok = IsSym(b.Item(1))
+    If ok Then ok = EachNamesOk(b.Item(want \ 2))
     If Not ok Then
         If want = 4 Then
             VLA_Messages.RaiseMsg "vla-each-shape", "op", op, "binding", "(index name list start)"
@@ -4565,6 +4608,41 @@ Private Function EachBinding(lst As Object, ByVal op As String) As Object
         End If
     End If
     Set EachBinding = b
+End Function
+
+' VLA.16: where a loop's name stands, a symbol, or a list of names, at
+' least one and each a symbol: no rest and no list among them.
+Private Function EachNamesOk(n As Variant) As Boolean
+    If IsSym(n) Then
+        EachNamesOk = True
+        Exit Function
+    End If
+    If Not IsList(n) Then Exit Function
+    Dim nl As Object
+    Set nl = n
+    If nl.Count = 0 Then Exit Function
+    Dim i As Long
+    For i = 1 To nl.Count
+        If Not IsSym(nl.Item(i)) Then Exit Function
+    Next
+    EachNamesOk = True
+End Function
+
+' VLA.16: an element read by a loop's list of names, a list of as many
+' parts as there are names, its parts in order; or the refusal that shows
+' the names, the element and what it is.
+Private Function EachEntryParts(ByVal op As String, names As Object, entry As Variant) As Object
+    Dim held As String
+    If IsList(entry) Then
+        If entry.Count = names.Count Then
+            Set EachEntryParts = entry
+            Exit Function
+        End If
+        held = "a list of " & CStr(entry.Count)
+    Else
+        held = "no list"
+    End If
+    VLA_Messages.RaiseMsg "vla-each-entry-shape", "op", op, "names", WriteDatum(names), "n", CStr(names.Count), "entry", WriteDatum(entry), "held", held
 End Function
 
 ' VLA.5: a name a loop binds, refused when it is an expand-time name (the

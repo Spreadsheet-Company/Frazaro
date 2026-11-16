@@ -1920,6 +1920,13 @@ fn fuse_symbol(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
 // value is read, and one `begin` where it stands alone as a statement. No
 // gensym and no eval: the names are the author's, and the loop reads
 // nothing but the source.
+//
+// VLA.16: a list of names where the name stands, `(each ((address value)
+// entries) form ...)` and `(each-index (index (color name) entries 0) form
+// ...)`, binds each name to its part of the element, so that a template
+// names an entry's parts by what they are and never as `(car (cdr entry))`.
+// The element a list of as many parts as there are names, or refused by
+// name with the entry shown; no rest and no list among the names.
 
 /// VBA `EachFormBegin`: a loop standing alone, a statement (a macro's
 /// whole template, a branch of `quote-if` or `cond`, a form of the source):
@@ -1948,7 +1955,10 @@ fn substitute_value(t: &Node, env: &Env) -> Result<Node, Refusal> {
 /// bindings with the name bound to the element, and the index to its
 /// count, the start up by one. The reference builds that scope from the
 /// bindings its forms read, since a Collection cannot list its keys; the
-/// port clones its map, which answers every form the same.
+/// port clones its map, which answers every form the same. VLA.16: where a
+/// list of names stands for the name, each name is checked in turn, none
+/// alike another or the index, and each is bound to its part of the
+/// element ([`each_entry_parts`]).
 fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
     let op = match &each_form[0] {
         Node::Sym(s) => fold(s),
@@ -1956,22 +1966,28 @@ fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
     };
     let binding = each_binding(each_form, &op)?;
     let indexed = op == "each-index";
-    let (index_name, var_name, list_at) = if indexed {
-        (Some(symbol_text(&binding[0])), symbol_text(&binding[1]), 2)
+    let (index_name, names_at, list_at) = if indexed {
+        (Some(symbol_text(&binding[0])), 1, 2)
     } else {
-        (None, symbol_text(&binding[0]), 1)
+        (None, 0, 1)
+    };
+    let names_form = &binding[names_at];
+    let (names, parted) = match names_form {
+        Node::List(l) => (l.items().iter().map(symbol_text).collect(), true),
+        _ => (vec![symbol_text(names_form)], false),
     };
     if let Some(index_name) = &index_name {
         each_check_name(&op, index_name, env)?;
     }
-    each_check_name(&op, &var_name, env)?;
-    let var_fold = fold(&var_name);
     let index_fold = index_name.as_deref().map(fold);
-    if index_fold.as_deref() == Some(var_fold.as_str()) {
-        return Err(raise(
-            "vla-each-name-bound",
-            &[("op", &op), ("word", &var_name)],
-        ));
+    let mut folds: Vec<String> = Vec::with_capacity(names.len());
+    for name in &names {
+        each_check_name(&op, name, env)?;
+        let name_fold = fold(name);
+        if index_fold.as_deref() == Some(name_fold.as_str()) || folds.contains(&name_fold) {
+            return Err(raise("vla-each-name-bound", &[("op", &op), ("word", name)]));
+        }
+        folds.push(name_fold);
     }
     let walked = each_list(&op, &binding[list_at], env)?;
     let start = if indexed {
@@ -1987,7 +2003,14 @@ fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
     };
     let mut results = Vec::new();
     for (k, element) in walked.items().iter().enumerate() {
-        scope.bindings.insert(var_fold.as_str(), element.clone());
+        if parted {
+            let parts = each_entry_parts(&op, names_form, element)?;
+            for (name_fold, part) in folds.iter().zip(parts) {
+                scope.bindings.insert(name_fold.as_str(), part.clone());
+            }
+        } else {
+            scope.bindings.insert(folds[0].as_str(), element.clone());
+        }
         if let Some(index_fold) = &index_fold {
             let count = start + k as f64;
             scope
@@ -2009,16 +2032,44 @@ fn symbol_text(n: &Node) -> String {
     }
 }
 
+/// VLA.16, VBA `EachEntryParts`: an element read by a loop's list of
+/// names, a list of as many parts as there are names, its parts in order;
+/// or the refusal that shows the names, the element and what it is.
+fn each_entry_parts<'a>(op: &str, names: &Node, entry: &'a Node) -> Result<&'a [Node], Refusal> {
+    let Node::List(want) = names else {
+        unreachable!("a loop reads its element's parts by a list of names")
+    };
+    let held = match entry {
+        Node::List(parts) if parts.count() == want.count() => return Ok(parts.items()),
+        Node::List(parts) => format!("a list of {}", parts.count()),
+        _ => "no list".to_string(),
+    };
+    Err(raise(
+        "vla-each-entry-shape",
+        &[
+            ("op", op),
+            ("names", &write_datum(&names.form())),
+            ("n", &want.count().to_string()),
+            ("entry", &write_datum(&entry.form())),
+            ("held", &held),
+        ],
+    ))
+}
+
 /// VBA `EachBinding`: the loop's binding, or the refusal that shows its
 /// shape: `(name list)` for `each`, `(index name list start)` for
 /// `each-index`, each name a symbol, and at least one form after it.
+/// VLA.16: the name, `each`'s first and `each-index`'s second, may be a
+/// list of names, at least one and each a symbol ([`each_names_ok`]).
 fn each_binding<'a>(each_form: &'a [Node], op: &str) -> Result<&'a [Node], Refusal> {
     let want = if op == "each-index" { 4 } else { 2 };
-    let names = want / 2;
     if each_form.len() >= 3 {
         if let Node::List(b) = &each_form[1] {
             let items = b.items();
-            if items.len() == want && items[..names].iter().all(|n| matches!(n, Node::Sym(_))) {
+            if items.len() == want
+                && (want == 2 || matches!(items[0], Node::Sym(_)))
+                && each_names_ok(&items[want / 2 - 1])
+            {
                 return Ok(items);
             }
         }
@@ -2029,6 +2080,16 @@ fn each_binding<'a>(each_form: &'a [Node], op: &str) -> Result<&'a [Node], Refus
         "(name list)"
     };
     Err(raise("vla-each-shape", &[("op", op), ("binding", shape)]))
+}
+
+/// VLA.16: where a loop's name stands, a symbol, or a list of names, at
+/// least one and each a symbol: no rest and no list among them.
+fn each_names_ok(n: &Node) -> bool {
+    match n {
+        Node::Sym(_) => true,
+        Node::List(l) => l.count() > 0 && l.items().iter().all(|p| matches!(p, Node::Sym(_))),
+        _ => false,
+    }
 }
 
 /// VBA `EachCheckName`: a name a loop binds, refused when it is an
@@ -3930,6 +3991,114 @@ mod tests {
                 "(each-index (i x (quote (a)) 1.5) (f i))",
                 "vla-arith-expand-not-whole",
                 "each-index: expected a whole number, got '1.5'",
+            ),
+        ] {
+            let r = expand_err(src);
+            assert_eq!(r.id, id, "{src}");
+            assert!(r.text.contains(frag), "{src}: {}", r.text);
+        }
+    }
+
+    // VLA.16: a list of names where the name stands, each bound to its part.
+    #[test]
+    fn a_loop_names_each_part_of_an_entry() {
+        assert_eq!(
+            one("(each ((a b) (quote ((1 2) (3 4)))) (f a b))"),
+            "(begin (f 1 2) (f 3 4))"
+        );
+        assert_eq!(
+            one(concat!(
+                "(defmacro (cells sheet & entries) ",
+                "(each ((address value) entries) (cell sheet address value))) ",
+                "(cells \"S\" (\"A1\" 1) (\"C1:C3\" 0))"
+            )),
+            "(begin (cell \"S\" \"A1\" 1) (cell \"S\" \"C1:C3\" 0))"
+        );
+        assert_eq!(
+            one("(each ((a) (quote ((x) (y)))) (f a))"),
+            "(begin (f x) (f y))"
+        );
+        assert_eq!(
+            one("(each ((at fill) (quote ((A1 (1 2)) (B1 ())))) (f at fill))"),
+            "(begin (f A1 (1 2)) (f B1 ()))"
+        );
+        assert_eq!(one("(each ((a b) (quote ())) (f a b))"), "(begin)");
+        assert_eq!(
+            one("(each-index (i (color name) (quote ((c0 black) (c1 blue))) 0) (f i color name))"),
+            "(begin (f 0 c0 black) (f 1 c1 blue))"
+        );
+        assert_eq!(
+            one("(each ((row xs) (quote ((1 (a b)) (2 (c))))) (each ((x) (quote ((p)))) (f row x xs)))"),
+            "(begin (f 1 p (a b)) (f 2 p (c)))"
+        );
+        assert_eq!(
+            one("(+ (each ((c k) (quote ((A1 2) (B1 3)))) (* c k)))"),
+            "(+ (* A1 2) (* B1 3))"
+        );
+    }
+
+    #[test]
+    fn a_loop_s_names_are_refused_by_name_where_they_cannot_read_an_entry() {
+        for (src, id, frag) in [
+            (
+                "(each ((a b) (quote ((1 2) (3)))) (f a b))",
+                "vla-each-entry-shape",
+                "each: the names (a b) read each entry as a list of 2, a part for each name, and the entry (3) is a list of 1",
+            ),
+            (
+                "(each ((a b) (quote ((1 2 3)))) (f a b))",
+                "vla-each-entry-shape",
+                "and the entry (1 2 3) is a list of 3",
+            ),
+            (
+                "(each ((a b) (quote (x))) (f a b))",
+                "vla-each-entry-shape",
+                "and the entry x is no list",
+            ),
+            (
+                "(each-index (i (a b) (quote (\"t\")) 0) (f a b))",
+                "vla-each-entry-shape",
+                "each-index: the names (a b) read each entry as a list of 2, a part for each name, and the entry \"t\" is no list",
+            ),
+            (
+                "(each (() (quote ((1)))) (f))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each ((a \"b\") (quote ((1 2)))) (f a))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each ((a (b c)) (quote ((1 (2 3))))) (f a))",
+                "vla-each-shape",
+                "each: write (each (name list) form ...)",
+            ),
+            (
+                "(each-index (i (a \"b\") (quote ((1 2))) 0) (f a))",
+                "vla-each-shape",
+                "each-index: write (each-index (index name list start) form ...)",
+            ),
+            (
+                "(each ((a A) (quote ((1 2)))) (f a))",
+                "vla-each-name-bound",
+                "each: 'A' is already a name in this template",
+            ),
+            (
+                "(each-index (i (x i) (quote ((1 2))) 0) (f x))",
+                "vla-each-name-bound",
+                "each-index: 'i' is already a name in this template",
+            ),
+            (
+                "(each ((at car) (quote ((1 2)))) (f at))",
+                "vla-each-name-reserved",
+                "each 'car': 'car' is the list-head primitive and cannot be a name each binds",
+            ),
+            (
+                "(defmacro (m sheet & xs) (each ((sheet v) xs) (f v))) (m \"S\" (1 2))",
+                "vla-each-name-bound",
+                "each: 'sheet' is already a name in this template",
             ),
         ] {
             let r = expand_err(src);

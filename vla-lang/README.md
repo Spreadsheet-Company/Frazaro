@@ -54,13 +54,15 @@ refused in the same words.
   macro expands; each refuses by name what it cannot compute. A loop,
   `each`, writes its forms once for each element of a list, and
   `each-index` with a count beside the element, from a start the author
-  names, so that a macro says what its rows are and not how to walk to them:
+  names, so that a macro says what its rows are and not how to walk to them;
+  and a list of names where the name stands, `((address value) entries)`,
+  names each part of an entry, so that no part is read by its position:
 
   ```lisp
   (defmacro (cells sheet & entries)
-    "value cells of one sheet, named once: each entry an address or a range, then its value"
-    (each (entry entries)
-      (cell sheet (car entry) (car (cdr entry)))))
+    "Puts values in cells of one sheet. Each entry is a cell's address, or a range of cells, and the value that goes there."
+    (each ((address value) entries)
+      (cell sheet address value)))
   ```
 
   `(cells "S" ("A1" 1) ("B1" 2))` expands to `(begin (cell "S" "A1" 1)

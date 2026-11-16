@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.15 | VLA.16 |
+| VLA | VLA.16 | VLA.17 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -476,8 +476,14 @@ METAMETAMACRO LINE, the owner's word of 2026-10-29): `list?`, a word told
 from a list; the anchored reference, written by the formula syntax beside
 `last`; and a reference's first cell, a third form of the walk beside
 `sheet-expand` and `range-expand`; one item for one need, scoped,
-approved, built, owner-tested and committed 2026-10-29. `VLA.16` is next
-free.
+approved, built, owner-tested and committed 2026-10-29. `VLA.16` was
+minted 2026-11-16 at the owner's word ("proceed with implementing option
+#3 to improve readability"), from Alonzo's `KIT.6`, whose second slice
+showed the kit's `cells` reading an entry's parts as `(car entry)` and
+`(car (cdr entry))` (`BETA_REARVIEW.md`, THE METAMETAMACRO LINE): a list
+of names where a loop's name stands, each bound to its part of the
+element; scoped, built, owner-tested and committed 2026-11-16. `VLA.17` is
+next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

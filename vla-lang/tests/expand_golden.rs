@@ -125,6 +125,21 @@ fn the_walker_and_its_loop_write_the_same_rows() {
 }
 
 #[test]
+fn the_loop_by_names_writes_the_rows_the_loop_by_car_writes() {
+    // VLA.16: the entry's parts named, (address value), where the loop of
+    // one name read them as (car entry) and (car (cdr entry)). The records
+    // are the same rows under one application each; only the docstrings
+    // differ, which write no row.
+    let (by_car, car_fired) =
+        expand_text(&case_text("cells-written-by-each"), PRELUDE, true).unwrap();
+    let (by_names, names_fired) =
+        expand_text(&case_text("cells-written-by-names"), PRELUDE, true).unwrap();
+    assert_eq!((car_fired, names_fired), (1, 1));
+    assert_eq!(by_car, by_names);
+    assert_eq!(rows(&by_names).len(), 3);
+}
+
+#[test]
 fn the_stop_rule_by_names_writes_the_rows_its_twin_by_addresses_writes() {
     // The records differ: the names' case defines its words, an empty begin
     // where each stood, and fires a label's macro a word. Its rows are the
@@ -256,7 +271,7 @@ fn two_sibling_verbs_each_keep_their_own_place_in_either_order() {
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 656, "only {count} cases in the expand fixture");
+    assert!(count >= 676, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))

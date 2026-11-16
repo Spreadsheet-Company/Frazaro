@@ -668,6 +668,7 @@ program runs.
 | `(column-letters-expand column)` | A column's letters: `"AB"` for 28. |
 | `(assoc-expand head entries)` | The first entry whose own head is `head`, or `()` when none is. |
 | `(each (name list) form ...)` | The forms written once for each element; see *The loop* below. |
+| `(each ((name ...) list) form ...)` | The same, each name bound to its part of an element that is a list of as many parts. |
 | `(each-index (index name list start) form ...)` | The same, with a count beside each element, from `start` up by one. |
 | `(define name form)` | A word for the form, in every form of the file after this one; see *A name* below. |
 | `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
@@ -728,17 +729,24 @@ each element writes:
 ```lisp
 (defmacro
     (cells sheet & entries)
-    "value cells of one sheet, named once: each entry an address or a range, then its value"
-    (each (entry entries)
-        (cell sheet (car entry) (car (cdr entry)))))
+    "Puts values in cells of one sheet. Each entry is a cell's address, or a range of cells, and the value that goes there."
+    (each ((address value) entries)
+        (cell sheet address value)))
 ```
 
 `(cells "S" ("A1" 1) ("B1" 2))` expands to `(begin (cell "S" "A1" 1)
-(cell "S" "B1" 2))`. The binding `(entry entries)` names the element and
-the list, as `let` names a value; the forms after it are a template,
-substituted once for each element with `entry` bound to it, beside the
-macro's own parameters, so `(car entry)` reads the entry. `each-index`
-binds a count beside the element, from a start the binding names:
+(cell "S" "B1" 2))`. The binding `((address value) entries)` names the
+parts of each element and the list, as `let` names a value; the forms
+after it are a template, substituted once for each element with `address`
+bound to its first part and `value` to its second, beside the macro's own
+parameters. One name, `(entry entries)`, binds the whole element instead.
+An element of another size than the names is refused, the entry shown:
+
+> each: the names (address value) read each entry as a list of 2, a part for each name, and the entry ("A1") is a list of 1
+
+`each-index` binds a count beside the element, from a start the binding
+names, and takes a list of names the same way, `(index (color name)
+entries 0)`:
 
 ```lisp
 (defmacro
