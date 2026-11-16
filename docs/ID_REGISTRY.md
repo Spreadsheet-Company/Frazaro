@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.16 | VLA.17 |
+| VLA | VLA.17 | VLA.18 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -482,8 +482,12 @@ minted 2026-11-16 at the owner's word ("proceed with implementing option
 showed the kit's `cells` reading an entry's parts as `(car entry)` and
 `(car (cdr entry))` (`BETA_REARVIEW.md`, THE METAMETAMACRO LINE): a list
 of names where a loop's name stands, each bound to its part of the
-element; scoped, built, owner-tested and committed 2026-11-16. `VLA.17` is
-next free.
+element; scoped, built, owner-tested and committed 2026-11-16. `VLA.17` was
+minted 2026-11-16 at the owner's word ("Add a funcall form to VLA's formula
+syntax"), from `KERNEL.29`'s question of whether a function's `#VALUE!`
+throws `APPLY` out: `(funcall f a ...)`, what `f` answers called with its
+arguments, written `IF(c,SQ,PLUS1)(5)` where it stands and read back from
+a call in place, which the reader refused. `VLA.18` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

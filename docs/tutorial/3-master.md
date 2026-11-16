@@ -919,6 +919,21 @@ reference is a bare symbol, `Input!B5`, or `(ref "Q1 Data" "A1")` where a
 symbol cannot hold it; an error is `(error "#N/A")`; and anything a formula
 does not spell, such as `tax-rate`, is refused rather than renamed.
 
+**A function called where it is written.** `(funcall f a ...)` calls what
+`f` answers with its arguments, as Lisp's `funcall` does: a `LAMBDA`, or a
+call that answers one, is called where it is written, and a name is called
+by its name.
+
+| Expression | Formula text |
+|---|---|
+| `(funcall (lambda (x) (+ x 1)) 5)` | `LAMBDA(x,x+1)(5)` |
+| `(funcall (if c SQ PLUS1) 5)` | `IF(c,SQ,PLUS1)(5)` |
+| `(funcall (funcall (make 3) 4) 5)` | `MAKE(3)(4)(5)` |
+| `(funcall sq 3)` | `SQ(3)` |
+
+Anything a formula cannot call, an operator, a number or a reference, is
+refused by name.
+
 **A reference's twin.** `(last X)` is the twin of the one reference on a
 sheet that X is: the same cells on the sheet whose name is X's sheet's with
 `.last` after it, the twin in which the language's machine keeps each

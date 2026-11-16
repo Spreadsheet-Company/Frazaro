@@ -20483,6 +20483,87 @@ built.
   `KERNEL.29` committed meanwhile: `cargo test --workspace`, 894 passed, 0 failed and 5 ignored; `cargo clippy -p vla-lang --all-targets` and `cargo fmt --all --check` clean; `run_checks.ps1`, 60 of 60. The five decisions stand as built.
   **Closed ✅ and committed 2026-11-16 at the owner's word.**
 
+- 🟡 **VLA.17 — `funcall` in the formula syntax: `(funcall f a ...)`, what
+  `f` answers called with its arguments, written `IF(c,SQ,PLUS1)(5)` where
+  it stands and read back from a call in place, so that a source calls a
+  function it computes.** *Minted, scoped and built 2026-11-16 at the
+  owner's word, "Add a funcall form to VLA's formula syntax", from
+  `KERNEL.29`'s question of whether a function's `#VALUE!` throws `APPLY`
+  out with the bath water (that item's record, its second save).*
+
+  **What needed it.** The language computes a function a formula chooses
+  and calls, `IF(FALSE,SQ,PLUS1)(5)`, `CHOOSE(2,SQ,PLUS1)(5)` and a curried
+  `table(1)(6)` (`KERNEL.29`'s first slice, `Tok::Invoke`), and Excel 365
+  reads `LAMBDA(x,LAMBDA(y,x*y))(3)(4)` (that item's first save). VLA's
+  formula syntax wrote no such call: a list at a list's head is refused,
+  `((lambda (x) x) 1)`, and the reader refused "a function called in
+  place". A source could call a function by its name alone, so a cartridge
+  could not call one a level, a table or a test chooses.
+
+  **The decisions,** each mine in the build, the owner's to overrule:
+  1. Common Lisp's spelling, `funcall`, a form of the syntax's own beside
+     `lambda` and `quote`. Scheme's and Emacs Lisp's `((lambda (x) x) 1)`
+     stays refused, so that a call of a computed function is said by one
+     word and a list at a head is never read as one by accident.
+  2. A name is called by its name, as `(f a ...)` is written: `(funcall sq
+     3)` writes `SQ(3)`, with the same rules for a function's name and the
+     same refusals.
+  3. A list that writes as a call, a function's, `IF`'s, `LET`'s, a `LAMBDA`
+     or a `funcall`, is called where it is written, its arguments after it,
+     with no parenthesis around it: the shape Excel reads, a call's answer
+     called. Anything else, an operator, a sign or a percent, a literal, a
+     reference and an array, is refused by `vla-formula-head-not-a-function`
+     with the form shown, since no formula calls it. No new message.
+  4. The reader reads a call in place as a `funcall` of what it answers,
+     each `(...)` after another inside the one before, `ADD(1)(2)(3)` as
+     `(funcall (funcall (add 1) 2) 3)`; and `FUNCALL(` becomes a word the
+     syntax keeps, refused as a function's name as `REF(` and `LAST(` are.
+  5. A changed meaning, flagged: `(funcall f x)` wrote `=FUNCALL(f,x)` before,
+     a call of a function no library holds. No source in Delta writes
+     `funcall` (checked 2026-11-16).
+
+  **What was built.**
+  - `vla-lang/src/formula_syntax.rs`: the writer's `funcall_form` and
+    `writes_as_call`; the reader's `arguments` and `invoked`, the call's
+    argument list taken apart from it.
+  - `src/VLA.bas`: the reference's twins, `FsFuncall` and `FsWritesAsCall`,
+    a `Case "funcall"` in `FsList`; `VLA_CORE_VERSION` `VLA.17`.
+  - `src/VLA_Tests.bas`: `TestFormulaFuncall`, 14 pins, wired after
+    `TestFormulaSyntax`; `VLA_TESTS_VERSION` `VLA.17`.
+  - `scripts/expand.txt` and the crate's copy: ten cases, six written beside
+    `formula-expand-let-and-lambda` and four refused beside the head refused,
+    676 to 686. `scripts/expand_golden.txt` and its copy hold the port's
+    prediction, every record before them unmoved.
+  - `vla-lang/tests/expand_golden.rs`'s floor 686, and `check_expand_golden`'s
+    floors 686, 354 and 72, raised for `VLA.16`'s twenty and these ten.
+  - The reader's golden, `vla-lang/testdata/formula_syntax_golden.txt`: its
+    one record of a call in place reads and writes back
+    (`VLA_BLESS=1 cargo test -p vla-lang --test formula_syntax`).
+  - The docs: the tutorial's *A formula from an expression*, the crate's
+    README, `0.14.0`'s note.
+
+  **Held by** the port's unit tests: seven cases written, seven refused, five
+  read, four written back and read again. Excel's own reading of the texts
+  `funcall` writes rides `KERNEL.29`'s third save, which holds
+  `IF(FALSE,SQ,PLUS1)(5)`, `CHOOSE(2,SQ,PLUS1)(5)`, `IFERROR(SQ,PLUS1)(3)`
+  and `table(1)(6)`.
+
+  **The owner's pass, 2026-11-16:** `VlaSelfTests`, pure 2538/2538,
+  `TestFormulaFuncall`'s 14 pins among them, and host 333/333;
+  `VlaWriteExpandGolden` wrote 686 cases, 332 refused, byte for byte the
+  port's prediction, kept apart before the run (`cmp`).
+
+  **Committed 2026-11-16 at the owner's word, "Commit VLA.17", and left
+  open.** `KERNEL.29`'s third save holds the texts `funcall` writes, and
+  Excel repaired that fixture twice, removing a formula from its Functions
+  sheet. Every call in place it had read stood on a `LAMBDA`; the likeliest
+  removed stand on a function's answer, `IF(FALSE,SQ,PLUS1)(5)`,
+  `CHOOSE(2,SQ,PLUS1)(5)` and the two `IFERROR`s. Should Excel call in place
+  a `LAMBDA` and a name alone, the third decision narrows: a callee that is
+  a function's answer refused by name, its words telling the author to bind
+  it with `let` first and call the name, as Excel's users write it. The
+  close waits on Excel's repaired copy, which says what it removed.
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 

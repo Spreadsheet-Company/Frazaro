@@ -392,6 +392,7 @@ fn list(l: &List, depth: u32) -> Result<String, Refusal> {
         "absolute" | "absolute-row" | "absolute-column" => mark_form(head, &h, args),
         "lambda" => lambda(head, args, depth),
         "quote" => quote_form(head, args),
+        "funcall" => funcall_form(head, args, depth),
         _ => {
             if let Some(row) = headtable::row(&h) {
                 if row.formula != FormulaSupport::Yes {
@@ -426,6 +427,71 @@ fn list(l: &List, depth: u32) -> Result<String, Refusal> {
             ))
         }
     }
+}
+
+/// `(funcall f a ...)`: what `f` answers, called with its arguments
+/// (VLA.17). A name is called by its name, as `(f a ...)` is written; a list
+/// that writes as a call, a function's, `IF`'s, `LET`'s, a `LAMBDA` or a
+/// `funcall`, is called where it is written, `IF(c,SQ,PLUS1)(5)`; any other,
+/// an operator, a literal, a reference or an array, refused by name, since no
+/// formula calls it.
+fn funcall_form(head: &str, args: &[Form], depth: u32) -> Result<String, Refusal> {
+    let Some((f, rest)) = args.split_first() else {
+        return Err(arity(head, "a function and its arguments", 0));
+    };
+    let not_a_function = || {
+        raise(
+            "vla-formula-head-not-a-function",
+            &[("head", &write_datum(f))],
+        )
+    };
+    match f {
+        Form::Sym(_) => {
+            let named = Form::list(args.to_vec());
+            if !writes_as_call(&named) {
+                return Err(not_a_function());
+            }
+            text(&named, depth)
+        }
+        Form::List(_) if writes_as_call(f) => {
+            let mut out = text(f, depth + 1)?;
+            out.push('(');
+            for (k, a) in rest.iter().enumerate() {
+                if k > 0 {
+                    out.push(',');
+                }
+                out.push_str(&text(a, depth + 1)?);
+            }
+            out.push(')');
+            Ok(out)
+        }
+        _ => Err(not_a_function()),
+    }
+}
+
+/// Whether a list writes as a call, `NAME(...)`, which a formula may call
+/// where it is written: no operator, sign or percent, and none of the
+/// syntax's forms that write a value, a reference or an array.
+fn writes_as_call(f: &Form) -> bool {
+    let Form::List(l) = f else {
+        return false;
+    };
+    let Some(Form::Sym(head)) = l.items.first() else {
+        return false;
+    };
+    let h = headtable::resolve_head_alias(&fold(head));
+    !(BINARY.contains(&h.as_str())
+        || matches!(
+            h.as_str(),
+            "%" | ":"
+                | "error"
+                | "ref"
+                | "last"
+                | "absolute"
+                | "absolute-row"
+                | "absolute-column"
+                | "quote"
+        ))
 }
 
 fn arity(head: &str, want: &str, n: usize) -> Refusal {
@@ -1490,9 +1556,10 @@ impl Reader {
         // VLA.6: `last` among them, since the writer writes `(last X)` as a
         // twin and never as `LAST(X)`; VLA.15: and `absolute`, the one of
         // the three marks spelled as a function's name could be.
+        // VLA.17: and `funcall`, which the writer writes as a call in place.
         let reserved = matches!(
             folded.as_str(),
-            "error" | "ref" | "quote" | "last" | "absolute"
+            "error" | "ref" | "quote" | "last" | "absolute" | "funcall"
         ) || headtable::row(&folded)
             .is_some_and(|r| r.formula != FormulaSupport::Yes);
         if reserved {
@@ -1500,28 +1567,7 @@ impl Reader {
                 "a function named {name}, a word the syntax keeps for a form of its own"
             )));
         }
-        let mut args = Vec::new();
-        if self.peek() == Some(&Tok::Close) {
-            self.at += 1;
-        } else {
-            loop {
-                if matches!(self.peek(), Some(Tok::Comma) | Some(Tok::Close)) {
-                    return Err(unsupported("an omitted argument"));
-                }
-                args.push(self.comparison()?);
-                match self.take() {
-                    Some(Tok::Comma) => continue,
-                    Some(Tok::Close) => break,
-                    Some(other) => return Err(self.stray(&other)),
-                    None => return Err(malformed(&format!("{name}( never closes"))),
-                }
-            }
-        }
-        if self.peek() == Some(&Tok::Open) {
-            return Err(unsupported(
-                "a function called in place, such as LAMBDA(x,x)(1)",
-            ));
-        }
+        let mut args = self.arguments(&name)?;
         let n = args.len();
         let bad = match folded.as_str() {
             "if" => (!(2..=3).contains(&n)).then_some("IF takes two or three arguments"),
@@ -1547,16 +1593,51 @@ impl Reader {
                     _ => return Err(malformed("a LAMBDA parameter that is no name")),
                 }
             }
-            return Ok(Form::list(vec![
-                Form::sym("lambda"),
-                Form::list(params),
-                body,
-            ]));
+            let lambda = Form::list(vec![Form::sym("lambda"), Form::list(params), body]);
+            return self.invoked(lambda, &name);
         }
         let mut items = Vec::with_capacity(n + 1);
         items.push(Form::Sym(folded));
         items.extend(args);
-        Ok(Form::list(items))
+        self.invoked(Form::list(items), &name)
+    }
+
+    /// A call's arguments after its `(`, through its `)`: none, or each an
+    /// expression, an omitted one refused.
+    fn arguments(&mut self, name: &str) -> Result<Vec<Form>, Refusal> {
+        let mut args = Vec::new();
+        if self.peek() == Some(&Tok::Close) {
+            self.at += 1;
+            return Ok(args);
+        }
+        loop {
+            if matches!(self.peek(), Some(Tok::Comma) | Some(Tok::Close)) {
+                return Err(unsupported("an omitted argument"));
+            }
+            args.push(self.comparison()?);
+            match self.take() {
+                Some(Tok::Comma) => continue,
+                Some(Tok::Close) => return Ok(args),
+                Some(other) => return Err(self.stray(&other)),
+                None => return Err(malformed(&format!("{name}( never closes"))),
+            }
+        }
+    }
+
+    /// A call called where it is written, `IF(c,SQ,PLUS1)(5)` or
+    /// `LAMBDA(x,x+1)(5)`, each `(...)` after it a `funcall` of what it
+    /// answers (VLA.17), curried calls one inside another; else the call.
+    fn invoked(&mut self, mut form: Form, name: &str) -> Result<Form, Refusal> {
+        while self.peek() == Some(&Tok::Open) {
+            self.at += 1;
+            let args = self.arguments(name)?;
+            let mut items = Vec::with_capacity(args.len() + 2);
+            items.push(Form::sym("funcall"));
+            items.push(form);
+            items.extend(args);
+            form = Form::list(items);
+        }
+        Ok(form)
     }
 }
 
@@ -1711,6 +1792,21 @@ mod tests {
             w("(absolute-column (absolute-row (absolute-column C3)))"),
             "=$C$3"
         );
+        // VLA.17: a function called with its arguments, a name by its name
+        // and a call where it is written, curried calls one after another.
+        assert_eq!(w("(funcall sq 3)"), "=SQ(3)");
+        assert_eq!(w("(funcall (if c SQ PLUS1) 5)"), "=IF(c,SQ,PLUS1)(5)");
+        assert_eq!(w("(funcall (lambda (x) (+ x 1)) 5)"), "=LAMBDA(x,x+1)(5)");
+        assert_eq!(w("(funcall (funcall (make 3) 4) 5)"), "=MAKE(3)(4)(5)");
+        assert_eq!(w("(funcall (lambda () 42))"), "=LAMBDA(42)()");
+        assert_eq!(
+            w("(let f (choose k SQ PLUS1) (+ (funcall f 2) 1))"),
+            "=LET(f,CHOOSE(k,SQ,PLUS1),F(2)+1)"
+        );
+        assert_eq!(
+            w("(* 2 (funcall (if c SQ PLUS1) 5))"),
+            "=2*IF(c,SQ,PLUS1)(5)"
+        );
     }
 
     #[test]
@@ -1729,6 +1825,26 @@ mod tests {
         );
         assert_eq!(w_err("(\"sum\" 1)"), "vla-formula-head-not-a-function");
         assert_eq!(w_err("(a-b 1)"), "vla-formula-head-not-a-function");
+        // VLA.17: no function in a `funcall`, or one no formula calls.
+        assert_eq!(w_err("(funcall)"), "vla-formula-arity");
+        assert_eq!(w_err("(funcall 3 4)"), "vla-formula-head-not-a-function");
+        assert_eq!(
+            w_err("(funcall \"sq\" 4)"),
+            "vla-formula-head-not-a-function"
+        );
+        assert_eq!(w_err("(funcall + 1 2)"), "vla-formula-head-not-a-function");
+        assert_eq!(
+            w_err("(funcall (+ a b) 1)"),
+            "vla-formula-head-not-a-function"
+        );
+        assert_eq!(
+            w_err("(funcall (quote (1 2)) 1)"),
+            "vla-formula-head-not-a-function"
+        );
+        assert_eq!(
+            w_err("(funcall (ref \"Data\" \"A1\") 1)"),
+            "vla-formula-head-not-a-function"
+        );
         assert_eq!(
             w_err("(_xlfn.xlookup 1)"),
             "vla-formula-head-not-a-function"
@@ -1810,6 +1926,12 @@ mod tests {
         assert_eq!(r("=LET(x,1,x+1)"), "(let x 1 (+ x 1))");
         assert_eq!(r("=PI()"), "(pi)");
         assert_eq!(r("=#REF!"), "(error \"#REF!\")");
+        // VLA.17: a call in place, a `funcall` of what the call answers.
+        assert_eq!(r("=LAMBDA(x,x)(1)"), "(funcall (lambda (x) x) 1)");
+        assert_eq!(r("=IF(c,SQ,PLUS1)(5)"), "(funcall (if c SQ PLUS1) 5)");
+        assert_eq!(r("=MAKE(3)(4)"), "(funcall (make 3) 4)");
+        assert_eq!(r("=ADD(1)(2)(3)"), "(funcall (funcall (add 1) 2) 3)");
+        assert_eq!(r("=LAMBDA(42)()"), "(funcall (lambda () 42))");
     }
 
     #[test]
@@ -1845,10 +1967,10 @@ mod tests {
             "=IF(A1,,B1)",
             "=_xlfn.XLOOKUP(1,A:A,B:B)",
             "=#SPILL!",
-            "=LAMBDA(x,x)(1)",
             "=Sheet1!#REF!",
             "=CALL(1)",
             "=REF(1)",
+            "=FUNCALL(SQ,1)",
             "=Absolute(A1)",
         ] {
             assert_eq!(r_err(valid), "vla-formula-read-unsupported", "{valid}");
@@ -1917,6 +2039,11 @@ mod tests {
             "=-A1:INDEX(A:A,5)",
             "=A1:INDEX(A:A,5)%",
             "=Data!A1:Data!B2",
+            // VLA.17: calls in place.
+            "=LAMBDA(x,x+1)(5)",
+            "=IF(c,SQ,PLUS1)(5)",
+            "=MAKE(3)(4)(5)",
+            "=2*CHOOSE(k,SQ,PLUS1)(5)+1",
         ] {
             let v = read(text).unwrap();
             assert_eq!(write(&v).unwrap(), text, "{text}");

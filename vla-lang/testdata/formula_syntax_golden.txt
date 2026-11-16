@@ -188,7 +188,8 @@ TEXT	=A1:INDEX(B:B,5)
 === unsupported-a-newer-error
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads the error #SPILL!, and this version's formula syntax does not yet
 === unsupported-a-call-in-place
-REFUSED	vla-formula-read-unsupported	formula text: Excel reads a function called in place, such as LAMBDA(x,x)(1), and this version's formula syntax does not yet
+VLA	(funcall (lambda (x) x) 1)
+TEXT	=LAMBDA(x,x)(1)
 === unsupported-a-broken-reference-behind-a-sheet
 REFUSED	vla-formula-read-unsupported	formula text: Excel reads the broken reference Sheet1!#REF!, and this version's formula syntax does not yet
 === unsupported-a-function-named-like-a-form

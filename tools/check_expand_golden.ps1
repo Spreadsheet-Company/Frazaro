@@ -135,9 +135,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # macro system's a refused case had not reached before.
 # 2026-10-30, VLA.10: 656 cases, 339 expanded, 71 distinct ids, the place a verb
 # writes' 185 written by the port ahead of the reference's run.
-$caseFloor = 656
-$expandedFloor = 339
-$idFloor = 71
+# 2026-11-16, VLA.16 and VLA.17: 686 cases, 354 expanded, 72 distinct ids, an
+# entry's names' 20 and funcall's 10 written by the port ahead of the reference's
+# run, vla-each-entry-shape the one id more.
+$caseFloor = 686
+$expandedFloor = 354
+$idFloor = 72
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',

@@ -150,7 +150,9 @@ refused in the same words.
   `range-expand` give a reference's sheet and its cell or range as the two
   texts `ref` takes, so a macro can write a row at a word, and
   `first-cell-expand` its first cell, a range's top-left, so a verb can twin
-  the cell its fill is written for.
+  the cell its fill is written for. `(funcall f a ...)` calls what `f`
+  answers with its arguments, `(funcall (if c SQ PLUS1) 5)` writing
+  `=IF(c,SQ,PLUS1)(5)`, and the reader reads a call in place back as one.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.

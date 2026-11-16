@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.16"
+Public Const VLA_TESTS_VERSION As String = "VLA.17"
+' VLA.17: TestFormulaFuncall - (funcall f a ...) in the formula syntax, 14
+' pins: a name called by its name, a call, a LAMBDA and a funcall called
+' where they are written, curried calls, no argument, an operand, a LET's
+' name; and its refusals by id: no function, a number, a text, an operator,
+' a sum, an array and a reference. Wired after TestFormulaSyntax.
+'
 ' VLA.16: TestEachNames - an entry's parts named in a loop, 20 pins: each name
 ' bound to its part (cells by address and value, the rows car and cdr wrote;
 ' one name in a list; a part that is a list; the empty list; each-index's count
@@ -608,6 +614,7 @@ Public Function VlaSelfTest() As Boolean
     TestSelfForms
     TestEachNames
     TestFormulaSyntax
+    TestFormulaFuncall
     TestCond
     TestListopsDepthSafety
     TestFormTooDeep
@@ -8668,6 +8675,35 @@ Private Sub TestFormulaSyntax()
         ExpandTrimmed("(formula-expand A1)"), """=A1"""
     CheckV "formula-expand is no argument of &expand", ExpandRefusalId("(&expand (formula-expand A1))"), "vla-expand-arg-is-list"
     CheckV "formula-expand is a reserved name", ExpandRefusalId("(defmacro (formula-expand x) x)"), "vla-defmacro-reserved-name"
+End Sub
+
+' VLA.17: (funcall f a ...) in the formula syntax, what f answers called with
+' its arguments: a name by its name, and a call, a LAMBDA or a funcall where
+' it is written, curried calls one after another; refused by id where there
+' is no function, or one no formula calls. The port's tests hold the same
+' strings (formula_syntax.rs).
+Private Sub TestFormulaFuncall()
+    CheckV "funcall: a name is called by its name", _
+        ExpandTrimmed("(formula-expand (funcall sq 3))"), """=SQ(3)"""
+    CheckV "funcall: a call is called where it is written", _
+        ExpandTrimmed("(formula-expand (funcall (if c SQ PLUS1) 5))"), """=IF(c,SQ,PLUS1)(5)"""
+    CheckV "funcall: and a LAMBDA", _
+        ExpandTrimmed("(formula-expand (funcall (lambda (x) (+ x 1)) 5))"), """=LAMBDA(x,x+1)(5)"""
+    CheckV "funcall: curried, one call after another", _
+        ExpandTrimmed("(formula-expand (funcall (funcall (make 3) 4) 5))"), """=MAKE(3)(4)(5)"""
+    CheckV "funcall: of no argument", _
+        ExpandTrimmed("(formula-expand (funcall (lambda () 42)))"), """=LAMBDA(42)()"""
+    CheckV "funcall: an operand needs no parentheses", _
+        ExpandTrimmed("(formula-expand (* 2 (funcall (if c SQ PLUS1) 5)))"), """=2*IF(c,SQ,PLUS1)(5)"""
+    CheckV "funcall: a LET's name called", _
+        ExpandTrimmed("(formula-expand (let f (choose k SQ PLUS1) (+ (funcall f 2) 1)))"), """=LET(f,CHOOSE(k,SQ,PLUS1),F(2)+1)"""
+    CheckV "funcall: no function", ExpandRefusalId("(formula-expand (funcall))"), "vla-formula-arity"
+    CheckV "funcall: a number is no function", ExpandRefusalId("(formula-expand (funcall 3 4))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor a text", ExpandRefusalId("(formula-expand (funcall ""sq"" 4))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor an operator", ExpandRefusalId("(formula-expand (funcall + 1 2))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor a sum", ExpandRefusalId("(formula-expand (funcall (+ a b) 1))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor an array", ExpandRefusalId("(formula-expand (funcall (quote (1 2)) 1))"), "vla-formula-head-not-a-function"
+    CheckV "funcall: nor a reference", ExpandRefusalId("(formula-expand (funcall (ref ""Data"" ""A1"") 1))"), "vla-formula-head-not-a-function"
 End Sub
 
 ' ---------------------------------------------------------------------

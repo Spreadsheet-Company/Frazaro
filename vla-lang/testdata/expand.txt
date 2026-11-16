@@ -330,6 +330,18 @@ of the prelude moves nothing here.
 (formula-expand (si (> a 1) 1 0))
 === formula-expand-let-and-lambda
 (formula-expand (let x 1 (lambda (y) (+ x y))))
+=== formula-expand-funcall-a-name
+(formula-expand (funcall sq 3))
+=== formula-expand-funcall-a-call-in-place
+(formula-expand (funcall (if c SQ PLUS1) 5))
+=== formula-expand-funcall-a-lambda
+(formula-expand (funcall (lambda (x) (+ x 1)) 5))
+=== formula-expand-funcall-curried
+(formula-expand (funcall (funcall (make 3) 4) 5))
+=== formula-expand-funcall-no-argument
+(formula-expand (funcall (lambda () 42)))
+=== formula-expand-funcall-an-operand
+(formula-expand (* 2 (funcall (if c SQ PLUS1) 5)))
 === formula-expand-type-and-xor-are-excel-s
 (formula-expand (xor (type A1) 1))
 === formula-expand-n-a-before-a-division
@@ -363,6 +375,14 @@ of the prelude moves nothing here.
 (formula-expand &HFF)
 === formula-expand-a-head-no-function-refused
 (formula-expand ((lambda (x) x) 1))
+=== formula-expand-funcall-arity-refused
+(formula-expand (funcall))
+=== formula-expand-funcall-a-number-refused
+(formula-expand (funcall 3 4))
+=== formula-expand-funcall-an-operator-refused
+(formula-expand (funcall + 1 2))
+=== formula-expand-funcall-a-sum-refused
+(formula-expand (funcall (+ a b) 1))
 === formula-expand-a-statement-refused
 (formula-expand (set! x 1))
 === formula-expand-a-vba-form-refused

@@ -20,7 +20,19 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.13.0"
-Public Const VLA_CORE_VERSION As String = "VLA.16"
+Public Const VLA_CORE_VERSION As String = "VLA.17"
+' VLA.17: A FUNCTION CALLED WHERE IT IS WRITTEN. (funcall f a ...) in the
+' formula syntax: what f answers, called with its arguments. A name is
+' called by its name, as (f a ...) is written; a list that writes as a call,
+' a function's, IF's, LET's, a LAMBDA or a funcall, is called where it is
+' written, IF(c,SQ,PLUS1)(5) and LAMBDA(x,x+1)(5); any other, an operator, a
+' literal, a reference or an array, is refused by name (vla-formula-head-
+' not-a-function), since no formula calls it. FsFuncall and FsWritesAsCall,
+' the port's funcall_form and writes_as_call, held to it by the expand
+' golden; the port's reader reads a call in place back as a funcall, which
+' it refused. KERNEL.29's question, whether a function's #VALUE! throws
+' APPLY out: a function stays first-class where one is wanted, and a source
+' can now call one it computes.
 ' VLA.16: AN ENTRY'S PARTS NAMED IN A LOOP. A list of names where a loop's
 ' name stands, (each ((address value) entries) form ...) and (each-index
 ' (index (color name) entries 0) form ...), binds each name to its part of
@@ -7559,8 +7571,8 @@ Private Function FsSheetText(ByVal sheetSpelled As String) As String
 End Function
 
 ' A list: an operator, one of the syntax's own forms (error, ref, last, the
-' three marks, lambda), or a call; a head the head table refuses is refused
-' by name.
+' three marks, lambda, funcall), or a call; a head the head table refuses is
+' refused by name.
 Private Function FsList(v As Variant, ByVal depth As Long) As String
     Dim lst As Object
     Set lst = v
@@ -7619,6 +7631,9 @@ Private Function FsList(v As Variant, ByVal depth As Long) As String
             Exit Function
         Case "quote"
             FsList = FsQuote(lst, headWritten)
+            Exit Function
+        Case "funcall"
+            FsList = FsFuncall(lst, headWritten, depth)
             Exit Function
     End Select
     If FormulaHeadRefused(h) Then VLA_Messages.RaiseMsg "vla-formula-head-refused", "head", headWritten
@@ -8122,6 +8137,55 @@ Private Function FsLambda(lst As Object, ByVal headWritten As String, ByVal dept
         outText = outText & CStr(p) & ","
     Next
     FsLambda = outText & FsText(lst.Item(3), depth + 1) & ")"
+End Function
+
+' (funcall f a ...): what f answers, called with its arguments (VLA.17). A
+' name is called by its name, as (f a ...) is written; a list that writes as
+' a call, a function's, IF's, LET's, a LAMBDA or a funcall, is called where
+' it is written, IF(c,SQ,PLUS1)(5); any other, an operator, a literal, a
+' reference or an array, is refused by name, since no formula calls it.
+Private Function FsFuncall(lst As Object, ByVal headWritten As String, ByVal depth As Long) As String
+    If lst.Count < 2 Then VLA_Messages.RaiseMsg "vla-formula-arity", "head", headWritten, "want", "a function and its arguments", "n", 0
+    Dim f As Variant
+    AssignVar f, lst.Item(2)
+    Dim i As Long, outText As String
+    If IsSym(f) Then
+        Dim named As Variant
+        Set named = New Collection
+        For i = 2 To lst.Count
+            named.Add lst.Item(i)
+        Next
+        If Not FsWritesAsCall(named) Then VLA_Messages.RaiseMsg "vla-formula-head-not-a-function", "head", WriteDatum(f)
+        FsFuncall = FsList(named, depth)
+        Exit Function
+    End If
+    If Not FsWritesAsCall(f) Then VLA_Messages.RaiseMsg "vla-formula-head-not-a-function", "head", WriteDatum(f)
+    outText = FsText(f, depth + 1) & "("
+    For i = 3 To lst.Count
+        If i > 3 Then outText = outText & ","
+        outText = outText & FsText(lst.Item(i), depth + 1)
+    Next
+    FsFuncall = outText & ")"
+End Function
+
+' Whether a list writes as a call, NAME(...), which a formula may call where
+' it is written (VLA.17): no operator, sign or percent, and none of the
+' syntax's forms that write a value, a reference or an array.
+Private Function FsWritesAsCall(v As Variant) As Boolean
+    If Not IsList(v) Then Exit Function
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    Dim h As String
+    h = FsCanonicalHead(VLA_Identity.Fold(CStr(lst.Item(1))))
+    If h = "%" Then Exit Function
+    If FsBinaryLevel(h) > 0 Then Exit Function
+    Select Case h
+        Case "error", "ref", "last", "absolute", "absolute-row", "absolute-column", "quote"
+            Exit Function
+    End Select
+    FsWritesAsCall = True
 End Function
 
 Private Function FsIsStringAtom(v As Variant) As Boolean

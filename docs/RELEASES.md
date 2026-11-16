@@ -41,6 +41,13 @@
   shown: `each: the names (address value) read each entry as a list of 2, a
   part for each name, and the entry ("A1") is a list of 1`. A loop of one
   name writes what it wrote (VLA.16).
+- **A function called where it is written.** `(funcall f a ...)` in the
+  formula syntax calls what `f` answers with its arguments, as Lisp's
+  `funcall` does: `(funcall (if c SQ PLUS1) 5)` writes `=IF(c,SQ,PLUS1)(5)`,
+  `(funcall (lambda (x) (+ x 1)) 5)` writes `=LAMBDA(x,x+1)(5)`, and a name
+  is called by its name, as `(f a)` is written. Anything no formula calls, an
+  operator, a number or a reference, is refused by name. The reader reads a
+  call in place back as a `funcall`, where it refused one (VLA.17).
 
 ## 0.13.0
 
