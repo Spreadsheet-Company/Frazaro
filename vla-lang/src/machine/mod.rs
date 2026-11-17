@@ -169,6 +169,7 @@ use crate::calc::{
 use crate::form::Form;
 use crate::fx::FxHashMap;
 use crate::grid::{self, text_of, Cells, Constant, Formula, Holds, Kind, Masters, Model};
+use crate::intrinsics::fold;
 use crate::messages::{raise, Refusal};
 use crate::projection::Window;
 use crate::reader::{each_form, read_forms};
@@ -195,7 +196,7 @@ pub const CELLS: usize = 1_048_576;
 pub const HANDLES: usize = 16;
 
 /// The rows a write takes, as `grid-row-unknown` lists them.
-pub const WRITE_ROWS: &str = "cell, formula and derived";
+pub const WRITE_ROWS: &str = "cell, formula, derived and name";
 
 /// The value cells a grid keeps room for as written between two frames
 /// (KERNEL.20), so that an engine's write of its Clock at every step makes
@@ -656,6 +657,32 @@ struct Log {
     /// cells that added (KERNEL.58's *Found* 15).
     planned: Vec<(usize, Option<A1Range>)>,
     rule_cells: usize,
+    /// What the write's `name` rows changed (KERNEL.29's third slice), none
+    /// for a write of no name.
+    named: Option<Box<Named>>,
+}
+
+/// What a write's `name` rows changed (KERNEL.29's third slice), boxed in its
+/// log, so that a write carries one word for it, a word on the stack beneath
+/// the placement's parse, which `VLA.1`'s limits pin on a stack of 1 MiB:
+/// each name by its place among the grid's names, with what the place held
+/// before, none where the write added the name, which an undo puts back; the
+/// line of the first such row; the names changed, folded and bare; and the
+/// shapes reading them, read again at the placement.
+#[derive(Default)]
+struct Named {
+    places: Vec<(usize, Option<(String, String)>)>,
+    line: u32,
+    keys: BTreeSet<String>,
+    stale: BTreeSet<usize>,
+}
+
+/// No shape to read again: a write of no name's.
+static NO_SHAPES: BTreeSet<usize> = BTreeSet::new();
+
+/// The shapes a write's names leave to read again at the placement.
+fn stale_of(log: &Log) -> &BTreeSet<usize> {
+    log.named.as_ref().map_or(&NO_SHAPES, |n| &n.stale)
 }
 
 impl Machine {
@@ -2020,8 +2047,12 @@ impl Machine {
     /// which (KERNEL.42); `fills` for what a save prints, the load reading
     /// it as the grid, each fill's `formula` row once over each of its
     /// rectangles and each kind of the other rows a cell prints over ranges
-    /// (KERNEL.49, KERNEL.72); or `plane` for a byte a cell. `window` `None`
-    /// is the sheet's extent, as the machine keeps it.
+    /// (KERNEL.49, KERNEL.72); `plane` for a byte a cell; or `names` for the
+    /// grid's defined names, which no sheet holds, each the `name` row a load
+    /// reads, in the order the grid keeps them, the sheet and the window
+    /// asked not read (KERNEL.29's third slice), which a save prints beside
+    /// every sheet's `fills`. `window` `None` is the sheet's extent, as the
+    /// machine keeps it.
     pub fn view(
         &self,
         projection: &str,
@@ -2030,6 +2061,7 @@ impl Machine {
     ) -> Result<Viewed, Refusal> {
         let kept = Some(self as &dyn Values);
         match projection {
+            "names" => Ok(Viewed::Text(self.names_text())),
             "grid" => {
                 let w = window_over(self, sheet, window, kept)?;
                 Ok(Viewed::Text(record_text(self, &w, kept, true)))
@@ -2073,6 +2105,21 @@ impl Machine {
             }
             other => Err(raise("view-projection-unknown", &[("name", other)])),
         }
+    }
+
+    /// The `names` view (KERNEL.29's third slice): each of the grid's names
+    /// as a load reads it, its spelling and its text as held, a load's and a
+    /// write's, so that a save loads the names it printed.
+    fn names_text(&self) -> String {
+        let mut text = String::new();
+        for (name, refers) in &self.book.defined_names {
+            text.push_str(&format!(
+                "(name {} {})\n",
+                crate::rows::quoted(name),
+                crate::rows::quoted(refers)
+            ));
+        }
+        text
     }
 
     /// A window's changes (KERNEL.42): the cells whose rows in the window's
@@ -2161,8 +2208,10 @@ impl Machine {
     // ---- the write ------------------------------------------------------
 
     /// Rows written, one a line: `cell`, `formula` or `derived`, each over
-    /// a cell or a range, applied in order; the cells changed counted. A
-    /// refused row changes nothing, the rows before it undone with it.
+    /// a cell or a range, and `name`, a defined name's text (KERNEL.29's
+    /// third slice), applied in order; the cells changed and the names
+    /// written counted. A refused row changes nothing, the rows before it
+    /// undone with it.
     pub fn write(&mut self, text: &str) -> Result<usize, LineRefusal> {
         if let Some(done) = self.progress {
             return Err(LineRefusal {
@@ -2186,6 +2235,9 @@ impl Machine {
             let line = form.as_list().map(|l| l.line).unwrap_or(0);
             return Err(load::malformed(line, form, ""));
         };
+        if head == "name" {
+            return self.put_name(form, items, line, log);
+        }
         if !matches!(head, "cell" | "formula" | "derived") {
             return Err(load::unknown(line, head, WRITE_ROWS));
         }
@@ -2267,6 +2319,108 @@ impl Machine {
             (Some(value), _) => self.put_values(si, range, &value.content(), line, log),
             (None, Form::Str(text)) => self.put_formula(si, range, &text[1..], kind, line, log),
             (None, _) => Err(load::malformed(line, form, head)),
+        }
+    }
+
+    /// A `name` row written (KERNEL.29's third slice), read as a load reads
+    /// one: the name defined, or its text replaced where the grid holds it
+    /// already, by its spelling without case; a text it holds already is not
+    /// written, as a formula's own text is not (KERNEL.70). The settle reads
+    /// the grid's names again and plans again every shape that reads it.
+    fn put_name(
+        &mut self,
+        form: &Form,
+        items: &[Form],
+        line: u32,
+        log: &mut Log,
+    ) -> Result<(), LineRefusal> {
+        let [Form::Str(name), Form::Str(text)] = items else {
+            return Err(load::malformed(line, form, "name"));
+        };
+        if name.is_empty() || text.is_empty() {
+            return Err(load::malformed(line, form, "name"));
+        }
+        let key = fold(name);
+        let names = &mut self.book.defined_names;
+        let place = match names.iter().position(|(held, _)| fold(held) == key) {
+            Some(k) if names[k].1 == *text => return Ok(()),
+            Some(k) => {
+                let old = std::mem::replace(&mut names[k], (name.clone(), text.clone()));
+                (k, Some(old))
+            }
+            None => {
+                names.push((name.clone(), text.clone()));
+                (names.len() - 1, None)
+            }
+        };
+        let named = log.named.get_or_insert_with(Box::default);
+        if named.places.is_empty() {
+            named.line = line;
+        }
+        named.places.push(place);
+        log.written += 1;
+        Ok(())
+    }
+
+    /// The grid's names read again after a write changed them (KERNEL.29's
+    /// third slice): the names the evaluator resolves and the named
+    /// functions the inlining writes in, as a load of the grid reads them.
+    fn names_moved(&mut self) {
+        self.names = Names::of_model(&self.book);
+        self.shapes.functions_again(&self.book);
+    }
+
+    /// The names a write changed, folded and bare (KERNEL.29's third slice):
+    /// each place's name as it stands, which is the name as it stood, since a
+    /// name written over keeps its place and changes its spelling in case
+    /// alone.
+    fn names_written(&self, named: &Named) -> BTreeSet<String> {
+        named
+            .places
+            .iter()
+            .filter_map(|(k, _)| self.book.defined_names.get(*k))
+            .map(|(printed, _)| fold(crate::calc::graph::split_scope(&self.book, printed).1))
+            .collect()
+    }
+
+    /// Every shape reading a name of `keys`, with the grid's names as they
+    /// now stand (KERNEL.29's third slice), to be read again at the next
+    /// placement; and its cells, which the write changes as a formula written
+    /// over with its own text changes them.
+    fn names_readers(&self, keys: &BTreeSet<String>) -> (BTreeSet<usize>, Vec<CellId>) {
+        let shapes = self.shapes.readers_of(&self.book, keys);
+        let cells = self.shapes.cells_of(&shapes);
+        (shapes, cells)
+    }
+
+    /// The settle's names (KERNEL.29's third slice), in a frame of its own,
+    /// so that nothing of them stands on the stack beneath the placement and
+    /// the plan: the grid's names read again, every shape reading a name the
+    /// write changed, through other names too, kept to be read again at the
+    /// placement, and its cells changed as a formula written over with its own
+    /// text changes them, planned again, their values forgotten and computed
+    /// at the next frame.
+    #[inline(never)]
+    fn names_settle(&mut self, log: &mut Log) {
+        let Some(named) = log.named.as_mut() else {
+            return;
+        };
+        named.keys = self.names_written(named);
+        self.names_moved();
+        let (shapes, cells) = self.names_readers(&named.keys);
+        named.stale = shapes;
+        for id in cells {
+            log.changed.entry(id).or_insert(named.line);
+        }
+    }
+
+    /// A refused write's readers read again under the names its undo put
+    /// back (KERNEL.29's third slice), in a frame of its own as the settle's
+    /// names are.
+    #[inline(never)]
+    fn names_refused(&mut self, log: &mut Log) {
+        if let Some(named) = log.named.as_mut() {
+            named.stale = self.names_readers(&named.keys).0;
         }
     }
 
@@ -2656,6 +2810,19 @@ impl Machine {
             self.planned[k].area = area;
         }
         self.rule_cells -= log.rule_cells;
+        // Each name as the write found it (KERNEL.29's third slice), and the
+        // grid's names read again from them.
+        if let Some(named) = &log.named {
+            for (k, old) in named.places.iter().rev() {
+                match old {
+                    Some(held) => self.book.defined_names[*k] = held.clone(),
+                    None => {
+                        self.book.defined_names.remove(*k);
+                    }
+                }
+            }
+            self.names_moved();
+        }
     }
 
     /// Each rule planned inside its sheet's extent planned as far as the write has
@@ -2721,6 +2888,11 @@ impl Machine {
     /// a write's time, and what the next frame needs of the old plan is taken
     /// first (KERNEL.69).
     fn settle(&mut self, mut log: Log) -> Result<usize, LineRefusal> {
+        // A name a row wrote (KERNEL.29's third slice): its readers read again
+        // at the placement below.
+        if log.named.is_some() {
+            self.names_settle(&mut log);
+        }
         if log.changed.is_empty() {
             return Ok(log.written);
         }
@@ -2754,7 +2926,8 @@ impl Machine {
             let again: BTreeSet<CellId> =
                 log.changed.keys().chain(&log.released).copied().collect();
             let again: Vec<CellId> = again.into_iter().collect();
-            self.shapes.replace_many(&self.book, &again, &self.library);
+            self.shapes
+                .replace_many(&self.book, &again, &self.library, stale_of(&log));
             self.shapes
                 .plan_model(&self.book, &self.names, &self.extents);
             let placed: Vec<CellId> = log
@@ -2775,7 +2948,11 @@ impl Machine {
                 };
                 self.undo(&log);
                 self.carried.truncate(carried_before);
-                self.shapes.replace_many(&self.book, &again, &self.library);
+                if log.named.is_some() {
+                    self.names_refused(&mut log);
+                }
+                self.shapes
+                    .replace_many(&self.book, &again, &self.library, stale_of(&log));
                 self.shapes
                     .plan_model(&self.book, &self.names, &self.extents);
                 return Err(LineRefusal { line, refusal });
@@ -2784,6 +2961,20 @@ impl Machine {
             // a plan made again moves none, where it moved each to its cell's
             // new position in the order (KERNEL.26).
         }
+        Ok(self.settled(&log, formula_changed, &parts_kept))
+    }
+
+    /// The settle's tail, once the plan stands: the twins remembered, the
+    /// indexes, the cells counted, the room, the extents, the stores, the
+    /// planes and the twins kept; the count written. In a frame of its own, so
+    /// that none of its locals stands on the stack beneath the placement and
+    /// the plan, whose depth in a deep formula `VLA.1`'s limits pin on a stack
+    /// of 1 MiB: the settle grown by a write's names took the last of that
+    /// stack at the optimization a crate's user builds by default, the
+    /// strangers' deepest write overflowing its thread now and then (KERNEL.29's
+    /// third slice).
+    #[inline(never)]
+    fn settled(&mut self, log: &Log, formula_changed: bool, parts_kept: &[PartsKept]) -> usize {
         // Each changed cell's twin as the last frame's end left it, kept
         // until the next end (KERNEL.49), read off its slot before the slot
         // is written.
@@ -2815,7 +3006,7 @@ impl Machine {
             self.reshaped = true;
             let parts = std::mem::take(&mut self.parts);
             self.fit();
-            self.parts_carried(&parts_kept, parts);
+            self.parts_carried(parts_kept, parts);
             // Past the room a frame's end keeps for its changes, marking each
             // costs what a whole frame costs.
             if log.changed.len() + self.carried.len() > self.room {
@@ -2901,7 +3092,7 @@ impl Machine {
         if formula_changed {
             self.keep_twins();
         }
-        Ok(log.written)
+        log.written
     }
 
     /// The twin cells the last frame's end changed, taken to their places
@@ -4504,7 +4695,7 @@ mod tests {
         let e = m.write("(sheet \"Board\" visible)").unwrap_err();
         assert_eq!(e.refusal.id, "grid-row-unknown");
         assert!(
-            e.refusal.text.contains("cell, formula and derived"),
+            e.refusal.text.contains("cell, formula, derived and name"),
             "{}",
             e.refusal.text
         );

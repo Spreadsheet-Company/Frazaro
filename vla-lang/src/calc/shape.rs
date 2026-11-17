@@ -50,7 +50,7 @@
 //! and its block. The plan of every cell it was stays as the tests'
 //! reference (`reference`), the order by blocks held to it cell for cell.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::fx::FxHashMap;
 use crate::grid::{Formula, Kind, Masters, Model};
@@ -210,9 +210,9 @@ pub struct Shapes {
     /// `stretches[stretch_firsts[s]..stretch_firsts[s + 1]]`.
     stretches: Vec<(u32, u32)>,
     stretch_firsts: Vec<u32>,
-    /// The grid's named functions (KERNEL.29), read once at the plan's
-    /// first placement, which every shape's inlining writes in: a machine's
-    /// names are its load's.
+    /// The grid's named functions (KERNEL.29), read at the plan's first
+    /// placement, which every shape's inlining writes in, and read again
+    /// when a write changes a name (its third slice).
     functions: Option<Functions>,
 }
 
@@ -313,12 +313,16 @@ impl Shapes {
     /// once for all its cells (KERNEL.34: Life's rule written whole walked
     /// its sheet 62,964 times, 3.96 billion cells visited, in 13.3 s); then
     /// the plan made the one a load of the same grid makes
-    /// ([`Shapes::as_loaded`]). The order waits for the plan.
+    /// ([`Shapes::as_loaded`]), the shapes of `stale` read again from their
+    /// texts though no cell of theirs moved: those reading a name the write
+    /// changed (KERNEL.29's third slice), whose calls the inlining writes in
+    /// again. The order waits for the plan.
     pub(crate) fn replace_many<M: Model + ?Sized>(
         &mut self,
         model: &M,
         ids: &[CellId],
         library: &Library,
+        stale: &BTreeSet<usize>,
     ) {
         for id in ids {
             if let Some(m) = self.located.alone.get_mut(id.0) {
@@ -340,7 +344,7 @@ impl Shapes {
                 }
             }
         }
-        self.as_loaded(model, library);
+        self.as_loaded(model, library, stale);
     }
 
     /// A placed cell's shape as the grid now holds it: a fill's by its
@@ -369,7 +373,12 @@ impl Shapes {
     /// shape of its first cell even when that cell had been written over,
     /// and kept a shape no cell held, so that the census after a write was
     /// numbered and anchored otherwise than a load's.
-    fn as_loaded<M: Model + ?Sized>(&mut self, model: &M, library: &Library) {
+    fn as_loaded<M: Model + ?Sized>(
+        &mut self,
+        model: &M,
+        library: &Library,
+        stale: &BTreeSet<usize>,
+    ) {
         // Each shape's first cell, the least of its cells, found in one pass
         // over its nodes: a fill's pieces and the formulas alone.
         let mut first: Vec<Option<CellId>> = vec![None; self.shapes.len()];
@@ -420,6 +429,7 @@ impl Shapes {
             };
             if anchor != shape.anchor
                 || (raw != shape.text && strip_future_prefixes(raw) != shape.text)
+                || stale.contains(&s)
             {
                 again.push((s, anchor, strip_future_prefixes(raw)));
             }
@@ -1049,6 +1059,62 @@ impl Shapes {
         self.functions.as_ref()?.resolve(name, home)
     }
 
+    /// The grid's named functions read again from its names as they now
+    /// stand (KERNEL.29's third slice), after a write changed one: a call
+    /// kept as a call resolves through them at once, and a shape read again
+    /// inlines them.
+    pub(crate) fn functions_again<M: Model + ?Sized>(&mut self, model: &M) {
+        self.functions = Some(Functions::of_model(model));
+    }
+
+    /// The shapes whose texts read a name of `written`, folded and bare, or a
+    /// name whose text reads one, through other names to the last
+    /// (KERNEL.29's third slice): each writes the names' calls in, or reads
+    /// what a name refers to, as the grid's names now say.
+    pub(crate) fn readers_of<M: Model + ?Sized>(
+        &self,
+        model: &M,
+        written: &BTreeSet<String>,
+    ) -> BTreeSet<usize> {
+        let mut keys = written.clone();
+        loop {
+            let mut grew = false;
+            for (printed, text) in model.defined_names() {
+                let (_, bare) = super::graph::split_scope(model, printed);
+                let key = crate::intrinsics::fold(bare);
+                if !keys.contains(&key) && reads_names(&strip_future_prefixes(text), &keys) {
+                    keys.insert(key);
+                    grew = true;
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+        self.shapes
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| reads_names(&s.text, &keys))
+            .map(|(k, _)| k)
+            .collect()
+    }
+
+    /// Every formula cell of some shapes, each fill's piece and each formula
+    /// alone walked once.
+    pub(crate) fn cells_of(&self, shapes: &BTreeSet<usize>) -> Vec<CellId> {
+        let mut cells = Vec::new();
+        self.each_node(&mut |sheet, rect, shape| {
+            if shapes.contains(&shape) {
+                for row in rect.top..=rect.bottom {
+                    for col in rect.left..=rect.right {
+                        cells.push((sheet, row, col));
+                    }
+                }
+            }
+        });
+        cells
+    }
+
     /// One formula cell evaluated against the grid as `env` shows it, the
     /// cell being computed being `env.here()`.
     pub fn evaluate(&self, env: &dyn Env, library: &Library, id: CellId) -> Computed {
@@ -1227,6 +1293,28 @@ impl Shapes {
         };
         Some((id, formula::unread_refusal(&spell_at(model, id), &label)))
     }
+}
+
+/// Whether a formula's text, or a name's, reads or calls a name of `keys`,
+/// each folded and bare (KERNEL.29's third slice): by its parse where its
+/// text holds one of them at all, a name a `LET` or a `LAMBDA` binds being
+/// none of the grid's; a text that does not parse taken to read it.
+pub(crate) fn reads_names(text: &str, keys: &BTreeSet<String>) -> bool {
+    let folded = crate::intrinsics::fold(text);
+    if !keys.iter().any(|k| folded.contains(k.as_str())) {
+        return false;
+    }
+    let Ok(e) = formula::parse(text) else {
+        return true;
+    };
+    let mut reads = false;
+    e.each_read(&mut |r| {
+        if let formula::Read::Name { name, .. } = r {
+            reads |= keys.contains(&*crate::intrinsics::fold(name));
+        }
+    });
+    e.each_call(&mut |name| reads |= keys.contains(&*crate::intrinsics::fold(name)));
+    reads
 }
 
 /// Whether a formula's text holds a reference that a move may leave a text the

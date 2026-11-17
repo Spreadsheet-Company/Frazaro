@@ -8,7 +8,7 @@
 //! Field, loaded after the board's own rows; each loaded into the machine
 //! under Excel's library inside a counting allocator, and stepped twice; and
 //! since `KERNEL.72` its save printed, every sheet's fills as a host prints
-//! them and since `KERNEL.29` the names its load was given, and loaded again.
+//! them and since `KERNEL.29` the grid's names, and loaded again.
 //!
 //! ```text
 //! cargo run --release -p frazaro-core --example memory               # every fixture, the baseline rows
@@ -244,15 +244,17 @@ struct Saved {
     ms: f64,
 }
 
-/// A machine's save as a host prints it, weighed: the names its load was
-/// given, which a host keeps since no view prints a defined name (Alonzo's
-/// save writes its loaded text's name rows after the fills, its `ENGINE.5`;
-/// the view record's `name` rows are `KERNEL.29`'s third slice's), then every
-/// sheet's fills; and a load from it under Excel's library.
-fn weigh_save(m: &Machine, names: &str, name: &str) -> Result<Saved, String> {
+/// A machine's save as a host prints it, weighed: the grid's names, its
+/// `names` view (`KERNEL.29`'s third slice), then every sheet's fills; and a
+/// load from it under Excel's library.
+fn weigh_save(m: &Machine, name: &str) -> Result<Saved, String> {
     let held = live();
     reset();
-    let mut save = String::from(names);
+    let mut save = match m.view("names", "", None) {
+        Ok(Viewed::Text(t)) => t,
+        Ok(_) => return Err(format!("{name}: the names are no text")),
+        Err(r) => return Err(format!("{name}: the names: {}", r.text)),
+    };
     for i in 0..m.sheets() {
         let Some(sheet) = m.sheet_name(i) else {
             continue;
@@ -289,12 +291,6 @@ fn weigh_save(m: &Machine, names: &str, name: &str) -> Result<Saved, String> {
 fn weigh(p: &Prepared) -> Result<Weighed, String> {
     let name = &p.name;
     let library = excel::library();
-    let names: String = p
-        .rows
-        .lines()
-        .filter(|line| line.starts_with("(name "))
-        .map(|line| format!("{line}\n"))
-        .collect();
     let base = live();
     reset();
     let mut m = Machine::load(&p.rows, library).map_err(|e| {
@@ -313,7 +309,7 @@ fn weigh(p: &Prepared) -> Result<Weighed, String> {
     let formulas = m.formulas().0;
     let held = live() - base;
     let peak = peak() - base;
-    let save = weigh_save(&m, &names, name)?;
+    let save = weigh_save(&m, name)?;
     drop(m);
     if formulas == 0 {
         return Err(format!("{name}: no formula loaded"));

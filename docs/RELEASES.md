@@ -48,6 +48,18 @@
   out, each one's frames within 15% of the other's, where Excel 365 takes
   4.6 times as long through the names (KERNEL.29, its second slice).
 
+- **A grid's names, viewed and written.** An engine's `names` view prints
+  each defined name the grid holds as the `name` row a load reads, so that a
+  save of a grid's sheets and its names loads the grid it printed, its names
+  among it. A write takes a `name` row, defining a name or replacing its
+  text: every formula reading the name, directly or through another name, is
+  planned again and computed at the next frame, as a load of the written grid
+  would plan and compute it, the formulas that read no such name left alone.
+  A text the name holds already writes nothing, and a name that would leave
+  the grid unable to compute, a cell reading itself through it or a function
+  calling one no library holds, is refused as a load refuses it and changes
+  nothing (KERNEL.29, its third slice).
+
 - **A loop names an entry's parts.** A list of names where a loop's name
   stands, `(each ((address value) entries) (cell sheet address value))`,
   binds each name to its part of the entry, and `each-index` takes the same

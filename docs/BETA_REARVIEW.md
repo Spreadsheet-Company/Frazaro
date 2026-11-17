@@ -45862,6 +45862,214 @@ Committed `def270b` at the owner's word, "If everything looks good, then commit 
   done. The item stays open for slice 3, the view record's `name` rows and sheet-defined functions,
   after a design sitting of their own.
 
+*Slice 3's sitting, 2026-11-16, at the owner's word ("Proceed with slice 3"): the view record's `name`
+rows and sheet-defined functions. For the owner's decisions; nothing built.*
+- *What stands.*
+  - A load takes `name` rows; no view prints one, and a write refuses one as a row it does not know
+    (`Machine::write_row` takes `cell`, `formula` and `derived`). A name is fixed at the load, and a save
+    made of views loses every name: Alonzo's host appends the `name` rows of the text it loaded
+    (`ENGINE.5`'s `saveText`), and the floors' memory runner does the same since the second slice. A
+    name a person wrote could be saved by neither.
+  - The owner's sitting of 2026-10-10 (Alonzo's `docs/ALGEBRA.md` §10.5): "A function whose body is a
+    sheet, with input cells and an output cell, compiled at load ... viewable by `AD-6`, pure, and no
+    program-time `eval` by `AD-7`."
+  - Alonzo's `CART.9.3` asks for it and leaves its owner "a chip as the room itself, called where it
+    stands, or as a named function written from the room's gates when it passes". It depends on a named
+    `LAMBDA` or this sitting's function of cells, on the record's `name` rows for a chip's insides
+    shown, on a person's chip entering by a person's write (`AD-7`), and on the Gates sheet reading a
+    call by its text, which slice 1 holds.
+- *The reference case,* Naught's VIII SUMMA, a full adder: switches `A3:A5`, the outputs `J3` and `J4`,
+  and a person's gates between, the stand-in's `C3 =MOD(A3+A4,2)`, `C4 =A3*A4`, `C5 =C3*A5`,
+  `J3 =MOD(C3+A5,2)` and `J4 =MAX(C4,C5)`. As a chip: `SUMMA(a,b,c)` the sum and `SUMMACARRY(a,b,c)` the
+  carry, each a function of the three switches whose body is the room.
+- *The fork, what a function of cells is to the engine:* four designs, each priced by what the second
+  slice measured.
+  1. *Compiled to a named function, at the load and at a write to its body.* Each output's formula is
+     written out through the room's cells, a `LET` binding for each gate it reaches, a parameter for each
+     input and a reference kept for any other cell: `SUMMA` is
+     `LAMBDA(_A3,_A4,_A5,LET(_C3,MOD(_A3+_A4,2),MOD(_C3+_A5,2)))`. From there it is a named function,
+     inlined into each calling shape, computed by `Calc` and the machine alike, and written to a file as
+     a `LAMBDA` Excel computes. It costs what its gates written out cost, which the second slice holds:
+     scattered calls keep their premium, 9 times the filled adder's load and 2.6 times its edit's frame.
+     `~days`.
+  2. *A body planned once, each call computing it at the call's arguments.* A call's shape holds the
+     call alone, never the body, so a large chip called at many places is planned once and the premium
+     of scattered calls shrinks with the body's size (reasoned, not measured). It needs a call the frame
+     computes, the body's values kept a call at a time, its dependencies the arguments', and for a file
+     the first design beside it. `~weeks`, its own item: the second slice's *Found*.
+  3. *No function of cells: a chip a named `LAMBDA` a person or a host writes.* Nothing in the language
+     but the `name` rows; the room is left a drawing of the chip, and the two can disagree. No formula
+     composes a text without `EVALUATE` (`AD-1`, `AD-7`), so each game composes it in its host. `~day`
+     here, the work moved into every game.
+  4. *At expand time only.* A source's macro writes the `LAMBDA` from a room it describes. That serves
+     an author's kit, but a room a person writes at a step is out of its reach, so it does not serve
+     `CART.9.3`.
+  *Recommended at first:* 1, the owner's sitting of 2026-10-10 as it stands, 2 later under the same row.
+- *The owner's two questions at the sitting, 2026-11-16:* "Should KERNEL.55 be built before slice 3 of
+  KERNEL.29?" and "would option 2 'body planned once' not reap enough dividends down the line to justify
+  the higher upfront development cost now?"
+  - *`KERNEL.55` first: no.* The slice needs no spill: a function an output answers one value. The row
+    can name an output of many cells now, `(function "SUMMA" "VIII SUMMA" "A3:A5" "J3:J4")`, whose
+    function answers an array that a call picks with `INDEX` until `KERNEL.55` spills it, so no row is
+    rewritten. `KERNEL.55` is `~weeks`, unscoped, with saves of its own and `AD-7`'s question of a spill
+    whose extent moves with its values; Alonzo's page spills nothing yet (`CART.9`'s *Found*).
+  - *The second design, measured* (a probe never committed, release, over `ca20f20`: 8,192 calls of a
+    named `LAMBDA` of two parameters, each call reading its own row, by fill or each call at a shuffled
+    place, the median of three rounds):
+
+    | body | by fill: held, load, a whole frame | at scattered places: held, load, a whole frame |
+    |---|---|---|
+    | 4 gates in series (`LET`) | 0.51 MB, 11 ms, 0.34 ms | 33 MB, 196 ms, 0.42 ms |
+    | 16 gates in series | 0.54 MB, 14 to 25 ms, 2.7 ms | 126 MB, 1.6 to 2.2 s, 1.7 to 2.6 ms |
+    | 24 gates in series | 0.55 MB, 13 to 19 ms, 2.5 ms | 173 MB, 1.5 to 2.8 s, 82 to 147 ms |
+    | 256 gates side by side | 1.3 MB, 22 to 30 ms, 27 to 43 ms | 3.6 GB, 22 to 54 s, 32 ms |
+
+    - Each call at a place of its own is a shape holding the body written in, about 1 KB a gate a call,
+      so its bytes and its load grow with the body times the calls; a fill is one shape whatever its
+      calls.
+    - Past about 20 gates in series a call's formula is too deep for a program: at 24, 5,973 shapes of
+      6,041 are `(unlowered deep)` in the census, computed by `Ctx` at every cell, 30 times the frame.
+      A room's gates written into one formula make that depth; written as cells, each gate is shallow.
+    - The second design holds the body once and computes a call gate by gate, so it pays none of the
+      three; and a write to a body plans the body again, never every shape calling it.
+    - It does not replace the first. A file holds a function as the `LAMBDA` Excel computes, which is
+      the first design's compile; the second needs an oracle, which the first's inlining is at every
+      cell; and in a fill the inlining is the fast road, the named adder's frames those written out
+      where Excel's calls take 4.6 times as long (the second part's paste).
+  - *Recommended now:* both, in order: 3a the names, 3b the first design, 3c the second for a call at a
+    cell alone, the inlining kept for fills, held to 3b at every cell. The client is `CART.9.3`, whose
+    later chips are adders of adders placed where a person puts them. `~weeks` for 3c.
+- *The decisions, the owner's:*
+  1. *The form:* the fork above. *Recommended:* the first, then the second in this item, as the owner's
+     two questions found.
+  2. *Many outputs*, a full adder's sum and carry, where a function answers one value: (a) a function an
+     output, each named by its own row; (b) one function answering its outputs as an array, a call
+     picking one with `INDEX`, which the inlining folds at a constant; (c) an argument naming the
+     output. *Recommended:* (a): a chip's output is one gate in the grid, and (b) is one gate only once a
+     spill is (`KERNEL.55`).
+  3. *The row:* (a) `(function "SUMMA" "VIII SUMMA" "A3:A5" "J3")`, the function's name, its sheet, its
+     inputs read row by row as its parameters, and its output, a cell or a range answered as an array
+     (above); (b) a `name` row whose meaning is cells,
+     `(name "SUMMA" (cells "VIII SUMMA" "A3:A5" "J3"))`. *Recommended:* (a), a noun beside `cell`,
+     `formula` and `name` that reads aloud as it means. This is the sitting's one-way door, a row a
+     cartridge writes.
+  4. *A name written on a person's act:* a write takes `name` rows, planning again every shape that
+     reads the name, through other names' calls too, as a formula's write plans its own shape; and a
+     write to a function's body compiles it again the same way. *Recommended:* yes, in this slice: a
+     body edited at a step needs it, and so does a name a person edits.
+  5. *Where names show:* (a) a projection of their own, `names`, the grid's `name` and `function` rows,
+     which a save prints beside every sheet's `fills`; (b) in every sheet's record; (c) no view, a host
+     keeping the rows it loaded. *Recommended:* (a): `grid`, `values` and `fills` print as they did, so
+     no golden moves, and a function's compiled `LAMBDA` is derived, printed by no save.
+  6. *A body that does not compile* (a cycle in the room, a range over its inputs, a construct no
+     inlining takes): (a) its calls `#CALC!`, the census saying why; (b) `#NAME?`; (c) the write that
+     breaks it refused. *Recommended:* (a): a person's gate is never refused for a chip it breaks
+     elsewhere; a row naming a sheet or a cell that is not there is refused at the load, by name.
+  7. *A file:* (a) the doors refuse a `function` row by name in this slice, a later one writing each as
+     the `LAMBDA` Excel computes with its row kept beside it; (b) both now. *Recommended:* (a): the
+     client is a cartridge's rows, and Excel has no function of cells to read one back as.
+- *What a person views of a call (`AD-6`):* the room is its function's view, computing at its own
+  switches. A call's inside values are held nowhere, being written into the calling formula, so `AD-6`
+  holds with nothing added. A view of a call's inside at its own arguments is a *Found*, not minted.
+- *The slices.* 3a, the names: the `names` projection, `name` rows in a write, the floors' memory
+  runner saving through the projection. 3b, the functions: the `function` row, its compile at the load
+  and at a write to its body, `#CALC!` for a body that does not compile, and the projection's `function`
+  rows. `~days` each. 3c, a body planned once: a call at a cell alone computing its function's body
+  gate by gate, the reach following its arguments, held to 3b; its own fine scoping. `~weeks`.
+- *Oracles.* 3a: the write law, a grid written a name and stepped equal to a load of the written grid
+  (`KERNEL.34`'s, over generated grids with names); a save through the projection loading to the grid
+  that printed it; a name's write planning again its readers alone, by the census. 3b: a function's
+  census and values those of its `LAMBDA` written by hand, over generated rooms, row for row but the
+  texts; a write to a body equal to a load of the written grid; VIII SUMMA's room as a chip held to the
+  full adder's truth table at every input; Alonzo's suite and Buffet's over the language by a path. No
+  Excel save: Excel holds no function of cells, and its names are slice 1's.
+- *Predictions.* No grid without a name or a function moves a byte, a golden or a floor. A name's write
+  costs a formula's write over the shapes reading it (`KERNEL.69`: a gate of Naught's 1.3 to 1.7 ms with
+  its frames); a function's compile walks its body once.
+- *Found, not minted:* a view of a call's inside at its own arguments; a name deleted by a write; a body
+  reading a range across its inputs; a `LET` of more than about 20 bindings in series written by hand at
+  a cell alone falls off the program as an inlined chip does, which bindings lowered as registers in turn
+  would keep; and a call kept as a call, a recursion's or a helper's `LAMBDA`, is computed every frame,
+  since the reach follows none (slice 1's choice), which the second design's calls would follow by their
+  arguments.
+- *What Alonzo will pin for `CART.9.3`:* the `function` row and its compile (3b), `name` rows in a write
+  (3a), and the `names` projection for its save and for a chip's text shown.
+- *The owner's word, 2026-11-17:* "Revised plan and decision recommendations approved; proceed with
+  3a." The seven decisions as recommended, the first design and then the second in this item (3a, 3b,
+  3c), the row's output a cell or a range.
+
+*Slice 3a, the names, 2026-11-17, built at the owner's word.*
+- *The view.* `Machine::view("names", ...)` prints each name the grid holds as the `name` row a load
+  reads, `(name "TWICE" "=LAMBDA(x,x*2)")`, in the order the grid keeps them, a written name in its place
+  and a new one last, the sheet and the window asked not read; `grid`, `values` and `fills` print as they
+  did. A save is every sheet's `fills` and the names.
+- *The write.* `Machine::write` takes a `name` row as a load reads one: a name defined, or its text
+  replaced where the grid holds it already by its spelling without case, the place kept and the
+  spelling the write's; a text the name holds already writes nothing (`Ok(0)`), as a formula's own text
+  does not (`KERNEL.70`); a row the load refuses refused as `grid-row-malformed`. `WRITE_ROWS` names it
+  (`cell, formula, derived and name`).
+  - At the settle the grid's names are read again, `Names` for the evaluator and the plan and
+    `Functions` for the inlining. Every shape whose text reads a written name, by a reference or a
+    call, or reads a name whose text reads one, through names to the last (`Shapes::readers_of`, by
+    the parse wherever the text holds the name at all), is read again from its text, though no cell of
+    it moved (`as_loaded`'s `stale`). Its cells are changed as a formula written over with its own text
+    changes them: planned again, their values forgotten, and computed with what follows from them at
+    the next frame (`KERNEL.69`'s path).
+  - A name that would leave the grid unable to step, a cell reading itself through it (`calc-cycle`) or
+    a function calling one no library holds (`calc-function-not-computed`), is refused as a load
+    refuses it: the names put back, the readers read again under them, nothing changed.
+  - The shapes to read again are the write's alone, handed to the placement and never held: kept on the
+    plan, the set cost every load 24 bytes at its peak, which the ceilings caught, the plan's box one
+    set larger. Passed through the write, no grid moves a byte: the floors and the ceilings held as
+    they stand.
+- *Measured,* by the test: the hundred cells of a fill calling `F`, written `LAMBDA(x,x+2)` where
+  `LAMBDA(x,x+1)`, and the sum reading them are the next frame's 101 cells, and the hundred of a fill
+  reading neither are not computed; the census is the one it was, and a load's of the written grid.
+  A write past the room a frame keeps for its changes makes the next frame whole, whatever it wrote:
+  right after a first frame, whose changes are every formula's, `reached` is all 201.
+- *Held by* `vla-lang/tests/names.rs`, five tests:
+  - the view, a sheet's name and a quoted text among the names, and a save through it loading the
+    grid it printed;
+  - the row read as a load reads one: its own text, a name spelled in another case, a name the grid
+    lacked defined for the formula reading it, four malformed rows, and a later row refused undoing
+    the name before it;
+  - the readers alone computed, as measured;
+  - the two refusals, each changing nothing, and the grid taking a name it can step after them;
+  - the law, `KERNEL.34`'s for names: over sixty generated grids of three named functions, each
+    calling those before it, two names of cells and formulas by fill and alone, 240 writes between
+    frames, a function's text, a cell's name, a name and a value together, or a name written with its
+    own text. After each write and a frame, the census, every value and the names are a fresh load's
+    of the written grid, and a save loads the grid it printed.
+  - Mutants: the readers never read again; the function table not read again; the names not read
+    again; no reader through another name; the undo forgetting the names; the refusal not reading the
+    readers again; the readers' cells not changed; a name's own text written again. Each fails the
+    tests, eight of eight; the names not read again escapes the law and falls to two others. A ninth,
+    the names as they stood forgotten among those a write changed, passed them and was right to: a
+    name written over keeps its place and changes its spelling in case alone, so the names as they
+    stand are the names as they stood, and the branch reading them twice was taken out.
+- *The stack.* The package's own tests build at the optimization a crate's user gets by default, where
+  every local of a function keeps a slot of its frame, and the strangers' test knocks its cases on a
+  thread of 1 MiB, the stack `VLA.1`'s limits are pinned on. With the names, its deepest write, a
+  formula of 102 nested `ABS` refused `calc-function-not-computed`, went 560 bytes deeper than before
+  them and overflowed the thread in about one run in five on Windows. Painted and measured, its deepest
+  point is in the plan made after the placement, beneath the settle's frame, which the names had
+  grown. The names' work stands in frames of its own (`names_settle`, `names_refused`), and the
+  settle's tail once the plan stands in one too (`settled`), so that none of their locals is beneath
+  the placement and the plan: the write reaches 1,006,391 bytes below the door, 3,024 fewer than
+  before the names, and the package's strangers' test passed 52 runs of 52, alternated with the
+  commit before it, which passed as many.
+- *The floors' memory runner* saves through the projection where it carried the rows its load was
+  given, and prints the same bytes, every fixture's save and its load the same to the byte.
+- *Verified* on the tree committed, over VLA.18's `a2a7e99`: `cargo fmt --all -- --check`; clippy over
+  every target, with and without `c-abi`; `cargo test --workspace`, 908 passed and 5 ignored; the two
+  WebAssembly builds; the package's tests from its tarball on a target of its own, 637 passed and 2
+  ignored, and its strangers' test twenty runs of twenty; `run_checks.ps1`, 60 of 60;
+  `check_recalc_floors.ps1 -Control`; Alonzo's suite at `0b474f5`, 99 with its cartridges required, and
+  Buffet's at `6f215a1`, 107, each over this language by a path.
+- *For Alonzo:* its save can print the projection where it appends its loaded text's `name` rows
+  (`ENGINE.5`'s `saveText`), so that a name a person writes is saved; and its write takes a `name` row
+  as it takes a `formula` row. Its own step, at its pin.
+
 *Excel's second save, 2026-11-16, the stop rule's last.* The owner saved the fixture of 93 formulas
 over the first save's file. The door's verdict: 90 agree, two differ, the spill unchecked.
 - Seven of the eight formulas written to confirm the folds agree: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`

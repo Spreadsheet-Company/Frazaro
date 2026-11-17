@@ -299,7 +299,9 @@ refused in the same words.
   inverse, one form at a time, so that a load peaks at about what it holds;
   `write` takes `cell`, `formula` and `derived` rows, all or none, a
   `formula` row over one cell reading as Excel 365 reads the text typed where it
-  ends in the word `dynamic`;
+  ends in the word `dynamic`, and `name` rows, a defined name's text, every
+  formula reading the name planned again, through other names too, and
+  computed at the next frame, as a load of the written grid would;
   `step` computes every formula in dependency order with a budget in cells,
   yields and resumes, and at the end of each frame copies every sheet's
   values into its twin, `X.last`, a hidden sheet the next frame's formulas
@@ -308,7 +310,8 @@ refused in the same words.
   rows, what a host draws), the changes (the values' rows of the cells the
   last frame changed, so that a host repaints those alone, or `whole` where
   the machine cannot say), the fills (what a save prints and the load reads
-  as the grid), or the plane, a byte a cell. After each frame
+  as the grid), the plane, a byte a cell, or the names, each defined name's
+  `name` row, which a save prints beside the fills. After each frame
   `changed` says how many formula cells it changed the value of, to the
   bit, `changed_on` how many of them on a sheet and `reached` how many it
   computed, so that a host stepping a grid until a cascade settles stops
