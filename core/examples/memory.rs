@@ -8,7 +8,7 @@
 //! Field, loaded after the board's own rows; each loaded into the machine
 //! under Excel's library inside a counting allocator, and stepped twice; and
 //! since `KERNEL.72` its save printed, every sheet's fills as a host prints
-//! them, and loaded again.
+//! them and since `KERNEL.29` the names its load was given, and loaded again.
 //!
 //! ```text
 //! cargo run --release -p frazaro-core --example memory               # every fixture, the baseline rows
@@ -51,8 +51,8 @@ use vla_lang::machine::{Machine, Viewed};
 #[path = "bench/common.rs"]
 mod common;
 use common::{
-    drift, median, rows_for_machine, soup, spread, thousands, Probe, CLOCK_SPREAD_MAX,
-    START_READINGS,
+    build_program, drift, median, rows_for_machine, soup, spread, thousands, Probe,
+    CLOCK_SPREAD_MAX, START_READINGS,
 };
 
 // ---- the count ---------------------------------------------------------------
@@ -126,8 +126,16 @@ fn peak() -> usize {
 
 /// The bench programs, built through the door, in the order the recalc runner
 /// prints them; and the fixtures of rows after them.
-const PROGRAMS: [&str; 7] = [
-    "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
+const PROGRAMS: [&str; 9] = [
+    "column",
+    "chain",
+    "sums",
+    "life",
+    "lookups",
+    "criteria",
+    "netlist",
+    "adder",
+    "adder-named",
 ];
 const ROWS: [&str; 3] = ["superposition", "life-x16", "superposition-styled"];
 
@@ -179,18 +187,14 @@ fn read_lf(path: &Path) -> Result<String, String> {
         .map_err(|e| format!("{}: cannot be read: {e}", path.display()))
 }
 
-/// A bench program built as `frazaro build` builds it, and read back.
+/// A bench program built as `frazaro build` builds it, its names added where
+/// it defines any (`bench/common.rs`), and read back.
 fn program(root: &Path, name: &str, (prelude, english): (&str, &str)) -> Result<Prepared, String> {
     let path = root
         .join("scripts/recalc/bench")
         .join(format!("{name}.txt"));
     let text = read_lf(&path)?;
-    let bytes = api::english_build_xlsx(&text, prelude, &[english]).map_err(|e| {
-        format!(
-            "{name}: the build refused at line {}: {}",
-            e.line, e.refusal.text
-        )
-    })?;
+    let bytes = build_program(&text, prelude, english).map_err(|e| format!("{name}: {e}"))?;
     let rows = api::reflect_relations(&bytes, &format!("{name}.xlsx"))
         .map_err(|r| format!("{name}: the reader refused: {}", r.text))?;
     Ok(Prepared {
@@ -240,12 +244,15 @@ struct Saved {
     ms: f64,
 }
 
-/// A machine's save as a host prints it, every sheet's fills, weighed; and a
-/// load from it under Excel's library.
-fn weigh_save(m: &Machine, name: &str) -> Result<Saved, String> {
+/// A machine's save as a host prints it, weighed: the names its load was
+/// given, which a host keeps since no view prints a defined name (Alonzo's
+/// save writes its loaded text's name rows after the fills, its `ENGINE.5`;
+/// the view record's `name` rows are `KERNEL.29`'s third slice's), then every
+/// sheet's fills; and a load from it under Excel's library.
+fn weigh_save(m: &Machine, names: &str, name: &str) -> Result<Saved, String> {
     let held = live();
     reset();
-    let mut save = String::new();
+    let mut save = String::from(names);
     for i in 0..m.sheets() {
         let Some(sheet) = m.sheet_name(i) else {
             continue;
@@ -282,6 +289,12 @@ fn weigh_save(m: &Machine, name: &str) -> Result<Saved, String> {
 fn weigh(p: &Prepared) -> Result<Weighed, String> {
     let name = &p.name;
     let library = excel::library();
+    let names: String = p
+        .rows
+        .lines()
+        .filter(|line| line.starts_with("(name "))
+        .map(|line| format!("{line}\n"))
+        .collect();
     let base = live();
     reset();
     let mut m = Machine::load(&p.rows, library).map_err(|e| {
@@ -300,7 +313,7 @@ fn weigh(p: &Prepared) -> Result<Weighed, String> {
     let formulas = m.formulas().0;
     let held = live() - base;
     let peak = peak() - base;
-    let save = weigh_save(&m, name)?;
+    let save = weigh_save(&m, &names, name)?;
     drop(m);
     if formulas == 0 {
         return Err(format!("{name}: no formula loaded"));

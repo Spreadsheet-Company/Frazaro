@@ -1,0 +1,21 @@
+# The recalculation floors' adder fixtures (KERNEL.29, its second slice): a ripple-carry adder of
+# 4,096 bits, a full adder a bit, its sum and its carry each a fill, written out in adder.txt and
+# through the named functions SUMBIT and CARRYBIT in adder-named.txt, so that the floors hold what a
+# function costs against its formula written out. Bit i stands in row i + 2: its switches a,
+# A2:A4097, all 1, and b, B2:B4097, all 0; its sum in C and its carry in D, each reading the carry
+# above it. The edit is the carry-in D1, from 0 to 1, which ripples through every bit. The sum,
+# C2:C4097, is every bit's sum: 4,096 as built and 0 with the carry in.
+# This one calls the two names its name comments define: no sentence defines a name, so the
+# runners add each to the built workbook before its values are folded (bench/common.rs).
+# Written by core/examples/recalc.rs --adder (bench/adder.rs) and held to it by --check: never
+# edit it by hand.
+# bench: name SUMBIT LAMBDA(a,b,c,MOD(MOD(a+b,2)+c,2))
+# bench: name CARRYBIT LAMBDA(a,b,c,MAX(a*b,MOD(a+b,2)*c))
+# bench: edit Output!D1 0 1
+# bench: sum Output!C2:C4097
+
+Put 1 into range A2:A4097.
+Put 0 into range B2:B4097.
+Put 0 into cell D1.
+Put formula "=SUMBIT(A2,B2,D1)" into range C2:C4097.
+Put formula "=CARRYBIT(A2,B2,D1)" into range D2:D4097.

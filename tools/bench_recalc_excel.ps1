@@ -1,5 +1,5 @@
 <#
-bench_recalc_excel.ps1 - the recalculation floors' Excel half: the seven
+bench_recalc_excel.ps1 - the recalculation floors' Excel half: the nine
 fixtures the native runner built, opened in Excel and timed doing the work
 the machine was timed doing, and the flag's three files read; printed as one
 block to paste into tools/check_recalc_floors.ps1 beside the native half's.
@@ -75,7 +75,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $bench = Join-Path $repoRoot 'target/bench'
-$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist')
+$fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist', 'adder', 'adder-named')
 $edits = 21
 $types = 21
 $rewrites = 21
@@ -159,6 +159,9 @@ function Read-Bench([string]$name) {
             $b.TypeSheet, $b.TypeCell = $w[1] -split '!', 2
         } elseif ($w[0] -eq 'rewrite' -and $w.Count -eq 2) {
             $b.RewriteSheet, $b.RewriteCell = $w[1] -split '!', 2
+        } elseif ($w[0] -eq 'name' -and $w.Count -eq 3) {
+            # A defined name the runner's build added to the file (KERNEL.29),
+            # which Excel opens with it: nothing to do here.
         } else { throw "$name.txt: a bench comment this script does not read: $t" }
     }
     if ($b.Kind -eq '' -or $b.SumArea -eq '') { throw "$name.txt: its bench comments do not say what changes and what is summed" }

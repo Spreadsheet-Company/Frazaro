@@ -743,8 +743,14 @@ pub struct Ctx<'a> {
     pub(super) inside: Counter<u32>,
     /// What an evaluation of `LET` and `LAMBDA` keeps (KERNEL.29): the
     /// bindings in scope, the calls made and open, and the calls computed on
-    /// a fresh stack (`super::calls`).
-    pub(super) calls: std::cell::RefCell<Calls>,
+    /// a fresh stack (`super::calls`), made the first time an evaluation
+    /// meets one, so that a context made for a cell that holds none, as a
+    /// run makes one a cell, costs what it cost before them.
+    pub(super) calls: std::cell::RefCell<Option<Box<Calls>>>,
+    /// The level of nesting the formula or the body being evaluated began
+    /// at, and how deep it nests (`super::calls`, [`Ctx::nests`]).
+    pub(super) base: Counter<u32>,
+    pub(super) span: Counter<u32>,
     /// Whether an evaluation is under way, so that the outermost [`Ctx::eval`]
     /// is the top a call too deep for the stack steps back to (KERNEL.29).
     pub(super) running: Counter<bool>,
@@ -767,7 +773,9 @@ impl<'a> Ctx<'a> {
             depth: Counter::new(0),
             offset: Counter::new((d_row, d_col)),
             inside: Counter::new(0),
-            calls: std::cell::RefCell::new(Calls::default()),
+            calls: std::cell::RefCell::new(None),
+            base: Counter::new(0),
+            span: Counter::new(super::calls::LEVELS),
             running: Counter::new(false),
         }
     }
@@ -820,7 +828,19 @@ impl<'a> Ctx<'a> {
         &self,
         frame: Option<std::rc::Rc<super::calls::Frame>>,
     ) -> Option<std::rc::Rc<super::calls::Frame>> {
-        std::mem::replace(&mut self.calls.borrow_mut().frame, frame)
+        let mut calls = self.calls.borrow_mut();
+        match calls.as_mut() {
+            Some(c) => std::mem::replace(&mut c.frame, frame),
+            None => {
+                // No bindings were in scope; none are made for none.
+                if frame.is_some() {
+                    let mut made = Box::<Calls>::default();
+                    made.frame = frame;
+                    *calls = Some(made);
+                }
+                None
+            }
+        }
     }
 
     /// Whether a parameter of this class lifts its function over an array

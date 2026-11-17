@@ -45516,6 +45516,124 @@ Committed `def270b` at the owner's word, "If everything looks good, then commit 
 - The owner's decisions, approved as recommended: the lane committed now, as the slice's first part;
   the depth of 4,096 kept.
 
+*The slice's second part, 2026-11-16, at the owner's word ("Proceed with slice 2"): the parity, and
+`CART.9.3`'s question answered.*
+- *Measured* (release, natively, a probe never committed): a ripple-carry adder of 4,096 bits, its switches
+  a all 1 and b all 0, the carry-in written so that it ripples through every bit, the netlist's own
+  arithmetic gates (`MOD(a+b,2)`, `a*b`, `MAX(a,b)`), best of three, in ms:
+
+  | written | shapes | load | first frame | the carry-in's frame |
+  |---|---|---|---|---|
+  | five gates a bit, filled | 5 | 17.5 | 0.62 | 0.54 |
+  | a sum and a carry a bit written out, filled | 2 | 16.0 | 0.38 | 0.73 |
+  | the same through named functions, filled | 2 | 16.4 | 0.39 | 0.74 |
+  | written out, each cell at a shuffled place | 8,192 | 149.0 | 1.52 | 1.90 |
+  | through named functions, shuffled | 8,192 | 144.0 | 1.59 | 1.94 |
+
+  Every arrangement computed the same sums and carries. The named adder's census is the written-out
+  one's line for line but its texts, filled or shuffled, so its costs are the same by construction.
+- *Alonzo's frames over a cartridge written both ways* (the copy of `32ff4b3` by a path): Life's rule
+  through a named function, `NEXTCELL = LAMBDA(n,a,IF(OR(n=3,AND(a=1,n=2)),1,0))`, called as
+  `NEXTCELL(SUM(Screen.last!A1:C3)-Screen.last!B2,Screen.last!B2)`, every frame held to the runner's
+  hand-written Life. Written out, the window's steady frame was 2.1 ms in each of four rounds; named,
+  2.1 to 2.3 ms in five, alternated with the written-out ones. The load was 10.4 to 11.2 ms
+  either way.
+- *`CART.9.3`'s question: the regularity premium stays.* A function called at scattered places is
+  written into each calling shape, so the shuffled adder pays what its formulas written out pay: 9
+  times the filled adder's load, 4 times its first frame, 2.6 times the carry-in's frame. *Found,*
+  not minted: a body planned once and called from many places, the second design the scoping named,
+  is what would lift the premium.
+- *The owner's word at the plan, "Add timing floors too":* the parity held by the floors beside the
+  test, as the item's oracle asks, "the same time within a stated tolerance, held by
+  `check_recalc_floors.ps1`".
+  - *Two programs of the floors,* `scripts/recalc/bench/adder.txt` and `adder-named.txt`: the filled
+    adder of the table, 8,192 formulas in two fills, written out and through `SUMBIT` and `CARRYBIT`,
+    the sum `C2:C4097` 4,096 as built and 0 with the carry in, every sum moved by the ripple. Written
+    by `core/examples/recalc.rs --adder` from `bench/adder.rs` and held to it by `--check`, as the
+    netlist is; every sum and carry held to the adder by hand.
+  - *Filled, where the first runs were shuffled.* The shuffled pair, each cell a shape of its own,
+    read the named adder's rates at 0.81 to 1.15 of the written-out one's over four runs, its edits
+    twice under 0.85. Its frames are memory-bound, and where the heap places a machine moves them by up
+    to a fifth between processes, as it moves the netlist's. The two plans are one plan, so the rule
+    gates the arrangement whose time is steady: filled, the pair's rounds agree within 1.5% and their
+    rates within 0.7%. The shuffled arrangement keeps the answer above and the census test below.
+  - *A name no sentence writes:* the named program's two `# bench: name` comments. Both runners build
+    a program by `bench/common.rs`'s `build_program`: one that names none through
+    `api::english_build_xlsx` itself, so the seven files' bytes are unchanged, and one that names some
+    by the same steps, its names added to the workbook before `Calc` folds its values. Excel's half
+    reads the comment and opens the names with the file.
+  - *One plan reached two ways:* before it times either, the recalc runner loads both and holds their
+    censuses alike, row for row but their texts. A census row is a shape's cell, cells, levels, runs,
+    reads, calls and lowering, never its arithmetic: a `SUMBIT` that calls itself, which no load
+    inlines, fails it, its 4,096 sums planned every frame; a sum written `MOD(a+b+c,2)` passes, and
+    the floors hold what that costs.
+  - *The rule:* each one's whole frames and edits a second no more than 15% under the other's, the
+    floors' margin, both measured in one run; `-Control`'s four cases hold it, each way past the margin
+    by the rule's words, and the two within it.
+- *Found by the memory runner, and met as a host meets it:* a machine's save, every sheet's `fills`,
+  prints no defined name, so a load from the named adder's save refused: "The formula in Output!C2
+  calls SUMBIT, which this version does not compute." Alonzo's save writes its loaded text's `name`
+  rows after the fills (`ENGINE.5`, `web/host.js`'s `saveText`), so a cartridge's names already
+  survive a save. The memory runner's save now carries the names its load was given the same way, and
+  a load from every program's save holds what its first load held, to the byte. The seven programs'
+  saves gain the stamp's name row, 389 to 392 bytes, and their `save` and `save peak` ceilings rise by
+  it, the entry's reason. The view record's `name` rows stay the third slice's.
+- *Found by the floors' first run, and fixed:* this item's commits had slowed three programs that
+  write no `LET` and no `LAMBDA`. Alternated copies, each built from `git archive` with a target of
+  its own, the native half's instrument with `-NoBuild`; whole frames in ms, each a mean of the runs'
+  medians:
+
+  | | `78a6dc1`, before (10 runs) | `def270b`, slice 1 (2) | `b949663`, the lane (2) | `409eee6` (6) | the fix (2) |
+  |---|---|---|---|---|---|
+  | lookups | 7.36 | 7.63 | 7.84 | 7.80 | 7.45 |
+  | lookups, the edit | 9.24 | 9.48 | 9.68 | 9.68 | 9.35 |
+  | sums | 0.805 | 0.822 | 0.837 | 0.829 | 0.823 |
+  | criteria | 1.228 | 1.244 | 1.265 | 1.247 | 1.235 |
+
+  - Slice 1 gave every evaluation context the state a `LET` and a call keep: the bindings, four
+    counters, two vectors and a pending call in a `RefCell`, made and dropped at each cell a run or a
+    shape evaluates through `Ctx` and at each call a program makes, 80,000 a frame in the lookups. The
+    fix makes it the first time an evaluation meets a `LET`, a `LAMBDA` or a call (`Ctx::calls`, an
+    `Option<Box<Calls>>`), the nesting's base and span the context's own counters.
+  - The lookups are 1.3% over the base where they were 6.0%, the sums 2.2% where 3.0%, the criteria
+    0.6% where 1.5%, within the spread a binary's layout gives; the column, the chain and Life never
+    moved. The lane's run code acts only where a shape has repeated parts, and these have none.
+- *Found, the netlist's whole frame:* 2.0 to 3.2 ms a round this day in every copy, `0011940`'s among
+  them, 2.72 and 2.85 ms in its two runs, the code whose run of 2026-11-01 set its floor of 10,700,000
+  formulas a second from 1.62 ms. The floor is out of reach of the code that set it on this day's
+  machine, so the paste meets it, as `KERNEL.69`'s third finding met the type's. Every other floor
+  clears, the netlist's type, rewrite and rewrite's write among them.
+- *Measured,* the native half pasted, 2026-11-16, over the fix: written out, 0.273 ms a whole frame
+  and 0.754 ms an edit; named, 0.274 and 0.759, its rates 0.996 and 0.994 of the written-out one's. Its
+  floors join at 25,400,000 formulas a second and 1,110 edits a second, the written-out one's at
+  25,500,000 and 1,120. It holds 1,905,452 bytes, the written-out one 1,981,610.
+- *Held by:* `tests/lambda.rs`'s
+  `a_netlist_through_named_functions_plans_and_computes_as_written_out`. A 64-bit adder written out
+  and through named functions, filled and shuffled, is held census for census but the texts, and value
+  for value before and after the carry-in ripples to the last bit; Life's rule through a named
+  function is held to plan as written out. The mutant fails it. And `check_recalc_floors.ps1`, the
+  pair's floors and the rule; on every push, the runner's check mode holds the two programs to their
+  generator, every value to the hand, and the two censuses alike.
+- *Verified* in the shared tree over `409eee6`: `cargo fmt --all -- --check`; clippy over every target,
+  with and without `c-abi`; `cargo test --workspace`, 896 passed and 5 ignored; `run_checks.ps1`, 59
+  of 60, `check_recalc_floors` failing on Excel's rows and the netlist's floor alone, both runners'
+  check modes passing in it; `check_recalc_floors.ps1 -Control`; Excel's half on its stand-in over the
+  nine programs; Alonzo's suite, 95 with its cartridges required, and Buffet's, 107, each over this
+  language by a path.
+- *Excel's half,* the owner's run of 2026-11-16 over the same nine files, every file the native half's
+  by its digest and every sum the machine's: Excel computes the named adder in 4.6 times the time it
+  takes the adder written out, 4.613 ms a whole frame on one thread against 1.003, and 7.985 against
+  3.070 on twenty, its edits 4.613 against 1.103 and 8.098 against 3.146. The machine computes the two
+  in one time, 0.274 and 0.273 ms: 16.8 times Excel's one thread through the names and 3.7 times
+  written out.
+- *The owner's decisions at the paste, 2026-11-16, approved as recommended:* `netlist whole` lowered to
+  7,340,000, this run less the margin, with its reason in the entry; the seven save ceilings raised by
+  the stamp's name row, with theirs; the slice's second part one commit.
+- The paste takes the pass marked after 0.13.0's bump, which `KERNEL.64`'s note kept for its own first
+  paste if nothing came before it: both instruments run, both blocks pasted whole. With it the slice is
+  done. The item stays open for slice 3, the view record's `name` rows and sheet-defined functions,
+  after a design sitting of their own.
+
 *Excel's second save, 2026-11-16, the stop rule's last.* The owner saved the fixture of 93 formulas
 over the first save's file. The door's verdict: 90 agree, two differ, the spill unchecked.
 - Seven of the eight formulas written to confirm the folds agree: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`

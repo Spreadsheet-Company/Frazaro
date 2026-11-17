@@ -151,6 +151,52 @@ pub(crate) fn thousands(n: u64) -> String {
     out
 }
 
+// ---- a program built -------------------------------------------------------
+
+/// A bench program's defined names, its `# bench: name <name> <text>`
+/// comments, each text as a workbook holds a name's, with no `=` and no space:
+/// the names no sentence writes (`KERNEL.29`, the adder's named functions).
+pub(crate) fn names_of(program: &str) -> Vec<(String, String)> {
+    program
+        .lines()
+        .filter_map(|line| {
+            let rest = line.trim().strip_prefix("# bench:")?;
+            match rest.split_whitespace().collect::<Vec<_>>().as_slice() {
+                ["name", name, text] => Some((name.to_string(), text.to_string())),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// A bench program built as `frazaro build` builds it, through the core's own
+/// surface (`api::english_build_xlsx`); one that defines names translated and
+/// built by the same steps, its names added to the workbook before `Calc`
+/// folds each formula's value into it (`KERNEL.29`). The build's refusal is
+/// the text, by its line.
+pub(crate) fn build_program(
+    program: &str,
+    prelude: &str,
+    english: &str,
+) -> Result<Vec<u8>, String> {
+    use frazaro_core::{api, build, excel, sheet::ooxml};
+    let refused = |line: u32, text: &str| format!("the build refused at line {line}: {text}");
+    let names = names_of(program);
+    if names.is_empty() {
+        return api::english_build_xlsx(program, prelude, &[english])
+            .map_err(|e| refused(e.line, &e.refusal.text));
+    }
+    let vla = api::english_translate_text_to_vla(program, prelude, &[english])
+        .map_err(|e| refused(e.line, &e.refusal.text))?;
+    let mut wb = build::build_workbook(program, &vla, prelude, &[english])
+        .map_err(|r| refused(0, &r.text))?;
+    wb.defined_names.extend(names);
+    let library = excel::library();
+    let values = vla_lang::calc::Calc::run(&wb, &library);
+    ooxml::workbook_bytes_valued(&wb, &values)
+        .ok_or_else(|| refused(0, "the workbook is too large to write"))
+}
+
 // ---- the file read back into the machine ----------------------------------
 
 /// The reader's rows of the built file as the machine loads them: a cell's

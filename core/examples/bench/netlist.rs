@@ -115,7 +115,7 @@ fn letters(mut col: u32) -> String {
     String::from_utf8(s).unwrap_or_default()
 }
 
-fn a1((row, col): (u32, u32)) -> String {
+pub(crate) fn a1((row, col): (u32, u32)) -> String {
     format!("{}{row}", letters(col))
 }
 

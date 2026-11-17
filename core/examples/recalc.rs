@@ -10,11 +10,20 @@
 //! cargo run --release -p frazaro-core --example recalc               # every fixture, the baseline rows
 //! cargo run --release -p frazaro-core --example recalc -- --check    # nothing timed: the fixtures and their values held
 //! cargo run --release -p frazaro-core --example recalc -- --netlist  # the netlist program written by its generator
+//! cargo run --release -p frazaro-core --example recalc -- --adder    # the two adder programs written by theirs
 //! ```
 //!
-//! The netlist program, `scripts/recalc/bench/netlist.txt`, is the one
-//! fixture no person writes: its generator is `bench/netlist.rs`, `--netlist`
-//! writes the file, and `--check` holds the file to it, line for line.
+//! The netlist program, `scripts/recalc/bench/netlist.txt`, is a fixture no
+//! person writes: its generator is `bench/netlist.rs`, `--netlist` writes the
+//! file, and `--check` holds the file to it, line for line. So are the two
+//! adder programs (`KERNEL.29`, its second slice), `adder.txt` and
+//! `adder-named.txt`, one adder written out and through named functions,
+//! `bench/adder.rs` theirs and `--adder` writing both. No sentence defines a
+//! name, so the named one's `# bench: name` comments define its two, which
+//! the build adds to its workbook before its values are folded
+//! (`bench/common.rs`); and the two are held to plan alike, their censuses
+//! row for row but for their formulas' texts, so that their floors measure
+//! one plan reached two ways.
 //!
 //! **What is timed**, each one `step` with no budget, timed alone: a whole
 //! frame, every formula computed, as Excel's `CalculateFull` computes every
@@ -53,7 +62,9 @@
 //! `COUNTIFS`, equal to the summary written here by hand, the ledger added
 //! up by account and month in an array (`KERNEL.8`, its fifth slice); and
 //! every gate of the netlist fixture equal to the adder evaluated by hand,
-//! gate by gate in the order they were made (`KERNEL.54`, `bench/netlist.rs`).
+//! gate by gate in the order they were made (`KERNEL.54`, `bench/netlist.rs`),
+//! and every sum and carry of the two adder fixtures to their adder evaluated
+//! by hand, bit by bit (`KERNEL.29`, `bench/adder.rs`).
 //! Each fixture's checksum, the sum of a range its program names,
 //! is printed as built and as edited for Excel's half to equal: every value
 //! the fixtures compute is a whole number, so the sums are exact.
@@ -95,9 +106,22 @@ use vla_lang::machine::{Machine, Viewed};
 use vla_lang::sheet::{parse_a1_range, A1Range, Content};
 
 /// The fixtures in the order the block prints them.
-const FIXTURES: [&str; 7] = [
-    "column", "chain", "sums", "life", "lookups", "criteria", "netlist",
+const FIXTURES: [&str; 9] = [
+    "column",
+    "chain",
+    "sums",
+    "life",
+    "lookups",
+    "criteria",
+    "netlist",
+    "adder",
+    "adder-named",
 ];
+
+/// The fixtures that plan alike but for their formulas' texts, each the
+/// first through named functions and the second written out (`KERNEL.29`): a
+/// load writes each call's body into its formula where it places it.
+const ALIKE: [(&str, &str); 1] = [("adder-named", "adder")];
 
 /// The steps timed: whole frames, edits, types, rewrites, and the reference's
 /// runs.
@@ -120,13 +144,17 @@ const ROUNDS: usize = 3;
 #[path = "bench/common.rs"]
 mod common;
 use common::{
-    drift, generation, median, range, rows_for_machine, soup, spread, thousands, Probe,
-    CLOCK_SPREAD_MAX, H, START_READINGS, W,
+    build_program, drift, generation, median, range, rows_for_machine, soup, spread, thousands,
+    Probe, CLOCK_SPREAD_MAX, H, START_READINGS, W,
 };
 
 // The netlist fixture's generator and its hand (`KERNEL.54`).
 #[path = "bench/netlist.rs"]
 mod netlist;
+
+// The adder fixtures' generator and their hand (`KERNEL.29`).
+#[path = "bench/adder.rs"]
+mod adder;
 
 // ---- the reference: the lookups by hand ------------------------------------
 
@@ -227,18 +255,23 @@ fn held_criteria(m: &Machine, p1: &str) -> Result<usize, String> {
     Ok(ACCOUNTS * 13)
 }
 
-// ---- the reference: the netlist by hand -------------------------------------
+// ---- the reference: the netlist and the adders by hand ---------------------
 
-/// Every gate of the netlist fixture equal to the adder evaluated by hand for
-/// the carry-in `cin` (`KERNEL.54`, `bench/netlist.rs`).
-fn held_netlist(m: &Machine, cin: &str) -> Result<usize, String> {
+/// A hand: every cell an adder computes, by its row and column on `Output`,
+/// with its value for a carry-in.
+type Hand = fn(u8) -> Vec<((u32, u32), u8)>;
+
+/// Every cell a hand lists equal to its value there for the carry-in `cin`:
+/// the netlist's gates (`KERNEL.54`, `bench/netlist.rs`) or the adders' sums
+/// and carries (`KERNEL.29`, `bench/adder.rs`), each adder evaluated by hand.
+fn held_by_hand(m: &Machine, cin: &str, hand: Hand) -> Result<usize, String> {
     let cin: u8 = cin
         .parse()
         .ok()
         .filter(|&c| c <= 1)
         .ok_or_else(|| format!("the carry-in {cin} is neither 0 nor 1"))?;
     let si = m.find_sheet("Output").ok_or("no sheet Output")?;
-    let gates = netlist::by_hand(cin);
+    let gates = hand(cin);
     for &((row, col), v) in &gates {
         match m.computed((si, row, col)) {
             Some(Computed::Value(Value::Number(n))) if n == f64::from(v) => {}
@@ -336,6 +369,8 @@ fn read_fixture(root: &Path, name: &str) -> Result<Fixture, String> {
             ["sum", area] => sum = Some(at(area).ok_or_else(bad)?),
             ["type", cell] => typed = Some(at(cell).ok_or_else(bad)?),
             ["rewrite", cell] => rewrite = Some(at(cell).ok_or_else(bad)?),
+            // A defined name the build adds (`KERNEL.29`): `build_program`'s.
+            ["name", _, _] => {}
             _ => return Err(bad()),
         }
     }
@@ -482,6 +517,69 @@ fn held_to_calc(m: &Machine, lib: &vla_lang::calc::Library) -> Result<usize, Str
     Ok(held)
 }
 
+/// A machine's plan printed as rows (`Machine::census`), each shape's text
+/// left out: fixtures whose formulas are spelled apart and planned alike
+/// print the same.
+fn census_but_texts(m: &Machine) -> String {
+    m.census()
+        .lines()
+        .map(|line| {
+            let Some(end) = line.find("\" (cells") else {
+                return line.to_string();
+            };
+            let mut seps = line.match_indices("\" \"").map(|(i, _)| i);
+            match (seps.next(), seps.next()) {
+                (Some(_), Some(text)) if text < end => {
+                    format!("{}{}", &line[..text + 3], &line[end..])
+                }
+                _ => line.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Each pair of [`ALIKE`] planned alike but for its texts (`KERNEL.29`): the
+/// two fixtures loaded into machines of their own and their censuses compared
+/// row for row, each shape's text left out, so that their floors measure one
+/// plan reached two ways. Each shape stands at the same cell with the same
+/// cells, levels, runs, reads and calls, lowered alike, and a call the load
+/// did not write into its formula plans otherwise (measured: a `SUMBIT` that
+/// calls itself, which no load inlines, plans its 4,096 sums every frame). A
+/// census prints no formula's arithmetic, so a body of other arithmetic and
+/// the same calls plans alike (measured too: `MOD(a+b+c,2)`), and the floors
+/// hold what that costs. The rows compared.
+fn planned_alike(fixtures: &[Fixture], prepared: &[Prepared]) -> Result<usize, String> {
+    let mut rows = 0;
+    for (named, written) in ALIKE {
+        let census = |name: &str| -> Result<String, String> {
+            let k = fixtures
+                .iter()
+                .position(|f| f.name == name)
+                .ok_or_else(|| format!("no fixture {name}"))?;
+            let m = Machine::load(&prepared[k].rows, excel::library()).map_err(|e| {
+                format!(
+                    "{name}: the machine refused line {}: {}",
+                    e.line, e.refusal.text
+                )
+            })?;
+            Ok(census_but_texts(&m))
+        };
+        let (a, b) = (census(named)?, census(written)?);
+        let (a, b): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+        if let Some(k) = (0..a.len().max(b.len())).find(|&k| a.get(k) != b.get(k)) {
+            return Err(format!(
+                "{named}: its plan is not {written}'s but for its texts, from its census's row {}: {:?} where {written}'s is {:?}",
+                k + 1,
+                a.get(k).copied().unwrap_or(""),
+                b.get(k).copied().unwrap_or("")
+            ));
+        }
+        rows += a.len();
+    }
+    Ok(rows)
+}
+
 /// The machine's plane of Life's sheet, a byte a cell, the border dead, over
 /// the sheet's cells as a round read them before its first frame: Life's
 /// frames write none of them, and reading the grid at every frame would make
@@ -555,12 +653,7 @@ fn timed<T>(f: impl FnOnce() -> T) -> (T, f64) {
 fn prepare(out: &Path, texts: (&str, &str), fx: &Fixture) -> Result<Prepared, String> {
     let name = &fx.name;
     let (prelude, english) = texts;
-    let bytes = api::english_build_xlsx(&fx.program, prelude, &[english]).map_err(|e| {
-        format!(
-            "{name}: the build refused at line {}: {}",
-            e.line, e.refusal.text
-        )
-    })?;
+    let bytes = build_program(&fx.program, prelude, english).map_err(|e| format!("{name}: {e}"))?;
     let file = out.join(format!("{name}.xlsx"));
     std::fs::write(&file, &bytes).map_err(|e| format!("{}: {e}", file.display()))?;
     let rows = api::reflect_relations(&bytes, &format!("{name}.xlsx"))
@@ -610,13 +703,16 @@ fn round(
     }
     r.held += held;
     // The lookups' fixture held to its lookups by hand as well, the
-    // criteria's to its summary by hand (KERNEL.8), and the netlist's to its
-    // adder by hand (KERNEL.54).
+    // criteria's to its summary by hand (KERNEL.8), the netlist's to its
+    // adder by hand (KERNEL.54), and the two adders' to theirs (KERNEL.29).
     let by_hand = |m: &Machine, p1: &str| -> Result<usize, String> {
         match name.as_str() {
             "lookups" => held_lookups(m, p1).map_err(|e| format!("{name}: {e}")),
             "criteria" => held_criteria(m, p1).map_err(|e| format!("{name}: {e}")),
-            "netlist" => held_netlist(m, p1).map_err(|e| format!("{name}: {e}")),
+            "netlist" => held_by_hand(m, p1, netlist::by_hand).map_err(|e| format!("{name}: {e}")),
+            "adder" | "adder-named" => {
+                held_by_hand(m, p1, adder::by_hand).map_err(|e| format!("{name}: {e}"))
+            }
             _ => Ok(0),
         }
     };
@@ -924,43 +1020,55 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let check = args.iter().any(|a| a == "--check");
     let write_netlist = args.iter().any(|a| a == "--netlist");
+    let write_adder = args.iter().any(|a| a == "--adder");
     if let Some(a) = args
         .iter()
-        .find(|a| !matches!(a.as_str(), "--check" | "--netlist"))
+        .find(|a| !matches!(a.as_str(), "--check" | "--netlist" | "--adder"))
     {
         eprintln!("recalc: an unknown argument, {a}");
         return ExitCode::from(2);
     }
     let root: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    // The netlist program, written by its generator or held to it (KERNEL.54).
-    let netlist_path = root.join("scripts/recalc/bench/netlist.txt");
-    if write_netlist {
-        let text = netlist::program();
-        if let Err(e) = std::fs::write(&netlist_path, &text) {
-            eprintln!("recalc: {}: {e}", netlist_path.display());
-            return ExitCode::FAILURE;
+    // The generated programs, each written by its generator or held to it:
+    // the netlist (KERNEL.54) and the two adders (KERNEL.29), with the flag
+    // that writes it.
+    let generated: [(&str, String, &str); 3] = [
+        ("netlist", netlist::program(), "--netlist"),
+        ("adder", adder::program(false), "--adder"),
+        ("adder-named", adder::program(true), "--adder"),
+    ];
+    if write_netlist || write_adder {
+        for (name, text, flag) in &generated {
+            if (*flag == "--netlist" && !write_netlist) || (*flag == "--adder" && !write_adder) {
+                continue;
+            }
+            let path = root.join(format!("scripts/recalc/bench/{name}.txt"));
+            if let Err(e) = std::fs::write(&path, text) {
+                eprintln!("recalc: {}: {e}", path.display());
+                return ExitCode::FAILURE;
+            }
+            println!(
+                "recalc: wrote {}: {} bytes, {} lines",
+                path.display(),
+                thousands(text.len() as u64),
+                thousands(text.lines().count() as u64)
+            );
         }
-        println!(
-            "recalc: wrote {}: {} bytes, {} lines",
-            netlist_path.display(),
-            thousands(text.len() as u64),
-            thousands(text.lines().count() as u64)
-        );
         return ExitCode::SUCCESS;
     }
     if check {
-        match std::fs::read_to_string(&netlist_path) {
-            Ok(have) if have.replace("\r\n", "\n") == netlist::program() => {}
-            Ok(_) => {
-                println!("(recalc-differs \"netlist: scripts/recalc/bench/netlist.txt is not its generator's program; write it again with --netlist\")");
-                return ExitCode::FAILURE;
-            }
-            Err(e) => {
-                println!(
-                    "(recalc-differs \"netlist: {}: {e}\")",
-                    netlist_path.display()
-                );
-                return ExitCode::FAILURE;
+        for (name, text, flag) in &generated {
+            let path = root.join(format!("scripts/recalc/bench/{name}.txt"));
+            match std::fs::read_to_string(&path) {
+                Ok(have) if have.replace("\r\n", "\n") == *text => {}
+                Ok(_) => {
+                    println!("(recalc-differs \"{name}: scripts/recalc/bench/{name}.txt is not its generator's program; write it again with {flag}\")");
+                    return ExitCode::FAILURE;
+                }
+                Err(e) => {
+                    println!("(recalc-differs \"{name}: {}: {e}\")", path.display());
+                    return ExitCode::FAILURE;
+                }
             }
         }
     }
@@ -1034,6 +1142,15 @@ fn main() -> ExitCode {
             }
         }
     }
+    // The fixtures that plan alike, held so before any is timed (KERNEL.29).
+    let alike = match planned_alike(&fixtures, &prepared) {
+        Ok(rows) => rows,
+        Err(e) => {
+            println!("(recalc-differs {e:?})");
+            eprintln!("recalc: FAILED, {e}");
+            return ExitCode::FAILURE;
+        }
+    };
     // The rounds, the fixtures in turn, each round a fresh machine: one
     // process's memory placed one way can move a frame of the cell-by-cell
     // path by up to a third (measured 2026-10-10), and a round's machine is
@@ -1077,6 +1194,9 @@ fn main() -> ExitCode {
                 "(recalc-check \"{}\" (sha256 \"{}\") (formulas {}) (held {}) (sum-built {built}) (sum-edited {edited}))",
                 r.name, r.sha, r.formulas, r.held
             );
+        }
+        for (named, written) in ALIKE {
+            println!("(recalc-check-alike \"{named}\" \"{written}\" (rows {alike}))");
         }
         println!("(recalc-check-flags {})", flags.len());
         println!("(recalc-check-done {})", runs.len());
@@ -1154,6 +1274,9 @@ fn main() -> ExitCode {
                 "  the clock moved during the run, more than {CLOCK_SPREAD_MAX}%: power throttling or a thermal limit; these frames are not a baseline"
             );
         }
+    }
+    for (named, written) in ALIKE {
+        println!("{named}: planned as {written} is but for its formulas' texts, {alike} rows of their censuses alike");
     }
     println!(
         "the flag's three files for Excel's half: {}",

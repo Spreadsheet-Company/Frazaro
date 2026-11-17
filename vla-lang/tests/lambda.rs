@@ -366,3 +366,166 @@ fn a_call_through_a_name_follows_the_cells_its_function_reads() {
     assert!(m.step(usize::MAX).done);
     assert_eq!(m.computed((s, 1, 1)), Some(num(13.0)));
 }
+
+/// A cell's place, its row and its column; and a bit's, its sum's and its
+/// carry's.
+type Place = (u32, u32);
+type Bit = (Place, Place);
+
+/// An adder of `bits` bits, a sum and a carry a bit, each written out or
+/// through named functions, filled down two columns or each cell at a
+/// shuffled place of D:K; its switches a all 1 and b all 0, the carry-in at
+/// `G1`. The rows, and by bit the places of its sum and carry.
+fn adder(bits: usize, named: bool, shuffled: bool) -> (String, Vec<Bit>) {
+    fn column(n: u32) -> String {
+        let (mut n, mut out) = (n, String::new());
+        while n > 0 {
+            out.insert(0, (b'A' + ((n - 1) % 26) as u8) as char);
+            n = (n - 1) / 26;
+        }
+        out
+    }
+    let texts = |a: &str, b: &str, c: &str| {
+        if named {
+            (
+                format!("=SUMBIT({a},{b},{c})"),
+                format!("=CARRYBIT({a},{b},{c})"),
+            )
+        } else {
+            (
+                format!("=MOD(MOD({a}+{b},2)+{c},2)"),
+                format!("=MAX({a}*{b},MOD({a}+{b},2)*{c})"),
+            )
+        }
+    };
+    let mut out = String::from("(cell \"S\" \"G1\" 0)\n");
+    for r in 2..bits + 2 {
+        out.push_str(&format!(
+            "(cell \"S\" \"A{r}\" 1)\n(cell \"S\" \"B{r}\" 0)\n"
+        ));
+    }
+    if named {
+        out.push_str("(name \"SUMBIT\" \"=LAMBDA(a,b,c,MOD(MOD(a+b,2)+c,2))\")\n");
+        out.push_str("(name \"CARRYBIT\" \"=LAMBDA(a,b,c,MAX(a*b,MOD(a+b,2)*c))\")\n");
+    }
+    let mut at = Vec::with_capacity(bits);
+    if !shuffled {
+        let (s, c) = texts("A2", "B2", "G1");
+        let last = bits + 1;
+        out.push_str(&format!("(formula \"S\" \"D2:D{last}\" \"{s}\")\n"));
+        out.push_str(&format!("(formula \"S\" \"G2:G{last}\" \"{c}\")\n"));
+        at.extend((2..=last as u32).map(|r| ((r, 4), (r, 7))));
+        return (out, at);
+    }
+    // A fixed shuffle of the slots of D2:K(bits+1), two cells a bit.
+    let mut slots: Vec<u32> = (0..8 * bits as u32).collect();
+    let mut x: u64 = 29;
+    for i in (1..slots.len()).rev() {
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        slots.swap(i, (x >> 33) as usize % (i + 1));
+    }
+    let place = |k: usize| (slots[k] / 8 + 2, slots[k] % 8 + 4);
+    for i in 0..bits {
+        let (sum, carry) = (place(2 * i), place(2 * i + 1));
+        let cin = match i {
+            0 => "G1".to_string(),
+            _ => {
+                let (r, c) = place(2 * i - 1);
+                format!("{}{r}", column(c))
+            }
+        };
+        let r = i + 2;
+        let (s, c) = texts(&format!("A{r}"), &format!("B{r}"), &cin);
+        out.push_str(&format!(
+            "(formula \"S\" \"{}{}\" \"{s}\")\n",
+            column(sum.1),
+            sum.0
+        ));
+        out.push_str(&format!(
+            "(formula \"S\" \"{}{}\" \"{c}\")\n",
+            column(carry.1),
+            carry.0
+        ));
+        at.push((sum, carry));
+    }
+    (out, at)
+}
+
+/// A census with each shape's text cut out, which names a call where its
+/// twin writes the formula out.
+fn census_but_texts(m: &Machine) -> String {
+    m.census()
+        .lines()
+        .map(|line| {
+            let Some(end) = line.find("\" (cells") else {
+                return line.to_string();
+            };
+            let mut seps = line.match_indices("\" \"").map(|(i, _)| i);
+            match (seps.next(), seps.next()) {
+                (Some(_), Some(text)) if text < end => {
+                    format!("{}{}", &line[..text + 3], &line[end..])
+                }
+                _ => line.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn a_netlist_through_named_functions_plans_and_computes_as_written_out() {
+    // Slice 2's parity (KERNEL.29): an adder whose sum and carry are named
+    // functions is the adder written out, filled or each cell at its own
+    // place, row for row of the census but its texts and value for value
+    // before and after the carry-in ripples through every bit; and Life's
+    // rule through a named function plans as Life's rule written out.
+    use vla_lang::calc::Values;
+    for shuffled in [false, true] {
+        let (written, at) = adder(64, false, shuffled);
+        let (named, _) = adder(64, true, shuffled);
+        let lib = || library::language();
+        let mut a = Machine::load(&written, lib()).expect("loads");
+        let mut b = Machine::load(&named, lib()).expect("loads");
+        assert_eq!(
+            census_but_texts(&a),
+            census_but_texts(&b),
+            "shuffled {shuffled}"
+        );
+        let s = a.find_sheet("S").expect("the sheet");
+        for edit in [None, Some("(cell \"S\" \"G1\" 1)")] {
+            if let Some(row) = edit {
+                a.write(row).unwrap();
+                b.write(row).unwrap();
+            }
+            assert!(a.step(usize::MAX).done && b.step(usize::MAX).done);
+            for &((sr, sc), (cr, cc)) in &at {
+                for (r, c) in [(sr, sc), (cr, cc)] {
+                    assert_eq!(a.computed((s, r, c)), b.computed((s, r, c)), "{r},{c}");
+                }
+            }
+        }
+        // The carry-in reached the last bit.
+        let (_, last) = *at.last().unwrap();
+        assert_eq!(b.computed((s, last.0, last.1)), Some(num(1.0)));
+    }
+    let rule = |text: &str, names: &[(&str, &str)]| {
+        let mut rows = String::from("(cell \"T\" \"B2\" 1)\n(cell \"S\" \"B1\" 0)\n");
+        for (name, t) in names {
+            rows.push_str(&format!("(name \"{name}\" \"{t}\")\n"));
+        }
+        rows.push_str(&format!("(formula \"S\" \"D1:F3\" \"{text}\")\n"));
+        census_but_texts(&Machine::load(&rows, library::language()).expect("loads"))
+    };
+    assert_eq!(
+        rule(
+            "=IF($B$1=1,0,IF(OR(SUM(T!A1:C3)-T!B2=3,AND(T!B2=1,SUM(T!A1:C3)-T!B2=2)),1,0))",
+            &[]
+        ),
+        rule(
+            "=IF($B$1=1,0,NEXTCELL(SUM(T!A1:C3)-T!B2,T!B2))",
+            &[("NEXTCELL", "=LAMBDA(n,a,IF(OR(n=3,AND(a=1,n=2)),1,0))")]
+        )
+    );
+}

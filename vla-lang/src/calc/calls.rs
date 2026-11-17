@@ -50,7 +50,7 @@ pub const CALLS: u64 = 1_000_000;
 /// The levels of nesting an evaluation may stand on, a formula's own and the
 /// bodies it has entered: `VLA.1`'s limit, which its tests hold on a stack of
 /// 1 MiB in every build, a build of no optimization among them.
-const LEVELS: u32 = super::formula::NESTING_LIMIT;
+pub(super) const LEVELS: u32 = super::formula::NESTING_LIMIT;
 
 /// The levels a call's own frames stand for, beside its body's nesting.
 const ENTRY: u32 = 1;
@@ -189,7 +189,11 @@ type Remembered = (
     Result<Arg<'static>, Reason>,
 );
 
-/// What an evaluation of `LET` and `LAMBDA` keeps for one cell.
+/// What an evaluation of `LET` and `LAMBDA` keeps for one cell, made the
+/// first time it meets one (`Ctx::calls`), so that a context made for a cell
+/// that holds none costs what it cost before them; the level its nesting
+/// began at and how deep it nests are the context's own (`Ctx::nests`).
+#[derive(Default)]
 pub(crate) struct Calls {
     /// The bindings in scope where the evaluation stands.
     pub(super) frame: Option<Rc<Frame>>,
@@ -197,12 +201,6 @@ pub(crate) struct Calls {
     made: u64,
     /// The calls open, counted against [`DEPTH`].
     open: u32,
-    /// The level of nesting the formula or the body being evaluated began at,
-    /// and how deep it nests, so that anything in it stands no deeper than
-    /// their sum ([`LEVELS`]). A formula's own nesting is the cell's
-    /// evaluation's to say ([`Ctx::nests`]); until it does, its most.
-    base: u32,
-    span: u32,
     /// Each call computed on a fresh stack, with its answer.
     remembered: Vec<Remembered>,
     /// The call too deep for the stack, asked of the outermost.
@@ -212,28 +210,28 @@ pub(crate) struct Calls {
     named: Vec<(String, usize, Option<Rc<Lambda>>)>,
 }
 
-impl Default for Calls {
-    fn default() -> Calls {
-        Calls {
-            frame: None,
-            made: 0,
-            open: 0,
-            base: 0,
-            span: LEVELS,
-            remembered: Vec::new(),
-            request: None,
-            named: Vec::new(),
-        }
-    }
-}
-
 impl Ctx<'_> {
     /// How deep the formula about to be evaluated nests as `VLA.1` counts
     /// (`super::lambda::kept_depth`), which a cell's evaluation tells its
     /// context when it knows it, so that a call in it is entered where it
-    /// fits; a context told nothing takes the formula to nest its most.
+    /// fits; a context told nothing takes the formula to nest its most. With
+    /// the level its evaluation began at, the context's `base`, so that
+    /// anything in it stands no deeper than their sum ([`LEVELS`]).
     pub(crate) fn nests(&self, depth: u32) {
-        self.calls.borrow_mut().span = depth.min(LEVELS);
+        self.span.set(depth.min(LEVELS));
+    }
+
+    /// The bindings in scope where the evaluation stands.
+    fn frame(&self) -> Option<Rc<Frame>> {
+        self.calls.borrow().as_ref().and_then(|c| c.frame.clone())
+    }
+
+    /// What the evaluation keeps of its calls, made the first time it is
+    /// asked for.
+    fn calls_mut(&self) -> std::cell::RefMut<'_, Calls> {
+        std::cell::RefMut::map(self.calls.borrow_mut(), |c| {
+            &mut **c.get_or_insert_with(Box::default)
+        })
     }
 
     /// The top of a cell's evaluation (KERNEL.29): the expression evaluated,
@@ -244,7 +242,13 @@ impl Ctx<'_> {
         self.running.set(true);
         loop {
             let r = self.node(e);
-            if matches!(r, Err(Reason::Deep)) && self.calls.borrow().request.is_some() {
+            if matches!(r, Err(Reason::Deep))
+                && self
+                    .calls
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|c| c.request.is_some())
+            {
                 self.settle();
                 continue;
             }
@@ -255,7 +259,7 @@ impl Ctx<'_> {
     /// A name a `LET` binds or a `LAMBDA` takes, read where it is written:
     /// its binding's value, a `LET`'s computed once a reading.
     pub(super) fn local(&self, l: &Local) -> Result<Arg<'static>, Reason> {
-        let frame = self.calls.borrow().frame.clone();
+        let frame = self.frame();
         let mut at = frame.as_deref();
         while let Some(f) = at {
             if f.slot == l.slot {
@@ -295,7 +299,7 @@ impl Ctx<'_> {
     /// `LET`: its body among its bindings, each value kept as written until a
     /// name reads it.
     pub(super) fn let_in<'e>(&self, l: &'e Let) -> Result<Arg<'e>, Reason> {
-        let saved = self.calls.borrow().frame.clone();
+        let saved = self.frame();
         let mut frame = saved.clone();
         let offset = self.offset.get();
         for (local, value) in &l.binds {
@@ -321,7 +325,7 @@ impl Ctx<'_> {
     pub(super) fn function_value(&self, l: &Rc<Lambda>) -> Arg<'static> {
         Arg::Function(Function(Rc::new(Closure {
             lambda: Rc::clone(l),
-            frame: self.calls.borrow().frame.clone(),
+            frame: self.frame(),
             offset: self.offset.get(),
         })))
     }
@@ -363,7 +367,7 @@ impl Ctx<'_> {
 
     /// Whether a name a `LAMBDA` takes was given no argument (`ISOMITTED`).
     pub(crate) fn omitted(&self, l: &Local) -> bool {
-        let frame = self.calls.borrow().frame.clone();
+        let frame = self.frame();
         let mut at = frame.as_deref();
         while let Some(f) = at {
             if f.slot == l.slot {
@@ -379,13 +383,12 @@ impl Ctx<'_> {
     pub(super) fn named_function(&self, name: &str) -> Option<Function> {
         let home = self.env.here().0;
         let k = fold(name);
-        let known = self
-            .calls
-            .borrow()
-            .named
-            .iter()
-            .find(|(n, h, _)| *n == k && *h == home)
-            .map(|(_, _, l)| l.clone());
+        let known = self.calls.borrow().as_ref().and_then(|c| {
+            c.named
+                .iter()
+                .find(|(n, h, _)| *n == k && *h == home)
+                .map(|(_, _, l)| l.clone())
+        });
         let lambda = match known {
             Some(l) => l,
             None => {
@@ -400,7 +403,7 @@ impl Ctx<'_> {
                             _ => None,
                         })
                 });
-                self.calls.borrow_mut().named.push((k, home, l.clone()));
+                self.calls_mut().named.push((k, home, l.clone()));
                 l
             }
         }?;
@@ -432,7 +435,7 @@ impl Ctx<'_> {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
         }
         {
-            let mut s = self.calls.borrow_mut();
+            let mut s = self.calls_mut();
             if counted {
                 s.made += 1;
             }
@@ -452,7 +455,7 @@ impl Ctx<'_> {
             // Where it stands, on the safe side: as deep as the formula or
             // the body it is written in nests anywhere. At the top of a
             // computation of one call alone it stands on nothing, and goes in.
-            let at = s.base + s.span;
+            let at = self.base.get() + self.span.get();
             if at > 0 && at + ENTRY + lambda.depth > LEVELS {
                 s.request = Some(Request {
                     f: f.clone(),
@@ -482,20 +485,20 @@ impl Ctx<'_> {
             }));
         }
         let (saved, base, span) = {
-            let mut s = self.calls.borrow_mut();
+            let mut s = self.calls_mut();
             s.open += 1;
-            let at = s.base + s.span;
-            let base = std::mem::replace(&mut s.base, at + ENTRY);
-            let span = std::mem::replace(&mut s.span, c.lambda.depth);
+            let at = self.base.get() + self.span.get();
+            let base = self.base.replace(at + ENTRY);
+            let span = self.span.replace(c.lambda.depth);
             (std::mem::replace(&mut s.frame, frame), base, span)
         };
         let offset = self.offset.replace(c.offset);
         let r = self.eval(&c.lambda.body).map(Arg::into_owned);
         self.offset.set(offset);
-        let mut s = self.calls.borrow_mut();
+        let mut s = self.calls_mut();
         s.open -= 1;
-        s.base = base;
-        s.span = span;
+        self.base.set(base);
+        self.span.set(span);
         s.frame = saved;
         r
     }
@@ -505,39 +508,30 @@ impl Ctx<'_> {
     /// answer: a call that asks for a deeper one in its turn waits for that
     /// one.
     fn settle(&self) {
-        let Some(first) = self.calls.borrow_mut().request.take() else {
+        let Some(first) = self.calls_mut().request.take() else {
             return;
         };
         let mut pending = vec![first];
         while let Some(top) = pending.last() {
-            let (base, span, open) = {
-                let mut s = self.calls.borrow_mut();
-                (
-                    std::mem::replace(&mut s.base, 0),
-                    std::mem::replace(&mut s.span, 0),
-                    std::mem::replace(&mut s.open, top.open),
-                )
-            };
+            let (base, span, open) = (
+                self.base.replace(0),
+                self.span.replace(0),
+                std::mem::replace(&mut self.calls_mut().open, top.open),
+            );
             let inside = self.inside.replace(top.inside);
             let r = self.enter(&top.f, top.args.clone());
             self.inside.set(inside);
-            {
-                let mut s = self.calls.borrow_mut();
-                s.base = base;
-                s.span = span;
-                s.open = open;
-            }
+            self.base.set(base);
+            self.span.set(span);
+            self.calls_mut().open = open;
             match r {
-                Err(Reason::Deep) => match self.calls.borrow_mut().request.take() {
+                Err(Reason::Deep) => match self.calls_mut().request.take() {
                     Some(deeper) => pending.push(deeper),
                     None => break,
                 },
                 r => {
                     let done = pending.pop().expect("the call computed");
-                    self.calls
-                        .borrow_mut()
-                        .remembered
-                        .push((done.f, done.args, r));
+                    self.calls_mut().remembered.push((done.f, done.args, r));
                 }
             }
         }

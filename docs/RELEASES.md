@@ -36,6 +36,18 @@
   `frazaro calc` computes all of it, and an engine's load no longer refuses
   `LET` (KERNEL.29, its first slice).
 
+- **A part a formula repeats is computed once.** Where a part of a formula
+  stands in an `IF`'s condition and again in its branches, as a `LET`'s name
+  read there does, each cell computes it once and reads it again where it
+  stands, in a fill and in a cell alone:
+  `LET(x,h,IF(x>0.5,x,IF(x>0.25,x*2,-x)))` over a fill of 100,000 cells
+  takes half the time it did. A named function plans as its formula written
+  out, filled or at scattered places, which a test holds, and costs what it
+  costs, which the recalculation floors hold: an adder of 4,096 bits whose
+  sums and carries call `SUMBIT` and `CARRYBIT` beside the same adder written
+  out, each one's frames within 15% of the other's, where Excel 365 takes
+  4.6 times as long through the names (KERNEL.29, its second slice).
+
 - **A loop names an entry's parts.** A list of names where a loop's name
   stands, `(each ((address value) entries) (cell sheet address value))`,
   binds each name to its part of the entry, and `each-index` takes the same
