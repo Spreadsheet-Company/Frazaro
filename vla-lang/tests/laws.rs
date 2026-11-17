@@ -122,7 +122,8 @@ impl Rng {
 
 // ---- 1. reading and printing ------------------------------------------
 
-/// What a symbol may be made of: anything but a delimiter.
+/// What a symbol may be made of: anything but a delimiter, `#` never first
+/// (`symbol`), since a word never begins with it (VLA.18).
 const SYMBOL_CHARS: &[char] = &[
     'a', 'b', 'z', 'A', 'Z', '0', '9', '-', '+', '*', '/', '<', '=', '>', '!', '?', '.', '_', '&',
     '#', '$', '%', ':', '\'', '`', ',', '@', '[', ']', '{', '}', '|', '~', '^', 'é', 'λ',
@@ -138,17 +139,29 @@ fn chars(r: &mut Rng, pool: &[char], most: usize) -> String {
     (0..n).map(|_| *r.pick(pool)).collect()
 }
 
-/// One form's text: a symbol, a string written with the reader's escapes,
-/// or a list of up to three of them, six levels deep at most.
+/// A symbol's text, a `#` that would begin it moved inside it (VLA.18).
+fn symbol(r: &mut Rng) -> String {
+    let s = chars(r, SYMBOL_CHARS, 6);
+    if s.starts_with('#') {
+        format!("a{s}")
+    } else {
+        s
+    }
+}
+
+/// One form's text: a symbol, a string written with the reader's escapes or
+/// written raw (VLA.18; its text holds no `#`, so one closes it), or a list
+/// of up to three of them, six levels deep at most.
 fn form_text(r: &mut Rng, depth: u32) -> String {
-    match r.below(if depth >= 5 { 2 } else { 4 }) {
-        0 => chars(r, SYMBOL_CHARS, 6),
+    match r.below(if depth >= 5 { 3 } else { 5 }) {
+        0 => symbol(r),
         1 => {
             let body = chars(r, STRING_CHARS, 8)
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
             format!("\"{body}\"")
         }
+        2 => format!("#\"{}\"#", chars(r, STRING_CHARS, 8)),
         _ => {
             let k = r.below(4);
             let items: Vec<String> = (0..k).map(|_| form_text(r, depth + 1)).collect();

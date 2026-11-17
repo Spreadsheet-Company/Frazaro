@@ -1842,7 +1842,13 @@ mod tests {
     fn the_writer_refuses_what_it_cannot_spell_by_name() {
         assert_eq!(w_err("tax-rate"), "vla-formula-atom-unspelled");
         assert_eq!(w_err("A1+B1"), "vla-formula-atom-unspelled");
-        assert_eq!(w_err("#N/A"), "vla-formula-atom-unspelled");
+        // VLA.18: the reader refuses a word that begins with # before the
+        // writer meets it; a symbol made otherwise is the writer's to refuse.
+        assert_eq!(read_forms("#N/A").unwrap_err().id, "vla-hash-word");
+        assert_eq!(
+            write(&Form::sym("#N/A")).unwrap_err().id,
+            "vla-formula-atom-unspelled"
+        );
         assert_eq!(w_err("(f :key 1)"), "vla-formula-atom-unspelled");
         assert_eq!(w_err("&HFF"), "vla-formula-numeral-unspelled");
         assert_eq!(w_err("1d5"), "vla-formula-numeral-unspelled");

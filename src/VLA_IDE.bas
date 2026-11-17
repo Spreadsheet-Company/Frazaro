@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U.32"
+Public Const VLA_IDE_VERSION As String = "VLA.18"
+' VLA.18: Undo's roster reads a raw string. A raw helper row's sheet named
+' by #"..."# is read by VLA.VlaRawStringAt, the reader's own rule, so that
+' the sheet it changes is copied or tombstoned as a quoted name's is.
+'
 ' U.32: Undo puts a workbook's sheets back as they were - names, tab
 ' order, visibility and the active sheet. Before a Run, TakeRunSnapshot
 ' records every worksheet's name and visibility in tab order and the
@@ -4686,11 +4690,23 @@ Private Sub ReadHelperArgs(ByVal text As String, ByVal q As Long, ByVal wanted A
     Dim c As String
     Dim depth As Long
     Dim s As String
+    Dim rawHashes As Long, rawEnd As Long   ' VLA.18
     Do While q <= Len(text)
         c = Mid$(text, q, 1)
         If c = ")" Then Exit Do
+        rawHashes = 0
+        If c = "#" Then rawHashes = VLA.VlaRawStringAt(text, q, s, rawEnd)
         If c = " " Or c = vbTab Or c = vbCr Or c = vbLf Then
             q = q + 1
+        ElseIf rawHashes > 0 Then
+            ' VLA.18: a raw string, #"..."#, read by the reader's own rule; one
+            ' that never closes ends the scan, since the reader refuses it.
+            argNo = argNo + 1
+            If rawEnd = 0 Then Exit Do
+            q = rawEnd
+            If InStr("," & wanted & ",", "," & CStr(argNo) & ",") > 0 Then
+                If Len(s) > 0 Then AddTarget targets, s
+            End If
         ElseIf c = """" Then
             argNo = argNo + 1
             s = ""

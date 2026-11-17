@@ -23,6 +23,19 @@
 //! [`read_forms`] holds the text four bytes a character, its tokens and its
 //! forms at once, many times the text at its peak. Nothing in the reference is
 //! its twin, and `each_form_reads_what_read_forms_reads` holds the two one.
+//!
+//! A raw string (VLA.18) opens where a word would begin, at one `#` or more
+//! directly before a `"`, and closes at the first `"` followed by as many
+//! `#`: its text is every character between, with no escape, and a CRLF in
+//! it is read as LF, so that it reads the same from a file of either line
+//! end. A string spelled either way is the same [`Form::Str`]. No word
+//! begins with `#`, which the reader keeps for itself: the parser refuses
+//! such a word by name, `vla-hash-word`, and a raw string that never
+//! closes, `vla-raw-string-unclosed`, where it meets each among the other
+//! refusals, the tokenizer marking an unclosed one as its opener alone, a
+//! token no word can be, since no word holds a quote. [`list_heads`] gives
+//! the lists of a text by their heads as the reader reads them, for a gate
+//! that must read a text as the reader reads it.
 
 use crate::form::{Form, List};
 use crate::messages::{raise, Refusal};
@@ -37,9 +50,17 @@ pub struct Token {
 
 /// VBA `Tokenize`.
 pub fn tokenize(s: &str) -> Vec<Token> {
+    let mut out = Vec::new();
+    walk_tokens(s, |token, _| out.push(token));
+    out
+}
+
+/// The tokens of a text in order, each with the index among the text's
+/// characters at which it begins: [`tokenize`]'s walk, which
+/// [`list_heads`] shares, so that the two read one text alike.
+fn walk_tokens(s: &str, mut each: impl FnMut(Token, usize)) {
     let chars: Vec<char> = s.chars().collect();
     let n = chars.len();
-    let mut out = Vec::new();
     let mut i = 0;
     let mut line: u32 = 1;
     while i < n {
@@ -53,10 +74,13 @@ pub fn tokenize(s: &str) -> Vec<Token> {
                 i += 1;
             }
             '(' | ')' => {
-                out.push(Token {
-                    text: c.to_string(),
-                    line,
-                });
+                each(
+                    Token {
+                        text: c.to_string(),
+                        line,
+                    },
+                    i,
+                );
                 i += 1;
             }
             ';' => {
@@ -68,6 +92,7 @@ pub fn tokenize(s: &str) -> Vec<Token> {
             }
             '"' => {
                 let start_line = line;
+                let at = i;
                 i += 1;
                 let mut buf = String::from("\"");
                 while i < n {
@@ -98,13 +123,32 @@ pub fn tokenize(s: &str) -> Vec<Token> {
                         i += 1;
                     }
                 }
-                out.push(Token {
-                    text: buf,
-                    line: start_line,
-                });
+                each(
+                    Token {
+                        text: buf,
+                        line: start_line,
+                    },
+                    at,
+                );
             }
             _ => {
                 let start = i;
+                if let Some((hashes, close)) = raw_at(&chars, i) {
+                    // VLA.18: a raw string, its text between its quotes as
+                    // written, a CRLF read as LF; or, never closed, the
+                    // token of its opener alone, which the parser refuses.
+                    let from = i + hashes + 1;
+                    let to = close.unwrap_or(n);
+                    let written: String = chars[from..to].iter().collect();
+                    let text = match close {
+                        Some(_) => format!("\"{}", raw_text(&written)),
+                        None => format!("{}\"", "#".repeat(hashes)),
+                    };
+                    each(Token { text, line }, start);
+                    line += count_lf(&written) as u32;
+                    i = close.map_or(n, |q| q + 1 + hashes);
+                    continue;
+                }
                 while i < n {
                     let c = chars[i];
                     if matches!(c, '(' | ')' | ' ' | '\t' | '\r' | '\n' | ';' | '"') {
@@ -112,14 +156,58 @@ pub fn tokenize(s: &str) -> Vec<Token> {
                     }
                     i += 1;
                 }
-                out.push(Token {
-                    text: chars[start..i].iter().collect(),
-                    line,
-                });
+                each(
+                    Token {
+                        text: chars[start..i].iter().collect(),
+                        line,
+                    },
+                    start,
+                );
             }
         }
     }
-    out
+}
+
+/// VLA.18: whether a raw string opens at `chars[i]`, one `#` or more
+/// directly before a `"`, and if one does, the count of its `#` and the
+/// index of the `"` that closes it, the first followed by as many `#`, or
+/// `None` when it never closes.
+fn raw_at(chars: &[char], i: usize) -> Option<(usize, Option<usize>)> {
+    let hashes = chars[i..].iter().take_while(|&&c| c == '#').count();
+    if hashes == 0 || chars.get(i + hashes) != Some(&'"') {
+        return None;
+    }
+    let closes = |q: usize| {
+        chars[q] == '"'
+            && chars.len() - (q + 1) >= hashes
+            && chars[q + 1..q + 1 + hashes].iter().all(|&c| c == '#')
+    };
+    Some((hashes, (i + hashes + 1..chars.len()).find(|&q| closes(q))))
+}
+
+/// VLA.18: the byte twin of [`raw_at`] for [`Walk`], at the byte after a
+/// raw string's opening quote: the index of the `"` that closes it.
+fn raw_close(b: &[u8], from: usize, hashes: usize) -> Option<usize> {
+    let mut q = from;
+    while let Some(k) = b[q..].iter().position(|&c| c == b'"') {
+        let quote = q + k;
+        let after = &b[quote + 1..];
+        if after.len() >= hashes && after[..hashes].iter().all(|&c| c == b'#') {
+            return Some(quote);
+        }
+        q = quote + 1;
+    }
+    None
+}
+
+/// VLA.18: a raw string's text from what is written between its quotes,
+/// each CRLF read as LF and every other character as it stands.
+fn raw_text(written: &str) -> String {
+    if written.contains('\r') {
+        written.replace("\r\n", "\n")
+    } else {
+        written.to_string()
+    }
 }
 
 /// VBA `CountLf`: how many line feeds a text holds.
@@ -215,9 +303,40 @@ fn parse_form(
         ))
     } else if let Some(content) = tok.text.strip_prefix('"') {
         Ok(Form::Str(content.to_string()))
+    } else if tok.text.starts_with('#') {
+        Err(hash_refused(&tok.text, raw_line, line_offset))
     } else {
         Ok(Form::Sym(tok.text.clone()))
     }
+}
+
+/// VLA.18: a token that begins with `#`, refused: a raw string never closed,
+/// whose token is its opener alone, the only token that holds a quote and
+/// is no string, or else a word, which never begins with `#`.
+fn hash_refused(text: &str, raw_line: u32, line_offset: u32) -> Refusal {
+    if text.contains('"') {
+        unclosed_refused(text.len() - 1, raw_line, line_offset)
+    } else {
+        raise(
+            "vla-hash-word",
+            &[
+                ("word", text),
+                ("loc", &src_line_tag(raw_line, line_offset)),
+            ],
+        )
+    }
+}
+
+/// VLA.18: a raw string of `hashes` `#` that never closes, refused at the
+/// line its opener stands on, saying the close it lacks.
+fn unclosed_refused(hashes: usize, raw_line: u32, line_offset: u32) -> Refusal {
+    raise(
+        "vla-raw-string-unclosed",
+        &[
+            ("closer", &format!("\"{}", "#".repeat(hashes))),
+            ("loc", &src_line_tag(raw_line, line_offset)),
+        ],
+    )
 }
 
 /// VBA `VlaReadForms`: the forms of a text on its own, every list tagged
@@ -238,6 +357,51 @@ pub fn read_forms_with_lines(text: &str) -> Result<Vec<(Form, u32)>, Refusal> {
         .collect())
 }
 
+/// A list of a text, as the reader opens it (VLA.18): the word at its head,
+/// the text of the string directly after that word if a string stands
+/// there, the raw line of its `(` and the index of that `(` among the text's
+/// characters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListHead {
+    pub head: String,
+    pub string: Option<String>,
+    pub line: u32,
+    pub at: usize,
+}
+
+/// Every list of a text that a word heads, in the order they open, read by
+/// the reader's own tokens before anything is parsed or expanded, so that a
+/// gate asking what a text holds (the phrasebook's `(raw ...)` and its
+/// `requires-` directives) reads it as the reader reads it: a head after a
+/// line break, a tab or a comment is a head, and a list written inside a
+/// string, raw or not, is text. A text that does not read gives the lists it
+/// opens before and after the place it fails, as the tokens stand.
+pub fn list_heads(text: &str) -> Vec<ListHead> {
+    let mut toks: Vec<(Token, usize)> = Vec::new();
+    walk_tokens(text, |token, at| toks.push((token, at)));
+    let is_word = |t: &Token| t.text != "(" && t.text != ")" && !t.text.contains('"');
+    let mut out = Vec::new();
+    for (k, (open, at)) in toks.iter().enumerate() {
+        if open.text != "(" {
+            continue;
+        }
+        let Some((head, _)) = toks.get(k + 1).filter(|(t, _)| is_word(t)) else {
+            continue;
+        };
+        let string = toks
+            .get(k + 2)
+            .and_then(|(t, _)| t.text.strip_prefix('"'))
+            .map(str::to_string);
+        out.push(ListHead {
+            head: head.text.clone(),
+            string,
+            line: open.line,
+            at: *at,
+        });
+    }
+    out
+}
+
 /// One token as [`EachForm`] meets it: the text is lent, so that no token is
 /// kept and none is made for a form nobody asked for.
 enum Met<'a> {
@@ -245,6 +409,10 @@ enum Met<'a> {
     Close,
     /// A string literal's content as written, its escapes in it.
     Literal(&'a str),
+    /// A raw string's content as written, its CRLFs in it (VLA.18).
+    Raw(&'a str),
+    /// A raw string that never closes, and the count of its `#` (VLA.18).
+    Unclosed(usize),
     Word(&'a str),
 }
 
@@ -307,6 +475,22 @@ impl<'a> Walk<'a> {
                 }
                 _ => {
                     let start = self.at;
+                    let hashes = b[start..].iter().take_while(|&&c| c == b'#').count();
+                    if hashes > 0 && b.get(start + hashes) == Some(&b'"') {
+                        // VLA.18: a raw string, read as `walk_tokens` reads it.
+                        let line = self.line;
+                        let from = start + hashes + 1;
+                        let close = raw_close(b, from, hashes);
+                        let to = close.unwrap_or(b.len());
+                        let written = &self.text[from..to];
+                        self.line += count_lf(written) as u32;
+                        self.at = close.map_or(b.len(), |q| q + 1 + hashes);
+                        let met = match close {
+                            Some(_) => Met::Raw(written),
+                            None => Met::Unclosed(hashes),
+                        };
+                        return Some((met, line));
+                    }
                     while !matches!(
                         b.get(self.at),
                         None | Some(b'(' | b')' | b' ' | b'\t' | b'\r' | b'\n' | b';' | b'"')
@@ -336,9 +520,10 @@ impl<'a> Walk<'a> {
                 Form::List(List::new(items, line))
             }
             Met::Literal(content) => Form::Str(unescaped(content)),
+            Met::Raw(written) => Form::Str(raw_text(written)),
             Met::Word(word) => Form::Sym(word.to_string()),
             // Never met at a form's place in a text read through.
-            Met::Close => Form::List(List::new(Vec::new(), line)),
+            Met::Close | Met::Unclosed(_) => Form::List(List::new(Vec::new(), line)),
         }
     }
 }
@@ -414,7 +599,9 @@ pub fn each_form(text: &str) -> Result<EachForm<'_>, Refusal> {
                 }
                 depth -= 1;
             }
-            Met::Literal(_) | Met::Word(_) => {}
+            Met::Unclosed(hashes) => return Err(unclosed_refused(hashes, line, 0)),
+            Met::Word(word) if word.starts_with('#') => return Err(hash_refused(word, line, 0)),
+            Met::Literal(_) | Met::Raw(_) | Met::Word(_) => {}
         }
     }
     if depth > 0 {
@@ -449,7 +636,7 @@ impl<'a> EachForm<'a> {
                         continue;
                     }
                     Met::Word(word) => Some(word),
-                    Met::Literal(_) => None,
+                    Met::Literal(_) | Met::Raw(_) | Met::Unclosed(_) => None,
                 };
                 if let (Some(line), Some(word)) = (opened.take(), word) {
                     return Some((word, line));
@@ -568,6 +755,15 @@ mod tests {
             "(a)\n)\n(",
             "(a\n\"open",
             "(a) ; a comment\n(b ; a comment\n",
+            // VLA.18's two, each where it stands among the others.
+            "(a #\"open",
+            "(a\n##\"x\"#\n",
+            "#x",
+            "#\"a\"##",
+            "(#)",
+            ")\n#\"open",
+            "(b)\n(a #\"x\"# #y)",
+            "(a\n#\"x\ny\"# (b\n",
         ] {
             let e = each_form(text).unwrap_err();
             let want = read_forms(text).unwrap_err();
@@ -614,6 +810,250 @@ mod tests {
         );
         assert_eq!(each_form("").unwrap().count(), 0);
         assert_eq!(each_form(" ; only a comment\n").unwrap().count(), 0);
+    }
+
+    /// VLA.18: a text's raw spelling with the fewest `#`, one more than the
+    /// longest run of them after a quote in it.
+    fn raw(text: &str) -> String {
+        let mut longest = 0;
+        let mut run: Option<usize> = None;
+        for c in text.chars() {
+            run = match (c, run) {
+                ('"', _) => Some(0),
+                ('#', Some(k)) => Some(k + 1),
+                _ => None,
+            };
+            longest = longest.max(run.unwrap_or(0));
+        }
+        let hashes = "#".repeat(longest + 1);
+        format!("{hashes}\"{text}\"{hashes}")
+    }
+
+    #[test]
+    fn a_raw_string_reads_as_it_is_written_and_closes_at_its_hashes() {
+        let read = |text: &str| read_forms(text).unwrap();
+        let text = |s: &str| Form::string(s);
+        // No escape: a quote, a backslash and a pair of them stand.
+        assert_eq!(
+            read(r##"#"a "b" \ c \\ d \"#"##),
+            [text(r#"a "b" \ c \\ d \"#)]
+        );
+        // A text holding "# takes two, and closes at a quote and two.
+        assert_eq!(read(r###"##"x "# y"##"###), [text(r##"x "# y"##)]);
+        assert_eq!(read(r##"#""#"##), [text("")]);
+        assert_eq!(read("#\"é😀\"#"), [text("é😀")]);
+        // A raw string ends where its close does; a word may follow at once,
+        // as after a string, and a # inside a word stays the word's.
+        assert_eq!(read(r##"#"a"#b"##), [text("a"), Form::sym("b")]);
+        assert_eq!(read(r#"a#"b""#), [Form::sym("a#"), text("b")]);
+        assert_eq!(read(r##""a"#"b"#"##), [text("a"), text("b")]);
+        // A paren and a semicolon inside one are text.
+        assert_eq!(
+            read(r##"(f #"("# x #"x;y"#)"##),
+            [Form::list(vec![
+                Form::sym("f"),
+                text("("),
+                Form::sym("x"),
+                text("x;y")
+            ])]
+        );
+        // The same string as its escaped twin, to the reader and to the walk.
+        assert_eq!(read(r##"#"a"b\c"#"##), read(r#""a\"b\\c""#));
+        assert_eq!(
+            each_form(r##"#"a"b\c"#"##).unwrap().collect::<Vec<_>>(),
+            read(r#""a\"b\\c""#)
+        );
+        // The token is a string's, its leading quote and its text.
+        assert_eq!(texts(&tokenize(r##"#"a"b"#"##)), [r#""a"b"#]);
+    }
+
+    #[test]
+    fn a_raw_string_reads_a_crlf_as_lf_and_counts_its_lines() {
+        assert_eq!(
+            read_forms("#\"a\r\nb\rc\nd\"#").unwrap(),
+            [Form::string("a\nb\rc\nd")],
+            "a CRLF read as LF, a lone CR kept"
+        );
+        // An escaped string keeps its CR, as it always has.
+        assert_eq!(read_forms("\"a\r\nb\"").unwrap(), [Form::string("a\r\nb")]);
+        let text = "#\"one\ntwo\r\nthree\"# (x\n(y))";
+        let forms = read_forms(text).unwrap();
+        let x = forms[1].as_list().unwrap();
+        assert_eq!((x.line, x.items[1].as_list().unwrap().line), (3, 4));
+        assert_eq!(each_form(text).unwrap().collect::<Vec<_>>(), forms);
+        let toks = tokenize(text);
+        assert_eq!((toks[0].line, toks[1].line), (1, 3));
+    }
+
+    #[test]
+    fn an_unclosed_raw_string_and_a_word_of_hash_are_refused_by_name() {
+        let refused = |text: &str| {
+            let r = read_forms(text).unwrap_err();
+            (r.id, r.text)
+        };
+        let unclosed = "vla-raw-string-unclosed";
+        assert_eq!(
+            refused("(a #\"open"),
+            (
+                unclosed.into(),
+                "unclosed raw string (vla line 1): it ends at \"#, a quote and as many # as open it"
+                    .into()
+            )
+        );
+        assert_eq!(
+            refused("(a\n##\"x\"#\n"),
+            (
+                unclosed.into(),
+                "unclosed raw string (vla line 2): it ends at \"##, a quote and as many # as open it"
+                    .into()
+            ),
+            "a close of too few # closes nothing"
+        );
+        let word = |w: &str, loc: &str| {
+            (
+                "vla-hash-word".to_string(),
+                format!(
+                    "'{w}'{loc}: no word begins with # - an error is written (error \"#N/A\"), \
+                     and a raw string #\"...\"#, closed by its quote and as many # as open it"
+                ),
+            )
+        };
+        assert_eq!(refused("(f\n#x)"), word("#x", " (vla line 2)"));
+        assert_eq!(
+            refused("#\"a\"##"),
+            word("#", " (vla line 1)"),
+            "a close of one # too many"
+        );
+        assert_eq!(refused("(#)"), word("#", " (vla line 1)"));
+        // Each where it stands among the others, in the order a parse meets
+        // them; and in the prelude's lines, silent of its line as the rest.
+        assert_eq!(refused(")\n#\"open").0, "vla-unexpected-close-paren");
+        assert_eq!(refused("(a #\"open").0, unclosed);
+        assert_eq!(
+            refused(&format!("{}#x", "(".repeat(65))).0,
+            "vla-form-too-deep"
+        );
+        let r = parse_all(&tokenize("(p)\n#x"), 1).unwrap_err();
+        assert_eq!(r.text, word("#x", " (vla line 1)").1);
+        let r = parse_all(&tokenize("#x"), 1).unwrap_err();
+        assert_eq!(r.text, word("#x", "").1);
+        // The token of an unclosed raw string is its opener alone.
+        assert_eq!(texts(&tokenize("x ##\"open (a)")), ["x", "##\""]);
+    }
+
+    #[test]
+    fn each_form_reads_raw_strings_as_read_forms_does() {
+        let text = "x\n(a #\"two\r\nlines (and \"parens\")\"# (b ; c\n) ##\"q\"#\"## )\n#\"\"# (c #\"\\\"#)";
+        let forms: Vec<Form> = each_form(text).unwrap().collect();
+        assert_eq!(forms, read_forms(text).unwrap());
+        let lines: Vec<u32> = forms
+            .iter()
+            .filter_map(|f| Some(f.as_list()?.line))
+            .collect();
+        assert_eq!(lines, [2, 5]);
+        let b = forms[1].as_list().unwrap().items[2].as_list().unwrap();
+        assert_eq!(b.line, 3, "a list after a raw string's line break");
+        let heads: Vec<(&str, u32)> = each_form(text).unwrap().heads().collect();
+        assert_eq!(heads, [("a", 2), ("c", 5)]);
+        // A raw string of a mebibyte, a source's worth many times, between
+        // two lists: each read, and the list after it on its line.
+        let piece = "say \"hi\" \\ \"# (x) ; y\r\n#\"\n";
+        let big: String = piece.repeat((1 << 20) / piece.len() + 1);
+        let text = format!("(before)\n{}\n(after)", raw(&big));
+        let forms: Vec<Form> = each_form(&text).unwrap().collect();
+        assert_eq!(forms, read_forms(&text).unwrap());
+        assert_eq!(forms[1], Form::string(&big.replace("\r\n", "\n")));
+        let after = forms[2].as_list().unwrap().line as usize;
+        assert_eq!(after, 3 + count_lf(&big));
+    }
+
+    #[test]
+    fn every_text_reads_back_from_its_raw_and_its_escaped_spelling() {
+        // Texts of the characters that matter, from a fixed generator: each
+        // read back from its raw spelling, a CRLF read as LF, and from its
+        // escaped one whole, by both readers, alone and inside a list.
+        let alphabet = [
+            'a', '"', '\\', '#', '\n', '\r', ' ', '(', ')', ';', 'é', '😀',
+        ];
+        let mut seed: u64 = 0x5eed_0018;
+        let mut next = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (seed >> 33) as usize
+        };
+        for _ in 0..3000 {
+            let len = next() % 24;
+            let text: String = (0..len)
+                .map(|_| alphabet[next() % alphabet.len()])
+                .collect();
+            let spelled = raw(&text);
+            let escaped = write_datum(&Form::string(&text));
+            let want = vec![
+                Form::string(&text.replace("\r\n", "\n")),
+                Form::string(&text),
+            ];
+            let both = format!("{spelled} {escaped}");
+            assert_eq!(read_forms(&both).unwrap(), want, "{both:?}");
+            assert_eq!(each_form(&both).unwrap().collect::<Vec<_>>(), want);
+            let listed = format!("(w {spelled}\n{escaped})");
+            let mut items = vec![Form::sym("w")];
+            items.extend(want);
+            assert_eq!(read_forms(&listed).unwrap(), [Form::list(items)]);
+            assert_eq!(
+                each_form(&listed).unwrap().collect::<Vec<_>>(),
+                read_forms(&listed).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn list_heads_reads_each_head_as_the_reader_reads_it() {
+        let heads =
+            |t: &str| -> Vec<String> { list_heads(t).into_iter().map(|h| h.head).collect() };
+        for text in [
+            "(raw \"x\")",
+            "(\nraw \"x\")",
+            "(\r\nraw \"x\")",
+            "(\traw \"x\")",
+            "( ; a note\n raw \"x\")",
+            "#\"\\\"# (raw \"x\")",
+            "\"\\\\\" (raw \"x\")",
+        ] {
+            assert_eq!(heads(text), ["raw"], "{text:?}");
+        }
+        for text in [
+            "#\"(raw \"x\")\"#",
+            "\"(raw \\\"x\\\")\"",
+            "; (raw x)\n",
+            "#\"\\\"# \"(raw x)\"",
+        ] {
+            assert!(heads(text).is_empty(), "{text:?}");
+        }
+        assert_eq!(heads("((a b) (c) (\"d\" e))"), ["a", "c"]);
+        let h = list_heads("x\n  (requires-version #\"0.1\"#) (requires-form) (r (s) \"t\")");
+        assert_eq!(
+            h[0],
+            ListHead {
+                head: "requires-version".into(),
+                string: Some("0.1".into()),
+                line: 2,
+                at: 4
+            }
+        );
+        assert_eq!(
+            h.iter()
+                .map(|h| (&h.head[..], h.string.as_deref()))
+                .collect::<Vec<_>>(),
+            [
+                ("requires-version", Some("0.1")),
+                ("requires-form", None),
+                ("r", None),
+                ("s", None)
+            ]
+        );
+        // A text that does not read gives the lists its tokens open.
+        assert_eq!(heads("(a (b \"open"), ["a", "b"]);
     }
 
     const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");

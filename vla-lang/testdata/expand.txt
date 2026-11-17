@@ -2599,3 +2599,36 @@ broken
 === a-binding-s-value-refused-before-its-body
 (bind-expand ((self (range-expand "x")))
   (formula-expand (no-such-function-name 1)))
+=== raw-string-holds-quotes-and-backslashes
+(list #"say "hi", C:\temp\ and \"x\""#)
+=== raw-string-of-two-hashes-holds-a-quote-and-a-hash
+(list ##"a "# b"##)
+=== raw-string-empty
+(list #""#)
+=== raw-string-equals-its-escaped-twin
+(equal? #"a"b\c"# "a\"b\\c")
+=== raw-string-of-two-lines-equals-its-escaped-twin
+(equal? #"one
+two"# "one
+two")
+=== raw-string-beside-a-string-and-a-word
+(list "a"#"b"#c)
+=== raw-string-holds-a-paren-and-a-semicolon
+(list #"(x ; y)"#)
+=== raw-string-as-a-macro-s-argument
+(defmacro (say x) (debug-print x))
+(say #"a "b""#)
+=== raw-string-in-a-formula-expression
+(formula-expand (& A1 #"say "hi""#))
+=== raw-string-unclosed-refused
+(list #"open
+=== raw-string-closed-by-too-few-hashes-refused
+(list ##"a"#)
+=== raw-string-unclosed-names-its-line-refused
+(list 1)
+(list #"two
+lines
+=== a-word-that-begins-with-a-hash-refused
+(list #x)
+=== raw-string-closed-by-one-hash-too-many-refused
+(list #"a"##)

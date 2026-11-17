@@ -140,9 +140,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # run, vla-each-entry-shape the one id more.
 # 2026-11-16, VLA.17's IFERROR, from KERNEL.29's third save: 687 cases, 354
 # expanded, 73 distinct ids, vla-formula-not-called-in-place the one id more.
-$caseFloor = 687
-$expandedFloor = 354
-$idFloor = 73
+# 2026-11-17, VLA.18: 701 cases, 363 expanded, 75 distinct ids, the raw
+# string's 14 written by the port ahead of the reference's run,
+# vla-raw-string-unclosed and vla-hash-word the two ids more.
+$caseFloor = 701
+$expandedFloor = 363
+$idFloor = 75
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',

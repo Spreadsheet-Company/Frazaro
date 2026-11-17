@@ -1833,3 +1833,40 @@ REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, s
 REFUSED	vla-reference-expected	bind-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '(quote (a))', no reference
 === a-binding-s-value-refused-before-its-body
 REFUSED	vla-reference-expected	range-expand: expected one reference on a sheet, such as Input!B5 or (ref "Q1 Data" "A1"), got '"x"', a text
+=== raw-string-holds-quotes-and-backslashes
+EXPANDED	0
+("say \"hi\", C:\\temp\\ and \\\"x\\\"")
+=== raw-string-of-two-hashes-holds-a-quote-and-a-hash
+EXPANDED	0
+("a \"# b")
+=== raw-string-empty
+EXPANDED	0
+("")
+=== raw-string-equals-its-escaped-twin
+EXPANDED	0
+true
+=== raw-string-of-two-lines-equals-its-escaped-twin
+EXPANDED	0
+true
+=== raw-string-beside-a-string-and-a-word
+EXPANDED	0
+("a" "b" c)
+=== raw-string-holds-a-paren-and-a-semicolon
+EXPANDED	0
+("(x ; y)")
+=== raw-string-as-a-macro-s-argument
+EXPANDED	1
+(debug-print "a \"b\"")
+=== raw-string-in-a-formula-expression
+EXPANDED	0
+"=A1&\"say \"\"hi\"\"\""
+=== raw-string-unclosed-refused
+REFUSED	vla-raw-string-unclosed	unclosed raw string (vla line 1): it ends at "#, a quote and as many # as open it
+=== raw-string-closed-by-too-few-hashes-refused
+REFUSED	vla-raw-string-unclosed	unclosed raw string (vla line 1): it ends at "##, a quote and as many # as open it
+=== raw-string-unclosed-names-its-line-refused
+REFUSED	vla-raw-string-unclosed	unclosed raw string (vla line 2): it ends at "#, a quote and as many # as open it
+=== a-word-that-begins-with-a-hash-refused
+REFUSED	vla-hash-word	'#x' (vla line 1): no word begins with # - an error is written (error "#N/A"), and a raw string #"..."#, closed by its quote and as many # as open it
+=== raw-string-closed-by-one-hash-too-many-refused
+REFUSED	vla-hash-word	'#' (vla line 1): no word begins with # - an error is written (error "#N/A"), and a raw string #"..."#, closed by its quote and as many # as open it

@@ -75,6 +75,8 @@
 (message vla-unbalanced-parens 5 "VLA" "unbalanced parentheses: missing ')'{loc}")
 (message vla-unexpected-close-paren 5 "VLA" "unexpected ')'{loc}")
 (message vla-form-too-deep 5 "VLA" "lists nested more than {limit} deep{loc} - no program needs that many")
+(message vla-raw-string-unclosed 5 "VLA" "unclosed raw string{loc}: it ends at {closer}, a quote and as many # as open it")
+(message vla-hash-word 5 "VLA" "'{word}'{loc}: no word begins with # - an error is written (error \"#N/A\"), and a raw string #\"...\"#, closed by its quote and as many # as open it")
 (message vla-form-missing-element 5 "VLA" "form is missing required element {n}")
 (message vla-expected-list-at-position 5 "VLA" "expected a list at position {n}, got '{value}'")
 (message vla-expected-symbol-got-list 5 "VLA" "expected a symbol, got a list")

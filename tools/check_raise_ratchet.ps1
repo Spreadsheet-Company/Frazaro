@@ -164,8 +164,12 @@ function Get-RawRaiseCount([string]$path) {
 # handler, the same cleanup re-raise: a refusal inside a binding's body is raised
 # again from locals once the place is popped, so that no sibling sees another's
 # self, the determinism wall's one condition. No new English text.
+# 2026-11-17 (VLA.18): VLA 10->11. The eleventh site is VlaListHeads's fail:
+# handler, the VlaReadForms-family cleanup re-raise: a caught error raised
+# again from locals once VlaPopContext has run, so that a failed read never
+# leaves the context stack pushed. No new English text; nothing an id could name.
 $ceilings = @{
-    'VLA'                = 10
+    'VLA'                = 11
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4

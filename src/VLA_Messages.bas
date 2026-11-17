@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.17"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.18"
+' VLA.18: a raw string, #"..."#, two refusals of the reader under VLA:
+' vla-raw-string-unclosed - a raw string that never closes, at the line its
+' opener stands on, saying the close it lacks; vla-hash-word - a word that
+' begins with #, which the reader keeps for the raw string's opener.
+'
 ' VLA.17: funcall in the formula syntax, one refusal under VLA:
 ' vla-formula-not-called-in-place - a funcall of what IFERROR answers, which
 ' Excel removes from a workbook (KERNEL.29's third save), telling the author
@@ -748,6 +753,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-unexpected-close-paren", 5, "VLA", "unexpected ')'{loc}"
     ' VLA.1 - the reader and the expander's walk stop at one depth, so no stage after them recurses deeper.
     AddMsg m, "vla-form-too-deep", 5, "VLA", "lists nested more than {limit} deep{loc} - no program needs that many"
+    ' VLA.18 - a raw string's two refusals, each where the reader meets it among the others.
+    AddMsg m, "vla-raw-string-unclosed", 5, "VLA", "unclosed raw string{loc}: it ends at {closer}, a quote and as many # as open it"
+    AddMsg m, "vla-hash-word", 5, "VLA", "'{word}'{loc}: no word begins with # - an error is written (error ""#N/A""), and a raw string #""...""#, closed by its quote and as many # as open it"
     AddMsg m, "vla-form-missing-element", 5, "VLA", "form is missing required element {n}"
     AddMsg m, "vla-expected-list-at-position", 5, "VLA", "expected a list at position {n}, got '{value}'"
     AddMsg m, "vla-expected-symbol-got-list", 5, "VLA", "expected a symbol, got a list"

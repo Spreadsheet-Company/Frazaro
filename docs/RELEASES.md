@@ -66,6 +66,20 @@
   `IFERROR` answers, which Excel calls nothing in place of: bind it with `let`
   and call the name. The reader reads a call in place back as a `funcall`,
   where it refused one (VLA.17).
+- **A raw string.** `#"…"#` writes a text as it stands, with no escape:
+  `#"say "hi" from C:\temp\"#` is the text `say "hi" from C:\temp\`. It
+  closes at the first quote followed by as many `#` as opened it, so a text
+  that holds a quote and a `#` takes more of them, `##"…"##`. A line break
+  inside one reads as a line feed, whatever the file's line ends. It is the
+  same string as its escaped spelling wherever a string stands, and the
+  printer still writes every string escaped. A raw string that never closes
+  is refused by name, and so is a word that begins with `#`, which the
+  reader keeps for the raw string's opener: such a word read as a word
+  before, and nothing in Frazaro, Alonzo or Buffet wrote one. An error is
+  still written `(error "#N/A")`. `vla_lang::reader::list_heads` gives each
+  list's head as the reader reads it, and the phrasebook loader's `requires-`
+  and `raw` checks read a phrasebook through it, raw strings included
+  (VLA.18).
 
 ## 0.13.0
 

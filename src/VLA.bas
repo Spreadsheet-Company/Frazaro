@@ -20,7 +20,20 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.13.0"
-Public Const VLA_CORE_VERSION As String = "VLA.17"
+Public Const VLA_CORE_VERSION As String = "VLA.18"
+' VLA.18: A RAW STRING. #"..."#, a text written as it stands: where a word
+' would begin, one # or more right before a quote open it, and it closes at
+' the first quote followed by as many #, its text every character between
+' with no escape, each CRLF read as LF so that a file of either line end
+' reads the same (VlaRawStringAt, which Tokenize reads it by). No word
+' begins with #, which the reader keeps for the opener: ParseForm refuses
+' such a word, vla-hash-word, and a raw string that never closes,
+' vla-raw-string-unclosed, whose token Tokenize marks as its opener alone,
+' since no word holds a quote; each where ParseForm meets it among the
+' other refusals. VlaListHeads gives each list's head as the reader reads
+' it, for the phrasebook's two gates and anything else that must read a
+' text as the reader does. The port's tokenize, its walk under each_form
+' and list_heads read the same, held by the expand golden.
 ' VLA.17: A FUNCTION CALLED WHERE IT IS WRITTEN. (funcall f a ...) in the
 ' formula syntax: what f answers, called with its arguments. A name is
 ' called by its name, as (f a ...) is written; a list that writes as a call,
@@ -2184,6 +2197,7 @@ Private Function Tokenize(ByVal s As String) As String()
     Dim c As String, d As String, buf As String
     Dim start As Long
     Dim ln As Long, startLn As Long
+    Dim hashes As Long, rawNext As Long   ' VLA.18: a raw string's # and its end
     ln = 1
     n = Len(s)
     i = 1
@@ -2238,16 +2252,33 @@ Private Function Tokenize(ByVal s As String) As String()
                 Loop
                 outc.Add Chr$(34) & buf   ' leading quote char marks "string literal"
                 outLn.Add startLn
-            Case Else         ' symbol or number
+            Case Else         ' symbol or number, or VLA.18's raw string
                 start = i
-                Do While i <= n
-                    c = Mid$(s, i, 1)
-                    If c = "(" Or c = ")" Or c = " " Or c = vbTab _
-                       Or c = vbCr Or c = vbLf Or c = ";" Or c = """" Then Exit Do
-                    i = i + 1
-                Loop
-                outc.Add Mid$(s, start, i - start)
-                outLn.Add ln
+                hashes = 0
+                If c = "#" Then hashes = VlaRawStringAt(s, i, buf, rawNext)
+                If hashes > 0 Then
+                    ' VLA.18: its text as written, a CRLF read as LF; one that
+                    ' never closes is the token of its opener alone, which no
+                    ' word can be (a word never holds a quote), for ParseForm
+                    ' to refuse where it meets it.
+                    If rawNext > 0 Then
+                        outc.Add Chr$(34) & buf
+                    Else
+                        outc.Add String$(hashes, "#") & Chr$(34)
+                    End If
+                    outLn.Add ln
+                    ln = ln + CountLf(buf)
+                    If rawNext > 0 Then i = rawNext Else i = n + 1
+                Else
+                    Do While i <= n
+                        c = Mid$(s, i, 1)
+                        If c = "(" Or c = ")" Or c = " " Or c = vbTab _
+                           Or c = vbCr Or c = vbLf Or c = ";" Or c = """" Then Exit Do
+                        i = i + 1
+                    Loop
+                    outc.Add Mid$(s, start, i - start)
+                    outLn.Add ln
+                End If
         End Select
     Loop
     ' P-TOK: materialize once into arrays for O(1) positional access -
@@ -2583,9 +2614,93 @@ Private Function ParseForm(toks() As String, ByRef pos As Long, ByVal listDepth 
         VLA_Messages.RaiseMsg "vla-unbalanced-parens", "loc", OpenedAtTag(lnRaw)
     ElseIf t = ")" Then
         VLA_Messages.RaiseMsg "vla-unexpected-close-paren", "loc", SrcLineTag(lnRaw)
+    ElseIf Left$(t, 1) = "#" Then
+        ' VLA.18: a raw string never closed, whose token is its opener alone,
+        ' the one token holding a quote that is no string; or else a word,
+        ' which never begins with # (the port's hash_refused).
+        If InStr(1, t, Chr$(34), vbBinaryCompare) > 0 Then
+            VLA_Messages.RaiseMsg "vla-raw-string-unclosed", "closer", Chr$(34) & String$(Len(t) - 1, "#"), "loc", SrcLineTag(lnRaw)
+        Else
+            VLA_Messages.RaiseMsg "vla-hash-word", "word", t, "loc", SrcLineTag(lnRaw)
+        End If
     Else
         ParseForm = t
     End If
+End Function
+
+' VLA.18: the raw string that opens at s's character i, if one does: one #
+' or more right before a quote, closed by the first quote followed by as
+' many #. Returns the count of its #, 0 when no raw string opens there.
+' Its text comes back in rawText, every character between its quotes as
+' written but each CRLF read as LF, and the place after its close in
+' nextAt; one that never closes gives the rest of s as its text and nextAt
+' 0. The reader's one rule for a raw string: Tokenize reads by it, and so
+' does any scan of VLA text that must read one as the reader does (Undo's
+' roster). The port's raw_at and raw_text.
+Public Function VlaRawStringAt(ByVal s As String, ByVal i As Long, _
+                               ByRef rawText As String, ByRef nextAt As Long) As Long
+    Dim k As Long, closeAt As Long
+    Dim closer As String
+    Do While Mid$(s, i + k, 1) = "#"
+        k = k + 1
+    Loop
+    If k = 0 Then Exit Function
+    If Mid$(s, i + k, 1) <> Chr$(34) Then Exit Function
+    closer = Chr$(34) & String$(k, "#")
+    closeAt = InStr(i + k + 1, s, closer, vbBinaryCompare)
+    If closeAt = 0 Then
+        rawText = Mid$(s, i + k + 1)
+        nextAt = 0
+    Else
+        rawText = Mid$(s, i + k + 1, closeAt - (i + k + 1))
+        nextAt = closeAt + k + 1
+    End If
+    If InStr(1, rawText, vbCr, vbBinaryCompare) > 0 Then rawText = Replace(rawText, vbCrLf, vbLf)
+    VlaRawStringAt = k
+End Function
+
+' VLA.18: every list of a text that a word heads, in the order they open,
+' read by the reader's own tokens before anything is parsed or expanded:
+' each Array(head, hasString, stringText, lineNo), the word at the list's
+' head as written, whether a string stands directly after that word and
+' the string's text, and the raw line of the list's "(". A head after a
+' line break, a tab or a comment is a head, and a list written inside a
+' string, raw or not, is text, so that a gate asking what a text holds
+' reads it as the reader reads it (the phrasebook's raw-form and requires-
+' gates). A text that does not read gives the lists its tokens open.
+' Context-pushed/popped, as VlaReadForms is, so that a call mid-compile
+' never disturbs mTokLines. The port's list_heads.
+Public Function VlaListHeads(ByVal text As String) As Collection
+    VlaPushContext
+    On Error GoTo fail
+    Dim opened As Collection
+    Set opened = New Collection
+    Dim toks() As String
+    toks = Tokenize(text)
+    Dim k As Long
+    Dim hd As String, nextTok As String
+    For k = LBound(toks) To UBound(toks) - 1
+        If toks(k) = "(" Then
+            hd = toks(k + 1)
+            If hd <> "(" And hd <> ")" And InStr(1, hd, Chr$(34), vbBinaryCompare) = 0 Then
+                nextTok = ""
+                If k + 2 <= UBound(toks) Then nextTok = toks(k + 2)
+                If Left$(nextTok, 1) = Chr$(34) Then
+                    opened.Add Array(hd, True, Mid$(nextTok, 2), mTokLines(k))
+                Else
+                    opened.Add Array(hd, False, "", mTokLines(k))
+                End If
+            End If
+        End If
+    Next k
+    Set VlaListHeads = opened
+    VlaPopContext
+    Exit Function
+fail:
+    Dim errNum As Long, errDesc As String, errSrc As String
+    errNum = Err.Number: errDesc = Err.Description: errSrc = Err.Source
+    VlaPopContext
+    Err.Raise errNum, errSrc, errDesc
 End Function
 
 ' =====================================================================

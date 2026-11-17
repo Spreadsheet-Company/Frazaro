@@ -20590,7 +20590,7 @@ built.
 
   **Closed ✅ and committed 2026-11-16 at the owner's word.**
 
-- 🟡 **VLA.18 — a raw string: `#"…"#`, a text written as it stands with
+- ✅ **VLA.18 — a raw string: `#"…"#`, a text written as it stands with
   no escape, more `#` where the text holds `"#`, read alike by the
   reference, the port and `each_form`, so that a text holding quotes and
   backslashes is written verbatim.** *Minted and scoped 2026-11-16 at the
@@ -20773,6 +20773,50 @@ built.
     where the reader keeps the backslash; no manifest holds one.
   - Lint VLA's `SplitSegments` follows a string a line at a time, so an
     escaped string of several lines already misleads it.
+
+  **What was built,** every decision as recommended, in a worktree off
+  `6223066` and landed in the tree beside a peer's uncommitted `KERNEL.29`.
+  - `vla-lang/src/reader.rs`: `walk_tokens`, the one walk `tokenize` and
+    `list_heads` share; `raw_at`, `raw_close` and `raw_text`, the raw string
+    read by character and by byte; the walk's `Met::Raw` and `Met::Unclosed`;
+    `hash_refused` and `unclosed_refused`, raised by `parse_form` and by
+    `each_form`'s pass where each is met. `tokenize`, `parse_all` and `Token`
+    keep their signatures; `ListHead` and `list_heads` are the API's one
+    addition.
+  - `src/VLA.bas`: `VlaRawStringAt`, the reference's one rule for a raw
+    string, read by `Tokenize`; `ParseForm`'s two refusals; `VlaListHeads`,
+    context-pushed as `VlaReadForms` is. `VLA_CORE_VERSION` `VLA.18`.
+  - The two messages in `VLA_Messages.bas`, exported to
+    `vla-lang/data/messages.vla`, 262 in the language's half. The word's text
+    reworded in the build, from Rust's `#N/A` test: an Excel user's `#N/A`
+    is the likeliest word to meet it, so it names `(error "#N/A")` beside the
+    raw string's spelling.
+  - The phrasebook's two checks read `list_heads` in both implementations
+    (`vocab.rs`; `VLA_SentenceEngine.bas`, `RequiresLineOf` and
+    `RequiresReadValue` retired, `EnglishVocabHasRawForm` the check exposed
+    pure); Undo's roster reads a raw string by `VlaRawStringAt`.
+  - `TestRawStrings`, 16 pure pins, wired after `TestFormTooDeep`.
+  - The expand fixture's fourteen cases, nine read and five refused, and the
+    port's prediction of their records; floors 701, 363 and 75; the language's
+    printer law generating raw strings beside escaped ones, a `#` never first
+    in a word; `check_raise_ratchet`'s `VLA` ceiling 11, `VlaListHeads`'s
+    cleanup re-raise; `0.14.0`'s note and the crate's README.
+  - Two of the scoping's facts corrected: `ReadNameAt` reads an English
+    sentence's quoted name and was no copy of VLA's string rule, so the
+    reference holds thirteen; and the core's catalogue normalizes its own line
+    ends at its load, so no text there relies on a string's CR.
+
+  **Held by** the port: 903 passed, 0 failed and 5 ignored over the workspace,
+  the reader's six new tests and the gates' among them; `clippy` and `fmt`
+  clean; `run_checks.ps1` 60 of 60; `prove.ps1 -Impl` 70 passed.
+
+  **The owner's pass, 2026-11-17:** `VlaSelfTests`, pure 2555/2555,
+  `TestRawStrings`' 16 pins among them, and host 333/333;
+  `VlaWriteExpandGolden` wrote 701 cases, 338 refused, byte for byte the
+  port's prediction, which the crate's copy held apart (`cmp`).
+
+  **Closed ✅ and committed 2026-11-17 at the owner's word.** To be released
+  in `0.14.0`; Alonzo's pin and `ENGINE.40`'s second slice follow it.
 
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
@@ -59350,6 +59394,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.10 — verbs that compose: the fill's own place as a word, `self`, bound by `bind-expand` and read by the walk alone, with `offset-expand`, Excel's `OFFSET` at expand time; and a verb an expression over it, so that the nest stays refused.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, items 2 and 3), its one condition set by the determinism wall's paragraph of 2026-10-29; scoped, approved, built, owner-tested and committed 2026-10-30 at the owner's word. `(bind-expand ((self reference)) form ...)` binds the word to one cell on a sheet for every form the walk meets in its body: the cell computed first under any binding outside it, `let`'s rule, the body expanded to its fixpoint inside, an inner binding hiding an outer, and the stack restored on every exit, a refusal's among them, so that no sibling sees another's place. The walk alone reads the word, as it reads a define's, and `Substitute` did not change, so LISTOPS-CONFLUENCE's premise stands as written. `(offset-expand reference rows columns [height width])`, brought forward from `VLA.13` at the owner's word, is a form of the walk answering `(ref sheet part)`, so that the words over `self` read any reference. A verb is an expression macro over `self` with `rule` the one row-writer, the kit's shapes Alonzo's; what is left of the nest is its refusal, reworded. A free `self` is refused by name only where it would be read, since `Set self to 1.` compiles today and SD-4 keeps a sentence's reading; five primitives that read a word's text refuse it, bound or free. Found while scoping and fixed: the walk's forms computed at a spent budget, so the stepper refused the frames of any verb since `VLA.4`; each now stands. Seven ids. No compiled golden moved; in an Alonzo copy the kit bound `self`, Life, the gun, Sand and the sound card wrote their rules over it, `count` became `running` with its nineteen calls moved, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2504/2504, host 333/333; the reference's expand golden, 656 cases, the port's byte for byte; `VlaGoldens` PASS. *Pays into:* Alonzo's kit, its verbs over `self` at a pin that carries 0.13.0; `2030.md` §7.4's sketch. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **VLA.16 — an entry's parts named in a loop: a list of names where a loop's name stands, `(each ((address value) entries) (cell sheet address value))` and `(each-index (index (color name) entries 0) ...)`, each name bound to its part of the element, so that a template reads aloud as what it does and never reads a part as `(car (cdr entry))`.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("proceed with implementing option #3 to improve readability"), from Alonzo's `KIT.6`: the owner wants a VLA file readable by a middle or high school student. Each name is checked as a loop's name is, none alike another or the index; an element of another size is refused by a new id, `vla-each-entry-shape`, the entry shown; no rest and no list among the names, refused by `vla-each-shape`, whose text stands; a loop of one name writes what it wrote. One id; 20 cases, the expand golden 656 to 676; `TestEachNames`, 20 pins. In an Alonzo copy over the patched language the kit's `cells`, `formulas`, `rules`, the Palette's row and Kairos's `colors` named their parts, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2524/2524, host 333/333; the reference's expand golden the port's byte for byte. Found, unruled: a number is a name to the loop, in both implementations, as it was to `VLA.5`'s one name. *Pays into:* Alonzo's kit at a pin that carries 0.14.0. *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **VLA.17 — `funcall` in the formula syntax: `(funcall f a ...)`, what `f` answers called with its arguments, written `IF(c,SQ,PLUS1)(5)` where it stands and read back from a call in place, so that a source calls a function it computes.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("Add a funcall form to VLA's formula syntax"), from `KERNEL.29`'s question of whether a function's `#VALUE!` throws `APPLY` out. A name is called by its name, a list that writes as a call (a function's, `IF`'s, `LET`'s, a `LAMBDA` or a `funcall`) where it is written, and an operator, a literal, a reference or an array refused by name; the port's reader reads a call in place back as nested `funcall`s, and `FUNCALL(` is a word the syntax keeps. Excel's repaired third save of `KERNEL.29`'s fixture narrowed it by one function: Excel calls in place what `IF`, `CHOOSE`, a `LAMBDA` and a name answer and nothing `IFERROR` answers, so `(funcall (iferror ...) ...)` is refused by a new id, `vla-formula-not-called-in-place`, `let` named as the way. Both writers held to each other by eleven cases of the expand golden, Excel's run byte for byte the port's prediction; `TestFormulaFuncall`'s 15 pins. *Found:* `IFNA`'s and every other function's answer called in place are unmeasured, written as before. *Pays into:* Alonzo's cartridges at a pin that carries 0.14.0, a chip a level chooses called where it is chosen (`CART.9.3`). *(more: the full entry, earlier in this file)* `~hours`
+- ✅ **VLA.18 — a raw string: `#"…"#`, a text written as it stands with no escape, more `#` where the text holds `"#`, read alike by the reference, the port and `each_form`, so that a text holding quotes and backslashes is written verbatim.** Minted and scoped 2026-11-16 at the owner's word, from Alonzo's `ENGINE.40`, whose saved file writes each box a person typed as `(draft "<box>" "<name>" #"<text>"#)`; approved, built, owner-tested and committed 2026-11-17, every decision as recommended. One `#` or more right before a quote open it where a word would begin, and the first quote followed by as many `#` closes it; its text is every character between, a CRLF read as LF. A word that begins with `#` is refused by name, `vla-hash-word`, which names `(error "#N/A")`, and so is a raw string never closed, `vla-raw-string-unclosed`, each where a parse meets it; no text in Delta read either way before. The printer writes every string escaped, so no golden, record, save or digest moved. `reader::list_heads` gives each list's head as the reader reads it, and the phrasebook's two checks read a phrasebook through it in both implementations, as Undo's roster reads a raw string by the reference's own rule. Held by fourteen cases of the expand golden, Excel's run byte for byte the port's prediction; `TestRawStrings`' 16 pins; the port's round trips of read and print over generated texts, `each_form` against `read_forms` to a mebibyte, and the printer's law over raw strings. *Found:* the string rule's other copies, Lint VLA, the dev rig, the tag's fill, an English program's raw VLA row and the hints, each failing closed; `VlaDistroStrings` reading `\x` as `x`. *Pays into:* Alonzo's `ENGINE.40`, its second slice, at a pin that carries `0.14.0`. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

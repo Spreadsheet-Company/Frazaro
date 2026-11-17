@@ -1,6 +1,18 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.17"
+Public Const VLA_TESTS_VERSION As String = "VLA.18"
+' VLA.18: TestRawStrings - a raw string, #"..."#, 16 pins: the text as
+' written, quotes and backslashes standing; two # for a text holding "#;
+' the empty one; a word after one's close, and a # inside a word the
+' word's; a paren and a semicolon inside one; the string its escaped twin
+' is; a CRLF read as LF and a lone CR kept, where an escaped string keeps
+' its CR; the line of a list after one of three lines; an unclosed one and
+' a word of # refused by name at their lines, a close of too few # and of
+' one too many, and a stray ) refused first; and Undo's roster reading a
+' sheet's name written as one, counted at its place beside a quoted one.
+' RawFirstForm, RawReadAll and RawReadRefused its helpers. Wired after
+' TestFormTooDeep.
+'
 ' VLA.17: TestFormulaFuncall - (funcall f a ...) in the formula syntax, 15
 ' pins: a name called by its name, a call, a LAMBDA and a funcall called
 ' where they are written, curried calls, no argument, an operand, a LET's
@@ -618,6 +630,7 @@ Public Function VlaSelfTest() As Boolean
     TestCond
     TestListopsDepthSafety
     TestFormTooDeep
+    TestRawStrings
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -8986,6 +8999,125 @@ Private Sub TestFormTooDeep()
            InStr(1, dExp65, "more than 64 deep", vbBinaryCompare) > 0 And Len(out65) = 0, _
            "raised: " & VLA_Messages.VlaLastRaisedMsgId() & " / " & dExp65 & " / out " & Left$(out65, 80)
 End Sub
+
+' ---------------------------------------------------------------------
+' VLA.18: a raw string, #"..."#, as the reader reads it, and Undo's roster
+' reading a sheet's name written as one.
+Private Sub TestRawStrings()
+    Dim q As String
+    q = Chr$(34)
+    Dim got As String, twin As String
+    Dim c As Collection, lns As Collection
+
+    got = RawFirstForm("#" & q & "a " & q & "b" & q & " \ c \\ d" & q & "#")
+    Report "vla.18: a raw string reads as written, its quotes and backslashes standing", _
+           got = q & "a " & q & "b" & q & " \ c \\ d", "got: " & got
+
+    got = RawFirstForm("##" & q & "x " & q & "# y" & q & "##")
+    Report "vla.18: a text holding a quote and a # takes two #, closed by a quote and two", _
+           got = q & "x " & q & "# y", "got: " & got
+
+    got = RawFirstForm("#" & q & q & "#")
+    Report "vla.18: the empty raw string", got = q, "got: " & got
+
+    got = RawReadAll("#" & q & "a" & q & "#b a#" & q & "b" & q)
+    Report "vla.18: a word right after a raw string's close, and a # inside a word the word's", _
+           got = q & "a" & q & " | b | a# | " & q & "b" & q, "got: " & got
+
+    got = RawFirstForm("(f #" & q & "(" & q & "# x #" & q & "x;y" & q & "#)")
+    Report "vla.18: a paren and a semicolon inside a raw string are its text", _
+           got = "(f " & q & "(" & q & " x " & q & "x;y" & q & ")", "got: " & got
+
+    got = RawFirstForm("#" & q & "a" & q & "b\c" & q & "#")
+    twin = RawFirstForm(q & "a\" & q & "b\\c" & q)
+    Report "vla.18: a raw string is the string its escaped twin is", _
+           got = twin And got = q & "a" & q & "b\c", "raw: " & got & " / escaped: " & twin
+
+    got = RawFirstForm("#" & q & "a" & vbCrLf & "b" & vbCr & "c" & vbLf & "d" & q & "#")
+    Report "vla.18: a raw string reads a CRLF as LF and keeps a lone CR", _
+           got = q & "a" & vbLf & "b" & vbCr & "c" & vbLf & "d", _
+           "got: " & Replace(Replace(got, vbCr, "<CR>"), vbLf, "<LF>")
+
+    got = RawFirstForm(q & "a" & vbCrLf & "b" & q)
+    Report "vla.18: an escaped string keeps its CR, as it always has", _
+           got = q & "a" & vbCrLf & "b", _
+           "got: " & Replace(Replace(got, vbCr, "<CR>"), vbLf, "<LF>")
+
+    got = ""
+    Set c = VlaReadFormsWithLines("#" & q & "one" & vbLf & "two" & vbCrLf & "three" & q & "# (x)", lns)
+    If lns.Count = 2 Then got = CStr(lns.Item(2))
+    Report "vla.18: a list after a raw string of three lines stands on the third", got = "3", "got: " & got
+
+    got = RawReadRefused("(a #" & q & "open")
+    Report "vla.18: an unclosed raw string is refused by name, at its opener's line", _
+           got = "vla-raw-string-unclosed: unclosed raw string (vla line 1): it ends at " & q & "#, a quote and as many # as open it", _
+           "got: " & got
+
+    got = RawReadRefused("(a" & vbLf & "##" & q & "x" & q & "#" & vbLf)
+    Report "vla.18: a close of too few # closes nothing", _
+           got = "vla-raw-string-unclosed: unclosed raw string (vla line 2): it ends at " & q & "##, a quote and as many # as open it", _
+           "got: " & got
+
+    got = RawReadRefused("(f" & vbLf & "#x)")
+    Report "vla.18: a word that begins with # is refused by name, at its line", _
+           got = "vla-hash-word: '#x' (vla line 2): no word begins with # - an error is written (error " & q & "#N/A" & q & "), and a raw string #" & q & "..." & q & "#, closed by its quote and as many # as open it", _
+           "got: " & got
+
+    got = RawReadRefused("#" & q & "a" & q & "##")
+    Report "vla.18: a close of one # too many leaves a word of #, refused", _
+           Left$(got, 33) = "vla-hash-word: '#' (vla line 1): ", "got: " & got
+
+    got = RawReadRefused(")" & vbLf & "#" & q & "open")
+    Report "vla.18: each refusal where a parse meets it, a stray ) before an unclosed raw string", _
+           Left$(got, 27) = "vla-unexpected-close-paren:", "got: " & got
+
+    got = VlaIdeScanTargets("(delete-sheet #" & q & "Q4 " & q & "final" & q & q & "#)")
+    Report "vla.18: Undo's roster reads a sheet named by a raw string", _
+           got = "Q4 " & q & "final" & q, "got: " & got
+
+    got = VlaIdeScanTargets("(rename-sheet #" & q & "Old" & q & "# " & q & "New" & q & ")")
+    Report "vla.18: a raw string counts as its row's argument beside a quoted one", _
+           got = "Old,New", "got: " & got
+End Sub
+
+' VLA.18: the first form a text reads as, a string as its token (its leading
+' quote and its text) and a list written flat, or "(no form)".
+Private Function RawFirstForm(ByVal src As String) As String
+    Dim c As Collection
+    Set c = VlaReadForms(src)
+    If c.Count = 0 Then
+        RawFirstForm = "(no form)"
+    ElseIf IsObject(c.Item(1)) Then
+        RawFirstForm = VlaWriteForm(c.Item(1))
+    Else
+        RawFirstForm = CStr(c.Item(1))
+    End If
+End Function
+
+' VLA.18: every form a text reads as, each written flat, joined by " | ".
+Private Function RawReadAll(ByVal src As String) As String
+    Dim c As Collection
+    Dim v As Variant
+    Dim r As String
+    Set c = VlaReadForms(src)
+    For Each v In c
+        If Len(r) > 0 Then r = r & " | "
+        r = r & VlaWriteForm(v)
+    Next v
+    RawReadAll = r
+End Function
+
+' VLA.18: the reader's refusal of a text, its id and its words, or "".
+Private Function RawReadRefused(ByVal src As String) As String
+    Dim c As Collection
+    Dim d As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Set c = VlaReadForms(src)
+    d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then RawReadRefused = VLA_Messages.VlaLastRaisedMsgId() & ": " & d
+End Function
 
 ' ---------------------------------------------------------------------
 '  TABLESPEC (BETA_REARVIEW.md's own entry) depth-safety proof - the

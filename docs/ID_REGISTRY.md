@@ -492,7 +492,8 @@ at the owner's word ("Mint, scope and build one VLA item: a raw string
 literal"), from Alonzo's `ENGINE.40`, whose saved file writes each box a
 person typed as `(draft "<box>" "<name>" #"<text>"#)`: a raw string,
 `#"…"#`, a text written as it stands with no escape, read alike by the
-reference, the port and `each_form`. `VLA.19` is next free.
+reference, the port and `each_form`; approved, built, owner-tested and
+committed 2026-11-17. `VLA.19` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

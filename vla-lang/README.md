@@ -34,7 +34,12 @@ refused in the same words.
   `reader::each_form` gives the same forms one at a time, for a text too long
   to hold as forms, refusing what `read_forms` refuses before the first; and
   `printer::write_datum` and `printer::write_pretty` write a form back, as
-  the add-in writes its goldens.
+  the add-in writes its goldens. A string is written `"..."`, a quote and a
+  backslash escaped, or raw, `#"..."#`, as it stands, more `#` where its text
+  holds a quote and a `#`, a line break inside one read as a line feed; the
+  printer writes every string escaped. `reader::list_heads` gives each list's
+  head as the reader reads it, for a tool that must read a text as the
+  reader does before anything is parsed.
 - **Expands macros.** `expand::expand_text` takes a program's text and a
   prelude's, defines the prelude's macros and expands every form to a
   fixpoint, refusing a malformed definition or a runaway expansion by name.

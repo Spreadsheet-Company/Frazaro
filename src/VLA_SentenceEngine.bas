@@ -1,6 +1,19 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "F.18"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "VLA.18"
+' VLA.18: the phrasebook's two gates read a text as the reader reads it.
+' VocabTextHasRawForm (SEC.2) and VocabRequiresScan (F.10) each walked the
+' raw source text by a copy of the reader's rules, which a raw string
+' (#"..."#) would mislead, and which already differed from the reader:
+' a head after a line break, a tab or a comment went unseen, and a
+' requirement's value read a backslash before any character as an escape.
+' Both now read VLA.VlaListHeads, every list's head by the reader's own
+' tokens, still from the raw source text before any macro expands; a
+' requirement's line is its "(" token's, RequiresLineOf and
+' RequiresReadValue retired. EnglishVocabHasRawForm exposes the SEC.2 gate
+' pure for the self-test. The port's vocab_text_has_raw_form and
+' vocab_requires_scan read list_heads the same way.
+'
 ' F.18: two latent bugs the refusal golden found (PORT.6, slice 6f).
 ' ParseStmt's Case "get" line stood twice, so the first, empty, arm matched
 ' and the standalone-Get guard never ran; it is one line now. AddPhraseRule
@@ -8661,63 +8674,30 @@ End Sub
 ' Does this vocabulary TEXT carry a (raw ...) form anywhere - top-level
 ' (VLA.bas's EmitTop) or nested inside a statement body (VLA.bas's
 ' EmitStmt) both dispatch "raw" verbatim into the emitted module, so
-' detection walks every paren's own head symbol rather than trusting a
-' substring search, which would false-positive on a rule whose own
-' English sentence text or a nearby comment merely contains the word
-' "raw" (this file has several). Comment-aware (";" to end of line, the
-' real .vla comment rule - VLA.bas's own reader, ~line 2725), string-
-' literal-aware (backslash-escaped, same as every other reader in this
-' codebase) character walk - the same shape EnglishResolveCheck already
-' uses for the identical reason, over the phrasebook's raw source text
-' rather than an already-parsed form tree (Nth/IsList are Private to
-' VLA.bas - not reachable from this module).
+' detection reads every list's own head rather than trusting a substring
+' search, which would false-positive on a rule whose own English sentence
+' text or a nearby comment merely contains the word "raw" (this file has
+' several). VLA.18: the heads are the reader's own, VLA.VlaListHeads over
+' its Tokenize, where this used to walk the text by a copy of the
+' reader's rules: a head after a line break, a tab or a comment is a head,
+' and a list inside a string, raw or not, is text, so that no form the
+' loader reads can pass this gate by. Still read from the phrasebook's
+' raw source text, before any macro expands.
 Private Function VocabTextHasRawForm(ByVal text As String) As Boolean
-    Dim n As Long
-    n = Len(text)
-    Dim inLit As Boolean
-    Dim i As Long
-    i = 1
-    Do While i <= n
-        Dim c As String
-        c = Mid$(text, i, 1)
-        If inLit Then
-            If c = "\" Then
-                i = i + 2
-            ElseIf c = """" Then
-                inLit = False
-                i = i + 1
-            Else
-                i = i + 1
-            End If
-        ElseIf c = """" Then
-            inLit = True
-            i = i + 1
-        ElseIf c = ";" Then
-            Do While i <= n
-                If Mid$(text, i, 1) = vbCr Or Mid$(text, i, 1) = vbLf Then Exit Do
-                i = i + 1
-            Loop
-        ElseIf c = "(" Then
-            Dim j As Long
-            j = i + 1
-            Do While j <= n And Mid$(text, j, 1) = " "
-                j = j + 1
-            Loop
-            Dim hEnd As Long
-            hEnd = j
-            Do While hEnd <= n
-                If InStr(" ()" & vbCr & vbLf & vbTab, Mid$(text, hEnd, 1)) > 0 Then Exit Do
-                hEnd = hEnd + 1
-            Loop
-            If VLA_Identity.Fold(Mid$(text, j, hEnd - j)) = "raw" Then
-                VocabTextHasRawForm = True
-                Exit Function
-            End If
-            i = hEnd
-        Else
-            i = i + 1
+    Dim h As Variant
+    For Each h In VLA.VlaListHeads(text)
+        If VLA_Identity.Fold(CStr(h(0))) = "raw" Then
+            VocabTextHasRawForm = True
+            Exit Function
         End If
-    Loop
+    Next h
+End Function
+
+' VLA.18: SEC.2's gate, exposed pure for the self-test, as VlaIdeScanTargets
+' exposes Undo's roster: whether a phrasebook's text holds a (raw ...) form
+' anywhere, read as the reader reads it.
+Public Function EnglishVocabHasRawForm(ByVal text As String) As Boolean
+    EnglishVocabHasRawForm = VocabTextHasRawForm(text)
 End Function
 
 ' hostWb may be Nothing (no active workbook at the moment of a raw-
@@ -8835,10 +8815,12 @@ End Function
 '  in FILE ORDER, so a (requires-...) sitting below a rule would be
 '  read only after that rule had already registered - SEC.2's gate,
 '  the precedent this follows, fires "BEFORE a single rule from this
-'  file registers." So the check walks the raw source text, in
-'  VocabTextHasRawForm's exact shape (comment-aware, string-literal-
-'  aware) and for the same reason: a substring search would false-
-'  positive on prose. Being lexical and PRE-expansion also closes a
+'  file registers." So the check reads the raw source text, as
+'  VocabTextHasRawForm does and for the same reason: a substring search
+'  would false-positive on prose. VLA.18: both read the reader's own
+'  tokens, VLA.VlaListHeads, where each walked the text by a copy of the
+'  reader's rules that a raw string, a line break before a head or a
+'  backslash in a value could mislead. Being lexical and PRE-expansion also closes a
 '  real hole - a phrasebook cannot disguise a requirement by defining
 '  a macro of the same name, which ExpandVocabMacroCall would
 '  otherwise happily expand into something else entirely. The
@@ -8906,121 +8888,32 @@ End Function
 ' =====================================================================
 
 ' One parsed (requires-...) tag per entry, in file order. Returns the
-' count. Namespaces come back folded; values come back with their
-' string escapes resolved, exactly as the reader would have.
+' count. Namespaces come back folded; a value is the string directly after
+' the head, its text as the reader reads it, or "" when no string stands
+' there (a bare (requires-version) or (requires-version 0.5.2) with the
+' quotes forgotten), which the caller turns into the missing-value
+' refusal; lineOut is the line of each tag's "(". VLA.18: read from the
+' reader's own tokens (VLA.VlaListHeads), where this walked the text by a
+' copy of the reader's rules and read a backslash before any character as
+' an escape, which the reader does before a quote and a backslash alone.
+' lineNo, never `line`, in the callers: Line is a VBA keyword (Line Input
+' #, and the Line method on a drawing surface).
 Private Function VocabRequiresScan(ByVal text As String, ByRef nsOut As Collection, _
-                                    ByRef valOut As Collection, ByRef posOut As Collection) As Long
+                                    ByRef valOut As Collection, ByRef lineOut As Collection) As Long
     Set nsOut = New Collection
     Set valOut = New Collection
-    Set posOut = New Collection
-
-    Dim n As Long
-    n = Len(text)
-    Dim inLit As Boolean
-    Dim i As Long
-    i = 1
-    Do While i <= n
-        Dim c As String
-        c = Mid$(text, i, 1)
-        If inLit Then
-            If c = "\" Then
-                i = i + 2
-            ElseIf c = """" Then
-                inLit = False
-                i = i + 1
-            Else
-                i = i + 1
-            End If
-        ElseIf c = """" Then
-            inLit = True
-            i = i + 1
-        ElseIf c = ";" Then
-            Do While i <= n
-                If Mid$(text, i, 1) = vbCr Or Mid$(text, i, 1) = vbLf Then Exit Do
-                i = i + 1
-            Loop
-        ElseIf c = "(" Then
-            Dim headStart As Long
-            headStart = i + 1
-            Do While headStart <= n And Mid$(text, headStart, 1) = " "
-                headStart = headStart + 1
-            Loop
-            Dim hEnd As Long
-            hEnd = headStart
-            Do While hEnd <= n
-                If InStr(" ()" & vbCr & vbLf & vbTab, Mid$(text, hEnd, 1)) > 0 Then Exit Do
-                hEnd = hEnd + 1
-            Loop
-            Dim head As String
-            head = VLA_Identity.Fold(Mid$(text, headStart, hEnd - headStart))
-            If Len(head) > 9 And Left$(head, 9) = "requires-" Then
-                nsOut.Add Mid$(head, 10)
-                valOut.Add RequiresReadValue(text, hEnd)
-                posOut.Add i
-            End If
-            i = hEnd
-        Else
-            i = i + 1
+    Set lineOut = New Collection
+    Dim h As Variant
+    Dim head As String
+    For Each h In VLA.VlaListHeads(text)
+        head = VLA_Identity.Fold(CStr(h(0)))
+        If Len(head) > 9 And Left$(head, 9) = "requires-" Then
+            nsOut.Add Mid$(head, 10)
+            valOut.Add CStr(h(2))
+            lineOut.Add CLng(h(3))
         End If
-    Loop
+    Next h
     VocabRequiresScan = nsOut.Count
-End Function
-
-' The quoted value directly after a requires- head. Returns "" when
-' there isn't one (a bare (requires-version) or (requires-version
-' 0.5.2) with the quotes forgotten) - the caller turns that into the
-' missing-value refusal, so this stays a pure reader and never raises.
-Private Function RequiresReadValue(ByVal text As String, ByVal fromPos As Long) As String
-    Dim n As Long
-    n = Len(text)
-    Dim i As Long
-    i = fromPos
-    Do While i <= n
-        Dim c As String
-        c = Mid$(text, i, 1)
-        If c = """" Then Exit Do
-        ' Anything but whitespace before the opening quote means there
-        ' is no quoted value to read - stop rather than skipping over
-        ' the rest of the form hunting for an unrelated string.
-        If InStr(" " & vbCr & vbLf & vbTab, c) = 0 Then Exit Function
-        i = i + 1
-    Loop
-    If i > n Then Exit Function
-
-    i = i + 1
-    Dim r As String
-    Do While i <= n
-        Dim d As String
-        d = Mid$(text, i, 1)
-        If d = "\" Then
-            r = r & Mid$(text, i + 1, 1)
-            i = i + 2
-        ElseIf d = """" Then
-            RequiresReadValue = r
-            Exit Function
-        Else
-            r = r & d
-            i = i + 1
-        End If
-    Loop
-End Function
-
-' 1-based line number of a character position, counted the way every
-' other message in this module counts them. Called only when a tag
-' actually needs to be named in a refusal, so walking the prefix is
-' free in practice.
-' lineNo, never `line`: Line is a VBA keyword (Line Input #, and the
-' Line method on a drawing surface), and this codebase has already
-' been bitten once by a local whose name collided with a VBA
-' intrinsic.
-Private Function RequiresLineOf(ByVal text As String, ByVal pos As Long) As Long
-    Dim lineNo As Long
-    lineNo = 1
-    Dim i As Long
-    For i = 1 To pos - 1
-        If Mid$(text, i, 1) = vbLf Then lineNo = lineNo + 1
-    Next
-    RequiresLineOf = lineNo
 End Function
 
 ' The host-free half: version, form, and the unknown-namespace
@@ -9029,15 +8922,15 @@ End Function
 ' is a RaiseMsg, never a dialog. Idempotent and cheap, which is why
 ' the file-path loader calls it too rather than reordering the gates.
 Private Sub VocabRequiresCheckPure(ByVal text As String, ByVal sourceName As String)
-    Dim ns As Collection, vals As Collection, poss As Collection
-    If VocabRequiresScan(text, ns, vals, poss) = 0 Then Exit Sub
+    Dim ns As Collection, vals As Collection, lns As Collection
+    If VocabRequiresScan(text, ns, vals, lns) = 0 Then Exit Sub
 
     ' Pass 1 - every version tag, before anything else in the file is
     ' considered. See VERSION-FIRST ORDERING above.
     Dim i As Long
     For i = 1 To ns.Count
         If CStr(ns.Item(i)) = "version" Then
-            RequiresCheckVersion CStr(vals.Item(i)), text, CLng(poss.Item(i)), sourceName
+            RequiresCheckVersion CStr(vals.Item(i)), CLng(lns.Item(i)), sourceName
         End If
     Next
 
@@ -9059,20 +8952,20 @@ Private Sub VocabRequiresCheckPure(ByVal text As String, ByVal sourceName As Str
                 ' refuses in words as not-yet-implemented, which is
                 ' honest, rather than passing silently.
                 VLA_Messages.RaiseMsg "english-vocab-requires-form-unsupported", _
-                    "loc", ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), ""), _
+                    "loc", ProvLoc(sourceName, CLng(lns.Item(i)), ""), _
                     "form", CStr(vals.Item(i))
             Case Else
                 VLA_Messages.RaiseMsg "english-vocab-requires-unknown-namespace", _
-                    "loc", ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), ""), _
+                    "loc", ProvLoc(sourceName, CLng(lns.Item(i)), ""), _
                     "namespace", nm, "have", VLA.VLA_RELEASE_VERSION
         End Select
     Next
 End Sub
 
-Private Sub RequiresCheckVersion(ByVal wanted As String, ByVal text As String, _
-                                  ByVal pos As Long, ByVal sourceName As String)
+Private Sub RequiresCheckVersion(ByVal wanted As String, ByVal lineNo As Long, _
+                                  ByVal sourceName As String)
     Dim loc As String
-    loc = ProvLoc(sourceName, RequiresLineOf(text, pos), "")
+    loc = ProvLoc(sourceName, lineNo, "")
     If Len(wanted) = 0 Then
         VLA_Messages.RaiseMsg "english-vocab-requires-missing-value", "loc", loc, "namespace", "version"
     End If
@@ -9100,13 +8993,13 @@ End Sub
 ' SEC.7 replaces the refusal below with its ask; the parse, the
 ' syntax, and this call site all stay exactly as they are.
 Private Sub VocabRequiresCheckCapability(ByVal text As String, ByVal sourceName As String)
-    Dim ns As Collection, vals As Collection, poss As Collection
-    If VocabRequiresScan(text, ns, vals, poss) = 0 Then Exit Sub
+    Dim ns As Collection, vals As Collection, lns As Collection
+    If VocabRequiresScan(text, ns, vals, lns) = 0 Then Exit Sub
     Dim i As Long
     For i = 1 To ns.Count
         If CStr(ns.Item(i)) = "capability" Then
             Dim loc As String
-            loc = ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), "")
+            loc = ProvLoc(sourceName, CLng(lns.Item(i)), "")
             If Len(CStr(vals.Item(i))) = 0 Then
                 VLA_Messages.RaiseMsg "english-vocab-requires-missing-value", "loc", loc, "namespace", "capability"
             End If

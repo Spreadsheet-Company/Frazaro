@@ -25,7 +25,7 @@ use crate::form::{Form, List};
 use crate::intrinsics::fold;
 use crate::messages::{raise, Refusal};
 use crate::printer::write_datum;
-use crate::reader::{read_forms, read_forms_with_lines};
+use crate::reader::{list_heads, read_forms, read_forms_with_lines};
 
 use super::grammar::{Grammar, Proof, ProofKind};
 
@@ -441,92 +441,23 @@ pub struct Requirement {
     pub pos: usize,
 }
 
-/// VBA `VocabRequiresScan`: every `requires-` head in the text, outside
-/// strings and comments, in file order.
+/// VBA `VocabRequiresScan`: every `requires-` head in the text, in file
+/// order, each list read by the reader's own tokens before anything is
+/// expanded (VLA.18, [`list_heads`]), so that a requirement reads as the
+/// reader reads it, wherever its head stands after the `(` and whichever
+/// spelling its string takes.
 pub fn vocab_requires_scan(text: &str) -> Vec<Requirement> {
-    let chars: Vec<char> = text.chars().collect();
-    let n = chars.len();
-    let mut out = Vec::new();
-    let mut in_lit = false;
-    let mut i = 0;
-    while i < n {
-        let c = chars[i];
-        if in_lit {
-            if c == '\\' {
-                i += 2;
-            } else {
-                if c == '"' {
-                    in_lit = false;
-                }
-                i += 1;
-            }
-        } else if c == '"' {
-            in_lit = true;
-            i += 1;
-        } else if c == ';' {
-            while i < n && chars[i] != '\r' && chars[i] != '\n' {
-                i += 1;
-            }
-        } else if c == '(' {
-            let mut head_start = i + 1;
-            while head_start < n && chars[head_start] == ' ' {
-                head_start += 1;
-            }
-            let mut h_end = head_start;
-            while h_end < n && !matches!(chars[h_end], ' ' | '(' | ')' | '\r' | '\n' | '\t') {
-                h_end += 1;
-            }
-            let head = fold(&chars[head_start..h_end].iter().collect::<String>());
-            if head.len() > 9 && head.starts_with("requires-") {
-                out.push(Requirement {
-                    namespace: head[9..].to_string(),
-                    value: requires_read_value(&chars, h_end),
-                    pos: i,
-                });
-            }
-            i = h_end;
-        } else {
-            i += 1;
-        }
-    }
-    out
-}
-
-/// VBA `RequiresReadValue`: the quoted value directly after a requires-
-/// head, or nothing when there isn't one.
-fn requires_read_value(chars: &[char], from: usize) -> String {
-    let n = chars.len();
-    let mut i = from;
-    while i < n {
-        let c = chars[i];
-        if c == '"' {
-            break;
-        }
-        if !matches!(c, ' ' | '\r' | '\n' | '\t') {
-            return String::new();
-        }
-        i += 1;
-    }
-    if i >= n {
-        return String::new();
-    }
-    i += 1;
-    let mut r = String::new();
-    while i < n {
-        let d = chars[i];
-        if d == '\\' {
-            if let Some(&e) = chars.get(i + 1) {
-                r.push(e);
-            }
-            i += 2;
-        } else if d == '"' {
-            return r;
-        } else {
-            r.push(d);
-            i += 1;
-        }
-    }
-    String::new()
+    list_heads(text)
+        .into_iter()
+        .filter_map(|h| {
+            let head = fold(&h.head);
+            (head.len() > 9 && head.starts_with("requires-")).then(|| Requirement {
+                namespace: head[9..].to_string(),
+                value: h.string.unwrap_or_default(),
+                pos: h.at,
+            })
+        })
+        .collect()
 }
 
 /// VBA `RequiresLineOf`: the 1-based line of a character position.
@@ -624,49 +555,12 @@ pub fn vocab_requires_check_capability(text: &str, source_name: &str) -> Result<
 }
 
 /// VBA `VocabTextHasRawForm` (SEC.2): does the text carry a `(raw ...)`
-/// form anywhere, read by every paren's own head outside strings and
-/// comments?
+/// form anywhere? Every list's head as the reader reads it, by its own
+/// tokens (VLA.18, [`list_heads`]): a head after a line break, a tab or a
+/// comment is a head, and a list written inside a string, raw or not, is
+/// text, so that no form the loader reads passes the gate by.
 pub fn vocab_text_has_raw_form(text: &str) -> bool {
-    let chars: Vec<char> = text.chars().collect();
-    let n = chars.len();
-    let mut in_lit = false;
-    let mut i = 0;
-    while i < n {
-        let c = chars[i];
-        if in_lit {
-            if c == '\\' {
-                i += 2;
-            } else {
-                if c == '"' {
-                    in_lit = false;
-                }
-                i += 1;
-            }
-        } else if c == '"' {
-            in_lit = true;
-            i += 1;
-        } else if c == ';' {
-            while i < n && chars[i] != '\r' && chars[i] != '\n' {
-                i += 1;
-            }
-        } else if c == '(' {
-            let mut j = i + 1;
-            while j < n && chars[j] == ' ' {
-                j += 1;
-            }
-            let mut h_end = j;
-            while h_end < n && !matches!(chars[h_end], ' ' | '(' | ')' | '\r' | '\n' | '\t') {
-                h_end += 1;
-            }
-            if fold(&chars[j..h_end].iter().collect::<String>()) == "raw" {
-                return true;
-            }
-            i = h_end;
-        } else {
-            i += 1;
-        }
-    }
-    false
+    list_heads(text).iter().any(|h| fold(&h.head) == "raw")
 }
 
 #[cfg(test)]
@@ -1052,6 +946,61 @@ mod tests {
         assert_eq!(
             (reqs[1].namespace.as_str(), reqs[1].value.as_str()),
             ("form", "a\"b")
+        );
+    }
+
+    #[test]
+    fn the_gates_read_each_head_as_the_reader_reads_it() {
+        // VLA.18: the two gates over the reader's own tokens. A head after a
+        // line break, a tab or a comment is a head; what a string holds, raw
+        // or escaped, is text; and a raw string beside a form leaves it a
+        // form, whatever the string holds.
+        for text in [
+            "(english-vla \"x\" (\nraw \"' hi\"))",
+            "(english-vla \"x\" (\r\nraw \"' hi\"))",
+            "(english-vla \"x\" (\traw \"' hi\"))",
+            "(english-vla \"x\" ( ; a note\n raw \"' hi\"))",
+            "(english-vla \"x\" (set! a #\"\\\"#) (raw \"' hi\"))",
+        ] {
+            assert!(vocab_text_has_raw_form(text), "{text:?}");
+        }
+        for text in [
+            "(english-vla \"x\" (set! a #\"(raw \"' hi\")\"#))",
+            "(english-vla \"x\" (set! a #\"\\\"# \"(raw x)\"))",
+        ] {
+            assert!(!vocab_text_has_raw_form(text), "{text:?}");
+        }
+        // A requirement after a line break refuses, at the line of its `(`;
+        // one beside a raw string as well; its value may be a raw string; and
+        // one written inside a raw string is text.
+        let e = refused(
+            "(english-vla \"zzr cell {r:text}\" (set! (range {r}) 1))\n(\nrequires-version \"999.0.0\")",
+            "v",
+        );
+        assert_eq!(e.id, "english-vocab-requires-version-unmet");
+        assert!(e.text.starts_with("v line 2: "), "{}", e.text);
+        let e = refused(
+            "(english-vla \"zzr cell {r:text}\" (set! (range {r}) #\"\\\"#)) (requires-version \"999.0.0\")",
+            "v",
+        );
+        assert_eq!(e.id, "english-vocab-requires-version-unmet");
+        let e = refused("(requires-version #\"999.0.0\"#)", "v");
+        assert_eq!(e.id, "english-vocab-requires-version-unmet");
+        let mut g = fresh();
+        assert!(load(
+            &mut g,
+            "(english-vla \"zzraw cell {r:text}\" (set! (range {r}) #\"(requires-version \"999.0.0\")\"#))",
+            "v"
+        )
+        .is_ok());
+        let reqs = vocab_requires_scan("(\n  requires-form #\"a\"b\\c\"#)");
+        assert_eq!(
+            (
+                reqs[0].namespace.as_str(),
+                reqs[0].value.as_str(),
+                reqs[0].pos
+            ),
+            ("form", "a\"b\\c", 0)
         );
     }
 
