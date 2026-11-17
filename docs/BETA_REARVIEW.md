@@ -20818,6 +20818,12 @@ built.
   **Closed ✅ and committed 2026-11-17 at the owner's word.** To be released
   in `0.14.0`; Alonzo's pin and `ENGINE.40`'s second slice follow it.
 
+  *Its Found minted 2026-11-17 at the owner's word, "Mint all three found
+  items where they belong":* the string rule's other copies as `VLA.19`; the
+  distro reader's backslash as `TER-13`, in the terrarium; and Lint VLA's
+  printing of a raw string as a note in `VLA.7`, whose formatter keeps what a
+  person wrote.
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 

@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.18 | VLA.19 |
+| VLA | VLA.19 | VLA.20 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -493,7 +493,10 @@ literal"), from Alonzo's `ENGINE.40`, whose saved file writes each box a
 person typed as `(draft "<box>" "<name>" #"<text>"#)`: a raw string,
 `#"…"#`, a text written as it stands with no escape, read alike by the
 reference, the port and `each_form`; approved, built, owner-tested and
-committed 2026-11-17. `VLA.19` is next free.
+committed 2026-11-17. `VLA.19` was minted 2026-11-17 at the owner's word
+("Mint all three found items where they belong"), from `VLA.18`'s Found:
+the string rule's other copies, each reading a raw string by the reader's
+own rule. `VLA.20` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a
