@@ -107,7 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
-| VLA | VLA.17 | VLA.18 |
+| VLA | VLA.18 | VLA.19 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/
@@ -487,7 +487,12 @@ minted 2026-11-16 at the owner's word ("Add a funcall form to VLA's formula
 syntax"), from `KERNEL.29`'s question of whether a function's `#VALUE!`
 throws `APPLY` out: `(funcall f a ...)`, what `f` answers called with its
 arguments, written `IF(c,SQ,PLUS1)(5)` where it stands and read back from
-a call in place, which the reader refused. `VLA.18` is next free.
+a call in place, which the reader refused. `VLA.18` was minted 2026-11-16
+at the owner's word ("Mint, scope and build one VLA item: a raw string
+literal"), from Alonzo's `ENGINE.40`, whose saved file writes each box a
+person typed as `(draft "<box>" "<name>" #"<text>"#)`: a raw string,
+`#"…"#`, a text written as it stands with no escape, read alike by the
+reference, the port and `each_form`. `VLA.19` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

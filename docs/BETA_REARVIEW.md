@@ -20590,6 +20590,190 @@ built.
 
   **Closed ✅ and committed 2026-11-16 at the owner's word.**
 
+- 🟡 **VLA.18 — a raw string: `#"…"#`, a text written as it stands with
+  no escape, more `#` where the text holds `"#`, read alike by the
+  reference, the port and `each_form`, so that a text holding quotes and
+  backslashes is written verbatim.** *Minted and scoped 2026-11-16 at the
+  owner's word, "Mint, scope and build one VLA item: a raw string literal,
+  so that a text holding quotes and backslashes is written verbatim", from
+  Alonzo's `ENGINE.40` (its `docs/REARVIEW.md`, THE ITEMS, SCOPED, decision
+  3), where the owner chose "A raw string in VLA first" over an escaped
+  string. Approved 2026-11-17 at the owner's word, "Recommendations
+  approved; commit the docs then proceed with implementing VLA.18 as
+  scoped": every decision below as recommended.*
+
+  **What needs it.** `ENGINE.40` carries each box a person typed in the
+  drawer in the saved file, one form a box, `(draft "<box>" "<name>"
+  #"<text>"#)`, so that a source reads in the file as it was typed. Written
+  as today's string, a source escapes every quote: 1.1% more bytes for
+  Sand's (210 of 18,933), 2.6% for Seiyaku's and 5.5% for Naught's (3,624
+  of 66,503), each quote `\"` (that item's measurement). Its second slice,
+  the file's, waits on this item released in `vla-lang` and pinned; its
+  first needs nothing of the language.
+
+  **What stands.**
+  - The reader, the reference's `Tokenize` (`SD-18`) and the port's
+    `tokenize` and the walk under `each_form` (`KERNEL.72`): `"` opens a
+    string whose only escapes are `\"` and `\\`, any other backslash
+    standing; a line break stands in it as written, its CR too; an
+    unterminated string ends at the end of the text, unrefused. A string
+    is a token marked by a leading quote in both, and every stage after the
+    reader sees a text.
+  - The printer, `WriteDatum` and `write_datum`, escapes `\` and then `"`;
+    every record the language prints spells its texts through it
+    (`rows::quoted`): the view record and a save, the census, the reflect,
+    diff and audit goldens, and so Alonzo's frames, describe goldens and
+    replay digests, and Buffet's.
+  - Any character but a delimiter begins a word, `#` among them. Measured
+    2026-11-16 by a scan that reads as today's reader reads, over the 220
+    VLA files of Frazaro, Alonzo, Buffet and the phrasebook template and the
+    expand fixture's 687 cases: no word begins with `#`, and no `#` stands
+    directly before a quote outside a string, every `#"` met inside one
+    (`"#"`, Kairos's pictures). An error is `(error "#N/A")`, a text; the
+    formula syntax's `#N/A` is formula text, read apart; the other `#`
+    words in the tree are number formats, references and the build
+    fixtures' comment lines, none read by this reader. So `#"` would change
+    the reading of no text there is.
+  - The strings in those files: 178,401 literals, 5,886 holding a quote and
+    33 a backslash; 26 span lines, and 25 of those hold a CRLF, since every
+    repository checks a `.vla` out CRLF (`.gitattributes`): Naught's
+    docstrings, and five texts of the core's catalogue, which keep their CR
+    on purpose. Alonzo's `Cartridge::load` reads every CRLF of a text as LF
+    since `ENGINE.36`: "a raw line break in a literal is one line feed at
+    the load, so that one digest is one grid".
+  - Through the reader: the emitter, the build and the expander call
+    `tokenize` and `parse_all` themselves, so a refusal of the reading
+    belongs in `parse_all`, where they meet it, with neither signature
+    changed (`Token` is a public struct of public fields); `read_forms` is
+    called by the distro, the phrasebook loader, Alonzo's pass and Buffet's
+    oracle, and `each_form` by the machine's load and Alonzo's
+    `Cartridge::load`. Nothing reads in chunks: the walk is given the whole
+    text, and the reference's loader reads a file whole.
+  - The string rule copied beyond the reader, each copy a scan of its own:
+    in the reference, fourteen procedures, `VlaBalanceHint`, Lint VLA's
+    `SplitSegments`, the dev rig's `TrySplit` and `VlaTryExpandStars`, Undo's
+    roster's `ReadHelperArgs` and `ReadNameAt` (`U.32`), the tag's
+    `FzTagFormDepth`, `EnTokenize`'s raw VLA row, `FirstCellShapedWord`,
+    `VocabTextHasRawForm` (`SEC.2`), `VocabRequiresScan` and
+    `RequiresReadValue` (`F.10`), `EnglishResolveCheck` and
+    `VlaDistroStrings`; in the core, six functions, the ports of six of
+    them. A copy that read a raw string otherwise than the reader would
+    break a promise in four places: the phrasebook's two gates, where a
+    `(raw ...)` form or a requirement placed after a raw string that
+    misleads the scan is read by the loader and never by the gate; Undo's
+    roster, where a sheet named by a raw string is never snapshotted; and
+    the tag's fill, where a brace inside a raw form is filled. The others
+    fail closed, with a refusal or a hint's wrong count.
+
+  **The decisions, the owner's:**
+  1. *The spelling,* the owner's preview: where a word would begin, one `#`
+     or more directly before a `"` open a raw string, which closes at the
+     first `"` followed by as many `#`; its text is every character
+     between, with no escape, `\` and `"` among them. A text holding `"#`
+     takes two, `##"…"##`; in general one `#` more than the longest run of
+     them after a quote in the text. It is Rust's `r#"…"#` without the `r`,
+     on the Lisps' dispatch character: Clojure reads `#"…"` as a pattern
+     with no escapes, Racket `#rx"…"`. A `#` inside a word stays the
+     word's, `a#"b"` the word `a#` and a string, as today. *And a word that
+     begins with `#` and opens no raw string,* `#x`, or the stray `#` of a
+     close with one too many, `#"a"##`: (a) a word, as today; (b) refused by
+     name, `#` kept for the reader, as every Lisp keeps it, so that a later
+     `#|…|#`, `#;` or `#N/A` is a refusal relaxed and never a meaning
+     changed. A changed reading, flagged: `#x` reads as a word today, and
+     no text in Delta writes one. *Recommended:* (b), one refusal more in
+     each reader.
+  2. *The printer:* (a) it never writes a raw string. Every text prints
+     escaped as it does today, a text read from a raw string printing as
+     the escaped string it equals, so that no golden, record, save, digest
+     or describe golden moves in any repository; the raw spelling with its
+     fewest `#` is written by the tests alone, and a public writer is added
+     the day a Rust client asks for one (Alonzo's page writes its drafts
+     itself). (b) It writes one for a text holding a quote: formulas read
+     in every record as Excel writes them, and every record holding a
+     formula with a quote moves, the instructions golden in 302 lines, the
+     expand golden in 11, 27 view, reflect and build goldens in 84,
+     Alonzo's describe goldens in 270 and Buffet's in 190, with every replay
+     digest over them; and Alonzo's page reads the record, so its reader
+     would take raw strings first, a door for every reader of the record.
+     (c) A public writer offered and used by no record. *Recommended:* (a).
+     Lint VLA and `VlaFormat` then print a person's raw string escaped, as
+     Lint drops a comment inside a form: a formatter that keeps what a
+     person wrote is `VLA.7`'s.
+  3. *Line ends inside one:* (a) every character kept, a CR too, as a
+     string keeps it today, so that a raw string's text depends on its
+     file's line ends, CRLF from a `.vla` checked out or a program in
+     cells and LF from the page's box; (b) a CR directly before an LF
+     dropped and a lone CR kept, so that the text is the same from any
+     file and its line break LF, the break a cell and the viewport draw
+     (`ENGINE.36`): the one difference from an escaped string, whose CRs
+     the catalogue relies on. Go drops every CR of a raw string; Rust,
+     Swift, Lua and Python read a CRLF as LF; C# keeps the file's.
+     *Recommended:* (b), what Alonzo's load already does to every literal.
+     A printer that one day writes raw strings writes none for a text
+     holding a CR.
+  4. *An unterminated raw string* is refused by name, where an escaped one
+     still ends at the end of the text unrefused: a close written with too
+     few `#` would swallow the rest of the file, and saying so is the
+     reader's. `vla-raw-string-unclosed`, "unclosed raw string{loc}: it
+     ends at {closer}, a quote and as many # as open it", at the line its
+     opener stands on. It is refused where it stands among the reading's
+     other refusals, as `each_form` refuses them, so that a `)` with no
+     list, a list too deep or a list left open before it is refused first.
+     The tokenizer marks it as a token no word can be, its opener and the
+     rest of the text, since no word holds a quote, and `parse_all`
+     refuses it where it meets it. *Recommended.*
+  5. *Where one may stand:* anywhere a string may, read as the same text,
+     so that every stage after the reader sees no difference: a macro's
+     argument, a row's text, a phrasebook's rule, a program in cells, a
+     save, a cartridge's source. The formula syntax is apart: a formula's
+     text doubles a quote, as Excel writes one. So is an English program's
+     raw VLA row: `EnTokenize` takes the row by its own scan of today's
+     strings, so that a raw string there holding a quote can end the row
+     early, the reader refusing what is left. *Recommended:* the row left a
+     *Found*, the English path's to take with its own golden.
+  6. *The other readers of a VLA text,* the four promises above: (a) the
+     reader alone, every copy as it stands, which lets a raw string pass
+     the two gates by; (b) the two gates walking the reader's own tokens,
+     every list's head as the reader reads it and a requirement's text the
+     token after it, before any macro expands, as today, through one public
+     function of `VLA.bas` over `Tokenize` and through the port's
+     `tokenize`, so that no reading of a raw string, or of anything else,
+     passes them by; Undo's roster reading a raw string by the reader's own
+     function; the tag's fill and every other copy left a *Found*; (c) one
+     function in each implementation that every copy calls in place of its
+     own scan of a string, `~days` more and every copy's pins.
+     *Recommended:* (b).
+  7. *The release and the pin:* the owner's word, in `0.14.0` beside
+     `VLA.16` and `VLA.17`; moving Alonzo's pin is Alonzo's step, with
+     `ENGINE.40`'s second slice after it and its page's reader and writer.
+
+  **The oracle.** The expand fixture's new cases, read by both readers,
+  the golden written by the reference in Excel (`VlaWriteExpandGolden`) and
+  the port held to it (`tests/expand_golden.rs`): a raw string holding
+  quotes and backslashes, one of two `#` holding `"#`, one of several
+  lines, the empty one, one equal to its escaped twin, one beside a
+  string, one a macro's argument, and the refusals. `TestRawStrings` in the
+  pure suite, where a CRLF can be written: the readings, the line ends, the
+  refusals and their lines, the gates and the roster. The port's tests:
+  round trips of read and print over generated texts holding quotes,
+  backslashes, runs of `#` after a quote, CR, LF and CRLF; `each_form`
+  against `read_forms` over raw strings up to 1 MiB and across a list's
+  lines, and `heads` past them; the refusals in their order; the gates'
+  tests. No golden that prints moves, since none prints a raw string.
+
+  **Found** (not minted).
+  - The phrasebook's two gates read a list's head by a rule of their own,
+    which differs from the reader's apart from any raw string: a probe of
+    2026-11-16 through the door loaded, with no consent, a phrasebook whose
+    rule holds a `(raw ...)` form the reader reads, and the program's VBA
+    held the form's text. Told to the owner; the details stay out of this
+    record until a fix is released. Decision 6(b) would close it with the
+    raw string.
+  - `VlaDistroStrings` takes every backslash as an escape, `\x` read as `x`,
+    where the reader keeps the backslash; no manifest holds one.
+  - Lint VLA's `SplitSegments` follows a string a line at a time, so an
+    escaped string of several lines already misleads it.
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
