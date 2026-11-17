@@ -550,6 +550,13 @@ fn node_reads<M: Model + ?Sized>(model: &M, shape: &Shape) -> Vec<NodeRead> {
             }
         }
     });
+    // What the calls a followed shape keeps read through their functions
+    // (KERNEL.29's slice 3c), each absolute: an area every cell reads.
+    for re in shape.called.iter().flat_map(|c| c.0.iter()) {
+        if !each.contains(&re) {
+            each.push(re);
+        }
+    }
     let mut reads = Vec::with_capacity(each.len());
     for re in each {
         let on = match (re.found, &re.sheet) {

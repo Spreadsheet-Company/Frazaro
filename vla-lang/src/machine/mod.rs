@@ -145,6 +145,8 @@
 
 mod bits;
 mod book;
+#[cfg(test)]
+mod kept;
 pub mod load;
 pub mod plane;
 mod store;
@@ -13194,6 +13196,63 @@ mod tests {
         // The plan's totals unchanged by the item: no row of a census whose
         // shapes are all lowered moves.
         assert!(census.starts_with("(plan (shapes 7)"), "{census}");
+    }
+
+    #[test]
+    fn a_part_first_written_on_a_chains_left_spine_is_computed_where_it_stands() {
+        // KERNEL.29's binding lane, found by its third slice's third part:
+        // a part whose first place is the left operand of a chain, the sum in
+        // `A1+B1>0`, is computed there, so that a branch reading it after a
+        // branch not taken reads it computed. A program's chain walked
+        // through it as links, the place in the first branch computed the
+        // part, and the second branch read a register nothing had written:
+        // `IF(A1+B1>0,A1+B1,-(A1+B1))` was 0 where `Ctx` answers 4. Each
+        // part a chain of its own, in each template, at inputs of each sign.
+        let parts = [
+            "A1+B1",
+            "A1*B1+1",
+            "A1-B1*C1",
+            "(A1+B1)*C1",
+            "MOD(A1,3)+B1-C1",
+        ];
+        let templates = [
+            "IF(({p})>0,{p},-({p}))",
+            "IF(({p})>0.5,{p},IF(({p})<0.25,({p})*2,-({p})))",
+            "IF(({p})>C1,1,({p})*3)+({p})",
+            "IF(({p})>IF(C1>B1,C1-B1,IF(({p})>C1,{p},C1)+1),{p},5)",
+            "LET(x,{p},IF(x>0,x,IF(x<-2,x*x,-x)))",
+        ];
+        let inputs = [(-5, 1, 0), (2, 3, 1), (0, 0, 9), (-1, -1, -3), (4, -2, 2)];
+        let mut d1 = String::new();
+        let mut row = 0;
+        for p in parts {
+            for t in templates {
+                for (a, b, c) in inputs {
+                    row += 1;
+                    let text = format!("={}", t.replace("{p}", p));
+                    d1.push_str(&format!(
+                        "(cell \"S\" \"A{row}\" {a})
+(cell \"S\" \"B{row}\" {b})
+                         (cell \"S\" \"C{row}\" {c})
+(formula \"S\" \"D{row}\" {})
+",
+                        crate::rows::quoted(&crate::refers::shift_a1_references(&text, row - 1, 0))
+                    ));
+                }
+            }
+        }
+        let mut by_program = load_programs(&d1, "parts");
+        by_program.by_runs = false;
+        let mut by_ctx = load_programs(&d1, "parts");
+        by_ctx.by_runs = false;
+        by_ctx.lowered = false;
+        assert!(by_program.step(0).done && by_ctx.step(0).done);
+        assert_eq!(values(&by_program), values(&by_ctx));
+        assert!(
+            by_program.ran >= row as usize / 2,
+            "{} of {row} by programs",
+            by_program.ran
+        );
     }
 
     #[test]

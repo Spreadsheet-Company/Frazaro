@@ -54,16 +54,35 @@
 //! the first; a `LET` read in a condition and its branches is computed once,
 //! as Excel computes one. A parse whose own registers would reach those is
 //! lowered as written.
+//!
+//! **A call kept** (KERNEL.29's third slice's third part, the owner's
+//! decision 1): a named function's body is lowered once, a program of its
+//! own ([`Program::lower_function`], `lambda::Functions::lowered`), its
+//! parameters registers the call fills and each `LET` binding a register of
+//! its own computed in turn, given back after its last read, so that a chain
+//! of gates holds a few registers at any length where substituted it nested
+//! past a program's depth; a call kept by a shape of few cells is an
+//! operation of its program, [`Op::Apply`], running the body's program at its
+//! arguments' values on a register file of its own. A parameter holds a
+//! number, as an argument a register holds; one an aggregate folds as a value
+//! given, where `Ctx` folds a cell's reference as a range, is handed a cell's
+//! number by a read that fails its guard on nothing ([`Op::Strict`]). A body
+//! nests calls at most [`NEST`] deep and makes at most `calls::CALLS` calls a
+//! run, counted at its lowering; a recursion, a function some sheet scopes
+//! and a body holding a function's value are left to `Ctx`.
 
 use std::borrow::Cow;
+use std::rc::Rc;
 
 use crate::refers::Shape as Part;
 
+use super::calls::CALLS;
 use super::eval::{
     arithmetic, compare_numbers, compares, finite, Arg, Ctx, Env, Known, Library, Reason, Strict,
 };
-use super::formula::{moved_at, BinOp, Corners, Expr, RefExpr};
+use super::formula::{moved_at, BinOp, Corners, Expr, Lambda, Let, Local, RefExpr};
 use super::graph::{clamped, Area, Areas, CellId};
+use super::lambda::Functions;
 use super::library::{self, All, Axis, Fold, Least, Most, Rule, Some_, Sum};
 use super::lookups;
 use super::value::{ErrorKind, Value};
@@ -77,6 +96,11 @@ const REGISTERS: usize = 32;
 /// lowering recurses as the parse nests, beneath the plan's frame, and a
 /// formula nests seldom past a few levels.
 const DEPTH: u32 = 48;
+
+/// How deep the calls of a program nest, each a function's program run on a
+/// register file of its own on the stack (KERNEL.29's slice 3c): a body
+/// calling deeper is left to `Ctx`.
+pub(crate) const NEST: u32 = 16;
 
 /// Why a parse is left to [`Ctx`]: the first node the lowering met that a
 /// program does not hold, named in a census row (`(unlowered <why>)`).
@@ -250,10 +274,26 @@ enum Op {
     },
     /// A register's value into another: a repeated part's, kept where its
     /// first place computed it and read where a later place stands
-    /// (KERNEL.29's binding lane).
+    /// (KERNEL.29's binding lane); a binding's or a parameter's, read where
+    /// its name stands (its third slice's third part).
     Move {
         to: u8,
         from: u8,
+    },
+    /// A cell's number by its reference, nothing failing the guard: an
+    /// argument for a parameter its function folds as a value given, which
+    /// `Ctx` folds as a range of one cell (KERNEL.29's slice 3c).
+    Strict {
+        to: u8,
+        at: u16,
+    },
+    /// A named function's program, `functions[f]`, run at the values of
+    /// `reg[from..from + count]`, its parameters' (KERNEL.29's slice 3c).
+    Apply {
+        to: u8,
+        f: u16,
+        from: u8,
+        count: u8,
     },
 }
 
@@ -302,8 +342,8 @@ impl Ref {
 pub(crate) struct Program {
     code: Vec<Op>,
     refs: Vec<Ref>,
-    /// The texts of the references a call takes as cells.
-    texts: Vec<String>,
+    /// The texts of the references a call takes as cells, which few hold.
+    texts: Box<[String]>,
     operands: Vec<Operand>,
     /// `CHOOSE`'s values, where each begins.
     table: Vec<u16>,
@@ -319,6 +359,29 @@ pub(crate) struct Program {
     /// their time, and one of `INDEX`'s half again (measured, 0.235 ms a
     /// frame to 0.260 and 0.363).
     root: Option<u16>,
+    /// The calls kept it runs, and a function's program its parameters
+    /// (KERNEL.29's slice 3c): `None` for a program holding none, the size
+    /// every program was.
+    calling: Option<Box<Calling>>,
+}
+
+/// What a program holds of the calls kept it runs, and a function's program
+/// of its parameters (KERNEL.29's slice 3c).
+#[derive(Clone, Debug, Default)]
+struct Calling {
+    /// The named functions' programs its calls run, each once.
+    functions: Vec<Rc<Program>>,
+    /// A function's program: each parameter's register, and whether an
+    /// aggregate folds it as a value given, so that a call hands it a value
+    /// or a cell's number read strictly.
+    params: Vec<(u8, bool)>,
+    /// How deep its calls nest, none 0.
+    height: u32,
+    /// The most calls one run makes, its calls' own counted.
+    made: u64,
+    /// Whether `Ctx`'s answer for it may be a reference, a function's whose
+    /// body answers a cell, which an aggregate folds as a range.
+    answers_ref: bool,
 }
 
 impl std::fmt::Debug for Program {
@@ -333,8 +396,41 @@ impl std::fmt::Debug for Program {
             .field("calls", &self.calls.len())
             .field("kind", &self.kind)
             .field("root", &self.root)
+            .field("calling", &self.calling)
             .finish()
     }
+}
+
+/// How a name a `LET` binds or a `LAMBDA` takes reads where an aggregate or a
+/// call takes it as an operand, as `Ctx` binds it (KERNEL.29's slice 3c).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum How {
+    /// A value at every cell.
+    Value,
+    /// A function's parameter, by its place: the argument's value, or the
+    /// reference an argument written as one is.
+    Param(usize),
+    /// A binding of a reference written as one, `aliases[k]`: that
+    /// reference where an aggregate or a call takes it as an operand, a
+    /// range of its cells, and its cell's number elsewhere, as `Ctx` reads
+    /// the reference it binds; a room's gate reading a cell of the room.
+    Cell(u16),
+    /// What may be a reference: a binding of a reference, or of what may
+    /// answer one.
+    Area,
+}
+
+/// The register of a binding of a range, which holds none.
+const NO_REGISTER: u8 = u8::MAX;
+
+/// A name in scope as a program holds it: its slot, its register, its kind,
+/// and how it reads.
+#[derive(Clone, Copy, Debug)]
+struct Bound {
+    slot: u32,
+    reg: u8,
+    kind: Kind,
+    how: How,
 }
 
 /// What a program reads its cells through: the environment, and a cell's
@@ -392,15 +488,42 @@ fn guard<T>(_which: usize) -> Option<T> {
 }
 
 impl Program {
-    /// A parse lowered, or why it is left to [`Ctx`].
-    pub(crate) fn lower(lib: &Library, e: &Expr) -> Result<Program, Why> {
+    /// A function's parameters' registers, each with whether it is folded.
+    fn params(&self) -> &[(u8, bool)] {
+        self.calling.as_ref().map_or(&[], |c| &c.params)
+    }
+
+    /// How deep its calls nest.
+    fn height(&self) -> u32 {
+        self.calling.as_ref().map_or(0, |c| c.height)
+    }
+
+    /// The most calls one run makes.
+    fn made(&self) -> u64 {
+        self.calling.as_ref().map_or(0, |c| c.made)
+    }
+
+    /// Whether `Ctx`'s answer for it may be a reference.
+    fn answers_ref(&self) -> bool {
+        self.calling.as_ref().is_some_and(|c| c.answers_ref)
+    }
+
+    /// A parse lowered, or why it is left to [`Ctx`]; its calls kept of the
+    /// named functions `functions` holds run their programs (KERNEL.29's
+    /// slice 3c).
+    pub(crate) fn lower(
+        lib: &Library,
+        e: &Expr,
+        functions: Option<&Functions>,
+    ) -> Result<Program, Why> {
         // A parse holding what the inlining kept of `LET` and `LAMBDA` is
-        // `Ctx`'s (KERNEL.29), and so is one holding an array anywhere
-        // (KERNEL.8, slice f).
-        if e.has_lambda() {
+        // `Ctx`'s (KERNEL.29) but for a named function's call kept, which a
+        // program runs (its third slice's third part); and so is one holding
+        // an array anywhere (KERNEL.8, slice f).
+        if bound_in(e, false) {
             return Err(Why::Lambda);
         }
-        if super::vector::arrays_in(lib, e) {
+        if super::vector::arrays_beside(lib, e) {
             return Err(Why::Array);
         }
         // The parts written more than once whose first place stands over
@@ -415,11 +538,11 @@ impl Program {
             .max()
             .unwrap_or(0);
         if parts > 0 && parts <= REGISTERS / 4 {
-            if let Ok(p) = Self::lowered(lib, e, shared, parts) {
+            if let Ok(p) = Self::lowered(lib, e, shared, parts, functions) {
                 return Ok(p);
             }
         }
-        Self::lowered(lib, e, Vec::new(), 0)
+        Self::lowered(lib, e, Vec::new(), 0, functions)
     }
 
     /// A parse lowered with the places of `parts` parts computed once.
@@ -428,43 +551,50 @@ impl Program {
         e: &Expr,
         shared: Vec<(usize, u16)>,
         parts: usize,
+        functions: Option<&Functions>,
     ) -> Result<Program, Why> {
-        let mut l = Lowering {
-            lib,
-            code: Vec::new(),
-            refs: Vec::new(),
-            texts: Vec::new(),
-            operands: Vec::new(),
-            table: Vec::new(),
-            calls: Vec::new(),
-            depth: 0,
-            root: None,
-            shared,
-            held: vec![None; parts],
-            floor: REGISTERS - parts,
-            most: 0,
-        };
+        let mut l = Lowering::new(lib, shared, parts, functions, false);
         let kind = l.expr(e, 0)?;
-        if l.most >= l.floor {
-            return Err(Why::Deep);
+        l.finish(kind, false)
+    }
+
+    /// A named function's body lowered once, the program each call of it
+    /// kept runs (KERNEL.29's slice 3c), the functions it calls by name
+    /// lowered before it (`lambda::Functions::lowered`): its parameters
+    /// registers a call fills, each `LET` binding a register computed in
+    /// turn, and its calls by name operations running their programs; or why
+    /// its calls are left to `Ctx`.
+    pub(crate) fn lower_function(
+        lib: &Library,
+        functions: &Functions,
+        f: &Lambda,
+    ) -> Result<Program, Why> {
+        // A function's value made or a value called inside it is `Ctx`'s, a
+        // helper's `LAMBDA` among them, and so is an array anywhere.
+        if bound_in(&f.body, true) {
+            return Err(Why::Lambda);
         }
-        l.code.push(Op::Done { from: 0 });
-        if l.code.len() > usize::from(u16::MAX) {
-            return Err(Why::Deep);
+        if super::vector::arrays_beside(lib, &f.body) {
+            return Err(Why::Array);
         }
-        l.code.shrink_to_fit();
-        l.refs.shrink_to_fit();
-        l.operands.shrink_to_fit();
-        Ok(Program {
-            code: l.code,
-            refs: l.refs,
-            texts: l.texts,
-            operands: l.operands,
-            table: l.table,
-            calls: l.calls,
-            kind,
-            root: l.root,
-        })
+        let mut l = Lowering::new(lib, Vec::new(), 0, Some(functions), true);
+        l.count(&f.body);
+        for (k, p) in f.params.iter().enumerate() {
+            let reg = l.take()?;
+            l.locals.push(Bound {
+                slot: p.slot,
+                reg,
+                kind: Kind::Number,
+                how: How::Param(k),
+            });
+            l.params.push((reg, false));
+            if l.left_of(p.slot) == 0 {
+                l.free.push(reg);
+            }
+        }
+        let kind = l.expr(&f.body, 0)?;
+        let answers_ref = !l.answers_value(&f.body);
+        l.finish(kind, answers_ref)
     }
 
     /// The program run at a cell, `off` the cell's offset from its shape's
@@ -478,6 +608,25 @@ impl Program {
         off: (i64, i64),
     ) -> Option<Answer> {
         let mut reg = [0.0f64; REGISTERS];
+        let x = self.exec(src, lib, id, off, &mut reg)?;
+        Some(match self.kind {
+            Kind::Number => Answer::Number(x),
+            Kind::Truth => Answer::Truth(x != 0.0),
+        })
+    }
+
+    /// The code run over the registers to its answer as a register holds
+    /// it, a truth value as 1 or 0: a cell's program from `run`, a function's
+    /// from a call of it ([`Op::Apply`]), each its own loop.
+    #[inline(always)]
+    fn exec<S: Source>(
+        &self,
+        src: &S,
+        lib: &Library,
+        id: CellId,
+        off: (i64, i64),
+        reg: &mut [f64; REGISTERS],
+    ) -> Option<f64> {
         let mut pc = 0usize;
         loop {
             match self.code[pc] {
@@ -545,17 +694,17 @@ impl Program {
                     let from = usize::from(from);
                     let ops = &self.operands[from..from + usize::from(count)];
                     reg[usize::from(to)] = match known {
-                        Known::Sum => self.fold::<Sum, S>(src, ops, &reg, id, off),
-                        Known::Min => self.fold::<Least, S>(src, ops, &reg, id, off),
-                        Known::Max => self.fold::<Most, S>(src, ops, &reg, id, off),
-                        Known::And => self.fold::<All, S>(src, ops, &reg, id, off),
-                        _ => self.fold::<Some_, S>(src, ops, &reg, id, off),
+                        Known::Sum => self.fold::<Sum, S>(src, ops, reg, id, off),
+                        Known::Min => self.fold::<Least, S>(src, ops, reg, id, off),
+                        Known::Max => self.fold::<Most, S>(src, ops, reg, id, off),
+                        Known::And => self.fold::<All, S>(src, ops, reg, id, off),
+                        _ => self.fold::<Some_, S>(src, ops, reg, id, off),
                     }?;
                 }
                 Op::Call { to, f, from, count } => {
                     let from = usize::from(from);
                     let ops = &self.operands[from..from + usize::from(count)];
-                    reg[usize::from(to)] = self.number(src, lib, f, ops, &reg, id, off)?;
+                    reg[usize::from(to)] = self.number(src, lib, f, ops, reg, id, off)?;
                 }
                 Op::Unless { cond, to } => {
                     if reg[usize::from(cond)] == 0.0 {
@@ -576,16 +725,49 @@ impl Program {
                     continue;
                 }
                 Op::Move { to, from } => reg[usize::from(to)] = reg[usize::from(from)],
-                Op::Done { from } => {
-                    let x = reg[usize::from(from)];
-                    return Some(match self.kind {
-                        Kind::Number => Answer::Number(x),
-                        Kind::Truth => Answer::Truth(x != 0.0),
-                    });
+                Op::Strict { to, at } => {
+                    let r = &self.refs[usize::from(at)];
+                    let Some((row, col, _, _)) = r.moved(off) else {
+                        return guard(guarded::OFF);
+                    };
+                    let Ok(Value::Number(x)) = src.read((r.sheet(id.0), row, col)) else {
+                        return guard(guarded::READ);
+                    };
+                    reg[usize::from(to)] = x;
                 }
+                Op::Apply { to, f, from, count } => {
+                    reg[usize::from(to)] = self.apply(src, lib, id, f, from, count, reg)?;
+                }
+                Op::Done { from } => return Some(reg[usize::from(from)]),
             }
             pc += 1;
         }
+    }
+
+    /// A call kept (KERNEL.29's slice 3c): the function's program run on a
+    /// register file of its own, its parameters the values of the caller's
+    /// registers from `from`, at no offset, since a name's references do not
+    /// move with the cell reading it, and at the cell, which `ROW()` reads.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn apply<S: Source>(
+        &self,
+        src: &S,
+        lib: &Library,
+        id: CellId,
+        f: u16,
+        from: u8,
+        count: u8,
+        reg: &[f64; REGISTERS],
+    ) -> Option<f64> {
+        let calling = self.calling.as_ref()?;
+        let callee = &calling.functions[usize::from(f)];
+        let mut own = [0.0f64; REGISTERS];
+        let args = &reg[usize::from(from)..usize::from(from) + usize::from(count)];
+        for (&(r, _), &x) in callee.params().iter().zip(args) {
+            own[usize::from(r)] = x;
+        }
+        callee.exec(src, lib, id, (0, 0), &mut own)
     }
 
     /// An aggregate over its operands by the library's rule and fold: a
@@ -730,6 +912,28 @@ fn walk<R: Rule, S: Source, F: FnMut(R::Item)>(src: &S, a: &Area, f: &mut F) -> 
     Some(())
 }
 
+/// Whether a parse holds what `Ctx` alone computes of `LET` and `LAMBDA`
+/// (KERNEL.29): a function's value made, and a value called at a step; and in
+/// a shape's own parse a binding and a name one binds, which the inlining
+/// substituted wherever it could. A call kept of a named function, which a
+/// program runs (its third slice's third part), is an `Apply` of its name in
+/// a shape's parse and a call by name in a body.
+fn bound_in(e: &Expr, body: bool) -> bool {
+    let mut stack = vec![e];
+    while let Some(x) = stack.pop() {
+        match x {
+            Expr::Lambda(_) => return true,
+            Expr::Apply(a) if body || !matches!(a.callee, Expr::Name { sheet: None, .. }) => {
+                return true
+            }
+            Expr::Local(_) | Expr::Let(_) if !body => return true,
+            _ => {}
+        }
+        x.push_children(&mut stack);
+    }
+    false
+}
+
 /// Whether an operand may be nothing where a function takes it: `CHOOSE`'s
 /// omitted value, which `Ctx` hands on as nothing (an `IF`'s omitted branch
 /// is 0 and its missing else FALSE), at any depth of the `IF`s and `CHOOSE`s
@@ -770,15 +974,405 @@ struct Lowering<'l> {
     held: Vec<Option<(u8, Kind)>>,
     floor: usize,
     most: usize,
+    /// The named functions whose programs a call kept runs (KERNEL.29's
+    /// slice 3c), and whether this is a function's body, whose root answers
+    /// no cell.
+    functions: Option<&'l Functions>,
+    body: bool,
+    /// The names in scope, the innermost last; each name's reads not yet
+    /// lowered, by slot; the registers given back by names read for the last
+    /// time; and the lowest register a name took, from below the parts', the
+    /// evaluation's own staying below it.
+    locals: Vec<Bound>,
+    left: Vec<(u32, u32)>,
+    free: Vec<u8>,
+    low: usize,
+    /// A function's parameters' registers and whether each is folded as a
+    /// value given; the programs its calls run, how deep they nest and how
+    /// many calls a run makes at most.
+    params: Vec<(u8, bool)>,
+    callees: Vec<Rc<Program>>,
+    height: u32,
+    made: u64,
+    /// The references bindings bind, by `How::Cell`.
+    aliases: Vec<RefExpr>,
 }
 
-impl Lowering<'_> {
+impl<'l> Lowering<'l> {
+    fn new(
+        lib: &'l Library,
+        shared: Vec<(usize, u16)>,
+        parts: usize,
+        functions: Option<&'l Functions>,
+        body: bool,
+    ) -> Lowering<'l> {
+        Lowering {
+            lib,
+            code: Vec::new(),
+            refs: Vec::new(),
+            texts: Vec::new(),
+            operands: Vec::new(),
+            table: Vec::new(),
+            calls: Vec::new(),
+            depth: 0,
+            root: None,
+            shared,
+            held: vec![None; parts],
+            floor: REGISTERS - parts,
+            most: 0,
+            functions,
+            body,
+            locals: Vec::new(),
+            left: Vec::new(),
+            free: Vec::new(),
+            low: REGISTERS - parts,
+            params: Vec::new(),
+            callees: Vec::new(),
+            height: 0,
+            made: 0,
+            aliases: Vec::new(),
+        }
+    }
+
+    /// The program the lowering wrote, its answer in register 0; `Why::Deep`
+    /// where the evaluation's own registers met the names' or the parts'.
+    fn finish(mut self, kind: Kind, answers_ref: bool) -> Result<Program, Why> {
+        if self.most >= self.low.min(self.floor) {
+            return Err(Why::Deep);
+        }
+        self.code.push(Op::Done { from: 0 });
+        if self.code.len() > usize::from(u16::MAX) {
+            return Err(Why::Deep);
+        }
+        self.code.shrink_to_fit();
+        self.refs.shrink_to_fit();
+        self.operands.shrink_to_fit();
+        let calling = (self.body || !self.callees.is_empty()).then(|| {
+            self.params.shrink_to_fit();
+            self.callees.shrink_to_fit();
+            Box::new(Calling {
+                functions: self.callees,
+                params: self.params,
+                height: self.height,
+                made: self.made,
+                answers_ref,
+            })
+        });
+        Ok(Program {
+            code: self.code,
+            refs: self.refs,
+            texts: self.texts.into_boxed_slice(),
+            operands: self.operands,
+            table: self.table,
+            calls: self.calls,
+            kind,
+            root: self.root,
+            calling,
+        })
+    }
+
     fn reg(at: usize) -> Result<u8, Why> {
         if at < REGISTERS {
             Ok(at as u8)
         } else {
             Err(Why::Deep)
         }
+    }
+
+    // ---- the names (KERNEL.29's slice 3c) ----------------------------------
+
+    /// Each name's reads in a function's body counted, by slot, the walk
+    /// keeping its own stack: a name's register is given back after its
+    /// last.
+    fn count(&mut self, e: &Expr) {
+        let mut stack = vec![e];
+        while let Some(x) = stack.pop() {
+            if let Expr::Local(l) = x {
+                match self.left.iter_mut().find(|(slot, _)| *slot == l.slot) {
+                    Some((_, n)) => *n += 1,
+                    None => self.left.push((l.slot, 1)),
+                }
+            }
+            x.push_children(&mut stack);
+        }
+    }
+
+    /// A name's reads not yet lowered.
+    fn left_of(&self, slot: u32) -> u32 {
+        self.left
+            .iter()
+            .find(|(s, _)| *s == slot)
+            .map_or(0, |&(_, n)| n)
+    }
+
+    /// A register for a name: one given back, else the next below the
+    /// lowest taken.
+    fn take(&mut self) -> Result<u8, Why> {
+        if let Some(r) = self.free.pop() {
+            return Ok(r);
+        }
+        if self.low == 0 {
+            return Err(Why::Deep);
+        }
+        self.low -= 1;
+        Self::reg(self.low)
+    }
+
+    /// The name in scope by its slot, the innermost.
+    fn bound(&self, slot: u32) -> Option<Bound> {
+        self.locals.iter().rev().find(|b| b.slot == slot).copied()
+    }
+
+    /// A name read: its register's value into `at`, its register given back
+    /// after its last read.
+    fn local(&mut self, l: &Local, at: usize) -> Result<Kind, Why> {
+        let to = Self::reg(at)?;
+        self.most = self.most.max(at);
+        let b = self.bound(l.slot).ok_or(Why::Lambda)?;
+        if b.reg == NO_REGISTER {
+            return Err(Why::Range);
+        }
+        self.code.push(Op::Move { to, from: b.reg });
+        self.read(b);
+        Ok(b.kind)
+    }
+
+    /// A name's read counted, its register given back after its last.
+    fn read(&mut self, b: Bound) {
+        if let Some((_, n)) = self.left.iter_mut().find(|(s, _)| *s == b.slot) {
+            *n -= 1;
+            if *n == 0 && b.reg != NO_REGISTER {
+                self.free.push(b.reg);
+            }
+        }
+    }
+
+    /// A name binding a reference written as one, read where an operand or
+    /// a folded parameter takes it: that reference, the name's read counted.
+    fn alias(&mut self, a: &Expr) -> Option<RefExpr> {
+        let mut v = a;
+        while let Expr::Pos(x) = v {
+            v = x;
+        }
+        let Expr::Local(l) = v else {
+            return None;
+        };
+        let b = self.bound(l.slot)?;
+        let How::Cell(k) = b.how else {
+            return None;
+        };
+        self.read(b);
+        Some(self.aliases[usize::from(k)].clone())
+    }
+
+    /// A `LET` in a function's body: each value computed in turn into a
+    /// register of its own, then its body, as `Ctx` computes a binding once a
+    /// reading where a name reads it; one no name reads computed all the
+    /// same, a guard it fails leaving the cell to `Ctx`.
+    fn let_(&mut self, l: &Let, at: usize) -> Result<Kind, Why> {
+        let mark = self.locals.len();
+        for (local, value) in &l.binds {
+            let how = self.how(value);
+            // A binding of a range written as one holds no register: an
+            // operand takes its reference, and a value read of it is `Ctx`'s.
+            if let How::Cell(k) = how {
+                if !matches!(self.aliases[usize::from(k)].shape, Part::Cell) {
+                    self.locals.push(Bound {
+                        slot: local.slot,
+                        reg: NO_REGISTER,
+                        kind: Kind::Number,
+                        how,
+                    });
+                    continue;
+                }
+            }
+            let kind = self.expr(value, at)?;
+            let reg = self.take()?;
+            self.code.push(Op::Move {
+                to: reg,
+                from: Self::reg(at)?,
+            });
+            self.locals.push(Bound {
+                slot: local.slot,
+                reg,
+                kind,
+                how,
+            });
+            if self.left_of(local.slot) == 0 {
+                self.free.push(reg);
+            }
+        }
+        let kind = self.expr(&l.body, at)?;
+        self.locals.truncate(mark);
+        Ok(kind)
+    }
+
+    /// How a binding of `value` reads as an operand: as the name it binds,
+    /// as a value, or as what may be a reference.
+    fn how(&mut self, value: &Expr) -> How {
+        let mut v = value;
+        while let Expr::Pos(x) = v {
+            v = x;
+        }
+        if let Expr::Local(l) = v {
+            return self.bound(l.slot).map_or(How::Area, |b| b.how);
+        }
+        if let Some(r) = ref_operand(self.lib, value) {
+            if let Ok(k) = u16::try_from(self.aliases.len()) {
+                self.aliases.push(r.clone());
+                return How::Cell(k);
+            }
+        }
+        if self.yields(value) {
+            How::Value
+        } else {
+            How::Area
+        }
+    }
+
+    /// Whether `Ctx`'s evaluation of an expression is a value at every cell
+    /// ([`yields_value`]'s rule), a name read by how it binds and a call kept
+    /// by whether its function's answer is.
+    fn yields(&self, e: &Expr) -> bool {
+        match e {
+            Expr::Local(l) => self.bound(l.slot).is_some_and(|b| b.how == How::Value),
+            Expr::Pos(x) => self.yields(x),
+            Expr::Apply(a) => match &a.callee {
+                Expr::Name { name, sheet: None } => self.answers_value_of(name),
+                _ => false,
+            },
+            Expr::Call(name, _) if !self.lib.has(name) => self.answers_value_of(name),
+            Expr::Call(name, args) => match self.lib.known(name) {
+                Some(Known::If | Known::Choose) => args.iter().skip(1).all(|a| self.yields(a)),
+                Some(Known::IfError | Known::IfNa) => args.get(1).map_or(true, |a| self.yields(a)),
+                _ => yields_value(self.lib, e),
+            },
+            _ => yields_value(self.lib, e),
+        }
+    }
+
+    /// Whether a call kept of a named function answers a value, its body's
+    /// program saying so.
+    fn answers_value_of(&self, name: &str) -> bool {
+        self.functions
+            .and_then(|f| f.lowered(name, self.lib).ok())
+            .is_some_and(|p| !p.answers_ref())
+    }
+
+    /// Whether a function's body answers a value at every call, its `LET`s
+    /// read through to their body with each binding's reading in scope.
+    fn answers_value(&mut self, body: &Expr) -> bool {
+        let mark = self.locals.len();
+        let mut e = body;
+        while let Expr::Let(l) = e {
+            for (local, value) in &l.binds {
+                let how = self.how(value);
+                self.locals.push(Bound {
+                    slot: local.slot,
+                    reg: 0,
+                    kind: Kind::Number,
+                    how,
+                });
+            }
+            e = &l.body;
+        }
+        let v = self.yields(e);
+        self.locals.truncate(mark);
+        v
+    }
+
+    /// A call kept of a named function (KERNEL.29's slice 3c): its arguments
+    /// into the registers above `at`, each a number, a parameter its body
+    /// folds as a value given handed a value or a cell's number read
+    /// strictly; then its program run, its answer into `at`. Where its
+    /// function is a recursion's, a sheet's, deeper than [`NEST`], making
+    /// more than `calls::CALLS` calls, or not lowered, the parse is `Ctx`'s.
+    fn apply(&mut self, name: &str, args: &[Expr], at: usize) -> Result<Kind, Why> {
+        let to = Self::reg(at)?;
+        self.most = self.most.max(at);
+        let callee = self.functions.ok_or(Why::Lambda)?.lowered(name, self.lib)?;
+        if args.len() != callee.params().len() {
+            return Err(Why::Error);
+        }
+        if callee.height() + 1 > NEST {
+            return Err(Why::Deep);
+        }
+        let count = u8::try_from(args.len()).map_err(|_| Why::Deep)?;
+        let from = Self::reg(at + 1)?;
+        for (j, (a, &(_, strict))) in args.iter().zip(callee.params()).enumerate() {
+            let r = at + 1 + j;
+            let kind = if strict {
+                self.strict(a, r)?
+            } else {
+                self.expr(a, r)?
+            };
+            // `Ctx` binds a parameter to its argument's value, which a
+            // program's register holds as a number.
+            if kind != Kind::Number {
+                return Err(Why::Kinds);
+            }
+        }
+        self.height = self.height.max(callee.height() + 1);
+        self.made = self.made.saturating_add(1 + callee.made());
+        if self.made > CALLS {
+            return Err(Why::Deep);
+        }
+        let kind = callee.kind;
+        let f = match self.callees.iter().position(|c| Rc::ptr_eq(c, &callee)) {
+            Some(k) => k,
+            None => {
+                self.callees.push(callee);
+                self.callees.len() - 1
+            }
+        };
+        let f = u16::try_from(f).map_err(|_| Why::Deep)?;
+        self.code.push(Op::Apply { to, f, from, count });
+        Ok(kind)
+    }
+
+    /// An argument for a parameter its function folds as a value given: a
+    /// cell's reference read strictly, so that a cell holding nothing, which
+    /// a fold of a range skips and a value given counts, is `Ctx`'s; a name
+    /// of the caller's own parameters, which is then folded too; or a value.
+    fn strict(&mut self, a: &Expr, at: usize) -> Result<Kind, Why> {
+        if let Some(r) = self.alias(a) {
+            return self.strict_ref(&r, at);
+        }
+        let mut v = a;
+        while let Expr::Pos(x) = v {
+            v = x;
+        }
+        if let Expr::Local(l) = v {
+            return match self.bound(l.slot).map(|b| b.how) {
+                Some(How::Param(k)) => {
+                    self.params[k].1 = true;
+                    self.local(l, at)
+                }
+                Some(How::Value) => self.local(l, at),
+                _ => Err(Why::Range),
+            };
+        }
+        if let Some(r) = ref_operand(self.lib, a) {
+            return self.strict_ref(r, at);
+        }
+        if self.yields(a) {
+            self.expr(a, at)
+        } else {
+            Err(Why::Range)
+        }
+    }
+
+    /// A cell's reference read strictly into `at`; a range or a span of
+    /// sheets is `Ctx`'s.
+    fn strict_ref(&mut self, r: &RefExpr, at: usize) -> Result<Kind, Why> {
+        if r.last_sheet.is_some() || !matches!(r.shape, Part::Cell) {
+            return Err(Why::Range);
+        }
+        let to = Self::reg(at)?;
+        self.most = self.most.max(at);
+        let at = self.refer(r, false)?;
+        self.code.push(Op::Strict { to, at });
+        Ok(Kind::Number)
     }
 
     /// The next operation's place.
@@ -874,19 +1468,36 @@ impl Lowering<'_> {
             Expr::Empty => Err(Why::Omitted),
             Expr::Name { .. } => Err(Why::Name),
             Expr::Array(_) | Expr::Range(_) => Err(Why::Array),
-            Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => Err(Why::Lambda),
+            // A name a function's body binds or takes, a `LET` of its body,
+            // and a call kept of a named function (KERNEL.29's slice 3c).
+            Expr::Local(l) => self.local(l, at),
+            Expr::Let(l) if self.body => self.let_(l, at),
+            Expr::Apply(a) => match &a.callee {
+                Expr::Name { name, sheet: None } => self.apply(name, &a.args, at),
+                _ => Err(Why::Lambda),
+            },
+            Expr::Let(_) | Expr::Lambda(_) => Err(Why::Lambda),
         }
     }
 
     /// A chain of operators, its left spine round a loop as `Ctx::chain`
     /// evaluates it: the leftmost operand into `at`, each right operand into
-    /// the register above, each link's answer into `at`.
+    /// the register above, each link's answer into `at`. The spine stops at a
+    /// place of a part computed once (KERNEL.29's binding lane), lowered as
+    /// that place: a part's first place on a chain's left spine, `x` in
+    /// `x>0` of `IF(x>0,x,-x)`, walked through as links left no register
+    /// holding it, and the place in the first branch lowered computed it,
+    /// so that the other branch read a register no cell's evaluation had
+    /// written (KERNEL.29's third slice's third part, its oracle's find).
     fn chain(&mut self, e: &Expr, at: usize) -> Result<Kind, Why> {
         let mut links: Vec<(BinOp, &Expr)> = Vec::new();
         let mut left = e;
         while let Expr::Binary(op, l, r) = left {
             links.push((*op, r));
             left = l;
+            if !self.shared.is_empty() && self.part_of(left).is_some() {
+                break;
+            }
         }
         let (to, b) = (Self::reg(at)?, Self::reg(at + 1)?);
         let mut kind = self.expr(left, at)?;
@@ -917,6 +1528,11 @@ impl Lowering<'_> {
     /// other strict function through its pointer.
     fn call(&mut self, name: &str, args: &[Expr], at: usize) -> Result<Kind, Why> {
         let to = Self::reg(at)?;
+        // A named function called by its name in a function's body, a call
+        // kept (KERNEL.29's slice 3c).
+        if !self.lib.has(name) && self.functions.is_some_and(|f| f.holds(name)) {
+            return self.apply(name, args, at);
+        }
         if self.lib.form(name).is_some() {
             return match self.lib.known(name) {
                 Some(Known::If) => self.if_(args, at),
@@ -1029,7 +1645,9 @@ impl Lowering<'_> {
         let (from, count) = self.operands(args, at, true)?;
         let f_at = u16::try_from(self.calls.len()).map_err(|_| Why::Deep)?;
         self.calls.push(f);
-        if self.depth == 1 {
+        // A function's body answers its call, never the cell (KERNEL.29's
+        // slice 3c).
+        if self.depth == 1 && !self.body {
             self.root = Some(f_at);
         }
         self.code.push(Op::Call {
@@ -1063,9 +1681,13 @@ impl Lowering<'_> {
     fn operands(&mut self, args: &[Expr], at: usize, call: bool) -> Result<(u16, u16), Why> {
         let mut ops = Vec::with_capacity(args.len());
         for (j, a) in args.iter().enumerate() {
+            if let Some(r) = self.alias(a) {
+                ops.push(Operand::Ref(self.refer(&r, call)?));
+                continue;
+            }
             let op = match ref_operand(self.lib, a) {
                 Some(r) => Operand::Ref(self.refer(r, call)?),
-                None if yields_value(self.lib, a) => {
+                None if self.operand_value(a, call) => {
                     if call && may_be_nothing(self.lib, a) {
                         return Err(Why::Omitted);
                     }
@@ -1082,6 +1704,30 @@ impl Lowering<'_> {
         let count = u16::try_from(ops.len()).map_err(|_| Why::Deep)?;
         self.operands.extend(ops);
         Ok((from, count))
+    }
+
+    /// Whether an operand lowers into a register as `Ctx` hands it to an
+    /// aggregate or a call: a value at every cell ([`Lowering::yields`]); or
+    /// a function's parameter an aggregate folds, which its calls then hand
+    /// a value or a cell's number read strictly (KERNEL.29's slice 3c),
+    /// never one a call through its pointer takes, which a reference reaches
+    /// as a range.
+    fn operand_value(&mut self, a: &Expr, call: bool) -> bool {
+        let mut v = a;
+        while let Expr::Pos(x) = v {
+            v = x;
+        }
+        if let Expr::Local(l) = v {
+            return match self.bound(l.slot).map(|b| b.how) {
+                Some(How::Value) => true,
+                Some(How::Param(k)) if !call => {
+                    self.params[k].1 = true;
+                    true
+                }
+                _ => false,
+            };
+        }
+        self.yields(a)
     }
 
     /// A reference kept as its parts, its sheet the one its placement found
@@ -1256,7 +1902,7 @@ mod tests {
         lib.register("TWICE", twice);
         lib.register_form("FIRST", first);
         let e = parse(text).unwrap_or_else(|c| panic!("{text}: {c}"));
-        Program::lower(&lib, &e).map(|p| p.kind)
+        Program::lower(&lib, &e, None).map(|p| p.kind)
     }
 
     #[test]

@@ -343,13 +343,29 @@ fn a_shape_inlined_is_the_formula_written_out() {
     let written = census("=B1*B1+B2", &[]);
     for (formula, names) in [
         ("=LET(x,B1,x*x+B2)", &[][..]),
-        ("=SQ(B1)+B2", &[("SQ", "=LAMBDA(x,x*x)")][..]),
         ("=LAMBDA(a,b,a*a+b)(B1,B2)", &[][..]),
     ] {
         let inlined = census(formula, names);
         assert!(!inlined.contains("unlowered"), "{formula}: {inlined}");
         assert_eq!(inlined, written, "{formula}");
     }
+    // A named function's call is written in where its shape's cells are as
+    // many as a run computes, and kept a call at a shape of fewer, its body
+    // a program of its own that the shape's program runs, read by the reach
+    // as the formula written out is, its reads but the evaluator's own the
+    // written out's (KERNEL.29's slice 3c).
+    let filled = |formula: &str, names: &[(&str, &str)]| {
+        let mut rows = rows(formula, names).replace("\"A1\"", "\"A1:A16\"");
+        rows.push_str("(cell \"S\" \"B17\" 4)\n");
+        let m = Machine::load(&rows, library::language()).expect("loads");
+        census_but_texts(&m)
+    };
+    let sq = [("SQ", "=LAMBDA(x,x*x)")];
+    assert_eq!(filled("=SQ(B1)+B2", &sq), filled("=B1*B1+B2", &[]));
+    let kept = census("=SQ(B1)+B2", &sq);
+    assert!(!kept.contains("unlowered"), "{kept}");
+    assert!(!kept.contains("every-frame 1"), "{kept}");
+    assert_eq!(kept.replace(" each)", ")"), written);
 }
 
 #[test]
@@ -480,7 +496,10 @@ fn a_netlist_through_named_functions_plans_and_computes_as_written_out() {
     // functions is the adder written out, filled or each cell at its own
     // place, row for row of the census but its texts and value for value
     // before and after the carry-in ripples through every bit; and Life's
-    // rule through a named function plans as Life's rule written out.
+    // rule through a named function plans as Life's rule written out. Each
+    // cell at its own place keeps its calls (the third slice's third part),
+    // its plan and its readers the written out's, each shape lowered, its
+    // reads but the evaluator's own.
     use vla_lang::calc::Values;
     for shuffled in [false, true] {
         let (written, at) = adder(64, false, shuffled);
@@ -488,11 +507,14 @@ fn a_netlist_through_named_functions_plans_and_computes_as_written_out() {
         let lib = || library::language();
         let mut a = Machine::load(&written, lib()).expect("loads");
         let mut b = Machine::load(&named, lib()).expect("loads");
-        assert_eq!(
-            census_but_texts(&a),
-            census_but_texts(&b),
-            "shuffled {shuffled}"
-        );
+        let kept = census_but_texts(&b);
+        let kept = if shuffled {
+            assert!(!kept.contains("unlowered"), "{kept}");
+            kept.replace(" each)", ")")
+        } else {
+            kept
+        };
+        assert_eq!(census_but_texts(&a), kept, "shuffled {shuffled}");
         let s = a.find_sheet("S").expect("the sheet");
         for edit in [None, Some("(cell \"S\" \"G1\" 1)")] {
             if let Some(row) = edit {
@@ -515,7 +537,7 @@ fn a_netlist_through_named_functions_plans_and_computes_as_written_out() {
         for (name, t) in names {
             rows.push_str(&format!("(name \"{name}\" \"{t}\")\n"));
         }
-        rows.push_str(&format!("(formula \"S\" \"D1:F3\" \"{text}\")\n"));
+        rows.push_str(&format!("(formula \"S\" \"D1:G4\" \"{text}\")\n"));
         census_but_texts(&Machine::load(&rows, library::language()).expect("loads"))
     };
     assert_eq!(

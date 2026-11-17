@@ -46188,6 +46188,255 @@ slice 3b"), over 3a's `1fd2d40`.*
 - *For Alonzo:* `CART.9.3`'s chip is a `function` row, a room that passes writing one, and the `names`
   view saves it beside the names, where 3a's note has its save print the view. Its own step, at its pin.
 
+*Slice 3c's sitting, 2026-11-17, at the owner's word ("Commit 3b before proceeding with 3c"): a body
+planned once. For the owner's decisions; nothing built.*
+- *What stands.* 3b writes a function's body into every shape that calls it (`super::lambda`'s
+  inlining): a fill is one shape whatever its calls, and runs compute it; a call at a place of its own is
+  a shape holding the body written in. A call kept as a call (a recursion's, a function a sheet scopes, a
+  helper's `LAMBDA`) is computed by `Ctx` from the body at its arguments, and the reach follows none of
+  them, so its shape is computed every frame (the census's `(every-frame lambda)`) and its node planned
+  cell by cell, as `super::nodes` plans a node that reads what the reach does not follow.
+- *Measured* (a probe never committed, release, over `664c6fc`: 8,192 calls of a function of two
+  parameters, a chain of gates in series through `LET` as a room's gates written out are, each call
+  reading its own row, by fill or at a shuffled place, the median of three rounds). *Inlined* is 3b; *kept*
+  the same calls kept as calls by a function a sheet scopes, `Ctx` computing the body; *cells* each call
+  laid out by hand in a hidden sheet, a row a call, its arguments copied in, each gate a fill down the rows
+  and the call reading its row's output.
+
+  | way, placement | gates | load | held | a whole frame | an edit's frame, cells reached |
+  |---|---|---|---|---|---|
+  | inlined, fill | 4 / 16 / 24 | 12 ms | 0.51 / 0.54 / 0.55 MB | 0.34 / 1.27 / 2.05 ms | 0.00 ms, 1 |
+  | inlined, scattered | 4 / 16 / 24 | 0.19 / 0.87 / 1.78 s | 33 / 126 / 173 MB | 0.42 / 1.52 / 112 ms | 0.01 ms, 1 |
+  | kept, fill | 4 / 16 / 24 | 0.35 / 1.22 / 1.91 s | 0.87 / 0.88 / 0.89 MB | 14 / 51 / 86 ms | the whole frame, 8,192 |
+  | kept, scattered | 4 / 16 / 24 | 0.40 / 1.22 / 2.02 s | 11.2 MB each | 17 / 54 / 88 ms | the whole frame, 8,192 |
+  | cells, fill | 4 / 16 / 24 | 11 / 13 / 20 ms | 1.8 / 4.3 / 6.0 MB | 0.66 / 2.42 / 3.80 ms | 0.00 ms, 6 / 18 / 26 |
+  | cells, scattered | 4 / 16 / 24 | 0.73 / 1.33 / 1.92 s | 17.9 / 20.8 / 23.1 MB | 1.29 / 3.17 / 5.69 ms | 0.01 ms, 6 / 18 / 26 |
+
+  - A call inlined at a place of its own costs 4 to 21 KB held, and past about 20 gates in series its
+    formula is too deep for a program, its cells left to `Ctx`: 112 ms a frame where the fill's is 2.
+  - A call kept holds the body once, 1.4 KB a call whatever the body, but `Ctx` walks the body at every
+    call, 1.7 to 11 microseconds, 35 to 42 times a program's rate. Its load and its edit's frame are the
+    reach's: a kept call's node is planned cell by cell, each cell's reads found through the body, 27 to
+    142 microseconds a call, 0.22 s of `Machine::new` at 8,192 calls of 4 gates and 1.17 s at 24 (split by
+    a second probe: reading the rows 8 ms), and every kept call is computed at every frame. Forced
+    through a cycle instead, the same load took 3.7 to 17.6 s.
+  - Laid out as cells, each gate is a shallow formula a run computes: a frame of 1.3 to 5.7 ms scattered
+    at any depth, an edit reaching the call's own row alone; held, 2.2 to 2.8 KB a call, mostly the copies
+    of its arguments, each a shape of its own.
+- *The fork, how a call computes a body planned once:*
+  1. *As built:* every call inlined (the rows above). `~0`.
+  2. *A call kept as a call, its reads followed.* At a shape that no run computes, the call is kept and
+     `Ctx` computes it; the reach follows its arguments, which the shape holds, and its function's own
+     references, which a function of cells and a named function hold absolute and fixed, through the
+     functions it calls. Its node is planned by rectangles as any formula's, so that its load is a
+     formula's and its edit as narrow as 3b's. Memory flat; a frame 35 to 42 times 3b's lowered. `~days`.
+  3. *2, and the body lowered once to a program, each call running it.* A function's program, its
+     parameters registers, lowered once a function; a call an operation of the calling program, running
+     it at the arguments' values, `Ctx` where a guard fails as for any program. A `LET`'s bindings lowered
+     in turn, a register each, rather than substituted into one nested formula, so that a chain of gates
+     stays on the program at any length (the second slice's *Found*). Memory and load 2's; a frame about
+     3b's lowered one: from the inlined rows, 0.4 to 1.5 ms at 8,192 scattered calls of 4 to 16 gates, and
+     at 24 gates near 2 ms where 3b's is 112. Fills keep the inlining, whose runs compute 8,192 calls of 4
+     gates in 0.34 ms. `~weeks`.
+  4. *Each call laid out as cells of a sheet the machine keeps,* as `KERNEL.58` keeps a rule's answer
+     sheet: a function's sheet, a row a call, its arguments copied in and its gates fills down the rows.
+     The frame and the edit of the cells rows, and `AD-6` whole: a call's inside values are cells a person
+     views at its own arguments (the sitting's *Found*). Held 2.2 to 2.8 KB a call, the copies of its
+     arguments a shape each; a write adding or taking a call adds or frees a row, a chip inside a chip lays
+     a sheet of its own, and a recursion cannot be laid, kept as 2. `~weeks` and more.
+  - *An addition to 2 or 3, a call remembered by its arguments' values a frame at a time:* every
+    function the library holds is a function of its arguments (`KERNEL.20`'s premise), so a function's
+    answer at the same values is computed once a frame; Naught's chips take bits, a full adder at most
+    eight values however many calls. A map a function a frame. Reasoned, not measured.
+  - *Recommended:* 3, built as 2 and then the program, fills keeping the inlining: the body held once as
+    2's, the frame 3b's lowered at any length, the reach as narrow as 3b's, and nothing a person writes or
+    a file holds moved. 4 is the larger design, its gain the view of a call's inside, which the sitting
+    left a *Found*; remembering is measured on `CART.9.3`'s chips before it is built.
+- *The decisions, the owner's:*
+  1. *The design:* the fork above. *Recommended:* 3, by way of 2.
+  2. *Where a call is kept:* (a) at a shape of one cell; (b) at a shape of fewer cells than a run
+     computes (`shape::SHORT`), the inlining kept where runs compute it; (c) where the body is larger than a
+     bound; (d) everywhere, a fill too. *Recommended:* (b): a fill's run computes 8,192 inlined calls of 4
+     gates in 0.34 ms, which no call by call computes; elsewhere the inlining's memory and depth are the
+     premium.
+  3. *Which kept calls the reach follows:* (a) a named function's, a function of cells' among them, whose
+     callee and references are fixed, a recursion's too, so that a recursive cell is no longer computed
+     every frame; (b) a function of cells' alone; (c) none, as now. *Recommended:* (a); a function's value
+     computed at a step, a helper's `LAMBDA`, is followed by no reach, as now.
+  4. *Remembering a call by its values:* (a) later, measured on `CART.9.3`'s chips; (b) in this slice.
+     *Recommended:* (a).
+- *One-way doors:* none. No row, file, golden or catalogue entry moves; the census, which a golden
+  prints for the door's workbooks, gains no word where no call is kept, and a kept call's shape prints
+  its `calls` row as now. Every design here is the machine's own and undone by its own commit.
+- *Oracles.* Every cell held to 3b's at every frame: generated rooms called by fill and at scattered
+  places, the census as 3b's but for the kept calls; a write to a body or a row as a load of the written
+  grid, 3b's law; a recursion's values as slice 1's; the probe's scattered rows as floors of
+  `check_recalc_floors`, held bytes exact and a frame within a stated tolerance, beside slice 2's adders;
+  Alonzo's suite and Buffet's over the language by a path.
+- *Predictions.* No grid without a kept call moves a byte, a golden or a floor. At 8,192 scattered calls:
+  held from 33 to 173 MB to about 11, a load from 0.2 to 1.8 s to at most the 4 gates' 0.2 s, a shape a
+  call holding the call alone, and a frame of 24 gates from 112 ms to about 2.
+
+*Slice 3c, a body planned once, 2026-11-17, built at the owner's word ("Decision recommendations
+approved; proceed with 3c"), over 3b's `664c6fc`: the sitting's design 3 by way of 2, a call kept where
+no run computes its shape, the reach following every named function's kept call, a recursion's among
+them, and remembering a call by its values left for `CART.9.3`'s chips.*
+- *The form a shape's cells choose* (`calc/shape.rs`'s `Form`, `Shapes::forms`). A shape whose parse
+  calls by its name a named function the inlining writes in, and whose call kept the reach would follow,
+  is placed with its calls kept (`lambda::placed`, the inliner's `keep`), a fill's first piece of sixteen
+  cells or more written in; and before each plan, a load's and a write's whose formulas moved, its cells
+  counted: fewer than a run computes (`shape::SHORT`, 16) keep their calls, more write them in, and a
+  shape holding the other form is read again from its text. A write's shapes are a load's of the written
+  grid, a fill grown past sixteen cells or cut below writing its calls in or keeping them. A write of
+  values alone places nothing again and pays nothing. A function no reach would follow kept is written
+  in at every shape, as 3b wrote it: `TWICE`, calling the function it is handed, reduced where the call
+  stands, `=TWICE(SQ,3)` followed where kept it would be computed every frame (the census golden's
+  first writing caught it).
+- *What a call kept reads and calls* (`lambda::Called`, `Functions::called`, `lambda::kept`), found once
+  a function: the references its body reads, each absolute, a range's reach among them, through the
+  functions it calls by name, each once; the functions it calls that the library does not hold, which a
+  load refuses at a call kept as at the call written in; and whether one reads a sheet's extent
+  (`KERNEL.56`), filing the shape by every sheet it reads. A call is followed where its name calls one
+  function from every sheet (`Functions::fixed`: the workbook's, no sheet scoping it or any other name
+  by it), a recursion's among them, and no body it reaches reads a defined name, a span of sheets, a
+  range between computed ends or a function's value. A shape holds its calls' references behind one
+  pointer (`Shape::called`).
+- *The reach and the plan* (`reach::followed`, `At::read`, `nodes::node_reads`). A call kept and
+  followed reads its arguments as the shape's own parse reads them, a part the same at every cell
+  among them, and its function's references beside them, a rectangle every cell of the shape reads; its
+  node is planned by rectangles, where it was planned cell by cell, each cell's reads found by parsing
+  its function's text again; and its cells are computed when what they read changes, where they were
+  computed every frame. A recursion's call is followed as any other's.
+- *The body's program* (`program.rs`'s `Program::lower_function`, `Functions::lowered`). Each named
+  function's body is lowered once, the functions its body calls by name lowered before it round a stack:
+  its parameters registers a call fills; each binding of its `LET`s a register computed in turn and given
+  back after its last read, the reads counted before the lowering, so that sixty gates in series lower
+  in thirty-two registers; a call by name an operation running the callee's program. A call kept is an
+  operation of its caller's program, `Op::Apply`, running the body's program on a register file of its
+  own at no offset, a name's references never moving, and at the cell, which `ROW()` reads; a body's
+  root call answers its call, never the cell. Each body's references find their sheets when the grid's
+  functions are read, as a shape's do at its placement, so that its program reads a sheet by its place.
+  How a name reads where an operand takes it (`How`):
+  - a binding of a value, its register;
+  - a parameter an aggregate folds, handed by each call a value or a cell's number read strictly
+    (`Op::Strict`), a cell holding nothing failing the guard, since a fold skips it in a range and counts
+    a value given 0: `MAX(x,y)` called at a cell holding nothing and one holding -2 is `Ctx`'s, -2;
+  - a binding of a reference written as one, a room's gate reading a value of the room (`_C4` of `=B1`),
+    that reference where an operand takes it, as `Ctx` binds it, a range's holding no register;
+  - a parameter a call through its pointer takes, a binding of what may answer a reference, and a call
+    whose function may answer one, which no register hands as `Ctx` does, `Ctx`'s.
+
+  Left to `Ctx`, the census's `(unlowered …)` naming why: a recursion, `lambda`, with `Ctx`'s depth of
+  4,096 and its million calls; a function a sheet scopes; a body holding a function's value or a value
+  called; calls nesting deeper than `program::NEST`, 16, or making more than `calls::CALLS` a run,
+  counted at the lowering, `deep`.
+- *Each program and shape the size it was.* A program's new parts are boxed beside it (`Calling`), the
+  texts its references' calls take a boxed slice; a shape's calls' references behind one pointer, its
+  missing functions a boxed slice. `Program` is 152 bytes and `Shape` 440, as at `664c6fc`, measured in a
+  copy of it. The named functions' memos are a table made the first time a shape asks
+  (`Functions::memo`) and given up when the forms leave no shape keeping a call (`Functions::forget`):
+  the named adder's formulas, 4,096 alone of one text a function, were placed keeping their calls at
+  their first cell and written in at the plan, which left both bodies' programs held, 884 bytes over
+  the memory ceilings of `adder-named` and 916 at its saved peak, which `check_recalc_floors` caught. No
+  ceiling moved.
+- *Measured* (the sitting's probe, release, 8,192 calls of a function of two parameters, gates in series
+  through `LET`, each call at a place of its own; 3b's rows from the sitting):
+
+  | the calls | gates | load | held | a whole frame | an edit's frame, cells reached |
+  |---|---|---|---|---|---|
+  | 3b, written in | 4 / 16 / 24 | 0.19 / 0.87 / 1.78 s | 33 / 126 / 173 MB | 0.42 / 1.52 / 112 ms | 0.01 ms, 1 |
+  | 3c's first step, kept and followed | 4 / 16 / 24 | 70 / 69 / 68 ms | 11.4 MB | 13.8 / 46 / 67 ms | 0.00 ms, 1 |
+  | 3c, kept, followed, run by the body's program | 4 / 16 / 24 | 74 / 74 / 78 ms | 12.7 MB | 0.55 / 1.71 / 2.50 ms | 0.00 ms, 1 |
+
+  The fills, the sitting's other rows and a function a sheet scopes measured as before. The predictions
+  met: held about 11 MB (12.7, the programs beside the calls), a load at most 0.2 s, and 24 gates' frame
+  from 112 ms to about 2.
+- *Found by the oracle, and fixed: slice 2's binding lane.* A program's chain walked its left spine
+  through a part's first place, `x` of `x>0` in `IF(x>0,x,-x)`, so that the place in the first branch
+  computed the part and the other branch read a register no evaluation of the cell had written:
+  `=LET(x,A1+B1,IF(x>0,x,-x))` was 0 where `Ctx` answers 4, at a cell alone and a run's few, wherever the
+  sum is not positive, and every call written in whose body repeated such a part (`=F(G(A17,B17))` of
+  the oracle's thirty-first grid, 0 where 6). The chain now stops at a part's place (`program.rs`'s
+  `chain`), as a run's chain stops at a repeated node. Slice 2's law drew the pattern about once in
+  four hundred nodes, and it failed only where the first branch was not taken and no guard failed; its
+  pin counted the parts and the places, never the program. Held by
+  `a_part_first_written_on_a_chains_left_spine_is_computed_where_it_stands`, 125 cells, five parts each
+  a chain in five templates at five inputs, programs held to `Ctx`, which fails without the fix. Pushed
+  never, so no release holds it.
+- *The census's goldens.* `lambda` and `lambda_saved`, the door's own (`check_shapes_golden`), written
+  again by the door: the sixteen cells of the recursions followed, `(every-frame 54)` where 70 and 52
+  where 68, each `(unlowered lambda)`; `SQ`, `PLUS1` and `OUTER` at a cell alone kept and lowered, their
+  reads naming the call (`each`), the body's held cell no longer the shape's (`once`); the lines as many,
+  106 and 104.
+- *Held by* `vla-lang/src/machine/kept.rs`, nine tests:
+  - the oracle: forty generated grids, each a room of one to three inputs and two to five gates (`F`, a
+    `function` row), a `name` row `G` calling `F` and reading another sheet's cell, a sum of its range or
+    its cell's row, and a recursion `H`; twenty-four calls at places of their own, each reading its own
+    row, a short fill and a fill of twenty; loaded as built, with the calls kept and computed by `Ctx`
+    alone, and with every call written in (`shape::inlined`, the test's switch); twelve writes each (an
+    input, a cell a body reads, a room's gate, `G`'s row, a call, the short fill grown past sixteen and
+    cut back); every value the three's at every frame, no shape computed every frame, and each write's
+    census and values those of a fresh load of its save;
+  - sixty gates in series lowered and computed as the chain by hand;
+  - a parameter folded at a cell holding nothing, and a function answering its reference folded by its
+    caller;
+  - twenty functions each calling the next, a call of the first `(unlowered deep)` and of the fifteenth a
+    program; eleven each calling the next four times, past `CALLS`, `deep`;
+  - a body reading a formula cell of a later sheet ordered after it and reached through it; a body
+    calling a function the library lacks refused, kept and written in alike; an approximate match over a
+    column, 1, then 4 once a value written below it in another column grows the sheet's extent;
+  - a function a sheet scopes computed every frame and its write seen;
+  - a body's root answering its call, `LEN(LETTER(2))` 1 and never `"B"`, and a binding of a range;
+  - `TWICE` written in at a cell alone, alone and beside `SQ` kept in one formula, nothing computed
+    every frame.
+
+  Restated for the design: `tests/lambda.rs`'s named call at one cell, kept, lowered and followed, its
+  census row the written out's but for a read the evaluator's (`each`), and filled at sixteen cells the
+  written out's; its netlist parity, the shuffled adder's plan and readers the written out's, every
+  shape lowered; its Life rule through a function at sixteen cells, where a stand-in of nine now keeps
+  its calls. 3b's oracle, `tests/functions.rs`, holds the room's census to the `LAMBDA` by hand, which
+  the bindings of a reference read as their reference make so.
+- *Mutants,* twenty-two, in a copy of the tree: the keeping ignored, every call written in; a call no
+  reach follows kept; a form chosen where keeping writes nothing else; the forms never read again; a
+  run's least cells keeping their calls; a kept call followed by no reach; its body's references read by
+  no reach, or no edges of the plan; a body's missing functions not refused; its extent not read; a
+  chain's left spine walked through a part; a folded parameter read as any number; a function's answer
+  a value whatever it is; calls nesting past `NEST`, or making past `CALLS`, lowered; no register given
+  back; a parameter folded never marked; a binding of a reference read as its number; a body's root
+  answering the cell; a kept call's arguments not walked by the reach; a call of no fixed function
+  followed; a binding of a range given a register. Each fails the tests. Two passed a first run: the
+  extent, the pin's writes falling inside the range the call reads, rebuilt on `KERNEL.56`'s case; and a
+  call no reach follows kept, the form's flag keeping nothing where `TWICE` alone is called, which a
+  formula calling `TWICE` and `SQ` together now asks.
+- *Found, not minted:*
+  1. *A run loses an error across rows,* older than `KERNEL.29` (`78a6dc1`, 0.13.0's commit, answers
+     alike). Under the program law's library (`machine::tests::program_library`, whose `AREA` is a
+     test's), two fills, `C2:H2` `=(((OR($A18))*(AREA($J$1)))^($B$8))^(B2)`, a chain along its row, and
+     `C3:H4` `=MOD(((IF(A.last!$J$4,2,FALSE))+(($A3)%)-(MOD(F2,$C2))*($A5*B.last!$K$1))<=($A$13),(-3)%)`,
+     with `A6` the text `"x"` and `A18` 1: stepped whole by runs, with programs or without, row 4's six
+     cells answer -0.02 where `Ctx` answers `#VALUE!`, the error of `$A6*B.last!$K$1` lost, the census
+     showing the band's one run of eight lanes; stepped by budgets of 1, 3 or 7 cells, they agree. Found
+     when a change to the program law's generator moved its draws; the law's own draws never meet it.
+  2. *A formula kept as written refuses its calls of named functions:* a formula whose own inlining
+     passes `lambda::NODES`, a `LET` doubling forty times, that calls a named function is refused at its
+     load, `calc-function-not-computed`, its call by name counted missing though `Ctx` computes it; at
+     3b alike. A call kept names its function where the formula kept as written does not.
+- *The ceilings.* Every fixture of the memory runner holds less than at `664c6fc`, measured over both
+  trees: 64 to 192 bytes in the small ones, 760 to 876 in `criteria`, `life` and `lookups`, 7,716 in
+  Superposition's board and 1.15 MB in the netlist, 2.8%; not apportioned between the slice's changes,
+  a program's chain computing a part once where it stands and the boxed slices. The ceilings stand where
+  they were, a later entry free to lower them.
+- *Verified* in the shared tree over `664c6fc`: `cargo fmt --all -- --check`; clippy over every target,
+  with and without `c-abi`, `-D warnings`; `cargo test --workspace`, 934 passed and 5 ignored; the two
+  WebAssembly builds; the floors' runners; the package's tests from its tarball on a target of its own,
+  663 passed and 2 ignored, and its strangers' test twenty runs of twenty; `run_checks.ps1`, 60 of 60,
+  the floors' runners and the memory runner's check among them; `check_recalc_floors.ps1 -Control`;
+  Alonzo's suite at `be082c5`, 108 with its cartridges required, and Buffet's at `6f215a1`, 107, each
+  over this language by a path. No row, file, catalogue entry or Excel-held golden moved, so no Excel
+  pass is asked.
+- *For Alonzo:* `CART.9.3`'s chips called at their own places keep their calls, each chip's body one
+  program; a chip filled down a column writes them in as before. Its own step, at its pin.
+
 *Excel's second save, 2026-11-16, the stop rule's last.* The owner saved the fixture of 93 formulas
 over the first save's file. The door's verdict: 90 agree, two differ, the spill unchecked.
 - Seven of the eight formulas written to confirm the folds agree: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`

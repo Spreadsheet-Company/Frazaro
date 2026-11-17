@@ -169,6 +169,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # following none. The owner's second Excel save of it, 95 lines, the build's. Written
 # again for a third save, 106 lines, 70 computed every frame. The owner's third
 # save of it, repaired, 104 lines, its two removed formulas gone.
+# 2026-11-17, KERNEL.29's third slice's third part: a call of a named function
+# at a cell alone kept and followed by the reach, a recursion's among them, so
+# 54 computed every frame where 70, and in the save 52 where 68; the
+# recursions `(unlowered lambda)`, `SQ`, `PLUS1` and `OUTER` lowered, their
+# reads naming the call (`each`); the lines as many.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },

@@ -455,6 +455,19 @@ pub(crate) fn yields_value(lib: &Library, e: &Expr) -> bool {
 /// cells by [`Ctx`] whole and a program does not lower it, since a lane and
 /// a register hold one value a cell; so every path answers as `Ctx` does.
 pub(crate) fn arrays_in(lib: &Library, e: &Expr) -> bool {
+    arrays_of(lib, e, false)
+}
+
+/// [`arrays_in`] for a program's lowering (KERNEL.29's slice 3c): a name a
+/// function's body binds or takes, its `LET`s and a call kept of a named
+/// function read as the values a program's registers hold, the expressions
+/// inside them read for arrays as any other's; a function's value made is
+/// still `Ctx`'s.
+pub(crate) fn arrays_beside(lib: &Library, e: &Expr) -> bool {
+    arrays_of(lib, e, true)
+}
+
+fn arrays_of(lib: &Library, e: &Expr, bindings: bool) -> bool {
     let plain = |a: &Expr| {
         let mut a = a;
         while let Expr::Pos(x) = a {
@@ -475,6 +488,9 @@ pub(crate) fn arrays_in(lib: &Library, e: &Expr) -> bool {
     while let Some(e) = stack.pop() {
         match e {
             Expr::Array(_) | Expr::Range(_) => return true,
+            // A program's names and calls kept (KERNEL.29's slice 3c).
+            Expr::Local(_) if bindings => {}
+            Expr::Let(_) | Expr::Apply(_) if bindings => e.push_children(&mut stack),
             // What the inlining kept of `LET` and `LAMBDA` (KERNEL.29), which
             // `Ctx` alone computes.
             Expr::Local(_) | Expr::Let(_) | Expr::Lambda(_) | Expr::Apply(_) => return true,

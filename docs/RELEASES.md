@@ -14,10 +14,12 @@
   from any formula, as Excel's Name Manager holds one. `ISOMITTED` tells an
   argument left out. A name stands for its expression, substituted where it
   is read, so a formula written with `LET` computes what the same formula
-  written out computes. Every call of a named function that does not call
-  itself, and every `LET`, is written into the formula when an engine loads
-  it, so that a function costs what the formula it stands for costs: the
-  same plan, the same program, the same frame. A function that calls itself,
+  written out computes. Every `LET`, and every call of a named function that
+  does not call itself in a fill of sixteen cells or more, is written into the
+  formula when an engine loads it, so that a function costs what the formula
+  it stands for costs: the same plan, the same program, the same frame. A
+  call elsewhere keeps its function's body once, a program of its own (see
+  below). A function that calls itself,
   by its name or through a parameter, runs as calls, each counted, to a depth
   of 4,096 and a million calls a cell, `#NUM!` past either as Excel answers a
   recursion too deep; a call too deep for the stack is computed on a stack of
@@ -41,9 +43,9 @@
   read there does, each cell computes it once and reads it again where it
   stands, in a fill and in a cell alone:
   `LET(x,h,IF(x>0.5,x,IF(x>0.25,x*2,-x)))` over a fill of 100,000 cells
-  takes half the time it did. A named function plans as its formula written
-  out, filled or at scattered places, which a test holds, and costs what it
-  costs, which the recalculation floors hold: an adder of 4,096 bits whose
+  takes half the time it did. A named function filled plans as its formula
+  written out, which a test holds, and costs what it costs, which the
+  recalculation floors hold: an adder of 4,096 bits whose
   sums and carries call `SUMBIT` and `CARRYBIT` beside the same adder written
   out, each one's frames within 15% of the other's, where Excel 365 takes
   4.6 times as long through the names (KERNEL.29, its second slice).
@@ -80,6 +82,23 @@
   (`grid-name-taken`, `grid-function-sheet`). A workbook holds no function
   of cells, so a grid lent as one (`Machine::workbook`) holds the calls and
   not the functions they call (KERNEL.29, its third slice).
+
+- **A function's body planned once.** A call of a named function, a room's
+  among them, in a formula of fewer than sixteen cells, a call at a place of
+  its own above all, is kept a call: the function's body is held once, a
+  program of its own that each call runs, its parameters and each of its
+  `LET`'s names a register, so that a chain of gates of any length runs as
+  fast as a short one. A call is followed as the formula written out would
+  be, through the cells its function reads, a recursion's among them, so
+  that a call is computed when what it reads changes and never every frame,
+  and a load plans it as quickly as any formula. 8,192 calls of a chain of
+  24 gates, each at a place of its own, hold 12.7 MB where they held 173 MB,
+  load in 78 ms where they took 1.8 s, and compute in 2.5 ms where they took
+  112 ms. A function that calls a function it is handed, `TWICE` of
+  `=TWICE(SQ,3)`, is written into the formula wherever it is called, as it
+  was, so that what it is handed is reduced where the call stands; and a call
+  of a function some sheet scopes is computed every frame, as it was
+  (KERNEL.29, its third slice).
 
 - **A loop names an entry's parts.** A list of names where a loop's name
   stands, `(each ((address value) entries) (cell sheet address value))`,

@@ -84,7 +84,7 @@ pub struct Shape {
     pub anchor: CellId,
     /// The functions the parse calls that the library does not hold,
     /// sorted, each once: what a load refuses, read once a shape.
-    missing: Vec<String>,
+    missing: Box<[String]>,
     /// Whether a cell of the shape may stand for a text the parse does not
     /// read: the text holds a 3D span (`Jan:Dec!A1`) or a broken reference
     /// with a cell after it (`#REF!A1`), each of which the mover writes as
@@ -123,6 +123,37 @@ pub struct Shape {
     /// once for a parse `Ctx` computes whole, so that a call in it is entered
     /// where its body fits the stack; 0 for any other.
     depth: u32,
+    /// How the parse holds its calls of named functions by name (KERNEL.29's
+    /// slice 3c), chosen by the shape's cells before each plan
+    /// ([`Shapes::forms`]).
+    pub(crate) form: Form,
+    /// The references the calls the parse keeps read through their
+    /// functions' bodies, each once and its sheet found, where every call it
+    /// keeps is followed (KERNEL.29's slice 3c, `lambda::Kept`): what the
+    /// reach and the plan follow beside the parse's own. `None` where it keeps
+    /// no call, or one no reach follows: a pointer, so that every shape is the
+    /// size it was.
+    pub(crate) called: Option<Box<Called>>,
+}
+
+/// The references a shape's calls kept read through their functions
+/// (KERNEL.29's slice 3c), each once and its sheet found.
+#[derive(Clone, Debug)]
+pub(crate) struct Called(pub(crate) Box<[RefExpr]>);
+
+/// How a shape's parse holds its calls of named functions by name
+/// (KERNEL.29's slice 3c, the owner's decision 2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Form {
+    /// A parse calling no function the inlining writes in: one form.
+    Plain,
+    /// Each call kept a call, at a shape of fewer cells than a run computes
+    /// ([`SHORT`]): the body held once a function, however many shapes call
+    /// it.
+    Kept,
+    /// Each call written in, at a shape of [`SHORT`] cells or more, which its
+    /// runs compute at once.
+    Inlined,
 }
 
 impl Shape {
@@ -225,8 +256,52 @@ pub(crate) const RUN: usize = 4;
 /// them less than a run's start costs them. Measured over 4 to 64: Kairos's
 /// runs of about 14 cells a frame selects cost 143 ns a cell against a
 /// program's 40, and Life's rule breaks even near 20 (its program 108 ns a
-/// cell, a run's 32 and a start of about 1.5 µs), 64 costing the gun.
+/// cell, a run's 32 and a start of about 1.5 µs), 64 costing the gun. A shape
+/// of fewer cells keeps its calls of named functions (KERNEL.29's slice 3c).
 pub(crate) const SHORT: usize = 16;
+
+/// Whether a test asks every shape's calls written in, as the third slice's
+/// second part wrote them: the reference a call kept is held to (KERNEL.29's
+/// slice 3c); `false` outside a test.
+#[cfg(not(test))]
+fn inlined_always() -> bool {
+    false
+}
+
+#[cfg(test)]
+fn inlined_always() -> bool {
+    inlined::asked()
+}
+
+/// Every plan made in a test with each call of a named function written in
+/// wherever it stands, as before KERNEL.29's slice 3c: what a call kept is
+/// held to. On the thread that asked, until the guard drops.
+#[cfg(test)]
+pub(crate) mod inlined {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ASKED: Cell<bool> = const { Cell::new(false) };
+    }
+
+    /// Asked until dropped, then as before.
+    pub(crate) struct Guard(bool);
+
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            ASKED.with(|a| a.set(self.0));
+        }
+    }
+
+    /// Every call written in on this thread.
+    pub(crate) fn always() -> Guard {
+        Guard(ASKED.with(|a| a.replace(true)))
+    }
+
+    pub(super) fn asked() -> bool {
+        ASKED.with(Cell::get)
+    }
+}
 
 impl Shapes {
     /// A plan with nothing in it.
@@ -290,6 +365,8 @@ impl Shapes {
             let m = &masters.as_ref().expect("this sheet's masters").1;
             s.place_node(model, si, rect, formula, m, library);
         }
+        drop(masters);
+        s.forms(model, library);
         s.plan_model(model, names, extents);
         *s
     }
@@ -345,6 +422,7 @@ impl Shapes {
             }
         }
         self.as_loaded(model, library, stale);
+        self.forms(model, library);
     }
 
     /// A placed cell's shape as the grid now holds it: a fill's by its
@@ -445,7 +523,9 @@ impl Shapes {
         let mut renewed: HashMap<usize, Shape> = HashMap::new();
         for (s, anchor, text) in again {
             let fill = self.shapes[s].fill;
-            self.add(model, text, anchor, library);
+            // Read again in the form it held, which `forms` asks again.
+            let keep = self.shapes[s].form != Form::Inlined && !inlined_always();
+            self.add(model, text, anchor, library, keep);
             let mut shape = self.shapes.pop().expect("the shape just made");
             shape.fill = fill;
             renewed.insert(s, shape);
@@ -547,7 +627,11 @@ impl Shapes {
                     Some(&s) => s,
                     None => {
                         let anchor = (si, m_row, m_col);
-                        let s = self.add(model, strip_future_prefixes(text), anchor, library);
+                        // Its calls kept where its first piece is short, the
+                        // forms read again once every piece is placed.
+                        let keep = rect.cells() < SHORT as u64 && !inlined_always();
+                        let text = strip_future_prefixes(text);
+                        let s = self.add(model, text, anchor, library, keep);
                         self.shapes[s].fill = Some(index);
                         self.by_shared.insert(key, s);
                         s
@@ -569,7 +653,8 @@ impl Shapes {
                 let s = match self.by_r1c1.get(&key) {
                     Some(&s) => s,
                     None => {
-                        let s = self.add(model, text, (si, row, col), library);
+                        let keep = !inlined_always();
+                        let s = self.add(model, text, (si, row, col), library, keep);
                         self.by_r1c1.insert(key, s);
                         s
                     }
@@ -604,35 +689,60 @@ impl Shapes {
         }
     }
 
+    /// A shape made from its text at its first cell and kept last: with
+    /// `keep`, its calls of named functions kept calls (KERNEL.29's slice
+    /// 3c).
     fn add<M: Model + ?Sized>(
         &mut self,
         model: &M,
         text: String,
         anchor: CellId,
         library: &Library,
+        keep: bool,
     ) -> usize {
         let functions = self
             .functions
             .get_or_insert_with(|| Functions::of_model(model));
         // The parse with its bindings substituted and its calls written in
         // (KERNEL.29), so that a run, a program and the plan meet the formula
-        // written out.
-        let mut expr = lambda::parsed(&text, functions, library);
+        // written out; or, with `keep`, its calls of named functions kept.
+        let (mut expr, named) = lambda::placed(&text, functions, library, keep);
         if let Ok(e) = expr.as_mut() {
             find_sheets(e, model);
         }
         // The calls the parse makes, or the text's tokens where it does not
         // parse, as `Calc::missing_functions` reads them; and whether one
-        // reads an extent (KERNEL.56).
+        // reads an extent (KERNEL.56). A call kept reads and calls what its
+        // function's body does (KERNEL.29's slice 3c).
         let calls = match &expr {
             Ok(e) => lambda::calls_of(e),
             Err(_) => formula::calls(&text),
         };
-        let reads_extent = calls.iter().any(|name| library.reads_extent(name));
+        let kept = expr
+            .as_ref()
+            .ok()
+            .and_then(|e| lambda::kept(e, functions, library));
+        let reads_extent = calls.iter().any(|name| library.reads_extent(name))
+            || kept.as_ref().is_some_and(|k| k.reads_extent);
         let mut missing: Vec<String> = calls
             .into_iter()
             .filter(|name| !library.has(name))
             .collect();
+        let called = kept.map(|k| {
+            missing.extend(k.missing);
+            k.refs
+        });
+        let called = called.flatten().map(|mut refs| {
+            for r in &mut refs {
+                r.found = sheets_of(model, r);
+            }
+            Box::new(Called(refs.into_boxed_slice()))
+        });
+        let form = match (named, keep) {
+            (false, _) => Form::Plain,
+            (true, true) => Form::Kept,
+            (true, false) => Form::Inlined,
+        };
         let risky = moves_unread(&text);
         missing.sort_unstable();
         missing.dedup();
@@ -644,6 +754,8 @@ impl Shapes {
         );
         let s = self.push(text, expr, anchor, missing, risky, library);
         self.shapes[s].reads_extent = reads_extent;
+        self.shapes[s].form = form;
+        self.shapes[s].called = called;
         if kind_reads_arrays {
             // A program lowered for such a shape would read its ranges as a
             // legacy formula does; one already left to `Ctx` keeps its reason.
@@ -684,7 +796,7 @@ impl Shapes {
         };
         let arrayed = expr.as_ref().is_ok_and(|e| vector::arrays_in(library, e));
         let lowered = match &expr {
-            Ok(e) if !risky => Some(Program::lower(library, e)),
+            Ok(e) if !risky => Some(Program::lower(library, e, self.functions.as_ref())),
             _ => None,
         };
         let depth = match &expr {
@@ -695,7 +807,7 @@ impl Shapes {
             text,
             expr,
             anchor,
-            missing,
+            missing: missing.into_boxed_slice(),
             risky,
             holds,
             repeats,
@@ -704,8 +816,74 @@ impl Shapes {
             arrayed,
             reads_extent: false,
             depth,
+            form: Form::Plain,
+            called: None,
         });
         self.shapes.len() - 1
+    }
+
+    /// Each shape that calls a named function by its name given the form
+    /// its cells ask (KERNEL.29's slice 3c, the owner's decision 2): its calls
+    /// kept where it holds fewer cells than a run computes ([`SHORT`]), the
+    /// body held once a function; written in where it holds more, which its
+    /// runs compute at once; read again from its text where it holds the
+    /// other. Asked before each plan, a load's and a write's, so that a
+    /// write's shapes are a load's of the written grid.
+    fn forms<M: Model + ?Sized>(&mut self, model: &M, library: &Library) {
+        self.forms_chosen(model, library);
+        // What a shape's calls kept asked of the functions, held while a shape
+        // keeps one: a shape placed keeping its calls and then written in, a
+        // formula's first cell of thousands, leaves nothing behind it.
+        if !self.shapes.iter().any(|s| s.form == Form::Kept) {
+            if let Some(functions) = &self.functions {
+                functions.forget();
+            }
+        }
+    }
+
+    fn forms_chosen<M: Model + ?Sized>(&mut self, model: &M, library: &Library) {
+        if self.shapes.iter().all(|s| s.form == Form::Plain) {
+            return;
+        }
+        let mut cells = vec![0u64; self.shapes.len()];
+        for si in 0..model.sheet_count() {
+            model.each_node(si, &mut |rect, f| {
+                if let Formula::Fill(index) = f {
+                    if let Some(&s) = self.by_shared.get(&(si, index)) {
+                        cells[s] += rect.cells();
+                    }
+                }
+            });
+        }
+        for m in &self.located.alone {
+            for a in m.values() {
+                cells[a.shape as usize] += 1;
+            }
+        }
+        let always = inlined_always();
+        let again: Vec<(usize, bool)> = self
+            .shapes
+            .iter()
+            .enumerate()
+            .filter_map(|(s, shape)| {
+                let keep = cells[s] < SHORT as u64 && !always;
+                match shape.form {
+                    Form::Kept if !keep => Some((s, false)),
+                    Form::Inlined if keep => Some((s, true)),
+                    _ => None,
+                }
+            })
+            .collect();
+        for (s, keep) in again {
+            let (text, anchor, fill) = {
+                let x = &self.shapes[s];
+                (x.text.clone(), x.anchor, x.fill)
+            };
+            self.add(model, text, anchor, library, keep);
+            let mut shape = self.shapes.pop().expect("the shape just made");
+            shape.fill = fill;
+            self.shapes[s] = shape;
+        }
     }
 
     /// The order found again from the placed nodes (KERNEL.49's decision 7,
@@ -1399,7 +1577,7 @@ pub(crate) fn planned_by_cell() -> usize {
 /// the formula's own sheet, and one naming a sheet the grid does not hold,
 /// stay unfound and are found by name at each evaluation, as before. The
 /// walk keeps its own stack, so that a chain of operators costs it no depth.
-fn find_sheets<M: Model + ?Sized>(expr: &mut Expr, model: &M) {
+pub(crate) fn find_sheets<M: Model + ?Sized>(expr: &mut Expr, model: &M) {
     let mut stack = vec![expr];
     while let Some(e) = stack.pop() {
         match e {

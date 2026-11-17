@@ -428,7 +428,10 @@ this page gains its section when the item closes:
   within a formula, and `LAMBDA`, a function of named parameters, called
   where it is written, passed to `MAP`, `REDUCE`, `BYROW` and their kin, or
   held by a defined name and called by it from any formula, a named
-  function costing what the formula it stands for costs (KERNEL.29).
+  function costing what the formula it stands for costs: written into a
+  fill, and kept a call elsewhere, its body held once as a program of its
+  own that each call runs, and each call followed through the cells its
+  function reads (KERNEL.29).
 - **A write that empties a cell.** A row the machine's write takes beside
   `cell`, `formula` and `derived`, so that a host gives a cell back to no
   value, as a rebuilt cartridge that no longer writes it asks (KERNEL.46).

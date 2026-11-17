@@ -41,7 +41,12 @@
 //!
 //! A shape is not followed when its formula reads a defined name, whose
 //! text may read its cell, or a span of sheets. Its cells are computed
-//! every frame, as every cell was.
+//! every frame, as every cell was. A call of a named function kept as a call
+//! (KERNEL.29's third slice's third part) is followed where its function is
+//! the one its name calls from every sheet: its arguments read as the
+//! formula's own, and the references its function's body reads, through the
+//! functions it calls, each absolute, a rectangle every cell of the shape
+//! reads.
 //!
 //! A changed cell is checked against the readers of its sheet, each shape's
 //! references to it, and a sheet of [`INDEX_FROM`] readers or more keeps
@@ -1030,6 +1035,7 @@ impl Reach {
                         found: &mut found,
                         parts: &mut parts,
                         first,
+                        called: shape.called.as_deref().map(|c| &*c.0),
                     };
                     at.read(e)
                 }
@@ -1333,7 +1339,10 @@ impl Reach {
 /// answers as the reach is found (KERNEL.49's decision 7 plans a shape it
 /// does not follow cell by cell, and asks before the order): its parse read
 /// and not risky, and no defined name, span of sheets or range whose reach
-/// is not one sheet's anywhere in it.
+/// is not one sheet's anywhere in it; a call kept followed where every call
+/// the shape keeps is (KERNEL.29's slice 3c, `Shape::called`), its
+/// arguments read as the parse's own and its function's references beside
+/// them.
 pub(crate) fn followed(shape: &Shape) -> bool {
     let Ok(e) = &shape.expr else {
         return false;
@@ -1344,6 +1353,10 @@ pub(crate) fn followed(shape: &Shape) -> bool {
     let mut stack = vec![e];
     while let Some(e) = stack.pop() {
         match e {
+            Expr::Apply(a) if shape.called.is_some() => {
+                stack.extend(a.args.iter().rev());
+                continue;
+            }
             // A defined name, and what the inlining kept of `LET` and
             // `LAMBDA` (KERNEL.29), whose reads `Ctx` makes as it computes.
             Expr::Name { .. }
@@ -1373,6 +1386,9 @@ struct At<'a, 'p> {
     parts: &'p mut Vec<Expr>,
     /// Where the shape's parts begin in `parts`.
     first: usize,
+    /// What the calls the shape keeps read through their functions, where
+    /// every one is followed (KERNEL.29's slice 3c).
+    called: Option<&'a [RefExpr]>,
 }
 
 impl At<'_, '_> {
@@ -1385,11 +1401,15 @@ impl At<'_, '_> {
         let mut stack: Vec<(&Expr, bool)> = vec![(e, false)];
         // Each node finished, and whether it is the same at every cell.
         let mut done: Vec<(&Expr, bool)> = Vec::new();
+        let kept = self.called.is_some();
         while let Some((e, left)) = stack.pop() {
             if !left {
                 stack.push((e, true));
                 match e {
                     Expr::Call(_, args) => stack.extend(args.iter().rev().map(|a| (a, false))),
+                    // A call kept followed: its arguments, its function's
+                    // references read after the walk (KERNEL.29's slice 3c).
+                    Expr::Apply(a) if kept => stack.extend(a.args.iter().rev().map(|x| (x, false))),
                     Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push((x, false)),
                     Expr::Binary(_, a, b) => {
                         stack.push((b, false));
@@ -1405,6 +1425,7 @@ impl At<'_, '_> {
             }
             let operands = match e {
                 Expr::Call(_, args) => args.len(),
+                Expr::Apply(a) if kept => a.args.len(),
                 Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) => 1,
                 Expr::Binary(..) | Expr::Range(_) => 2,
                 _ => 0,
@@ -1421,6 +1442,8 @@ impl At<'_, '_> {
                 // A range is read by its reach, the cells any span it
                 // answers may name (KERNEL.8, slice f).
                 Expr::Range(_) => false,
+                // A call is never a part, a function reading its cell.
+                Expr::Apply(_) if kept => false,
                 Expr::Name { .. }
                 | Expr::Local(_)
                 | Expr::Let(_)
@@ -1454,6 +1477,11 @@ impl At<'_, '_> {
         }
         if let Some(&(root, true)) = done.last() {
             self.part(root);
+        }
+        // Each reference a kept call's function reads, absolute: a rectangle
+        // every cell of the shape reads.
+        for r in self.called.unwrap_or_default() {
+            followed &= self.reference(r);
         }
         followed
     }

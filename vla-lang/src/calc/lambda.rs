@@ -39,7 +39,25 @@
 //! **Named functions** ([`Functions`]): each defined name whose text is a
 //! `LAMBDA`, read once a grid, and the cycles among them, found by
 //! `graph::tarjan` over the calls their bodies make by name.
+//!
+//! **A call kept** (the third slice's third part, 2026-11-17, the owner's
+//! decisions 2 and 3): a shape of fewer cells than a run computes
+//! (`shape::SHORT`) keeps each call of a named function a call ([`inline`]'s
+//! `keep`) that the reach follows kept, where writing the body into it would
+//! hold a copy of the body a shape, the plan of every call standing apart
+//! costing kilobytes each; a fill keeps the inlining, which its runs compute,
+//! and so does a function calling a function's value it is handed, `TWICE`,
+//! which the inlining reduces where the call stands. What a call kept reads
+//! and calls is its function's, through the functions its body calls by name
+//! ([`Called`], found once a function): the references the reach and the
+//! plan follow as the shape's own, the functions a load refuses, and whether
+//! one reads a sheet's extent, as the body written in would read and call
+//! them. A call is followed where its name calls one function from every
+//! sheet, a recursion's among them, and no body it reaches reads what `Ctx`
+//! makes as it computes: a defined name, a span of sheets, a range between
+//! computed ends, a function's value.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::grid::Model;
@@ -50,6 +68,7 @@ use crate::sheet::column_letters;
 use super::eval::Library;
 use super::formula::{self, Apply, Expr, Lambda, Let, Local, RangeExpr, RefExpr, NESTING_LIMIT};
 use super::graph::{split_scope, tarjan};
+use super::program::{Program, Why};
 use super::value::ErrorKind;
 
 /// The most pairs one `LET` binds, Excel's ("supports up to 126").
@@ -327,6 +346,18 @@ fn nested(e: &Expr, bound: &mut Vec<(u32, u32)>) -> u32 {
 pub(crate) struct Functions {
     entries: Vec<Entry>,
     others: Vec<String>,
+    /// By entry, what a call of it kept reads and calls and its body's
+    /// program (KERNEL.29's slice 3c), each found the first time a shape asks:
+    /// empty, holding nothing, where no shape keeps a call.
+    memo: RefCell<Vec<Memo>>,
+}
+
+/// What a named function's calls kept ask of it, found once (KERNEL.29's
+/// slice 3c).
+#[derive(Clone, Debug, Default)]
+struct Memo {
+    called: Option<Rc<Called>>,
+    program: Option<Result<Rc<Program>, Why>>,
 }
 
 #[derive(Clone, Debug)]
@@ -335,6 +366,98 @@ struct Entry {
     scope: Option<usize>,
     lambda: Rc<Lambda>,
     cyclic: bool,
+}
+
+impl Entry {
+    fn new(key: String, scope: Option<usize>, lambda: Lambda) -> Entry {
+        Entry {
+            key,
+            scope,
+            lambda: Rc::new(lambda),
+            cyclic: false,
+        }
+    }
+}
+
+/// What a call of a named function kept as a call reads and calls, through
+/// the functions its body calls by name (KERNEL.29's slice 3c): what the
+/// call written in would read and call.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Called {
+    /// The references the bodies read, each absolute, each once: a range's
+    /// reach among them.
+    pub(crate) refs: Vec<RefExpr>,
+    /// The functions the bodies call that the library does not hold and no
+    /// defined name is, upper-cased as a parse writes them, each once: what
+    /// a load refuses.
+    pub(crate) missing: Vec<String>,
+    /// Whether a body calls a function that reads a sheet's extent itself
+    /// (KERNEL.56).
+    pub(crate) reads_extent: bool,
+    /// Whether a change is followed through the call: every function it
+    /// reaches the one its name calls from every sheet, and no body reading
+    /// a defined name, a span of sheets, a range between computed ends or a
+    /// function's value, which `Ctx` makes as it computes.
+    pub(crate) followed: bool,
+}
+
+/// What the calls a parse keeps read and call, together (KERNEL.29's slice
+/// 3c): the references their bodies read where every call kept is followed,
+/// `None` where one is not; the functions missing; and whether one reads a
+/// sheet's extent.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Kept {
+    pub(crate) refs: Option<Vec<RefExpr>>,
+    pub(crate) missing: Vec<String>,
+    pub(crate) reads_extent: bool,
+}
+
+/// What the calls a parse keeps read and call, each a function's value
+/// called at a step ([`Apply`]); `None` for a parse that keeps none. A call
+/// is followed where its function is a named function called by its name,
+/// which calls one function from every sheet ([`Functions::called`]); a
+/// function computed at a step, a helper's `LAMBDA` and a binding called
+/// among them, is followed by no reach.
+pub(crate) fn kept(e: &Expr, functions: &Functions, library: &Library) -> Option<Kept> {
+    let mut any = false;
+    let mut k = Kept {
+        refs: Some(Vec::new()),
+        missing: Vec::new(),
+        reads_extent: false,
+    };
+    let mut stack = vec![e];
+    while let Some(x) = stack.pop() {
+        if let Expr::Apply(a) = x {
+            any = true;
+            let called = match &a.callee {
+                Expr::Name { name, sheet: None } => functions.called(name, library),
+                _ => None,
+            };
+            match called {
+                Some(c) => {
+                    for m in &c.missing {
+                        if !k.missing.contains(m) {
+                            k.missing.push(m.clone());
+                        }
+                    }
+                    k.reads_extent |= c.reads_extent;
+                    if !c.followed {
+                        k.refs = None;
+                    }
+                    if let Some(refs) = &mut k.refs {
+                        for r in &c.refs {
+                            if !refs.contains(r) {
+                                refs.push(r.clone());
+                            }
+                        }
+                    }
+                }
+                None => k.refs = None,
+            }
+        }
+        x.push_children(&mut stack);
+    }
+    any.then_some(k)
 }
 
 impl Functions {
@@ -352,25 +475,23 @@ impl Functions {
                 }
                 continue;
             };
-            entries.push(Entry {
-                key: fold(bare),
+            entries.push(Entry::new(
+                fold(bare),
                 scope,
-                lambda: Rc::new(absolute_lambda(&l)),
-                cyclic: false,
-            });
+                found(absolute_lambda(&l), model),
+            ));
         }
         // The functions of cells (KERNEL.29's third slice), the workbook's
         // each, as a `name` row's `LAMBDA` is.
         for f in model.functions() {
-            entries.push(Entry {
-                key: fold(&f.name),
-                scope: None,
-                lambda: Rc::new(of_cells(f)),
-                cyclic: false,
-            });
+            entries.push(Entry::new(fold(&f.name), None, found(of_cells(f), model)));
         }
         if entries.is_empty() {
-            return Functions { entries, others };
+            return Functions {
+                entries,
+                others,
+                memo: RefCell::default(),
+            };
         }
         // An edge from a function to every function of each name its body
         // calls, in any scope, so that a cycle is found wherever the calls
@@ -398,7 +519,26 @@ impl Functions {
                 }
             }
         }
-        Functions { entries, others }
+        Functions {
+            entries,
+            others,
+            memo: RefCell::default(),
+        }
+    }
+
+    /// Every memo given up, the table with them (KERNEL.29's slice 3c): what
+    /// no shape keeping a call holds is found again if asked.
+    pub(crate) fn forget(&self) {
+        *self.memo.borrow_mut() = Vec::new();
+    }
+
+    /// An entry's memo, the table made the first time one is asked.
+    fn memo<T>(&self, i: usize, f: impl FnOnce(&mut Memo) -> T) -> T {
+        let mut m = self.memo.borrow_mut();
+        if m.len() < self.entries.len() {
+            m.resize_with(self.entries.len(), Memo::default);
+        }
+        f(&mut m[i])
     }
 
     /// Whether the grid defines no name a call can call: no named function
@@ -447,6 +587,146 @@ impl Functions {
         }
         found
     }
+
+    /// The named function a name calls from every sheet (KERNEL.29's slice
+    /// 3c): the workbook's one, where no sheet scopes a function or any other
+    /// name by it; a cycle may hold it.
+    fn fixed(&self, name: &str) -> Option<usize> {
+        let k = fold(name);
+        if self.others.contains(&k) {
+            return None;
+        }
+        let mut found = None;
+        for (i, e) in self.entries.iter().enumerate().filter(|(_, e)| e.key == k) {
+            if e.scope.is_some() || found.is_some() {
+                return None;
+            }
+            found = Some(i);
+        }
+        found
+    }
+
+    /// What a call by this name kept as a call reads and calls (KERNEL.29's
+    /// slice 3c), found once a function; `None` where the name calls no one
+    /// function from every sheet ([`Functions::fixed`]), whose call no reach
+    /// follows and whose body a load does not read.
+    pub(crate) fn called(&self, name: &str, library: &Library) -> Option<Rc<Called>> {
+        let i = self.fixed(name)?;
+        if let Some(c) = self.memo(i, |m| m.called.clone()) {
+            return Some(c);
+        }
+        let c = Rc::new(self.walk_called(i, library));
+        self.memo(i, |m| m.called = Some(Rc::clone(&c)));
+        Some(c)
+    }
+
+    /// Whether a call by this name kept is followed by the reach
+    /// (KERNEL.29's slice 3c): a shape of few cells keeps it only then.
+    pub(crate) fn follows(&self, name: &str, library: &Library) -> bool {
+        self.called(name, library).is_some_and(|c| c.followed)
+    }
+
+    /// The program a call by this name kept runs (KERNEL.29's slice 3c, the
+    /// owner's decision 1): its function's body lowered once, each function
+    /// the body calls by name lowered before it, round a stack of the
+    /// functions it reaches, which no cycle holds; or why the call is left to
+    /// `Ctx`: no one function by the name from every sheet, a cycle holding it
+    /// (a recursion, `Ctx`'s with its depth and its count of calls), or what
+    /// its body's lowering stopped at.
+    pub(crate) fn lowered(&self, name: &str, lib: &Library) -> Result<Rc<Program>, Why> {
+        let first = self.fixed(name).ok_or(Why::Lambda)?;
+        let lowered = |i: usize| self.memo(i, |m| m.program.is_some());
+        let mut stack = vec![(first, false)];
+        while let Some((i, ready)) = stack.pop() {
+            let e = &self.entries[i];
+            if lowered(i) {
+                continue;
+            }
+            if e.cyclic {
+                self.memo(i, |m| m.program = Some(Err(Why::Lambda)));
+                continue;
+            }
+            if !ready {
+                stack.push((i, true));
+                e.lambda.body.each_call(&mut |callee| {
+                    if lib.has(callee) {
+                        return;
+                    }
+                    if let Some(j) = self.fixed(callee) {
+                        if !lowered(j) {
+                            stack.push((j, false));
+                        }
+                    }
+                });
+                continue;
+            }
+            // Its callees' programs found, the lowering asks the table again
+            // and holds no borrow of it.
+            let program = Program::lower_function(lib, self, &e.lambda).map(Rc::new);
+            self.memo(i, |m| m.program = Some(program));
+        }
+        self.memo(first, |m| m.program.clone())
+            .unwrap_or(Err(Why::Lambda))
+    }
+
+    /// A function's body walked, and each body it calls by name, each once:
+    /// what [`Called`] holds.
+    fn walk_called(&self, first: usize, library: &Library) -> Called {
+        let mut c = Called {
+            followed: true,
+            ..Called::default()
+        };
+        let mut seen = vec![first];
+        let mut todo = vec![first];
+        while let Some(i) = todo.pop() {
+            let mut stack: Vec<&Expr> = vec![&self.entries[i].lambda.body];
+            while let Some(e) = stack.pop() {
+                match e {
+                    Expr::Ref(r) if r.last_sheet.is_some() => c.followed = false,
+                    Expr::Ref(r) => {
+                        if !c.refs.contains(r) {
+                            c.refs.push(r.clone());
+                        }
+                    }
+                    Expr::Range(r) => match &r.reach {
+                        Some(reach) if reach.last_sheet.is_none() => {
+                            if !c.refs.contains(reach) {
+                                c.refs.push(reach.clone());
+                            }
+                        }
+                        _ => c.followed = false,
+                    },
+                    Expr::Name { .. } | Expr::Lambda(_) | Expr::Apply(_) => c.followed = false,
+                    Expr::Call(name, _) if library.has(name) => {
+                        c.reads_extent |= library.reads_extent(name);
+                    }
+                    Expr::Call(name, _) if self.holds(name) => match self.fixed(name) {
+                        Some(j) if !seen.contains(&j) => {
+                            seen.push(j);
+                            todo.push(j);
+                        }
+                        Some(_) => {}
+                        None => c.followed = false,
+                    },
+                    Expr::Call(name, _) if self.calls_value(name) => c.followed = false,
+                    Expr::Call(name, _) if !c.missing.contains(name) => {
+                        c.missing.push(name.clone());
+                    }
+                    _ => {}
+                }
+                e.push_children(&mut stack);
+            }
+        }
+        c
+    }
+}
+
+/// A function's `LAMBDA` with the sheet each reference names found, as a
+/// shape's are at its placement (KERNEL.29's slice 3c): its body's program
+/// reads a sheet by its place.
+fn found<M: Model + ?Sized>(mut l: Lambda, model: &M) -> Lambda {
+    super::shape::find_sheets(&mut l.body, model);
+    l
 }
 
 /// A function of cells' `LAMBDA` as a call writes it in (KERNEL.29's third
@@ -570,14 +850,17 @@ pub(crate) enum Inlined {
 
 /// A parse's bindings substituted and its calls written in, at a shape's
 /// placement (KERNEL.29). A parse holding no binding, function or call of a
-/// named function is the same.
-pub(crate) fn inline(e: &Expr, functions: &Functions, library: &Library) -> Inlined {
+/// named function is the same. With `keep`, each call of a named function by
+/// its name is kept a call (the third slice's third part), at a shape of
+/// fewer cells than a run computes.
+pub(crate) fn inline(e: &Expr, functions: &Functions, library: &Library, keep: bool) -> Inlined {
     if !e.has_lambda() && !calls_named(e, functions, library) {
         return Inlined::Same;
     }
     let mut i = Inliner {
         functions,
         library,
+        keep,
         next: FRESH,
         nodes: 0,
         level: 0,
@@ -603,16 +886,44 @@ pub(crate) fn calls_of(e: &Expr) -> Vec<String> {
     out
 }
 
-/// A formula's text parsed and inlined, as a shape is placed and as the door
-/// evaluates it (KERNEL.29): the construct it stops at, `formula::TOO_DEEP`
-/// for one too deep written in or not.
+/// A formula's text parsed and inlined, as the door evaluates it
+/// (KERNEL.29): the construct it stops at, `formula::TOO_DEEP` for one too
+/// deep written in or not.
 pub(crate) fn parsed(text: &str, functions: &Functions, library: &Library) -> Result<Expr, String> {
-    let e = formula::parse(text)?;
-    match inline(&e, functions, library) {
+    placed(text, functions, library, false).0
+}
+
+/// A formula's text parsed and inlined as a shape is placed (KERNEL.29):
+/// with `keep`, each call of a named function by its name kept a call where
+/// the reach follows it ([`inline`], the third slice's third part); and
+/// whether the parse calls such a function the inlining writes in, so that
+/// keeping its calls makes another form of it, which its shape's cells
+/// choose.
+pub(crate) fn placed(
+    text: &str,
+    functions: &Functions,
+    library: &Library,
+    keep: bool,
+) -> (Result<Expr, String>, bool) {
+    let e = match formula::parse(text) {
+        Ok(e) => e,
+        Err(construct) => return (Err(construct), false),
+    };
+    let named = !functions.is_empty() && {
+        let mut found = false;
+        e.each_call(&mut |name| {
+            found |= !library.has(name)
+                && functions.inlined(name).is_some()
+                && functions.follows(name, library);
+        });
+        found
+    };
+    let done = match inline(&e, functions, library, keep && named) {
         Inlined::Same => Ok(e),
         Inlined::To(inlined) => Ok(inlined),
         Inlined::TooDeep => Err(formula::TOO_DEEP.to_string()),
-    }
+    };
+    (done, named)
 }
 
 /// Whether a parse calls or reads a named function the library does not
@@ -658,6 +969,9 @@ struct Over;
 struct Inliner<'a> {
     functions: &'a Functions,
     library: &'a Library,
+    /// Whether each call of a named function by its name is kept a call
+    /// (KERNEL.29's slice 3c), at a shape of fewer cells than a run computes.
+    keep: bool,
     /// The next fresh slot, above every slot the parse holds.
     next: u32,
     /// The nodes written so far.
@@ -756,13 +1070,19 @@ impl Inliner<'_> {
             Expr::Call(name, args) => {
                 let args = self.all(args)?;
                 if !self.library.has(name) && self.functions.holds(name) {
-                    if let Some(l) = self.functions.inlined(name) {
+                    // Kept where the reach follows the call kept; a function
+                    // calling a function's value it is handed, `TWICE`, is
+                    // written in, which reduces it where the call stands.
+                    let written =
+                        |name: &str| !self.keep || !self.functions.follows(name, self.library);
+                    if let Some(l) = self.functions.inlined(name).filter(|_| written(name)) {
                         let l = Rc::clone(l);
                         let f = self.named(&l)?;
                         return self.beta(f, args);
                     }
-                    // A named function a cycle holds or a sheet scopes, kept
-                    // a call of its name.
+                    // A named function a cycle holds or a sheet scopes, or
+                    // any at a shape that keeps its calls, kept a call of its
+                    // name.
                     self.grow(2)?;
                     let callee = Node::leaf(Expr::Name {
                         name: name.clone(),
@@ -1098,7 +1418,7 @@ mod tests {
             let mut scope = Vec::new();
             let text = w.expr(4, &mut scope);
             let written = formula::parse(&text).expect(&text);
-            let inlined = match inline(&written, &functions, &lib) {
+            let inlined = match inline(&written, &functions, &lib, false) {
                 Inlined::To(e) => e,
                 Inlined::Same => written.clone(),
                 Inlined::TooDeep => panic!("{text}: too deep"),
@@ -1135,7 +1455,7 @@ mod tests {
         // Inlined, an ordinary formula: 2*(2+1).
         let wb = book();
         let lib = language();
-        match inline(&e, &Functions::of_model(&wb), &lib) {
+        match inline(&e, &Functions::of_model(&wb), &lib, false) {
             Inlined::To(i) => assert!(!i.has_lambda(), "{i:?}"),
             other => panic!("{other:?}"),
         }
@@ -1149,7 +1469,7 @@ mod tests {
         assert!(functions.inlined("DOWN").is_none(), "a cycle holds DOWN");
         assert!(functions.inlined("SQ").is_some());
         let e = formula::parse("DOWN(3)+SQ(2)").unwrap();
-        let Inlined::To(i) = inline(&e, &functions, &lib) else {
+        let Inlined::To(i) = inline(&e, &functions, &lib, false) else {
             panic!("inlined");
         };
         // DOWN kept a call of its name, SQ written in.
