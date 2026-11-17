@@ -1687,12 +1687,23 @@ impl<'a> Many<'a> {
         }
         // A reference that holds its column, read by cells of one row, reads
         // one cell at every one of them (KERNEL.33): Sand's gate,
-        // `Gate!$B2`, before a branch most cells skip. A run's cells stand in
-        // the order by row and then by column, and a selection keeps their
-        // order, so its first and last cells share a row only when every one
-        // does.
-        if r.corners.col_abs1 && self.cells[sel.at(0)].1 == self.cells[sel.at(sel.len() - 1)].1 {
-            return Lane::Same(got(0));
+        // `Gate!$B2`, before a branch most cells skip. Every cell of the
+        // selection is asked its row (KERNEL.73): a run carried into the next
+        // level's block may begin it in an earlier row, so that a first and a
+        // last cell of one row hold cells of another between them, which read
+        // their own row's cell. Asked of a first and a last alone, the
+        // shortcut read the first row's for them from 0.9.2.
+        if r.corners.col_abs1 {
+            let row = self.cells[sel.at(0)].1;
+            if (1..sel.len()).all(|k| self.cells[sel.at(k)].1 == row) {
+                #[cfg(test)]
+                rows::once();
+                return Lane::Same(got(0));
+            }
+            #[cfg(test)]
+            if self.cells[sel.at(sel.len() - 1)].1 == row {
+                rows::back();
+            }
         }
         // The cells side by side in one row read together (KERNEL.43): a
         // reference that moves with the column, over a sheet kept as an
@@ -3610,6 +3621,36 @@ pub(crate) mod sliced {
     /// The counts since the last time they were taken.
     pub(crate) fn take() -> [usize; 5] {
         COUNTS.with(|c| c.replace([0; 5]))
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod rows {
+    //! A run's reads of a reference that holds its column, counted in a test
+    //! on its own thread (KERNEL.73): those read once across one row
+    //! (KERNEL.33's shortcut), and those over a selection whose first and
+    //! last cells share a row and hold another row between them, each cell
+    //! its own row's, so that a law can say it drew the case.
+    use std::cell::Cell;
+
+    thread_local! {
+        static ONCE: Cell<usize> = const { Cell::new(0) };
+        static BACK: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// A read once across one row.
+    pub(crate) fn once() {
+        ONCE.with(|c| c.set(c.get() + 1));
+    }
+
+    /// A read over a selection that leaves a row and comes back to it.
+    pub(crate) fn back() {
+        BACK.with(|c| c.set(c.get() + 1));
+    }
+
+    /// The counts since the last take, each of the two, and from nothing.
+    pub(crate) fn take() -> (usize, usize) {
+        (ONCE.with(|c| c.replace(0)), BACK.with(|c| c.replace(0)))
     }
 }
 

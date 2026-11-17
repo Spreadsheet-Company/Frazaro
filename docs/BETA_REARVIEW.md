@@ -46623,6 +46623,55 @@ Sand's gate's case; Alonzo's and Buffet's suites and frames as they stand. *Effo
 *Approved* 2026-11-17 at the owner's word, "Decision recommendations approved; commit the mint,
 then build KERNEL.73": the three decisions as recommended.
 
+*Built 2026-11-17* in the tree, as the prototype stood. `calc/vector.rs`: `Many::reads` asks every cell of
+the selection its row before it reads a reference that holds its column once, its comment saying why; and
+`rows`, a test's alone, counting on the test's own thread the reads taken once across one row and those
+over a selection whose first and last cells share a row and hold another row between them, so that a law
+can say it drew the case. `machine/mod.rs`'s tests:
+- *The pin,* `a_held_column_read_by_a_run_that_leaves_a_row_is_each_row_s_own`: the minimal rows, and
+  beside them a run of one row, `C9:H9` reading `$A9`, stepped by runs with programs off and as built
+  against each cell alone by `Ctx`; row 4 `#VALUE!` at every column; the run that leaves a row counted at
+  both, its parse holding no program; the run of one row read once where programs are off, a program
+  taking that run of six cells where they are on.
+- *The law,* `a_run_that_leaves_a_row_and_comes_back_reads_each_row_s_held_column`: the prototype's 400
+  grids, each stepped three frames with a value written between, by runs with programs off and as built,
+  each held to `Ctx` frame for frame; 234 reads over a run that leaves a row and comes back to it, held
+  above 100 so that the law says it still draws the case.
+- *The runs law:* the same grids stepped by runs with programs off as well, held to `Ctx`.
+- *`KERNEL.49`'s crossing law:* its frames stepped by runs with programs off, every value held to each cell
+  alone by `Ctx` at the load and after every write, its column of numbers, a text, an error, a truth value
+  and nothing.
+
+*Held.* Five mutants of the shortcut in an isolated copy, each proved to apply, all killed. HEAD's, the
+first and last cells asked alone, is killed by the pin and the law and by nothing else: the runs law and
+the crossing law pass over it, neither drawing a run that leaves a row (with programs off they count 133
+and 134 reads once across one row and none over rows), as the scoping found; the law held as built alone,
+its half with programs off left out, kills it too. The shortcut taken where any cell shares the first's
+row is killed by sixteen tests; the shortcut never taken by the pin's count alone, every value right
+without it; the last cell not asked by seven; the second cell not asked by five, the law among them.
+
+*Measured.* The comparisons cost nothing a clock sees. Of the bench's fixtures Superposition reads a held
+column by runs over the most cells: its Decays sheet, `A1:SR512`, reads `FirstRow!$B1` at 262,144 cells a
+frame, each chunk of 256 of them in one row, where HEAD compared two cells before its one read and the fix
+compares 256. Its seed was written before each frame so that the sheet computes, 30 frames natively at the
+release profile, four rounds alternated, each copy isolated with a target of its own: medians of 70.7,
+71.0, 71.0 and 71.9 ms at HEAD, and 71.0, 71.4, 70.9 and 71.2 with the fix, means of 71.14 and 71.12. So
+decision 1's (b) and (c) stand unasked. Frazaro's workspace, 936 tests, the 934 and these two; clippy both
+ways at `-D warnings`; the language's package, its 665 tests from its tarball; both wasm modules built,
+their exports and imports as they stood; `run_checks.ps1`, 59 of its 60 checks, `check_version_twin`
+failing on a bump of `VLA_RELEASE_VERSION` standing in the tree that is not this item's. Alonzo at
+`05c90af` over this language by path: its 107 tests and its doc test, with its cartridges required. Buffet
+at `6f215a1`, its pins moved in a copy, `alonzo` by that copy of Alonzo's engine and the language by path:
+its 107.
+
+*The predictions held:* the minimal rows' row 4 `#VALUE!` by runs as alone; the law's grids agree; no other
+test, golden or floor moved, the shortcut still firing over a selection of one row; Alonzo's and Buffet's
+suites as they stand. No hand test: the defect and its fix are the machine's, held by the laws to `Ctx`.
+
+*Committed 2026-11-17* at the owner's word, "Commit KERNEL.73 before suggesting next steps": over `74cb3eb`,
+the item's five files alone, a bump of `VLA_RELEASE_VERSION` standing in `src/VLA.bas` that is not this
+item's left out.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -60127,6 +60176,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.70 — a formula read as Excel 365 reads it typed: a row's word, `(formula "S" "A1" "=MAX(COLUMN(A2:L2))" dynamic)`, for a dynamic formula of one cell, read at a load and a write, kept by a machine's record and a save, its spill labelled by name, so that a host writes what a person types as that person expects it to read.** Minted and scoped 2026-10-30 at the owner's word, from Alonzo's `CART.9` (the short slice's *Found*, corrected), weighed against `KERNEL.55` and kept beside it, its ten decisions approved as recommended; built, held to Excel's save, and committed 2026-11-01 at the owner's word. The evaluator already answered 12, 78 and 5 under `Kind::Dynamic`, and only a row to say so was missing: `load.rs`'s `formula_row`, read by a load and a write alike, a kind part of what a write changes, a range refused by name (`grid-dynamic-range`), a machine's record printing the word so that a save keeps it and a door's staying the file's own text. An answer of many values is labelled `a spill` at its cell, `=A2:L2` taking that name, four rows of goldens moving. *Oracle:* `scripts/recalc/typed.txt`, 56 formulas written into Excel 365 through `Range.Formula2`, its save `typed_saved.xlsx` at `no-differ`, 49 agreeing, none differing, nine labelled; the core's test writing each of the 54 without an `@` by a row with the word and holding it to Excel's value; law 15 over generated rows bearing the word; eight mutants, all caught. Excel's writer held 36 dynamic and 20 plain, evidence for `KERNEL.55`'s rule. No cartridge moves. Alonzo adopts it at its pin: `web/host.js`'s edit path, and `Cartridge::check_row`, whose pattern of three fields must learn the fourth.
 - ✅ **KERNEL.58 — the looks the record counts, held: a merged range, a conditional format, and a font's family, underline and strike in `vla-lang`'s model and the record, written by the writer and read by both readers, so that a reflected workbook keeps them and loads with them.** Minted 2026-10-22 at the owner's word, from `KERNEL.57`'s decisions 8 and 9 and `KERNEL.50`'s decision 1; scoped 2026-10-30 and approved whole, sixteen decisions; built in seven slices, each committed at the owner's word from 2026-10-31 to 2026-11-14, with the owner's name stripped from the tracked saves and *Found* 12, 14, 15 and 16 fixed between them. A font's family, underline and strike are words of a format's font, and a format may say groups alone. A conditional format is a row of its own, `(conditional "Board" 1 "B2:J10" "=Lit!A1=1" 64 stop)`, computed as a hidden fill that no reference reads, so that it moves no value, and what draws at a cell is its `lit` row. A merged range is `(merge "Report" "C6:E6")`, each covered cell printing its first's rules. The kinds no formula says, `(color-scale ...)`, `(top 10 percent)` and the rest, are held and draw nothing. The writer writes each, `dxfs`, `conditionalFormatting` and its extension, `mergeCells`; the package reader and the OpenDocument reader read each, what a load would refuse left out and counted. *Oracle:* Excel's object model by `VlaWriteLooksGolden`, `VlaWriteRulesGolden` and `VlaWriteRulesWrittenGolden` over hand-made workbooks and the writer's own, Excel's `.xlsx` and `.ods` saves and LibreOffice's beside them, each difference named, `DisplayFormat` held to the screen by the owner's looks; the free laws over generated grids. `TRUE()` and `FALSE()` compute (*Found* 14); rules past the room answer inside their sheet's extent (*Found* 15); a rule of many rectangles loads in their time (*Found* 16). Ships in `0.13.0`; Alonzo's painter half Alonzo's to mint after the release. Twenty *Found*, not minted. (Full entry: THE KERNEL LINE, before `KERNEL.67`'s scoping.) `~weeks`
 - ✅ **KERNEL.72 — the save's shape: `fills` printing one format row over each rectangle, no row a load does not need, a formula's values over ranges, and a read that holds no file as forms, so that a grid's save stays small and loading it costs about what the grid holds.** Minted, scoped and approved 2026-11-01 at the owner's word of 2026-10-30, from the assessment of saving and persistence and `KERNEL.67`'s first *Found*, its eight decisions as recommended; built and committed the same day at the owner's word. A save is the manifest and every sheet's `fills`: Superposition's was 29.7 MB and peaked at 527 MB to read back, against 10.6 MB held, a style row over a range becoming 262,144 rows on the way, and every sheet's record named every sheet, the square of them. Each sheet's record now names that sheet alone; a `cell` row and a `style` row stand over each rectangle of a value and of a format, after the rows they need; a `value` row takes a range, each cell's in its order or one every cell's; and no `text` row is printed. `Machine::load` reads a form at a time (`reader::each_form`, `machine::read_rows_each`), refusing what `read_forms` refuses before the first and laying a `value` row's cells after the plan, so that every load's peak falls, a save or no. Superposition's save is 2.37 MB and reads back in about 50 ms at 10.6 MB, Life x16's 2.05 MB at 18.8 MB, Sand's 54 KB where 4.83 MB, Buffet's 117 KB where 192; in the module Superposition's memory after the load is 17.1 MiB where 451.9; the bench's Life peaks at 54 MB where 284; no frame moved. `grid`, `values` and `changes` byte for byte; a save in today's shape still loads, at 516 ms and 75.5 MB; the same refusals. *Oracle:* the memory runner's check mode and `check_recalc_floors`, each fixture's `save`, `save peak`, `saved held` and `saved peak` under four rules and ceilings that only fall, the styled board 520 bytes over its twin through the round trip, 102 controls where 72 stood; law 16; forty-eight mutants, forty-seven killed, the survivor no defect. No hand test: the bytes are the check mode's, the native rows and Excel's half left for the pass at `0.13.0`'s bump. Alonzo's `782faec` over this language by path passes its 90 tests and its doc test, and its `Cartridge::load` adoption is rehearsed, 18 lines for 16; its pin, `SPEC.md` §7.3 and §7.5 and `ENGINE.5` its own step. Ships in `0.13.0`. Five *Found*, not minted, the first that a door's workbook keeps a formula's text a cell, so that the bench's Life saves in 32.6 MB. (Full entry: THE KERNEL LINE, after `KERNEL.71`.) `~days`
+- ✅ **KERNEL.73 — a held column read once only across one row: a run's cells each read their own row's cell of a reference that holds its column, where a run leaves a row and comes back to it, so that a run answers what each of its cells alone answers.** Minted, scoped and approved 2026-11-17 at the owner's word, from `KERNEL.29`'s third slice's third part, its first *Found*, its three decisions as recommended; built and committed the same day at the owner's word. A run read a reference that holds its column and not its row, `$A5`, once for its whole selection where the selection's first and last cells stood in one row (`KERNEL.33`'s shortcut, `calc/vector.rs`'s `Many::reads`); but a run carried into the next level's block may begin it in an earlier row, and its cells of another row then read the first row's cell: a chain along row 2 and `C3:H4` reading it three columns right answered -0.02 in row 4 where each cell alone answers `#VALUE!`, in every release from 0.9.2. The shortcut is now asked of every cell of the selection, at no cost a clock sees in Superposition's frames, 71.12 ms where 71.14. *Oracle:* the minimal rows pinned beside a run of one row read once; a law of 400 grids of bands whose levels rise along a row, by runs with programs off and as built against `Ctx`, which failed 49 at HEAD; the runs law and `KERNEL.49`'s crossing law held to `Ctx` with programs off too; five mutants, none surviving; no other test, golden or floor moved; Alonzo's 108 and Buffet's 107 over it by path. Ships in `0.14.0`, its note naming the answers it corrects. (Full entry: THE KERNEL LINE, after `KERNEL.29`'s third slice.) `~hours`
 
 ## 🛡 ADVERSARY · SECURITY
 

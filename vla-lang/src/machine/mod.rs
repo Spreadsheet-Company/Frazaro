@@ -6539,7 +6539,9 @@ mod tests {
         // stepped by runs in slices of any budget, against the same grids
         // with every cell evaluated alone, frame for frame and bit for bit;
         // writes between frames change values, break a band's shape and make
-        // the runs again.
+        // the runs again. And the same grids stepped by runs with programs off,
+        // so that a run of fewer cells than a program takes reaches the run
+        // path, held to every cell alone by `Ctx` (KERNEL.73).
         let _checked = Checked::on();
         let (mut in_runs, mut by_cell) = (0, 0);
         for seed in 1..=80u64 {
@@ -6550,6 +6552,11 @@ mod tests {
             });
             let mut alone = load(&rows);
             alone.by_runs = false;
+            let mut runs_off = Machine::load(&rows, library::language()).expect("loads");
+            runs_off.lowered = false;
+            let mut ctx = load(&rows);
+            ctx.by_runs = false;
+            ctx.lowered = false;
             // The first frame also as `Calc` computes it, which plans its own
             // order and parses every cell's own text: before it no twin holds
             // a reason, which `Calc`, reading a twin as a sheet, would not see.
@@ -6573,6 +6580,12 @@ mod tests {
                     values(&alone),
                     "seed {seed}, frame {frame}\n{rows}"
                 );
+                assert!(runs_off.step(0).done && ctx.step(0).done);
+                assert_eq!(
+                    values(&runs_off),
+                    values(&ctx),
+                    "seed {seed}, frame {frame}: by runs with programs off\n{rows}"
+                );
                 if frame == 1 {
                     assert_eq!(values(&runs), calc, "seed {seed}: Calc\n{rows}");
                 }
@@ -6588,6 +6601,7 @@ mod tests {
                 };
                 let (a, b) = (runs.write(&write), alone.write(&write));
                 assert!(a.is_ok() && b.is_ok(), "seed {seed}: {write}: {a:?} {b:?}");
+                assert!(runs_off.write(&write).is_ok() && ctx.write(&write).is_ok());
             }
         }
         assert!(
@@ -14372,7 +14386,9 @@ mod tests {
         // own text written into it, a column of values and constants beside
         // it. Each grid is planned by nodes and held to the plan of cells
         // (`shape::reference`), runs and all, at its load and after every
-        // write; its frames stepped.
+        // write; its frames stepped by runs with programs off, so that each run
+        // takes the run path, and every value held to each cell alone by `Ctx`
+        // (KERNEL.73), its column of values of every kind.
         let texts = ["=A1+1", "=B1*2", "=A2+1", "=$A2+B1", "=A1+B1"];
         let mut carried = 0;
         for seed in 1..=300u64 {
@@ -14380,7 +14396,10 @@ mod tests {
             let mut rows = String::new();
             for r in 1..=9 {
                 match d.below(3) {
-                    0 => rows.push_str(&format!("(cell \"S\" \"A{r}\" {})\n", d.below(5))),
+                    0 => rows.push_str(&format!(
+                        "(cell \"S\" \"A{r}\" {})\n",
+                        d.pick(&["0", "1", "2", "3", "\"t\"", "(error \"#N/A\")", "true"])
+                    )),
                     1 => rows.push_str(&format!("(formula \"S\" \"A{r}\" \"=1\")\n")),
                     _ => {}
                 }
@@ -14392,6 +14411,12 @@ mod tests {
                 LETTERS[right - 1]
             ));
             let mut m = load(&rows);
+            m.lowered = false;
+            let mut alone = load(&rows);
+            alone.by_runs = false;
+            alone.lowered = false;
+            assert!(m.step(0).done && alone.step(0).done);
+            assert_eq!(values(&m), values(&alone), "seed {seed}\n{rows}");
             for _ in 0..8 {
                 let (r, c) = (2 + d.below(bottom - 1), 2 + d.below(right - 1));
                 let at = format!("{}{r}", LETTERS[c - 1]);
@@ -14408,7 +14433,10 @@ mod tests {
                     }
                 };
                 if m.write(&w).is_ok() {
+                    assert!(alone.write(&w).is_ok(), "seed {seed}: {w}");
                     assert!(m.step(0).done, "seed {seed}: {w}");
+                    assert!(alone.step(0).done);
+                    assert_eq!(values(&m), values(&alone), "seed {seed}: {w}\n{rows}");
                 }
                 carried += m.shapes.run_spans().count();
             }
@@ -14416,6 +14444,131 @@ mod tests {
         assert!(
             carried > 1_000,
             "{carried} runs: too few for the law to hold over"
+        );
+    }
+
+    // ---- KERNEL.73: a held column read once only across one row ----
+
+    #[test]
+    fn a_held_column_read_by_a_run_that_leaves_a_row_is_each_row_s_own() {
+        // KERNEL.73: a chain along row 2 gives `C3`, `D3` and `E3` levels 4, 5
+        // and 6, reading it three columns right, `F3:H3` level 1, and every
+        // cell of row 4 level 5, so that level 5's block is `D3` and `C4:H4`,
+        // and the run carried into level 6's, `E3`, leaves row 3 and comes
+        // back to it. Each of its cells reads `$A` two rows below its own:
+        // row 4's, `$A6`, is the text, and row 4 is `#VALUE!` as each cell
+        // alone is, where KERNEL.33's shortcut, asked of the run's first and
+        // last cells, read row 3's `$A5` at every cell, -0.02, from 0.9.2. A
+        // run of one row beside it reads its held column once, the
+        // shortcut's own case.
+        let rows = "(sheet \"A\" visible)\n(cell \"A\" \"A6\" \"x\")\n(cell \"A\" \"A18\" 1)\n\
+                    (formula \"A\" \"C2:H2\" \"=B2+1\")\n\
+                    (formula \"A\" \"C3:H4\" \"=MOD(((IF(A.last!$J$4,2,FALSE))+(($A3)%)\
+                    -(MOD(F2,$C2))*($A5*B.last!$K$1))<=($A$13),(-3)%)\")\n\
+                    (cell \"A\" \"A9\" 3)\n(formula \"A\" \"C9:H9\" \"=$A9*2\")\n\
+                    (sheet \"B\" visible)\n";
+        let mut ctx = Machine::load(rows, library::language()).expect("loads");
+        ctx.by_runs = false;
+        ctx.lowered = false;
+        assert!(ctx.step(0).done);
+        for lowered in [false, true] {
+            let mut m = Machine::load(rows, library::language()).expect("loads");
+            m.lowered = lowered;
+            vector::rows::take();
+            assert!(m.step(0).done);
+            let (once, back) = vector::rows::take();
+            assert_eq!(values(&m), values(&ctx), "programs {lowered}");
+            for col in 3..=8 {
+                assert_eq!(
+                    m.computed((0, 4, col)),
+                    Some(Computed::Value(Value::Error(ErrorKind::Value))),
+                    "R4C{col}, programs {lowered}"
+                );
+            }
+            // The band's run takes the run path, its parse having no
+            // program (`(unlowered kinds)`); the run of one row only where
+            // programs are off, a program taking a run of six cells.
+            assert!(back > 0, "the run that leaves a row, programs {lowered}");
+            assert_eq!(once > 0, !lowered, "the run of one row, programs {lowered}");
+        }
+    }
+
+    #[test]
+    fn a_run_that_leaves_a_row_and_comes_back_reads_each_row_s_held_column() {
+        // KERNEL.73's law: a band whose first row reads a chain along the row
+        // above at an offset, so that its levels rise along the row, and whose
+        // rows under it read the row above by the same text, so that one
+        // level's block holds two rows and the run carried into the next
+        // level's comes back to the first; each cell reading a column every
+        // `$` of whose column holds, over a column of every kind. Stepped three
+        // frames with a write between, by runs with programs off and as
+        // built, against every cell alone by `Ctx`, frame for frame. 49 of
+        // the 400 grids differed at the commit before the item, by runs with
+        // programs off.
+        let mut back = 0;
+        for seed in 1..=400u64 {
+            let mut d = Dice(seed ^ 0x7373_0073);
+            let mut rows = String::new();
+            for r in 1..=14 {
+                if d.below(4) > 0 {
+                    let v = d.pick(&[
+                        "0",
+                        "1",
+                        "2",
+                        "-3",
+                        "0.5",
+                        "\"t\"",
+                        "(error \"#N/A\")",
+                        "true",
+                    ]);
+                    rows.push_str(&format!("(cell \"S\" \"A{r}\" {v})\n"));
+                }
+            }
+            let width = 3 + d.below(6);
+            let last = LETTERS[1 + width];
+            let chain = d.pick(&["=B2+1", "=B2*2-1", "=MAX(B2,1)+1", "=B2+$A2"]);
+            rows.push_str(&format!("(formula \"S\" \"C2:{last}2\" \"{chain}\")\n"));
+            let depth = 2 + d.below(3);
+            let read = LETTERS[3 + d.below(4)];
+            let held = 1 + d.below(3);
+            let body = match d.below(4) {
+                0 => format!("={read}2+$A{}", 2 + held),
+                1 => format!("=MOD({read}2,3)*($A{}+1)", 2 + held),
+                2 => format!("=IF({read}2>2,$A{},{read}2+$C2)", 2 + held),
+                _ => format!("=({read}2-$C2)*$A{}+$A{}", 2 + held, 1 + held),
+            };
+            rows.push_str(&format!(
+                "(formula \"S\" \"C3:{last}{}\" \"{body}\")\n",
+                2 + depth
+            ));
+            let when = format!("seed {seed}\n{rows}");
+            let mut ctx = Machine::load(&rows, library::language()).expect("loads");
+            ctx.by_runs = false;
+            ctx.lowered = false;
+            let mut off = Machine::load(&rows, library::language()).expect("loads");
+            off.lowered = false;
+            let mut built = Machine::load(&rows, library::language()).expect("loads");
+            for frame in 0..3 {
+                vector::rows::take();
+                assert!(off.step(0).done);
+                back += vector::rows::take().1;
+                assert!(built.step(0).done && ctx.step(0).done);
+                let want = values(&ctx);
+                assert_eq!(values(&off), want, "{when}frame {frame}: programs off");
+                assert_eq!(values(&built), want, "{when}frame {frame}: as built");
+                let w = format!(
+                    "(cell \"S\" \"A{}\" {})",
+                    1 + d.below(14),
+                    d.pick(&["4", "\"x\"", "(error \"#DIV/0!\")"])
+                );
+                for m in [&mut ctx, &mut off, &mut built] {
+                    assert!(m.write(&w).is_ok(), "{when}{w}");
+                }
+            }
+        }
+        assert!(
+            back > 100,
+            "{back} reads over a run that leaves a row: too few for the law to hold over"
         );
     }
 

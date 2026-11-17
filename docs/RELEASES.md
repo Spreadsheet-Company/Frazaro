@@ -132,6 +132,19 @@
   list's head as the reader reads it, and the phrasebook loader's `requires-`
   and `raw` checks read a phrasebook through it, raw strings included
   (VLA.18).
+- **A run reads each row's own cell of a column it holds.** A formula
+  filled over rows that holds its column and not its row, `$A5`, reads each
+  row's own cell wherever an engine computes the fill's cells together. A
+  run of them carried from one level of the plan into the next could leave
+  a row and come back to it, and its cells of the other row then read the
+  first row's cell, so that a row's own text, error or number went unread:
+  a chain along row 2 and `C3:H4` reading it three columns right answered
+  -0.02 in row 4, whose cells read a text by `$A6` and each alone answer
+  `#VALUE!`, the run having read row 3's `$A5` for them. An engine answered
+  so from 0.9.2, and only where it computes a fill's cells together, a
+  formula no program holds or sixteen cells or more at once; `frazaro
+  calc`, which computes each cell alone, never did, and no frame of Alonzo's
+  games or of Buffet met it (KERNEL.73).
 
 ## 0.13.0
 
