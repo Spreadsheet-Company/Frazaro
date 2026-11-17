@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.13.0"
+Public Const VLA_RELEASE_VERSION As String = "0.14.0"
 Public Const VLA_CORE_VERSION As String = "VLA.18"
 ' VLA.18: A RAW STRING. #"..."#, a text written as it stands: where a word
 ' would begin, one # or more right before a quote open it, and it closes at

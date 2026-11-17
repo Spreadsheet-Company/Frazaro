@@ -293,6 +293,26 @@ refused in the same words.
   `Calc::first_refusal` is what an engine's load asks: a cycle, a function
   outside the library, or a construct the parser does not read, a defined
   name's text among them, each refused by name from the catalogue.
+- **Computes functions written in formulas.** `LET` binds a name to an
+  expression within a formula, the expression substituted where the name
+  is read, so that a formula written with `LET` computes what the same
+  formula written out computes; `LAMBDA` makes a function of named
+  parameters, called where it is written (`=LAMBDA(x,x+1)(5)`), bound by
+  `LET`, handed to `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` or
+  `MAKEARRAY`, or held by a defined name and called by its name from any
+  formula, `ISOMITTED` telling an argument left out. A named function costs
+  what the formula it stands for costs: a call of one that does not call
+  itself, in a fill of sixteen cells or more, is written into the formula
+  at the load, and a call at a place of its own is kept, its function's
+  body held once as a program each call runs and the call followed through
+  the cells its function reads, so that it computes when what it reads
+  changes. A function that calls itself runs as calls, each counted, to a
+  depth of 4,096 and a million calls a cell, `#NUM!` past either, a call
+  too deep for the stack computed on a stack of the language's own, so that
+  the depth is the same on every host; a formula whose value is a function
+  answers `#CALC!`, a function where a number is wanted `#VALUE!` and a
+  reference called `#REF!`, and the information functions read a function
+  as a kind of its own (`TYPE` 128).
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
@@ -424,14 +444,6 @@ this page gains its section when the item closes:
   many cells computed at each of them, and a dynamic formula's shape
   lowered to its program, so that a workbook of Excel 365's arrays computes
   as Excel computes it, and as fast as its legacy twin (KERNEL.55).
-- **Functions written in formulas.** `LET`, a name bound to a value once
-  within a formula, and `LAMBDA`, a function of named parameters, called
-  where it is written, passed to `MAP`, `REDUCE`, `BYROW` and their kin, or
-  held by a defined name and called by it from any formula, a named
-  function costing what the formula it stands for costs: written into a
-  fill, and kept a call elsewhere, its body held once as a program of its
-  own that each call runs, and each call followed through the cells its
-  function reads (KERNEL.29).
 - **A write that empties a cell.** A row the machine's write takes beside
   `cell`, `formula` and `derived`, so that a host gives a cell back to no
   value, as a rebuilt cartridge that no longer writes it asks (KERNEL.46).
