@@ -130,9 +130,11 @@ impl Names {
         Names::of_model(model)
     }
 
-    /// A grid's names, a workbook's or an engine's machine's (KERNEL.49).
+    /// A grid's names, a workbook's or an engine's machine's (KERNEL.49),
+    /// and each function of cells whose body compiles, the workbook's name of
+    /// its `LAMBDA` (KERNEL.29's third slice).
     pub(crate) fn of_model<M: Model + ?Sized>(model: &M) -> Names {
-        let entries = model
+        let mut entries: Vec<NameEntry> = model
             .defined_names()
             .iter()
             .map(|(printed, text)| {
@@ -147,6 +149,21 @@ impl Names {
                 }
             })
             .collect();
+        // Grown by exactly the functions that compile, so that a grid of
+        // none holds the list it held: collected through a chain, which
+        // tells no exact length, the list took room for four names where a
+        // workbook's one stamp asks one, 192 bytes a machine the memory
+        // ceilings caught.
+        let functions = model.functions();
+        entries.reserve_exact(functions.iter().filter(|f| f.lambda.is_ok()).count());
+        entries.extend(functions.iter().filter_map(|f| {
+            let text = f.lambda.as_ref().ok()?;
+            Some(NameEntry {
+                key: fold(&f.name),
+                scope: None,
+                text: text.clone(),
+            })
+        }));
         Names { entries }
     }
 

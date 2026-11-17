@@ -296,12 +296,20 @@ refused in the same words.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
-  inverse, one form at a time, so that a load peaks at about what it holds;
+  inverse, one form at a time, so that a load peaks at about what it holds,
+  and a `function` row, `(function "SUMMA" "VIII SUMMA" "A3:A5" "J3")`, makes
+  a room of cells a function: its inputs read row by row as its parameters,
+  its output a cell or a range answered as an array, its formula cells
+  compiled to the `LAMBDA` a person would write from them and every call
+  computed as that `LAMBDA` is, a body that does not compile `#CALC!` at its
+  calls and the census saying why;
   `write` takes `cell`, `formula` and `derived` rows, all or none, a
   `formula` row over one cell reading as Excel 365 reads the text typed where it
-  ends in the word `dynamic`, and `name` rows, a defined name's text, every
+  ends in the word `dynamic`, `name` rows, a defined name's text, every
   formula reading the name planned again, through other names too, and
-  computed at the next frame, as a load of the written grid would;
+  computed at the next frame, as a load of the written grid would, and
+  `function` rows, a function defined or its row replaced, compiled again at
+  every write that changes a formula of its room;
   `step` computes every formula in dependency order with a budget in cells,
   yields and resumes, and at the end of each frame copies every sheet's
   values into its twin, `X.last`, a hidden sheet the next frame's formulas
@@ -311,7 +319,8 @@ refused in the same words.
   last frame changed, so that a host repaints those alone, or `whole` where
   the machine cannot say), the fills (what a save prints and the load reads
   as the grid), the plane, a byte a cell, or the names, each defined name's
-  `name` row, which a save prints beside the fills. After each frame
+  `name` row and each function's `function` row, which a save prints beside
+  the fills. After each frame
   `changed` says how many formula cells it changed the value of, to the
   bit, `changed_on` how many of them on a sheet and `reached` how many it
   computed, so that a host stepping a grid until a cascade settles stops

@@ -60,6 +60,27 @@
   calling one no library holds, is refused as a load refuses it and changes
   nothing (KERNEL.29, its third slice).
 
+- **A room of cells as a function.** A `function` row,
+  `(function "SUMMA" "VIII SUMMA" "A3:A5" "J3")`, makes the cells of a sheet
+  between some inputs and an output a function a formula calls,
+  `=SUMMA(1,0,1)`: the inputs are its parameters, row by row; the output is
+  what it answers, a cell, or a range answered as an array that a call picks
+  from with `INDEX`; and every formula cell the output reaches is written
+  into the `LAMBDA` a person would write from the room, so that a call
+  computes what the room would compute at the call's arguments, as fast as
+  the `LAMBDA` written by hand. A write takes a `function` row as it takes a
+  `name` row, and a write that changes a formula of the room compiles the
+  function again, every call of it computed again at the next frame; a write
+  of values alone, the room's own switches among them, moves no call. A body
+  no `LAMBDA` writes, a range read over the inputs among it, answers
+  `#CALC!` at every call, and the census says why. The `names` view prints
+  each function's row after the names. A function and a name are called
+  alike, so a grid holds no function and name of the same name, and a
+  function's room is a sheet the grid holds: each is refused by name
+  (`grid-name-taken`, `grid-function-sheet`). A workbook holds no function
+  of cells, so a grid lent as one (`Machine::workbook`) holds the calls and
+  not the functions they call (KERNEL.29, its third slice).
+
 - **A loop names an entry's parts.** A list of names where a loop's name
   stands, `(each ((address value) entries) (cell sheet address value))`,
   binds each name to its part of the entry, and `each-index` takes the same

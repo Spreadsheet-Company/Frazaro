@@ -108,6 +108,7 @@ pub(crate) mod nodes;
 pub(crate) mod order;
 pub(crate) mod program;
 pub(crate) mod reach;
+pub(crate) mod room;
 pub mod shape;
 pub mod texts;
 pub mod value;

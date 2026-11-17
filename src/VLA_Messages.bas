@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.18"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.29"
+' KERNEL.29: a function of cells, two refusals under VLA-Grid:
+' grid-function-sheet - a function row naming a sheet the grid does not
+' hold; grid-name-taken - a name row naming a function of cells, or a
+' function row naming a name, which a formula calls alike.
+'
 ' VLA.18: a raw string, #"..."#, two refusals of the reader under VLA:
 ' vla-raw-string-unclosed - a raw string that never closes, at the line its
 ' opener stands on, saying the close it lacks; vla-hash-word - a word that
@@ -1771,6 +1776,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
     AddMsg m, "grid-rule-cells", 5, "VLA-Grid", "The rule over {target} would bring the cells rules answer for to {cells}, past the {limit} one grid computes beside its own; name a narrower range."
     AddMsg m, "grid-merge-overlap", 5, "VLA-Grid", "The merged range {target} overlaps {held}, merged already, and two merged ranges cannot share a cell."
+    ' KERNEL.29 - a function of cells' room on a sheet the grid lacks, and a name a function and a name row both claim.
+    AddMsg m, "grid-function-sheet", 9, "VLA-Grid", "The function {name} reads its body from the sheet {sheet}, which the grid does not hold; it holds {sheets}."
+    AddMsg m, "grid-name-taken", 5, "VLA-Grid", "{name} is a {held} of this grid already; a formula calls a function and a name alike, so a {kind} row cannot take the name."
 
     ' KERNEL.7: recalculation's refusals. The language's evaluator (vla-lang,
     ' calc) computes a grid's formulas in dependency order, reading its

@@ -260,11 +260,13 @@ mod tests {
         // KERNEL.47 (`grid-format-code`), a thirteenth and a fourteenth since
         // KERNEL.50 (`grid-format-property`, `grid-cell-unwritten`), a fifteenth
         // since KERNEL.70 (`grid-dynamic-range`), a sixteenth and a seventeenth since
-        // KERNEL.58 (`grid-rule-cells`, `grid-merge-overlap`), and the view's and
-        // recalculation's own the machine adds.
+        // KERNEL.58 (`grid-rule-cells`, `grid-merge-overlap`), an eighteenth and a
+        // nineteenth since KERNEL.29's third slice (`grid-function-sheet`,
+        // `grid-name-taken`), and the view's and recalculation's own the machine
+        // adds.
         assert_eq!(
             ids().iter().filter(|id| id.starts_with("grid-")).count(),
-            17
+            19
         );
         // A row's line is the answer's own field (KERNEL.23): no grid text
         // says it, so a write of one row never reads "Line 1".

@@ -58,6 +58,11 @@ pub(crate) trait Model {
     fn find_sheet(&self, name: &str) -> Option<usize>;
     /// The defined names, each its name as printed and its text.
     fn defined_names(&self) -> &[(String, String)];
+    /// The functions of cells, each compiled (KERNEL.29's third slice): a
+    /// machine's, from its `function` rows; a workbook holds none.
+    fn functions(&self) -> &[crate::calc::room::Compiled] {
+        &[]
+    }
     /// What a cell holds where it holds a formula; `None` for a value cell
     /// and for a cell holding nothing.
     fn formula(&self, id: CellId) -> Option<Formula<'_>>;

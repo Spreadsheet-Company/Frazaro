@@ -72,7 +72,7 @@ use super::{LineRefusal, CELLS};
 
 /// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
-pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, gridlines, column, row, format, look, conditional, merge, style, lit, sentence, window, extent, refers, table and text";
+pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, function, gridlines, column, row, format, look, conditional, merge, style, lit, sentence, window, extent, refers, table and text";
 
 /// The most formats a grid's table holds, Excel's own count of cell
 /// formats a workbook may hold, rounded to a power of two.
@@ -99,6 +99,9 @@ pub struct Draft {
     pub(crate) rows: usize,
     pub(crate) styles: Styles,
     pub(crate) defined_names: Vec<(String, String)>,
+    /// The `function` rows, in their order (KERNEL.29's third slice), which
+    /// a machine compiles; a workbook holds none.
+    pub(crate) functions: Vec<FunctionRow>,
     /// Each formula cell's last value by its cell, made from the `value` rows
     /// the first time a caller asks ([`Draft::values`]), which a load never
     /// does (KERNEL.72).
@@ -574,6 +577,7 @@ impl Draft {
             rows: 0,
             styles: Styles::new(),
             defined_names: Vec::new(),
+            functions: Vec::new(),
             values: OnceLock::new(),
             cells: 0,
         }
@@ -1129,6 +1133,7 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
             "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") (value \"<sheet>\" \"<cell or range>\" <value> ...)"
         }
         "name" => "(name \"<name>\" \"<refers-to>\")",
+        "function" => "(function \"<name>\" \"<sheet>\" \"<inputs>\" \"<output>\"), its name one a formula calls and its inputs and its output each a cell or a range",
         "gridlines" => "(gridlines \"<sheet>\" on|off)",
         "column" => "(column \"<sheet>\" \"<letters>\" <width>|none shown|hidden <format>|none)",
         "row" => "(row \"<sheet>\" <number> <height>|none shown|hidden)",
@@ -1236,6 +1241,80 @@ pub(crate) fn twice(line: u32, what: &str, first: u32) -> LineRefusal {
         refusal: raise(
             "grid-cell-written-twice",
             &[("what", what), ("first", &first.to_string())],
+        ),
+    }
+}
+
+/// A `function` row as a load reads it (KERNEL.29's third slice): the
+/// function's name, its sheet by name, its inputs and its output, and the
+/// row's line.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct FunctionRow {
+    pub(crate) name: String,
+    pub(crate) sheet: String,
+    pub(crate) inputs: A1Range,
+    pub(crate) output: A1Range,
+    pub(crate) line: u32,
+}
+
+/// A `function` row's fields, read alike by a load and a write (KERNEL.29's
+/// third slice): a name a formula calls, a sheet's name, and its inputs and
+/// its output, each a cell or a range; `None` where the row is out of its
+/// shape.
+pub(crate) fn function_row(items: &[Form]) -> Option<(&String, &String, A1Range, A1Range)> {
+    let [Form::Str(name), Form::Str(sheet), Form::Str(inputs), Form::Str(output)] = items else {
+        return None;
+    };
+    if !callable(name) || sheet.is_empty() {
+        return None;
+    }
+    Some((
+        name,
+        sheet,
+        parse_a1_range(inputs)?,
+        parse_a1_range(output)?,
+    ))
+}
+
+/// Whether a formula calls a name: a letter, an underscore or a backslash
+/// first, then letters, digits, underscores and periods, and no cell's
+/// address in either notation.
+fn callable(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_alphabetic() || first == '_' || first == '\\')
+        && chars.all(crate::refers::is_ident_char)
+        && parse_a1_range(name).is_none()
+        && !crate::refers::is_r1c1_shaped(name)
+}
+
+/// `grid-function-sheet` for a `function` row naming a sheet the grid does
+/// not hold (KERNEL.29's third slice).
+pub(crate) fn function_sheet(line: u32, name: &str, sheet: &str, sheets: &[&str]) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-function-sheet",
+            &[
+                ("name", name),
+                ("sheet", sheet),
+                ("sheets", &sheets.join(", ")),
+            ],
+        ),
+    }
+}
+
+/// `grid-name-taken` for a `name` row naming a function of cells, or a
+/// `function` row naming a name (KERNEL.29's third slice): `held` what the
+/// grid holds by the name, `kind` the row's.
+pub(crate) fn name_taken(line: u32, name: &str, held: &str, kind: &str) -> LineRefusal {
+    LineRefusal {
+        line,
+        refusal: raise(
+            "grid-name-taken",
+            &[("name", name), ("held", held), ("kind", kind)],
         ),
     }
 }
@@ -1362,6 +1441,9 @@ struct Reader {
     sheet_rows: HashMap<usize, (Visibility, u32)>,
     twin_rows: Vec<(String, u32)>,
     names: HashMap<String, (String, u32)>,
+    /// Each function of cells by its folded name, its place among the
+    /// draft's (KERNEL.29's third slice).
+    functions: HashMap<String, usize>,
     gridlines: HashMap<usize, (bool, u32)>,
     columns: HashMap<(usize, u32), u32>,
     row_settings: HashMap<(usize, u32), u32>,
@@ -1405,6 +1487,7 @@ impl Reader {
             sheet_rows: HashMap::new(),
             twin_rows: Vec::new(),
             names: HashMap::new(),
+            functions: HashMap::new(),
             gridlines: HashMap::new(),
             columns: HashMap::new(),
             row_settings: HashMap::new(),
@@ -1416,12 +1499,24 @@ impl Reader {
     }
 
     /// The rows all read: a twin's declaration stands only beside the sheet
-    /// it is the twin of.
+    /// it is the twin of, and a function of cells only on a sheet the rows
+    /// hold (KERNEL.29's third slice).
     fn finish(self) -> Result<Draft, LineRefusal> {
         for (name, line) in &self.twin_rows {
             let base = twin_base(name).unwrap_or("");
             if self.draft.find_sheet(base).is_none() {
                 return Err(bad_name(*line, name));
+            }
+        }
+        for f in &self.draft.functions {
+            if self.draft.find_sheet(&f.sheet).is_none() {
+                let sheets: Vec<&str> = self
+                    .draft
+                    .sheets
+                    .iter()
+                    .map(|s| s.sheet.name.as_str())
+                    .collect();
+                return Err(function_sheet(f.line, &f.name, &f.sheet, &sheets));
             }
         }
         Ok(self.draft)
@@ -1438,6 +1533,7 @@ impl Reader {
             "formula" => self.formula(form, items, line),
             "value" => self.value(form, items, line),
             "name" => self.name(form, items, line),
+            "function" => self.function(form, items, line),
             "gridlines" => self.gridlines(form, items, line),
             "column" => self.column(form, items, line),
             "row" => self.row_settings(form, items, line),
@@ -1643,6 +1739,9 @@ impl Reader {
             return Err(malformed(line, form, "name"));
         }
         let key = fold(name);
+        if self.functions.contains_key(&key) {
+            return Err(name_taken(line, name, "function", "name"));
+        }
         if let Some((said, first)) = self.names.get(&key) {
             if said != text {
                 return Err(twice(line, &format!("(name {})", quoted(name)), *first));
@@ -1651,6 +1750,42 @@ impl Reader {
         }
         self.names.insert(key, (text.clone(), line));
         self.draft.defined_names.push((name.clone(), text.clone()));
+        Ok(())
+    }
+
+    /// A `function` row (KERNEL.29's third slice): a function of cells, by a
+    /// name no `name` row holds, said once or again alike; its sheet one the
+    /// rows hold, which [`Reader::finish`] asks once every row is read.
+    fn function(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
+        let Some((name, sheet, inputs, output)) = function_row(items) else {
+            return Err(malformed(line, form, "function"));
+        };
+        let key = fold(name);
+        if self.names.contains_key(&key) {
+            return Err(name_taken(line, name, "name", "function"));
+        }
+        if let Some(&k) = self.functions.get(&key) {
+            let first = &self.draft.functions[k];
+            let alike = fold(&first.sheet) == fold(sheet)
+                && first.inputs == inputs
+                && first.output == output;
+            if !alike {
+                return Err(twice(
+                    line,
+                    &format!("(function {})", quoted(name)),
+                    first.line,
+                ));
+            }
+            return Ok(());
+        }
+        self.functions.insert(key, self.draft.functions.len());
+        self.draft.functions.push(FunctionRow {
+            name: name.clone(),
+            sheet: sheet.clone(),
+            inputs,
+            output,
+            line,
+        });
         Ok(())
     }
 

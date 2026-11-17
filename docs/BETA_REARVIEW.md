@@ -46076,6 +46076,118 @@ rows and sheet-defined functions. For the owner's decisions; nothing built.*
   (`ENGINE.5`'s `saveText`), so that a name a person writes is saved; and its write takes a `name` row
   as it takes a `formula` row. Its own step, at its pin.
 
+*Slice 3b, a function of cells, 2026-11-17, built at the owner's word ("Commit before proceeding with
+slice 3b"), over 3a's `1fd2d40`.*
+- *The row.* `(function "SUMMA" "VIII SUMMA" "A3:A5" "J3")`: the function's name, one a formula calls (a
+  letter, an underscore or a backslash first, then a name's characters, and no cell's address in either
+  notation); the sheet its room stands on; its inputs, read row by row as its parameters; and its output,
+  a cell, or a range answered as an array, `HSTACK` a row's cells and `VSTACK` the rows. A load takes it
+  beside `name` (`LOAD_ROWS`), its sheet one the rows hold, asked once every row is read so that the row
+  may come before its sheet's, and refused by name where none does (`grid-function-sheet`, the grid's
+  sheets listed); a row said again alike is the one row, and differing it is `grid-cell-written-twice`.
+  A function and a name are called alike, so a grid holds no function and name of one name, either row
+  refused at the other (`grid-name-taken`). The two refusals are minted in the catalogue under
+  `VLA-Grid`, `src/VLA_Messages.bas` their source and `tools/export_messages.ps1` run.
+- *The compile* (`vla-lang/src/calc/room.rs`), at the load before the names and the plan read the grid,
+  and at a write. A walk from the output on a stack of its own, so that a chain of gates takes no frame
+  of the machine's: an input is its parameter; a formula cell reached is a gate, bound by a `LET` to its
+  own formula with each reference to the room rewritten, each gate after the gates it reads; any other
+  cell of the room a reference kept, its sheet named and its place absolute, as a name's are; and a
+  reference to another sheet kept as written. A parameter and a binding are named by the shortest run of
+  underscores no name in the gates' texts begins with, then the cell, `_A3`, `_C3`; one output that is a
+  gate is the body itself; a `LET` holds Excel's 126 pairs, the rest standing in a `LET` inside it. VIII
+  SUMMA's sum is `=LAMBDA(_A3,_A4,_A5,LET(_C3,MOD(_A3+_A4,2),MOD(_C3+_A5,2)))`, as the sitting wrote it.
+- *The function as a name.* The grid's compiled functions are `Model::functions`, a workbook's none:
+  `Functions` takes each as it takes a `name` row's `LAMBDA`, the inlining writing it in at every call
+  and a cycle of functions keeping its calls as calls; `Names` holds each compiled text as the
+  workbook's name of it; and 3a's readers close over the compiled texts as over the names', so that the
+  calls of a chip of chips are planned again with the chip inside them.
+- *A body that does not compile* is held with why: a gate reading itself; a range, a whole column or a
+  whole row of the room holding an input or a gate; a spill of the room, a table's column, a span of
+  sheets, another workbook, `INDIRECT` or `OFFSET`; more inputs than a `LAMBDA`'s 253 parameters; a
+  text past a formula's 8,192 characters or its nesting. The inlining writes `#CALC!` in for a call of
+  it, a `LAMBDA` of as many parameters (a call of another count answering as a call of any `LAMBDA`
+  does), and the census says why in a row after the plan's, `(uncompiled "F" range "A1:A3")`. A cycle
+  among the room's cells is refused by the load or the write before any call computes; the compile
+  names it when asked of such a grid.
+- *The write* takes a `function` row as a load reads one: defined, or replaced in its place by its name
+  without case, the spelling the write's; the row the grid holds writes nothing. The settle compiles
+  again each function whose row the write wrote and each whose room's sheet holds a cell the write gave
+  a formula or took one from, so that values alone, a room's switches among them, move no `LAMBDA`; a
+  function whose `LAMBDA` changed is a name written, 3a's path planning again every shape calling it,
+  through the functions and the names that call it too. A refused write puts back the rows, the
+  `LAMBDA`s and the names (`WRITE_ROWS`, `cell, formula, derived, name and function`).
+- *The view.* `names` prints each function's row after the names, its room's sheet and its ranges as a
+  load reads them; a save of every sheet's `fills` and the names loads the grid it printed. A function's
+  `LAMBDA` is the grid's own, printed by no save (the sitting's decision 5).
+- *Measured,* by the tests: a switch of VIII SUMMA written computes the four gates of the room it
+  reaches and no call (`reached` 4), J4's gates keeping their values.
+- *Held by* `vla-lang/tests/functions.rs`, ten tests, and `calc/room.rs`'s six:
+  - VIII SUMMA as three chips, the sum, the carry and both as an array picked by `INDEX`, at every
+    input of three bits, and a switch of the room written;
+  - the view and a save through it, a function row before its sheet's, a row said again alike;
+  - the oracle: over sixty generated rooms, one to four inputs and two to six gates reading the inputs,
+    the gates before them, a value of the room, a cell of another sheet and numbers, the output a gate
+    or a pair, every value and the census of the grid calling the function those of the same grid
+    calling its `LAMBDA` written by hand, by substitution and without the compile, and again after the
+    calls' inputs move; and a recursive function, a room whose gate calls its own function, its calls
+    kept as calls, held to its `LAMBDA` by hand alike;
+  - the law: over forty generated rooms, 240 writes between frames, a gate's formula replaced, a gate
+    made a value, the room's value made a formula, an input or a call's input written, the function's
+    row rewritten to another output or a pair, a second function defined and called; after each write
+    and a frame, the census, every value and the names those of a fresh load of the save;
+  - a chip of chips, a full adder whose room calls a half adder, the half adder's gate rewritten and the
+    full adder's calls computed again;
+  - a room's gate written into a cycle, refused, every chip's `LAMBDA` put back;
+  - a body no `LAMBDA` writes, `#CALC!` with the census's row, the write that mends it, and a function
+    of 300 inputs;
+  - the load's refusals, six rows out of their shape, the sheet, a name both ways and a row twice; and
+    the write's, the row held writing nothing, its name's case, its output moved to the carry, six
+    refusals each changing nothing, a later row refused undoing the function before it, and a function
+    defined and called in one write;
+  - the compile's: VIII SUMMA's three texts, a cell kept and another sheet's reference, an output an
+    input, a value or a cell holding nothing, a row and a block of outputs, the prefix lengthened, each
+    reason, a cycle, and 130 bindings in two `LET`s.
+  - Mutants, eighteen, in a copy of the tree: no gate bound; a room's formula compiling nothing again;
+    a recompiled function's callers not planned again; no reader through a `LAMBDA`; the undo forgetting
+    the rows, or the `LAMBDA`s; the census silent; a broken body answering 0; a range over the inputs
+    kept; a written name taking a function's; a load's function on a missing sheet; the settle's names
+    asked only of a written name; the prefix one underscore; one `LET`; the held row written again; a
+    load's function taking a name's; a written function never compiled. Seventeen fail the tests; the
+    undo forgetting the `LAMBDA`s passed the first run, which no refused room write asked, and the cycle
+    refused above was written for it. The eighteenth, the evaluator's names without the functions,
+    passes and is right to: `Ctx::named` resolves a bare name through the named functions before the
+    names, so a function is never read from them; its compiled text is held among them as a `name`
+    row's `LAMBDA` is, for a reader that asks the names alone.
+- *The stack.* The settle is as 3a left it, the functions' work in `names_settle`'s frame; the package's
+  strangers' test passed twenty runs of twenty on its tarball at the default optimization.
+- *The ceilings.* The evaluator's names, first collected through a chain of the grid's names and the
+  compiled functions, took room for four where a built workbook's one stamp asks one: 192 bytes a
+  machine for every fixture, 64 where many names stood, which `check_recalc_floors`' memory ceilings
+  caught. A chain tells a vector no exact length, and the vector gives it room for four, or for one more
+  than it was told. The names are collected as before and the list grown by exactly the functions that
+  compile, so that a grid of none holds the list it held: no floor and no ceiling moved, as the
+  sitting predicted.
+- *Decision 7 met no door.* No door reads a grid's rows: the doors read Excel's files and English
+  programs, and a grid's rows reach the language's machine alone, through an engine, so a `function` row
+  meets no door to refuse it. A workbook holds no function of cells, so a grid lent as one
+  (`Machine::workbook`, `Draft::workbook`) holds the calls and not the functions they call, which Excel
+  would answer `#NAME?`; the later slice writes each as the `LAMBDA` Excel computes, its row beside it.
+- *Found, not minted:* a range over the inputs or the gates (the sitting's); a call of a function of
+  more than 253 inputs answers a wrong count's error and not `#CALC!`, no call holding as many
+  arguments; a gate reading a position, `ROW()` or `COLUMN()` with no argument, reads the calling
+  cell's, as the `LAMBDA` written by hand does; a sheet-scoped name a gate reads is resolved where the
+  function is called; and a function's name respelled in its case alone plans its calls again.
+- *Verified* in the shared tree over `23b7a76`: `cargo fmt --all -- --check`; clippy over every target,
+  with and without `c-abi`; `cargo test --workspace`, 924 passed and 5 ignored; the two WebAssembly
+  builds; the package's tests from its tarball on a target of its own, 653 passed and 2 ignored, and its
+  strangers' test twenty runs of twenty; `run_checks.ps1`, 60 of 60; `check_recalc_floors.ps1 -Control`;
+  Alonzo's suite at `0b474f5`, 99 with its cartridges required, and Buffet's at `6f215a1`, 107, each over
+  this language by a path. The owner's Excel pass over the catalogue's two refusals: `VlaDevReload`,
+  Debug > Compile and `? VlaSelfTests()`, pure 2,555 of 2,555 and host 333 of 333.
+- *For Alonzo:* `CART.9.3`'s chip is a `function` row, a room that passes writing one, and the `names`
+  view saves it beside the names, where 3a's note has its save print the view. Its own step, at its pin.
+
 *Excel's second save, 2026-11-16, the stop rule's last.* The owner saved the fixture of 93 formulas
 over the first save's file. The door's verdict: 90 agree, two differ, the spill unchecked.
 - Seven of the eight formulas written to confirm the folds agree: `-LAMBDA(x,x)`, `ABS(LAMBDA(x,x))`

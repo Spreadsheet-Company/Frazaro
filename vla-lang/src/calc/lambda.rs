@@ -359,6 +359,16 @@ impl Functions {
                 cyclic: false,
             });
         }
+        // The functions of cells (KERNEL.29's third slice), the workbook's
+        // each, as a `name` row's `LAMBDA` is.
+        for f in model.functions() {
+            entries.push(Entry {
+                key: fold(&f.name),
+                scope: None,
+                lambda: Rc::new(of_cells(f)),
+                cyclic: false,
+            });
+        }
         if entries.is_empty() {
             return Functions { entries, others };
         }
@@ -436,6 +446,31 @@ impl Functions {
             found = Some(&e.lambda);
         }
         found
+    }
+}
+
+/// A function of cells' `LAMBDA` as a call writes it in (KERNEL.29's third
+/// slice): its compiled text's, its references made absolute; where its body
+/// does not compile, one taking as many parameters and answering `#CALC!`,
+/// which every call of it answers.
+fn of_cells(f: &super::room::Compiled) -> Lambda {
+    if let Ok(text) = &f.lambda {
+        if let Ok(Expr::Lambda(l)) = formula::parse(text) {
+            return absolute_lambda(&l);
+        }
+    }
+    let params: String = (1..=f.params).map(|k| format!("_{k},")).collect();
+    match formula::parse(&format!("=LAMBDA({params}0)")) {
+        Ok(Expr::Lambda(l)) => Lambda {
+            params: l.params.clone(),
+            body: Expr::Error(ErrorKind::Calc),
+            depth: l.depth,
+        },
+        _ => Lambda {
+            params: Vec::new(),
+            body: Expr::Error(ErrorKind::Calc),
+            depth: 0,
+        },
     }
 }
 

@@ -21,6 +21,7 @@
 use std::collections::BTreeMap;
 
 use crate::calc::graph::{Area, CellId, Extent};
+use crate::calc::room::{self, Compiled, Function};
 use crate::grid::{cut, overlap, CellStyles, Formula, Kind, Masters, Model, Rects, RowMajor};
 use crate::sheet::{A1Range, Sheet, Styles};
 
@@ -261,12 +262,15 @@ impl Page {
 
 /// The machine's grid: its sheets, the rows', each rule's answer sheet
 /// (KERNEL.58), and then their twins', which hold no formula, in that order;
-/// its format table and its names.
+/// its format table and its names; and its functions of cells, each with
+/// what its room compiles to, side by side (KERNEL.29's third slice).
 #[derive(Clone, Debug)]
 pub(crate) struct Book {
     pub(crate) pages: Vec<Page>,
     pub(crate) styles: Styles,
     pub(crate) defined_names: Vec<(String, String)>,
+    pub(crate) functions: Vec<Function>,
+    pub(crate) compiled: Vec<Compiled>,
     /// How many of the pages the rows name, the answer sheets standing after
     /// them, and how many there are before the twins.
     pub(crate) rows: usize,
@@ -313,13 +317,39 @@ impl Book {
         }
         let rows = draft.rows;
         let sheets = pages.len();
+        // Each function's sheet by its index, a sheet the rows hold
+        // (`Reader::finish`).
+        let functions = std::mem::take(&mut draft.functions)
+            .into_iter()
+            .filter_map(|f| {
+                Some(Function {
+                    sheet: draft.find_sheet(&f.sheet)?,
+                    name: f.name,
+                    inputs: f.inputs,
+                    output: f.output,
+                })
+            })
+            .collect();
         Book {
             pages,
             styles: std::mem::take(&mut draft.styles),
             defined_names: std::mem::take(&mut draft.defined_names),
+            functions,
+            compiled: Vec::new(),
             rows,
             sheets,
         }
+    }
+
+    /// Every function of cells compiled against the grid as it stands
+    /// (KERNEL.29's third slice).
+    pub(crate) fn compile_functions(&mut self) {
+        let compiled = self
+            .functions
+            .iter()
+            .map(|f| room::compile(&*self, f))
+            .collect();
+        self.compiled = compiled;
     }
 
     /// Whether a page is a rule's answer sheet or the twin of one (KERNEL.58):
@@ -355,6 +385,10 @@ impl Model for Book {
 
     fn defined_names(&self) -> &[(String, String)] {
         &self.defined_names
+    }
+
+    fn functions(&self) -> &[Compiled] {
+        &self.compiled
     }
 
     fn formula(&self, (s, row, col): CellId) -> Option<Formula<'_>> {

@@ -1069,8 +1069,9 @@ impl Shapes {
 
     /// The shapes whose texts read a name of `written`, folded and bare, or a
     /// name whose text reads one, through other names to the last
-    /// (KERNEL.29's third slice): each writes the names' calls in, or reads
-    /// what a name refers to, as the grid's names now say.
+    /// (KERNEL.29's third slice), a function of cells' compiled `LAMBDA`
+    /// among the names: each writes the names' calls in, or reads what a name
+    /// refers to, as the grid's names now say.
     pub(crate) fn readers_of<M: Model + ?Sized>(
         &self,
         model: &M,
@@ -1083,6 +1084,14 @@ impl Shapes {
                 let (_, bare) = super::graph::split_scope(model, printed);
                 let key = crate::intrinsics::fold(bare);
                 if !keys.contains(&key) && reads_names(&strip_future_prefixes(text), &keys) {
+                    keys.insert(key);
+                    grew = true;
+                }
+            }
+            for f in model.functions() {
+                let key = crate::intrinsics::fold(&f.name);
+                let reads = f.lambda.as_ref().is_ok_and(|text| reads_names(text, &keys));
+                if !keys.contains(&key) && reads {
                     keys.insert(key);
                     grew = true;
                 }

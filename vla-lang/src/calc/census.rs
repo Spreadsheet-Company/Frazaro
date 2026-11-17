@@ -17,6 +17,10 @@
 //!   hold a cell, the runs and the cells in them, the cells evaluated one at
 //!   a time, the cells of the shapes computed every frame, and the cells on
 //!   cycles, which only a plan a load would refuse holds;
+//! - `(uncompiled "NAME" <why>)`, for each function of cells whose body
+//!   does not compile, every call of it `#CALC!` (KERNEL.29's third slice,
+//!   `super::room::Uncompiled`'s words: `cycle "<cell>"`, `range
+//!   "<reference>"`, `construct <kind>`, `inputs n`, `text "<why>"`);
 //! - `(readers "<sheet>" n)`, for each sheet a change to which is followed:
 //!   its readers, each shape's references to it, which a changed cell of it
 //!   is checked against at a frame's start and at each cell a frame changes
@@ -199,6 +203,9 @@ impl Facts {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Census {
     pub(crate) shapes: Vec<Facts>,
+    /// Each function of cells whose body does not compile, by its name, and
+    /// why in the row's words.
+    pub(crate) uncompiled: Vec<(String, String)>,
     pub(crate) readers: Vec<(String, usize, Option<usize>)>,
     pub(crate) formulas: usize,
     /// The levels of the order that hold a cell.
@@ -343,8 +350,14 @@ pub(crate) fn of<M: Model + ?Sized>(
             (n > 0).then(|| (name, n, reach.most_on(si)))
         })
         .collect();
+    let uncompiled = model
+        .functions()
+        .iter()
+        .filter_map(|f| Some((f.name.clone(), f.lambda.as_ref().err()?.words())))
+        .collect();
     Census {
         shapes,
+        uncompiled,
         readers,
         formulas: plan.formulas(),
         levels,
@@ -402,6 +415,9 @@ pub(crate) fn spell(c: &Census) -> String {
         c.levels,
         c.cycles
     );
+    for (name, why) in &c.uncompiled {
+        out.push_str(&format!("(uncompiled {} {why})\n", quoted(name)));
+    }
     for (sheet, n, most) in &c.readers {
         match most {
             Some(k) => out.push_str(&format!("(readers {} {n} (most {k}))\n", quoted(sheet))),

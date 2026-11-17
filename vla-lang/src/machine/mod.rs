@@ -160,6 +160,7 @@ use crate::calc::formula::Expr;
 use crate::calc::graph::{Area, Extent, Names};
 use crate::calc::program::{Answer, Source};
 use crate::calc::reach::Reached;
+use crate::calc::room::{self, Compiled, Function};
 use crate::calc::shape::{spell_at, Shapes, RUN, SHORT};
 use crate::calc::vector::{self, Lanes};
 use crate::calc::{
@@ -196,7 +197,7 @@ pub const CELLS: usize = 1_048_576;
 pub const HANDLES: usize = 16;
 
 /// The rows a write takes, as `grid-row-unknown` lists them.
-pub const WRITE_ROWS: &str = "cell, formula, derived and name";
+pub const WRITE_ROWS: &str = "cell, formula, derived, name and function";
 
 /// The value cells a grid keeps room for as written between two frames
 /// (KERNEL.20), so that an engine's write of its Clock at every step makes
@@ -662,16 +663,20 @@ struct Log {
     named: Option<Box<Named>>,
 }
 
-/// What a write's `name` rows changed (KERNEL.29's third slice), boxed in its
-/// log, so that a write carries one word for it, a word on the stack beneath
-/// the placement's parse, which `VLA.1`'s limits pin on a stack of 1 MiB:
-/// each name by its place among the grid's names, with what the place held
-/// before, none where the write added the name, which an undo puts back; the
-/// line of the first such row; the names changed, folded and bare; and the
-/// shapes reading them, read again at the placement.
+/// What a write's `name` and `function` rows changed (KERNEL.29's third
+/// slice), boxed in its log, so that a write carries one word for it, a word
+/// on the stack beneath the placement's parse, which `VLA.1`'s limits pin on
+/// a stack of 1 MiB: each name by its place among the grid's names, and each
+/// function of cells by its place among the grid's, with what the place held
+/// before, none where the write added it; each function compiled again whose
+/// `LAMBDA` changed, with the one it had; all of which an undo puts back; the
+/// line of the first row that changed one; the names changed, folded and
+/// bare; and the shapes reading them, read again at the placement.
 #[derive(Default)]
 struct Named {
     places: Vec<(usize, Option<(String, String)>)>,
+    functions: Vec<(usize, Option<Function>)>,
+    compiled: Vec<(usize, Compiled)>,
     line: u32,
     keys: BTreeSet<String>,
     stale: BTreeSet<usize>,
@@ -716,6 +721,9 @@ impl Machine {
         let cells = draft.cells;
         let mut extents: Vec<Extent> = draft.sheets.iter().map(|s| s.extent()).collect();
         let mut book = Book::of(&mut draft);
+        // Each function of cells compiled from its room before the names
+        // and the plan read it (KERNEL.29's third slice).
+        book.compile_functions();
         // Each record's rectangle, line and value, moved out of the draft,
         // which is given up before the plan, the load's peak; the stores made
         // after it.
@@ -2109,14 +2117,22 @@ impl Machine {
 
     /// The `names` view (KERNEL.29's third slice): each of the grid's names
     /// as a load reads it, its spelling and its text as held, a load's and a
-    /// write's, so that a save loads the names it printed.
+    /// write's, then each function of cells as its `function` row, so that a
+    /// save loads the names and the functions it printed; a function's
+    /// `LAMBDA` is the grid's own, printed by no save.
     fn names_text(&self) -> String {
+        let quoted = crate::rows::quoted;
         let mut text = String::new();
         for (name, refers) in &self.book.defined_names {
+            text.push_str(&format!("(name {} {})\n", quoted(name), quoted(refers)));
+        }
+        for f in &self.book.functions {
             text.push_str(&format!(
-                "(name {} {})\n",
-                crate::rows::quoted(name),
-                crate::rows::quoted(refers)
+                "(function {} {} {} {})\n",
+                quoted(&f.name),
+                quoted(&self.book.pages[f.sheet].sheet.name),
+                quoted(&f.inputs.text()),
+                quoted(&f.output.text())
             ));
         }
         text
@@ -2208,10 +2224,10 @@ impl Machine {
     // ---- the write ------------------------------------------------------
 
     /// Rows written, one a line: `cell`, `formula` or `derived`, each over
-    /// a cell or a range, and `name`, a defined name's text (KERNEL.29's
-    /// third slice), applied in order; the cells changed and the names
-    /// written counted. A refused row changes nothing, the rows before it
-    /// undone with it.
+    /// a cell or a range, `name`, a defined name's text, and `function`, a
+    /// function of cells (KERNEL.29's third slice), applied in order; the
+    /// cells changed and the names and functions written counted. A refused
+    /// row changes nothing, the rows before it undone with it.
     pub fn write(&mut self, text: &str) -> Result<usize, LineRefusal> {
         if let Some(done) = self.progress {
             return Err(LineRefusal {
@@ -2237,6 +2253,9 @@ impl Machine {
         };
         if head == "name" {
             return self.put_name(form, items, line, log);
+        }
+        if head == "function" {
+            return self.put_function(form, items, line, log);
         }
         if !matches!(head, "cell" | "formula" | "derived") {
             return Err(load::unknown(line, head, WRITE_ROWS));
@@ -2341,6 +2360,9 @@ impl Machine {
             return Err(load::malformed(line, form, "name"));
         }
         let key = fold(name);
+        if self.book.functions.iter().any(|f| fold(&f.name) == key) {
+            return Err(load::name_taken(line, name, "function", "name"));
+        }
         let names = &mut self.book.defined_names;
         let place = match names.iter().position(|(held, _)| fold(held) == key) {
             Some(k) if names[k].1 == *text => return Ok(()),
@@ -2354,10 +2376,67 @@ impl Machine {
             }
         };
         let named = log.named.get_or_insert_with(Box::default);
-        if named.places.is_empty() {
+        if named.places.is_empty() && named.functions.is_empty() {
             named.line = line;
         }
         named.places.push(place);
+        log.written += 1;
+        Ok(())
+    }
+
+    /// A `function` row written (KERNEL.29's third slice), read as a load
+    /// reads one: a function of cells defined, or its row replaced where the
+    /// grid holds it already, by its name without case, its place kept and
+    /// the spelling the write's; a row it holds already is not written. Its
+    /// sheet is one the rows hold, and its name one no `name` row holds. The
+    /// settle compiles its room and plans again every shape that calls it.
+    fn put_function(
+        &mut self,
+        form: &Form,
+        items: &[Form],
+        line: u32,
+        log: &mut Log,
+    ) -> Result<(), LineRefusal> {
+        let Some((name, sheet, inputs, output)) = load::function_row(items) else {
+            return Err(load::malformed(line, form, "function"));
+        };
+        let Some(si) = self.book.find_sheet(sheet).filter(|&s| s < self.book.rows) else {
+            let sheets: Vec<&str> = self.book.pages[..self.book.rows]
+                .iter()
+                .map(|p| p.sheet.name.as_str())
+                .collect();
+            return Err(load::function_sheet(line, name, sheet, &sheets));
+        };
+        let key = fold(name);
+        if self
+            .book
+            .defined_names
+            .iter()
+            .any(|(held, _)| fold(held) == key)
+        {
+            return Err(load::name_taken(line, name, "name", "function"));
+        }
+        let row = Function {
+            name: name.clone(),
+            sheet: si,
+            inputs,
+            output,
+        };
+        let functions = &mut self.book.functions;
+        let place = match functions.iter().position(|f| fold(&f.name) == key) {
+            Some(j) if functions[j] == row => return Ok(()),
+            Some(j) => (j, Some(std::mem::replace(&mut functions[j], row))),
+            None => {
+                functions.push(row);
+                self.book.compiled.push(Compiled::pending(name));
+                (functions.len() - 1, None)
+            }
+        };
+        let named = log.named.get_or_insert_with(Box::default);
+        if named.places.is_empty() && named.functions.is_empty() {
+            named.line = line;
+        }
+        named.functions.push(place);
         log.written += 1;
         Ok(())
     }
@@ -2395,23 +2474,78 @@ impl Machine {
 
     /// The settle's names (KERNEL.29's third slice), in a frame of its own,
     /// so that nothing of them stands on the stack beneath the placement and
-    /// the plan: the grid's names read again, every shape reading a name the
-    /// write changed, through other names too, kept to be read again at the
-    /// placement, and its cells changed as a formula written over with its own
-    /// text changes them, planned again, their values forgotten and computed
-    /// at the next frame.
+    /// the plan: each function of cells whose row the write wrote, or on whose
+    /// room it gave a cell a formula or took one, compiled again; the grid's
+    /// names read again where a name or a function's `LAMBDA` changed; and
+    /// every shape reading one, through other names too, kept to be read again
+    /// at the placement, its cells changed as a formula written over with its
+    /// own text changes them, planned again, their values forgotten and
+    /// computed at the next frame.
     #[inline(never)]
     fn names_settle(&mut self, log: &mut Log) {
-        let Some(named) = log.named.as_mut() else {
+        let (again, room_line) = self.rooms_written(log);
+        if log.named.is_none() && again.is_empty() {
             return;
-        };
-        named.keys = self.names_written(named);
+        }
+        let named = log.named.get_or_insert_with(Box::default);
+        let mut keys = self.names_written(named);
+        for j in again {
+            let compiled = room::compile(&self.book, &self.book.functions[j]);
+            if compiled != self.book.compiled[j] {
+                keys.insert(fold(&compiled.name));
+                let held = std::mem::replace(&mut self.book.compiled[j], compiled);
+                named.compiled.push((j, held));
+            }
+        }
+        if keys.is_empty() {
+            // A room's formula changed and no function's `LAMBDA` with it.
+            if named.places.is_empty() && named.functions.is_empty() {
+                log.named = None;
+            }
+            return;
+        }
+        if named.line == 0 {
+            named.line = room_line;
+        }
+        named.keys = keys;
         self.names_moved();
         let (shapes, cells) = self.names_readers(&named.keys);
         named.stale = shapes;
         for id in cells {
             log.changed.entry(id).or_insert(named.line);
         }
+    }
+
+    /// The functions of cells a write may have changed (KERNEL.29's third
+    /// slice): each whose row it wrote, and each whose room's sheet holds a
+    /// cell the write gave a formula or took one from, its values alone never
+    /// moving a `LAMBDA`; and the line of the first row that changed such a
+    /// cell, 0 where none did.
+    fn rooms_written(&self, log: &Log) -> (BTreeSet<usize>, u32) {
+        let mut again = BTreeSet::new();
+        let mut line = 0;
+        if self.book.functions.is_empty() {
+            return (again, line);
+        }
+        if let Some(named) = &log.named {
+            again.extend(named.functions.iter().map(|(j, _)| *j));
+        }
+        let rooms: BTreeSet<usize> = self.book.functions.iter().map(|f| f.sheet).collect();
+        let mut moved: BTreeSet<usize> = BTreeSet::new();
+        for (&id, &at) in &log.changed {
+            if rooms.contains(&id.0) && (self.shapes.holds(id) || self.book.formula(id).is_some()) {
+                moved.insert(id.0);
+                if line == 0 || at < line {
+                    line = at;
+                }
+            }
+        }
+        for (j, f) in self.book.functions.iter().enumerate() {
+            if moved.contains(&f.sheet) {
+                again.insert(j);
+            }
+        }
+        (again, line)
     }
 
     /// A refused write's readers read again under the names its undo put
@@ -2810,9 +2944,22 @@ impl Machine {
             self.planned[k].area = area;
         }
         self.rule_cells -= log.rule_cells;
-        // Each name as the write found it (KERNEL.29's third slice), and the
+        // Each name and each function of cells as the write found it, each
+        // function's `LAMBDA` among them (KERNEL.29's third slice), and the
         // grid's names read again from them.
         if let Some(named) = &log.named {
+            for (j, held) in named.compiled.iter().rev() {
+                self.book.compiled[*j] = held.clone();
+            }
+            for (j, old) in named.functions.iter().rev() {
+                match old {
+                    Some(held) => self.book.functions[*j] = held.clone(),
+                    None => {
+                        self.book.functions.remove(*j);
+                        self.book.compiled.remove(*j);
+                    }
+                }
+            }
             for (k, old) in named.places.iter().rev() {
                 match old {
                     Some(held) => self.book.defined_names[*k] = held.clone(),
@@ -2888,9 +3035,10 @@ impl Machine {
     /// a write's time, and what the next frame needs of the old plan is taken
     /// first (KERNEL.69).
     fn settle(&mut self, mut log: Log) -> Result<usize, LineRefusal> {
-        // A name a row wrote (KERNEL.29's third slice): its readers read again
-        // at the placement below.
-        if log.named.is_some() {
+        // A name or a function of cells a row wrote, or a function's room a
+        // row changed (KERNEL.29's third slice): its readers read again at
+        // the placement below.
+        if log.named.is_some() || !self.book.functions.is_empty() {
             self.names_settle(&mut log);
         }
         if log.changed.is_empty() {
@@ -3378,6 +3526,10 @@ impl Model for Machine {
 
     fn defined_names(&self) -> &[(String, String)] {
         &self.book.defined_names
+    }
+
+    fn functions(&self) -> &[crate::calc::room::Compiled] {
+        &self.book.compiled
     }
 
     fn formula(&self, id: CellId) -> Option<Formula<'_>> {
@@ -4695,7 +4847,9 @@ mod tests {
         let e = m.write("(sheet \"Board\" visible)").unwrap_err();
         assert_eq!(e.refusal.id, "grid-row-unknown");
         assert!(
-            e.refusal.text.contains("cell, formula, derived and name"),
+            e.refusal
+                .text
+                .contains("cell, formula, derived, name and function"),
             "{}",
             e.refusal.text
         );
