@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.72 | KERNEL.73 |
+| KERNEL | KERNEL.73 | KERNEL.74 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -394,6 +394,12 @@ ignores, a formula's values over ranges, and a read that holds no file as forms,
 so that a grid's save stays small and loading it costs about what the grid
 holds. The brief named `KERNEL.68`, which `KERNEL.68` to `KERNEL.71` had taken.
 `KERNEL.73` is next free.
+`KERNEL.73` was minted 2026-11-17 at the owner's word, from `KERNEL.29`'s third slice's
+third part (its first *Found*), for a run reading a reference that holds its column
+once only where every cell of its selection stands in one row, where it read it once
+where the first and the last did, so that a run carried into the next level's block,
+leaving a row and coming back to it, reads each row's own cell, a wrong answer in every
+release from 0.9.2. `KERNEL.74` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

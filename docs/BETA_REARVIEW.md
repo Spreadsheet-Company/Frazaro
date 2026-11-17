@@ -46417,6 +46417,7 @@ them, and remembering a call by its values left for `CART.9.3`'s chips.*
      cells answer -0.02 where `Ctx` answers `#VALUE!`, the error of `$A6*B.last!$K$1` lost, the census
      showing the band's one run of eight lanes; stepped by budgets of 1, 3 or 7 cells, they agree. Found
      when a change to the program law's generator moved its draws; the law's own draws never meet it.
+     Minted `KERNEL.73` 2026-11-17, its scoping at the end of THE KERNEL LINE.
   2. *A formula kept as written refuses its calls of named functions:* a formula whose own inlining
      passes `lambda::NODES`, a `LET` doubling forty times, that calls a named function is refused at its
      load, `calc-function-not-computed`, its call by name counted missing though `Ctx` computes it; at
@@ -46535,6 +46536,92 @@ After the folds, 100 of the 102 agree; the spill is unchecked and `CNT(4096)` le
 `no-differ` (`check_recalc_golden`, `check_shapes_golden`, `prove.ps1`, the treaty). Held by
 `tests/lambda.rs`, 14: the information functions of a function, and a reference called as a cell's name,
 a range's and a local, each through the door and an engine alike.
+
+**`KERNEL.73`, a held column read once only across one row: the scoping, 2026-11-17.** Minted and
+begun at the owner's word, "Mint the run defect and scope it", from `KERNEL.29`'s third slice's third
+part, its first *Found*: a run loses an error across rows. Minted as the next free `KERNEL` ID and
+nothing else; the decisions with recommendations and the predictions written here before any build in
+the tree, then a stop for the owner's approval. Nothing is built in the tree: HEAD `9233997`, fourteen
+commits ahead of `origin/main` (`78a6dc1`, 0.13.0's release), the tree clean. Every measurement below was
+made in scratch copies by `git archive`, Alonzo's and Buffet's read, never written.
+
+*The defect.* A run computes a reference that holds its column and not its row, `$A5`, once for its whole
+selection where the selection's first and last cells stand in one row (`calc/vector.rs`, `Many::reads`,
+`KERNEL.33`'s shortcut for Sand's gate, `Gate!$B2`, before a branch most cells skip). Its comment holds
+that a run's cells stand in the order by row, so that a first and a last cell of one row mean every cell
+is of that row. They do not: a run crosses from one level's block into the next where the two are one
+shape on one sheet (`KERNEL.20`'s runs, kept by `KERNEL.49`), and the next block may begin in an earlier
+row. The run then reads its first row's cell for cells of another row, and a row's own text, error or
+number is never read.
+- *Minimal rows* (the language's library alone):
+
+  ```
+  (sheet "A" visible)
+  (cell "A" "A6" "x")
+  (cell "A" "A18" 1)
+  (formula "A" "C2:H2" "=B2+1")
+  (formula "A" "C3:H4" "=MOD(((IF(A.last!$J$4,2,FALSE))+(($A3)%)-(MOD(F2,$C2))*($A5*B.last!$K$1))<=($A$13),(-3)%)")
+  (sheet "B" visible)
+  ```
+
+  The chain along row 2 gives `C3`, `D3` and `E3` levels 4, 5 and 6, reading it three columns right;
+  `F3:H3`, reading past it, level 1; and every cell of row 4, reading row 3 and `$C3`, level 5. Level 5's
+  block is `D3` then `C4:H4`, and the run carried into level 6's block, `E3`, holds eight cells from row 3
+  back to row 3. Each reads `$A5`, row 3's, where row 4's cells read `$A6`, the text: row 4 answers -0.02
+  where each cell alone answers `#VALUE!`. The shape is computed by the run path only because its parse
+  has no program (`(unlowered kinds)`); stepped by budgets of 1, 3 or 7 cells, the cells agree.
+- *Since* `KERNEL.33` (`0f16b0e`, 2026-10-12): in every release from 0.9.2 to 0.13.0. The minimal rows
+  reproduce at 0.9.2's tag, 0.12.0's, 0.13.0's and HEAD.
+- *What meets it:* a shape computed by the run path, one whose parse no program holds or a run of
+  `shape::SHORT` cells or more, whose run leaves a row and comes back to it, reading a reference that holds
+  its column and not its row over cells that differ by row. No other read of the run path takes a run's
+  order for its rows: `stretch` and `stretch_down` ask each cell's neighbour.
+- *What meets it today, measured:* the shortcut instrumented in a copy of HEAD, each firing over a
+  selection whose cells do not share a row reported with whether any cell's own read differs from the
+  first's, and three suites run over the copy by path: Frazaro's workspace, 934 tests, one firing, every
+  value alike; Alonzo's at `05c90af`, 108 with its cartridges required, none; Buffet's at `6f215a1`, 107,
+  none. No frame these suites step computes a wrong value from it.
+- *Why the laws missed it.* The runs law (`a_run_evaluated_at_once_is_its_cells_evaluated_one_by_one`) and
+  the programs' law draw short runs, which a program computes cell by cell, and reach the run path only
+  for a shape no program holds or a run of sixteen cells; and no law draws a run that leaves a row and
+  comes back to it. `KERNEL.49`'s crossing law holds the plans of runs carried across levels and never
+  their values, and its runs only move down: held to `Ctx` in a copy, a column of every kind beside it,
+  it passes at HEAD. So does the runs law with programs off.
+- *The law that finds it,* prototyped in a copy: 400 grids of a band whose first row reads a chain along
+  the row above at an offset, so that its levels rise along the row, and whose rows under it read the row
+  above by the same text, each cell reading a column every `$` of whose column holds over a column of
+  every kind (numbers, a text, an error, a truth value, nothing), stepped three frames with a write
+  between, by runs with programs off against every cell alone by `Ctx`: 49 grids fail at HEAD, the
+  first `=(E2-$C2)*$A3+$A2` over `=MAX(B2,1)+1`; none with the fix below.
+- *The fix,* prototyped in the same copy: the shortcut taken only where every cell of the selection
+  stands in the first's row. The minimal rows and the 400 grids agree with `Ctx`.
+
+*The decisions, the owner's:*
+1. *The fix:* (a) the shortcut asked of every cell of the selection, at most 255 comparisons of a row a
+   read, a selection being at most `vector::CHUNK` (256) cells, against reading every cell where it
+   fails; (b) a run's cells' rows found once a run, as `Many::ends` finds their stretches, the shortcut
+   asked of that and of the selection only where the run spans rows; (c) one read a row of the selection,
+   a lane of each row's value, keeping one read a row where a run spans rows, which no consumer's frames
+   meet. *Recommended:* (a), the smallest and plainly right; (b) or (c) only if a floor says the
+   comparisons cost.
+2. *The oracle:* (a) the law above, through the run path with programs off and as built; the minimal
+   rows pinned; and the runs law and `KERNEL.49`'s crossing law held to `Ctx` with programs off as well,
+   each passing today, so that short runs reach the run path in every law of runs; (b) the law and the pin
+   alone. *Recommended:* (a).
+3. *The release:* (a) in `0.14.0`, its note naming the answers it corrects; (b) a `0.13.1` from `v0.13.0`
+   with the fix alone, then `0.14.0`, the version's twins and the goldens that embed it bumped
+   (`docs/DEPLOY.md`), the add-ins and the installer built, Alonzo's and Buffet's pins taking it by a
+   bump; (c) both. *Recommended:* (a): no consumer's measured frames meet it, and `0.14.0`'s fourteen
+   commits stand ready; (b) where the cadence's "safety fixes ride the patches" is to read a wrong answer
+   as one.
+
+*One-way doors:* none. The fix restores each cell's answer alone; no row, file, golden or catalogue entry
+moves. *Predictions:* the minimal rows' row 4 `#VALUE!` by runs as alone; the law's 49 failing grids
+agree; no other test, golden or floor moves, the shortcut still firing over a selection of one row,
+Sand's gate's case; Alonzo's and Buffet's suites and frames as they stand. *Effort:* `~hours`.
+
+*Approved* 2026-11-17 at the owner's word, "Decision recommendations approved; commit the mint,
+then build KERNEL.73": the three decisions as recommended.
 
 ---
 
