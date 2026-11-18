@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.73 | KERNEL.74 |
+| KERNEL | KERNEL.74 | KERNEL.75 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -400,6 +400,10 @@ once only where every cell of its selection stands in one row, where it read it 
 where the first and the last did, so that a run carried into the next level's block,
 leaving a row and coming back to it, reads each row's own cell, a wrong answer in every
 release from 0.9.2. `KERNEL.74` is next free.
+`KERNEL.74` was minted 2026-11-17 at the owner's word, from `KERNEL.55`'s first slice (its first
+*Found*), for a cell computed alone by its program, which a build for size made call the machine
+at every cell it read where 0.13.0 read it in place, so that the chain's frame took half again its
+time in 0.14.0. `KERNEL.75` is next free.
 `PORT.13` was minted 2026-10-10 at the owner's word, for the
 writer's fills Excel cannot hold as one shared formula, found when Excel
 refused the Life fixture of `KERNEL.20`'s sixth slice; `PORT.14` is next

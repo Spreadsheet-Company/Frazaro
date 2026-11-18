@@ -3733,8 +3733,13 @@ impl Source for Machine {
     /// `calc::program::number_of`), read where `read` reads it and no value
     /// made: a rows' cell's slot or a twin's (KERNEL.49), a number, nothing
     /// as 0, any other kind none, a reason among them; a twin kept as no
-    /// store read as `read` reads it.
-    #[inline]
+    /// store read as `read` reads it. Inlined always, into every read of a
+    /// program's loop (KERNEL.74): built for size, as the workspace's release
+    /// builds the page's modules and the floors' runners, the loop grown by a
+    /// call kept's operations (KERNEL.29's slice 3c) took the hint no more,
+    /// and every cell computed alone paid a call a read, the chain's frame
+    /// 0.85 ms where 0.59 and the adders' 0.45 where 0.28 (measured).
+    #[inline(always)]
     fn number(&self, id: CellId) -> Option<f64> {
         if id.0 < self.sheets {
             return match self.stores[id.0].slot_of(id.1, id.2) {

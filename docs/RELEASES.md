@@ -16,6 +16,14 @@
   is wanted, or an `INDEX` picking many cells, the cell is computed whole as
   before, so that no value moves; a legacy array formula is still computed
   whole at each cell (KERNEL.55, its first slice).
+- **A formula computed alone is as fast as in 0.13.0 again.** In 0.14.0 an
+  engine computing a formula alone, a cell no fill computes beside it, called
+  the machine at every cell the formula read where 0.13.0 read it in place,
+  in a build optimized for size, as Frazaro's page and its benchmarks are
+  built: such a cell took 31 ns where 18, and 20,000 running balances, each
+  reading the one above, took 0.85 ms a frame where 0.59. They take 0.59
+  again; a build optimized for speed, cargo's default, had lost about 2% and
+  has nearly all of it back (KERNEL.74).
 
 ## 0.14.0
 
