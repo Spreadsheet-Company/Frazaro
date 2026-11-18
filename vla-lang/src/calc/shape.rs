@@ -110,8 +110,9 @@ pub struct Shape {
     lowered: Option<Result<Program, Why>>,
     /// Whether the parse holds an array anywhere (KERNEL.8, slice f,
     /// `vector::arrays_in`): its cells each computed by `Ctx` whole, a run's
-    /// among them, since a lane holds one value a cell; and a shape of dynamic
-    /// formulas or legacy array formulas, read as arrays.
+    /// among them, since a lane holds one value a cell; and a shape of legacy
+    /// array formulas, or of dynamic formulas whose reading is not their
+    /// legacy twin's ([`Shapes::add`]), read as arrays.
     arrayed: bool,
     /// Whether the text calls a function the library declares to read a
     /// sheet's extent itself (KERNEL.56, [`Library::reads_extent`]), read
@@ -746,23 +747,40 @@ impl Shapes {
         let risky = moves_unread(&text);
         missing.sort_unstable();
         missing.dedup();
-        // A shape of dynamic formulas or legacy array formulas, read as
-        // arrays, is computed at each cell by `Ctx` (KERNEL.8, slice f).
-        let kind_reads_arrays = matches!(
-            model.formula(anchor),
-            Some(Formula::Own(_, Kind::Dynamic | Kind::Array))
-        );
+        // A shape of dynamic formulas or legacy array formulas reads as
+        // arrays (KERNEL.8, slice f).
+        let kind = match model.formula(anchor) {
+            Some(Formula::Own(_, kind @ (Kind::Dynamic | Kind::Array))) => Some(kind),
+            _ => None,
+        };
         let s = self.push(text, expr, anchor, missing, risky, library);
         self.shapes[s].reads_extent = reads_extent;
         self.shapes[s].form = form;
         self.shapes[s].called = called;
-        if kind_reads_arrays {
-            // A program lowered for such a shape would read its ranges as a
-            // legacy formula does; one already left to `Ctx` keeps its reason.
+        if let Some(kind) = kind {
+            // A dynamic formula keeps the program and the runs its legacy twin
+            // keeps, its twin's frame (KERNEL.55, its decision 8), wherever its
+            // parse holds no array and reads no reference of many cells for its
+            // places (`reads_many_whole`). There the two readings agree but
+            // where a dynamic formula reads many cells where one value is
+            // wanted, a range, a name or an `INDEX` picking many; and there the
+            // program and the run answer no value, their guard failing and
+            // their label left, and the cell is `Ctx`'s, whole
+            // (`Shapes::evaluate_run`). Every other shape of the two kinds is
+            // computed at each cell by `Ctx`, a program lowered for it given up
+            // and one already left to `Ctx` keeping its reason: a legacy array
+            // formula's `INDEX` of many reads the array's first value, where a
+            // program's meets the range at the cell, and no engine holds one
+            // (`KERNEL.70`).
             let shape = &mut self.shapes[s];
-            shape.arrayed = true;
-            if let Some(Ok(_)) = shape.lowered {
-                shape.lowered = Some(Err(Why::Array));
+            let alike = kind == Kind::Dynamic
+                && !shape.arrayed
+                && shape.expr.as_ref().is_ok_and(|e| !reads_many_whole(e));
+            if !alike {
+                shape.arrayed = true;
+                if let Some(Ok(_)) = shape.lowered {
+                    shape.lowered = Some(Err(Why::Array));
+                }
             }
         }
         s
@@ -1095,9 +1113,28 @@ impl Shapes {
             })),
             Ok(e) => {
                 let held = s.holds;
+                let from = out.len();
                 vector::evaluate(
                     env, library, e, held, &s.repeats, s.anchor, cells, lanes, out, numbers,
                 );
+                // A dynamic formula's cell the run left not computed is
+                // `Ctx`'s, whole (KERNEL.55): there it read many cells where
+                // one value is wanted, a range, a name or an `INDEX` picking
+                // many, which what reads them takes as `Ctx` does, a sum of
+                // them, an array where one value is wanted, a spill at the
+                // top, and never the run's label of the reference. The cell
+                // is asked its kind as it is entered, so that a shape holds
+                // nothing more for it.
+                for (k, c) in out[from..].iter_mut().enumerate() {
+                    if matches!(c, Computed::NotComputed(_)) {
+                        env.enter(cells[k]);
+                        if env.dynamic() {
+                            #[cfg(test)]
+                            HANDED_WHOLE.with(|h| h.set(h.get() + 1));
+                            *c = self.evaluate_shaped(env, library, shape, cells[k]);
+                        }
+                    }
+                }
             }
             // A run holds a parsed shape; were it not, each cell alone.
             Err(_) => out.extend(cells.iter().map(|&id| {
@@ -1537,6 +1574,9 @@ thread_local! {
     /// The cells the plans on this thread planned cell by cell (KERNEL.49's
     /// decision 7), for a test to count.
     static BY_CELL: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// The dynamic formulas' cells the runs on this thread handed to `Ctx`
+    /// whole (KERNEL.55), for a test to count.
+    static HANDED_WHOLE: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// The fewest cells a hub stands for: [`HUB`], or the test switch's.
@@ -1568,6 +1608,13 @@ pub(crate) fn hubs_made() -> usize {
 #[cfg(test)]
 pub(crate) fn planned_by_cell() -> usize {
     BY_CELL.with(|h| h.replace(0))
+}
+
+/// The dynamic formulas' cells the runs on this thread handed to `Ctx` whole
+/// since the last asking (KERNEL.55).
+#[cfg(test)]
+pub(crate) fn handed_whole() -> usize {
+    HANDED_WHOLE.with(|h| h.replace(0))
 }
 
 /// Every reference of a parse that names its sheets, those sheets found once
@@ -1652,4 +1699,38 @@ pub fn spell_cell(model: &Workbook, id: CellId) -> String {
 pub(crate) fn spell_at<M: Model + ?Sized>(model: &M, id: CellId) -> String {
     let sheet = model.sheet_name(id.0).unwrap_or("");
     format!("{}!{}", quote_sheet(sheet), cell_ref(id.1, id.2))
+}
+
+/// Whether a parse reads a reference of many cells for its places, where a
+/// dynamic formula answers an array and its legacy twin, a program and a run
+/// alike, its first cell's (KERNEL.55, its decision 8): `ROW` or `COLUMN`,
+/// which a program and a run compute themselves, of a reference not written
+/// as one cell, which may name many at a cell it is moved to (`$E$26:E26`
+/// one at its first cell and two a column right), of a span of sheets, of
+/// `:` between expressions or of a name. `TYPE`, `ISFORMULA` and
+/// `FORMULATEXT`, which read many cells for their kinds or their formulas,
+/// are `Ctx`'s at every cell, a form and two functions answering arrays.
+fn reads_many_whole(e: &Expr) -> bool {
+    const WHOLE: [&str; 2] = ["ROW", "COLUMN"];
+    let many = |a: &Expr| {
+        let mut a = a;
+        while let Expr::Pos(x) = a {
+            a = x;
+        }
+        match a {
+            Expr::Ref(r) => !matches!(r.shape, refers::Shape::Cell) || r.last_sheet.is_some(),
+            Expr::Range(_) | Expr::Name { .. } => true,
+            _ => false,
+        }
+    };
+    let mut stack = vec![e];
+    while let Some(e) = stack.pop() {
+        if let Expr::Call(name, args) = e {
+            if WHOLE.iter().any(|f| name.eq_ignore_ascii_case(f)) && args.iter().any(many) {
+                return true;
+            }
+        }
+        e.push_children(&mut stack);
+    }
+    false
 }

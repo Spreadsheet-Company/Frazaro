@@ -12,7 +12,7 @@
 (shape 8 "data" "A10" "=CONCAT(\"a\",\"b\")" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (calls "CONCAT") (unlowered text))
 (shape 9 "data" "A11" "=R[-10]C[2]:R[-8]C[2]" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (unlowered range))
 (shape 10 "data" "A12" "=R[-11]C[2]:R[-9]C[2]*2" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (unlowered range))
-(shape 11 "data" "A13" "=INDEX(R[-12]C[2]:R[-10]C[2],2)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot) (unlowered array))
+(shape 11 "data" "A13" "=INDEX(R[-12]C[2]:R[-10]C[2],2)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot))
 (shape 12 "data" "A14" "=ROW(R[-13]C[2]:R[-11]C[2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 13 "data" "A15" "=IF(R[-14]C>5,R[-14]C[2],R[-13]C[2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads slot))
 (shape 14 "data" "A16" "=SINGLE(R[-15]C[2]:R[-13]C[2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (calls "SINGLE") (unlowered form))

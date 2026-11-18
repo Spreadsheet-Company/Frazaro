@@ -35,7 +35,9 @@ pub(crate) enum Formula<'a> {
 
 /// A formula of its own's kind (KERNEL.8, slices b and f): a legacy formula,
 /// a dynamic-array formula or a legacy array formula, the last two read as
-/// arrays. An engine's grid holds the first alone.
+/// arrays. An engine's grid holds the first two (KERNEL.70), a dynamic
+/// formula's shape lowered as its legacy twin's where they read alike
+/// (KERNEL.55).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Kind {
     Plain,

@@ -6136,8 +6136,21 @@ mod tests {
         grid_of(d, true)
     }
 
+    /// The grid `generated_grid` writes from the same throws, every formula
+    /// dynamic and its own cell's, a band's text moved to each of its cells as
+    /// Excel's file holds a dynamic formula (KERNEL.55): a band's cells one R1C1
+    /// text, and so one shape.
+    fn dynamic_grid(d: &mut Dice) -> String {
+        grid_written(d, false, true)
+    }
+
     /// `generated_grid`, or `churning_grid` when `churn`.
     fn grid_of(d: &mut Dice, churn: bool) -> String {
+        grid_written(d, churn, false)
+    }
+
+    /// `grid_of`, each formula its own cell's and dynamic where `dynamic`.
+    fn grid_written(d: &mut Dice, churn: bool, dynamic: bool) -> String {
         let rows = 4 + d.below(60) as u32;
         let singles = d.below(3) == 0;
         let mut out = String::new();
@@ -6169,8 +6182,24 @@ mod tests {
                 };
                 band += 1;
                 let f = churned(expr(d, &at, 0), band % 4 != 0);
-                let f = crate::rows::quoted(&format!("={f}"));
-                out.push_str(&format!("(formula \"{sheet}\" \"C{top}:H{bottom}\" {f})\n"));
+                if dynamic {
+                    for row in top..=bottom {
+                        for (c, col) in LETTERS[2..8].iter().enumerate() {
+                            let moved = crate::refers::shift_a1_references(
+                                &f,
+                                i64::from(row - top),
+                                c as i64,
+                            );
+                            let moved = crate::rows::quoted(&format!("={moved}"));
+                            out.push_str(&format!(
+                                "(formula \"{sheet}\" \"{col}{row}\" {moved} dynamic)\n"
+                            ));
+                        }
+                    }
+                } else {
+                    let f = crate::rows::quoted(&format!("={f}"));
+                    out.push_str(&format!("(formula \"{sheet}\" \"C{top}:H{bottom}\" {f})\n"));
+                }
                 top = bottom + 1;
             }
             for row in (1..=rows).filter(|_| singles) {
@@ -6182,7 +6211,8 @@ mod tests {
                 };
                 let f = churned(expr(d, &at, 0), row % 2 == 1);
                 let f = crate::rows::quoted(&format!("={f}"));
-                out.push_str(&format!("(formula \"{sheet}\" \"K{row}\" {f})\n"));
+                let word = if dynamic { " dynamic" } else { "" };
+                out.push_str(&format!("(formula \"{sheet}\" \"K{row}\" {f}{word})\n"));
             }
         }
         if churn {
@@ -6607,6 +6637,103 @@ mod tests {
         assert!(
             in_runs * 2 > by_cell,
             "{in_runs} of {by_cell} cells were in runs: too few for the law to hold over"
+        );
+    }
+
+    #[test]
+    fn a_dynamic_formula_kept_lowered_is_its_cells_computed_whole() {
+        // KERNEL.55, its decision 8: grids of generated formulas of every kind
+        // of node, each formula written dynamic and its own cell's, a band's
+        // cells one shape, stepped by runs in slices of any budget, by programs
+        // alone, and by runs with programs off, so that a run of fewer cells
+        // than a program takes reaches the run path (KERNEL.73); each against
+        // the same grid with every cell computed alone by `Ctx`, frame for
+        // frame and bit for bit, a label as a value; and the first frame
+        // against `Calc`, which parses each cell's own text. Writes between
+        // frames move the values, and a pick of many by `INDEX` in and out.
+        // Counted, so that the law reaches what it holds: the shapes whose
+        // program was kept, their cells in runs, the cells programs computed,
+        // and the cells a run handed to `Ctx` whole.
+        let _checked = Checked::on();
+        let (mut kept, mut shapes, mut in_runs, mut ran) = (0, 0, 0, 0);
+        crate::calc::shape::handed_whole();
+        for seed in 1..=80u64 {
+            let mut d = Dice(seed);
+            let rows = dynamic_grid(&mut d);
+            let loaded = || {
+                Machine::load(&rows, library::language()).unwrap_or_else(|e| {
+                    panic!("seed {seed}: line {}: {}\n{rows}", e.line, e.refusal.text)
+                })
+            };
+            let mut runs = loaded();
+            let mut alone = loaded();
+            alone.by_runs = false;
+            let mut runs_off = loaded();
+            runs_off.lowered = false;
+            let mut ctx = loaded();
+            ctx.by_runs = false;
+            ctx.lowered = false;
+            shapes += runs.shapes.shapes();
+            kept += (0..runs.shapes.shapes())
+                .filter(|&s| runs.shapes.program(s).is_some())
+                .count();
+            let calc: BTreeMap<CellId, String> = {
+                let book = runs.workbook();
+                let calc = crate::calc::Calc::run(&book, &runs.library);
+                let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
+                runs.shapes
+                    .order_cells()
+                    .iter()
+                    .map(|id| (*id, spell(id)))
+                    .collect()
+            };
+            for frame in 1..=4 {
+                in_runs += runs
+                    .shapes
+                    .run_spans()
+                    .filter(|&(_, _, s)| runs.shapes.program(s).is_some())
+                    .map(|(start, end, _)| end - start)
+                    .sum::<usize>();
+                while !runs.step(1 + d.below(300)).done {}
+                assert!(alone.step(0).done && runs_off.step(0).done && ctx.step(0).done);
+                let whole = values(&ctx);
+                for (m, how) in [
+                    (&runs, "by runs"),
+                    (&alone, "by programs alone"),
+                    (&runs_off, "by runs with programs off"),
+                ] {
+                    assert_eq!(
+                        values(m),
+                        whole,
+                        "seed {seed}, frame {frame}: {how}\n{rows}"
+                    );
+                }
+                if frame == 1 {
+                    assert_eq!(whole, calc, "seed {seed}: Calc\n{rows}");
+                }
+                let write = match d.below(4) {
+                    0 => format!("(cell \"A\" \"A{}\" {})", 1 + d.below(20), d.below(4)),
+                    1 => format!("(cell \"B\" \"B{}\" \"y\")", 1 + d.below(20)),
+                    2 => format!(
+                        "(cell \"A\" \"{}{}\" 2)",
+                        d.pick(&LETTERS[..2]),
+                        1 + d.below(4)
+                    ),
+                    _ => continue,
+                };
+                for m in [&mut runs, &mut alone, &mut runs_off, &mut ctx] {
+                    let wrote = m.write(&write);
+                    assert!(wrote.is_ok(), "seed {seed}: {write}: {wrote:?}");
+                }
+            }
+            ran += runs.ran + alone.ran;
+        }
+        let handed = crate::calc::shape::handed_whole();
+        assert!(
+            kept * 4 > shapes && in_runs > 10_000 && ran > 10_000 && handed > 100,
+            "{kept} of {shapes} shapes kept a program, {in_runs} of their cells were in runs, \
+             {ran} computed by programs and {handed} handed to `Ctx` whole: too few for the law \
+             to hold over"
         );
     }
 
@@ -15296,6 +15423,74 @@ mod tests {
         assert!(m.write("(cell \"S\" \"M1\" 3)").is_ok());
         assert!(m.step(0).done);
         assert_eq!(spelled_at(&m, "N5"), "2", "and back");
+    }
+
+    #[test]
+    fn a_dynamic_formula_reading_many_cells_for_their_places_is_computed_whole() {
+        // KERNEL.55, its decision 8: `ROW` and `COLUMN` of many cells read the
+        // first cell's place in a legacy formula, its program and its runs
+        // alike, and every cell's in a dynamic one, answering no label a guard
+        // could fail on; so a shape of dynamic formulas reading them is `Ctx`'s
+        // at each cell, a reference held at one corner and moving at the other
+        // among them, one cell at the shape's first cell and many below it.
+        // `TYPE`, `ISFORMULA` and `FORMULATEXT` of many beside them, which
+        // `Ctx` computes at every cell of any shape. Each a column of twenty
+        // formulas of one shape, stepped by runs, by programs alone and by runs
+        // with programs off, each against `Ctx` cell by cell, and its answers
+        // the dynamic reading's.
+        let columns = [
+            ("C", "=TYPE(A{r}:B{r})"),
+            ("D", "=TYPE($A$1:A{r})"),
+            ("E", "=ROW(A{r}:A{s})"),
+            ("F", "=SUM(COLUMN(A{r}:B{r}))"),
+            ("G", "=MAX(ROW($A$1:A{r}))"),
+            ("H", "=SUM(ISFORMULA(C{r}:D{r})*1)"),
+            ("I", "=LEN(FORMULATEXT(C{r}:D{r}))"),
+        ];
+        let mut rows = String::from("(sheet \"S\" visible)\n(cell \"S\" \"A1:B21\" 2)\n");
+        for r in 1..=20u32 {
+            for (col, text) in columns {
+                let text = text.replace("{r}", &r.to_string());
+                let text = text.replace("{s}", &(r + 1).to_string());
+                let text = crate::rows::quoted(&text);
+                rows.push_str(&format!("(formula \"S\" \"{col}{r}\" {text} dynamic)\n"));
+            }
+        }
+        let loaded = || load(&rows);
+        let mut runs = loaded();
+        let mut alone = loaded();
+        alone.by_runs = false;
+        let mut runs_off = loaded();
+        runs_off.lowered = false;
+        let mut ctx = loaded();
+        ctx.by_runs = false;
+        ctx.lowered = false;
+        for m in [&mut runs, &mut alone, &mut runs_off, &mut ctx] {
+            assert!(m.step(0).done);
+        }
+        let whole = values(&ctx);
+        for (m, how) in [
+            (&runs, "by runs"),
+            (&alone, "by programs alone"),
+            (&runs_off, "by runs with programs off"),
+        ] {
+            assert_eq!(values(m), whole, "{how}");
+        }
+        assert!(runs.shapes.cells_in_runs() >= 100, "the shapes are runs");
+        let spill = "(not-computed \"a spill\")";
+        for (addr, answer) in [
+            ("C1", "64"),
+            ("C20", "64"),
+            ("D1", "1"),
+            ("D2", "64"),
+            ("E1", spill),
+            ("F5", "3"),
+            ("G7", "7"),
+            ("H3", "2"),
+            ("I4", spill),
+        ] {
+            assert_eq!(spelled_at(&runs, addr), answer, "{addr}");
+        }
     }
 
     #[test]

@@ -47163,6 +47163,113 @@ calc` prints 138 rows, 76 agreeing, 54 labelled and 8 differing (Spills 13, 44 a
 - *Found:* `scripts/recalc/lambda_saved.xlsx`, committed in `98b0e2f` and not pushed, names the owner and the home
   folder the same way; not touched, the owner's to decide.
 
+*Committed 2026-11-17* at the owner's word, "If everything looks good, commit and proceed with slice 1": slice 0 and the
+save's reading, `5b04654`. Slice 1 is (a), the lowering. *Corrected:* the Found above has `lambda_saved.xlsx` not
+pushed; 0.14.0's push carried it (`origin/main` at `77516bd`, tagged `v0.14.0`), so its name and folder stand in the
+public history beside the thirteen of 2026-11-01.
+
+*Slice (a) built 2026-11-17: a dynamic formula's shape lowered as its legacy twin's.* Over `5b04654`, uncommitted.
+- *The rule* (`calc/shape.rs`, `Shapes::add`): a shape of dynamic formulas keeps the program and the runs its legacy twin
+  keeps wherever its parse holds no array (`vector::arrays_in`, as before) and reads no reference of many cells for its
+  places: `ROW` or `COLUMN` of a reference not written as one cell, of a span, of `:` between expressions or of a name
+  (`reads_many_whole`). Every other shape of the two kinds is `Ctx`'s at each cell, as every one was. Three departures
+  from decision 8 as the scoping wrote it, each measured: (1) its list is two names, not five, since `TYPE` is a form
+  and `ISFORMULA` and `FORMULATEXT` answer arrays, so `Ctx` computes each at every cell of any shape, and a mutant
+  leaving `TYPE` out survived every test; (2) a reference written as a range counts as many even where it names one
+  cell at the shape's first cell: `COLUMN(A.last!$E$26:E26)` is one cell there and two a column right, the law's first
+  failure (seed 63, the run answering 5 where `Ctx` labels a spill); (3) a legacy array formula's shape keeps no
+  program, its `INDEX` of many reading the array's first value where a program meets the range at its cell (the
+  probe's `Legacy!C4`, 3 against 1), and no engine holds one until slice (e), which takes it up with a law of its own.
+- *The guard, which the prototype lacked.* Where a lowered dynamic formula reads many cells where one value is wanted,
+  a range, a name or an `INDEX` picking many, `Ctx::one` answers a label and never a value in a dynamic formula, so a
+  program's guard fails and its cell is `Ctx`'s, as before; but a run kept the label, `(not-computed "A2:L2")` where
+  `Ctx`, computing the cell whole, labels a spill or sums the pick. `Shapes::evaluate_run` now computes again, whole,
+  each cell of a dynamic formula a run leaves not computed, asking the cell its kind as it enters it (`env.dynamic()`),
+  so that a shape holds nothing more: a `Shape` stays 440 bytes, where a flag would have made it 448 and moved every
+  ceiling. With the guard a dynamic shape whose program the lowering refused, for a text, an error or a name, keeps its
+  runs as its legacy twin does, the prototype's rule: a narrower one, a program lowered whole, is no safer, the mutant
+  dropping it passing every test, and would leave to `Ctx` every dynamic shape holding a text.
+- *The law*, `a_dynamic_formula_kept_lowered_is_its_cells_computed_whole` (`machine/mod.rs`): the 80 grids of the runs'
+  law, from `generated_grid`'s throws and every kind of node, each formula written dynamic and its own cell's, a band's
+  text moved to each of its cells as Excel's file holds one (`dynamic_grid`); stepped by runs in slices of any budget,
+  by programs alone and by runs with programs off (`KERNEL.73`'s lesson), each held to the same grid with every cell
+  computed alone by `Ctx`, frame for frame and bit for bit, a label as a value, with writes between the frames; the
+  first frame held to `Calc` too. Counted so that it reaches what it holds: 753 of 1,771 shapes kept a program, 57,056
+  of their cells in runs, 28,568 cells computed by programs and 32,195 handed to `Ctx` whole. A run of 400 seeds, once,
+  passed: 273,040 cells in runs, 174,688 handed. Beside it,
+  `a_dynamic_formula_reading_many_cells_for_their_places_is_computed_whole`: columns of twenty of `TYPE`, `ROW`,
+  `COLUMN`, `ISFORMULA` and `FORMULATEXT` of many cells, a corner held and one moving, stepped the four ways, each
+  answer the dynamic reading's (64, a spill, 3, 7, 2).
+- *Mutants*, in a copy of `5b04654` with the slice's two files and a target of its own, each against the three dynamic
+  tests: the check of `ROW` and `COLUMN` gone, `ROW` gone, `COLUMN` gone, a reference judged at the shape's first cell
+  alone, the guard gone, the guard asking a cell it has not entered, and every dynamic shape left to `Ctx` (today's
+  rule): each killed. `TYPE`, which survived, left the rule.
+- *The census goldens*, written again by the door and saved CRLF: nine of thirty move, every dynamic shape holding no
+  array losing its `(unlowered array)`. The lookups fixture and its save go from 19 to none, the lambda fixture and its
+  save from 20 to none, the intersection fixture and its save from 3 to none, the typed save from 23 to 17, the formulas
+  fixture from 37 to 36 and its save from 38 to 37. The arrays save stands, the one shape the probe lowered there being
+  a legacy array formula's. No calc golden moves: `Calc` computes each cell alone.
+- *The floors' pair.* One fixture no program writes, `lookups-dynamic`: the lookups' own rows, every formula row given
+  the word (`bench/common.rs`'s `written_dynamic`), derived by both runners, its file, comments, sums and hand the
+  lookups'. The recalc runner holds it to plan as the lookups plan, census for census and texts and all (nine rows),
+  and every value as the lookups' (960,000 held, the same sums); the memory runner weighs it. `tools/bench_recalc.ps1`,
+  2026-11-17: 7.468 ms a whole frame and 9.687 an edit beside the lookups' 7.572 and 9.902, one run measuring both,
+  where today's rule took 37.1 (the scoping's measure). An A/B of the release runners, `5b04654`'s and the tree's,
+  pinned and alternated: 7.899 and 8.463 ms beside the lookups' 8.024 and 8.410 in the same runs. Its bytes are the
+  lookups' to the byte after the load (25,946,486), after two frames (29,476,190), at the peak (74,410,070) and through
+  a load from its save (25,946,486 held, 75,546,130 at the peak); its save is 10,021,878 bytes, the lookups' 8,901,878
+  and 1,120,000 more, the eight bytes of ` dynamic` on each of its 140,000 formula rows, and printing it 22,604,790,
+  the lookups' and as much more.
+- *`check_recalc_floors`*: a list of fixtures derived and not built (`$derived`), each with a native row and a memory
+  row and no Excel row nor program, its native row measuring its twin's file to its sums, its rates no more than the
+  margin under its twin's, and its bytes its twin's at every point but its save, which is its twin's and the word on
+  each formula row, its printing at most its twin's by as much, in the baseline's rows and in the memory runner's
+  check mode alike (`Get-DerivedProblems`); the runners' check modes over ten fixtures and thirteen. Nineteen cases join
+  the control, each failing by its rule's words or passing at its bound, and two save-bound cases move from the lookups
+  to the criteria, the twin rule seeing the lookups apart from their dynamic twin. `tools/bench_recalc.ps1` counts the
+  derived fixture's rows. The native block of 2026-11-17 is pasted whole, the floors as the instrument keeps them, the
+  derived fixture's joining ('lookups-dynamic whole' 15,900,000, 'edit' 88) with its six ceilings.
+- *The check fails on two things the slice did not do*:
+  1. *Excel's half.* Every built file moved with 0.14.0's stamp since the baseline of 2026-11-16, so its eighteen Excel
+     rows measured files the runner no longer builds. The owner ran Excel's half again, 2026-11-17
+     (`tools/bench_recalc_excel.ps1`), and its block is pasted over the Excel rows: the same files and the same sums
+     as the native half's, the lookups 92.1 ms a whole frame on 20 threads and 787.9 on one beside the machine's 7.57.
+  2. *Six floors, the Found below*: 'chain whole' (47.4 million formulas a second under 63.0), 'chain edit' (637.7
+     under 667), 'adder whole' (18.3 million under 25.5), 'adder edit' (1,086 under 1,120), 'adder-named whole' (18.2
+     million under 25.4) and 'adder-named edit' (1,099.7 under 1,110). Every other floor clears, and no ceiling rose;
+     with both halves pasted the check fails on these six alone.
+- *The owner's word, 2026-11-17*, "Recommendation approved: commit (c), then fix the regression (b)": the lowering
+  commits now, its law, its goldens and its notes, and the floors' pair (the two runners, `bench/common.rs`,
+  `bench_recalc.ps1` and `check_recalc_floors` with both halves of 2026-11-17 pasted) stays in the tree, uncommitted,
+  until the regression's fix, whose native run carries both, Excel's half standing since a fix of the machine moves no
+  built file. No floor goes down. The owner opened the stripped `spills_saved.xlsx` in Excel with no repair.
+- *Verified as CI runs it:* rustfmt; clippy over every target with and without `c-abi` at `-D warnings`; the
+  workspace's 940 tests, the language's 536 (its 534 and the two); `run_checks.ps1` 59 of 60, `check_recalc_floors` as
+  above; `prove.ps1 -Control`, its mutant failing all 71, and `-Impl` over the door, 70; both wasm modules, the import
+  section empty and the ten exports, `build_web.ps1 -NoBuild` and `check_web_offline`; the language's package from its
+  tarball on a fresh target, 667; Alonzo's suite at `dc72170` over the tree's language by `[patch.crates-io]`, the path
+  compiled, 113 passing with its cartridges required; Buffet's at `6f215a1` over that Alonzo copy and the tree, both
+  pins moved (`vla-lang` to `=0.14.0`, each patched by path), both paths compiled, 107 passing.
+- *Predictions against the slice:* the pair within 2% of its twin, it 1.4% faster; its memory the twin's to the byte,
+  but for a save longer by the word, which the prediction did not say; nine census goldens and not ten, the legacy array
+  formulas kept whole; no calc golden moved; Alonzo's and Buffet's suites pass, their frames not measured here.
+- *Docs:* `docs/RELEASES.md` opens `## 0.15.0` with the slice's note; the roadmap's line.
+- *Found:*
+  1. *A cell computed alone by its program got slower with `9233997`* (`KERNEL.29`, its third slice's third part,
+     released in 0.14.0). Release runners pinned to the performance cores and alternated, 2026-11-17: at its parent
+     `664c6fc`, the chain's whole frame 0.589 ms, its edit 1.365, the adder's whole frame 0.276 and the named adder's
+     0.275; at `9233997`, 0.871 (+48%), 1.729, 0.476 (+72%) and 0.472. The floors' own commit, `ca20f20`, measures
+     0.589 and 0.587, 0.279 and 0.276 today, as on 2026-11-16, so the machine stands and the code moved. The chain's
+     20,000 balances are each computed alone, one a level, and the adders' gates mostly so; `9233997` split
+     `Program::run` into `run` and an inlined `exec`, added `Op::Apply` for a call kept, and gave each call a register
+     file of its own. The floors caught it at the first run of their instrument after it; nothing of this item moves it
+     (`5b04654`'s runner and the tree's measure alike: 0.807 and 0.837, 0.451 and 0.448). The owner's to rule: a fix
+     first, or the six floors lowered to this run less the margin with the reason written, as 'netlist whole' was on
+     2026-11-16.
+  2. *The floors outlive a release unmeasured*: 0.14.0 was cut with the floors' baseline of 2026-11-16, its files
+     0.13.0's stamp and its code before `9233997`; no instrument ran between, and `check_recalc_floors` passes over a
+     pasted baseline whatever the code has become, the runners' check modes holding values and bytes and not time.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

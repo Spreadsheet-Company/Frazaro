@@ -2,6 +2,21 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.15.0
+
+### What changed
+
+- **A dynamic formula costs what its legacy twin costs.** An engine computes
+  a dynamic-array formula, as Excel 365 stores a formula typed where it could
+  spill, by the program and the runs its legacy twin keeps, wherever its
+  formula holds no array and asks no `ROW` or `COLUMN` of many cells: 140,000
+  lookups, each its own dynamic formula, take 7.5 ms a whole frame where they
+  took 37 ms, their legacy twin's 7.6, and hold the twin's bytes to the byte.
+  Where its reading parts from the twin's, a range or a name where one value
+  is wanted, or an `INDEX` picking many cells, the cell is computed whole as
+  before, so that no value moves; a legacy array formula is still computed
+  whole at each cell (KERNEL.55, its first slice).
+
 ## 0.14.0
 
 ### What changed
