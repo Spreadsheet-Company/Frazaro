@@ -350,6 +350,7 @@ enum Walking<'a> {
     Cells(Walk<'a>),
     Slots(super::dense::DenseWalk<'a>),
     Sparse(crate::machine::SparseWalk<'a>),
+    Listed(std::vec::IntoIter<(u32, u32)>),
 }
 
 impl<'a> Walked<'a> {
@@ -374,6 +375,12 @@ impl<'a> Walked<'a> {
     pub(crate) fn sparse(walk: crate::machine::SparseWalk<'a>) -> Walked<'a> {
         Walked(Walking::Sparse(walk))
     }
+
+    /// A walk of places listed in row-major order (KERNEL.55): a sheet's cells
+    /// with the cells a door's spill filled that the sheet does not hold.
+    pub(crate) fn listed(at: Vec<(u32, u32)>) -> Walked<'static> {
+        Walked(Walking::Listed(at.into_iter()))
+    }
 }
 
 impl Iterator for Walked<'_> {
@@ -386,6 +393,7 @@ impl Iterator for Walked<'_> {
             Walking::Cells(walk) => walk.next().map(|(at, _)| at),
             Walking::Slots(walk) => walk.next(),
             Walking::Sparse(walk) => walk.next(),
+            Walking::Listed(at) => at.next(),
         }
     }
 }
@@ -482,6 +490,7 @@ pub fn is_formula(content: &Content) -> bool {
             | Content::SharedMaster { .. }
             | Content::SharedChild { .. }
             | Content::DynamicFormula(_)
+            | Content::DynamicSpill { .. }
             | Content::ArrayFormula(_)
             | Content::ArrayBlock { .. }
     )
@@ -815,7 +824,7 @@ pub fn plan(
     extents: &[Extent],
     texts: &HashMap<CellId, String>,
 ) -> Plan {
-    plan_in(model, names, extents, texts, &Places::new())
+    plan_in(model, names, extents, texts, &Places::new(), &|_, _| {})
 }
 
 /// The cells of the blocks legacy array formulas fill (KERNEL.55), each but
@@ -826,32 +835,37 @@ pub(crate) type Places = HashMap<CellId, CellId>;
 /// after its anchor, and each formula reading one, by its address or in a
 /// range, after it, as a formula reading a formula cell is. `blocks` are the
 /// blocks, each its sheet, its anchor and its range, whose cells `places`
-/// names.
+/// names. A formula reading a cell a spill may fill, by its address or in a
+/// range, is after the spill's anchor, and no such cell is planned.
 pub(crate) fn plan_placed(
     model: &Workbook,
     names: &Names,
     extents: &[Extent],
     texts: &HashMap<CellId, String>,
     (places, blocks): (&Places, &[(usize, A1Range)]),
+    spills: &super::spill::Spills,
 ) -> Plan {
-    if places.is_empty() {
-        return plan_in(model, names, extents, texts, places);
+    if places.is_empty() && spills.is_empty() {
+        return plan_in(model, names, extents, texts, places, &|_, _| {});
     }
     let placed = Placed {
         book: model,
         places,
         blocks,
+        spills,
     };
-    plan_in(&placed, names, extents, texts, places)
+    let owners = |id: CellId, f: &mut dyn FnMut(CellId)| spills.owners(model, id).for_each(f);
+    plan_in(&placed, names, extents, texts, places, &owners)
 }
 
 /// A workbook as [`plan_placed`] reads it (KERNEL.55): a block's cell holds
-/// its anchor's formula, so that a read of it, by its address or in a range,
-/// is an edge to it.
+/// its anchor's formula, and so does a cell a spill may fill, so that a read
+/// of it, by its address or in a range, is an edge to it.
 struct Placed<'a> {
     book: &'a Workbook,
     places: &'a Places,
     blocks: &'a [(usize, A1Range)],
+    spills: &'a super::spill::Spills,
 }
 
 impl Model for Placed<'_> {
@@ -873,8 +887,11 @@ impl Model for Placed<'_> {
 
     fn formula(&self, id: CellId) -> Option<crate::grid::Formula<'_>> {
         Model::formula(self.book, id).or_else(|| {
-            let anchor = self.places.get(&id)?;
-            Model::formula(self.book, *anchor)
+            let anchor = match self.places.get(&id) {
+                Some(anchor) => *anchor,
+                None => self.spills.owners(self.book, id).next()?,
+            };
+            Model::formula(self.book, anchor)
         })
     }
 
@@ -908,17 +925,34 @@ impl Model for Placed<'_> {
                 }
             }
         }
+        // A spill's anchor, for an area meeting the cells it may fill, which
+        // its plan reads as the anchor's own.
+        let met = A1Range {
+            top: area.top,
+            left: area.left,
+            bottom: area.bottom,
+            right: area.right,
+        };
+        for (_, row, col) in self.spills.meeting(area.sheet, met) {
+            f(row, col);
+        }
     }
 }
 
+/// What tells each anchor of a spill that may fill a cell (KERNEL.55).
+type Owners<'a> = dyn Fn(CellId, &mut dyn FnMut(CellId)) + 'a;
+
 /// [`plan`] over a grid whose formula cells are `texts`'s and `places`'s,
-/// each place with one edge, to its anchor.
+/// each place with one edge, to its anchor; a cell read alone that holds no
+/// formula read as each of `owners`'s answers, the anchors of the spills that
+/// may fill it (KERNEL.55).
 fn plan_in<M: Model + ?Sized>(
     model: &M,
     names: &Names,
     extents: &[Extent],
     texts: &HashMap<CellId, String>,
     places: &Places,
+    owners: &Owners<'_>,
 ) -> Plan {
     let mut ids: Vec<CellId> = texts.keys().chain(places.keys()).copied().collect();
     ids.sort_unstable();
@@ -937,7 +971,13 @@ fn plan_in<M: Model + ?Sized>(
         cells.clear();
         areas.clear();
         reads(model, names, id.0, &texts[id], 0, (&mut cells, &mut areas));
-        let mut edges: Vec<usize> = cells.iter().filter_map(|d| index.get(d).copied()).collect();
+        let mut edges: Vec<usize> = Vec::with_capacity(cells.len());
+        for d in &cells {
+            match index.get(d) {
+                Some(&v) => edges.push(v),
+                None => owners(*d, &mut |a| edges.extend(index.get(&a).copied())),
+            }
+        }
         for a in &areas {
             let v = *vertices.entry(*a).or_insert_with(|| {
                 let mut inside: Vec<usize> = Vec::new();

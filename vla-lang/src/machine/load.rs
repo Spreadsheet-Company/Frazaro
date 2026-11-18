@@ -835,7 +835,9 @@ impl Draft {
                         }
                     }
                     Content::Formula(text) => own(text, Kind::Plain),
-                    Content::DynamicFormula(text) => own(text, Kind::Dynamic),
+                    Content::DynamicFormula(text) | Content::DynamicSpill { text, .. } => {
+                        own(text, Kind::Dynamic)
+                    }
                     Content::ArrayFormula(text) | Content::ArrayBlock { text, .. } => {
                         own(text, Kind::Array)
                     }

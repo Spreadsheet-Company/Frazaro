@@ -268,8 +268,10 @@ pub trait Env {
     /// Excel 365's kind, or a row's word said (KERNEL.70), in which a range
     /// where one value is wanted is read
     /// whole as an array (slice f), an answer of many values being a spill,
-    /// labelled at its cell until spills come; a formula of the legacy kind
-    /// intersects such a range with its cell instead ([`Ctx::one`]).
+    /// which `Calc` lays into the cells beside it (KERNEL.55) and an engine's
+    /// machine labels at its cell until the item's fifth slice; a formula of
+    /// the legacy kind intersects such a range with its cell instead
+    /// ([`Ctx::one`]).
     /// `false`, the legacy kind, unless an environment says otherwise.
     fn dynamic(&self) -> bool {
         false
@@ -281,6 +283,16 @@ pub trait Env {
     /// of an answer of many. `false`, unless an environment says otherwise.
     fn array_formula(&self) -> bool {
         false
+    }
+
+    /// The cells a dynamic formula's anchor spilled into, as the environment
+    /// computed them (KERNEL.55; `A1#`, `ANCHORARRAY`): its extent, or its own
+    /// cell for an answer of one value, `#SPILL!` among them; or the reason
+    /// its anchor was not computed. `None`, every `A1#` of a dynamic formula
+    /// labelled a spill, unless an environment computes spills: `Calc` does,
+    /// and an engine's machine at the item's fifth slice.
+    fn spilled(&self, _anchor: CellId) -> Option<Result<Area, Reason>> {
+        None
     }
 }
 
@@ -1046,9 +1058,12 @@ impl<'a> Ctx<'a> {
     /// A formula's answer as its cell holds it (KERNEL.8, slice f): one value
     /// as [`Ctx::one`] reads it; of an array of many, its first value in a
     /// legacy formula, as Excel's `@` takes it, and a spill in a dynamic one,
-    /// labelled at its cell until spills come; of a range, in a legacy array
-    /// formula, its first cell's, and of a range of many cells in a dynamic one a
-    /// spill as well, one thing with one name (KERNEL.70).
+    /// labelled at its cell; of a range, in a legacy array formula, its first
+    /// cell's, and of a range of many cells in a dynamic one a spill as well,
+    /// one thing with one name (KERNEL.70). `Calc` computes a spill its plan
+    /// bounds before it asks this (KERNEL.55, `Calc::spill`), and names one
+    /// it does not a spill no plan bounds; an engine's machine labels each
+    /// until the item's fifth slice.
     pub fn result(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
             // A formula whose value is a function's, as Excel's `LAMBDA` in a

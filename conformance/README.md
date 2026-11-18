@@ -2711,3 +2711,38 @@ Oracle 12 gains a block's cells and a fixture Excel saved.
   through `A1#`, labelled `(not-computed "a spill")` until the item's next slice; a defined name's
   spill, `Rate#`, a construct not read; `A1#` of a legacy array formula, which no save shows, labelled
   by the function's name; and the record's rows for a block's cells, the item's next slice.
+
+## Amendment of 2026-11-18: a dynamic formula's spill (`KERNEL.55`, its third slice)
+
+Oracle 12 gains a spill's cells, and the door's builds hold them.
+
+- **What is held.** A dynamic formula whose answer holds many values spills: the door plans each by
+  the most rows and columns its text can answer (a `SEQUENCE` of constants, a range, an operator or a
+  function of one value over one, `FILTER`'s array whole, `INDEX` of a row or a column, `A1#` its
+  anchor's), the extent its file saved where its text gives none, and computes its anchor once, laying its
+  answer into the cells beside and below it, each its place, as Excel's save of the item's probe lays
+  one. Each spilled cell is a `calc` row of its own, its formula its anchor's, its computed value its
+  place and its cached value the one the file saved there; a cell the file saved its spill reaching
+  and its answer no longer does holds nothing. A spill meeting a value, a formula, a merged range, a
+  legacy array formula's block or the sheet's last row or column is `#SPILL!` at its anchor, its
+  would-be cells empty, as Excel blocks one; a spill whose anchor stands in another's box is blocked
+  by that anchor where its answer reaches it. `A1#` is the extent an anchor spilled into, its own cell
+  for an answer of one value, and `#SPILL!` for a blocked anchor, as the save answers it. A formula
+  reading a spilled cell, by its address, by a range or by `A1#`, reads the value laid there, never
+  the file's. The door's build writes a spill as Excel saves one: its anchor's `ref` the extent, and
+  each of its other cells holding its value.
+- **The fixtures.** `spills_saved_calc.vla`: 232 rows, 219 `agree`, none differing; every spill of
+  the probe's Spills and Typed sheets agrees with the extent and the values Excel saved. The saves
+  that held a spill move to `agree` at it: `typed_saved_calc.vla` 107 rows, every one agreeing, its
+  nine extents among them; `lookups_saved_calc.vla`'s `A106:B106` and its `A107` `#SPILL!`;
+  `intersect_saved_calc.vla` 49, every one agreeing; `arrays_saved_calc.vla`'s `D1:E2` and `G1:G2`;
+  `lambda_saved_calc.vla`'s `MAP`, `#SPILL!`; `fixture_calc.vla`'s `F1:F2`. The door's builds of the
+  lookups, intersection and arrays fixtures are built again, each spill held with its values, and agree
+  where they spill; no other row of them moves.
+- **What it does not hold.** Two spills whose cells may meet, neither anchor in the other's box, which
+  Excel settles by the order it computes them in (the probe's `K1` and `J3`), and what reads them:
+  labelled `(not-computed "a spill meeting another")`, as the stop rule holds an edge Excel answers by
+  its order. A spill no plan bounds, one whose text gives no bound and whose file saved no extent, or
+  that answers past both, labelled `(not-computed "a spill no plan bounds")`. A spill in an engine's
+  machine, labelled `(not-computed "a spill")` until the item's fifth slice; and the record's rows for a
+  spilled cell and a block's, the item's own next step.

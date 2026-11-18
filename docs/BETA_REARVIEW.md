@@ -47398,6 +47398,135 @@ uncommitted.
 *Committed 2026-11-18* at the owner's word, "Hand tests pass. Commit slice (b), then proceed with slice (c)": over
 `2d23525`, the slice's 34 files.
 
+*Slice (c)'s first part built 2026-11-18: spills in the door, and the build writing them.* At the owner's word, "Hand
+tests pass. Commit slice (b), then proceed with slice (c)": over `741face`, uncommitted. The slice's other part, the
+record's rows and words (decision 2), is its next step: it moves the record's format, a machine's load and reflect's
+relations, and Alonzo's page reads them.
+- *The bound* (decisions 4 and 5): `calc/spill.rs`, new, `bound`, the most rows and columns a parse can answer, read
+  off its text before anything computes it: a constant one value, an array constant its own, a reference and a range
+  between expressions their reach's, an operator the lift of its operands', `SEQUENCE` and `MAKEARRAY` of counts
+  written in, `FILTER`, `SORT`, `SORTBY`, `UNIQUE`, `TAKE`, `DROP`, `ISFORMULA` and `FORMULATEXT` their array's,
+  `TRANSPOSE` its array's turned, `ROW` and `COLUMN` a reference's rows and columns, `BYROW`, `BYCOL`, `SCAN` and
+  `MAP` theirs, `TOCOL`, `TOROW`, `HSTACK`, `VSTACK`, `CHOOSECOLS`, `CHOOSEROWS`, `WRAPROWS`, `WRAPCOLS`, `EXPAND`
+  and `MMULT` by their shapes, `INDEX` one row or column where a number past 0, a negative one, a text or a match's
+  place picks it and the whole where a 0 or a cell may, `XLOOKUP` the row or the column of its returned array,
+  `IF`, `IFS`, `SWITCH`, `CHOOSE`, `IFERROR` and `IFNA` the lift of what they choose from, `A1#` its anchor's bound,
+  and any other function the library holds strict, which answers one value, the lift of what its parameters of one
+  value are given. A count read from a cell, a name, `OFFSET`, `INDIRECT`, `REDUCE` and a function the library does
+  not hold give none. The scoping's eighteen labelled spills each have the bound their text gives, seventeen exactly.
+- *The plan* (decision 5, as recommended): `Spills::of` plans each dynamic formula by its parse's bound, the extent its
+  file saved where the parse gives none, and its anchor alone where neither stands; a spill whose box, its bound's
+  cells and its saved extent, holds its anchor alone is none. Each sheet's boxes are kept as rectangles,
+  `grid::Rects` (`KERNEL.49`'s), tagged by their anchors, so that a read and a range meet them by a search and no cell
+  is listed. A box past 2^18 cells, a whole column's `FILTER` among them, is labelled `(not-computed "a spill no plan
+  bounds")`. Two boxes meeting, neither anchor standing in the other's box, are each labelled `(not-computed "a spill
+  meeting another")`: the probe's `K1` and `J3`, which Excel settled by its order of computation, the stop rule's
+  label. One anchor standing in another's box is no such meeting, since no order settles it: an extent of the outer
+  holding any cell the inner may fill holds the inner's anchor too, a formula, which blocks it. The plan
+  (`graph::plan_placed`) reads a cell a box may fill as each of its anchors (`Spills::owners`, a cell held by the
+  sheet outside an anchor's saved extent its own), so that a formula reading it, by its address or in a range, is
+  after them; a spill reading a cell its own box holds is a cycle, as Excel's circular reference is.
+- *The anchor* (`Calc::spill`): computed once, its answer an array, or a range read no further than its bound. An
+  answer of one value spills nothing; one past its bound is labelled a spill no plan bounds; one whose extent passes
+  the sheet's last row or column, or meets a cell holding a formula, a value outside the extent its file saved, a
+  legacy array formula's block or a merged range (`Calc::blocked`) is `#SPILL!`, its would-be cells empty. Otherwise
+  its answer is poured (`Calc::pour`): each cell of its extent its place, as a lift reads it, settled as a formula's
+  answer is, an empty place 0 (the probe's `S3`, which `ISBLANK` finds not blank); each cell its file saved past the
+  answer empty, never its last value; and every one of them its anchor's reason where the anchor was not computed. A
+  dynamic formula planned at its cell alone that answers many values is labelled a spill no plan bounds where it was
+  `a spill`.
+- *The reads.* A spilled cell is read as computed (`Calc::read`); a cell a box may fill that the answer left empty
+  reads as nothing, or as its first anchor's reason. A walk of a range visits each spilled cell the sheet does not
+  hold, a model built in memory (`Walked::listed`, the extents over such cells kept by sheet), and the sheet's extent
+  grows to hold every extent, so that a whole column, and a lookup's index over one, reads a spill past the cells the
+  model holds. `A1#` (`Env::spilled`, a provided method answering `None` for an engine's machine, whose spill stays
+  labelled `a spill`): the extent, the anchor's own cell for an answer of one value, `#SPILL!` for a blocked anchor,
+  as the save answers `Spills!A24`, and the anchor's reason.
+- *The door's rows.* `Calc::cells` holds each spilled cell and each cell the file saved its spill in, once its anchor
+  is computed, and `Calc::formula` gives it its anchor's text, as Excel's bar shows it: `frazaro calc` prints a row
+  for each, its value held to the one the file saved there. A merged range reaches the door: a provided method of
+  `rows::Sink`, `merged`, which the xlsx reader tells for each `mergeCell` after the sheet's cells, its walk going on
+  past `sheetData` where it stopped; the OpenDocument reader tells none, its files holding no dynamic formula. A
+  dynamic formula whose file's `ref` holds more than its cell is read as `Content::DynamicSpill { text, range }`, so
+  that the door tells the values its spill last left from a person's.
+- *The writer* (decision 10): written with a recalculation's values, a dynamic formula's `ref` is the extent its
+  spill computed (`Values::spill`, a provided method), each of the extent's other cells written holding its value in
+  the default format, and the sheet's dimension holding the extent, as Excel's save of the probe holds a spill; a
+  blocked one's is its cell, holding no value, `#SPILL!` cached as `#CALC!` is, none. Written with none, as before.
+  `frazaro build` writes a spill whole: the lookups, intersection and arrays fixtures, the door's builds of 0.10.1
+  holding spills, built again, each `frazaro rebuild` yes, and no row of theirs moving but a spill's.
+- *A machine's parity.* An engine's machine labels a spill `a spill` until the item's fifth slice, so that the three
+  tests holding a machine to `Calc` over dynamic formulas take `Calc::unspilled` (`#[doc(hidden)]`): `Calc` as the
+  machine reads a grid, no spill planned, each labelled as before. Decision 11's law of a machine's spills against
+  `Calc`'s is the fifth slice's.
+- *The oracle.* `check_recalc_golden`, its goldens written again by the door, CRLF: `spills_saved` 232 rows, 219
+  agreeing where 128, none differing, every spill of the probe's Spills and Typed sheets agreeing with the extent and
+  the values Excel saved, blocked where Excel blocked it, by a value, a formula, a merged range and the sheet's edges,
+  the two meeting at `K3`, `K1:K4` and `J3`, and the two reading them labelled, and six the language's own (three
+  functions it does not hold, an `IFS` of an array and its spill's two cells); `typed_saved` 107 rows where 58, every
+  one agreeing, its nine extents among them; `lookups_saved` 166, 163 agreeing, `A106:B106` spilled and `A107`
+  `#SPILL!`, blocked by the cells below it as Excel saved it; `intersect_saved` 49 where 31, every one agreeing;
+  `arrays_saved` 217, 216 agreeing, `D1:E2` and `G1:G2`; `lambda_saved` 101 agreeing, its `MAP` `#SPILL!`; `fixture`
+  31, 27 agreeing, `F1:F2`. The built fixtures: `lookups` 166 and 162 agreeing, `intersect` 49 and 49, `arrays` 214
+  and 204, `lambda`'s `MAP` `#SPILL!`; the check counts a `#SPILL!` holding no value as it counts `#CALC!`, a value no
+  file holds as a cell's own. The floors raised; no other golden moves, census, reflect, view or build, and no floor of
+  `check_recalc_floors`. The scoping's predictions for (c): the eighteen labelled spills computed, each spilled cell
+  held to its save's cached value, the typed save's nine extents, `B451:M451` among them; the lookups' `A107` and the
+  lambda fixture's `MAP` `#SPILL!`, blocked by the cells below them, as Excel saved them; the arrays fixture's `D1` and
+  `G1` computed: each held.
+- *Tests.* `Calc`'s five: the probe's spills in small, none of their cells held by the sheet, read through `#`, by
+  their addresses, by a range, by a whole column and from the sheet before, and computed again alike after a restart;
+  every budget, 1, 3 and 7, alike; each block of the probe's, a value, a formula, a merged range, a legacy array
+  formula's block held and one held at its anchor alone, the last row and the last column, with each reached
+  exactly, and what reads a blocked anchor; two spills that may meet labelled, and an anchor in another's box planned
+  both, blocked and spilled; a spill no plan bounds, one its saved extent plans, a saved extent past its answer and
+  one holding a formula, a spill reading its own box and two reading each other's through `#`, cycles, and
+  `Calc::unspilled`. The bound's cases, and `Spills::of`'s boxes, labels and owners. The writer's spill written over its
+  extent, a blocked one over its cell, an anchor's saved extent with values and without, and read back agreeing. The
+  core's tests of Excel's save of the probe and of its build read back, rewritten for the spills; the language's five
+  tests that held a spill's label, each now its spill or its `#SPILL!`, the case below it blocking it.
+- *Mutants*: in a copy of `741face` with the slice's files and a target of its own, each held to its crate's tests: 41,
+  34 killed at the first round. Of the seven survivors, two went with the code they mutated: planning a spill by the
+  larger of its bound and its saved extent, which decision 5 does not ask and which only a wrong bound would need (the
+  plan is the parse's bound wherever it gives one, the reading an engine will share), and a read of a cell a box may
+  fill answering empty itself, which falling through to the sheet's cell already answers, every cell an anchor owns
+  that the sheet holds being poured. Five were killed by tests added: an anchor its own saved extent holds owning
+  none of its cells; a block whose cells the sheet does not hold blocking a spill; a one-value anchor's `#` labelled
+  as a machine reads it; the writer's dimension past the model's cells; and the sheet's extent grown, held by a sorted
+  search, whose bisection the extent bounds. The read so simplified, its reason's arm, again killed: none surviving.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 960 tests; `run_checks.ps1` 60 of 60; `prove.ps1 -Control`, its mutant failing all
+  71, and `-Impl` over the door, 70; both wasm modules, the import section empty and the 14 and 10 exports,
+  `build_web.ps1 -NoBuild` and `check_web_offline`; the language's package from its tarball on a fresh target,
+  681, `tests/limits.rs` and `tests/strangers.rs` among them; Alonzo's suite at `8c00e21` over the tree's language
+  by `[patch.crates-io]`, the path compiled, 113 with its cartridges required; and Buffet's at `6f215a1` over that
+  Alonzo copy and the tree, both pins moved, both paths compiled, 107. Under Windows PowerShell 5.1 alone, pwsh not
+  installed here.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, two notes added and two rewritten; the roadmap's line;
+  `conformance/README.md`'s amendment of 2026-11-18, the third slice's; `cli/README.md`'s calc rows; the check's
+  header; `calc/mod.rs`'s module doc and `eval.rs`'s two.
+- *Found:*
+  1. The record's rows: the view of a built model prints its anchor's value and no spilled cell, where reflect's
+     reading of the file the build writes prints each spilled cell as a `cell` row, so that oracle 11 waits, for a
+     model holding a spill, on decision 2's rows, the slice's next step. No golden holds such a model.
+  2. `ISFORMULA` and `FORMULATEXT` of a spilled cell answer as a cell of its own value does, `FALSE` and `#N/A`,
+     as of a block's cell (slice (b)'s first *Found*); no save shows it.
+  3. Two spills are labelled by their boxes, so that two `FILTER`s side by side, or one above another within its
+     array's rows, are labelled though their answers never meet, where Excel computes both; a box is a bound's.
+  4. `--counts`' `formulas` counts spilled cells with the formula cells, as it counts a block's.
+  5. A range over spilled cells a model does not hold is walked by a list of its cells, sorted, where a sheet's cells
+     are walked in place: a cost of a model built in memory alone, no file's.
+  6. A workbook read from a file and written with a recalculation's values writes the cells its spill no longer
+     reaches as the constants they were; no door writes a read workbook with values today.
+- *The owner's hand test, 2026-11-18:* Excel 365 opened the door's three builds written again with no repair:
+  `arrays.xlsx`'s `functions` tab, `D1:E2` 1 and 2 over 3 and 4 inside the spill's border, the bar at `D1`
+  `=SEQUENCE(2,2)`, and `G1:G2` 5 and 9; `lookups.xlsx`'s `lookups` tab, `A106:B106` 20 and `r2`, the bar
+  `=INDEX(table!A1:B8,2,0)`, and `A107` `#SPILL!`; and `intersect.xlsx`'s `dynamic` tab, `A1:A8` and `C1:C8` 10 to
+  80, the bar at `A1` `=CHOOSE(1,data!A1:A8)`, and `H2:L2` 1 to 5.
+
+*Committed 2026-11-18* at the owner's word, "Hand tests pass; if everything looks good, commit before proceeding with
+part 2": over `741face`, the part's 37 files.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

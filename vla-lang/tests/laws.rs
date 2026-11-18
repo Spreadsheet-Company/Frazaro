@@ -1975,10 +1975,11 @@ fn a_row_s_word_keeps_its_formula_s_kind() {
         let mut m = load(&rows, &format!("seed {seed}"));
         let when = format!("seed {seed}\n{rows}");
         // At every cell, what `Calc` computes over the grid it lends: the kinds
-        // kept in it, and no twin read.
+        // kept in it, and no twin read; a spill labelled as the machine labels
+        // one until KERNEL.55's fifth slice computes it there.
         let book = m.workbook();
         let want: Vec<(CellId, String)> = {
-            let calc = Calc::run(&book, &lib);
+            let calc = Calc::unspilled(&book, &lib);
             book.sheets[0]
                 .cells
                 .iter()

@@ -339,6 +339,13 @@ pub trait Sink {
     /// ignores it.
     fn hidden_row(&mut self, _sheet: &str, _row: u32) {}
 
+    /// A range of this sheet is merged (KERNEL.55): what a door computing the
+    /// workbook needs, since a merged range blocks a dynamic formula's spill,
+    /// told by a reader of a file that may hold one. Nothing, unless a sink
+    /// says otherwise: the printer ignores it, the record's own `merge` rows
+    /// being [`Sink::record`]'s.
+    fn merged(&mut self, _sheet: &str, _range: &str) {}
+
     /// One of the record's own rows (KERNEL.57), from a walk that prints a
     /// workbook as the record prints a sheet whole. Nothing, unless a sink
     /// says otherwise: the printer prints it.

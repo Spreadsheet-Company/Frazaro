@@ -584,12 +584,37 @@ fn the_spills_probe_is_its_builder_s() {
 fn the_probe_reads_back_with_every_formula_where_its_builder_put_it() {
     // Read back by the door as Excel's save will be read: each probe a
     // formula at its cell, its text as written, each block's other cells its
-    // anchor's text (the item's second slice), and the typed texts values;
-    // 104 formulas, 42 cells of blocks and 34 texts, so that a probe added or
-    // lost is seen.
+    // anchor's text (the item's second slice), each cell a spill fills its
+    // anchor's (the third), and the typed texts values; 104 formulas, 42
+    // cells of blocks, 39 of spills as built, `Data!K1` 3, and 34 texts, so
+    // that a probe added or lost is seen.
     let text = crate::reflect::calc::calc_text(&bytes(), FIXTURE, &crate::excel::library())
         .unwrap_or_else(|r| panic!("{}", r.text));
-    let rows: Vec<&str> = text.lines().filter(|l| l.starts_with("(calc ")).collect();
+    let all: Vec<&str> = text.lines().filter(|l| l.starts_with("(calc ")).collect();
+    // A spilled cell's row, its anchor's formula at a cell no probe holds.
+    let probed = |r: &&str| {
+        PROBES
+            .iter()
+            .any(|(name, addr, _, _)| r.starts_with(&format!("(calc \"{name}\" \"{addr}\" ")))
+    };
+    let dynamic = |r: &&str| {
+        PROBES.iter().any(|(name, _, held, formula)| {
+            matches!(held, Dynamic)
+                && r.starts_with(&format!("(calc \"{name}\" "))
+                && r.contains(&format!(" \"{}\" ", formula.replace('"', "\\\"")))
+        })
+    };
+    let spilled: Vec<&str> = all
+        .iter()
+        .filter(|r| !probed(r) && dynamic(r))
+        .copied()
+        .collect();
+    assert_eq!(spilled.len(), 39, "{spilled:#?}");
+    let rows: Vec<&str> = all
+        .iter()
+        .filter(|r| !spilled.contains(r))
+        .copied()
+        .collect();
     let mut cells: Vec<(&str, String, &str)> = Vec::new();
     for (name, addr, held, formula) in PROBES {
         cells.push((name, addr.to_string(), formula));
@@ -640,16 +665,21 @@ const SAVED: &str = concat!(
 
 #[test]
 fn excel_s_save_of_the_probe_agrees_wherever_the_door_computes_it() {
-    // The item's second slice, held to Excel's save of its probe: every cell
-    // of the Blocks sheet, each block's laid, and of the Legacy sheet computed
-    // and agreeing, the fold of the save's two rules among them; `A1#` of a
-    // spilled cell and of a value #REF! as Excel's; no row differing; and a
-    // spill and what reads one labelled until the item's next slice.
+    // The item's second and third slices, held to Excel's save of its probe:
+    // every cell of the Blocks sheet, each block's laid, and of the Legacy
+    // sheet computed and agreeing, the fold of the save's two rules among
+    // them; every spill of the Spills sheet and of the Typed sheet computed,
+    // each cell it fills agreeing with the value Excel saved there, blocked
+    // where Excel blocked it, by a value, a formula, a merged range and the
+    // sheet's edges; `A1#` of a spilled cell and of a value #REF! as Excel's,
+    // and of a blocked anchor #SPILL!; no row differing; and the two spills
+    // meeting, and what reads them, labelled, as the scoping's stop rule
+    // holds an edge Excel settles by its order.
     let saved = std::fs::read(SAVED).expect("Excel's save of the probe");
     let text = crate::reflect::calc::calc_text(&saved, SAVED, &crate::excel::library())
         .unwrap_or_else(|r| panic!("{}", r.text));
     let rows: Vec<&str> = text.lines().collect();
-    assert_eq!(rows.len(), 180, "{text}");
+    assert_eq!(rows.len(), 232, "{text}");
     let on = |sheet: &str| {
         let at = format!("(calc \"{sheet}\" ");
         rows.iter()
@@ -677,5 +707,66 @@ fn excel_s_save_of_the_probe_agrees_wherever_the_door_computes_it() {
             "{row}"
         );
     }
-    assert_eq!(rows.iter().filter(|r| r.ends_with(" agree)")).count(), 128);
+    // The Spills sheet: every row agreeing but the two meeting at K3, K1's
+    // four cells and J3, and the two reading them.
+    let meeting = ["K1", "K2", "K3", "K4", "J3", "A31", "A32"];
+    let spills = on("Spills");
+    assert_eq!(spills.len(), 57 + 44, "{spills:#?}");
+    for row in &spills {
+        let met = meeting
+            .iter()
+            .any(|a| row.starts_with(&format!("(calc \"Spills\" \"{a}\" ")));
+        if met {
+            assert!(
+                row.contains("(not-computed \"a spill meeting another\")"),
+                "{row}"
+            );
+        } else {
+            assert!(row.ends_with(" agree)"), "{row}");
+        }
+    }
+    let at = |addr: &str| {
+        let head = format!("(calc \"Spills\" \"{addr}\" ");
+        spills
+            .iter()
+            .find(|r| r.starts_with(&head))
+            .copied()
+            .unwrap()
+    };
+    // A blocked anchor's `A1#`, #SPILL! (A24); the sheet's last row filled
+    // exactly and read (C1048575); a spill of a spill read by a range (A33).
+    assert!(at("A24").contains("(error \"#SPILL!\") (error \"#SPILL!\") agree"));
+    assert!(at("C1048575").ends_with(" 20 20 agree)"));
+    assert!(at("A33").ends_with(" 210 210 agree)"));
+    for addr in ["F1", "G1", "H1", "A1048575", "XFC1"] {
+        assert!(
+            at(addr).contains("(error \"#SPILL!\") (error \"#SPILL!\") agree"),
+            "{addr}"
+        );
+    }
+    // The Typed sheet: every spill computed, an XLOOKUP's row and an IF's
+    // range among them, and `Spills!A1#` read from another sheet; the six left
+    // labelled are the language's own, three functions it does not hold and
+    // an IFS of an array, its spill's two cells with it.
+    let typed = on("Typed");
+    let labelled: Vec<&str> = typed
+        .iter()
+        .filter(|r| !r.ends_with(" agree)"))
+        .copied()
+        .collect();
+    assert_eq!(labelled.len(), 6, "{labelled:#?}");
+    for (addr, tail) in [
+        ("D51", " 30 30 agree)"),
+        ("B133", " 4 4 agree)"),
+        ("B221", " 21 21 agree)"),
+    ] {
+        let head = format!("(calc \"Typed\" \"{addr}\" ");
+        assert!(
+            typed
+                .iter()
+                .any(|r| r.starts_with(&head) && r.ends_with(tail)),
+            "{addr}"
+        );
+    }
+    assert_eq!(rows.iter().filter(|r| r.ends_with(" agree)")).count(), 219);
 }

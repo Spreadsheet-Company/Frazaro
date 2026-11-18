@@ -26,15 +26,18 @@
 //! `ROWS` and `COLUMNS` answer one value and lift nothing, every parameter
 //! an array's.
 
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use super::array::{self, Array};
 use super::eval::{arrays, finite, ranges, values, Arg, Ctx, Library, Param, Reason, SPILL};
 use super::formula::ANCHORARRAY;
+use super::graph::Areas;
 use super::order;
 use super::value::{ErrorKind, Value};
 use crate::grid::Kind;
+use crate::sheet::cell_ref;
 
 /// Register the array functions with their parameters' classes.
 pub(crate) fn register(lib: &mut Library) {
@@ -63,12 +66,15 @@ pub(crate) fn register(lib: &mut Library) {
 }
 
 /// `ANCHORARRAY(reference)`, `A1#` as the file spells it (KERNEL.55): the
-/// spill a dynamic formula's anchor fills. Until a spill is computed, the
-/// next slice's, a dynamic formula's spill is labelled as its anchor's answer
-/// is; a cell holding no dynamic formula holds no spill, `#REF!`, as Excel's
-/// save of the item's probe answers a spilled cell's and a value's; and a
-/// legacy array formula's, which no save shows, is labelled by the
-/// function's name, as is anything but a reference to one cell. An error
+/// spill a dynamic formula's anchor fills, as a reference to its extent, or to
+/// the anchor alone for an answer of one value, where the environment computes
+/// spills; a blocked anchor's `#SPILL!`, as Excel's save of the item's probe
+/// answers it (`Spills!A24`); labelled as its anchor's answer is where the
+/// anchor was not computed, and as a spill where the environment computes
+/// none, an engine's machine until its slice. A cell holding no dynamic
+/// formula holds no spill, `#REF!`, as the save answers a spilled cell's and a
+/// value's; and a legacy array formula's, which no save shows, is labelled by
+/// the function's name, as is anything but a reference to one cell. An error
 /// where the reference stands is the answer.
 fn anchorarray(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> {
     let unread = || Err(Reason::Function(ANCHORARRAY.to_string()));
@@ -81,7 +87,22 @@ fn anchorarray(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> 
         _ => return unread(),
     };
     match ctx.env.written(anchor).map(|w| w.kind) {
-        Some(Kind::Dynamic) => Err(Reason::Construct(SPILL.to_string())),
+        Some(Kind::Dynamic) => match ctx.env.spilled(anchor) {
+            Some(Ok(area)) => {
+                if area.is_cell() {
+                    if let Ok(Value::Error(ErrorKind::Spill)) = ctx.env.read(anchor) {
+                        return Ok(Arg::Scalar(Value::Error(ErrorKind::Spill)));
+                    }
+                }
+                Ok(Arg::Area {
+                    areas: Areas::one(area),
+                    written: Cow::Owned(format!("{}#", cell_ref(anchor.1, anchor.2))),
+                    moved: (0, 0),
+                })
+            }
+            Some(Err(reason)) => Err(reason),
+            None => Err(Reason::Construct(SPILL.to_string())),
+        },
         Some(Kind::Array) => unread(),
         Some(Kind::Plain) | None => Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
     }
@@ -1023,7 +1044,9 @@ mod tests {
             ("E15", "=COUNTA({1,\"a\",TRUE,#N/A})", "4"),
             ("E16", "={-1,2}+0", "-1"),
             ("E17", "=AND({TRUE,FALSE})", "false"),
-            ("E18", "~={1,2}", "(not-computed \"a spill\")"),
+            // A dynamic one spills its values beside it, its first at its cell
+            // (KERNEL.55).
+            ("E18", "~={1,2}", "1"),
             ("E19", "~={7}", "7"),
         ]);
     }
@@ -1219,7 +1242,9 @@ mod tests {
     #[test]
     fn a_cell_holds_one_value_of_an_answer_of_many_by_its_kind() {
         holds(&[
-            ("E10", "~=A1:A3*2", "(not-computed \"a spill\")"),
+            // A dynamic formula's spill, blocked by the formula below it
+            // (KERNEL.55).
+            ("E10", "~=A1:A3*2", "(error \"#SPILL!\")"),
             ("E11", "{=A1:A3*2", "2"),
             ("E12", "{=SUM(A1:A3*B1:B3)", "32"),
             ("E13", "=TRANSPOSE(A1:A3)", "1"),

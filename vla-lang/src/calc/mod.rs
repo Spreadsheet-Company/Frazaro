@@ -75,8 +75,22 @@
 //! the formula written out; a recursion runs as calls (`calls`), each counted,
 //! to a depth of 4,096 on a stack of the language's own.
 //!
-//! What is not here, by name, each a slice of its own: spills (`KERNEL.55`),
-//! a `LET`'s value computed once across `IF`'s branches in a run and a program
+//! A dynamic formula spills since KERNEL.55's third slice (2026-11-18,
+//! `spill`): the door plans each by the most rows and columns its parse can
+//! answer, or the extent its file saved, a reader of any cell it may fill
+//! ordered after its anchor; computes its anchor once and lays the answer into
+//! the cells beside it, `#SPILL!` where they meet a value, a formula, a merged
+//! range, a legacy array formula's block or the sheet's edge, as Excel's save
+//! of the item's probe blocks one; and labels two spills that may meet, which
+//! Excel settles by the order it computes them in, and one no plan bounds. A
+//! spilled cell is a cell [`Calc`] computes, read by its address, by a range
+//! and by `A1#` though the sheet holds none, and its value is what the writer
+//! saves there, the anchor's `ref` its extent.
+//!
+//! What is not here, by name, each a slice of its own: spills in an engine's
+//! machine (`KERNEL.55`'s fifth slice, until which `Calc::unspilled` reads a
+//! grid as the machine does), a `LET`'s value computed once across `IF`'s
+//! branches in a run and a program
 //! and sheet-defined functions (`KERNEL.29`'s later slices); the rest of
 //! speed, content-addressed evaluation among them (`KERNEL.20`). A formula
 //! that reaches any of them is not computed,
@@ -110,6 +124,7 @@ pub(crate) mod program;
 pub(crate) mod reach;
 pub(crate) mod room;
 pub mod shape;
+pub(crate) mod spill;
 pub mod texts;
 pub mod value;
 pub(crate) mod vector;
@@ -117,9 +132,13 @@ pub(crate) mod vector;
 use std::cell::Cell as Slot;
 use std::collections::{BTreeMap, HashMap};
 
+use crate::grid::Rects;
 use crate::messages::{raise, Refusal};
 use crate::refers::quote_sheet;
-use crate::sheet::{cell_ref, formula_text, shared_masters, Content, RowSettings, Workbook};
+use crate::sheet::{
+    cell_ref, formula_text, shared_masters, A1Range, Content, RowSettings, Workbook, MAX_COLUMN,
+    MAX_ROW,
+};
 
 pub use array::Array;
 pub use dense::Dense;
@@ -171,6 +190,20 @@ pub struct Calc<'m> {
     /// from its computation for its places', which follow it in the order; a
     /// reason where it was not computed.
     laid: HashMap<CellId, Result<Array, Reason>>,
+    /// Each dynamic formula's spill the plan bounds (KERNEL.55), by its
+    /// anchor, with the box of the cells it may fill.
+    spills: spill::Spills,
+    /// The extent each anchor's answer spilled into, past its own cell.
+    spilled: HashMap<CellId, A1Range>,
+    /// Each cell a spill's computation wrote, of its extent and of the extent
+    /// its file saved, with its anchor: the cells the recalculation computes
+    /// beside the formula cells and the blocks'.
+    poured: HashMap<CellId, CellId>,
+    /// By sheet, the extents holding a cell the sheet does not, which a walk
+    /// visits beside the sheet's own.
+    unheld: Vec<Rects>,
+    /// Whether it computes spills: every recalculation but [`Calc::unspilled`].
+    spilling: bool,
 }
 
 impl<'m> Calc<'m> {
@@ -179,6 +212,22 @@ impl<'m> Calc<'m> {
     /// graph built from `refers`, the order found and every cycle named.
     /// Nothing is evaluated yet.
     pub fn new(model: &'m Workbook, library: &'m Library) -> Calc<'m> {
+        Calc::planned(model, library, true)
+    }
+
+    /// The plan over the model as an engine's machine computes it until
+    /// KERNEL.55's fifth slice: no spill planned, a dynamic formula answering
+    /// many values labelled a spill at its cell, as every one was before the
+    /// item's third slice, and `A1#` of one labelled; what the laws holding a
+    /// machine to `Calc` take until the machine computes spills.
+    #[doc(hidden)]
+    pub fn unspilled(model: &'m Workbook, library: &'m Library) -> Calc<'m> {
+        let mut calc = Calc::planned(model, library, false);
+        calc.step(0);
+        calc
+    }
+
+    fn planned(model: &'m Workbook, library: &'m Library, spilling: bool) -> Calc<'m> {
         let names = Names::of(model);
         let extents: Vec<Extent> = model.sheets.iter().map(|s| s.extent()).collect();
         let mut texts = HashMap::new();
@@ -193,7 +242,12 @@ impl<'m> Calc<'m> {
         let (blocks, places) = blocks_of(model, &texts);
         let listed: Vec<(usize, crate::sheet::A1Range)> =
             blocks.iter().map(|(id, range)| (id.0, *range)).collect();
-        let plan = graph::plan_placed(model, &names, &extents, &texts, (&places, &listed));
+        let functions = lambda::Functions::of_model(model);
+        let spills = match spilling {
+            true => spill::Spills::of(model, &texts, &functions, library),
+            false => spill::Spills::default(),
+        };
+        let plan = graph::plan_placed(model, &names, &extents, &texts, (&places, &listed), &spills);
         let mut values = HashMap::with_capacity(texts.len() + places.len());
         for cycle in &plan.cycles {
             for id in cycle {
@@ -211,10 +265,15 @@ impl<'m> Calc<'m> {
             next: 0,
             here: Slot::new((0, 1, 1)),
             indexes: index::Indexes::new(),
-            functions: lambda::Functions::of_model(model),
+            functions,
             blocks,
             places,
             laid: HashMap::new(),
+            spills,
+            spilled: HashMap::new(),
+            poured: HashMap::new(),
+            unheld: Vec::new(),
+            spilling,
         }
     }
 
@@ -252,9 +311,15 @@ impl<'m> Calc<'m> {
 
     /// A formula cell's text without its `=`, a block's cell's its anchor's
     /// (KERNEL.55), as Excel holds a legacy array formula at every cell of its
-    /// block; `None` for a value cell.
+    /// block, and a spilled cell's its anchor's, as its formula bar shows it;
+    /// `None` for a value cell.
     pub fn formula(&self, id: CellId) -> Option<&str> {
-        let id = self.places.get(&id).copied().unwrap_or(id);
+        let id = self
+            .places
+            .get(&id)
+            .or_else(|| self.poured.get(&id))
+            .copied()
+            .unwrap_or(id);
         self.texts.get(&id).map(String::as_str)
     }
 
@@ -266,22 +331,27 @@ impl<'m> Calc<'m> {
     }
 
     /// Every cell the recalculation computes, in sheet then row-major order:
-    /// each formula cell, and each cell of a block a legacy array formula
-    /// fills, which its anchor's array lays (KERNEL.55).
+    /// each formula cell, each cell of a block a legacy array formula fills,
+    /// which its anchor's array lays, and, once its anchor is computed, each
+    /// cell a dynamic formula spills into and each its file saved it spilling
+    /// into (KERNEL.55).
     pub fn cells(&self) -> Vec<CellId> {
         let mut ids: Vec<CellId> = self
             .texts
             .keys()
             .chain(self.places.keys())
+            .chain(self.poured.keys())
             .copied()
             .collect();
         ids.sort_unstable();
         ids
     }
 
-    /// What a formula cell holds, once evaluated, and a block's cell, its
-    /// place of its anchor's array (KERNEL.55); `None` for a value cell or a
-    /// cell the steps have not reached.
+    /// What a formula cell holds, once evaluated, a block's cell, its place of
+    /// its anchor's array, and a spilled cell, its place of its anchor's, or
+    /// nothing where its file saved it spilled and it no longer does
+    /// (KERNEL.55); `None` for a value cell or a cell the steps have not
+    /// reached.
     pub fn computed(&self, id: CellId) -> Option<&Computed> {
         self.values.get(&id)
     }
@@ -309,7 +379,14 @@ impl<'m> Calc<'m> {
                         }
                         computed
                     }
-                    None => self.evaluate(id),
+                    None => match self.spills.get(id).copied() {
+                        Some(spill) => {
+                            let (computed, laid) = self.spill(id, &spill);
+                            self.pour(id, &spill, &computed, laid);
+                            computed
+                        }
+                        None => self.evaluate(id),
+                    },
                 },
             };
             self.values.insert(id, computed);
@@ -345,6 +422,167 @@ impl<'m> Calc<'m> {
         }
     }
 
+    /// A spill's anchor computed (KERNEL.55): its answer's first value at its
+    /// cell, and the extent it spills into with the array it lays there; an
+    /// answer of one value, no extent; `#SPILL!` where the extent passes the
+    /// sheet's edge or meets what blocks it ([`Calc::blocked`]); labelled where
+    /// its plan is, or where its answer passes the bound it was planned by.
+    fn spill(&self, id: CellId, spill: &spill::Spill) -> (Computed, Option<(A1Range, Array)>) {
+        let not = |reason: Reason| (Computed::NotComputed(reason), None);
+        if let Some(label) = spill.label {
+            return not(Reason::Construct(label.to_string()));
+        }
+        let Some(text) = self.texts.get(&id) else {
+            return not(Reason::Construct(String::new()));
+        };
+        self.here.set(id);
+        let parsed = match lambda::parsed(text, &self.functions, self.library) {
+            Ok(e) => e,
+            Err(construct) => return not(Reason::Construct(construct)),
+        };
+        let ctx = Ctx::new(self, self.library);
+        if parsed.has_lambda() {
+            ctx.nests(lambda::kept_depth(&parsed));
+        }
+        let arg = match ctx.eval(&parsed) {
+            Ok(arg) => arg,
+            Err(reason) => return not(reason),
+        };
+        let past = |rows: u32, columns: u32| rows > spill.dims.0 || columns > spill.dims.1;
+        let unplanned = || not(Reason::Construct(spill::NO_PLAN.to_string()));
+        let array = match arg {
+            Arg::Array(a) => a,
+            Arg::Area { ref areas, .. } if matches!(&areas[..], [a] if !a.is_cell()) => {
+                let a = areas[0];
+                if past(a.bottom - a.top + 1, a.right - a.left + 1) {
+                    return unplanned();
+                }
+                match ctx.area_array(&a) {
+                    Ok(array) => array,
+                    Err(reason) => return not(reason),
+                }
+            }
+            arg => {
+                let computed = match ctx.result(&arg) {
+                    Ok(v) => Computed::Value(v.settled()),
+                    Err(reason) => Computed::NotComputed(reason),
+                };
+                return (computed, None);
+            }
+        };
+        let first = array.get(0, 0).clone().settled();
+        if array.is_single() {
+            return (Computed::Value(first), None);
+        }
+        let (rows, columns) = (array.rows(), array.columns());
+        if past(rows, columns) {
+            return unplanned();
+        }
+        let bottom = u64::from(id.1) + u64::from(rows) - 1;
+        let right = u64::from(id.2) + u64::from(columns) - 1;
+        let spilt = Computed::Value(Value::Error(ErrorKind::Spill));
+        if bottom > u64::from(MAX_ROW) || right > u64::from(MAX_COLUMN) {
+            return (spilt, None);
+        }
+        let extent = A1Range {
+            top: id.1,
+            left: id.2,
+            bottom: bottom as u32,
+            right: right as u32,
+        };
+        if self.blocked(id, spill, extent) {
+            return (spilt, None);
+        }
+        (Computed::Value(first), Some((extent, array)))
+    }
+
+    /// Whether what a spill's extent meets blocks it, as Excel's save of the
+    /// item's probe shows (KERNEL.55): a cell holding a formula of its own, or
+    /// a value but where the extent its file saved holds its last; a cell of a
+    /// legacy array formula's block; or a merged range.
+    fn blocked(&self, anchor: CellId, spill: &spill::Spill, extent: A1Range) -> bool {
+        let Some(sheet) = self.model.sheets.get(anchor.0) else {
+            return false;
+        };
+        if sheet.merges().meeting(extent).next().is_some() {
+            return true;
+        }
+        let met = |r: &A1Range| crate::grid::overlap(r, &extent).is_some();
+        if self.blocks.iter().any(|(b, r)| b.0 == anchor.0 && met(r)) {
+            return true;
+        }
+        let cells = sheet
+            .cells
+            .range((extent.top, extent.left)..=(extent.bottom, extent.right));
+        for (&(row, col), cell) in cells {
+            if col < extent.left || col > extent.right || (row, col) == (anchor.1, anchor.2) {
+                continue;
+            }
+            let last = spill.file.is_some_and(|f| spill::inside(&f, row, col));
+            if graph::is_formula(&cell.content) || !last {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// A spill's computation written into its cells (KERNEL.55): each of its
+    /// extent its place of its anchor's array, as a lift reads it, settled as a
+    /// formula's answer is; each the extent its file saved holds past it, but a
+    /// formula's, empty, or the anchor's reason where it was not computed.
+    fn pour(
+        &mut self,
+        anchor: CellId,
+        spill: &spill::Spill,
+        computed: &Computed,
+        laid: Option<(A1Range, Array)>,
+    ) {
+        let s = anchor.0;
+        let mut extent = None;
+        if let Some((e, array)) = laid {
+            let mut unheld = false;
+            for row in e.top..=e.bottom {
+                for col in e.left..=e.right {
+                    if (row, col) == (anchor.1, anchor.2) {
+                        continue;
+                    }
+                    let v = laid_at(&array, row - e.top, col - e.left).settled();
+                    unheld |= !self.model.sheets[s].cells.contains_key(&(row, col));
+                    self.values.insert((s, row, col), Computed::Value(v));
+                    self.poured.insert((s, row, col), anchor);
+                }
+            }
+            // The sheet's extent holds it, as a range of whole columns reads.
+            self.extents[s] = grown(self.extents[s], e);
+            if unheld {
+                if self.unheld.len() <= s {
+                    self.unheld.resize_with(s + 1, Rects::new);
+                }
+                self.unheld[s].insert(e, 0);
+            }
+            self.spilled.insert(anchor, e);
+            extent = Some(e);
+        }
+        let Some(file) = spill.file else {
+            return;
+        };
+        let rest = match computed {
+            Computed::NotComputed(reason) => Computed::NotComputed(reason.clone()),
+            Computed::Value(_) => Computed::Value(Value::Empty),
+        };
+        for row in file.top..=file.bottom {
+            for col in file.left..=file.right {
+                let id = (s, row, col);
+                let own = self.texts.contains_key(&id) || self.places.contains_key(&id);
+                if id == anchor || own || extent.is_some_and(|e| spill::inside(&e, row, col)) {
+                    continue;
+                }
+                self.values.insert(id, rest.clone());
+                self.poured.insert(id, anchor);
+            }
+        }
+    }
+
     /// Start the order again, every value forgotten but the cycles'.
     pub fn restart(&mut self) {
         self.values
@@ -352,6 +590,10 @@ impl<'m> Calc<'m> {
         self.next = 0;
         self.indexes.clear();
         self.laid.clear();
+        self.spilled.clear();
+        self.poured.clear();
+        self.unheld.clear();
+        self.extents = self.model.sheets.iter().map(|s| s.extent()).collect();
     }
 
     fn evaluate(&self, id: CellId) -> Computed {
@@ -391,6 +633,11 @@ impl<'m> Calc<'m> {
         let laid = block.map(|b| laid_of(&ctx, &arg, b));
         let computed = match ctx.result(&arg) {
             Ok(v) => Computed::Value(v.settled()),
+            // A dynamic formula planned at its cell alone, which spills
+            // (KERNEL.55).
+            Err(Reason::Construct(c)) if self.spilling && c == eval::SPILL => {
+                Computed::NotComputed(Reason::Construct(spill::NO_PLAN.to_string()))
+            }
             Err(reason) => Computed::NotComputed(reason),
         };
         (computed, laid)
@@ -489,6 +736,14 @@ pub trait Values: std::fmt::Debug {
     fn kept_extent(&self, _sheet: usize) -> Option<Extent> {
         None
     }
+
+    /// The extent a dynamic formula's anchor spilled into, past its own cell,
+    /// where the values computed its spill (KERNEL.55): what a writer saves as
+    /// its `ref`, each of its other cells holding its value, as Excel saves a
+    /// spill. `None`, unless the values say otherwise.
+    fn spill(&self, _anchor: CellId) -> Option<A1Range> {
+        None
+    }
 }
 
 impl Values for Calc<'_> {
@@ -498,6 +753,10 @@ impl Values for Calc<'_> {
 
     fn kept_extent(&self, sheet: usize) -> Option<Extent> {
         self.extents.get(sheet).copied()
+    }
+
+    fn spill(&self, anchor: CellId) -> Option<A1Range> {
+        self.spilled.get(&anchor).copied()
     }
 }
 
@@ -528,11 +787,39 @@ impl Env for Calc<'_> {
         self.model.sheets.get(sheet).map(|s| &s.rows)
     }
 
+    /// The cells a sheet holds inside an area, and with them each cell a spill
+    /// filled that the sheet does not hold, a model's built in memory, so that
+    /// a range over a spill reads it whole (KERNEL.55).
     fn walk(&self, area: &Area) -> Walked<'_> {
-        match self.model.sheets.get(area.sheet) {
-            Some(sheet) => Walked::cells(sheet, self.extent(area.sheet), area),
-            None => Walked::nothing(),
+        let Some(sheet) = self.model.sheets.get(area.sheet) else {
+            return Walked::nothing();
+        };
+        let extent = self.extent(area.sheet);
+        let met = A1Range {
+            top: area.top,
+            left: area.left,
+            bottom: area.bottom,
+            right: area.right,
+        };
+        let mut unheld = self
+            .unheld
+            .get(area.sheet)
+            .into_iter()
+            .flat_map(|r| r.meeting(met))
+            .filter_map(|(e, _)| crate::grid::overlap(&e, &met))
+            .peekable();
+        if unheld.peek().is_none() {
+            return Walked::cells(sheet, extent, area);
         }
+        let mut at: Vec<(u32, u32)> = Walked::cells(sheet, extent, area).collect();
+        for e in unheld {
+            for row in e.top..=e.bottom {
+                at.extend((e.left..=e.right).map(|col| (row, col)));
+            }
+        }
+        at.sort_unstable();
+        at.dedup();
+        Walked::listed(at)
     }
 
     /// A cell's formula, its text the one the plan read off the grid, moved
@@ -555,9 +842,14 @@ impl Env for Calc<'_> {
     }
 
     fn read(&self, id: CellId) -> Result<Value, Reason> {
-        // A formula cell, or a block's cell, its place of its anchor's array
-        // (KERNEL.55), read as computed and never as the value the file gave it.
-        if self.texts.contains_key(&id) || self.places.contains_key(&id) {
+        // A formula cell, a block's cell, its place of its anchor's array, or a
+        // spilled cell, its place of its anchor's (KERNEL.55), read as computed
+        // and never as the value the file gave it.
+        let spills = !self.spills.is_empty();
+        if self.texts.contains_key(&id)
+            || self.places.contains_key(&id)
+            || (spills && self.poured.contains_key(&id))
+        {
             return match self.values.get(&id) {
                 Some(Computed::Value(v)) => Ok(v.clone()),
                 Some(Computed::NotComputed(r)) => Err(r.clone()),
@@ -565,6 +857,17 @@ impl Env for Calc<'_> {
                 // formula with no value yet can only be read from a cycle.
                 None => Err(Reason::Cycle),
             };
+        }
+        // A cell a spill may fill that its anchors' answers left empty, which
+        // the sheet holds nothing at, or the first's reason not computed.
+        if spills {
+            for anchor in self.spills.owners(self.model, id) {
+                match self.values.get(&anchor) {
+                    Some(Computed::Value(_)) => {}
+                    Some(Computed::NotComputed(r)) => return Err(r.clone()),
+                    None => return Err(Reason::Cycle),
+                }
+            }
         }
         let Some(cell) = self
             .model
@@ -611,6 +914,43 @@ impl Env for Calc<'_> {
     fn array_formula(&self) -> bool {
         is_array_formula(self.model, self.here.get())
     }
+
+    /// The cells a dynamic formula's anchor spilled into (KERNEL.55): its
+    /// extent, or its own cell for an answer of one value; the reason it was
+    /// not computed.
+    fn spilled(&self, anchor: CellId) -> Option<Result<Area, Reason>> {
+        if !self.spilling {
+            return None;
+        }
+        let e = match self.values.get(&anchor) {
+            Some(Computed::Value(_)) => self.spilled.get(&anchor).copied().unwrap_or(A1Range {
+                top: anchor.1,
+                left: anchor.2,
+                bottom: anchor.1,
+                right: anchor.2,
+            }),
+            Some(Computed::NotComputed(r)) => return Some(Err(r.clone())),
+            None => return Some(Err(Reason::Cycle)),
+        };
+        Some(Ok(Area {
+            sheet: anchor.0,
+            top: e.top,
+            left: e.left,
+            bottom: e.bottom,
+            right: e.right,
+        }))
+    }
+}
+
+/// A sheet's extent grown to hold a spill's (KERNEL.55).
+fn grown(extent: Extent, e: A1Range) -> Extent {
+    Some(match extent {
+        None => ((e.top, e.left), (e.bottom, e.right)),
+        Some(((top, left), (bottom, right))) => (
+            (top.min(e.top), left.min(e.left)),
+            (bottom.max(e.bottom), right.max(e.right)),
+        ),
+    })
 }
 
 /// Whether a cell of a model holds a legacy array formula (KERNEL.8, slice
@@ -713,7 +1053,7 @@ pub(crate) fn is_dynamic(model: &Workbook, (s, row, col): CellId) -> bool {
             .get(s)
             .and_then(|sheet| sheet.cells.get(&(row, col)))
             .map(|c| &c.content),
-        Some(Content::DynamicFormula(_))
+        Some(Content::DynamicFormula(_) | Content::DynamicSpill { .. })
     )
 }
 
@@ -1061,8 +1401,8 @@ mod tests {
         // `#REF!` where it spans sheets, as Excel's save of the fixture holds
         // them; `SINGLE`, Excel's `@`, the same in a formula of
         // either kind, answering a reference; a dynamic-array formula's range
-        // an array, labelled until arrays come, `INDEX`'s pick of many cells
-        // alike.
+        // an array, which spills (KERNEL.55), blocked by the formula below it,
+        // and `INDEX`'s pick of many cells spilled into the empty cells below.
         let mut wb = model(&[
             ("S", "A1", "1"),
             ("S", "A2", "2"),
@@ -1155,15 +1495,17 @@ mod tests {
         assert_eq!(number(&calc, "S", "I3"), 3.0, "INDEX's column, met");
         assert_eq!(
             at(&calc, "S", "J3"),
-            Computed::NotComputed(Reason::Construct("a spill".to_string())),
-            "a dynamic formula's range is an array, a spill labelled (KERNEL.70)"
+            Computed::Value(Value::Error(ErrorKind::Spill)),
+            "a dynamic formula's range is an array, its spill blocked (KERNEL.55)"
         );
         assert_eq!(number(&calc, "S", "J4"), 4.0, "SINGLE in a dynamic formula");
-        assert_eq!(
-            at(&calc, "S", "J5"),
-            Computed::NotComputed(Reason::Construct("a spill".to_string())),
-            "INDEX's column in a dynamic formula"
-        );
+        for (addr, want) in [("J5", 1.0), ("J6", 2.0), ("J9", 5.0)] {
+            assert_eq!(
+                number(&calc, "S", addr),
+                want,
+                "INDEX's column in a dynamic formula, spilled"
+            );
+        }
     }
 
     #[test]
@@ -1656,8 +1998,8 @@ mod tests {
         // KERNEL.55's second slice: `A1#`, read as the file spells it,
         // `ANCHORARRAY(A1)`. A value's and a legacy formula's, #REF!, as
         // Excel's save of the probe answers a value's and a spilled cell's; a
-        // dynamic formula's labelled as its anchor is until spills are
-        // computed; a legacy array formula's, which no save shows, labelled by
+        // dynamic formula's its spill (the third slice), here over cells the
+        // model does not hold; a legacy array formula's, which no save shows, labelled by
         // the function's name, as is a reference to no one cell; a spill whose
         // anchor moved off the sheet #REF!; and `#SPILL!`, a value of the
         // language, ERROR.TYPE 9.
@@ -1699,10 +2041,7 @@ mod tests {
         for (addr, want) in [
             ("D1", "(error \"#REF!\")"),
             ("D2", "(error \"#REF!\")"),
-            (
-                "D3",
-                &format!("{:?}", Reason::Construct("a spill".to_string()))[..],
-            ),
+            ("D3", "6"),
             ("D4", &anchorarray),
             ("D5", "(error \"#REF!\")"),
             ("D6", &anchorarray),
@@ -1717,5 +2056,387 @@ mod tests {
         let wb = model(&[("S", "A1", "=B1#"), ("S", "B1", "=A1")]);
         let calc = Calc::run(&wb, &lib);
         assert_eq!(calc.cycles(), [vec![(0, 1, 1), (0, 1, 2)]]);
+    }
+
+    /// A model whose `dynamic` formulas are dynamic-array formulas, each with
+    /// the extent its file saved where one is given (KERNEL.55's third slice),
+    /// and whose `merged` ranges are merged.
+    fn spilling(
+        rows: &[(&str, &str, &str)],
+        dynamic: &[(&str, &str, &str, Option<&str>)],
+        merged: &[(&str, &str)],
+    ) -> Workbook {
+        let mut wb = model(rows);
+        for (sheet, addr, formula, file) in dynamic {
+            let i = wb.ensure_sheet(sheet);
+            let at = parse_a1_range(addr).unwrap();
+            let text = formula.strip_prefix('=').unwrap().to_string();
+            let content = match file {
+                Some(range) => Content::DynamicSpill {
+                    text,
+                    range: parse_a1_range(range).unwrap(),
+                },
+                None => Content::DynamicFormula(text),
+            };
+            wb.sheets[i].set(at.top, at.left, Cell { content, style: 0 });
+        }
+        for (sheet, range) in merged {
+            let i = wb.ensure_sheet(sheet);
+            wb.sheets[i]
+                .put_merge(parse_a1_range(range).unwrap())
+                .unwrap();
+        }
+        wb
+    }
+
+    /// The probe's spills in small, none of their cells held by the sheet: an
+    /// extent fixed, one a filter sets, a spill of each, and readers of them
+    /// through `#`, by their addresses, by a range and by a whole column.
+    fn the_spills() -> Workbook {
+        spilling(
+            &[
+                ("D", "A1", "3"),
+                ("D", "A2", "1"),
+                ("D", "A3", "4"),
+                ("D", "A4", "1"),
+                ("D", "A5", "5"),
+                ("D", "A6", "9"),
+                ("D", "K1", "1"),
+                // On the sheet before the spills', so that only the plan's
+                // edges put them after their anchors.
+                ("D", "M1", "=SUM(S!B:B)"),
+                ("D", "M2", "=S!B3"),
+                ("S", "A15", "=SUM(A1#)"),
+                ("S", "A16", "=ROWS(A1#)"),
+                ("S", "A17", "=COLUMNS(A1#)"),
+                ("S", "A18", "=INDEX(A1#,3,2)"),
+                ("S", "A19", "=B3"),
+                ("S", "A20", "=SUM(A1:B3)"),
+                ("S", "A21", "=ROWS(D1#)"),
+                ("S", "A22", "=SUM(N1:O3)"),
+                ("S", "A23", "=SUM(B:B)"),
+                ("S", "A24", "=D5"),
+                ("S", "A25", "=ISBLANK(D5)"),
+                ("S", "A26", "=ROWS(X1#)"),
+                ("S", "A27", "=SUM(X1#)*2"),
+                // A sorted search of a column, bounded by its sheet's extent,
+                // which holds the spill on a sheet holding its anchor alone.
+                ("S", "A28", "=MATCH(3,E!A:A,1)"),
+            ],
+            &[
+                ("S", "A1", "=SEQUENCE(3,2)", None),
+                ("S", "X1", "=SEQUENCE(1)", None),
+                ("E", "A1", "=SEQUENCE(3)", None),
+                ("S", "D1", "=FILTER(D!A1:A6,D!A1:A6>D!K1)", None),
+                ("S", "N1", "=A1#*10", None),
+                ("S", "Q1", "=SORT(D1#,1,-1)", None),
+            ],
+            &[],
+        )
+    }
+
+    #[test]
+    fn a_dynamic_formula_spills_its_answer_into_the_cells_beside_it() {
+        // KERNEL.55's third slice: the door plans each spill by its parse's
+        // bound and lays its answer into its extent, each cell its place of
+        // the array, as Excel's save of the item's probe lays one; `A1#` the
+        // extent as a reference; a spilled cell read by its address, by a range
+        // and by a whole column, though the sheet holds none of them.
+        let wb = the_spills();
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let held = |cells: &[(&str, f64)]| {
+            for (addr, want) in cells {
+                assert_eq!(number(&calc, "S", addr), *want, "S!{addr}");
+            }
+        };
+        held(&[("A1", 1.0), ("B1", 2.0), ("A2", 3.0), ("B3", 6.0)]);
+        held(&[("D1", 3.0), ("D2", 4.0), ("D3", 5.0), ("D4", 9.0)]);
+        held(&[("N1", 10.0), ("O1", 20.0), ("O3", 60.0)]);
+        held(&[("Q1", 9.0), ("Q2", 5.0), ("Q3", 4.0), ("Q4", 3.0)]);
+        held(&[("A15", 21.0), ("A16", 3.0), ("A17", 2.0), ("A18", 6.0)]);
+        held(&[("A19", 6.0), ("A20", 21.0), ("A21", 4.0), ("A22", 210.0)]);
+        held(&[
+            ("A23", 12.0),
+            ("A24", 0.0),
+            ("A26", 1.0),
+            ("A27", 2.0),
+            ("A28", 3.0),
+        ]);
+        assert_eq!(number(&calc, "D", "M1"), 12.0, "a column read before");
+        assert_eq!(number(&calc, "D", "M2"), 6.0, "a cell read before");
+        assert_eq!(at(&calc, "S", "A25"), Computed::Value(Value::Bool(true)));
+        // A cell the filter's bound reaches and its answer does not holds
+        // nothing, and is no cell the recalculation computes.
+        let s = wb.find_sheet("S").unwrap();
+        assert_eq!(calc.computed((s, 5, 4)), None);
+        assert!(!calc.cells().contains(&(s, 5, 4)));
+        // Each spilled cell a cell the door computes, its anchor's text at it.
+        assert!(calc.cells().contains(&(s, 3, 2)));
+        assert_eq!(calc.formula((s, 3, 2)), Some("SEQUENCE(3,2)"));
+        assert_eq!(calc.cells().len(), calc.formulas() + 5 + 3 + 5 + 3 + 2);
+        assert_eq!(Values::spill(&calc, (s, 1, 1)), parse_a1_range("A1:B3"));
+        assert_eq!(Values::spill(&calc, (s, 1, 4)), parse_a1_range("D1:D4"));
+        // Computed again, the same.
+        let mut again = Calc::run(&wb, &lib);
+        again.restart();
+        again.step(0);
+        for id in calc.cells() {
+            assert_eq!(again.computed(id), calc.computed(id), "{id:?}");
+        }
+    }
+
+    #[test]
+    fn a_budget_never_changes_a_spill_s_value() {
+        let wb = the_spills();
+        let lib = library::language();
+        let whole = Calc::run(&wb, &lib);
+        for budget in [1, 3, 7] {
+            let mut calc = Calc::new(&wb, &lib);
+            while !calc.step(budget).done {}
+            assert_eq!(calc.cells(), whole.cells(), "budget {budget}");
+            for id in whole.cells() {
+                assert_eq!(calc.computed(id), whole.computed(id), "{id:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_spill_is_blocked_by_what_its_extent_meets_as_excel_blocks_one() {
+        // As Excel's save of the probe blocks one: by a value, a formula, a
+        // merged range, a legacy array formula's block, and the sheet's last
+        // row and column, its anchor `#SPILL!` and its would-be cells empty;
+        // and a spill reaching exactly to each edge.
+        let wb = {
+            let mut wb = spilling(
+                &[
+                    ("S", "F3", "x"),
+                    ("S", "G3", "=1+1"),
+                    ("S", "A24", "=SUM(F1#)"),
+                    ("S", "A25", "=F1"),
+                    ("S", "A26", "=ISERROR(F1)"),
+                    ("S", "A27", "=ERROR.TYPE(F1)"),
+                    ("S", "A28", "=IFERROR(F1,\"caught\")"),
+                    ("S", "A29", "=F2"),
+                    ("S", "A30", "=ISBLANK(F2)"),
+                    ("S", "C1048575", "=B1048576*10"),
+                    ("S", "XFB5", "=XFD5*10"),
+                    ("S", "A31", "=F3"),
+                    ("S", "A32", "=ROWS(F1#)"),
+                    ("S", "E5", "=MATCH(1,B:B,0)"),
+                    ("S", "E6", "=MATCH(2,B:B,0)"),
+                ],
+                &[
+                    ("S", "F1", "=SEQUENCE(4)", None),
+                    ("S", "G1", "=SEQUENCE(4)", None),
+                    ("S", "H1", "=SEQUENCE(4)", None),
+                    ("S", "L1", "=SEQUENCE(4)", None),
+                    ("S", "A1048575", "=SEQUENCE(3)", None),
+                    ("S", "B1048575", "=SEQUENCE(2)", None),
+                    ("S", "XFC1", "=SEQUENCE(1,3)", None),
+                    ("S", "XFC5", "=SEQUENCE(1,2)", None),
+                    ("S", "Q1", "=SEQUENCE(4)", None),
+                ],
+                &[("S", "H3:I3")],
+            );
+            let s = wb.find_sheet("S").unwrap();
+            let range = parse_a1_range("L3:L4").unwrap();
+            wb.sheets[s].set(
+                4,
+                12,
+                Cell {
+                    content: Content::Number(0.0),
+                    style: 0,
+                },
+            );
+            wb.sheets[s].set(
+                3,
+                12,
+                Cell {
+                    content: Content::ArrayBlock {
+                        text: "5".to_string(),
+                        range,
+                    },
+                    style: 0,
+                },
+            );
+            // A block whose other cells the sheet does not hold, a model's
+            // built in memory, its range blocking all the same.
+            let range = parse_a1_range("P3:Q4").unwrap();
+            wb.sheets[s].set(
+                3,
+                16,
+                Cell {
+                    content: Content::ArrayBlock {
+                        text: "6".to_string(),
+                        range,
+                    },
+                    style: 0,
+                },
+            );
+            wb
+        };
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let spill = Computed::Value(Value::Error(ErrorKind::Spill));
+        for addr in [
+            "F1", "G1", "H1", "L1", "Q1", "A1048575", "XFC1", "A24", "A25",
+        ] {
+            assert_eq!(at(&calc, "S", addr), spill, "S!{addr}");
+        }
+        assert_eq!(at(&calc, "S", "A26"), Computed::Value(Value::Bool(true)));
+        assert_eq!(number(&calc, "S", "A27"), 9.0);
+        assert_eq!(
+            at(&calc, "S", "A28"),
+            Computed::Value(Value::Text("caught".to_string()))
+        );
+        assert_eq!(number(&calc, "S", "A29"), 0.0);
+        assert_eq!(at(&calc, "S", "A30"), Computed::Value(Value::Bool(true)));
+        assert_eq!(number(&calc, "S", "L4"), 5.0, "the block's own");
+        assert_eq!(
+            number(&calc, "S", "C1048575"),
+            20.0,
+            "the last row, exactly"
+        );
+        assert_eq!(number(&calc, "S", "XFB5"), 20.0, "the last column, exactly");
+        // What blocks a spill is read as itself; the blocked anchor's `#` is
+        // `#SPILL!`, the reference itself, as the save answers `SUM`'s; and a
+        // whole column reads a spill past the cells the model holds, scanned
+        // and then searched by its index, which the sheet's extent bounds.
+        assert_eq!(
+            at(&calc, "S", "A31"),
+            Computed::Value(Value::Text("x".to_string()))
+        );
+        assert_eq!(at(&calc, "S", "A32"), spill);
+        assert_eq!(number(&calc, "S", "E5"), 1_048_575.0);
+        assert_eq!(number(&calc, "S", "E6"), 1_048_576.0);
+    }
+
+    #[test]
+    fn two_spills_that_may_meet_are_labelled_and_one_in_another_s_box_is_not() {
+        // Two whose cells may meet, neither anchor in the other's box, which
+        // Excel settles by its order: labelled, and what reads them. One
+        // anchor in another's box, which no order settles: the outer blocked
+        // where its answer reaches the inner's anchor, a formula, and each
+        // spilled where it does not.
+        let wb = spilling(
+            &[
+                ("D", "A1", "3"),
+                ("D", "A2", "1"),
+                ("D", "A3", "4"),
+                ("D", "A4", "1"),
+                ("D", "A5", "5"),
+                ("D", "A6", "9"),
+                ("S", "A31", "=IFERROR(K1,\"blocked\")"),
+                ("S", "T1", "=SUM(P1:P4)"),
+                ("S", "T2", "=SUM(R3:R4)"),
+                ("S", "T3", "=R2"),
+                ("S", "T4", "=K2"),
+                ("S", "T5", "=SUM(K1#)"),
+            ],
+            &[
+                ("S", "K1", "=SEQUENCE(4)", None),
+                ("S", "J3", "=SEQUENCE(1,3)", None),
+                ("S", "P1", "=FILTER(D!A1:A6,D!A1:A6>4)", None),
+                ("S", "P3", "=SEQUENCE(2)", None),
+                ("S", "R1", "=FILTER(D!A1:A6,D!A1:A6>2)", None),
+                ("S", "R3", "=SEQUENCE(2)", None),
+            ],
+            &[],
+        );
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let meets = Computed::NotComputed(Reason::Construct(spill::MEETS.to_string()));
+        for addr in ["K1", "J3", "A31", "T4", "T5"] {
+            assert_eq!(at(&calc, "S", addr), meets, "S!{addr}");
+        }
+        for (addr, want) in [("P1", 5.0), ("P2", 9.0), ("P3", 1.0), ("P4", 2.0)] {
+            assert_eq!(number(&calc, "S", addr), want, "S!{addr}");
+        }
+        assert_eq!(
+            at(&calc, "S", "R1"),
+            Computed::Value(Value::Error(ErrorKind::Spill))
+        );
+        for (addr, want) in [("R3", 1.0), ("R4", 2.0), ("T1", 17.0), ("T2", 3.0)] {
+            assert_eq!(number(&calc, "S", addr), want, "S!{addr}");
+        }
+        assert_eq!(number(&calc, "S", "T3"), 0.0);
+    }
+
+    #[test]
+    fn a_spill_no_plan_bounds_is_labelled_and_a_saved_extent_plans_one() {
+        // A count read from a cell gives no bound: one value computes, many
+        // are labelled; the extent its file saved plans it, and cells it saved
+        // that the answer no longer reaches hold nothing, never their last
+        // values; a spill reading its own extent is a cycle; and a recalculation
+        // as an engine's machine reads one labels each spill as before.
+        let wb = spilling(
+            &[
+                ("D", "K3", "3"),
+                ("D", "K4", "1"),
+                ("S", "C2", "0"),
+                ("S", "C3", "0"),
+                ("S", "E2", "7"),
+                ("S", "E3", "7"),
+                ("S", "E4", "7"),
+                ("S", "E5", "7"),
+                ("S", "H1", "=SUM(E4:E5)"),
+                ("S", "N2", "=1"),
+            ],
+            &[
+                ("S", "A1", "=SEQUENCE(D!K3)", None),
+                ("S", "B1", "=SEQUENCE(D!K4)", None),
+                ("S", "C1", "=SEQUENCE(D!K3)", Some("C1:C3")),
+                ("S", "E1", "=SEQUENCE(3)", Some("E1:E5")),
+                ("S", "G1", "=SUM(G2:G3)+SEQUENCE(3)", None),
+                ("S", "J1", "=SEQUENCE(D!K3)", Some("J1:J2")),
+                ("S", "L1", "=M1#", None),
+                ("S", "M1", "=L1#", None),
+                ("S", "N1", "=SEQUENCE(3)", Some("N1:N3")),
+            ],
+            &[],
+        );
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let s = wb.find_sheet("S").unwrap();
+        assert_eq!(
+            at(&calc, "S", "A1"),
+            Computed::NotComputed(Reason::Construct(spill::NO_PLAN.to_string()))
+        );
+        assert_eq!(number(&calc, "S", "B1"), 1.0);
+        for (addr, want) in [("C1", 1.0), ("C2", 2.0), ("C3", 3.0), ("E3", 3.0)] {
+            assert_eq!(number(&calc, "S", addr), want, "S!{addr}");
+        }
+        assert_eq!(at(&calc, "S", "E4"), Computed::Value(Value::Empty));
+        assert_eq!(at(&calc, "S", "E5"), Computed::Value(Value::Empty));
+        assert!(
+            calc.cells().contains(&(s, 5, 5)),
+            "a saved cell is computed"
+        );
+        assert_eq!(number(&calc, "S", "H1"), 0.0);
+        // Planned by its file and answering more, labelled; a formula where
+        // its file saved its spill blocks it.
+        assert_eq!(
+            at(&calc, "S", "J1"),
+            Computed::NotComputed(Reason::Construct(spill::NO_PLAN.to_string()))
+        );
+        assert_eq!(
+            at(&calc, "S", "N1"),
+            Computed::Value(Value::Error(ErrorKind::Spill))
+        );
+        // A spill reading its own extent, and two reading each other's, cycles.
+        assert_eq!(
+            calc.cycles(),
+            [vec![(s, 1, 7)], vec![(s, 1, 12), (s, 1, 13)]]
+        );
+        // Labelled as an engine's machine labels it until the item's fifth
+        // slice: no spill planned, `A1#` labelled.
+        let wb = the_spills();
+        let calc = Calc::unspilled(&wb, &lib);
+        let spill = Computed::NotComputed(Reason::Construct(eval::SPILL.to_string()));
+        for addr in ["A1", "A15", "N1", "A26"] {
+            assert_eq!(at(&calc, "S", addr), spill, "S!{addr}");
+        }
+        assert_eq!(calc.cells().len(), calc.formulas());
     }
 }

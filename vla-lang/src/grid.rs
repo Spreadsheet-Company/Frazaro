@@ -734,7 +734,9 @@ impl<'a> Holds<'a> {
             Content::Bool(b) => Holds::Constant(Constant::Bool(*b)),
             Content::Error(e) => Holds::Constant(Constant::Error(Cow::Borrowed(e))),
             Content::Formula(t) => Holds::Formula(Formula::Own(t, Kind::Plain)),
-            Content::DynamicFormula(t) => Holds::Formula(Formula::Own(t, Kind::Dynamic)),
+            Content::DynamicFormula(t) | Content::DynamicSpill { text: t, .. } => {
+                Holds::Formula(Formula::Own(t, Kind::Dynamic))
+            }
             Content::ArrayFormula(t) | Content::ArrayBlock { text: t, .. } => {
                 Holds::Formula(Formula::Own(t, Kind::Array))
             }

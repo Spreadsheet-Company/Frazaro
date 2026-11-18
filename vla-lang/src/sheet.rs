@@ -314,6 +314,16 @@ pub enum Content {
         text: String,
         range: A1Range,
     },
+    /// A dynamic-array formula whose file saved the extent it last spilled
+    /// into, `range`, its `ref`, of which this cell is the first (KERNEL.55):
+    /// read as a [`Content::DynamicFormula`] is, the range's other cells
+    /// holding the values the file gives them, which a door computing the
+    /// spill tells from a person's values by the range; written as one
+    /// `t="array"` over it.
+    DynamicSpill {
+        text: String,
+        range: A1Range,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -690,7 +700,9 @@ pub fn formula_text(
 ) -> Option<String> {
     let raw = match content {
         Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t) => t.clone(),
-        Content::SharedMaster { text, .. } | Content::ArrayBlock { text, .. } => text.clone(),
+        Content::SharedMaster { text, .. }
+        | Content::ArrayBlock { text, .. }
+        | Content::DynamicSpill { text, .. } => text.clone(),
         Content::SharedChild { si } => {
             let (text, m_row, m_col) = masters.get(si)?;
             crate::refers::shift_a1_references(
@@ -902,9 +914,12 @@ impl Workbook {
     /// needs its metadata part for.
     pub fn has_dynamic_formulas(&self) -> bool {
         self.sheets.iter().any(|s| {
-            s.cells
-                .values()
-                .any(|c| matches!(c.content, Content::DynamicFormula(_)))
+            s.cells.values().any(|c| {
+                matches!(
+                    c.content,
+                    Content::DynamicFormula(_) | Content::DynamicSpill { .. }
+                )
+            })
         })
     }
 

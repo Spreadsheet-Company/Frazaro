@@ -6684,7 +6684,9 @@ mod tests {
                 .count();
             let calc: BTreeMap<CellId, String> = {
                 let book = runs.workbook();
-                let calc = crate::calc::Calc::run(&book, &runs.library);
+                // A spill labelled as the machine labels one until KERNEL.55's
+                // fifth slice computes it there.
+                let calc = crate::calc::Calc::unspilled(&book, &runs.library);
                 let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
                 runs.shapes
                     .order_cells()
@@ -8006,7 +8008,9 @@ mod tests {
         let library = labelling();
         let book = draft.workbook();
         let calc: Vec<String> = {
-            let calc = crate::calc::Calc::run(&book, &library);
+            // A spill labelled as the machine labels one until KERNEL.55's
+            // fifth slice computes it there.
+            let calc = crate::calc::Calc::unspilled(&book, &library);
             cells
                 .iter()
                 .map(|addr| {

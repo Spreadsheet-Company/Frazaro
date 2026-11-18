@@ -883,12 +883,19 @@ Ctrl+Shift+Enter, and in any formula inside an argument Excel reads as an
 array (`SUMPRODUCT`'s, a lookup's vector). An operator, or a function of
 one value, given an array computes at each of its values, Excel's lift.
 An answer of many values is its first in a legacy formula and a legacy
-array formula, and shows `(not-computed "a spill")` in a dynamic one until
-spills come; an array of more than 1,048,576 values shows `(not-computed
-"an array past the grid's limit")`. `SINGLE` is Excel's `@`, meeting the
-range at the cell in a formula of either kind. A reference this version
-does not read (a link into another workbook, a structured reference, a
-spill) is named as written; a cell in a cycle shows `(not-computed cycle)`
+array formula, and spills in a dynamic one: its values laid into the cells
+beside and below it, each a row of its own with its anchor's text, the
+extent the file saved held to it; `#SPILL!` where they would meet a value,
+a formula, a merged range, a legacy array formula's block or the sheet's
+edge, as Excel blocks one; `(not-computed "a spill meeting another")` for
+two that may meet, which Excel settles by the order it computes them in,
+and `(not-computed "a spill no plan bounds")` for one whose text bounds no
+extent where the file saved none, or that answers past both. `A1#` is the
+extent an anchor spilled into. An array of more than 1,048,576 values shows
+`(not-computed "an array past the grid's limit")`. `SINGLE` is Excel's `@`,
+meeting the range at the cell in a formula of either kind. A reference this
+version does not read (a link into another workbook, a structured
+reference) is named as written; a cell in a cycle shows `(not-computed cycle)`
 and the cycle's cells come first as `(cycle "Sheet!A1" "Sheet!B1")`.
 Nothing is ever claimed that was not computed. Exit 0 whenever the
 calculation ran, agree or differ.

@@ -66,7 +66,7 @@
 (calc "Functions" "A66" "=SUM(MAP(SEQUENCE(4),LAMBDA(x,x^2)))" 30 30 agree)
 (calc "Functions" "A67" "=SUM(MAP(Data!A1:A3,SQ))" 26 26 agree)
 (calc "Functions" "A68" "=LET(sq,LAMBDA(x,x*x),SUM(MAP(Data!A1:A3,sq)))" 26 26 agree)
-(calc "Functions" "A69" "=MAP(Data!A1:A3,LAMBDA(c,c*2))" (not-computed "a spill") (error "#SPILL!") unchecked)
+(calc "Functions" "A69" "=MAP(Data!A1:A3,LAMBDA(c,c*2))" (error "#SPILL!") (error "#SPILL!") agree)
 (calc "Functions" "A70" "=REDUCE(0,Data!A1:A3,LAMBDA(a,v,a+v))" 8 8 agree)
 (calc "Functions" "A71" "=REDUCE(,Data!A1:A3,LAMBDA(a,v,a*10+v))" 314 314 agree)
 (calc "Functions" "A72" "=REDUCE(1,Data!A1:A6,LAMBDA(a,v,a*v))" 540 540 agree)

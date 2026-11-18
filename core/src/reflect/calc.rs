@@ -141,8 +141,8 @@ impl Sink for Collected {
     /// The block a legacy array formula fills (KERNEL.55): its anchor held
     /// over it, so that the recalculation computes it once and lays its array
     /// into the block, each cell's value the file gives it kept as the host's
-    /// cached one. A dynamic formula's extent is the next slice's, its spill
-    /// labelled at its cell until then.
+    /// cached one; and the extent a dynamic formula last spilled into, which
+    /// tells its spilled cells from a person's values.
     fn array_ref(&mut self, sheet: &str, addr: &str, range: &str) {
         let (Some(id), Some(range)) = (self.place(sheet, addr), parse_a1_range(range)) else {
             return;
@@ -152,10 +152,26 @@ impl Sink for Collected {
         }
         let cells = &mut self.model.sheets[id.0].cells;
         if let Some(cell) = cells.get_mut(&(id.1, id.2)) {
-            if let Content::ArrayFormula(text) = &mut cell.content {
-                let text = std::mem::take(text);
-                cell.content = Content::ArrayBlock { text, range };
+            match &mut cell.content {
+                Content::ArrayFormula(text) => {
+                    let text = std::mem::take(text);
+                    cell.content = Content::ArrayBlock { text, range };
+                }
+                Content::DynamicFormula(text) => {
+                    let text = std::mem::take(text);
+                    cell.content = Content::DynamicSpill { text, range };
+                }
+                _ => {}
             }
+        }
+    }
+
+    /// A merged range (KERNEL.55), which blocks a dynamic formula's spill
+    /// meeting it, held as the sheet holds a merge.
+    fn merged(&mut self, sheet: &str, range: &str) {
+        let i = self.model.ensure_sheet(sheet);
+        if let Some(range) = parse_a1_range(range) {
+            let _ = self.model.sheets[i].put_merge(range);
         }
     }
 
@@ -389,8 +405,11 @@ mod tests {
         has("(calc \"Model\" \"C1\" \"=B1*2\" 2400 2400 agree)");
         has("(calc \"Model\" \"D1\" \"=SUM(B:B)\"");
         has("(not-computed \"Sales[Amount]\")");
-        // A dynamic formula answering many values, a spill (KERNEL.8, slice f).
-        has("(not-computed \"a spill\")");
+        // A dynamic formula answering many values spills (KERNEL.55), each
+        // cell its value as the file saved it.
+        has("(calc \"Model\" \"F1\" \"=SEQUENCE(2)\" 1 1 agree)");
+        has("(calc \"Model\" \"F2\" \"=SEQUENCE(2)\" 2 2 agree)");
+        assert!(!text.contains("a spill"), "{text}");
         has("(not-computed \"INDIRECT\")");
         has("(not-computed \"OFFSET\")");
         has("(not-computed \"[Rates.xlsx]Sheet1!A1\")");

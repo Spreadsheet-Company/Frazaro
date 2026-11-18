@@ -37,11 +37,29 @@
 - **`#SPILL!` is an error value of the language**, `ERROR.TYPE` 9, read from a
   file and from a cell's text where it was read as `#VALUE!`; no formula
   writes it, and a build caches none, as `#CALC!` (KERNEL.55).
+- **A dynamic formula spills.** `frazaro calc` computes a dynamic-array
+  formula whose answer holds many values and lays it into the cells beside
+  and below it, as Excel 365 does, each spilled cell a row of its own, its
+  formula its anchor's, where the formula showed `(not-computed "a spill")`
+  and the cells it spilled into were read as the values the file held. A
+  formula reading a spilled cell, by its address, by a range or through
+  `A1#`, reads the computed value. A spill that would meet a value, a
+  formula, a merged range, a legacy array formula's block or the sheet's
+  edge is `#SPILL!`, as Excel blocks one. Two spills that may meet are
+  labelled `a spill meeting another`, since Excel decides which of them
+  spills by the order it computes them in; one whose formula bounds no
+  extent and whose file saved none, a `SEQUENCE` of a count read from a
+  cell, is labelled `a spill no plan bounds` where it answers many values.
+  An engine still labels a spill `a spill` (KERNEL.55, its third slice).
+- **A build writes a spill as Excel saves one**: the formula over the cells
+  it spills into, each holding its value, so that a reader that does not
+  calculate shows the whole spill, where it wrote the formula over its own
+  cell and nothing beside it (KERNEL.55).
 - **`A1#` is read**, as Excel's file spells it, `ANCHORARRAY(A1)`, and written
-  as `_xlfn.ANCHORARRAY(A1)`: a cell holding no dynamic formula holds no
-  spill, `#REF!`, where `ANCHORARRAY` was a function not computed. A dynamic
-  formula's spill read through it is labelled `a spill`, as the formula
-  itself is, until spills come (KERNEL.55).
+  as `_xlfn.ANCHORARRAY(A1)`: the extent the anchor spilled into, `#SPILL!`
+  for one blocked, and `#REF!` for a cell holding no dynamic formula, where
+  `ANCHORARRAY` was a function not computed. An engine labels a spill read
+  through it `a spill`, as it labels the formula itself (KERNEL.55).
 - **Two answers corrected by Excel's save.** In a legacy array formula,
   `HLOOKUP`'s and `VLOOKUP`'s value sought and match kind take an array's
   first value, as in a legacy formula, where they lifted the lookup over it;
@@ -50,10 +68,14 @@
   `=SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`, where it summed three
   picks. A dynamic formula alone lifts either (KERNEL.55).
 - **For the crates' users**, each addition to a list that may grow:
-  `ErrorKind::Spill`, `sheet::Content::ArrayBlock`, `calc::Param::Forced`,
-  `rows::Sink::array_ref` (a provided method) and `Calc::cells`; and
-  `Calc::computed` and `Calc::formula` answer a block's cell, where they
-  answered `None`.
+  `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
+  `sheet::Content::DynamicSpill`, `calc::Param::Forced`, the provided methods
+  `rows::Sink::array_ref`, `rows::Sink::merged`, `calc::Env::spilled` and
+  `calc::Values::spill`, and `Calc::cells`; and `Calc::computed` and
+  `Calc::formula` answer a block's cell and a spilled cell, where they
+  answered `None`. A dynamic formula read from an xlsx file whose `ref`
+  holds more than its cell is a `DynamicSpill`, holding that extent, where it
+  was a `DynamicFormula`.
 
 ## 0.14.0
 

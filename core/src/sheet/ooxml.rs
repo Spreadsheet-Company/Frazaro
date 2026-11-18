@@ -1333,7 +1333,45 @@ fn sheet_text(
     s.push_str(&format!(
         "<worksheet xmlns=\"{NS_MAIN}\" xmlns:r=\"{NS_REL}\">\n"
     ));
-    if let Some(((top, left), (bottom, right))) = sheet.extent() {
+    // The extents the sheet's dynamic formulas spilled into, where the values
+    // computed them (KERNEL.55): each its anchor's `ref`, and each of its other
+    // cells the sheet does not hold written holding its value, as Excel saves
+    // a spill.
+    let spilled: BTreeMap<(u32, u32), super::A1Range> = match values {
+        Some((v, i)) => sheet
+            .cells
+            .iter()
+            .filter(|(_, c)| {
+                matches!(
+                    c.content,
+                    Content::DynamicFormula(_) | Content::DynamicSpill { .. }
+                )
+            })
+            .filter_map(|(&at, _)| v.spill((i, at.0, at.1)).map(|e| (at, e)))
+            .collect(),
+        None => BTreeMap::new(),
+    };
+    let mut poured: Vec<(u32, u32)> = Vec::new();
+    for e in spilled.values() {
+        for row in e.top..=e.bottom {
+            poured.extend(
+                (e.left..=e.right)
+                    .map(|col| (row, col))
+                    .filter(|at| !sheet.cells.contains_key(at)),
+            );
+        }
+    }
+    poured.sort_unstable();
+    let extent = spilled.values().fold(sheet.extent(), |extent, e| {
+        Some(match extent {
+            None => ((e.top, e.left), (e.bottom, e.right)),
+            Some(((top, left), (bottom, right))) => (
+                (top.min(e.top), left.min(e.left)),
+                (bottom.max(e.bottom), right.max(e.right)),
+            ),
+        })
+    });
+    if let Some(((top, left), (bottom, right))) = extent {
         s.push_str(&format!(
             "<dimension ref=\"{}:{}\"/>\n",
             cell_ref(top, left),
@@ -1426,7 +1464,19 @@ fn sheet_text(
         })
     };
     let mut current_row: Option<u32> = None;
-    for (&(row, col), cell) in &sheet.cells {
+    // The sheet's cells and the spills' cells it does not hold, row by row.
+    let mut held = sheet.cells.iter().peekable();
+    let mut spilt = poured.iter().copied().peekable();
+    loop {
+        let next = match (held.peek(), spilt.peek()) {
+            (Some((&at, _)), Some(&p)) if p < at => spilt.next().map(|p| (p, None)),
+            (Some(_), _) => held.next().map(|(&at, c)| (at, Some(c))),
+            (None, Some(_)) => spilt.next().map(|p| (p, None)),
+            (None, None) => None,
+        };
+        let Some(((row, col), cell)) = next else {
+            break;
+        };
         if current_row != Some(row) {
             if current_row.is_some() {
                 s.push_str("</row>\n");
@@ -1441,16 +1491,24 @@ fn sheet_text(
             current_row = Some(row);
         }
         let r = cell_ref(row, col);
-        let st = render.style(cell.style);
+        // A spill's cell the sheet does not hold, the default format.
+        let st = render.style(cell.map_or(0, |c| c.style));
         let value = values.and_then(|(v, i)| match v.computed((i, row, col)) {
             Some(Computed::Value(x)) => Some(x),
             _ => None,
         });
         let (kind, held) = cached(value.as_ref());
+        let Some(cell) = cell else {
+            s.push_str(&format!("<c r=\"{r}\" s=\"{st}\"{kind}>{held}</c>"));
+            continue;
+        };
         if value.is_some() && !blocks.is_empty() && laid(row, col) {
             s.push_str(&format!("<c r=\"{r}\" s=\"{st}\"{kind}>{held}</c>"));
             continue;
         }
+        // A dynamic formula's `ref`, the extent it spilled into where the
+        // values computed one, else its own cell or the extent its file saved.
+        let spill_ref = spilled.get(&(row, col)).map(super::A1Range::text);
         match &cell.content {
             Content::Text(t) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
@@ -1501,9 +1559,22 @@ fn sheet_text(
                 numbered(si)
             )),
             Content::DynamicFormula(f) => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"{kind} cm=\"{}\"><f t=\"array\" ref=\"{r}\">{}</f>{held}</c>",
+                "<c r=\"{r}\" s=\"{st}\"{kind} cm=\"{}\"><f t=\"array\" ref=\"{}\">{}</f>{held}</c>",
                 render.cm,
+                spill_ref.as_deref().unwrap_or(&r),
                 xml::text(f)
+            )),
+            // Over the extent its file saved it spilling into (KERNEL.55),
+            // where no values computed it again.
+            Content::DynamicSpill { text, range } => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\"{kind} cm=\"{}\"><f t=\"array\" ref=\"{}\">{}</f>{held}</c>",
+                render.cm,
+                match (&spill_ref, values) {
+                    (Some(e), _) => e.clone(),
+                    (None, Some(_)) => r.clone(),
+                    (None, None) => range.text(),
+                },
+                xml::text(text)
             )),
             // A legacy array formula over its own cell, Ctrl+Shift+Enter's,
             // with no dynamic-array metadata (KERNEL.8, slice f).
@@ -2452,6 +2523,124 @@ mod tests {
             assert!(row.ends_with(" agree)"), "{row}");
         }
         assert_eq!(text.lines().count(), 4);
+    }
+
+    #[test]
+    fn a_spill_is_written_over_its_extent_each_cell_holding_its_value() {
+        // KERNEL.55's third slice: a build's dynamic formula that spills is
+        // written as Excel's save of the item's probe holds one, its `ref` the
+        // extent and each of its other cells, which the model does not hold,
+        // its value; one blocked holds no value, `#SPILL!` none of a cell's
+        // own, and its `ref` its cell; the door's reading agrees at each.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        let sheet = &mut wb.sheets[s];
+        sheet.set_formula_dynamic(
+            crate::sheet::parse_a1_range("A1").unwrap(),
+            "_xlfn.SEQUENCE(3,2)",
+            0,
+        );
+        sheet.set_formula_dynamic(
+            crate::sheet::parse_a1_range("D1").unwrap(),
+            "_xlfn.SEQUENCE(4)",
+            0,
+        );
+        sheet.set(
+            3,
+            4,
+            Cell {
+                content: Content::Text("x".to_string()),
+                style: 0,
+            },
+        );
+        sheet.set(
+            5,
+            1,
+            Cell {
+                content: Content::Formula("SUM(B1:B3)".to_string()),
+                style: 0,
+            },
+        );
+        let lib = crate::excel::library();
+        let calc = crate::calc::Calc::run(&wb, &lib);
+        let sx = sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &calc);
+        assert!(sx.contains("<dimension ref=\"A1:D5\"/>"), "{sx}");
+        assert!(
+            sx.contains("<row r=\"1\"><c r=\"A1\" s=\"0\" cm=\"1\"><f t=\"array\" ref=\"A1:B3\">_xlfn.SEQUENCE(3,2)</f><v>1</v></c><c r=\"B1\" s=\"0\"><v>2</v></c>"),
+            "{sx}"
+        );
+        assert!(
+            sx.contains("<row r=\"3\"><c r=\"A3\" s=\"0\"><v>5</v></c><c r=\"B3\" s=\"0\"><v>6</v></c><c r=\"D3\""),
+            "{sx}"
+        );
+        assert!(
+            sx.contains(
+                "<c r=\"D1\" s=\"0\" cm=\"1\"><f t=\"array\" ref=\"D1\">_xlfn.SEQUENCE(4)</f></c>"
+            ),
+            "{sx}"
+        );
+        let bytes = workbook_bytes_valued(&wb, &calc).unwrap();
+        let text = crate::reflect::calc::calc_text(&bytes, "spill.xlsx", &lib).unwrap();
+        let rows: Vec<&str> = text.lines().collect();
+        assert_eq!(rows.len(), 8, "{text}");
+        for row in &rows {
+            let blocked = row.contains("(error \"#SPILL!\") none");
+            assert!(row.ends_with(" agree)") || blocked, "{row}");
+        }
+        assert!(
+            text.contains("(calc \"S\" \"B3\" \"=SEQUENCE(3,2)\" 6 6 agree)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("(calc \"S\" \"A5\" \"=SUM(B1:B3)\" 12 12 agree)"),
+            "{text}"
+        );
+        // Written with no values, the spill's `ref` is its cell, as before.
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
+        assert!(
+            sx.contains("ref=\"A1\">_xlfn.SEQUENCE(3,2)</f></c>"),
+            "{sx}"
+        );
+        assert!(!sx.contains("r=\"B1\""), "{sx}");
+        // An anchor holding the extent its file saved: written over the extent
+        // computed with values, its cell where it spills no more, and over its
+        // saved extent with none.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        for (addr, text, saved) in [
+            ("A1", "_xlfn.SEQUENCE(2)", "A1:A3"),
+            ("C1", "_xlfn.SEQUENCE(1)", "C1:C2"),
+        ] {
+            let r = crate::sheet::parse_a1_range(addr).unwrap();
+            let range = crate::sheet::parse_a1_range(saved).unwrap();
+            let content = Content::DynamicSpill {
+                text: text.to_string(),
+                range,
+            };
+            wb.sheets[s].set(r.top, r.left, Cell { content, style: 0 });
+        }
+        let calc = crate::calc::Calc::run(&wb, &lib);
+        let sx = sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &calc);
+        // The sheet's dimension holds the spill past the cells the model holds.
+        assert!(sx.contains("<dimension ref=\"A1:C2\"/>"), "{sx}");
+        assert!(
+            sx.contains("ref=\"A1:A2\">_xlfn.SEQUENCE(2)</f><v>1</v>"),
+            "{sx}"
+        );
+        assert!(
+            sx.contains("ref=\"C1\">_xlfn.SEQUENCE(1)</f><v>1</v>"),
+            "{sx}"
+        );
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
+        assert!(sx.contains("<dimension ref=\"A1:C1\"/>"), "{sx}");
+        assert!(
+            sx.contains("ref=\"A1:A3\">_xlfn.SEQUENCE(2)</f></c>"),
+            "{sx}"
+        );
+        assert!(
+            sx.contains("ref=\"C1:C2\">_xlfn.SEQUENCE(1)</f></c>"),
+            "{sx}"
+        );
     }
 
     /// Values held as a recalculation would hold them, by cell.

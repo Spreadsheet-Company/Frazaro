@@ -296,6 +296,20 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # HLOOKUP and VLOOKUP force the value sought and the kind; INDEX's row and column of
 # a reference forced in a legacy formula and a legacy array formula alike), and 52
 # a spill's or a reader's of one, labelled until the item's next slice computes them.
+# 2026-11-18, KERNEL.55's third slice, a dynamic formula's spill computed and laid into
+# the cells beside it, each a row of its own: spills_saved 232 rows, 219 agreeing, every
+# spill of its Spills and Typed sheets computed and agreeing with the extent and the
+# values Excel saved, blocked where Excel blocked it (a value, a formula, a merged range,
+# the sheet's edges), the two spills meeting at K3 and what reads them labelled (the
+# stop rule's), and six the language's own; typed_saved 107, every row agreeing, its
+# nine extents among them; lookups_saved 166, 163 agreeing, A106:B106 spilled and A107
+# #SPILL!, blocked as Excel's save holds it; intersect_saved 49, every row agreeing;
+# arrays_saved 217, 216 agreeing; lambda_saved's MAP #SPILL! agreeing, 101; fixture 31,
+# 27 agreeing, its SEQUENCE(2) and F2. The door's three builds holding spills, lookups,
+# intersect and arrays, built again, each anchor's ref its extent and each spilled cell
+# holding its value, no other row moved: lookups 166 and 162 agreeing, intersect 49 and
+# 49, arrays 214 and 204; a #SPILL!, which the file holds only as a rich value, holding
+# none, as #CALC! does (lookups' A107, lambda's MAP).
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -306,36 +320,36 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # name, each a measured difference a stop rule keeps, held to differ.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/recalc/saved_calc.vla';         Floor = 5;   Pin = 'agree';     AgreeFloor = 5 },
-    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 30;  Pin = 'no-differ'; AgreeFloor = 25 },
+    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 31;  Pin = 'no-differ'; AgreeFloor = 27 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 31;  Pin = 'no-differ'; AgreeFloor = 28 },
     @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 106 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
-    @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 165; Pin = 'built';     AgreeFloor = 160 },
-    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 165; Pin = 'no-differ'; AgreeFloor = 160 },
-    @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 31;  Pin = 'built';     AgreeFloor = 28 },
-    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 31; Pin = 'no-differ'; AgreeFloor = 28 },
+    @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 166; Pin = 'built';     AgreeFloor = 162 },
+    @{ Name = 'lookups_saved'; Fixture = 'scripts/recalc/lookups_saved.xlsx'; Golden = 'scripts/recalc/lookups_saved_calc.vla'; Floor = 166; Pin = 'no-differ'; AgreeFloor = 163 },
+    @{ Name = 'intersect';     Fixture = 'scripts/recalc/intersect.xlsx';     Golden = 'scripts/recalc/intersect_calc.vla';     Floor = 49;  Pin = 'built';     AgreeFloor = 49 },
+    @{ Name = 'intersect_saved'; Fixture = 'scripts/recalc/intersect_saved.xlsx'; Golden = 'scripts/recalc/intersect_saved_calc.vla'; Floor = 49; Pin = 'no-differ'; AgreeFloor = 49 },
     @{ Name = 'texts';         Fixture = 'scripts/recalc/texts.xlsx';         Golden = 'scripts/recalc/texts_calc.vla';         Floor = 357; Pin = 'built';     AgreeFloor = 189 },
     @{ Name = 'texts_saved';   Fixture = 'scripts/recalc/texts_saved.xlsx';   Golden = 'scripts/recalc/texts_saved_calc.vla';   Floor = 357; Pin = 'no-differ'; AgreeFloor = 190 },
     @{ Name = 'dates';         Fixture = 'scripts/recalc/dates.xlsx';         Golden = 'scripts/recalc/dates_calc.vla';         Floor = 1377; Pin = 'built';    AgreeFloor = 1329 },
     @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 },
     @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Golden = 'scripts/recalc/criteria_calc.vla';      Floor = 228;  Pin = 'built';    AgreeFloor = 225 },
     @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 },
-    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 210;  Pin = 'built';    AgreeFloor = 198 },
-    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 213;  Pin = 'no-differ'; AgreeFloor = 210 },
+    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 214;  Pin = 'built';    AgreeFloor = 204 },
+    @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 217;  Pin = 'no-differ'; AgreeFloor = 216 },
     @{ Name = 'formulas';      Fixture = 'scripts/recalc/formulas.xlsx';      Golden = 'scripts/recalc/formulas_calc.vla';      Floor = 95;   Pin = 'built';    AgreeFloor = 82 },
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Golden = 'scripts/recalc/formulas_saved_calc.vla'; Floor = 95;  Pin = 'no-differ'; AgreeFloor = 82 },
     @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Golden = 'scripts/recalc/address_calc.vla';       Floor = 538;  Pin = 'built';     AgreeFloor = 403 },
     @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Golden = 'scripts/recalc/address_saved_calc.vla'; Floor = 538;  Pin = 'no-differ'; AgreeFloor = 403 },
     @{ Name = 'info';          Fixture = 'scripts/recalc/info.xlsx';          Golden = 'scripts/recalc/info_calc.vla';          Floor = 788;  Pin = 'built';    AgreeFloor = 783 },
     @{ Name = 'info_saved';    Fixture = 'scripts/recalc/info_saved.xlsx';    Golden = 'scripts/recalc/info_saved_calc.vla';    Floor = 788;  Pin = 'no-differ'; AgreeFloor = 786 },
-    @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 58;   Pin = 'no-differ'; AgreeFloor = 49 },
+    @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 107;   Pin = 'no-differ'; AgreeFloor = 107 },
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
     @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 104;  Pin = 'built';     AgreeFloor = 99 },
-    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 100; Left = @('Functions!A57') },
-    @{ Name = 'spills_saved';  Fixture = 'scripts/recalc/spills_saved.xlsx';  Golden = 'scripts/recalc/spills_saved_calc.vla';  Floor = 180;  Pin = 'no-differ'; AgreeFloor = 128 }
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 101; Left = @('Functions!A57') },
+    @{ Name = 'spills_saved';  Fixture = 'scripts/recalc/spills_saved.xlsx';  Golden = 'scripts/recalc/spills_saved_calc.vla';  Floor = 232;  Pin = 'no-differ'; AgreeFloor = 219 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
@@ -442,7 +456,10 @@ function Test-Order($lines, $left) {
         $notComputed = $f.Computed.StartsWith('(not-computed ')
         # A computed value the file holds nothing for, but a #CALC! answer,
         # which the build writes with no value (KERNEL.8, slice f).
-        if (-not $notComputed -and $f.Cached -eq 'none' -and $f.Computed -ne '(error "#CALC!")') { $counts.bare++ }
+        # `#CALC!` and `#SPILL!` (KERNEL.55) have no cell error value: the
+        # writer caches neither, as Excel saves each as a rich value.
+        $unheld = $f.Computed -eq '(error "#CALC!")' -or $f.Computed -eq '(error "#SPILL!")'
+        if (-not $notComputed -and $f.Cached -eq 'none' -and -not $unheld) { $counts.bare++ }
         if ($f.Verdict -ne 'unchecked' -and ($notComputed -or $f.Cached -eq 'none')) { $problems.Add("line ${n}: a verdict of $($f.Verdict) with nothing to compare: $line") }
         if ($f.Verdict -eq 'unchecked' -and -not $notComputed -and $f.Cached -ne 'none' -and -not $f.Cached.StartsWith('(date ')) { $problems.Add("line ${n}: unchecked though both values are there: $line") }
         if ($strings[0] -ne $sheet) {

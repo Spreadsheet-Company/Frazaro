@@ -713,7 +713,20 @@ impl<'a> Package<'a> {
                     }
                     in_data = true;
                 }
-                Event::End { name: "sheetData" } => break,
+                Event::End { name: "sheetData" } => in_data = false,
+                // A merged range, after the cells, which blocks a spill
+                // (KERNEL.55).
+                Event::Start {
+                    name: "mergeCell",
+                    attrs,
+                    ..
+                } if !in_data => {
+                    if let Some(range) = attr(attrs, "ref").and_then(|r| parse_a1_range(&r)) {
+                        if range.cells() > 1 {
+                            sink.merged(&info.name, &range.text());
+                        }
+                    }
+                }
                 Event::Start {
                     name: "row", attrs, ..
                 } if in_data => {

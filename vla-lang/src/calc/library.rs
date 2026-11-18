@@ -1708,7 +1708,8 @@ mod tests {
         assert_eq!(
             bits_computed(rows),
             [
-                "(not-computed \"a spill\")".to_string(),
+                // Its spill blocked by the formula below it (KERNEL.55).
+                "(error \"#SPILL!\")".to_string(),
                 "101".to_string(),
                 NA.to_string(),
                 "5".to_string(),

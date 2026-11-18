@@ -834,8 +834,12 @@ mod tests {
             if col != 2 {
                 continue;
             }
-            // A spill's other cells hold its values, and no formula.
-            let (Content::Formula(f) | Content::DynamicFormula(f)) = &cell.content else {
+            // A spill's other cells hold its values, and no formula; its
+            // anchor holds the extent its file saved (KERNEL.55).
+            let (Content::Formula(f)
+            | Content::DynamicFormula(f)
+            | Content::DynamicSpill { text: f, .. }) = &cell.content
+            else {
                 continue;
             };
             let as_typed = match read.model.sheets[typed].cells.get(&(row, 1)) {
