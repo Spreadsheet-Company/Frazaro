@@ -46720,6 +46720,449 @@ suites as they stand. No hand test: the defect and its fix are the machine's, he
 the item's five files alone, a bump of `VLA_RELEASE_VERSION` standing in `src/VLA.bas` that is not this
 item's left out.
 
+**`KERNEL.55`, dynamic arrays whole: the scoping, 2026-11-17.** Begun at the owner's word, "Scope, then build,
+Frazaro's KERNEL.55: dynamic arrays whole. Stop for my approval after the scoping; build nothing in the tree until
+I approve." Minted 2026-10-21 (`67ad47e`) from `KERNEL.8`'s sixth slice, its *Found* and its scoping's decision 7;
+nothing minted here. HEAD `77516bd`, 0.14.0's release, level with origin, the tree clean; Alonzo's HEAD `e531845`
+with a peer's uncommitted `CART.3` work, and Buffet, each read and neither written. Every number below was measured
+in copies of `HEAD` made by `git archive`, each with a target of its own (scratchpad `k55/`); nothing is built in
+the tree.
+
+*What stands, read in the code.*
+- *The answer.* `Ctx::result` (`calc/eval.rs`) takes an answer of many values as its first in a legacy formula and
+  in a legacy array formula, and labels it `(not-computed "a spill")` in a dynamic one, a range of many cells at its
+  top too (`KERNEL.70`). Eighteen formulas of the fixtures are labelled so, in ten calc goldens: the arrays
+  fixture's `D1` and `G1`, the lookups' `A106` and `A107`, the intersection's three, the lambda fixture's `MAP`, the
+  reflect fixture's `SEQUENCE(2)` and nine of the typed fixture's. The cells Excel spills into read as the values
+  the file cached.
+- *The value.* `ErrorKind` holds eight kinds and is `#[non_exhaustive]` since 0.11.0 (`KERNEL.8`'s decision 9).
+  `ErrorKind::parse("#SPILL!")` is `None`: the reader spells Excel's rich error 8 `#SPILL!`
+  (`merge::rich_errors_of`), a cell holding it reads as `#VALUE!` (`dense::error_named`), and `ERROR.TYPE`
+  answers `#N/A` where Excel answers 9. A slot's kind is a byte, eight error kinds past `ERROR` (`calc/dense.rs`).
+- *The reference.* The scanner reads `A1#` and `Name#` as `refers::Kind::Spill`, in the language and in
+  `VLA_Refers.bas`; the tokenizer makes it `Tok::Other`, a construct not read (`calc/formula.rs`). A file's
+  `_xlfn.ANCHORARRAY(A1)` is a call of a function no library holds, and `FORMULATEXT` labels a text holding one
+  `a formula Excel shows with #` (`KERNEL.53`).
+- *The readers.* The OOXML reader takes `<f t="array">` at its anchor and drops its `ref`
+  (`Sink::array(sheet, addr, kind)`); the ODF reader drops a matrix's `number-matrix-rows-spanned` and
+  `-columns-spanned` alike. So the other cells of a block entered with Ctrl+Shift+Enter, and the cells of a spill,
+  are `cell` rows in reflect's relations, constants to every reader: the reflect fixture's `F2`, of its
+  `SEQUENCE(2)`, and `E4`, of its block `E3:E4`.
+- *The door's plan.* `graph::plan` orders the formula cells by the references their texts read, once; a cell a
+  spill fills holds no formula and earns no edge.
+- *The machine.* An engine's grid holds a dynamic formula of one cell (`KERNEL.70`'s word), a range refused
+  (`grid-dynamic-range`), and no legacy array formula. A door's rows carry no word (`KERNEL.70`'s decision 6), so
+  a door's file loaded by a machine computes every formula as a legacy one, the recalc floors' runner loading its
+  programs so. A value stands by its place in a sheet's store (`KERNEL.49`), which a read and a walk ask; every
+  change of a frame is kept by a formula cell's position in the order (`changed_to`: `changed`, `marked`, the
+  values kept beside a yield, the twins' notes, a window's changes). A cell no formula holds has no position.
+- *The lowering.* `Shapes::add` marks every shape of dynamic formulas or legacy array formulas arrayed, its
+  program and its runs given up, `(unlowered array)` in the census (`calc/shape.rs`). The lowering already refuses
+  a range where one value is wanted (`Why::Range`) and the run path hands such a read to `Ctx` (`calc/vector.rs`),
+  so that a lowered parse reads alike in both kinds but at one place: `ROW`, `COLUMN`, `ISFORMULA`, `FORMULATEXT`
+  or `TYPE` of more than one cell, which a program and a run read at the first cell and a dynamic formula whole.
+  A program's `INDEX` answers through `lookups::index_value`, which labels a pick of many in a dynamic formula as
+  `Ctx` does.
+- *The writer.* `build.rs` writes a sentence's formula dynamic where its text calls one of the 49 names of
+  `xlfn::can_return_array`'s list or calls a value in place (`KERNEL.29`), each cell its own
+  (`Sheet::set_formula_dynamic`), its `ref` the cell itself; and a legacy array formula over its own cell alone.
+  `SUM` is on no list. The reference writes every formula through `Range.Formula2` (`VlaSetFormula`), Excel
+  choosing its kind.
+- *The record.* A `cell` row is a value the sentences put there and a `formula` row a text the host computes, the
+  record never showing one as the other (`view.rs`). A `value` row at a cell holding no formula is refused at a
+  load, `grid-row-malformed` (`machine/load.rs`). Alonzo's viewport draws a `value` row with nothing before it as a
+  formula known by its value alone, the values projection's case (`web/viewport.js`, `formulaCell`).
+- *A cartridge.* `AD-7`: the step computes values and never formulas, the plan fixed by a load and by a person's
+  write. Alonzo's `SPEC.md` §7.3 holds the rows' oracles, load the inverse of view and a step writing no formula.
+  No cartridge holds a dynamic formula; a formula a person types in the page may (`KERNEL.70`).
+
+*Measured.*
+1. *The writer's rule against Excel's own.* `typed_saved.xlsx` holds 56 formulas typed through `Formula2`, each
+   stored as Excel's writer chose (`KERNEL.70`). A probe never committed (`k55_rules`, an example over the core's
+   library) walks each parse by its functions' classes of parameters under four rules, and runs them over the
+   3,909 formulas of every built file, the three build goldens and the fourteen built recalc fixtures, a fill
+   counted once:
+
+   | rule | agrees with Excel's writer, of 56 | the built files' formulas it moves |
+   |---|---|---|
+   | today's list, `can_return_array` | 20 | none |
+   | Excel's, as the save shows it: a range written with `:`, an array constant or an answer of many where one value is wanted outside an array parameter, an `IF`'s or a `CHOOSE`'s condition even inside one, `INDEX` at the top only with a 0 or a missing row or column | 54 | 260 to dynamic, 163 to plain, in 13 of 17 files |
+   | where the language's two readings may differ: the last less an array constant of one value and a range of one cell | 53 | 249 to dynamic, 163 to plain |
+   | every formula | 36 | 3,548 to dynamic |
+
+   The two the second rule misses are the typed `@`, `=@Data!A2:L2` and `=SUM(@Data!A3:A5*2)`, which Excel stores
+   as legacy formulas without it: their file's text, all the probe read, holds no `@`, and the parser reads none
+   (`KERNEL.70`'s *Found*). The third misses `TYPE(Data!A2:A2)` as well, stored dynamic though both readings are 1.
+   The 163 to plain are today's list over-marking: `IFS` of single values (the build goldens' `D2` and `A1`),
+   `LET` without an array, `CHOOSE`, `LOOKUP` and `INDEX` of constants. One question the save cannot answer: whether
+   Excel's writer decides by the text or by the answer at entry. `INDEX(Data!A2:L2,1,3)` is stored plain and
+   `INDEX(Data!A2:L2,1,0)` dynamic, both told by the text; a text that may answer many but answered one at entry
+   (`INDEX(range,1,Data!X1)`, `IF(FALSE,range,0)`, `IFS`, `CHOOSE`) is the probe's typed sheet's to tell (below).
+2. *The lowering.* The same probe of `calc/shape.rs` in a copy: a dynamic or legacy array shape keeps its program
+   and its runs where its parse holds no array and no `ROW`, `COLUMN`, `ISFORMULA`, `FORMULATEXT` or `TYPE` of many
+   cells (`k55_reads_many_whole`, thirty lines). Timed by a runner of the probe's own over the recalc floors'
+   lookups program, 140,000 formulas, loaded three ways, each the median of three loads and fifteen frames,
+   native, release:
+
+   | the lookups program | whole frame | an edit's frame |
+   |---|---|---|
+   | seven fills, legacy | 7.95 ms | 9.82 ms |
+   | each cell its own legacy formula | 8.07 | 10.20 |
+   | each cell its own dynamic formula, today | 37.14 | 38.95 |
+   | each cell its own dynamic formula, the probe | 8.03 | 10.03 |
+
+   A second run gave 36.10 against 7.82, the legacy twin 7.52 to 7.76. Every twin's view of `A1:H20001` after its
+   frames and edits is the same bytes. Over the fixtures, `frazaro calc --shapes` with the probe lowers every
+   dynamic shape whose parse holds no array: the lookups' 19 `(unlowered array)` shapes to none and its save's,
+   the lambda fixture's 20 to none (`KERNEL.29`'s second *Found*), the intersection's 3 to none, the typed save's
+   23 to 17, the formulas fixture's 37 and 38 to 36, the arrays save's 195 to 194; no computed value of any fixture
+   moves; every binary of the workspace passes over it, no test holding a dynamic shape's program to `Ctx`, which
+   is the law this item owes.
+3. *The bounds.* Each of the eighteen spills the fixtures label has a bound its parse gives, read off its text:
+   seventeen exactly (`SEQUENCE` of constants, a range, `INDEX` of a range at a 0, `CHOOSE` of one range, `MAP`
+   of a range, an operator over a range, an array constant) and `FILTER`'s at most its range's rows.
+4. *A spill left free in an engine.* A re-plan is a formula write's frame: `KERNEL.69` measured 1.0 to 1.2 ms at
+   Naught's 1,804 cells and the frame after it as much again; here the lookups' 140,000 formulas, each its own
+   row, plan and load in 417 to 434 ms, against 3.2 to 3.9 written as seven fills.
+
+*The decisions, the owner's, each with its designs and a recommendation.* The four one-way doors first: a public
+kind, the record's rows, the writer's rule, a cartridge's promise.
+
+1. **`#SPILL!`, a value of the language (one-way: a host or a cartridge may match on it).**
+   (a) `ErrorKind::Spill`, the ninth kind: spelled `#SPILL!`, `ERROR.TYPE` 9, no literal (as `#CALC!`), read from a
+   file's rich value and from a cell's own text, written by the build with no cached value as `#CALC!` is. Additive,
+   the enum non-exhaustive: seven places in the language name the kinds one by one (`value.rs`'s text, parse and
+   literal, `dense.rs`'s table and code, `ERROR.TYPE`, a machine test reading `#SPILL!` as `#VALUE!`), one in the
+   core (its writer, which caches no `#CALC!` and would cache no `#SPILL!`), and the slot's byte holds it.
+   (b) A reason, `(not-computed "a spill blocked")`: no value, so that `IFERROR(A1,0)` over a blocked spill is
+   labelled where Excel answers 0, and every cell reading it inherits the label.
+   (c) `#VALUE!`, the file's own fallback: `IFERROR` and `ISERROR` agree with Excel, `ERROR.TYPE` answers 3 where
+   it answers 9, and a door's verdict over a save differs there.
+   (d) One kind for Excel's rich errors carrying their `errorType` (8 `#SPILL!`, 11 `#UNKNOWN!`, 12 `#FIELD!`, and
+   the vendors' `#CONNECT!`, `#BLOCKED!`, `#BUSY!`): a variant for every later one, but `#CALC!`, 13, stands as a
+   kind of its own since 0.11.0, so the family would have two spellings, and a match outside reads a number.
+   *Recommended:* (a).
+
+2. **A spilled cell's rows in the record (one-way: Alonzo's page reads them and a save keeps them).**
+   (a) A `value` row at each cell the spill fills, with nothing before it, and after the anchor's `value` row a row
+   naming the extent, `(spill "S" "A1" "A1:B3")`; a blocked anchor's value `#SPILL!` and no `spill` row; a block
+   of a legacy array formula the same, its anchor's `formula` row carrying the word `array` as a dynamic formula's
+   carries `dynamic`. Alonzo's viewport draws such a `value` row today, as the values projection's formula known by
+   its value alone, so its page draws a spill unchanged and counts the `spill` row unknown until it learns it. A
+   load takes a `value` row inside an anchor's extent as that anchor's last value, so that a save resumes, and
+   refuses one elsewhere as it does today. Reflect prints a file's spilled cells and a block's the same way, from
+   the anchor's `ref`, so that oracle 11 holds: the reflect fixture's `F2` and `E4` move, with `changed.xlsx`'s and
+   their diff. And every record says the word, a door's too, the alternative `KERNEL.70`'s decision 6 left to this
+   item: a machine loading a door's rows reads every formula legacy today, and once the writer writes
+   `SUM(A1:A3*B1:B3)` dynamic a door's file would compute in an engine as the other reading. Seven files' goldens
+   move for the word (the reflect fixture and its changed twin, `saved.xlsx`, the two build goldens' `IFS`, the
+   OpenDocument pair's matrices), with their view and diff goldens.
+   (b) `cell` rows as reflect prints them today, beside the `spill` row: a reader not knowing the `spill` row reads
+   constants, and a machine loading them holds a person's values in the extent, blocking its own spill at the
+   reload, so that load is no longer the inverse of view for any reader a version old.
+   (c) A row of its own a cell, `(spilled "S" "B1" 2)`: plain to read, but Alonzo's page draws nothing at a spilled
+   cell until its pin moves and it learns the row.
+   (d) The anchor's `value` row carrying the array, `(value "S" "A1:B2" 1 2 3 4)`, as a save's range row does
+   (`KERNEL.72`), nothing at the spilled cells: the grid record's order of cells broken, every viewport drawing
+   nothing past the anchor.
+   *Recommended:* (a).
+
+3. **The writer's rule (one-way: it moves built files, and decides whether the door and the reference write one
+   sentence one way).**
+   (a) Today's list: no file moves; it agrees with Excel's writer on 20 of 56; `=SUM(A1:A3*B1:B3)` stays legacy in
+   the door's file, `#VALUE!` off rows 1 to 3 in Excel, where the reference's is dynamic.
+   (b) Excel's own, as `typed_saved` witnesses it: 54 of 56, and the other two once the parser reads `@` as
+   `SINGLE`, `KERNEL.70`'s *Found*, a few lines this takes up, since the rule walks the parse; moves 260
+   formulas to dynamic and 163 to plain in 13 of the 17 built files. The intersection fixture's legacy rows, which
+   mean the intersection, are respelled with `SINGLE` and written as Excel writes a typed `@`, plain and without
+   it, its save untouched. Its open half, a text that may answer many but answered one at entry, is the probe's.
+   (c) Dynamic only where the language's two readings may differ: 53 of 56; moves 249 and 163; the door's file
+   differs from the reference's only where both readings answer alike (an array constant, `TYPE` of a range of one
+   cell), which no value shows.
+   (d) Every formula: 36 of 56; moves 3,548 to dynamic; every built file shows braces at every formula in an Excel
+   before 365, and Excel's save keeps them dynamic.
+   *Recommended:* (b), the probe settling its open half; where Excel turns out to decide by the answer at entry,
+   which a writer cannot see past its build, (c)'s reading there, the difference named in the treaty.
+
+4. **A cartridge's spill under `AD-7` (one-way: what a cartridge, and a person's typing in the page, may write).**
+   (a) Refused by name at a load and at a write: a dynamic formula whose parse may answer many values refused, a
+   person's `=SEQUENCE(5)` in the page with it; nothing else moves.
+   (b) Kept within a bound fixed at the load: the parse gives each dynamic formula's bound, its most rows and
+   columns, as the eighteen above have one; the plan's edges run from every formula reading a cell of the bound to
+   the anchor, by rectangles, as `KERNEL.49`'s nodes meet a read, fixed at the load and at a person's write and
+   never at a step; the step lays the array's values into its extent within the bound, `#SPILL!` where the extent
+   meets a cell holding a value or a formula of its own or another spill's; a dynamic formula whose parse gives no
+   bound (`SEQUENCE(Input!B1)`, `OFFSET`, `INDIRECT`) refused at the load by name. Every static property `AD-7`
+   keeps stands: the order, the cycles, the levels, the reach and every vectorized shape are the load's.
+   (c) Free, as Excel: the extent unbounded, the plan's edges moved at a step whose extent moves, a re-plan at every
+   such frame, a formula write's frame at Naught's size (1.0 to 1.2 ms) and up to a load's plan at the lookups' (the
+   load 417 to 434 ms); the cycle check and the reach properties of the frame, the veto by `AD-7`'s own words.
+   (d) Bounded by a size the author writes, `(spill "S" "A1" "A1:A100")` among the rows, the load refusing an array
+   past it: serves the parses (b) refuses, at the price of a row an author writes.
+   *Recommended:* (b), with (d) a later grant if a cartridge asks, the refusal being the door that stays open. A
+   cell a row writes inside a bound is blocked as Excel blocks it, `#SPILL!` at the frame whose extent reaches it,
+   a value and no refusal. *Declined:* refusing at the load a bound that holds a written cell, which refuses every
+   grid whose extents never reach it.
+
+5. **The door's plan of a spill.**
+   (a) The engine's bound, one reading for both; a spill whose parse gives none planned by its file's `ref`,
+   Excel's last extent, and labelled `(not-computed "a spill no plan bounds")` where neither stands or its answer
+   passes the one it was planned by.
+   (b) As (a), with a spill of no bound planned to the sheet's edge, every reader of an empty cell right of it and
+   below it ordered after it: a built model's `SEQUENCE(Data!A1)` computes, at the price of a false cycle wherever
+   the anchor reads a cell of that region's readers.
+   (c) Excel's own order, a reader computed again when an anchor's extent reaches it: no bound and no false cycle,
+   but the door's plan stops being the order it computes, its census and its cycles' report with it.
+   *Recommended:* (a). A spill reading a cell its own extent fills is a cycle, as Excel's circular reference is.
+
+6. **A spilled cell in the machine.**
+   (a) In the slots of its extent, laid by the anchor's computation: reads and walks unchanged, the hot path; the
+   frame's changes, the twins' copy at its end, the values kept beside a yield and a window's changes each told the
+   anchor's changed rectangles, its old extent and its new, and the readers marked through the reach by them.
+   (b) Positions of their own, a hidden fill over the bound each of whose cells reads its place of the anchor's
+   array: every machinery kept by position reused, at a position a cell of the bound, a `FILTER` over a column a
+   million of them, every one visited by a frame that computes every cell.
+   (c) Beside the anchor and never in a slot: every read of a cell of a bound asks the spills first, a search in
+   the evaluation's hot path, which is 80% of a frame (`KERNEL.25`).
+   *Recommended:* (a).
+
+7. **A legacy array formula over many cells.**
+   (a) Read at every cell of its `ref` by both readers, each cell its place of the anchor's array as Excel lays one
+   (a row repeated down the block, a column across it, one value everywhere, `#N/A` past the array), the anchor
+   computed once; held as a spill whose extent its `ref` fixes, never `#SPILL!`; written as one `t="array"` over
+   the `ref`. An engine's rows take it as the anchor's `formula` row with the word `array` and its `spill` row.
+   (b) Each cell computed as its own legacy array formula at its place: the formula computed at every cell of the
+   block, each taking its index.
+   (c) Today's: the anchor alone, the rest the file's constants.
+   *Recommended:* (a).
+
+8. **A dynamic shape's program.**
+   (a) Lowered as its legacy twin wherever its parse holds no array and no `ROW`, `COLUMN`, `ISFORMULA`,
+   `FORMULATEXT` or `TYPE` of many cells, the rest left to `Ctx` as today; a pick of many by `INDEX` or a cell's
+   array handed to `Ctx` at the guard, which spills it. Measured above: 37.1 ms a whole frame to 8.0, its legacy
+   twin's; every census's dynamic shapes without an array lowered.
+   (b) The lift itself lowered, an array a program's register: every shape holding an array too, unmeasured,
+   `~weeks` of its own.
+   (c) Today's, every dynamic shape computed by `Ctx`, 4.6 times its legacy twin.
+   *Recommended:* (a); (b) left until a model of arrays asks, measured first.
+
+9. **`A1#`.**
+   (a) A call of `ANCHORARRAY`, the file's own spelling: the parse reads `A1#` as `ANCHORARRAY(A1)`, a function of
+   the language answering the anchor's extent as a reference, `#REF!` where the cell holds no spill; the plan and
+   the reach read it as a read of the anchor's bound, as `INDEX`'s reach is read; written `_xlfn.ANCHORARRAY(A1)`,
+   which the prefix list holds already, and shown `A1#` by the record and `FORMULATEXT`, its label lifted.
+   (b) A kind of `Expr` of its own: every walk of a parse learns it (the reads, the reach, the nodes, the run path).
+   (c) Today's label.
+   *Recommended:* (a).
+
+10. **The public surface and the release.** Additive, no signature moved: `ErrorKind::Spill`; `ANCHORARRAY` in the
+    library; a provided method of `rows::Sink` telling an array formula's `ref`; `Calc::computed` answering a
+    spilled cell where it answered `None`, named in the notes; the record's `spill` row and words; the refusal of
+    a spill no bound holds in an engine, a catalogue row of `VLA_Messages.bas` and its export. *Recommended:* so,
+    the version the owner's to name.
+
+11. **The oracle.** The probe below at `no-differ` for the cells each slice computes, the rest labelled until
+    theirs; the laws: a dynamic shape's program and its runs held to `Ctx` at every cell, with programs on and
+    off, over generated dynamic formulas of every arm, `ROW` and `COLUMN` of many cells and `INDEX`'s picks among
+    them (a run of fewer than sixteen cells reaching the run path only with programs off, `KERNEL.73`'s lesson); a
+    machine's spills held to `Calc`'s at every cell of every frame, with writes moving an extent and blocking one,
+    budgets of 1, 3 and 7, programs on and off; load the inverse of view, a save resuming and a step writing no
+    formula over grids holding spills and blocks; the recalc floors' lookups program written dynamic, derived by the
+    runner from the lookups' rows with the word, held within 15% of its legacy twin and its memory its twin's to the
+    byte; the census goldens regenerated by the door; Alonzo's and Buffet's suites over the language by a path; and
+    every built file opened by Excel with no repair.
+
+12. **The slices, each a commit at the owner's word, in order.** (0) The probe, built and saved once, before any
+    code. (a) The lowering, with its law and the floors' pair; it needs nothing of the rest. (b) The error and the
+    reading: `#SPILL!`, a block read at every cell of its `ref` by both readers and written over it, `A1#` read and
+    written; the door plans a block's fixed extent. (c) Spills in the door: the bound, the plan, the extent laid,
+    `#SPILL!`, the record's rows and words, the build writing a spill's `ref` and values, the verdict's rows for a
+    spilled cell. (d) The writer's rule, as the probe settled it: the build goldens and the built fixtures written
+    again, the intersection fixture respelled. (e) Spills in an engine: `AD-7`'s bound, its refusal, the slots and
+    the changes, saves; Alonzo and Buffet over it. *Declined:* the writer first, which writes formulas dynamic
+    that a door would label a spill until (c); the engine before the door, whose `Calc` the machine's laws are held
+    to.
+
+*The one-way doors*, decisions 1 to 4, each a promise outside the repository: a value a host matches, rows Alonzo's
+page draws and a save keeps, the files the build writes, what a cartridge may write. The rest is swappable inside a
+release: the door's plan, the machine's slots, a block's reading and the lowering each sit behind the values the
+laws hold.
+
+*The probe*, `scripts/recalc/spills.xlsx`, written by a builder of the core's own (`core/src/reflect/spills_golden.rs`,
+test-only, `FRAZARO_BLESS=1`, as `lambda_golden.rs` writes `lambda.xlsx`), so that every formula's kind, `ref` and
+place are chosen; opened by the owner in Excel 365, its typed sheet written, one data cell edited, and saved as
+`spills_saved.xlsx`. Five sheets:
+- *Data*: numbers `A1:A6` (3, 1, 4, 1, 5, 9), texts `B1:B6`, numbers `C1:C6` with a 0 in `C2`, a column `D1:D5` with
+  `D3` empty, a block `E1:G2`, a lookup row `H1:J2`, `K1` 3 (the edit's cell), `X1` 3 and `X2` 0.
+- *Spills*, dynamic formulas with room left beside each: an extent fixed, `=SEQUENCE(3,2)`; an extent moving at an
+  edit, `=FILTER(Data!A1:A6,Data!A1:A6>Data!K1)`, the owner setting `K1` to 1 before saving; blocked by a value, by a
+  formula, by a merged range and by another formula's spill reaching across it; two spills whose extents meet,
+  `=SEQUENCE(1,3)` and `=SEQUENCE(3)` crossing at one cell; reaching the sheet's edge, `=SEQUENCE(3)` at row
+  1,048,575 and `=SEQUENCE(1,3)` at column `XFC` (`#SPILL!`), and `=SEQUENCE(2)` at row 1,048,575 filling it
+  exactly, read below; `A1#` read, `SUM`, `ROWS`, `COLUMNS`, `INDEX(A1#,3,2)`; a spill of a spill, `=A1#*10` and
+  `=SORT(D1#,1,-1)` over the moving one; a spilled cell read by its address and by a range over it; `A1#` of a
+  spilled cell, of a value and of a blocked anchor; a blocked anchor read by `=F1`, `ISERROR`, `ERROR.TYPE` and
+  `IFERROR`, and a cell of its would-be extent read; a spill of a range holding an empty cell, its place read by
+  `ISBLANK`; of errors (`=1/Data!C1:C3`); of texts and truth values; an array of one value (`=SEQUENCE(1)`); one
+  of none (`FILTER` keeping no row, `#CALC!`); `MAP`, `BYROW` and `MAKEARRAY`; `INDEX` at a 0 row and at a 0
+  column; `TRANSPOSE`.
+- *Blocks*, legacy array formulas over many cells, written `t="array"` over their `ref`: an array longer than its
+  block and one shorter (`#N/A` past it); a row over three rows and a column over three columns; one value over a
+  2-by-2; `SUM` over a 2-by-1; `TRANSPOSE`; `ROW` of a range; `INDEX` at a 0 column; a 2-by-3 array over a
+  3-by-2 block; a block read by `SUM` and at a cell past its array; and a legacy array formula of many values in a
+  single cell (its first).
+- *Legacy*, `KERNEL.8`'s unwitnessed edges, legacy formulas each beside its dynamic twin and its legacy array twin of
+  one cell: `HLOOKUP`'s value sought given an array; the match kinds of `VLOOKUP` and `HLOOKUP` given one; `INDEX`'s
+  row and its column given one; `CHOOSE`'s index given one; `LOOKUP`'s value sought given one; `INDEX`'s row given
+  a range; and `INDEX(range,0)`, `CHOOSE(1,range)` and `LOOKUP(range,...)` at rows the range holds, where the
+  intersection meets them.
+- *Typed*, as `typed.txt`'s: texts in column A, written by the owner into column B through `Range.Formula2` by one
+  line in the Immediate window: `IFS` and `SWITCH` of single values, `CHOOSE` of cells, `XLOOKUP` answering a cell
+  and a row, `LOOKUP`, `INDEX(range,Data!X1)` and `INDEX(range,2,Data!X2)` (one value and a row at entry, one text
+  shape), `INDEX` of a 2-D range at constants, `OFFSET`, `INDIRECT`, `IF(Data!A1>100,range,0)` and
+  `IF(Data!A1>0,range,0)`, `SUM(SEQUENCE(4))`, `SUMPRODUCT(SEQUENCE(3))`, `LET` with and without a range,
+  `SUMPRODUCT(IFERROR(range,0))`, `ROW(Data!A2:A2)`, `SUM(Data!A:A*1)`, a span of sheets, `SUM(Spills!A1#)`,
+  `TRANSPOSE` of one cell, `SEQUENCE(1)` and `UNIQUE` of one cell, `SUMPRODUCT` and `SUM` of a product of ranges,
+  and the two `@` and two plain controls.
+
+About 150 formulas. Each tells: Excel's value, and so every rule of decisions 1 to 9 at its case; the extent Excel
+saves as a spill's `ref`, its spilled cells' cached values and a blocked anchor's rich error; in *Typed*, the kind
+Excel's writer chose for each text, which the writer's rule is held to by a core test, text by text, and the values
+the door computes over the saved formulas, which are the same sentences typed. The language's answer for each, a
+prediction, stands in the builder beside it.
+
+*The stop rule*, stated before the first save. Two saves at most: the first at slice 0, before any code, its
+answers the evidence each slice is held to; the second only after the last slice, to confirm what the first
+corrected and what the slices folded; never a third. A rule Excel shows deterministically, in two cells or more or
+in one matching its documentation, is folded and confirmed by the second save. An edge Excel answers unstably
+between cells or between the saves, the two spills meeting most likely, is labelled and never chased. Not probed:
+a spill over a whole column (a million cached values in the save), a spill reading its own extent (Excel's
+circular-reference prompt at opening) and a size that moves at random (`RANDARRAY` of a random count), each labelled
+or refused by its reading.
+
+*Predictions.*
+- (a): the lookups program written dynamic within 2% of its legacy twin's frames, its memory the twin's to the byte;
+  ten census goldens moved and no calc golden; Alonzo's and Buffet's frames unmoved, no cartridge holding a dynamic
+  formula.
+- (b): the reflect fixture's `E4` and the OpenDocument pair's second matrix cells computed and agreeing with their
+  files, 1600 among them; `ERROR.TYPE` of `#SPILL!` 9; the lookups save's `A107` read as `#SPILL!`.
+- (c): the eighteen labelled spills computed, each spilled cell held to its save's cached value where the save holds
+  one: the typed save's nine extents, `B451:M451` among them; the lookups' `A107` and the lambda fixture's `MAP`
+  `#SPILL!`, blocked by the cells below them, as Excel saved them; the arrays fixture's `D1` and `G1` computed.
+- (d): the build goldens' `IFS` plain, if the probe holds Excel's writer to the text; the intersection fixture
+  respelled, its save at `no-differ` as it stands.
+- (e): every grid's bytes grow by the machine's tables of spills, a few dozen, so that Alonzo's memory ceilings move
+  at its next pin; its frames and Buffet's unmoved.
+- The probe's first save: every spill, block and legacy edge agrees with the language's documented reading but the
+  two spills meeting, which Excel settles by its order of computation, and at most two of the typed sheet's
+  kinds, the ones that turn on the answer at entry.
+
+*What it touches.* `vla-lang`: `calc/value.rs`, `dense.rs`, `information.rs` (the kind); `formula.rs`,
+`library.rs`, `reach.rs`, `nodes.rs`, `graph.rs` (`A1#`, the bound and the plan); `eval.rs` and `mod.rs` (`Calc`'s
+answer and its spilled cells); `shape.rs`, `vector.rs`, `program.rs` (the lowering); `machine/` (the slots, the
+changes, the load's rows, the refusal); `view.rs` and `rows.rs` (the record's rows and words, the `ref` told);
+`formulas.rs` (`FORMULATEXT` of `A1#`); tests and laws. `frazaro-core`: `reflect/ooxml.rs`, `odf.rs`, `calc.rs`
+(the `ref` read, a block, the verdict's rows); `sheet/ooxml.rs`, `sheet/xlfn.rs`, `build.rs` (a spill's `ref` and
+values, a block written, the writer's rule); `reflect/spills_golden.rs`, new. The reference: `VLA_Messages.bas`'s
+row for the engine's refusal and its export. The checks: `check_recalc_golden`, `check_shapes_golden`,
+`check_recalc_floors`, `check_reflect_golden`, `check_view_golden`, `check_build_golden`, `check_data_exports`,
+`prove.ps1`; `conformance/README.md`'s oracle 12; `docs/RELEASES.md`; `vla-lang/README.md`'s section at the close.
+
+*Found*, read and not minted:
+- *Excel 365's dynamic formulas load as formulas alone.* Excel's file shares no dynamic formula, so a door's model
+  of one holds each as its own cell, and the plan finds each its own node: the lookups' 140,000 as rows of their
+  own plan and load in 417 to 434 ms, as fills in 3.2 to 3.9. `KERNEL.38`'s neighbour, formulas alone of one text.
+- *No form writes `A1#`* in the formula syntax (`VLA.4`): a cartridge writes the text.
+- *The census names no kind* once a dynamic shape lowers: its `(unlowered array)` gone, nothing says it is dynamic.
+
+Out of reach, as the brief holds them: `KERNEL.29`'s first *Found*, which no part of this crosses; `VLA.19`; and
+Alonzo's own spill support (the page's bar at a spilled cell, a spill's border, a `(spec N)` of its own), Alonzo's
+at its pin.
+
+*Approved 2026-11-17* at the owner's word, "Recommendations approved; use 0.15.0, then build slice 0": the twelve
+decisions as recommended, the item to be released in 0.15.0, whose section of `docs/RELEASES.md` opens with the
+first slice a person sees, (a).
+
+*Slice 0 built 2026-11-17: the probe.* Over `77516bd`, nothing of the language moved.
+- *The builder* (`core/src/reflect/spills_golden.rs`, test-only): the workbook laid out cell by cell, each probe its
+  sheet, its cell, how it is held (a legacy formula, a dynamic formula over its own cell, or a legacy array formula
+  over the block it names) and its text as a person types it, the language's predicted answer in a comment before
+  it. Built on the looks' builder (`looks_golden.rs`), which gains a sheet with no case's header (`Part::bare`) and a
+  second packaging, `Book::bytes_dynamic`, with the dynamic-array metadata the `cm="1"` cells name
+  (`ooxml::metadata_xml`, the writer's own) and `calcPr fullCalcOnLoad`, so that Excel computes every formula as it
+  opens the file; `Book::bytes` writes as before, `looks.xlsx` and `rules.xlsx` held to the byte by their own tests.
+- *The fixture* (`scripts/recalc/spills.xlsx`, `FRAZARO_BLESS=1`): five sheets, Data, Spills, Blocks, Legacy and
+  Typed, 104 formulas, 57 on Spills, 17 on Blocks and 30 on Legacy, and 34 texts on Typed for the owner's
+  `Formula2`; every case the scoping's probe names but the typed span of sheets, which the builder left out (the
+  save's reading below). No formula holds a cached value, a block's cells a 0 each, as
+  Excel's save of one holds a value at every cell; `ANCHORARRAY` written `_xlfn.ANCHORARRAY` by the builder itself.
+- *Held:* `the_spills_probe_is_its_builder_s`, the file its builder's to the byte; and
+  `the_probe_reads_back_with_every_formula_where_its_builder_put_it`, the door's reading of it, every probe a
+  formula at its cell with its text as written (104 rows), every typed text a value at its row (34), the merged
+  range in the looks. And a reading of the file's parts apart from the reader: each dynamic anchor `cm="1"` and
+  `t="array"` over its own cell, each block `t="array"` over its range, the `LAMBDA`s' parameters under `_xlpm.`,
+  `SORT` and `FILTER` under `_xlfn._xlws.`, the metadata part and its relationship, as `typed_saved.xlsx` and the
+  reflect fixture spell them.
+- *Verified as CI runs it:* rustfmt; clippy over every target with and without `c-abi` at `-D warnings`; the
+  workspace's tests whole, the core's 273 (its 271 and the two) and the language's 534; `prove.ps1 -Control`, its
+  mutant failing all 71, and `-Impl` over the door, 70 passed; `run_checks.ps1`, 60 of 60. Not run, each for its
+  reason: the wasm modules, which compile no test module; and the language's package and Alonzo's and Buffet's
+  suites over it, no file of the language having moved, so that each would be 0.14.0's again.
+- *Found in the slice:* `ANCHORARRAY` stands on the writer's array-capable list and not on its prefix list
+  (`xlfn.rs`), so a formula calling it would be written bare, which Excel reads as an add-in's function, as
+  `KERNEL.8`'s second slice found of `SINGLE`; no sentence writes one today, the parser reading no `A1#`. Slice (b)
+  adds the prefix with the reading.
+- *No note in `docs/RELEASES.md`:* a test's fixture, nothing a person sees.
+
+*For Excel's save,* the stop rule as the scoping states it: two saves at most, this the first, the second only after
+the last slice to confirm what this one corrected and the slices folded; a rule Excel shows deterministically folded;
+an edge it answers unstably labelled, never chased. The owner opens `spills.xlsx` in Excel 365, writes the Typed
+sheet's texts into column B by one line in the Immediate window
+(`For r = 1 To 331 Step 10: Workbooks("spills.xlsx").Worksheets("Typed").Cells(r, 2).Formula2 = Workbooks("spills.xlsx").Worksheets("Typed").Cells(r, 1).Value: Next r`),
+sets `Data!K1` to 1, and saves it beside as `spills_saved.xlsx`.
+
+*Excel's save read, 2026-11-17,* the stop rule's first: `scripts/recalc/spills_saved.xlsx`, opened with no repair,
+`Typed!B1` `big` and `Spills!D4` 9 (the owner's word, "No repair modal ... spills_saved.xlsx is saved"). Read against
+the builder's predictions part by part, the file's parts read apart from the reader, and through the door: `frazaro
+calc` prints 138 rows, 76 agreeing, 54 labelled and 8 differing (Spills 13, 44 and none; Blocks 17 agreeing; Legacy
+22 and 8; Typed 24 and 10).
+- *Spills*: all 57 as predicted, every extent the predicted one, saved as its anchor's `ref` with each spilled cell's
+  value cached (`D1:D4` 3, 4, 5 and 9 after the edit). The two answers the scoping left open: `A1#` of a blocked
+  anchor is `#SPILL!` (`A24`), not `#REF!`; and of the two spills meeting at `K3`, `K1` spills, `K1:K4`, and `J3` is
+  `#SPILL!`, one observation of Excel's order, labelled as the stop rule holds it. A blocked anchor is stored
+  `t="e"`, `<v>#VALUE!</v>`, its `ref` itself alone, `aca` and `ca` set, its `vm` naming a rich value `_error` of
+  `errorType` 8: `subType` 1 for a cell in the way (a value, a formula, another spill's cell), 6 a merged range, 3
+  past the sheet's edge; `rwOffset` and `colOffset` the would-be extent past its anchor (3 and 0 for `SEQUENCE(4)`,
+  0 and 2 for `SEQUENCE(1,3)`, 0 and 0 past an edge). A formula reading one holds `errorType` 8 `propagated` and
+  `ca`; `FILTER` keeping no row `errorType` 13, `subType` 3.
+- *Blocks*: all 17 and every cell of each block as predicted, `#N/A` past an array.
+- *Legacy*: 22 of 30 as predicted; the 8 differing are two rules, each shown in three cells or more, so folded:
+  a legacy array formula takes the first of an array given to `HLOOKUP`'s or `VLOOKUP`'s value sought or match kind,
+  as a legacy formula does (`C1` 20, `C2` 30, `C7` 20, where the language lifts them to 50, 60 and 40, its
+  `Param::Scalar` lifting in a legacy array formula); and `INDEX`'s row or column given an array takes its first in a
+  legacy formula and a legacy array formula alike (`A8` and `C8` 3, `A9` and `C9` 1, `C3` 1, where the language lifts
+  to 8, 4 and 6), a dynamic formula alone lifting either. `CHOOSE`'s index and `LOOKUP`'s value sought lift in all
+  three kinds, as the language reads them. The fold is slice (b)'s, the reading of a legacy array formula; the save
+  joins `check_recalc_golden`'s table there at `no-differ`, held by no golden until then.
+- *Typed*: all 34 values as predicted, and the kinds Excel's writer chose, 27 of the 32 predicted (`SUM(Spills!A1#)`
+  and `ROWS(Spills!D1#)`, predicted no kind, plain). Decision 3's open half settles by the text: `IF(Data!A1>100,
+  Data!A1:A3,0)` and `INDEX(Data!A1:A6,Data!X1)`, one value each at entry, are stored dynamic. The five the walk
+  missed: `IFS` and `SWITCH` of single values dynamic by their names alone, as today's list holds them, so that the
+  build goldens' `IFS` stay dynamic where the prediction for (d) moved them; `INDEX` whose row or column is read from a
+  cell dynamic, at constants plain; `INDIRECT` dynamic, where `OFFSET` with no height and no width is plain; and an
+  operator over a range dynamic inside an array parameter too (`SUMPRODUCT(Data!A1:A6*Data!C1:C6)`), as
+  `IFERROR`'s value is there. Slice (d)'s rule is the walk with these, held to both saves' 90 texts.
+- *Not probed:* the typed span of sheets the scoping names, which the builder left out; its kind is slice (d)'s to
+  label, the second save confirming only.
+- *Stripped:* the save named the owner and the home folder (`docProps/core.xml`'s `dc:creator` and
+  `cp:lastModifiedBy`, `xl/workbook.xml`'s `x15ac:absPath`), the hand test's line not having set
+  `RemovePersonalInformation`. A script of the session's took them out as the tracked saves were on 2026-11-01, the
+  elements gone, every other member's header and stream byte for byte in its place, the two edited well formed, a
+  second run changing nothing; `reflect` and `calc` print the same bytes over it as over Excel's own. The second
+  save's line sets `RemovePersonalInformation` before it saves.
+- *Found:* `scripts/recalc/lambda_saved.xlsx`, committed in `98b0e2f` and not pushed, names the owner and the home
+  folder the same way; not touched, the owner's to decide.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

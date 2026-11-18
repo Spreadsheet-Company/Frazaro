@@ -69,6 +69,8 @@ pub mod ooxml;
 pub mod print;
 #[cfg(test)]
 mod rules_golden;
+#[cfg(test)]
+mod spills_golden;
 
 use std::collections::HashSet;
 

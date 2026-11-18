@@ -383,7 +383,16 @@ pub(super) struct Part {
 
 impl Part {
     pub(super) fn new(name: &'static str) -> Part {
-        let mut p = Part {
+        let mut p = Part::bare(name);
+        p.text(1, 1, "case", 0);
+        p.text(1, 2, "reads", 0);
+        p
+    }
+
+    /// A sheet with no case's header, for a fixture laid out cell by cell
+    /// (`KERNEL.55`'s probe, `super::spills_golden`).
+    pub(super) fn bare(name: &'static str) -> Part {
+        Part {
             name,
             gridlines: true,
             format_pr: "<sheetFormatPr defaultRowHeight=\"15\"/>".to_string(),
@@ -395,10 +404,7 @@ impl Part {
             hidden: false,
             extension: String::new(),
             rule_rows: Vec::new(),
-        };
-        p.text(1, 1, "case", 0);
-        p.text(1, 2, "reads", 0);
-        p
+        }
     }
 
     /// The row the next case takes.
@@ -534,6 +540,17 @@ pub(super) struct Book {
 
 impl Book {
     pub(super) fn bytes(&self) -> Vec<u8> {
+        self.package(false)
+    }
+
+    /// The workbook with the dynamic-array metadata its `cm="1"` cells name
+    /// and every formula computed when it opens, as the core's writer writes
+    /// a workbook holding a dynamic formula (`KERNEL.55`'s probe).
+    pub(super) fn bytes_dynamic(&self) -> Vec<u8> {
+        self.package(true)
+    }
+
+    fn package(&self, dynamic: bool) -> Vec<u8> {
         let n = self.parts.len();
         let mut types = format!(
             "{HEAD}<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n\
@@ -557,6 +574,11 @@ impl Book {
         if !self.strings.is_empty() {
             types.push_str(&format!(
                 "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"{CT}.spreadsheetml.sharedStrings+xml\"/>\n"
+            ));
+        }
+        if dynamic {
+            types.push_str(&format!(
+                "<Override PartName=\"/xl/metadata.xml\" ContentType=\"{CT}.spreadsheetml.sheetMetadata+xml\"/>\n"
             ));
         }
         types.push_str(&format!(
@@ -596,6 +618,9 @@ impl Book {
                 self.names.concat()
             ));
         }
+        if dynamic {
+            workbook.push_str("<calcPr fullCalcOnLoad=\"1\"/>\n");
+        }
         workbook.push_str("</workbook>\n");
         rels.push_str(&format!(
             "<Relationship Id=\"rId{}\" Type=\"{REL}/styles\" Target=\"styles.xml\"/>\n",
@@ -611,6 +636,12 @@ impl Book {
             rels.push_str(&format!(
                 "<Relationship Id=\"rId{}\" Type=\"{REL}/sharedStrings\" Target=\"sharedStrings.xml\"/>\n",
                 n + 3
+            ));
+        }
+        if dynamic {
+            rels.push_str(&format!(
+                "<Relationship Id=\"rId{}\" Type=\"{REL}/sheetMetadata\" Target=\"metadata.xml\"/>\n",
+                n + 4
             ));
         }
         rels.push_str("</Relationships>\n");
@@ -651,6 +682,12 @@ impl Book {
             parts.push((
                 format!("xl/worksheets/sheet{}.xml", i + 1),
                 p.xml(i == 0).into_bytes(),
+            ));
+        }
+        if dynamic {
+            parts.push((
+                "xl/metadata.xml".to_string(),
+                crate::sheet::ooxml::metadata_xml().into_bytes(),
             ));
         }
         zip::write_stored(&parts).expect("the fixture fits a zip")
