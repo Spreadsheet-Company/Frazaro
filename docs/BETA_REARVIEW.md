@@ -47288,6 +47288,116 @@ and commit the pair before suggesting next steps": over `bc598d5`, `KERNEL.74`'s
 - *Verified:* `check_recalc_floors` passes, and its control, every clean case passing and every mutant failing;
   `run_checks.ps1` 60 of 60.
 
+*Slice (b) built 2026-11-18: the error and the reading.* At the owner's word, "Proceed with slice (b)": over `2d23525`,
+uncommitted.
+- *`#SPILL!`* (decision 1): `ErrorKind::Spill`, the ninth kind, spelled `#SPILL!`, with no literal, as `#CALC!`
+  (`is_literal`), `ERROR.TYPE` 9 (`information.rs`), a slot's byte `ERROR` and 8 (`dense.rs`), and parsed from a cell's
+  text (`value.rs`), so that a cell holding it reads as its kind where it read `#VALUE!`; the writer caches none by the
+  rule that caches no `#CALC!`. Two tests that held `#SPILL!` as a text no kind spells, the dense store's and a
+  machine's, move to `#UNKNOWN!`, each asking `#SPILL!` by its kind beside it.
+- *A block* (decisions 7 and 10): a legacy array formula over more than its cell is `Content::ArrayBlock { text, range
+  }`, its anchor's content. The readers tell its range by a provided method of `rows::Sink`, `array_ref`, after its
+  kind: the xlsx reader from the `<f>`'s `ref` where it holds more than the anchor's cell and begins at it, a dynamic
+  formula's last spill told too, for the next slice; the OpenDocument reader from a matrix's two spans, `CellData`'s
+  `matrix` its spans where it was a flag. The door's sink holds the anchor over its block. `Calc` computes the anchor
+  once and keeps its answer, as much of it as the block lays (a reference's values read no further than the block
+  reaches), and lays each place as a lift reads one (`Array::at`): a row repeated down, a column across, one value
+  everywhere, `#N/A` past. Its places are the cells of the block the sheet holds but a formula's own, so that the
+  file's cells bound them, as Excel's save holds a value at each. The plan (`graph::plan_placed`, `plan` itself
+  unmoved) sees each place through a view of the workbook (`Placed`) as a formula cell with one edge, to its anchor,
+  read by its address and in a range, so that a reader follows it and a block reading its own cells is a cycle.
+  `Calc::cells` lists the places beside the formula cells, `Calc::formula` gives a place its anchor's text, and the
+  door prints a row for each, its formula the block's, as Excel holds it at every cell. The writer writes `t="array"`
+  over the range; given a recalculation's values, it writes each place's laid value, whatever the model held there.
+  A variant of `Content`, which keeps its 56 bytes, where a field of `Sheet` would have cost every machine's page 24
+  bytes and moved every ceiling (a machine keeps a `Sheet` a page), and a field of the box of a sheet's rules would
+  have cost every sheet holding a rule as much.
+- *`A1#`* (decision 9): for the parse, the tokenizer spells a cell's spill reference as the file does, the tokens of
+  `ANCHORARRAY(<cell>)` (`spell_spill`, by `spill_anchor`), and `#REF!#`, the mover's spelling of a spill whose anchor
+  moved off the sheet, as those of `ANCHORARRAY(#REF!)`, so that a shape and its moved text read alike; a defined
+  name's spill, `Rate#`, stays a construct not read, and `calls` reads the tokens unspelled, so that `A1#` names no
+  call, as Excel's bar shows it. No token of a spill's own reaches the parser: the package's tests from its tarball,
+  an unoptimized build, overflowed one MiB at Excel's depth where the workspace's, at `opt-level` 1, held, first
+  `tests/limits.rs` with two cases in `Parser::primary`'s match and then `tests/strangers.rs`, a machine's write of a
+  formula 130 `ABS` deep, with two kinds of token more. Measured from every function's frame in the unoptimized
+  assembly, HEAD's beside the tree's: two kinds of token cost `primary`'s frame 64 bytes, at every level of nesting,
+  and a second forcing case cost `Ctx::argument`'s 224 at every level of evaluation; both frames are HEAD's to the
+  byte now, `argument`'s case one for both classes (`Ctx::forces`), and the tokenizer's is 96 bytes larger. The graph
+  reads `A1#` as a read of its anchor by the arm that reads any cell, the reference made its cell's in place
+  (`spill_as_cell`), so that the frames below which `bound_text` parses hold no case of it. `ANCHORARRAY` joins the
+  library
+  (`arrays.rs`) and Excel's subset (`excel.rs`, its evidence the save): a cell holding no dynamic formula holds no
+  spill, `#REF!`, as the save answers a spilled cell's and a value's (`Spills!A22` and `A23`); a dynamic formula's
+  spill is labelled `a spill`, as the formula itself is, until spills come; and a legacy array formula's, which no
+  save shows, and anything but a reference to one cell, are labelled by the function's name. The writer files `A1#`
+  as `_xlfn.ANCHORARRAY(A1)` (`xlfn::spills_filed`, by the scanner's reading, a `#` in a text left as it is),
+  `ANCHORARRAY` on the prefix list at last: slice 0's *Found*, the probe's builder's workaround gone with it. Showing
+  `A1#` in the record and in `FORMULATEXT` is the next slice's, with the record's rows; a typed `A1#` already shows
+  as typed. Ten tests that used `A1#` as a construct no load reads, six of the language's and four of the core's,
+  move to a name's spill.
+- *The legacy fold* (slice 0's save, its Legacy sheet): `Param::Forced`, a class of one value forced in a legacy
+  formula and a legacy array formula alike, a dynamic formula alone lifting. `HLOOKUP`'s and `VLOOKUP`'s value sought
+  and match kind take it, their index staying `Param::Scalar`, which no save shows in a legacy array formula; and
+  `INDEX`'s row and column of a reference are forced so (`lookups::index`). An array's, `INDEX`'s array form, lift in
+  every kind as before: every probe of the fold was a reference's, and the unit test of the array form in a legacy
+  formula (`=SUM(INDEX({10,20,30},{1,3}))`, 40) is no save's. The unit test that held a legacy array formula's
+  `VLOOKUP({2,3},...)` lifted (`E61`, 11) was the language's reading and now answers 5.
+- *The oracle.* Excel's save of the probe joins `check_recalc_golden` at `no-differ`, `spills_saved_calc.vla`: 180
+  rows where 138, 128 agreeing where 76, none differing where 8, and 52 labelled, a spill or a reader of one. Every
+  row of Blocks, 59, its 42 places among them, and of Legacy, 30, agrees. The reflect fixture's `E4` and its
+  OpenDocument twin's `E4` and `F2` are computed and agree, `fixture_calc.vla` 30 rows and `opendocument_calc.vla`
+  31, their floors raised; no other golden moves, census, reflect, view or build, and no memory ceiling. The scoping's
+  predictions for (b): the reflect fixture's `E4` and the second matrix's cells agreeing with their files, 1600 among
+  them, held; `ERROR.TYPE` of `#SPILL!` 9, held by the tests, no save computing one; and the lookups save's `A107`
+  read as `#SPILL!`, its cached value so, the cell itself a spill labelled until the next slice.
+- *Tests.* `Calc`'s five: every block of the probe in small laid, read by a cell and by a range (`the_blocks`); every
+  budget, 1, 3 and 7, and a restart alike; a block's places the cells its sheet holds but a formula's own; a block
+  reading its own cells a cycle, and an anchor's reason its places'; and `A1#`'s answers, the plan reading it as a read
+  of its anchor. The parse of `A1#`, `Spills!$B$2#`, `#REF!#` and `Rate#`; the fold's cases beside the arrays' (`E62`
+  to `E69`); the fold's law over a machine, `a_lookup_s_forced_value_is_alike_by_runs_by_programs_and_by_ctx`, eight
+  columns of twenty, legacy and dynamic, stepped by runs, by programs alone and by runs with programs off, each held to
+  `Ctx` (`KERNEL.73`'s lesson). The core's: the xlsx reader's `ref` told and not; the OpenDocument reader's spans; the
+  writer's block written over its range and read back laid, with values and without; filing `A1#`; and the door over
+  Excel's save, every Blocks and Legacy row agreeing.
+- *Mutants*, in a copy of `2d23525` with the slice's files and a target of its own, each held to its crate's tests: 29,
+  26 killed. The three survivors: `laid_at`'s broadcast of a row and of a column, which `Array::at` already lays, so
+  `laid_at` is now `Array::at` alone; and `Param::Forced`'s lifting arm, `dynamic()`, which `argument` makes equivalent
+  to `true`, since it forces the class outside a dynamic formula, so the arm now says so. A second round over the code
+  so simplified and the writer's laid values, four; a third over a reading of a spill by the parser since replaced,
+  two; and a fourth over the final code, the tokenizer's two spellings, `calls` unspelled, the graph's reading in
+  place and the forced class's test each way, six: each killed, 41 in all, and no rule the slice leaves without a test
+  that fails when it breaks.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 952 tests; `run_checks.ps1` 60 of 60, `check_recalc_golden` with its new row and its
+  control; `prove.ps1 -Control`, its mutant failing all 71, and `-Impl` over the door, 70; both wasm modules, the
+  import section empty and the ten exports, `build_web.ps1 -NoBuild` and `check_web_offline`; the language's package
+  from its tarball on a fresh target, 674, `tests/limits.rs` and `tests/strangers.rs` among them; Alonzo's suite at
+  `650bb6b` over the tree's language by `[patch.crates-io]`, the path compiled, 113 with its cartridges required; and
+  Buffet's at `6f215a1` over that Alonzo copy and the tree, both pins moved, both paths compiled, 107. Under Windows
+  PowerShell 5.1 alone, pwsh not installed here.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, five notes; the roadmap's line; `conformance/README.md`'s amendment of
+  2026-11-18; `cli/README.md` and the door's `USAGE`, the calc rows of a block's cells.
+- *Found:*
+  1. `ISFORMULA` and `FORMULATEXT` of a block's cell answer as a cell of its own value does, `FALSE` and `#N/A`,
+     where Excel holds the array formula at every cell of a block, as its bar shows; no save shows it. The second
+     save's to confirm.
+  2. `INDEX`'s array form in a legacy formula and a legacy array formula, and `HLOOKUP`'s and `VLOOKUP`'s index in a
+     legacy array formula, lift, the language's reading, no save showing either; and `A1#` of a legacy array
+     formula's anchor labelled. The second save's to confirm.
+  3. `--counts`' `formulas` counts a block's cells with the formula cells, since each is a row.
+  4. `A1#` spelled as `ANCHORARRAY(A1)` is a call and counts a level of nesting, where Excel counts none for `#`: a
+     formula at Excel's 64 levels holding one at its innermost is refused as too deep.
+  5. The package's tests from its tarball are the only unoptimized build of the language a check runs, and the only
+     place a frame grown on a recursive path shows before it overflows a host: the workspace's `opt-level` 1 hid both
+     overflows above.
+- *The owner's hand test, 2026-11-18:* Excel 365 opened the writer's workbook of two blocks and a spill read through
+  `#` (`target/k55b_blocks.xlsx`, written by a scratch program over the core with the door's values) with no repair:
+  `B1:B4` 6, 2, 8 and `#N/A`, the bar at `B2` `{=A1:A3*2}`; `D1:F2` 3, 1 and 4 in both rows; `H1` 16; and `J1:J3`
+  1, 2 and 3 spilled, `K1` 3.
+
+*Committed 2026-11-18* at the owner's word, "Hand tests pass. Commit slice (b), then proceed with slice (c)": over
+`2d23525`, the slice's 34 files.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

@@ -162,6 +162,14 @@ pub enum Param {
     /// column); a dynamic formula and a legacy array formula lift the
     /// function over it as over [`Param::Value`].
     Scalar,
+    /// One value, forced so in a legacy formula and in a legacy array
+    /// formula alike, as [`Param::Scalar`] is in a legacy formula: Excel's
+    /// save of `KERNEL.55`'s probe gave `HLOOKUP`'s and `VLOOKUP`'s value
+    /// sought and match kind, and `INDEX`'s row and column of a reference
+    /// (`lookups::index`), an array's first value in both
+    /// (`SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`); a dynamic formula
+    /// alone lifts the function over it.
+    Forced,
 }
 
 /// A function's class of each parameter, by its place from 0, the last of a
@@ -676,8 +684,9 @@ fn key(name: &str) -> Cow<'_, str> {
 /// How deep a name may read a name before `#NAME?`.
 const NAME_DEPTH: u32 = 16;
 
-/// The label of a dynamic formula whose answer is many values.
-const SPILL: &str = "a spill";
+/// The label of a dynamic formula whose answer is many values, and of its
+/// spill read through `A1#` (KERNEL.55), until spills are computed.
+pub(crate) const SPILL: &str = "a spill";
 
 /// The construct a defined name leaves unread for a formula read at a sheet
 /// (KERNEL.8, slice b): the first name the parse reads, or a name such a
@@ -844,10 +853,11 @@ impl<'a> Ctx<'a> {
     }
 
     /// Whether a parameter of this class lifts its function over an array
-    /// given to it.
+    /// given to it. A forced one is given an array in a dynamic formula alone,
+    /// [`Ctx::argument`] forcing it to one value everywhere else (KERNEL.55).
     fn lifting(&self, class: Param) -> bool {
         match class {
-            Param::Value => true,
+            Param::Value | Param::Forced => true,
             Param::Scalar => self.reads_arrays_by_kind(),
             _ => false,
         }
@@ -1287,8 +1297,22 @@ impl<'a> Ctx<'a> {
     pub fn argument<'e>(&self, class: Param, a: &'e Expr) -> Result<Arg<'e>, Reason> {
         match class {
             Param::Array => self.as_arrays(|| self.eval(a)),
-            Param::Scalar if !self.reads_arrays_by_kind() => Ok(Arg::Scalar(self.forced(a)?)),
+            Param::Scalar | Param::Forced if self.forces(class) => Ok(Arg::Scalar(self.forced(a)?)),
             _ => self.eval(a),
+        }
+    }
+
+    /// Whether an argument of this class is forced to one value where the
+    /// formula stands: [`Param::Scalar`]'s outside a formula that reads arrays
+    /// by its kind, [`Param::Forced`]'s outside a dynamic formula (KERNEL.55).
+    /// Asked apart, so that [`Ctx::argument`], a frame the evaluator's recursion
+    /// stands on, holds one case for both: an unoptimized build gave a second
+    /// case 224 bytes more at every level.
+    fn forces(&self, class: Param) -> bool {
+        match class {
+            Param::Scalar => !self.reads_arrays_by_kind(),
+            Param::Forced => !self.env.dynamic(),
+            _ => false,
         }
     }
 

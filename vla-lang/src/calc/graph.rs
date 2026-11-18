@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use crate::grid::Model;
 use crate::intrinsics::fold;
 use crate::refers::{self, Kind};
-use crate::sheet::{Cell, Content, Sheet, Workbook};
+use crate::sheet::{A1Range, Cell, Content, Sheet, Workbook};
 
 use super::formula::{ref_expr, RefExpr};
 use super::value::ErrorKind;
@@ -483,6 +483,7 @@ pub fn is_formula(content: &Content) -> bool {
             | Content::SharedChild { .. }
             | Content::DynamicFormula(_)
             | Content::ArrayFormula(_)
+            | Content::ArrayBlock { .. }
     )
 }
 
@@ -611,7 +612,9 @@ fn collect<M: Model + ?Sized>(
     }
     let scanned = refers::scan(text);
     let reaches = range_reaches(text, &scanned);
-    for r in scanned {
+    for mut r in scanned {
+        // `A1#`, a read of its anchor (KERNEL.55).
+        super::formula::spill_as_cell(&mut r);
         match r.kind {
             Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
                 let Some(re) = ref_expr(&r) else { continue };
@@ -696,7 +699,9 @@ fn reads<M: Model + ?Sized>(
     }
     let scanned = refers::scan(text);
     let reaches = range_reaches(text, &scanned);
-    for r in scanned {
+    for mut r in scanned {
+        // `A1#`, a read of its anchor (KERNEL.55).
+        super::formula::spill_as_cell(&mut r);
         match r.kind {
             Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
                 if let Some(re) = ref_expr(&r) {
@@ -810,7 +815,112 @@ pub fn plan(
     extents: &[Extent],
     texts: &HashMap<CellId, String>,
 ) -> Plan {
-    let mut ids: Vec<CellId> = texts.keys().copied().collect();
+    plan_in(model, names, extents, texts, &Places::new())
+}
+
+/// The cells of the blocks legacy array formulas fill (KERNEL.55), each but
+/// the anchor with the anchor whose array lays its value.
+pub(crate) type Places = HashMap<CellId, CellId>;
+
+/// [`plan`] with each block's cells among the cells planned (KERNEL.55): each
+/// after its anchor, and each formula reading one, by its address or in a
+/// range, after it, as a formula reading a formula cell is. `blocks` are the
+/// blocks, each its sheet, its anchor and its range, whose cells `places`
+/// names.
+pub(crate) fn plan_placed(
+    model: &Workbook,
+    names: &Names,
+    extents: &[Extent],
+    texts: &HashMap<CellId, String>,
+    (places, blocks): (&Places, &[(usize, A1Range)]),
+) -> Plan {
+    if places.is_empty() {
+        return plan_in(model, names, extents, texts, places);
+    }
+    let placed = Placed {
+        book: model,
+        places,
+        blocks,
+    };
+    plan_in(&placed, names, extents, texts, places)
+}
+
+/// A workbook as [`plan_placed`] reads it (KERNEL.55): a block's cell holds
+/// its anchor's formula, so that a read of it, by its address or in a range,
+/// is an edge to it.
+struct Placed<'a> {
+    book: &'a Workbook,
+    places: &'a Places,
+    blocks: &'a [(usize, A1Range)],
+}
+
+impl Model for Placed<'_> {
+    fn sheet_count(&self) -> usize {
+        self.book.sheet_count()
+    }
+
+    fn sheet_name(&self, sheet: usize) -> Option<&str> {
+        Model::sheet_name(self.book, sheet)
+    }
+
+    fn find_sheet(&self, name: &str) -> Option<usize> {
+        Model::find_sheet(self.book, name)
+    }
+
+    fn defined_names(&self) -> &[(String, String)] {
+        Model::defined_names(self.book)
+    }
+
+    fn formula(&self, id: CellId) -> Option<crate::grid::Formula<'_>> {
+        Model::formula(self.book, id).or_else(|| {
+            let anchor = self.places.get(&id)?;
+            Model::formula(self.book, *anchor)
+        })
+    }
+
+    fn masters(&self, sheet: usize) -> crate::grid::Masters<'_> {
+        self.book.masters(sheet)
+    }
+
+    fn each_formula(&self, sheet: usize, f: &mut dyn FnMut((u32, u32), crate::grid::Formula<'_>)) {
+        self.book.each_formula(sheet, f);
+    }
+
+    fn formulas_in(&self, area: &Area, extent: Extent, f: &mut dyn FnMut(u32, u32)) {
+        self.book.formulas_in(area, extent, f);
+        for (sheet, block) in self.blocks {
+            if *sheet != area.sheet {
+                continue;
+            }
+            let met = Area {
+                sheet: *sheet,
+                top: block.top.max(area.top),
+                left: block.left.max(area.left),
+                bottom: block.bottom.min(area.bottom),
+                right: block.right.min(area.right),
+            };
+            if met.top > met.bottom || met.left > met.right {
+                continue;
+            }
+            for (row, col) in places(extent, &met) {
+                if self.places.contains_key(&(*sheet, row, col)) {
+                    f(row, col);
+                }
+            }
+        }
+    }
+}
+
+/// [`plan`] over a grid whose formula cells are `texts`'s and `places`'s,
+/// each place with one edge, to its anchor.
+fn plan_in<M: Model + ?Sized>(
+    model: &M,
+    names: &Names,
+    extents: &[Extent],
+    texts: &HashMap<CellId, String>,
+    places: &Places,
+) -> Plan {
+    let mut ids: Vec<CellId> = texts.keys().chain(places.keys()).copied().collect();
     ids.sort_unstable();
     let index: HashMap<CellId, usize> = ids.iter().enumerate().map(|(i, id)| (*id, i)).collect();
     let n = ids.len();
@@ -820,6 +930,10 @@ pub fn plan(
     let mut vertices: HashMap<Area, Option<usize>> = HashMap::new();
     let (mut cells, mut areas) = (Vec::new(), Vec::new());
     for (vi, id) in ids.iter().enumerate() {
+        if let Some(anchor) = places.get(id) {
+            adj[vi] = index.get(anchor).copied().into_iter().collect();
+            continue;
+        }
         cells.clear();
         areas.clear();
         reads(model, names, id.0, &texts[id], 0, (&mut cells, &mut areas));

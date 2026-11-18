@@ -184,7 +184,7 @@ impl Read {
     fn of(self, class: Param) -> Read {
         match class {
             Param::Value => self.value(),
-            Param::Scalar => Read::One,
+            Param::Scalar | Param::Forced => Read::One,
             Param::Range if self == Read::Arrays => Read::Arrays,
             Param::Range => Read::Whole,
             _ => Read::Arrays,

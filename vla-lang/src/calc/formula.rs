@@ -24,11 +24,13 @@
 //! with the construct as written, and the cell shows `not computed here`
 //! naming it, the honest static label of `HORIZON.md` section 12.6. Those
 //! are: implicit intersection by `@` or by a space between two references,
-//! a union in parentheses, a spill range (`A1#`), a structured reference
-//! (`Sales[Amount]`), and a link into another workbook
-//! (`[Rates.xlsx]Sheet1!A1`). A range where one value is wanted (`=B1:B2*2`)
-//! a legacy formula intersects and a dynamic one reads whole (`KERNEL.8`'s
-//! second and sixth slices), by the kind the file gives the formula.
+//! a union in parentheses, a defined name's spill (`Rate#`), a structured
+//! reference (`Sales[Amount]`), and a link into another workbook
+//! (`[Rates.xlsx]Sheet1!A1`). A cell's spill, `A1#`, is read as the file
+//! spells it, `ANCHORARRAY(A1)` (`KERNEL.55`). A range where one value is
+//! wanted (`=B1:B2*2`) a legacy formula intersects and a dynamic one reads
+//! whole (`KERNEL.8`'s second and sixth slices), by the kind the file gives
+//! the formula.
 //!
 //! `LET` and `LAMBDA` are read since `KERNEL.29`: a name either binds is
 //! resolved in the parse itself, a [`Local`] where it is read and never a
@@ -671,6 +673,63 @@ enum Tok {
     Other(String),
 }
 
+/// The function a spill's `#` stands for, the file's own spelling of `A1#`
+/// (KERNEL.55): `_xlfn.ANCHORARRAY(A1)`, which the reader reads without its
+/// prefix.
+pub(crate) const ANCHORARRAY: &str = "ANCHORARRAY";
+
+/// A spill as the file spells it, `ANCHORARRAY(<anchor>)`, pushed as its
+/// tokens (KERNEL.55): a spill reference's anchor, or `#REF!` for a broken
+/// reference's spill; whether it was pushed, a defined name's spill not.
+/// Never inlined, so that the tokenizer, which `FORMULATEXT` asks deep in an
+/// evaluation, holds none of its tokens.
+#[inline(never)]
+fn spell_spill(toks: &mut Vec<Tok>, spill: Option<&FormulaRef>) -> bool {
+    let anchor = match spill {
+        None => Tok::Err(ErrorKind::Ref),
+        Some(r) => match spill_anchor(r) {
+            Some(re) => Tok::Ref(re),
+            None => return false,
+        },
+    };
+    toks.push(Tok::Func(ANCHORARRAY.to_string()));
+    toks.push(Tok::LParen);
+    toks.push(anchor);
+    toks.push(Tok::RParen);
+    true
+}
+
+/// A spill reference to a cell made that cell's reference, in place (KERNEL.55):
+/// what the plan reads of `A1#`, its anchor, by the arm that reads any cell;
+/// any other reference left as it is. Never inlined, so that a frame below
+/// which a formula's parse recurses holds nothing of the case (`bound_text`'s
+/// callers, `tests/strangers.rs` on one MiB unoptimized).
+#[inline(never)]
+pub(crate) fn spill_as_cell(r: &mut FormulaRef) {
+    if r.kind != Kind::Spill || r.shape != Shape::Cell {
+        return;
+    }
+    r.kind = Kind::Cell;
+    if r.written.ends_with('#') {
+        r.written.pop();
+    }
+}
+
+/// The anchor a spill reference names, `A1` of `A1#` or `Spills!A1` of
+/// `Spills!A1#`, as a reference to its one cell (KERNEL.55); `None` for any
+/// other kind, and for a defined name's spill, `Name#`, which is not read.
+pub(crate) fn spill_anchor(r: &FormulaRef) -> Option<RefExpr> {
+    if r.kind != Kind::Spill || r.shape != Shape::Cell {
+        return None;
+    }
+    let mut cell = r.clone();
+    cell.kind = Kind::Cell;
+    if let Some(written) = cell.written.strip_suffix('#') {
+        cell.written = written.to_string();
+    }
+    ref_expr(&cell)
+}
+
 /// The scanner's record as a reference expression, for the kinds that are
 /// a rectangle: a cell, a range, a whole column, a whole row, on one sheet
 /// or across a span. `None` for every other kind.
@@ -724,7 +783,16 @@ pub fn ref_expr(r: &FormulaRef) -> Option<RefExpr> {
     })
 }
 
-fn tokenize(text: &str) -> Vec<Tok> {
+/// A text's tokens; and where `spells`, for the parse, each spill as the file
+/// spells it (KERNEL.55): `A1#` the tokens of `ANCHORARRAY(A1)`, and `#REF!#`,
+/// the mover's spelling of a spill whose anchor moved off the sheet, those of
+/// `ANCHORARRAY(#REF!)`. Spelled here, so that no token of a spill's own
+/// reaches the parser, whose recursive frames an unoptimized build sizes by
+/// every kind of token (two kinds more cost each level of nesting 64 bytes,
+/// past one MiB at Excel's depth, `tests/strangers.rs`). Not spelled, a spill
+/// is a construct as written, so that [`calls`] names no call for `#`, as
+/// Excel's bar shows it.
+fn tokenize(text: &str, spells: bool) -> Vec<Tok> {
     let s: Vec<char> = text.chars().collect();
     let refs: Vec<FormulaRef> = refers::scan(text)
         .into_iter()
@@ -740,6 +808,16 @@ fn tokenize(text: &str) -> Vec<Tok> {
         if next_ref < refs.len() && refs[next_ref].pos == i {
             let r = &refs[next_ref];
             next_ref += 1;
+            let after = i + r.span.max(1);
+            if spells && r.kind == Kind::Broken && s.get(after) == Some(&'#') {
+                spell_spill(&mut toks, None);
+                i = after + 1;
+                continue;
+            }
+            if spells && r.kind == Kind::Spill && spell_spill(&mut toks, Some(r)) {
+                i = after;
+                continue;
+            }
             toks.push(match r.kind {
                 Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
                     match ref_expr(r) {
@@ -1307,7 +1385,7 @@ pub fn parse(text: &str) -> Result<Expr, String> {
         return Err(TOO_LONG.to_string());
     }
     let mut p = Parser {
-        toks: tokenize(text),
+        toks: tokenize(text, true),
         at: 0,
         depth: 0,
         binds: false,
@@ -1329,7 +1407,7 @@ pub fn parse(text: &str) -> Result<Expr, String> {
 /// kept: what a histogram over a workbook counts (`frazaro reflect
 /// --functions`), read before anything is evaluated.
 pub fn calls(text: &str) -> Vec<String> {
-    tokenize(text)
+    tokenize(text, false)
         .into_iter()
         .filter_map(|t| match t {
             Tok::Func(name) => Some(name),
@@ -1559,11 +1637,43 @@ mod tests {
     }
 
     #[test]
+    fn a_cell_s_spill_reads_as_the_file_spells_it() {
+        // KERNEL.55's second slice: `A1#` is `ANCHORARRAY(A1)`, a sheet's
+        // cell's too; `#REF!#`, the mover's spelling of a spill whose anchor
+        // moved off the sheet, `ANCHORARRAY(#REF!)`; a defined name's spill
+        // not read; and a text's tokens name no call for `#`, which Excel's
+        // bar shows as the text spells it.
+        let anchor = |text: &str| match parse(text) {
+            Ok(Expr::Call(name, args)) if name == ANCHORARRAY => match &args[..] {
+                [Expr::Ref(r)] => (r.sheet.clone(), r.top, r.left, r.written.clone()),
+                other => panic!("{text}: {other:?}"),
+            },
+            other => panic!("{text}: {other:?}"),
+        };
+        assert_eq!(anchor("=A1#"), (None, 1, 1, "A1".to_string()));
+        let sheet = Some("Spills".to_string());
+        assert_eq!(
+            anchor("=Spills!$B$2#"),
+            (sheet, 2, 2, "Spills!$B$2".to_string())
+        );
+        assert!(matches!(parse("=SUM(A1#)*10"), Ok(Expr::Binary(..))));
+        assert_eq!(
+            parse("=#REF!#"),
+            Ok(Expr::Call(
+                ANCHORARRAY.to_string(),
+                vec![Expr::Error(ErrorKind::Ref)]
+            ))
+        );
+        assert_eq!(parse("=Rate#"), Err("Rate#".to_string()));
+        assert_eq!(calls("=SUM(A1#)"), vec!["SUM".to_string()]);
+    }
+
+    #[test]
     fn a_construct_this_slice_does_not_read_is_named_as_written() {
         assert_eq!(parse("=@A1:A3"), Err("@".to_string()));
         assert_eq!(parse("=A1 B1"), Err("intersection".to_string()));
         assert_eq!(parse("=SUM((A1,B2))"), Err("union".to_string()));
-        assert_eq!(parse("=A1#"), Err("A1#".to_string()));
+        assert_eq!(parse("=Rate#"), Err("Rate#".to_string()));
         assert_eq!(
             parse("=SUM(Sales[Amount])"),
             Err("Sales[Amount]".to_string())

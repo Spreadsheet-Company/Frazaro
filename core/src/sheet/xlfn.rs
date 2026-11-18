@@ -19,6 +19,7 @@
 
 pub use super::strip_future_prefixes;
 use super::{is_name_char, is_name_start};
+use crate::refers;
 
 /// Functions stored as `_xlfn.<NAME>`.
 const XLFN: &[&str] = &[
@@ -148,6 +149,8 @@ const XLFN: &[&str] = &[
     "SWITCH",
     "TEXTJOIN",
     // Microsoft 365
+    // Excel's `#`, as its file spells the operator (KERNEL.55).
+    "ANCHORARRAY",
     "ARRAYTOTEXT",
     "BYCOL",
     "BYROW",
@@ -390,11 +393,41 @@ pub fn prefix_future_functions(formula: &str) -> String {
     out
 }
 
-/// A formula's text as a file holds it (without its `=`): its newer functions
-/// under their prefixes and the names its `LET`s and `LAMBDA`s bind under
-/// `_xlpm.` (KERNEL.29), a cell's, a rule's and a defined name's alike.
+/// A formula's text as a file holds it (without its `=`): each spill read
+/// through `#` as the file spells it (KERNEL.55, [`spills_filed`]), its newer
+/// functions under their prefixes and the names its `LET`s and `LAMBDA`s bind
+/// under `_xlpm.` (KERNEL.29), a cell's, a rule's and a defined name's alike.
 pub fn as_filed(formula: &str) -> String {
-    prefix_parameters(&prefix_future_functions(formula))
+    prefix_parameters(&prefix_future_functions(&spills_filed(formula)))
+}
+
+/// A formula's text with each spill a cell's `#` reads, `A1#` or
+/// `Spills!A1#`, written as the file spells it, `ANCHORARRAY(A1)`, for
+/// [`prefix_future_functions`] to prefix (KERNEL.55): by the reference
+/// scanner's reading, so that a `#` inside a text, a quoted sheet's name or an
+/// error's spelling stands as it is, and so does a defined name's spill,
+/// `Name#`, which the language does not read.
+fn spills_filed(formula: &str) -> std::borrow::Cow<'_, str> {
+    let is_spill =
+        |r: &refers::FormulaRef| r.kind == refers::Kind::Spill && r.shape == refers::Shape::Cell;
+    let scanned = refers::scan(formula);
+    if !scanned.iter().any(is_spill) {
+        return std::borrow::Cow::Borrowed(formula);
+    }
+    let chars: Vec<char> = formula.chars().collect();
+    let mut out = String::with_capacity(formula.len() + 16);
+    let mut at = 0;
+    for r in scanned.iter().filter(|r| is_spill(r)) {
+        let end = (r.pos + r.span).min(chars.len());
+        out.extend(&chars[at..r.pos]);
+        let written: String = chars[r.pos..end].iter().collect();
+        out.push_str("ANCHORARRAY(");
+        out.push_str(written.strip_suffix('#').unwrap_or(&written));
+        out.push(')');
+        at = end;
+    }
+    out.extend(&chars[at..]);
+    std::borrow::Cow::Owned(out)
 }
 
 /// A defined name's text as a file holds it: [`as_filed`], with no `=`,
@@ -798,5 +831,23 @@ mod tests {
         assert!(!can_return_array("\")(\"&A1"));
         assert!(!can_return_array("(A1)+(B1)"));
         assert!(!can_return_array("SQ(3)"));
+    }
+
+    #[test]
+    fn a_cell_s_spill_is_filed_as_excel_files_it() {
+        // KERNEL.55's second slice: `A1#` under `_xlfn.ANCHORARRAY`, as the
+        // save of the item's probe spells it, a sheet's cell's too, the
+        // function's own spelling prefixed once; a `#` inside a text, a
+        // defined name's spill and an error's spelling left as they stand.
+        assert_eq!(as_filed("SUM(A1#)"), "SUM(_xlfn.ANCHORARRAY(A1))");
+        assert_eq!(
+            as_filed("Spills!$B$2#*10+A1#"),
+            "_xlfn.ANCHORARRAY(Spills!$B$2)*10+_xlfn.ANCHORARRAY(A1)"
+        );
+        assert_eq!(as_filed("ANCHORARRAY(D1)"), "_xlfn.ANCHORARRAY(D1)");
+        assert_eq!(as_filed("_xlfn.ANCHORARRAY(D1)"), "_xlfn.ANCHORARRAY(D1)");
+        assert_eq!(as_filed("\"A1#\"&A1"), "\"A1#\"&A1");
+        assert_eq!(as_filed("Rate#"), "Rate#");
+        assert_eq!(as_filed("IFERROR(A1,#N/A)"), "IFERROR(A1,#N/A)");
     }
 }

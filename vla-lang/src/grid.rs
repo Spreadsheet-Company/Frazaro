@@ -735,7 +735,9 @@ impl<'a> Holds<'a> {
             Content::Error(e) => Holds::Constant(Constant::Error(Cow::Borrowed(e))),
             Content::Formula(t) => Holds::Formula(Formula::Own(t, Kind::Plain)),
             Content::DynamicFormula(t) => Holds::Formula(Formula::Own(t, Kind::Dynamic)),
-            Content::ArrayFormula(t) => Holds::Formula(Formula::Own(t, Kind::Array)),
+            Content::ArrayFormula(t) | Content::ArrayBlock { text: t, .. } => {
+                Holds::Formula(Formula::Own(t, Kind::Array))
+            }
             Content::SharedMaster { si, .. } | Content::SharedChild { si } => {
                 Holds::Formula(Formula::Fill(*si))
             }

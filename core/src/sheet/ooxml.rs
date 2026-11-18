@@ -1407,6 +1407,24 @@ fn sheet_text(
                 .is_none()
         })
         .peekable();
+    // The blocks the sheet's legacy array formulas fill (KERNEL.55), each of
+    // whose cells but its anchor holds the value its array lays there where a
+    // recalculation computed it, as Excel saves one.
+    let blocks: Vec<super::A1Range> = sheet
+        .cells
+        .iter()
+        .filter_map(|(&at, c)| match &c.content {
+            Content::ArrayBlock { range, .. } if (range.top, range.left) == at => Some(*range),
+            _ => None,
+        })
+        .collect();
+    let laid = |row: u32, col: u32| {
+        blocks.iter().any(|b| {
+            (b.top..=b.bottom).contains(&row)
+                && (b.left..=b.right).contains(&col)
+                && (row, col) != (b.top, b.left)
+        })
+    };
     let mut current_row: Option<u32> = None;
     for (&(row, col), cell) in &sheet.cells {
         if current_row != Some(row) {
@@ -1429,6 +1447,10 @@ fn sheet_text(
             _ => None,
         });
         let (kind, held) = cached(value.as_ref());
+        if value.is_some() && !blocks.is_empty() && laid(row, col) {
+            s.push_str(&format!("<c r=\"{r}\" s=\"{st}\"{kind}>{held}</c>"));
+            continue;
+        }
         match &cell.content {
             Content::Text(t) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
@@ -1488,6 +1510,13 @@ fn sheet_text(
             Content::ArrayFormula(f) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"array\" ref=\"{r}\">{}</f>{held}</c>",
                 xml::text(f)
+            )),
+            // One over the block it fills (KERNEL.55), the block's other cells
+            // written as they stand, each holding its value, as Excel saves one.
+            Content::ArrayBlock { text, range } => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"array\" ref=\"{}\">{}</f>{held}</c>",
+                range.text(),
+                xml::text(text)
             )),
             // A kind of content this writer does not know writes no cell.
             _ => {}
@@ -2349,6 +2378,80 @@ mod tests {
         assert!(!parts(&wb).iter().any(|(n, _)| n == "xl/metadata.xml"));
         let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
         assert!(sx.contains("<c r=\"F2\" s=\"0\"><f t=\"array\" ref=\"F2\">SUM(C3:C4*2)</f></c>"));
+    }
+
+    #[test]
+    fn a_legacy_array_formula_over_a_block_is_written_over_it_and_read_back_laid() {
+        // KERNEL.55's second slice: one `t="array"` over the block, its other
+        // cells written as they stand, each with its value, as Excel's save of
+        // the item's probe holds one; the door's reading lays the anchor's
+        // array into them, each agreeing with the value written.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        let mut put = |addr: &str, content: Content| {
+            let r = crate::sheet::parse_a1_range(addr).unwrap();
+            wb.sheets[s].set(r.top, r.left, Cell { content, style: 0 });
+        };
+        put("A1", Content::Number(3.0));
+        put("A2", Content::Number(1.0));
+        put("A3", Content::Number(4.0));
+        let range = crate::sheet::parse_a1_range("B1:B4").unwrap();
+        let text = "A1:A3*2".to_string();
+        put("B1", Content::ArrayBlock { text, range });
+        put("B2", Content::Number(2.0));
+        put("B3", Content::Number(8.0));
+        put("B4", Content::Error("#N/A".to_string()));
+        assert!(!parts(&wb).iter().any(|(n, _)| n == "xl/metadata.xml"));
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
+        assert!(
+            sx.contains("<c r=\"B1\" s=\"0\"><f t=\"array\" ref=\"B1:B4\">A1:A3*2</f></c>"),
+            "{sx}"
+        );
+        assert!(sx.contains("<c r=\"B2\" s=\"0\"><v>2</v></c>"), "{sx}");
+        let bytes = workbook_bytes(&wb).unwrap();
+        let text = crate::reflect::calc::calc_text(&bytes, "block.xlsx", &crate::excel::library())
+            .unwrap();
+        let rows: Vec<&str> = text.lines().collect();
+        assert_eq!(
+            rows,
+            [
+                "(calc \"S\" \"B1\" \"=A1:A3*2\" 6 none unchecked)",
+                "(calc \"S\" \"B2\" \"=A1:A3*2\" 2 2 agree)",
+                "(calc \"S\" \"B3\" \"=A1:A3*2\" 8 8 agree)",
+                "(calc \"S\" \"B4\" \"=A1:A3*2\" (error \"#N/A\") (error \"#N/A\") agree)",
+            ],
+            "{text}"
+        );
+        // Written with a recalculation's values, the block's cells hold the
+        // values its array lays whatever the model held there, as a build's
+        // file holds every value it computes.
+        for addr in ["B2", "B3", "B4"] {
+            let r = crate::sheet::parse_a1_range(addr).unwrap();
+            let content = Content::Number(0.0);
+            wb.sheets[s].set(r.top, r.left, Cell { content, style: 0 });
+        }
+        let lib = crate::excel::library();
+        let calc = crate::calc::Calc::run(&wb, &lib);
+        let sx = sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &calc);
+        assert!(
+            sx.contains("<c r=\"B1\" s=\"0\"><f t=\"array\" ref=\"B1:B4\">A1:A3*2</f><v>6</v></c>"),
+            "{sx}"
+        );
+        assert!(sx.contains("<c r=\"B3\" s=\"0\"><v>8</v></c>"), "{sx}");
+        assert!(
+            sx.contains("<c r=\"B4\" s=\"0\" t=\"e\"><v>#N/A</v></c>"),
+            "{sx}"
+        );
+        assert!(
+            sx.contains("<c r=\"A2\" s=\"0\"><v>1</v></c>"),
+            "a constant as it stands"
+        );
+        let bytes = workbook_bytes_valued(&wb, &calc).unwrap();
+        let text = crate::reflect::calc::calc_text(&bytes, "built.xlsx", &lib).unwrap();
+        for row in text.lines() {
+            assert!(row.ends_with(" agree)"), "{row}");
+        }
+        assert_eq!(text.lines().count(), 4);
     }
 
     /// Values held as a recalculation would hold them, by cell.

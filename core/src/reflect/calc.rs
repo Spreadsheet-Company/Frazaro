@@ -8,7 +8,10 @@
 //! host's cached value, a `name` row a defined name. The evaluator
 //! (`vla_lang::calc::Calc`) then computes every formula in dependency order,
 //! and the door prints one `calc` row per formula cell, sheets in tab order
-//! and cells in row-major order:
+//! and cells in row-major order; a legacy array formula entered over a block
+//! is computed once and its array laid into the block, each cell of which is
+//! a row of its own with the formula's text, as Excel holds it at each
+//! (KERNEL.55):
 //!
 //! ```text
 //! (cycle "Model!A1" "Model!B1")                        every cycle first, its cells
@@ -135,6 +138,27 @@ impl Sink for Collected {
         }
     }
 
+    /// The block a legacy array formula fills (KERNEL.55): its anchor held
+    /// over it, so that the recalculation computes it once and lays its array
+    /// into the block, each cell's value the file gives it kept as the host's
+    /// cached one. A dynamic formula's extent is the next slice's, its spill
+    /// labelled at its cell until then.
+    fn array_ref(&mut self, sheet: &str, addr: &str, range: &str) {
+        let (Some(id), Some(range)) = (self.place(sheet, addr), parse_a1_range(range)) else {
+            return;
+        };
+        if (range.top, range.left) != (id.1, id.2) {
+            return;
+        }
+        let cells = &mut self.model.sheets[id.0].cells;
+        if let Some(cell) = cells.get_mut(&(id.1, id.2)) {
+            if let Content::ArrayFormula(text) = &mut cell.content {
+                let text = std::mem::take(text);
+                cell.content = Content::ArrayBlock { text, range };
+            }
+        }
+    }
+
     /// A hidden row (KERNEL.8, slice e): the model's row settings, as an
     /// engine's load row sets them, which `SUBTOTAL` reads.
     fn hidden_row(&mut self, sheet: &str, row: u32) {
@@ -246,7 +270,9 @@ pub fn rows_of(collected: &Collected, library: &Library) -> (String, Counts) {
             .collect();
         out.push_str(&format!("(cycle {})\n", cells.join(" ")));
     }
-    for id in calc.formula_cells() {
+    // Each formula cell, and each cell of a block a legacy array formula
+    // fills, its anchor's text at it (KERNEL.55).
+    for id in calc.cells() {
         counts.formulas += 1;
         let sheet = &collected.model.sheets[id.0].name;
         let addr = cell_ref(id.1, id.2);

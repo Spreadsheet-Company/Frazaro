@@ -800,7 +800,10 @@ Recalculation (KERNEL.7): the workbook is read as `reflect` reads it into
 the grid, every formula is computed in dependency order, and one row per
 formula cell is printed, the sheet, the cell, the formula, the value
 computed, the value the file holds, and a verdict, sheet by sheet in row
-order, every cycle named first by its cells:
+order, every cycle named first by its cells. A legacy array formula entered
+with Ctrl+Shift+Enter over a block is computed once and its array laid into
+the block, each cell its place, so each cell of the block is a row of its
+own, its formula the block's, as Excel holds it at every cell (KERNEL.55):
 
 ```text
 frazaro calc scripts\reflect\saved.xlsx

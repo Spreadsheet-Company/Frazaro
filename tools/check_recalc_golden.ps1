@@ -286,6 +286,16 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-30, KERNEL.70, a formula read as Excel 365 reads it typed: typed_saved 58,
 # Excel's save of scripts/recalc/typed.txt with each text written through
 # Range.Formula2, 49 agreeing and nine answers of many labelled.
+# 2026-11-18, KERNEL.55's second slice, a legacy array formula over a block computed
+# once and laid into it, each cell of the block a row of its own: fixture 30 and
+# opendocument 31, the reflect fixture's E4 and the OpenDocument twin's E4 and F2
+# agreeing with their files, 1600 and 2; and Excel's save of the item's probe,
+# spills_saved.xlsx (core/src/reflect/spills_golden.rs), joins this table at
+# no-differ: 180 rows, 128 agreeing, the 59 of its blocks and the 30 of its legacy
+# edges among them once two rules it showed were folded (a legacy array formula's
+# HLOOKUP and VLOOKUP force the value sought and the kind; INDEX's row and column of
+# a reference forced in a legacy formula and a legacy array formula alike), and 52
+# a spill's or a reader's of one, labelled until the item's next slice computes them.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -296,9 +306,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # name, each a measured difference a stop rule keeps, held to differ.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/recalc/saved_calc.vla';         Floor = 5;   Pin = 'agree';     AgreeFloor = 5 },
-    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
+    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 30;  Pin = 'no-differ'; AgreeFloor = 25 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
-    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 26 },
+    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 31;  Pin = 'no-differ'; AgreeFloor = 28 },
     @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 106 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
@@ -324,7 +334,8 @@ $goldens = @(
     @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
     @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 104;  Pin = 'built';     AgreeFloor = 99 },
-    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 100; Left = @('Functions!A57') }
+    @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 100; Left = @('Functions!A57') },
+    @{ Name = 'spills_saved';  Fixture = 'scripts/recalc/spills_saved.xlsx';  Golden = 'scripts/recalc/spills_saved_calc.vla';  Floor = 180;  Pin = 'no-differ'; AgreeFloor = 128 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------

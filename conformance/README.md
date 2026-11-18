@@ -2683,3 +2683,31 @@ Oracle 12 gains its first fixture a sentence cannot write, since it holds define
   a parameter twice, which a file cannot carry without Excel repairing it, held by the language's unit
   tests as `#VALUE!`; a parameter in brackets, `LAMBDA(x,[y],...)`, a construct not read; and a
   sheet-defined function, `KERNEL.29`'s third slice.
+
+## Amendment of 2026-11-18: a block, `#SPILL!` and `A1#` (`KERNEL.55`, its second slice)
+
+Oracle 12 gains a block's cells and a fixture Excel saved.
+
+- **What is held.** A legacy array formula entered with Ctrl+Shift+Enter over a block of more than
+  its cell is computed once, and its array laid into the block, each cell its place, as Excel lays
+  one: a row repeated down the block, a column across it, one value everywhere, and `#N/A` past the
+  array. Each cell of the block is a `calc` row of its own, in its place in the row-major order, its
+  formula the block's, as Excel holds it at every cell, its computed value its place and its cached
+  value the one the file gives the cell; a formula reading a block's cell reads the value laid there,
+  never the file's. Both readers tell the block: the xlsx reader from the anchor's `ref`, and the
+  OpenDocument reader from a matrix's spans. `#SPILL!` is a value of the language, `ERROR.TYPE` 9,
+  with no literal, read from a file's rich error 8 and from a cell's text, and a build caches none, as
+  `#CALC!`. `A1#` is read as the file spells it, `ANCHORARRAY(A1)`, and written so; a cell holding no
+  dynamic formula holds no spill, `#REF!`. A legacy array formula forces `HLOOKUP`'s and `VLOOKUP`'s
+  value sought and match kind to one value, as a legacy formula does, and both kinds force `INDEX`'s
+  row and column of a reference; a dynamic formula alone lifts either.
+- **The fixture.** `scripts/recalc/spills_saved.xlsx`, Excel 365's save of the item's probe
+  (`core/src/reflect/spills_golden.rs`), joins the table at `no-differ` (`spills_saved_calc.vla`):
+  180 rows, 128 `agree`, none differing. Every row of its Blocks sheet, twelve blocks and five
+  readers of them in 59 rows, and of its 30 legacy edges agrees; 52 are a spill or a reader of one,
+  labelled. The reflect fixture and its OpenDocument twin gain their blocks' cells, each agreeing:
+  `fixture_calc.vla`'s `E4`, and `opendocument_calc.vla`'s `E4` and `F2`.
+- **What it does not hold.** A dynamic formula's spill, its extent and its `#SPILL!`, and a spill read
+  through `A1#`, labelled `(not-computed "a spill")` until the item's next slice; a defined name's
+  spill, `Rate#`, a construct not read; `A1#` of a legacy array formula, which no save shows, labelled
+  by the function's name; and the record's rows for a block's cells, the item's next slice.

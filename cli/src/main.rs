@@ -122,7 +122,9 @@ usage:
                          recalculation (KERNEL.7): the workbook read as
                          reflect reads it into the grid, every formula
                          computed in dependency order under the declared
-                         subset, and one row per formula cell - the sheet,
+                         subset, and one row per formula cell and per cell
+                         of a block a legacy array formula fills, its
+                         formula the block's - the sheet,
                          the cell, the formula, the computed value, the
                          value the host saved, and agree, differ or
                          unchecked - sheet by sheet in row order, every

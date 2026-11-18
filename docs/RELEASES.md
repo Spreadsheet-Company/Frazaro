@@ -24,6 +24,36 @@
   reading the one above, took 0.85 ms a frame where 0.59. They take 0.59
   again; a build optimized for speed, cargo's default, had lost about 2% and
   has nearly all of it back (KERNEL.74).
+- **A legacy array formula entered over a block computes every cell of
+  it.** An array formula entered with Ctrl+Shift+Enter over a block of
+  cells, read from an xlsx file's `ref` or an OpenDocument matrix's span, is
+  computed once and its array laid into the block as Excel lays one: a row
+  repeated down the block, a column across it, one value everywhere, and
+  `#N/A` past the array. `frazaro calc` prints a row for each cell of the
+  block, its formula the block's, where it printed the first cell alone and
+  read the others as the values the file held; a formula reading the block
+  reads the computed values. The writer writes such a formula over its
+  block, as Excel saves one (KERNEL.55, its second slice).
+- **`#SPILL!` is an error value of the language**, `ERROR.TYPE` 9, read from a
+  file and from a cell's text where it was read as `#VALUE!`; no formula
+  writes it, and a build caches none, as `#CALC!` (KERNEL.55).
+- **`A1#` is read**, as Excel's file spells it, `ANCHORARRAY(A1)`, and written
+  as `_xlfn.ANCHORARRAY(A1)`: a cell holding no dynamic formula holds no
+  spill, `#REF!`, where `ANCHORARRAY` was a function not computed. A dynamic
+  formula's spill read through it is labelled `a spill`, as the formula
+  itself is, until spills come (KERNEL.55).
+- **Two answers corrected by Excel's save.** In a legacy array formula,
+  `HLOOKUP`'s and `VLOOKUP`'s value sought and match kind take an array's
+  first value, as in a legacy formula, where they lifted the lookup over it;
+  and `INDEX`'s row and column of a reference take an array's first value in
+  a legacy formula and a legacy array formula alike:
+  `=SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`, where it summed three
+  picks. A dynamic formula alone lifts either (KERNEL.55).
+- **For the crates' users**, each addition to a list that may grow:
+  `ErrorKind::Spill`, `sheet::Content::ArrayBlock`, `calc::Param::Forced`,
+  `rows::Sink::array_ref` (a provided method) and `Calc::cells`; and
+  `Calc::computed` and `Calc::formula` answer a block's cell, where they
+  answered `None`.
 
 ## 0.14.0
 

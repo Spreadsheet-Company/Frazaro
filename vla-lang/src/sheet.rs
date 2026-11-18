@@ -299,8 +299,21 @@ pub enum Content {
     /// Ctrl+Shift+Enter, `t="array"` and no dynamic-array `cm`, read as
     /// arrays as a dynamic formula is and holding the first value of an
     /// answer of many; an OpenDocument matrix formula reads as one. Over a
-    /// range of cells, the others hold the values the file gives them.
+    /// range of more cells, an [`Content::ArrayBlock`].
     ArrayFormula(String),
+    /// A legacy array formula over a block of cells (KERNEL.55), entered with
+    /// Ctrl+Shift+Enter over `range`, the file's `ref`, of which this cell is
+    /// the first, its anchor: read as an [`Content::ArrayFormula`] is, and
+    /// computed once by a door, which lays its array into the block, each
+    /// cell its place (a row repeated down the block, a column across it, one
+    /// value everywhere, `#N/A` past the array), the block's other cells
+    /// holding the values the file gives them; written as one `t="array"`
+    /// over the range. An OpenDocument matrix formula over a block reads as
+    /// one.
+    ArrayBlock {
+        text: String,
+        range: A1Range,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -677,7 +690,7 @@ pub fn formula_text(
 ) -> Option<String> {
     let raw = match content {
         Content::Formula(t) | Content::DynamicFormula(t) | Content::ArrayFormula(t) => t.clone(),
-        Content::SharedMaster { text, .. } => text.clone(),
+        Content::SharedMaster { text, .. } | Content::ArrayBlock { text, .. } => text.clone(),
         Content::SharedChild { si } => {
             let (text, m_row, m_col) = masters.get(si)?;
             crate::refers::shift_a1_references(

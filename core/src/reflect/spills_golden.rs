@@ -479,12 +479,12 @@ pub(crate) const TYPED: &[&str] = &[
 ];
 
 /// A formula's text as the file holds it: its newer functions under their
-/// prefixes, as the build writes them (`xlfn::as_filed`), and `ANCHORARRAY`
-/// under `_xlfn.`, which the writer's list does not hold yet (the item's second
-/// slice adds it; a file holding it bare reads in Excel as an add-in's).
+/// prefixes, as the build writes them (`xlfn::as_filed`), `ANCHORARRAY` among
+/// them since the item's second slice (a file holding it bare reads in Excel as
+/// an add-in's).
 fn filed(formula: &str) -> String {
     let body = formula.strip_prefix('=').expect("a formula");
-    as_filed(body).replace("ANCHORARRAY(", "_xlfn.ANCHORARRAY(")
+    as_filed(body)
 }
 
 fn place(addr: &str) -> (u32, u32) {
@@ -583,16 +583,32 @@ fn the_spills_probe_is_its_builder_s() {
 #[test]
 fn the_probe_reads_back_with_every_formula_where_its_builder_put_it() {
     // Read back by the door as Excel's save will be read: each probe a
-    // formula at its cell, its text as written, the blocks' other cells and
-    // the typed texts values; 104 formulas and 34 texts, so that a probe
-    // added or lost is seen.
+    // formula at its cell, its text as written, each block's other cells its
+    // anchor's text (the item's second slice), and the typed texts values;
+    // 104 formulas, 42 cells of blocks and 34 texts, so that a probe added or
+    // lost is seen.
     let text = crate::reflect::calc::calc_text(&bytes(), FIXTURE, &crate::excel::library())
         .unwrap_or_else(|r| panic!("{}", r.text));
     let rows: Vec<&str> = text.lines().filter(|l| l.starts_with("(calc ")).collect();
-    assert_eq!(rows.len(), PROBES.len(), "{text}");
+    let mut cells: Vec<(&str, String, &str)> = Vec::new();
+    for (name, addr, held, formula) in PROBES {
+        cells.push((name, addr.to_string(), formula));
+        if let Block(range) = held {
+            let r = parse_a1_range(range).expect("a block");
+            for row in r.top..=r.bottom {
+                for col in r.left..=r.right {
+                    if (row, col) != (r.top, r.left) {
+                        cells.push((name, vla_lang::sheet::cell_ref(row, col), formula));
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(rows.len(), cells.len(), "{text}");
     assert_eq!(PROBES.len(), 104);
+    assert_eq!(cells.len() - PROBES.len(), 42);
     assert_eq!(TYPED.len(), 34);
-    for (name, addr, _, formula) in PROBES {
+    for (name, addr, formula) in &cells {
         let at = format!("(calc \"{name}\" \"{addr}\" ");
         let row = rows
             .iter()
@@ -614,4 +630,52 @@ fn the_probe_reads_back_with_every_formula_where_its_builder_put_it() {
     let looks = crate::reflect::reflect_looks_text(&bytes(), FIXTURE)
         .unwrap_or_else(|r| panic!("{}", r.text));
     assert!(looks.contains("(merge \"Spills\" \"H3:I3\")"), "{looks}");
+}
+
+/// Excel 365's save of the probe, the owner's of 2026-11-17.
+const SAVED: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/recalc/spills_saved.xlsx"
+);
+
+#[test]
+fn excel_s_save_of_the_probe_agrees_wherever_the_door_computes_it() {
+    // The item's second slice, held to Excel's save of its probe: every cell
+    // of the Blocks sheet, each block's laid, and of the Legacy sheet computed
+    // and agreeing, the fold of the save's two rules among them; `A1#` of a
+    // spilled cell and of a value #REF! as Excel's; no row differing; and a
+    // spill and what reads one labelled until the item's next slice.
+    let saved = std::fs::read(SAVED).expect("Excel's save of the probe");
+    let text = crate::reflect::calc::calc_text(&saved, SAVED, &crate::excel::library())
+        .unwrap_or_else(|r| panic!("{}", r.text));
+    let rows: Vec<&str> = text.lines().collect();
+    assert_eq!(rows.len(), 180, "{text}");
+    let on = |sheet: &str| {
+        let at = format!("(calc \"{sheet}\" ");
+        rows.iter()
+            .filter(|r| r.starts_with(&at))
+            .copied()
+            .collect::<Vec<_>>()
+    };
+    for row in &rows {
+        assert!(!row.ends_with(" differ)"), "{row}");
+    }
+    for (sheet, count) in [("Blocks", 59), ("Legacy", 30)] {
+        let held = on(sheet);
+        assert_eq!(held.len(), count, "{sheet}");
+        for row in held {
+            assert!(row.ends_with(" agree)"), "{row}");
+        }
+    }
+    for addr in ["A22", "A23"] {
+        let row = on("Spills")
+            .into_iter()
+            .find(|r| r.contains(&format!("\"{addr}\"")))
+            .unwrap();
+        assert!(
+            row.ends_with("(error \"#REF!\") (error \"#REF!\") agree)"),
+            "{row}"
+        );
+    }
+    assert_eq!(rows.iter().filter(|r| r.ends_with(" agree)")).count(), 128);
 }

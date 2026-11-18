@@ -4,7 +4,7 @@
 //! `CHOOSEROWS`, `TAKE`, `DROP`, `HSTACK`, `VSTACK`, `TOCOL`, `TOROW`,
 //! `WRAPROWS`, `WRAPCOLS` and `EXPAND` (the owner's decision 1,
 //! 2026-10-20: the outline's list, `SORTBY`, `ROWS` and `COLUMNS`, and the
-//! shape functions with them).
+//! shape functions with them); and `ANCHORARRAY`, `A1#` (KERNEL.55).
 //!
 //! Each answers as Excel's documentation states it, and where it is silent
 //! as the slice's fixture holds it to Excel's saved answer
@@ -30,9 +30,11 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use super::array::{self, Array};
-use super::eval::{arrays, finite, values, Arg, Ctx, Library, Param, Reason};
+use super::eval::{arrays, finite, ranges, values, Arg, Ctx, Library, Param, Reason, SPILL};
+use super::formula::ANCHORARRAY;
 use super::order;
 use super::value::{ErrorKind, Value};
+use crate::grid::Kind;
 
 /// Register the array functions with their parameters' classes.
 pub(crate) fn register(lib: &mut Library) {
@@ -57,6 +59,32 @@ pub(crate) fn register(lib: &mut Library) {
     lib.register_arrayed("WRAPROWS", wraprows, wrapped);
     lib.register_arrayed("WRAPCOLS", wrapcols, wrapped);
     lib.register_arrayed("EXPAND", expand, expanded);
+    lib.register_arrayed(ANCHORARRAY, anchorarray, ranges);
+}
+
+/// `ANCHORARRAY(reference)`, `A1#` as the file spells it (KERNEL.55): the
+/// spill a dynamic formula's anchor fills. Until a spill is computed, the
+/// next slice's, a dynamic formula's spill is labelled as its anchor's answer
+/// is; a cell holding no dynamic formula holds no spill, `#REF!`, as Excel's
+/// save of the item's probe answers a spilled cell's and a value's; and a
+/// legacy array formula's, which no save shows, is labelled by the
+/// function's name, as is anything but a reference to one cell. An error
+/// where the reference stands is the answer.
+fn anchorarray(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> {
+    let unread = || Err(Reason::Function(ANCHORARRAY.to_string()));
+    let anchor = match args {
+        [Arg::Area { areas, .. }] => match &areas[..] {
+            [a] if a.is_cell() => (a.sheet, a.top, a.left),
+            _ => return unread(),
+        },
+        [Arg::Scalar(Value::Error(k))] => return Ok(Arg::Scalar(Value::Error(*k))),
+        _ => return unread(),
+    };
+    match ctx.env.written(anchor).map(|w| w.kind) {
+        Some(Kind::Dynamic) => Err(Reason::Construct(SPILL.to_string())),
+        Some(Kind::Array) => unread(),
+        Some(Kind::Plain) | None => Ok(Arg::Scalar(Value::Error(ErrorKind::Ref))),
+    }
 }
 
 /// The first parameter an array, the rest one value each: `UNIQUE`'s,
@@ -1083,12 +1111,14 @@ mod tests {
             // Every value `VLOOKUP` and `HLOOKUP` take but the table is forced
             // in a legacy formula, the value sought among them, as Excel's own
             // save computes `arrays.txt`'s `A203`, and the match's kind; a
-            // dynamic formula and a legacy array formula lift, and a range
+            // dynamic formula lifts, a legacy array formula forcing the value
+            // sought and the kind as a legacy formula does (KERNEL.55, Excel's
+            // save of its probe, `Legacy!C1`, `C2` and `C7`), and a range
             // sought inside an array parameter is met at the cell (row 59
             // holds none of A1:A3).
             ("E53", "=SUM(VLOOKUP({2,3},A1:B3,2,FALSE))", "5"),
             ("E54", "~=SUM(VLOOKUP({2,3},A1:B3,2,FALSE))", "11"),
-            ("E61", "{=SUM(VLOOKUP({2,3},A1:B3,2,FALSE))", "11"),
+            ("E61", "{=SUM(VLOOKUP({2,3},A1:B3,2,FALSE))", "5"),
             ("E55", "=SUM(HLOOKUP({1,2},{1,2;10,20},2,FALSE))", "10"),
             ("E56", "~=SUM(HLOOKUP({1,2},{1,2;10,20},2,FALSE))", "30"),
             ("E57", "=SUM(VLOOKUP(2.5,A1:B3,2,{TRUE,FALSE}))", "5"),
@@ -1103,6 +1133,21 @@ mod tests {
                 "(error \"#VALUE!\")",
             ),
             ("E60", "~=SUMPRODUCT(VLOOKUP(A1:A3,A1:B3,2,FALSE))", "15"),
+            // KERNEL.55's second slice, Excel's save of its probe: `INDEX`'s
+            // row and column of a reference forced in a legacy formula and a
+            // legacy array formula alike, a dynamic formula lifting the pick
+            // (`Legacy!A8`, `C8` and `B8`, `A9`, `C9` and `B9`); an array's,
+            // which no save shows in a legacy formula, lifting in every kind,
+            // as they did (E16); a legacy array formula's `HLOOKUP` forcing the
+            // value sought (`Legacy!C1`), `VLOOKUP`'s index lifting in one.
+            ("E62", "=SUM(INDEX(A1:A3,{1,3}))", "1"),
+            ("E63", "{=SUM(INDEX(A1:A3,{1,3}))", "1"),
+            ("E64", "~=SUM(INDEX(A1:A3,{1,3}))", "4"),
+            ("E65", "{=SUM(INDEX(A1:B3,2,{1,2}))", "2"),
+            ("E66", "~=SUM(INDEX(A1:B3,2,{1,2}))", "7"),
+            ("E67", "{=SUM(INDEX({10,20,30},{1,3}))", "40"),
+            ("E68", "{=SUM(HLOOKUP({1,2},{1,2;10,20},2,FALSE))", "10"),
+            ("E69", "{=SUM(VLOOKUP(1,{1,2,3},{2,3},FALSE))", "5"),
         ]);
     }
 

@@ -73,12 +73,16 @@ fn searched(j: usize) -> Param {
 /// in a legacy formula, as Excel's own saves of the arrays' fixture read
 /// `VLOOKUP(3,A1:C6,{1,3},FALSE)` there as its first column and
 /// `VLOOKUP({3,4},A1:C6,3,FALSE)` as its first value's row (KERNEL.8,
-/// slice f), the match's kind with them.
+/// slice f), the match's kind with them. The value sought and the match's
+/// kind are forced in a legacy array formula too, as Excel's save of
+/// `KERNEL.55`'s probe holds `HLOOKUP({"b","c"},...)` and a kind of
+/// `{FALSE,TRUE}` there; the index, which no save shows there, lifts in one
+/// as in a dynamic formula.
 fn looked_across(j: usize) -> Param {
-    if j == 1 {
-        Param::Array
-    } else {
-        Param::Scalar
+    match j {
+        1 => Param::Array,
+        0 | 3 => Param::Forced,
+        _ => Param::Scalar,
     }
 }
 
@@ -517,6 +521,10 @@ const KERNEL_71: [&str; 3] = ["BITAND", "BITOR", "BITXOR"];
 /// The functions KERNEL.58 brought: a boolean as OpenFormula spells one.
 #[cfg(test)]
 const KERNEL_58: [&str; 2] = ["TRUE", "FALSE"];
+
+/// The function KERNEL.55 brought: a spill read through `A1#`.
+#[cfg(test)]
+const KERNEL_55: [&str; 1] = ["ANCHORARRAY"];
 
 /// The functions KERNEL.29 brought: `LET` and `LAMBDA`, whose names a form
 /// holds, and the functions that take a function (`super::helpers`).
@@ -1790,6 +1798,7 @@ mod tests {
             .chain(KERNEL_71.iter())
             .chain(KERNEL_58.iter())
             .chain(KERNEL_29.iter())
+            .chain(KERNEL_55.iter())
             .copied()
             .collect();
         want.sort_unstable();

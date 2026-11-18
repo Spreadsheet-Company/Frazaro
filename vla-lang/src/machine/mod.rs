@@ -4776,7 +4776,7 @@ mod tests {
                 "calc-function-not-computed",
             ),
             (
-                "(formula \"S\" \"C3\" \"=A1#\")\n",
+                "(formula \"S\" \"C3\" \"=Odd#\")\n",
                 1,
                 "calc-construct-not-read",
             ),
@@ -7963,14 +7963,14 @@ mod tests {
         // and one no formula reads, refused by nothing.
         let e = refused(concat!(
             "(cell \"S\" \"A1\" 1)\n",
-            "(name \"Pair\" \"A1#\")\n",
+            "(name \"Pair\" \"Odd#\")\n",
             "(formula \"S\" \"B1\" \"=Pair*2\")\n",
         ));
         assert_eq!(e.refusal.id, "calc-construct-not-read");
         assert!(e.refusal.text.contains("S!B1"), "{}", e.refusal.text);
         let m = load(concat!(
             "(cell \"S\" \"A1\" 1)\n",
-            "(name \"Pair\" \"A1#\")\n",
+            "(name \"Pair\" \"Odd#\")\n",
             "(name \"Rate\" \"S!$A$1\")\n",
             "(formula \"S\" \"B1\" \"=Rate*2\")\n",
         ));
@@ -15499,6 +15499,74 @@ mod tests {
     }
 
     #[test]
+    fn a_lookup_s_forced_value_is_alike_by_runs_by_programs_and_by_ctx() {
+        // KERNEL.55's second slice: `INDEX`'s row and column of a reference, and
+        // `VLOOKUP`'s value sought, an array's first value or a range met at the
+        // cell in a legacy formula, the pick lifted in a dynamic one, as Excel's
+        // save of the item's probe holds them. Each a column of twenty formulas
+        // of one shape, stepped by runs, by programs alone and by runs with
+        // programs off, each against `Ctx` cell by cell.
+        let columns = [
+            ("C", "=SUM(INDEX($A$1:$A$21,{1,3}))", ""),
+            ("D", "=SUM(INDEX($A$1:$A$21,{1,3}))", " dynamic"),
+            ("E", "=SUM(INDEX($A$1:$B$21,{r},{1,2}))", ""),
+            ("F", "=SUM(INDEX($A$1:$B$21,{r},{1,2}))", " dynamic"),
+            ("G", "=INDEX($A$1:$A$21,$B$1:$B$21)", ""),
+            ("H", "=SUM(VLOOKUP({1,2},$A$1:$B$21,2,FALSE))", ""),
+            ("I", "=SUM(VLOOKUP({1,2},$A$1:$B$21,2,FALSE))", " dynamic"),
+            ("J", "=INDEX($A$1:$A$21,B{r})*2", ""),
+        ];
+        let mut rows = String::from("(sheet \"S\" visible)\n");
+        for r in 1..=21u32 {
+            rows.push_str(&format!("(cell \"S\" \"A{r}\" {r})\n"));
+            rows.push_str(&format!("(cell \"S\" \"B{r}\" {})\n", r % 3 + 1));
+        }
+        for r in 1..=20u32 {
+            for (col, text, kind) in columns {
+                let text = crate::rows::quoted(&text.replace("{r}", &r.to_string()));
+                rows.push_str(&format!("(formula \"S\" \"{col}{r}\" {text}{kind})\n"));
+            }
+        }
+        let loaded = || load(&rows);
+        let mut runs = loaded();
+        let mut alone = loaded();
+        alone.by_runs = false;
+        let mut runs_off = loaded();
+        runs_off.lowered = false;
+        let mut ctx = loaded();
+        ctx.by_runs = false;
+        ctx.lowered = false;
+        for m in [&mut runs, &mut alone, &mut runs_off, &mut ctx] {
+            assert!(m.step(0).done);
+        }
+        let whole = values(&ctx);
+        for (m, how) in [
+            (&runs, "by runs"),
+            (&alone, "by programs alone"),
+            (&runs_off, "by runs with programs off"),
+        ] {
+            assert_eq!(values(m), whole, "{how}");
+        }
+        assert!(runs.shapes.cells_in_runs() >= 20, "a shape is a run");
+        for (addr, answer) in [
+            // The first of {1,3}, A1; both, A1 and A3.
+            ("C5", "1"),
+            ("D5", "4"),
+            // Row 4's first column, A4; both, A4 and B4.
+            ("E4", "4"),
+            ("F4", "6"),
+            // B7 met at the cell, 2, its row of A.
+            ("G7", "2"),
+            // The first value sought's, B1; both, B1 and B2.
+            ("H2", "2"),
+            ("I2", "5"),
+            ("J8", "6"),
+        ] {
+            assert_eq!(spelled_at(&runs, addr), answer, "{addr}");
+        }
+    }
+
+    #[test]
     fn a_kind_is_part_of_what_a_write_changes() {
         // KERNEL.70: the same text with the other kind is written, and reads
         // otherwise, without the word as well as with it; the same text of the
@@ -16910,11 +16978,13 @@ mod tests {
         // formula; an array's slot and a sparse sheet's loose cell alike.
         let rows = "(cell \"S\" \"A1:A3\" 1)\n\
                     (cell \"S\" \"B1\" (error \"#n/a\"))\n\
-                    (cell \"S\" \"B2\" (error \"#SPILL!\"))\n\
+                    (cell \"S\" \"B2\" (error \"#UNKNOWN!\"))\n\
                     (cell \"S\" \"B3\" (error \"#N/A\"))\n\
+                    (cell \"S\" \"B4\" (error \"#SPILL!\"))\n\
                     (cell \"S\" \"Z900\" (error \"#ref!\"))\n\
                     (formula \"S\" \"C1:C2\" \"=ISNA(B1)\")\n\
-                    (formula \"S\" \"C3\" \"=ISNA(S.last!B1)\")\n";
+                    (formula \"S\" \"C3\" \"=ISNA(S.last!B1)\")\n\
+                    (formula \"S\" \"C4\" \"=ERROR.TYPE(B4)\")\n";
         let mut m = load(rows);
         let row = |m: &Machine, sheet: &str, addr: &str| -> String {
             let text = grid(m, sheet, Some(addr));
@@ -16930,7 +17000,12 @@ mod tests {
             assert_eq!(row(&m, "S", "B1"), "(cell \"S\" \"B1\" (error \"#n/a\"))");
             assert_eq!(
                 row(&m, "S", "B2"),
-                "(cell \"S\" \"B2\" (error \"#SPILL!\"))"
+                "(cell \"S\" \"B2\" (error \"#UNKNOWN!\"))"
+            );
+            // `#SPILL!`, a kind since KERNEL.55, views as its kind writes it.
+            assert_eq!(
+                row(&m, "S", "B4"),
+                "(cell \"S\" \"B4\" (error \"#SPILL!\"))"
             );
             assert_eq!(row(&m, "S", "B3"), "(cell \"S\" \"B3\" (error \"#N/A\"))");
             assert_eq!(
@@ -16950,7 +17025,12 @@ mod tests {
                 assert_eq!(
                     at(&m, "S", "C2"),
                     Some(Computed::Value(Value::Bool(false))),
-                    "#SPILL! read as #VALUE!"
+                    "#UNKNOWN! read as #VALUE!"
+                );
+                assert_eq!(
+                    at(&m, "S", "C4"),
+                    Some(Computed::Value(Value::Number(9.0))),
+                    "#SPILL! read as its kind"
                 );
                 assert_eq!(
                     at(&m, "S", "C3"),

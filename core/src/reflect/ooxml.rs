@@ -837,6 +837,13 @@ impl<'a> Package<'a> {
                     }
                     if formula.is_some() && array_anchor {
                         sink.array(sheet, &addr, self.array_kind(cell.cm));
+                        // The range it fills, where more than its cell, the
+                        // anchor first (KERNEL.55).
+                        if let Some(range) = cell.formula_ref.as_deref().and_then(parse_a1_range) {
+                            if range.cells() > 1 && (range.top, range.left) == (row, col) {
+                                sink.array_ref(sheet, &addr, &range.text());
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -1319,6 +1326,8 @@ struct CellRead {
     vm: Option<usize>,
     /// Its `<f>`: the formula's kind, its shared index and its text.
     formula: Option<(Option<String>, Option<String>, String)>,
+    /// Its `<f>`'s `ref`, the range an array formula fills (KERNEL.55).
+    formula_ref: Option<String>,
     /// Its `<v>`'s text, empty where the element is empty.
     value_text: Option<String>,
     /// Its `<is>`'s text.
@@ -1353,6 +1362,7 @@ fn read_c(
         cm: attr(attrs, "cm").and_then(|v| v.trim().parse().ok()),
         vm: attr(attrs, "vm").and_then(|v| v.trim().parse().ok()),
         formula: None,
+        formula_ref: None,
         value_text: None,
         inline: None,
         inline_rich: false,
@@ -1368,6 +1378,7 @@ fn read_c(
                 }) => {
                     let t = attr(f_attrs, "t").map(Cow::into_owned);
                     let si = attr(f_attrs, "si").map(Cow::into_owned);
+                    cell.formula_ref = attr(f_attrs, "ref").map(Cow::into_owned);
                     let f_text = if f_empty {
                         String::new()
                     } else {
@@ -2751,6 +2762,48 @@ mod tests {
     }
 
     #[test]
+    fn an_array_formula_s_range_is_told_where_it_holds_more_than_its_cell() {
+        // KERNEL.55's second slice: the range an array formula fills, its
+        // `ref`, told after its kind where it holds more than the anchor's
+        // cell and begins at it: a legacy formula's block and a dynamic
+        // formula's last spill alike; not one of its cell alone, one beginning
+        // elsewhere, nor a shared formula's range.
+        #[derive(Default)]
+        struct Told(Vec<String>);
+        impl Sink for Told {
+            fn row(&mut self, _: &Row<'_>) {}
+            fn array(&mut self, _sheet: &str, addr: &str, kind: ArrayKind) {
+                self.0.push(format!("{addr} {kind:?}"));
+            }
+            fn array_ref(&mut self, sheet: &str, addr: &str, range: &str) {
+                self.0.push(format!("{sheet}!{addr} {range}"));
+            }
+        }
+        let data = concat!(
+            "<row r=\"1\"><c r=\"A1\"><f t=\"array\" ref=\"A1:A3\">D1:D3*2</f><v>2</v></c>",
+            "<c r=\"B1\"><f t=\"array\" ref=\"B1\">D1</f><v>1</v></c>",
+            "<c r=\"C1\" cm=\"1\"><f t=\"array\" ref=\"C1:C2\">_xlfn.SEQUENCE(2)</f><v>1</v></c>",
+            "<c r=\"E1\"><f t=\"shared\" ref=\"E1:E2\" si=\"0\">D1+1</f><v>2</v></c></row>",
+            "<row r=\"2\"><c r=\"F2\"><f t=\"array\" ref=\"F1:F3\">D1:D3</f><v>1</v></c></row>",
+        );
+        let bytes = one_sheet(data, None);
+        let p = Package::open(&bytes, "t.xlsx").unwrap();
+        let mut told = Told::default();
+        p.walk_sheet(0, &mut told).unwrap();
+        assert_eq!(
+            told.0,
+            [
+                "A1 Legacy",
+                "Model!A1 A1:A3",
+                "B1 Legacy",
+                "C1 Dynamic",
+                "Model!C1 C1:C2",
+                "F2 Legacy",
+            ]
+        );
+    }
+
+    #[test]
     fn an_array_formula_s_kind_goes_beside_its_row() {
         // KERNEL.8, slice b: an array formula's anchor told to the sink after
         // its formula row, dynamic where its `cm` names the dynamic-array
@@ -3598,7 +3651,7 @@ mod tests {
     #[test]
     fn a_rule_a_load_would_refuse_is_left_out_and_counted() {
         let names = concat!(
-            "<definedNames><definedName name=\"Odd\">A1#</definedName>",
+            "<definedNames><definedName name=\"Odd\">Rate#</definedName>",
             "<definedName name=\"Fine\">Model!$A$1</definedName></definedNames>"
         );
         let sheet = concat!(
@@ -3607,7 +3660,7 @@ mod tests {
             "<cfRule type=\"expression\" dxfId=\"2\" priority=\"1\"><formula>NOSUCH(A1)</formula></cfRule>",
             "<cfRule type=\"timePeriod\" dxfId=\"3\" priority=\"2\" timePeriod=\"today\"><formula>FLOOR(A1,1)=TODAY()</formula></cfRule>",
             "<cfRule type=\"cellIs\" dxfId=\"0\" priority=\"3\" operator=\"between\"><formula>1</formula><formula>NOW()</formula></cfRule>",
-            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"4\"><formula>A1#</formula></cfRule>",
+            "<cfRule type=\"expression\" dxfId=\"0\" priority=\"4\"><formula>Rate#</formula></cfRule>",
             "<cfRule type=\"expression\" dxfId=\"0\" priority=\"5\"><formula>Odd=1</formula></cfRule>",
             "<cfRule type=\"expression\" priority=\"6\"><formula>Fine=1</formula></cfRule>",
             "</conditionalFormatting>",
@@ -3715,7 +3768,7 @@ mod tests {
     #[test]
     fn a_rule_is_asked_of_on_its_own_sheet() {
         let names = concat!(
-            "<definedNames><definedName name=\"Odd\" localSheetId=\"1\">A1#</definedName>",
+            "<definedNames><definedName name=\"Odd\" localSheetId=\"1\">Rate#</definedName>",
             "</definedNames>"
         );
         let rule = concat!(

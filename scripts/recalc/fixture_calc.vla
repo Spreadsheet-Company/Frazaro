@@ -14,6 +14,7 @@
 (calc "Model" "E3" "=B1:B2*2" 2400 2400 agree)
 (calc "Model" "B4" "=B3*Rate" 80 80 agree)
 (calc "Model" "D4" "=SUM(Model:Scratch!B1)" 1205 1205 agree)
+(calc "Model" "E4" "=B1:B2*2" 1600 1600 agree)
 (calc "Model" "D5" "='Q1 Data'!B2+'It''s'!A1" 17 17 agree)
 (calc "Model" "E5" "=1/0" (error "#DIV/0!") (error "#DIV/0!") agree)
 (calc "Review" "B1" "=A1*2" 20 20 agree)

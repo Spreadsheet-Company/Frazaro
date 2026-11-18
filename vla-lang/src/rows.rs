@@ -325,6 +325,14 @@ pub trait Sink {
     /// so that a formula row stays the file's own text.
     fn array(&mut self, _sheet: &str, _addr: &str, _kind: ArrayKind) {}
 
+    /// The range the array formula just told by [`Sink::array`] fills, as the
+    /// file saves its `ref` (KERNEL.55): a legacy array formula's block,
+    /// entered with Ctrl+Shift+Enter over it, an OpenDocument matrix's, or the
+    /// extent a dynamic formula last spilled into; told only where the range
+    /// holds more than the anchor's cell, the anchor its first. Nothing,
+    /// unless a sink says otherwise: the printer ignores it.
+    fn array_ref(&mut self, _sheet: &str, _addr: &str, _range: &str) {}
+
     /// A row of this sheet is hidden (KERNEL.8, slice e): what a door
     /// computing the workbook needs for `SUBTOTAL`, whose 101 to 111 pass a
     /// hidden row by. Nothing, unless a sink says otherwise: the printer

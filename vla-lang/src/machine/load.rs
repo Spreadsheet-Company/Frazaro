@@ -836,7 +836,9 @@ impl Draft {
                     }
                     Content::Formula(text) => own(text, Kind::Plain),
                     Content::DynamicFormula(text) => own(text, Kind::Dynamic),
-                    Content::ArrayFormula(text) => own(text, Kind::Array),
+                    Content::ArrayFormula(text) | Content::ArrayBlock { text, .. } => {
+                        own(text, Kind::Array)
+                    }
                     value => What::Value(value.clone()),
                 };
                 if cell.style != 0 {

@@ -69,7 +69,7 @@ pub struct Entry {
 /// The declared subset: the language's functions, its day-one fourteen first,
 /// then the hundred and eight `KERNEL.8` brought, the two `KERNEL.53` brought, the
 /// one `KERNEL.60` brought, the fourteen of `KERNEL.68` and the three of
-/// `KERNEL.71`, each keeping the
+/// `KERNEL.71`, `KERNEL.29`'s and the one of `KERNEL.55`, each keeping the
 /// evidence that admitted it.
 pub const SUBSET: &[Entry] = &[
     Entry {
@@ -683,6 +683,10 @@ pub const SUBSET: &[Entry] = &[
     Entry {
         name: "ISOMITTED",
         evidence: "KERNEL.29; scripts/recalc/lambda.xlsx",
+    },
+    Entry {
+        name: "ANCHORARRAY",
+        evidence: "a spill read through A1#, KERNEL.55; scripts/recalc/spills_saved.xlsx",
     },
 ];
 

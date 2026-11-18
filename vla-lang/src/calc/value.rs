@@ -25,10 +25,11 @@ use crate::rows;
 use crate::sheet::number_text;
 
 /// The error values a cell can hold, Excel's spelling: the seven a formula
-/// writes as a literal, and `#CALC!`, Excel's answer for an array with
-/// nothing in it (KERNEL.8, slice f). Marked as a list that may grow
-/// (KERNEL.8's decision 9), so that a kind added later breaks no match
-/// outside the language.
+/// writes as a literal, `#CALC!`, Excel's answer for an array with nothing in
+/// it (KERNEL.8, slice f), and `#SPILL!`, a dynamic formula's whose array
+/// finds no room (KERNEL.55). Marked as a list that may grow (KERNEL.8's
+/// decision 9), so that a kind added later breaks no match outside the
+/// language.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ErrorKind {
@@ -49,6 +50,11 @@ pub enum ErrorKind {
     /// `#CALC!`: an array with nothing in it, `FILTER` keeping no row
     /// (KERNEL.8, slice f); a formula cannot write it as a literal.
     Calc,
+    /// `#SPILL!`: a dynamic formula's array with no room to spill into, a
+    /// cell in its way holding something, a merged range or the sheet's edge,
+    /// as Excel's file holds it, its rich error 8 (KERNEL.55); a formula
+    /// cannot write it as a literal.
+    Spill,
 }
 
 impl ErrorKind {
@@ -63,11 +69,12 @@ impl ErrorKind {
             ErrorKind::Num => "#NUM!",
             ErrorKind::NA => "#N/A",
             ErrorKind::Calc => "#CALC!",
+            ErrorKind::Spill => "#SPILL!",
         }
     }
 
     /// The kind an error text names, without case; `None` for an error this
-    /// version does not hold (`#SPILL!`, `#GETTING_DATA`).
+    /// version does not hold (`#UNKNOWN!`, `#GETTING_DATA`).
     pub fn parse(text: &str) -> Option<ErrorKind> {
         match fold(text.trim()).as_str() {
             "#null!" => Some(ErrorKind::Null),
@@ -78,14 +85,15 @@ impl ErrorKind {
             "#num!" => Some(ErrorKind::Num),
             "#n/a" => Some(ErrorKind::NA),
             "#calc!" => Some(ErrorKind::Calc),
+            "#spill!" => Some(ErrorKind::Spill),
             _ => None,
         }
     }
 
     /// Whether a formula writes the error as a literal: the seven, and not
-    /// `#CALC!`, which an evaluation alone answers.
+    /// `#CALC!` or `#SPILL!`, which an evaluation alone answers.
     pub fn is_literal(self) -> bool {
-        self != ErrorKind::Calc
+        !matches!(self, ErrorKind::Calc | ErrorKind::Spill)
     }
 }
 
@@ -393,7 +401,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_eight_errors_spell_and_parse() {
+    fn the_nine_errors_spell_and_parse() {
         for k in [
             ErrorKind::Null,
             ErrorKind::Div0,
@@ -403,13 +411,19 @@ mod tests {
             ErrorKind::Num,
             ErrorKind::NA,
             ErrorKind::Calc,
+            ErrorKind::Spill,
         ] {
             assert_eq!(ErrorKind::parse(k.text()), Some(k));
             assert_eq!(ErrorKind::parse(&k.text().to_lowercase()), Some(k));
-            assert_eq!(k.is_literal(), k != ErrorKind::Calc);
+            assert_eq!(
+                k.is_literal(),
+                !matches!(k, ErrorKind::Calc | ErrorKind::Spill)
+            );
         }
         assert_eq!(ErrorKind::parse("#CALC!"), Some(ErrorKind::Calc));
-        assert_eq!(ErrorKind::parse("#SPILL!"), None);
+        // Excel's rich error 8 (KERNEL.55), and one this version does not hold.
+        assert_eq!(ErrorKind::parse("#SPILL!"), Some(ErrorKind::Spill));
+        assert_eq!(ErrorKind::parse("#UNKNOWN!"), None);
     }
 
     #[test]

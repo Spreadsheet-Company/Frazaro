@@ -160,6 +160,17 @@ pub struct Calc<'m> {
     /// inlining writes in as an engine's placement does, so that the door
     /// and an engine read a formula alike.
     functions: lambda::Functions,
+    /// Each block a legacy array formula fills (KERNEL.55), by its anchor, the
+    /// range's first cell, holding a formula.
+    blocks: HashMap<CellId, crate::sheet::A1Range>,
+    /// The cells of the blocks the recalculation computes beside the formula
+    /// cells, each with its anchor: every cell of a block the sheet holds but
+    /// the anchor and a cell holding a formula of its own.
+    places: graph::Places,
+    /// Each block's anchor's answer, as much of it as its block lays, kept
+    /// from its computation for its places', which follow it in the order; a
+    /// reason where it was not computed.
+    laid: HashMap<CellId, Result<Array, Reason>>,
 }
 
 impl<'m> Calc<'m> {
@@ -179,8 +190,11 @@ impl<'m> Calc<'m> {
                 }
             }
         }
-        let plan = graph::plan(model, &names, &extents, &texts);
-        let mut values = HashMap::with_capacity(texts.len());
+        let (blocks, places) = blocks_of(model, &texts);
+        let listed: Vec<(usize, crate::sheet::A1Range)> =
+            blocks.iter().map(|(id, range)| (id.0, *range)).collect();
+        let plan = graph::plan_placed(model, &names, &extents, &texts, (&places, &listed));
+        let mut values = HashMap::with_capacity(texts.len() + places.len());
         for cycle in &plan.cycles {
             for id in cycle {
                 values.insert(*id, Computed::NotComputed(Reason::Cycle));
@@ -198,6 +212,9 @@ impl<'m> Calc<'m> {
             here: Slot::new((0, 1, 1)),
             indexes: index::Indexes::new(),
             functions: lambda::Functions::of_model(model),
+            blocks,
+            places,
+            laid: HashMap::new(),
         }
     }
 
@@ -233,8 +250,11 @@ impl<'m> Calc<'m> {
         self.texts.len()
     }
 
-    /// A formula cell's text without its `=`, or `None` for a value cell.
+    /// A formula cell's text without its `=`, a block's cell's its anchor's
+    /// (KERNEL.55), as Excel holds a legacy array formula at every cell of its
+    /// block; `None` for a value cell.
     pub fn formula(&self, id: CellId) -> Option<&str> {
+        let id = self.places.get(&id).copied().unwrap_or(id);
         self.texts.get(&id).map(String::as_str)
     }
 
@@ -245,8 +265,23 @@ impl<'m> Calc<'m> {
         ids
     }
 
-    /// What a formula cell holds, once evaluated; `None` for a value cell
-    /// or a cell the steps have not reached.
+    /// Every cell the recalculation computes, in sheet then row-major order:
+    /// each formula cell, and each cell of a block a legacy array formula
+    /// fills, which its anchor's array lays (KERNEL.55).
+    pub fn cells(&self) -> Vec<CellId> {
+        let mut ids: Vec<CellId> = self
+            .texts
+            .keys()
+            .chain(self.places.keys())
+            .copied()
+            .collect();
+        ids.sort_unstable();
+        ids
+    }
+
+    /// What a formula cell holds, once evaluated, and a block's cell, its
+    /// place of its anchor's array (KERNEL.55); `None` for a value cell or a
+    /// cell the steps have not reached.
     pub fn computed(&self, id: CellId) -> Option<&Computed> {
         self.values.get(&id)
     }
@@ -264,11 +299,40 @@ impl<'m> Calc<'m> {
         };
         for i in self.next..end {
             let id = self.plan.order[i];
-            let computed = self.evaluate(id);
+            let computed = match self.places.get(&id) {
+                Some(anchor) => self.place(id, *anchor),
+                None => match self.blocks.get(&id) {
+                    Some(block) => {
+                        let (computed, laid) = self.evaluated(id, Some(*block));
+                        if let Some(laid) = laid {
+                            self.laid.insert(id, laid);
+                        }
+                        computed
+                    }
+                    None => self.evaluate(id),
+                },
+            };
             self.values.insert(id, computed);
         }
         self.next = end;
         self.progress()
+    }
+
+    /// A block's cell's value, its place of its anchor's array as Excel lays
+    /// one ([`laid_at`]), settled as a formula's answer is; the anchor's
+    /// reason where the anchor was not computed (KERNEL.55).
+    fn place(&self, (_, row, col): CellId, anchor: CellId) -> Computed {
+        match self.laid.get(&anchor) {
+            Some(Ok(array)) => {
+                Computed::Value(laid_at(array, row - anchor.1, col - anchor.2).settled())
+            }
+            Some(Err(reason)) => Computed::NotComputed(reason.clone()),
+            // An anchor in a cycle is never laid.
+            None => match self.values.get(&anchor) {
+                Some(Computed::NotComputed(reason)) => Computed::NotComputed(reason.clone()),
+                _ => Computed::NotComputed(Reason::Cycle),
+            },
+        }
     }
 
     /// Where the evaluation stands.
@@ -287,16 +351,32 @@ impl<'m> Calc<'m> {
             .retain(|_, v| matches!(v, Computed::NotComputed(Reason::Cycle)));
         self.next = 0;
         self.indexes.clear();
+        self.laid.clear();
     }
 
     fn evaluate(&self, id: CellId) -> Computed {
+        self.evaluated(id, None).0
+    }
+
+    /// A formula cell computed; and where it anchors `block`, its answer as
+    /// much as the block lays of it (KERNEL.55, [`laid_of`]), or the reason it
+    /// was not computed.
+    fn evaluated(
+        &self,
+        id: CellId,
+        block: Option<crate::sheet::A1Range>,
+    ) -> (Computed, Option<Result<Array, Reason>>) {
+        let not = |reason: Reason| {
+            let laid = block.map(|_| Err(reason.clone()));
+            (Computed::NotComputed(reason), laid)
+        };
         let Some(text) = self.texts.get(&id) else {
-            return Computed::NotComputed(Reason::Construct(String::new()));
+            return not(Reason::Construct(String::new()));
         };
         self.here.set(id);
         let parsed = match lambda::parsed(text, &self.functions, self.library) {
             Ok(e) => e,
-            Err(construct) => return Computed::NotComputed(Reason::Construct(construct)),
+            Err(construct) => return not(Reason::Construct(construct)),
         };
         let ctx = Ctx::new(self, self.library);
         // How deep the formula nests, so that a call it keeps is entered
@@ -304,10 +384,16 @@ impl<'m> Calc<'m> {
         if parsed.has_lambda() {
             ctx.nests(lambda::kept_depth(&parsed));
         }
-        match ctx.eval(&parsed).and_then(|arg| ctx.result(&arg)) {
+        let arg = match ctx.eval(&parsed) {
+            Ok(arg) => arg,
+            Err(reason) => return not(reason),
+        };
+        let laid = block.map(|b| laid_of(&ctx, &arg, b));
+        let computed = match ctx.result(&arg) {
             Ok(v) => Computed::Value(v.settled()),
             Err(reason) => Computed::NotComputed(reason),
-        }
+        };
+        (computed, laid)
     }
 
     /// The functions the formulas call that the library does not hold,
@@ -469,7 +555,9 @@ impl Env for Calc<'_> {
     }
 
     fn read(&self, id: CellId) -> Result<Value, Reason> {
-        if self.texts.contains_key(&id) {
+        // A formula cell, or a block's cell, its place of its anchor's array
+        // (KERNEL.55), read as computed and never as the value the file gave it.
+        if self.texts.contains_key(&id) || self.places.contains_key(&id) {
             return match self.values.get(&id) {
                 Some(Computed::Value(v)) => Ok(v.clone()),
                 Some(Computed::NotComputed(r)) => Err(r.clone()),
@@ -534,8 +622,86 @@ pub(crate) fn is_array_formula(model: &Workbook, (s, row, col): CellId) -> bool 
             .get(s)
             .and_then(|sheet| sheet.cells.get(&(row, col)))
             .map(|c| &c.content),
-        Some(Content::ArrayFormula(_))
+        Some(Content::ArrayFormula(_) | Content::ArrayBlock { .. })
     )
+}
+
+/// Each block a legacy array formula fills in a model (KERNEL.55), by its
+/// anchor, a formula cell at its range's first; and its places: every cell of
+/// the block the sheet holds but the anchor and a cell holding a formula of
+/// its own, a cell two blocks share its first's. The cells the sheet holds
+/// bound the places, as a file of Excel's holds a value at each.
+fn blocks_of(
+    model: &Workbook,
+    texts: &HashMap<CellId, String>,
+) -> (HashMap<CellId, crate::sheet::A1Range>, graph::Places) {
+    let mut blocks = HashMap::new();
+    let mut places = graph::Places::new();
+    for (s, sheet) in model.sheets.iter().enumerate() {
+        for (&(row, col), cell) in &sheet.cells {
+            let Content::ArrayBlock { range, .. } = &cell.content else {
+                continue;
+            };
+            if (range.top, range.left) != (row, col) || !texts.contains_key(&(s, row, col)) {
+                continue;
+            }
+            blocks.insert((s, row, col), *range);
+        }
+    }
+    let mut anchors: Vec<(&CellId, &crate::sheet::A1Range)> = blocks.iter().collect();
+    anchors.sort_unstable_by_key(|(id, _)| **id);
+    for (&(s, row, col), range) in anchors {
+        let held = model.sheets[s]
+            .cells
+            .range((range.top, range.left)..=(range.bottom, range.right));
+        for (&(r, c), _) in held {
+            let id = (s, r, c);
+            if c < range.left || c > range.right || (r, c) == (row, col) || texts.contains_key(&id)
+            {
+                continue;
+            }
+            places.entry(id).or_insert((s, row, col));
+        }
+    }
+    (blocks, places)
+}
+
+/// A block's anchor's answer as much as its block lays of it (KERNEL.55): an
+/// array computed, as it is; a reference's values, read no further than the
+/// block reaches, which lays them as it would the whole; one value, an array
+/// of one; several areas `#REF!`, as its cell's answer is.
+fn laid_of(ctx: &Ctx<'_>, arg: &Arg<'_>, block: crate::sheet::A1Range) -> Result<Array, Reason> {
+    match arg {
+        Arg::Array(a) => Ok(a.clone()),
+        Arg::Area { areas, .. } => match &areas[..] {
+            [a] => {
+                let rows = (a.bottom - a.top).min(block.bottom - block.top);
+                let columns = (a.right - a.left).min(block.right - block.left);
+                ctx.area_array(&graph::Area {
+                    sheet: a.sheet,
+                    top: a.top,
+                    left: a.left,
+                    bottom: a.top + rows,
+                    right: a.left + columns,
+                })
+            }
+            _ => Ok(Array::single(Value::Error(ErrorKind::Ref))),
+        },
+        Arg::Scalar(v) => Ok(Array::single(v.clone())),
+        // A function's value, as a cell's answer is (KERNEL.29).
+        Arg::Function(_) => Ok(Array::single(Value::Error(ErrorKind::Calc))),
+    }
+}
+
+/// The value an array lays at a place of a block `row` rows and `column`
+/// columns from its anchor, as Excel lays a legacy array formula's (KERNEL.55,
+/// the save of its probe): its place as a lift reads it ([`Array::at`]), an
+/// array of one row repeated down the block, one of one column across it, one
+/// value everywhere, and `#N/A` past the array.
+fn laid_at(a: &Array, row: u32, column: u32) -> Value {
+    a.at(row, column)
+        .cloned()
+        .unwrap_or(Value::Error(ErrorKind::NA))
 }
 
 /// Whether a cell of a model holds a dynamic-array formula (KERNEL.8, slice
@@ -1018,16 +1184,16 @@ mod tests {
         let read = refusal(&[("Rate", "S!$A$1")], "=Rate*2");
         assert!(read.is_none(), "{read:?}");
         assert!(refusal(&[("Rate", "S!$A$1")], "=Missing*2").is_none());
-        let unread = refusal(&[("Pair", "A1#")], "=Pair*2").unwrap();
+        let unread = refusal(&[("Pair", "Odd#")], "=Pair*2").unwrap();
         assert_eq!(unread.id, "calc-construct-not-read");
         assert!(
-            unread.text.contains("S!B1") && unread.text.contains("A1#"),
+            unread.text.contains("S!B1") && unread.text.contains("Odd#"),
             "{}",
             unread.text
         );
-        let nested = refusal(&[("Outer", "Inner+1"), ("Inner", "A1#")], "=Outer").unwrap();
+        let nested = refusal(&[("Outer", "Inner+1"), ("Inner", "Odd#")], "=Outer").unwrap();
         assert_eq!(nested.id, "calc-construct-not-read");
-        let unused = refusal(&[("Pair", "A1#")], "=A1*2");
+        let unused = refusal(&[("Pair", "Odd#")], "=A1*2");
         assert!(unused.is_none(), "a name no formula reads: {unused:?}");
     }
 
@@ -1149,7 +1315,7 @@ mod tests {
         // this version does not read, naming the construct.
         let wb = model(&[
             ("S", "A1", "=1+1"),
-            ("S", "B2", "=A1#"),
+            ("S", "B2", "=Odd#"),
             ("S", "C3", "=@A1"),
         ]);
         let lib = library::language();
@@ -1157,12 +1323,12 @@ mod tests {
         let r = calc.first_refusal().unwrap();
         assert_eq!(r.id, "calc-construct-not-read");
         assert!(
-            r.text.contains("S!B2") && r.text.contains("reaches A1#"),
+            r.text.contains("S!B2") && r.text.contains("reaches Odd#"),
             "{}",
             r.text
         );
         // A function the library does not hold comes first.
-        let wb = model(&[("S", "B2", "=A1#"), ("S", "C3", "=NOW()")]);
+        let wb = model(&[("S", "B2", "=Odd#"), ("S", "C3", "=NOW()")]);
         let calc = Calc::new(&wb, &lib);
         assert_eq!(
             calc.first_refusal().unwrap().id,
@@ -1303,5 +1469,253 @@ mod tests {
         assert_eq!(number(&calc, "Output", "D2"), 50.0);
         assert_eq!(number(&calc, "Output", "D3"), 100.0);
         assert_eq!(calc.spell_cell((0, 3, 3)), "Output!C3");
+    }
+
+    /// A model of rows and, over it, legacy array formulas each entered over a
+    /// block (KERNEL.55), `(sheet, range, formula)`: the anchor the range's
+    /// first cell, every other a 0 until it is laid, as a save holds a value at
+    /// each.
+    fn blocked(rows: &[(&str, &str, &str)], blocks: &[(&str, &str, &str)]) -> Workbook {
+        let mut wb = model(rows);
+        for (sheet, range, formula) in blocks {
+            let i = wb.ensure_sheet(sheet);
+            let range = parse_a1_range(range).unwrap();
+            for row in range.top..=range.bottom {
+                for col in range.left..=range.right {
+                    let content = Content::Number(0.0);
+                    wb.sheets[i].set(row, col, Cell { content, style: 0 });
+                }
+            }
+            let text = formula.strip_prefix('=').unwrap().to_string();
+            let content = Content::ArrayBlock { text, range };
+            wb.sheets[i].set(range.top, range.left, Cell { content, style: 0 });
+        }
+        wb
+    }
+
+    /// A cell's answer as the door's row spells it, a reason by its debug.
+    fn shown(calc: &Calc<'_>, sheet: &str, addr: &str) -> String {
+        match at(calc, sheet, addr) {
+            Computed::Value(v) => v.spell(),
+            Computed::NotComputed(r) => format!("{r:?}"),
+        }
+    }
+
+    /// The probe's blocks in small (KERNEL.55's second slice), and readers of
+    /// them by a cell and by a range.
+    fn the_blocks() -> Workbook {
+        blocked(
+            &[
+                ("D", "A1", "3"),
+                ("D", "A2", "1"),
+                ("D", "A3", "4"),
+                ("D", "B1", "1"),
+                ("D", "C1", "2"),
+                ("D", "D1", "3"),
+                ("D", "B2", "4"),
+                ("D", "C2", "5"),
+                ("D", "D2", "6"),
+                ("S", "A7", "=SUM(A1:A3)"),
+                ("S", "A8", "=A4"),
+                ("S", "A9", "=SUM(B1:D2)"),
+                ("S", "A10", "=J3"),
+                ("S", "A11", "=ISNA(K3)"),
+            ],
+            &[
+                ("S", "A1:A5", "=D!A1:A3*2"),
+                ("S", "B1:D2", "=D!B1:D1*2"),
+                ("S", "E1:G3", "=D!A1:A3*10"),
+                ("S", "H1:I2", "=5"),
+                ("S", "J1:K3", "=D!B1:D2"),
+                ("S", "L1:L2", "=1/0"),
+            ],
+        )
+    }
+
+    #[test]
+    fn a_block_is_computed_once_and_laid_into_its_cells_as_excel_lays_one() {
+        // KERNEL.55's second slice, as Excel's save of its probe lays one: a
+        // column longer than its block cut short and one shorter #N/A past
+        // it; a row repeated down a block and a column across one; one value
+        // everywhere; a reference's 2-by-3 over a 3-by-2, #N/A past it; an
+        // error at every place; and each read as computed, by its address
+        // and in a range, the file's 0 never.
+        let wb = the_blocks();
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let na = "(error \"#N/A\")";
+        let div = "(error \"#DIV/0!\")";
+        for (addr, want) in [
+            ("A1", "6"),
+            ("A2", "2"),
+            ("A3", "8"),
+            ("A4", na),
+            ("A5", na),
+            ("B1", "2"),
+            ("C1", "4"),
+            ("D1", "6"),
+            ("B2", "2"),
+            ("C2", "4"),
+            ("D2", "6"),
+            ("E1", "30"),
+            ("F1", "30"),
+            ("G1", "30"),
+            ("E2", "10"),
+            ("F2", "10"),
+            ("G3", "40"),
+            ("H1", "5"),
+            ("I2", "5"),
+            ("J1", "1"),
+            ("K1", "2"),
+            ("J2", "4"),
+            ("K2", "5"),
+            ("J3", na),
+            ("K3", na),
+            ("L1", div),
+            ("L2", div),
+            ("A7", "16"),
+            ("A8", na),
+            ("A9", "24"),
+            ("A10", na),
+            ("A11", "true"),
+        ] {
+            assert_eq!(shown(&calc, "S", addr), want, "S!{addr}");
+        }
+        // The cells computed: eleven formulas and twenty-six places, each
+        // place's formula its anchor's, as Excel holds one at every cell.
+        let s = calc.model().find_sheet("S").unwrap();
+        assert_eq!(calc.formulas(), 11);
+        assert_eq!(calc.cells().len(), 37);
+        assert_eq!(calc.progress().of, 37);
+        assert!(calc.cells().windows(2).all(|w| w[0] < w[1]));
+        assert_eq!(calc.formula((s, 2, 1)), Some("D!A1:A3*2"));
+        assert_eq!(calc.formula((s, 3, 11)), Some("D!B1:D2"));
+        assert!(calc.cycles().is_empty());
+    }
+
+    #[test]
+    fn a_budget_never_changes_a_block_s_value() {
+        // KERNEL.55's second slice: an anchor's array kept from its step for
+        // its places', whatever steps between, and every place after it.
+        let wb = the_blocks();
+        let lib = library::language();
+        let whole = Calc::run(&wb, &lib);
+        for budget in [1, 3, 7] {
+            let mut calc = Calc::new(&wb, &lib);
+            while !calc.step(budget).done {}
+            for id in whole.cells() {
+                assert_eq!(calc.computed(id), whole.computed(id), "{id:?} at {budget}");
+            }
+            calc.restart();
+            calc.step(0);
+            for id in whole.cells() {
+                assert_eq!(calc.computed(id), whole.computed(id), "{id:?} again");
+            }
+        }
+    }
+
+    #[test]
+    fn a_block_s_places_are_the_cells_its_sheet_holds_but_a_formula_s_own() {
+        // KERNEL.55's second slice: a block's cell the sheet does not hold is
+        // no place, read as nothing, and one holding a formula of its own
+        // keeps it; a reference past the block is read no further than it.
+        let mut wb = model(&[("S", "A3", "=99"), ("S", "A4", "0"), ("S", "C1", "=A2")]);
+        let range = parse_a1_range("A1:A4").unwrap();
+        let text = "SEQUENCE(4)".to_string();
+        let content = Content::ArrayBlock { text, range };
+        wb.sheets[0].set(1, 1, Cell { content, style: 0 });
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(shown(&calc, "S", "A1"), "1");
+        assert_eq!(calc.computed((0, 2, 1)), None, "A2 no place");
+        assert_eq!(shown(&calc, "S", "A3"), "99");
+        assert_eq!(shown(&calc, "S", "A4"), "4");
+        assert_eq!(shown(&calc, "S", "C1"), "0");
+        assert_eq!(calc.cells().len(), 4);
+    }
+
+    #[test]
+    fn a_block_reading_its_own_cells_is_a_cycle_and_an_anchor_s_reason_its_places() {
+        // KERNEL.55's second slice: a block's cells are read after its anchor,
+        // so that one reading them is a cycle, as Excel's circular reference
+        // is; and an anchor not computed gives each place its reason.
+        let wb = blocked(&[], &[("S", "A1:A3", "=SUM(A1:A3)")]);
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(calc.cycles(), [vec![(0, 1, 1), (0, 2, 1), (0, 3, 1)]]);
+        assert_eq!(at(&calc, "S", "A3"), Computed::NotComputed(Reason::Cycle));
+        let wb = blocked(&[], &[("S", "A1:B1", "=NOSUCH(1)")]);
+        let calc = Calc::run(&wb, &lib);
+        let reason = Computed::NotComputed(Reason::Function("NOSUCH".to_string()));
+        assert_eq!(at(&calc, "S", "A1"), reason);
+        assert_eq!(at(&calc, "S", "B1"), reason);
+    }
+
+    #[test]
+    fn a_spill_read_through_its_hash_is_a_dynamic_anchor_s_and_no_other_cell_s() {
+        // KERNEL.55's second slice: `A1#`, read as the file spells it,
+        // `ANCHORARRAY(A1)`. A value's and a legacy formula's, #REF!, as
+        // Excel's save of the probe answers a value's and a spilled cell's; a
+        // dynamic formula's labelled as its anchor is until spills are
+        // computed; a legacy array formula's, which no save shows, labelled by
+        // the function's name, as is a reference to no one cell; a spill whose
+        // anchor moved off the sheet #REF!; and `#SPILL!`, a value of the
+        // language, ERROR.TYPE 9.
+        let mut wb = model(&[
+            ("S", "A1", "5"),
+            ("S", "B1", "=1+1"),
+            ("S", "D1", "=A1#"),
+            ("S", "D2", "=B1#"),
+            ("S", "D3", "=SUM(C1#)"),
+            ("S", "D4", "=ROWS(E1#)"),
+            ("S", "D5", "=#REF!#"),
+            ("S", "D6", "=ANCHORARRAY(A1:A2)"),
+            ("S", "D7", "=ISERROR(A1#)"),
+            ("S", "F1", "#SPILL!"),
+            ("S", "D8", "=ERROR.TYPE(F1)"),
+            ("S", "D9", "=ISERROR(F1)"),
+        ]);
+        let dynamic = Content::DynamicFormula("SEQUENCE(3)".to_string());
+        wb.sheets[0].set(
+            1,
+            3,
+            Cell {
+                content: dynamic,
+                style: 0,
+            },
+        );
+        let legacy = Content::ArrayFormula("SEQUENCE(2)".to_string());
+        wb.sheets[0].set(
+            1,
+            5,
+            Cell {
+                content: legacy,
+                style: 0,
+            },
+        );
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let anchorarray = format!("{:?}", Reason::Function("ANCHORARRAY".to_string()));
+        for (addr, want) in [
+            ("D1", "(error \"#REF!\")"),
+            ("D2", "(error \"#REF!\")"),
+            (
+                "D3",
+                &format!("{:?}", Reason::Construct("a spill".to_string()))[..],
+            ),
+            ("D4", &anchorarray),
+            ("D5", "(error \"#REF!\")"),
+            ("D6", &anchorarray),
+            ("D7", "true"),
+            ("D8", "9"),
+            ("D9", "true"),
+        ] {
+            assert_eq!(shown(&calc, "S", addr), want, "S!{addr}");
+        }
+        // The plan reads `B1#` as a read of B1, so that two cells reading each
+        // other so are a cycle.
+        let wb = model(&[("S", "A1", "=B1#"), ("S", "B1", "=A1")]);
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(calc.cycles(), [vec![(0, 1, 1), (0, 1, 2)]]);
     }
 }

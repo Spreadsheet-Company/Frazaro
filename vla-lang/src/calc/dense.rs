@@ -67,7 +67,7 @@ pub(crate) fn fits(extent: Extent, limit: u64) -> bool {
 /// reads; nothing; a text, its string among the store's texts; a truth
 /// value; a formula's reason, why it was not computed, among the store's
 /// reasons; a formula with no value yet; an error a value cell holds by a
-/// text its kind does not spell (`#n/a`, `#SPILL!`), that text among the
+/// text its kind does not spell (`#n/a`, `#UNKNOWN!`), that text among the
 /// store's texts, read as its kind or as `#VALUE!` where it names none, as
 /// a read of the cell answers it, and kept for the record, which prints the
 /// cell's own (KERNEL.49's third slice: the store is the cell); or an
@@ -83,7 +83,7 @@ const ODD: u8 = 7;
 const ERROR: u8 = 8;
 
 /// The error kinds a slot holds, each at its place past [`ERROR`].
-const ERRORS: [ErrorKind; 8] = [
+const ERRORS: [ErrorKind; 9] = [
     ErrorKind::Null,
     ErrorKind::Div0,
     ErrorKind::Value,
@@ -92,6 +92,7 @@ const ERRORS: [ErrorKind; 8] = [
     ErrorKind::Num,
     ErrorKind::NA,
     ErrorKind::Calc,
+    ErrorKind::Spill,
 ];
 
 /// The kind an error text names, as a read of a cell holding it answers:
@@ -119,6 +120,7 @@ fn error_kind(k: ErrorKind) -> u8 {
             ErrorKind::Num => 5,
             ErrorKind::NA => 6,
             ErrorKind::Calc => 7,
+            ErrorKind::Spill => 8,
         }
 }
 
@@ -1109,7 +1111,7 @@ mod tests {
         let contents = [
             Content::Error("#N/A".to_string()),
             Content::Error("#n/a".to_string()),
-            Content::Error("#SPILL!".to_string()),
+            Content::Error("#UNKNOWN!".to_string()),
             Content::Text("t".to_string()),
             Content::Number(-0.0),
             Content::Bool(true),
@@ -1167,20 +1169,29 @@ mod tests {
         assert_eq!(
             d.odd,
             vec![3, 3],
-            "row 1: #N/A, #SPILL! and the text; row 2: true and two empty"
+            "row 1: #N/A, #UNKNOWN! and the text; row 2: true and two empty"
         );
         // Regrown, each keeps its content where it stands.
         assert!(d.regrow(Some(((1, 1), (4, 4)))));
         assert_eq!(
             d.content(d.index(1, 3).unwrap()),
-            Some(Content::Error("#SPILL!".to_string()))
+            Some(Content::Error("#UNKNOWN!".to_string()))
         );
         assert!(d.regrow(Some(((1, 1), (4, 6)))));
         assert_eq!(
             d.content(d.index(1, 3).unwrap()),
-            Some(Content::Error("#SPILL!".to_string()))
+            Some(Content::Error("#UNKNOWN!".to_string()))
         );
         assert_eq!(d.content(d.index(2, 2).unwrap()), Some(Content::Bool(true)));
+        // `#SPILL!`, a kind since KERNEL.55, is held by its kind and no text.
+        let spill = d.index(2, 3).unwrap();
+        d.put_content(spill, Some(&Content::Error("#SPILL!".to_string())));
+        assert_eq!(d.odd_text(spill), None, "#SPILL! by its kind");
+        assert_eq!(d.get(2, 3), Some(Value::Error(ErrorKind::Spill)));
+        assert_eq!(
+            d.content(spill),
+            Some(Content::Error("#SPILL!".to_string()))
+        );
     }
 
     #[test]

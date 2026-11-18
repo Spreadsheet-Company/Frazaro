@@ -396,13 +396,31 @@ struct CellData {
     repeat: u32,
     value: Option<Value>,
     formula: Option<String>,
-    matrix: bool,
+    /// A matrix formula's rows and columns, each at least one, where the
+    /// cell holds one (KERNEL.8, slice b; KERNEL.55).
+    matrix: Option<(u32, u32)>,
     /// Its own style, `table:style-name`, which the looks read (KERNEL.57).
     style: Option<String>,
     /// The columns and the rows it merges, itself among them, each at least one.
     spanned: (u32, u32),
     /// Whether its text holds a run of a style of its own, `text:span`.
     rich: bool,
+}
+
+impl CellData {
+    /// The block a matrix formula anchored at this place fills, where it
+    /// holds more than the anchor's cell (KERNEL.55): its rows and its
+    /// columns spanned from the anchor, within the sheet.
+    fn matrix_block(&self, row: u32, col: u32) -> Option<A1Range> {
+        let (rows, columns) = self.matrix?;
+        let block = A1Range {
+            top: row,
+            left: col,
+            bottom: row.saturating_add(rows - 1).min(MAX_ROW),
+            right: col.saturating_add(columns - 1).min(MAX_COLUMN),
+        };
+        (block.cells() > 1).then_some(block)
+    }
 }
 
 /// The text of a `text:p` just opened: its runs, `text:s` as spaces,
@@ -508,8 +526,15 @@ fn read_cell(
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(1)
         .max(1);
-    let matrix = attr(attrs, "number-matrix-rows-spanned").is_some()
-        || attr(attrs, "number-matrix-columns-spanned").is_some();
+    let span =
+        |name: &str| attr(attrs, name).map(|v| v.parse::<u32>().map_or(1, |n| n.clamp(1, MAX_ROW)));
+    let matrix = match (
+        span("number-matrix-rows-spanned"),
+        span("number-matrix-columns-spanned"),
+    ) {
+        (None, None) => None,
+        (rows, columns) => Some((rows.unwrap_or(1), columns.unwrap_or(1))),
+    };
     let formula = attr(attrs, "formula").map(|f| formula_to_a1(&f, &mut Vec::new()));
     // `office:value-type` beside Calc's `calcext:value-type`: the same
     // local name, two namespaces.
@@ -1268,7 +1293,7 @@ impl Document {
                                             cell.value.clone().map(|v| self.record_value(v));
                                         match &cell.formula {
                                             Some(text) => {
-                                                if cell.matrix {
+                                                if cell.matrix.is_some() {
                                                     stats.array_anchors += 1;
                                                 }
                                                 let saved = value.as_ref().map(datum);
@@ -1299,8 +1324,12 @@ impl Document {
                                                         }
                                                     },
                                                 );
-                                                if cell.matrix {
+                                                if cell.matrix.is_some() {
                                                     sink.array(sheet, &addr, ArrayKind::Legacy);
+                                                    if let Some(block) = cell.matrix_block(row, at)
+                                                    {
+                                                        sink.array_ref(sheet, &addr, &block.text());
+                                                    }
                                                 }
                                             }
                                             None => {
@@ -1330,7 +1359,7 @@ impl Document {
                                             });
                                         }
                                         if let Some(text) = &cell.formula {
-                                            if cell.matrix {
+                                            if cell.matrix.is_some() {
                                                 stats.array_anchors += 1;
                                             }
                                             emit_formula(
@@ -1347,8 +1376,11 @@ impl Document {
                                             // A matrix formula's anchor, of
                                             // the kind the format can tell
                                             // (KERNEL.8, slice b).
-                                            if cell.matrix {
+                                            if cell.matrix.is_some() {
                                                 sink.array(sheet, &addr, ArrayKind::Legacy);
+                                                if let Some(block) = cell.matrix_block(row, at) {
+                                                    sink.array_ref(sheet, &addr, &block.text());
+                                                }
                                             }
                                         }
                                     }
@@ -2338,6 +2370,51 @@ mod tests {
     }
 
     #[test]
+    fn a_matrix_formula_s_block_is_told_beside_its_kind() {
+        // KERNEL.55's second slice: the block a matrix formula fills, its rows
+        // and its columns spanned from its anchor, told after its kind where
+        // it holds more than the anchor's cell, as the xlsx reader tells a
+        // `ref`; a matrix of its cell alone told its kind only.
+        #[derive(Default)]
+        struct Told(Vec<String>);
+        impl Sink for Told {
+            fn row(&mut self, _: &Row<'_>) {}
+            fn array(&mut self, _sheet: &str, addr: &str, kind: ArrayKind) {
+                self.0.push(format!("{addr} {kind:?}"));
+            }
+            fn array_ref(&mut self, sheet: &str, addr: &str, range: &str) {
+                self.0.push(format!("{sheet}!{addr} {range}"));
+            }
+        }
+        let content = format!(concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<office:document-content {OFFICE}>",
+            "<office:body><office:spreadsheet>",
+            "<table:table table:name=\"Model\">",
+            "<table:table-row>",
+            "<table:table-cell office:value-type=\"float\" office:value=\"1\"><text:p>1</text:p></table:table-cell>",
+            "<table:table-cell table:formula=\"of:=[.A1:.A2]*2\" table:number-matrix-columns-spanned=\"1\" table:number-matrix-rows-spanned=\"2\" office:value-type=\"float\" office:value=\"2\"><text:p>2</text:p></table:table-cell>",
+            "<table:table-cell table:formula=\"of:=[.A1]\" table:number-matrix-columns-spanned=\"1\" table:number-matrix-rows-spanned=\"1\" office:value-type=\"float\" office:value=\"1\"><text:p>1</text:p></table:table-cell>",
+            "<table:table-cell table:formula=\"of:=[.A1:.B2]\" table:number-matrix-columns-spanned=\"2\" table:number-matrix-rows-spanned=\"2\" office:value-type=\"float\" office:value=\"1\"><text:p>1</text:p></table:table-cell>",
+            "</table:table-row>",
+            "</table:table>",
+            "</office:spreadsheet></office:body></office:document-content>"), OFFICE = OFFICE);
+        let document = Document::open(&ods(&content, MIMETYPE), "t.ods").unwrap();
+        let mut told = Told::default();
+        document.walk_sheet(0, &mut told).unwrap();
+        assert_eq!(
+            told.0,
+            [
+                "B1 Legacy",
+                "Model!B1 B1:B2",
+                "C1 Legacy",
+                "D1 Legacy",
+                "Model!D1 D1:E2",
+            ]
+        );
+    }
+
+    #[test]
     fn a_row_hidden_by_hand_or_by_a_filter_is_told_hidden() {
         // KERNEL.8, slice e: `table:visibility`'s `collapse`, a row hidden by
         // hand, and `filter`, a row a filter hides, each told to the sink as
@@ -2660,7 +2737,7 @@ mod tests {
             )
         };
         let mut conditions = String::new();
-        for value in ["formula-is(TODAY()=[.A1])", "formula-is([.A1#])"] {
+        for value in ["formula-is(TODAY()=[.A1])", "formula-is(Rate#)"] {
             conditions.push_str(&condition(value));
         }
         // Those two and a date's.
@@ -2901,7 +2978,7 @@ mod tests {
     #[test]
     fn a_condition_is_asked_of_on_its_own_sheet() {
         let rule = "<calcext:conditional-formats><calcext:conditional-format calcext:target-range-address=\"X.A1\"><calcext:condition calcext:apply-style-name=\"Lit\" calcext:value=\"formula-is(Odd=1)\"/></calcext:conditional-format></calcext:conditional-formats>";
-        let names = "<table:named-expressions><table:named-expression table:name=\"Odd\" table:base-cell-address=\"$S.$A$1\" table:expression=\"of:A1#\"/></table:named-expressions>";
+        let names = "<table:named-expressions><table:named-expression table:name=\"Odd\" table:base-cell-address=\"$S.$A$1\" table:expression=\"of:Rate#\"/></table:named-expressions>";
         let namespaces = format!(
             "{OFFICE} xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\""
         );

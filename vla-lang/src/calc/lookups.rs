@@ -181,10 +181,23 @@ pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
     if let Arg::Scalar(Value::Error(k)) = reference {
         return error(k);
     }
-    let row = ctx.operand(&args[1])?;
+    // A reference's row and column, each an array's first value or a range
+    // met at the cell in a legacy formula and a legacy array formula alike,
+    // as Excel's save of KERNEL.55's probe holds them (`Param::Forced`); a
+    // dynamic formula alone lifts the pick over them. An array's, which no
+    // save shows in a legacy formula, lift in every kind, as they did.
+    let forced = !ctx.env.dynamic() && matches!(reference, Arg::Area { .. });
+    let place = |e: &Expr| -> Result<Lifted, Reason> {
+        if forced {
+            Ok(Lifted::One(ctx.forced(e)?))
+        } else {
+            ctx.operand(e)
+        }
+    };
+    let row = place(&args[1])?;
     let column = match args.get(2) {
         None => None,
-        Some(e) => Some(ctx.operand(e)?),
+        Some(e) => Some(place(e)?),
     };
     if let Some(e) = args.get(3) {
         match expr_number_or(ctx, Some(e), 1.0)? {

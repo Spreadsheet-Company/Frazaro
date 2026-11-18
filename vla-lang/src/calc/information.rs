@@ -117,9 +117,10 @@ pub(crate) fn iserr(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
     )
 }
 
-/// `ERROR.TYPE(value)`: an error's number, Microsoft's 1 to 7 and Excel's save's
-/// 14 for `#CALC!`, and `#N/A` for anything else. Excel's other errors, `#SPILL!`
-/// and the rest, are no value of the language (`KERNEL.55`).
+/// `ERROR.TYPE(value)`: an error's number, Microsoft's 1 to 7, and Excel's
+/// save's 9 for `#SPILL!` (KERNEL.55) and 14 for `#CALC!`, and `#N/A` for
+/// anything else. Excel's other errors, `#UNKNOWN!` and the rest, are no value
+/// of the language.
 pub(crate) fn error_type(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reason> {
     tested(
         ctx,
@@ -133,6 +134,7 @@ pub(crate) fn error_type(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Value, Reaso
                 ErrorKind::Name => 5.0,
                 ErrorKind::Num => 6.0,
                 ErrorKind::NA => 7.0,
+                ErrorKind::Spill => 9.0,
                 ErrorKind::Calc => 14.0,
             }),
             _ => Value::Error(ErrorKind::NA),
