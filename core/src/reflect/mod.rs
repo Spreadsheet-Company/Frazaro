@@ -33,8 +33,11 @@
 //! `sheet` row in tab order; every `name` row sorted by its name without
 //! case; every `table` row by its sheet's tab order, then its name; then
 //! sheet by sheet in tab order, cell by cell in document order, each cell's
-//! `cell` row, then its `formula` row, then its `refers` rows, one per
-//! distinct target, sorted by the target as printed (slice 8b, through
+//! `cell` row, then its `formula` row, an array formula's saying its kind's
+//! word, `dynamic` or `array`, and followed by its `spill` row where its range
+//! holds more than its cell (KERNEL.55), then its `refers` rows, one per
+//! distinct target, sorted by the target as printed; a cell an array
+//! formula's range fills past its anchor its `value` row alone (slice 8b, through
 //! `crate::refers`, the port of `VLA_Refers.bas`). `print.rs` has the
 //! spelling; `cone.rs` sizes a cell's cone through an index of the walk.
 //!
@@ -270,39 +273,14 @@ pub fn open<'a>(bytes: &'a [u8], label: &str) -> Result<Box<dyn Source + 'a>, Re
 }
 
 /// A formula's rows and counts, the same from either reader: the `formula`
-/// row, then its `refers` rows, one per distinct target sorted as printed;
-/// the unreadable calls counted; the R1C1 rendering added to the sheet's
-/// and the workbook's distinct sets, each capped. `text` begins with `=`.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn emit_formula(
-    sink: &mut dyn Sink,
-    sheet: &str,
-    addr: &str,
-    text: &str,
-    row: u32,
-    col: u32,
-    stats: &mut SheetStats,
-    sheet_distinct: &mut HashSet<String>,
-    book_distinct: &mut HashSet<String>,
-) {
-    emit_formula_with(
-        sink,
-        sheet,
-        addr,
-        text,
-        row,
-        col,
-        stats,
-        sheet_distinct,
-        book_distinct,
-        &mut |_| {},
-    );
-}
-
-/// [`emit_formula`] with what `between` gives the sink after the `formula`
-/// row and before its `refers` rows: under the looks (KERNEL.57) the
-/// formula's `value` and `style` rows, so that a cell's rows of the record
-/// stand together.
+/// row, then what `between` gives the sink, then its `refers` rows, one per
+/// distinct target sorted as printed; the unreadable calls counted; the R1C1
+/// rendering added to the sheet's and the workbook's distinct sets, each
+/// capped. `text` begins with `=`. `between` tells an array formula's kind
+/// and range, so that a printer writes its word into the row just printed
+/// (KERNEL.55), and under the looks (KERNEL.57) gives the formula's `value`,
+/// `spill` and `style` rows, so that a cell's rows of the record stand
+/// together.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn emit_formula_with(
     sink: &mut dyn Sink,

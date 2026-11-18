@@ -38,9 +38,15 @@
 //!                                    unclipped
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
 //! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it, and
-//!                                    after it, in a machine's record, the word
-//!                                    dynamic for one its rows said so (KERNEL.70)
+//!                                    after it its kind's word, dynamic for a
+//!                                    dynamic-array formula (KERNEL.70), array
+//!                                    for a legacy array formula, in every record
+//!                                    (KERNEL.55)
 //! (value "Output" "B3" 10)           its computed value, once values exist
+//! (spill "Output" "B3" "B3:C5")      after an array formula's value row, the
+//!                                    extent its answer fills, a spill's or a
+//!                                    block's; each of its other cells a value
+//!                                    row with nothing before it (KERNEL.55)
 //! (text "Output" "B3" "10.00")       a number's text under its format's code
 //!                                    (KERNEL.47), after its cell or value row
 //! (style "Output" "B2" 1)            the cell's format, when it is not 0
@@ -51,9 +57,13 @@
 //! ```
 //!
 //! The cells come in row-major order, each `cell` or `formula` row followed
-//! by its `value` row (a formula's, once values exist), its `text` row, its
-//! `style` row, its `lit` row and its `sentence` row, a lit cell holding nothing
-//! printing its `lit` row alone at its place. A `text` row is the text Excel draws
+//! by its `value` row (a formula's, once values exist), an array formula's
+//! `spill` row, its `text` row, its `style` row, its `lit` row and its
+//! `sentence` row, a lit cell holding nothing printing its `lit` row alone at
+//! its place, and a cell a spill or a block fills past its anchor beginning
+//! with its `value` row, the value its anchor's answer lays there, whether the
+//! model holds the cell or not, and printing none where the answer leaves a
+//! cell its file saved it in empty (KERNEL.55). A `text` row is the text Excel draws
 //! for the cell's number, or for its text under a code's fourth section,
 //! under the code of the format the cell draws with, the first rule's that
 //! says one, else its look's where its
@@ -442,26 +452,22 @@ impl<'n> ValueRows<'n> {
     }
 }
 
-/// A formula's row, its text without its `=`: after it, in a record of a grid
-/// whose rows can say it, the word dynamic for one its rows said so (KERNEL.70).
-fn formula_line<G: Cells + ?Sized>(
-    model: &G,
-    sheet: &str,
-    addr: &str,
-    text: &str,
-    formula: Formula<'_>,
-) -> String {
+/// A formula's row, its text without its `=`, and after it its kind's word:
+/// `dynamic` for a dynamic-array formula (KERNEL.70) and `array` for a legacy
+/// array formula, as every record says it, a door's and a machine's alike
+/// (KERNEL.55).
+fn formula_line(sheet: &str, addr: &str, text: &str, formula: Formula<'_>) -> String {
     let row = relation(&Row::Formula {
         sheet,
         addr,
         text: &format!("={text}"),
     });
-    match formula {
-        Formula::Own(_, crate::grid::Kind::Dynamic) if model.spells_kinds() => {
-            format!("{} dynamic)", row.strip_suffix(')').unwrap_or(&row))
-        }
-        _ => row,
-    }
+    let word = match formula {
+        Formula::Own(_, crate::grid::Kind::Dynamic) => "dynamic",
+        Formula::Own(_, crate::grid::Kind::Array) => "array",
+        _ => return row,
+    };
+    format!("{} {word})", row.strip_suffix(')').unwrap_or(&row))
 }
 
 /// A value cell's value as a `cell` row spells it, what the writer puts in the
@@ -624,25 +630,92 @@ impl Grid<'_> {
         // them in their order; a lit cell holding nothing at its own place.
         let lits = model.lit_in(i, &range);
         let mut lit_next = lits.iter().peekable();
-        for (at, cell) in &cells {
+        // The spills and blocks the window meets (KERNEL.55), each its
+        // anchor's box: the anchor's `spill` row after its `value` row, naming
+        // its extent, and each other cell of the box a `value` row with nothing
+        // before it, the sheet holding it or not, or none for one left empty.
+        let spills: Vec<(calc::CellId, A1Range)> = self
+            .values
+            .map(|v| v.spills(i))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(_, e)| overlap(e, &range).is_some())
+            .collect();
+        let spilled = |(row, col): (u32, u32)| {
+            spills.iter().any(|(a, e)| {
+                (a.1, a.2) != (row, col)
+                    && e.top <= row
+                    && row <= e.bottom
+                    && e.left <= col
+                    && col <= e.right
+            })
+        };
+        let mut unheld: Vec<(u32, u32)> = Vec::new();
+        for (anchor, e) in &spills {
+            let Some(cut) = overlap(e, &range) else {
+                continue;
+            };
+            for row in cut.top..=cut.bottom {
+                for col in cut.left..=cut.right {
+                    let at = (row, col);
+                    if at != (anchor.1, anchor.2)
+                        && cells.binary_search_by_key(&at, |c| c.0).is_err()
+                    {
+                        unheld.push(at);
+                    }
+                }
+            }
+        }
+        unheld.sort_unstable();
+        unheld.dedup();
+        let mut held_next = cells.iter().peekable();
+        let mut unheld_next = unheld.into_iter().peekable();
+        loop {
+            let unheld_first = match (held_next.peek(), unheld_next.peek()) {
+                (Some((h, _)), Some(u)) => u < h,
+                (None, Some(_)) => true,
+                (Some(_), None) => false,
+                (None, None) => break,
+            };
+            let (at, cell) = match unheld_first {
+                true => match unheld_next.next() {
+                    Some(u) => (u, None),
+                    None => break,
+                },
+                false => match held_next.next() {
+                    Some((h, c)) => (*h, Some(c)),
+                    None => break,
+                },
+            };
             let mut lit = None;
-            while let Some((&place, priorities)) = lit_next.next_if(|(&place, _)| place <= *at) {
-                if place == *at {
+            while let Some((&place, priorities)) = lit_next.next_if(|(&place, _)| place <= at) {
+                if place == at {
                     lit = Some(priorities.as_slice());
                 } else {
                     lit_row(name, place, priorities, out);
                 }
             }
+            if spilled(at) {
+                self.spilled_rows(name, i, at, cell, coded.as_ref(), (page.rules, lit), out);
+                continue;
+            }
+            let Some(cell) = cell else {
+                continue;
+            };
+            let spill = spills
+                .iter()
+                .find(|(a, _)| (a.1, a.2) == at)
+                .and_then(|(a, _)| self.values.and_then(|v| v.spill(*a)));
             self.cell_rows(
                 model,
                 &page,
                 i,
-                *at,
+                at,
                 cell,
                 mode == Mode::Grid,
                 &mut masters,
                 coded.as_ref(),
-                lit,
+                (lit, spill),
                 out,
             );
         }
@@ -699,7 +772,7 @@ impl Grid<'_> {
                             let walked = masters.get_or_insert_with(|| model.masters(i));
                             match text_of(*formula, (row, col), walked) {
                                 Some(text) => {
-                                    out(&formula_line(model, name, &over, &text, *formula));
+                                    out(&formula_line(name, &over, &text, *formula));
                                     true
                                 }
                                 None => false,
@@ -759,6 +832,76 @@ impl Grid<'_> {
         }
     }
 
+    /// The rows of a cell a spill or a block fills past its anchor
+    /// (KERNEL.55): its `value` row with nothing before it, the value its
+    /// anchor's answer lays there, or nothing where the answer no longer
+    /// reaches a cell its file saved it in, then its `text`, `style`, `lit`
+    /// and `sentence` rows as any cell's, `held` its own where the sheet
+    /// holds it.
+    #[allow(clippy::too_many_arguments)]
+    fn spilled_rows(
+        &self,
+        name: &str,
+        i: usize,
+        (row, col): (u32, u32),
+        held: Option<&Held<'_>>,
+        coded: Option<&Coded<'_>>,
+        (rules, lit): (&[Rule], Option<&[u32]>),
+        out: &mut dyn FnMut(&str),
+    ) {
+        let addr = cell_ref(row, col);
+        let computed = self.values.and_then(|v| v.computed((i, row, col)));
+        let shown = match &computed {
+            Some(calc::Computed::Value(calc::Value::Empty)) | None => {
+                if let Some(priorities) = lit {
+                    lit_row(name, (row, col), priorities, out);
+                }
+                return;
+            }
+            Some(c) => {
+                out(&record_line(&Record::Value {
+                    sheet: name,
+                    addr: &addr,
+                    value: &c.spell(),
+                }));
+                match c {
+                    calc::Computed::Value(v) => Some(v.clone()),
+                    calc::Computed::NotComputed(_) => None,
+                }
+            }
+        };
+        let style = held.map_or(0, |h| h.style);
+        if let (Some(coded), Some(v)) = (coded, shown) {
+            let rule = lit.and_then(|lit| rule_saying_number(coded.styles, rules, lit));
+            if let Some(text) = coded.text(style, rule, &v) {
+                out(&format!(
+                    "(text {} {} {})",
+                    quoted(name),
+                    quoted(&addr),
+                    quoted(&text)
+                ));
+            }
+        }
+        if style != 0 {
+            out(&record_line(&Record::Style {
+                sheet: name,
+                addr: &addr,
+                index: style,
+            }));
+        }
+        if let Some(priorities) = lit {
+            lit_row(name, (row, col), priorities, out);
+        }
+        if let Some(r) = held.and_then(|h| h.sentence) {
+            out(&format!(
+                "(sentence {} {} {})",
+                quoted(name),
+                quoted(&addr),
+                r
+            ));
+        }
+    }
+
     /// One cell's rows, as the record prints them (KERNEL.42: the changes
     /// print a changed cell's by this code too): its `cell` row, or its
     /// `formula` row where the record has them (a fill's, in the fills, over
@@ -779,7 +922,7 @@ impl Grid<'_> {
         formulas: bool,
         masters: &mut Option<Masters<'g>>,
         coded: Option<&Coded<'_>>,
-        lit: Option<&[u32]>,
+        (lit, spill): (Option<&[u32]>, Option<A1Range>),
         out: &mut dyn FnMut(&str),
     ) -> bool {
         let name = page.name;
@@ -837,7 +980,7 @@ impl Grid<'_> {
                         let walked = masters.get_or_insert_with(|| model.masters(i));
                         match text_of(*formula, (row, col), walked) {
                             Some(text) => {
-                                out(&formula_line(model, name, &addr, &text, *formula));
+                                out(&formula_line(name, &addr, &text, *formula));
                                 true
                             }
                             None => false,
@@ -860,6 +1003,15 @@ impl Grid<'_> {
                         addr: &addr,
                         value: &computed.spell(),
                     }));
+                    // The extent its answer fills, a spill's or a block's
+                    // (KERNEL.55).
+                    if let Some(range) = spill {
+                        out(&record_line(&Record::Spill {
+                            sheet: name,
+                            addr: &addr,
+                            range: &range.text(),
+                        }));
+                    }
                     // The value as the row spells it: an empty result is 0.
                     if let calc::Computed::Value(v) = computed {
                         shown = Some(v.clone().settled());
@@ -1185,7 +1337,9 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
                 false,
                 &mut masters,
                 coded.as_ref(),
-                lit.as_deref(),
+                // A machine's changes, which hold no spill until KERNEL.55's
+                // fifth slice.
+                (lit.as_deref(), None),
                 &mut push,
             )
         });
@@ -1321,7 +1475,7 @@ mod tests {
                 "(sentence \"Model\" \"B2\" 2)",
                 "(formula \"Model\" \"C2\" \"=B2*2\")",
                 "(sentence \"Model\" \"C2\" 3)",
-                "(formula \"Model\" \"D2\" \"=IFS(B2>3,\\\"big\\\",TRUE,\\\"small\\\")\")",
+                "(formula \"Model\" \"D2\" \"=IFS(B2>3,\\\"big\\\",TRUE,\\\"small\\\")\" dynamic)",
                 "(sentence \"Model\" \"D2\" 4)",
                 "(cell \"Model\" \"B3\" true)",
                 "(sentence \"Model\" \"B3\" 2)",
@@ -1644,7 +1798,7 @@ mod tests {
                 "(format 1 \"F7F4FC\" text nowrap)",
                 "(format 2 \"F2F2F2\" general wrap)",
                 "(formula \"Model\" \"C2:C4\" \"=B2*2\")",
-                "(formula \"Model\" \"D2\" \"=IFS(B2>3,\\\"big\\\",TRUE,\\\"small\\\")\")",
+                "(formula \"Model\" \"D2\" \"=IFS(B2>3,\\\"big\\\",TRUE,\\\"small\\\")\" dynamic)",
                 "(cell \"Model\" \"B1\" \"Revenue\")",
                 "(cell \"Model\" \"B2\" 1200.5)",
                 "(cell \"Model\" \"B3\" true)",

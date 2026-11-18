@@ -737,12 +737,23 @@ pub trait Values: std::fmt::Debug {
         None
     }
 
-    /// The extent a dynamic formula's anchor spilled into, past its own cell,
-    /// where the values computed its spill (KERNEL.55): what a writer saves as
-    /// its `ref`, each of its other cells holding its value, as Excel saves a
-    /// spill. `None`, unless the values say otherwise.
+    /// The extent an array formula's anchor fills past its own cell, where the
+    /// values computed it (KERNEL.55): a dynamic formula's spill, what a writer
+    /// saves as its `ref`, each of its other cells holding its value, as Excel
+    /// saves a spill, and a legacy array formula's block; what the record
+    /// prints as the anchor's `spill` row. `None`, unless the values say
+    /// otherwise.
     fn spill(&self, _anchor: CellId) -> Option<A1Range> {
         None
+    }
+
+    /// A sheet's spills and blocks, each its anchor and the box of the cells
+    /// its rows cover past its cell (KERNEL.55): its extent, and the cells its
+    /// file saved it spilling into that its answer no longer reaches, each a
+    /// `value` row with nothing before it in the record, or none for a cell
+    /// left empty. None, unless the values say otherwise.
+    fn spills(&self, _sheet: usize) -> Vec<(CellId, A1Range)> {
+        Vec::new()
     }
 }
 
@@ -756,7 +767,47 @@ impl Values for Calc<'_> {
     }
 
     fn spill(&self, anchor: CellId) -> Option<A1Range> {
-        self.spilled.get(&anchor).copied()
+        self.spilled
+            .get(&anchor)
+            .or_else(|| self.blocks.get(&anchor))
+            .copied()
+    }
+
+    /// Each spill on the sheet, its extent with each cell it poured into, and
+    /// each block, its range.
+    fn spills(&self, sheet: usize) -> Vec<(CellId, A1Range)> {
+        let mut boxes: BTreeMap<CellId, A1Range> = self
+            .spilled
+            .iter()
+            .chain(self.blocks.iter())
+            .filter(|(anchor, _)| anchor.0 == sheet)
+            .map(|(anchor, e)| (*anchor, *e))
+            .collect();
+        for (&(s, row, col), &anchor) in &self.poured {
+            if s != sheet {
+                continue;
+            }
+            let cell = A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            };
+            let start = A1Range {
+                top: anchor.1,
+                left: anchor.2,
+                bottom: anchor.1,
+                right: anchor.2,
+            };
+            let b = boxes.entry(anchor).or_insert(start);
+            *b = A1Range {
+                top: b.top.min(cell.top),
+                left: b.left.min(cell.left),
+                bottom: b.bottom.max(cell.bottom),
+                right: b.right.max(cell.right),
+            };
+        }
+        boxes.into_iter().collect()
     }
 }
 
@@ -2438,5 +2489,147 @@ mod tests {
             assert_eq!(at(&calc, "S", addr), spill, "S!{addr}");
         }
         assert_eq!(calc.cells().len(), calc.formulas());
+    }
+
+    #[test]
+    fn the_record_prints_a_spill_s_cells_as_values_and_its_extent_after_its_anchor() {
+        // KERNEL.55's third slice, decision 2: each record says a formula's
+        // kind; after a spill's anchor's `value` row its `spill` row, each of
+        // its other cells a `value` row with nothing before it, the sheet
+        // holding it or not; a blocked anchor's `#SPILL!` and no `spill` row; a
+        // block the same, its anchor's word `array`; a cell its file saved its
+        // spill in that the answer no longer reaches, no row; and the values,
+        // the grid without its `formula` rows.
+        let mut wb = spilling(
+            &[
+                ("S", "D3", "x"),
+                ("S", "G2", "7"),
+                ("S", "G3", "7"),
+                ("S", "H1", "=SUM(A1#)"),
+            ],
+            &[
+                ("S", "A1", "=SEQUENCE(2,2)", None),
+                ("S", "D1", "=SEQUENCE(4)", None),
+                ("S", "G1", "=SEQUENCE(2)", Some("G1:G3")),
+            ],
+            &[],
+        );
+        let s = wb.find_sheet("S").unwrap();
+        let range = parse_a1_range("E1:E2").unwrap();
+        wb.sheets[s].set(
+            1,
+            5,
+            Cell {
+                content: Content::ArrayBlock {
+                    text: "SEQUENCE(2)*10".to_string(),
+                    range,
+                },
+                style: 0,
+            },
+        );
+        // A block's other cell, as a file holds one.
+        wb.sheets[s].set(
+            2,
+            5,
+            Cell {
+                content: Content::Number(0.0),
+                style: 0,
+            },
+        );
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let window = crate::view::window_of(&wb, "S", None).unwrap();
+        let grid = crate::view::view_text_valued(&wb, &window, &calc);
+        let rows: Vec<&str> = grid
+            .lines()
+            .filter(|l| {
+                ["(formula ", "(value ", "(spill ", "(cell "]
+                    .iter()
+                    .any(|k| l.starts_with(k))
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                "(formula \"S\" \"A1\" \"=SEQUENCE(2,2)\" dynamic)",
+                "(value \"S\" \"A1\" 1)",
+                "(spill \"S\" \"A1\" \"A1:B2\")",
+                "(value \"S\" \"B1\" 2)",
+                "(formula \"S\" \"D1\" \"=SEQUENCE(4)\" dynamic)",
+                "(value \"S\" \"D1\" (error \"#SPILL!\"))",
+                "(formula \"S\" \"E1\" \"=SEQUENCE(2)*10\" array)",
+                "(value \"S\" \"E1\" 10)",
+                "(spill \"S\" \"E1\" \"E1:E2\")",
+                "(formula \"S\" \"G1\" \"=SEQUENCE(2)\" dynamic)",
+                "(value \"S\" \"G1\" 1)",
+                "(spill \"S\" \"G1\" \"G1:G2\")",
+                "(formula \"S\" \"H1\" \"=SUM(A1#)\")",
+                "(value \"S\" \"H1\" 10)",
+                "(value \"S\" \"A2\" 3)",
+                "(value \"S\" \"B2\" 4)",
+                "(value \"S\" \"E2\" 20)",
+                "(value \"S\" \"G2\" 2)",
+                "(cell \"S\" \"D3\" \"x\")",
+            ],
+            "{grid}"
+        );
+        let values = crate::view::view_text_values(&wb, &window, &calc);
+        let less: String = grid
+            .lines()
+            .filter(|l| !l.starts_with("(formula "))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        assert_eq!(values, less);
+        // A record with no values prints the formulas alone, their words said.
+        let bare = crate::view::view_text(&wb, &window);
+        assert!(bare.contains("(formula \"S\" \"E1\" \"=SEQUENCE(2)*10\" array)"));
+        assert!(!bare.contains("(spill ") && !bare.contains("(value "));
+    }
+
+    #[test]
+    fn a_machine_loads_a_door_s_record_of_spills_and_sets_their_cells_aside() {
+        // Until the item's fifth slice an engine computes no spill: its load
+        // takes a door's record whole, the words, each `spill` row naming an
+        // anchor of a dynamic or a legacy array formula, and the `value` and
+        // `style` rows of the cells it fills, which it sets aside; a `spill`
+        // row anywhere else, and a `value` row at a cell no formula and no
+        // spill fills, are refused as a malformed row.
+        let mut wb = spilling(
+            &[("S", "B2", "4")],
+            &[("S", "A1", "=SEQUENCE(2,2)", Some("A1:B2"))],
+            &[],
+        );
+        // A spilled cell the file holds with a format of its own.
+        let s = wb.find_sheet("S").unwrap();
+        wb.sheets[s].cells.get_mut(&(2, 2)).unwrap().style = 1;
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let window = crate::view::window_of(&wb, "S", None).unwrap();
+        let record = crate::view::view_text_valued(&wb, &window, &calc);
+        assert!(record.contains("(style \"S\" \"B2\" 1)"), "{record}");
+        let mut m = crate::machine::Machine::load(&record, library::language())
+            .unwrap_or_else(|e| panic!("line {}: {}\n{record}", e.line, e.refusal.text));
+        assert!(m.step(0).done);
+        let text =
+            format!("{record}(formula \"S\" \"D1\" \"=1+1\" array)\n(value \"S\" \"D1\" 2)\n");
+        assert!(crate::machine::Machine::load(&text, library::language()).is_ok());
+        for wrong in [
+            "(spill \"S\" \"C1\" \"C1:C2\")",
+            "(spill \"S\" \"A1\" \"B1:B2\")",
+            "(spill \"S\" \"A1\" \"A1\")",
+            "(value \"S\" \"C3\" 5)",
+            "(formula \"S\" \"D1:D2\" \"=1+1\" array)",
+            // The anchor's value said again: its first taken as its formula's
+            // last value, never set aside as a spilled cell's.
+            "(value \"S\" \"A1\" 5)",
+        ] {
+            let text = format!("{record}{wrong}\n");
+            let e = crate::machine::Machine::load(&text, library::language()).expect_err(wrong);
+            assert!(
+                e.refusal.text.contains("row"),
+                "{wrong}: {}",
+                e.refusal.text
+            );
+        }
     }
 }

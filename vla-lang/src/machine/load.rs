@@ -72,7 +72,7 @@ use super::{LineRefusal, CELLS};
 
 /// The rows a load takes, the five it skips last, as `grid-row-unknown`
 /// lists them.
-pub const LOAD_ROWS: &str = "sheet, cell, formula, value, name, function, gridlines, column, row, format, look, conditional, merge, style, lit, sentence, window, extent, refers, table and text";
+pub const LOAD_ROWS: &str = "sheet, cell, formula, value, spill, name, function, gridlines, column, row, format, look, conditional, merge, style, lit, sentence, window, extent, refers, table and text";
 
 /// The most formats a grid's table holds, Excel's own count of cell
 /// formats a workbook may hold, rounded to a power of two.
@@ -1110,6 +1110,10 @@ pub(crate) fn formula_row(items: &[Form]) -> Option<(&String, &String, &Form, Ki
         [Form::Str(sheet), Form::Str(addr), third, Form::Sym(word)] if word == "dynamic" => {
             Some((sheet, addr, third, Kind::Dynamic))
         }
+        // A legacy array formula, as every record says it (KERNEL.55).
+        [Form::Str(sheet), Form::Str(addr), third, Form::Sym(word)] if word == "array" => {
+            Some((sheet, addr, third, Kind::Array))
+        }
         _ => None,
     }
 }
@@ -1131,7 +1135,8 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
     match kind {
         "sheet" => "(sheet \"<name>\" visible|hidden|very-hidden)",
         "cell" => "(cell \"<sheet>\" \"<cell or range>\" <value>)",
-        "formula" => "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") or (formula \"<sheet>\" \"<cell>\" \"=<text>\" dynamic)",
+        "formula" => "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") or (formula \"<sheet>\" \"<cell>\" \"=<text>\" dynamic|array)",
+        "spill" => "(formula \"<sheet>\" \"<cell>\" \"=<text>\" dynamic|array) (spill \"<sheet>\" \"<cell>\" \"<range beginning at the cell>\")",
         "derived" => "(derived \"<sheet>\" \"<cell or range>\" <value>)",
         "value" => {
             "(formula \"<sheet>\" \"<cell or range>\" \"=<text>\") (value \"<sheet>\" \"<cell or range>\" <value> ...)"
@@ -1458,6 +1463,11 @@ struct Reader {
     /// `twice` refusal names (KERNEL.67).
     styled: Vec<(usize, A1Range, u32)>,
     sentences: HashMap<CellId, (u32, u32)>,
+    /// Each `spill` row's extent by its sheet (KERNEL.55): a spill or a block
+    /// a door's record names after its anchor's `value` row, whose other
+    /// cells' `value` and `style` rows the load takes and sets aside, since
+    /// an engine computes no spill until the item's fifth slice.
+    spills: Vec<(usize, A1Range)>,
 }
 
 /// The forms of a text of rows read into a draft, the inverse of the record:
@@ -1499,6 +1509,7 @@ impl Reader {
             looks: HashMap::new(),
             styled: Vec::new(),
             sentences: HashMap::new(),
+            spills: Vec::new(),
         }
     }
 
@@ -1536,6 +1547,7 @@ impl Reader {
             "cell" => self.cell(form, items, line),
             "formula" => self.formula(form, items, line),
             "value" => self.value(form, items, line),
+            "spill" => self.spill(form, items, line),
             "name" => self.name(form, items, line),
             "function" => self.function(form, items, line),
             "gridlines" => self.gridlines(form, items, line),
@@ -1683,6 +1695,11 @@ impl Reader {
         if kind == Kind::Dynamic && range.cells() != 1 {
             return Err(dynamic_range(line, sheet, addr));
         }
+        // A legacy array formula's row names its anchor alone, its block its
+        // `spill` row's (KERNEL.55).
+        if kind == Kind::Array && range.cells() != 1 {
+            return Err(malformed(line, form, "formula"));
+        }
         self.claim(si, range, sheet, addr, line)?;
         // A range's formula a shared formula, its index the sheet's next, as
         // `Sheet::set_formula` numbers them.
@@ -1699,6 +1716,57 @@ impl Reader {
             },
         });
         Ok(())
+    }
+
+    /// A `spill` row (KERNEL.55): the extent a dynamic formula's or a legacy
+    /// array formula's answer fills, beginning at its anchor, a cell an
+    /// earlier row wrote that formula into, and holding more than it. Its
+    /// extent kept, so that its other cells' `value` and `style` rows are
+    /// taken and set aside: an engine computes no spill until the item's fifth
+    /// slice, and computes the anchor itself.
+    fn spill(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
+        let [Form::Str(sheet), Form::Str(addr), Form::Str(extent)] = items else {
+            return Err(malformed(line, form, "spill"));
+        };
+        let (Some(at), Some(extent)) = (parse_a1_range(addr), parse_a1_range(extent)) else {
+            return Err(malformed(line, form, "spill"));
+        };
+        let Some(si) = self.draft.find_sheet(sheet) else {
+            return Err(malformed(line, form, "spill"));
+        };
+        let anchored = at.cells() == 1
+            && (extent.top, extent.left) == (at.top, at.left)
+            && extent.cells() > 1
+            && self.draft.sheets[si]
+                .find(at.top, at.left)
+                .and_then(|i| self.draft.sheets[si].records[i].as_ref())
+                .is_some_and(|r| {
+                    matches!(
+                        r.what,
+                        What::Formula {
+                            kind: Kind::Dynamic | Kind::Array,
+                            ..
+                        }
+                    )
+                });
+        if !anchored {
+            return Err(malformed(line, form, "spill"));
+        }
+        self.spills.push((si, extent));
+        Ok(())
+    }
+
+    /// Whether every cell of a range is one a `spill` row's extent holds past
+    /// its anchor (KERNEL.55).
+    fn spilled(&self, si: usize, range: A1Range) -> bool {
+        self.spills.iter().any(|&(s, e)| {
+            s == si
+                && e.top <= range.top
+                && range.bottom <= e.bottom
+                && e.left <= range.left
+                && range.right <= e.right
+                && !(range.top == e.top && range.left == e.left)
+        })
     }
 
     /// A `value` row: a formula's last value, or since KERNEL.72 a range's,
@@ -1719,6 +1787,10 @@ impl Reader {
         let Some(si) = self.draft.find_sheet(sheet) else {
             return Err(malformed(line, form, "value"));
         };
+        // A cell a spill or a block fills past its anchor, set aside.
+        if self.spilled(si, range) {
+            return Ok(());
+        }
         let s = &mut self.draft.sheets[si];
         if !s.all_formulas(&range) {
             return Err(malformed(line, form, "value"));
@@ -2197,6 +2269,12 @@ impl Reader {
             _ => return Err(malformed(line, form, "style")),
         };
         let range = parse_a1_range(addr).ok_or_else(|| malformed(line, form, "style"))?;
+        // A spilled cell's format, set aside as its value is (KERNEL.55).
+        if let Some(si) = self.draft.find_sheet(sheet) {
+            if self.spilled(si, range) {
+                return Ok(());
+            }
+        }
         let si = self.written(form, "style", sheet, range, line)?;
         let mut other: Option<(u32, u32)> = None;
         let mut alike: Vec<A1Range> = Vec::new();

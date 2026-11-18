@@ -12,7 +12,7 @@
 (formula "Output" "C2" "=B2+B3")
 (value "Output" "C2" 15)
 (sentence "Output" "C2" 6)
-(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")")
+(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")" dynamic)
 (value "Output" "D2" "big")
 (sentence "Output" "D2" 7)
 (formula "Output" "B3" "=B2*2")

@@ -407,8 +407,12 @@ row holds the formula as the formula bar shows it, `=` first, the file's
 (`=[Rates.xlsx]Sheet1!A1`, the spelling Excel shows while that book is
 open; closed, Excel shows the path it resolved, which the file does not
 hold); a formula filled down shows in each cell with its references moved,
-as Excel shows it; an array formula shows in its first cell, and the cells
-it spills into are values. After a formula come its `refers` rows, one per
+as Excel shows it; an array formula shows in its first cell, its kind's
+word after its text, `dynamic` for one Excel 365 spills and `array` for one
+entered with Ctrl+Shift+Enter, and where its range holds more than its cell
+a `spill` row after it names that range, each of whose other cells is a
+`value` row, `(value "Model" "B2" 4)`, the value the file saved there, never
+a `cell` row. After a formula come its `refers` rows, one per
 distinct thing it refers to, sorted: a cell or a range qualified by its
 sheet with its `$` marks dropped (`Model!B1`, `Data!A:A`), a name, a
 structured reference, a 3D span or a reference into another workbook as

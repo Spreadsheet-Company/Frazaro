@@ -202,9 +202,12 @@ pub(crate) fn build_program(
 /// The reader's rows of the built file as the machine loads them: a cell's
 /// cached value, which the reader prints as a `cell` row before the cell's
 /// `formula` row and the machine would read as a second write of the cell,
-/// left out, the machine computing its own and being held to it; and the
-/// rows of the sheet Excel keeps the previous frame in, which is the
-/// machine's own twin.
+/// left out, the machine computing its own and being held to it; the rows of
+/// the sheet Excel keeps the previous frame in, which is the machine's own
+/// twin; and a formula's word, which every record says since `KERNEL.55`'s
+/// third slice, so that each program computes as the legacy kind its floors
+/// were measured by, the lookups' 20,000 the writer holds dynamic among them,
+/// and a program written dynamic is its own ([`written_dynamic`]).
 pub(crate) fn rows_for_machine(rows: &str, twin: Option<&str>) -> String {
     let lines: Vec<&str> = rows.lines().collect();
     let key = |s: &str, head: &str| -> Option<String> {
@@ -228,16 +231,29 @@ pub(crate) fn rows_for_machine(rows: &str, twin: Option<&str>) -> String {
                 }
             }
         }
-        out.push_str(line);
+        let unworded = match line.starts_with("(formula ") {
+            true => line
+                .strip_suffix(" dynamic)")
+                .or_else(|| line.strip_suffix(" array)")),
+            false => None,
+        };
+        match unworded {
+            Some(head) => {
+                out.push_str(head);
+                out.push(')');
+            }
+            None => out.push_str(line),
+        }
         out.push('\n');
     }
     out
 }
 
 /// A fixture's rows written dynamic (`KERNEL.55`, its decision 8): every
-/// `formula` row, each its own cell's as the reader prints a file's formulas,
-/// given the word `dynamic`, as Excel 365's file holds a formula typed where it
-/// could spill; every other row as it stands.
+/// `formula` row, each its own cell's as the reader prints a file's formulas
+/// and [`rows_for_machine`] leaves them, its word dropped, given the word
+/// `dynamic`, as Excel 365's file holds a formula typed where it could spill;
+/// every other row as it stands.
 pub(crate) fn written_dynamic(rows: &str) -> String {
     let mut out = String::with_capacity(rows.len() + rows.len() / 4);
     for line in rows.lines() {

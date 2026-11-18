@@ -55,8 +55,8 @@ use super::looks::{
 use super::odf_looks::{self, OdsLooks};
 use super::ooxml::{not_a_workbook, step, xml_refused};
 use super::{
-    emit_formula, emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source,
-    Summary, TableInfo, Value, Visibility,
+    emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source, Summary,
+    TableInfo, Value, Visibility,
 };
 use crate::intrinsics::fold;
 use crate::messages::Refusal;
@@ -1207,6 +1207,9 @@ impl Document {
             None => None,
         };
         let mut sheet_distinct: HashSet<String> = HashSet::new();
+        // The blocks the matrices met so far fill past their anchors, while
+        // the walk is in rows they hold (KERNEL.55).
+        let mut spans: Vec<A1Range> = Vec::new();
         let mut cursor = Cursor::new(slice);
         let mut opened = false;
         let mut row_no: u32 = 0;
@@ -1283,6 +1286,32 @@ impl Document {
                                 stats.rows = stats.rows.max(row);
                                 stats.columns = stats.columns.max(at);
                                 let sheet = info.name.as_str();
+                                // A matrix's anchor, its kind told right
+                                // after its formula row, and the block it
+                                // fills, its `spill` row after its value's;
+                                // a cell a block holds past its anchor, its
+                                // value the record's `value` row (KERNEL.55).
+                                let fills = cell
+                                    .formula
+                                    .as_ref()
+                                    .and_then(|_| cell.matrix_block(row, at));
+                                let filled = fills.map(|r| r.text());
+                                let told = |sink: &mut dyn Sink| {
+                                    if cell.matrix.is_some() {
+                                        sink.array(sheet, &addr, ArrayKind::Legacy);
+                                        if let Some(range) = &filled {
+                                            sink.array_ref(sheet, &addr, range);
+                                        }
+                                    }
+                                };
+                                spans.retain(|r| r.bottom >= row);
+                                let spilled = cell.formula.is_none()
+                                    && spans.iter().any(|r| {
+                                        r.top <= row
+                                            && row <= r.bottom
+                                            && r.left <= at
+                                            && at <= r.right
+                                    });
                                 match (looks, &pass) {
                                     (Some(l), Some((_, columns))) => {
                                         let named = cell.style.as_deref().or(row_default
@@ -1308,11 +1337,19 @@ impl Document {
                                                     &mut sheet_distinct,
                                                     book_distinct,
                                                     &mut |sink| {
+                                                        told(sink);
                                                         if let Some(saved) = &saved {
                                                             sink.record(&Record::Value {
                                                                 sheet,
                                                                 addr: &addr,
                                                                 value: saved,
+                                                            });
+                                                        }
+                                                        if let Some(range) = &filled {
+                                                            sink.record(&Record::Spill {
+                                                                sheet,
+                                                                addr: &addr,
+                                                                range,
                                                             });
                                                         }
                                                         if format != 0 {
@@ -1324,21 +1361,18 @@ impl Document {
                                                         }
                                                     },
                                                 );
-                                                if cell.matrix.is_some() {
-                                                    sink.array(sheet, &addr, ArrayKind::Legacy);
-                                                    if let Some(block) = cell.matrix_block(row, at)
-                                                    {
-                                                        sink.array_ref(sheet, &addr, &block.text());
-                                                    }
-                                                }
                                             }
                                             None => {
                                                 if let Some(value) = &value {
-                                                    sink.row(&Row::Cell {
-                                                        sheet,
-                                                        addr: &addr,
-                                                        value,
-                                                    });
+                                                    if spilled {
+                                                        sink.spilled(sheet, &addr, value);
+                                                    } else {
+                                                        sink.row(&Row::Cell {
+                                                            sheet,
+                                                            addr: &addr,
+                                                            value,
+                                                        });
+                                                    }
                                                 }
                                                 if format != 0 {
                                                     sink.record(&Record::Style {
@@ -1352,17 +1386,25 @@ impl Document {
                                     }
                                     _ => {
                                         if let Some(value) = &cell.value {
-                                            sink.row(&Row::Cell {
-                                                sheet,
-                                                addr: &addr,
-                                                value,
-                                            });
+                                            if spilled {
+                                                sink.spilled(sheet, &addr, value);
+                                            } else {
+                                                sink.row(&Row::Cell {
+                                                    sheet,
+                                                    addr: &addr,
+                                                    value,
+                                                });
+                                            }
                                         }
                                         if let Some(text) = &cell.formula {
                                             if cell.matrix.is_some() {
                                                 stats.array_anchors += 1;
                                             }
-                                            emit_formula(
+                                            // A matrix formula's anchor, of
+                                            // the kind the format can tell
+                                            // (KERNEL.8, slice b), told right
+                                            // after its formula row.
+                                            emit_formula_with(
                                                 sink,
                                                 sheet,
                                                 &addr,
@@ -1372,19 +1414,21 @@ impl Document {
                                                 &mut stats,
                                                 &mut sheet_distinct,
                                                 book_distinct,
+                                                &mut |sink| {
+                                                    told(sink);
+                                                    if let Some(range) = &filled {
+                                                        sink.record(&Record::Spill {
+                                                            sheet,
+                                                            addr: &addr,
+                                                            range,
+                                                        });
+                                                    }
+                                                },
                                             );
-                                            // A matrix formula's anchor, of
-                                            // the kind the format can tell
-                                            // (KERNEL.8, slice b).
-                                            if cell.matrix.is_some() {
-                                                sink.array(sheet, &addr, ArrayKind::Legacy);
-                                                if let Some(block) = cell.matrix_block(row, at) {
-                                                    sink.array_ref(sheet, &addr, &block.text());
-                                                }
-                                            }
                                         }
                                     }
                                 }
+                                spans.extend(fills);
                             }
                             col = col.saturating_add(cell.repeat);
                         }
@@ -2303,7 +2347,8 @@ mod tests {
             "(cell \"Model\" \"C3\" (date \"2025-09-30\"))\n",
             "(cell \"Model\" \"D3\" (date \"PT12H30M00S\"))\n",
             "(cell \"Model\" \"A4\" 2400)\n",
-            "(formula \"Model\" \"A4\" \"=B1:B2*2\")\n",
+            "(formula \"Model\" \"A4\" \"=B1:B2*2\" array)\n",
+            "(spill \"Model\" \"A4\" \"A4:A5\")\n",
             "(refers \"Model!A4\" \"Model!B1:B2\")\n",
             // Two paragraphs are two lines; the printer writes the break as
             // the reference's WriteDatum does, as itself.

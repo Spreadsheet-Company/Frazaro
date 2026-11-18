@@ -47527,6 +47527,88 @@ relations, and Alonzo's page reads them.
 *Committed 2026-11-18* at the owner's word, "Hand tests pass; if everything looks good, commit before proceeding with
 part 2": over `741face`, the part's 37 files.
 
+*Slice (c)'s second part built 2026-11-18: a spill's rows in the record, and every record saying a formula's kind.*
+At the owner's word, "Hand tests pass; if everything looks good, commit before proceeding with part 2": over
+`5b5113e`, uncommitted. Decision 2, as recommended, with decision 10's rule that the public surface only grows:
+`rows::Row` holds no list that may grow, so the reader's `formula` row gains no field, and its word comes from the
+sink that prints it.
+- *The rows* (`rows.rs`): `Record::Spill`, `(spill "<sheet>" "<anchor>" "<range>")`, the range an array formula's
+  answer fills where more than its cell; a provided method of `Sink`, `spilled`, a cell such a range holds past its
+  anchor with the value its file saved there, which a sink that does not say otherwise takes as the `cell` row it was,
+  so that the door's model, the diff, the audit and the cone read every cell as before; and the `Printer` writing an
+  array formula's word, `dynamic` or `array`, into its `formula` row when `Sink::array` tells it, and a spilled cell
+  as a `value` row. The door's own streaming sink for `reflect` does the same by holding each row until the next.
+- *The readers* (`reflect/ooxml.rs`, `reflect/odf.rs`): an array formula's kind and range told right after its
+  `formula` row, inside the closure that already gave the looks' `value` and `style` rows there, where they were told
+  after its `refers` rows, so that a printer writes the word into the row it just printed; its `spill` row after its
+  `value` row, in the relations after the formula; and each cell an array formula's range fills past its anchor,
+  kept while the walk is in rows the range holds, told by `Sink::spilled`. `emit_formula`, the one caller left none,
+  goes.
+- *The view* (`view.rs`): the word in every record, a door's as a machine's (`Cells::spells_kinds` goes); with values,
+  each anchor's `spill` row after its `value` row, naming the extent `Values::spill` gives, a block's range too; and
+  each other cell of an anchor's box a `value` row with nothing before it, merged in row-major order with the cells
+  the model holds, the value the answer lays there, none where it leaves a cell its file saved it in empty, then the
+  cell's `text`, `style`, `lit` and `sentence` rows as any cell's. `Values::spills`, a provided method: `Calc`'s each
+  spill's extent with every cell it poured into, and each block's range.
+- *The load* (`machine/load.rs`): the word `array`, a legacy array formula of one cell, which a machine computes as the
+  legacy kind until the fifth slice, as a door's workbook loaded already did; a `spill` row after an array formula's
+  anchor, its range beginning there and holding more, its extent kept; and the `value` and `style` rows of the cells
+  such an extent holds past its anchor taken and set aside. A `spill` row anywhere else, `array` over a range, and a
+  `value` row at a cell no formula and no spill fills are refused as malformed rows. `LOAD_ROWS` names `spill`.
+- *The bench* (`core/examples/bench/common.rs`): the runners read their programs as reflect's relations of the built
+  files, whose formulas now carry their words, the lookups' 20,000 the writer holds dynamic among them; read so,
+  the lookups program's save grew by their words, 160,000 bytes past its ceiling, and the program written dynamic
+  beside it was no longer the legacy twin its pair is measured against. `rows_for_machine` drops a formula's word, so
+  that every program computes as the legacy kind its floors were measured by, and `written_dynamic` gives every
+  formula its word as before: no floor and no ceiling moves.
+- *The oracle.* Oracle 11 over spills (`sheet::ooxml`'s `the_view_of_a_model_holding_spills_is_the_looks_of_its_file`):
+  a model holding a spill, a blocked one and a reader of one, viewed whole with its values, is `reflect --looks`'s
+  reading of the file the writer writes from it, row for row, `spill` rows among the kinds compared, the `#SPILL!`
+  the file caches as none left out of the view's side; and the existing looks oracle compares `spill` rows too. The
+  goldens, written again by the door, CRLF: fourteen reflect goldens, relations and looks, the reflect fixture's
+  `F1:F2` and `E3:E4` with their changed and OpenDocument twins (`array` on the matrices, a `spill` row each, the
+  spilled cells `value` rows), and the `IFS` of `saved.xlsx` and of the two build goldens (`dynamic`); two view
+  goldens, the `IFS` word, and their copies in `vla-lang/testdata/view/`. `check_reflect_golden` holds the new rows'
+  order: a `spill` row after its anchor's `value` row, a spilled cell beginning with its own `value` row; its floors
+  raised. The diff goldens do not move, as the scoping predicted they would: the diff reads cells through a sink of
+  its own, which takes a spilled cell as the `cell` row it was, and compares no word.
+- *Tests.* The record's spill in small: an anchor's word, `value` and `spill` rows; its cells, unheld; a blocked
+  anchor; a block's word and cells; a saved cell past the answer; the values the grid less its `formula` rows; a bare
+  record's words. A machine loading a door's record of a spill, a spilled cell with a format among its rows, and the
+  rows it refuses. Oracle 11 over spills. The tests that held a door's record wordless, the machine's and the view's
+  two, and the readers' three that held the old rows, now the new.
+- *Mutants*: in a copy of `5b5113e` with the part's files and a target of its own, each held to its crate's tests: 22,
+  21 killed at the first round; the survivor, an anchor's own `value` row set aside as a spilled cell's would be,
+  killed by a test added, the anchor's value said again and refused as written twice; and the door's streaming
+  sink's two, its word and its spilled cell, each held to `check_reflect_golden` over the copy's own door, killed: 24,
+  none surviving. The readers' pruning of the ranges the walk has passed, which no answer turns on, was not mutated.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 963 tests; `run_checks.ps1` 60 of 60, `check_reflect_golden` with its control;
+  `prove.ps1 -Control`, its mutant failing all 71, and `-Impl` over the door, 70; both wasm modules, the import
+  section empty and the 14 and 10 exports, `build_web.ps1 -NoBuild` and `check_web_offline`; the language's package
+  from its tarball on a fresh target, 683, `tests/limits.rs` and `tests/strangers.rs` among them; Alonzo's suite at
+  `8c00e21` over the tree's language by `[patch.crates-io]`, the path compiled, 113 with its cartridges required; and
+  Buffet's at `6f215a1` over that Alonzo copy and the tree, both pins moved, both paths compiled, 107. Under Windows
+  PowerShell 5.1 alone, pwsh not installed here.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note and the crates' list; the roadmap's line; `conformance/README.md`'s
+  amendment of 2026-11-18, the second part's; `cli/README.md`'s reflect rows; the view's and reflect's module docs;
+  the check's header.
+- *Found:*
+  1. Alonzo's page draws a spilled cell's `value` row as the values projection's formula known by its value alone,
+     and counts the `spill` row unknown, until its pin learns the row; the spill's border, its cells' bar, are its own.
+  2. A machine loading a door's record of a spill sets its cells' rows aside, so that the machine's record of it has
+     none of them until engines compute spills, and its save keeps neither their values nor their formats.
+  3. The bench reads its programs legacy, words dropped; once the writer's rule (slice (d)) moves more formulas to
+     dynamic, the floors' programs and the files the door builds of them read apart further.
+  4. The view's fills, a save's, print no spill (a machine's alone hold none until the fifth slice); a door's model
+     viewed as fills would print a spilled cell it holds as the constant it was.
+- *No hand test in Excel:* the part moves what the door prints and no file it writes, every build's bytes as
+  before and `frazaro rebuild` answering yes; `reflect --looks` of the reflect fixture prints `F1`'s word, value and
+  `spill` row and `F2`'s value row, and `E3`'s likewise, as the owner may look.
+
+*Committed 2026-11-18* at the owner's word, "Commit part 2, then proceed with slice (d)": over `5b5113e`, the part's
+37 files.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

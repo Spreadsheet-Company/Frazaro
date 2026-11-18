@@ -27,7 +27,7 @@
 (refers "Output!C2" "Output!B2")
 (refers "Output!C2" "Output!B3")
 (cell "Output" "D2" "big")
-(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")")
+(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")" dynamic)
 (refers "Output!D2" "Output!B2")
 (cell "Output" "B3" 10)
 (formula "Output" "B3" "=B2*2")

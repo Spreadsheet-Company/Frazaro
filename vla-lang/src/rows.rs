@@ -174,6 +174,16 @@ pub enum Record<'r> {
         addr: &'r str,
         priorities: &'r [u32],
     },
+    /// `(spill "<sheet>" "<addr>" "<range>")`: the extent an array formula's
+    /// answer fills, its anchor `addr` its first cell, after the anchor's
+    /// `value` row (KERNEL.55): a dynamic formula's spill, or a legacy array
+    /// formula's block; each of its other cells a `value` row with nothing
+    /// before it.
+    Spill {
+        sheet: &'r str,
+        addr: &'r str,
+        range: &'r str,
+    },
 }
 
 /// A record's row as its line, without the line break.
@@ -256,6 +266,14 @@ pub fn record_line(record: &Record<'_>) -> String {
         Record::Style { sheet, addr, index } => {
             format!("(style {} {} {})", quoted(sheet), quoted(addr), index)
         }
+        Record::Spill { sheet, addr, range } => {
+            format!(
+                "(spill {} {} {})",
+                quoted(sheet),
+                quoted(addr),
+                quoted(range)
+            )
+        }
     }
 }
 
@@ -321,8 +339,9 @@ pub trait Sink {
     /// array formula's anchor of this kind (KERNEL.8, slice b): what a
     /// door computing the workbook needs to tell a formula that intersects
     /// a range where one value is wanted from one that reads it as an
-    /// array. Nothing, unless a sink says otherwise: the printer ignores it,
-    /// so that a formula row stays the file's own text.
+    /// array. Nothing, unless a sink says otherwise: the printer writes its
+    /// kind's word after the formula row's text, `dynamic` or `array`, as
+    /// every record says it (KERNEL.55).
     fn array(&mut self, _sheet: &str, _addr: &str, _kind: ArrayKind) {}
 
     /// The range the array formula just told by [`Sink::array`] fills, as the
@@ -330,8 +349,18 @@ pub trait Sink {
     /// entered with Ctrl+Shift+Enter over it, an OpenDocument matrix's, or the
     /// extent a dynamic formula last spilled into; told only where the range
     /// holds more than the anchor's cell, the anchor its first. Nothing,
-    /// unless a sink says otherwise: the printer ignores it.
+    /// unless a sink says otherwise: the printer ignores it, printing the
+    /// record's `spill` row where the reader hands it one ([`Record::Spill`]).
     fn array_ref(&mut self, _sheet: &str, _addr: &str, _range: &str) {}
+
+    /// A cell an array formula's range holds past its anchor, with the value
+    /// the file saved there (KERNEL.55): a dynamic formula's spilled cell, or
+    /// a legacy array formula's block's, which the record prints as a `value`
+    /// row with nothing before it. A `cell` row, unless a sink says
+    /// otherwise, so that a sink reading the cells reads it as before.
+    fn spilled(&mut self, sheet: &str, addr: &str, value: &Value) {
+        self.row(&Row::Cell { sheet, addr, value });
+    }
 
     /// A row of this sheet is hidden (KERNEL.8, slice e): what a door
     /// computing the workbook needs for `SUBTOTAL`, whose 101 to 111 pass a
@@ -438,6 +467,36 @@ impl Sink for Printer {
     fn record(&mut self, record: &Record<'_>) {
         self.out.push_str(&record_line(record));
         self.out.push('\n');
+    }
+
+    /// An array formula's kind, its word written into its formula row, the
+    /// last at its cell, before which only its `refers` rows stand
+    /// (KERNEL.55).
+    fn array(&mut self, sheet: &str, addr: &str, kind: ArrayKind) {
+        let head = format!("(formula {} {} ", quoted(sheet), quoted(addr));
+        let Some(start) = self.out.rfind(&head) else {
+            return;
+        };
+        if start > 0 && self.out.as_bytes()[start - 1] != b'\n' {
+            return;
+        }
+        let Some(line_end) = self.out[start..].find('\n') else {
+            return;
+        };
+        let word = match kind {
+            ArrayKind::Dynamic => " dynamic",
+            ArrayKind::Legacy => " array",
+        };
+        self.out.insert_str(start + line_end - 1, word);
+    }
+
+    /// A spilled cell, or a block's, as the record's `value` row (KERNEL.55).
+    fn spilled(&mut self, sheet: &str, addr: &str, value: &Value) {
+        self.record(&Record::Value {
+            sheet,
+            addr,
+            value: &datum(value),
+        });
     }
 }
 

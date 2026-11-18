@@ -31,5 +31,5 @@
 (formula "Output" "B1" "=Model!B3*Rate")
 (refers "Output!B1" "Model!B3")
 (refers "Output!B1" "Rate")
-(formula "checks" "A1" "=IFS(Model!B3>0,\"profit\",TRUE,\"loss\")")
+(formula "checks" "A1" "=IFS(Model!B3>0,\"profit\",TRUE,\"loss\")" dynamic)
 (refers "checks!A1" "Model!B3")

@@ -2746,3 +2746,28 @@ Oracle 12 gains a spill's cells, and the door's builds hold them.
   that answers past both, labelled `(not-computed "a spill no plan bounds")`. A spill in an engine's
   machine, labelled `(not-computed "a spill")` until the item's fifth slice; and the record's rows for a
   spilled cell and a block's, the item's own next step.
+
+## Amendment of 2026-11-18: a spill's rows in the record (`KERNEL.55`, its third slice, its second part)
+
+Oracles 8 and 11 gain a formula's kind and a spill's rows (the scoping's decision 2).
+
+- **What is held.** Every record says an array formula's kind after its text, `dynamic` for a dynamic-array
+  formula and `array` for a legacy array formula, a door's as a machine's, where a door's said none
+  (`KERNEL.70`'s decision 6 left it to this item). After an array formula's `value` row, a `spill` row names
+  the range its answer fills where more than its cell, `(spill "<sheet>" "<anchor>" "<range>")`, a spill's
+  or a block's, and each other cell of the range is a `value` row with nothing before it: the view prints
+  the value the anchor's answer lays there, the model holding the cell or not, and none where the answer
+  leaves a cell its file saved it in empty; reflect prints the value the file saved there, from the
+  anchor's `ref` or a matrix's spans, in its relations as in its looks, where it printed a `cell` row. A
+  blocked anchor's `#SPILL!` has no `spill` row. An engine's load takes the words, a `spill` row after an
+  array formula's anchor, and the `value` and `style` rows of the cells its range fills, setting them aside
+  until the item's fifth slice, and refuses a `spill` row anywhere else, as it refuses a `value` row at a
+  cell no formula and no spill fills.
+- **The oracles.** Oracle 11's free form over a model holding spills: a model holding a spill, a blocked one
+  and a reader of one, viewed whole with its values, is `reflect --looks`'s reading of the file the writer
+  writes from it, row for row, `spill` rows among the rows compared, a `#SPILL!` the file caches as none
+  left out of the view's side, as a label is. The reflect goldens move by the words and the rows: the
+  reflect fixture's `F1:F2` and `E3:E4`, its changed twin's and its OpenDocument twins' alike, and the
+  `IFS` of `saved.xlsx` and of the two build goldens; the view goldens by the `IFS` word. The diff goldens
+  do not move: the diff reads cells through a sink of its own, which takes a spilled cell as the `cell` row
+  it was.

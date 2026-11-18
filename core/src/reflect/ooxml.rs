@@ -62,8 +62,8 @@ use super::looks::{
     LooksStats, Resolved, RuleGate, SheetScan, THEME_SLOTS,
 };
 use super::{
-    emit_formula, emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source,
-    Summary, TableInfo, Value, Visibility,
+    emit_formula_with, NameInfo, Record, Row, SheetInfo, SheetStats, Sink, Source, Summary,
+    TableInfo, Value, Visibility,
 };
 use crate::intrinsics::fold;
 use crate::messages::{raise, Refusal};
@@ -698,6 +698,9 @@ impl<'a> Package<'a> {
         let mut cursor = Cursor::new(&text);
         // Shared formulas by index: the first cell's text and position.
         let mut shared: Vec<Option<(String, u32, u32)>> = Vec::new();
+        // The ranges the array formulas met so far fill past their anchors,
+        // while the walk is in rows they hold (KERNEL.55).
+        let mut spans: Vec<A1Range> = Vec::new();
         let mut in_data = false;
         let mut row_no: u32 = 0;
         let mut col_no: u32 = 0;
@@ -772,17 +775,52 @@ impl<'a> Package<'a> {
                         refers::resolve_books(&text, &self.external_books)
                     });
                     let sheet = info.name.as_str();
+                    // An array formula's anchor, its kind told right after
+                    // its formula row, and the range it fills where more than
+                    // its cell, the anchor first, its `spill` row after its
+                    // value's (KERNEL.55).
+                    let fills = cell
+                        .formula_ref
+                        .as_deref()
+                        .and_then(parse_a1_range)
+                        .filter(|r| {
+                            formula.is_some()
+                                && array_anchor
+                                && r.cells() > 1
+                                && (r.top, r.left) == (row, col)
+                        });
+                    let filled = fills.map(|r| r.text());
+                    let kind = self.array_kind(cell.cm);
+                    let told = |sink: &mut dyn Sink| {
+                        if formula.is_some() && array_anchor {
+                            sink.array(sheet, &addr, kind);
+                            if let Some(range) = &filled {
+                                sink.array_ref(sheet, &addr, range);
+                            }
+                        }
+                    };
+                    // A cell an anchor's range holds past it, a spill's or a
+                    // block's, its value the record's `value` row.
+                    spans.retain(|r| r.bottom >= row);
+                    let spilled = formula.is_none()
+                        && spans.iter().any(|r| {
+                            r.top <= row && row <= r.bottom && r.left <= col && col <= r.right
+                        });
                     match looks {
                         None => {
                             if let Some(value) = &value {
-                                sink.row(&Row::Cell {
-                                    sheet,
-                                    addr: &addr,
-                                    value,
-                                });
+                                if spilled {
+                                    sink.spilled(sheet, &addr, value);
+                                } else {
+                                    sink.row(&Row::Cell {
+                                        sheet,
+                                        addr: &addr,
+                                        value,
+                                    });
+                                }
                             }
                             if let Some(f) = &formula {
-                                emit_formula(
+                                emit_formula_with(
                                     sink,
                                     sheet,
                                     &addr,
@@ -792,6 +830,16 @@ impl<'a> Package<'a> {
                                     &mut stats,
                                     &mut sheet_distinct,
                                     book_distinct,
+                                    &mut |sink| {
+                                        told(sink);
+                                        if let Some(range) = &filled {
+                                            sink.record(&Record::Spill {
+                                                sheet,
+                                                addr: &addr,
+                                                range,
+                                            });
+                                        }
+                                    },
                                 );
                             }
                         }
@@ -812,11 +860,19 @@ impl<'a> Package<'a> {
                                         &mut sheet_distinct,
                                         book_distinct,
                                         &mut |sink| {
+                                            told(sink);
                                             if let Some(saved) = &saved {
                                                 sink.record(&Record::Value {
                                                     sheet,
                                                     addr: &addr,
                                                     value: saved,
+                                                });
+                                            }
+                                            if let Some(range) = &filled {
+                                                sink.record(&Record::Spill {
+                                                    sheet,
+                                                    addr: &addr,
+                                                    range,
                                                 });
                                             }
                                             if style != 0 {
@@ -831,11 +887,15 @@ impl<'a> Package<'a> {
                                 }
                                 None => {
                                     if let Some(value) = &value {
-                                        sink.row(&Row::Cell {
-                                            sheet,
-                                            addr: &addr,
-                                            value,
-                                        });
+                                        if spilled {
+                                            sink.spilled(sheet, &addr, value);
+                                        } else {
+                                            sink.row(&Row::Cell {
+                                                sheet,
+                                                addr: &addr,
+                                                value,
+                                            });
+                                        }
                                     }
                                     if style != 0 {
                                         sink.record(&Record::Style {
@@ -848,16 +908,7 @@ impl<'a> Package<'a> {
                             }
                         }
                     }
-                    if formula.is_some() && array_anchor {
-                        sink.array(sheet, &addr, self.array_kind(cell.cm));
-                        // The range it fills, where more than its cell, the
-                        // anchor first (KERNEL.55).
-                        if let Some(range) = cell.formula_ref.as_deref().and_then(parse_a1_range) {
-                            if range.cells() > 1 && (range.top, range.left) == (row, col) {
-                                sink.array_ref(sheet, &addr, &range.text());
-                            }
-                        }
-                    }
+                    spans.extend(fills);
                 }
                 _ => {}
             }
@@ -2883,10 +2934,19 @@ mod tests {
             ],
             "no metadata part: a cm marks a dynamic formula"
         );
-        assert_eq!(
+        // The printer writes the kind's word into the formula row (KERNEL.55),
+        // so that the two readings part at E1's word alone.
+        let (with, without) = (
             reflect_text(&with, "t.xlsx").unwrap(),
             reflect_text(&without, "t.xlsx").unwrap(),
-            "the printer ignores the kind"
+        );
+        let e1 = "(formula \"Model\" \"E1\" \"=D1\"";
+        assert!(with.contains(&format!("{e1} array)")), "{with}");
+        assert!(without.contains(&format!("{e1} dynamic)")), "{without}");
+        assert_eq!(
+            with.replace(&format!("{e1} array)"), &format!("{e1} dynamic)")),
+            without,
+            "the printer writes the kind"
         );
     }
 
@@ -3003,8 +3063,9 @@ mod tests {
                 "(formula \"Model\" \"C4\" \"=B4+1\")\n",
                 "(refers \"Model!C4\" \"Model!B4\")\n",
                 "(cell \"Model\" \"D4\" 1)\n",
-                "(formula \"Model\" \"D4\" \"=SEQUENCE(2)\")\n",
-                "(cell \"Model\" \"D5\" 2)\n",
+                "(formula \"Model\" \"D4\" \"=SEQUENCE(2)\" dynamic)\n",
+                "(spill \"Model\" \"D4\" \"D4:D5\")\n",
+                "(value \"Model\" \"D5\" 2)\n",
                 "(cell \"Model\" \"E5\" 7)\n",
                 "(cell \"Model\" \"F5\" \"Revenue\")\n",
                 "(cell \"Model\" \"A6\" 0.30000000000000004)\n",

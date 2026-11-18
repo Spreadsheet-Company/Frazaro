@@ -2643,6 +2643,72 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_view_of_a_model_holding_spills_is_the_looks_of_its_file() {
+        // Oracle 11 over spills (KERNEL.55's third slice, decision 2): a model
+        // holding a spill, a blocked one and a reader of a spill, viewed whole
+        // with its values, is `reflect --looks`'s reading of the file the
+        // writer writes from it, row for row: each anchor's word and its
+        // `spill` row, each spilled cell a `value` row though the model holds
+        // none of them. A value no file holds as a cell's own, `#SPILL!`,
+        // which the file caches as none, is left out of the view's side.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        let sheet = &mut wb.sheets[s];
+        sheet.set_formula_dynamic(
+            crate::sheet::parse_a1_range("A1").unwrap(),
+            "_xlfn.SEQUENCE(3,2)",
+            0,
+        );
+        sheet.set_formula_dynamic(
+            crate::sheet::parse_a1_range("D1").unwrap(),
+            "_xlfn.SEQUENCE(4)",
+            0,
+        );
+        sheet.set(
+            3,
+            4,
+            Cell {
+                content: Content::Text("x".to_string()),
+                style: 0,
+            },
+        );
+        sheet.set(
+            5,
+            1,
+            Cell {
+                content: Content::Formula("SUM(B1:B3)".to_string()),
+                style: 0,
+            },
+        );
+        let lib = crate::excel::library();
+        let calc = crate::calc::Calc::run(&wb, &lib);
+        let bytes = workbook_bytes_valued(&wb, &calc).unwrap();
+        let read = crate::reflect::reflect_looks_text(&bytes, "spills.xlsx").unwrap();
+        const KINDS: [&str; 7] = [
+            "(gridlines ",
+            "(format ",
+            "(cell ",
+            "(formula ",
+            "(value ",
+            "(spill ",
+            "(style ",
+        ];
+        let kept = |l: &&str| KINDS.iter().any(|k| l.starts_with(k));
+        let window = crate::view::window_of(&wb, "S", None).unwrap();
+        let view = crate::view::view_text_valued(&wb, &window, &calc);
+        let viewed: Vec<&str> = view
+            .lines()
+            .filter(kept)
+            .filter(|l| !l.contains("(error \"#SPILL!\")"))
+            .collect();
+        let reflected: Vec<&str> = read.lines().filter(kept).collect();
+        assert_eq!(viewed, reflected, "the view:\n{view}\nthe file:\n{read}");
+        assert!(viewed.contains(&"(spill \"S\" \"A1\" \"A1:B3\")"), "{view}");
+        assert!(viewed.contains(&"(value \"S\" \"B3\" 6)"), "{view}");
+        assert!(viewed.contains(&"(value \"S\" \"A5\" 12)"), "{view}");
+    }
+
     /// Values held as a recalculation would hold them, by cell.
     #[derive(Debug)]
     struct Held(std::collections::HashMap<crate::calc::CellId, Computed>);

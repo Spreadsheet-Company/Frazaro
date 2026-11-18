@@ -607,7 +607,7 @@ mod tests {
     fn the_view_of_a_built_model_is_the_looks_of_its_file() {
         use crate::kernel::Window;
         use crate::view::{view_text_valued, whole};
-        const KINDS: [&str; 8] = [
+        const KINDS: [&str; 9] = [
             "(gridlines ",
             "(column ",
             "(row ",
@@ -615,6 +615,7 @@ mod tests {
             "(cell ",
             "(formula ",
             "(value ",
+            "(spill ",
             "(style ",
         ];
         let kept =

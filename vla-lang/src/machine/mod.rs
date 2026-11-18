@@ -3556,12 +3556,6 @@ impl Model for Machine {
 }
 
 impl Cells for Machine {
-    /// A machine's rows can say a dynamic formula, so its record does
-    /// (KERNEL.70), and a save keeps it.
-    fn spells_kinds(&self) -> bool {
-        true
-    }
-
     fn styles(&self) -> &Styles {
         &self.book.styles
     }
@@ -15659,10 +15653,10 @@ mod tests {
 
     #[test]
     fn a_machine_s_record_says_the_word_and_a_save_keeps_it() {
-        // KERNEL.70: the grid and the fills print the word where a door's record
-        // of the same workbook prints the file's own row; the values print no
-        // formula row at all; a save's rows load as the kinds they were and compute
-        // what they computed.
+        // KERNEL.70: the grid and the fills print the word, and since KERNEL.55
+        // a door's record of the same workbook prints it too, every record
+        // saying it; the values print no formula row at all; a save's rows load
+        // as the kinds they were and compute what they computed.
         let rows = concat!(
             "(sheet \"S\" visible)\n",
             "(cell \"S\" \"A1:C1\" 2)\n",
@@ -15686,7 +15680,10 @@ mod tests {
         let book = m.workbook();
         let door =
             crate::view::view_text(&book, &crate::view::window_of(&book, "S", None).unwrap());
-        assert!(!door.contains(" dynamic)"), "a door's record:\n{door}");
+        assert!(
+            door.contains(word) && door.contains(plain),
+            "a door's record:\n{door}"
+        );
         let save = text(&m, "fills");
         let mut again = load(&save);
         assert!(again.step(0).done);

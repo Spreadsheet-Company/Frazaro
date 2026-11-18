@@ -55,6 +55,21 @@
   it spills into, each holding its value, so that a reader that does not
   calculate shows the whole spill, where it wrote the formula over its own
   cell and nothing beside it (KERNEL.55).
+- **Every record says a formula's kind, and a spill's cells.** The view
+  record, `frazaro view`, and a workbook read back, `frazaro reflect` with or
+  without `--looks`, write `dynamic` after a dynamic-array formula's text and
+  `array` after a legacy array formula's, where a door's record wrote none,
+  so that an engine loading a door's rows computes each formula as the file
+  holds it. After an array formula's `value` row, a `spill` row names the
+  range its answer fills, `(spill "Model" "A1" "A1:B3")`, and each other cell
+  of it is a `value` row with nothing before it, where reflect wrote a `cell`
+  row holding the file's value, so that a reader no longer takes a spilled
+  cell for a constant; a blocked spill has none. A host drawing the record
+  meets the new row and a `value` row at a cell holding no formula: Alonzo's
+  page draws the values as before and counts the `spill` row unknown until it
+  learns it. An engine's load takes the words, a `spill` row after an array
+  formula's anchor, and the `value` and `style` rows of the cells it fills,
+  which it sets aside until engines compute spills (KERNEL.55).
 - **`A1#` is read**, as Excel's file spells it, `ANCHORARRAY(A1)`, and written
   as `_xlfn.ANCHORARRAY(A1)`: the extent the anchor spilled into, `#SPILL!`
   for one blocked, and `#REF!` for a cell holding no dynamic formula, where
@@ -69,13 +84,18 @@
   picks. A dynamic formula alone lifts either (KERNEL.55).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
-  `sheet::Content::DynamicSpill`, `calc::Param::Forced`, the provided methods
-  `rows::Sink::array_ref`, `rows::Sink::merged`, `calc::Env::spilled` and
-  `calc::Values::spill`, and `Calc::cells`; and `Calc::computed` and
+  `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,
+  the provided methods `rows::Sink::array_ref`, `rows::Sink::merged`,
+  `rows::Sink::spilled`, `calc::Env::spilled`, `calc::Values::spill` and
+  `calc::Values::spills`, and `Calc::cells`; and `Calc::computed` and
   `Calc::formula` answer a block's cell and a spilled cell, where they
   answered `None`. A dynamic formula read from an xlsx file whose `ref`
   holds more than its cell is a `DynamicSpill`, holding that extent, where it
-  was a `DynamicFormula`.
+  was a `DynamicFormula`. A reader tells a sink an array formula's kind and
+  range, `Sink::array` and `Sink::array_ref`, right after its `formula` row,
+  where it told them after the row's `refers` rows, and a cell an array
+  formula's range fills past its anchor by `Sink::spilled`, which a sink that
+  does not say otherwise takes as the `cell` row it was.
 
 ## 0.14.0
 

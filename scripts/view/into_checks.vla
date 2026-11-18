@@ -5,6 +5,6 @@
 (extent "checks" "A1")
 (gridlines "checks" on)
 (format 0 none general nowrap)
-(formula "checks" "A1" "=IFS(Model!B3>0,\"profit\",TRUE,\"loss\")")
+(formula "checks" "A1" "=IFS(Model!B3>0,\"profit\",TRUE,\"loss\")" dynamic)
 (value "checks" "A1" (error "#REF!"))
 (sentence "checks" "A1" 8)

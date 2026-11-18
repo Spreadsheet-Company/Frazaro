@@ -1100,22 +1100,61 @@ fn reflect(args: &[String]) -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+    use frazaro_core::reflect::{print, ArrayKind, Record, Row, Sink, Value};
     use std::io::Write;
-    struct Lines<W: Write>(W);
-    impl<W: Write> frazaro_core::reflect::Sink for Lines<W> {
-        fn row(&mut self, row: &frazaro_core::reflect::Row<'_>) {
-            let _ = writeln!(self.0, "{}", frazaro_core::reflect::print::line(row));
+    /// The rows to stdout, each held until the next, so that an array
+    /// formula's kind, told right after its formula row, writes its word into
+    /// it (KERNEL.55).
+    struct Lines<W: Write> {
+        out: W,
+        last: Option<String>,
+    }
+    impl<W: Write> Lines<W> {
+        fn put(&mut self, line: String) {
+            if let Some(held) = self.last.replace(line) {
+                let _ = writeln!(self.out, "{held}");
+            }
         }
 
-        fn record(&mut self, record: &frazaro_core::reflect::Record<'_>) {
-            let _ = writeln!(
-                self.0,
-                "{}",
-                frazaro_core::reflect::print::record_line(record)
-            );
+        fn flush(&mut self) -> std::io::Result<()> {
+            if let Some(held) = self.last.take() {
+                writeln!(self.out, "{held}")?;
+            }
+            self.out.flush()
         }
     }
-    let mut out = Lines(std::io::BufWriter::new(std::io::stdout().lock()));
+    impl<W: Write> Sink for Lines<W> {
+        fn row(&mut self, row: &Row<'_>) {
+            self.put(print::line(row));
+        }
+
+        fn record(&mut self, record: &Record<'_>) {
+            self.put(print::record_line(record));
+        }
+
+        fn array(&mut self, sheet: &str, addr: &str, kind: ArrayKind) {
+            let head = format!("(formula {} {} ", print::quoted(sheet), print::quoted(addr));
+            if let Some(held) = self.last.as_mut().filter(|l| l.starts_with(&head)) {
+                let word = match kind {
+                    ArrayKind::Dynamic => " dynamic",
+                    ArrayKind::Legacy => " array",
+                };
+                held.insert_str(held.len() - 1, word);
+            }
+        }
+
+        fn spilled(&mut self, sheet: &str, addr: &str, value: &Value) {
+            self.record(&Record::Value {
+                sheet,
+                addr,
+                value: &print::datum(value),
+            });
+        }
+    }
+    let mut out = Lines {
+        out: std::io::BufWriter::new(std::io::stdout().lock()),
+        last: None,
+    };
     package.header_rows(&mut out);
     let mut book_distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut left = frazaro_core::reflect::LooksStats::default();
@@ -1128,12 +1167,12 @@ fn reflect(args: &[String]) -> ExitCode {
             package.walk_sheet(i, &mut out).map(|_| ())
         };
         if let Err(refusal) = walked {
-            let _ = out.0.flush();
+            let _ = out.flush();
             eprintln!("{refusal}");
             return ExitCode::from(1);
         }
     }
-    if out.0.flush().is_err() {
+    if out.flush().is_err() {
         return ExitCode::from(2);
     }
     // KERNEL.57: what the record could not hold, said beside the rows

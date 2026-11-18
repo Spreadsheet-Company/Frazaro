@@ -53,7 +53,7 @@
 (value "Output" "C2" 15)
 (refers "Output!C2" "Output!B2")
 (refers "Output!C2" "Output!B3")
-(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")")
+(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")" dynamic)
 (value "Output" "D2" "big")
 (refers "Output!D2" "Output!B2")
 (formula "Output" "B3" "=B2*2")
