@@ -46,11 +46,13 @@ WHAT IT DOES:
   1. builds the two runners, unless -NoBuild: cargo build --release -p
      frazaro-core --example recalc --example memory;
   2. runs each, opted out and on the performance cores, and reads its rows,
-     the recalc runner's nine and the memory runner's twelve (the netlist
+     the recalc runner's ten and the memory runner's thirteen (the netlist
      the seventh program since KERNEL.54's first slice, the adder written
      out and through named functions the eighth and ninth since KERNEL.29's
      second slice, the styled board
-     the third fixture of rows since KERNEL.67);
+     the third fixture of rows since KERNEL.67, and since KERNEL.55's first
+     slice the lookups written dynamic, which both runners derive from the
+     lookups' rows);
   3. prints the block: the date, the environment, the rows, and the
      floor history as the check holds it with this run's entry added last,
      each floor the run's number less the check's margin of 15%, rounded
@@ -79,9 +81,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $margin = 0.15
 $fixtures = @('column', 'chain', 'sums', 'life', 'lookups', 'criteria', 'netlist', 'adder', 'adder-named')
+# The fixtures the runners derive and no program writes (KERNEL.55): the
+# lookups written dynamic.
+$derived = @('lookups-dynamic')
+$timed = @($fixtures) + @($derived)
 # The memory runner's fixtures, and those whose loads are floored (KERNEL.49).
 $loadFloored = @('superposition', 'life-x16', 'superposition-styled')
-$weighed = @($fixtures) + @($loadFloored)
+$weighed = @($timed) + @($loadFloored)
 
 function Find-Cargo {
     $c = Get-Command cargo -ErrorAction SilentlyContinue
@@ -228,9 +234,9 @@ Write-Output ("  the recalc runner, its process opted out of power throttling{0}
 $recalc = Invoke-Pinned $runnerExe
 $text = $recalc.Text
 $rows = @(($text -split "`r?`n") | Where-Object { $_ -match "^\s+@\{ Half = 'native'" } | ForEach-Object { $_.Trim() })
-if ($rows.Count -ne $fixtures.Count) {
+if ($rows.Count -ne $timed.Count) {
     Write-Output $text
-    Write-Output ("FAIL: the runner printed {0} row(s), not {1} (exit {2}); its words are above" -f $rows.Count, $fixtures.Count, $recalc.Exit)
+    Write-Output ("FAIL: the runner printed {0} row(s), not {1} (exit {2}); its words are above" -f $rows.Count, $timed.Count, $recalc.Exit)
     exit 1
 }
 Write-Output ("  the memory runner, the same way{0}..." -f $coresWord)

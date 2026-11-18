@@ -233,3 +233,22 @@ pub(crate) fn rows_for_machine(rows: &str, twin: Option<&str>) -> String {
     }
     out
 }
+
+/// A fixture's rows written dynamic (`KERNEL.55`, its decision 8): every
+/// `formula` row, each its own cell's as the reader prints a file's formulas,
+/// given the word `dynamic`, as Excel 365's file holds a formula typed where it
+/// could spill; every other row as it stands.
+pub(crate) fn written_dynamic(rows: &str) -> String {
+    let mut out = String::with_capacity(rows.len() + rows.len() / 4);
+    for line in rows.lines() {
+        match line.strip_suffix(')') {
+            Some(head) if line.starts_with("(formula ") => {
+                out.push_str(head);
+                out.push_str(" dynamic)");
+            }
+            _ => out.push_str(line),
+        }
+        out.push('\n');
+    }
+    out
+}

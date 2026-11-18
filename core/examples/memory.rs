@@ -5,10 +5,12 @@
 //! (`recalc.rs`), and the fixtures of rows beside them, Superposition's board
 //! and Life on the size ladder's sixteenth rung, which the machine loads as
 //! they stand, and since `KERNEL.67` the board with one style row over its
-//! Field, loaded after the board's own rows; each loaded into the machine
-//! under Excel's library inside a counting allocator, and stepped twice; and
-//! since `KERNEL.72` its save printed, every sheet's fills as a host prints
-//! them and since `KERNEL.29` the grid's names, and loaded again.
+//! Field, loaded after the board's own rows; since `KERNEL.55` the lookups'
+//! program written dynamic, its own rows every formula given the word, as
+//! Excel 365's file holds a formula that could spill; each loaded into the
+//! machine under Excel's library inside a counting allocator, and stepped
+//! twice; and since `KERNEL.72` its save printed, every sheet's fills as a host
+//! prints them and since `KERNEL.29` the grid's names, and loaded again.
 //!
 //! ```text
 //! cargo run --release -p frazaro-core --example memory               # every fixture, the baseline rows
@@ -51,8 +53,8 @@ use vla_lang::machine::{Machine, Viewed};
 #[path = "bench/common.rs"]
 mod common;
 use common::{
-    build_program, drift, median, rows_for_machine, soup, spread, thousands, Probe,
-    CLOCK_SPREAD_MAX, START_READINGS,
+    build_program, drift, median, rows_for_machine, soup, spread, thousands, written_dynamic,
+    Probe, CLOCK_SPREAD_MAX, START_READINGS,
 };
 
 // ---- the count ---------------------------------------------------------------
@@ -143,6 +145,13 @@ const ROWS: [&str; 3] = ["superposition", "life-x16", "superposition-styled"];
 /// it (KERNEL.67): Superposition's board with one style row over its Field,
 /// held by the floors' check within a constant of the board's own bytes.
 const AFTER: [(&str, &str); 1] = [("superposition-styled", "superposition")];
+
+/// A program written dynamic and its legacy twin (`KERNEL.55`, its decision
+/// 8): the twin's rows, every formula row given the word `dynamic`, weighed
+/// after the programs, its SHA-256 the twin's program's; the floors' check
+/// holds it to the twin's bytes, a dynamic formula's shape lowered as its
+/// legacy twin's holding what the twin holds.
+const KINDS: [(&str, &str); 1] = [("lookups-dynamic", "lookups")];
 
 /// The rounds a load is timed in, each a fresh machine.
 const ROUNDS: usize = 3;
@@ -372,6 +381,17 @@ fn main() -> ExitCode {
             Ok(p) => fixtures.push(p),
             Err(e) => return failed(&e),
         }
+    }
+    for (name, twin) in KINDS {
+        let Some(t) = fixtures.iter().find(|p| p.name == twin) else {
+            return failed(&format!("{name}: no program {twin} to write dynamic"));
+        };
+        let p = Prepared {
+            name: name.to_string(),
+            sha: t.sha.clone(),
+            rows: written_dynamic(&t.rows),
+        };
+        fixtures.push(p);
     }
     for name in ROWS {
         match rows_fixture(&root, name) {

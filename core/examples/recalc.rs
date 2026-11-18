@@ -23,7 +23,12 @@
 //! the build adds to its workbook before its values are folded
 //! (`bench/common.rs`); and the two are held to plan alike, their censuses
 //! row for row but for their formulas' texts, so that their floors measure
-//! one plan reached two ways.
+//! one plan reached two ways. And one fixture no program writes
+//! (`KERNEL.55`): the lookups written dynamic, its rows the lookups' own with
+//! every formula given the word, as Excel 365's file holds a formula that could
+//! spill, the same built file, its sums and its hand; held to plan as the
+//! lookups plan, census for census, its floors measured beside theirs, so that
+//! a dynamic formula costs what its legacy twin costs.
 //!
 //! **What is timed**, each one `step` with no budget, timed alone: a whole
 //! frame, every formula computed, as Excel's `CalculateFull` computes every
@@ -123,6 +128,13 @@ const FIXTURES: [&str; 9] = [
 /// load writes each call's body into its formula where it places it.
 const ALIKE: [(&str, &str); 1] = [("adder-named", "adder")];
 
+/// The fixtures written dynamic, each beside its legacy twin (`KERNEL.55`, its
+/// decision 8): the twin's rows, every formula row given the word `dynamic`,
+/// the twin's built file and its comments, printed after the programs; each
+/// planned as its twin is, census for census, a dynamic formula's shape lowered
+/// as its legacy twin's.
+const KINDS: [(&str, &str); 1] = [("lookups-dynamic", "lookups")];
+
 /// The steps timed: whole frames, edits, types, rewrites, and the reference's
 /// runs.
 const WHOLE: usize = 11;
@@ -145,7 +157,7 @@ const ROUNDS: usize = 3;
 mod common;
 use common::{
     build_program, drift, generation, median, range, rows_for_machine, soup, spread, thousands,
-    Probe, CLOCK_SPREAD_MAX, H, START_READINGS, W,
+    written_dynamic, Probe, CLOCK_SPREAD_MAX, H, START_READINGS, W,
 };
 
 // The netlist fixture's generator and its hand (`KERNEL.54`).
@@ -539,6 +551,65 @@ fn census_but_texts(m: &Machine) -> String {
         .join("\n")
 }
 
+/// Each fixture of [`KINDS`] planned as its legacy twin is (`KERNEL.55`): the
+/// two loaded into machines of their own and their censuses compared row for
+/// row, texts and all, every shape's program kept as the twin's keeps it. The
+/// rows compared.
+fn planned_as_twins(fixtures: &[Fixture], prepared: &[Prepared]) -> Result<usize, String> {
+    let mut rows = 0;
+    for (dynamic, twin) in KINDS {
+        let census = |name: &str| -> Result<String, String> {
+            let k = fixtures
+                .iter()
+                .position(|f| f.name == name)
+                .ok_or_else(|| format!("no fixture {name}"))?;
+            let m = Machine::load(&prepared[k].rows, excel::library()).map_err(|e| {
+                format!(
+                    "{name}: the machine refused line {}: {}",
+                    e.line, e.refusal.text
+                )
+            })?;
+            Ok(m.census())
+        };
+        let (a, b) = (census(dynamic)?, census(twin)?);
+        let (a, b): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+        if let Some(k) = (0..a.len().max(b.len())).find(|&k| a.get(k) != b.get(k)) {
+            return Err(format!(
+                "{dynamic}: its plan is not {twin}'s, from its census's row {}: {:?} where {twin}'s is {:?}",
+                k + 1,
+                a.get(k).copied().unwrap_or(""),
+                b.get(k).copied().unwrap_or("")
+            ));
+        }
+        rows += a.len();
+    }
+    Ok(rows)
+}
+
+/// A fixture of [`KINDS`] from its twin's: the twin's program and comments
+/// under its own name, the twin's built file read back again, and the twin's
+/// rows written dynamic.
+fn written_as_dynamic(
+    root: &Path,
+    out: &Path,
+    name: &str,
+    twin: &str,
+    from: &Prepared,
+) -> Result<(Fixture, Prepared), String> {
+    let mut fx = read_fixture(root, twin)?;
+    fx.name = name.to_string();
+    let file = out.join(format!("{twin}.xlsx"));
+    let bytes = std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))?;
+    let read = collect(&bytes, "bench.xlsx").map_err(|r| format!("{name}: {}", r.text))?;
+    let prepared = Prepared {
+        sha: from.sha.clone(),
+        bytes: from.bytes,
+        rows: written_dynamic(&from.rows),
+        read,
+    };
+    Ok((fx, prepared))
+}
+
 /// Each pair of [`ALIKE`] planned alike but for its texts (`KERNEL.29`): the
 /// two fixtures loaded into machines of their own and their censuses compared
 /// row for row, each shape's text left out, so that their floors measure one
@@ -707,7 +778,9 @@ fn round(
     // adder by hand (KERNEL.54), and the two adders' to theirs (KERNEL.29).
     let by_hand = |m: &Machine, p1: &str| -> Result<usize, String> {
         match name.as_str() {
-            "lookups" => held_lookups(m, p1).map_err(|e| format!("{name}: {e}")),
+            "lookups" | "lookups-dynamic" => {
+                held_lookups(m, p1).map_err(|e| format!("{name}: {e}"))
+            }
             "criteria" => held_criteria(m, p1).map_err(|e| format!("{name}: {e}")),
             "netlist" => held_by_hand(m, p1, netlist::by_hand).map_err(|e| format!("{name}: {e}")),
             "adder" | "adder-named" => {
@@ -1142,8 +1215,56 @@ fn main() -> ExitCode {
             }
         }
     }
-    // The fixtures that plan alike, held so before any is timed (KERNEL.29).
+    // The fixtures written dynamic, each from its legacy twin (KERNEL.55).
+    for (name, twin) in KINDS {
+        let Some(k) = fixtures.iter().position(|f| f.name == twin) else {
+            println!("(recalc-differs \"{name}: no fixture {twin} to write dynamic\")");
+            return ExitCode::FAILURE;
+        };
+        match written_as_dynamic(&root, &out, name, twin, &prepared[k]) {
+            Ok((fx, p)) => {
+                runs.push(Run {
+                    name: fx.name.clone(),
+                    sha: p.sha.clone(),
+                    bytes: p.bytes,
+                    formulas: 0,
+                    loads: Vec::new(),
+                    firsts: Vec::new(),
+                    whole_rounds: Vec::new(),
+                    edit_rounds: Vec::new(),
+                    whole: Vec::new(),
+                    edits: Vec::new(),
+                    type_rounds: Vec::new(),
+                    types: Vec::new(),
+                    rewrite_rounds: Vec::new(),
+                    rewrite_write_rounds: Vec::new(),
+                    rewrites: Vec::new(),
+                    calcs: Vec::new(),
+                    clocks: Vec::new(),
+                    sums: None,
+                    held: 0,
+                });
+                fixtures.push(fx);
+                prepared.push(p);
+            }
+            Err(e) => {
+                println!("(recalc-differs {e:?})");
+                eprintln!("recalc: FAILED, {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    // The fixtures that plan alike, held so before any is timed (KERNEL.29),
+    // and the fixtures written dynamic planned as their twins (KERNEL.55).
     let alike = match planned_alike(&fixtures, &prepared) {
+        Ok(rows) => rows,
+        Err(e) => {
+            println!("(recalc-differs {e:?})");
+            eprintln!("recalc: FAILED, {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let kinds = match planned_as_twins(&fixtures, &prepared) {
         Ok(rows) => rows,
         Err(e) => {
             println!("(recalc-differs {e:?})");
@@ -1197,6 +1318,9 @@ fn main() -> ExitCode {
         }
         for (named, written) in ALIKE {
             println!("(recalc-check-alike \"{named}\" \"{written}\" (rows {alike}))");
+        }
+        for (dynamic, twin) in KINDS {
+            println!("(recalc-check-kinds \"{dynamic}\" \"{twin}\" (rows {kinds}))");
         }
         println!("(recalc-check-flags {})", flags.len());
         println!("(recalc-check-done {})", runs.len());
@@ -1277,6 +1401,9 @@ fn main() -> ExitCode {
     }
     for (named, written) in ALIKE {
         println!("{named}: planned as {written} is but for its formulas' texts, {alike} rows of their censuses alike");
+    }
+    for (dynamic, twin) in KINDS {
+        println!("{dynamic}: planned as {twin} is, its formulas dynamic, {kinds} rows of their censuses alike");
     }
     println!(
         "the flag's three files for Excel's half: {}",
