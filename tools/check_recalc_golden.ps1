@@ -310,6 +310,19 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # holding its value, no other row moved: lookups 166 and 162 agreeing, intersect 49 and
 # 49, arrays 214 and 204; a #SPILL!, which the file holds only as a rich value, holding
 # none, as #CALC! does (lookups' A107, lambda's MAP).
+# 2026-11-18, KERNEL.55's fourth slice, decision 3, the writer storing each formula
+# as Excel stores the same text typed (vla-lang's calc::stored, the 90 texts Excel's
+# two saves typed held to it): the nine builds a formula of which moved built again,
+# every formula the rule turns legacy computing what Excel's save of it read dynamic
+# (131, none differing), and the rest read as typed: subset 108, every row agreeing,
+# IF's range and COLUMN's spilling; intersect 49, every row agreeing, its legacy
+# sheet saying SINGLE where it means the intersection, written bare as Excel saved it;
+# arrays 217 and 207 and bits 915 and 905, an array a function lifts summed whole and
+# spilled; formulas 95 and 82, a range blocked by its neighbors #SPILL! and FORMULATEXT
+# of a dynamic formula computed; lookups, texts and address their kinds alone; and
+# info 788, its agree floor lowered by 81 to 702: each IS function of an array constant,
+# typed beside its neighbors, spills and is blocked, #SPILL!, which holds no value,
+# its legacy reading held by info_saved, Excel's save, still.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
@@ -323,7 +336,7 @@ $goldens = @(
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 31;  Pin = 'no-differ'; AgreeFloor = 27 },
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 31;  Pin = 'no-differ'; AgreeFloor = 28 },
-    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 106 },
+    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 108; Pin = 'built';     AgreeFloor = 108 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 106 },
     @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 },
     @{ Name = 'lookups';       Fixture = 'scripts/recalc/lookups.xlsx';       Golden = 'scripts/recalc/lookups_calc.vla';       Floor = 166; Pin = 'built';     AgreeFloor = 162 },
@@ -336,16 +349,16 @@ $goldens = @(
     @{ Name = 'dates_saved';   Fixture = 'scripts/recalc/dates_saved.xlsx';   Golden = 'scripts/recalc/dates_saved_calc.vla';   Floor = 1377; Pin = 'no-differ'; AgreeFloor = 1329 },
     @{ Name = 'criteria';      Fixture = 'scripts/recalc/criteria.xlsx';      Golden = 'scripts/recalc/criteria_calc.vla';      Floor = 228;  Pin = 'built';    AgreeFloor = 225 },
     @{ Name = 'criteria_saved'; Fixture = 'scripts/recalc/criteria_saved.xlsx'; Golden = 'scripts/recalc/criteria_saved_calc.vla'; Floor = 228;  Pin = 'no-differ'; AgreeFloor = 213 },
-    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 214;  Pin = 'built';    AgreeFloor = 204 },
+    @{ Name = 'arrays';        Fixture = 'scripts/recalc/arrays.xlsx';        Golden = 'scripts/recalc/arrays_calc.vla';        Floor = 217;  Pin = 'built';    AgreeFloor = 207 },
     @{ Name = 'arrays_saved';  Fixture = 'scripts/recalc/arrays_saved.xlsx';  Golden = 'scripts/recalc/arrays_saved_calc.vla';  Floor = 217;  Pin = 'no-differ'; AgreeFloor = 216 },
     @{ Name = 'formulas';      Fixture = 'scripts/recalc/formulas.xlsx';      Golden = 'scripts/recalc/formulas_calc.vla';      Floor = 95;   Pin = 'built';    AgreeFloor = 82 },
     @{ Name = 'formulas_saved'; Fixture = 'scripts/recalc/formulas_saved.xlsx'; Golden = 'scripts/recalc/formulas_saved_calc.vla'; Floor = 95;  Pin = 'no-differ'; AgreeFloor = 82 },
     @{ Name = 'address';       Fixture = 'scripts/recalc/address.xlsx';       Golden = 'scripts/recalc/address_calc.vla';       Floor = 538;  Pin = 'built';     AgreeFloor = 403 },
     @{ Name = 'address_saved'; Fixture = 'scripts/recalc/address_saved.xlsx'; Golden = 'scripts/recalc/address_saved_calc.vla'; Floor = 538;  Pin = 'no-differ'; AgreeFloor = 403 },
-    @{ Name = 'info';          Fixture = 'scripts/recalc/info.xlsx';          Golden = 'scripts/recalc/info_calc.vla';          Floor = 788;  Pin = 'built';    AgreeFloor = 783 },
+    @{ Name = 'info';          Fixture = 'scripts/recalc/info.xlsx';          Golden = 'scripts/recalc/info_calc.vla';          Floor = 788;  Pin = 'built';    AgreeFloor = 702 },
     @{ Name = 'info_saved';    Fixture = 'scripts/recalc/info_saved.xlsx';    Golden = 'scripts/recalc/info_saved_calc.vla';    Floor = 788;  Pin = 'no-differ'; AgreeFloor = 786 },
     @{ Name = 'typed_saved';   Fixture = 'scripts/recalc/typed_saved.xlsx';   Golden = 'scripts/recalc/typed_saved_calc.vla';   Floor = 107;   Pin = 'no-differ'; AgreeFloor = 107 },
-    @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 895;  Pin = 'built';     AgreeFloor = 893 },
+    @{ Name = 'bits';          Fixture = 'scripts/recalc/bits.xlsx';          Golden = 'scripts/recalc/bits_calc.vla';          Floor = 915;  Pin = 'built';     AgreeFloor = 905 },
     @{ Name = 'bits_saved';    Fixture = 'scripts/recalc/bits_saved.xlsx';    Golden = 'scripts/recalc/bits_saved_calc.vla';    Floor = 895;  Pin = 'no-differ'; AgreeFloor = 893 },
     @{ Name = 'lambda';        Fixture = 'scripts/recalc/lambda.xlsx';        Golden = 'scripts/recalc/lambda_calc.vla';        Floor = 104;  Pin = 'built';     AgreeFloor = 99 },
     @{ Name = 'lambda_saved';  Fixture = 'scripts/recalc/lambda_saved.xlsx';  Golden = 'scripts/recalc/lambda_saved_calc.vla';  Floor = 102;  Pin = 'no-differ'; AgreeFloor = 101; Left = @('Functions!A57') },

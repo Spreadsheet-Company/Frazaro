@@ -562,7 +562,7 @@
 (shape 557 "functions" "A555" "=SUMPRODUCT(--ISERROR(BITOR(Data!R[-554]C[3]:R[-552]C[3],5)))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads cells each) (calls "BITOR" "ISERROR" "SUMPRODUCT") (unlowered array))
 (shape 558 "functions" "A556" "=FORMULATEXT(Functions!R[-555]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
 (shape 559 "functions" "A557" "=FORMULATEXT(Functions!R[-537]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
-(shape 560 "functions" "A558" "=FORMULATEXT(Lift!R[-556]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
+(shape 560 "functions" "A558" "=FORMULATEXT(Lift!R[-556]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads lookup each) (calls "FORMULATEXT") (unlowered array))
 (shape 561 "functions" "A559" "=FORMULATEXT(Functions!R[-67]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
 (shape 562 "functions" "A560" "=FORMULATEXT(Functions!R[-53]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))
 (shape 563 "functions" "A561" "=FORMULATEXT(Functions!R[-40]C)" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads slot each) (calls "FORMULATEXT") (unlowered array))

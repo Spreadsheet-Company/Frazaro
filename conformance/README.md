@@ -2771,3 +2771,43 @@ Oracles 8 and 11 gain a formula's kind and a spill's rows (the scoping's decisio
   `IFS` of `saved.xlsx` and of the two build goldens; the view goldens by the `IFS` word. The diff goldens
   do not move: the diff reads cells through a sink of its own, which takes a spilled cell as the `cell` row
   it was.
+
+## Amendment of 2026-11-18: a formula stored as Excel stores it typed (`KERNEL.55`, its fourth slice)
+
+Oracles 7 and 12 gain the writer's rule (the scoping's decision 3).
+
+- **What is held.** The door's build writes a formula as Excel 365 stores the same text typed into a
+  cell, and as the reference's `Formula2` writes it: dynamic wherever its legacy reading could differ,
+  legacy everywhere else, where the build wrote it dynamic exactly where it called a function of the
+  array-capable list. Dynamic: a range, a whole column or row, a range between expressions or an array
+  constant where one value is wanted (a formula's top, a parameter of one value, an operator's operand,
+  an `IF`'s condition, a `CHOOSE`'s index); an operator over many values wherever it stands, inside an
+  array parameter too; a function answering an array where one value is wanted, at any size; `ROW`,
+  `COLUMN`, `ISFORMULA`, `FORMULATEXT` and `TYPE` of what would be dynamic at the top, outside an array
+  parameter; `INDEX` where one value is wanted but at a row and a column each a number past 0; `IFS`,
+  `SWITCH` and `INDIRECT` by name, `OFFSET` given a height or a width or moving a range where one value is
+  wanted, and a function called in place; a `LET`'s names read as what they stand for, where they stand.
+  A span of sheets at one cell, which no save typed, stays legacy, as Excel loaded and saved it. `@`
+  before a reference, which the parse refused, reads as `SINGLE` of it, and is written as Excel writes it:
+  left out of a legacy formula, as `SINGLE` of a reference alone is, and `_xlfn.SINGLE` in a dynamic one.
+  Where no save typed a text of the kind, the rule leans dynamic, which reads the text as typed. A text
+  the parse does not read is written as before.
+- **The oracles.** The rule against Excel's own writer: the 90 texts the item's probe and `typed.txt`
+  typed through `Range.Formula2`, each stored dynamic or legacy and as the text Excel saved
+  (`the_writer_stores_each_typed_text_as_excel_s_writer_did`). The rule against Excel's computation: of
+  the door's eleven built fixtures Excel saved, every formula the rule writes legacy where the build had
+  written it dynamic, 131, computes the value Excel's save of it holds, none differing
+  (`a_formula_the_writer_stores_legacy_computes_what_excel_computed_it_dynamic`). Oracle 7's goldens
+  do not move: their `IFS` stays dynamic by name, and `rebuild` answers yes. Oracle 12's: the door's nine
+  builds a formula of which moved are built again, their goldens with them, and the Excel saves do not
+  move: `subset_calc.vla` 108 rows, every one agreeing, `IF(A1>5,A1:A2,0)` and `COLUMN(B1:C2)` spilling;
+  `intersect_calc.vla` 49, every one agreeing, its legacy sheet saying `SINGLE` where it means the
+  intersection, written bare as Excel's second save wrote it; `arrays_calc.vla` 217, 207 agreeing,
+  `formulas_calc.vla` 95, 82, and `bits_calc.vla` 915, 905, the lift summed whole and spilled, a range a
+  neighbor blocks `#SPILL!`; `info_calc.vla` 788, 702 agreeing, its agree floor lowered by 81, each `IS`
+  function of an array constant typed beside its neighbors a blocked spill, its legacy reading held by
+  `info_saved_calc.vla` still; and the kinds alone in the lookups, texts and address fixtures.
+- **What it does not hold.** Excel's writer where no save typed the text: an `@` before a call or a
+  parenthesis, which the parse still refuses and the build writes as it was; `SINGLE` of anything but a
+  reference; a span of sheets; and the kinds of the functions no probe typed, each the rule's reading.
+  Excel's save of the nine builds made again, the owner's, joins them at `no-differ`.

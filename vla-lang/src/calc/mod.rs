@@ -125,6 +125,7 @@ pub(crate) mod reach;
 pub(crate) mod room;
 pub mod shape;
 pub(crate) mod spill;
+pub mod stored;
 pub mod texts;
 pub mod value;
 pub(crate) mod vector;

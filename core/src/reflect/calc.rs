@@ -350,6 +350,74 @@ mod tests {
     const FIXTURE: &[u8] = include_bytes!("../../../scripts/reflect/fixture.xlsx");
     const BUILT: &[u8] = include_bytes!("../../../scripts/build/fixture_golden.xlsx");
 
+    /// The door's built fixtures Excel 365 saved, each holding a formula as
+    /// the build wrote it and the value Excel computed for it.
+    const SAVED_BUILDS: [&str; 11] = [
+        "subset",
+        "lookups",
+        "intersect",
+        "texts",
+        "dates",
+        "criteria",
+        "arrays",
+        "formulas",
+        "address",
+        "info",
+        "bits",
+    ];
+
+    #[test]
+    fn a_formula_the_writer_stores_legacy_computes_what_excel_computed_it_dynamic() {
+        // KERNEL.55's decision 3, held to Excel's computation where no text
+        // was typed: each formula a save holds dynamic that the writer's rule
+        // stores legacy, made legacy with the rule's text and its workbook
+        // computed again, computes the value Excel saved for it, wherever the
+        // engine computes it at all. A package holds no fixture, and the test
+        // stands down.
+        let lib = excel::library();
+        let (mut turned, mut labelled) = (0, 0);
+        let mut wrong = Vec::new();
+        for name in SAVED_BUILDS {
+            let path = format!(
+                "{}/../scripts/recalc/{name}_saved.xlsx",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let Ok(bytes) = std::fs::read(&path) else {
+                return;
+            };
+            let (mut read, date1904) = collect_dated(&bytes, name).expect(name);
+            let mut legacy: Vec<CellId> = Vec::new();
+            for (s, sheet) in read.model.sheets.iter_mut().enumerate() {
+                for (&(row, col), cell) in sheet.cells.iter_mut() {
+                    let (Content::DynamicFormula(text) | Content::DynamicSpill { text, .. }) =
+                        &cell.content
+                    else {
+                        continue;
+                    };
+                    if let Some((false, written)) = vla_lang::calc::stored::stored(text, &lib) {
+                        cell.content = Content::Formula(written);
+                        legacy.push((s, row, col));
+                    }
+                }
+            }
+            let library = dated(&lib, date1904);
+            let calc = Calc::run(&read.model, &library);
+            for id in legacy {
+                turned += 1;
+                match (calc.computed(id), read.cached.get(&id)) {
+                    (Some(Computed::Value(v)), Some(c)) if agrees(v, c) == Some(true) => {}
+                    (Some(Computed::NotComputed(_)), _) => labelled += 1,
+                    (got, want) => wrong.push(format!("{name} {id:?}: {got:?}, Excel {want:?}")),
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        // 131 stored legacy, the two the engine labels either way aside
+        // (lookups' `A78`, a result vector shorter than its lookup's, and
+        // arrays' `A195`, past the grid's limit).
+        assert_eq!((turned, labelled), (131, 2));
+    }
+
     #[test]
     fn the_file_excel_saved_agrees_on_every_formula() {
         let lib = excel::library();

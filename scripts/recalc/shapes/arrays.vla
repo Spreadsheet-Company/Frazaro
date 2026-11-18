@@ -54,7 +54,7 @@
 (shape 51 "functions" "A56" "=ROWS(5)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (calls "ROWS"))
 (shape 52 "functions" "A57" "=ROWS(Data!R[-56]C:R[-51]C*1)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (calls "ROWS") (unlowered array))
 (shape 53 "functions" "A58" "=SUM(Data!R[-57]C:R[-52]C*Data!R[-57]C[2]:R[-52]C[2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads array each) (unlowered range))
-(shape 54 "functions" "A59" "=SUM(ROW(Data!R[-58]C:R[-53]C))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
+(shape 54 "functions" "A59" "=SUM(ROW(Data!R[-58]C:R[-53]C))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads) (unlowered array))
 (shape 55 "functions" "A60" "=SUM(SEQUENCE(4))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "SEQUENCE" "SUM") (unlowered array))
 (shape 56 "functions" "A61" "=SUM(SEQUENCE(2,3))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "SEQUENCE" "SUM") (unlowered array))
 (shape 57 "functions" "A62" "=SUM(SEQUENCE(3,1,10,5))" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads each) (calls "SEQUENCE" "SUM") (unlowered array))

@@ -48120,6 +48120,121 @@ sink that prints it.
 *Committed 2026-11-18* at the owner's word, "Commit part 2, then proceed with slice (d)": over `5b5113e`, the part's
 37 files.
 
+*Slice (d) built 2026-11-18: the writer's rule.* At the owner's word, "Commit part 2, then proceed with slice (d)": over
+`9acdd6d`, uncommitted. Decision 3 as recommended, (b): each formula stored as Excel 365 stores the same text typed,
+as the probe's saves show Excel's own writer storing it.
+- *The rule* (`vla-lang/src/calc/stored.rs`, new; `calc::stored::stored`): a text's parse walked from its top, each
+  part where it stands, where one value is wanted (the top, a parameter of one value, an operator's operand, an `IF`'s
+  condition, a `CHOOSE`'s index, an `IFERROR`'s value), in a parameter handed a range whole (`SUM`'s) or in an array
+  parameter (`SUMPRODUCT`'s), the library's classes telling which. Dynamic: a reference written with `:` (`A2:A2`
+  among them), a whole column or row, a range between expressions or an array constant where one value is wanted; an
+  operator whose operand is many, wherever it stands; a function answering an array where one value is wanted, at
+  any size; an answer of many by its bound (`spill::bound`, the plan's); `ROW`, `COLUMN`, `ISFORMULA`, `FORMULATEXT`
+  and `TYPE` of what would be dynamic at the top, outside an array parameter; `INDEX` where one value is wanted but
+  at a row and a column each a number past 0; `IFS`, `SWITCH` and `INDIRECT` by name; `OFFSET` given a height or a
+  width or moving a range where one value is wanted; a function called in place, and a `LAMBDA` where one value is
+  wanted; a `LET`'s names read as what they stand for, where they stand, by the inlining an evaluation reads
+  (`KERNEL.29`), beside the parse as written, which says a call in place. A form reads its own arguments, and a name
+  and a function the library does not hold say nothing, but a `SINGLE` inside. The text stored: a typed `@` before a
+  reference written `SINGLE(...)` in a dynamic formula and left out of a legacy one, as `SINGLE` of a reference alone
+  is. It lives in the language beside the bound it reads; the core's build calls it with Excel's library, made once
+  a build, and writes a text the parse does not read as before, dynamic where it calls a function of the list.
+- *What the probe settled* (the 90 texts the item's probe and `typed.txt` typed through `Range.Formula2`, each held
+  to the kind and the text Excel saved, `the_writer_stores_each_typed_text_as_excel_s_writer_did`): `IFS` and
+  `SWITCH` dynamic by name, at single values too; `INDIRECT` always; `OFFSET` of a cell plain; `INDEX` dynamic with a
+  row or a column read from a cell or at 0, plain at constants; an operator over a range dynamic inside an array
+  parameter too (`SUMPRODUCT(IF(A3:A5>3,1,0))`); `ROWS` of a range plain, `ROW` and `TYPE` of one dynamic, `A2:A2`
+  among them; `LET(x,2,x*3)` and `LET(x,Data!A1:A3,SUM(x))` legacy, so that a `LET` is no function answering an
+  array by its name and a range its binding holds stands where its name is read; and the two typed `@` texts
+  stored legacy, without it.
+- *What Excel's saves of the door's builds settled.* Where no text was typed, the eleven built fixtures Excel saved
+  hold each formula as the build wrote it and the value Excel computed for it, so a formula the rule turns legacy
+  where the build wrote it dynamic must compute, read legacy, what Excel's save of it holds: the 131 it turns, all of
+  them, the two the engine labels aside, each labelled in both readings, now a test of its own
+  (`a_formula_the_writer_stores_legacy_computes_what_excel_computed_it_dynamic`). The comparison found two gaps in the
+  rule's first draft, each mended before the fixtures were built: `TYPE(INDEX(Data!C1:C3,0))`, which a legacy
+  formula meets at its cell, 16, where Excel's save holds 64, so that `ROW` and its kin read whole what would be
+  dynamic at the top, an `INDEX`'s column and an `OFFSET`'s range among them, where the draft read a reference written
+  with `:` alone, and `OFFSET` moving a range where one value is wanted is dynamic; and the intersection fixture's
+  `B6`, `SINGLE(Data:Other!A1)`, which Excel's second save wrote bare, so that a span of sheets at one cell stays
+  legacy, its `@` left out, where the draft held a span dynamic and kept its `SINGLE`, and `B5`'s `#REF!` stays agreed.
+  One more, found by reading and settled by no save: `SINGLE(A1:A3*2)` reads the array's first value, where a legacy
+  formula reads the range at the cell, so `SINGLE` of anything but a reference reads its argument as the top would,
+  where the draft read nothing under it.
+- *`@` read* (`calc/formula.rs`): the tokenizer spells `@` before a reference as the tokens of `SINGLE` of it, a
+  reference a move broke among them (`@#REF!`, as Excel's mover writes one), in a frame of its own (`spell_at`, never
+  inlined) and with no token of its own, so that the parser's frames do not move; `@` before anything else, a call
+  or a parenthesis, stays a construct not read. The refers fixture's `=@A1:A3`, which the shape law skipped as
+  unread, is held moved to every edge of the sheet, `@#REF!` among them.
+- *The fixtures.* `intersect.txt` respelled: the legacy sheet's fifteen formulas that mean the intersection say
+  `SINGLE`, so that they stay legacy, written bare as Excel writes a typed `@` there, its save untouched; built again
+  with the eight others a formula of which moved: subset, lookups, texts, arrays, formulas, address, info and bits,
+  442 formulas to dynamic and 131 to plain, where the scoping, before the probe corrected the rule, predicted 260 and
+  163; edges, dates and criteria moved by their stamp alone and are kept. Their calc goldens, written again by the
+  door, CRLF: subset 108, every row agreeing, `IF(A1>5,A1:A2,0)` and `COLUMN(B1:C2)` spilling; intersect 49, every
+  row agreeing, `C1`, `C10` and `B6` bare as Excel saved them; arrays 217 and 207, and bits 915 and 905, the lift
+  summed whole and spilled (`SUM(IFERROR({1,#N/A,3},0))` 4 where 1); formulas 95 and 82, a range its neighbors block
+  `#SPILL!`, and `FORMULATEXT` of a formula now dynamic computed, shown with no `@`; info 788, its agree floor lowered
+  by 81 to 702: each `IS` function of an array constant typed beside its neighbors is a blocked spill, `#SPILL!`,
+  which holds no value, its legacy reading held by `info_saved` still; lookups, texts and address their kinds alone.
+  `check_recalc_golden`'s floors raised and info's lowered with its reason. Five censuses moved, not their counts
+  (`(unlowered array)` at a formula now dynamic, intersect's `SINGLE` bare, bits' `FORMULATEXT` reading by
+  `lookup`), and the bench programs' do not, the lookups program's 20,000 `INDEX` of a row read from a cell written
+  dynamic among them. Every save's golden holds; the build goldens do not move, their `IFS` dynamic by name, and
+  `frazaro rebuild` answers yes of each fixture built.
+- *Tests.* The rule's own cases (`a_typed_at_is_written_as_excel_stores_it`: a typed `@` and `SINGLE` each place,
+  a span of sheets, a broken reference, `TYPE` and `ROW` of a call's reference, `OFFSET` moved, `SUM` of one); the
+  90 typed texts; the build end to end (`a_formula_is_stored_as_excel_stores_the_same_text_typed`: a range, a typed
+  `@`, `SINGLE` under an operator, a dynamic formula's `@`, a sum, and a text the parse does not read either side of
+  the list); Excel's dynamic readings of the 131 turned legacy, the eleven saves' formulas made legacy with the
+  rule's text and computed again; the parser's `@` before a broken reference and a call; the typed texts' machine
+  test, which held the two `@` texts refused, holding each to the value Excel saved; and the shape law over `=@A1:A3`.
+- *Mutants*: in a copy of `9acdd6d` with the part's files and a target of its own, each held to the rule's, the
+  parser's, the typed texts', the build's and the shape law's tests. The first round, 54: 41 killed. Of the 13 that
+  lived, five were the first draft's redundancy, an operand's `many` beside its walk, which says it already, at a
+  sign, at an operator (either half of the two) and at a call, and the strings' tracking in the text written, which
+  the scan already keeps out, removed with their code;
+  seven were cases no test held, each given one (a `LAMBDA`'s value, a call in place, `OFFSET`'s height, an `IF`'s
+  values under `SUM`, `INDEX`'s negative row and its row read from a range, a name ending in `SINGLE`); and the last,
+  a `LET`'s body, showed `LET(x,Data!A1:A3,x)` written legacy, a range its name answers, which the rule now reads
+  through the inlining. The second round, over the code the first changed, 19: 17 killed; an operator's right operand
+  killed by a case added, `=1+A1:A3`; and the parse as written's reading of a `LET`'s body equivalent beside the
+  inlined parse, answering alone where the inlining nests too deep, which no test reaches. Sixty in all, one
+  equivalent left.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 967 tests; `run_checks.ps1` 60 of 60; `prove.ps1 -Control`, its mutant failing all
+  71, and `-Impl` over the door, 70; both wasm modules, the import section empty and the 14 and 10 exports,
+  `build_web.ps1 -NoBuild` and `check_web_offline`; the language's package from its tarball on a fresh target, 684,
+  `tests/limits.rs` and `tests/strangers.rs` among them; Alonzo's suite at `8c00e21` over the tree's language by
+  `[patch.crates-io]`, the path compiled, 113 with its cartridges required; and Buffet's at `6f215a1` over that
+  Alonzo copy and the tree, both pins moved, both paths compiled, 107. Under Windows PowerShell 5.1 alone, pwsh not
+  installed here.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note and the crates' sentence; the roadmap's line; `conformance/README.md`'s
+  amendment of 2026-11-18, the writer's rule's; `cli/README.md`'s build; the two checks' headers; the intersection
+  fixture's header; the rule's module doc.
+- *Found:*
+  1. An `@` before a call or a parenthesis, `=@INDEX(A1:C3,0,1)`, is not read: the parse refuses it, and the build
+     writes the text as typed, an `@` in the file's formula, which the format spells `_xlfn.SINGLE(...)`. Reading it
+     needs the extent of what follows, a call's closing parenthesis, which the tokenizer does not track.
+  2. Where no save typed a text of the kind, the rule leans dynamic, which reads the text as typed and moves no value:
+     `SINGLE` of anything but a reference (`SINGLE(INDEX(A1:C3,0,1))`, which a legacy formula reads alike), `TYPE` of
+     an array constant or an array function's answer, `INDEX` of one column at a constant row, a `LAMBDA` where one
+     value is wanted. A third save's texts would settle each; the stop rule allows none, so the second, after the
+     last slice, may type them.
+  3. The bench's lookups program writes 20,000 dynamic formulas now, `INDEX` of a row read from a cell, which the
+     floors read legacy (`rows_for_machine`): the second part's *Found* 3 grows by them.
+  4. The info fixture's 81 `IS` functions of an array constant are blocked spills in the build, their arrays held by
+     no golden of the door's; typed with room to spill, a fixture would hold them.
+- *Hand test in Excel,* the owner's: Excel 365 opens each of the nine fixtures built again with no repair, and draws
+  the cells the goldens name: the intersection fixture's `legacy` sheet met at each cell as before, `C3` 30 and `D3`
+  3, both spans `#REF!`; the subset's `C27:C28` and `C26:D26` spilled; the formulas fixture's `A11` `#SPILL!` and
+  `A21` 12; info's `B7` `#SPILL!`; arrays' `A28` 4; bits' `L1:N1` spilled, `K1` and `P1` `#SPILL!`. Closed without a
+  save: the stop rule keeps Excel's second save for after the last slice.
+
+*Committed 2026-11-18* at the owner's word, "Hand tests pass; recommendations accepted; commit slice d before
+proceeding with slice e": over `358ba97`, `VLA.8`'s scoping, which a peer committed after `9acdd6d`, the slice's 35
+files; info's agree floor lowered and the rule's lean to dynamic where no save spoke both accepted.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

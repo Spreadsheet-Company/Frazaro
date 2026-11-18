@@ -220,6 +220,9 @@ struct Walker<'a> {
     /// The program line the walk is on, from the nearest `(at-line N ...)`.
     line: u32,
     depth: u32,
+    /// Excel's library, by whose parameters the writer's rule reads each
+    /// formula (KERNEL.55's decision 3), made once a build.
+    library: vla_lang::calc::Library,
 }
 
 impl<'a> Walker<'a> {
@@ -233,6 +236,7 @@ impl<'a> Walker<'a> {
             steps: HashMap::new(),
             line: 0,
             depth: 0,
+            library: crate::excel::library(),
         }
     }
 
@@ -654,10 +658,23 @@ impl<'a> Walker<'a> {
                 ));
             }
             if let Some(body) = t.strip_prefix('=') {
+                // Stored as Excel stores the same text typed through
+                // `Range.Formula2`, as the reference writes it (KERNEL.55's
+                // decision 3): dynamic wherever its legacy reading could
+                // differ, a typed `@` as Excel writes it; a text the parse does
+                // not read, dynamic where it calls a function that can answer
+                // an array, as before.
+                let (dynamic, body) = match vla_lang::calc::stored::stored(body, &self.library) {
+                    Some(stored) => stored,
+                    None => (
+                        can_return_array(&prefix_future_functions(body)),
+                        body.to_string(),
+                    ),
+                };
                 // Its newer functions under their prefixes, and the names its
                 // `LET`s and `LAMBDA`s bind under `_xlpm.` (KERNEL.29).
-                let text = crate::sheet::xlfn::prefix_parameters(&prefix_future_functions(body));
-                if can_return_array(&text) {
+                let text = crate::sheet::xlfn::prefix_parameters(&prefix_future_functions(&body));
+                if dynamic {
                     // What Excel stores for a Formula2 entry of such a formula,
                     // and reads back without its @.
                     self.wb.sheets[sheet].set_formula_dynamic(range, &text, 0);
@@ -1943,5 +1960,39 @@ mod tests {
         let r = crate::api::english_rebuild_xlsx(&got, PRELUDE, &[ENGLISH])
             .unwrap_or_else(|r| panic!("the golden did not read back: {}", r.refusal));
         assert!(r.matches, "{}", r.why);
+    }
+
+    #[test]
+    fn a_formula_is_stored_as_excel_stores_the_same_text_typed() {
+        // KERNEL.55's decision 3, through the build: a range where one value
+        // is wanted dynamic; a typed `@` and `SINGLE` of a reference alone
+        // written bare in a legacy formula, and as `SINGLE` in a dynamic one;
+        // a sum legacy; and a text the parse does not read dynamic only where
+        // it calls a function that can answer an array, as before.
+        let src = r#"(sub main ()
+  (set! (. (range "b1") formula) "=A1:A3")
+  (set! (. (range "c1") formula) "=@A1:A3")
+  (set! (. (range "d1") formula) "=SINGLE(A1:A3)*2")
+  (set! (. (range "e1") formula) "=SEQUENCE(2)+@A1:A3")
+  (set! (. (range "f1") formula) "=SUM(A1:A3)")
+  (set! (. (range "g1") formula) "=SUM(Sales[Amount])")
+  (set! (. (range "h1") formula) "=SORT(Sales[Amount])"))
+"#;
+        let wb = build_workbook("", src, "", &[]).expect("it builds");
+        let out = &wb.sheets[1];
+        let stored = |col: u32| match &out.cells[&(1, col)].content {
+            Content::Formula(t) => (false, t.as_str()),
+            Content::DynamicFormula(t) | Content::DynamicSpill { text: t, .. } => {
+                (true, t.as_str())
+            }
+            other => panic!("column {col}: {other:?}"),
+        };
+        assert_eq!(stored(2), (true, "A1:A3"));
+        assert_eq!(stored(3), (false, "A1:A3"));
+        assert_eq!(stored(4), (false, "A1:A3*2"));
+        assert_eq!(stored(5), (true, "_xlfn.SEQUENCE(2)+_xlfn.SINGLE(A1:A3)"));
+        assert_eq!(stored(6), (false, "SUM(A1:A3)"));
+        assert_eq!(stored(7), (false, "SUM(Sales[Amount])"));
+        assert_eq!(stored(8), (true, "_xlfn._xlws.SORT(Sales[Amount])"));
     }
 }

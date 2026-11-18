@@ -699,6 +699,27 @@ fn spell_spill(toks: &mut Vec<Tok>, spill: Option<&FormulaRef>) -> bool {
     true
 }
 
+/// Excel's `@` before a reference, as the tokens of `SINGLE` of it, its
+/// reading (KERNEL.55, the writer's rule's typed `@`): the reference's span,
+/// or `None` for a reference no parse reads, the `@` then left as it was.
+/// Never inlined, as [`spell_spill`] is not.
+#[inline(never)]
+fn spell_at(toks: &mut Vec<Tok>, r: &FormulaRef) -> Option<usize> {
+    let read = match r.kind {
+        Kind::Cell | Kind::Range | Kind::Column | Kind::Row | Kind::ThreeD => {
+            Tok::Ref(ref_expr(r)?)
+        }
+        // A reference a move broke, `@#REF!` as Excel's mover writes it.
+        Kind::Broken => Tok::Err(ErrorKind::Ref),
+        _ => return None,
+    };
+    toks.push(Tok::Func("SINGLE".to_string()));
+    toks.push(Tok::LParen);
+    toks.push(read);
+    toks.push(Tok::RParen);
+    Some(r.span.max(1))
+}
+
 /// A spill reference to a cell made that cell's reference, in place (KERNEL.55):
 /// what the plan reads of `A1#`, its anchor, by the arm that reads any cell;
 /// any other reference left as it is. Never inlined, so that a frame below
@@ -838,6 +859,14 @@ fn tokenize(text: &str, spells: bool) -> Vec<Tok> {
             continue;
         }
         let c = s[i];
+        // Excel's `@` before a reference, read as `SINGLE` of it (KERNEL.55).
+        if spells && c == '@' && next_ref < refs.len() && refs[next_ref].pos == i + 1 {
+            if let Some(span) = spell_at(&mut toks, &refs[next_ref]) {
+                next_ref += 1;
+                i += 1 + span;
+                continue;
+            }
+        }
         if c.is_whitespace() {
             i += 1;
         } else if c == '"' {
@@ -1670,7 +1699,13 @@ mod tests {
 
     #[test]
     fn a_construct_this_slice_does_not_read_is_named_as_written() {
-        assert_eq!(parse("=@A1:A3"), Err("@".to_string()));
+        // Excel's `@` before a reference reads as `SINGLE` of it (KERNEL.55),
+        // a reference a move broke among them; anywhere else it stays a
+        // construct not read.
+        assert_eq!(parse("=@A1:A3"), parse("=SINGLE(A1:A3)"));
+        assert_eq!(parse("=@#REF!+1"), parse("=SINGLE(#REF!)+1"));
+        assert_eq!(parse("=@(A1)"), Err("@".to_string()));
+        assert_eq!(parse("=@INDIRECT(\"B1\")"), Err("@".to_string()));
         assert_eq!(parse("=A1 B1"), Err("intersection".to_string()));
         assert_eq!(parse("=SUM((A1,B2))"), Err("union".to_string()));
         assert_eq!(parse("=Rate#"), Err("Rate#".to_string()));

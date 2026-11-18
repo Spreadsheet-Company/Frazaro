@@ -22,7 +22,7 @@
 //! each as it opens the file. Beside each probe, the answer the language's
 //! reading predicts, the save's to tell.
 
-use vla_lang::sheet::parse_a1_range;
+use vla_lang::sheet::{parse_a1_range, Content};
 
 use super::looks_golden::{Book, Part, Styles, CALIBRI};
 use crate::sheet::xlfn::as_filed;
@@ -769,4 +769,62 @@ fn excel_s_save_of_the_probe_agrees_wherever_the_door_computes_it() {
         );
     }
     assert_eq!(rows.iter().filter(|r| r.ends_with(" agree)")).count(), 219);
+}
+
+/// Excel 365's save of `scripts/recalc/typed.txt`'s texts, each typed through
+/// `Range.Formula2` (KERNEL.70).
+const TYPED_SAVED: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scripts/recalc/typed_saved.xlsx"
+);
+
+#[test]
+fn the_writer_stores_each_typed_text_as_excel_s_writer_did() {
+    // The item's fourth slice, decision 3: each of the 90 texts the
+    // two saves typed through `Range.Formula2`, the typed fixture's 56 and the
+    // probe's 34, stored by the writer's rule as Excel's writer stored it,
+    // dynamic or legacy, and as its text, a typed `@` written as Excel writes
+    // it.
+    let lib = crate::excel::library();
+    let mut seen = 0;
+    let mut wrong: Vec<String> = Vec::new();
+    for (path, sheet) in [(TYPED_SAVED, "typed"), (SAVED, "Typed")] {
+        let bytes = std::fs::read(path).expect("a save");
+        let read =
+            crate::reflect::calc::collect(&bytes, path).unwrap_or_else(|r| panic!("{}", r.text));
+        let s = read.model.find_sheet(sheet).expect(sheet);
+        let cells = &read.model.sheets[s].cells;
+        for (&(row, col), cell) in cells {
+            if col != 2 {
+                continue;
+            }
+            let (excel_dynamic, excel_text) = match &cell.content {
+                Content::DynamicFormula(t) | Content::DynamicSpill { text: t, .. } => (true, t),
+                Content::Formula(t) => (false, t),
+                _ => continue,
+            };
+            let Some(Content::Text(typed)) = cells.get(&(row, 1)).map(|c| &c.content) else {
+                panic!("{sheet}!A{row}: no typed text");
+            };
+            seen += 1;
+            // The text as the file spells it and the reader reads it back.
+            let filed = |text: &str| crate::sheet::xlfn::strip_future_prefixes(&as_filed(text));
+            match vla_lang::calc::stored::stored(typed, &lib) {
+                Some((dynamic, text))
+                    if dynamic == excel_dynamic
+                        && filed(&text).eq_ignore_ascii_case(excel_text) => {}
+                other => wrong.push(format!(
+                    "{sheet}!B{row}: {typed} -> {other:?}, Excel {} {excel_text}",
+                    if excel_dynamic { "dynamic" } else { "plain" }
+                )),
+            }
+        }
+    }
+    assert_eq!(seen, 90);
+    assert!(
+        wrong.is_empty(),
+        "{} of 90:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
 }

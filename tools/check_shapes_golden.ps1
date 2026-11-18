@@ -174,6 +174,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 54 computed every frame where 70, and in the save 52 where 68; the
 # recursions `(unlowered lambda)`, `SQ`, `PLUS1` and `OUTER` lowered, their
 # reads naming the call (`each`); the lines as many.
+# 2026-11-18, KERNEL.55's fourth slice, the writer storing each formula
+# as Excel stores the same text typed: five censuses moved, not their counts. A
+# formula the rule writes dynamic reads its range whole, `(unlowered array)`
+# (subset's COLUMN, arrays' SUM of ROW, formulas' ROW and its kin); intersect's
+# legacy sheet says SINGLE where it means the intersection, written bare as Excel
+# saved it, `(unlowered range)`, its CHOOSE of SINGLE the same; and bits' FORMULATEXT
+# of a formula now dynamic reads it by `lookup` where `slot`. The bench programs'
+# censuses hold, the lookups program's 20,000 INDEX of a row read from a cell
+# written dynamic among them.
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Floor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Floor = 25 },

@@ -55,6 +55,21 @@
   it spills into, each holding its value, so that a reader that does not
   calculate shows the whole spill, where it wrote the formula over its own
   cell and nothing beside it (KERNEL.55).
+- **A build stores each formula as Excel 365 stores the same text typed.**
+  A sentence's formula is written as a dynamic-array formula wherever its
+  legacy reading could differ, as the reference's `Formula2` and a person's
+  typing store it, and as a legacy formula everywhere else, where it was
+  dynamic exactly where it called a function that can answer an array. So
+  `=A1:A3`, `=A1:A3*2` and `=ROW(A1:A3)` are dynamic and spill where they
+  met their range at the formula's cell, and `=INDEX(A1:C3,2,3)`,
+  `=LOOKUP(4,A1:A6)` and `=SUM(INDEX(A2:L2,1,0))` are legacy. The rule is
+  held to Excel's own saves of 90 texts typed, each stored as Excel stored
+  it. A program built again may spill where it met a range at the cell, or
+  answer `#SPILL!` where a neighbor blocks the spill; a formula that means
+  the intersection says so with `SINGLE`, or with `@`, which is now read as
+  `SINGLE` of the reference after it, where it was refused, and written as
+  Excel writes it: left out of a legacy formula, and `_xlfn.SINGLE` in a
+  dynamic one (KERNEL.55, its fourth slice).
 - **Every record says a formula's kind, and a spill's cells.** The view
   record, `frazaro view`, and a workbook read back, `frazaro reflect` with or
   without `--looks`, write `dynamic` after a dynamic-array formula's text and
@@ -95,7 +110,9 @@
   range, `Sink::array` and `Sink::array_ref`, right after its `formula` row,
   where it told them after the row's `refers` rows, and a cell an array
   formula's range fills past its anchor by `Sink::spilled`, which a sink that
-  does not say otherwise takes as the `cell` row it was.
+  does not say otherwise takes as the `cell` row it was. And
+  `calc::stored::stored`, new, answers how Excel 365 stores a formula's text
+  typed: whether as a dynamic-array formula, and the text it stores.
 
 ## 0.14.0
 

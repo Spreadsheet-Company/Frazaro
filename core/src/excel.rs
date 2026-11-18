@@ -800,8 +800,8 @@ mod tests {
         // under Excel's library, at the cell Excel's save holds it in, and its
         // frame's value held to the value Excel saved there; the nine of many
         // values labelled, where Excel spilled them; and a typed `@`, which Excel
-        // holds as a legacy formula, refused by name. A package holds no fixture,
-        // and the test stands down.
+        // holds as a legacy formula without it, read as typed since KERNEL.55. A
+        // package holds no fixture, and the test stands down.
         use crate::reflect::calc::collect;
         use vla_lang::machine::Machine;
         use vla_lang::rows::{datum, quoted};
@@ -829,7 +829,7 @@ mod tests {
                 other => panic!("{addr}: {other:?}"),
             });
         }
-        let (mut written, mut refused) = (Vec::new(), 0);
+        let (mut written, mut typed_at) = (Vec::new(), 0);
         for (&(row, col), cell) in &read.model.sheets[typed].cells {
             if col != 2 {
                 continue;
@@ -849,23 +849,20 @@ mod tests {
                 }) => t.clone(),
                 other => panic!("A{row}: {other:?}"),
             };
-            // An `@` as typed, refused by name by the parser, and left out.
-            if as_typed.contains('@') {
-                let one = format!(
-                    "(sheet \"data\" visible)\n(sheet \"typed\" visible)\n(formula \"typed\" \"B{row}\" {} dynamic)\n",
-                    quoted(&as_typed)
-                );
-                let e = Machine::load(&one, library()).expect_err(&as_typed);
-                assert!(e.refusal.text.contains('@'), "{}", e.refusal.text);
-                refused += 1;
-                continue;
-            }
+            // An `@` as typed is Excel's `SINGLE` (KERNEL.55): the text as
+            // typed, written dynamic as a person's typing is, and held to what
+            // Excel saved for the legacy formula it stored without it.
             let addr = cell_ref(row, col);
-            let text = quoted(&format!("={f}"));
+            let text = if as_typed.contains('@') {
+                typed_at += 1;
+                quoted(&as_typed)
+            } else {
+                quoted(&format!("={f}"))
+            };
             rows.push_str(&format!("(formula \"typed\" \"{addr}\" {text} dynamic)\n"));
             written.push(((typed, row, col), addr));
         }
-        assert_eq!((written.len(), refused), (54, 2));
+        assert_eq!((written.len(), typed_at), (56, 2));
         let mut m = Machine::load(&rows, library()).unwrap_or_else(|e| {
             panic!("line {}: {}", e.line, e.refusal.text);
         });

@@ -84,7 +84,7 @@
 (shape 79 "math" "C23" "=ROW()" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 80 "math" "C24" "=COLUMN()" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 81 "math" "C25" "=ROW(R[-21]C[-2])" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
-(shape 82 "math" "C26" "=COLUMN(R[-25]C[-1]:R[-24]C)" (cells 1) (levels 2 2 1 1) (runs 0 0 0 0) (alone 1) (reads))
+(shape 82 "math" "C26" "=COLUMN(R[-25]C[-1]:R[-24]C)" (cells 1) (levels 2 2 1 1) (runs 0 0 0 0) (alone 1) (reads) (unlowered array))
 (shape 83 "math" "C27" "=SIN(0)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 84 "math" "C28" "=SIN(1)" (cells 1) (levels 0 0 1 1) (runs 0 0 0 0) (alone 1) (reads))
 (shape 85 "math" "C29" "=SUMIF(R[-28]C[-2]:R[-23]C[-2],\">15\")" (cells 1) (levels 1 1 1 1) (runs 0 0 0 0) (alone 1) (reads array) (calls "SUMIF") (unlowered text))

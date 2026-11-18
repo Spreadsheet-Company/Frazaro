@@ -302,9 +302,15 @@ names (`Work on sheet Data.`, `... of sheet Output`). A filled formula is
 stored shared, as Excel stores one, unless it reads another sheet or holds
 anything else a shared formula cannot, when each cell holds its own
 formula, as Excel writes it; a newer function is stored under its file
-prefix (`_xlfn.`); and a formula whose function can return an array (`IFS`,
-`FILTER`, `INDEX` and their kin) is stored as Excel stores one typed into a
-cell, so no `@` appears. Each formula the
+prefix (`_xlfn.`); and each formula is stored as Excel 365 stores the same
+text typed into a cell: as a dynamic-array formula wherever its legacy
+reading could differ (a range or an array where one value is wanted, an
+operator over many values, a function that answers an array, `IFS` and
+`INDIRECT` by name), so no `@` appears, and as a legacy formula everywhere
+else. An `@` typed before a reference, Excel's `SINGLE`, is written as Excel
+writes it: left out of a legacy formula, `_xlfn.SINGLE` in a dynamic one; so
+a formula meant to meet a range at its own cell says `@` or `SINGLE`, and
+`=A1:A3` alone spills. Each formula the
 declared subset computes holds its value, as a file a host saved holds the
 values the host computed, so that a viewer or a script that calculates
 nothing reads them; a formula outside the subset holds none, and the host
