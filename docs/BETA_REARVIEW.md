@@ -20824,6 +20824,517 @@ built.
   printing of a raw string as a note in `VLA.7`, whose formatter keeps what a
   person wrote.
 
+- 🟡 **VLA.8 — functions at expand time, with values, and `let`: `(defexpand
+  (name params...) body)`, a pure function over forms and atoms the expander
+  calls where a value may stand, and `(let-expand ((name value) ...) body)`,
+  a binding for one form, each refused by name past the fuel, so that a
+  macro computes a value instead of handing it on and no walk is written
+  again.** *Minted 2026-10-25 at the owner's word, from the third sitting of
+  that day (Alonzo's `docs/2030.md` §7.3, item 5). Scoped 2026-11-18 at the
+  owner's word, "Scope VLA.8", over `9acdd6d` and `vla-lang` 0.14.0 as
+  released: the thirteen decisions below put to the owner in chat, each with
+  its recommendation, the doctrine's sentence first, as the line asks, "in
+  words before a line is built". Approved the same day on a condition: "If
+  the benefits of VLA.8 outweigh the weakening of the determinism/
+  auditability wall, then your recommendations are approved; commit the
+  docs then proceed with VLA.8": every decision as recommended, the
+  condition weighed below, after the decisions.*
+
+  **The words this entry keeps apart.** *Substitution* is a macro's template
+  filled in with its arguments, where the twenty-nine primitives compute
+  (`substitute`, `Substitute`). *The walk* is the expander's pass over the
+  forms that come out of it, where a macro applies, a define's word and
+  `self` are replaced, and the forms of the walk compute (`expand_at`,
+  `ExpandMacros`). A *function* is this item's `defexpand`; a *value*, a
+  form a primitive reads, an atom or a list; a *working-out*, one call
+  computed with every call beneath it.
+
+  **What needs it.** A macro's value reaches the walk and never a primitive
+  (the probes below), so a template that must compute with a value its
+  helper finds hands the value on, as a continuation, `(then value
+  args...)`, or walks a list a call at a time to count it, number it or join
+  it. Counted at this scoping over the templates of Delta as they stand, 388
+  macros in twenty-three files (the kit, the twelve cartridges' sources,
+  Buffet's kitchen, its source and its seven content sheets, and the
+  prelude; Buffet's copy of the kit at `alonzo` 0.3.0 left out, its sixteen
+  walks going with its next pin):
+
+  | What a template does for want of a value | Where | Macros |
+  |---|---|---|
+  | Hands a size on, `(then 14 24 args...)` | Brickwork's `wall-size`, 5 calls; Life's and the gun's `board-size`, 1 each, the size ladder's (`ENGINE.9`); Superposition's `lattice-side`, 2, which the engine's test sets to 64 | 4 |
+  | Hands a list on, `(then (a b ...))` | Superposition's `neighbors`, 3 calls, "since a loop takes no macro's call for its list" | 1 |
+  | Walks a list to count it | Buffet's `strings-count` ("The expander has no length of a list"); the prelude's `length-onto` | 2 |
+  | Walks a run of numbers | the kit's `widths` and `heights`, 10 calls in Brickwork, Seiyaku and Superposition; Superposition's `tally-blocks` | 3 |
+  | Writes a run of numbers out by hand | Seiyaku's `(1 2 3 4 5 6 7 8 9)`, nine loops | none |
+  | Walks a run to join a text | Buffet's `picker-from`, `=CHOOSE(` a reference at a time | 1 |
+  | Walks a list with a continuation | the prelude's `reverse-onto`, `append-reverse-onto`, `append-onto`, `quote-map-onto` and `quote-reduce`; `filter` declined in its header for want of this item | 5 |
+
+  Of the eighteen walks left (the kit's 3, the kitchen's 8, the prelude's 6,
+  Superposition's 1), one writes a nest, the kit's `priority`, and stays a
+  macro; six are the kitchen's rows over a list, loops since `VLA.5` given
+  the count and the fields' pairs, which a function computes; the other
+  eleven are this item's. The clients the roadmaps name: Alonzo's
+  `CART.14.2`, Seiyaku's dial, "the game client of Frazaro's `VLA.8`", whose
+  source "writes N = 3 throughout, its walks over literal lists, since
+  `(define side 3)` is refused by `+expand` and `each` refuses a list from a
+  define or a macro"; `KIT.7`'s blocks and `KIT.8`'s functors after it;
+  Buffet's kitchen, which `HOUSE.7` holds to the house style; and the
+  prelude's own `filter`: "A real filter needs a new engine primitive ...
+  its own scoping pass, not a line here".
+
+  **What moved since the mint.**
+  - `VLA.5`'s loops (0.12.0) and `KIT.6`'s three slices took the kit's walks
+    from fifteen of its forty-two macros to three of forty-five, `widths`,
+    `heights` and `priority`; `VLA.16` (0.14.0) named an entry's parts in a
+    loop.
+  - `VLA.9` (0.13.0): named pieces, a macro's alone so far.
+  - `VLA.10` (0.13.0): `self`, read by the walk alone, and `offset-expand`,
+    a form of the walk "since `self` and a define's word reach no
+    primitive"; and its two notes on this line: `let-expand` reads as a pair
+    with `bind-expand`, a value a primitive can take beside a word the walk
+    replaces; and a function "takes `self` as an argument the walk has
+    expanded".
+  - `VLA.15` (0.12.0): `first-cell-expand`, a form of the walk for the same
+    reason (its decision 5).
+  - The determinism wall's conditions, noted on the line on 2026-10-29: a
+    function reads nothing but the source's literals and its own arguments,
+    and never gains an I/O primitive (LISTOPS-PURITY); every call counts
+    against the chain and fails loudly past it (LISTOPS-BUDGET); a result is
+    a pure function of its arguments, no state carried from one call to the
+    next (LISTOPS-CONFLUENCE); its arithmetic stays whole-number and free of
+    locale; and what it computes lands as rows a reader sees, traced to its
+    call by `VLA.14` (PROVENANCE).
+  - Alonzo's `CART.14.2`, minted 2026-11-16, names this item and `VLA.11` as
+    what it waits on.
+
+  **What the substrate says,** read in both implementations at `9acdd6d` and
+  probed through 0.14.0's `expand_text` under the prelude, a scratch crate
+  over the registry's copy:
+  - *Two times.* Substitution computes the twenty-nine primitives wherever
+    they stand in a template outside a quasiquote's shield, over the
+    parameters' values, and leaves every macro's call standing. The walk
+    applies macros, replaces a define's word and `self` where each stands as
+    an expression, and computes the forms of the walk after expanding their
+    arguments: `formula-expand`, `sheet-expand`, `range-expand`,
+    `first-cell-expand`, `bind-expand` and `offset-expand`. A primitive the
+    walk meets outside any template computes too, over its arguments as
+    written, and returns its result unwalked (`VLA.5`, left as found).
+  - *What reaches what,* each case probed:
+
+    | The call | Reads today |
+    |---|---|
+    | `(plus-one (+expand 2 3))` at the top, `plus-one` being `(+expand x 1)` | refused, `vla-arith-expand-not-number-list` |
+    | the same inside a template | `6`: substitution computed the argument before `plus-one` applied |
+    | `(plus-one n)`, `n` a define's word | refused, `vla-arith-expand-not-number-value`, "got 'n'" |
+    | `(&expand (beside "A1" 1) ":C9")`, `beside` the kit's | refused, `vla-expand-arg-is-list` |
+    | `(+expand (length (quote (a b c))) 1)`, the prelude's `length` | refused; `(length (quote (a b c)))` in a row reads `3` |
+    | `(quote-if (big? (car lst)) ...)`, `big?` a macro | refused, `vla-quote-if-test-is-list` |
+    | `(each (d digits) ...)`, `digits` a define's list | refused, `vla-expand-expected-list` |
+    | `(each (d (digits)) ...)`, `digits` a macro | refused, `vla-each-list-a-call` |
+    | `(formula-expand (ref "S" (beside "A1" 1)))` | `"=S!B1"`: a form of the walk takes the macro's value |
+    | `(offset-expand S!A1 n 0)`, `n` a define's word | `S!A3`: a form of the walk takes the word |
+    | `(sheet "S" hidden)` after `(define hidden 7)` | `(sheet "S" 7)`: the walk replaces a define's word wherever it stands as an expression, a row's own word among them |
+    | `(cell "S" "A1" (quote-if true (m) x))` | `(cell "S" "A1" (m))`, the macro `m` unexpanded |
+
+    So a value a template computes with is written into the template or
+    handed in as a literal; everything an author names, a macro's value, a
+    define's word, `self`, reaches the walk alone.
+  - *The fuel.* A chain is 5,000 links at a place of the walk, each an
+    application or a begin unwrapped (`chain_len`, `chainLen`): a walk down
+    from 4,998 expands and one from 5,000 is refused,
+    `vla-macro-self-expansion-limit`. A chain is trampolined, a self-call in
+    a tail place looked at again in a loop (TABLESPEC-SCALE), so its length
+    costs no stack; a recursion in an argument's place nests a list a level
+    and is cut at the form depth's 64 (`vla-form-too-deep`: a nest of 60
+    expands, one of 70 is refused). One application's result is at most
+    1,000,000 forms (`EXPANSION_SIZE_LIMIT`).
+  - *The reference's stack.* LISTOPS-BUDGET's live finding, kept in
+    `ExpandMacros`' comment: "VBA's actual native stack exhausts somewhere
+    between 150 (still safe) and 250 (crashes)" nested expansions, which is
+    why that guard stands at 200 (`vla-macro-expansion-too-deep`) and why
+    the chain was trampolined rather than raised. Any recursion this item
+    adds that is not a loop spends that stack.
+  - *Where a definition is read.* The port's `collect` takes every
+    `defmacro` before any form expands; the reference does the same in four
+    loops, `VlaTranspile`, `VlaCompileToForms`, `VlaProbeMacroForm` and
+    `VlaExpandText`. Alonzo's pass calls `define_macro` itself, in a loop of
+    its own, and loads no prelude, so a cartridge sees the kit's library and
+    never the prelude's; the core's phrasebook probe (`vocab.rs`) calls it
+    too; Buffet's oracle goes through Alonzo's pass.
+  - *The doctrine as written.* `expand.rs`' head: "No gensym, no
+    compile-time computation beyond the expand-time primitives, by design."
+    `VLA.bas`' macro system: "No gensym, no compile-time computation - by
+    design (see README)". QUASIQUOTE's scoping in this file: "VLA's
+    expand-time has no evaluator at all, by design - the only environment
+    that exists is the specific bindings table one macro's own `Substitute`
+    call builds from its declared parameters." LISTOPS reopened "procedural
+    macros" on the owner's read "that the gate is real determinism
+    (LISTOPS-PURITY), not legibility - `VlaExpandStep` already answers the
+    legibility objection"; `VLA.6` moved the line a step with the owner's
+    approval, a define's word the walk's alone.
+  - *The state.* `VlaFrame.cls` holds twenty-one fields of the reference's
+    compile state, `Macros` and `Defines` among them; a function table is a
+    twenty-second. The port's `Expander` keeps its fields private, and
+    `Macro` and `Piece` are `#[non_exhaustive]`.
+
+  **What mature languages settled.**
+  - *Racket* separates the time a macro's helper runs from run time by a
+    phase, never by a sandbox: `begin-for-syntax` and `define-for-syntax`
+    bind at phase 1, where a transformer calls them, and
+    `require-for-syntax` brings a library there (Flatt, "Composable and
+    Compilable Macros: You Want it When?", ICFP 2002, pp. 72-83). A phase-1
+    function is the nearest kin of a function here: it computes a value a
+    macro uses, and what it computes is the macro's to place.
+  - *Common Lisp's* macro is a function of the whole language at compile
+    time, and a helper it calls must exist then, by `eval-when
+    (:compile-toplevel ...)` (CLHS 3.2.3.1), the classic trap being a helper
+    defined for run time alone. Its `define-symbol-macro`, the lineage
+    `VLA.6` took for `define`, is a word the expander replaces; a macro
+    function sees it only by asking, `macroexpand` with its `&environment`.
+    In the lineage a word for a form does not reach a macro's computation by
+    itself, and Racket gives a value at expand time a binding form of its
+    own.
+  - *Scheme's* `syntax-rules` computes nothing, a pattern and a template,
+    which is what a `defmacro` here is with the primitives beside it;
+    `syntax-case` (R6RS) adds a procedure.
+  - *The languages that compute a value where one must be known, under a
+    budget,* are the nearest in spirit. C++'s `constexpr` functions compute
+    where a constant is required, within limits the standard leaves to the
+    implementation and Clang sets at a call depth of 512 and 1,048,576 steps
+    (MSVC 512 and 100,000), each refused past it. Zig's `comptime` is one
+    language at both times, its evaluation counting backward branches
+    against a quota of 1,000 that `@setEvalBranchQuota` raises, since no
+    compiler can tell a loop that never ends from a long one. Each is pure
+    where it computes, bounded, and refuses by name; none renames, which is
+    the wall's line.
+  - *Dhall* is total: no general recursion, a list consumed by a built-in
+    fold (its Prelude's `List/fold`, "the primitive function for consuming
+    `List`s"), so that every expression ends. It is the lineage of a
+    function with no recursion, the third candidate below.
+
+  **The candidates,** each over the census above; each keeps the wall, and
+  each leaves every row of every cartridge as it is.
+
+  | | A: values | B: values and three primitives | C: functions with no recursion | D: functions (the line's) |
+  |---|---|---|---|---|
+  | It adds | `let-expand`; a define's word read as a value | A, and `count-expand`, `sequence-expand` and `&expand` joining a list | A and B, and `defexpand` calling only functions defined before it | A, and `defexpand` with recursion, tail calls looped and the rest nested to a measured depth |
+  | The sizes handed on, 4 | Brickwork's; the three a door sets wait on `VLA.11` | the same | the same | the same |
+  | The list handed on, 1 | a define for each kind | the same | a function | a function |
+  | The counts, runs and joins, 6, and Seiyaku's runs | no | yes | yes, by B's three | yes, as functions in the kit and the prelude |
+  | A helper's value in a primitive, `beside` in `&expand` | no | no | yes | yes |
+  | A predicate as a test, `filter` | no | no | the test, not the walk | yes |
+  | The prelude's library, 5 | no | no | no | yes |
+  | `CART.14.2`'s N said once | `+expand`, not the runs | yes | yes | yes |
+  | Cost | `~days` | `~days` | `~weeks` | `~weeks`, and the stack measured in Excel |
+
+  **The decisions, the owner's,** each with the recommendation and what it
+  declines. The one-way doors are 1, 3, 5 and 6: once sources compute at
+  expand time, read a function's value as a form, or read a defined word or
+  a handed-in call as a value, taking it back means reading every source
+  again. The rest are limits, refusals and names, each raised, relaxed or
+  aliased later for a day's work.
+
+  1. *The doctrine's sentence,* in words before a line is built, as the line
+     asks. Proposed, for `expand.rs`' head and `VLA.bas`' macro system
+     alike: "No gensym and no eval. Compile-time computation is the
+     expand-time primitives and the functions a source defines over them:
+     each a pure function of its arguments and the source's literals, never
+     reading a file, a clock or anything two compiles could see differently;
+     every call counted against the fuel and refused by name past it; and
+     what it computes lands in the rows a reader sees." QUASIQUOTE's "no
+     evaluator at all" stays in this file as the record of its day, this
+     entry its amendment. (a) Amended as proposed; (b) left as it stands,
+     the item closing as a decision and the walks staying; (c) amended for
+     values alone, candidate A. *Recommended:* (a). No symbol is invented,
+     no text becomes code, the fuel stays, the result is rows a person
+     reads, and the computation is already there, in the walks, paid for in
+     readability: the sitting's case, which the census above measures.
+
+  2. *What the item builds:* the four candidates above, and a fifth the
+     prelude's header proposes, (E) no new definition at all, a macro's call
+     where a value is read expanded on the spot. *Recommended:* D, with A's
+     two readings inside it (decisions 5 and 6). C's line is principled,
+     Dhall's, but its counts and runs then need B's three primitives, each
+     built twice and each a word a function could have been; D writes them
+     as functions in the libraries that use them, the kit and the prelude.
+     Declined: B, three words in the language where one form serves; A
+     alone, which leaves eleven walks; E, since a macro's call a parameter
+     holds is data today (the kit's `at` reads `(car call)`), so the rule
+     could hold only for a call written in place, it needs the walk inside
+     substitution in both implementations, and a macro that writes rows,
+     called where a value is read, gives a begin of rows as a value.
+
+  3. *Where a function computes, and what its value is.* A function is a
+     primitive an author names: its call computes wherever a primitive's
+     would, at substitution anywhere in a template outside a quasiquote's
+     shield, and in the walk wherever the walk meets one outside a template;
+     and its value stands where the call stood. Example, `(defexpand
+     (pressed-test b) (list (quote edge) b))` in a verb's expression: (a)
+     the value looked at again by the walk, as a primitive's result inside a
+     template is, `=AND(Input!B13=1,Input.last!B13=0)`; (b) the value data
+     the walk passes by, the line's "its result data" read strictly,
+     `=EDGE(Input!B13)`, written in silence as one of Excel's functions; (c)
+     data, with a list in it headed by a macro's name refused by name.
+     *Recommended:* (a). The line asks whether a function may write rows or
+     only return a value; the expander knows no row, the hourglass's waist,
+     so it cannot hold "only a value", and under (a) a function returns a
+     form as a primitive's result is one, a row staying the macros' to write
+     by the house's style, which `VLA.7`'s lint can hold. Declined: (b), for
+     its silent text; (c), since a value building an expression is the case
+     that wants the macro.
+
+  4. *What a function reads.* Its arguments as values, each read as a
+     primitive reads its own (decision 6), a call nested in one computed
+     first, one `quote` unwrapped; its body sees its parameters and nothing
+     ambient but the functions and, by decision 5, the defines of the forms
+     before. `self` passes through a function as a word: a primitive inside
+     it refuses the word, by name where it reads a text
+     (`vla-self-in-a-primitive`, since `VLA.10`), and a form of the walk in
+     its value reads it when the walk looks at the value again, so that
+     `(sum (ring self))` in a verb's expression, `ring` returning
+     `(offset-expand x -1 -1 3 3)`, writes a `SUM` over the place and its
+     eight neighbors; a loop cannot walk such a value, a form until the walk
+     computes it. (a) As said, no rule of its own; (b) the line's note:
+     where the walk meets a call it expands the arguments first, `self`
+     among them, and substitution leaves a call holding `self` standing for
+     the walk, a second order of computing by where a call stands.
+     *Recommended:* (a), which keeps the note's aim, no function reading an
+     ambient place, with no new rule.
+
+  5. *Whether a define's word is a value a primitive reads.* After `(define
+     side 3)`, `(+expand side 1)`: (a) as today, refused, "got 'side'", and
+     a value a primitive takes named by a function of no arguments,
+     `(defexpand (side) 3)` and `(+expand (side) 1)`, as Racket gives such a
+     value a binding of its own; (b) a define's word read as its form
+     wherever a value is read, at substitution as in the walk, so that
+     `(+expand side 1)` reads `4` and `(each (v digits) ...)` walks a
+     defined list: the replacement the walk already makes wherever the word
+     stands as an expression (`(sheet "S" hidden)` above), made in a
+     primitive's argument too, a template's parameter of the same word still
+     hiding it (`VLA.6`, decision 2). *Recommended:* (b): one way to name a
+     value, `CART.14.2`'s `(define side 3)` reading as written, and
+     `VLA.11`'s `(parameter side 3)` later the same kind of word with a
+     door's value. It amends `VLA.6`'s "the walk's alone" and the reason
+     `VLA.10` and `VLA.15` gave for their forms of the walk, which stand. A
+     template's expansion becomes a function of its arguments and of the
+     defines of the forms before its own, which are fixed while its form
+     expands and register only after it, so no channel opens between
+     siblings (LISTOPS-CONFLUENCE). Declined: (a), two ways to name a
+     constant by where it is used; and `self` read at substitution,
+     `VLA.10`'s decision 2 standing.
+
+  6. *A value read the same whoever wrote it.* Where a value is read, a
+     primitive's argument, a test, a loop's list, a `let-expand`'s value or
+     a function's argument, a word of the template, a parameter, a loop's
+     name or a `let-expand`'s name, may hold a call its caller wrote: (a) as
+     today, the caller's form taken as data, so that `(plus-one (+expand 2
+     3))` is refused at the top and reads `6` inside a template, and a
+     function's call handed in is refused alike; (b) a function's call
+     handed in computed there, a primitive's still data; (c) any call handed
+     in, a function's or a primitive's, computed there, `quote` still
+     shielding data. *Recommended:* (c): the top and a template read one
+     way; `KIT.1`'s rule that a verb builds its row inside a quasiquote, so
+     that a piece may be an `&expand`, retires at its root; and a function
+     needs it anyway, its call handed in by a parameter being the common
+     case, `(boxes-around (neighbors kind))`. The changed meaning, flagged:
+     a list primitive, `car` or `equal?`, reading a parameter that holds a
+     primitive's call took the call as data and now takes its value; no
+     template in Delta is known to, and every cartridge's bytes and the
+     expand golden's are the witness.
+
+  7. *Recursion and the fuel.* Example, a run of numbers, `(numbers 1 81)`,
+     written over an accumulator, and the same written plainly, `(cons from
+     (numbers (+expand from 1) last))`: (a) no recursion, a function calling
+     only those defined before it, both refused at the definition and a run
+     of numbers then B's primitive; (b) every call nested, to one measured
+     depth, so that a run longer than the depth is refused however it is
+     written; (c) a call in a tail place, the body, a chosen branch of
+     `quote-if` or `cond`, or a `let-expand`'s body, looped as the chain is
+     (TABLESPEC-SCALE) at no cost in stack, and every other call nested to a
+     depth measured in the reference: the first reads a run as long as the
+     fuel allows, the second is refused once the run is longer than the
+     depth, the refusal naming the form that would loop; (d) an explicit
+     stack in both implementations, every call bounded by the fuel alone,
+     `~weeks` more in the reference. The fuel: each call a link, the calls
+     of one working-out counted against 5,000, the chain's own number,
+     refused by name past it; a value at most 1,000,000 forms, weighed as an
+     application's result is. The depth is measured at the build's first
+     step: a function nested inside the deepest expansion the pure suite
+     holds, deepened until the reference's stack runs out, the limit set at
+     half of that, and at 64, the form depth's, if the stack allows it; a
+     level of a function's call costs the reference several frames where a
+     level of `VLA.10`'s binding costs two. *Recommended:* (c), every limit
+     a refusal by name that can be raised later. Declined: (a), Dhall's
+     discipline, which turns every walk into a primitive; (b), under which
+     no run longer than the depth is written at all, Seiyaku's 81 and
+     Superposition's 512 among them, since the reference's stack holds some
+     150 nested expansions; (d) for now, a later item if a client meets the
+     depth.
+
+  8. *`let-expand`'s shape.* `(let-expand ((name value) ...) form ...)`:
+     each value read in order, under the names bound before it (Scheme's
+     `let*`, Clojure's `let`), so that a step names the one before it; each
+     name checked as a loop's name is, a word, no reserved word, none a
+     parameter or a name already bound in the template, two alike refused
+     (`vla-each-name-bound`'s rule); the body's forms substituted under the
+     bindings, one form its own result and several one `begin`, as a
+     template's are, and one form where a value is read. It stands wherever
+     a primitive does: in a template, in a function's body, and at the top,
+     where its body is then walked. *Recommended,* as `VLA.10`'s note pairs
+     it with `bind-expand`: a value a primitive can take, for one form, at
+     substitution. Declined: Scheme's parallel `let`, whose order a reader
+     must keep in mind; a name hiding an outer one, which the house's loops
+     already refuse.
+
+  9. *A function's definition.* `(defexpand (name parameter ... [& rest])
+     ["docstring"] form)`: positional parameters and a rest, as a macro's;
+     no named pieces, refused by name, since a function's arguments are
+     values and `(f 1 (b 2))` could not tell a piece from a call of a
+     function `b` (a refusal `VLA.9`'s pieces can relax); the docstring a
+     macro's (L17); one form, the value, several refused by name. Taken
+     before any form expands, as a macro is, by `collect` and the
+     reference's four loops, so that functions call one another in any
+     order. Its name refused as a define's word is (a reference, a number, a
+     truth value, a keyword, a form of the head table, an expand-time word,
+     a form of the formula syntax's own), when it is a macro's or a
+     define's, and when it is a function's already: a second definition
+     refused by name, where a macro's replaces the first in silence
+     (`VLA.11`'s). `defexpand` and `let-expand` join the expand-time words a
+     macro, a loop's name, a piece and a define may not take. Defined in a
+     source, an include and the prelude; a phrasebook's later, since its
+     loader and its two gates are a promise to outsiders (`SEC.2`, `SD-4`)
+     this item leaves alone. *Recommended.* The size ladder of `ENGINE.9`
+     keeps its macro, whose replacement a door appends, until `VLA.11`'s
+     `parameter`; so do Life's, the gun's and Superposition's sizes in
+     Alonzo's slice. Declined: a replacement in silence, which `VLA.11`
+     would then have to take back.
+
+  10. *What a function's body is:* a template of one form, read as a macro's
+      template is, its primitives computing at substitution and anything
+      else standing in the value for the walk, as it stands in a template's
+      result; the forms of the walk among them, which compute where the walk
+      looks at the value again (decision 3). `each` and `each-index` give
+      the list of their results, so a map is a loop. *Recommended,* one
+      language for both kinds of helper, the 2030 sitting's fourth lesson, a
+      function differing from a macro only in that its arguments are values
+      and its call computes where a value is read. Declined: a body of
+      expand-time computations alone, every other form refused by name, more
+      refusals and a second language for the same templates.
+
+  11. *The names.* `defexpand` and `let-expand`, the line's: the tutorial's
+      rule, "A name that ends in `expand` is computed while the macro
+      expands", and `let-expand` `bind-expand`'s pair. Names are revisable
+      by an alias. Declined: `define-for-syntax`, Racket's, three words
+      where one serves; `defun`, Common Lisp's, which reads to the statement
+      language as VBA's `Function`.
+
+  12. *The interface.* `vla-lang` adds `Expander::define(&List) ->
+      Result<bool, Refusal>`, taking any definition, a macro's or a
+      function's, and answering whether the form was one; `collect` calls
+      it, and `define_macro` stays. Alonzo's pass and the core's phrasebook
+      probe call `define` at their next change, so that a definition the
+      language adds later asks no client to change. A function's own type
+      stays private until a reader asks; `describe` listing functions is
+      `VLA.12`'s and `VLA.14`'s. *Recommended.* The release is the owner's:
+      0.15.0 beside `KERNEL.55`, or the one after.
+
+  13. *What an auditor sees.* LISTOPS-PROVENANCE settled, at the owner's
+      follow-up, that "an auditor reading generated code six months later,
+      with zero context, needs the trace IN the code, not just in a
+      load-time error nobody's still looking at"; here the code is a
+      cartridge's rows, which `VLA.14` keeps free of any trail by design, a
+      side file beside them. (a) The rows alone, the trail `VLA.14`'s; (b)
+      every refusal raised inside a working-out naming the calls it stands
+      in, outermost first, a few at most, and the stepper (`VlaExpandStep`
+      and `VlaExpandStepText`, the port's `expand_one_pass`) showing a
+      function's call beside its value as one step, the legibility LISTOPS's
+      adjudication found in `VlaExpandStep`; (c) `VLA.14`'s trail first,
+      this item after. *Recommended:* (b), the trail's smallest part built
+      where it is first needed, the rows' origins staying `VLA.14`'s.
+      Declined: (c), which holds this item on a larger one.
+
+  **The wall weighed, the approval's condition.** The determinism half
+  stands whole, each condition of 2026-10-29 held by construction: a
+  function reads its arguments and the source's literals and nothing two
+  compiles could see differently (LISTOPS-PURITY); every call is a link of
+  the fuel and every nesting a level of the depth, each refused by name
+  (LISTOPS-BUDGET); a result is a pure function of its arguments, and the
+  defines decision 5 reads are fixed while a form expands and register only
+  after it, so no channel opens between siblings (LISTOPS-CONFLUENCE); no
+  name is invented and no text becomes code, the `GENSYM` and `eval` vetoes
+  untouched; and the arithmetic is the primitives', whole-number and free of
+  locale. One determinism the item adds and must hold: a depth refused at
+  one number on every machine, so the number is held with headroom by the
+  reference's stack in Excel and by the port's 1 MiB in an unoptimized build
+  (`tests/limits.rs`), the wasm module's among them, since Alonzo's page runs
+  the pass (`alonzo_expand`). The auditability half weakens in one bounded
+  way: a value can be computed behind a name, where today it is written into
+  a template or walked by a macro, and a template's expansion reads the
+  defines before its form (decision 5) and a call its caller handed in
+  (decision 6). What it replaces is less legible than what it brings: the
+  walks are procedures already, written as continuations, `(then value
+  args...)`, that an auditor unwinds by hand. Decision 13 is the offset, and
+  is built with the language and not after it. The verdict, given at the
+  approval: the benefits outweigh the weakening, eleven walks and five
+  continuations retired, `CART.14.2` and `KIT.7` unblocked and the
+  prelude's `filter` written, on two terms: decision 13 within the first
+  slice, and the depth held alike in both implementations.
+
+  **The slices.** (1) The language, the reference first (`SD-18`) and then
+  the port: the doctrine's sentence; `let-expand`; `defexpand`, its
+  definition, its call at substitution and in the walk, the tail loop, the
+  depth, measured first in Excel, and the fuel; a define's word and a
+  handed-in call read as values; the refusals; `Expander::define`; the
+  expand golden's cases. (2) The prelude's list library over functions:
+  `length`, `reverse`, `append`, `quote-map` over a loop, `quote-reduce`,
+  and the `filter` its header declined, the English phrasebook's five uses
+  of the prelude's predicates and every golden unmoved. Then, not this
+  item's: Alonzo's pin, its pass's `define`, the kit's `widths` and
+  `heights` over a run of numbers and `beside` a function, Brickwork's
+  `wall-size` and Superposition's `neighbors` and `tally-blocks` rewritten,
+  every cartridge `same` (a slice of a `KIT` item, Alonzo's to mint);
+  `CART.14.2` over them; and Buffet's kitchen at its next pin.
+
+  **The oracle.** The expand fixture's new cases, read by both
+  implementations, the golden written by the reference in Excel
+  (`VlaWriteExpandGolden`) and the port held to it, witnessed by `cmp`
+  against the port's prediction: a function's call at substitution and in
+  the walk, in a primitive's argument, a test, a loop's list and another
+  function's argument; a call handed in by a parameter; a define's word read
+  as a value; a tail loop of 5,000 links and one past it; a call nested to
+  the depth and one past it; `let-expand` in a template, in a function and
+  at the top; each refusal at its line. `TestFunctions` in the pure suite,
+  the depth's refusal among its pins, so that no stack runs out. The port's
+  laws over generated functions and arguments: a call computed at
+  substitution and in the walk reads alike; two sibling calls in one form
+  give the same rows in either order (LISTOPS-CONFLUENCE); a source expanded
+  twice gives the same bytes. Every cartridge's `expand --check` and
+  Buffet's expansion test over the release, unchanged, before the kit is
+  touched; the prelude's slice by the expand golden and `TestListops`.
+
+  **Found** (not minted).
+  - A primitive the walk meets outside a template returns its result
+    unwalked (`VLA.5`, left as found): `(cell "S" "A1" (quote-if true (m)
+    x))` writes `(m)` with the macro unexpanded, where the same inside a
+    template expands it. Decision 3 reads a function's value again; making a
+    primitive's the same is a changed meaning, to flag where the two first
+    meet.
+  - A define's word replaces a row's own word: after `(define hidden 7)`,
+    `(sheet "S" hidden)` writes `(sheet "S" 7)` with no refusal, since the
+    expander knows no row. `VLA.11`'s, whose free symbol is its kin;
+    decision 5 carries the same replacement into a primitive's argument and
+    adds no new kind of it.
+  - The quasiquotes in the kit's `widths`, `heights` and `interior`,
+    Superposition's `layers`, `tally` and `tally-blocks`, and the kitchen's
+    `draws`, `strings`, `picker` and `picker-from` compute nothing that
+    plain substitution would not: a walk written plainly, its computed
+    argument in a macro's call, expands the same (probed). Decision 6
+    retires the rule they follow; the style is Alonzo's and Buffet's to drop
+    at their rewrite.
+  - LISPIMPORT's `apply`, a call over an argument list computed, stays
+    unwritable: a function's call spreads no list. LISPIMPORT's, if a client
+    asks.
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 

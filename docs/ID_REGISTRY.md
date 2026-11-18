@@ -467,7 +467,8 @@ at the owner's word ("Mint items to cover the 2030 gaps"), from the third
 sitting of that day, VLA in 2030 (Alonzo's `docs/2030.md` §7.3;
 `BETA_REARVIEW.md`, THE METAMETAMACRO LINE, the sitting of 2026-10-25):
 `VLA.8`, functions at expand time with values and `let-expand`, its first
-decision the doctrine's wording, the owner's; `VLA.9`, named pieces with
+decision the doctrine's wording, the owner's, scoped and approved
+2026-11-18; `VLA.9`, named pieces with
 defaults, a macro's options named at the call, scoped, approved, built,
 owner-tested and committed 2026-10-30; `VLA.10`, verbs that compose, the
 fill's own place as a word, `self`, bound by `bind-expand` and read by the
