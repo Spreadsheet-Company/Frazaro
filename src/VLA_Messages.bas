@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.8"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.11"
+' VLA.11: hygiene by design, its first slice, four refusals under VLA:
+' vla-defmacro-twice - a macro defined a second time in a compile, the first
+' one's line named; vla-parameter-given-twice - a door giving one parameter
+' two values; vla-parameter-kind - a door's value of another kind than the
+' source's, a number, a text, a word or a list; vla-parameter-undeclared - a
+' door's value no parameter of the source took. And the seven of a define
+' name their form, define or parameter, by a slot of their own, {head}, a
+' define's text as it was.
+'
 ' VLA.8: functions at expand time and let-expand, fifteen refusals under VLA.
 ' Eight of a function's definition, each naming it: vla-defexpand-shape - the
 ' form (defexpand (name parameter ...) form); vla-defexpand-name-reference,
@@ -943,11 +952,11 @@ Private Sub AddEntries(ByVal m As Collection)
     ' that the formula syntax's last and the walk's sheet-expand and
     ' range-expand share: each refusal names the word or the reference the
     ' author wrote.
-    AddMsg m, "vla-define-shape", 5, "VLA", "define: write (define name form), a name and the one form it stands for - got {form}"
-    AddMsg m, "vla-define-name-reference", 5, "VLA", "define '{word}': '{word}' reads as {what}, and a define gives a reference a word of its own, such as stop"
-    AddMsg m, "vla-define-name-reserved", 5, "VLA", "define '{word}': '{word}' is {desc}, and a define binds a word of the source's own"
-    AddMsg m, "vla-define-name-taken", 5, "VLA", "define '{word}': '{word}' is {what} in this source - a word names one thing"
-    AddMsg m, "vla-define-not-a-statement", 5, "VLA", "define '{word}': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula"
+    AddMsg m, "vla-define-shape", 5, "VLA", "{head}: write ({head} name form), a name and the one form it stands for - got {form}"
+    AddMsg m, "vla-define-name-reference", 5, "VLA", "{head} '{word}': '{word}' reads as {what}, and a {head} gives a reference a word of its own, such as stop"
+    AddMsg m, "vla-define-name-reserved", 5, "VLA", "{head} '{word}': '{word}' is {desc}, and a {head} binds a word of the source's own"
+    AddMsg m, "vla-define-name-taken", 5, "VLA", "{head} '{word}': '{word}' is {what} in this source - a word names one thing"
+    AddMsg m, "vla-define-not-a-statement", 5, "VLA", "{head} '{word}': a {head} stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula"
     ' VLA.8 - a function at expand time, its definition, its call and its
     ' working-out, and let-expand, a value bound for one form: each refusal
     ' names the function or the form the author wrote.
@@ -966,8 +975,15 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-function-depth", 5, "VLA", "function '{name}': calls nested more than {limit} deep - a call that is the function's value, its body, a chosen branch or a let-expand's form, loops and nests none"
     AddMsg m, "vla-let-expand-shape", 5, "VLA", "let-expand: write (let-expand ((name value) ...) form ...): each binding a name and its value, and at least one form after them"
     AddMsg m, "vla-let-expand-value-forms", 5, "VLA", "let-expand: where its value is read it holds one form, and this one holds {n}"
-    AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own"
-    AddMsg m, "vla-define-cycle", 5, "VLA", "define '{word}': the words {ring} stand for one another in a ring - a define names a form that does not come back to it"
+    ' VLA.11 - a macro defined once in a compile, and a parameter, a define
+    ' whose value a door may give: each refusal names the word, and a door's
+    ' the value it gave.
+    AddMsg m, "vla-defmacro-twice", 5, "VLA", "defmacro '{name}': '{name}' is defined already{loc} - a word names one thing, and a value a door changes is a (parameter ...)"
+    AddMsg m, "vla-parameter-given-twice", 5, "VLA", "parameter '{word}': a door gives it a value twice, and a parameter takes one"
+    AddMsg m, "vla-parameter-kind", 5, "VLA", "parameter '{word}': the door gives {value}, {kind}, where the source's value is {default}, {wants} - a door's value is of its parameter's kind"
+    AddMsg m, "vla-parameter-undeclared", 5, "VLA", "parameter '{word}': a door gives it a value, and no (parameter {word} ...) of the source declares it"
+    AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a {head} binds the forms after its own"
+    AddMsg m, "vla-define-cycle", 5, "VLA", "{head} '{word}': the words {ring} stand for one another in a ring - a {head} names a form that does not come back to it"
     AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"
     AddMsg m, "vla-reference-expected", 5, "VLA", "{op}: expected {want}, such as Input!B5 or (ref ""Q1 Data"" ""A1""), got '{value}', {what}"
     AddMsg m, "vla-formula-last-twin", 5, "VLA", "last: '{value}' is a twin already, and a twin has none - (last X) takes the reference X itself"

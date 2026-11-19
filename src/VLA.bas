@@ -20,7 +20,24 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
-Public Const VLA_CORE_VERSION As String = "VLA.8"
+Public Const VLA_CORE_VERSION As String = "VLA.11"
+' VLA.11: HYGIENE BY DESIGN, ITS FIRST SLICE, THE DEFINITIONS. A macro is
+' defined once in a compile: DefineMacro refuses a second definition of a
+' name by name (vla-defmacro-twice), the prelude's, a phrasebook's, an
+' include's and the source's alike, the first one's line named (the record's
+' item 8), so that an expansion never depends on the order its definitions
+' stand in. (parameter word value) is a define whose value a door may give:
+' IsDefineForm takes it, so the walk passes it by, DefinesTake takes it from
+' its form and every refusal a define meets is a parameter's too, each naming
+' its form (DefineHeadOf, the define refusals' head); its word binds from the
+' next form on and is read wherever a define's is. A door gives values as
+' (parameter word value) forms apart from the source (VlaSetParameters, the
+' reference's switch, kept until VlaClearParameters): ParameterGiven puts a
+' given value in its parameter's place, of the source's kind or refused
+' (vla-parameter-kind), a word given twice refused (vla-parameter-given-twice),
+' and ParametersFinish refuses, once the source has expanded, a value no
+' parameter took (vla-parameter-undeclared). mParameters holds the compile's
+' parameter words, a VlaFrame field; "parameter" joins the reserved words.
 ' VLA.8: FUNCTIONS AT EXPAND TIME, AND LET-EXPAND. (defexpand (name
 ' parameter ... [& rest]) ["doc"] form), a pure function of its arguments,
 ' its body a template of one form, taken before any form expands as a macro
@@ -1087,6 +1104,22 @@ Private mFnTrailWritten As Boolean ' VLA.8: the trail joined to the refusal
 Private mFnDepthLimit As Long      ' VLA.8: 0 for VLA_FUNCTION_DEPTH_LIMIT; set
                                    ' by VlaSetFunctionDepthLimit alone, the
                                    ' depth probe's (VlaFunctionDepthProbe)
+Private mParameters As Object      ' VLA.11: the words the parameters of the
+                                   ' compile under way bind, a late-bound
+                                   ' Scripting.Dictionary keyed by the folded
+                                   ' word; Nothing with none. Reset beside
+                                   ' mDefines by each entry point, carried by
+                                   ' VlaFrame
+Private mGiven As Object           ' VLA.11: the values a door gives a source's
+                                   ' parameters, a late-bound Scripting.Dictionary
+                                   ' keyed by the folded word, each Array(the
+                                   ' word as the door wrote it, its value), in
+                                   ' the order given; Nothing with none. Set by
+                                   ' VlaSetParameters and kept until
+                                   ' VlaClearParameters, a switch as
+                                   ' VlaSetFunctionDepthLimit's limit is, since
+                                   ' no door of Excel's gives one; no VlaFrame
+                                   ' field
 
 ' F5.0: the push/pop stack itself - NOT one of the eighteen fields a
 ' VlaFrame snapshots (it is the stack that HOLDS those snapshots).
@@ -1330,6 +1363,7 @@ Public Function VlaTranspile(ByVal source As String) As String
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4
     Set mSubDocs = New Collection   ' P.L6: per-transpile, see declaration
@@ -1399,6 +1433,8 @@ Public Function VlaTranspile(ByVal source As String) As String
         End If
         SbAdd sb, sbU, vbCrLf
     Next
+    On Error GoTo 0   ' VLA.11: past the forms, no line of theirs is near
+    ParametersFinish
     VlaTranspile = SbText(sb, sbU)
     ' IN.7 (button-click half): the shared button-creation helper
     ' (EmitStmt's "make-button" case comment has the full reasoning)
@@ -1511,6 +1547,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4 - unused
                         ' by this function (it never calls Emit*), set
@@ -1540,6 +1577,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     For Each f In bodyForms
         expanded.Add ExpandSourceForm(f)   ' VLA.6
     Next
+    ParametersFinish   ' VLA.11
     Set VlaCompileToForms = expanded
 End Function
 
@@ -1643,6 +1681,7 @@ Public Sub VlaPushContext()
     Set f.Macros = mMacros
     Set f.Defines = mDefines        ' VLA.6
     Set f.Functions = mFunctions    ' VLA.8
+    Set f.Parameters = mParameters  ' VLA.11
     Set f.HeadAliases = mHeadAliases
     Set f.SubDocs = mSubDocs
     f.AproposCarry = mAproposCarry
@@ -1683,6 +1722,7 @@ Public Sub VlaPopContext()
     Set mMacros = f.Macros
     Set mDefines = f.Defines        ' VLA.6
     Set mFunctions = f.Functions    ' VLA.8
+    Set mParameters = f.Parameters  ' VLA.11
     Set mHeadAliases = f.HeadAliases
     Set mSubDocs = f.SubDocs
     mAproposCarry = f.AproposCarry
@@ -1850,6 +1890,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Dim bodyForms As New Collection
     Dim f As Variant
@@ -1877,6 +1918,9 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
         SbAdd sb, sbU, WritePretty(ex, 0)
         SbAdd sb, sbU, vbCrLf
     Next
+    ' VLA.11: one pass takes no define, so a door's values are held to the
+    ' parameters at the fixpoint alone.
+    If toFixpoint Then ParametersFinish
     firedCount = mExpandFired
     VlaExpandText = SbText(sb, sbU)
 End Function
@@ -2963,6 +3007,12 @@ Private Sub DefineMacro(f As Collection)
     ' VLA.8: a function of the name, defined before it, whose calls the walks
     ' compute before a macro's would apply: a word names one thing.
     If FunctionNamed(VLA_Identity.Fold(mname)) Then VLA_Messages.RaiseMsg "vla-defmacro-name-taken", "name", mname
+    ' VLA.11: and a macro is defined once in a compile, the prelude's, a
+    ' phrasebook's, an include's and the source's alike, the first one's line
+    ' named where it has one; a value a door changes is a parameter's
+    ' (VlaSetParameters), so the expansion never depends on the order the
+    ' definitions stand in.
+    If mMacros.Exists(VLA_Identity.Fold(mname)) Then VLA_Messages.RaiseMsg "vla-defmacro-twice", "name", mname, "loc", CStr(mMacros.Item(VLA_Identity.Fold(mname)).Item(8))
 
     Dim params As New Collection
     Dim pieceWords As New Collection   ' VLA.9: the named pieces' words as written,
@@ -3047,16 +3097,13 @@ Private Sub DefineMacro(f As Collection)
     rec.Add pieceWords             ' VLA.9: item 6, the pieces' words as written
     rec.Add pieceDecls             ' VLA.9: item 7, their declarations; both empty
                                    ' for a macro with no piece
-    ' PDICT.0: direct overwrite, not Remove-then-Add - a Dictionary's own
-    ' keyed Item-assignment already replaces an existing entry (or inserts
-    ' a new one) with no error either way, so "allow redefinition" needs
-    ' no separate step. This is a deliberate choice over an .Exists guard:
-    ' redefinition is the RARE case in practice (a growing phrasebook is
-    ' overwhelmingly new names), and the old Remove-then-Add shape paid a
-    ' real VBA exception-throw cost on every ordinary FIRST-time
-    ' registration (Remove always missed), not just actual redefinitions -
-    ' worse the larger a corpus gets, exactly the direction phrasebooks
-    ' and corpora are headed, not a one-time saving.
+    rec.Add FormLineTag(f)         ' VLA.11: item 8, the definition's line as a
+                                   ' refusal names it, "" for one the prelude
+                                   ' holds or a macro made
+    ' PDICT.0: a keyed Item-assignment, never Remove-then-Add, which paid a
+    ' real VBA exception-throw cost on every ordinary FIRST-time registration
+    ' (Remove always missed). Since VLA.11 the name is new here, its second
+    ' definition refused above by .Exists, which throws nothing.
     Set mMacros.Item(VLA_Identity.Fold(mname)) = rec
 End Sub
 
@@ -3254,6 +3301,10 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
             ExpandReservedDesc = "expand-time value-binding form"
         Case "defexpand"
             ExpandReservedDesc = "expand-time function-defining form"
+        ' VLA.11: a define whose value a door may give, a form of the walk as
+        ' define is.
+        Case "parameter"
+            ExpandReservedDesc = "expand-time naming form a door may give a value"
     End Select
 End Function
 
@@ -3848,7 +3899,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
         ' by as written, its word and its form never walked, for the form of
         ' the source it stands in to take once that has expanded
         ' (ExpandSourceForm); refused inside a formula's expression.
-        If headFold = "define" Then
+        If headFold = "define" Or headFold = "parameter" Then   ' VLA.11: a parameter is a define
             Set lprimTop = DefinePassedBy(lst)
             GoTo finish
         End If
@@ -5590,6 +5641,8 @@ End Function
 
 ' VLA.6: whether a form is a define, a list headed by define; a head of
 ' another length is passed over before it is folded, as IsEachForm's is.
+' VLA.11: or by parameter, a define whose value a door may give, taken by
+' every procedure a define is.
 Private Function IsDefineForm(v As Variant) As Boolean
     If Not IsObject(v) Then Exit Function
     Dim lst As Object
@@ -5598,15 +5651,26 @@ Private Function IsDefineForm(v As Variant) As Boolean
     If IsObject(lst.Item(1)) Then Exit Function
     Dim h As String
     h = CStr(lst.Item(1))
-    If Len(h) <> 6 Then Exit Function
-    IsDefineForm = (VLA_Identity.Fold(h) = "define")
+    If Len(h) <> 6 And Len(h) <> 9 Then Exit Function
+    h = VLA_Identity.Fold(h)
+    IsDefineForm = (h = "define" Or h = "parameter")
+End Function
+
+' VLA.11: the word a define's refusal names its form by, "parameter" for a
+' parameter and "define" for every other list, so that a define's refusals
+' read as they did.
+Private Function DefineHeadOf(lst As Object) As String
+    DefineHeadOf = "define"
+    If lst.Count = 0 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    If VLA_Identity.Fold(CStr(lst.Item(1))) = "parameter" Then DefineHeadOf = "parameter"
 End Function
 
 ' VLA.6: a define the walk meets at a form's head, passed by as written for
 ' ExpandSourceForm to take. Inside a formula's expression it would be
 ' written as a function's call, so it is refused there.
 Private Function DefinePassedBy(lst As Object) As Object
-    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(lst)
+    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "head", DefineHeadOf(lst), "word", DefineWordOf(lst)
     mDefineMet = True
     Set DefinePassedBy = lst
 End Function
@@ -5618,7 +5682,7 @@ Private Sub DefineNoteChosen(v As Variant)
     Dim held As Object
     Set held = DefineHeldIn(v)
     If held Is Nothing Then Exit Sub
-    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(held)
+    If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "head", DefineHeadOf(held), "word", DefineWordOf(held)
     mDefineMet = True
 End Sub
 
@@ -5667,19 +5731,25 @@ Private Function DefinesTake(r As Variant) As Variant
     DefinesRefuseStray kept
     Dim taken As Object
     Set taken = CreateObject("Scripting.Dictionary")
+    Dim heads As Object             ' VLA.11: each word's form, define or parameter
+    Set heads = CreateObject("Scripting.Dictionary")
     Dim d As Variant
     For Each d In found
-        DefineTakeOne d, taken
+        DefineTakeOne d, taken, heads
     Next
-    DefinesRefuseUse kept, taken
-    DefinesRefuseFormulaUse taken
+    DefinesRefuseUse kept, taken, heads
+    DefinesRefuseFormulaUse taken, heads
     Dim k As Variant
     For Each k In taken.Keys
-        DefinesRefuseRing CStr(k), taken
+        DefinesRefuseRing CStr(k), taken, heads
     Next
     If mDefines Is Nothing Then Set mDefines = CreateObject("Scripting.Dictionary")
     For Each k In taken.Keys
         mDefines.Add k, taken.Item(k)
+        If heads.Item(k) = "parameter" Then   ' VLA.11: a word a door may give a value
+            If mParameters Is Nothing Then Set mParameters = CreateObject("Scripting.Dictionary")
+            mParameters.Add k, True
+        End If
     Next
     If IsObject(kept) Then Set DefinesTake = kept Else DefinesTake = kept
 End Function
@@ -5726,7 +5796,7 @@ Private Sub DefinesRefuseStray(v As Variant)
     If ListHeadIs(v, "quote") Then Exit Sub
     Dim lst As Object
     Set lst = v
-    If IsDefineForm(v) Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "word", DefineWordOf(lst)
+    If IsDefineForm(v) Then VLA_Messages.RaiseMsg "vla-define-not-a-statement", "head", DefineHeadOf(lst), "word", DefineWordOf(lst)
     Dim i As Long
     For i = 1 To lst.Count
         DefinesRefuseStray lst.Item(i)
@@ -5736,17 +5806,109 @@ End Sub
 ' VLA.6: one define taken from its form: its shape, (define name form), the
 ' name a symbol and the form holding no define (DefinesRefuseStray); its
 ' name held to the rules (DefineCheckName); then the word, folded, and its
-' form as written into taken.
-Private Sub DefineTakeOne(d As Variant, taken As Object)
+' form as written into taken. VLA.11: a parameter the same, its form the
+' door's value where a door gives one (ParameterGiven), and its head, define
+' or parameter, into heads, by which each refusal names its form.
+Private Sub DefineTakeOne(d As Variant, taken As Object, heads As Object)
     Dim lst As Object
     Set lst = d
-    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-define-shape", "form", WriteDatum(d)
-    If Not IsSym(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-define-shape", "form", WriteDatum(d)
+    Dim head As String
+    head = DefineHeadOf(lst)
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-define-shape", "head", head, "form", WriteDatum(d)
+    If Not IsSym(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-define-shape", "head", head, "form", WriteDatum(d)
     DefinesRefuseStray lst.Item(3)
     Dim word As String
     word = CStr(lst.Item(2))
-    DefineCheckName word, taken
-    taken.Add VLA_Identity.Fold(word), lst.Item(3)
+    DefineCheckName word, taken, head
+    Dim value As Variant
+    AssignVar value, lst.Item(3)
+    If head = "parameter" Then ParameterGiven word, value
+    taken.Add VLA_Identity.Fold(word), value
+    heads.Add VLA_Identity.Fold(word), head
+End Sub
+
+' VLA.11: a parameter's value, the door's in place of the source's where the
+' door gives one (VlaSetParameters): of the source's kind, a number for a
+' number, a text for a text, a word for a word, a list for a list, or refused
+' by name; and holding no define, as the source's must.
+Private Sub ParameterGiven(ByVal word As String, value As Variant)
+    If mGiven Is Nothing Then Exit Sub
+    Dim k As String
+    k = VLA_Identity.Fold(word)
+    If Not mGiven.Exists(k) Then Exit Sub
+    Dim entry As Variant
+    entry = mGiven.Item(k)
+    Dim given As Variant
+    AssignVar given, entry(1)
+    If ParameterKind(given) <> ParameterKind(value) Then VLA_Messages.RaiseMsg "vla-parameter-kind", "word", word, "value", WriteDatum(given), "kind", ParameterKind(given), "default", WriteDatum(value), "wants", ParameterKind(value)
+    DefinesRefuseStray given
+    AssignVar value, given
+End Sub
+
+' VLA.11: a value's kind as a door's value is held to it: a list, a text, a
+' number (as a define's word is refused for being one), or any other word.
+Private Function ParameterKind(v As Variant) As String
+    If IsList(v) Then
+        ParameterKind = "a list"
+    ElseIf Not IsSym(v) Then
+        ParameterKind = "a text"
+    ElseIf FsIsNumeral(CStr(v)) Or FsIsNegativeNumeral(CStr(v)) Or FsVbaNumeral(CStr(v)) Then
+        ParameterKind = "a number"
+    Else
+        ParameterKind = "a word"
+    End If
+End Function
+
+' VLA.11: the door's values held to the source once it has expanded: a value
+' given a word no parameter of the source declared refused by name, in the
+' order given. Called at the end of each entry point that takes defines.
+Private Sub ParametersFinish()
+    If mGiven Is Nothing Then Exit Sub
+    Dim k As Variant
+    Dim entry As Variant
+    Dim declared As Boolean
+    For Each k In mGiven.Keys
+        declared = False
+        If Not mParameters Is Nothing Then declared = mParameters.Exists(CStr(k))
+        If Not declared Then
+            entry = mGiven.Item(k)
+            VLA_Messages.RaiseMsg "vla-parameter-undeclared", "word", CStr(entry(0))
+        End If
+    Next
+End Sub
+
+' VLA.11: the reference's door. A door gives a source's parameters their
+' values as (parameter word value) forms, kept apart from the source and
+' read before it; each value then stands in for its parameter's own
+' (ParameterGiven), and once the source has expanded a value no parameter
+' took is refused (ParametersFinish). A switch the pure suite and the expand
+' golden's writer set, kept until VlaClearParameters, as
+' VlaSetFunctionDepthLimit's limit is, since no door of Excel's gives one. A
+' form of another shape is refused as a parameter's shape, and a word given
+' twice by name.
+Public Sub VlaSetParameters(ByVal doorText As String)
+    Dim forms As Collection
+    Set forms = VlaReadForms(doorText)
+    Dim f As Variant
+    Dim lst As Object
+    Dim word As String
+    For Each f In forms
+        If Not IsDefineForm(f) Then VLA_Messages.RaiseMsg "vla-define-shape", "head", "parameter", "form", WriteDatum(f)
+        Set lst = f
+        If DefineHeadOf(lst) <> "parameter" Then VLA_Messages.RaiseMsg "vla-define-shape", "head", "parameter", "form", WriteDatum(f)
+        If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-define-shape", "head", "parameter", "form", WriteDatum(f)
+        If Not IsSym(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-define-shape", "head", "parameter", "form", WriteDatum(f)
+        word = CStr(lst.Item(2))
+        If mGiven Is Nothing Then Set mGiven = CreateObject("Scripting.Dictionary")
+        If mGiven.Exists(VLA_Identity.Fold(word)) Then VLA_Messages.RaiseMsg "vla-parameter-given-twice", "word", word
+        mGiven.Add VLA_Identity.Fold(word), Array(word, lst.Item(3))
+    Next
+End Sub
+
+' VLA.11: the door's values forgotten, so that a later compile reads its
+' parameters' own.
+Public Sub VlaClearParameters()
+    Set mGiven = Nothing
 End Sub
 
 ' VLA.6: a define's word, refused by name when the reference scanner reads
@@ -5754,16 +5916,17 @@ End Sub
 ' Excel refuses a name (DefineReadsAs); when it is a number, a truth value,
 ' a keyword, a form of the head table, an expand-time name or a form of the
 ' formula syntax's own (DefineReservedDesc); and when it is a macro's name
-' or defined already, in an earlier form or in this one.
-Private Sub DefineCheckName(ByVal word As String, taken As Object)
+' or defined already, in an earlier form or in this one. VLA.11: head, define
+' or parameter, names the form in each refusal.
+Private Sub DefineCheckName(ByVal word As String, taken As Object, ByVal head As String)
     Dim what As String
     what = DefineReadsAs(word)
-    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reference", "word", word, "what", what
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reference", "head", head, "word", word, "what", what
     what = DefineReservedDesc(word)
-    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reserved", "word", word, "desc", what
-    If Not GetMacro(word) Is Nothing Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "a macro's name"
-    If FunctionNamed(VLA_Identity.Fold(word)) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "a function's name"   ' VLA.8
-    If DefineBound(VLA_Identity.Fold(word), taken) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "defined already"
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reserved", "head", head, "word", word, "desc", what
+    If Not GetMacro(word) Is Nothing Then VLA_Messages.RaiseMsg "vla-define-name-taken", "head", head, "word", word, "what", "a macro's name"
+    If FunctionNamed(VLA_Identity.Fold(word)) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "head", head, "word", word, "what", "a function's name"   ' VLA.8
+    If DefineBound(VLA_Identity.Fold(word), taken) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "head", head, "word", word, "what", "defined already"
 End Sub
 
 ' VLA.6: what the reference scanner reads a define's word as, "" for a word
@@ -5831,10 +5994,10 @@ End Function
 ' where the walk would have put its form - the result itself, a list's
 ' element after an atom head, never a quote's - refused: in the form that
 ' defines it a word is not yet bound.
-Private Sub DefinesRefuseUse(v As Variant, taken As Object)
+Private Sub DefinesRefuseUse(v As Variant, taken As Object, heads As Object)
     If Not IsObject(v) Then
         If IsSym(v) Then
-            If taken.Exists(VLA_Identity.Fold(CStr(v))) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "word", CStr(v)
+            If taken.Exists(VLA_Identity.Fold(CStr(v))) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "head", CStr(heads.Item(VLA_Identity.Fold(CStr(v)))), "word", CStr(v)
         End If
         Exit Sub
     End If
@@ -5843,7 +6006,7 @@ Private Sub DefinesRefuseUse(v As Variant, taken As Object)
     Set lst = v
     Dim i As Long
     For i = 1 To lst.Count
-        If i > 1 Or IsObject(lst.Item(i)) Then DefinesRefuseUse lst.Item(i), taken
+        If i > 1 Or IsObject(lst.Item(i)) Then DefinesRefuseUse lst.Item(i), taken, heads
     Next
 End Sub
 
@@ -5851,7 +6014,7 @@ End Sub
 ' one of this form's formulas as one of Excel's names, since it was not yet
 ' bound there: each text formula-expand wrote in the form read again by
 ' RefersScan, and a name with no sheet that is such a word refused.
-Private Sub DefinesRefuseFormulaUse(taken As Object)
+Private Sub DefinesRefuseFormulaUse(taken As Object, heads As Object)
     If mFormulaTexts Is Nothing Then Exit Sub
     Dim t As Variant
     Dim refs() As FormulaRef
@@ -5860,7 +6023,7 @@ Private Sub DefinesRefuseFormulaUse(taken As Object)
         n = VLA_Refers.RefersScan(CStr(t), refs)
         For i = 1 To n
             If refs(i).Kind = "name" And Len(refs(i).SheetName) = 0 Then
-                If taken.Exists(VLA_Identity.Fold(refs(i).Part)) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "word", refs(i).Part
+                If taken.Exists(VLA_Identity.Fold(refs(i).Part)) Then VLA_Messages.RaiseMsg "vla-define-used-in-its-form", "head", CStr(heads.Item(VLA_Identity.Fold(refs(i).Part))), "word", refs(i).Part
             End If
         Next
     Next
@@ -5871,7 +6034,7 @@ End Sub
 ' registers, the ring named. The words a define's form would have replaced
 ' (DefineWordsIn) are followed once each, breadth first, through every word
 ' a define binds, in an earlier form or this one; the ring is the way back.
-Private Sub DefinesRefuseRing(ByVal startName As String, taken As Object)
+Private Sub DefinesRefuseRing(ByVal startName As String, taken As Object, heads As Object)
     Dim cameFrom As Object
     Set cameFrom = CreateObject("Scripting.Dictionary")
     Dim queue As New Collection
@@ -5887,7 +6050,7 @@ Private Sub DefinesRefuseRing(ByVal startName As String, taken As Object)
         Set wordsIn = New Collection
         DefineWordsIn DefineValueOf(atName, taken), wordsIn
         For Each wordAt In wordsIn
-            If CStr(wordAt) = startName Then VLA_Messages.RaiseMsg "vla-define-cycle", "word", startName, "ring", DefineRingText(startName, atName, cameFrom)
+            If CStr(wordAt) = startName Then VLA_Messages.RaiseMsg "vla-define-cycle", "head", CStr(heads.Item(startName)), "word", startName, "ring", DefineRingText(startName, atName, cameFrom)
             If DefineBound(CStr(wordAt), taken) Then
                 If Not cameFrom.Exists(CStr(wordAt)) Then
                     cameFrom.Add CStr(wordAt), atName

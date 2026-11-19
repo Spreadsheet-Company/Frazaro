@@ -188,6 +188,30 @@
   crate's users. A build's stamp names the prelude it was built with, so
   `rebuild` of a workbook built before, given this prelude, answers no and
   says why: build it again (VLA.8).
+- **A macro is defined once.** A changed meaning: a second `defmacro` of a
+  name is refused by name, `vla-defmacro-twice`, where it replaced the first
+  in silence, everywhere the first was called, before it as after it. The
+  prelude's macros are among them, so a source's own `when` is refused, and
+  so are a phrasebook's and an include's: one compile, one meaning for each
+  word, as a function's and a define's already had. The refusal names the
+  first definition's line where it has one: `defmacro 'm': 'm' is defined
+  already (vla line 1) - a word names one thing, and a value a door changes
+  is a (parameter ...)`. No source of Frazaro's, Alonzo's or Buffet's defines
+  a macro twice; Alonzo's size ladder, which defined `board-size` again after
+  a source, moves to `parameter` at its next pin (VLA.11).
+- **A value a door gives: `(parameter name form)`.** A define whose form a
+  door that builds the source may replace: in the source it is a define, its
+  word binding the forms after its own and read wherever a define's is, as a
+  value too; a door gives its values as `(parameter name value)` forms apart
+  from the source, each of its parameter's kind, a number for a number, a
+  text for a text, a word for a word and a list for a list, and a value no
+  parameter of the source declares is refused by name once the source has
+  expanded. `parameter` joins the words a macro, a loop, a piece and a define
+  may not take. A define's refusals name the form, so a parameter's say
+  `parameter`, a define's reading as before. For the crates' users,
+  `Expander::set_parameter`, `Expander::set_parameters`,
+  `Expander::finish_parameters` and `expand::expand_text_given` are new
+  (VLA.11).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,

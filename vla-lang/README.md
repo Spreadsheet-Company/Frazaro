@@ -79,7 +79,13 @@ refused in the same words.
   primitive's argument among them, never at a list's head or inside a quote
   or a text, and refuses by name a word that already means something (a
   reference, a number, a form of the language, a macro's name), a word used
-  in the form that defines it, and a ring of words.
+  in the form that defines it, and a ring of words. `(parameter board-width
+  320)` is a define whose form a door that builds the program may replace:
+  `Expander::set_parameter`, or `Expander::set_parameters` over a door's own
+  text of `(parameter board-width 640)` forms, before the first form expands,
+  each value of its parameter's kind, and `Expander::finish_parameters` once
+  the last has, refusing by name a value no parameter of the program
+  declares; `expand::expand_text_given` does all three.
 
   A macro may take named pieces after its positional parameters, so that a
   caller names only what differs, in any order, and a piece can be added
@@ -159,8 +165,10 @@ refused in the same words.
   calls it stands in, `(computing (outer (a)) > (inner (a)))`. A primitive
   reads a call of a primitive or a function that a parameter, a loop's name
   or a `let-expand`'s name hands it as that call's value. A word names one
-  thing, a macro or a function, and a second function of one name is
-  refused. `Expander::define` takes a definition of either kind and answers
+  thing, a macro or a function, and a second definition of one name, a
+  function's or a macro's, the prelude's among them, is refused by name, so
+  that an expansion never depends on the order its definitions stand in.
+  `Expander::define` takes a definition of either kind and answers
   whether a form was one, and `Expander::function_doc` a function's
   docstring. The prelude's list library is functions: `length`, `reverse`,
   `append`, `quote-map`, `quote-reduce` and `quote-filter`, so

@@ -33,7 +33,15 @@
 //! [`FUNCTION_FUEL`]; `(let-expand ((name value) ...) form ...)`, a value bound
 //! for its forms (`EvalLetExpand`); and a value read the same whoever wrote
 //! it, a define's word its form and a call a word of the template holds
-//! computed where a primitive reads its argument (`ValueRead`).
+//! computed where a primitive reads its argument (`ValueRead`). And, since
+//! VLA.11, hygiene by design: a macro is defined once in a compile, its
+//! second definition refused by name, so that an expansion never depends on
+//! the order its definitions stand in; and `(parameter word value)` is a
+//! define whose value a door may give, taken by every procedure a define is,
+//! the door's values given apart from the source
+//! ([`Expander::set_parameter`]), each of its parameter's kind, and a value
+//! no parameter takes refused once the source has expanded
+//! ([`Expander::finish_parameters`]).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -178,6 +186,9 @@ const RESERVED: &[(&str, &str)] = &[
     // expands, so a macro of the name could never be called.
     ("let-expand", "expand-time value-binding form"),
     ("defexpand", "expand-time function-defining form"),
+    // VLA.11: a define whose value a door may give, a form of the walk as
+    // define is.
+    ("parameter", "expand-time naming form a door may give a value"),
 ];
 
 /// VLA.8: the most calls of functions one working-out nests, a call in a
@@ -248,13 +259,25 @@ fn is_each_form(n: &Node) -> bool {
 
 /// VLA.6, VBA `IsDefineForm`: a define, a list headed by `define`, over a
 /// form the walk has written out, folding nothing, as [`is_each_form`]
-/// folds nothing.
+/// folds nothing. VLA.11: or by `parameter`, a define whose value a door may
+/// give, taken by every procedure a define is.
 fn is_define(f: &Form) -> bool {
     match f {
-        Form::List(l) => {
-            matches!(l.items.first(), Some(Form::Sym(s)) if s.eq_ignore_ascii_case("define"))
-        }
+        Form::List(l) => matches!(
+            l.items.first(),
+            Some(Form::Sym(s)) if s.eq_ignore_ascii_case("define") || s.eq_ignore_ascii_case("parameter")
+        ),
         _ => false,
+    }
+}
+
+/// VLA.11, VBA `DefineHeadOf`: the word a define's refusal names its form
+/// by, `parameter` for a parameter and `define` for every other list, so that
+/// a define's refusals read as they did.
+fn define_head_of(first: Option<&Form>) -> &'static str {
+    match first {
+        Some(Form::Sym(s)) if s.eq_ignore_ascii_case("parameter") => "parameter",
+        _ => "define",
     }
 }
 
@@ -563,6 +586,17 @@ struct Rule {
     /// VLA.9: where each piece stands in `pieces`, by its word folded, so
     /// that a stranger's call of thousands of pieces stays linear.
     piece_index: HashMap<String, usize>,
+    /// VLA.11: the definition's line as a refusal names it, the reference's
+    /// record's item 8, empty for one the prelude holds or a macro made.
+    loc: String,
+}
+
+/// A door's value for a source's parameter (VLA.11): the word as the door
+/// wrote it, folded, and its value, in the order the door gave them.
+struct Given {
+    word: String,
+    word_fold: String,
+    value: Form,
 }
 
 /// A named piece as the expander applies it (VLA.9): its word folded, and as
@@ -609,6 +643,12 @@ pub struct Expander {
     functions: HashMap<String, Arc<Function>>,
     /// VLA.8: the working-out under way, empty at every entry and exit.
     calls: Calls,
+    /// VLA.11, `mGiven`: the values a door gives the source's parameters
+    /// ([`Expander::set_parameter`]), in the order given.
+    given: Vec<Given>,
+    /// VLA.11, `mParameters`: the words the source's parameters bind,
+    /// folded, registered as a define's are.
+    parameters: HashSet<String>,
 }
 
 /// The most forms one macro application's result may hold (VLA.1), counted
@@ -656,6 +696,17 @@ impl Expander {
         // walks compute before a macro's would apply: a word names one thing.
         if self.functions.contains_key(&mfold) {
             return Err(raise("vla-defmacro-name-taken", &[("name", &mname)]));
+        }
+        // VLA.11: and a macro is defined once in a compile, the prelude's, a
+        // phrasebook's, an include's and the source's alike, the first one's
+        // line named where it has one; a value a door changes is a
+        // parameter's ([`Expander::set_parameter`]), so that an expansion
+        // never depends on the order its definitions stand in.
+        if let Some(first) = self.rules.get(&mfold) {
+            return Err(raise(
+                "vla-defmacro-twice",
+                &[("name", &mname), ("loc", &first.loc)],
+            ));
         }
 
         let mut params = Vec::new();
@@ -730,7 +781,7 @@ impl Expander {
             return Err(raise("vla-defmacro-missing-template", &[("name", &mname)]));
         };
 
-        // A redefinition overwrites, as the Dictionary's keyed assignment does.
+        // The name is new here: its second definition was refused above.
         self.rules.insert(
             mfold.clone(),
             Rule {
@@ -740,6 +791,7 @@ impl Expander {
                 template: Node::of(&template),
                 pieces: pieces.iter().map(RulePiece::of).collect(),
                 piece_index,
+                loc: src_line_tag(f.line, 0),
             },
         );
         self.macros.insert(
@@ -993,7 +1045,7 @@ impl Expander {
             // passed by as written, its word and its form never walked, for
             // `expand` to take once the form of the source it stands in has
             // expanded; refused inside a formula's expression.
-            if head_fold == "define" {
+            if head_fold == "define" || head_fold == "parameter" {
                 self.define_passed_by(items)?;
                 let passed = cur.form();
                 return self.finish(&pending_head, passed, depth, walk);
@@ -1180,7 +1232,11 @@ impl Expander {
                 .get(1)
                 .map(|w| write_datum(&w.form()))
                 .unwrap_or_default();
-            return Err(raise("vla-define-not-a-statement", &[("word", &word)]));
+            let head = define_head_of(items.first().map(Node::form).as_ref());
+            return Err(raise(
+                "vla-define-not-a-statement",
+                &[("head", head), ("word", &word)],
+            ));
         }
         self.define_met = true;
         Ok(())
@@ -1197,7 +1253,10 @@ impl Expander {
         if self.formula_open {
             return Err(raise(
                 "vla-define-not-a-statement",
-                &[("word", &define_word_of(held))],
+                &[
+                    ("head", define_head_of(held.items.first())),
+                    ("word", &define_word_of(held)),
+                ],
             ));
         }
         self.define_met = true;
@@ -1545,7 +1604,11 @@ impl Expander {
         for (word, _) in &taken.words {
             self.refuse_define_ring(word, &taken)?;
         }
-        for (word, form) in taken.words {
+        for (k, (word, form)) in taken.words.into_iter().enumerate() {
+            // VLA.11: a parameter's word, a word a door may give a value.
+            if taken.heads[k] == "parameter" {
+                self.parameters.insert(word.clone());
+            }
             self.defines.insert(word, Node::of(&form));
         }
         Ok(kept)
@@ -1554,12 +1617,21 @@ impl Expander {
     /// VLA.6, VBA `DefineTakeOne`: one define taken from its form: its
     /// shape, `(define name form)`, the name a symbol and the form holding
     /// no define; its name held to the rules; then the word, folded, and its
-    /// form as written into `taken`.
+    /// form as written into `taken`. VLA.11: a parameter the same, its form
+    /// the door's value where a door gives one ([`Expander::parameter_given`]),
+    /// and its head, `define` or `parameter`, beside it, by which each refusal
+    /// names its form.
     fn take_one_define(&self, d: &Form, taken: &mut TakenDefines) -> Result<(), Refusal> {
         let Form::List(l) = d else {
             unreachable!("a define is a list headed by define")
         };
-        let shape = || raise("vla-define-shape", &[("form", &write_datum(d))]);
+        let head = define_head_of(l.items.first());
+        let shape = || {
+            raise(
+                "vla-define-shape",
+                &[("head", head), ("form", &write_datum(d))],
+            )
+        };
         if l.items.len() != 3 {
             return Err(shape());
         }
@@ -1567,9 +1639,102 @@ impl Expander {
             return Err(shape());
         };
         refuse_stray_define(&l.items[2])?;
-        self.check_define_name(word, taken)?;
-        taken.push(fold(word), l.items[2].clone());
+        self.check_define_name(word, taken, head)?;
+        let value = if head == "parameter" {
+            self.parameter_given(word, &l.items[2])?
+        } else {
+            l.items[2].clone()
+        };
+        taken.push(fold(word), value, head);
         Ok(())
+    }
+
+    /// VLA.11, VBA `ParameterGiven`: a parameter's value, the door's in place
+    /// of the source's where the door gives one ([`Expander::set_parameter`]):
+    /// of the source's kind, a number for a number, a text for a text, a word
+    /// for a word, a list for a list, or refused by name; and holding no
+    /// define, as the source's must.
+    fn parameter_given(&self, word: &str, own: &Form) -> Result<Form, Refusal> {
+        let word_fold = fold(word);
+        let Some(given) = self.given.iter().find(|g| g.word_fold == word_fold) else {
+            return Ok(own.clone());
+        };
+        let (kind, wants) = (parameter_kind(&given.value), parameter_kind(own));
+        if kind != wants {
+            return Err(raise(
+                "vla-parameter-kind",
+                &[
+                    ("word", word),
+                    ("value", &write_datum(&given.value)),
+                    ("kind", kind),
+                    ("default", &write_datum(own)),
+                    ("wants", wants),
+                ],
+            ));
+        }
+        refuse_stray_define(&given.value)?;
+        Ok(given.value.clone())
+    }
+
+    /// VLA.11, VBA `VlaSetParameters`' one entry: a door's value for the
+    /// source's parameter of `word`, given before the first form expands and
+    /// read in place of the parameter's own (of the source's kind, or refused
+    /// by name when the parameter is taken). A word given twice is refused by
+    /// name; a value no parameter of the source takes is refused once the
+    /// source has expanded, by [`Expander::finish_parameters`].
+    pub fn set_parameter(&mut self, word: &str, value: &Form) -> Result<(), Refusal> {
+        let word_fold = fold(word);
+        if self.given.iter().any(|g| g.word_fold == word_fold) {
+            return Err(raise("vla-parameter-given-twice", &[("word", word)]));
+        }
+        self.given.push(Given {
+            word: word.to_string(),
+            word_fold,
+            value: value.clone(),
+        });
+        Ok(())
+    }
+
+    /// VLA.11, VBA `VlaSetParameters`: a door's values as a door writes them,
+    /// `(parameter word value)` forms in a text of their own, apart from the
+    /// source's, each given by [`Expander::set_parameter`]. A form of another
+    /// shape is refused as a parameter's shape is.
+    pub fn set_parameters(&mut self, door: &str) -> Result<(), Refusal> {
+        for f in crate::reader::read_forms(door)? {
+            let shape = || {
+                raise(
+                    "vla-define-shape",
+                    &[("head", "parameter"), ("form", &write_datum(&f))],
+                )
+            };
+            let Form::List(l) = &f else {
+                return Err(shape());
+            };
+            if !f.head_is("parameter") || l.items.len() != 3 {
+                return Err(shape());
+            }
+            let Form::Sym(word) = &l.items[1] else {
+                return Err(shape());
+            };
+            self.set_parameter(word, &l.items[2])?;
+        }
+        Ok(())
+    }
+
+    /// VLA.11, VBA `ParametersFinish`: the door's values held to the source
+    /// once it has expanded, a value given a word no parameter of the source
+    /// declared refused by name, the first in the order given. A client that
+    /// gives values ([`Expander::set_parameter`]) calls this after its last
+    /// form; with none given it refuses nothing.
+    pub fn finish_parameters(&self) -> Result<(), Refusal> {
+        match self
+            .given
+            .iter()
+            .find(|g| !self.parameters.contains(&g.word_fold))
+        {
+            Some(g) => Err(raise("vla-parameter-undeclared", &[("word", &g.word)])),
+            None => Ok(()),
+        }
     }
 
     /// VLA.6, VBA `DefineCheckName`: a define's word, refused by name when
@@ -1578,37 +1743,39 @@ impl Expander {
     /// number, a truth value, a keyword, a form of the head table, an
     /// expand-time name or a form of the formula syntax's own; and when it
     /// is a macro's name or defined already, in an earlier form or this one.
-    fn check_define_name(&self, word: &str, taken: &TakenDefines) -> Result<(), Refusal> {
+    fn check_define_name(
+        &self,
+        word: &str,
+        taken: &TakenDefines,
+        head: &str,
+    ) -> Result<(), Refusal> {
         if let Some(what) = define_reads_as(word) {
             return Err(raise(
                 "vla-define-name-reference",
-                &[("word", word), ("what", what)],
+                &[("head", head), ("word", word), ("what", what)],
             ));
         }
         if let Some(desc) = define_reserved_desc(word) {
             return Err(raise(
                 "vla-define-name-reserved",
-                &[("word", word), ("desc", &desc)],
+                &[("head", head), ("word", word), ("desc", &desc)],
             ));
         }
-        if self.get_macro(word).is_some() {
-            return Err(raise(
+        let taken_as = |what: &str| {
+            raise(
                 "vla-define-name-taken",
-                &[("word", word), ("what", "a macro's name")],
-            ));
+                &[("head", head), ("word", word), ("what", what)],
+            )
+        };
+        if self.get_macro(word).is_some() {
+            return Err(taken_as("a macro's name"));
         }
         // VLA.8: a function's name, which the walks call.
         if self.functions.contains_key(&fold(word)) {
-            return Err(raise(
-                "vla-define-name-taken",
-                &[("word", word), ("what", "a function's name")],
-            ));
+            return Err(taken_as("a function's name"));
         }
         if self.define_bound(&fold(word), taken) {
-            return Err(raise(
-                "vla-define-name-taken",
-                &[("word", word), ("what", "defined already")],
-            ));
+            return Err(taken_as("defined already"));
         }
         Ok(())
     }
@@ -1628,7 +1795,10 @@ impl Expander {
         for text in &self.formula_texts {
             for r in refers::scan(text) {
                 if r.kind == Kind::Name && r.sheet_name.is_empty() && taken.has(&fold(&r.part)) {
-                    return Err(raise("vla-define-used-in-its-form", &[("word", &r.part)]));
+                    return Err(raise(
+                        "vla-define-used-in-its-form",
+                        &[("head", taken.head_of(&fold(&r.part))), ("word", &r.part)],
+                    ));
                 }
             }
         }
@@ -1658,6 +1828,7 @@ impl Expander {
                     return Err(raise(
                         "vla-define-cycle",
                         &[
+                            ("head", taken.head_of(start)),
                             ("word", start),
                             ("ring", &ring_text(start, &at_name, &came_from)),
                         ],
@@ -1682,10 +1853,33 @@ pub fn expand_text(
     prelude: &str,
     to_fixpoint: bool,
 ) -> Result<(String, u64), Refusal> {
+    expand_text_door(source, prelude, to_fixpoint, "")
+}
+
+/// VLA.11: [`expand_text`] to its fixpoint with a door's values, `door` a
+/// text of `(parameter word value)` forms read before the source
+/// ([`Expander::set_parameters`]) and held to it once it has expanded
+/// ([`Expander::finish_parameters`]): the reference's `VlaSetParameters` before its
+/// `VlaExpandText`, as the expand golden's writer calls them.
+pub fn expand_text_given(
+    source: &str,
+    prelude: &str,
+    door: &str,
+) -> Result<(String, u64), Refusal> {
+    expand_text_door(source, prelude, true, door)
+}
+
+fn expand_text_door(
+    source: &str,
+    prelude: &str,
+    to_fixpoint: bool,
+    door: &str,
+) -> Result<(String, u64), Refusal> {
+    let mut ex = Expander::new();
+    ex.set_parameters(door)?;
     let line_offset = count_lf(prelude) as u32 + 1;
     let text = format!("{prelude}\r\n{source}");
     let forms = parse_all(&tokenize(&text), line_offset)?;
-    let mut ex = Expander::new();
     let body = ex.collect(forms)?;
     let mut out = String::new();
     for f in &body {
@@ -1696,6 +1890,11 @@ pub fn expand_text(
         };
         out.push_str(&write_pretty(&expanded, 0));
         out.push_str("\r\n");
+    }
+    // One pass takes no define, so a door's values are held to the
+    // parameters at the fixpoint alone, as the reference's are.
+    if to_fixpoint {
+        ex.finish_parameters()?;
     }
     Ok((out, ex.expand_fired))
 }
@@ -3126,6 +3325,8 @@ fn value_read(arg: &Node, v: Node, env: &Env) -> Result<Node, Refusal> {
 struct TakenDefines {
     words: Vec<(String, Form)>,
     index: HashMap<String, usize>,
+    /// VLA.11: each word's form, `define` or `parameter`, beside it.
+    heads: Vec<&'static str>,
 }
 
 impl TakenDefines {
@@ -3137,9 +3338,18 @@ impl TakenDefines {
         self.index.get(word_fold).map(|&i| &self.words[i].1)
     }
 
-    fn push(&mut self, word_fold: String, form: Form) {
+    /// VLA.11: the form a word of these defines stands in, by which a refusal
+    /// names it.
+    fn head_of(&self, word_fold: &str) -> &'static str {
+        self.index
+            .get(word_fold)
+            .map_or("define", |&i| self.heads[i])
+    }
+
+    fn push(&mut self, word_fold: String, form: Form, head: &'static str) {
         self.index.insert(word_fold.clone(), self.words.len());
         self.words.push((word_fold, form));
+        self.heads.push(head);
     }
 }
 
@@ -3184,7 +3394,10 @@ fn refuse_stray_define(v: &Form) -> Result<(), Refusal> {
     if is_define(v) {
         return Err(raise(
             "vla-define-not-a-statement",
-            &[("word", &define_word_of(l))],
+            &[
+                ("head", define_head_of(l.items.first())),
+                ("word", &define_word_of(l)),
+            ],
         ));
     }
     for e in &l.items {
@@ -3220,9 +3433,10 @@ fn define_held_in(v: &Form) -> Option<&List> {
 /// quote's, refused: in the form that defines it a word is not yet bound.
 fn refuse_define_use(v: &Form, taken: &TakenDefines) -> Result<(), Refusal> {
     match v {
-        Form::Sym(s) if taken.has(&fold(s)) => {
-            Err(raise("vla-define-used-in-its-form", &[("word", s)]))
-        }
+        Form::Sym(s) if taken.has(&fold(s)) => Err(raise(
+            "vla-define-used-in-its-form",
+            &[("head", taken.head_of(&fold(s))), ("word", s)],
+        )),
         Form::List(l) if !v.head_is("quote") => {
             for (i, e) in l.items.iter().enumerate() {
                 if i > 0 || matches!(e, Form::List(_)) {
@@ -3313,6 +3527,24 @@ fn define_reserved_desc(word: &str) -> Option<String> {
         return None;
     };
     Some(desc)
+}
+
+/// VLA.11, VBA `ParameterKind`: a value's kind as a door's value is held to
+/// it: a list, a text, a number (as a define's word is refused for being
+/// one), or any other word.
+fn parameter_kind(v: &Form) -> &'static str {
+    match v {
+        Form::List(_) => "a list",
+        Form::Str(_) => "a text",
+        Form::Sym(s)
+            if formula_syntax::is_numeral(s)
+                || formula_syntax::is_negative_numeral(s)
+                || is_numeric(s) =>
+        {
+            "a number"
+        }
+        Form::Sym(_) => "a word",
+    }
 }
 
 /// VBA `EvalListopsPrim`: the dispatcher the two recognition sites share,
@@ -4325,6 +4557,8 @@ mod tests {
             // VLA.8: the value-binding form and the function-defining form.
             "let-expand",
             "defexpand",
+            // VLA.11: a define whose value a door may give.
+            "parameter",
         ];
         for name in LISTOPS {
             assert!(
@@ -6497,6 +6731,239 @@ mod tests {
             text.trim_end(),
             "(bind-expand ((self (last self))) (formula-expand (last self)))"
         );
+    }
+
+    /// A text expanded with a door's values: `VlaSetParameters` and then
+    /// `VlaExpandText`, as the expand golden's writer calls them.
+    fn given(src: &str, door: &str) -> Result<String, Refusal> {
+        expand_text_given(src, PRELUDE, door).map(|(t, _)| t.replace("\r\n", "\n"))
+    }
+
+    // VLA.11: a macro is defined once in a compile.
+    #[test]
+    fn a_macro_is_defined_once_in_a_compile() {
+        let twice = "a word names one thing, and a value a door changes is a (parameter ...)";
+        let r = expand_err("(defmacro (m) 1)\n(cell \"S\" \"A1\" (m))\n(defmacro (m) 2)");
+        assert_eq!(r.id, "vla-defmacro-twice");
+        assert_eq!(
+            r.text,
+            format!("defmacro 'm': 'm' is defined already (vla line 1) - {twice}")
+        );
+        // Folded, the one name; the first's line named.
+        let r = expand_err("(cell \"S\" \"A1\" 0)\n(defmacro (m) 1)\n(defmacro (M) 2)");
+        assert_eq!(
+            r.text,
+            format!("defmacro 'M': 'M' is defined already (vla line 2) - {twice}")
+        );
+        // The prelude's own, which holds no line.
+        let r = expand_err("(defmacro (when c & body) 0)");
+        assert_eq!(r.id, "vla-defmacro-twice");
+        assert_eq!(
+            r.text,
+            format!("defmacro 'when': 'when' is defined already - {twice}")
+        );
+        // Defined once, in any place: every definition is taken first.
+        assert_eq!(
+            one("(defmacro (m) 1) (cell \"S\" \"A1\" (m))"),
+            "(cell \"S\" \"A1\" 1)"
+        );
+        assert_eq!(
+            one("(cell \"S\" \"A1\" (m)) (defmacro (m) 1)"),
+            "(cell \"S\" \"A1\" 1)"
+        );
+    }
+
+    /// VLA.11's law: a source whose names are each defined once expands to
+    /// the same bytes whatever order its definitions stand in, since none
+    /// replaces another and every one is taken before the first form expands.
+    #[test]
+    fn definitions_expand_alike_in_any_order() {
+        let mut seed: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut next = |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        for round in 0..40 {
+            let n = 2 + next(6);
+            let mut defs: Vec<String> = Vec::new();
+            for k in 0..n {
+                // Each macro calls an earlier one, or writes a row.
+                let body = if k > 0 && next(2) == 0 {
+                    format!("(m{} (+expand x {k}))", next(k))
+                } else {
+                    format!("(cell \"S\" (address-expand x {}) x)", k + 1)
+                };
+                defs.push(format!("(defmacro (m{k} x) {body})"));
+            }
+            defs.push("(defexpand (twice x) (*expand x 2))".to_string());
+            let calls: String = (0..n)
+                .map(|k| format!("(m{k} (twice {}))\n", k + 1))
+                .collect();
+            let first = expand(&format!("{}\n{calls}", defs.join("\n")));
+            for _ in 0..3 {
+                let mut shuffled = defs.clone();
+                for i in (1..shuffled.len()).rev() {
+                    let j = next(i + 1);
+                    shuffled.swap(i, j);
+                }
+                let again = expand(&format!("{}\n{calls}", shuffled.join("\n")));
+                assert_eq!(again, first, "round {round}");
+            }
+        }
+    }
+
+    // VLA.11: a parameter, a define whose value a door may give.
+    #[test]
+    fn a_parameter_is_a_define_a_door_may_give_a_value() {
+        let src = "(parameter side 3)\n(cell \"S\" \"A1\" (+expand side 1))";
+        // Its own value, read as a define's is, a value too (VLA.8).
+        assert_eq!(expand(src), "(begin)\n(cell \"S\" \"A1\" 4)\n");
+        // The door's, a word given by its fold.
+        assert_eq!(
+            given(src, "(parameter SIDE 9)").unwrap(),
+            "(begin)\n(cell \"S\" \"A1\" 10)\n"
+        );
+        // A list for a list, walked by a loop.
+        assert_eq!(
+            given(
+                "(parameter digits (1 2))\n(each (d digits) (cell \"S\" (address-expand d 1) d))",
+                "(parameter digits (7))"
+            )
+            .unwrap(),
+            "(begin)\n(cell \"S\" \"A7\" 7)\n"
+        );
+        // No door: the same as expand_text.
+        assert_eq!(given(src, "").unwrap(), expand(src));
+    }
+
+    #[test]
+    fn a_door_s_value_is_refused_by_name_where_it_cannot_stand() {
+        let src = "(parameter side 3)\n(cell \"S\" \"A1\" side)";
+        let cases: &[(&str, &str, &str, &str)] = &[
+            (
+                src,
+                "(parameter side \"9\")",
+                "vla-parameter-kind",
+                "parameter 'side': the door gives \"9\", a text, where the source's value is 3, a number - a door's value is of its parameter's kind",
+            ),
+            (
+                src,
+                "(parameter side (9))",
+                "vla-parameter-kind",
+                "parameter 'side': the door gives (9), a list, where the source's value is 3, a number - a door's value is of its parameter's kind",
+            ),
+            (
+                src,
+                "(parameter other 1)",
+                "vla-parameter-undeclared",
+                "parameter 'other': a door gives it a value, and no (parameter other ...) of the source declares it",
+            ),
+            (
+                // A define is no parameter: a door gives it nothing.
+                "(define side 3)\n(cell \"S\" \"A1\" side)",
+                "(parameter side 9)",
+                "vla-parameter-undeclared",
+                "parameter 'side': a door gives it a value, and no (parameter side ...) of the source declares it",
+            ),
+            (
+                src,
+                "(parameter side 1) (parameter Side 2)",
+                "vla-parameter-given-twice",
+                "parameter 'Side': a door gives it a value twice, and a parameter takes one",
+            ),
+            (
+                src,
+                "(define side 9)",
+                "vla-define-shape",
+                "parameter: write (parameter name form), a name and the one form it stands for - got (define side 9)",
+            ),
+            (
+                src,
+                "(parameter side)",
+                "vla-define-shape",
+                "parameter: write (parameter name form), a name and the one form it stands for - got (parameter side)",
+            ),
+            (
+                src,
+                "side",
+                "vla-define-shape",
+                "parameter: write (parameter name form), a name and the one form it stands for - got side",
+            ),
+            (
+                // The door's value holds no define, as the source's holds none.
+                "(parameter side (1))\n(cell \"S\" \"A1\" 0)",
+                "(parameter side (define x 1))",
+                "vla-define-not-a-statement",
+                "define 'x': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula",
+            ),
+        ];
+        for (src, door, id, text) in cases {
+            let r = given(src, door).expect_err(door);
+            assert_eq!((r.id.as_str(), r.text.as_str()), (*id, *text), "{door}");
+        }
+    }
+
+    #[test]
+    fn a_parameter_s_refusals_name_it_and_a_define_s_read_as_they_did() {
+        assert_refusals(&[
+            (
+                "(parameter A1 1)",
+                "vla-define-name-reference",
+                "parameter 'A1': 'A1' reads as a cell, and a parameter gives a reference a word of its own, such as stop",
+            ),
+            (
+                "(parameter 5 1)",
+                "vla-define-name-reserved",
+                "parameter '5': '5' is a number, and a parameter binds a word of the source's own",
+            ),
+            (
+                "(define 5 1)",
+                "vla-define-name-reserved",
+                "define '5': '5' is a number, and a define binds a word of the source's own",
+            ),
+            (
+                "(parameter side 1)\n(parameter side 2)",
+                "vla-define-name-taken",
+                "parameter 'side': 'side' is defined already in this source - a word names one thing",
+            ),
+            (
+                "(define side 1)\n(parameter side 2)",
+                "vla-define-name-taken",
+                "parameter 'side': 'side' is defined already in this source - a word names one thing",
+            ),
+            (
+                "(parameter side)",
+                "vla-define-shape",
+                "parameter: write (parameter name form), a name and the one form it stands for - got (parameter side)",
+            ),
+            (
+                "(formula-expand (+ 1 (parameter side 1)))",
+                "vla-define-not-a-statement",
+                "parameter 'side': a parameter stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula",
+            ),
+            (
+                "(begin (parameter side 3) (cell \"S\" \"A1\" side))",
+                "vla-define-used-in-its-form",
+                "'side' is used in the form of the source that defines it, where it is not yet a name - a parameter binds the forms after its own",
+            ),
+            (
+                "(begin (parameter a b) (define b a))",
+                "vla-define-cycle",
+                "parameter 'a': the words a -> b -> a stand for one another in a ring - a parameter names a form that does not come back to it",
+            ),
+            (
+                "(defmacro (parameter x) x)",
+                "vla-defmacro-reserved-name",
+                "defmacro 'parameter': 'parameter' is the expand-time naming form a door may give a value and cannot be a macro name",
+            ),
+            (
+                "(define parameter 1)",
+                "vla-define-name-reserved",
+                "define 'parameter': 'parameter' is the expand-time naming form a door may give a value, and a define binds a word of the source's own",
+            ),
+        ]);
     }
 
     #[test]

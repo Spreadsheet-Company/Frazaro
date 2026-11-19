@@ -2066,3 +2066,71 @@ REFUSED	vla-function-arity	function 'length' expects 1 argument(s), got 2
 REFUSED	vla-defmacro-name-taken	defmacro 'length': 'length' is a function's name in this source - a word names one thing
 === a-function-of-the-prelude-s-function-s-name-refused
 REFUSED	vla-defexpand-name-taken	defexpand 'reverse': 'reverse' is defined already in this source - a word names one thing
+=== a-macro-defined-twice-refused
+REFUSED	vla-defmacro-twice	defmacro 'm': 'm' is defined already (vla line 1) - a word names one thing, and a value a door changes is a (parameter ...)
+=== a-macro-defined-twice-by-its-fold-refused
+REFUSED	vla-defmacro-twice	defmacro 'M': 'M' is defined already (vla line 2) - a word names one thing, and a value a door changes is a (parameter ...)
+=== a-macro-of-the-prelude-s-name-refused
+REFUSED	vla-defmacro-twice	defmacro 'when': 'when' is defined already - a word names one thing, and a value a door changes is a (parameter ...)
+=== a-macro-used-before-its-one-definition
+EXPANDED	1
+(cell "S" "A1" 1)
+=== a-parameter-binds-the-forms-after-its-own
+EXPANDED	0
+(begin)
+(cell "S" "A1" 3)
+=== a-parameter-is-a-value-a-primitive-reads
+EXPANDED	0
+(begin)
+(cell "S" "A1" 4)
+=== a-parameter-s-list-walked-by-a-loop
+EXPANDED	0
+(begin)
+(begin (cell "S" "A1" 1) (cell "S" "A2" 2) (cell "S" "A3" 3))
+=== a-parameter-in-a-template
+EXPANDED	1
+(begin)
+(cell "Fit" "A10:A33" 0)
+=== a-door-gives-a-parameter-its-value
+EXPANDED	0
+(begin)
+(cell "S" "A1" 10)
+=== a-door-gives-a-word-by-its-fold
+EXPANDED	0
+(begin)
+(cell "S" "A1" 9)
+=== a-door-gives-a-list-for-a-list
+EXPANDED	0
+(begin)
+(begin (cell "S" "A7" 7) (cell "S" "A8" 8))
+=== the-size-ladder-s-rung-by-a-door
+EXPANDED	1
+(begin)
+(begin)
+(cell "Screen" "B2:XO399" 0)
+=== a-door-s-value-of-another-kind-refused
+REFUSED	vla-parameter-kind	parameter 'side': the door gives "9", a text, where the source's value is 3, a number - a door's value is of its parameter's kind
+=== a-door-s-value-no-parameter-declares-refused
+REFUSED	vla-parameter-undeclared	parameter 'other': a door gives it a value, and no (parameter other ...) of the source declares it
+=== a-door-s-value-for-a-define-refused
+REFUSED	vla-parameter-undeclared	parameter 'side': a door gives it a value, and no (parameter side ...) of the source declares it
+=== a-door-giving-a-word-twice-refused
+REFUSED	vla-parameter-given-twice	parameter 'Side': a door gives it a value twice, and a parameter takes one
+=== a-door-s-form-of-another-shape-refused
+REFUSED	vla-define-shape	parameter: write (parameter name form), a name and the one form it stands for - got (define side 9)
+=== a-parameter-of-a-cell-s-name-refused
+REFUSED	vla-define-name-reference	parameter 'A1': 'A1' reads as a cell, and a parameter gives a reference a word of its own, such as stop
+=== a-parameter-defined-twice-refused
+REFUSED	vla-define-name-taken	parameter 'side': 'side' is defined already in this source - a word names one thing
+=== a-parameter-of-a-define-s-word-refused
+REFUSED	vla-define-name-taken	parameter 'side': 'side' is defined already in this source - a word names one thing
+=== a-parameter-inside-a-formula-refused
+REFUSED	vla-define-not-a-statement	parameter 'side': a parameter stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula
+=== a-parameter-used-in-its-own-form-refused
+REFUSED	vla-define-used-in-its-form	'side' is used in the form of the source that defines it, where it is not yet a name - a parameter binds the forms after its own
+=== a-parameter-of-no-value-refused
+REFUSED	vla-define-shape	parameter: write (parameter name form), a name and the one form it stands for - got (parameter side)
+=== a-parameter-in-a-ring-refused
+REFUSED	vla-define-cycle	parameter 'a': the words a -> b -> a stand for one another in a ring - a parameter names a form that does not come back to it
+=== a-macro-named-parameter-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'parameter': 'parameter' is the expand-time naming form a door may give a value and cannot be a macro name

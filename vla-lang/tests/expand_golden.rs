@@ -25,7 +25,7 @@
 //! own place, in either order. VLA.8's functions and let-expand are held by the
 //! golden alone, their meanings pinned by the reference's `TestFunctions`.
 
-use vla_lang::expand::expand_text;
+use vla_lang::expand::{expand_text, expand_text_given};
 use vla_lang::form::Form;
 use vla_lang::reader::read_forms;
 
@@ -34,10 +34,18 @@ const CASES: &str = include_str!("../testdata/expand.txt");
 const GOLDEN: &str = include_str!("../testdata/expand_golden.txt");
 
 /// `ExpandReportFor`: the case's text, its trailing breaks dropped,
-/// expanded to its fixpoint under the prelude, or its refusal.
+/// expanded to its fixpoint under the prelude, or its refusal. VLA.11: a
+/// line of the case that begins `;door ` is a door's `(parameter word
+/// value)` form, given before the case expands (`VlaSetParameters`); to the
+/// reader it is a comment, so the case's lines count alike in both.
 fn report_for(body: &str) -> String {
     let body = body.trim_end_matches('\n');
-    match expand_text(body, PRELUDE, true) {
+    let door: String = body
+        .split('\n')
+        .filter_map(|ln| ln.strip_prefix(";door "))
+        .map(|f| format!("{f}\n"))
+        .collect();
+    match expand_text_given(body, PRELUDE, &door) {
         Ok((text, fired)) => {
             let text = text.replace("\r\n", "\n");
             let text = text.strip_suffix('\n').unwrap_or(&text);

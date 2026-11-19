@@ -22023,6 +22023,111 @@ built.
     132 functions and labels the rest, so a check needs Excel's whole list;
     another item's, if a client asks.
 
+  **What was built, the first slice,** 2026-11-19, at the owner's word,
+  "Approved; commit the docs then proceed with slice 1", the definitions
+  (decisions 3 to 5; decision 6 held, below), in a worktree off `df21a3b`,
+  the reference first (`SD-18`) and the port after it.
+  - `src/VLA.bas`: `DefineMacro` refuses a second definition of a name
+    (`vla-defmacro-twice`), its record's eighth item the first one's line as
+    a refusal names it (`FormLineTag`), the PDICT.0 comment rewritten for a
+    name that is always new there. `parameter` a define: `IsDefineForm` takes
+    it, so the walk passes it by (its test of the head, `define` or
+    `parameter`) and `DefinesTake` takes it from its form; `DefineHeadOf` names
+    each define refusal's form; `DefineTakeOne` puts a door's value in a
+    parameter's place (`ParameterGiven`, held to the source's kind by
+    `ParameterKind`), and `DefinesTake` registers the compile's parameter
+    words (`mParameters`, reset at the three entry points and carried by
+    `VlaFrame`'s twenty-third field). The door: `VlaSetParameters`, a switch
+    kept until `VlaClearParameters`, its text `(parameter word value)` forms
+    read by `VlaReadForms`, and `ParametersFinish` at the end of the three
+    entry points, `VlaExpandText`'s at its fixpoint alone. `parameter` in
+    `ExpandReservedDesc`. `VLA_CORE_VERSION` `VLA.11`.
+  - `src/VlaFrame.cls`: `Parameters`.
+  - `vla-lang/src/expand.rs`: the same, procedure for procedure;
+    `Expander::set_parameter`, `Expander::set_parameters`,
+    `Expander::finish_parameters` and `expand::expand_text_given` public, the
+    module's own account of itself grown by a sentence.
+  - The catalogue (`VLA_Messages.bas`, exported): the four refusals, and the
+    seven of a define naming their form by a slot of their own, `{head}`;
+    284 in the language's half, `check_data_exports`' floor raised to the
+    count, `KERNEL.55`'s `calc-spill-unbounded` counted with it (`VLA.8`'s
+    Found).
+  - `TestHygiene`, 28 pure pins, wired after `TestFunctions`, its helper
+    `HygieneGiven` giving the door and forgetting it on every way out; and the
+    golden's writer, `ExpandReportFor`, giving a case's `;door ` lines to
+    `VlaSetParameters` before the case and forgetting them after.
+  - The expand fixture's 25 cases, 9 written and 16 refused, its header
+    naming the `;door ` line; the floors 802, 414 and 95, the four ids the ids
+    more. The 777 records before them stand byte for byte, the define
+    refusals' slot filled as their texts were. The port's prediction of the
+    golden, kept apart for the owner's `git diff --no-index` (SHA-256
+    `a636b5a4ae52…`, `target/vla11_slice1_expand_golden_prediction.txt` in
+    the shared tree).
+  - `check_expand_golden`'s rule 13: a macro's second definition refused in
+    both definers; `parameter` reserved in both, no primitive, heading a form
+    in an EXPANDED case and in a REFUSED one; the parameter words reset at
+    the reference's three entry points and a door's values held at each; both
+    golden writers reading `;door ` lines, a case with one EXPANDED and one
+    REFUSED; the four ids each a refused record. Rule 8's test of the walk's
+    head moved to `define` or `parameter`, mutant (j) with it, and the
+    control's (z), (aa) and (ab), 28 mutants in all.
+  - The port's tests: `a_macro_is_defined_once_in_a_compile`; the law
+    `definitions_expand_alike_in_any_order`, 40 generated sources of macros
+    calling one another and a function, each expanded in three more orders to
+    the same bytes; `a_parameter_is_a_define_a_door_may_give_a_value`;
+    `a_door_s_value_is_refused_by_name_where_it_cannot_stand`; and
+    `a_parameter_s_refusals_name_it_and_a_define_s_read_as_they_did`. The
+    golden test's `report_for` gives a case's `;door ` lines to
+    `expand_text_given`.
+  - `0.15.0`'s two notes; the tutorial's Section 14, the primitives' table,
+    *A value a door gives* and the names a function refuses; the crate's
+    README.
+
+  **Where the build moved from the scoping.**
+  - *Decision 6 held, its census wrong.* The scoping compared the defines'
+    words with the record's words gathered from the load's match arms alone,
+    and missed the conditional row's trailing `stop`, read by an equality
+    (`load.rs`, the stop of a rule). Kairos defines `stop`, through the kit's
+    `names` (its stop rule, the example of Alonzo's `docs/2030.md` §10), so
+    the refusal as approved would refuse Kairos's source. Nothing is captured
+    today: no conditional of Kairos's carries `stop`, and the four
+    conditionals that end in it, Brickwork's, Seiyaku's and the grid card's,
+    stand in sources that define no such word. Put back to the owner; none of
+    it built.
+  - *The door's check is `Expander::finish_parameters`,* where the scoping
+    named `finish`: the walk's private `finish`, the reference's `finish:`
+    label, keeps its name.
+  - *A door writes what a source writes.* Its text is `(parameter word
+    value)` forms (`set_parameters`, `VlaSetParameters`), so a form of
+    another shape is refused as a parameter's shape and no fifth refusal was
+    needed.
+  - *The define refusals name their form by a slot,* filled `define` for a
+    define, so that a parameter's say `parameter` and every define record of
+    the golden stands.
+
+  **Held by** the port over `df21a3b`: 980 passed, 0 failed and 5 ignored
+  over the workspace (`--no-fail-fast`); the package's own suite from its
+  tarball, 697, at CI's optimization and unoptimized alike; `clippy` (twice,
+  as CI runs it) and `fmt` clean; `run_checks.ps1` 60 of 60;
+  `check_expand_golden -Control` failing each of its 28 mutants; `prove
+  -Impl` 70 passed. Alonzo at `91cc254` over this `vla-lang` (a scratch
+  copy, its `[patch.crates-io]`, cargo's tree naming the patch): its twelve
+  cartridges `same`; Buffet's source, 1,494 rows, the same bytes; and Life
+  over two parameters and a still-camera macro, built through a door's values
+  by a scratch `expand_given` of Alonzo's pass, the old ladder's bytes at 320
+  by 200, at 640 by 400 and at 1280 by 800, a misspelt door word refused by
+  name.
+
+  **The owner's pass,** 2026-11-19, in Excel: `VlaDevReload`, Debug >
+  Compile, `VlaSelfTests`, `TestHygiene`'s 28 pins among them, and
+  `VlaWriteExpandGolden`, 802 cases and 388 refused, the golden the port's
+  prediction byte for byte (`git diff --no-index` against the prediction kept
+  apart, empty): "All four passed". Decision 6 answered at the same word,
+  "(b)": left as found, the tutorial saying plainly that a define's word
+  replaces the same word in a row's arguments, so that a define is named
+  after no word a row reads; revisited when a capture is met. The first slice
+  committed at the owner's word, "commit slice 1 then proceed with slice 2".
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 

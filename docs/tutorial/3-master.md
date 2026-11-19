@@ -674,6 +674,7 @@ program runs.
 | `(each ((name ...) list) form ...)` | The same, each name bound to its part of an element that is a list of as many parts. |
 | `(each-index (index name list start) form ...)` | The same, with a count beside each element, from `start` up by one. |
 | `(define name form)` | A word for the form, in every form of the file after this one; see *A name* below. |
+| `(parameter name form)` | A define whose form a door that builds the file may replace; see *A value a door gives* below. |
 | `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
 | `(sheet-expand reference)` `(range-expand reference)` | A reference's sheet, and its cell or range, as texts. |
 | `(first-cell-expand reference)` | A reference's first cell, as a text: `"B1"` for `Tally!B1:E10`. |
@@ -890,7 +891,11 @@ so `(eq? stop (quote stop))` is `false`: there as everywhere, `stop` is
 `State!B12`. A macro's parameter of the same word hides it, since the
 parameter is replaced first. A define may name another, defined before it or after it,
 and its form expands where the word stands, a macro's call in it firing
-there.
+there. A row's own words are values too: after `(define hidden 7)`,
+`(sheet "S" hidden)` writes `(sheet "S" 7)`. So a define named like a word
+a row reads where a value stands, `hidden`, `shown`, `none`, `wrap` or a
+rule's closing `stop`, replaces that word in every row written after it, a
+row a library's macro writes among them.
 
 **The words it refuses** are the ones that already mean something: a
 reference (`B12`, `A:A`, `Sheet1!x`, and `R1C1`, which Excel refuses as a
@@ -907,6 +912,29 @@ words that stand for one another is refused, the ring named:
 The expander knows no variable, so a define replaces its word as a value
 everywhere, in a running program's variable of the same word too: give a
 define a cell, never a variable.
+
+**A value a door gives.** `(parameter name form)` is a define whose form a
+door that builds the file may replace. In the file it is a define: its word
+binds the forms after its own and is read wherever a define's word is, as a
+value too. Alonzo's size ladder builds Life on larger boards so:
+
+```text
+(parameter board-width 320)
+(parameter board-height 200)
+(interior board-width board-height "Screen" ...)
+```
+
+A door gives its values as forms of the same shape, `(parameter
+board-width 640)`, kept apart from the file and read before it, and the file
+expands as if it had been written with them. A door's value is of its
+parameter's kind, a number for a number, a text for a text, a word for a
+word, a list for a list, and one for a word no parameter of the file
+declares, a define's among them, is refused by name:
+
+> parameter 'board-widht': a door gives it a value, and no (parameter
+> board-widht ...) of the source declares it
+
+A parameter's own refusals are a define's, each naming it as a parameter.
 
 ### A formula from an expression
 
@@ -1308,10 +1336,11 @@ next.
 
 **The names it refuses** are the ones a define refuses, and a word that
 names a macro or a function already: a word names one thing, so a second
-definition of a function is refused by name, where a second macro in a file
-replaces the first. The prelude's functions are among them: a file's own
-`length`, a macro or a function, is refused by name, where a file may
-still replace a macro of the prelude's, `when` say. A function declares no
+definition of a function or of a macro is refused by name, the first one's
+line named where it has one. The prelude's are among them: a file's own
+`length` or `when`, a macro or a function, is refused by name. A value a
+door changes is a parameter's, never a macro defined again (*A value a door
+gives*, above). A function declares no
 named pieces, since its arguments are values and a call could not tell a
 piece from a call of another function.
 

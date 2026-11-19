@@ -20,7 +20,10 @@ self, bind-expand and offset-expand, each of their refusals among them
 (VLA.10), and functions at expand time, defexpand, and let-expand, with
 a define's word and a call handed in read as values, each of their
 refusals among them (VLA.8), and the prelude's list library written
-over them, quote-filter among it (its second slice). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
+over them, quote-filter among it (its second slice), and a macro defined
+once in a compile and a parameter, a define whose value a door may give,
+each of their refusals among them (VLA.11), a line of a case that begins
+";door " giving the door's (parameter word value) form. A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
 line names the case's own, counted from the case's first line, so an edit
 of the prelude moves nothing here.
 === car
@@ -2873,3 +2876,91 @@ lines
 === a-function-of-the-prelude-s-function-s-name-refused
 (defexpand (reverse x) x)
 (reverse 1)
+=== a-macro-defined-twice-refused
+(defmacro (m) 1)
+(cell "S" "A1" (m))
+(defmacro (m) 2)
+=== a-macro-defined-twice-by-its-fold-refused
+(cell "S" "A1" 0)
+(defmacro (m) 1)
+(defmacro (M) 2)
+=== a-macro-of-the-prelude-s-name-refused
+(defmacro (when c & body) (quote replaced))
+(when 1 2)
+=== a-macro-used-before-its-one-definition
+(cell "S" "A1" (m))
+(defmacro (m) 1)
+=== a-parameter-binds-the-forms-after-its-own
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-parameter-is-a-value-a-primitive-reads
+(parameter side 3)
+(cell "S" "A1" (+expand side 1))
+=== a-parameter-s-list-walked-by-a-loop
+(parameter digits (1 2 3))
+(each (d digits)
+  (cell "S" (address-expand d 1) d))
+=== a-parameter-in-a-template
+(parameter wall-height 24)
+(defmacro (fit) (cell "Fit" (&expand "A10:A" (+expand wall-height 9)) 0))
+(fit)
+=== a-door-gives-a-parameter-its-value
+;door (parameter side 9)
+(parameter side 3)
+(cell "S" "A1" (+expand side 1))
+=== a-door-gives-a-word-by-its-fold
+;door (parameter SIDE 9)
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-door-gives-a-list-for-a-list
+;door (parameter digits (7 8))
+(parameter digits (1 2 3))
+(each (d digits)
+  (cell "S" (address-expand d 1) d))
+=== the-size-ladder-s-rung-by-a-door
+;door (parameter board-width 640)
+;door (parameter board-height 400)
+(parameter board-width 320)
+(parameter board-height 200)
+(defmacro (interior width height)
+  (cell "Screen" (&expand "B2:" (address-expand (-expand height 1) (-expand width 1))) 0))
+(interior board-width board-height)
+=== a-door-s-value-of-another-kind-refused
+;door (parameter side "9")
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-door-s-value-no-parameter-declares-refused
+;door (parameter other 1)
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-door-s-value-for-a-define-refused
+;door (parameter side 9)
+(define side 3)
+(cell "S" "A1" side)
+=== a-door-giving-a-word-twice-refused
+;door (parameter side 1)
+;door (parameter Side 2)
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-door-s-form-of-another-shape-refused
+;door (define side 9)
+(parameter side 3)
+(cell "S" "A1" side)
+=== a-parameter-of-a-cell-s-name-refused
+(parameter A1 1)
+=== a-parameter-defined-twice-refused
+(parameter side 1)
+(parameter side 2)
+=== a-parameter-of-a-define-s-word-refused
+(define side 1)
+(parameter side 2)
+=== a-parameter-inside-a-formula-refused
+(formula-expand (+ 1 (parameter side 1)))
+=== a-parameter-used-in-its-own-form-refused
+(begin (parameter side 3) (cell "S" "A1" side))
+=== a-parameter-of-no-value-refused
+(parameter side)
+=== a-parameter-in-a-ring-refused
+(begin (parameter a b) (define b a))
+=== a-macro-named-parameter-refused
+(defmacro (parameter x) x)

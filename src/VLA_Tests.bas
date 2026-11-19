@@ -1,6 +1,20 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.8"
+Public Const VLA_TESTS_VERSION As String = "VLA.11"
+' VLA.11: TestHygiene - hygiene by design, its first slice, the definitions,
+' 28 pins: a macro defined twice refused, by its fold with the first one's
+' line named, the prelude's own with none, one used before its one definition
+' standing; a parameter binding the forms after its own and read as a value;
+' a door's value in its place, by the word's fold, a list for a list; a door's
+' value of another kind, one no parameter declares, one for a define, a word
+' given twice and a form of another shape, each refused by name; the door's
+' values forgotten after it; one pass holding none; a parameter's refusals
+' naming it, a define's as they were; and the word reserved. HygieneGiven its
+' helper, the door given and forgotten on every way out. Wired after
+' TestFunctions. And ExpandReportFor, the expand golden's writer, gives a
+' case's ";door " lines to VlaSetParameters before the case and forgets them
+' after it.
+'
 ' VLA.8: TestFunctions - functions at expand time and let-expand, 65 pins: a
 ' call at the top, in a primitive's argument, in a template and as a helper's
 ' value where &expand reads it; a docstring, a constant, a rest, one defined
@@ -654,6 +668,7 @@ Public Function VlaSelfTest() As Boolean
     TestFormTooDeep
     TestRawStrings
     TestFunctions
+    TestHygiene
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -3445,21 +3460,34 @@ End Function
 ' One case's record: the text, blank lines at its end dropped, expanded to
 ' its fixpoint - EXPANDED, the applications fired and the printed text,
 ' its last break dropped - or REFUSED, the id and the text of the refusal.
+' VLA.11: a line of the case that begins ";door " is a door's (parameter word
+' value) form, given before the case expands (VlaSetParameters) and forgotten
+' after it, on every way out; to the reader it is a comment, so the case's
+' lines count alike in both implementations.
 Private Function ExpandReportFor(ByVal body As String) As String
     Do While Right$(body, 1) = vbLf
         body = Left$(body, Len(body) - 1)
     Loop
     Dim t As String, d As String
     Dim fired As Long
+    Dim door As String
+    Dim ln As Variant
+    For Each ln In Split(body, vbLf)
+        If Left$(CStr(ln), 6) = ";door " Then door = door & Mid$(CStr(ln), 7) & vbLf
+    Next
     On Error GoTo refused
     VLA_Messages.VlaClearLastRaisedMsg
+    VLA.VlaClearParameters
+    If Len(door) > 0 Then VLA.VlaSetParameters door
     t = VlaExpandText(body, True, fired)
+    VLA.VlaClearParameters
     If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
     ExpandReportFor = "EXPANDED" & vbTab & fired & vbCrLf & t & vbCrLf
     Exit Function
 refused:
     d = Err.Description
     On Error GoTo 0
+    VLA.VlaClearParameters
     ExpandReportFor = "REFUSED" & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
 End Function
 
@@ -9269,6 +9297,109 @@ Private Sub TestFunctions()
     stepText = VlaExpandStepText(FN_SQUARE & "(cell ""S"" ""A1"" (square 7))", 1, stepTotal)
     If Right$(stepText, 2) = vbCrLf Then stepText = Left$(stepText, Len(stepText) - 2)
     CheckV "functions: the stepper shows the value at the next step", stepText, "(cell ""S"" ""A1"" 49)"
+End Sub
+
+' VLA.11: a text expanded to its fixpoint with a door's values given before
+' it (VlaSetParameters) and forgotten after it on every way out: the text, or
+' "refused: " with the refusal's id and its text.
+Private Function HygieneGiven(ByVal door As String, ByVal source As String) As String
+    Dim fired As Long
+    Dim t As String, d As String
+    On Error GoTo refused
+    VLA_Messages.VlaClearLastRaisedMsg
+    VLA.VlaClearParameters
+    VLA.VlaSetParameters door
+    t = VlaExpandText(source, True, fired)
+    VLA.VlaClearParameters
+    If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
+    HygieneGiven = t
+    Exit Function
+refused:
+    d = Err.Description
+    On Error GoTo 0
+    VLA.VlaClearParameters
+    HygieneGiven = "refused: " & VLA_Messages.VlaLastRaisedMsgId() & ": " & d
+End Function
+
+' VLA.11: hygiene by design, its first slice, the definitions: a macro defined
+' once in a compile, its second definition refused by name with the first
+' one's line, the prelude's among them, one used before its one definition
+' standing; a parameter, a define a door may give a value, binding the forms
+' after its own and read as a value; a door's value in its place, by the
+' word's fold, a list for a list; a door's value of another kind, one no
+' parameter declares, one for a define, a word given twice and a form of
+' another shape, each refused by name; the switch forgotten after it; one pass
+' holding no door's value; a parameter's refusals naming it and a define's
+' reading as they did; and the word reserved. scripts/expand_golden.txt holds
+' the same cases' whole records to vla-lang's; these pins say what each means.
+Private Sub TestHygiene()
+    Const SIDE_SOURCE As String = "(parameter side 3) (cell ""S"" ""A1"" (+expand side 1))"
+    ' --- a macro defined once in a compile.
+    CheckV "hygiene: a macro defined twice refused", ExpandRefusalId("(defmacro (m) 1) (defmacro (m) 2)"), "vla-defmacro-twice"
+    CheckExpandErr "hygiene: the second by its fold, the first one's line named", "(cell ""S"" ""A1"" 0)" & vbLf & "(defmacro (m) 1)" & vbLf & "(defmacro (M) 2)", _
+        "defmacro 'M': 'M' is defined already (vla line 2) - a word names one thing, and a value a door changes is a (parameter ...)"
+    CheckV "hygiene: a prelude macro's second definition refused", ExpandRefusalId("(defmacro (when c & body) 0)"), "vla-defmacro-twice"
+    CheckExpandErr "hygiene: the prelude's line named as none", "(defmacro (when c & body) 0)", _
+        "defmacro 'when': 'when' is defined already - a word names one thing"
+    CheckV "hygiene: a macro used before its one definition", _
+        ExpandTrimmed("(cell ""S"" ""A1"" (m)) (defmacro (m) 1)"), "(cell ""S"" ""A1"" 1)"
+
+    ' --- a parameter, a define a door may give a value.
+    CheckV "hygiene: a parameter binds the forms after its own", _
+        ExpandTrimmed("(parameter side 3) (cell ""S"" ""A1"" side)"), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 3)"
+    CheckV "hygiene: a parameter's word is a value a primitive reads", _
+        ExpandTrimmed(SIDE_SOURCE), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 4)"
+    CheckV "hygiene: a door gives a parameter its value", _
+        HygieneGiven("(parameter side 9)", SIDE_SOURCE), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 10)"
+    CheckV "hygiene: a door gives a word by its fold", _
+        HygieneGiven("(parameter SIDE 9)", SIDE_SOURCE), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 10)"
+    CheckV "hygiene: a door gives a list for a list", _
+        HygieneGiven("(parameter digits (7))", "(parameter digits (1 2)) (each (d digits) (cell ""S"" (address-expand d 1) d))"), _
+        "(begin)" & vbCrLf & "(cell ""S"" ""A7"" 7)"
+    CheckV "hygiene: a door's value of another kind refused", HygieneGiven("(parameter side ""9"")", SIDE_SOURCE), _
+        "refused: vla-parameter-kind: parameter 'side': the door gives ""9"", a text, where the source's value is 3, a number - a door's value is of its parameter's kind"
+    CheckV "hygiene: a door's value no parameter declares refused", HygieneGiven("(parameter other 1)", SIDE_SOURCE), _
+        "refused: vla-parameter-undeclared: parameter 'other': a door gives it a value, and no (parameter other ...) of the source declares it"
+    CheckV "hygiene: a door gives a define nothing", _
+        HygieneGiven("(parameter side 9)", "(define side 3) (cell ""S"" ""A1"" side)"), _
+        "refused: vla-parameter-undeclared: parameter 'side': a door gives it a value, and no (parameter side ...) of the source declares it"
+    CheckV "hygiene: a door giving a word twice refused", HygieneGiven("(parameter side 1) (parameter Side 2)", SIDE_SOURCE), _
+        "refused: vla-parameter-given-twice: parameter 'Side': a door gives it a value twice, and a parameter takes one"
+    CheckV "hygiene: a door's form of another shape refused", HygieneGiven("(define side 9)", SIDE_SOURCE), _
+        "refused: vla-define-shape: parameter: write (parameter name form), a name and the one form it stands for - got (define side 9)"
+    CheckV "hygiene: the door's values forgotten after it", ExpandTrimmed(SIDE_SOURCE), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 4)"
+    Dim onePass As String
+    Dim onePassFired As Long
+    VLA.VlaSetParameters "(parameter other 1)"
+    On Error Resume Next
+    onePass = VlaExpandText(SIDE_SOURCE, False, onePassFired)
+    If Err.Number <> 0 Then onePass = "refused: " & Err.Description
+    On Error GoTo 0
+    VLA.VlaClearParameters
+    If Right$(onePass, 2) = vbCrLf Then onePass = Left$(onePass, Len(onePass) - 2)
+    CheckV "hygiene: one pass holds no door's value, taking no define", onePass, _
+        "(parameter side 3)" & vbCrLf & "(cell ""S"" ""A1"" (+expand side 1))"
+
+    ' --- a parameter's refusals name it; a define's read as they did.
+    CheckV "hygiene: a parameter of a cell's name refused", ExpandRefusalId("(parameter A1 1)"), "vla-define-name-reference"
+    CheckExpandErr "hygiene: a parameter's refusal names it", "(parameter A1 1)", _
+        "parameter 'A1': 'A1' reads as a cell, and a parameter gives a reference a word of its own"
+    CheckExpandErr "hygiene: a parameter defined twice refused", "(parameter side 1) (parameter side 2)", _
+        "parameter 'side': 'side' is defined already in this source - a word names one thing"
+    CheckExpandErr "hygiene: a parameter of a define's word refused", "(define side 1) (parameter side 2)", _
+        "parameter 'side': 'side' is defined already in this source"
+    CheckExpandErr "hygiene: a parameter inside a formula refused", "(formula-expand (+ 1 (parameter side 1)))", _
+        "parameter 'side': a parameter stands as a form of the source"
+    CheckExpandErr "hygiene: a parameter used in its own form refused", "(begin (parameter side 3) (cell ""S"" ""A1"" side))", _
+        "- a parameter binds the forms after its own"
+    CheckExpandErr "hygiene: a parameter in a ring refused", "(begin (parameter a b) (define b a))", _
+        "parameter 'a': the words a -> b -> a stand for one another in a ring - a parameter names a form"
+    CheckExpandErr "hygiene: a parameter of no value refused", "(parameter side)", _
+        "parameter: write (parameter name form), a name and the one form it stands for - got (parameter side)"
+    CheckExpandErr "hygiene: a define's refusal reads as it did", "(define 5 1)", _
+        "define '5': '5' is a number, and a define binds a word of the source's own"
+    CheckV "hygiene: a macro named parameter refused", ExpandRefusalId("(defmacro (parameter x) x)"), "vla-defmacro-reserved-name"
+    CheckV "hygiene: a define named parameter refused", ExpandRefusalId("(define parameter 1)"), "vla-define-name-reserved"
 End Sub
 
 ' VLA.8: the reference's stack, measured for a function's nested calls where a
