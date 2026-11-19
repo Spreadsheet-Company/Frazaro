@@ -1985,26 +1985,26 @@ fn a_row_s_word_keeps_its_formula_s_kind() {
         let mut m = load(&rows, &format!("seed {seed}"));
         let when = format!("seed {seed}\n{rows}");
         // At every cell, what `Calc` computes over the grid it lends: the kinds
-        // kept in it, and no twin read; a spill labelled as the machine labels
-        // one until KERNEL.55's fifth slice computes it there.
+        // kept in it, and no twin read; each cell a spill laid among them, as
+        // the machine lays it since KERNEL.55's fifth slice.
         let book = m.workbook();
         let want: Vec<(CellId, String)> = {
-            let calc = Calc::unspilled(&book, &lib);
-            book.sheets[0]
-                .cells
-                .iter()
-                .filter(|(_, cell)| is_formula(&cell.content))
-                .map(|(&(row, col), _)| {
-                    let id = (0, row, col);
-                    (id, format!("{:?}", calc.computed(id).expect("computed")))
-                })
+            let calc = Calc::run(&book, &lib);
+            calc.cells()
+                .into_iter()
+                .filter(|id| id.0 == 0)
+                .map(|id| (id, format!("{:?}", calc.computed(id).expect("computed"))))
                 .collect()
         };
         assert!(m.step(0).done);
         for (id, want) in &want {
             let got = format!("{:?}", Values::computed(&m, *id).expect("computed"));
             assert_eq!(&got, want, "{when}: {id:?} against Calc");
-            spills += usize::from(got.contains("a spill"));
+            let formula = book.sheets[0]
+                .cells
+                .get(&(id.1, id.2))
+                .is_some_and(|cell| is_formula(&cell.content));
+            spills += usize::from(!formula);
         }
         // The grid's view and its fills load as the same kinds, stepped once.
         for text in [save(&m), fills(&m)] {

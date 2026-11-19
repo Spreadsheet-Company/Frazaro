@@ -58,15 +58,16 @@ use crate::messages::{raise, Refusal};
 use crate::refers::{self, quote_sheet};
 use crate::sheet::{cell_ref, strip_future_prefixes, A1Range, Workbook};
 
+use super::array::Array;
 use super::blocks::Blocks;
-use super::eval::{unread_name, Computed, Ctx, Env, Library, Reason};
+use super::eval::{unread_name, Arg, Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, RefExpr};
 use super::graph::{CellId, Extent, Names};
 use super::lambda::{self, Functions};
 use super::nodes::{self, Alone, Located, Run};
 use super::program::{Program, Why};
 use super::reach::{Reach, Reached};
-use super::spill::Spills;
+use super::spill::{self, Dims, Spills};
 use super::vector::{self, Lanes, Repeats};
 
 #[cfg(test)]
@@ -200,6 +201,37 @@ pub struct Place {
     pub shape: usize,
     pub d_row: i64,
     pub d_col: i64,
+}
+
+/// Whether every reference a parse reads keeps its size as it moves
+/// (KERNEL.55): of each dimension it spans, both corners fixed or both moving,
+/// so that a shape's cells are bounded alike; `$A$1:A5` grows with its cell.
+fn moves_whole(e: &Expr) -> bool {
+    use crate::refers::Shape as Part;
+    let mut whole = true;
+    e.each_read(&mut |r| {
+        if let formula::Read::Ref(re) = r {
+            let c = &re.corners;
+            let rows = match re.shape {
+                Part::Range | Part::Row => c.row_abs1 == c.row_abs2,
+                _ => true,
+            };
+            let cols = match re.shape {
+                Part::Range | Part::Column => c.col_abs1 == c.col_abs2,
+                _ => true,
+            };
+            whole &= rows && cols;
+        }
+    });
+    whole
+}
+
+/// What a spill's anchor answers (KERNEL.55, [`Shapes::evaluate_spill`]): one
+/// value or a reason at its cell, or an array of many values to lay into the
+/// cells from it.
+pub(crate) enum Spilling {
+    One(Computed),
+    Many(Array),
 }
 
 /// The plan: every formula cell placed on a shape, the order, the cycles.
@@ -1206,14 +1238,20 @@ impl Shapes {
         let functions = self
             .functions
             .get_or_insert_with(|| Functions::of_model(model));
-        let through_anchor: Vec<bool> = self
+        // A shape bounded once on a sheet: every reference it reads keeping
+        // its size as it moves, and no spill read through `#`; any other at
+        // each cell, as a door bounds every one.
+        let alike: Vec<bool> = self
             .shapes
             .iter()
             .map(|s| match &s.expr {
-                Ok(e) => lambda::calls_of(e)
-                    .iter()
-                    .any(|c| c == formula::ANCHORARRAY),
-                Err(_) => true,
+                Ok(e) => {
+                    moves_whole(e)
+                        && !lambda::calls_of(e)
+                            .iter()
+                            .any(|c| c == formula::ANCHORARRAY)
+                }
+                Err(_) => false,
             })
             .collect();
         let alone = &self.located.alone;
@@ -1221,7 +1259,7 @@ impl Shapes {
         let group_of = |id: CellId| {
             let a = alone.get(id.0)?.get(&(id.1, id.2))?;
             let s = a.shape as usize;
-            (!through_anchor[s]).then_some(((s as u64) << 24) | id.0 as u64)
+            alike[s].then_some(((s as u64) << 24) | id.0 as u64)
         };
         let mut cells = alone.iter().enumerate().flat_map(|(si, m)| {
             m.keys()
@@ -1460,6 +1498,68 @@ impl Shapes {
                 }
             }
         }
+    }
+
+    /// A spill's anchor computed (KERNEL.55), as `Calc::spill` computes one:
+    /// an answer of many values whole, an array or a range of many cells read
+    /// as its array, to be laid into the cells from the anchor; an answer of
+    /// one value or a reason at its cell; and one past the bound `dims` it was
+    /// planned by labelled, a spill no plan bounds.
+    pub(crate) fn evaluate_spill(
+        &self,
+        env: &dyn Env,
+        library: &Library,
+        shape: usize,
+        id: CellId,
+        dims: Dims,
+    ) -> Spilling {
+        let not = |reason: Reason| Spilling::One(Computed::NotComputed(reason));
+        let s = &self.shapes[shape];
+        if let Some(construct) = self.unread.get(&id) {
+            return not(Reason::Construct(construct.clone()));
+        }
+        let e = match &s.expr {
+            Err(construct) => return not(Reason::Construct(construct.clone())),
+            Ok(e) => e,
+        };
+        let d_row = i64::from(id.1) - i64::from(s.anchor.1);
+        let d_col = i64::from(id.2) - i64::from(s.anchor.2);
+        let ctx = Ctx::at(env, library, d_row, d_col);
+        if s.depth > 0 {
+            ctx.nests(s.depth);
+        }
+        let arg = match ctx.eval(e) {
+            Ok(arg) => arg,
+            Err(reason) => return not(reason),
+        };
+        let past = |rows: u32, columns: u32| rows > dims.0 || columns > dims.1;
+        let unplanned = || not(Reason::Construct(spill::NO_PLAN.to_string()));
+        let array = match arg {
+            Arg::Array(a) => a,
+            Arg::Area { ref areas, .. } if matches!(&areas[..], [a] if !a.is_cell()) => {
+                let a = areas[0];
+                if past(a.bottom - a.top + 1, a.right - a.left + 1) {
+                    return unplanned();
+                }
+                match ctx.area_array(&a) {
+                    Ok(array) => array,
+                    Err(reason) => return not(reason),
+                }
+            }
+            arg => {
+                return Spilling::One(match ctx.result(&arg) {
+                    Ok(v) => Computed::Value(v.settled()),
+                    Err(reason) => Computed::NotComputed(reason),
+                })
+            }
+        };
+        if array.is_single() {
+            return Spilling::One(Computed::Value(array.get(0, 0).clone().settled()));
+        }
+        if past(array.rows(), array.columns()) {
+            return unplanned();
+        }
+        Spilling::Many(array)
     }
 
     /// The first thing that stops the grid from being stepped, in the order

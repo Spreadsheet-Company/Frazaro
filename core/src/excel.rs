@@ -799,9 +799,11 @@ mod tests {
         // KERNEL.70: each of the 56 written by a row with the word into a machine
         // under Excel's library, at the cell Excel's save holds it in, and its
         // frame's value held to the value Excel saved there; the nine of many
-        // values labelled, where Excel spilled them; and a typed `@`, which Excel
-        // holds as a legacy formula without it, read as typed since KERNEL.55. A
-        // package holds no fixture, and the test stands down.
+        // values spilled where Excel spilled them, each of their cells held to
+        // the value Excel saved there (KERNEL.55's fifth slice); and a typed
+        // `@`, which Excel holds as a legacy formula without it, read as typed
+        // since KERNEL.55. A package holds no fixture, and the test stands
+        // down.
         use crate::reflect::calc::collect;
         use vla_lang::machine::Machine;
         use vla_lang::rows::{datum, quoted};
@@ -868,32 +870,45 @@ mod tests {
         });
         let typed_in_machine = m.find_sheet("typed").expect("typed");
         assert!(m.step(0).done);
-        let mut spills = Vec::new();
-        for (id, addr) in &written {
+        let held = |row: u32, col: u32| {
+            let addr = cell_ref(row, col);
             let got = m
-                .computed((typed_in_machine, id.1, id.2))
+                .computed((typed_in_machine, row, col))
                 .unwrap_or_else(|| panic!("{addr}: no value"))
                 .spell();
             let want = datum(
                 read.cached
-                    .get(id)
+                    .get(&(typed, row, col))
                     .unwrap_or_else(|| panic!("{addr}: no cache")),
             );
-            if got == "(not-computed \"a spill\")" {
-                spills.push(addr.as_str());
-                continue;
-            }
             let same = match (got.parse::<f64>(), want.parse::<f64>()) {
                 (Ok(a), Ok(b)) => a == b,
                 _ => got == want,
             };
             assert!(same, "{addr}: {got} where Excel saved {want}");
+        };
+        let (mut spills, mut spilled) = (Vec::new(), 0);
+        for (id, addr) in &written {
+            held(id.1, id.2);
+            let Some(extent) = m.spill((typed_in_machine, id.1, id.2)) else {
+                continue;
+            };
+            spills.push(addr.as_str());
+            for row in extent.top..=extent.bottom {
+                for col in extent.left..=extent.right {
+                    if (row, col) != (id.1, id.2) {
+                        held(row, col);
+                        spilled += 1;
+                    }
+                }
+            }
         }
         assert_eq!(
             spills,
             ["B451", "B461", "B471", "B481", "B491", "B501", "B511", "B521", "B531"],
             "Excel spilled these nine"
         );
+        assert!(spilled > 9, "{spilled} spilled cells held");
     }
 
     #[test]

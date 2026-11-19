@@ -102,8 +102,20 @@
   formula whose text does not bound its answer, so this version cannot plan
   the cells it may spill into. State the size in its text: SEQUENCE(4), not
   SEQUENCE(B1).` (`calc-spill-unbounded`). The same text written legacy,
-  without the word, loads as before. An engine still labels a spill `a
-  spill` (KERNEL.55, its fifth slice).
+  without the word, loads as before (KERNEL.55, its fifth slice).
+- **An engine spills.** An engine computes a dynamic-array formula whose
+  answer holds many values and lays it into the cells below and beside it,
+  as Excel 365 does and as `frazaro calc` does, where it labelled the
+  formula `(not-computed "a spill")`: each cell it fills holds its value,
+  read by its address, by a range and through `A1#`. A spill that would
+  meet a value, a formula, a merged range or the sheet's edge is `#SPILL!`,
+  and the cells its last answer filled are emptied; two spills that may
+  meet are labelled `a spill meeting another`, as the door labels them, and
+  a formula reading an empty cell either may fill answers the label. A
+  formula whose answer comes to one value computes at its cell as before,
+  and a grid that never spills computes as fast as it did. An engine's
+  record prints a spill's `spill` row and its cells' `value` rows, as the
+  door's does (KERNEL.55, its fifth slice).
 - **Two answers corrected by Excel's save.** In a legacy array formula,
   `HLOOKUP`'s and `VLOOKUP`'s value sought and match kind take an array's
   first value, as in a legacy formula, where they lifted the lookup over it;

@@ -87,10 +87,11 @@
 //! and by `A1#` though the sheet holds none, and its value is what the writer
 //! saves there, the anchor's `ref` its extent.
 //!
-//! What is not here, by name, each a slice of its own: spills in an engine's
-//! machine (`KERNEL.55`'s fifth slice, until which `Calc::unspilled` reads a
-//! grid as the machine does), a `LET`'s value computed once across `IF`'s
-//! branches in a run and a program
+//! An engine's machine lays a spill as the door does since the item's fifth
+//! slice, the laws holding it to [`Calc`] cell for cell.
+//!
+//! What is not here, by name, each a slice of its own: a `LET`'s value
+//! computed once across `IF`'s branches in a run and a program
 //! and sheet-defined functions (`KERNEL.29`'s later slices); the rest of
 //! speed, content-addressed evaluation among them (`KERNEL.20`). A formula
 //! that reaches any of them is not computed,
@@ -203,8 +204,6 @@ pub struct Calc<'m> {
     /// By sheet, the extents holding a cell the sheet does not, which a walk
     /// visits beside the sheet's own.
     unheld: Vec<Rects>,
-    /// Whether it computes spills: every recalculation but [`Calc::unspilled`].
-    spilling: bool,
 }
 
 impl<'m> Calc<'m> {
@@ -213,22 +212,6 @@ impl<'m> Calc<'m> {
     /// graph built from `refers`, the order found and every cycle named.
     /// Nothing is evaluated yet.
     pub fn new(model: &'m Workbook, library: &'m Library) -> Calc<'m> {
-        Calc::planned(model, library, true)
-    }
-
-    /// The plan over the model as an engine's machine computes it until
-    /// KERNEL.55's fifth slice: no spill planned, a dynamic formula answering
-    /// many values labelled a spill at its cell, as every one was before the
-    /// item's third slice, and `A1#` of one labelled; what the laws holding a
-    /// machine to `Calc` take until the machine computes spills.
-    #[doc(hidden)]
-    pub fn unspilled(model: &'m Workbook, library: &'m Library) -> Calc<'m> {
-        let mut calc = Calc::planned(model, library, false);
-        calc.step(0);
-        calc
-    }
-
-    fn planned(model: &'m Workbook, library: &'m Library, spilling: bool) -> Calc<'m> {
         let names = Names::of(model);
         let extents: Vec<Extent> = model.sheets.iter().map(|s| s.extent()).collect();
         let mut texts = HashMap::new();
@@ -244,16 +227,13 @@ impl<'m> Calc<'m> {
         let listed: Vec<(usize, crate::sheet::A1Range)> =
             blocks.iter().map(|(id, range)| (id.0, *range)).collect();
         let functions = lambda::Functions::of_model(model);
-        let spills = match spilling {
-            true => spill::Spills::of(
-                &spill::dynamics_of(model, &texts),
-                &|name| model.find_sheet(name),
-                &names,
-                &functions,
-                library,
-            ),
-            false => spill::Spills::default(),
-        };
+        let spills = spill::Spills::of(
+            &spill::dynamics_of(model, &texts),
+            &|name| model.find_sheet(name),
+            &names,
+            &functions,
+            library,
+        );
         let plan = graph::plan_placed(model, &names, &extents, &texts, (&places, &listed), &spills);
         let mut values = HashMap::with_capacity(texts.len() + places.len());
         for cycle in &plan.cycles {
@@ -280,7 +260,6 @@ impl<'m> Calc<'m> {
             spilled: HashMap::new(),
             poured: HashMap::new(),
             unheld: Vec::new(),
-            spilling,
         }
     }
 
@@ -642,7 +621,7 @@ impl<'m> Calc<'m> {
             Ok(v) => Computed::Value(v.settled()),
             // A dynamic formula planned at its cell alone, which spills
             // (KERNEL.55).
-            Err(Reason::Construct(c)) if self.spilling && c == eval::SPILL => {
+            Err(Reason::Construct(c)) if c == eval::SPILL => {
                 Computed::NotComputed(Reason::Construct(spill::NO_PLAN.to_string()))
             }
             Err(reason) => Computed::NotComputed(reason),
@@ -977,9 +956,6 @@ impl Env for Calc<'_> {
     /// extent, or its own cell for an answer of one value; the reason it was
     /// not computed.
     fn spilled(&self, anchor: CellId) -> Option<Result<Area, Reason>> {
-        if !self.spilling {
-            return None;
-        }
         let e = match self.values.get(&anchor) {
             Some(Computed::Value(_)) => self.spilled.get(&anchor).copied().unwrap_or(A1Range {
                 top: anchor.1,
@@ -2487,15 +2463,6 @@ mod tests {
             calc.cycles(),
             [vec![(s, 1, 7)], vec![(s, 1, 12), (s, 1, 13)]]
         );
-        // Labelled as an engine's machine labels it until the item's fifth
-        // slice: no spill planned, `A1#` labelled.
-        let wb = the_spills();
-        let calc = Calc::unspilled(&wb, &lib);
-        let spill = Computed::NotComputed(Reason::Construct(eval::SPILL.to_string()));
-        for addr in ["A1", "A15", "N1", "A26"] {
-            assert_eq!(at(&calc, "S", addr), spill, "S!{addr}");
-        }
-        assert_eq!(calc.cells().len(), calc.formulas());
     }
 
     #[test]

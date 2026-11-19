@@ -250,6 +250,14 @@ impl Spills {
         self.runs.is_empty()
     }
 
+    /// Whether any spill is labelled ([`MEETS`], [`NO_PLAN`]), asked of its
+    /// runs, once a frame, where a word kept would grow every table.
+    pub(crate) fn labelled(&self) -> bool {
+        self.runs
+            .iter()
+            .any(|r| r.met || u64::from(r.dims.0) * u64::from(r.dims.1) > MOST)
+    }
+
     /// The run holding an anchor.
     fn run_at(&self, (s, row, col): CellId) -> Option<&Run> {
         let at = (s as u32, col, row);

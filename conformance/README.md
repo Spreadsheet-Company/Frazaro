@@ -2831,3 +2831,25 @@ Oracle 12's engine gains a spill's plan and a refusal (the scoping's decision 4)
 - **What it does not hold.** A spill computed and laid in an engine, the slice's next part. The extent a
   file saved, which the door plans by where a text gives no bound and an engine does not: a door's record of
   such a formula is refused by an engine's load.
+
+## Amendment of 2026-11-18: an engine lays a spill (`KERNEL.55`, its fifth slice, its second part)
+
+Oracle 12's engine computes a spill (the scoping's decision 6).
+
+- **What is held.** An engine's machine computes a dynamic formula whose answer holds many values as the
+  door does: its answer laid into the cells from its anchor, each cell's value in its slot, read by its
+  address, by a range and through `A1#`; `#SPILL!` at the anchor where the extent meets a value, a formula,
+  a merged range, a cell another spill laid or the sheet's last row or column, the cells its last answer
+  laid emptied; a labelled spill its label, whatever its formula computes, and an empty cell of its box
+  read as its label, by a read and through a program, never by a walk, as the door reads one. A spill
+  reaching past its sheet's extent grows it. A write over a laid cell makes it a value cell, written even
+  where it holds the value laid, and a write of any cell a box holds computes the anchor again; an anchor
+  written away gives its cells up.
+- **The oracles.** Every cell the machine computes, a formula's and each a spill laid, against `Calc::run`
+  over the grid it lends: random grids of dynamic formulas at their first frame, by runs, programs and
+  `Ctx`, and every frame against a machine computing every cell, writes between; a test of each path by
+  name, every frame against `Calc`; and the item's typed probe, Excel's nine spills laid where Excel laid
+  them, each cell holding the value Excel saved there.
+- **What it does not hold.** A save of a spill, which leaves its cells out, its first frame after a load
+  laying it again; a window's changes told cell by cell at a frame that lays or empties one, told whole;
+  and a later frame's twin of a formula's reason, which the grid lent holds as no cell.

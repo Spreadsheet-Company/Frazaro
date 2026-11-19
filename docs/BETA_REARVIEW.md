@@ -48593,6 +48593,110 @@ labels a spill `a spill`, as before, so that this part moves the order and the r
 part's 15 files, five of them by their hunks alone beside a peer's `VLA.8` in the tree; the pair's law, within 4,096
 bytes of its twin, accepted.
 
+*Slice (e) built 2026-11-18, its second part: an engine lays a spill.* At the owner's word, "Law accepted; commit part 1,
+then proceed with part 2": over `fd9ffd9`, uncommitted. Decision 6 as recommended, (a): a spill's values in the slots of
+its extent, laid by the anchor's computation, reads and walks unchanged; the frame's changes, the twins' copy, the values
+beside a yield and the readers marked, each by the cells laid. An engine computes a spill as the door does, the laws
+holding it to `Calc::run` cell for cell, and `Calc::unspilled`, which read a grid as the machine labelled it, is retired
+with the door's flag.
+- *The anchor's path* (`machine/mod.rs`; `shape.rs`'s `evaluate_spill`): a spill's anchor computed as `Calc::spill`
+  computes one. A label its plan gives is its answer, whatever its formula computes, by a run, a program or `Ctx`. Its
+  answer whole, an array or a range of many cells read as its array, laid into the cells from it where its extent stands
+  on the sheet and meets nothing that blocks it: a merged range, a formula of its own, a value cell, or a cell another
+  spill laid, which no box meeting another's without holding its anchor reaches, its plan labelling both; `#SPILL!` at
+  its cell where it meets one, as past the sheet's last row or column. An answer of one value or a reason at its cell,
+  the cells its last answer laid emptied. The anchors stay in their shapes' runs and programs: a number or a value kept
+  there is the anchor's answer of one value, and an answer of many, which the run, the program's guard or `Ctx` labels
+  `a spill`, meets the anchor's path at the keep and is computed again whole there; a dynamic formula with no box that
+  answers many is `a spill no plan bounds`, as the door labels one. The keep asks one flag, set once a spill was laid or
+  a reason held or the plan labels one, its work out of line.
+- *The cells laid* (`Spilt`, made at the first that needs it, none in a grid that never spills): each anchor's extent,
+  each laid cell's anchor, the anchors holding a reason, the cells the frame laid or emptied with each one's value beside
+  while a step yields, and the anchors a write met the boxes of. A laid cell's change is told as a formula's is, by its
+  place where a formula's is by its position: the vectors' indexes told, its twin's change (lost, gained or alike), the
+  cells that read it marked through the reach, and the anchor's readers with them, since `#` is planned as a read of the
+  anchor's cell, which may hold the same first value while its spill moves; at the frame's end copied into its twin's
+  store and its plane and kept for the next frame by its place, as a written cell's is.
+- *The extent*: a spill reaching past its sheet's extent grows it at the frame, as a write grows one, its store moved
+  over it, an array grown in place where it can be, its plane taken over it or given up until the frame's end, and the
+  shapes that read the extent itself made whole at the next frame; every reader of a cell a spill may fill stands after
+  its anchor, so none read the old extent.
+- *Reads*: a laid cell reads as any cell, its slot; an empty cell of a box whose anchor holds a reason reads the reason,
+  as a door's read does, by `read` and through a program, which gives such a cell up to `read`, one flag asked, false
+  in a grid whose every anchor computes; a walk meets none, as the door's walk visits no cell its sheet does not hold.
+  `A1#` (`Env::spilled`) is the extent laid, the anchor's own cell for one value, `#SPILL!`, or the anchor's reason. A
+  twin's walk, which visits its sheet's places and reads each from the twin, visits each cell a spill laid or emptied in
+  the frame as well, which its twin holds where its sheet holds nothing now: a formula's place never leaves its store,
+  and an emptied cell's does. Found by the test of each path, a sum over a twin's spilled cells after its anchor gave
+  way to one value reading 1 where 21.
+- *The views and the grid lent*: `Values::computed` answers a laid cell, the value beside it while a step yields;
+  `Values::spill` and `spills` the extents laid, so that a record prints a spill as the door's does; the record's cells,
+  a save among them, and the grid lent (`workbook()`) leave a laid cell out, a value cell of none, a twin lent while a
+  step yields holding a cell the frame laid or emptied as the last frame's end left it.
+- *Writes*: a value written over a laid cell is the cell's own, written even where it is the value laid; a write of any
+  cell a box holds computes the box's anchors again at the next frame's start, since what blocks a spill is no read of
+  it; an anchor a write planned away gives its cells up at the next frame's start.
+- *Part 1's bound by shape corrected*: a shape is bounded once on a sheet only where every reference it reads keeps its
+  size as it moves, both corners of each dimension fixed or both moving; `$C$47:C47` grows with its cell, so that a
+  shape of it is bounded at each cell, as the door bounds every one. Found by the law holding the machine to `Calc`
+  over random grids, as was the label at a run's and a program's answer above.
+- *What it costs*: no byte; every program's bytes and the lookups written dynamic's stand as part 1 left them, and the
+  machine's new words sit in no allocation. The frames, in an A/B of release runners over `fd9ffd9`, alternated: the
+  keep's first draft, its spill asked inline, took 4 to 8% more a whole frame of the column, the chain, the sums and the
+  adder; asked behind one flag and out of line, and each runner started as `bench_recalc.ps1` starts one (opted out of
+  power throttling, on the performance cores, at high priority), three rounds each, every whole frame's median within
+  1% of HEAD's, the lookups written dynamic's 0.4%, every edit's within 3%, the netlist's swing between processes as
+  before. Unpinned rounds the runner refused, Windows throttling it.
+- *Tests.* The random grids of dynamic formulas (`a_dynamic_formula_kept_lowered_is_its_cells_computed_whole`): every
+  cell a spill laid compared beside every formula's, by runs, by programs alone, by runs with programs off and against a
+  machine computing every cell of every frame, writes between, and the first frame against `Calc`; a later frame's twin
+  of a formula's reason reads the reason, which the grid lent holds as no cell, so `Calc` holds the first frame alone.
+  A test of each path by name (`a_spill_is_laid_where_calc_lays_it_and_given_up_where_it_no_longer_answers`): laid past
+  the extent, `#` through a first value that holds as the spill grows and as it gives way to one value, the value laid
+  written there blocking it, a merged range and the sheet's last row blocking, a labelled anchor's reason read by `Ctx`
+  and through a program, the views at every yield of a step and the grid lent while one yields, a twin's laid cells read
+  and walked past the sheet's first extent, and an anchor written away, every frame against `Calc`.
+  KERNEL.70's test, `a_dynamic_formula_of_many_values_spills_by_what_it_reads`, its spill laid, emptied and laid again;
+  the draft's, `#SPILL!` and a spill of `INDEX`'s row; the places', a spill blocked and one laid; the law over every
+  cell `Calc` computes (`a_row_s_word_keeps_its_formula_s_kind`), spilled cells among them; and the core's typed probe
+  (`a_row_s_word_computes_what_excel_365_answers_the_same_text_typed`), Excel's nine spills laid where Excel laid them,
+  each of their cells held to the value Excel saved there.
+- *Mutants*: in a copy of `fd9ffd9` with the part's files and a target of its own, each held to the language's unit
+  tests, the laws that hold a machine to `Calc` and to its save, and the core's typed probe. The first round, 39: 31
+  killed. Of the eight that lived, two were checks no answer reached, the blocking test's walk of the formulas, whose
+  slots the walk of held slots meets too, a formula's slot never empty, and its test of an empty slot, which that walk
+  never yields: both removed, the test the shorter. Four were cases no test held, each given one: an anchor's own cell
+  written by its pour, which a view while a step yields read early; an anchor giving its spill up while its first
+  value holds; a twin's extent grown by the cells a spill laid; and a twin lent while a step yields. The cases written
+  for them found the twin's walk above, and a fortieth mutant held it. Two are equivalent: a twin's extent kept the
+  larger where a spill emptied cells of it, every value the same; and a dynamic formula with no box answering many
+  values, which no bound holding every answer lets stand. Of the 38 that stand on the code as it is, 36 are killed and
+  two equivalent.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 975 tests; `run_checks.ps1` 60 of 60; `prove.ps1 -Control`, its mutant failing all 71,
+  and `-Impl` over the door, 70; both wasm modules, the import section empty and the 14 and 10 exports, `build_web.ps1
+  -NoBuild` and `check_web_offline`; over a copy of `b84edf5`, a peer's `VLA.8` closed in two commits over `fd9ffd9`,
+  with the part's files and the law file's hunk alone, the language's package from its tarball on a fresh target, 692; Alonzo's
+  suite at `6e7b659` over that copy's language by `[patch.crates-io]`, the path compiled, 113 with its cartridges
+  required; and Buffet's at `6f215a1` over that Alonzo copy and the language, both pins moved, both paths compiled, 107.
+  Under Windows PowerShell 5.1 alone.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note; the roadmap's line; `conformance/README.md`'s amendment of 2026-11-18,
+  an engine lays a spill; the door's module doc.
+- *Found:*
+  1. A spill whose extent shrinks empties cells, each a twin cell lost, which makes the next frame compute every cell,
+     as a formula losing its value does.
+  2. A window's changes are told whole at every frame that lays or empties a cell (the next part tells them).
+  3. A save leaves a laid cell out, its anchor's first frame after the load laying it again; a twin of a laid cell is
+     empty after such a load until a frame's end copies it (the next part saves a spill).
+  4. No write empties a cell, so a value written into a spill's box blocks it until a formula is written over it, which
+     blocks it still: a spill blocked by a write is never laid again.
+  5. A write's cell cap (`present`) counts a laid cell as one the grid holds.
+  6. A shape bounded once whose reference moves off the sheet at an edge, which the door bounds at that cell alone.
+- *Hand test:* none in Excel; the part moves an engine's values and no file a door writes.
+
+*Committed 2026-11-19* at the owner's word, "Commit part 2, then proceed with part 3": over `b84edf5`, a peer's `VLA.8`
+closed in two commits since the first part, the part's 10 files.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by
