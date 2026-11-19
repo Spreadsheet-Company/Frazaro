@@ -1,6 +1,20 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.55"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.8"
+' VLA.8: functions at expand time and let-expand, fifteen refusals under VLA.
+' Eight of a function's definition, each naming it: vla-defexpand-shape - the
+' form (defexpand (name parameter ...) form); vla-defexpand-name-reference,
+' vla-defexpand-name-reserved and vla-defexpand-name-taken - its name a word
+' of the source's own, by a define's rules, neither a macro's nor a function's
+' already; vla-defexpand-piece - no named piece; vla-defexpand-rest - one rest,
+' the last; vla-defexpand-param-twice; vla-defexpand-body - one form. One of a
+' macro's: vla-defmacro-name-taken - a function's name. Four of a call:
+' vla-function-arity and vla-function-arity-min; vla-function-fuel - past the
+' calls one working-out may make; vla-function-depth - past the calls it may
+' nest. Two of let-expand: vla-let-expand-shape, and vla-let-expand-value-forms
+' - one form where its value is read. A let-expand's names are refused as a
+' loop's are, by vla-each-name-reserved and vla-each-name-bound.
+'
 ' KERNEL.55: a dynamic formula an engine cannot bound, one refusal under
 ' VLA-Calc: calc-spill-unbounded - a dynamic-array formula whose text bounds
 ' no size for its answer, refused at an engine's load and at a write, since
@@ -934,6 +948,24 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-define-name-reserved", 5, "VLA", "define '{word}': '{word}' is {desc}, and a define binds a word of the source's own"
     AddMsg m, "vla-define-name-taken", 5, "VLA", "define '{word}': '{word}' is {what} in this source - a word names one thing"
     AddMsg m, "vla-define-not-a-statement", 5, "VLA", "define '{word}': a define stands as a form of the source, or as a statement of a begin that stands as one, and never inside another form or a formula"
+    ' VLA.8 - a function at expand time, its definition, its call and its
+    ' working-out, and let-expand, a value bound for one form: each refusal
+    ' names the function or the form the author wrote.
+    AddMsg m, "vla-defexpand-shape", 5, "VLA", "defexpand: write (defexpand (name parameter ...) form), a name, its parameters and the one form it computes - got {form}"
+    AddMsg m, "vla-defexpand-name-reference", 5, "VLA", "defexpand '{word}': '{word}' reads as {what}, and a function's name is a word of its own, such as numbers"
+    AddMsg m, "vla-defexpand-name-reserved", 5, "VLA", "defexpand '{word}': '{word}' is {desc}, and a function's name is a word of the source's own"
+    AddMsg m, "vla-defexpand-name-taken", 5, "VLA", "defexpand '{word}': '{word}' is {what} in this source - a word names one thing"
+    AddMsg m, "vla-defexpand-piece", 5, "VLA", "defexpand '{name}': {value} declares a named piece, and a function takes none - its arguments are values, so a call could not tell a piece from a call of another function"
+    AddMsg m, "vla-defexpand-rest", 5, "VLA", "defexpand '{name}': '&' is followed by one rest parameter, the last"
+    AddMsg m, "vla-defexpand-param-twice", 5, "VLA", "defexpand '{name}': '{word}' is declared twice"
+    AddMsg m, "vla-defexpand-body", 5, "VLA", "defexpand '{name}': a function's body is one form, its value, and this one holds {n}"
+    AddMsg m, "vla-defmacro-name-taken", 5, "VLA", "defmacro '{name}': '{name}' is a function's name in this source - a word names one thing"
+    AddMsg m, "vla-function-arity", 5, "VLA", "function '{name}' expects {n} argument(s), got {given}"
+    AddMsg m, "vla-function-arity-min", 5, "VLA", "function '{name}' expects at least {n} argument(s), got {given}"
+    AddMsg m, "vla-function-fuel", 5, "VLA", "function '{name}': more than {limit} calls working out one value (a function that never stops calling?)"
+    AddMsg m, "vla-function-depth", 5, "VLA", "function '{name}': calls nested more than {limit} deep - a call that is the function's value, its body, a chosen branch or a let-expand's form, loops and nests none"
+    AddMsg m, "vla-let-expand-shape", 5, "VLA", "let-expand: write (let-expand ((name value) ...) form ...): each binding a name and its value, and at least one form after them"
+    AddMsg m, "vla-let-expand-value-forms", 5, "VLA", "let-expand: where its value is read it holds one form, and this one holds {n}"
     AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a define binds the forms after its own"
     AddMsg m, "vla-define-cycle", 5, "VLA", "define '{word}': the words {ring} stand for one another in a ring - a define names a form that does not come back to it"
     AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"

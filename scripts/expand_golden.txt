@@ -689,10 +689,10 @@ EXPANDED	0
 EXPANDED	0
 (begin)
 (f (quote stop) "stop" State!B12)
-=== define-is-no-primitive-s-argument
+=== define-is-a-value-a-primitive-reads
 EXPANDED	0
 (begin)
-true
+false
 === a-macro-s-parameter-shadows-a-define
 EXPANDED	2
 (begin)
@@ -1870,3 +1870,155 @@ REFUSED	vla-raw-string-unclosed	unclosed raw string (vla line 2): it ends at "#,
 REFUSED	vla-hash-word	'#x' (vla line 1): no word begins with # - an error is written (error "#N/A"), and a raw string #"..."#, closed by its quote and as many # as open it
 === raw-string-closed-by-one-hash-too-many-refused
 REFUSED	vla-hash-word	'#' (vla line 1): no word begins with # - an error is written (error "#N/A"), and a raw string #"..."#, closed by its quote and as many # as open it
+=== function-defined-and-called-at-the-top
+EXPANDED	1
+(cell "S" "A1" 49)
+=== function-called-in-a-primitive-s-argument
+EXPANDED	0
+10
+=== function-called-in-a-template
+EXPANDED	1
+(cell "S" "A1" 25)
+=== a-helper-s-value-in-concat-expand
+EXPANDED	0
+(cell "S" "B1:C9" 1)
+=== a-function-with-a-docstring
+EXPANDED	1
+(cell "S" "A1" 42)
+=== a-function-of-no-arguments-names-a-constant
+EXPANDED	0
+(cell "S" "A1" 15)
+=== a-function-s-rest
+EXPANDED	1
+(cell "S" "A1" (2 3))
+=== a-function-calls-one-defined-after-it
+EXPANDED	1
+(cell "S" "A1" 2)
+=== a-value-built-as-an-expression-is-walked
+EXPANDED	2
+"=IF(AND(Input!B13=1,Input.last!B13=0),1,0)"
+=== a-function-as-a-quote-if-test
+EXPANDED	1
+(cell "S" "A1" 3)
+=== a-filter-written-as-a-function
+EXPANDED	1
+(cell "S" "A1" (5 7))
+=== a-loop-walks-a-run-of-numbers
+EXPANDED	0
+(begin (cell "S" "A1" 1) (cell "S" "A2" 2) (cell "S" "A3" 3))
+=== a-map-is-a-loop-in-a-function
+EXPANDED	1
+(cell "S" "A1" (1 4 9))
+=== a-call-in-a-tail-place-loops
+EXPANDED	1
+(cell "S" "A1" 0)
+=== a-function-past-its-fuel-refused
+REFUSED	vla-function-fuel	function 'down': more than 5000 calls working out one value (a function that never stops calling?) (computing (down 0))
+=== a-cond-in-a-tail-place-loops
+EXPANDED	1
+(cell "S" "A1" 0)
+=== a-cond-that-waits-in-a-function
+EXPANDED	1
+(if (> 5 0) (then 1) (else 0))
+=== calls-nested-to-the-depth
+EXPANDED	1
+(cell "S" "A1" 13)
+=== calls-nested-past-the-depth-refused
+REFUSED	vla-function-depth	function 'nest': calls nested more than 14 deep - a call that is the function's value, its body, a chosen branch or a let-expand's form, loops and nests none (computing (nest 14) > ... > (nest 3) > (nest 2) > (nest 1))
+=== a-refusal-inside-a-function-names-its-calls
+REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list (computing (outer (a)) > (inner (a)))
+=== a-long-call-in-the-trail-is-cut
+REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list (computing (bump (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20...)
+=== a-function-handed-to-a-function
+EXPANDED	1
+(cell "S" "A1" 16)
+=== a-parameter-hides-a-function
+EXPANDED	1
+(5 2)
+=== self-passes-through-a-function-to-the-walk-s-forms
+EXPANDED	1
+"=SUM(Screen!A1:C3)"
+=== self-in-a-function-s-primitive-refused
+REFUSED	vla-self-in-a-primitive	column-expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address (computing (column-of self))
+=== let-expand-in-a-template
+EXPANDED	1
+(cell "Fit" "A10:A33" 33)
+=== let-expand-binds-in-order
+EXPANDED	0
+(cell "S" "A1" 6)
+=== let-expand-of-several-forms-writes-a-begin
+EXPANDED	0
+(begin (cell "S" "A1" 1) (cell "S" "A2" 1))
+=== let-expand-in-a-function-s-tail
+EXPANDED	1
+(cell "S" "A1" 25)
+=== let-expand-of-a-reserved-name-refused
+REFUSED	vla-each-name-reserved	let-expand 'car': 'car' is the list-head primitive and cannot be a name let-expand binds
+=== let-expand-of-a-name-twice-refused
+REFUSED	vla-each-name-bound	let-expand: 'A' is already a name in this template - give the name let-expand binds a word of its own
+=== let-expand-of-a-parameter-s-name-refused
+REFUSED	vla-each-name-bound	let-expand: 'x' is already a name in this template - give the name let-expand binds a word of its own
+=== let-expand-of-no-form-refused
+REFUSED	vla-let-expand-shape	let-expand: write (let-expand ((name value) ...) form ...): each binding a name and its value, and at least one form after them
+=== let-expand-of-a-bare-binding-refused
+REFUSED	vla-let-expand-shape	let-expand: write (let-expand ((name value) ...) form ...): each binding a name and its value, and at least one form after them
+=== let-expand-of-two-forms-where-a-value-is-read-refused
+REFUSED	vla-let-expand-value-forms	let-expand: where its value is read it holds one form, and this one holds 2
+=== a-define-s-number-in-a-template-s-arithmetic
+EXPANDED	1
+(begin)
+(cell "Fit" "A10:A33" 0)
+=== a-loop-walks-a-defined-list
+EXPANDED	0
+(begin)
+(begin (cell "S" "A1" 1) (cell "S" "A2" 2) (cell "S" "A3" 3))
+=== a-primitive-s-call-handed-in-reads-at-the-top
+EXPANDED	1
+(cell "S" "A1" 6)
+=== a-function-s-call-handed-in
+EXPANDED	1
+(cell "S" "A1" 10)
+=== a-quoted-call-handed-in-stays-data
+EXPANDED	1
+(cell "S" "A1" +expand)
+=== a-rest-list-is-never-a-call
+EXPANDED	1
+(cell "S" "A1" +expand)
+=== a-macro-s-call-handed-in-stays-a-list-refused
+REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list
+=== defexpand-of-no-body-refused
+REFUSED	vla-defexpand-shape	defexpand: write (defexpand (name parameter ...) form), a name, its parameters and the one form it computes - got (defexpand (f x))
+=== defexpand-of-two-forms-refused
+REFUSED	vla-defexpand-body	defexpand 'f': a function's body is one form, its value, and this one holds 2
+=== defexpand-of-a-bare-name-refused
+REFUSED	vla-defexpand-shape	defexpand: write (defexpand (name parameter ...) form), a name, its parameters and the one form it computes - got (defexpand f x)
+=== defexpand-named-like-a-cell-refused
+REFUSED	vla-defexpand-name-reference	defexpand 'B12': 'B12' reads as a cell, and a function's name is a word of its own, such as numbers
+=== defexpand-named-car-refused
+REFUSED	vla-defexpand-name-reserved	defexpand 'car': 'car' is the list-head primitive, and a function's name is a word of the source's own
+=== defexpand-named-if-refused
+REFUSED	vla-defexpand-name-reserved	defexpand 'if': 'if' is a form of the language, and a function's name is a word of the source's own
+=== defexpand-named-defexpand-refused
+REFUSED	vla-defexpand-name-reserved	defexpand 'defexpand': 'defexpand' is the expand-time function-defining form, and a function's name is a word of the source's own
+=== defexpand-named-as-a-macro-refused
+REFUSED	vla-defexpand-name-taken	defexpand 'm': 'm' is a macro's name in this source - a word names one thing
+=== defexpand-twice-refused
+REFUSED	vla-defexpand-name-taken	defexpand 'f': 'f' is defined already in this source - a word names one thing
+=== defmacro-named-as-a-function-refused
+REFUSED	vla-defmacro-name-taken	defmacro 'f': 'f' is a function's name in this source - a word names one thing
+=== define-named-as-a-function-refused
+REFUSED	vla-define-name-taken	define 'f': 'f' is a function's name in this source - a word names one thing
+=== defmacro-named-let-expand-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'let-expand': 'let-expand' is the expand-time value-binding form and cannot be a macro name
+=== defexpand-with-a-named-piece-refused
+REFUSED	vla-defexpand-piece	defexpand 'f': (y 1) declares a named piece, and a function takes none - its arguments are values, so a call could not tell a piece from a call of another function
+=== defexpand-with-a-rest-not-last-refused
+REFUSED	vla-defexpand-rest	defexpand 'f': '&' is followed by one rest parameter, the last
+=== defexpand-with-a-parameter-twice-refused
+REFUSED	vla-defexpand-param-twice	defexpand 'f': 'X' is declared twice
+=== a-function-s-arity-refused
+REFUSED	vla-function-arity	function 'f' expects 1 argument(s), got 2
+=== a-function-s-arity-at-least-refused
+REFUSED	vla-function-arity-min	function 'f' expects at least 1 argument(s), got 0
+=== a-vast-value-in-the-trail-is-written-as-dots-refused
+REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list (computing (grow ... 0))

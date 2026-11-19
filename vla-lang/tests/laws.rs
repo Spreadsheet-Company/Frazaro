@@ -75,6 +75,12 @@
 //!     prints the fills again, and stepped once is the board stepped once more:
 //!     over boards wider than a value's run and sheets taller than a stretch, of
 //!     numbers, texts, errors, formats and sentences (KERNEL.72).
+//! 17. A function's call computes one value wherever it stands: at the top,
+//!     where the walk meets it, in a template, in a primitive's argument and
+//!     handed in by a macro's parameter, over generated functions of the
+//!     expand-time arithmetic and generated arguments; two sibling calls write
+//!     their own rows in either order; and a source expanded twice writes the
+//!     same bytes (VLA.8, LISTOPS-CONFLUENCE).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -2309,4 +2315,107 @@ fn a_board_loaded_from_its_fills_views_as_the_board() {
             && said["a value cell's range"] > 100,
         "{said:?}: too few for the law to hold over"
     );
+}
+
+// ---- 17. functions at expand time ----------------------------------------
+
+/// A body of the expand-time arithmetic over the parameters `a` and `b`,
+/// whole numbers below ten, and a choice by a comparison, at most `depth` deep.
+fn function_body(r: &mut Rng, depth: u32) -> String {
+    if depth == 0 || r.below(3) == 0 {
+        return match r.below(3) {
+            0 => "a".to_string(),
+            1 => "b".to_string(),
+            _ => r.below(10).to_string(),
+        };
+    }
+    match r.below(4) {
+        0 => format!(
+            "(+expand {} {})",
+            function_body(r, depth - 1),
+            function_body(r, depth - 1)
+        ),
+        1 => format!(
+            "(-expand {} {})",
+            function_body(r, depth - 1),
+            function_body(r, depth - 1)
+        ),
+        2 => format!(
+            "(*expand {} {})",
+            function_body(r, depth - 1),
+            function_body(r, depth - 1)
+        ),
+        _ => format!(
+            "(quote-if (<expand {} {}) {} {})",
+            function_body(r, depth - 1),
+            function_body(r, depth - 1),
+            function_body(r, depth - 1),
+            function_body(r, depth - 1)
+        ),
+    }
+}
+
+/// The one row an expansion writes, its begins flattened, or the refusal.
+fn one_row(program: &str) -> Result<String, String> {
+    let (text, _) = expand_text(program, PRELUDE, true).map_err(|e| e.text)?;
+    let rows: Vec<String> = text
+        .lines()
+        .filter(|l| !l.trim().is_empty() && l.trim() != "(begin)")
+        .map(|l| l.trim().to_string())
+        .collect();
+    Ok(rows.join("\n"))
+}
+
+#[test]
+fn a_function_s_call_computes_one_value_wherever_it_stands() {
+    let mut held = 0;
+    for seed in 1..=4u64 {
+        let mut r = Rng::new(seed);
+        for case in 0..30 {
+            let body = function_body(&mut r, 3);
+            let (x, y) = (r.below(20), r.below(20));
+            let def = format!("(defexpand (f a b) {body})\r\n");
+            let what = format!("seed {seed} case {case}: {def}(f {x} {y})");
+            let top = one_row(&format!("{def}(cell \"S\" \"A1\" (f {x} {y}))"))
+                .unwrap_or_else(|e| panic!("{what}: refused at the top: {e}"));
+            let in_template = one_row(&format!(
+                "{def}(defmacro (m) (cell \"S\" \"A1\" (f {x} {y})))\r\n(m)"
+            ));
+            let in_primitive =
+                one_row(&format!("{def}(cell \"S\" \"A1\" (+expand (f {x} {y}) 0))"));
+            let handed_in = one_row(&format!(
+                "{def}(defmacro (hold v) (cell \"S\" \"A1\" (+expand v 0)))\r\n(hold (f {x} {y}))"
+            ));
+            assert_eq!(in_template.as_ref(), Ok(&top), "{what}: in a template");
+            assert_eq!(
+                in_primitive.as_ref(),
+                Ok(&top),
+                "{what}: in a primitive's argument"
+            );
+            assert_eq!(
+                handed_in.as_ref(),
+                Ok(&top),
+                "{what}: handed in by a parameter"
+            );
+            let program = format!("{def}(cell \"S\" \"A1\" (f {x} {y}))");
+            let once = expand_text(&program, PRELUDE, true).unwrap();
+            let twice = expand_text(&program, PRELUDE, true).unwrap();
+            assert_eq!(once, twice, "{what}: expanded twice");
+            held += 1;
+        }
+    }
+    assert_eq!(held, 120);
+    let g = "(defexpand (f a b) (+expand a b))\r\n(defexpand (g a b) (*expand a b))\r\n";
+    let forward = one_row(&format!(
+        "{g}(begin (cell \"S\" \"A1\" (f 1 2)) (cell \"S\" \"A2\" (g 3 4)))"
+    ))
+    .unwrap();
+    let backward = one_row(&format!(
+        "{g}(begin (cell \"S\" \"A2\" (g 3 4)) (cell \"S\" \"A1\" (f 1 2)))"
+    ))
+    .unwrap();
+    for row in ["(cell \"S\" \"A1\" 3)", "(cell \"S\" \"A2\" 12)"] {
+        assert!(forward.contains(row), "{forward}");
+        assert!(backward.contains(row), "{backward}");
+    }
 }

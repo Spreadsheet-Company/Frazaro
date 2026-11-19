@@ -22,7 +22,8 @@
 //! pieces, in two orders, writing the rows of a `put` by position; and
 //! VLA.10's: Life's, the sound card's and Sand's rules over `self` writing the
 //! rows their twins by addresses write, and two sibling verbs each keeping its
-//! own place, in either order.
+//! own place, in either order. VLA.8's functions and let-expand are held by the
+//! golden alone, their meanings pinned by the reference's `TestFunctions`.
 
 use vla_lang::expand::expand_text;
 use vla_lang::form::Form;
@@ -271,7 +272,7 @@ fn two_sibling_verbs_each_keep_their_own_place_in_either_order() {
 fn the_expand_golden_is_reproduced() {
     let want = GOLDEN.replace("\r\n", "\n");
     let (got, count) = report(&CASES.replace("\r\n", "\n"));
-    assert!(count >= 701, "only {count} cases in the expand fixture");
+    assert!(count >= 761, "only {count} cases in the expand fixture");
     if got != want {
         let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
         let at = (0..g.len().max(w.len()))

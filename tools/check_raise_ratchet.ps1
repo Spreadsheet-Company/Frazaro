@@ -168,8 +168,14 @@ function Get-RawRaiseCount([string]$path) {
 # handler, the VlaReadForms-family cleanup re-raise: a caught error raised
 # again from locals once VlaPopContext has run, so that a failed read never
 # leaves the context stack pushed. No new English text; nothing an id could name.
+# 2026-11-18 (VLA.8): VLA 11->12. The twelfth site is FunctionWorkOut's fail:
+# handler, the same cleanup re-raise: a refusal raised inside a function's
+# working-out (its id already recorded) is raised again from locals once the
+# depth is lowered and the trail of calls joined to its text, so that no
+# refusal leaves a later working-out a level short. No new id; the trail is
+# the refusal's own text, lengthened.
 $ceilings = @{
-    'VLA'                = 11
+    'VLA'                = 12
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4

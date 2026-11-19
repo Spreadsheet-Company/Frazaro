@@ -75,9 +75,9 @@ refused in the same words.
   an element of a list has its results spliced in, and a primitive reads a
   loop as the list of its results. A define, `(define stop State!B12)`,
   gives a form a word in every form of a program after its own: the
-  expander puts the form where the word stands as a value, never at a
-  list's head, inside a quote or a text, or in an expand-time primitive's
-  argument, and refuses by name a word that already means something (a
+  expander puts the form where the word stands as a value, an expand-time
+  primitive's argument among them, never at a list's head or inside a quote
+  or a text, and refuses by name a word that already means something (a
   reference, a number, a form of the language, a macro's name), a word used
   in the form that defines it, and a ring of words.
 
@@ -132,6 +132,36 @@ refused in the same words.
   word is refused by name where it would be read, in a formula's expression and
   wherever one reference is read, and is left alone everywhere else, so a
   running program's variable of that name is a variable.
+
+  A function computes a value while a program expands, as a primitive does,
+  so that a helper that walks a list answers what it found:
+
+  ```lisp
+  (defexpand (keep-big xs)
+    "the numbers of a list greater than 2"
+    (quote-if (null? xs)
+      (quote ())
+      (quote-if (>expand (car xs) 2)
+        (cons (car xs) (keep-big (cdr xs)))
+        (keep-big (cdr xs)))))
+  ```
+
+  `(cell "S" "A1" (keep-big (quote (1 5 2 7))))` expands to `(cell "S" "A1"
+  (5 7))`. A call computes wherever a primitive computes, at the top of a
+  program, in a template and in a primitive's argument, its arguments values
+  and its body one form read as a template is, and its value is expanded
+  again as any form is. `(let-expand ((name value) ...) form ...)` names
+  values for its forms. A call that is its function's value (its body, the
+  branch a `quote-if` or `cond` chose, or a `let-expand`'s form) loops and
+  nests nothing; any other call nests at most `FUNCTION_DEPTH_LIMIT` deep,
+  14, and one value is worked out in at most `FUNCTION_FUEL` calls, 5,000,
+  each refused by name past it. A refusal inside a working-out names the
+  calls it stands in, `(computing (outer (a)) > (inner (a)))`. A primitive
+  reads a call of a primitive or a function that a parameter, a loop's name
+  or a `let-expand`'s name hands it as that call's value. A word names one
+  thing, a macro or a function, and a second function of one name is
+  refused. `Expander::define` takes a definition of either kind and answers
+  whether a form was one.
 
   The expander shares what it walks, as the add-in does: a list is held
   once, its `cdr` a view of its items and a parameter's value the argument

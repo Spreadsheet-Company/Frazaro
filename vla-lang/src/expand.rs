@@ -23,13 +23,28 @@
 //! macro's result is still a function of its template and its arguments. With
 //! it `offset-expand`, Excel's `OFFSET` at expand time, a reference moved, a
 //! form of the walk (`ExpandOffsetCall`), so that the words over `self` read
-//! any reference.
+//! any reference. And, since VLA.8, functions at expand time: `(defexpand
+//! (name parameter ... [& rest]) ["doc"] form)`, a pure function of its
+//! arguments, its body a template of one form (`DefineFunction`), whose call
+//! computes wherever a primitive's would, its arguments values and its value
+//! standing where the call stood (`CallFunction`, `FunctionWorkOut`), a call
+//! in a tail place looping and every other nesting to
+//! [`FUNCTION_DEPTH_LIMIT`], the calls of one working-out counted to
+//! [`FUNCTION_FUEL`]; `(let-expand ((name value) ...) form ...)`, a value bound
+//! for its forms (`EvalLetExpand`); and a value read the same whoever wrote
+//! it, a define's word its form and a call a word of the template holds
+//! computed where a primitive reads its argument (`ValueRead`).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
 //! rest parameter splices its forms into whatever list it stands in; several
-//! template forms become one `(begin ...)`. No gensym, no compile-time
-//! computation beyond the expand-time primitives, by design. Since VLA.9 a
+//! template forms become one `(begin ...)`. No gensym and no eval.
+//! Compile-time computation is the expand-time primitives and the functions
+//! a source defines over them (VLA.8): each a pure function of its arguments
+//! and the source's literals, never reading a file, a clock or anything two
+//! compiles could see differently; every call counted against the fuel and
+//! refused by name past it; and what it computes lands in the rows a reader
+//! sees - by design. Since VLA.9 a
 //! list in the signature, after the positional parameters, declares a named
 //! piece, `(word default)` or `(word)`, which a call gives as `(word value)`
 //! after its positional arguments, in any order; a piece left out takes its
@@ -59,7 +74,8 @@
 //! The refusals are the catalogue's, by id, in the same situations.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 
 use crate::form::{sym_text, Form, List};
 use crate::formula_syntax;
@@ -157,7 +173,25 @@ const RESERVED: &[(&str, &str)] = &[
     ("self", "place a verb writes"),
     ("bind-expand", "expand-time place-binding form"),
     ("offset-expand", "expand-time reference-moving operation"),
+    // VLA.8: the form that binds a value for one form, and the form that
+    // defines a function, which every entry point takes before any form
+    // expands, so a macro of the name could never be called.
+    ("let-expand", "expand-time value-binding form"),
+    ("defexpand", "expand-time function-defining form"),
 ];
+
+/// VLA.8: the most calls of functions one working-out nests, a call in a
+/// tail place looping and nesting none (`VLA_FUNCTION_DEPTH_LIMIT`): half the
+/// one the reference's stack gives out at where a call stands deepest, at the
+/// form depth's limit, where Excel ran out 29 calls deep. On 1 MiB in the
+/// package's unoptimized build a level of nested calls costs about 18 KB of
+/// frames, and 22 held there and 23 did not, so 14 holds in both with
+/// headroom, which `tests/limits.rs` holds.
+pub const FUNCTION_DEPTH_LIMIT: u32 = 14;
+
+/// VLA.8: the most calls one working-out makes, the chain's own number
+/// (`VLA_FUNCTION_FUEL`).
+pub const FUNCTION_FUEL: u32 = 5000;
 
 /// The twenty-nine LISTOPS primitives `Substitute` and `ExpandMacros` both
 /// recognise at a form's head: the original nine, LISTOPS-EXPAND's seven,
@@ -420,12 +454,98 @@ fn nth_list(items: &[Node], i: usize) -> Result<&Seq, Refusal> {
 /// expander's macros, which the reference's `GetMacro` reads from its
 /// module, so that a loop refuses a list written as a macro's call. Empty
 /// for a primitive met outside any template, but for the macros.
+/// VLA.8: and the expander's functions, its defines and the working-out under
+/// way, which the reference reads from its module (`mFunctions`, `mDefines`,
+/// `mFnDepth`), so that a template's primitive reads a define's word and calls
+/// a function; `None` for a node a test builds bare.
 #[derive(Default)]
 struct Env<'r> {
     bindings: HashMap<&'r str, Node>,
     rest_name: &'r str,
     rest_items: &'r [Node],
     macros: Option<&'r HashMap<String, Rule>>,
+    functions: Option<&'r HashMap<String, Arc<Function>>>,
+    defines: Option<&'r HashMap<String, Node>>,
+    calls: Option<&'r Calls>,
+}
+
+impl<'r> Env<'r> {
+    /// The reference's empty scope, `New Collection, "", New Collection`:
+    /// no bindings and no rest, the expander's tables kept.
+    fn bare(&self) -> Env<'r> {
+        Env {
+            macros: self.macros,
+            functions: self.functions,
+            defines: self.defines,
+            calls: self.calls,
+            ..Env::default()
+        }
+    }
+}
+
+/// VLA.8: a function as the expander applies it, as `DefineFunction` records
+/// it: its parameters folded, its rest's word folded or empty, its body one
+/// form read into nodes once, and its name as written.
+#[derive(Debug)]
+struct Function {
+    params: Vec<String>,
+    rest_name: String,
+    body: Node,
+    name: String,
+}
+
+/// VLA.8: the working-out under way, the reference's `mFnDepth`, `mFnFuel`,
+/// `mFnTrail` and `mFnTrailWritten`: the calls nested, the calls made, each
+/// nested call's name and arguments outermost first, and whether a refusal
+/// under way has its trail already. Empty at every entry and exit, since
+/// [`function_work_out`] restores it on every way out. Atomics and a mutex,
+/// never contended, so that [`Expander`] stays `Send`, `Sync` and
+/// unwind-safe, as its interface promises.
+#[derive(Default)]
+struct Calls {
+    depth: AtomicU32,
+    fuel: AtomicU32,
+    trail: Mutex<Vec<(String, Vec<Node>)>>,
+    trail_written: AtomicBool,
+}
+
+impl Calls {
+    fn depth(&self) -> u32 {
+        self.depth.load(Ordering::Relaxed)
+    }
+
+    fn set_depth(&self, n: u32) {
+        self.depth.store(n, Ordering::Relaxed);
+    }
+
+    /// The trail, a poisoned lock read as it stands: nothing panics holding
+    /// it, and the trail is rebuilt at every outermost working-out.
+    fn trail(&self) -> MutexGuard<'_, Vec<(String, Vec<Node>)>> {
+        self.trail.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// VLA.8: one call of a working-out: its function and its arguments' values,
+/// the parameters' in order and the rest's after them.
+struct CallState {
+    function: Arc<Function>,
+    values: Vec<Node>,
+    rest: Vec<Node>,
+}
+
+impl CallState {
+    /// The call as the trail keeps it: its name as written and every value.
+    fn trail_entry(&self) -> (String, Vec<Node>) {
+        let args = self.values.iter().chain(&self.rest).cloned().collect();
+        (self.function.name.clone(), args)
+    }
+}
+
+/// VLA.8: what one step of a working-out comes to: the value, or a call in a
+/// tail place, which replaces the call under way.
+enum Step {
+    Value(Node),
+    Tail(CallState),
 }
 
 /// A macro as the expander applies it (VLA.2): its parameters folded and
@@ -482,6 +602,11 @@ pub struct Expander {
     /// exit of [`Expander::expand`], a refusal's exit among them, since each
     /// is popped before the `?` that would leave it.
     self_stack: Vec<Node>,
+    /// VLA.8, `mFunctions`: the functions a source defines, by the folded
+    /// name, taken before any form expands as the macros are.
+    functions: HashMap<String, Arc<Function>>,
+    /// VLA.8: the working-out under way, empty at every entry and exit.
+    calls: Calls,
 }
 
 /// The most forms one macro application's result may hold (VLA.1), counted
@@ -524,6 +649,11 @@ impl Expander {
                 "vla-defmacro-reserved-name",
                 &[("word", word), ("desc", desc)],
             ));
+        }
+        // VLA.8: a function of the name, defined before it, whose calls the
+        // walks compute before a macro's would apply: a word names one thing.
+        if self.functions.contains_key(&mfold) {
+            return Err(raise("vla-defmacro-name-taken", &[("name", &mname)]));
         }
 
         let mut params = Vec::new();
@@ -620,6 +750,138 @@ impl Expander {
                 name: mname,
                 pieces,
             },
+        );
+        Ok(())
+    }
+
+    /// VLA.8: a definition taken, a macro's or a function's, as every entry
+    /// point takes one before any form expands: `true` when the form was a
+    /// definition, `false` for any other form, which is the caller's to
+    /// expand. A client that loops over a source's forms calls this, so that
+    /// a definition the language adds later asks it to change nothing.
+    pub fn define(&mut self, f: &Form) -> Result<bool, Refusal> {
+        let Form::List(l) = f else {
+            return Ok(false);
+        };
+        if f.head_is("defmacro") {
+            self.define_macro(l)?;
+            return Ok(true);
+        }
+        if f.head_is("defexpand") {
+            self.define_function(l)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// VLA.8, VBA `DefineFunction`: `(defexpand (name parameter ... [&
+    /// rest]) ["doc"] form)`. In one order, so that the first fault is the
+    /// one named: the shape; the name, a word of the source's own by a
+    /// define's rules, neither a macro's nor a function's already; the
+    /// parameters, positional and a rest, no named piece, none twice; the
+    /// docstring, L17's rule; and one form, the body.
+    fn define_function(&mut self, f: &List) -> Result<(), Refusal> {
+        let shape = || {
+            raise(
+                "vla-defexpand-shape",
+                &[("form", &write_datum(&Form::List(f.clone())))],
+            )
+        };
+        if f.count() < 3 {
+            return Err(shape());
+        }
+        let Form::List(sig) = f.nth(2)? else {
+            return Err(shape());
+        };
+        let Some(Form::Sym(fname)) = sig.items.first() else {
+            return Err(shape());
+        };
+        let fname = fname.clone();
+        if let Some(what) = define_reads_as(&fname) {
+            return Err(raise(
+                "vla-defexpand-name-reference",
+                &[("word", &fname), ("what", what)],
+            ));
+        }
+        if let Some(desc) = define_reserved_desc(&fname) {
+            return Err(raise(
+                "vla-defexpand-name-reserved",
+                &[("word", &fname), ("desc", &desc)],
+            ));
+        }
+        if self.get_macro(&fname).is_some() {
+            return Err(raise(
+                "vla-defexpand-name-taken",
+                &[("word", &fname), ("what", "a macro's name")],
+            ));
+        }
+        if self.functions.contains_key(&fold(&fname)) {
+            return Err(raise(
+                "vla-defexpand-name-taken",
+                &[("word", &fname), ("what", "defined already")],
+            ));
+        }
+
+        let mut params: Vec<String> = Vec::new();
+        let mut rest_name = String::new();
+        let mut j = 2;
+        while j <= sig.count() {
+            if let Form::List(_) = sig.nth(j)? {
+                return Err(raise(
+                    "vla-defexpand-piece",
+                    &[("name", &fname), ("value", &write_datum(sig.nth(j)?))],
+                ));
+            }
+            let t = sym_text(sig.nth(j)?)?;
+            if t == "&" {
+                if j + 1 != sig.count() {
+                    return Err(raise("vla-defexpand-rest", &[("name", &fname)]));
+                }
+                if let Form::List(_) = sig.nth(j + 1)? {
+                    return Err(raise("vla-defexpand-rest", &[("name", &fname)]));
+                }
+                let rest = sym_text(sig.nth(j + 1)?)?;
+                if params.contains(&fold(&rest)) {
+                    return Err(raise(
+                        "vla-defexpand-param-twice",
+                        &[("name", &fname), ("word", &rest)],
+                    ));
+                }
+                rest_name = fold(&rest);
+                break;
+            }
+            if params.contains(&fold(&t)) {
+                return Err(raise(
+                    "vla-defexpand-param-twice",
+                    &[("name", &fname), ("word", &t)],
+                ));
+            }
+            params.push(fold(&t));
+            j += 1;
+        }
+
+        // L17: a string at form 3 is the docstring only when a form follows it.
+        let mut doc_idx = 3;
+        if f.count() >= 4 {
+            if let Form::Str(_) = f.nth(3)? {
+                doc_idx = 4;
+            }
+        }
+        let forms = f.count() + 1 - doc_idx;
+        if forms != 1 {
+            return Err(raise(
+                "vla-defexpand-body",
+                &[("name", &fname), ("n", &forms.to_string())],
+            ));
+        }
+        self.functions.insert(
+            fold(&fname),
+            Arc::new(Function {
+                params,
+                rest_name,
+                body: Node::of(f.nth(doc_idx)?),
+                name: fname,
+            }),
         );
         Ok(())
     }
@@ -776,6 +1038,20 @@ impl Expander {
                 cur = next;
                 continue;
             }
+            // VLA.8: a value bound for one form outside any template, its forms
+            // handed back to this loop so that its rows expand, one link of the
+            // chain as a loop's begin is; and a function's call the walk meets,
+            // its value looked at again, one application, standing at a spent
+            // budget as a macro's call does ([`Expander::walk_computes`]).
+            if head_fold == "let-expand" || self.functions.contains_key(&head_fold) {
+                match self.walk_step(&head_fold, items, &mut chain_len)? {
+                    Some(next) => {
+                        cur = next;
+                        continue;
+                    }
+                    None => break, // L15
+                }
+            }
             if head_fold == "begin" && items.len() > 1 && lst.line == 0 {
                 // TABLESPEC-SCALE: a begin a macro made is a tail-position
                 // wrapper; its other elements wait, its last is looked at
@@ -800,7 +1076,7 @@ impl Expander {
                 if chain_len > 5000 {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
-                let r = expand_one(items, rule, &self.rules, lst.line)?;
+                let r = expand_one(items, rule, &self.bare_env(), lst.line)?;
                 self.weigh(&r)?;
                 self.expand_fired += 1; // L1: one per application
                 cur = r;
@@ -966,10 +1242,15 @@ impl Expander {
     }
 
     /// The environment of a form met outside any template: no bindings, but
-    /// the macros, which a loop asks of its list (VLA.5).
+    /// the macros, which a loop asks of its list (VLA.5), and since VLA.8 the
+    /// functions, the defines and the working-out, which a primitive's
+    /// argument reads.
     fn bare_env(&self) -> Env<'_> {
         Env {
             macros: Some(&self.rules),
+            functions: Some(&self.functions),
+            defines: Some(&self.defines),
+            calls: Some(&self.calls),
             ..Env::default()
         }
     }
@@ -1097,6 +1378,43 @@ impl Expander {
         formula_syntax::offset_form(&read[1], &numbers)
     }
 
+    /// VLA.8: the walk's step at a let-expand or a function's call: at a spent
+    /// budget a function's call stands (`None`), as a macro's does; else one
+    /// link of the chain, refused past 5,000, then what
+    /// [`Expander::walk_computes`] computes. A method of its own, so that the
+    /// walk's recursive frame holds none of it.
+    #[inline(never)]
+    fn walk_step(
+        &mut self,
+        head_fold: &str,
+        items: &[Node],
+        chain_len: &mut u32,
+    ) -> Result<Option<Node>, Refusal> {
+        if head_fold != "let-expand" && self.budget_spent() {
+            return Ok(None);
+        }
+        *chain_len += 1;
+        if *chain_len > 5000 {
+            return Err(raise("vla-macro-self-expansion-limit", &[]));
+        }
+        self.walk_computes(head_fold, items).map(Some)
+    }
+
+    /// VLA.8: what the walk computes at a form's head outside any template: a
+    /// let-expand's forms under its binding (`EvalLetExpand`), or a function's
+    /// value, one application, weighed as a macro's result is
+    /// (`CallFunction`). A method of its own, so that the walk's recursive
+    /// frame holds none of it.
+    fn walk_computes(&mut self, head_fold: &str, items: &[Node]) -> Result<Node, Refusal> {
+        if head_fold == "let-expand" {
+            return eval_let_expand(items, &self.bare_env());
+        }
+        let value = call_function(head_fold, items, &self.bare_env())?;
+        self.weigh(&value)?;
+        self.expand_fired += 1; // L1: one per application
+        Ok(value)
+    }
+
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
     /// replaced by its substitution and not walked further.
     pub fn expand_one_pass(&mut self, d: &Form) -> Result<Form, Refusal> {
@@ -1122,11 +1440,19 @@ impl Expander {
             }
             if let Some(rule) = self.rules.get(&head_fold) {
                 if !(self.budget_on && self.expand_fired >= self.expand_budget) {
-                    let r = expand_one(items, rule, &self.rules, lst.line)?;
+                    let r = expand_one(items, rule, &self.bare_env(), lst.line)?;
                     self.weigh(&r)?;
                     self.expand_fired += 1;
                     return Ok(r.form());
                 }
+            }
+            // VLA.8: a function's call, replaced by its value in one step, as a
+            // macro's call is by its template.
+            if self.functions.contains_key(&head_fold) && !self.budget_spent() {
+                let r = call_function(&head_fold, items, &self.bare_env())?;
+                self.weigh(&r)?;
+                self.expand_fired += 1;
+                return Ok(r.form());
             }
         }
         let mut out = Vec::with_capacity(items.len());
@@ -1174,14 +1500,12 @@ impl Expander {
 
     /// `VlaTranspile`'s and `VlaExpandText`'s pass 1 over the prelude and
     /// the source read together: every `defmacro` is defined, in order, and
-    /// the other forms come back as the body.
+    /// since VLA.8 every `defexpand` ([`Expander::define`]), and the other
+    /// forms come back as the body.
     pub fn collect(&mut self, forms: Vec<Form>) -> Result<Vec<Form>, Refusal> {
         let mut body = Vec::with_capacity(forms.len());
         for f in forms {
-            if f.head_is("defmacro") {
-                let Form::List(l) = &f else { unreachable!() };
-                self.define_macro(l)?;
-            } else {
+            if !self.define(&f)? {
                 body.push(f);
             }
         }
@@ -1259,6 +1583,13 @@ impl Expander {
             return Err(raise(
                 "vla-define-name-taken",
                 &[("word", word), ("what", "a macro's name")],
+            ));
+        }
+        // VLA.8: a function's name, which the walks call.
+        if self.functions.contains_key(&fold(word)) {
+            return Err(raise(
+                "vla-define-name-taken",
+                &[("word", word), ("what", "a function's name")],
             ));
         }
         if self.define_bound(&fold(word), taken) {
@@ -1355,6 +1686,32 @@ pub fn expand_text(
         out.push_str("\r\n");
     }
     Ok((out, ex.expand_fired))
+}
+
+/// VLA.8: a value held past one step of the expander's computing, a
+/// function's argument, the value a working-out answers and a let-expand's
+/// name, weighed by its nesting, as the walk weighs what it reads (VLA.1):
+/// past the reader's limit, refused by [`too_deep`]. A call that wraps its
+/// argument nests it a level deeper, so a loop within the fuel could nest a
+/// value thousands deep and more, which no walk reads and whose freeing alone
+/// overflows the stack. The depth was made with the value, so the test reads
+/// it. The reference shares a value by reference and holds it to no depth,
+/// meeting the fuel instead, as `VLA.1`'s growing macros meet the chain's
+/// limit there.
+#[inline]
+fn held_depth(v: &Node) -> Result<(), Refusal> {
+    match v {
+        Node::List(l) if l.depth > FORM_DEPTH_LIMIT => Err(held_too_deep(l.line)),
+        _ => Ok(()),
+    }
+}
+
+/// [`held_depth`]'s refusal, made off the path of the calls it guards, so
+/// that their frames hold none of it.
+#[cold]
+#[inline(never)]
+fn held_too_deep(line: u32) -> Refusal {
+    too_deep(line)
 }
 
 /// The walk's refusal of a list past the reader's limit, at the list's own
@@ -1715,12 +2072,7 @@ fn offset_whole_number(v: &Form) -> Result<f64, Refusal> {
 /// arguments after the positional ones are its named pieces, for a macro
 /// that declares any (VLA.9). `line` is the call's own, 0 for one a macro
 /// made, which the refusals of its pieces name.
-fn expand_one(
-    call: &[Node],
-    rule: &Rule,
-    rules: &HashMap<String, Rule>,
-    line: u32,
-) -> Result<Node, Refusal> {
+fn expand_one(call: &[Node], rule: &Rule, tables: &Env, line: u32) -> Result<Node, Refusal> {
     let argc = call.len() - 1;
     let name = call[0].atom_text().unwrap_or_default();
     if rule.rest_name.is_empty() && rule.pieces.is_empty() {
@@ -1756,7 +2108,10 @@ fn expand_one(
         } else {
             &call[rule.params.len() + 1..]
         },
-        macros: Some(rules),
+        macros: tables.macros,
+        functions: tables.functions,
+        defines: tables.defines,
+        calls: tables.calls,
     };
     for (j, p) in rule.params.iter().enumerate() {
         env.bindings.insert(p, call[j + 1].clone());
@@ -1836,6 +2191,15 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             // data inside a quasiquote, as the primitives are.
             "each" | "each-index" if !in_quasi => {
                 return each_begin(items, env);
+            }
+            // VLA.8: a value bound for one form, and a function's call, its head
+            // the function's name or a word of the template naming one; shielded
+            // data inside a quasiquote, as the primitives are. One arm and one
+            // call, so that this recursive frame grows the least it can.
+            _ if !in_quasi
+                && (h == "let-expand" || function_head_name(&items[0], env).is_some()) =>
+            {
+                return computes_in_template(&h, items, env);
             }
             _ => {}
         }
@@ -2000,6 +2364,9 @@ fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
         rest_name: env.rest_name,
         rest_items: env.rest_items,
         macros: env.macros,
+        functions: env.functions,
+        defines: env.defines,
+        calls: env.calls,
     };
     let mut results = Vec::new();
     for (k, element) in walked.items().iter().enumerate() {
@@ -2166,6 +2533,568 @@ fn each_body_form_into(out: &mut Vec<Node>, f: &Node, scope: &Env) -> Result<(),
         _ => out.push(substitute(f, scope, false)?),
     }
     Ok(())
+}
+
+// VLA.8: functions at expand time, and let-expand. `(defexpand (name
+// parameter ... [& rest]) ["doc"] form)` defines a pure function of its
+// arguments, its body a template of one form; its call computes wherever a
+// primitive's would, its arguments read as a primitive reads its own, and its
+// value stands where the call stood. `(let-expand ((name value) ...) form
+// ...)` binds each value, read in order under the names before it, for its
+// forms. And where a primitive reads its argument, a define's word is its
+// form and a call a word of the template holds is computed ([`value_read`]).
+// No gensym and no eval: every name is the author's, a function reads its
+// arguments and the source's literals alone, and every call counts against
+// the fuel ([`FUNCTION_FUEL`]) and every nesting against the depth
+// ([`FUNCTION_DEPTH_LIMIT`]), each refused by name. The reference keeps a
+// call under way in variables it replaces on a tail call; the port keeps it
+// as owned state ([`CallState`]) and reads a body's tail by recursion over its
+// written nesting ([`tail_of`]), the same steps in the same order.
+
+/// VLA.8, VBA `FunctionHeadName`: the folded name of the function a call's
+/// head names: the head itself when it is a function's name and no word of
+/// the template, or the word's value when a word of the template stands
+/// there bound to a function's name, so that a template handed a function
+/// calls it as `(f x)`. A word of the template hides a function of its own
+/// spelling, as it hides a define's word.
+fn function_head_name(head: &Node, env: &Env) -> Option<String> {
+    let functions = env.functions?;
+    if functions.is_empty() {
+        return None;
+    }
+    let Node::Sym(h) = head else {
+        return None;
+    };
+    let mut hf = fold(h);
+    if let Some(v) = env.bindings.get(hf.as_str()) {
+        let Node::Sym(s) = v else {
+            return None;
+        };
+        hf = fold(s);
+    }
+    functions.contains_key(&hf).then_some(hf)
+}
+
+/// VLA.8: [`substitute`]'s arm, VBA `Substitute`'s `let-expand` and `Case
+/// Else`: a let-expand's value, or a function's call computed in the
+/// template's scope, its arguments bound and worked out with no frame
+/// between, since a call nested in a call's argument stacks every frame of
+/// this path once a level (VLA.1's 1 MiB).
+fn computes_in_template(h: &str, items: &[Node], env: &Env) -> Result<Node, Refusal> {
+    if h == "let-expand" {
+        return eval_let_expand(items, env);
+    }
+    match function_head_name(&items[0], env) {
+        Some(name) => function_work_out(function_bind_args(&name, items, env)?, env),
+        None => unreachable!("the arm asked for a function's name first"),
+    }
+}
+
+/// VLA.8, VBA `CallFunction`: a function's call, its arguments read in the
+/// caller's scope ([`function_bind_args`]), then worked out
+/// ([`function_work_out`]).
+fn call_function(name: &str, call: &[Node], env: &Env) -> Result<Node, Refusal> {
+    function_work_out(function_bind_args(name, call, env)?, env)
+}
+
+/// VLA.8, VBA `FunctionBindArgs`: a call's arguments bound to the function's
+/// parameters, each read as a primitive reads its own, left to right, in the
+/// caller's scope; those past the parameters the rest's values, a function
+/// with no rest refusing them by its arity.
+fn function_bind_args(name: &str, call: &[Node], env: &Env) -> Result<CallState, Refusal> {
+    let function = match env.functions.and_then(|f| f.get(name)) {
+        Some(f) => Arc::clone(f),
+        None => unreachable!("a call is bound only for a function's name"),
+    };
+    let argc = call.len() - 1;
+    let want = function.params.len();
+    if function.rest_name.is_empty() {
+        if argc != want {
+            return Err(raise(
+                "vla-function-arity",
+                &[
+                    ("name", &function.name),
+                    ("n", &want.to_string()),
+                    ("given", &argc.to_string()),
+                ],
+            ));
+        }
+    } else if argc < want {
+        return Err(raise(
+            "vla-function-arity-min",
+            &[
+                ("name", &function.name),
+                ("n", &want.to_string()),
+                ("given", &argc.to_string()),
+            ],
+        ));
+    }
+    let mut values = Vec::with_capacity(want);
+    let mut rest = Vec::new();
+    for (j, arg) in call[1..].iter().enumerate() {
+        let v = resolve_listops_arg(arg, env)?;
+        held_depth(&v)?;
+        if j < want {
+            values.push(v);
+        } else {
+            rest.push(v);
+        }
+    }
+    Ok(CallState {
+        function,
+        values,
+        rest,
+    })
+}
+
+/// VLA.8, VBA `FunctionWorkOut`: a working-out. Each step is one call's body
+/// in its scope ([`function_step`]): a call in a tail place replaces the call
+/// under way and loops, nesting nothing; any other form is the value. A
+/// working-out nested inside another is one level of
+/// [`FUNCTION_DEPTH_LIMIT`], the outermost one starting the fuel and the
+/// trail ([`work_out_enter`]), and every way out restores the depth and gives
+/// a refusal the trail of calls it stands in ([`work_out_leave`]). One frame
+/// for the whole loop, its refusals and its trail made by helpers off the
+/// path, so that a level of nested calls costs the stack the least it can.
+fn function_work_out(mut state: CallState, env: &Env) -> Result<Node, Refusal> {
+    let local;
+    let calls = match env.calls {
+        Some(c) => c,
+        None => {
+            local = Calls::default();
+            &local
+        }
+    };
+    work_out_enter(calls, &state)?;
+    let result = loop {
+        if let Err(e) = work_out_fuel(calls, &state) {
+            break Err(e);
+        }
+        match function_step(&state, env) {
+            Ok(Step::Value(v)) => break Ok(v),
+            Ok(Step::Tail(next)) => {
+                state = next;
+                work_out_retrail(calls, &state);
+            }
+            Err(e) => break Err(e),
+        }
+    };
+    work_out_leave(calls, result)
+}
+
+/// VLA.8: a working-out's entry: the fuel and the trail started by the
+/// outermost one, the depth held to [`FUNCTION_DEPTH_LIMIT`], then a level
+/// more and the call on the trail.
+#[inline(never)]
+fn work_out_enter(calls: &Calls, state: &CallState) -> Result<(), Refusal> {
+    if calls.depth() == 0 {
+        calls.fuel.store(0, Ordering::Relaxed);
+        calls.trail_written.store(false, Ordering::Relaxed);
+        calls.trail().clear();
+    }
+    if calls.depth() >= FUNCTION_DEPTH_LIMIT {
+        return Err(raise(
+            "vla-function-depth",
+            &[
+                ("name", &state.function.name),
+                ("limit", &FUNCTION_DEPTH_LIMIT.to_string()),
+            ],
+        ));
+    }
+    calls.set_depth(calls.depth() + 1);
+    calls.trail().push(state.trail_entry());
+    Ok(())
+}
+
+/// VLA.8: one call's fuel, refused past [`FUNCTION_FUEL`].
+#[inline(never)]
+fn work_out_fuel(calls: &Calls, state: &CallState) -> Result<(), Refusal> {
+    let fuel = calls.fuel.fetch_add(1, Ordering::Relaxed) + 1;
+    if fuel > FUNCTION_FUEL {
+        return Err(raise(
+            "vla-function-fuel",
+            &[
+                ("name", &state.function.name),
+                ("limit", &FUNCTION_FUEL.to_string()),
+            ],
+        ));
+    }
+    Ok(())
+}
+
+/// VLA.8: a tail call's entry on the trail, in place of the call it replaces.
+#[inline(never)]
+fn work_out_retrail(calls: &Calls, state: &CallState) {
+    let mut trail = calls.trail();
+    trail.pop();
+    trail.push(state.trail_entry());
+}
+
+/// VLA.8: a working-out's way out: its value held to the reader's depth
+/// ([`held_depth`]), a refusal given the trail by the innermost call it
+/// passes, then the call off the trail and a level less, on every way out.
+#[inline(never)]
+fn work_out_leave(calls: &Calls, result: Result<Node, Refusal>) -> Result<Node, Refusal> {
+    let result = match result.and_then(|v| held_depth(&v).map(|()| v)) {
+        Ok(v) => Ok(v),
+        Err(mut e) => {
+            if !calls.trail_written.load(Ordering::Relaxed) {
+                let text = trail_text(&calls.trail());
+                e.text.push_str(&text);
+                calls.trail_written.store(true, Ordering::Relaxed);
+            }
+            Err(e)
+        }
+    };
+    calls.trail().pop();
+    calls.set_depth(calls.depth() - 1);
+    result
+}
+
+/// VLA.8, VBA `FunctionStep`: one step of a working-out: the call's scope, its
+/// parameters bound to their values and its rest to the rest's, and the body
+/// read down its tail ([`tail_of`]).
+fn function_step(state: &CallState, env: &Env) -> Result<Step, Refusal> {
+    let function = &state.function;
+    let mut scope = env.bare();
+    scope.rest_name = &function.rest_name;
+    scope.rest_items = &state.rest;
+    for (param, value) in function.params.iter().zip(&state.values) {
+        scope.bindings.insert(param.as_str(), value.clone());
+    }
+    tail_of(&function.body, &scope)
+}
+
+/// VLA.8: what a form of a function's tail is: a quote-if or a cond, whose
+/// chosen form the tail reads on; a let-expand; a call of a function, by its
+/// folded name; or a value.
+enum Tail {
+    QuoteIf,
+    Cond,
+    Let,
+    Call(String),
+    Value,
+}
+
+/// VLA.8: a form of a tail told by its head, a function's call by
+/// [`function_head_name`] in the tail's scope.
+#[inline(never)]
+fn tail_kind(body: &Node, scope: &Env) -> Tail {
+    let Node::List(lst) = body else {
+        return Tail::Value;
+    };
+    let Some(Node::Sym(head)) = lst.items().first() else {
+        return Tail::Value;
+    };
+    match fold(head).as_str() {
+        "quote-if" => Tail::QuoteIf,
+        "cond" => Tail::Cond,
+        "let-expand" => Tail::Let,
+        _ => match function_head_name(&lst.items()[0], scope) {
+            Some(name) => Tail::Call(name),
+            None => Tail::Value,
+        },
+    }
+}
+
+/// VLA.8: a list's items, none for an atom.
+fn list_items(n: &Node) -> &[Node] {
+    match n {
+        Node::List(l) => l.items(),
+        _ => &[],
+    }
+}
+
+/// VLA.8: a body read down its tail - a quote-if's chosen branch, a cond's
+/// chosen clause while its tests fold, a let-expand's one form under its
+/// binding ([`tail_of_let`]) - to a call of a function, a tail call bound in
+/// this scope, or to a value, read in it as a value is read
+/// ([`substitute_value`], so that a loop there is the list of its results and
+/// a map is a loop). A loop over the chosen forms, a let-expand alone
+/// recursing, by the written nesting of lets, so that the tail costs the stack
+/// one frame however deep its choices nest.
+fn tail_of(body: &Node, scope: &Env) -> Result<Step, Refusal> {
+    let mut body = body.clone();
+    loop {
+        let next = match tail_kind(&body, scope) {
+            Tail::QuoteIf => quote_if_branch(list_items(&body), scope)?.clone(),
+            Tail::Cond => match cond_tail_form(list_items(&body), scope)? {
+                Some(form) => form,
+                None => break,
+            },
+            Tail::Let => return tail_of_let(list_items(&body), scope),
+            Tail::Call(name) => {
+                return Ok(Step::Tail(function_bind_args(
+                    &name,
+                    list_items(&body),
+                    scope,
+                )?))
+            }
+            Tail::Value => break,
+        };
+        body = next;
+    }
+    Ok(Step::Value(substitute_value(&body, scope)?))
+}
+
+/// VLA.8: a let-expand in a function's tail: its scope, built and checked as
+/// `LetExpandScope` builds it, then its one form, read on in that scope.
+#[inline(never)]
+fn tail_of_let(items: &[Node], scope: &Env) -> Result<Step, Refusal> {
+    let bindings = let_expand_bindings(items)?;
+    let folds = let_expand_folds(bindings);
+    let let_scope = let_expand_scope(bindings, &folds, scope)?;
+    if items.len() != 3 {
+        return Err(raise(
+            "vla-let-expand-value-forms",
+            &[("n", &(items.len() - 2).to_string())],
+        ));
+    }
+    tail_of(&items[2], &let_scope)
+}
+
+/// VLA.8, VBA `CondTailForm`: the chosen clause's form of a cond in a
+/// function's tail while its tests fold to true or false, as
+/// [`eval_cond_from`] chooses it (the same refusals in the same order), or
+/// the empty begin when no clause holds; `None` for a test that waits on the
+/// running program, whose cond is then substituted whole, as a template's is.
+fn cond_tail_form(lst: &[Node], scope: &Env) -> Result<Option<Node>, Refusal> {
+    for k in 2..=lst.len() {
+        let cl = nth_list(lst, k)?.items();
+        if cl.len() != 2 {
+            return Err(raise(
+                "vla-cond-clause-shape",
+                &[("n", &cl.len().to_string())],
+            ));
+        }
+        if let Node::Sym(s) = nth(cl, 1)? {
+            if fold(s) == "else" {
+                if k != lst.len() {
+                    return Err(raise("vla-cond-else-not-last", &[]));
+                }
+                return Ok(Some(nth(cl, 2)?.clone()));
+            }
+        }
+        let t = resolve_listops_arg(nth(cl, 1)?, scope)?;
+        let tf = match &t {
+            Node::Sym(s) => fold(s),
+            _ => String::new(),
+        };
+        if tf == "true" {
+            return Ok(Some(nth(cl, 2)?.clone()));
+        }
+        if tf != "false" {
+            return Ok(None);
+        }
+    }
+    Ok(Some(Node::list(vec![Node::sym("begin")])))
+}
+
+/// VLA.8, VBA `FunctionTrailText`: the calls a refusal stands in, outermost
+/// first, as they were called: ` (computing (f 1) > (g 2))`. Four at most:
+/// past four, the outermost, then `...`, then the three innermost.
+fn trail_text(trail: &[(String, Vec<Node>)]) -> String {
+    let n = trail.len();
+    if n == 0 {
+        return String::new();
+    }
+    let mut s = String::new();
+    if n <= 4 {
+        for (k, entry) in trail.iter().enumerate() {
+            if k > 0 {
+                s.push_str(" > ");
+            }
+            s.push_str(&call_text(entry));
+        }
+    } else {
+        s.push_str(&call_text(&trail[0]));
+        s.push_str(" > ...");
+        for entry in &trail[n - 3..] {
+            s.push_str(" > ");
+            s.push_str(&call_text(entry));
+        }
+    }
+    format!(" (computing {s})")
+}
+
+/// VLA.8, VBA `FunctionCallText`: one call of the trail, `(name value ...)`,
+/// each value as the printer writes it, or `...` for one of more than 60
+/// forms, its weight read and never walked (`TrailCountForms`), so that a
+/// value shared into a vast tree is never written; past 60 UTF-16 units cut to
+/// 57 and `...` added, never between the two halves of a surrogate pair, as
+/// the reference's `Left$` counts and cuts.
+fn call_text((name, args): &(String, Vec<Node>)) -> String {
+    let mut s = format!("({name}");
+    for v in args {
+        s.push(' ');
+        if v.weight().0 > 60 {
+            s.push_str("...");
+        } else {
+            s.push_str(&write_datum(&v.form()));
+        }
+    }
+    s.push(')');
+    let units: Vec<u16> = s.encode_utf16().collect();
+    if units.len() <= 60 {
+        return s;
+    }
+    let mut cut = 57;
+    if (0xD800..=0xDBFF).contains(&units[cut - 1]) {
+        cut -= 1;
+    }
+    String::from_utf16_lossy(&units[..cut]) + "..."
+}
+
+/// VLA.8, VBA `EvalLetExpand`: `(let-expand ((name value) ...) form ...)`, a
+/// value bound for its forms: the scope ([`let_expand_scope`]), then the forms
+/// substituted in it, one form its own result and several one begin, as a
+/// template's are. Where a value is read it holds one form ([`value_read`]).
+fn eval_let_expand(items: &[Node], env: &Env) -> Result<Node, Refusal> {
+    let bindings = let_expand_bindings(items)?;
+    let folds = let_expand_folds(bindings);
+    let scope = let_expand_scope(bindings, &folds, env)?;
+    if items.len() == 3 {
+        return substitute(&items[2], &scope, false);
+    }
+    let mut out = Vec::with_capacity(items.len() - 1);
+    out.push(Node::sym("begin"));
+    for f in &items[2..] {
+        out.push(substitute(f, &scope, false)?);
+    }
+    Ok(Node::list(out))
+}
+
+/// VLA.8: a let-expand's bindings, or the refusal of its shape:
+/// `((name value) ...)`, each a name and its value, and at least one form
+/// after them, every binding's shape held before any name is read, as
+/// `LetExpandScope` holds it.
+fn let_expand_bindings(items: &[Node]) -> Result<&[Node], Refusal> {
+    let shape = || raise("vla-let-expand-shape", &[]);
+    if items.len() < 3 {
+        return Err(shape());
+    }
+    let Node::List(bl) = &items[1] else {
+        return Err(shape());
+    };
+    for b in bl.items() {
+        let Node::List(pair) = b else {
+            return Err(shape());
+        };
+        if pair.count() != 2 || !matches!(pair.items()[0], Node::Sym(_)) {
+            return Err(shape());
+        }
+    }
+    Ok(bl.items())
+}
+
+/// VLA.8: each binding's name, folded, in order, which the scope borrows.
+fn let_expand_folds(bindings: &[Node]) -> Vec<String> {
+    bindings
+        .iter()
+        .map(|b| match b {
+            Node::List(pair) => fold(&symbol_text(&pair.items()[0])),
+            _ => unreachable!("a binding's shape was held first"),
+        })
+        .collect()
+}
+
+/// VLA.8, VBA `LetExpandScope`: the scope a let-expand's forms read: the
+/// template's bindings, and each name, checked as a loop's is
+/// ([`each_check_name`]) and none alike another, bound in order to its value,
+/// read as a primitive reads its argument under the names before it.
+fn let_expand_scope<'a>(
+    bindings: &'a [Node],
+    folds: &'a [String],
+    env: &Env<'a>,
+) -> Result<Env<'a>, Refusal> {
+    let mut scope = Env {
+        bindings: env.bindings.clone(),
+        rest_name: env.rest_name,
+        rest_items: env.rest_items,
+        macros: env.macros,
+        functions: env.functions,
+        defines: env.defines,
+        calls: env.calls,
+    };
+    for (k, b) in bindings.iter().enumerate() {
+        let Node::List(pair) = b else {
+            unreachable!("a binding's shape was held first")
+        };
+        let pair = pair.items();
+        let word = symbol_text(&pair[0]);
+        each_check_name("let-expand", &word, env)?;
+        if folds[..k].contains(&folds[k]) {
+            return Err(raise(
+                "vla-each-name-bound",
+                &[("op", "let-expand"), ("word", &word)],
+            ));
+        }
+        let value = resolve_listops_arg(&pair[1], &scope)?;
+        held_depth(&value)?;
+        scope.bindings.insert(folds[k].as_str(), value);
+    }
+    Ok(scope)
+}
+
+/// VLA.8: an argument substituted and read as a value ([`value_read`]), a
+/// helper so that [`resolve_listops_arg`], on every primitive's path, holds
+/// neither.
+#[inline(never)]
+fn substitute_read(arg: &Node, env: &Env) -> Result<Node, Refusal> {
+    let v = substitute(arg, env, false)?;
+    value_read(arg, v, env)
+}
+
+/// VLA.8, VBA `ValueRead`: a value read the same whoever wrote it,
+/// [`resolve_listops_arg`]'s last step before a quote is unwrapped. A symbol
+/// that is a define's word is its form, read as a value in an empty scope, so
+/// that `(+expand side 1)` reads a define of `side`. A list a word of the
+/// template held, a parameter, a loop's name or a let-expand's name, never the
+/// rest's whole list, whose head names a primitive or a function, is that
+/// call, computed in an empty scope, so that a call handed in reads as one
+/// written in place. Any other value as it is. And a let-expand written where
+/// the value is read holds one form, its value.
+fn value_read(arg: &Node, v: Node, env: &Env) -> Result<Node, Refusal> {
+    if let Node::List(l) = arg {
+        if arg.head_is("let-expand") && l.count() > 3 {
+            return Err(raise(
+                "vla-let-expand-value-forms",
+                &[("n", &(l.count() - 2).to_string())],
+            ));
+        }
+    }
+    match &v {
+        Node::Sym(s) => {
+            let form = env
+                .defines
+                .filter(|d| !d.is_empty())
+                .and_then(|d| d.get(&fold(s)));
+            match form {
+                Some(form) => resolve_listops_arg(form, &env.bare()),
+                None => Ok(v),
+            }
+        }
+        Node::Str(_) => Ok(v),
+        Node::List(held) => {
+            let Node::Sym(word) = arg else {
+                return Ok(v);
+            };
+            if fold(word) == env.rest_name {
+                return Ok(v);
+            }
+            let Some(Node::Sym(h)) = held.items().first() else {
+                return Ok(v);
+            };
+            let hf = fold(h);
+            if is_listops(&hf) {
+                return eval_listops_prim(&hf, held.items(), &env.bare());
+            }
+            if env.functions.is_some_and(|f| f.contains_key(&hf)) {
+                return call_function(&hf, held.items(), &env.bare());
+            }
+            Ok(v)
+        }
+    }
 }
 
 // VLA.6: a name at expand time, `(define name form)`. A form of the walk that
@@ -2405,7 +3334,8 @@ fn eval_listops_prim(head_fold: &str, lst: &[Node], env: &Env) -> Result<Node, R
 fn resolve_listops_arg(arg: &Node, env: &Env) -> Result<Node, Refusal> {
     let v = match arg {
         Node::List(l) if is_each_form(arg) => Node::list(each_results(l.items(), env)?),
-        _ => substitute(arg, env, false)?,
+        // VLA.8: a value read the same whoever wrote it ([`substitute_read`]).
+        _ => substitute_read(arg, env)?,
     };
     if v.head_is("quote") {
         let Node::List(qc) = &v else { unreachable!() };
@@ -2588,6 +3518,14 @@ fn eval_equal(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
 
 /// `(quote-if test then else)`: only the selected branch is ever resolved.
 fn eval_quote_if(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
+    substitute(quote_if_branch(lst, env)?, env, false)
+}
+
+/// VLA.8, VBA `QuoteIfBranch`: quote-if's chosen branch, as written: the
+/// arity, then the test resolved as a primitive's argument and held to true or
+/// false, as [`eval_quote_if`] has always held it. A function's tail takes the
+/// branch from here without substituting it, so that a call there loops.
+fn quote_if_branch<'a>(lst: &'a [Node], env: &Env) -> Result<&'a Node, Refusal> {
     if lst.len() != 4 {
         return Err(raise("vla-quote-if-arity", &[("n", &arity_n(lst))]));
     }
@@ -2602,17 +3540,14 @@ fn eval_quote_if(lst: &[Node], env: &Env) -> Result<Node, Refusal> {
         }
         Node::Sym(s) => fold(s),
     };
-    let branch = match tf.as_str() {
-        "true" => nth(lst, 3)?,
-        "false" => nth(lst, 4)?,
-        _ => {
-            return Err(raise(
-                "vla-quote-if-test-invalid",
-                &[("value", &t.atom_text().unwrap_or_default())],
-            ))
-        }
-    };
-    substitute(branch, env, false)
+    match tf.as_str() {
+        "true" => nth(lst, 3),
+        "false" => nth(lst, 4),
+        _ => Err(raise(
+            "vla-quote-if-test-invalid",
+            &[("value", &t.atom_text().unwrap_or_default())],
+        )),
+    }
 }
 
 /// LISTOPS-EXPAND: `(+expand a b)` and the six comparisons, over literal
@@ -3375,6 +4310,9 @@ mod tests {
             "self",
             "bind-expand",
             "offset-expand",
+            // VLA.8: the value-binding form and the function-defining form.
+            "let-expand",
+            "defexpand",
         ];
         for name in LISTOPS {
             assert!(
@@ -3749,7 +4687,7 @@ mod tests {
             .unwrap();
         let call = Node::of(&read_forms("(m (g 1) (quote ((h 2) 3)))").unwrap()[0]);
         let Node::List(call) = &call else { panic!() };
-        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules, 0).unwrap();
+        let r = expand_one(call.items(), &ex.rules["m"], &ex.bare_env(), 0).unwrap();
         let Node::List(r) = &r else { panic!() };
         let shared = |n: &Node, with: &Node| match (n, with) {
             (Node::List(a), Node::List(b)) => Arc::ptr_eq(&a.run, &b.run),
@@ -4235,9 +5173,11 @@ mod tests {
             one("(define stop State!B12) (f (quote stop) \"stop\" stop)"),
             "(begin)\n(f (quote stop) \"stop\" State!B12)"
         );
+        // VLA.8, decision 5, a changed meaning: a primitive reads a define's
+        // word as its form, where it read the word as data.
         assert_eq!(
             one("(define stop State!B12) (eq? stop (quote stop))"),
-            "(begin)\ntrue"
+            "(begin)\nfalse"
         );
         assert_eq!(
             one("(defmacro (twice stop) (+ stop stop)) (define stop State!B12) (twice 5) (twice stop)"),
@@ -5155,7 +6095,7 @@ mod tests {
             .unwrap();
         let call = Node::of(&read_forms("\n\n\n(m (x (h 3)))").unwrap()[0]);
         let Node::List(call) = &call else { panic!() };
-        let r = expand_one(call.items(), &ex.rules["m"], &ex.rules, call.line).unwrap();
+        let r = expand_one(call.items(), &ex.rules["m"], &ex.bare_env(), call.line).unwrap();
         let Node::List(r) = &r else { panic!() };
         let [_, x, y] = r.items() else { panic!() };
         let Node::List(piece) = &call.items()[1] else {

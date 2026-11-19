@@ -20838,7 +20838,9 @@ built.
   the benefits of VLA.8 outweigh the weakening of the determinism/
   auditability wall, then your recommendations are approved; commit the
   docs then proceed with VLA.8": every decision as recommended, the
-  condition weighed below, after the decisions.*
+  condition weighed below, after the decisions. Its first slice built the
+  same day and committed after the owner's pass, recorded at the entry's
+  end; its second, the prelude's list library, after it.*
 
   **The words this entry keeps apart.** *Substitution* is a macro's template
   filled in with its arguments, where the twenty-nine primitives compute
@@ -21334,6 +21336,140 @@ built.
   - LISPIMPORT's `apply`, a call over an argument list computed, stays
     unwritable: a function's call spreads no list. LISPIMPORT's, if a client
     asks.
+
+  **What was built, the first slice,** 2026-11-18, every decision as
+  recommended, in a worktree off `358ba97`, the reference first (`SD-18`)
+  and the port after it.
+  - `src/VLA.bas`: the doctrine's sentence in the macro system's banner.
+    `defexpand` taken by the three loops that collect definitions
+    (`VlaTranspile`, `VlaCompileToForms`, `VlaExpandText`; the phrasebook
+    probe's fourth takes none, decision 9) through `DefineFunction`, which
+    refuses a name, a shape or a parameter by name. The call computed at
+    substitution (`Substitute`'s `Case Else`, `SubstituteFunctionCall`) and
+    in the walk (a branch each in `ExpandMacros` and `ExpandOnePass`), by
+    `CallFunction`, `FunctionBindArgs`, `FunctionWorkOut` and
+    `FunctionStep`: a call in a tail place looping (`QuoteIfBranch`, which
+    `EvalQuoteIf` now reads too, `CondTailForm`, a let-expand's form), every
+    other call nested to `VLA_FUNCTION_DEPTH_LIMIT`, the calls of one
+    working-out counted to `VLA_FUNCTION_FUEL`. `let-expand`
+    (`EvalLetExpand`, `LetExpandScope`). A define's word and a call handed
+    in read as values (`ValueRead`, from `ResolveListopsArg`). The trail
+    (`FunctionTrailEntry`, `FunctionTrailText`, `FunctionCallText`,
+    `TrailCountForms`). `VlaSetFunctionDepthLimit`, the probe's switch;
+    `VlaFrame`'s twenty-second field, the functions. `VLA_CORE_VERSION`
+    `VLA.8`.
+  - `vla-lang/src/expand.rs`: the same, procedure for procedure; the calls'
+    state in `Calls`, of atomics and a mutex, so that the expander stays
+    `Send`, `Sync` and unwind-safe, as a test pins it;
+    `Expander::define`, `FUNCTION_DEPTH_LIMIT` and `FUNCTION_FUEL` public.
+  - The fifteen messages in `VLA_Messages.bas`, exported: 279 in the
+    language's half, `check_data_exports`' floor raised to the count.
+  - `TestFunctions`, 65 pure pins, wired after `TestRawStrings`, the
+    stepper's three among them; `TestDefineForms`' pin of `(eq? stop (quote
+    stop))` now `false`, decision 5's changed meaning.
+    `VlaFunctionDepthProbe`, the reference's own depth, the owner's to run.
+  - The expand fixture's 60 cases, 30 expanded and 30 refused, each of the
+    fifteen ids refused at least once; `define-is-no-primitive-s-argument`
+    renamed `define-is-a-value-a-primitive-reads`, its record `false`;
+    floors 761, 393 and 90. The port's prediction of the golden, kept apart
+    for the owner's `cmp` (SHA-256 `9949b0a70e6b…` at the depth of 14).
+  - `check_expand_golden`'s rule 12: the two forms reserved in both and
+    listed among neither's primitives, `let-expand` at a form's head in both
+    walks, a function taken by every entry point, the depth restored on
+    every way out, the two limits one number, each id refused. Its control's
+    mutants (w), (x) and (y), 25 in all. `check_raise_ratchet`'s `VLA`
+    ceiling 12, `FunctionWorkOut`'s re-raise from locals (trap 1).
+  - The port's law 17, a call computing one value wherever it stands over
+    generated functions and arguments, two sibling calls in either order and
+    a source expanded twice the same bytes; and on a thread of 1 MiB,
+    `a_function_s_calls_nest_to_their_limit_and_loop_past_it` and
+    `a_value_a_working_out_holds_is_held_to_the_reader_s_depth`.
+  - `0.15.0`'s two notes; the tutorial's *A function* in Section 14, with its
+    table, *Where a word is replaced*, *Where it stops* and the filter's
+    bullet, and two sentences of Section 10; the crate's README.
+
+  **Where the build moved from the scoping.**
+  - *The depth, measured in both.* The port's stack is the package's
+    tarball built unoptimized on a thread of 1 MiB, as CI's package job
+    runs it: its frames read from the assembly, a level of nested calls
+    costs about 18 KB through the walk's deepest path. The frames were
+    trimmed for it: `tail_of` a loop over the tail's kinds, the working-out
+    one frame with its refusals and trail in helpers off the path
+    (`work_out_enter`, `work_out_fuel`, `work_out_retrail`,
+    `work_out_leave`), and `walk_step`, `walk_computes` and
+    `substitute_read` out of the recursive frames, `expand_at` at 9,192
+    bytes where 8,552 before. With the limit raised in a scratch copy, a
+    call at the form depth's own limit held `(nest 21)`, 22 calls deep, and
+    overflowed at 23. The build first set 16 by the port's stack alone, to
+    stand while Excel held `(nest 32)` there. The owner's probe
+    (`VlaFunctionDepthProbe`, 2026-11-18, from the Immediate window) held
+    `(nest 24)`, 25 deep, and in `(nest 32)` ran out of stack space 29
+    calls deep: VBA's error 28, met by the innermost working-out's handler
+    and given its trail, `(computing (nest 32) > ... > (nest 6) >
+    (nest 5) > (nest 4))`, Excel left standing. Every frame a working-out 28 deep
+    reaches was passed in that run. Decision 7 sets the limit at half the
+    depth the reference's stack gives out at: 14 in both, the reference's
+    constant held to the port's by rule 12, eight levels short of the
+    port's own; the fixture's two cases, `TestFunctions`' three pins and
+    the notes, the tutorial and the README moved with it.
+  - *A value held to the reader's depth, in the port.* A call that wraps its
+    argument nests it a level deeper each time, so a loop within the fuel
+    built a value thousands deep that no walk reads: `(deep 1 4999)`, which
+    answers `0`, overflowed the port's stack freeing it. The port now
+    refuses, as `vla-form-too-deep`, any value a working-out binds or
+    answers, and any `let-expand` name, nested past 64 (`held_depth`), by the
+    depth made with the value, so the test costs nothing and moves no frame.
+    The reference shares a value by reference and keeps no depth, so it
+    meets the fuel instead, as `VLA.1`'s growing macros meet the chain's
+    limit there; the difference is written in both, and no fixture case
+    reaches it.
+  - *The stepper.* A call the walk meets is one application, so the stepper
+    shows the call and then its value; at a spent budget it stands, as a
+    macro's call does. A `let-expand` the walk meets is none, as a loop is
+    none. The port weighs a call's value the walk takes as it weighs an
+    application's result (`VLA.1`); the reference does not.
+  - *The trail.* At most four calls, the outermost, `...` and the three
+    innermost, each cut at 60 UTF-16 units to 57 and `...`, never between
+    the halves of a surrogate pair; a value of more than 60 forms written
+    `...`, counted by a walk that stops at 61, so that a value shared into a
+    vast tree is never walked.
+
+  **Held by** the port, over `KERNEL.55`'s fourth slice (`ed51bbd`, merged
+  without a conflict), at the depth of 16 and again at 14: 970 passed, 0 failed and 5 ignored over the
+  workspace; the package's own suite from its tarball, unoptimized, every
+  test passing; `clippy` (twice, as CI runs it, Rust 1.100.0) and `fmt`
+  clean; `run_checks.ps1` 60 of 60; `check_expand_golden -Control` failing
+  each of its 25 mutants. Alonzo at `69f06ee` over this `vla-lang` (a scratch copy,
+  its `[patch.crates-io]` taken, a target of its own): its twelve
+  cartridges `same`, and Buffet's source, 1,494 rows, the same bytes as
+  under 0.14.0 and as committed. Every example of the notes, the tutorial
+  and the README expanded by the port as written there. Held again over
+  `KERNEL.55`'s fifth slice's first part (`fd9ffd9`, committed by a peer
+  while this slice waited, merged with the messages module's version line
+  alone in conflict, resolved to `VLA.8`): 974 passed, 0 failed and 5
+  ignored over the workspace; the package's suite from its tarball, 691;
+  `clippy` and `fmt` clean; `run_checks.ps1` 60 of 60.
+
+  **The owner's pass,** 2026-11-18, in Excel: `VlaFunctionDepthProbe`, the
+  depth above, brought to 14 by it; then, at 14, `VlaDevReload`, Debug >
+  Compile, `VlaSelfTests` and `VlaWriteExpandGolden`, the golden the port's
+  prediction byte for byte (`git diff --no-index` against the prediction
+  kept apart, empty): "All four passed". The counts the owner gave a peer's
+  session that day over this tree, pure 2620 of 2620, `VLA.18`'s 2555 and
+  `TestFunctions`' 65, and host 333 of 333 (`KERNEL.55`'s fifth slice, its
+  hand test). The first slice committed at the owner's word, "commit slice
+  1 then proceed with slice 2".
+
+  **Found in the build** (not minted).
+  - The reference holds no value a working-out builds to a depth: a body may
+    wrap its argument as many levels as its text nests, so within the fuel
+    a value can reach 5,000 times 64 levels. Whether Excel frees a
+    `Collection` so deep is unmeasured; `VLA.1`'s comment says its growing
+    macro met the chain's limit at 5,000 levels of one each.
+  - `SEC.14`'s accepted risk calls a VBA stack overflow a hard crash that
+    nothing catches. The probe's run met one as error 28, in the innermost
+    working-out's handler, Excel left standing: one run, from the Immediate
+    window. Whether the reader's own recursion meets it so is unmeasured.
 
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE

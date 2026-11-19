@@ -111,6 +111,51 @@
   a legacy formula and a legacy array formula alike:
   `=SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`, where it summed three
   picks. A dynamic formula alone lifts either (KERNEL.55).
+- **Functions at expand time.** `(defexpand (name parameter ...) form)`
+  defines a function whose call computes a value while a source expands, as
+  the expand-time primitives do, so that a list is filtered, counted or
+  built by a helper with a name where a macro walked it by hand:
+
+  ```lisp
+  (defexpand (keep-big xs)
+    (quote-if (null? xs)
+      (quote ())
+      (quote-if (>expand (car xs) 2)
+        (cons (car xs) (keep-big (cdr xs)))
+        (keep-big (cdr xs)))))
+  (cell "S" "A1" (keep-big (quote (1 5 2 7))))
+  ```
+
+  writes `(cell "S" "A1" (5 7))`. A call computes wherever a primitive
+  computes, at the top of a source, in a macro's template and in a
+  primitive's argument, and its value is expanded again as any form is, so
+  a function may answer the rows a macro writes, and `each` in its body
+  gives the list of its results, so a map is a loop. `(let-expand ((name
+  value) ...) form ...)` names values for its forms, each binding reading
+  the ones before it. A call that is its function's value (its body, the
+  branch a `quote-if` or `cond` chose, or a `let-expand`'s form) loops and
+  nests nothing, so a function counting down from 4,999 stands on any stack;
+  any other call nests at most 14 deep (`vla-function-depth`), and one value
+  is worked out in at most 5,000 calls (`vla-function-fuel`). A refusal
+  inside a working-out names the calls it stands in: `+expand: expected a
+  number, got a list (computing (outer (a)) > (inner (a)))`. A word names
+  one thing, so a function's name taken by a macro or a define, or by a
+  second function, is refused by name, where a second macro replaces the
+  first. A function takes no named pieces, since its arguments are values.
+  The stepper shows a call the walk meets as one application and its value
+  as the next. `Expander::define` takes a definition of either kind and
+  answers whether the form was one; `expand::FUNCTION_DEPTH_LIMIT` and
+  `expand::FUNCTION_FUEL` are the two limits (VLA.8).
+- **A define's word is its form wherever a value is read.** A changed
+  meaning: in an expand-time primitive's argument, a define's word now reads
+  as its form, as it does where the walk places it, where it read as the
+  word itself. After `(define stop State!B12)`, `(eq? stop (quote stop))`
+  answers `false`, where it answered `true`. So does a call of a primitive
+  or a function that a macro's parameter, a loop's name or a `let-expand`'s
+  name hands to a primitive, which is computed where it is read, where the
+  primitive read the call as a list: `(car x)`, `x` handed `(list 1 2)`,
+  answers `1`, where it answered `list`. Every source of Frazaro's, Alonzo's
+  and Buffet's expands to the same bytes (VLA.8).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,

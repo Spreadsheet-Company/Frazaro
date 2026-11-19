@@ -1,6 +1,23 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.18"
+Public Const VLA_TESTS_VERSION As String = "VLA.8"
+' VLA.8: TestFunctions - functions at expand time and let-expand, 65 pins: a
+' call at the top, in a primitive's argument, in a template and as a helper's
+' value where &expand reads it; a docstring, a constant, a rest, one defined
+' after its caller; a value built as an expression walked again; a predicate
+' as quote-if's test, a filter, a run of numbers, a map as a loop; a tail call
+' looping to the last of the fuel and a cond's, a cond that waits; the fuel
+' and the depth refused, the trail named, cut, past four calls and a vast value
+' as dots; a function handed to a function and a parameter hiding one; self
+' through a function to the walk's forms, and a primitive refusing it;
+' let-expand's four readings and six refusals; a define's word and a call
+' handed in read as values; every refusal of a definition; and the stepper
+' showing a call and then its value. And the changed meaning of decision 5 in
+' TestDefineForms: a primitive reads a define's word as its form. Wired after
+' TestRawStrings. VlaFunctionDepthProbe measures the reference's stack for a
+' function's nested calls at the form depth's limit, logging each depth before
+' it is tried.
+'
 ' VLA.18: TestRawStrings - a raw string, #"..."#, 16 pins: the text as
 ' written, quotes and backslashes standing; two # for a text holding "#;
 ' the empty one; a word after one's close, and a # inside a word the
@@ -631,6 +648,7 @@ Public Function VlaSelfTest() As Boolean
     TestListopsDepthSafety
     TestFormTooDeep
     TestRawStrings
+    TestFunctions
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -7533,7 +7551,8 @@ End Sub
 ' VLA.6: a name at expand time, (define name form), and a reference's twin,
 ' (last X), with a reference's two parts, sheet-expand and range-expand: a
 ' define binding the forms after its own, replaced where the walk meets its
-' word as an expression and nowhere else, a define a macro and a loop write,
+' word as an expression and, since VLA.8, where a primitive reads it as a
+' value, a define a macro and a loop write,
 ' the stop rule by names writing the row its twin by addresses writes, one
 ' pass leaving a define whole, every refusal by its words or its id, the
 ' three reserved names, and the trampoline keeping a begin's forms before a
@@ -7552,8 +7571,10 @@ Private Sub TestDefineForms()
     CheckV "define: never inside a quote or a text", _
         ExpandTrimmed("(define stop State!B12) (f (quote stop) ""stop"" stop)"), _
         "(begin)" & vbCrLf & "(f (quote stop) ""stop"" State!B12)"
-    CheckV "define: a primitive reads the word as data", _
-        ExpandTrimmed("(define stop State!B12) (eq? stop (quote stop))"), "(begin)" & vbCrLf & "true"
+    ' VLA.8, decision 5, a changed meaning: a primitive reads a define's word
+    ' as its form, where it read the word as data.
+    CheckV "define: a primitive reads the word as its form", _
+        ExpandTrimmed("(define stop State!B12) (eq? stop (quote stop))"), "(begin)" & vbCrLf & "false"
     CheckV "define: a macro's parameter shadows it, its argument replaced where it lands", _
         ExpandTrimmed("(defmacro (twice stop) (+ stop stop)) (define stop State!B12) (twice 5) (twice stop)"), _
         "(begin)" & vbCrLf & "(+ 5 5)" & vbCrLf & "(+ State!B12 State!B12)"
@@ -9078,6 +9099,217 @@ Private Sub TestRawStrings()
     got = VlaIdeScanTargets("(rename-sheet #" & q & "Old" & q & "# " & q & "New" & q & ")")
     Report "vla.18: a raw string counts as its row's argument beside a quoted one", _
            got = "Old,New", "got: " & got
+End Sub
+
+' VLA.8: functions at expand time and let-expand - a function's call computed
+' at the top, in a template, in a primitive's argument and as a helper's value,
+' its value walked again, a constant, a rest, a call of one defined after it,
+' a predicate, a filter, a run of numbers and a map; a call in a tail place
+' looping to the fuel and a cond's; the depth and the fuel refused by name,
+' and the trail of calls a refusal stands in, cut, and a vast value written as
+' dots; a function handed to a function and a parameter hiding one; self
+' passing through to the walk's forms and refused by a primitive; let-expand
+' in a template, in order, of several forms and in a function's tail, and its
+' refusals; a define's word and a call handed in read as values; every
+' refusal of a definition by its id; and the stepper showing a call and then
+' its value. scripts/expand_golden.txt holds the same cases' whole records to
+' vla-lang's; these pins say what each means.
+Private Sub TestFunctions()
+    Const FN_SQUARE As String = "(defexpand (square x) (*expand x x)) "
+    ' --- a function's call computed where a primitive's would be.
+    CheckV "functions: a call at the top", _
+        ExpandTrimmed(FN_SQUARE & "(cell ""S"" ""A1"" (square 7))"), "(cell ""S"" ""A1"" 49)"
+    CheckV "functions: a call in a primitive's argument", _
+        ExpandTrimmed(FN_SQUARE & "(+expand (square 3) 1)"), "10"
+    CheckV "functions: a call in a template", _
+        ExpandTrimmed(FN_SQUARE & "(defmacro (area-cell at side) (cell ""S"" at (square side))) (area-cell ""A1"" 5)"), "(cell ""S"" ""A1"" 25)"
+    CheckV "functions: a helper's value where &expand reads it", _
+        ExpandTrimmed("(defexpand (beside at columns) (address-expand (row-expand at) (+expand (column-expand at) columns))) " & _
+            "(cell ""S"" (&expand (beside ""A1"" 1) "":C9"") 1)"), "(cell ""S"" ""B1:C9"" 1)"
+    CheckV "functions: a docstring", _
+        ExpandTrimmed("(defexpand (twice x) ""two of x"" (*expand 2 x)) (cell ""S"" ""A1"" (twice 21))"), "(cell ""S"" ""A1"" 42)"
+    CheckV "functions: a constant is a function of no arguments", _
+        ExpandTrimmed("(defexpand (wall-width) 14) (cell ""S"" ""A1"" (+expand (wall-width) 1))"), "(cell ""S"" ""A1"" 15)"
+    CheckV "functions: the rest's values", _
+        ExpandTrimmed("(defexpand (all-after x & more) more) (cell ""S"" ""A1"" (all-after 1 2 3))"), "(cell ""S"" ""A1"" (2 3))"
+    CheckV "functions: one calls another defined after it", _
+        ExpandTrimmed("(defexpand (outer x) (inner x)) (defexpand (inner x) (+expand x 1)) (cell ""S"" ""A1"" (outer 1))"), "(cell ""S"" ""A1"" 2)"
+    CheckV "functions: a value built as an expression is walked again", _
+        ExpandTrimmed("(defmacro (edge b) (and (= b 1) (= (last b) 0))) (defexpand (pressed-test b) (list (quote edge) b)) " & _
+            "(formula-expand (if (pressed-test Input!B13) 1 0))"), """=IF(AND(Input!B13=1,Input.last!B13=0),1,0)"""
+    CheckV "functions: a function as quote-if's test", _
+        ExpandTrimmed("(defexpand (big? x) (>expand x 2)) (defexpand (first-big xs) (quote-if (big? (car xs)) (car xs) (first-big (cdr xs)))) " & _
+            "(cell ""S"" ""A1"" (first-big (quote (1 2 3 4))))"), "(cell ""S"" ""A1"" 3)"
+    CheckV "functions: a filter", _
+        ExpandTrimmed("(defexpand (keep-big xs) (quote-if (null? xs) (quote ()) (quote-if (>expand (car xs) 2) (cons (car xs) (keep-big (cdr xs))) (keep-big (cdr xs))))) " & _
+            "(cell ""S"" ""A1"" (keep-big (quote (1 5 2 7))))"), "(cell ""S"" ""A1"" (5 7))"
+    CheckV "functions: a loop over a run of numbers", _
+        ExpandTrimmed("(defexpand (numbers from last) (numbers-onto last from (quote ()))) " & _
+            "(defexpand (numbers-onto at from acc) (quote-if (<expand at from) acc (numbers-onto (-expand at 1) from (cons at acc)))) " & _
+            "(each (n (numbers 1 3)) (cell ""S"" (address-expand n 1) n))"), _
+        "(begin (cell ""S"" ""A1"" 1) (cell ""S"" ""A2"" 2) (cell ""S"" ""A3"" 3))"
+    CheckV "functions: a map is a loop in a function's body", _
+        ExpandTrimmed(FN_SQUARE & "(defexpand (squares xs) (each (x xs) (square x))) (cell ""S"" ""A1"" (squares (quote (1 2 3))))"), "(cell ""S"" ""A1"" (1 4 9))"
+
+    ' --- a call in a tail place loops; the fuel and the depth refused by name.
+    Const FN_DOWN As String = "(defexpand (down n) (quote-if (=expand n 0) 0 (down (-expand n 1)))) "
+    CheckV "functions: a call in a tail place loops to the last of the fuel", _
+        ExpandTrimmed(FN_DOWN & "(cell ""S"" ""A1"" (down 4999))"), "(cell ""S"" ""A1"" 0)"
+    CheckExpandErr "functions: one call past the fuel refused", FN_DOWN & "(down 5000)", _
+        "function 'down': more than 5000 calls working out one value"
+    CheckExpandErr "functions: the fuel's refusal names the call under way", FN_DOWN & "(down 5000)", "(computing (down 0))"
+    CheckV "functions: a cond in a tail place loops", _
+        ExpandTrimmed("(defexpand (count-down n) (cond ((=expand n 0) 0) (else (count-down (-expand n 1))))) (cell ""S"" ""A1"" (count-down 3000))"), _
+        "(cell ""S"" ""A1"" 0)"
+    CheckV "functions: a cond that waits writes the running program's if", _
+        ExpandTrimmed("(defexpand (sign x) (cond ((> x 0) 1) (else 0))) (sign 5)"), "(if (> 5 0) (then 1) (else 0))"
+    Const FN_NEST As String = "(defexpand (nest n) (quote-if (=expand n 0) 0 (+expand 1 (nest (-expand n 1))))) "
+    CheckV "functions: calls nested to the depth", _
+        ExpandTrimmed(FN_NEST & "(cell ""S"" ""A1"" (nest 13))"), "(cell ""S"" ""A1"" 13)"
+    CheckExpandErr "functions: one level past the depth refused", FN_NEST & "(nest 14)", _
+        "function 'nest': calls nested more than 14 deep"
+    CheckExpandErr "functions: past four calls, the outermost and the three innermost", FN_NEST & "(nest 14)", _
+        "(computing (nest 14) > ... > (nest 3) > (nest 2) > (nest 1))"
+    CheckExpandErr "functions: a refusal inside names its calls, outermost first", _
+        "(defexpand (inner x) (+expand x 1)) (defexpand (outer x) (list (inner x))) (outer (quote (a)))", _
+        "+expand: expected a number, got a list (computing (outer (a)) > (inner (a)))"
+    CheckExpandErr "functions: a long call in the trail is cut", _
+        "(defexpand (bump xs) (+expand xs 1)) (bump (quote (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)))", _
+        "(computing (bump (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20...)"
+    CheckExpandErr "functions: a vast value in the trail is written as dots", _
+        "(defexpand (grow x n) (quote-if (=expand n 0) (+expand x 1) (grow (list x x) (-expand n 1)))) (grow 1 40)", _
+        "(computing (grow ... 0))"
+
+    ' --- a function handed to a function, and a parameter hiding one.
+    CheckV "functions: a function handed to a function", _
+        ExpandTrimmed(FN_SQUARE & "(defexpand (apply-to f x) (f x)) (cell ""S"" ""A1"" (apply-to square 4))"), "(cell ""S"" ""A1"" 16)"
+    CheckV "functions: a macro's parameter hides a function of its word", _
+        ExpandTrimmed(FN_SQUARE & "(defmacro (m square) (square 2)) (m 5)"), "(5 2)"
+
+    ' --- self passes through a function as a word.
+    CheckV "functions: self reaches the walk's forms in a function's value", _
+        ExpandTrimmed("(defexpand (ring at) (offset-expand at -1 -1 3 3)) (bind-expand ((self Screen!B2)) (formula-expand (sum (ring self))))"), _
+        """=SUM(Screen!A1:C3)"""
+    CheckExpandErr "functions: a primitive in a function refuses self", _
+        "(defexpand (column-of at) (column-expand at)) (bind-expand ((self Screen!B2)) (formula-expand (+ (column-of self) 1)))", _
+        "column-expand takes its arguments as data"
+
+    ' --- let-expand, a value bound for one form.
+    CheckV "let-expand: in a template", _
+        ExpandTrimmed("(defmacro (fit h) (let-expand ((last-row (+expand h 9))) (cell ""Fit"" (&expand ""A10:A"" last-row) last-row))) (fit 24)"), _
+        "(cell ""Fit"" ""A10:A33"" 33)"
+    CheckV "let-expand: each value under the names before it", _
+        ExpandTrimmed("(let-expand ((a 2) (b (*expand a 3))) (cell ""S"" ""A1"" b))"), "(cell ""S"" ""A1"" 6)"
+    CheckV "let-expand: several forms write a begin", _
+        ExpandTrimmed("(let-expand ((a 1)) (cell ""S"" ""A1"" a) (cell ""S"" ""A2"" a))"), "(begin (cell ""S"" ""A1"" 1) (cell ""S"" ""A2"" 1))"
+    CheckV "let-expand: in a function's tail", _
+        ExpandTrimmed("(defexpand (hyp a b) (let-expand ((a2 (*expand a a)) (b2 (*expand b b))) (+expand a2 b2))) (cell ""S"" ""A1"" (hyp 3 4))"), _
+        "(cell ""S"" ""A1"" 25)"
+    CheckExpandErr "let-expand: a reserved name refused", "(let-expand ((car 1)) car)", _
+        "let-expand 'car': 'car' is the list-head primitive and cannot be a name let-expand binds"
+    CheckExpandErr "let-expand: a name twice refused", "(let-expand ((a 1) (A 2)) a)", "let-expand: 'A' is already a name in this template"
+    CheckExpandErr "let-expand: a parameter's name refused", "(defmacro (m x) (let-expand ((x 1)) x)) (m 2)", _
+        "let-expand: 'x' is already a name in this template"
+    CheckV "let-expand: no form refused by its shape", ExpandRefusalId("(let-expand ((a 1)))"), "vla-let-expand-shape"
+    CheckV "let-expand: a bare binding refused by its shape", ExpandRefusalId("(let-expand (a 1) a)"), "vla-let-expand-shape"
+    CheckExpandErr "let-expand: two forms where a value is read refused", "(+expand (let-expand ((a 1)) a a) 1)", _
+        "let-expand: where its value is read it holds one form, and this one holds 2"
+
+    ' --- a define's word and a call handed in, read as values.
+    CheckV "values: a define's number in a template's arithmetic", _
+        ExpandTrimmed("(define wall-height 24) (defmacro (fit) (cell ""Fit"" (&expand ""A10:A"" (+expand wall-height 9)) 0)) (fit)"), _
+        "(begin)" & vbCrLf & "(cell ""Fit"" ""A10:A33"" 0)"
+    CheckV "values: a loop walks a defined list", _
+        ExpandTrimmed("(define digits (1 2 3)) (each (d digits) (cell ""S"" (address-expand d 1) d))"), _
+        "(begin)" & vbCrLf & "(begin (cell ""S"" ""A1"" 1) (cell ""S"" ""A2"" 2) (cell ""S"" ""A3"" 3))"
+    Const MAC_PLUS_ONE As String = "(defmacro (plus-one x) (+expand x 1)) "
+    CheckV "values: a primitive's call handed in reads at the top as in a template", _
+        ExpandTrimmed(MAC_PLUS_ONE & "(cell ""S"" ""A1"" (plus-one (+expand 2 3)))"), "(cell ""S"" ""A1"" 6)"
+    CheckV "values: a function's call handed in", _
+        ExpandTrimmed(FN_SQUARE & MAC_PLUS_ONE & "(cell ""S"" ""A1"" (plus-one (square 3)))"), "(cell ""S"" ""A1"" 10)"
+    CheckV "values: a quoted call handed in stays data", _
+        ExpandTrimmed("(defmacro (first-word call) (car call)) (cell ""S"" ""A1"" (first-word (quote (+expand 1 2))))"), "(cell ""S"" ""A1"" +expand)"
+    CheckV "values: the rest's list is never a call", _
+        ExpandTrimmed("(defmacro (first-of & xs) (car xs)) (cell ""S"" ""A1"" (first-of +expand 1 2))"), "(cell ""S"" ""A1"" +expand)"
+    CheckExpandErr "values: a macro's call handed in stays a list", _
+        "(defmacro (beside-m at) (address-expand (row-expand at) 2)) " & MAC_PLUS_ONE & "(plus-one (beside-m ""A1""))", _
+        "+expand: expected a number, got a list"
+
+    ' --- a definition's refusals, each by its id.
+    CheckV "defexpand: no body refused by its shape", ExpandRefusalId("(defexpand (f x))"), "vla-defexpand-shape"
+    CheckV "defexpand: a bare name refused by its shape", ExpandRefusalId("(defexpand f x)"), "vla-defexpand-shape"
+    CheckV "defexpand: two forms refused", ExpandRefusalId("(defexpand (f x) x x)"), "vla-defexpand-body"
+    CheckV "defexpand: a name like a cell refused", ExpandRefusalId("(defexpand (B12 x) x)"), "vla-defexpand-name-reference"
+    CheckV "defexpand: a primitive's name refused", ExpandRefusalId("(defexpand (car x) x)"), "vla-defexpand-name-reserved"
+    CheckV "defexpand: a form of the language refused", ExpandRefusalId("(defexpand (if x) x)"), "vla-defexpand-name-reserved"
+    CheckExpandErr "defexpand: its own word refused", "(defexpand (defexpand x) x)", "'defexpand' is the expand-time function-defining form"
+    CheckExpandErr "defexpand: a macro's name refused", "(defmacro (m x) x) (defexpand (m x) x)", "'m' is a macro's name in this source"
+    CheckExpandErr "defexpand: a second definition refused", "(defexpand (f x) x) (defexpand (f y) y)", "'f' is defined already in this source"
+    CheckV "defmacro: a function's name refused", ExpandRefusalId("(defexpand (f x) x) (defmacro (f x) x)"), "vla-defmacro-name-taken"
+    CheckExpandErr "define: a function's name refused", "(defexpand (f x) x) (define f A1)", "'f' is a function's name in this source"
+    CheckExpandErr "defmacro: let-expand refused", "(defmacro (let-expand x) x)", "'let-expand' is the expand-time value-binding form"
+    CheckV "defexpand: a named piece refused", ExpandRefusalId("(defexpand (f x (y 1)) x)"), "vla-defexpand-piece"
+    CheckV "defexpand: a rest not last refused", ExpandRefusalId("(defexpand (f & xs ys) xs)"), "vla-defexpand-rest"
+    CheckV "defexpand: a parameter twice refused", ExpandRefusalId("(defexpand (f x X) x)"), "vla-defexpand-param-twice"
+    CheckExpandErr "functions: a call's arity", "(defexpand (f x) x) (f 1 2)", "function 'f' expects 1 argument(s), got 2"
+    CheckExpandErr "functions: a call's arity, at least", "(defexpand (f x & more) x) (f)", "function 'f' expects at least 1 argument(s), got 0"
+
+    ' --- the stepper: a call at the walk is one application, standing before it.
+    Dim stepTotal As Long
+    Dim stepText As String
+    stepText = VlaExpandStepText(FN_SQUARE & "(cell ""S"" ""A1"" (square 7))", 0, stepTotal)
+    If Right$(stepText, 2) = vbCrLf Then stepText = Left$(stepText, Len(stepText) - 2)
+    CheckV "functions: the stepper counts a call at the walk as one application", stepTotal, 1
+    CheckV "functions: the stepper shows the call before its value", stepText, "(cell ""S"" ""A1"" (square 7))"
+    stepText = VlaExpandStepText(FN_SQUARE & "(cell ""S"" ""A1"" (square 7))", 1, stepTotal)
+    If Right$(stepText, 2) = vbCrLf Then stepText = Left$(stepText, Len(stepText) - 2)
+    CheckV "functions: the stepper shows the value at the next step", stepText, "(cell ""S"" ""A1"" 49)"
+End Sub
+
+' VLA.8: the reference's stack, measured for a function's nested calls where a
+' call stands deepest, at the form depth's own limit (the 64th list): a
+' function nesting n calls, for n from 8 by 8 to upTo, each attempt written to
+' the log before it is made, so that a run Excel cannot finish still names the
+' last depth it held; the limit raised for the run (VlaSetFunctionDepthLimit)
+' and restored on every way out. Run it in a workbook with nothing unsaved:
+' VlaFunctionDepthProbe "<a folder of yours>\vla8_depth.txt". A stop's trail
+' names the innermost call, (nest k) inside (nest n) the call n - k + 1 deep;
+' the limit is half the depth the stack gives out at (the scoping's decision
+' 7): Excel's ran out 29 deep, (nest 4) inside (nest 32), so 14 (2026-11-18).
+Public Sub VlaFunctionDepthProbe(ByVal logPath As String, Optional ByVal upTo As Long = 512)
+    Dim n As Long, fired As Long, i As Long
+    Dim wrapOpen As String, wrapClose As String, src As String
+    For i = 1 To 63
+        wrapOpen = wrapOpen & "(f "
+        wrapClose = wrapClose & ")"
+    Next
+    ProbeLogLine logPath, "VlaFunctionDepthProbe: nested calls at list depth 64, from 8 by 8 to " & upTo
+    VLA.VlaSetFunctionDepthLimit upTo + 1
+    On Error GoTo failed
+    For n = 8 To upTo Step 8
+        ProbeLogLine logPath, "trying " & n
+        src = "(defexpand (nest n) (quote-if (=expand n 0) 0 (+expand 1 (nest (-expand n 1))))) " & wrapOpen & "(nest " & n & ")" & wrapClose
+        VLA.VlaExpandText src, True, fired
+        ProbeLogLine logPath, "held " & n
+    Next
+    VLA.VlaSetFunctionDepthLimit 0
+    ProbeLogLine logPath, "done: every depth to " & upTo & " held"
+    Exit Sub
+failed:
+    Dim d As String, num As Long
+    num = Err.Number: d = Err.Description
+    VLA.VlaSetFunctionDepthLimit 0
+    ProbeLogLine logPath, "stopped at " & n & ": error " & num & ", " & d
+End Sub
+
+' VLA.8: one line appended to the probe's log, the file closed after it, so
+' that a run Excel cannot finish keeps every line written before.
+Private Sub ProbeLogLine(ByVal logFile As String, ByVal lineText As String)
+    Dim fh As Integer
+    fh = FreeFile
+    Open logFile For Append As #fh
+    Print #fh, lineText
+    Close #fh
 End Sub
 
 ' VLA.18: the first form a text reads as, a string as its token (its leading

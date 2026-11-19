@@ -418,7 +418,8 @@ becomes, in order,
 A macro in VLA is **pure substitution**. A template computes nothing, runs
 nothing, and asks the workbook nothing. The argument is placed, whole and
 unexamined, where the parameter stood. The result is expanded again until
-no macro remains.
+no macro remains. What does compute while a template expands says so by its
+name: Section 14's expand-time names, and the functions a file defines.
 
 Several forms in a template body are taken as a sequence. A macro may
 stand where a statement may, or where a value may: `(zero? x)` expands to
@@ -439,7 +440,8 @@ story of the day this mattered.
 
 **Names are global.** Every macro in the prelude, the phrasebooks and your
 file shares one table. In a phrasebook, a second macro of the same name is
-refused.
+refused. A function (Section 14) shares the table too: a word names a macro
+or a function, never both.
 
 ### Named pieces
 
@@ -642,8 +644,9 @@ A macro receives forms. Sometimes it helps to treat a form as a list and
 walk it. VLA has twenty-nine primitives for that, counting the arithmetic,
 the text and the addresses a walk tends to need, a lookup and a test that
 tells a word from a list, a loop that writes a form for each element, a
-word for a form, `define`, and one for the place a verb writes, `self`. They
-work on **quoted data in the source text**, while the program is being expanded.
+word for a form, `define`, and one for the place a verb writes, `self`; and a
+file may define functions of its own, `defexpand`, that compute beside them.
+They work on **quoted data in the source text**, while the program is being expanded.
 They never see a cell, a range, or anything else that exists only when the
 program runs.
 
@@ -676,6 +679,8 @@ program runs.
 | `(first-cell-expand reference)` | A reference's first cell, as a text: `"B1"` for `Tally!B1:E10`. |
 | `(bind-expand ((self reference)) form ...)` | The forms, with the word `self` standing for one cell on a sheet; see *The place a verb writes* below. |
 | `(offset-expand reference rows columns)` `(offset-expand reference rows columns height width)` | A reference moved, as Excel's `OFFSET` moves it. |
+| `(defexpand (name parameter ...) form)` | A function, whose call computes a value while the file expands; see *A function* below. |
+| `(let-expand ((name value) ...) form ...)` | The forms, each name standing for its value; see *A function* below. |
 
 **A name that ends in `expand` is computed while the macro expands.** The
 plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
@@ -875,11 +880,11 @@ is not yet bound, wherever it stands, and a use there is refused:
 
 **Where a word is replaced.** Wherever it stands as a value: an argument, a
 statement, anything inside `formula-expand`. Never at a list's head, so
-`(define left State!B5)` and `(left text 1)` never meet; never inside a
-quote or a text; and never in an expand-time primitive's argument, which
-reads the file's own data, so `(eq? stop (quote stop))` is `true`. A
-macro's parameter of the same word hides it, since the parameter is
-replaced first. A define may name another, defined before it or after it,
+`(define left State!B5)` and `(left text 1)` never meet; and never inside a
+quote or a text. An expand-time name's argument reads it as its form too,
+so `(eq? stop (quote stop))` is `false`: there as everywhere, `stop` is
+`State!B12`. A macro's parameter of the same word hides it, since the
+parameter is replaced first. A define may name another, defined before it or after it,
 and its form expands where the word stands, a macro's call in it firing
 there.
 
@@ -1183,6 +1188,119 @@ be an expression, with `rule` around it, and such expressions compose:
 
 writes `(formula "Tally" "B16" "=Tally.last!B16+IF(AND(Input!B1=1,Input.last!B1=0),1,0)")`.
 
+### A function
+
+A macro's argument is a form, placed unexamined. Sometimes a helper should
+answer a value instead: the address beside another, the numbers of a list
+that pass a test, a run of rows. `defexpand` defines one:
+
+```lisp
+(defexpand
+    (beside at columns)
+    "the address so many columns right of another"
+    (address-expand (row-expand at) (+expand (column-expand at) columns)))
+
+(cell "S" (&expand (beside "A1" 1) ":C9") 1)
+```
+
+writes `(cell "S" "B1:C9" 1)`. A function's call computes wherever an
+expand-time name computes: at the top of a file, in a macro's template, and
+in another call's argument, `&expand`'s here. Its arguments are values,
+each computed before its body is read, so `(beside (beside "A1" 1) 1)` is
+`"C1"`. Its body is one form, read as a template is, and its value is
+expanded again as any form is, so a function may answer a macro's call or a
+row, and a loop in its body gives the list of its results, so a map is a
+loop:
+
+```lisp
+(defexpand (square x) (*expand x x))
+(defexpand (squares xs) (each (x xs) (square x)))
+
+(cell "S" "A1" (squares (quote (1 2 3))))
+```
+
+writes `(cell "S" "A1" (1 4 9))`.
+
+**A function may call itself.** A test decided while the file expands
+chooses the branch, and a call in the branch chosen is the function's
+value:
+
+```lisp
+(defexpand
+    (keep-big xs)
+    "the numbers of a list greater than 2"
+    (quote-if (null? xs)
+        (quote ())
+        (quote-if (>expand (car xs) 2)
+            (cons (car xs) (keep-big (cdr xs)))
+            (keep-big (cdr xs)))))
+```
+
+`(keep-big (quote (1 5 2 7)))` is `(5 7)`. A call that is its function's
+whole value, its body, the branch `quote-if` or `cond` chose, or a
+`let-expand`'s form, replaces the call under way and loops, so a function
+counting down from 4,999 needs no more room than one counting from 1. Any
+other call, such as the one inside `cons` above, waits for its value, and
+such calls nest at most 14 deep. One value is worked out in at most 5,000
+calls, so a function that never stops is refused, never left running:
+
+> function 'down': more than 5000 calls working out one value (a function
+> that never stops calling?) (computing (down 0))
+
+A function is handed to another by its name: with `(defexpand (apply-to f
+x) (f x))`, `(apply-to square 4)` is `16`. A macro's parameter of the same
+word hides a function, as it hides a define.
+
+**A name for a value, inside a form.** `let-expand` names values for its
+forms, each binding reading the ones before it:
+
+```lisp
+(defmacro
+    (fit h)
+    "the fit's last row, nine below the wall's height"
+    (let-expand ((last-row (+expand h 9)))
+        (cell "Fit" (&expand "A10:A" last-row) last-row)))
+```
+
+`(fit 24)` writes `(cell "Fit" "A10:A33" 33)`. Its forms are a sequence
+where a statement stands, and one form where a value is read. It may not
+bind a name twice, a word taken already, or the name of a parameter of the
+macro or function around it.
+
+**A call handed in is computed.** A macro's argument is placed unexamined,
+but where an expand-time name reads a parameter, a loop's name or a
+`let-expand`'s name, a call of an expand-time name or of a function handed
+in that way is computed first: with `(defmacro (plus-one x) (+expand x
+1))`, `(plus-one (square 3))` writes `10`. A macro's call handed in stays a
+list, since a macro writes forms and not a value, and a quote keeps a call
+as data: with `(defmacro (first-word call) (car call))`, `(first-word
+(quote (+expand 1 2)))` is `+expand`.
+
+**The place it writes.** `self` passes through a function to the forms the
+walk computes: with `(defexpand (ring at) (offset-expand at -1 -1 3 3))`,
+`(formula-expand (sum (ring self)))` inside `(bind-expand ((self
+Screen!B2)) ...)` writes `"=SUM(Screen!A1:C3)"`. An expand-time name in its
+body still takes its arguments as data, so a body's `(column-expand at)`,
+`self` handed in, is refused as it is anywhere.
+
+**When a refusal comes from inside.** A refusal raised while a value is
+worked out names the calls it stands in, the outermost first:
+
+> +expand: expected a number, got a list (computing (outer (a)) > (inner
+> (a)))
+
+Past four calls the middle ones are written `...`, a call longer than 60
+characters is cut, and a value of more than 60 forms is written `...`. The
+stepper shows a call the walk meets as one application and its value as the
+next.
+
+**The names it refuses** are the ones a define refuses, and a word that
+names a macro or a function already: a word names one thing, so a second
+definition of a function is refused by name, where a second macro in a file
+replaces the first. A function declares no named pieces, since its
+arguments are values and a call could not tell a piece from a call of
+another function.
+
 ### Where it stops
 
 | Limit | Value | When reached |
@@ -1190,6 +1308,8 @@ writes `(formula "Tally" "B16" "=Tally.last!B16+IF(AND(Input!B1=1,Input.last!B1=
 | Nested expansion | 200 deep | macro expansion too deep (recursive macro?) |
 | Applications in one chain | 5,000 | macro self-expansion exceeded 5000 applications in one chain (infinite macro?) |
 | Nested `include` | 16 files | include: nesting deeper than 16 files - is a file including itself? |
+| Calls waiting inside one value | 14 deep | function 'f': calls nested more than 14 deep - a call that is the function's value, its body, a chosen branch or a let-expand's form, loops and nests none |
+| Calls working out one value | 5,000 | function 'f': more than 5000 calls working out one value (a function that never stops calling?) |
 
 The 200 was not chosen for its roundness. A first attempt raised it to
 1,000 and the host ran out of stack somewhere between 150 and 250, so the
@@ -1201,12 +1321,14 @@ Two properties are worth a Lisp programmer's attention, because they differ
 from home.
 
 - **There is no `lambda` at expansion time.** `quote-map` takes the *name*
-  of a macro or function of one argument. A loop's forms are a template
-  written in place, which is what a `lambda` would be for here.
-- **There is no `filter`.** `quote-if` needs its test already decided, and
-  a call to a predicate you passed in is not yet expanded at the moment
-  the test is inspected. The prelude says so, at length, in the place
-  where `filter` would have been.
+  of a macro or function of one argument, and a function takes another by
+  its name. A loop's forms are a template written in place, which is what a
+  `lambda` would be for here.
+- **A filter is a function.** `quote-if` needs its test already decided, and
+  a macro's call in the test is not yet expanded at the moment the test is
+  inspected; a function's call is computed there, so a filter is written as
+  one, `keep-big` above. The prelude has no `filter` of its own yet, and
+  says why in the place where it would be.
 
 ## 15. Macros that make macros
 

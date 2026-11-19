@@ -20,7 +20,34 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
-Public Const VLA_CORE_VERSION As String = "VLA.18"
+Public Const VLA_CORE_VERSION As String = "VLA.8"
+' VLA.8: FUNCTIONS AT EXPAND TIME, AND LET-EXPAND. (defexpand (name
+' parameter ... [& rest]) ["doc"] form), a pure function of its arguments,
+' its body a template of one form, taken before any form expands as a macro
+' is (DefineFunction): its name a word of the source's own, a define's rules
+' and a macro's name refused, a second definition refused, no named piece
+' and one form. Its call computes wherever a primitive's would: Substitute
+' meets it anywhere in a template outside a shield (SubstituteFunctionCall),
+' a call whose head a word of the template names among them, and the walk
+' meets it outside one (ExpandMacros, ExpandOnePass), one application each
+' there, so that the stepper shows the call and then its value. Its
+' arguments are values, read as a primitive reads its own (FunctionBindArgs),
+' and its value stands where the call stood, looked at again by the walk.
+' FunctionWorkOut runs the body: a call in a tail place - the body, a chosen
+' branch of quote-if or cond, a let-expand's body - loops and nests nothing
+' (FunctionStep), every other call nests to VLA_FUNCTION_DEPTH_LIMIT, and the
+' calls of one working-out count to VLA_FUNCTION_FUEL, each refused by name;
+' a refusal raised inside one names the calls it stands in, outermost first.
+' (let-expand ((name value) ...) form ...) binds each value, read in order
+' under the names before it, for its forms, at substitution and in the walk
+' (EvalLetExpand). And a value is read the same whoever wrote it (ValueRead):
+' where a primitive reads its argument, a define's word is its form, and a
+' call a word of the template holds, a primitive's or a function's, is
+' computed. The doctrine's sentence, amended at the owner's word: no gensym
+' and no eval; compile-time computation is the expand-time primitives and
+' the functions a source defines over them, pure, bounded by the fuel and
+' landing in rows a reader sees. The port's expand.rs mirrors each, held by
+' the expand golden.
 ' VLA.18: A RAW STRING. #"..."#, a text written as it stands: where a word
 ' would begin, one # or more right before a quote open it, and it closes at
 ' the first quote followed by as many #, its text every character between
@@ -216,7 +243,14 @@ Public Const VLA_CORE_VERSION As String = "VLA.18"
 ' and refuses the two sooner (vla-form-too-deep, and
 ' vla-macro-expansion-too-large past 1,000,000 forms in one application).
 ' A weighing here, tried and withdrawn the same day, counted the shared
-' structure as copies and made a long walk quadratic.
+' structure as copies and made a long walk quadratic. VLA.8: so with a value
+' a working-out holds past one step, a function's argument, its value and a
+' let-expand's name. A call that wraps its argument nests it a level deeper
+' each time, so a loop within the fuel can nest one thousands deep, which no
+' walk reads; vla-lang keeps each list's depth beside it, refuses such a
+' value past VLA_FORM_DEPTH_LIMIT as vla-form-too-deep where it is bound,
+' since freeing it overflowed that stack, and here, where no depth is kept,
+' the fuel bounds it.
 ' SEC.15: THE FORMULA SINK IS THE RUNTIME'S. EmitStmt's "set!" arm writes
 ' Call VlaSetFormula(obj, text) for exactly (set! (. obj formula) v), where
 ' it wrote obj.Formula2 = text: the helper (VLA_Runtime.bas) refuses a
@@ -1030,6 +1064,27 @@ Private mFormulaTexts As Collection ' VLA.6: the texts formula-expand wrote
                                    ' in that form, read for a word used in
                                    ' the form that defines it; Nothing for
                                    ' none
+Private mFunctions As Object       ' VLA.8: the functions a source defines, a
+                                   ' late-bound Scripting.Dictionary keyed by
+                                   ' the folded name, each its record
+                                   ' (params, rest, body, doc, name); Nothing
+                                   ' until a defexpand registers, so that the
+                                   ' walks ask one Is Nothing of a source with
+                                   ' none. Reset beside mMacros by each entry
+                                   ' point, carried by VlaFrame
+Private mFnDepth As Long           ' VLA.8: the calls nested in the working-out
+                                   ' under way, 0 at every entry and exit,
+                                   ' since FunctionWorkOut restores it on every
+                                   ' way out; no VlaFrame field
+Private mFnFuel As Long            ' VLA.8: the calls that working-out made
+Private mFnTrail As Collection     ' VLA.8: each nested call, outermost first, a
+                                   ' pair of its name and its arguments' values,
+                                   ' written into a refusal raised inside one
+Private mFnTrailWritten As Boolean ' VLA.8: the trail joined to the refusal
+                                   ' under way already, by its innermost call
+Private mFnDepthLimit As Long      ' VLA.8: 0 for VLA_FUNCTION_DEPTH_LIMIT; set
+                                   ' by VlaSetFunctionDepthLimit alone, the
+                                   ' depth probe's (VlaFunctionDepthProbe)
 
 ' F5.0: the push/pop stack itself - NOT one of the eighteen fields a
 ' VlaFrame snapshots (it is the stack that HOLDS those snapshots).
@@ -1080,6 +1135,17 @@ Private Const FRAZARO_MODULE_MARKER As String = _
 ' 250 frames of ExpandMacros (LISTOPS-BUDGET's measurement). vla-lang's
 ' reader::FORM_DEPTH_LIMIT is the same number.
 Private Const VLA_FORM_DEPTH_LIMIT As Long = 64
+
+' VLA.8: the most calls of functions one working-out nests, a call in a tail
+' place looping and nesting none; and the most calls one working-out makes,
+' the chain's own number. The depth is half the one the reference's stack
+' gives out at where a call stands deepest, at the form depth's limit: Excel
+' ran out of stack space 29 calls deep there (VlaFunctionDepthProbe,
+' 2026-11-18), so 14; the port's 1 MiB in its unoptimized build held 22 there
+' and not 23 (a level of nested calls about 18 KB of its frames).
+' vla-lang's FUNCTION_DEPTH_LIMIT and FUNCTION_FUEL are the same numbers.
+Private Const VLA_FUNCTION_DEPTH_LIMIT As Long = 14
+Private Const VLA_FUNCTION_FUEL As Long = 5000
 
 ' =====================================================================
 '  Public API
@@ -1261,6 +1327,7 @@ Public Function VlaTranspile(ByVal source As String) As String
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mFunctions = Nothing        ' VLA.8: nor a function
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4
     Set mSubDocs = New Collection   ' P.L6: per-transpile, see declaration
@@ -1283,6 +1350,9 @@ Public Function VlaTranspile(ByVal source As String) As String
             Dim cl As Collection
             Set cl = f
             DefineMacro cl
+        ElseIf ListHeadIs(f, "defexpand") Then   ' VLA.8: a function, taken as a macro is
+            Set cl = f
+            DefineFunction cl
         Else
             bodyForms.Add f
         End If
@@ -1438,6 +1508,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mFunctions = Nothing        ' VLA.8: nor a function
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4 - unused
                         ' by this function (it never calls Emit*), set
@@ -1455,6 +1526,9 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
             Dim cl As Collection
             Set cl = f
             DefineMacro cl
+        ElseIf ListHeadIs(f, "defexpand") Then   ' VLA.8: a function, taken as a macro is
+            Set cl = f
+            DefineFunction cl
         Else
             bodyForms.Add f
         End If
@@ -1528,6 +1602,7 @@ Public Sub VlaProbeMacroForm(ByVal macroText As String)
     Dim forms As Collection
     Set forms = ParseAll(toks)
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    Set mFunctions = Nothing        ' VLA.8: a phrasebook defines none
     Dim f As Variant
     For Each f In forms
         If ListHeadIs(f, "defmacro") Then
@@ -1565,6 +1640,7 @@ Public Sub VlaPushContext()
     Dim f As New VlaFrame
     Set f.Macros = mMacros
     Set f.Defines = mDefines        ' VLA.6
+    Set f.Functions = mFunctions    ' VLA.8
     Set f.HeadAliases = mHeadAliases
     Set f.SubDocs = mSubDocs
     f.AproposCarry = mAproposCarry
@@ -1604,6 +1680,7 @@ Public Sub VlaPopContext()
     mContextStack.Remove mContextStack.Count
     Set mMacros = f.Macros
     Set mDefines = f.Defines        ' VLA.6
+    Set mFunctions = f.Functions    ' VLA.8
     Set mHeadAliases = f.HeadAliases
     Set mSubDocs = f.SubDocs
     mAproposCarry = f.AproposCarry
@@ -1770,6 +1847,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     ' (prelude's and the source's own), expand only the body forms.
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
+    Set mFunctions = Nothing        ' VLA.8: nor a function
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Dim bodyForms As New Collection
     Dim f As Variant
@@ -1778,6 +1856,9 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
             Dim cl As Collection
             Set cl = f
             DefineMacro cl
+        ElseIf ListHeadIs(f, "defexpand") Then   ' VLA.8: a function, taken as a macro is
+            Set cl = f
+            DefineFunction cl
         Else
             bodyForms.Add f
         End If
@@ -1829,6 +1910,15 @@ Private Function ExpandOnePass(d As Variant, Optional ByVal walkDepth As Long = 
                 If mBudgetOn And mExpandFired >= mExpandBudget Then GoTo budgetSpent1  ' L15
                 Dim r As Variant
                 AssignVar r, ExpandOne(lst, rec)
+                mExpandFired = mExpandFired + 1
+                If IsObject(r) Then Set ExpandOnePass = r Else ExpandOnePass = r
+                Exit Function
+            End If
+            ' VLA.8: a function's call, replaced by its value in one step, as a
+            ' macro's call is by its template.
+            If FunctionNamed(VLA_Identity.Fold(CStr(lst.Item(1)))) Then
+                If mBudgetOn And mExpandFired >= mExpandBudget Then GoTo budgetSpent1  ' L15
+                AssignVar r, CallFunction(VLA_Identity.Fold(CStr(lst.Item(1))), lst, New Collection, "", New Collection)
                 mExpandFired = mExpandFired + 1
                 If IsObject(r) Then Set ExpandOnePass = r Else ExpandOnePass = r
                 Exit Function
@@ -2840,8 +2930,13 @@ End Function
 '  Template-substitution macros: parameters are replaced by the forms
 '  passed at the call site; the rest parameter splices its forms into
 '  whatever list it appears in. Multiple template forms are wrapped in
-'  an implicit (begin ...). No gensym, no compile-time computation -
-'  by design (see README). VLA.9: a list in the signature, after the
+'  an implicit (begin ...). No gensym and no eval. Compile-time
+'  computation is the expand-time primitives and the functions a source
+'  defines over them (VLA.8): each a pure function of its arguments and
+'  the source's literals, never reading a file, a clock or anything two
+'  compiles could see differently; every call counted against the fuel
+'  and refused by name past it; and what it computes lands in the rows a
+'  reader sees - by design (see README). VLA.9: a list in the signature, after the
 '  positional parameters, declares a named piece, (word default) or
 '  (word), which a call gives as (word value) after its positional
 '  arguments, in any order; a piece left out takes its default.
@@ -2863,6 +2958,9 @@ Private Sub DefineMacro(f As Collection)
     Dim reservedDesc As String
     reservedDesc = ExpandReservedDesc(VLA_Identity.Fold(mname))
     If Len(reservedDesc) > 0 Then VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", VLA_Identity.Fold(mname), "desc", reservedDesc
+    ' VLA.8: a function of the name, defined before it, whose calls the walks
+    ' compute before a macro's would apply: a word names one thing.
+    If FunctionNamed(VLA_Identity.Fold(mname)) Then VLA_Messages.RaiseMsg "vla-defmacro-name-taken", "name", mname
 
     Dim params As New Collection
     Dim pieceWords As New Collection   ' VLA.9: the named pieces' words as written,
@@ -3147,6 +3245,13 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
             ExpandReservedDesc = "expand-time place-binding form"
         Case "offset-expand"
             ExpandReservedDesc = "expand-time reference-moving operation"
+        ' VLA.8: the form that binds a value for one form, and the form that
+        ' defines a function, which every entry point takes before any form
+        ' expands, so a macro of the name could never be called.
+        Case "let-expand"
+            ExpandReservedDesc = "expand-time value-binding form"
+        Case "defexpand"
+            ExpandReservedDesc = "expand-time function-defining form"
     End Select
 End Function
 
@@ -3790,6 +3895,24 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             chainLen = chainLen + 1
             If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
             Set cur = EachFormBegin(lst, New Collection, "", New Collection)
+        ElseIf headFold = "let-expand" Then
+            ' VLA.8: a value bound for one form outside any template: its forms
+            ' under the binding, handed back to this loop so that its rows
+            ' expand, one link of the chain as a loop's begin is (EvalLetExpand).
+            chainLen = chainLen + 1
+            If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+            AssignVar cur, EvalLetExpand(lst, New Collection, "", New Collection)
+        ElseIf FunctionNamed(headFold) Then
+            ' VLA.8: a function's call the walk meets, computed, its arguments
+            ' read as a primitive reads its own, and its value looked at again;
+            ' one application, so that the stepper shows the call and then its
+            ' value, and at a spent budget it stands as a macro's call does.
+            If mBudgetOn And mExpandFired >= mExpandBudget Then Exit Do   ' L15
+            chainLen = chainLen + 1
+            If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+            AssignVar r, CallFunction(headFold, lst, New Collection, "", New Collection)
+            mExpandFired = mExpandFired + 1   ' L1: one per application
+            AssignVar cur, r
         ElseIf headFold = "begin" And lst.Count > 1 And FormLine(cur) = 0 Then
             For bi = 2 To lst.Count - 1
                 pendingHead.Add Nth(lst, bi)
@@ -4442,6 +4565,27 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                         Set Substitute = EachFormBegin(lst, bindings, restName, restItems)
                         Exit Function
                     End If
+                Case "let-expand"
+                    ' VLA.8: a value bound for one form, its forms substituted
+                    ' under the binding (EvalLetExpand); shielded data while
+                    ' inQuasi, as the loop is. lprim is the primitives' local,
+                    ' reused so that this frame gains none (trap 8).
+                    If Not inQuasi Then
+                        AssignVar lprim, EvalLetExpand(lst, bindings, restName, restItems)
+                        If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
+                        Exit Function
+                    End If
+                Case Else
+                    ' VLA.8: a function's call, computed where a primitive's is,
+                    ' its head the function's name or a word of the template
+                    ' that names one (SubstituteFunctionCall); shielded data
+                    ' while inQuasi, as the primitives are.
+                    If Not inQuasi Then
+                        If SubstituteFunctionCall(lst, bindings, restName, restItems, lprim) Then
+                            If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
+                            Exit Function
+                        End If
+                    End If
             End Select
         End If
     End If
@@ -4877,6 +5021,517 @@ Private Sub EachBodyFormInto(outc As Collection, f As Variant, scope As Collecti
 End Sub
 
 ' =====================================================================
+'  VLA.8: functions at expand time, and let-expand. (defexpand (name
+'  parameter ... [& rest]) ["doc"] form) defines a pure function of its
+'  arguments, its body a template of one form; its call computes wherever a
+'  primitive's would, its arguments read as a primitive reads its own, and
+'  its value stands where the call stood. (let-expand ((name value) ...)
+'  form ...) binds each value, read in order under the names before it, for
+'  its forms. And where a primitive reads its argument, a define's word is
+'  its form and a call a word of the template holds is computed (ValueRead).
+'  No gensym and no eval: every name is the author's, a function reads its
+'  arguments and the source's literals alone, and every call counts against
+'  the fuel (VLA_FUNCTION_FUEL) and every nesting against the depth
+'  (VLA_FUNCTION_DEPTH_LIMIT), each refused by name.
+' =====================================================================
+
+' VLA.8: (defexpand (name parameter ... [& rest]) ["doc"] form), taken before
+' any form expands, as DefineMacro takes a macro, so that functions call one
+' another in any order. In one order, so that the first fault is the one
+' named: the shape; the name, a word of the source's own by a define's rules
+' (DefineReadsAs, DefineReservedDesc), neither a macro's nor a function's
+' already; the parameters, positional and a rest, no named piece, none twice;
+' the docstring, L17's rule; and one form, the body.
+Private Sub DefineFunction(f As Collection)
+    If f.Count < 3 Then VLA_Messages.RaiseMsg "vla-defexpand-shape", "form", WriteDatum(f)
+    If Not IsList(f.Item(2)) Then VLA_Messages.RaiseMsg "vla-defexpand-shape", "form", WriteDatum(f)
+    Dim sig As Object
+    Set sig = f.Item(2)
+    If sig.Count = 0 Then VLA_Messages.RaiseMsg "vla-defexpand-shape", "form", WriteDatum(f)
+    If Not IsSym(sig.Item(1)) Then VLA_Messages.RaiseMsg "vla-defexpand-shape", "form", WriteDatum(f)
+    Dim fname As String
+    fname = CStr(sig.Item(1))
+    Dim what As String
+    what = DefineReadsAs(fname)
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-defexpand-name-reference", "word", fname, "what", what
+    what = DefineReservedDesc(fname)
+    If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-defexpand-name-reserved", "word", fname, "desc", what
+    If Not GetMacro(fname) Is Nothing Then VLA_Messages.RaiseMsg "vla-defexpand-name-taken", "word", fname, "what", "a macro's name"
+    If FunctionNamed(VLA_Identity.Fold(fname)) Then VLA_Messages.RaiseMsg "vla-defexpand-name-taken", "word", fname, "what", "defined already"
+
+    Dim params As New Collection
+    Dim restName As String
+    Dim j As Long, t As String
+    j = 2
+    Do While j <= sig.Count
+        If IsList(sig.Item(j)) Then VLA_Messages.RaiseMsg "vla-defexpand-piece", "name", fname, "value", WriteDatum(sig.Item(j))
+        t = SymText(Nth(sig, j))
+        If t = "&" Then
+            If j + 1 <> sig.Count Then VLA_Messages.RaiseMsg "vla-defexpand-rest", "name", fname
+            If IsList(sig.Item(j + 1)) Then VLA_Messages.RaiseMsg "vla-defexpand-rest", "name", fname
+            restName = SymText(Nth(sig, j + 1))
+            If WordIndex(params, VLA_Identity.Fold(restName)) > 0 Then VLA_Messages.RaiseMsg "vla-defexpand-param-twice", "name", fname, "word", restName
+            j = sig.Count + 1
+        Else
+            If WordIndex(params, VLA_Identity.Fold(t)) > 0 Then VLA_Messages.RaiseMsg "vla-defexpand-param-twice", "name", fname, "word", t
+            params.Add t
+            j = j + 1
+        End If
+    Loop
+
+    ' L17: a string at form 3 is the docstring only when a form follows it.
+    Dim fdoc As String
+    Dim docIdx As Long
+    docIdx = 3
+    If f.Count >= 4 Then
+        If Not IsList(f.Item(3)) Then
+            If Left$(CStr(f.Item(3)), 1) = Chr$(34) Then
+                fdoc = StrLitContent(f.Item(3))
+                docIdx = 4
+            End If
+        End If
+    End If
+    If f.Count - docIdx + 1 <> 1 Then VLA_Messages.RaiseMsg "vla-defexpand-body", "name", fname, "n", CStr(f.Count - docIdx + 1)
+
+    Dim rec As New Collection
+    rec.Add params                 ' 1: the parameters as written
+    rec.Add restName               ' 2: the rest's, "" for none
+    rec.Add f.Item(docIdx)         ' 3: the body, one form
+    rec.Add fdoc                   ' 4: the docstring, "" for none
+    rec.Add fname                  ' 5: the name as written
+    If mFunctions Is Nothing Then Set mFunctions = CreateObject("Scripting.Dictionary")
+    Set mFunctions.Item(VLA_Identity.Fold(fname)) = rec
+End Sub
+
+' VLA.8: whether a folded name is a function's, mFunctions asked only when a
+' source defines one.
+Private Function FunctionNamed(ByVal nameFold As String) As Boolean
+    If mFunctions Is Nothing Then Exit Function
+    FunctionNamed = mFunctions.Exists(nameFold)
+End Function
+
+' VLA.8: the folded name of the function a call's head names, or "": the
+' head itself when it is a function's name and no word of the template, or
+' the word's value when a word of the template stands there and is bound to
+' a function's name, so that a template handed a function calls it as (f x).
+' A word of the template hides a function of its own spelling, as it hides a
+' define's word.
+Private Function FunctionHeadName(head As Variant, bindings As Collection) As String
+    If Not IsSym(head) Then Exit Function
+    Dim hf As String
+    hf = VLA_Identity.Fold(CStr(head))
+    Dim found As Boolean
+    Dim v As Variant
+    AssignVar v, CollGet(bindings, hf, found)
+    If found Then
+        If IsObject(v) Then Exit Function
+        If Not IsSym(v) Then Exit Function
+        hf = VLA_Identity.Fold(CStr(v))
+    End If
+    If FunctionNamed(hf) Then FunctionHeadName = hf
+End Function
+
+' VLA.8: Substitute's case: a function's call met in a template, computed in
+' its scope, the value in result; False, and nothing computed, for any other
+' list.
+Private Function SubstituteFunctionCall(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection, result As Variant) As Boolean
+    If mFunctions Is Nothing Then Exit Function
+    Dim fname As String
+    fname = FunctionHeadName(lst.Item(1), bindings)
+    If Len(fname) = 0 Then Exit Function
+    AssignVar result, CallFunction(fname, lst, bindings, restName, restItems)
+    SubstituteFunctionCall = True
+End Function
+
+' VLA.8: a function's call, its arguments read in the caller's scope
+' (FunctionBindArgs), then worked out (FunctionWorkOut).
+Private Function CallFunction(ByVal fname As String, callForm As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
+    Dim rec As Collection, scope As Collection, restVals As Collection, args As Collection
+    Dim restFold As String
+    FunctionBindArgs fname, callForm, bindings, restName, restItems, rec, scope, restFold, restVals, args
+    Dim res As Variant
+    AssignVar res, FunctionWorkOut(rec, scope, restFold, restVals, args)
+    If IsObject(res) Then Set CallFunction = res Else CallFunction = res
+End Function
+
+' VLA.8: a call's arguments bound to the function's parameters, each read as
+' a primitive reads its own, left to right, in the caller's scope; those past
+' the parameters the rest's values, a function with no rest refusing them by
+' its arity. args keeps every value in order, for the trail. A tail call
+' passes its own scope as both the bindings read and the scope written, so
+' every output is assigned only once every argument is read.
+Private Sub FunctionBindArgs(ByVal fname As String, callForm As Object, bindings As Collection, ByVal restName As String, restItems As Collection, rec As Collection, scope As Collection, restFold As String, restVals As Collection, args As Collection)
+    Dim callee As Collection
+    Set callee = mFunctions.Item(fname)
+    Dim params As Collection
+    Set params = callee.Item(1)
+    Dim argc As Long
+    argc = callForm.Count - 1
+    If Len(callee.Item(2)) = 0 Then
+        If argc <> params.Count Then VLA_Messages.RaiseMsg "vla-function-arity", "name", CStr(callee.Item(5)), "n", params.Count, "given", argc
+    ElseIf argc < params.Count Then
+        VLA_Messages.RaiseMsg "vla-function-arity-min", "name", CStr(callee.Item(5)), "n", params.Count, "given", argc
+    End If
+    Dim newScope As New Collection, newRest As New Collection, newArgs As New Collection
+    Dim j As Long
+    Dim v As Variant
+    For j = 2 To callForm.Count
+        AssignVar v, ResolveListopsArg(callForm.Item(j), bindings, restName, restItems)
+        If j - 1 <= params.Count Then
+            newScope.Add v, VLA_Identity.Fold(CStr(params.Item(j - 1)))
+        Else
+            newRest.Add v
+        End If
+        newArgs.Add v
+    Next
+    Set rec = callee
+    Set scope = newScope
+    Set restVals = newRest
+    Set args = newArgs
+    restFold = VLA_Identity.Fold(CStr(callee.Item(2)))
+End Sub
+
+' VLA.8: a working-out. Each step is one call's body in its scope
+' (FunctionStep): a call in a tail place replaces the call under way and
+' loops, nesting nothing; any other form is the value. A working-out nested
+' inside another counts as one level of VLA_FUNCTION_DEPTH_LIMIT, the
+' outermost one starting the fuel and the trail. Every way out restores the
+' depth, and a refusal raised inside the outermost the innermost's handler
+' meets first is given the trail of calls it stands in (FunctionTrailText),
+' then raised again from locals (trap 1).
+Private Function FunctionWorkOut(rec As Collection, scope As Collection, ByVal restFold As String, restVals As Collection, args As Collection) As Variant
+    If mFnDepth = 0 Then
+        mFnFuel = 0
+        mFnTrailWritten = False
+        Set mFnTrail = New Collection
+    End If
+    If mFnDepth >= FunctionDepthLimit() Then VLA_Messages.RaiseMsg "vla-function-depth", "name", CStr(rec.Item(5)), "limit", CStr(FunctionDepthLimit())
+    mFnDepth = mFnDepth + 1
+    mFnTrail.Add FunctionTrailEntry(rec, args)
+    Dim errNum As Long, errSrc As String, errDesc As String
+    On Error GoTo fail
+    Dim res As Variant
+    Do
+        mFnFuel = mFnFuel + 1
+        If mFnFuel > VLA_FUNCTION_FUEL Then VLA_Messages.RaiseMsg "vla-function-fuel", "name", CStr(rec.Item(5)), "limit", CStr(VLA_FUNCTION_FUEL)
+        If Not FunctionStep(rec, scope, restFold, restVals, args, res) Then Exit Do
+        mFnTrail.Remove mFnTrail.Count
+        mFnTrail.Add FunctionTrailEntry(rec, args)
+    Loop
+    mFnTrail.Remove mFnTrail.Count
+    mFnDepth = mFnDepth - 1
+    If IsObject(res) Then Set FunctionWorkOut = res Else FunctionWorkOut = res
+    Exit Function
+fail:
+    errNum = Err.Number: errSrc = Err.Source: errDesc = Err.Description
+    If Not mFnTrailWritten Then
+        errDesc = errDesc & FunctionTrailText()
+        mFnTrailWritten = True
+    End If
+    mFnTrail.Remove mFnTrail.Count
+    mFnDepth = mFnDepth - 1
+    Err.Raise errNum, errSrc, errDesc
+End Function
+
+' VLA.8: the depth a working-out may nest to: the probe's, while
+' VlaFunctionDepthProbe measures the reference's stack, else
+' VLA_FUNCTION_DEPTH_LIMIT.
+Private Function FunctionDepthLimit() As Long
+    If mFnDepthLimit > 0 Then FunctionDepthLimit = mFnDepthLimit Else FunctionDepthLimit = VLA_FUNCTION_DEPTH_LIMIT
+End Function
+
+' VLA.8: VlaFunctionDepthProbe's hook alone: the depth a working-out may nest
+' to, raised past VLA_FUNCTION_DEPTH_LIMIT to find where the reference's stack
+' gives out; 0 restores the limit.
+Public Sub VlaSetFunctionDepthLimit(ByVal n As Long)
+    mFnDepthLimit = n
+End Sub
+
+' VLA.8: one step of a working-out: the body read down its tail - a
+' quote-if's chosen branch, a cond's chosen clause while its tests fold, a
+' let-expand's one form under its binding - to a call of a function or to a
+' value. A call there is a tail call: its arguments read in this scope and
+' bound for the callee, which replaces the call under way (rec, scope,
+' restFold, restVals, args), and True is returned. Any other form is the
+' value, read in this scope as a value is read (SubstituteValue, so that a
+' loop there is the list of its results and a map is a loop) into res, and
+' False is returned.
+Private Function FunctionStep(rec As Collection, scope As Collection, restFold As String, restVals As Collection, args As Collection, res As Variant) As Boolean
+    Dim body As Variant
+    AssignVar body, rec.Item(3)
+    Dim lst As Object
+    Dim h As String, fname As String
+    Do
+        If Not IsList(body) Then Exit Do
+        Set lst = body
+        If lst.Count = 0 Then Exit Do
+        If Not IsSym(lst.Item(1)) Then Exit Do
+        h = VLA_Identity.Fold(CStr(lst.Item(1)))
+        If h = "quote-if" Then
+            AssignVar body, QuoteIfBranch(lst, scope, restFold, restVals)
+        ElseIf h = "cond" Then
+            If Not CondTailForm(lst, scope, restFold, restVals, body) Then Exit Do
+        ElseIf h = "let-expand" Then
+            Set scope = LetExpandScope(lst, scope, restFold, restVals)
+            If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-let-expand-value-forms", "n", CStr(lst.Count - 2)
+            AssignVar body, lst.Item(3)
+        Else
+            fname = FunctionHeadName(lst.Item(1), scope)
+            If Len(fname) = 0 Then Exit Do
+            FunctionBindArgs fname, lst, scope, restFold, restVals, rec, scope, restFold, restVals, args
+            FunctionStep = True
+            Exit Function
+        End If
+    Loop
+    AssignVar res, SubstituteValue(body, scope, restFold, restVals)
+End Function
+
+' VLA.8: the chosen clause's form of a cond in a function's tail, into body,
+' while its tests fold to true or false, as EvalCondFrom chooses it (the same
+' refusals in the same order); True with body the clause's form, or the empty
+' begin when no clause holds. False for a test that waits on the running
+' program: the caller then substitutes the cond whole, as a template's is.
+Private Function CondTailForm(lst As Object, scope As Collection, ByVal restFold As String, restVals As Collection, body As Variant) As Boolean
+    Dim k As Long
+    Dim cl As Collection
+    Dim headRaw As Variant, t As Variant
+    Dim tf As String
+    For k = 2 To lst.Count
+        Set cl = NthList(lst, k)
+        If cl.Count <> 2 Then VLA_Messages.RaiseMsg "vla-cond-clause-shape", "n", cl.Count
+        AssignVar headRaw, Nth(cl, 1)
+        If Not IsObject(headRaw) Then
+            If IsSym(headRaw) Then
+                If VLA_Identity.Fold(CStr(headRaw)) = "else" Then
+                    If k <> lst.Count Then VLA_Messages.RaiseMsg "vla-cond-else-not-last"
+                    AssignVar body, Nth(cl, 2)
+                    CondTailForm = True
+                    Exit Function
+                End If
+            End If
+        End If
+        AssignVar t, ResolveListopsArg(Nth(cl, 1), scope, restFold, restVals)
+        tf = ""
+        If Not IsObject(t) Then
+            If IsSym(t) Then tf = VLA_Identity.Fold(CStr(t))
+        End If
+        If tf = "true" Then
+            AssignVar body, Nth(cl, 2)
+            CondTailForm = True
+            Exit Function
+        End If
+        If tf <> "false" Then Exit Function
+    Next
+    Dim emptyBegin As New Collection
+    emptyBegin.Add "begin"
+    TagLine emptyBegin, 0
+    Set body = emptyBegin
+    CondTailForm = True
+End Function
+
+' VLA.8: the trail's entry for a call: its name as written and the values of
+' its arguments, in order.
+Private Function FunctionTrailEntry(ByVal rec As Collection, ByVal args As Collection) As Collection
+    Dim e As New Collection
+    e.Add CStr(rec.Item(5))
+    e.Add args
+    Set FunctionTrailEntry = e
+End Function
+
+' VLA.8: the calls a refusal stands in, outermost first, as they were called:
+' " (computing (f 1) > (g 2))". Four at most: past four, the outermost, then
+' "...", then the three innermost. Each call written as its name and its
+' arguments' values (FunctionCallText).
+Private Function FunctionTrailText() As String
+    Dim n As Long
+    n = mFnTrail.Count
+    If n = 0 Then Exit Function
+    Dim s As String
+    Dim k As Long
+    If n <= 4 Then
+        For k = 1 To n
+            If k > 1 Then s = s & " > "
+            s = s & FunctionCallText(mFnTrail.Item(k))
+        Next
+    Else
+        s = FunctionCallText(mFnTrail.Item(1)) & " > ..."
+        For k = n - 2 To n
+            s = s & " > " & FunctionCallText(mFnTrail.Item(k))
+        Next
+    End If
+    FunctionTrailText = " (computing " & s & ")"
+End Function
+
+' VLA.8: one call of the trail, (name value ...), each value as the printer
+' writes it, or "..." for one of more than 60 forms (TrailCountForms), so that
+' a value shared into a vast tree is never written; past 60 UTF-16 units cut
+' to 57 and "..." added, never between the two halves of a surrogate pair, as
+' the port cuts it.
+Private Function FunctionCallText(ByVal entry As Collection) As String
+    Dim s As String
+    s = "(" & CStr(entry.Item(1))
+    Dim v As Variant
+    Dim n As Long
+    For Each v In entry.Item(2)
+        n = 0
+        TrailCountForms v, 60, n
+        If n > 60 Then s = s & " ..." Else s = s & " " & WriteDatum(v)
+    Next
+    s = s & ")"
+    If Len(s) > 60 Then
+        Dim cut As Long
+        cut = 57
+        Dim u As Long
+        u = AscW(Mid$(s, cut, 1)) And &HFFFF&
+        If u >= &HD800& And u <= &HDBFF& Then cut = cut - 1
+        s = Left$(s, cut) & "..."
+    End If
+    FunctionCallText = s
+End Function
+
+' VLA.8: the forms of a value counted into n as the printer writes them, a
+' list itself one and each element its own, the walk stopping as soon as the
+' count passes the limit, so that it never walks more than limit forms, nor
+' nests deeper.
+Private Sub TrailCountForms(v As Variant, ByVal limit As Long, n As Long)
+    n = n + 1
+    If n > limit Then Exit Sub
+    If Not IsObject(v) Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    Dim i As Long
+    For i = 1 To lst.Count
+        TrailCountForms lst.Item(i), limit, n
+        If n > limit Then Exit Sub
+    Next
+End Sub
+
+' VLA.8: (let-expand ((name value) ...) form ...), a value bound for its
+' forms: the scope (LetExpandScope), then the forms substituted in it, one
+' form its own result and several one begin tagged 0, as a template's are.
+' Where a value is read it holds one form (ValueRead's caller asks first).
+Private Function EvalLetExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
+    Dim scope As Collection
+    Set scope = LetExpandScope(lst, bindings, restName, restItems)
+    If lst.Count = 3 Then
+        Dim one As Variant
+        AssignVar one, Substitute(lst.Item(3), scope, restName, restItems)
+        If IsObject(one) Then Set EvalLetExpand = one Else EvalLetExpand = one
+        Exit Function
+    End If
+    Dim outc As New Collection
+    outc.Add "begin"
+    Dim i As Long
+    For i = 3 To lst.Count
+        outc.Add Substitute(lst.Item(i), scope, restName, restItems)
+    Next
+    TagLine outc, 0
+    Set EvalLetExpand = outc
+End Function
+
+' VLA.8: a let-expand's scope. Its shape first, ((name value) ...) and at
+' least one form; then the template's bindings its forms read, copied, since
+' a Collection lists no keys (EachReadBindings); then each name, checked as a
+' loop's is (EachCheckName) and none alike another, bound in order to its
+' value, read as a primitive reads its argument under the names before it.
+Private Function LetExpandScope(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
+    If lst.Count < 3 Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
+    If Not IsList(lst.Item(2)) Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
+    Dim bl As Object
+    Set bl = lst.Item(2)
+    Dim i As Long
+    Dim b As Object
+    For i = 1 To bl.Count
+        If Not IsList(bl.Item(i)) Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
+        Set b = bl.Item(i)
+        If b.Count <> 2 Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
+        If Not IsSym(b.Item(1)) Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
+    Next
+    Dim readKeys As New Collection, readVals As New Collection, readSeen As New Collection
+    For i = 2 To lst.Count
+        EachReadBindings lst.Item(i), bindings, "", "", readKeys, readVals, readSeen
+    Next
+    Dim scope As New Collection
+    For i = 1 To readKeys.Count
+        scope.Add readVals.Item(i), CStr(readKeys.Item(i))
+    Next
+    Dim folds As New Collection
+    Dim word As String, wordFold As String, seen As Boolean
+    Dim v As Variant
+    For i = 1 To bl.Count
+        Set b = bl.Item(i)
+        word = CStr(b.Item(1))
+        EachCheckName "let-expand", word, bindings, restName
+        wordFold = VLA_Identity.Fold(word)
+        CollGet folds, wordFold, seen
+        If seen Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", "let-expand", "word", word
+        folds.Add wordFold, wordFold
+        AssignVar v, ResolveListopsArg(b.Item(2), scope, restName, restItems)
+        scope.Add v, wordFold
+    Next
+    Set LetExpandScope = scope
+End Function
+
+' VLA.8: a value read the same whoever wrote it, ResolveListopsArg's last step
+' before a quote is unwrapped. A symbol that is a define's word is its form,
+' read as a value in an empty scope, so that (+expand side 1) reads a define
+' of side. A list a word of the template held, a parameter, a loop's name or
+' a let-expand's name, never the rest's whole list, whose head names a
+' primitive or a function, is that call, computed in an empty scope, so that
+' a call handed in reads as one written in place. Any other value as it is.
+' And a let-expand written where the value is read holds one form, its value.
+Private Function ValueRead(argForm As Variant, ByVal v As Variant, ByVal restName As String) As Variant
+    If IsObject(argForm) Then
+        If ListHeadIs(argForm, "let-expand") Then
+            If argForm.Count > 3 Then VLA_Messages.RaiseMsg "vla-let-expand-value-forms", "n", CStr(argForm.Count - 2)
+        End If
+    End If
+    If Not IsObject(v) Then
+        If Not mDefines Is Nothing Then
+            If DefineNamed(v) Then
+                AssignVar ValueRead, ResolveListopsArg(mDefines.Item(VLA_Identity.Fold(CStr(v))), New Collection, "", New Collection)
+                Exit Function
+            End If
+        End If
+        ValueRead = v
+        Exit Function
+    End If
+    If IsSym(argForm) Then
+        If VLA_Identity.Fold(CStr(argForm)) <> restName Then
+            Dim held As Object
+            Set held = v
+            If held.Count > 0 Then
+                If IsSym(held.Item(1)) Then
+                    Dim hf As String
+                    hf = VLA_Identity.Fold(CStr(held.Item(1)))
+                    If IsListopsName(hf) Then
+                        AssignVar ValueRead, EvalListopsPrim(hf, held, New Collection, "", New Collection)
+                        Exit Function
+                    End If
+                    If FunctionNamed(hf) Then
+                        AssignVar ValueRead, CallFunction(hf, held, New Collection, "", New Collection)
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+    End If
+    Set ValueRead = v
+End Function
+
+' VLA.8: whether a folded head is one of the twenty-nine primitives, the
+' table Substitute's and ExpandMacros' Selects hold.
+Private Function IsListopsName(ByVal hf As String) As Boolean
+    Select Case hf
+        Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
+             "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
+             "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
+             "address-expand", "row-expand", "column-expand", "column-letters-expand", "assoc-expand", "list?"
+            IsListopsName = True
+    End Select
+End Function
+
+' =====================================================================
 '  VLA.6: a name at expand time, (define name form). A form of the walk
 '  that writes nothing where it stands: the walk passes it by as written
 '  (DefinePassedBy), and once the form of the source it stands in has
@@ -5076,6 +5731,7 @@ Private Sub DefineCheckName(ByVal word As String, taken As Object)
     what = DefineReservedDesc(word)
     If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-define-name-reserved", "word", word, "desc", what
     If Not GetMacro(word) Is Nothing Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "a macro's name"
+    If FunctionNamed(VLA_Identity.Fold(word)) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "a function's name"   ' VLA.8
     If DefineBound(VLA_Identity.Fold(word), taken) Then VLA_Messages.RaiseMsg "vla-define-name-taken", "word", word, "what", "defined already"
 End Sub
 
@@ -5382,6 +6038,10 @@ Private Function ResolveListopsArg(argForm As Variant, bindings As Collection, B
         Set v = EachFormResults(argForm, bindings, restName, restItems)
     Else
         AssignVar v, Substitute(argForm, bindings, restName, restItems)
+        ' VLA.8: a value read the same whoever wrote it - a define's word its
+        ' form, a call a word of the template holds computed (ValueRead), a
+        ' helper so that this frame on every primitive's path gains no local.
+        AssignVar v, ValueRead(argForm, v, restName)
     End If
     If ListHeadIs(v, "quote") Then
         ' PNTH.0: Object, not Collection - v (already-evaluated listops
@@ -5627,6 +6287,16 @@ End Function
 ' actually terminate instead of eagerly evaluating both its base case
 ' and its recursive call at every step.
 Private Function EvalQuoteIf(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
+    Dim res As Variant
+    AssignVar res, Substitute(QuoteIfBranch(lst, bindings, restName, restItems), bindings, restName, restItems)
+    If IsObject(res) Then Set EvalQuoteIf = res Else EvalQuoteIf = res
+End Function
+
+' VLA.8: quote-if's chosen branch, as written: the arity, then the test
+' resolved as a primitive's argument and held to true or false, as EvalQuoteIf
+' has always held it. A function's tail takes the branch from here without
+' substituting it, so that a call there loops (FunctionStep).
+Private Function QuoteIfBranch(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Variant
     If lst.Count <> 4 Then VLA_Messages.RaiseMsg "vla-quote-if-arity", "n", (lst.Count - 1)
     Dim t As Variant
     AssignVar t, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
@@ -5637,17 +6307,13 @@ Private Function EvalQuoteIf(lst As Object, bindings As Collection, ByVal restNa
     If Not IsSym(t) Then VLA_Messages.RaiseMsg "vla-quote-if-test-invalid", "value", CStr(t)
     Dim tf As String
     tf = VLA_Identity.Fold(CStr(t))
-    Dim branch As Variant
     If tf = "true" Then
-        AssignVar branch, Nth(lst, 3)
+        AssignVar QuoteIfBranch, Nth(lst, 3)
     ElseIf tf = "false" Then
-        AssignVar branch, Nth(lst, 4)
+        AssignVar QuoteIfBranch, Nth(lst, 4)
     Else
         VLA_Messages.RaiseMsg "vla-quote-if-test-invalid", "value", CStr(t)
     End If
-    Dim res As Variant
-    AssignVar res, Substitute(branch, bindings, restName, restItems)
-    If IsObject(res) Then Set EvalQuoteIf = res Else EvalQuoteIf = res
 End Function
 
 ' LISTOPS-EXPAND: strict, LOCALE-INVARIANT numeric-literal check -
