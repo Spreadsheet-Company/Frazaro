@@ -49362,6 +49362,110 @@ where a spill moves, and the second part's *Found* 1 to 3 settled, with slice (c
 peer's `VLA.11` scoped and its first slice built in two commits since the second part, the part's 9 files, its four
 docs by their hunks alone.
 
+*Excel's second save read, 2026-11-19,* the stop rule's last, at the owner's word, "Commit part 3, then design Excel's
+second save". The probe built again over `edcba68` with the cases the slices left to the second save, each question at
+two cells or more (`spills_golden.rs`: 30 formulas and 14 typed texts more, their predictions beside them), and saved by
+the owner over the first's file as the first was made, the Typed sheet's 48 texts written by one line through
+`Range.Formula2`, `Data!K1` set to 1 and the workbook's personal information removed (`RemovePersonalInformation`):
+opened with no repair, `Typed!B1` `big`, `Spills!D4` 9, `Typed!B461:D461` TRUE, FALSE and FALSE and `Legacy!B14` 34 (the
+owner's word, "No repair modal; big, 9, TRUE FALSE FALSE, 34"). At the save Excel warned that parts of the document may
+include personal information the Document Inspector cannot remove, the warning of a workbook whose `filterPrivacy` is
+set; every part read, none holds any, the core properties' author and last author empty and no path. Read through the
+door: 279 rows, the first save's 232 each as the first read them, 219 agreeing and 13 labelled, and 47 new, 33
+agreeing, 8 differing and 6 labelled.
+- *Confirmed*: every case of the first save, the rules it folded and the slices built among them, each cell its value.
+- *Folded*, each rule shown in two cells or more, the second save its only evidence, as the stop rule holds the last:
+  1. `INDEX`'s row and column of an array, as of a reference, forced in a legacy formula and a legacy array formula
+     alike, an array's first value: `SUM(INDEX({10,20,30},{1,3}))` 10 and `SUM(INDEX({1,2;3,4},{1,2},1))` 1, plain and
+     entered with Ctrl+Shift+Enter (`Legacy!A12`, `C12`, `A13`, `C13`), a dynamic formula lifting, 40 and 4 (`B12`,
+     `B13`), where the language lifted an array's in every kind (`lookups::index`).
+  2. A block's every cell holds the block's formula: `ISFORMULA` TRUE and `FORMULATEXT` the anchor's text in braces,
+     `{=Data!A1:A6*2}` and `{=Data!E1:G1*2}` (`Blocks!A17` to `A20`), where the language answered FALSE and `#N/A` past
+     the anchor; a spilled cell holds none, FALSE and `#N/A`, as the language answered (`Spills!A44` to `A47`).
+     `Calc`'s `written` answers a block's cell its anchor's formula, an array formula's.
+  3. `A1#` of a legacy array formula's anchor is its block, read whole: `SUM(ANCHORARRAY(Blocks!B1))` `#N/A`, the
+     block's two cells past its array among it, and `ROWS(ANCHORARRAY(Blocks!C1))` 3 (`Spills!A50`, `A51`), where the
+     language labelled it; of another cell of a block no spill, `#REF!`, as a spilled cell's (`Env::block`). The
+     plan reads `A1#` of a block's anchor as a read of the block too, as the file spells it, `ANCHORARRAY(A1)`, and as
+     a person writes it, so that a reader is after the block's cells, which follow the anchor (`Model::block`,
+     `graph::read_blocks`, `Expr::each_anchor`): a first build read `A50` a cycle, the scanner reading the file's
+     spelling as a cell.
+  4. The writer's rule, its leans of the fourth slice's *Found* 2 typed: `TYPE` of an array constant or of an array
+     function's answer legacy (`Typed!B361`, `B371`), `INDEX` of one column of a reference at a constant row legacy
+     (`B381`, `B391`), and `SINGLE` of an `INDEX` of a reference legacy and written without it (`B341`, and `B421` and
+     `B431` typed `@INDEX(...)`, which the parse does not read, stored alike); a `LAMBDA` called where one value is
+     wanted and `SINGLE` of an array's answer dynamic, as the rule leaned (`B401`, `B411`, `B351`); a span of sheets
+     legacy (`B441`, `B451`); `ISNUMBER` and `ISTEXT` of an array constant dynamic and spilled (`B461`, `B471`).
+     `stored.rs`: `TYPE` reads an array whole (`an_array`), `INDEX` at one number in a reference one column wide or
+     one row high is one value (`line`), and `SINGLE` reads an `INDEX` of a reference at the cell (`at_the_cell`),
+     `written` leaving the `SINGLE(` out with its closing bracket. A first fold took `INDEX` of an array's line too,
+     `INDEX(SORT(A1:A6),1)`, which no save typed: 50 of the door's built formulas turned where 20 do, so the fold
+     keeps a reference's alone and the rest lean as before.
+- *Labelled*, as the stop rule holds an edge a save does not settle by its rule: two spills whose boxes meet at `AW3`,
+  `AW1:AW6` and `AV3:BA3`, though each answers one value, 9 at both in Excel's save (`AW1`, `AV3`, and `A52`, `A53`
+  reading them). Excel computes both where their answers do not meet; the language labels any two whose bounds meet,
+  as it labels `K1` and `J3`, whose answers meet, its plan ordering a box by its bound.
+- *The door's builds*: the writer's corrections move 20 formulas of four built fixtures, each built again, as the
+  fourth slice built its nine: lookups 166 rows and info 788 as they read; intersect 49, its two `SINGLE(INDEX(...))`
+  of a reference written bare, and its census two shapes lowered, legacy now (`(reads slot)`); formulas 95, 81 agreeing, its agree floor lowered by one: `Data!A13`,
+  `=INDEX(C1:C3,2)`, now legacy as Excel stores it typed, and `FORMULATEXT` of it, `functions!A33`, labelled, a legacy
+  `INDEX` being a text Excel may show with an `@` (`KERNEL.53`'s reading, which no save of a legacy `INDEX` settles;
+  Excel's save of the fixture held it dynamic), the floor accepted at the owner's word, "Accept 81". Of the door's eleven built fixtures Excel saved, every formula the
+  rule writes legacy where the build wrote it dynamic, 151 where 131, computes the value Excel's save of it holds.
+- *An engine held to the save* (`an_engine_computes_excel_s_save_of_the_probe_as_excel_saved_it`): the reader's rows
+  of the save loaded into a machine under Excel's library, the three formulas calling a function the language does
+  not hold set to the values Excel saved, and its first frame computed. At 202 of the 262 cells the door computes as
+  Excel saved, the machine computes the same, every spill of the Spills and Typed sheets among them, each laid again
+  where the plan bounds it. At the other 60, each named, it does not: a legacy array formula, which an engine computes
+  as the legacy kind, where its first value differs (two anchors of the Blocks sheet, five formulas of one cell of the
+  Legacy sheet), its block's cells past its anchor, which an engine leaves empty (42), nine formulas reading them, and
+  the two reading a block through `A1#`, which an engine labels.
+- *Tests.* The probe's three: the save at `no-differ`, every row and the folded cells by name; the writer over the 104
+  texts the three saves typed, the two `@` texts named as the parse's; the engine over the save, 202 held and 60
+  named. The language's: `a_block_s_cells_hold_its_formula_and_its_anchor_s_hash_reads_it_whole`, its readers on a
+  sheet listed before the block's, `A1#` in a text binding a name; `INDEX` of an array in each kind (`E16`, `E67`,
+  `E70` to `E73`); `ROWS(E1#)` of a legacy array formula of one cell, 1; and the writer's rule, 24 texts more.
+- *Mutants*: in a copy of `edcba68` with the save's files and a target of its own, each held to the language's unit
+  tests, then the probe's and the writer's tests over Excel's saves: 32, every one killed, three only once a test was
+  added for it: a bracket alone in a sheet's quoted name and in a text, which the writer's search for `INDEX`'s closing
+  bracket passes by (the cases had balanced the one and set the other beside the bracket it sought), and a text
+  binding a name that reads a block alone (another reader had put the block's cells first by the order's chance).
+- *Verified as CI runs it,* over a copy of `edcba68` with the save's twenty-one files and a target of its own, a peer's
+  `VLA.11` building in the shared tree left out: rustfmt; clippy over every target with and without `c-abi` at `-D
+  warnings`; the workspace's 988 tests; `run_checks.ps1` 60 of 60; `prove.ps1 -Control`, its mutant failing all 71, and
+  `-Impl` over the door, 70; both wasm modules, the import section empty and the 14 and 10 exports, `build_web.ps1
+  -NoBuild` and `check_web_offline`. Over a copy of `edcba68` with the save's eight language files, the language's
+  package from its tarball on a fresh target, 704; Buffet's suite at its head, `e187eec`, whose pins are 0.4.0 and
+  0.14.0, over Alonzo's at its head and that language, both paths compiled, 107; Alonzo's at its head, `0c55449`,
+  114 with its cartridges required, over that language with `VLA.11`'s first slice taken out, its `expand.rs` and
+  catalogue as of `df21a3b`: over `edcba68`'s language whole, six of Alonzo's tests meet that slice's refusal,
+  `vla-defmacro-twice`, a door's definition of a word its source defines, whatever this save holds. Under Windows
+  PowerShell 5.1 alone.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, three notes; the roadmap's line; `conformance/README.md`'s amendment of
+  2026-11-19, the second save's; `check_recalc_golden`'s header.
+- *Found:*
+  1. An engine computes a legacy array formula as the legacy kind and lays no block, where the second slice's record
+     had it so "until the fifth slice": decision 7 in an engine (its rows taken, `array` and `spill`, since the third
+     slice's second part), which no part of the fifth slice took; the third part's *Found* 3 named the block alone.
+     Held by the engine's test, its 60 cells named. At the owner's word, "Part 4 first", a fourth part of the fifth
+     slice takes it before the close.
+  2. Two spills whose boxes meet though their answers do not: Excel computes both (`AW1`, `AV3`); the language labels
+     them, its plan ordering a box by its bound.
+  3. The writer's rule and `KERNEL.53`'s `may_show_at` read a legacy formula twice: the one stores a text legacy where
+     Excel's writer does, and the other labels `FORMULATEXT` of it where Excel may show an `@`. Excel stores a typed
+     text legacy where its legacy reading is the same, which is where it shows no `@`, so that said once the two would
+     agree, `functions!A33` computed again: a legacy `INDEX` of one cell, `TYPE` of an array.
+  4. An `@` before a call is still not read (the fourth slice's *Found* 1): `Typed!B421` and `B431`.
+- *Hand test in Excel,* the owner's, passed: Excel 365 opens the four fixtures built again with no repair, each closed
+  without a save, and draws the cells the goldens name: `lookups.xlsx`'s lookups `A93` 40 and `A94` 3; `intersect.xlsx`'s
+  dynamic `G3` 30, its bar `=@INDEX(data!A1:C8,0,1)`, the `@` `KERNEL.53`'s reading says a legacy `INDEX` of a column
+  shows, and `G10` `#VALUE!`; `info.xlsx`'s given `J7` 64, ranges `B11` FALSE and rest `A60` 64; and `formulas.xlsx`'s
+  data `A13` 2, its bar `=INDEX(C1:C3,2)`, and functions `A33` `=INDEX(C1:C3,2)`, no `@`: Excel shows a legacy `INDEX`
+  of one cell as it was typed, the evidence the third *Found* waited on, its fold the owner's to call.
+
+*Committed 2026-11-19* at the owner's word, "Hand test passes; option 1; commit, then build part 4": over `edcba68`, a
+peer's `VLA.11` building uncommitted in the shared tree, the save's 21 files and its four docs by their hunks alone.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

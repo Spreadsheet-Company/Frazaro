@@ -71,11 +71,13 @@ pub(crate) fn register(lib: &mut Library) {
 /// spills; a blocked anchor's `#SPILL!`, as Excel's save of the item's probe
 /// answers it (`Spills!A24`); labelled as its anchor's answer is where the
 /// anchor was not computed, and as a spill where the environment computes
-/// none, an engine's machine until its slice. A cell holding no dynamic
-/// formula holds no spill, `#REF!`, as the save answers a spilled cell's and a
-/// value's; and a legacy array formula's, which no save shows, is labelled by
-/// the function's name, as is anything but a reference to one cell. An error
-/// where the reference stands is the answer.
+/// none, an engine's machine until its slice. A legacy array formula's anchor
+/// reads its block, as Excel's second save of the probe answers it
+/// (`Spills!A50` and `A51`), where the environment lays blocks, and is
+/// labelled by the function's name where it lays none, as is anything but a
+/// reference to one cell. Any other cell holds no spill, `#REF!`, as the save
+/// answers a spilled cell's and a value's, a block's other cells among them.
+/// An error where the reference stands is the answer.
 fn anchorarray(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> {
     let unread = || Err(Reason::Function(ANCHORARRAY.to_string()));
     let anchor = match args {
@@ -86,6 +88,16 @@ fn anchorarray(ctx: &Ctx<'_>, args: &[Arg<'_>]) -> Result<Arg<'static>, Reason> 
         [Arg::Scalar(Value::Error(k))] => return Ok(Arg::Scalar(Value::Error(*k))),
         _ => return unread(),
     };
+    if let Some(block) = ctx.env.block(anchor) {
+        if (block.top, block.left) != (anchor.1, anchor.2) {
+            return Ok(Arg::Scalar(Value::Error(ErrorKind::Ref)));
+        }
+        return Ok(Arg::Area {
+            areas: Areas::one(block),
+            written: Cow::Owned(format!("{}#", cell_ref(anchor.1, anchor.2))),
+            moved: (0, 0),
+        });
+    }
     match ctx.env.written(anchor).map(|w| w.kind) {
         Some(Kind::Dynamic) => match ctx.env.spilled(anchor) {
             Some(Ok(area)) => {
@@ -1079,7 +1091,9 @@ mod tests {
             ("E14", "=SUM(IFERROR({1,#N/A},5))", "1"),
             ("E40", "~=SUM(IFERROR({1,#N/A},5))", "6"),
             ("E15", "=SUM(COUNTIF(A1:A3,{1,3}))", "2"),
-            ("E16", "=SUM(INDEX({10,20,30},{1,3}))", "40"),
+            // `INDEX`'s row of an array, forced as of a reference (KERNEL.55,
+            // Excel's second save of its probe, `Legacy!A12`).
+            ("E16", "=SUM(INDEX({10,20,30},{1,3}))", "10"),
             ("E17", "=SUM(VLOOKUP(1,{1,2,3},{2,3},FALSE))", "2"),
             ("E41", "~=SUM(VLOOKUP(1,{1,2,3},{2,3},FALSE))", "5"),
             ("E18", "=SUM(MATCH({3,1},A1:A3,0))", "4"),
@@ -1159,16 +1173,21 @@ mod tests {
             // KERNEL.55's second slice, Excel's save of its probe: `INDEX`'s
             // row and column of a reference forced in a legacy formula and a
             // legacy array formula alike, a dynamic formula lifting the pick
-            // (`Legacy!A8`, `C8` and `B8`, `A9`, `C9` and `B9`); an array's,
-            // which no save shows in a legacy formula, lifting in every kind,
-            // as they did (E16); a legacy array formula's `HLOOKUP` forcing the
-            // value sought (`Legacy!C1`), `VLOOKUP`'s index lifting in one.
+            // (`Legacy!A8`, `C8` and `B8`, `A9`, `C9` and `B9`); and an
+            // array's, as Excel's second save holds them (`Legacy!A12`, `C12`
+            // and `B12`, `A13`, `C13` and `B13`); a legacy array formula's
+            // `HLOOKUP` forcing the value sought (`Legacy!C1`), `VLOOKUP`'s
+            // index lifting in one.
             ("E62", "=SUM(INDEX(A1:A3,{1,3}))", "1"),
             ("E63", "{=SUM(INDEX(A1:A3,{1,3}))", "1"),
             ("E64", "~=SUM(INDEX(A1:A3,{1,3}))", "4"),
             ("E65", "{=SUM(INDEX(A1:B3,2,{1,2}))", "2"),
             ("E66", "~=SUM(INDEX(A1:B3,2,{1,2}))", "7"),
-            ("E67", "{=SUM(INDEX({10,20,30},{1,3}))", "40"),
+            ("E67", "{=SUM(INDEX({10,20,30},{1,3}))", "10"),
+            ("E70", "~=SUM(INDEX({10,20,30},{1,3}))", "40"),
+            ("E71", "=SUM(INDEX({1,2;3,4},{1,2},1))", "1"),
+            ("E72", "{=SUM(INDEX({1,2;3,4},{1,2},1))", "1"),
+            ("E73", "~=SUM(INDEX({1,2;3,4},{1,2},1))", "4"),
             ("E68", "{=SUM(HLOOKUP({1,2},{1,2;10,20},2,FALSE))", "10"),
             ("E69", "{=SUM(VLOOKUP(1,{1,2,3},{2,3},FALSE))", "5"),
         ]);

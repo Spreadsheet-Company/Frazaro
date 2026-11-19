@@ -139,6 +139,23 @@
   a legacy formula and a legacy array formula alike:
   `=SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`, where it summed three
   picks. A dynamic formula alone lifts either (KERNEL.55).
+- **Three answers corrected by Excel's second save.** `INDEX`'s row and
+  column of an array take an array's first value in a legacy formula and a
+  legacy array formula alike, as of a reference: `=SUM(INDEX({10,20,30},{1,3}))`
+  is 10 where it was 40, and 40 in a dynamic formula. A legacy array formula
+  holds its formula at every cell of its block: `ISFORMULA` of any of them is
+  TRUE and `FORMULATEXT` the formula in braces, `{=A1:A3*10}`, as Excel's bar
+  shows it at each, where they answered FALSE and `#N/A` past its first cell.
+  And `A1#` of a block's first cell is the block, `=ROWS(B1#)` its rows, in the
+  doors, where it was a function not computed, and of any other cell of the
+  block `#REF!` (KERNEL.55).
+- **The build stores three more kinds of formula as Excel 365 stores them
+  typed**, legacy where it wrote them dynamic: `TYPE` of an array constant or
+  of an array function's answer, `=TYPE({1,2})`; `INDEX` of one column or one
+  row of a range at one number, `=INDEX(A1:A6,3)`; and `@` before an `INDEX` of
+  a range, `=SINGLE(INDEX(A1:C3,0,1))`, written `=INDEX(A1:C3,0,1)`. No value
+  moves; `FORMULATEXT` of a legacy `INDEX` is labelled, as it was, a text Excel
+  may show with an `@` (KERNEL.55).
 - **Functions at expand time.** `(defexpand (name parameter ...) form)`
   defines a function whose call computes a value while a source expands, as
   the expand-time primitives do, so that a list is filtered, counted or

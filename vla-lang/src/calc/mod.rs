@@ -871,14 +871,18 @@ impl Env for Calc<'_> {
 
     /// A cell's formula, its text the one the plan read off the grid, moved
     /// and its prefixes dropped, so that no read walks a sheet for a fill's
-    /// master (KERNEL.49).
+    /// master (KERNEL.49); a block's other cell its anchor's, as Excel's bar
+    /// shows the block's formula at each of its cells, braces and all, and as
+    /// Excel's second save of KERNEL.55's probe reads it there with
+    /// `ISFORMULA` and `FORMULATEXT` (`Blocks!A17` to `A20`).
     fn written(&self, id: CellId) -> Option<Written<'_>> {
-        let kind = match crate::grid::Model::formula(self.model, id)? {
-            crate::grid::Formula::Own(_, kind) => kind,
-            crate::grid::Formula::Fill(_) => crate::grid::Kind::Plain,
+        let (at, kind) = match crate::grid::Model::formula(self.model, id) {
+            Some(crate::grid::Formula::Own(_, kind)) => (id, kind),
+            Some(crate::grid::Formula::Fill(_)) => (id, crate::grid::Kind::Plain),
+            None => (*self.places.get(&id)?, crate::grid::Kind::Array),
         };
         Some(Written {
-            text: self.texts.get(&id).map(String::as_str),
+            text: self.texts.get(&at).map(String::as_str),
             moved: (0, 0),
             kind,
         })
@@ -983,6 +987,30 @@ impl Env for Calc<'_> {
             bottom: e.bottom,
             right: e.right,
         }))
+    }
+
+    /// The block a legacy array formula fills (KERNEL.55), by its anchor or
+    /// by another of its cells the sheet holds: its range, a formula of one
+    /// cell its own.
+    fn block(&self, id: CellId) -> Option<Area> {
+        let anchor = self.places.get(&id).copied().unwrap_or(id);
+        let range = match self.blocks.get(&anchor) {
+            Some(range) => *range,
+            None if is_array_formula(self.model, anchor) => A1Range {
+                top: anchor.1,
+                left: anchor.2,
+                bottom: anchor.1,
+                right: anchor.2,
+            },
+            None => return None,
+        };
+        Some(Area {
+            sheet: anchor.0,
+            top: range.top,
+            left: range.left,
+            bottom: range.bottom,
+            right: range.right,
+        })
     }
 }
 
@@ -2038,15 +2066,84 @@ mod tests {
     }
 
     #[test]
+    fn a_block_s_cells_hold_its_formula_and_its_anchor_s_hash_reads_it_whole() {
+        // KERNEL.55, Excel's second save of its probe: a block's every cell
+        // holds the block's formula, `ISFORMULA` TRUE and `FORMULATEXT` the
+        // anchor's text in braces at each (`Blocks!A17` to `A20`); `A1#` of
+        // its anchor its block, read whole, `#N/A` past the array among it
+        // (`Spills!A50` and `A51`), as the file spells it and as a person
+        // writes it, the plan putting each reader after the block's cells,
+        // even one the sheet lists before the anchor, and in a text binding a
+        // name; and of another of its cells no spill, `#REF!`.
+        let wb = blocked(
+            &[
+                ("R", "A1", "=SUM(S!B1#)"),
+                ("R", "A2", "=ROWS(ANCHORARRAY(S!B1))"),
+                ("R", "A3", "=ISFORMULA(S!B2)"),
+                ("R", "A4", "=FORMULATEXT(S!B3)"),
+                ("R", "A5", "=ISFORMULA(S!B1)"),
+                ("R", "A6", "=S!B2#"),
+                ("R", "A7", "=LET(x,1,SUM(S!B1#)+x)"),
+                ("R", "A8", "=ISNA(SUM(S!C1#))"),
+                ("R", "A9", "=COUNT(S!C1#)"),
+                ("S", "A1", "1"),
+                ("S", "A2", "2"),
+                ("S", "A3", "3"),
+            ],
+            &[("S", "B1:B3", "=A1:A3*10"), ("S", "C1:C4", "=A1:A3")],
+        );
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        assert!(calc.cycles().is_empty());
+        for (addr, want) in [
+            ("A1", "60"),
+            ("A2", "3"),
+            ("A3", "true"),
+            ("A4", "\"{=A1:A3*10}\""),
+            ("A5", "true"),
+            ("A6", "(error \"#REF!\")"),
+            ("A7", "61"),
+            ("A8", "true"),
+            ("A9", "3"),
+        ] {
+            assert_eq!(shown(&calc, "R", addr), want, "R!{addr}");
+        }
+        // A text binding a name, the block's only reader, after its cells.
+        let wb = blocked(
+            &[
+                ("R", "A1", "=LET(x,1,SUM(S!B1#)+x)"),
+                ("S", "A1", "1"),
+                ("S", "A2", "2"),
+                ("S", "A3", "3"),
+            ],
+            &[("S", "B1:B3", "=A1:A3*10")],
+        );
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(shown(&calc, "R", "A1"), "61");
+        // A value cell, and a cell holding nothing, hold no formula.
+        let wb = blocked(
+            &[
+                ("R", "A1", "=ISFORMULA(S!A1)"),
+                ("R", "A2", "=FORMULATEXT(S!D1)"),
+                ("S", "A1", "1"),
+            ],
+            &[("S", "B1:B2", "=A1*2")],
+        );
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(shown(&calc, "R", "A1"), "false");
+        assert_eq!(shown(&calc, "R", "A2"), "(error \"#N/A\")");
+    }
+
+    #[test]
     fn a_spill_read_through_its_hash_is_a_dynamic_anchor_s_and_no_other_cell_s() {
         // KERNEL.55's second slice: `A1#`, read as the file spells it,
         // `ANCHORARRAY(A1)`. A value's and a legacy formula's, #REF!, as
         // Excel's save of the probe answers a value's and a spilled cell's; a
         // dynamic formula's its spill (the third slice), here over cells the
-        // model does not hold; a legacy array formula's, which no save shows, labelled by
-        // the function's name, as is a reference to no one cell; a spill whose
-        // anchor moved off the sheet #REF!; and `#SPILL!`, a value of the
-        // language, ERROR.TYPE 9.
+        // model does not hold; a legacy array formula's its block, of one cell
+        // here (Excel's second save, `Spills!A51`); a reference to no one cell
+        // labelled by the function's name; a spill whose anchor moved off the
+        // sheet #REF!; and `#SPILL!`, a value of the language, ERROR.TYPE 9.
         let mut wb = model(&[
             ("S", "A1", "5"),
             ("S", "B1", "=1+1"),
@@ -2086,7 +2183,7 @@ mod tests {
             ("D1", "(error \"#REF!\")"),
             ("D2", "(error \"#REF!\")"),
             ("D3", "6"),
-            ("D4", &anchorarray),
+            ("D4", "1"),
             ("D5", "(error \"#REF!\")"),
             ("D6", &anchorarray),
             ("D7", "true"),

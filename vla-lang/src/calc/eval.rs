@@ -164,11 +164,12 @@ pub enum Param {
     Scalar,
     /// One value, forced so in a legacy formula and in a legacy array
     /// formula alike, as [`Param::Scalar`] is in a legacy formula: Excel's
-    /// save of `KERNEL.55`'s probe gave `HLOOKUP`'s and `VLOOKUP`'s value
+    /// saves of `KERNEL.55`'s probe gave `HLOOKUP`'s and `VLOOKUP`'s value
     /// sought and match kind, and `INDEX`'s row and column of a reference
-    /// (`lookups::index`), an array's first value in both
-    /// (`SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`); a dynamic formula
-    /// alone lifts the function over it.
+    /// and of an array (`lookups::index`), an array's first value in both
+    /// (`SUM(INDEX(A1:A6,{1,2,3}))` is `INDEX(A1:A6,1)`, and
+    /// `SUM(INDEX({10,20,30},{1,3}))` 10); a dynamic formula alone lifts the
+    /// function over it.
     Forced,
 }
 
@@ -292,6 +293,17 @@ pub trait Env {
     /// labelled a spill, unless an environment computes spills: `Calc` does,
     /// and an engine's machine at the item's fifth slice.
     fn spilled(&self, _anchor: CellId) -> Option<Result<Area, Reason>> {
+        None
+    }
+
+    /// The block a legacy array formula fills, of which a cell is one
+    /// (KERNEL.55; `A1#` of its anchor, as Excel's second save of the item's
+    /// probe reads it, `Spills!A50` and `A51`): its range, its anchor the
+    /// range's first cell, a formula of one cell its own. `None`, every `A1#`
+    /// of a legacy array formula labelled, unless an environment lays blocks:
+    /// `Calc` does, and an engine's machine lays none (the item's fifth
+    /// slice's third part's *Found* 3).
+    fn block(&self, _id: CellId) -> Option<Area> {
         None
     }
 }

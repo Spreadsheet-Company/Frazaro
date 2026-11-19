@@ -16,17 +16,21 @@
 //! of those, wherever it stands; `ROW`, `COLUMN`, `ISFORMULA`, `FORMULATEXT`
 //! or `TYPE` outside an array parameter of what would make the formula
 //! dynamic at its top, which a legacy formula reads at the cell or at its
-//! first row or column; `INDEX` where one value is wanted but at a row and a
-//! column each a number past 0; `IFS`, `SWITCH` and `INDIRECT` by their names,
-//! and `OFFSET` given a height or a width or moving a range where one value is
-//! wanted; and a function called in place (KERNEL.29). A form reads its own
-//! arguments, and a name, a `LET`'s binding and a function not held say
-//! nothing, but a `SINGLE` inside, which a legacy formula cannot say. Where
-//! no save typed a text of the kind, the rule's reading leans dynamic, which
-//! reads the text as typed.
+//! first row or column, but `TYPE` of an array constant or of an array
+//! function's answer, which it reads whole; `INDEX` where one value is wanted
+//! but at a row and a column each a number past 0, or at one such number in a
+//! reference one column wide or one row high; `IFS`, `SWITCH` and
+//! `INDIRECT` by their names, and `OFFSET` given a height or a width or moving
+//! a range where one value is wanted; and a function called in place
+//! (KERNEL.29). A form reads its own arguments, and a name, a `LET`'s binding
+//! and a function not held say nothing, but a `SINGLE` inside, which a legacy
+//! formula cannot say unless it reads a reference, an `INDEX` of one among
+//! them. Where no save typed a text of the kind, the rule's reading leans
+//! dynamic, which reads the text as typed; Excel's second save of the item's
+//! probe typed the kinds the first left so.
 
 use super::eval::{Library, Param};
-use super::formula::{parse, Expr, RefExpr};
+use super::formula::{parse, Expr, RefExpr, ANCHORARRAY};
 use super::lambda::{inline, Functions, Inlined};
 use super::spill::bound;
 use crate::refers::{self, Kind, Shape};
@@ -125,16 +129,16 @@ fn call(e: &Expr, name: &str, args: &[Expr], want: Want, lib: &Library) -> bool 
     let rest = |from: usize, w: Want| args.iter().skip(from).any(|a| walk(a, w, lib));
     match name {
         // Excel's `@`: a reference it reads at the cell, as a legacy formula
-        // reads one where one value is wanted; anything else it reads at its
-        // answer's first value, where a legacy formula reads a range inside
-        // it at the cell; and anywhere but where one value is wanted a legacy
-        // formula cannot say it, and a dynamic one keeps it.
+        // reads one where one value is wanted ([`at_the_cell`]); anything
+        // else it reads at its answer's first value, where a legacy formula
+        // reads a range inside it at the cell; and anywhere but where one
+        // value is wanted a legacy formula cannot say it, and a dynamic one
+        // keeps it.
         "SINGLE" => {
             want != Want::One
-                || args.first().is_some_and(|a| {
-                    !matches!(a, Expr::Ref(_) | Expr::Range(_) | Expr::Name { .. })
-                        && walk(a, Want::One, lib)
-                })
+                || args
+                    .first()
+                    .is_some_and(|a| !at_the_cell(a, lib) && walk(a, Want::One, lib))
         }
         "IFS" | "SWITCH" | "INDIRECT" => true,
         // Its reference read where the call stands, so that a range it moves
@@ -156,11 +160,25 @@ fn call(e: &Expr, name: &str, args: &[Expr], want: Want, lib: &Library) -> bool 
                 Some(Expr::Neg(x)) => matches!(&**x, Expr::Number(_)),
                 _ => false,
             };
-            (want == Want::One && !(picked(1) && picked(2)))
+            // One value at a row and a column each picked, and at one number
+            // picked in a reference one column wide or one row high (Excel's
+            // second save of KERNEL.55's probe, `Typed!B381` and `B391`); in
+            // an array, which no save typed, the lean.
+            let line = args.len() == 2
+                && matches!(args.first(), Some(a @ Expr::Ref(_))
+                    if bound(a, lib, &mut |_| None)
+                        .is_some_and(|(rows, columns)| rows == 1 || columns == 1));
+            let single = picked(1) && (picked(2) || line);
+            (want == Want::One && !single)
                 || args.first().is_some_and(|a| walk(a, Want::Range, lib))
                 || rest(1, Want::One)
         }
         "XLOOKUP" => (want == Want::One && many(e, lib)) || one(0) || rest(1, Want::Array),
+        // `TYPE` reads an array whole in a legacy formula too, an array
+        // constant and an array function's answer (Excel's second save of
+        // KERNEL.55's probe, `Typed!B361` and `B371`), as an array parameter
+        // reads it.
+        "TYPE" if args.first().is_some_and(|a| an_array(a, lib)) => rest(0, Want::Array),
         // These read whole what a legacy formula reads at the cell or at its
         // first row or column: their argument makes the formula dynamic
         // wherever it would at the formula's top, `INDEX`'s column and
@@ -194,10 +212,43 @@ fn call(e: &Expr, name: &str, args: &[Expr], want: Want, lib: &Library) -> bool 
     }
 }
 
+/// Whether Excel's `@` reads an expression at the cell, as a legacy formula
+/// reads it where one value is wanted, so that a legacy formula says it
+/// without the `@`: a reference, a range between expressions or a name; and
+/// an `INDEX` of a reference written as one, whose other arguments make
+/// nothing dynamic, which answers a reference (Excel's second save of
+/// KERNEL.55's probe, `Typed!B341`, and `B421` and `B431` typed with `@`).
+fn at_the_cell(a: &Expr, lib: &Library) -> bool {
+    match a {
+        Expr::Ref(_) | Expr::Range(_) | Expr::Name { .. } => true,
+        Expr::Call(name, args) if name == "INDEX" => {
+            matches!(args.first(), Some(Expr::Ref(_)))
+                && !args.iter().skip(1).any(|x| walk(x, Want::One, lib))
+        }
+        _ => false,
+    }
+}
+
+/// Whether an expression is an array `TYPE` reads whole in a legacy formula
+/// too: an array constant, or the answer of a function answering an array of
+/// values, and not a reference (`ANCHORARRAY`) nor what a legacy formula
+/// reads at a range's first cell (`ISFORMULA`, `FORMULATEXT`).
+fn an_array(e: &Expr, lib: &Library) -> bool {
+    match e {
+        Expr::Array(_) => true,
+        Expr::Call(name, _) => {
+            lib.arrayed(name).is_some()
+                && !matches!(name.as_str(), ANCHORARRAY | "ISFORMULA" | "FORMULATEXT")
+        }
+        _ => false,
+    }
+}
+
 /// The text Excel stores for a typed text (without its `=`): a typed `@`
 /// before a reference written `SINGLE(...)` in a dynamic formula; and in a
-/// legacy one left out, as `SINGLE` of a reference alone is, since a legacy
-/// formula reads each at its cell already.
+/// legacy one left out, as `SINGLE` of a reference alone is, and of an
+/// `INDEX` of one ([`at_the_cell`]), since a legacy formula reads each at its
+/// cell already.
 fn written(body: &str, dynamic: bool) -> String {
     let chars: Vec<char> = body.chars().collect();
     let refs: Vec<refers::FormulaRef> = refers::scan(body)
@@ -213,9 +264,17 @@ fn written(body: &str, dynamic: bool) -> String {
     // A text's strings hold no reference the scan finds, so neither an `@`
     // nor a `SINGLE(` inside one is followed by one.
     let mut out = String::with_capacity(body.len() + 8);
+    // The closing brackets of the `SINGLE(`s of an `INDEX` left out, the
+    // innermost last.
+    let mut dropped: Vec<usize> = Vec::new();
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
+        if dropped.last() == Some(&i) {
+            dropped.pop();
+            i += 1;
+            continue;
+        }
         // `@` before a reference.
         if c == '@' {
             if let Some(r) = at_ref(i + 1) {
@@ -230,7 +289,8 @@ fn written(body: &str, dynamic: bool) -> String {
                 continue;
             }
         }
-        // `SINGLE(` of a reference alone, in a legacy formula.
+        // `SINGLE(` of a reference alone, in a legacy formula; and of an
+        // `INDEX` of one, its closing bracket left out where it stands.
         if !dynamic && starts_single(&chars, i) {
             let open = i + chars[i..].iter().position(|&ch| ch == '(').unwrap_or(0);
             if let Some(r) = at_ref(open + 1) {
@@ -241,11 +301,52 @@ fn written(body: &str, dynamic: bool) -> String {
                     continue;
                 }
             }
+            if let Some(close) = index_of_reference(&chars, open + 1, &refs) {
+                if chars.get(close) == Some(&')') {
+                    dropped.push(close);
+                    i = open + 1;
+                    continue;
+                }
+            }
         }
         out.push(c);
         i += 1;
     }
     out
+}
+
+/// Where a call of `INDEX` beginning at `at` ends, the place after its
+/// closing bracket, when its first argument is a reference alone; the
+/// brackets inside a text in quotes or a sheet's quoted name passed by.
+fn index_of_reference(chars: &[char], at: usize, refs: &[refers::FormulaRef]) -> Option<usize> {
+    let name: String = chars.get(at..at + 6)?.iter().collect();
+    if !name.eq_ignore_ascii_case("INDEX(") {
+        return None;
+    }
+    let first = at + 6;
+    let r = refs.iter().find(|r| r.pos == first)?;
+    if !matches!(chars.get(first + r.span.max(1)), Some(',' | ')')) {
+        return None;
+    }
+    let (mut depth, mut quote) = (0usize, None);
+    for (k, &ch) in chars.iter().enumerate().skip(at + 5) {
+        match quote {
+            Some(q) if ch == q => quote = None,
+            Some(_) => {}
+            None => match ch {
+                '"' | '\'' => quote = Some(ch),
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(k + 1);
+                    }
+                }
+                _ => {}
+            },
+        }
+    }
+    None
 }
 
 /// Whether `SINGLE(`, its `_xlfn.` prefix or not and in any case, begins at a
@@ -289,12 +390,81 @@ mod tests {
             ("=SINGLE(A1:A3*2)", (true, "SINGLE(A1:A3*2)")),
             ("=1+A1:A3", (true, "1+A1:A3")),
             ("=SINGLE(A1:A3)*2", (false, "A1:A3*2")),
-            // No save typed `@` before a call: where the rule cannot show the
-            // legacy reading alike, dynamic, which reads the text as typed.
+            // Of an `INDEX` of a reference, which answers a reference: read at
+            // the cell, and left out with its closing bracket, as Excel's
+            // second save of KERNEL.55's probe stores `Typed!B341`; of one
+            // whose row is read from a range, or of an array's, dynamic.
+            ("=SINGLE(INDEX(A1:C3,0,1))", (false, "INDEX(A1:C3,0,1)")),
             (
-                "=SINGLE(INDEX(A1:C3,0,1))",
-                (true, "SINGLE(INDEX(A1:C3,0,1))"),
+                "=_xlfn.SINGLE(INDEX(A1:C3,2,1))+SINGLE(A1:A3)",
+                (false, "INDEX(A1:C3,2,1)+A1:A3"),
             ),
+            (
+                "=SINGLE(INDEX('My (Sheet)'!A1:C3,0,LEN(\")\")))",
+                (false, "INDEX('My (Sheet)'!A1:C3,0,LEN(\")\"))"),
+            ),
+            // A bracket alone in a sheet's quoted name, and in a text, which
+            // close nothing.
+            (
+                "=SINGLE(INDEX('Q1 (old'!A1:C3,0,1))",
+                (false, "INDEX('Q1 (old'!A1:C3,0,1)"),
+            ),
+            (
+                "=SINGLE(INDEX(A1:C3,0,LEN(\")\")+1))",
+                (false, "INDEX(A1:C3,0,LEN(\")\")+1)"),
+            ),
+            (
+                "=SINGLE(INDEX(A1:C3,B1:B2,1))",
+                (true, "SINGLE(INDEX(A1:C3,B1:B2,1))"),
+            ),
+            (
+                "=SINGLE(INDEX({1,2;3,4},0,1))",
+                (true, "SINGLE(INDEX({1,2;3,4},0,1))"),
+            ),
+            (
+                "=SEQUENCE(2)+SINGLE(INDEX(A1:C3,0,1))",
+                (true, "SEQUENCE(2)+SINGLE(INDEX(A1:C3,0,1))"),
+            ),
+            // Of one value no reference answers, kept, as `SINGLE(A1+B1)` is:
+            // an array's pick, a reference's pick and more, and a pick of a
+            // range between expressions.
+            (
+                "=SINGLE(INDEX({1,2;3,4},1,1))",
+                (false, "SINGLE(INDEX({1,2;3,4},1,1))"),
+            ),
+            (
+                "=SINGLE(INDEX(A1:C3,1,1)+0)",
+                (false, "SINGLE(INDEX(A1:C3,1,1)+0)"),
+            ),
+            (
+                "=SINGLE(INDEX(A1:INDEX(B1:B3,2),1,1))",
+                (false, "SINGLE(INDEX(A1:INDEX(B1:B3,2),1,1))"),
+            ),
+            (
+                "=SINGLE(MATCH(A1,B1:B3,0))",
+                (false, "SINGLE(MATCH(A1,B1:B3,0))"),
+            ),
+            // `TYPE` of an array constant and of an array function's answer,
+            // read whole in a legacy formula too, as Excel's second save
+            // stores `Typed!B361` and `B371`; of an array a range makes, or a
+            // function given a range where one value is wanted, dynamic.
+            ("=TYPE({1,2})", (false, "TYPE({1,2})")),
+            ("=TYPE(SEQUENCE(2))", (false, "TYPE(SEQUENCE(2))")),
+            ("=TYPE(A1:A3*2)", (true, "TYPE(A1:A3*2)")),
+            ("=TYPE(SEQUENCE(A1:A3))", (true, "TYPE(SEQUENCE(A1:A3))")),
+            ("=TYPE(ANCHORARRAY(A1))", (true, "TYPE(ANCHORARRAY(A1))")),
+            // `INDEX` of one column or one row at one number, a cell, as
+            // Excel's second save stores `Typed!B381` and `B391`; of more,
+            // the row it names whole; at a row read from a cell, or a column
+            // beside the row, and of an array, which no save typed, dynamic.
+            ("=INDEX(A1:A6,3)", (false, "INDEX(A1:A6,3)")),
+            ("=INDEX(A1:F1,3)", (false, "INDEX(A1:F1,3)")),
+            ("=INDEX(A:A,3)", (false, "INDEX(A:A,3)")),
+            ("=INDEX(A1:C3,2)", (true, "INDEX(A1:C3,2)")),
+            ("=INDEX(A1:A6,B1)", (true, "INDEX(A1:A6,B1)")),
+            ("=INDEX(A1:A6,3,B1)", (true, "INDEX(A1:A6,3,B1)")),
+            ("=INDEX({10,20,30},2)", (true, "INDEX({10,20,30},2)")),
+            ("=INDEX(SORT(A1:A6),1)", (true, "INDEX(SORT(A1:A6),1)")),
             // A reference a call answers, read whole as a reference written
             // with `:` is: a legacy formula meets it at the cell, `#VALUE!`
             // past it, as Excel's save of `info.txt`'s `rest!A59` shows.

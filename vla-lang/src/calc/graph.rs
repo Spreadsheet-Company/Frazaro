@@ -696,6 +696,7 @@ fn reads<M: Model + ?Sized>(
         let named = bound_reads(&e, &find, |re| {
             read_ref(model, home, re, (&mut *cells, &mut *areas));
         });
+        e.each_anchor(&mut |re| read_block(model, home, re, &mut *areas));
         if depth < NAME_DEPTH {
             for (name, scope) in named {
                 if let Some(t) = names.resolve(name, scope, home) {
@@ -706,6 +707,7 @@ fn reads<M: Model + ?Sized>(
         }
         return;
     }
+    read_blocks(model, home, text, &mut *areas);
     let scanned = refers::scan(text);
     let reaches = range_reaches(text, &scanned);
     for mut r in scanned {
@@ -754,6 +756,43 @@ fn read_ref<M: Model + ?Sized>(
             areas.push(*a);
         } else if model.formula((a.sheet, a.top, a.left)).is_some() {
             cells.push((a.sheet, a.top, a.left));
+        }
+    }
+}
+
+/// The blocks of legacy array formulas a text reads through `A1#` of their
+/// anchors, as a person writes it or as the file spells it,
+/// `ANCHORARRAY(A1)` (KERNEL.55): a parse of a text that may hold one, which
+/// the scanner reads as a read of the anchor alone.
+fn read_blocks<M: Model + ?Sized>(model: &M, home: usize, text: &str, areas: &mut Vec<Area>) {
+    let named = text
+        .as_bytes()
+        .windows(super::formula::ANCHORARRAY.len())
+        .any(|w| w.eq_ignore_ascii_case(super::formula::ANCHORARRAY.as_bytes()));
+    if !named && !text.contains('#') {
+        return;
+    }
+    if let Ok(e) = super::formula::parse(text) {
+        e.each_anchor(&mut |re| read_block(model, home, re, &mut *areas));
+    }
+}
+
+/// The block a legacy array formula's anchor fills, which `A1#` of the anchor
+/// reads (KERNEL.55): an area [`reads`] keeps, so that a formula reading it is
+/// after each of the block's cells, which follow the anchor.
+fn read_block<M: Model + ?Sized>(model: &M, home: usize, re: &RefExpr, areas: &mut Vec<Area>) {
+    let Ok(found) = areas_found(|n| model.find_sheet(n), home, re, 0, 0) else {
+        return;
+    };
+    for a in &found {
+        if let Some(b) = model.block((a.sheet, a.top, a.left)) {
+            areas.push(Area {
+                sheet: a.sheet,
+                top: b.top,
+                left: b.left,
+                bottom: b.bottom,
+                right: b.right,
+            });
         }
     }
 }
@@ -883,6 +922,10 @@ impl Model for Placed<'_> {
 
     fn defined_names(&self) -> &[(String, String)] {
         Model::defined_names(self.book)
+    }
+
+    fn block(&self, id: CellId) -> Option<A1Range> {
+        Model::block(self.book, id)
     }
 
     fn formula(&self, id: CellId) -> Option<crate::grid::Formula<'_>> {

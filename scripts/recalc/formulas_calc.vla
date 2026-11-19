@@ -62,7 +62,7 @@
 (calc "functions" "A30" "=FORMULATEXT(Data!A10)" "=CONCAT(\"a\",\"b\")" "=CONCAT(\"a\",\"b\")" agree)
 (calc "functions" "A31" "=FORMULATEXT(Data!A11)" "=C1:C3" "=C1:C3" agree)
 (calc "functions" "A32" "=FORMULATEXT(Data!A12)" "=C1:C3*2" "=C1:C3*2" agree)
-(calc "functions" "A33" "=FORMULATEXT(Data!A13)" "=INDEX(C1:C3,2)" "=INDEX(C1:C3,2)" agree)
+(calc "functions" "A33" "=FORMULATEXT(Data!A13)" (not-computed "a formula Excel shows with @") none unchecked)
 (calc "functions" "A34" "=FORMULATEXT(Data!A14)" "=ROW(C1:C3)" "=ROW(C1:C3)" agree)
 (calc "functions" "A35" "=FORMULATEXT(Data!A15)" "=IF(A1>5,C1,C2)" "=IF(A1>5,C1,C2)" agree)
 (calc "functions" "A36" "=FORMULATEXT(Data!A16)" (not-computed "a formula Excel shows with @") none unchecked)

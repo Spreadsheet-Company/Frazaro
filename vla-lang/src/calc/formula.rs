@@ -583,6 +583,21 @@ impl Expr {
         }
     }
 
+    /// The cells the expression reads a spill or a block through, `A1#` as
+    /// the file spells it, `ANCHORARRAY(A1)` (KERNEL.55), each a reference to
+    /// one cell.
+    pub(crate) fn each_anchor<'e>(&'e self, f: &mut dyn FnMut(&'e RefExpr)) {
+        let mut stack = vec![self];
+        while let Some(e) = stack.pop() {
+            if let Expr::Call(name, args) = e {
+                if let (ANCHORARRAY, [Expr::Ref(r)]) = (name.as_str(), &args[..]) {
+                    f(r);
+                }
+            }
+            e.push_children(&mut stack);
+        }
+    }
+
     /// The walks' step (VLA.1): an expression's operands onto a stack, last
     /// first, so that popping visits them in the order they are written.
     /// The walks keep their own stack rather than the call stack, since a

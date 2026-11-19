@@ -167,7 +167,8 @@ fn sub_array(a: &Array, (t, l, b, r): (u32, u32, u32, u32)) -> Arg<'static> {
 /// `#VALUE!`. A value given as the reference is an array of one, and an
 /// array is picked from as a reference is, its values answered (KERNEL.8,
 /// slice f): the reference's expression is read as arrays, and a row or a
-/// column given as an array lifts the pick, each place's one value. Only
+/// column given as an array lifts the pick in a dynamic formula, each place's
+/// one value, and is forced to one value in any other (KERNEL.55). Only
 /// area 1 of the one area a reference names, a union being no reference
 /// this version reads.
 pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
@@ -181,12 +182,12 @@ pub(crate) fn index<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reas
     if let Arg::Scalar(Value::Error(k)) = reference {
         return error(k);
     }
-    // A reference's row and column, each an array's first value or a range
-    // met at the cell in a legacy formula and a legacy array formula alike,
-    // as Excel's save of KERNEL.55's probe holds them (`Param::Forced`); a
-    // dynamic formula alone lifts the pick over them. An array's, which no
-    // save shows in a legacy formula, lift in every kind, as they did.
-    let forced = !ctx.env.dynamic() && matches!(reference, Arg::Area { .. });
+    // The row and the column, each an array's first value or a range met at
+    // the cell in a legacy formula and a legacy array formula alike, of a
+    // reference as Excel's first save of KERNEL.55's probe holds them and of
+    // an array as its second does (`Legacy!A12`, `C12`, `A13` and `C13`,
+    // `Param::Forced`); a dynamic formula alone lifts the pick over them.
+    let forced = !ctx.env.dynamic();
     let place = |e: &Expr| -> Result<Lifted, Reason> {
         if forced {
             Ok(Lifted::One(ctx.forced(e)?))

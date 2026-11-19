@@ -412,10 +412,13 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-        // 131 stored legacy, the two the engine labels either way aside
+        // 151 stored legacy, the two the engine labels either way aside
         // (lookups' `A78`, a result vector shorter than its lookup's, and
-        // arrays' `A195`, past the grid's limit).
-        assert_eq!((turned, labelled), (131, 2));
+        // arrays' `A195`, past the grid's limit); twenty of them since Excel's
+        // second save of the item's probe typed the rule's leans, `INDEX` of a
+        // reference's column or row at one number, `TYPE` of an array
+        // function's answer and `SINGLE` of an `INDEX` of a reference.
+        assert_eq!((turned, labelled), (151, 2));
     }
 
     #[test]

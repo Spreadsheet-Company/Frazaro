@@ -2878,3 +2878,31 @@ Oracles 11 and 12 gain a spill saved and its changes (the scoping's decisions 2 
 - **What it does not hold.** A save between a write and its frame, which no host takes; a format at a cell a
   spill fills, which a load sets aside; and a legacy array formula's block in an engine, which computes its
   anchor alone.
+
+## Amendment of 2026-11-19: Excel's second save of the probe (`KERNEL.55`)
+
+Oracles 7 and 12 gain the second save's rules.
+
+- **What is held.** `INDEX`'s row and column of an array are forced to one value in a legacy formula and a legacy
+  array formula alike, an array given its first value, as of a reference; a dynamic formula alone lifts the pick. A
+  legacy array formula holds its formula at every cell of its block: `ISFORMULA` of any of them is TRUE and
+  `FORMULATEXT` the block's text in braces, where a spilled cell holds none. `A1#` of a legacy array formula's anchor
+  is its block, read whole, and of any other cell of a block `#REF!`; the plan orders a formula reading a block so
+  after each of its cells. The writer's rule takes three kinds the fourth slice left leaning: `TYPE` of an array
+  constant or of an array function's answer, legacy; `INDEX` of a reference one column wide or one row high at one
+  number past 0, legacy; and `@`, `SINGLE`, before an `INDEX` of a reference, read at the cell and left out of a legacy
+  formula with its closing bracket.
+- **The oracles.** `spills_saved_calc.vla`, Excel's second save of the probe, made over the first's file: 279 rows, the
+  first's 232 each as the first read them, 262 `agree`, none differing. The writer against Excel's own writer: 104
+  texts the three saves typed, two of them an `@` before a call, which the parse refuses, named; against Excel's
+  computation: 151 formulas of the door's eleven built fixtures the rule writes legacy, each computing what Excel's
+  save of it computed dynamic. The door's four builds a formula of which moved are built again: `lookups_calc.vla` and
+  `info_calc.vla` as they read; `intersect_calc.vla`, its two `SINGLE(INDEX(...))` of a reference written bare; and
+  `formulas_calc.vla` 95 rows, 81 agreeing, its agree floor lowered by one, `FORMULATEXT` of `=INDEX(C1:C3,2)`, now
+  legacy, labelled as a text Excel may show with an `@`. An engine's machine over the save: at 202 of the 262 cells
+  the door agrees at, the machine agrees, every spill among them.
+- **What it does not hold.** Two spills whose boxes meet though their answers do not (`AW1` and `AV3`, each 9 in
+  Excel's save), labelled as `K1` and `J3` are; an `@` before a call; `INDEX` of an array at one number and the other
+  kinds no save typed, the rule's lean; and in an engine, a legacy array formula, computed as the legacy kind, its
+  block's cells left empty and `A1#` of its anchor labelled: 60 cells of the save, named, until the fifth slice's
+  fourth part.
