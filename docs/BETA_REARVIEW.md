@@ -48235,6 +48235,124 @@ as the probe's saves show Excel's own writer storing it.
 proceeding with slice e": over `358ba97`, `VLA.8`'s scoping, which a peer committed after `9acdd6d`, the slice's 35
 files; info's agree floor lowered and the rule's lean to dynamic where no save spoke both accepted.
 
+*Slice (e) built 2026-11-18, its first part: the plan.* At the owner's word, "Hand tests pass; recommendations accepted;
+commit slice d before proceeding with slice e": over `ed51bbd`, uncommitted. Decision 4 as recommended, (b): an
+engine fixes each dynamic formula's bound and box at its load and at a write, plans by them, and refuses a formula
+whose text bounds none; decision 6's slots are the second part's, which lays a spill's values. Until then an engine
+labels a spill `a spill`, as before, so that this part moves the order and the refusals and no value.
+- *The bound at the load* (`calc/spill.rs`): each dynamic formula's bound by its parse, the door's of the third slice,
+  now asking the grid as it reads: a name by the text it stands for, at most eight names deep; a spill read through
+  `#` by its anchor's bound; the forms of one value, `SINGLE`, `ISREF`, `TYPE` and `ISOMITTED`, one; `ISEVEN`, `ISODD`
+  and `ADDRESS` lifted over every argument, as a function of one value is; a span of sheets one, which no answer holds
+  as an array; and `XLOOKUP` over many values sought the size of the values sought. Without these, every dynamic
+  formula reading a name, and the forms, would have been refused.
+- *The refusal* (decision 4(b)): a dynamic formula whose parse bounds no answer, `SEQUENCE(A1)`, `OFFSET`, `INDIRECT`
+  or a function of one's own, is refused at the load by its line, and at a write with the grid as it was,
+  `calc-spill-unbounded` under `VLA-Calc`, a row of `VLA_Messages.bas` and its export: "The formula in S!B1 is a
+  dynamic-array formula whose text does not bound its answer, so this version cannot plan the cells it may spill
+  into. State the size in its text: SEQUENCE(4), not SEQUENCE(B1)." Its legacy twin, the text without the word, loads.
+- *The plan* (`calc/nodes.rs`, `calc/shape.rs`): a read meeting any cell of a box meets the anchor's node, its box the
+  cells a read meets and its anchor's level theirs, so that a formula reading a cell a spill may fill, empty or not,
+  is computed after the anchor; a node's own cells stay its own, and an anchor's place in the order its cell's. The
+  index meets the boxes beside the fills and the formulas alone, an anchor outside the area read found by its place
+  among the formulas alone; a run of a shape's cells, computed as one, is broken where a box meets what it reads
+  (`first_reading`, `cell_reads`, `box_in_run`). A defined name's cells and an unread text's are listed through the
+  grid as a read meets it (`spill::Spilled`): the formula cells inside an area, and the anchor of each spill whose box
+  meets it, as the door's plan lists them (`plan_placed`), so that a name standing for a cell a spill may fill reads
+  the anchor, and the index's lookup of the node at a cell stays one node, HEAD's. The reach counts a box's cells as
+  a formula's (`calc/reach.rs`). The reference planner (`shape/reference.rs`, the tests') holds the same, its boxes
+  tagged by the anchor's vertex, its names read through the same grid and its refusal the same, every plan the tests
+  make held to it cell for cell.
+- *The fork, put to the owner.* `INDEX` of a row read from a cell answers its reference whole at 0, as the probe's
+  typed sheet saved (`B81:D81`, `=INDEX(Data!E1:G2,2,Data!X2)`, `X2` 0, spilling 4, 5 and 6), so its bound is the
+  reference's: the bench's lookups written dynamic hold 20,000 of them down a column, each bounded by the 20,000 rows
+  it reads. Kept a spill an anchor, the first draft's table held 3.8 MB more than the legacy twin after its load and
+  3.7 at the peak, breaking the floors' pair. Three ways put, as numbered: (1) a spill by anchor, as drafted,
+  measured; (2) the bounds kept by shape, a column of one shape one entry, estimated within a few KB of the twin and
+  recommended; (3) a row read from a cell picking one row, as `MATCH`'s place does, the twin's bytes exact, measured,
+  the probe's three agreeing cells labelled `a spill no plan bounds`. Leaner tables by anchor, about half the bytes,
+  were weighed and not put. The owner, 2026-11-18: "Option 2, and raise the peaks by 8".
+- *The spills by run*, as ruled: the plan keeps the anchors whose box holds more than their own cell as runs, each a
+  column's rows of one sheet bounded alike, whose boxes reach alike past their anchors and are labelled alike, so that
+  a column of one shape is one run however many rows it fills; each sheet's runs' boxes as rectangles, a run's box
+  the rectangle its anchors' boxes fill; the extents a file saved, by anchor; and the anchors no parse bounds. The
+  load bounds the formulas alone of one shape on one sheet once, their texts lent by the grid and no cell listed; a
+  shape reading a spill through `#` is bounded at each cell by the anchor it reads. The door's spills are the same
+  table, every cell bounded on its own. The lookups written dynamic hold one run and its box, 976 bytes more than the
+  twin at every point but the save, the peak among them.
+- *Two boxes crossing, by run* (`labelled`): two anchors of one column never cross, the higher one's box meeting the
+  lower's holding its anchor; of two columns, the left anchor's box meets the right one's without holding its anchor
+  only where the left one stands below the right one by at most the right one's reach, so that of two runs, each one's
+  anchors so labelled are rows of it in a row, the run split there. Only the part of a run's box right of its column
+  is searched, none for a box one column wide. The door's search was quadratic since the third slice, every box
+  against every box listed before it; it now plans the bench's built workbook, 140,000 formulas, the 20,000 dynamic
+  among them, in 2.6 s, every formula agreeing.
+- *What every grid pays:* the plan's word for its spills, none where it holds no dynamic formula or every one bounds
+  one value, 8 bytes at a load's peak and at the peak of a load from its save, where the plan makes them, against the
+  scoping's prediction of a few dozen. The owner ruled the ceilings raised by 8.
+- *Found by the mutants and mended in the part:* a formula reading an empty cell of a box through a defined name,
+  `=Mid*2` with `Mid` standing for `S!$B$6` under `=SEQUENCE(3)` at `B5`, was ordered before the anchor. A name's
+  cells were listed as the formula cells inside its areas, which an empty cell of a box is not, in the engine's plan
+  and in the reference planner alike, so the two agreed and every test passed. The index's lookup of the nodes at a
+  cell, then kept spill-aware, lived as a mutant; the case written to kill it, with its anchor moved below its readers
+  since the order within a level is row-major and placed a first-row anchor first without the edge, showed the
+  ordering wrong. The engine's plan and its reference now read names as the door's plan does, and the lookup is
+  HEAD's again.
+- *Tests.* The probe's bound test grown by the forms, the span and the values sought; the crossing labels held to every
+  pair compared over 300 random grids, anchors alone and in columns of one bound, and every box listed, every cell a
+  box covers, every anchor whose box holds a cell and every one whose box meets an area held to the boxes the texts
+  bound (`the_boxes_labelled_meeting_are_the_pairs_whose_anchors_neither_holds`); a run beside an anchor whose file
+  saved more, a value inside a saved extent and one in a box no file saved, and a file saving more rows than its
+  bound now answers (`each_spill_s_box_holds_its_bound_and_its_saved_extent`); the machine's: an empty cell of a box
+  read after its anchor and one past it where it stands, and readers planned cell by cell, a name among what they
+  read, standing above the anchor, of a cell of the box and of the anchor, by a reference and through a name
+  (`a_formula_reading_a_spill_s_box_follows_its_anchor`); the refusal at a load and at a write, a name bounding a
+  spill and a span of sheets one value (`a_dynamic_formula_whose_text_bounds_no_answer_is_refused_by_name`); and a
+  shape bounded once on each sheet, a column of it one run, `#` read at each cell, and a name's anchor found on each
+  sheet (`a_shape_s_spills_are_bounded_once_a_sheet_but_through_an_anchor_at_each_cell`).
+- *Floors:* `check_recalc_floors`' ceilings, an entry of 2026-11-18 and its reason: each program's peak and its saved
+  load's peak up by 8 where the plan makes them, the fixtures of rows' and the adder's first load's standing; the
+  lookups written dynamic 976 bytes more held and 984 at the peaks. The pair's law, its bytes its twin's to the byte, is
+  amended: its twin's and at most 4,096 more at every point but its save, the spills its plan holds, its controls
+  holding the bound, one byte past it and one under the twin. No calc golden, census, build golden or frame moves.
+- *Mutants*: in a copy of `ed51bbd` with the part's files and a target of its own, each held to the language's unit
+  tests, every plan the reference planner's there. The first round, 33: 23 killed. Of the ten that lived, three were
+  cases no test held, each given one (a run's rows dropped where it splits, a file's extent below its bound, a value
+  inside a saved extent), and two, of the index's lookup of the nodes at a cell, found the bug above, their code put
+  back to HEAD's. The second round, over the wrapper, 10, five of them new: six killed. Of the thirty-six that stand
+  on the code as it is, 29 are killed and five are equivalent: two labelled runs side by side not joined, the same
+  labels; a run's own column searched too, which the next test leaves out; every anchor its own run, every value the
+  same and its bytes 2.0 MB more than the twin's, which the floors' pair refuses; an anchor inside an area listed
+  twice, its edges deduplicated; and an unread text's cells listed through the same grid, which stop the load first,
+  so that no plan holding one is kept. Two guard what the second part makes visible, moving no value while every
+  spill is labelled: a stretch broken where it reads a box's cell (`box_in_run`), and a part not computed at a frame's
+  start where it reads one (the reach's test of a box's cells); the second part's laws hold them.
+- *Verified as CI runs it,* over the final code: rustfmt; clippy over every target with and without `c-abi` at
+  `-D warnings`; the workspace's 974 tests; `run_checks.ps1` 60 of 60, and `check_recalc_floors -Control`; `prove.ps1
+  -Control`, its mutant failing all 71, and `-Impl` over the door, 70; both wasm modules, the import section empty and
+  the 14 and 10 exports, `build_web.ps1 -NoBuild` and `check_web_offline`; over a copy of `ed51bbd` with the part's
+  files alone, the language's package from its tarball on a fresh target, 688; Alonzo's suite at `6e7b659`, its 0.4.0
+  release, over that copy's language by `[patch.crates-io]`, the path compiled, 113 with its cartridges required; and
+  Buffet's at `6f215a1` over that Alonzo copy and the language, both pins moved, `alonzo` to 0.4.0 and `vla-lang` to
+  0.14.0, both paths compiled, 107. Under Windows PowerShell 5.1 alone, pwsh not installed here.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note; the roadmap's line; `conformance/README.md`'s amendment of 2026-11-18,
+  an engine's plan of a spill and its refusal; `check_recalc_floors`' header and its pair's law.
+- *Found:*
+  1. Where many anchors stand each in a run of its own, scattered and not down a column, and their boxes meet one
+     another, the crossing labels compare each pair of runs whose boxes meet, as many as the pairs of anchors; a column
+     of one shape costs one run.
+  2. An engine bounds a spill by its text and never by the extent a file saved, which the door falls back on (decision
+     5): a door's record of a workbook whose dynamic formula bounds no answer, `SEQUENCE(Data!A1)` saved spilling,
+     is refused by an engine's load, though the door computes it.
+- *Hand test in Excel,* the owner's, 2026-11-18: the reference's catalogue row, `VLA_Messages.bas`'s
+  `calc-spill-unbounded`, by `VlaDevReload`, Debug > Compile VBAProject and `? VlaSelfTests()`, over the tree, a
+  peer's `VLA.8` modules beside it: pure 2620 of 2620, host 333 of 333. No file a door writes moves, and no value an
+  engine computes.
+
+*Committed 2026-11-18* at the owner's word, "Law accepted; commit part 1, then proceed with part 2": over `ed51bbd`, the
+part's 15 files, five of them by their hunks alone beside a peer's `VLA.8` in the tree; the pair's law, within 4,096
+bytes of its twin, accepted.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

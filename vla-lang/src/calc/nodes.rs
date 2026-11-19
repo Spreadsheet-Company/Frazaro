@@ -46,6 +46,7 @@ use super::formula::{Read, RefExpr};
 use super::graph::{areas_found, dependencies_in, tarjan_flat, CellId, Extent, Names};
 use super::reach::{followed, Dim};
 use super::shape::{hub_at, Shape, RUN};
+use super::spill::{inside, Spilled, Spills};
 
 /// No position: a cell on a cycle, which the order does not hold, or one not
 /// yet planned.
@@ -433,8 +434,9 @@ enum Item {
 /// component, the deepest level it reaches outside it, and its hub.
 type Group = (Vec<u32>, Option<u32>, Option<u32>);
 
-/// The nodes by sheet, while the plan is made: the pieces by rectangle and
-/// the formulas alone by place, sorted, as the nodes are.
+/// The nodes by sheet, while the plan is made: the pieces by rectangle, and
+/// the formulas alone by place, sorted, as the nodes are; a spill's anchor
+/// among them, its box found among the spills' (KERNEL.55).
 #[derive(Default)]
 struct Index {
     fills: Vec<Rects>,
@@ -442,10 +444,20 @@ struct Index {
 }
 
 impl Index {
-    fn meeting(&self, sheet: usize, area: &A1Range, f: &mut dyn FnMut(u32)) {
+    /// Each node whose cells meet an area as a read meets them: a spill's
+    /// anchor whose box meets it among them (KERNEL.55).
+    fn meeting(&self, sheet: usize, area: &A1Range, spills: &Spills, f: &mut dyn FnMut(u32)) {
         if let Some(r) = self.fills.get(sheet) {
             for (_, n) in r.meeting(*area) {
                 f(n);
+            }
+        }
+        // An anchor inside the area is met as a formula alone, below.
+        if !spills.is_empty() {
+            for (s, row, col) in spills.meeting(sheet, *area) {
+                if !inside(area, row, col) {
+                    self.alone_at((s, row, col)).into_iter().for_each(&mut *f);
+                }
             }
         }
         let Some(m) = self.alone.get(sheet).filter(|m| !m.is_empty()) else {
@@ -466,6 +478,13 @@ impl Index {
                 }
             }
         }
+    }
+
+    /// The node of a formula alone at a cell.
+    fn alone_at(&self, (s, row, col): CellId) -> Option<u32> {
+        let m = self.alone.get(s)?;
+        let k = m.binary_search_by_key(&(row, col), |e| e.0).ok()?;
+        Some(m[k].1)
     }
 
     fn at(&self, (s, row, col): CellId) -> Option<u32> {
@@ -676,6 +695,7 @@ pub(crate) fn plan<M: Model + ?Sized>(
     names: &Names,
     extents: &[Extent],
     mut alone: Vec<FxHashMap<(u32, u32), Alone>>,
+    spills: &Spills,
 ) -> Planned {
     let mut nodes: Vec<PNode> = Vec::new();
     for si in 0..model.sheet_count() {
@@ -722,6 +742,7 @@ pub(crate) fn plan<M: Model + ?Sized>(
         hubs: 0,
         read_lists: std::cell::RefCell::new(vec![None; shapes.len()]),
         nodes,
+        spills,
     };
     p.index();
     p.reads = shapes
@@ -786,6 +807,9 @@ struct Planner<'a, M: Model + ?Sized> {
     names: &'a Names,
     extents: &'a [Extent],
     nodes: Vec<PNode>,
+    /// The spills (KERNEL.55): an anchor's box the cells a read meets as the
+    /// anchor's.
+    spills: &'a Spills,
     index: Index,
     /// By shape, its references as its nodes read them; `None` for a shape
     /// planned cell by cell.
@@ -871,11 +895,12 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                         continue;
                     };
                     let nodes = &self.nodes;
+                    let spills = self.spills;
                     let edges = &mut self.edges;
-                    self.index.meeting(on, &area, &mut |y| {
-                        if cells_reading(&node.rect, anchor, read, &nodes[y as usize].rect)
-                            .is_some()
-                        {
+                    self.index.meeting(on, &area, spills, &mut |y| {
+                        let n = &nodes[y as usize];
+                        let met = cover_of(spills, n).unwrap_or(n.rect);
+                        if cells_reading(&node.rect, anchor, read, &met).is_some() {
                             edges.push((y, k as u32));
                         }
                     });
@@ -892,8 +917,9 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                             match *item {
                                 Item::Area(t, a) => {
                                     let edges = &mut self.edges;
-                                    self.index
-                                        .meeting(t as usize, &a, &mut |y| edges.push((y, NONE)));
+                                    self.index.meeting(t as usize, &a, self.spills, &mut |y| {
+                                        edges.push((y, NONE))
+                                    });
                                 }
                                 Item::Held(h) => self.edges.push((n + h, NONE)),
                                 Item::Cell(c) => {
@@ -937,7 +963,8 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         for h in 0..self.held.areas.len() {
             let (t, a) = self.held.areas[h];
             let mut mine: Vec<u32> = Vec::new();
-            self.index.meeting(t as usize, &a, &mut |y| mine.push(y));
+            self.index
+                .meeting(t as usize, &a, self.spills, &mut |y| mine.push(y));
             mine.sort_unstable();
             mine.dedup();
             targets.extend_from_slice(&mine);
@@ -992,6 +1019,12 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         let (a_row, a_col) = self.anchor(x);
         let model = self.model;
         let find = |n: &str| model.find_sheet(n);
+        // A name's cells and an unread text's, a spill's anchor for a cell it
+        // may fill (KERNEL.55).
+        let spilled = Spilled {
+            model,
+            spills: self.spills,
+        };
         let id = (sheet, row, col);
         let (d_row, d_col) = (
             i64::from(row) - i64::from(a_row),
@@ -1040,7 +1073,7 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                         let scope = written.and_then(|s| model.find_sheet(s));
                         if let Some(t) = names.resolve(name, scope, sheet) {
                             dependencies_in(
-                                model,
+                                &spilled,
                                 names,
                                 extents,
                                 scope.unwrap_or(sheet),
@@ -1053,7 +1086,7 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
             }
             _ => {
                 let moved = refers::shift_a1_references(&shape.text, d_row, d_col);
-                dependencies_in(model, self.names, self.extents, sheet, &moved, &mut deps);
+                dependencies_in(&spilled, self.names, self.extents, sheet, &moved, &mut deps);
             }
         }
         out.extend(deps.iter().map(|&c| Item::Cell(c)));
@@ -1077,8 +1110,8 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                 continue;
             }
             let read = &reads[k as usize];
-            for (q, level) in self.pieces_of(y as usize) {
-                if let Some(r) = cells_reading(&node.rect, anchor, read, q) {
+            for (q, level) in self.written(y as usize) {
+                if let Some(r) = cells_reading(&node.rect, anchor, read, &q) {
                     raises.push((r, (level & !CYCLE) + 1));
                     if raises.len() > RAISES {
                         return None;
@@ -1110,6 +1143,27 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         &self.piece_store[at as usize..(at + len) as usize]
     }
 
+    /// A node's cells as a read meets them, each rectangle with its level: its
+    /// pieces, but a spill's anchor's box at its anchor's level (KERNEL.55).
+    fn written(&self, y: usize) -> Vec<(A1Range, u32)> {
+        let pieces = self.pieces_of(y);
+        match self.cover(y) {
+            Some(cover) => vec![(cover, pieces[0].1)],
+            None => pieces.to_vec(),
+        }
+    }
+
+    /// A spill's anchor's box, by its node; `None` for any other node.
+    fn cover(&self, y: usize) -> Option<A1Range> {
+        cover_of(self.spills, &self.nodes[y])
+    }
+
+    /// The cells a rectangle of a node's own writes as a read meets them: a
+    /// spill's anchor its box.
+    fn written_of(&self, y: usize, own: &A1Range) -> A1Range {
+        self.cover(y).unwrap_or(*own)
+    }
+
     /// Each cell's level of a node planned cell by cell, row by row; `None`
     /// for one planned by its rectangles.
     fn cells_of(&self, y: usize) -> Option<&[u32]> {
@@ -1122,8 +1176,12 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         }
     }
 
-    /// The level of a cell of a node already planned.
+    /// The level of a cell of a node already planned, a cell of a spill's box
+    /// its anchor's (KERNEL.55).
     fn level_at(&self, y: usize, row: u32, col: u32) -> u32 {
+        if self.cover(y).is_some() {
+            return self.pieces_of(y)[0].1 & !CYCLE;
+        }
         match self.cells_of(y) {
             Some(cells) => {
                 let r = &self.nodes[y].rect;
@@ -1139,6 +1197,9 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
 
     /// The deepest level of a node's cells already planned inside an area.
     fn deepest_in(&self, y: usize, a: &A1Range) -> Option<u32> {
+        if let Some(cover) = self.cover(y) {
+            return overlap(&cover, a).map(|_| self.pieces_of(y)[0].1 & !CYCLE);
+        }
         self.pieces_of(y)
             .iter()
             .filter(|(r, _)| overlap(r, a).is_some())
@@ -1329,12 +1390,15 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         edges: &mut Vec<u32>,
         deepest: &mut Option<u32>,
     ) {
-        self.index.meeting(t, a, &mut |y| {
+        self.index.meeting(t, a, self.spills, &mut |y| {
+            let cover = self.cover(y as usize);
             let r = self.nodes[y as usize].rect;
-            let Some(cut) = overlap(&r, a) else {
+            let Some(cut) = overlap(&cover.unwrap_or(r), a) else {
                 return;
             };
             match base.get(&y) {
+                // A spill's box read: its anchor, the one vertex it has.
+                Some(&b) if cover.is_some() => edges.push(b),
                 Some(&b) => {
                     let w = r.right - r.left + 1;
                     for row in cut.top..=cut.bottom {
@@ -1669,7 +1733,10 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                                         && self
                                             .run_region(planned, made, z as usize, run_start, end)
                                             .iter()
-                                            .any(|r| overlap(r, &a).is_some())
+                                            .any(|r| {
+                                                overlap(&self.written_of(z as usize, r), &a)
+                                                    .is_some()
+                                            })
                                 });
                             if meets {
                                 let at = (q.top, q.left);
@@ -1682,6 +1749,7 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                             continue;
                         }
                         for z in self.run_region(planned, made, y as usize, run_start, end) {
+                            let z = self.written_of(y as usize, &z);
                             let Some(r) = cells_reading(&rect, anchor, &reads[read as usize], &z)
                             else {
                                 continue;
@@ -1798,11 +1866,23 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
                     {
                         return true;
                     }
+                    let cell = A1Range {
+                        top: c.1,
+                        left: c.2,
+                        bottom: c.1,
+                        right: c.2,
+                    };
+                    if self.box_in_run(planned, c.0, &cell, (from, to)) {
+                        return true;
+                    }
                     continue;
                 }
             };
             if t != sheet {
                 continue;
+            }
+            if self.box_in_run(planned, t as usize, &a, (from, to)) {
+                return true;
             }
             let mut found = false;
             planned
@@ -1816,6 +1896,34 @@ impl<'a, M: Model + ?Sized> Planner<'a, M> {
         }
         false
     }
+
+    /// Whether a spill's anchor at a position from `from` to before `to`
+    /// writes a box meeting an area (KERNEL.55).
+    fn box_in_run(
+        &self,
+        planned: &Planned,
+        sheet: usize,
+        a: &A1Range,
+        (from, to): (usize, usize),
+    ) -> bool {
+        if self.spills.is_empty() {
+            return false;
+        }
+        self.spills.meeting(sheet, *a).any(|anchor| {
+            planned
+                .located
+                .position(&planned.blocks, anchor)
+                .is_some_and(|p| from <= p && p < to)
+        })
+    }
+}
+
+/// A spill's anchor's box, by its node; `None` for any other node (KERNEL.55).
+fn cover_of(spills: &Spills, n: &PNode) -> Option<A1Range> {
+    if !n.alone || spills.is_empty() {
+        return None;
+    }
+    spills.box_of((n.sheet as usize, n.rect.top, n.rect.left))
 }
 
 /// A rectangle's cells at a cell or after it, row by row, as at most two

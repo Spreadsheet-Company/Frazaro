@@ -66,6 +66,7 @@ use super::lambda::{self, Functions};
 use super::nodes::{self, Alone, Located, Run};
 use super::program::{Program, Why};
 use super::reach::{Reach, Reached};
+use super::spill::Spills;
 use super::vector::{self, Lanes, Repeats};
 
 #[cfg(test)]
@@ -246,6 +247,11 @@ pub struct Shapes {
     /// placement, which every shape's inlining writes in, and read again
     /// when a write changes a name (its third slice).
     functions: Option<Functions>,
+    /// Each dynamic formula's spill, its box the cells it may fill, fixed by
+    /// the plan (KERNEL.55's decision 4): the plan reads a box's cells as its
+    /// anchor's, so that a formula reading one follows the anchor. `None` in a
+    /// grid holding no dynamic formula, which keeps no table.
+    spills: Option<Box<Spills>>,
 }
 
 /// The fewest cells a run is evaluated at once for; fewer are evaluated one
@@ -368,7 +374,7 @@ impl Shapes {
         }
         drop(masters);
         s.forms(model, library);
-        s.plan_model(model, names, extents);
+        s.plan_model(model, names, extents, library);
         *s
     }
 
@@ -918,7 +924,9 @@ impl Shapes {
         model: &M,
         names: &Names,
         extents: &[Extent],
+        library: &Library,
     ) {
+        self.spills = self.spills_of(model, names, library);
         let alone = std::mem::take(&mut self.located.alone);
         let planned = nodes::plan(
             model,
@@ -928,6 +936,7 @@ impl Shapes {
             names,
             extents,
             alone,
+            self.spills(),
         );
         #[cfg(test)]
         HUBS_MADE.with(|h| h.set(h.get() + planned.hubs));
@@ -941,7 +950,13 @@ impl Shapes {
         self.stretches = planned.stretches;
         self.stretch_firsts = planned.stretch_firsts;
         self.formulas = planned.formulas;
-        self.reach = Reach::of(model, &self.shapes, &self.blocks, &self.located);
+        self.reach = Reach::of(
+            model,
+            &self.shapes,
+            &self.blocks,
+            &self.located,
+            self.spills(),
+        );
         #[cfg(test)]
         reference::hold(self, model, names, extents);
     }
@@ -1164,6 +1179,75 @@ impl Shapes {
     /// The order's blocks.
     pub(crate) fn blocks(&self) -> &Blocks {
         &self.blocks
+    }
+
+    /// Each dynamic formula's spill, its bound by its parse (KERNEL.55): the
+    /// formulas alone of one shape on one sheet bounded once, their ranges
+    /// moving and keeping their sizes, but a shape reading a spill through
+    /// `#`, each of whose cells reads its own anchor's; none in a grid holding
+    /// no dynamic formula, nor in one where every bound is one value.
+    fn spills_of<M: Model + ?Sized>(
+        &mut self,
+        model: &M,
+        names: &Names,
+        library: &Library,
+    ) -> Option<Box<Spills>> {
+        let dynamic = |id: CellId| match model.formula(id) {
+            Some(Formula::Own(text, Kind::Dynamic)) => Some(text),
+            _ => None,
+        };
+        let any = self.located.alone.iter().enumerate().any(|(si, m)| {
+            m.keys()
+                .any(|&(row, col)| dynamic((si, row, col)).is_some())
+        });
+        if !any {
+            return None;
+        }
+        let functions = self
+            .functions
+            .get_or_insert_with(|| Functions::of_model(model));
+        let through_anchor: Vec<bool> = self
+            .shapes
+            .iter()
+            .map(|s| match &s.expr {
+                Ok(e) => lambda::calls_of(e)
+                    .iter()
+                    .any(|c| c == formula::ANCHORARRAY),
+                Err(_) => true,
+            })
+            .collect();
+        let alone = &self.located.alone;
+        let text_of = |id: CellId| dynamic(id).map(|text| (text, model.saved_spill(id)));
+        let group_of = |id: CellId| {
+            let a = alone.get(id.0)?.get(&(id.1, id.2))?;
+            let s = a.shape as usize;
+            (!through_anchor[s]).then_some(((s as u64) << 24) | id.0 as u64)
+        };
+        let mut cells = alone.iter().enumerate().flat_map(|(si, m)| {
+            m.keys()
+                .map(move |&(row, col)| (si, row, col))
+                .filter(|&id| dynamic(id).is_some())
+        });
+        let spills = Spills::of_each(
+            &mut cells,
+            &text_of,
+            &group_of,
+            &|name| model.find_sheet(name),
+            names,
+            functions,
+            library,
+        );
+        let held = !spills.is_empty() || !spills.unbounded().is_empty();
+        held.then(|| Box::new(spills))
+    }
+
+    /// Each dynamic formula's spill as the plan fixed it (KERNEL.55).
+    pub(crate) fn spills(&self) -> &Spills {
+        static NONE: std::sync::OnceLock<Spills> = std::sync::OnceLock::new();
+        match &self.spills {
+            Some(s) => s,
+            None => NONE.get_or_init(Spills::default),
+        }
     }
 
     /// A formula cell's position in the order, where an engine's machine
@@ -1497,25 +1581,42 @@ impl Shapes {
                 ),
             ));
         }
-        let (id, s) = labelled?;
-        let shape = &self.shapes[s];
-        let (d_row, d_col) = (
-            i64::from(id.1) - i64::from(shape.anchor.1),
-            i64::from(id.2) - i64::from(shape.anchor.2),
-        );
-        let label = match (&shape.expr, self.unread.get(&id).cloned()) {
-            (_, Some(unread)) => unread,
-            // The construct as the cell's own text spells it.
-            (Err(construct), None) if d_row == 0 && d_col == 0 => construct.clone(),
-            (Err(construct), None) => {
-                let moved = refers::shift_a1_references(&shape.text, d_row, d_col);
-                formula::parse(&moved)
-                    .err()
-                    .unwrap_or_else(|| construct.clone())
+        if let Some((id, s)) = labelled {
+            let shape = &self.shapes[s];
+            let (d_row, d_col) = (
+                i64::from(id.1) - i64::from(shape.anchor.1),
+                i64::from(id.2) - i64::from(shape.anchor.2),
+            );
+            let label = match (&shape.expr, self.unread.get(&id).cloned()) {
+                (_, Some(unread)) => Some(unread),
+                // The construct as the cell's own text spells it.
+                (Err(construct), None) if d_row == 0 && d_col == 0 => Some(construct.clone()),
+                (Err(construct), None) => {
+                    let moved = refers::shift_a1_references(&shape.text, d_row, d_col);
+                    Some(
+                        formula::parse(&moved)
+                            .err()
+                            .unwrap_or_else(|| construct.clone()),
+                    )
+                }
+                (Ok(_), None) => named.get(&(s, id.0)).cloned(),
+            };
+            if let Some(label) = label {
+                return Some((id, formula::unread_refusal(&spell_at(model, id), &label)));
             }
-            (Ok(_), None) => named.get(&(s, id.0)).cloned()?,
-        };
-        Some((id, formula::unread_refusal(&spell_at(model, id), &label)))
+        }
+        // A dynamic formula whose parse bounds no extent, for which an engine
+        // can fix no cells at the load (KERNEL.55's decision 4).
+        let id = self
+            .spills()
+            .unbounded()
+            .iter()
+            .copied()
+            .find(|id| only.map_or(true, |cells| cells.contains(id)))?;
+        Some((
+            id,
+            raise("calc-spill-unbounded", &[("cell", &spell_at(model, id))]),
+        ))
     }
 }
 

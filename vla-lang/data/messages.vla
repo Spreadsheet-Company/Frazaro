@@ -259,6 +259,7 @@
 (message calc-cycle 5 "VLA-Calc" "The formulas in {cells} read one another in a circle, so none of them can be computed first. Break the circle: one of them must read a value, not a formula that reads it back.")
 (message calc-function-not-computed 5 "VLA-Calc" "The formula in {cell} calls {function}, which this version does not compute.")
 (message calc-construct-not-read 5 "VLA-Calc" "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed.")
+(message calc-spill-unbounded 5 "VLA-Calc" "The formula in {cell} is a dynamic-array formula whose text does not bound its answer, so this version cannot plan the cells it may spill into. State the size in its text: SEQUENCE(4), not SEQUENCE(B1).")
 (message calc-formula-too-deep 5 "VLA-Calc" "The formula in {cell} nests more than {limit} levels deep, more than Excel itself allows, so the formula cannot be computed.")
 (message calc-formula-too-long 5 "VLA-Calc" "The formula in {cell} is longer than {limit} characters, more than Excel itself allows, so the formula cannot be computed.")
 (message view-sheet-unknown 9 "VLA-View" "The grid holds no sheet named {name}; it holds {sheets}.")

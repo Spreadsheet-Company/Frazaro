@@ -90,6 +90,20 @@
   for one blocked, and `#REF!` for a cell holding no dynamic formula, where
   `ANCHORARRAY` was a function not computed. An engine labels a spill read
   through it `a spill`, as it labels the formula itself (KERNEL.55).
+- **An engine refuses a dynamic formula whose text bounds no answer.** An
+  engine fixes, when it loads a grid and when a formula is written, the
+  cells each dynamic-array formula may spill into, by what its text says:
+  `=SEQUENCE(4)` four rows, `=A1:B3*2` three rows of two, `=FILTER(A1:A100,
+  ...)` at most its hundred, and `=INDEX(B2:B9,C1)` the eight rows of its
+  column, since a 0 in `C1` picks them all. A dynamic formula whose size is
+  read from a cell, `=SEQUENCE(B1)`, or comes from `OFFSET`, `INDIRECT` or a
+  function of one's own, is refused by name at the load, by its line, and
+  at a write, the grid as it was: `The formula in S!B1 is a dynamic-array
+  formula whose text does not bound its answer, so this version cannot plan
+  the cells it may spill into. State the size in its text: SEQUENCE(4), not
+  SEQUENCE(B1).` (`calc-spill-unbounded`). The same text written legacy,
+  without the word, loads as before. An engine still labels a spill `a
+  spill` (KERNEL.55, its fifth slice).
 - **Two answers corrected by Excel's save.** In a legacy array formula,
   `HLOOKUP`'s and `VLOOKUP`'s value sought and match kind take an array's
   first value, as in a legacy formula, where they lifted the lookup over it;

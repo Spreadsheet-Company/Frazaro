@@ -98,6 +98,7 @@ use super::formula::{Expr, Read, RefExpr};
 use super::graph::CellId;
 use super::nodes::Located;
 use super::shape::Shape;
+use super::spill::Spills;
 
 /// One dimension of a reference, its rows or its columns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -969,15 +970,17 @@ impl Reach {
     /// their cells stand in it and in the order, which its blocks hold
     /// (KERNEL.49's decision 7): each shape's stand the box of its blocks'
     /// cells, a box a block, and whether a cell holds a formula found from
-    /// where the plan placed it.
+    /// where the plan placed it, or may hold a spill's value, a box's
+    /// (KERNEL.55), which no part reads as final at a frame's start.
     pub(crate) fn of<M: Model + ?Sized>(
         model: &M,
         shapes: &[Shape],
         blocks: &Blocks,
         located: &Located,
+        spills: &Spills,
     ) -> Reach {
         let find: &dyn Fn(&str) -> Option<usize> = &|name| model.find_sheet(name);
-        let formula: &dyn Fn(CellId) -> bool = &|id| located.holds(id);
+        let formula: &dyn Fn(CellId) -> bool = &|id| located.holds(id) || spills.covers(id);
         let mut stands: Vec<Stand> = vec![Stand::default(); shapes.len()];
         let mut seen = vec![false; shapes.len()];
         let mut cells = vec![0u64; shapes.len()];

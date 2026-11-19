@@ -2811,3 +2811,23 @@ Oracles 7 and 12 gain the writer's rule (the scoping's decision 3).
   parenthesis, which the parse still refuses and the build writes as it was; `SINGLE` of anything but a
   reference; a span of sheets; and the kinds of the functions no probe typed, each the rule's reading.
   Excel's save of the nine builds made again, the owner's, joins them at `no-differ`.
+
+## Amendment of 2026-11-18: an engine's plan of a spill, and its refusal (`KERNEL.55`, its fifth slice, its first part)
+
+Oracle 12's engine gains a spill's plan and a refusal (the scoping's decision 4).
+
+- **What is held.** An engine's load, and a write of a formula, fixes each dynamic formula's bound by its
+  text, as the door's plan does, a name read as the text it stands for and a spill read through `#` as its
+  anchor's bound, and orders every formula reading a cell the spill may fill after the formula that spills,
+  whether the cell is empty or not. A dynamic formula whose text bounds no answer, a count read from a cell
+  (`SEQUENCE(A1)`), `OFFSET`, `INDIRECT` or a function of one's own, is refused by name at the load, by its
+  line, and at a write, the grid as it was (`calc-spill-unbounded`, under the source `VLA-Calc`); the same
+  text without the word loads, a legacy formula. An engine still answers a spill `(not-computed "a spill")`,
+  so that no value it computes moves.
+- **The oracles.** Every plan the language's tests make held cell for cell to the reference planner, which
+  reads a spill's cells as its anchor's alike; the bound's cases, the probe's eighteen spills and the forms;
+  the crossing labels held to every pair compared over random grids; the order and the refusal at a load and
+  at a write.
+- **What it does not hold.** A spill computed and laid in an engine, the slice's next part. The extent a
+  file saved, which the door plans by where a text gives no bound and an engine does not: a door's record of
+  such a formula is refused by an engine's load.

@@ -3079,7 +3079,7 @@ impl Machine {
             self.shapes
                 .replace_many(&self.book, &again, &self.library, stale_of(&log));
             self.shapes
-                .plan_model(&self.book, &self.names, &self.extents);
+                .plan_model(&self.book, &self.names, &self.extents, &self.library);
             let placed: Vec<CellId> = log
                 .changed
                 .keys()
@@ -3104,7 +3104,7 @@ impl Machine {
                 self.shapes
                     .replace_many(&self.book, &again, &self.library, stale_of(&log));
                 self.shapes
-                    .plan_model(&self.book, &self.names, &self.extents);
+                    .plan_model(&self.book, &self.names, &self.extents, &self.library);
                 return Err(LineRefusal { line, refusal });
             }
             // The values stand where their cells stand, by place (KERNEL.49):
@@ -15394,6 +15394,150 @@ mod tests {
             let id = (0, parse_a1_range(&o).unwrap().top, 15);
             assert_eq!(calc.computed(id).unwrap().spell(), *dynamic, "{text}, Calc");
         }
+    }
+
+    #[test]
+    fn a_formula_reading_a_spill_s_box_follows_its_anchor() {
+        // KERNEL.55's decision 4: a dynamic formula's box, fixed by its parse
+        // at the load, is read as its anchor's, so that a formula reading an
+        // empty cell of it follows the anchor in the order, though it stands
+        // before the anchor and reads no formula.
+        let m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(formula \"S\" \"A1\" \"=B3*10\")\n",
+            "(formula \"S\" \"B1\" \"=SEQUENCE(3)\" dynamic)\n",
+        ));
+        let at = |addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            m.shapes.position((0, r.top, r.left)).unwrap()
+        };
+        assert!(at("A1") > at("B1"), "the box's reader after its anchor");
+        let anchor = m.shapes.spills().get((0, 1, 2)).expect("a spill");
+        assert_eq!(
+            (anchor.dims, anchor.cells),
+            ((3, 1), parse_a1_range("B1:B3").unwrap())
+        );
+        // A cell past the box reads no spill.
+        let m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(formula \"S\" \"A1\" \"=B4*10\")\n",
+            "(formula \"S\" \"B1\" \"=SEQUENCE(3)\" dynamic)\n",
+        ));
+        let at = |addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            m.shapes.position((0, r.top, r.left)).unwrap()
+        };
+        assert!(at("A1") < at("B1"), "where it stands");
+        // A reader planned cell by cell, a name among what it reads, standing
+        // above the anchor, where the order would place it reading nothing:
+        // of an empty cell of the box and of the anchor's own, each after it,
+        // by a reference and through a name standing for the cell.
+        let m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"Z1\" 2)\n",
+            "(name \"Rate\" \"S!$Z$1\")\n",
+            "(name \"Mid\" \"S!$B$6\")\n",
+            "(name \"Top\" \"S!$B$5\")\n",
+            "(formula \"S\" \"A1\" \"=Rate*B7\")\n",
+            "(formula \"S\" \"A2\" \"=Rate*B5\")\n",
+            "(formula \"S\" \"A3\" \"=Mid*2\")\n",
+            "(formula \"S\" \"A4\" \"=Top*2\")\n",
+            "(formula \"S\" \"B5\" \"=SEQUENCE(3)\" dynamic)\n",
+        ));
+        let at = |addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            m.shapes.position((0, r.top, r.left)).unwrap()
+        };
+        assert!(
+            at("A1") > at("B5"),
+            "a cell of the box read by a name's reader"
+        );
+        assert!(at("A2") > at("B5"), "the anchor read by a name's reader");
+        assert!(at("A3") > at("B5"), "a cell of the box a name stands for");
+        assert!(at("A4") > at("B5"), "the anchor a name stands for");
+    }
+
+    #[test]
+    fn a_shape_s_spills_are_bounded_once_a_sheet_but_through_an_anchor_at_each_cell() {
+        // KERNEL.55's decision 4, its spills by shape: the formulas alone of
+        // one shape on one sheet bounded once, a column of them one run, each
+        // box its own; one reading a spill through `#` bounded at each cell by
+        // the anchor it reads; and one reading a spill through a name bounded
+        // on each sheet by the anchor the name finds there.
+        let m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(formula \"S\" \"B1\" \"=SEQUENCE(3)\" dynamic)\n",
+            "(formula \"S\" \"B5\" \"=SEQUENCE(5)\" dynamic)\n",
+            "(formula \"S\" \"D1\" \"=B1#*2\" dynamic)\n",
+            "(formula \"S\" \"D5\" \"=B5#*2\" dynamic)\n",
+            "(formula \"S\" \"F1\" \"=A1:A2*2\" dynamic)\n",
+            "(formula \"S\" \"F2\" \"=A2:A3*2\" dynamic)\n",
+            "(formula \"S\" \"F3\" \"=A3:A4*2\" dynamic)\n",
+            "(name \"Box\" \"$B$1#\")\n",
+            "(formula \"S\" \"H1\" \"=Box*2\" dynamic)\n",
+            "(sheet \"T\" visible)\n",
+            "(formula \"T\" \"B1\" \"=SEQUENCE(4)\" dynamic)\n",
+            "(formula \"T\" \"H1\" \"=Box*2\" dynamic)\n",
+        ));
+        let spill = |s: usize, addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            let spill = m.shapes.spills().get((s, r.top, r.left)).expect(addr);
+            (spill.dims, spill.cells.text())
+        };
+        assert_eq!(spill(0, "D1"), ((3, 1), "D1:D3".to_string()));
+        assert_eq!(spill(0, "D5"), ((5, 1), "D5:D9".to_string()));
+        for (addr, cells) in [("F1", "F1:F2"), ("F2", "F2:F3"), ("F3", "F3:F4")] {
+            assert_eq!(spill(0, addr), ((2, 1), cells.to_string()), "{addr}");
+        }
+        assert_eq!(spill(0, "H1"), ((3, 1), "H1:H3".to_string()));
+        assert_eq!(spill(1, "H1"), ((4, 1), "H1:H4".to_string()));
+    }
+
+    #[test]
+    fn a_dynamic_formula_whose_text_bounds_no_answer_is_refused_by_name() {
+        // KERNEL.55's decision 4: an engine fixes the cells a spill may fill at
+        // its load and at a write, so a dynamic formula whose parse bounds no
+        // answer is refused at either, the grid as it was; its legacy twin, a
+        // name standing for a range and a span of sheets each bound one.
+        let e = Machine::load(
+            concat!(
+                "(sheet \"S\" visible)\n",
+                "(cell \"S\" \"A1\" 3)\n",
+                "(formula \"S\" \"B1\" \"=SEQUENCE(A1)\" dynamic)\n",
+            ),
+            labelling(),
+        )
+        .expect_err("a count read from a cell");
+        assert_eq!((e.line, e.refusal.id.as_str()), (3, "calc-spill-unbounded"));
+        assert!(e.refusal.text.contains("S!B1"), "{}", e.refusal.text);
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1\" 3)\n",
+            "(formula \"S\" \"B1\" \"=SEQUENCE(A1)\")\n",
+            "(name \"Box\" \"S!$A$1:$B$3\")\n",
+            "(formula \"S\" \"C1\" \"=Box*2\" dynamic)\n",
+            "(sheet \"T\" visible)\n",
+            "(formula \"S\" \"D1\" \"=S:T!A1+1\" dynamic)\n",
+        ));
+        assert!(m.step(0).done);
+        assert_eq!(
+            m.shapes.spills().get((0, 1, 3)).map(|s| s.dims),
+            Some((3, 2))
+        );
+        assert_eq!(
+            m.shapes.spills().get((0, 1, 4)),
+            None,
+            "one value, no spill"
+        );
+        let e = m
+            .write("(formula \"S\" \"E1\" \"=SEQUENCE(1,A1)\" dynamic)")
+            .expect_err("a width read from a cell");
+        assert_eq!((e.line, e.refusal.id.as_str()), (1, "calc-spill-unbounded"));
+        assert_eq!(spelled_at(&m, "E1"), "(none)", "the grid as it was");
+        assert!(m
+            .write("(formula \"S\" \"E1\" \"=SEQUENCE(1,2)\" dynamic)")
+            .is_ok());
+        assert!(m.step(0).done);
     }
 
     #[test]

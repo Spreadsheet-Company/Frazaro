@@ -245,7 +245,13 @@ impl<'m> Calc<'m> {
             blocks.iter().map(|(id, range)| (id.0, *range)).collect();
         let functions = lambda::Functions::of_model(model);
         let spills = match spilling {
-            true => spill::Spills::of(model, &texts, &functions, library),
+            true => spill::Spills::of(
+                &spill::dynamics_of(model, &texts),
+                &|name| model.find_sheet(name),
+                &names,
+                &functions,
+                library,
+            ),
             false => spill::Spills::default(),
         };
         let plan = graph::plan_placed(model, &names, &extents, &texts, (&places, &listed), &spills);
@@ -380,7 +386,7 @@ impl<'m> Calc<'m> {
                         }
                         computed
                     }
-                    None => match self.spills.get(id).copied() {
+                    None => match self.spills.get(id) {
                         Some(spill) => {
                             let (computed, laid) = self.spill(id, &spill);
                             self.pour(id, &spill, &computed, laid);

@@ -65,6 +65,12 @@ pub(crate) trait Model {
     fn functions(&self) -> &[crate::calc::room::Compiled] {
         &[]
     }
+    /// The extent a dynamic formula's file saved past its cell, whose cells
+    /// hold the values it last spilled (KERNEL.55): a workbook's from the
+    /// formula's `ref`; none where a grid keeps none.
+    fn saved_spill(&self, _id: CellId) -> Option<A1Range> {
+        None
+    }
     /// What a cell holds where it holds a formula; `None` for a value cell
     /// and for a cell holding nothing.
     fn formula(&self, id: CellId) -> Option<Formula<'_>>;
@@ -833,6 +839,17 @@ impl Model for Workbook {
 
     fn defined_names(&self) -> &[(String, String)] {
         &self.defined_names
+    }
+
+    fn saved_spill(&self, (s, row, col): CellId) -> Option<A1Range> {
+        match &self.sheets.get(s)?.cells.get(&(row, col))?.content {
+            Content::DynamicSpill { range, .. }
+                if (range.top, range.left) == (row, col) && range.cells() > 1 =>
+            {
+                Some(*range)
+            }
+            _ => None,
+        }
     }
 
     fn formula(&self, (s, row, col): CellId) -> Option<Formula<'_>> {

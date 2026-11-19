@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.29"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.55"
+' KERNEL.55: a dynamic formula an engine cannot bound, one refusal under
+' VLA-Calc: calc-spill-unbounded - a dynamic-array formula whose text bounds
+' no size for its answer, refused at an engine's load and at a write, since
+' an engine fixes the cells a spill may fill when it plans.
+'
 ' KERNEL.29: a function of cells, two refusals under VLA-Grid:
 ' grid-function-sheet - a function row naming a sheet the grid does not
 ' hold; grid-name-taken - a name row naming a function of cells, or a
@@ -1795,6 +1800,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute."
     ' KERNEL.22 - a formula whose text this version does not read stops an engine's load too.
     AddMsg m, "calc-construct-not-read", 5, "VLA-Calc", "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed."
+    ' KERNEL.55 - an engine plans the cells a spill may fill at its load, so a dynamic formula whose text bounds no size for its answer stops the load, and a write.
+    AddMsg m, "calc-spill-unbounded", 5, "VLA-Calc", "The formula in {cell} is a dynamic-array formula whose text does not bound its answer, so this version cannot plan the cells it may spill into. State the size in its text: SEQUENCE(4), not SEQUENCE(B1)."
     ' VLA.1 - Excel's own two limits on a formula, so no formula Excel holds is refused.
     AddMsg m, "calc-formula-too-deep", 5, "VLA-Calc", "The formula in {cell} nests more than {limit} levels deep, more than Excel itself allows, so the formula cannot be computed."
     AddMsg m, "calc-formula-too-long", 5, "VLA-Calc", "The formula in {cell} is longer than {limit} characters, more than Excel itself allows, so the formula cannot be computed."

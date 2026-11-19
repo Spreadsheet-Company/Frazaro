@@ -6,13 +6,14 @@
 //! first refusal. The plan by blocks is held to it.
 
 use crate::fx::FxHashMap;
-use crate::grid::{Formula, Model};
+use crate::grid::{Formula, Model, Rects};
 use crate::messages::{raise, Refusal};
 use crate::refers;
 
 use super::super::eval::unread_name;
 use super::super::formula::{self, Read, RefExpr};
 use super::super::graph::{self, areas_found, dependencies_in, Area, CellId, Extent, Names};
+use super::super::spill::Spilled;
 use super::{hub_at, spell_at, Shapes, RUN};
 
 /// The plan of cells.
@@ -37,6 +38,12 @@ impl Reference {
         names: &Names,
         extents: &[Extent],
     ) -> Reference {
+        // A name's cells and an unread text's, a spill's anchor for a cell it
+        // may fill (KERNEL.55).
+        let spilled = Spilled {
+            model,
+            spills: shapes.spills(),
+        };
         // Every placed cell, its shape and its offset.
         let mut places: Vec<(CellId, usize)> = Vec::new();
         for si in 0..model.sheet_count() {
@@ -62,11 +69,20 @@ impl Reference {
         for id in &ids {
             holds[id.0] = true;
         }
+        // Each spill's box, tagged by its anchor's vertex, a read of any cell
+        // of it a read of the anchor (KERNEL.55).
+        let mut boxes: Vec<Rects> = vec![Rects::default(); model.sheet_count()];
+        for (anchor, cells) in shapes.spills().boxes() {
+            if let Some(v) = index.get(anchor.0, anchor.1, anchor.2) {
+                boxes[anchor.0].insert(cells, v as u32);
+            }
+        }
         let vertices = Vertices {
             model,
             extents,
             index: &index,
             holds: &holds,
+            boxes: &boxes,
         };
         let reads: Vec<ShapeReads> = shapes
             .shapes
@@ -137,7 +153,7 @@ impl Reference {
                                 let scope = sheet.and_then(|s| model.find_sheet(s));
                                 if let Some(t) = names.resolve(name, scope, id.0) {
                                     dependencies_in(
-                                        model,
+                                        &spilled,
                                         names,
                                         extents,
                                         scope.unwrap_or(id.0),
@@ -151,7 +167,7 @@ impl Reference {
                 }
                 _ => {
                     let moved = refers::shift_a1_references(&shape.text, d_row, d_col);
-                    dependencies_in(model, names, extents, id.0, &moved, &mut deps);
+                    dependencies_in(&spilled, names, extents, id.0, &moved, &mut deps);
                 }
             }
             for d in &deps {
@@ -372,7 +388,13 @@ impl Reference {
                 return Some((*id, formula::unread_refusal(&spell_at(model, *id), &label)));
             }
         }
-        None
+        // A dynamic formula whose parse bounds no answer (KERNEL.55).
+        let unbounded = shapes.spills().unbounded();
+        let id = ids.iter().find(|id| unbounded.contains(id))?;
+        Some((
+            *id,
+            raise("calc-spill-unbounded", &[("cell", &spell_at(model, *id))]),
+        ))
     }
 }
 
@@ -579,6 +601,7 @@ struct Vertices<'a, M: Model + ?Sized> {
     extents: &'a [Extent],
     index: &'a Positions,
     holds: &'a [bool],
+    boxes: &'a [Rects],
 }
 
 struct ShapeReads<'e> {
@@ -592,6 +615,17 @@ impl<M: Model + ?Sized> Vertices<'_, M> {
     fn formulas_in(&self, a: &Area, out: &mut Vec<u32>) {
         if !self.holds.get(a.sheet).copied().unwrap_or(false) {
             return;
+        }
+        if let Some(b) = self.boxes.get(a.sheet) {
+            let area = crate::sheet::A1Range {
+                top: a.top,
+                left: a.left,
+                bottom: a.bottom,
+                right: a.right,
+            };
+            for (_, v) in b.meeting(area) {
+                out.push(v);
+            }
         }
         let rect = (a.top, a.left, a.bottom, a.right);
         if self
