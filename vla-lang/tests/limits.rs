@@ -67,9 +67,13 @@ fn the_expander_walks_and_prints_to_its_limit_and_refuses_past_it() {
         // A macro that deepens its argument at every application, which
         // overflowed even a release build's stack, and one that doubles it,
         // which ran until the memory gave out.
-        let deeper = expand_text("(defmacro (deeper x) (deeper (x))) (deeper 1)", "", true);
+        let deeper = expand_text(
+            "(defmacro (deeper x) (deeper (list x))) (deeper 1)",
+            "",
+            true,
+        );
         assert_eq!(deeper.unwrap_err().id, "vla-form-too-deep");
-        let dup = expand_text("(defmacro (dup x) (dup (x x))) (dup 1)", "", true);
+        let dup = expand_text("(defmacro (dup x) (dup (list x x))) (dup 1)", "", true);
         assert_eq!(dup.unwrap_err().id, "vla-macro-expansion-too-large");
     });
 }

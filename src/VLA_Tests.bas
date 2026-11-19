@@ -1,6 +1,24 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "VLA.11"
+' VLA.11, its second slice: TestHeads - the heads, 29 pins: a parameter, a
+' rest, a function's parameter, a loop's name and a let-expand's name at a
+' list's head refused where each binds, in a loop's body too, the kit's old
+' trap's text whole; a quote's datum data, a parameter's word, a piece's and a
+' loop's name read at a head there and a function's argument there data, a
+' function's body, a call handed in and an unquote under a quasiquote's quote
+' keeping the rule (six pins of the owner's first pass, where pl5 failed); a
+' parameter unquoted at a head, a piece handed
+' on under its own word and a nested signature's name each reading; call-expand
+' over a function, a macro and a primitive, the prelude's quote-filter over
+' null?, a tail call through it past the depth, a define's word its callee,
+' its four refusals; and dotimes' binding. Wired after TestHygiene. Seven pins
+' moved with the meanings: a macro calling itself by its own piece reads, a
+' piece's word at a head is the form it spells, and a parameter named self
+' binds in its own bind-expand; a parameter at the head of the piece it hands
+' on, a rest at the operator and a macro's parameter at a function's head are
+' refused; and a function handed to a function is called by call-expand.
+'
 ' VLA.11: TestHygiene - hygiene by design, its first slice, the definitions,
 ' 28 pins: a macro defined twice refused, by its fold with the first one's
 ' line named, the prelude's own with none, one used before its one definition
@@ -669,6 +687,7 @@ Public Function VlaSelfTest() As Boolean
     TestRawStrings
     TestFunctions
     TestHygiene
+    TestHeads
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -7984,14 +8003,13 @@ Private Sub TestNamedPieces()
         ExpandTrimmed("(defmacro (w (a ""none"")) a) (defmacro (m) (debug-print 1) (w)) (m)"), "(begin (debug-print 1) ""none"")"
     CheckV "walks: a macro calling itself by a piece, shielded", _
         ExpandTrimmed("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (quasiquote (down (n (unquote (-expand n 1))))))) (down)"), "(done)"
-    CheckV "capture: a macro calling itself by a piece, bare", _
-        ExpandTrimmed("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (down (n (-expand n 1))))) (down)"), _
-        "refused: macro 'down': '(2 1)' stands after its positional arguments, where only its pieces go: n"
-    CheckV "capture: a template's parameter spelled as a piece", _
+    CheckV "pieces: a macro calling itself by its own piece", _
+        ExpandTrimmed("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (down (n (-expand n 1))))) (down)"), "(done)"
+    CheckV "heads: a parameter at the head of the piece it hands on, refused", _
         ExpandTrimmed(ruleMacro & "(defmacro (tower sheet) (rule ""B2"" (sheet sheet))) (tower ""T"")"), _
-        "refused: macro 'rule': '(""T"" ""T"")' stands after its positional arguments, where only its pieces go: sheet, text"
-    CheckV "capture: a piece's word at a head of its template", _
-        ExpandTrimmed("(defmacro (m (formula ""x"")) (formula ""S"" ""A1"" 1)) (m)"), "(""x"" ""S"" ""A1"" 1)"
+        "refused: defmacro 'tower': 'sheet' stands at the head of (sheet sheet), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand sheet ...) to call what it holds, or (list sheet ...) to build a list headed by it"
+    CheckV "pieces: a piece's word at a head of its template is the form it spells", _
+        ExpandTrimmed("(defmacro (m (formula ""x"")) (formula ""S"" ""A1"" 1)) (m)"), "(formula ""S"" ""A1"" 1)"
     CheckV "reading: a positional argument of another word", _
         ExpandTrimmed(ruleMacro & "(rule (ref ""S"" ""A1""))"), "(formula ""Screen"" (ref ""S"" ""A1"") ""=1"")"
     CheckV "reading: a macro with no piece takes any list", _
@@ -8015,8 +8033,8 @@ Private Sub TestNamedPieces()
         ExpandTrimmed("(defmacro (m a (b ""x"")) (formula-expand (& a b))) (m A1)"), """=A1&\""x\"""""
     CheckV "amp: the operator where a piece goes", _
         ExpandTrimmed(ruleMacro & "(rule ""B2"" (& ""T"" 1))"), "refused: macro 'rule': '(& ""T"" 1)' stands after its positional arguments, where only its pieces go: sheet, text (vla line 1)"
-    CheckV "amp: a rest spelled as its mark replaces the operator", _
-        ExpandTrimmed("(defmacro (m & &) (& ""a"" ""b"")) (m 1 2)"), "(1 2 ""a"" ""b"")"
+    CheckV "amp: a rest spelled as its mark at the operator, refused", _
+        ExpandRefusalId("(defmacro (m & &) (& ""a"" ""b"")) (m 1 2)"), "vla-name-at-a-head"
 
     ' --- a declaration's refusals.
     CheckV "declare: nothing", _
@@ -8453,8 +8471,8 @@ Private Sub TestSelfForms()
         ExpandTrimmed("(defmacro (m self) (formula-expand (last self))) (bind-expand ((self A!B2)) (m Tally!B1))"), """=Tally.last!B1"""
     CheckV "reserved: a rest hides it", _
         ExpandTrimmed("(defmacro (m & self) (f self)) (m 1 2)"), "(f 1 2)"
-    CheckSelfRefused "reserved: and takes a binding's word in its template", _
-        "(defmacro (m self) (bind-expand ((self self)) (formula-expand (last self)))) (m Tally!B1)", "vla-bind-expand-word"
+    CheckV "reserved: its binding declares the word, the parameter's value its place", _
+        ExpandTrimmed("(defmacro (m self) (bind-expand ((self self)) (formula-expand (last self)))) (m Tally!B1)"), """=Tally.last!B1"""
 
     ' --- a primitive that reads a word's text, and the ones that carry it as data.
     CheckV "primitive: &expand, by its text", _
@@ -9215,9 +9233,9 @@ Private Sub TestFunctions()
 
     ' --- a function handed to a function, and a parameter hiding one.
     CheckV "functions: a function handed to a function", _
-        ExpandTrimmed(FN_SQUARE & "(defexpand (apply-to f x) (f x)) (cell ""S"" ""A1"" (apply-to square 4))"), "(cell ""S"" ""A1"" 16)"
-    CheckV "functions: a macro's parameter hides a function of its word", _
-        ExpandTrimmed(FN_SQUARE & "(defmacro (m square) (square 2)) (m 5)"), "(5 2)"
+        ExpandTrimmed(FN_SQUARE & "(defexpand (apply-to f x) (call-expand f x)) (cell ""S"" ""A1"" (apply-to square 4))"), "(cell ""S"" ""A1"" 16)"
+    CheckV "functions: a macro's parameter at a function's head, refused", _
+        ExpandRefusalId(FN_SQUARE & "(defmacro (m square) (square 2)) (m 5)"), "vla-name-at-a-head"
 
     ' --- self passes through a function as a word.
     CheckV "functions: self reaches the walk's forms in a function's value", _
@@ -9400,6 +9418,89 @@ Private Sub TestHygiene()
         "define '5': '5' is a number, and a define binds a word of the source's own"
     CheckV "hygiene: a macro named parameter refused", ExpandRefusalId("(defmacro (parameter x) x)"), "vla-defmacro-reserved-name"
     CheckV "hygiene: a define named parameter refused", ExpandRefusalId("(define parameter 1)"), "vla-define-name-reserved"
+End Sub
+
+' VLA.11: hygiene by design, its second slice, the heads: a parameter, a rest,
+' a function's parameter, a loop's name and a let-expand's name at a list's
+' head, refused by name where each binds, inside a loop's body too, the kit's
+' old trap's text whole; a quote's datum data, a parameter's word, a piece's
+' and a loop's name replaced at a head there, a function's argument there
+' data, and a function's body, a call handed in and an unquote under a
+' quasiquote's quote keeping the rule; a parameter unquoted at a head reading, a
+' piece handed on under its own word, a nested signature's name replaced;
+' call-expand calling a function, a macro and a
+' primitive, the prelude's quote-filter over null?, a tail call through it
+' looping past the depth, a define's word its callee at the top, and its
+' refusals; and dotimes' binding built by list. scripts/expand_golden.txt
+' holds the same cases' whole records to vla-lang's.
+Private Sub TestHeads()
+    ' --- a binder at a list's head, refused where it binds.
+    CheckV "heads: a parameter at a head refused, the kit's old trap", _
+        ExpandTrimmed("(defmacro (label name text) (name ""S"" ""A1"" text)) (label ""Board"" 1)"), _
+        "refused: defmacro 'label': 'name' stands at the head of (name ""S"" ""A1"" text), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand name ...) to call what it holds, or (list name ...) to build a list headed by it"
+    CheckV "heads: a rest at a head refused", ExpandRefusalId("(defmacro (progn-of & forms) (forms)) (progn-of 1 2)"), "vla-name-at-a-head"
+    CheckExpandErr "heads: a function's parameter at a head refused at its definition", "(defexpand (apply-to f x) (f x)) (cell ""S"" ""A1"" 0)", _
+        "defexpand 'apply-to': 'f' stands at the head of (f x), where a parameter is never replaced"
+    CheckV "heads: a parameter at a head in a loop's body refused", _
+        ExpandRefusalId("(defmacro (each-of f xs) (each (x xs) (f x))) (cell ""S"" ""A1"" 0)"), "vla-name-at-a-head"
+    CheckExpandErr "heads: a loop's name at a head refused", "(each (cell (quote (1 2))) (cell ""S"" ""A1"" cell))", _
+        "each: 'cell' stands at the head of (cell ""S"" ""A1"" cell), where a loop's name is never replaced"
+    CheckExpandErr "heads: a let-expand's name at a head refused", "(let-expand ((cell 1)) (cell ""S"" ""A1"" 2))", _
+        "let-expand: 'cell' stands at the head of (cell ""S"" ""A1"" 2), where a let-expand's name is never replaced"
+    CheckV "heads: a let-expand's name at a head in a later value refused", _
+        ExpandRefusalId("(let-expand ((f 1) (g (f 2))) (cell ""S"" ""A1"" g))"), "vla-name-at-a-head"
+    CheckV "heads: a function's body keeps its rule inside a quote", _
+        ExpandRefusalId("(defexpand (pairs xs) (each (x xs) (x 1))) (defmacro (m) (cell ""S"" ""A1"" (quote (a (pairs (quote (1 2))))))) (m)"), "vla-name-at-a-head"
+    CheckV "heads: a call handed in keeps its rule inside a quote", _
+        ExpandRefusalId("(defmacro (m c) (cell ""S"" ""A1"" (quote (a (car c))))) (m (list (each (x (quote (1 2))) (x 1))))"), "vla-name-at-a-head"
+    CheckV "heads: an unquote under a quasiquote's quote is code", _
+        ExpandRefusalId("(defmacro (m c) (cell ""S"" ""A1"" (quasiquote (quote ((unquote (c 1))))))) (m red)"), "vla-name-at-a-head"
+
+    ' --- a quote's datum is data, every head in it a value's place.
+    CheckV "heads: a parameter at a head inside a quote reads", _
+        ExpandTrimmed("(defmacro (m f) (quote (f 1))) (m 5)"), "(quote (5 1))"
+    CheckV "heads: a piece's word at a head inside a quote is its value", _
+        ExpandTrimmed("(defmacro (m (sheet ""S"")) (quote (sheet 1))) (m)"), "(quote (""S"" 1))"
+    CheckV "heads: a loop's name at a head inside a quote reads", _
+        ExpandTrimmed("(defmacro (m) (cell ""S"" ""A1"" (quote ((each (x (quote (1 2))) (x 1)))))) (m)"), "(cell ""S"" ""A1"" (quote ((1 1) (2 1))))"
+    CheckV "heads: a function's argument inside a quote is data", _
+        ExpandTrimmed("(defexpand (id x) x) (defmacro (m c) (cell ""S"" ""A1"" (quote (id (c 1))))) (m red)"), "(cell ""S"" ""A1"" (quote (red 1)))"
+
+    ' --- where a head reads.
+    CheckV "heads: a parameter unquoted at a head reads", _
+        ExpandTrimmed("(defmacro (m f x) (quasiquote ((unquote f) (unquote x)))) (m cell 2)"), "(cell 2)"
+    CheckV "heads: a piece handed on under its own word", _
+        ExpandTrimmed("(defmacro (rule range (sheet ""Screen"")) (formula sheet range ""=1"")) (defmacro (tower-rule (sheet ""Tower"")) (rule ""B2"" (sheet sheet))) (tower-rule)"), _
+        "(formula ""Tower"" ""B2"" ""=1"")"
+    CheckV "heads: a nested signature's name is replaced", _
+        ExpandTrimmed("(defmacro (make-const name value) (defmacro (name) value)) (make-const answer 42)"), "(defmacro (answer) 42)"
+
+    ' --- call-expand, the call through a word.
+    Const FN_SQUARE_H As String = "(defexpand (square x) (*expand x x)) "
+    CheckV "call-expand: a function", _
+        ExpandTrimmed(FN_SQUARE_H & "(defexpand (apply-to f x) (call-expand f x)) (cell ""S"" ""A1"" (apply-to square 4))"), "(cell ""S"" ""A1"" 16)"
+    CheckV "call-expand: a macro, its call left for the walk", _
+        ExpandTrimmed("(defmacro (row-of kind at value) (call-expand kind ""S"" at value)) (row-of cell ""A1"" 2)"), "(cell ""S"" ""A1"" 2)"
+    CheckV "call-expand: a primitive", _
+        ExpandTrimmed("(defexpand (test-first t xs) (call-expand t (car xs))) (cell ""S"" ""A1"" (test-first null? (quote (() 1))))"), "(cell ""S"" ""A1"" true)"
+    CheckV "call-expand: the prelude's quote-filter over null?", _
+        ExpandTrimmed("(cell ""S"" ""A1"" (quote-filter null? (quote ((a) () (b)))))"), "(cell ""S"" ""A1"" (()))"
+    CheckV "call-expand: a tail call through it loops past the depth", _
+        ExpandTrimmed("(defexpand (count-down n) (quote-if (=expand n 0) 0 (call-expand next-down n))) (defexpand (next-down n) (count-down (-expand n 1))) (cell ""S"" ""A1"" (count-down 2000))"), _
+        "(cell ""S"" ""A1"" 0)"
+    CheckV "call-expand: a define's word its callee at the top", _
+        ExpandTrimmed("(define how cell) (call-expand how ""S"" ""A1"" 1)"), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" 1)"
+    CheckV "call-expand: a text refused", ExpandRefusalId("(call-expand ""cell"" ""S"" ""A1"" 1)"), "vla-call-expand-not-a-word"
+    CheckV "call-expand: a number refused", ExpandRefusalId("(defmacro (m f) (call-expand f 1)) (m 5)"), "vla-call-expand-not-a-word"
+    CheckExpandErr "call-expand: a list refused", "(defmacro (m f) (call-expand f 1)) (m (1 2))", _
+        "call-expand: (1 2) is no word, and call-expand calls what a word names"
+    CheckExpandErr "call-expand: nothing refused", "(call-expand)", _
+        "call-expand: write (call-expand word argument ...), the word naming what is called and its arguments - got (call-expand)"
+    CheckV "call-expand: a macro of its name refused", ExpandRefusalId("(defmacro (call-expand x) x)"), "vla-defmacro-reserved-name"
+
+    ' --- the prelude's dotimes builds its binding by list.
+    CheckV "heads: dotimes builds its binding by list", _
+        ExpandTrimmed("(sub s () (dotimes i 3 (debug-print i)))"), "(sub s () (for (i 1 3) (debug-print i)))"
 End Sub
 
 ' VLA.8: the reference's stack, measured for a function's nested calls where a

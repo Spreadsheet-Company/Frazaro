@@ -22,7 +22,10 @@
 ;  hygiene mechanism. The list library at the end is functions
 ;  (defexpand, VLA.8): each a pure function of its arguments, computed
 ;  while the source expands, every call counted against the fuel and
-;  refused by name past it - still no gensym, no eval.
+;  refused by name past it - still no gensym, no eval. A parameter is
+;  replaced where it stands as a value and never at a list's head
+;  (VLA.11), so dotimes builds its for's binding by list, and the
+;  library calls the function it is handed by call-expand.
 ; =====================================================================
 
 ; L3 / P.L0: the earliest control-flow spellings.
@@ -39,7 +42,7 @@
 (defmacro
     (dotimes v n & body)
     "count v from 1 to n, running the body each time"
-    (for (v 1 n) body))
+    (for (list v 1 n) body))
 
 (defmacro
     (inc! x)
@@ -486,15 +489,15 @@
 ; quoted data, as quote-if's own name says; length, reverse and append
 ; name no function of Excel's (checked against the corpus).
 ;
-; f names a function or a macro taking the arguments it is given -
-; there is no lambda here (deflambda registers an EXCEL WORKSHEET
-; FUNCTION, a different thing entirely). A function's call computes
-; where it stands; a macro's is left for the walk, so quote-map over a
-; macro gives the list of its calls, each expanded after. keep? names a
-; function answering true or false: where quote-if reads its test, a
-; macro's call would stand unexpanded, and so would a primitive's built
-; by the word (null? say), since a word at a call's head names a
-; function to the call - each refused there by name.
+; f names a function, a primitive or a macro taking the arguments it is
+; given, called by call-expand (VLA.11), since a parameter is never
+; replaced at a list's head - there is no lambda here (deflambda
+; registers an EXCEL WORKSHEET FUNCTION, a different thing entirely). A
+; function's call or a primitive's computes where it stands; a macro's
+; is left for the walk, so quote-map over a macro gives the list of its
+; calls, each expanded after. keep? names a function or a primitive
+; answering true or false (null? say): where quote-if reads its test, a
+; macro's call would stand unexpanded, refused there by name.
 ; -----------------------------------------------------------------
 
 ; identity: works at any layer, expand-time or runtime alike - whatever
@@ -567,7 +570,7 @@
 (defexpand
     (quote-map f lst)
     "apply f to every element of a quoted list, building a new list"
-    (each (element lst) (f element)))
+    (each (element lst) (call-expand f element)))
 
 ; quote-reduce: f given what is folded so far and the next element,
 ; left to right. Over a function, each step computes as it goes; over
@@ -578,7 +581,7 @@
     "fold f over a quoted list, left to right, starting from init"
     (quote-if (null? lst)
               init
-              (quote-reduce f (f init (car lst)) (cdr lst))))
+              (quote-reduce f (call-expand f init (car lst)) (cdr lst))))
 
 ; quote-filter: the elements keep? answers true for, in their order.
 ; quote-filter-onto puts each one kept in front of what it has kept,
@@ -596,7 +599,7 @@
               kept
               (quote-filter-onto keep?
                                  (cdr lst)
-                                 (quote-if (keep? (car lst))
+                                 (quote-if (call-expand keep? (car lst))
                                            (cons (car lst) kept)
                                            kept))))
 

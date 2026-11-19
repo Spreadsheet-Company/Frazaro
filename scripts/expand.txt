@@ -23,7 +23,9 @@ refusals among them (VLA.8), and the prelude's list library written
 over them, quote-filter among it (its second slice), and a macro defined
 once in a compile and a parameter, a define whose value a door may give,
 each of their refusals among them (VLA.11), a line of a case that begins
-";door " giving the door's (parameter word value) form. A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
+";door " giving the door's (parameter word value) form, and a binder at a
+list's head refused where it binds, a piece's word there kept, a quote's
+datum data, and call-expand, the call through a word (its second slice). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
 line names the case's own, counted from the case's first line, so an edit
 of the prelude moves nothing here.
 === car
@@ -1436,9 +1438,9 @@ of the prelude moves nothing here.
     (quasiquote (countdown (n (unquote (-expand n 1)))))))
 
 (countdown)
-=== a-macro-calling-itself-by-a-piece-bare-refused
+=== a-macro-calling-itself-by-its-own-piece
 (defmacro (countdown (n 2))
-  "a walk by a piece, its own n replacing the piece's word: VLA.11's capture, refused by name"
+  "a walk by a piece, the piece's word at a head kept as written since VLA.11, its value the argument's"
   (quote-if (=expand n 0)
     (done)
     (countdown (n (-expand n 1)))))
@@ -1450,13 +1452,13 @@ of the prelude moves nothing here.
   (formula sheet range "=1"))
 
 (defmacro (tower-rule sheet)
-  "a parameter spelled as the piece it hands on: VLA.11's capture, refused by name"
+  "a parameter spelled as the piece it hands on, at that piece's head: refused at the definition by name"
   (rule "B2" (sheet sheet)))
 
 (tower-rule "Tower")
-=== a-piece-s-word-at-a-head-of-its-template-is-replaced
+=== a-piece-s-word-at-a-head-of-its-template-is-kept
 (defmacro (f (formula "x"))
-  "a piece's word heading a form of its template, replaced as a parameter's is: VLA.11's"
+  "a piece's word heading a form of its template, the form it spells: kept as written since VLA.11"
   (formula "S" "A1" 1))
 
 (f)
@@ -1786,9 +1788,9 @@ broken
   (formula sheet range "=1"))
 
 (rule "B2" (& "T" 1))
-=== a-rest-spelled-as-its-own-mark-replaces-the-operator
+=== a-rest-spelled-as-its-own-mark-at-the-operator-refused
 (defmacro (m & &)
-  "a rest's word spelled as its mark, taken since the first macro: a parameter's capture, VLA.11's"
+  "a rest's word spelled as its mark, at the operator's head: refused at the definition since VLA.11"
   (& "a" "b"))
 
 (m 1 2)
@@ -2526,9 +2528,9 @@ broken
   (f self))
 
 (m 1 2)
-=== a-parameter-named-self-in-a-macro-s-own-binding-refused
+=== a-parameter-named-self-in-a-macro-s-own-binding
 (defmacro (m self)
-  "a parameter of the word replaces the binding's word too"
+  "the binding declares the word, and the parameter's value is the place it binds"
   (bind-expand ((self self))
     (formula-expand (last self))))
 
@@ -2720,9 +2722,9 @@ lines
 (bump (quote (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)))
 === a-function-handed-to-a-function
 (defexpand (square x) (*expand x x))
-(defexpand (apply-to f x) (f x))
+(defexpand (apply-to f x) (call-expand f x))
 (cell "S" "A1" (apply-to square 4))
-=== a-parameter-hides-a-function
+=== a-parameter-at-a-function-s-head-refused
 (defexpand (square x) (*expand x x))
 (defmacro (m square) (square 2))
 (m 5)
@@ -2964,3 +2966,119 @@ lines
 (begin (parameter a b) (define b a))
 === a-macro-named-parameter-refused
 (defmacro (parameter x) x)
+=== a-parameter-at-a-head-refused
+(defmacro (label name text)
+  "the kit's old trap: a parameter spelled as the row it writes"
+  (name "S" "A1" text))
+
+(label "Board" 1)
+=== a-rest-at-a-head-refused
+(defmacro (progn-of & forms) (forms))
+(progn-of 1 2)
+=== a-function-s-parameter-at-a-head-refused
+(defexpand (apply-to f x) (f x))
+(cell "S" "A1" 0)
+=== a-parameter-at-a-head-in-a-loop-s-body-refused
+(defmacro (each-of f xs)
+  (each (x xs) (f x)))
+(cell "S" "A1" 0)
+=== a-loop-s-name-at-a-head-refused
+(each (cell (quote (1 2)))
+  (cell "S" "A1" cell))
+=== a-let-expand-s-name-at-a-head-refused
+(let-expand ((cell 1))
+  (cell "S" "A1" 2))
+=== a-let-expand-s-name-at-a-head-in-a-later-value-refused
+(let-expand ((f 1) (g (f 2)))
+  (cell "S" "A1" g))
+=== a-parameter-at-a-head-inside-a-quote-reads
+(defmacro (m f) (quote (f 1)))
+(m 5)
+=== a-rest-at-a-head-inside-a-quote-reads
+(defmacro (m & r) (quote (r 1)))
+(m a b)
+=== a-piece-s-word-at-a-head-inside-a-quote-reads
+(defmacro (m (sheet "S")) (quote (sheet 1)))
+(m)
+=== a-parameter-at-a-head-in-a-loop-inside-a-quote-reads
+(defmacro (m c)
+  (cell "S" "A1" (quote ((each (x (quote (1 2))) (c x))))))
+(m red)
+=== a-loop-s-name-at-a-head-inside-a-quote-reads
+(defmacro (m)
+  (cell "S" "A1" (quote ((each (x (quote (1 2))) (x 1))))))
+(m)
+=== a-let-expand-s-name-at-a-head-inside-a-quote-reads
+(defmacro (m)
+  (cell "S" "A1" (quote ((let-expand ((x red)) (x 1))))))
+(m)
+=== a-primitive-s-argument-inside-a-quote-is-data
+(defmacro (m c) (cell "S" "A1" (quote (car (quote ((c 1)))))))
+(m red)
+=== a-function-s-argument-inside-a-quote-is-data
+(defexpand (id x) x)
+(defmacro (m c) (cell "S" "A1" (quote (id (c 1)))))
+(m red)
+=== a-function-s-body-keeps-its-rule-inside-a-quote-refused
+(defexpand (pairs xs) (each (x xs) (x 1)))
+(defmacro (m) (cell "S" "A1" (quote (a (pairs (quote (1 2)))))))
+(m)
+=== a-call-handed-in-keeps-its-rule-inside-a-quote-refused
+(defmacro (m c) (cell "S" "A1" (quote (a (car c)))))
+(m (list (each (x (quote (1 2))) (x 1))))
+=== an-unquote-under-a-quasiquote-s-quote-is-code-refused
+(defmacro (m c) (cell "S" "A1" (quasiquote (quote ((unquote (c 1)))))))
+(m red)
+=== a-head-beside-a-quote-refused
+(defmacro (m c) (cell "S" "A1" (quote (c 1)) (c 2)))
+(m red)
+=== a-parameter-unquoted-at-a-head-reads
+(defmacro (m f x) (quasiquote ((unquote f) (unquote x))))
+(m cell 2)
+=== a-piece-handed-on-under-its-own-word
+(defmacro (rule range (sheet "Screen"))
+  "a formula row on a sheet"
+  (formula sheet range "=1"))
+
+(defmacro (tower-rule (sheet "Tower"))
+  "the piece it takes handed on under its own word"
+  (rule "B2" (sheet sheet)))
+
+(tower-rule)
+=== a-nested-signature-s-name-is-replaced
+(defmacro (make-const name value)
+  (defmacro (name) value))
+(make-const answer 42)
+=== call-expand-calls-a-function
+(defexpand (square x) (*expand x x))
+(defexpand (apply-to f x) (call-expand f x))
+(cell "S" "A1" (apply-to square 4))
+=== call-expand-calls-a-macro
+(defmacro (row-of kind at value) (call-expand kind "S" at value))
+(row-of cell "A1" 2)
+=== call-expand-calls-a-primitive
+(defexpand (test-first t xs) (call-expand t (car xs)))
+(cell "S" "A1" (test-first null? (quote (() 1))))
+=== the-prelude-s-quote-filter-over-a-primitive
+(cell "S" "A1" (quote-filter null? (quote ((a) () (b)))))
+=== call-expand-in-a-function-s-tail-loops
+(defexpand (count-down n) (quote-if (=expand n 0) 0 (call-expand next-down n)))
+(defexpand (next-down n) (count-down (-expand n 1)))
+(cell "S" "A1" (count-down 2000))
+=== call-expand-at-the-top
+(define how cell)
+(call-expand how "S" "A1" 1)
+=== call-expand-of-a-text-refused
+(call-expand "cell" "S" "A1" 1)
+=== call-expand-of-a-number-refused
+(defmacro (m f) (call-expand f 1))
+(m 5)
+=== call-expand-of-a-list-refused
+(defmacro (m f) (call-expand f 1))
+(m (1 2))
+=== call-expand-of-nothing-refused
+(call-expand)
+=== a-macro-named-call-expand-refused
+(defmacro (call-expand x) x)
+=== dotimes-builds-its-binding-by-list
+(sub s () (dotimes i 3 (debug-print i)))

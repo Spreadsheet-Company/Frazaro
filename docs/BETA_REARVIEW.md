@@ -22128,6 +22128,144 @@ built.
   after no word a row reads; revisited when a capture is met. The first slice
   committed at the owner's word, "commit slice 1 then proceed with slice 2".
 
+  **What was built, the second slice,** 2026-11-19, at the same word, the
+  heads (decisions 1 and 2), in a worktree off `edcba68`, a peer's
+  `KERNEL.55` third part committed over the first slice; the reference first
+  (`SD-18`) and the port after it.
+  - `src/VLA.bas`: `Substitute` keeps a list's head as written, never a
+    binder's (`atHead`), a nested definition's signature's head alone a
+    value's place (`headIsValue`, `IsDefinitionHead`), the name a generated
+    macro takes; and a quote's datum is data, every list's head in it a
+    value's place, which `SubstituteQuoted` takes whole under `mQuoted`, a
+    function's body read as its own (`FunctionWorkOut`) and a define's form
+    or a call handed in read in an empty scope (`ReadBare`), each restoring
+    the flag on every way out. `RefuseNameAtHead`, with `BinderWords` and
+    `RefuseNameAtHeadFrom`, refuses a binder at a head by name
+    (`vla-name-at-a-head`): at `DefineMacro` and `DefineFunction` over the
+    template and the body, at `EachFormResults` and `LetExpandScope` over the
+    loop's and the let-expand's forms but in a quote's datum; a quote's datum
+    passed by, and a quasiquote's shield but where an unquote punches
+    through, a declaration's names passed by. `call-expand`: `CallExpandCall`
+    and `CallExpandWord`, taken by `Substitute`, by the walk (`ExpandMacros`)
+    and by a function's tail (`FunctionStep`), where a function's call loops;
+    `FunctionHeadName` reads no binding, the head its one parameter.
+    `call-expand` in `ExpandReservedDesc`.
+  - `vla-lang/src/expand.rs`: the same, procedure for procedure:
+    `substitute` over `substitute_at`'s flag, and `substitute_quoted` over
+    `Env`'s `quoted`, a cell a loop's and a let-expand's scope copy and an
+    empty scope (`Env::bare`) starts without; `refuse_name_at_head`, with
+    `binder_words`, `refuse_names_at_head` and `refuse_let_names_at_head`,
+    each a frame of its own off the walks' paths; `call_expand_call` and
+    `call_expand_word`; `Tail::CallExpand`.
+  - The catalogue: the three refusals, 287 in the language's half,
+    `check_data_exports`' floor raised to the count.
+  - The prelude: `dotimes` builds its binding by `list`, `(for (list v 1 n)
+    body)`, and `quote-map`, `quote-reduce` and `quote-filter-onto` call by
+    `call-expand`, its header and its library's words saying why; its two
+    copies in the crates. Every build's stamp moved with it, the prelude now
+    `AA0247AC…` over 21,929 non-whitespace bytes where `BE838B25…` over
+    21,707: the three build goldens (`frazaro build … --replace`), and the
+    four reflect and two diff goldens that read them, a line each.
+  - `TestHeads`, 29 pure pins, wired after `TestHygiene`, six of them a
+    quote's datum's, from the owner's first pass; seven pins moved
+    with their meanings, `TestNamedPieces`' four (a macro calling itself by
+    its own piece, a parameter at the head of the piece it hands on, a
+    piece's word at a head, the rest at the operator), `TestSelfForms`' one
+    (a parameter named `self` in its own binding) and `TestFunctions`' two
+    (a function handed to a function, a parameter at a function's head).
+  - The expand fixture's 34 cases, 18 written and 16 refused, twelve of them
+    a quote's datum's, from the owner's first pass; seven records
+    moved with their meanings, five of them renamed for them
+    (`a-macro-calling-itself-by-its-own-piece`, which reads,
+    `a-piece-s-word-at-a-head-of-its-template-is-kept`,
+    `a-rest-spelled-as-its-own-mark-at-the-operator-refused`,
+    `a-parameter-named-self-in-a-macro-s-own-binding`, which reads, and
+    `a-parameter-at-a-function-s-head-refused`), `tower-rule`'s refused by
+    the new id and `a-function-handed-to-a-function` written over
+    `call-expand`, its record the same; every other record unmoved by the
+    prelude's rewrite. Floors 836, 432 and 98. The port's prediction kept
+    apart (`target/vla11_slice2_expand_golden_prediction.txt` in the shared
+    tree).
+  - `check_expand_golden`'s rule 14 and the control's (ac) to (aj), 36
+    mutants in all, mutant (t)'s anchor moved with `Substitute`'s signature.
+  - The port's tests: `a_binder_at_a_head_is_refused_where_it_binds`,
+    `a_head_reads_where_its_word_is_the_author_s`, `a_quote_s_datum_is_data`,
+    `call_expand_calls_what_a_word_names`, and the law
+    `the_check_refuses_exactly_a_binder_at_a_head`, 3,000 generated templates
+    under quasiquotes, unquotes and quotes, each refused exactly when a
+    parameter or the rest stands at a head outside a shield and outside a
+    quote's datum; three pins moved, the growing
+    macros written by `list` (here and in `tests/limits.rs`) and the rest at
+    the operator refused.
+  - `0.15.0`'s two notes; the tutorial's Sections 10 and 14; the crate's
+    README.
+
+  **Where the second slice moved from the scoping.**
+  - *A quote's datum is data,* as the scoping's walker had it, passing a
+    quote by. The first build had it otherwise, refusing a binder at a head
+    inside a quote since substitution enters one; the owner's first pass
+    caught it (`pl5`, below), and a probe found worse, a named piece's word
+    at a quoted list's head kept in silence, `(quote (sheet 1))` where
+    `(quote ("S" 1))`. Substitution now takes a quote's datum whole, every
+    list's head in it a value's place, through the forms computed there, a
+    loop's body, a let-expand's, a primitive's and a function's arguments; a
+    function's body, a define's form and a call handed in keep their own
+    rule, the author's code and never the quote's.
+  - *A declaration's names are no heads.* A loop's, a let-expand's and a
+    bind-expand's binding holds the words it declares at its lists' heads;
+    they pass, their values read. So a parameter named `self` binds in its
+    own bind-expand, `(bind-expand ((self self)) ...)`, which was refused.
+  - *A call through `call-expand` in a function's tail loops,* as `VLA.8`'s
+    decision 7 asks of every call there: `FunctionStep` and `tail_of` read
+    through it to a function's call.
+  - *It reads a primitive too,* the call computed as one written at the
+    head, which closes `VLA.8`'s Found: `(quote-filter null? lists)` keeps
+    the empty lists.
+
+  **The owner's first pass,** 2026-11-19, in Excel: pure 2682 of 2683, host
+  333 of 333, the one failure `pl5`'s "template parameters substitute inside
+  a quoted template body", P.L5's data-parameterization privilege, which the
+  slice refused, `(defmacro (pal c) (set! x (quote (c blue))))`. Twenty probes
+  of a quote in a template, each run over the first slice and over this one:
+  ten refused and one moved in silence before the fix; after it every one the
+  first slice's bytes but five, each the rule's: `call-expand` computed in a
+  quote as a primitive is, and a function's body, a call handed in, an
+  unquote under a quasiquote's quote and a head beside a quote refused as
+  code.
+
+  **Held by** the port over `edcba68`, the first pass's fix in: 991 passed, 0
+  failed and 5 ignored over the workspace (`--no-fail-fast`); the package's
+  own suite from its tarball, 708, at CI's optimization and unoptimized alike,
+  each compiled in a target of its own (a first run in the first slice's
+  target compiled nothing and ran the first slice's tests, its tell no
+  `Compiling` line); `clippy` (twice, as CI runs it) and `fmt` clean;
+  `run_checks.ps1` 60 of 60, `check_raise_ratchet`'s ceiling for `VLA.bas`
+  raised from 12 to 14 for the two re-raises, `SubstituteQuoted`'s and
+  `ReadBare`'s; `check_expand_golden -Control` failing each of its 36
+  mutants; `prove -Impl` 70 passed. Alonzo at `91cc254` over this `vla-lang`
+  (a scratch copy, its `[patch.crates-io]`, cargo's tree naming the patch;
+  `0c55449` after it moves no cartridge and no pass): its twelve cartridges
+  `same`, Superposition's with `neighbors` written over `call-expand`, its
+  parameter `then` called at four heads, `(call-expand then ("A1" ...))`
+  where `(then ("A1" ...))`, the edit Alonzo's pin to `0.15.0` makes; as
+  committed it is refused by name, the only one. Buffet's source, 1,494 rows,
+  the same bytes; Life's three rungs through a door's values, the old
+  ladder's bytes. The first build, before the fix, held the same with 990,
+  707 and 31 mutants. And over `6d163ab`, a peer's `KERNEL.55` commit landed
+  meanwhile: 993 passed, 0 failed and 5 ignored over the workspace,
+  `run_checks.ps1` 60 of 60 once the door was built again over it, and
+  `prove -Impl` 70 passed.
+
+  **The owner's second pass,** 2026-11-19, in Excel, each step as the
+  handover named it: `VlaDevReload`, Debug > Compile, `VlaSelfTests`, pure
+  2689 of 2689 and host 333 of 333, `TestHeads`' 29 pins and `pl5` among
+  them; `VlaWriteExpandGolden`, 836 cases and 404 refused, the golden the
+  port's prediction byte for byte (`git diff --no-index` against the
+  prediction kept apart, empty); `VlaGoldens`, corpus and interpreter PASS,
+  no golden moved; and the three build goldens opened in Excel with no
+  repair: "All five passed". The second slice committed at the owner's word,
+  "commit slice 2 then proceed with slice 3".
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 

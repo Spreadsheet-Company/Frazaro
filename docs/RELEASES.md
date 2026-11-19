@@ -245,6 +245,33 @@
   `Expander::set_parameter`, `Expander::set_parameters`,
   `Expander::finish_parameters` and `expand::expand_text_given` are new
   (VLA.11).
+- **A parameter is never a list's head.** A changed meaning: a macro's
+  parameter or rest, a function's parameter, a loop's name or a
+  `let-expand`'s name is replaced where it stands as a value, and one
+  standing at a list's head is refused by name where it binds,
+  `vla-name-at-a-head`, where it replaced the head too: `(defmacro (label
+  name text) (name "S" "A1" text))`, which wrote the label's text as the
+  row's kind, is refused when it is defined. A named piece's word at a head
+  is the piece it spells, so `(rule "B2" (sheet sheet))` hands a piece on
+  under its own word, and a macro calls itself by its own piece, where both
+  were refused. A quote's datum is data, and there every word is replaced as
+  before, a list's head too: `(quote (c blue))` writes `(red blue)` for `c`
+  given `red`. No source of Frazaro's or Buffet's leans on a head, and of
+  Alonzo's twelve cartridges Superposition alone, whose `neighbors` hands its
+  list on by `(call-expand then ...)` at its next pin, the same bytes
+  (VLA.11).
+- **`(call-expand f argument ...)` calls what a word names.** `f` is read
+  as a value, a word, and the call as if that word had been written at the
+  head: a function's call or a primitive's computed, a macro's left for the
+  expander, any other word's written as a list. `(defexpand (apply-to f x)
+  (call-expand f x))` is how a function takes another; a call through it
+  that is a function's value loops. The prelude's `quote-map`,
+  `quote-reduce` and `quote-filter` call the function they are handed so, and
+  now take a primitive's name too, `(quote-filter null? lists)` keeping the
+  empty ones, where it was refused; `dotimes` builds its loop's binding by
+  `list`. A build's stamp names the prelude it was built with, so `rebuild`
+  of a workbook built before answers no and says why: build it again
+  (VLA.11).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,

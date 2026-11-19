@@ -41,7 +41,12 @@
 //! the door's values given apart from the source
 //! ([`Expander::set_parameter`]), each of its parameter's kind, and a value
 //! no parameter takes refused once the source has expanded
-//! ([`Expander::finish_parameters`]).
+//! ([`Expander::finish_parameters`]). Its second slice: a list's head is
+//! never a binder's, substitution keeping it as written, so a named piece's
+//! word there is the piece it spells, and a parameter, a rest, a loop's name
+//! or a let-expand's name standing there is refused by name where it binds
+//! ([`refuse_name_at_head`]); `(call-expand callee argument ...)` calls what a
+//! word names ([`call_expand_call`]).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -81,6 +86,7 @@
 //!
 //! The refusals are the catalogue's, by id, in the same situations.
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
@@ -187,8 +193,10 @@ const RESERVED: &[(&str, &str)] = &[
     ("let-expand", "expand-time value-binding form"),
     ("defexpand", "expand-time function-defining form"),
     // VLA.11: a define whose value a door may give, a form of the walk as
-    // define is.
+    // define is; and the call through a word, a form of the substitution and
+    // of the walk.
     ("parameter", "expand-time naming form a door may give a value"),
+    ("call-expand", "expand-time calling form"),
 ];
 
 /// VLA.8: the most calls of functions one working-out nests, a call in a
@@ -481,6 +489,11 @@ fn nth_list(items: &[Node], i: usize) -> Result<&Seq, Refusal> {
 /// way, which the reference reads from its module (`mFunctions`, `mDefines`,
 /// `mFnDepth`), so that a template's primitive reads a define's word and calls
 /// a function; `None` for a node a test builds bare.
+/// VLA.11: and whether substitution stands in a quote's datum, data, where
+/// every list's head is a value's place ([`substitute_quoted`]), the
+/// reference's `mQuoted`: a loop's and a let-expand's scope copy it, and an
+/// empty scope ([`Env::bare`]), a function's body's among them, starts
+/// without it.
 #[derive(Default)]
 struct Env<'r> {
     bindings: HashMap<&'r str, Node>,
@@ -490,6 +503,7 @@ struct Env<'r> {
     functions: Option<&'r HashMap<String, Arc<Function>>>,
     defines: Option<&'r HashMap<String, Node>>,
     calls: Option<&'r Calls>,
+    quoted: Cell<bool>,
 }
 
 impl<'r> Env<'r> {
@@ -780,6 +794,16 @@ impl Expander {
         } else {
             return Err(raise("vla-defmacro-missing-template", &[("name", &mname)]));
         };
+        // VLA.11: a parameter or the rest standing at a list's head in the
+        // template, refused by name; a named piece's word there is the piece it
+        // spells, passed by as written.
+        let template_node = Node::of(&template);
+        refuse_name_at_head(
+            &template_node,
+            &binder_words(&params, &rest_name),
+            &format!("defmacro '{mname}'"),
+            false,
+        )?;
 
         // The name is new here: its second definition was refused above.
         self.rules.insert(
@@ -788,7 +812,7 @@ impl Expander {
                 params: params.iter().map(|p| fold(p)).collect(),
                 param_words: params.clone(),
                 rest_name: fold(&rest_name),
-                template: Node::of(&template),
+                template: template_node,
                 pieces: pieces.iter().map(RulePiece::of).collect(),
                 piece_index,
                 loc: src_line_tag(f.line, 0),
@@ -930,12 +954,22 @@ impl Expander {
                 &[("name", &fname), ("n", &forms.to_string())],
             ));
         }
+        // VLA.11: a parameter or the rest standing at a list's head in the
+        // body, refused by name: a function handed in is called by
+        // call-expand.
+        let body = Node::of(f.nth(doc_idx)?);
+        refuse_name_at_head(
+            &body,
+            &binder_words(&params, &rest_name),
+            &format!("defexpand '{fname}'"),
+            false,
+        )?;
         self.functions.insert(
             fold(&fname),
             Arc::new(Function {
                 params,
                 rest_name,
-                body: Node::of(f.nth(doc_idx)?),
+                body,
                 name: fname,
                 doc,
             }),
@@ -1099,6 +1133,18 @@ impl Expander {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
                 let next = each_begin(items, &self.bare_env())?;
+                cur = next;
+                continue;
+            }
+            // VLA.11: the call through a word outside any template: its callee
+            // read as a value (a define's word its form), and the call handed
+            // back to this loop as if written here, one link of the chain.
+            if head_fold == "call-expand" {
+                chain_len += 1;
+                if chain_len > 5000 {
+                    return Err(raise("vla-macro-self-expansion-limit", &[]));
+                }
+                let next = call_expand_call(items, &self.bare_env(), lst.line)?;
                 cur = next;
                 continue;
             }
@@ -2323,6 +2369,7 @@ fn expand_one(call: &[Node], rule: &Rule, tables: &Env, line: u32) -> Result<Nod
         functions: tables.functions,
         defines: tables.defines,
         calls: tables.calls,
+        quoted: Cell::new(false),
     };
     for (j, p) in rule.params.iter().enumerate() {
         env.bindings.insert(p, call[j + 1].clone());
@@ -2336,8 +2383,26 @@ fn expand_one(call: &[Node], rule: &Rule, tables: &Env, line: u32) -> Result<Nod
 /// VBA `Substitute`: a template with its parameters replaced, each by its
 /// value itself (`Set Substitute = v`). Inside a quasiquote shield
 /// (`in_quasi`) a bare symbol is data, and only an explicit `unquote` or
-/// `unquote-splicing` reaches the bindings.
+/// `unquote-splicing` reaches the bindings. VLA.11: a list's head is never a
+/// binder's, so a symbol there is kept as written ([`substitute_at`]), but in
+/// a quote's datum, data ([`substitute_quoted`]).
 fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
+    substitute_at(t, env, in_quasi, false)
+}
+
+/// VLA.11, VBA `Substitute`'s `headIsValue`: [`substitute`], a list's head
+/// kept as written but where `head_is_value`, a nested definition's
+/// signature alone, whose head is the name it gives, a value's place, and in
+/// a quote's datum (`env.quoted`), where every head is. The definition
+/// refuses a parameter, a rest, a loop's name or a let-expand's name standing
+/// at a head outside a quote ([`refuse_name_at_head`]); a named piece's word
+/// there is the piece it spells.
+fn substitute_at(
+    t: &Node,
+    env: &Env,
+    in_quasi: bool,
+    head_is_value: bool,
+) -> Result<Node, Refusal> {
     let lst = match t {
         Node::List(l) => l,
         Node::Sym(s) if !in_quasi => {
@@ -2403,10 +2468,22 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             "each" | "each-index" if !in_quasi => {
                 return each_begin(items, env);
             }
+            // VLA.11: the call through a word, its callee read as a value and
+            // its call read as if written here ([`call_expand_call`]); shielded
+            // data inside a quasiquote, as the loop is.
+            "call-expand" if !in_quasi => {
+                return substitute(&call_expand_call(items, env, lst.line)?, env, false);
+            }
+            // VLA.11: a quote's datum is data, every list's head in it a
+            // value's place ([`substitute_quoted`]); shielded data inside a
+            // quasiquote, and taken once, `env.quoted` holding below it.
+            "quote" if !in_quasi && !env.quoted.get() => {
+                return substitute_quoted(t, env, head_is_value);
+            }
             // VLA.8: a value bound for one form, and a function's call, its head
-            // the function's name or a word of the template naming one; shielded
-            // data inside a quasiquote, as the primitives are. One arm and one
-            // call, so that this recursive frame grows the least it can.
+            // the function's name; shielded data inside a quasiquote, as the
+            // primitives are. One arm and one call, so that this recursive frame
+            // grows the least it can.
             _ if !in_quasi
                 && (h == "let-expand" || function_head_name(&items[0], env).is_some()) =>
             {
@@ -2417,7 +2494,10 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
     }
 
     let mut out = Vec::with_capacity(items.len());
-    for e in items {
+    // VLA.11: a definition's head makes the next element its signature.
+    let mut sig_next = false;
+    for (k, e) in items.iter().enumerate() {
+        let sig_here = std::mem::take(&mut sig_next);
         let mut spliced = false;
         if in_quasi && e.head_is("unquote-splicing") {
             let Node::List(spl) = e else { unreachable!() };
@@ -2437,6 +2517,13 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             spliced = true;
         } else if !in_quasi {
             match e {
+                // VLA.11: a list's head kept as written, never a binder's,
+                // but in a quote's datum, data.
+                Node::Sym(s) if k == 0 && !head_is_value && !env.quoted.get() => {
+                    out.push(e.clone());
+                    sig_next = is_definition_head(s);
+                    spliced = true;
+                }
                 Node::Sym(s) if !env.rest_name.is_empty() && fold(s) == env.rest_name => {
                     // The rest parameter as an element: its forms spliced in.
                     out.extend(env.rest_items.iter().cloned());
@@ -2451,12 +2538,28 @@ fn substitute(t: &Node, env: &Env, in_quasi: bool) -> Result<Node, Refusal> {
             }
         }
         if !spliced {
-            out.push(substitute(e, env, in_quasi)?);
+            out.push(substitute_at(e, env, in_quasi, sig_here)?);
         }
     }
     // S3.1: a template copy is explicitly untagged; the user's own forms
     // spliced in above keep their lines.
     Ok(Node::list(out))
+}
+
+/// VLA.11, VBA `SubstituteQuoted`: a quote substituted whole with
+/// `env.quoted` set: its datum is data, so every list inside it takes its head
+/// as a value's place, a parameter's word replaced there as anywhere (P.L5's
+/// privilege), and so does every form computed there, a loop's body, a
+/// let-expand's, a function's arguments; a function's body keeps its own rule,
+/// its scope an empty one ([`Env::bare`]). Called only with `env.quoted`
+/// false, which every way out restores. A frame of its own, off the walks'
+/// paths.
+#[inline(never)]
+fn substitute_quoted(t: &Node, env: &Env, head_is_value: bool) -> Result<Node, Refusal> {
+    env.quoted.set(true);
+    let result = substitute_at(t, env, false, head_is_value);
+    env.quoted.set(false);
+    result
 }
 
 /// VBA `FuseSymbol`: `(symbol a b ...)` fuses each argument's resolved
@@ -2564,6 +2667,17 @@ fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
         }
         folds.push(name_fold);
     }
+    // VLA.11: a name the loop binds standing at a list's head in its forms,
+    // refused by name, since substitution never replaces a head; but in a
+    // quote's datum, data, where it does (`env.quoted`).
+    if !env.quoted.get() {
+        refuse_names_at_head(
+            folds.iter().chain(index_fold.iter()),
+            "a loop's name",
+            &op,
+            &each_form[2..],
+        )?;
+    }
     let walked = each_list(&op, &binding[list_at], env)?;
     let start = if indexed {
         each_start_value(&op, &binding[3], env)?
@@ -2578,6 +2692,7 @@ fn each_results(each_form: &[Node], env: &Env) -> Result<Vec<Node>, Refusal> {
         functions: env.functions,
         defines: env.defines,
         calls: env.calls,
+        quoted: Cell::new(env.quoted.get()),
     };
     let mut results = Vec::new();
     for (k, element) in walked.items().iter().enumerate() {
@@ -2763,11 +2878,10 @@ fn each_body_form_into(out: &mut Vec<Node>, f: &Node, scope: &Env) -> Result<(),
 // written nesting ([`tail_of`]), the same steps in the same order.
 
 /// VLA.8, VBA `FunctionHeadName`: the folded name of the function a call's
-/// head names: the head itself when it is a function's name and no word of
-/// the template, or the word's value when a word of the template stands
-/// there bound to a function's name, so that a template handed a function
-/// calls it as `(f x)`. A word of the template hides a function of its own
-/// spelling, as it hides a define's word.
+/// head names: the head itself when it is a function's name. VLA.11: a head
+/// is never a binder's, so a word of the template there is read as written; a
+/// template handed a function calls it as `(call-expand f x)`
+/// ([`call_expand_call`]).
 fn function_head_name(head: &Node, env: &Env) -> Option<String> {
     let functions = env.functions?;
     if functions.is_empty() {
@@ -2776,14 +2890,196 @@ fn function_head_name(head: &Node, env: &Env) -> Option<String> {
     let Node::Sym(h) = head else {
         return None;
     };
-    let mut hf = fold(h);
-    if let Some(v) = env.bindings.get(hf.as_str()) {
-        let Node::Sym(s) = v else {
-            return None;
-        };
-        hf = fold(s);
-    }
+    let hf = fold(h);
     functions.contains_key(&hf).then_some(hf)
+}
+
+/// VLA.11, VBA `IsDefinitionHead`: whether a word heads a definition, whose
+/// next element is its signature, the name it gives at the signature's head.
+fn is_definition_head(s: &str) -> bool {
+    s.eq_ignore_ascii_case("defmacro") || s.eq_ignore_ascii_case("defexpand")
+}
+
+/// VLA.11, VBA `CallExpandCall`: `(call-expand callee argument ...)`, the
+/// call through a word: the callee read as a value is read
+/// ([`resolve_listops_arg`]: a parameter's value, a define's word, a call
+/// handed in computed), which must be a word ([`call_expand_word`]), and the
+/// list of that word and the arguments as written, at the call-expand's own
+/// line, for the caller to read as if it had been written there: a function's
+/// or a primitive's call computed, a macro's left for the walk, any other
+/// word's a list as written. A frame of its own, off the walks' paths.
+#[inline(never)]
+fn call_expand_call(items: &[Node], env: &Env, line: u32) -> Result<Node, Refusal> {
+    let Some(callee) = items.get(1) else {
+        let form = write_datum(&Node::list(items.to_vec()).form());
+        return Err(raise("vla-call-expand-shape", &[("form", &form)]));
+    };
+    let callee = resolve_listops_arg(callee, env)?;
+    let word = match &callee {
+        Node::Sym(s) if call_expand_word(s) => Node::Sym(Arc::clone(s)),
+        other => {
+            return Err(raise(
+                "vla-call-expand-not-a-word",
+                &[("value", &write_datum(&other.form()))],
+            ))
+        }
+    };
+    let mut call = Vec::with_capacity(items.len() - 1);
+    call.push(word);
+    call.extend(items[2..].iter().cloned());
+    Ok(Node::List(Seq::new(call, line)))
+}
+
+/// VLA.11, VBA `CallExpandWord`: whether a value names what `call-expand`
+/// calls: a word, never a number.
+fn call_expand_word(s: &str) -> bool {
+    !(formula_syntax::is_numeral(s) || formula_syntax::is_negative_numeral(s) || is_numeric(s))
+}
+
+/// VLA.11, VBA `RefuseNameAtHead`: a binder's word standing at a list's head
+/// in the forms it binds, a parameter's or a rest's in a macro's template or
+/// a function's body, a loop's names or a let-expand's in their forms,
+/// refused by name, the word and the list shown, since substitution never
+/// replaces a head: a template that leaned on it is refused, never read
+/// otherwise in silence. Never inside a quote's datum, data, where
+/// substitution replaces a binder's word wherever it stands
+/// ([`substitute_quoted`]); never under a quasiquote's shield but where an
+/// unquote punches through; a nested definition's signature's head is the
+/// name it gives, a value's place; and the names a loop, a let-expand or a
+/// bind-expand declares are no heads. `words` maps each folded word to what
+/// binds it; `form` names the binding form.
+fn refuse_name_at_head(
+    v: &Node,
+    words: &HashMap<String, &'static str>,
+    form: &str,
+    in_quasi: bool,
+) -> Result<(), Refusal> {
+    let Node::List(lst) = v else {
+        return Ok(());
+    };
+    let items = lst.items();
+    let mut first = 0;
+    if let Some(Node::Sym(head)) = items.first() {
+        first = 1;
+        let h = fold(head);
+        match h.as_str() {
+            "quasiquote" | "unquote" | "unquote-splicing" => {
+                for e in &items[1..] {
+                    refuse_name_at_head(e, words, form, h == "quasiquote")?;
+                }
+                return Ok(());
+            }
+            "quote" if !in_quasi => return Ok(()),
+            _ => {}
+        }
+        if !in_quasi {
+            if let Some(what) = words.get(&h) {
+                return Err(raise(
+                    "vla-name-at-a-head",
+                    &[
+                        ("form", form),
+                        ("what", what),
+                        ("word", head),
+                        ("list", &write_datum(&v.form())),
+                    ],
+                ));
+            }
+            match h.as_str() {
+                // The signature: its head the name given, a piece's
+                // declaration its word and its default, the default read.
+                "defmacro" | "defexpand" => {
+                    for e in list_items_from(items.get(1), 1) {
+                        refuse_name_at_head_from(e, words, form, 1)?;
+                    }
+                    first = 2;
+                }
+                "each" => {
+                    refuse_name_at_head_from_opt(items.get(1), words, form, 1)?;
+                    first = 2;
+                }
+                "each-index" => {
+                    refuse_name_at_head_from_opt(items.get(1), words, form, 2)?;
+                    first = 2;
+                }
+                "let-expand" | "bind-expand" => {
+                    for e in list_items_from(items.get(1), 0) {
+                        refuse_name_at_head_from(e, words, form, 1)?;
+                    }
+                    first = 2;
+                }
+                _ => {}
+            }
+        }
+    }
+    for e in items.iter().skip(first) {
+        refuse_name_at_head(e, words, form, in_quasi)?;
+    }
+    Ok(())
+}
+
+/// VLA.11: a list's items from the `k`th on (0-based), none for an atom or
+/// for nothing.
+fn list_items_from(n: Option<&Node>, k: usize) -> &[Node] {
+    match n {
+        Some(Node::List(l)) => l.items().get(k..).unwrap_or(&[]),
+        _ => &[],
+    }
+}
+
+/// VLA.11, VBA `RefuseNameAtHeadFrom`: a declaration's items from the `k`th
+/// on (0-based), the names before them passed by: a signature's parameters, a
+/// loop's list, a binding's value.
+fn refuse_name_at_head_from(
+    v: &Node,
+    words: &HashMap<String, &'static str>,
+    form: &str,
+    k: usize,
+) -> Result<(), Refusal> {
+    for e in list_items_from(Some(v), k) {
+        refuse_name_at_head(e, words, form, false)?;
+    }
+    Ok(())
+}
+
+fn refuse_name_at_head_from_opt(
+    v: Option<&Node>,
+    words: &HashMap<String, &'static str>,
+    form: &str,
+    k: usize,
+) -> Result<(), Refusal> {
+    match v {
+        Some(v) => refuse_name_at_head_from(v, words, form, k),
+        None => Ok(()),
+    }
+}
+
+/// VLA.11: a loop's or a let-expand's names, folded, held to the forms they
+/// bind ([`refuse_name_at_head`]); a frame of its own, so that the walks'
+/// recursive frames gain no table.
+#[inline(never)]
+fn refuse_names_at_head<'a>(
+    folds: impl Iterator<Item = &'a String>,
+    what: &'static str,
+    form: &str,
+    forms: &[Node],
+) -> Result<(), Refusal> {
+    let words: HashMap<String, &'static str> = folds.map(|f| (f.clone(), what)).collect();
+    for f in forms {
+        refuse_name_at_head(f, &words, form, false)?;
+    }
+    Ok(())
+}
+
+/// VLA.11, VBA `BinderWords`: the words a definition binds, by their fold,
+/// each with what binds it as a refusal says it: its parameters, and its rest
+/// when it has one.
+fn binder_words(params: &[String], rest: &str) -> HashMap<String, &'static str> {
+    let mut words: HashMap<String, &'static str> =
+        params.iter().map(|p| (fold(p), "a parameter")).collect();
+    if !rest.is_empty() {
+        words.insert(fold(rest), "a rest parameter");
+    }
+    words
 }
 
 /// VLA.8: [`substitute`]'s arm, VBA `Substitute`'s `let-expand` and `Case
@@ -2984,6 +3280,8 @@ enum Tail {
     Cond,
     Let,
     Call(String),
+    /// VLA.11: a call through a word, a tail call when it names a function.
+    CallExpand,
     Value,
 }
 
@@ -3001,6 +3299,7 @@ fn tail_kind(body: &Node, scope: &Env) -> Tail {
         "quote-if" => Tail::QuoteIf,
         "cond" => Tail::Cond,
         "let-expand" => Tail::Let,
+        "call-expand" => Tail::CallExpand,
         _ => match function_head_name(&lst.items()[0], scope) {
             Some(name) => Tail::Call(name),
             None => Tail::Value,
@@ -3041,6 +3340,25 @@ fn tail_of(body: &Node, scope: &Env) -> Result<Step, Refusal> {
                     scope,
                 )?))
             }
+            // VLA.11: a call through a word in a tail place is a tail call
+            // when the word names a function; any other callee is the value's.
+            Tail::CallExpand => {
+                let line = match &body {
+                    Node::List(l) => l.line,
+                    _ => 0,
+                };
+                let call = call_expand_call(list_items(&body), scope, line)?;
+                match function_head_name(&list_items(&call)[0], scope) {
+                    Some(name) => {
+                        return Ok(Step::Tail(function_bind_args(
+                            &name,
+                            list_items(&call),
+                            scope,
+                        )?))
+                    }
+                    None => break,
+                }
+            }
             Tail::Value => break,
         };
         body = next;
@@ -3052,7 +3370,7 @@ fn tail_of(body: &Node, scope: &Env) -> Result<Step, Refusal> {
 /// `LetExpandScope` builds it, then its one form, read on in that scope.
 #[inline(never)]
 fn tail_of_let(items: &[Node], scope: &Env) -> Result<Step, Refusal> {
-    let bindings = let_expand_bindings(items)?;
+    let bindings = let_expand_bindings(items, scope)?;
     let folds = let_expand_folds(bindings);
     let let_scope = let_expand_scope(bindings, &folds, scope)?;
     if items.len() != 3 {
@@ -3161,7 +3479,7 @@ fn call_text((name, args): &(String, Vec<Node>)) -> String {
 /// substituted in it, one form its own result and several one begin, as a
 /// template's are. Where a value is read it holds one form ([`value_read`]).
 fn eval_let_expand(items: &[Node], env: &Env) -> Result<Node, Refusal> {
-    let bindings = let_expand_bindings(items)?;
+    let bindings = let_expand_bindings(items, env)?;
     let folds = let_expand_folds(bindings);
     let scope = let_expand_scope(bindings, &folds, env)?;
     if items.len() == 3 {
@@ -3179,7 +3497,7 @@ fn eval_let_expand(items: &[Node], env: &Env) -> Result<Node, Refusal> {
 /// `((name value) ...)`, each a name and its value, and at least one form
 /// after them, every binding's shape held before any name is read, as
 /// `LetExpandScope` holds it.
-fn let_expand_bindings(items: &[Node]) -> Result<&[Node], Refusal> {
+fn let_expand_bindings<'a>(items: &'a [Node], env: &Env) -> Result<&'a [Node], Refusal> {
     let shape = || raise("vla-let-expand-shape", &[]);
     if items.len() < 3 {
         return Err(shape());
@@ -3195,7 +3513,30 @@ fn let_expand_bindings(items: &[Node]) -> Result<&[Node], Refusal> {
             return Err(shape());
         }
     }
+    if !env.quoted.get() {
+        refuse_let_names_at_head(bl.items(), &items[2..])?;
+    }
     Ok(bl.items())
+}
+
+/// VLA.11, `LetExpandScope`'s check: a name the let-expand binds standing at
+/// a list's head in its values or its forms, refused by name, since
+/// substitution never replaces a head, but in a quote's datum, data, where
+/// [`let_expand_bindings`] asks none; a name given twice is left to the
+/// binding ([`let_expand_scope`]).
+#[inline(never)]
+fn refuse_let_names_at_head(bindings: &[Node], forms: &[Node]) -> Result<(), Refusal> {
+    let words: HashMap<String, &'static str> = let_expand_folds(bindings)
+        .into_iter()
+        .map(|f| (f, "a let-expand's name"))
+        .collect();
+    for b in bindings {
+        refuse_name_at_head(&list_items(b)[1], &words, "let-expand", false)?;
+    }
+    for f in forms {
+        refuse_name_at_head(f, &words, "let-expand", false)?;
+    }
+    Ok(())
 }
 
 /// VLA.8: each binding's name, folded, in order, which the scope borrows.
@@ -3226,6 +3567,7 @@ fn let_expand_scope<'a>(
         functions: env.functions,
         defines: env.defines,
         calls: env.calls,
+        quoted: Cell::new(env.quoted.get()),
     };
     for (k, b) in bindings.iter().enumerate() {
         let Node::List(pair) = b else {
@@ -4557,8 +4899,10 @@ mod tests {
             // VLA.8: the value-binding form and the function-defining form.
             "let-expand",
             "defexpand",
-            // VLA.11: a define whose value a door may give.
+            // VLA.11: a define whose value a door may give, and the call
+            // through a word.
             "parameter",
+            "call-expand",
         ];
         for name in LISTOPS {
             assert!(
@@ -4830,9 +5174,13 @@ mod tests {
         // builds no copies, and meets the chain limit (TestFormTooDeep's
         // last pair). The port shares them now too, and still writes its
         // expansion out as a tree, so both stay refused here by name.
-        let deeper = expand_text("(defmacro (deeper x) (deeper (x))) (deeper 1)", "", true);
+        let deeper = expand_text(
+            "(defmacro (deeper x) (deeper (list x))) (deeper 1)",
+            "",
+            true,
+        );
         assert_eq!(deeper.unwrap_err().id, "vla-form-too-deep");
-        let dup = expand_text("(defmacro (dup x) (dup (x x))) (dup 1)", "", true).unwrap_err();
+        let dup = expand_text("(defmacro (dup x) (dup (list x x))) (dup 1)", "", true).unwrap_err();
         assert_eq!(dup.id, "vla-macro-expansion-too-large");
         assert_eq!(
             dup.text,
@@ -6390,11 +6738,12 @@ mod tests {
             expand_err("(defmacro (m (& rest)) 1)").id,
             "vla-defmacro-piece-shape"
         );
-        // A rest's word spelled as its mark, taken since the first macro, is
-        // a parameter's capture, VLA.11's.
+        // A rest's word spelled as its mark, taken since the first macro: at
+        // the operator's head it is refused by name since VLA.11, where it
+        // replaced the operator.
         assert_eq!(
-            one("(defmacro (m & &) (& \"a\" \"b\")) (m 1 2)"),
-            "(1 2 \"a\" \"b\")"
+            expand_err("(defmacro (m & &) (& \"a\" \"b\")) (m 1 2)").id,
+            "vla-name-at-a-head"
         );
     }
 
@@ -6964,6 +7313,311 @@ mod tests {
                 "define 'parameter': 'parameter' is the expand-time naming form a door may give a value, and a define binds a word of the source's own",
             ),
         ]);
+    }
+
+    // VLA.11, its second slice: a binder at a list's head.
+    #[test]
+    fn a_binder_at_a_head_is_refused_where_it_binds() {
+        let r =
+            expand_err("(defmacro (label name text) (name \"S\" \"A1\" text)) (label \"Board\" 1)");
+        assert_eq!(r.id, "vla-name-at-a-head");
+        assert_eq!(
+            r.text,
+            "defmacro 'label': 'name' stands at the head of (name \"S\" \"A1\" text), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand name ...) to call what it holds, or (list name ...) to build a list headed by it"
+        );
+        assert_refusals(&[
+            (
+                "(defmacro (progn-of & forms) (forms)) (progn-of 1 2)",
+                "vla-name-at-a-head",
+                "'forms' stands at the head of (forms), where a rest parameter is never replaced",
+            ),
+            (
+                "(defexpand (apply-to f x) (f x))",
+                "vla-name-at-a-head",
+                "defexpand 'apply-to': 'f' stands at the head of (f x), where a parameter",
+            ),
+            (
+                "(defmacro (each-of f xs) (each (x xs) (f x)))",
+                "vla-name-at-a-head",
+                "defmacro 'each-of': 'f' stands at the head of (f x)",
+            ),
+            (
+                "(each (cell (quote (1 2))) (cell \"S\" \"A1\" cell))",
+                "vla-name-at-a-head",
+                "each: 'cell' stands at the head of (cell \"S\" \"A1\" cell), where a loop's name",
+            ),
+            (
+                "(each-index (k cell (quote (1 2)) 1) (k cell))",
+                "vla-name-at-a-head",
+                "each-index: 'k' stands at the head of (k cell), where a loop's name",
+            ),
+            (
+                "(let-expand ((cell 1)) (cell \"S\" \"A1\" 2))",
+                "vla-name-at-a-head",
+                "let-expand: 'cell' stands at the head of (cell \"S\" \"A1\" 2), where a let-expand's name",
+            ),
+            (
+                "(let-expand ((f 1) (g (f 2))) g)",
+                "vla-name-at-a-head",
+                "let-expand: 'f' stands at the head of (f 2)",
+            ),
+            // A function's body keeps its rule when its call stands in a
+            // quote's datum, and so does a call handed in, both the author's
+            // code; and an unquote under a quasiquote's quote is code.
+            (
+                "(defexpand (pairs xs) (each (x xs) (x 1))) \
+                 (defmacro (m) (cell \"S\" \"A1\" (quote (a (pairs (quote (1 2))))))) (m)",
+                "vla-name-at-a-head",
+                "each: 'x' stands at the head of (x 1), where a loop's name",
+            ),
+            (
+                "(defmacro (m c) (cell \"S\" \"A1\" (quote (a (car c))))) \
+                 (m (list (each (x (quote (1 2))) (x 1))))",
+                "vla-name-at-a-head",
+                "each: 'x' stands at the head of (x 1), where a loop's name",
+            ),
+            (
+                "(defmacro (m c) (cell \"S\" \"A1\" (quasiquote (quote ((unquote (c 1))))))) (m red)",
+                "vla-name-at-a-head",
+                "defmacro 'm': 'c' stands at the head of (c 1)",
+            ),
+            (
+                "(defmacro (m c) (cell \"S\" \"A1\" (quote (c 1)) (c 2))) (m red)",
+                "vla-name-at-a-head",
+                "defmacro 'm': 'c' stands at the head of (c 2)",
+            ),
+            (
+                "(defmacro (m self) (formula-expand (lambda (self) 1))) (m 1)",
+                "vla-name-at-a-head",
+                "defmacro 'm': 'self' stands at the head of (self)",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn a_head_reads_where_its_word_is_the_author_s() {
+        // Unquoted, the author's explicit mark.
+        assert_eq!(
+            one("(defmacro (m f x) (quasiquote ((unquote f) (unquote x)))) (m cell 2)"),
+            "(cell 2)"
+        );
+        // A piece's word at a head is the piece it spells, handed on.
+        assert_eq!(
+            one("(defmacro (rule range (sheet \"Screen\")) (formula sheet range \"=1\")) \
+                 (defmacro (tower-rule (sheet \"Tower\")) (rule \"B2\" (sheet sheet))) (tower-rule)"),
+            "(formula \"Tower\" \"B2\" \"=1\")"
+        );
+        assert_eq!(
+            one("(defmacro (m (formula \"x\")) (formula \"S\" \"A1\" 1)) (m)"),
+            "(formula \"S\" \"A1\" 1)"
+        );
+        assert_eq!(
+            one("(defmacro (down (n 2)) (quote-if (=expand n 0) (done) (down (n (-expand n 1))))) (down)"),
+            "(done)"
+        );
+        // A nested signature's head is the name a generated macro takes.
+        assert_eq!(
+            one(
+                "(defmacro (make-const name value) (defmacro (name) value)) (make-const answer 42)"
+            ),
+            "(defmacro (answer) 42)"
+        );
+        // A declaration's names are no heads: a parameter named self binds.
+        assert_eq!(
+            one("(defmacro (m self) (bind-expand ((self self)) (formula-expand (last self)))) (m Tally!B1)"),
+            "\"=Tally.last!B1\""
+        );
+        // A loop's names declared, the body's heads its own.
+        assert_eq!(
+            one("(each (x (quote (1))) (cell \"S\" \"A1\" x))"),
+            "(cell \"S\" \"A1\" 1)"
+        );
+    }
+
+    /// VLA.11: a quote's datum is data, every list's head in it a value's
+    /// place, as every word of it was before the heads (P.L5's privilege):
+    /// a parameter's, a rest's and a piece's word replaced there, a loop's and
+    /// a let-expand's name, a primitive's and a function's argument data.
+    #[test]
+    fn a_quote_s_datum_is_data() {
+        assert_eq!(one("(defmacro (m f) (quote (f 1))) (m 5)"), "(quote (5 1))");
+        assert_eq!(
+            one("(defmacro (pal c) (set! x (quote (c blue)))) (sub t () (pal red))"),
+            "(sub t () (set! x (quote (red blue))))"
+        );
+        assert_eq!(
+            one("(defmacro (m & r) (quote (r 1))) (m a b)"),
+            "(quote (a b 1))"
+        );
+        assert_eq!(
+            one("(defmacro (m (sheet \"S\")) (quote (sheet 1))) (m)"),
+            "(quote (\"S\" 1))"
+        );
+        assert_eq!(
+            one("(defmacro (m c) (cell \"S\" \"A1\" (quote ((each (x (quote (1 2))) (c x)))))) (m red)"),
+            "(cell \"S\" \"A1\" (quote ((red 1) (red 2))))"
+        );
+        assert_eq!(
+            one("(defmacro (m) (cell \"S\" \"A1\" (quote ((each (x (quote (1 2))) (x 1)))))) (m)"),
+            "(cell \"S\" \"A1\" (quote ((1 1) (2 1))))"
+        );
+        assert_eq!(
+            one("(defmacro (m) (cell \"S\" \"A1\" (quote ((let-expand ((x red)) (x 1)))))) (m)"),
+            "(cell \"S\" \"A1\" (quote ((red 1))))"
+        );
+        assert_eq!(
+            one("(defmacro (m c) (cell \"S\" \"A1\" (quote (car (quote ((c 1))))))) (m red)"),
+            "(cell \"S\" \"A1\" (quote (red 1)))"
+        );
+        assert_eq!(
+            one("(defexpand (id x) x) (defmacro (m c) (cell \"S\" \"A1\" (quote (id (c 1))))) (m red)"),
+            "(cell \"S\" \"A1\" (quote (red 1)))"
+        );
+        // Under a quasiquote inside a quote, an unquote reads as data too.
+        assert_eq!(
+            one("(defmacro (m c) (cell \"S\" \"A1\" (quote (quasiquote ((unquote (c 1))))))) (m red)"),
+            "(cell \"S\" \"A1\" (quote ((red 1))))"
+        );
+    }
+
+    #[test]
+    fn call_expand_calls_what_a_word_names() {
+        let square = "(defexpand (square x) (*expand x x)) ";
+        assert_eq!(
+            one(&format!(
+                "{square}(defexpand (apply-to f x) (call-expand f x)) (cell \"S\" \"A1\" (apply-to square 4))"
+            )),
+            "(cell \"S\" \"A1\" 16)"
+        );
+        assert_eq!(
+            one("(defmacro (row-of kind at value) (call-expand kind \"S\" at value)) (row-of cell \"A1\" 2)"),
+            "(cell \"S\" \"A1\" 2)"
+        );
+        assert_eq!(
+            one("(defexpand (test-first t xs) (call-expand t (car xs))) (cell \"S\" \"A1\" (test-first null? (quote (() 1))))"),
+            "(cell \"S\" \"A1\" true)"
+        );
+        // VLA.8's Found closed: a primitive's name as quote-filter's test.
+        assert_eq!(
+            one("(cell \"S\" \"A1\" (quote-filter null? (quote ((a) () (b)))))"),
+            "(cell \"S\" \"A1\" (()))"
+        );
+        // A call through a word in a tail place loops, past the depth.
+        assert_eq!(
+            one("(defexpand (count-down n) (quote-if (=expand n 0) 0 (call-expand next-down n))) \
+                 (defexpand (next-down n) (count-down (-expand n 1))) (cell \"S\" \"A1\" (count-down 2000))"),
+            "(cell \"S\" \"A1\" 0)"
+        );
+        assert_eq!(
+            expand("(define how cell) (call-expand how \"S\" \"A1\" 1)"),
+            "(begin)\n(cell \"S\" \"A1\" 1)\n"
+        );
+        assert_refusals(&[
+            (
+                "(call-expand \"cell\" \"S\" \"A1\" 1)",
+                "vla-call-expand-not-a-word",
+                "call-expand: \"cell\" is no word, and call-expand calls what a word names",
+            ),
+            (
+                "(defmacro (m f) (call-expand f 1)) (m 5)",
+                "vla-call-expand-not-a-word",
+                "call-expand: 5 is no word",
+            ),
+            (
+                "(defmacro (m f) (call-expand f 1)) (m (1 2))",
+                "vla-call-expand-not-a-word",
+                "call-expand: (1 2) is no word",
+            ),
+            (
+                "(call-expand)",
+                "vla-call-expand-shape",
+                "call-expand: write (call-expand word argument ...), the word naming what is called and its arguments - got (call-expand)",
+            ),
+            (
+                "(defmacro (call-expand x) x)",
+                "vla-defmacro-reserved-name",
+                "'call-expand' is the expand-time calling form",
+            ),
+        ]);
+        // The prelude's dotimes builds its binding by list.
+        assert_eq!(
+            one("(sub s () (dotimes i 3 (debug-print i)))"),
+            "(sub s () (for (i 1 3) (debug-print i)))"
+        );
+    }
+
+    /// VLA.11's law of the heads: over generated templates, a macro's
+    /// definition is refused exactly when a parameter or the rest stands at a
+    /// list's head outside a quasiquote's shield (an unquote punching through)
+    /// and outside a quote's datum, which is data.
+    #[test]
+    fn the_check_refuses_exactly_a_binder_at_a_head() {
+        const WORDS: [&str; 6] = ["p", "q", "r", "cell", "f", "g"];
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut next = |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        // A template: (text, a binder at a head outside a shield and a quote).
+        fn gen(next: &mut impl FnMut(usize) -> usize, depth: u32, quasi: bool) -> (String, bool) {
+            if depth == 0 || next(3) == 0 {
+                return (WORDS[next(WORDS.len())].to_string(), false);
+            }
+            match next(7) {
+                0 if !quasi => {
+                    let (inner, bad) = gen(next, depth - 1, true);
+                    (format!("(quasiquote {inner})"), bad)
+                }
+                1 if quasi => {
+                    let (inner, bad) = gen(next, depth - 1, false);
+                    (format!("(unquote {inner})"), bad)
+                }
+                // A quote's datum is data, whatever stands in it; under a
+                // shield, a quote is shielded data, its unquotes code.
+                2 => {
+                    let (inner, bad) = gen(next, depth - 1, quasi);
+                    (format!("(quote {inner})"), quasi && bad)
+                }
+                _ => {
+                    let head = WORDS[next(WORDS.len())];
+                    let mut bad = !quasi && matches!(head, "p" | "q" | "r");
+                    let mut text = format!("({head}");
+                    for _ in 0..1 + next(3) {
+                        let (e, b) = gen(next, depth - 1, quasi);
+                        bad |= b;
+                        text.push(' ');
+                        text.push_str(&e);
+                    }
+                    text.push(')');
+                    (text, bad)
+                }
+            }
+        }
+        let (mut refused, mut accepted) = (0, 0);
+        for round in 0..3000 {
+            let (template, bad) = gen(&mut next, 4, false);
+            let src = format!("(defmacro (m p q & r) {template})");
+            let mut ex = Expander::new();
+            let forms = read_forms(&src).unwrap();
+            let got = ex.collect(forms);
+            match (&got, bad) {
+                (Err(e), true) => {
+                    assert_eq!(e.id, "vla-name-at-a-head", "round {round}: {src}");
+                    refused += 1;
+                }
+                (Ok(_), false) => accepted += 1,
+                _ => panic!(
+                    "round {round}: {src}: refused {:?}, want {bad}",
+                    got.as_ref().err()
+                ),
+            }
+        }
+        assert!(
+            refused > 500 && accepted > 500,
+            "{refused} refused, {accepted} accepted"
+        );
     }
 
     #[test]

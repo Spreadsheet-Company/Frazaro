@@ -164,7 +164,11 @@ refused in the same words.
   each refused by name past it. A refusal inside a working-out names the
   calls it stands in, `(computing (outer (a)) > (inner (a)))`. A primitive
   reads a call of a primitive or a function that a parameter, a loop's name
-  or a `let-expand`'s name hands it as that call's value. A word names one
+  or a `let-expand`'s name hands it as that call's value. A parameter is
+  replaced where it stands as a value and never at a list's head, where one
+  standing is refused by name; a function handed in is called by
+  `(call-expand f x)`, which reads `f`'s value and the call as if that word
+  had been written there. A word names one
   thing, a macro or a function, and a second definition of one name, a
   function's or a macro's, the prelude's among them, is refused by name, so
   that an expansion never depends on the order its definitions stand in.

@@ -1186,13 +1186,14 @@ EXPANDED	2
 === a-macro-calling-itself-by-a-piece-under-a-shield
 EXPANDED	3
 (done)
-=== a-macro-calling-itself-by-a-piece-bare-refused
-REFUSED	vla-macro-piece-unknown	macro 'countdown': '(2 1)' stands after its positional arguments, where only its pieces go: n
+=== a-macro-calling-itself-by-its-own-piece
+EXPANDED	3
+(done)
 === a-template-s-parameter-spelled-as-a-piece-refused
-REFUSED	vla-macro-piece-unknown	macro 'rule': '("Tower" "Tower")' stands after its positional arguments, where only its pieces go: sheet
-=== a-piece-s-word-at-a-head-of-its-template-is-replaced
+REFUSED	vla-name-at-a-head	defmacro 'tower-rule': 'sheet' stands at the head of (sheet sheet), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand sheet ...) to call what it holds, or (list sheet ...) to build a list headed by it
+=== a-piece-s-word-at-a-head-of-its-template-is-kept
 EXPANDED	1
-("x" "S" "A1" 1)
+(formula "S" "A1" 1)
 === a-positional-argument-of-another-word-is-no-piece
 EXPANDED	1
 (formula "Screen" (ref "S" "A1") "=1")
@@ -1335,9 +1336,8 @@ EXPANDED	1
 "=A1&\"x\""
 === the-text-joining-operator-for-a-piece-refused
 REFUSED	vla-macro-piece-unknown	macro 'rule': '(& "T" 1)' stands after its positional arguments, where only its pieces go: sheet (vla line 5)
-=== a-rest-spelled-as-its-own-mark-replaces-the-operator
-EXPANDED	1
-(1 2 "a" "b")
+=== a-rest-spelled-as-its-own-mark-at-the-operator-refused
+REFUSED	vla-name-at-a-head	defmacro 'm': '&' stands at the head of (& "a" "b"), where a rest parameter is never replaced - give it another name to write the word itself there, write (call-expand & ...) to call what it holds, or (list & ...) to build a list headed by it
 === a-binding-and-its-read
 EXPANDED	0
 "=Screen.last!B2"
@@ -1762,8 +1762,9 @@ EXPANDED	1
 === a-rest-named-self-hides-the-word
 EXPANDED	1
 (f 1 2)
-=== a-parameter-named-self-in-a-macro-s-own-binding-refused
-REFUSED	vla-bind-expand-word	bind-expand: 'Tally!B1' is no word it binds - it binds self alone, and a define gives any other word its form
+=== a-parameter-named-self-in-a-macro-s-own-binding
+EXPANDED	1
+"=Tally.last!B1"
 === a-text-joined-of-self-refused
 REFUSED	vla-self-in-a-primitive	&expand takes its arguments as data, and self is read only where a form stands as an expression - write the words over it, such as (offset-expand self rows columns), or (range-expand self) where a row's field wants its address
 === characters-of-self-refused
@@ -1932,9 +1933,8 @@ REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list 
 === a-function-handed-to-a-function
 EXPANDED	1
 (cell "S" "A1" 16)
-=== a-parameter-hides-a-function
-EXPANDED	1
-(5 2)
+=== a-parameter-at-a-function-s-head-refused
+REFUSED	vla-name-at-a-head	defmacro 'm': 'square' stands at the head of (square 2), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand square ...) to call what it holds, or (list square ...) to build a list headed by it
 === self-passes-through-a-function-to-the-walk-s-forms
 EXPANDED	1
 "=SUM(Screen!A1:C3)"
@@ -2134,3 +2134,90 @@ REFUSED	vla-define-shape	parameter: write (parameter name form), a name and the 
 REFUSED	vla-define-cycle	parameter 'a': the words a -> b -> a stand for one another in a ring - a parameter names a form that does not come back to it
 === a-macro-named-parameter-refused
 REFUSED	vla-defmacro-reserved-name	defmacro 'parameter': 'parameter' is the expand-time naming form a door may give a value and cannot be a macro name
+=== a-parameter-at-a-head-refused
+REFUSED	vla-name-at-a-head	defmacro 'label': 'name' stands at the head of (name "S" "A1" text), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand name ...) to call what it holds, or (list name ...) to build a list headed by it
+=== a-rest-at-a-head-refused
+REFUSED	vla-name-at-a-head	defmacro 'progn-of': 'forms' stands at the head of (forms), where a rest parameter is never replaced - give it another name to write the word itself there, write (call-expand forms ...) to call what it holds, or (list forms ...) to build a list headed by it
+=== a-function-s-parameter-at-a-head-refused
+REFUSED	vla-name-at-a-head	defexpand 'apply-to': 'f' stands at the head of (f x), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand f ...) to call what it holds, or (list f ...) to build a list headed by it
+=== a-parameter-at-a-head-in-a-loop-s-body-refused
+REFUSED	vla-name-at-a-head	defmacro 'each-of': 'f' stands at the head of (f x), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand f ...) to call what it holds, or (list f ...) to build a list headed by it
+=== a-loop-s-name-at-a-head-refused
+REFUSED	vla-name-at-a-head	each: 'cell' stands at the head of (cell "S" "A1" cell), where a loop's name is never replaced - give it another name to write the word itself there, write (call-expand cell ...) to call what it holds, or (list cell ...) to build a list headed by it
+=== a-let-expand-s-name-at-a-head-refused
+REFUSED	vla-name-at-a-head	let-expand: 'cell' stands at the head of (cell "S" "A1" 2), where a let-expand's name is never replaced - give it another name to write the word itself there, write (call-expand cell ...) to call what it holds, or (list cell ...) to build a list headed by it
+=== a-let-expand-s-name-at-a-head-in-a-later-value-refused
+REFUSED	vla-name-at-a-head	let-expand: 'f' stands at the head of (f 2), where a let-expand's name is never replaced - give it another name to write the word itself there, write (call-expand f ...) to call what it holds, or (list f ...) to build a list headed by it
+=== a-parameter-at-a-head-inside-a-quote-reads
+EXPANDED	1
+(quote (5 1))
+=== a-rest-at-a-head-inside-a-quote-reads
+EXPANDED	1
+(quote (a b 1))
+=== a-piece-s-word-at-a-head-inside-a-quote-reads
+EXPANDED	1
+(quote ("S" 1))
+=== a-parameter-at-a-head-in-a-loop-inside-a-quote-reads
+EXPANDED	1
+(cell "S" "A1" (quote ((red 1) (red 2))))
+=== a-loop-s-name-at-a-head-inside-a-quote-reads
+EXPANDED	1
+(cell "S" "A1" (quote ((1 1) (2 1))))
+=== a-let-expand-s-name-at-a-head-inside-a-quote-reads
+EXPANDED	1
+(cell "S" "A1" (quote ((red 1))))
+=== a-primitive-s-argument-inside-a-quote-is-data
+EXPANDED	1
+(cell "S" "A1" (quote (red 1)))
+=== a-function-s-argument-inside-a-quote-is-data
+EXPANDED	1
+(cell "S" "A1" (quote (red 1)))
+=== a-function-s-body-keeps-its-rule-inside-a-quote-refused
+REFUSED	vla-name-at-a-head	each: 'x' stands at the head of (x 1), where a loop's name is never replaced - give it another name to write the word itself there, write (call-expand x ...) to call what it holds, or (list x ...) to build a list headed by it (computing (pairs (1 2)))
+=== a-call-handed-in-keeps-its-rule-inside-a-quote-refused
+REFUSED	vla-name-at-a-head	each: 'x' stands at the head of (x 1), where a loop's name is never replaced - give it another name to write the word itself there, write (call-expand x ...) to call what it holds, or (list x ...) to build a list headed by it
+=== an-unquote-under-a-quasiquote-s-quote-is-code-refused
+REFUSED	vla-name-at-a-head	defmacro 'm': 'c' stands at the head of (c 1), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand c ...) to call what it holds, or (list c ...) to build a list headed by it
+=== a-head-beside-a-quote-refused
+REFUSED	vla-name-at-a-head	defmacro 'm': 'c' stands at the head of (c 2), where a parameter is never replaced - give it another name to write the word itself there, write (call-expand c ...) to call what it holds, or (list c ...) to build a list headed by it
+=== a-parameter-unquoted-at-a-head-reads
+EXPANDED	1
+(cell 2)
+=== a-piece-handed-on-under-its-own-word
+EXPANDED	2
+(formula "Tower" "B2" "=1")
+=== a-nested-signature-s-name-is-replaced
+EXPANDED	1
+(defmacro (answer) 42)
+=== call-expand-calls-a-function
+EXPANDED	1
+(cell "S" "A1" 16)
+=== call-expand-calls-a-macro
+EXPANDED	1
+(cell "S" "A1" 2)
+=== call-expand-calls-a-primitive
+EXPANDED	1
+(cell "S" "A1" true)
+=== the-prelude-s-quote-filter-over-a-primitive
+EXPANDED	1
+(cell "S" "A1" (()))
+=== call-expand-in-a-function-s-tail-loops
+EXPANDED	1
+(cell "S" "A1" 0)
+=== call-expand-at-the-top
+EXPANDED	0
+(begin)
+(cell "S" "A1" 1)
+=== call-expand-of-a-text-refused
+REFUSED	vla-call-expand-not-a-word	call-expand: "cell" is no word, and call-expand calls what a word names
+=== call-expand-of-a-number-refused
+REFUSED	vla-call-expand-not-a-word	call-expand: 5 is no word, and call-expand calls what a word names
+=== call-expand-of-a-list-refused
+REFUSED	vla-call-expand-not-a-word	call-expand: (1 2) is no word, and call-expand calls what a word names
+=== call-expand-of-nothing-refused
+REFUSED	vla-call-expand-shape	call-expand: write (call-expand word argument ...), the word naming what is called and its arguments - got (call-expand)
+=== a-macro-named-call-expand-refused
+REFUSED	vla-defmacro-reserved-name	defmacro 'call-expand': 'call-expand' is the expand-time calling form and cannot be a macro name
+=== dotimes-builds-its-binding-by-list
+EXPANDED	1
+(sub s () (for (i 1 3) (debug-print i)))

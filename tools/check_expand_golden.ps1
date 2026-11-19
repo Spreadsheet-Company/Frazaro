@@ -108,6 +108,17 @@ every push:
      ";door " lines to the door (ExpandReportFor, the port's report_for), a
      case with one EXPANDED and one REFUSED; and each of its four ids the id
      of a REFUSED record.
+ 14. VLA.11's heads: a list's head kept as written in both substitutions
+     (Substitute's atHead, substitute_at's first element) but in a quote's
+     datum, data, which both take whole (SubstituteQuoted, substitute_quoted)
+     and both walkers of the heads pass by, the reference's working-out
+     reading a function's body as its own (FunctionWorkOut); a binder at a
+     head refused where it binds by both definers (RefuseNameAtHead,
+     refuse_name_at_head over a template and a body) and for a loop's and a
+     let-expand's names in both; call-expand reserved in both and listed
+     among neither's primitives, heading a form in an EXPANDED case and in a
+     REFUSED one, taken by both substitutions, both walks and both functions'
+     tails; and each of its three ids the id of a REFUSED record.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
@@ -129,8 +140,14 @@ a golden whose second sibling writes the first's place, a reference whose
 working-out leaves the depth as it stood on a refusal, a port whose
 working-out never lowers it, a port whose loop answers a refusal of its fuel
 by `?`, past the lowering, a reference whose DefineMacro lets a second
-definition replace the first, a port whose define_macro does, and a reference
-whose VlaCompileToForms no longer holds a door's values.
+definition replace the first, a port whose define_macro does, a reference
+whose VlaCompileToForms no longer holds a door's values, a reference whose
+Substitute replaces a head again, a port whose substitute does, a
+reference whose DefineMacro lets a parameter stand at a head, a reference
+whose Substitute takes no quote's datum as data, a port whose substitute
+takes none, a reference whose walker of the heads enters a quote's datum, a
+port whose walker does, and a reference whose working-out reads a
+function's body as a quote's datum.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -183,9 +200,18 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # the definitions' 25 written by the port ahead of the reference's run, its four
 # ids the ids more; the 777 before them unmoved, the define refusals' new slot
 # filled as their texts were.
-$caseFloor = 802
-$expandedFloor = 414
-$idFloor = 95
+# 2026-11-19, VLA.11's second slice: 825 cases, 424 expanded, 98 distinct ids,
+# the heads' 23 written by the port ahead of the reference's run, its three ids
+# the ids more; seven records moved with their meanings, five of them renamed
+# for them, and every other record of the 802 unmoved by the prelude's rewrite.
+# 2026-11-19, the same slice at the owner's pass: 836 cases, 432 expanded, 98
+# distinct ids, a quote's datum data again (P.L5's pin), the case refusing a
+# parameter at a quoted head renamed for its reading and eleven beside it, 8
+# written and 4 refused, each written by the port ahead of the reference's
+# run; every other record unmoved.
+$caseFloor = 836
+$expandedFloor = 432
+$idFloor = 98
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -259,6 +285,11 @@ $functionIds = @('vla-defexpand-shape', 'vla-defexpand-name-reference',
 $parameterForm = 'parameter'
 $definitionIds = @('vla-defmacro-twice', 'vla-parameter-given-twice',
     'vla-parameter-kind', 'vla-parameter-undeclared')
+
+# VLA.11's second slice, the heads: call-expand and its three ids, which rule
+# 14 holds.
+$callForm = 'call-expand'
+$headIds = @('vla-name-at-a-head', 'vla-call-expand-shape', 'vla-call-expand-not-a-word')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -807,6 +838,66 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
+    # 14. VLA.11's heads: a list's head kept as written in both substitutions,
+    # but in a quote's datum, data, which both take whole and both walkers of
+    # the heads pass by, the reference's working-out reading a function's body
+    # as its own; a binder at a head refused where it binds, by both definers
+    # and both loops' and let-expands' binders; call-expand reserved in both
+    # and no primitive, heading a form in an EXPANDED case and in a REFUSED
+    # one, taken by both substitutions, both walks and both functions' tails;
+    # and its three ids each a refused record.
+    if ($vbaText -notmatch 'If atHead And Not headIsValue And Not mQuoted Then') {
+        [void]$problems.Add("the reference's Substitute does not keep a list's head as written")
+    }
+    if ($portText -notmatch 'Node::Sym\(s\) if k == 0 && !head_is_value && !env\.quoted\.get\(\) =>') {
+        [void]$problems.Add("the port's substitute does not keep a list's head as written")
+    }
+    if ($vbaText -notmatch 'AssignVar lprim, SubstituteQuoted\(t, bindings, restName, restItems, headIsValue\)') {
+        [void]$problems.Add("the reference's Substitute does not take a quote's datum as data")
+    }
+    if ($portText -notmatch '"quote" if !in_quasi && !env\.quoted\.get\(\) => \{' -or $portText -notmatch 'return substitute_quoted\(t, env, head_is_value\);') {
+        [void]$problems.Add("the port's substitute does not take a quote's datum as data")
+    }
+    if ($vbaText -notmatch 'If h = "quote" And Not inQuasi Then Exit Sub') {
+        [void]$problems.Add("the reference's walker of the heads enters a quote's datum")
+    }
+    if ($portText -notmatch '"quote" if !in_quasi => return Ok\(\(\)\),') {
+        [void]$problems.Add("the port's walker of the heads enters a quote's datum")
+    }
+    if ($vbaText -notmatch "mQuoted = False   ' VLA\.11: the body's heads its own") {
+        [void]$problems.Add("the reference's working-out reads a function's body as a quote's datum")
+    }
+    $vbaDefiners = [regex]::Matches($vbaText, 'RefuseNameAtHead (tmpl|f\.Item\(docIdx\)), BinderWords\(params, restName\)').Count
+    if ($vbaDefiners -ne 2) {
+        [void]$problems.Add("the reference refuses a binder at a head in $vbaDefiners definer(s), not the two (DefineMacro, DefineFunction)")
+    }
+    $portDefiners = [regex]::Matches($portText, '&binder_words\(&params, &rest_name\)').Count
+    if ($portDefiners -ne 2) {
+        [void]$problems.Add("the port refuses a binder at a head in $portDefiners definer(s), not the two (define_macro, define_function)")
+    }
+    if ($vbaText -notmatch 'RefuseNameAtHead lst\.Item\(ni\), headWords, op, False' -or $vbaText -notmatch 'RefuseNameAtHead b\.Item\(2\), headWords, "let-expand", False') {
+        [void]$problems.Add("the reference does not refuse a loop's or a let-expand's name at a head where it binds")
+    }
+    if ($portText -notmatch 'refuse_names_at_head\(' -or $portText -notmatch 'refuse_let_names_at_head\(bl\.items\(\), &items\[2\.\.\]\)\?;') {
+        [void]$problems.Add("the port does not refuse a loop's or a let-expand's name at a head where it binds")
+    }
+    if (-not $prt.Reserved.Contains($callForm)) { [void]$problems.Add("VLA.11's word '$callForm' is not in the port's RESERVED") }
+    if ($prt.Listops.Contains($callForm)) { [void]$problems.Add("VLA.11's word '$callForm' is in the port's LISTOPS, which takes data") }
+    if (-not $headsExpanded.Contains($callForm)) { [void]$problems.Add("no EXPANDED case heads a form with '$callForm'") }
+    if (-not $headsRefused.Contains($callForm)) { [void]$problems.Add("no REFUSED case heads a form with '$callForm'") }
+    if ($vbaText -notmatch 'Case "call-expand"' -or $portText -notmatch '"call-expand" if !in_quasi =>') {
+        [void]$problems.Add("a substitution does not take call-expand at a list's head")
+    }
+    if ($vbaText -notmatch 'ElseIf headFold = "call-expand" Then' -or $portText -notmatch 'if head_fold == "call-expand" \{') {
+        [void]$problems.Add("a walk does not take call-expand at a form's head")
+    }
+    if ($vbaText -notmatch 'ElseIf h = "call-expand" Then' -or $portText -notmatch 'Tail::CallExpand =>') {
+        [void]$problems.Add("a function's tail does not read a call through call-expand")
+    }
+    foreach ($x in $headIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -942,7 +1033,7 @@ if ($Control) {
         $ps = Join-Path $tmp 's.bas'
         [System.IO.File]::WriteAllText($ps, $handlerAnchor.Replace($vbaText, '$1', 1), $utf8)
         # (t) the reference whose Substitute reads the stack
-        $substituteAnchor = 'Private Function Substitute(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, Optional ByVal inQuasi As Boolean = False) As Variant'
+        $substituteAnchor = 'Private Function Substitute(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, Optional ByVal inQuasi As Boolean = False, Optional ByVal headIsValue As Boolean = False) As Variant'
         if ([regex]::Matches($vbaText, [regex]::Escape($substituteAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected Substitute''s signature once in the reference'; exit 1 }
         $pt = Join-Path $tmp 't.bas'
         [System.IO.File]::WriteAllText($pt, $vbaText.Replace($substituteAnchor, $substituteAnchor + "`r`n    If mSelfStack Is Nothing Then Exit Function"), $utf8)
@@ -989,6 +1080,46 @@ if ($Control) {
         if ([regex]::Matches($vbaText, [regex]::Escape($finishAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected VlaCompileToForms'' ParametersFinish once'; exit 1 }
         $pab = Join-Path $tmp 'ab.bas'
         [System.IO.File]::WriteAllText($pab, $vbaText.Replace($finishAnchor, "    ' VLA.11"), $utf8)
+        # (ac) the reference whose Substitute replaces a head again
+        $headAnchor = 'If atHead And Not headIsValue And Not mQuoted Then'
+        if ([regex]::Matches($vbaText, [regex]::Escape($headAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected Substitute''s head kept once'; exit 1 }
+        $pac = Join-Path $tmp 'ac.bas'
+        [System.IO.File]::WriteAllText($pac, $vbaText.Replace($headAnchor, 'If False Then'), $utf8)
+        # (ad) the port whose substitute does
+        $portHeadAnchor = 'Node::Sym(s) if k == 0 && !head_is_value && !env.quoted.get() =>'
+        if ([regex]::Matches($portSource, [regex]::Escape($portHeadAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected substitute_at''s head kept once'; exit 1 }
+        $pad = Join-Path $tmp 'ad.rs'
+        [System.IO.File]::WriteAllText($pad, $portSource.Replace($portHeadAnchor, 'Node::Sym(s) if false =>'), $utf8)
+        # (ae) the reference whose DefineMacro lets a parameter stand at a head
+        $definerAnchor = 'RefuseNameAtHead tmpl, BinderWords(params, restName)'
+        if ([regex]::Matches($vbaText, [regex]::Escape($definerAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected DefineMacro''s check of the heads once'; exit 1 }
+        $pae = Join-Path $tmp 'ae.bas'
+        [System.IO.File]::WriteAllText($pae, $vbaText.Replace($definerAnchor, 'Debug.Print tmpl, Len(restName)'), $utf8)
+        # (af) the reference whose Substitute takes no quote's datum as data
+        $quoteAnchor = 'AssignVar lprim, SubstituteQuoted(t, bindings, restName, restItems, headIsValue)'
+        if ([regex]::Matches($vbaText, [regex]::Escape($quoteAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected Substitute''s quote taken once'; exit 1 }
+        $paf = Join-Path $tmp 'af.bas'
+        [System.IO.File]::WriteAllText($paf, $vbaText.Replace($quoteAnchor, 'AssignVar lprim, Substitute(t, bindings, restName, restItems, inQuasi, headIsValue)'), $utf8)
+        # (ag) the port whose substitute takes none
+        $portQuoteAnchor = 'return substitute_quoted(t, env, head_is_value);'
+        if ([regex]::Matches($portSource, [regex]::Escape($portQuoteAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected substitute_at''s quote taken once'; exit 1 }
+        $pag = Join-Path $tmp 'ag.rs'
+        [System.IO.File]::WriteAllText($pag, $portSource.Replace($portQuoteAnchor, 'return substitute_at(t, env, in_quasi, head_is_value);'), $utf8)
+        # (ah) the reference whose walker of the heads enters a quote's datum
+        $passAnchor = 'If h = "quote" And Not inQuasi Then Exit Sub'
+        if ([regex]::Matches($vbaText, [regex]::Escape($passAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected RefuseNameAtHead''s quote passed by once'; exit 1 }
+        $pah = Join-Path $tmp 'ah.bas'
+        [System.IO.File]::WriteAllText($pah, $vbaText.Replace($passAnchor, 'If False Then Exit Sub'), $utf8)
+        # (ai) the port whose walker does
+        $portPassAnchor = '"quote" if !in_quasi => return Ok(()),'
+        if ([regex]::Matches($portSource, [regex]::Escape($portPassAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected refuse_name_at_head''s quote passed by once'; exit 1 }
+        $pai = Join-Path $tmp 'ai.rs'
+        [System.IO.File]::WriteAllText($pai, $portSource.Replace($portPassAnchor, '"quote" if false => return Ok(()),'), $utf8)
+        # (aj) the reference whose working-out reads a function's body as a quote's datum
+        $bodyAnchor = "    mQuoted = False   ' VLA.11: the body's heads its own"
+        if ([regex]::Matches($vbaText, [regex]::Escape($bodyAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected FunctionWorkOut''s clearing of mQuoted once'; exit 1 }
+        $paj = Join-Path $tmp 'aj.bas'
+        [System.IO.File]::WriteAllText($paj, $vbaText.Replace($bodyAnchor, "    ' VLA.11: the body's heads its own"), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath $syntaxPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath $syntaxPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath $syntaxPath
@@ -1017,8 +1148,16 @@ if ($Control) {
         $rz = Test-ExpandGolden $fixturePath $goldenPath $pz $portPath $catalogPath $syntaxPath
         $raa = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $paa $catalogPath $syntaxPath
         $rab = Test-ExpandGolden $fixturePath $goldenPath $pab $portPath $catalogPath $syntaxPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}, the walk without bind-expand {18}, the handler leaving the stack {19}, Substitute reading the stack {20}, the port's binding never popping {21}, a sibling writing the first's place {22}, the working-out leaving the depth {23}, the port's working-out never lowering it {24}, the fuel leaving by ? {25}, the reference replacing a macro {26}, the port replacing one {27}, a compile holding no door's values {28}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count, $rr.Problems.Count, $rs.Problems.Count, $rt.Problems.Count, $ru.Problems.Count, $rv.Problems.Count, $rw.Problems.Count, $rx.Problems.Count, $ry.Problems.Count, $rz.Problems.Count, $raa.Problems.Count, $rab.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1 -and $rr.Problems.Count -ge 1 -and $rs.Problems.Count -ge 1 -and $rt.Problems.Count -ge 1 -and $ru.Problems.Count -ge 1 -and $rv.Problems.Count -ge 1 -and $rw.Problems.Count -ge 1 -and $rx.Problems.Count -ge 1 -and $ry.Problems.Count -ge 1 -and $rz.Problems.Count -ge 1 -and $raa.Problems.Count -ge 1 -and $rab.Problems.Count -ge 1) {
+        $rac = Test-ExpandGolden $fixturePath $goldenPath $pac $portPath $catalogPath $syntaxPath
+        $rad = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pad $catalogPath $syntaxPath
+        $rae = Test-ExpandGolden $fixturePath $goldenPath $pae $portPath $catalogPath $syntaxPath
+        $raf = Test-ExpandGolden $fixturePath $goldenPath $paf $portPath $catalogPath $syntaxPath
+        $rag = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pag $catalogPath $syntaxPath
+        $rah = Test-ExpandGolden $fixturePath $goldenPath $pah $portPath $catalogPath $syntaxPath
+        $rai = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pai $catalogPath $syntaxPath
+        $raj = Test-ExpandGolden $fixturePath $goldenPath $paj $portPath $catalogPath $syntaxPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}, the walk without bind-expand {18}, the handler leaving the stack {19}, Substitute reading the stack {20}, the port's binding never popping {21}, a sibling writing the first's place {22}, the working-out leaving the depth {23}, the port's working-out never lowering it {24}, the fuel leaving by ? {25}, the reference replacing a macro {26}, the port replacing one {27}, a compile holding no door's values {28}, the reference replacing a head {29}, the port replacing one {30}, a parameter let stand at a head {31}, the reference's quote not taken {32}, the port's not taken {33}, the reference's walker in a quote {34}, the port's walker in one {35}, a function's body read as a quote's datum {36}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count, $rr.Problems.Count, $rs.Problems.Count, $rt.Problems.Count, $ru.Problems.Count, $rv.Problems.Count, $rw.Problems.Count, $rx.Problems.Count, $ry.Problems.Count, $rz.Problems.Count, $raa.Problems.Count, $rab.Problems.Count, $rac.Problems.Count, $rad.Problems.Count, $rae.Problems.Count, $raf.Problems.Count, $rag.Problems.Count, $rah.Problems.Count, $rai.Problems.Count, $raj.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1 -and $rr.Problems.Count -ge 1 -and $rs.Problems.Count -ge 1 -and $rt.Problems.Count -ge 1 -and $ru.Problems.Count -ge 1 -and $rv.Problems.Count -ge 1 -and $rw.Problems.Count -ge 1 -and $rx.Problems.Count -ge 1 -and $ry.Problems.Count -ge 1 -and $rz.Problems.Count -ge 1 -and $raa.Problems.Count -ge 1 -and $rab.Problems.Count -ge 1 -and $rac.Problems.Count -ge 1 -and $rad.Problems.Count -ge 1 -and $rae.Problems.Count -ge 1 -and $raf.Problems.Count -ge 1 -and $rag.Problems.Count -ge 1 -and $rah.Problems.Count -ge 1 -and $rai.Problems.Count -ge 1 -and $raj.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

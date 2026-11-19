@@ -510,12 +510,25 @@ so `(& rest)` there is refused as no piece; and `(& a b)` is the joining of
 two texts everywhere else, a positional argument, a piece's value or a
 default among them.
 
-A template replaces every word that is one of its parameters, a list's head
-among them. So a template that calls a macro with pieces names no parameter
-after one of them: in `(defmacro (tower sheet) (rule "B2" (sheet sheet)))`
-the call becomes `(rule "B2" ("Tower" "Tower"))`, and is refused. Spell the
-parameter otherwise, or write the call under `quasiquote` (Section 13), which
-is how a macro calls itself by a piece.
+A template replaces every word that is one of its parameters where it stands
+as a value, and never at a list's head, which is the word that says what
+the list is: a row, a statement, a call. A parameter or a rest standing at a
+head is refused when the macro is defined:
+
+> defmacro 'label': 'name' stands at the head of (name "S" "A1" text), where
+> a parameter is never replaced - give it another name to write the word
+> itself there, write (call-expand name ...) to call what it holds, or (list
+> name ...) to build a list headed by it
+
+A named piece's word at a head is the piece it spells, so a template hands a
+piece on under its own word: `(defmacro (tower (sheet "Tower")) (rule "B2"
+(sheet sheet)))` calls `rule` with `(sheet "Tower")`, and a macro calls itself
+by its own piece the same way.
+
+A quote's datum is data, where no list says what it is, so there every word
+that is a parameter is replaced wherever it stands, a list's head too:
+`(defmacro (pal c) (set! x (quote (c blue))))` writes `(quote (red blue))`
+for `(pal red)`.
 
 ## 11. No gensym
 
@@ -675,6 +688,7 @@ program runs.
 | `(each-index (index name list start) form ...)` | The same, with a count beside each element, from `start` up by one. |
 | `(define name form)` | A word for the form, in every form of the file after this one; see *A name* below. |
 | `(parameter name form)` | A define whose form a door that builds the file may replace; see *A value a door gives* below. |
+| `(call-expand f argument ...)` | The call of what `f` names, as if that word had been written at the head; see *A function* below. |
 | `(formula-expand expression)` | The expression as a formula's text; see *A formula from an expression* below. |
 | `(sheet-expand reference)` `(range-expand reference)` | A reference's sheet, and its cell or range, as texts. |
 | `(first-cell-expand reference)` | A reference's first cell, as a text: `"B1"` for `Tally!B1:E10`. |
@@ -1279,9 +1293,13 @@ calls, so a function that never stops is refused, never left running:
 > function 'down': more than 5000 calls working out one value (a function
 > that never stops calling?) (computing (down 0))
 
-A function is handed to another by its name: with `(defexpand (apply-to f
-x) (f x))`, `(apply-to square 4)` is `16`. A macro's parameter of the same
-word hides a function, as it hides a define.
+A function is handed to another by its name, and called by `call-expand`:
+with `(defexpand (apply-to f x) (call-expand f x))`, `(apply-to square 4)`
+is `16`. `(call-expand f argument ...)` reads `f` as a value, which must be a
+word, and reads the call as if that word had been written there: a
+function's call or a primitive's is computed, a macro's is left for the
+expander, and any other word writes the list as it stands. A call through
+it that is a function's value loops, as any call there does.
 
 The prelude's list library is written so: `length`, `reverse`, `append`,
 `quote-map`, `quote-reduce` and `quote-filter` are functions, and each
@@ -1364,15 +1382,17 @@ Two properties are worth a Lisp programmer's attention, because they differ
 from home.
 
 - **There is no `lambda` at expansion time.** `quote-map` takes the *name*
-  of a macro or function of one argument, and a function takes another by
-  its name. A loop's forms are a template written in place, which is what a
-  `lambda` would be for here.
+  of a macro, a function or a primitive of one argument, and a function
+  takes another by its name and calls it by `call-expand`. A loop's forms
+  are a template written in place, which is what a `lambda` would be for
+  here.
 - **A filter is a function.** `quote-if` needs its test already decided, and
   a macro's call in the test is not yet expanded at the moment the test is
   inspected; a function's call is computed there, so a filter is written as
   one, `keep-big` above. The prelude's is `quote-filter`: with `(defexpand
   (big? n) (>expand n 2))`, `(quote-filter big? (quote (1 5 2 7)))` is
-  `(5 7)`. Its test is a function answering `true` or `false`; a macro's is
+  `(5 7)`. Its test is a function or a primitive answering `true` or
+  `false`, `(quote-filter null? lists)` keeping the empty ones; a macro's is
   refused by name.
 
 ## 15. Macros that make macros

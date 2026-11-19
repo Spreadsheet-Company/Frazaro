@@ -21,6 +21,28 @@ Option Explicit
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
 Public Const VLA_CORE_VERSION As String = "VLA.11"
+' VLA.11, ITS SECOND SLICE: THE HEADS. Substitute keeps a list's head as
+' written, never a binder's, a nested definition's signature alone a value's
+' place (headIsValue, the name a generated macro takes), so a named piece's
+' word at a head is the piece or the row it spells and (rule "B2" (sheet
+' sheet)) hands a piece on under its own word. A parameter, a rest, a
+' function's parameter, a loop's name or a let-expand's name standing at a
+' head where it binds is refused by name (RefuseNameAtHead, vla-name-at-a-head):
+' at DefineMacro and DefineFunction over the template and the body, at
+' EachFormResults and LetExpandScope over the loop's and the let-expand's
+' forms; never under a quasiquote's shield, a declaration's names passed by.
+' A quote's datum is data (SubstituteQuoted, mQuoted): every list's head in it
+' a value's place, a parameter's word replaced there as before (P.L5's pin),
+' through the forms computed there, so the walker passes it by; a function's
+' body (FunctionWorkOut), a define's form and a call handed in (ReadBare) keep
+' their own rule, each restoring the flag on every way out. (call-expand callee
+' argument ...) is the call through a word (CallExpandCall): the callee read
+' as a value, a word, and the call read as if written there, in Substitute,
+' in the walk (ExpandMacros) and in a function's tail (FunctionStep), where a
+' function's call loops; FunctionHeadName reads no binding. "call-expand"
+' joins the reserved words, and the prelude's dotimes and list library are
+' written over list and call-expand.
+'
 ' VLA.11: HYGIENE BY DESIGN, ITS FIRST SLICE, THE DEFINITIONS. A macro is
 ' defined once in a compile: DefineMacro refuses a second definition of a
 ' name by name (vla-defmacro-twice), the prelude's, a phrasebook's, an
@@ -1120,6 +1142,13 @@ Private mGiven As Object           ' VLA.11: the values a door gives a source's
                                    ' VlaSetFunctionDepthLimit's limit is, since
                                    ' no door of Excel's gives one; no VlaFrame
                                    ' field
+Private mQuoted As Boolean         ' VLA.11: substitution under way inside a
+                                   ' quote's datum, data, where every list's
+                                   ' head is a value's place (SubstituteQuoted),
+                                   ' a function's body excepted
+                                   ' (FunctionWorkOut); False at every entry
+                                   ' and exit, since both restore it on every
+                                   ' way out; no VlaFrame field
 
 ' F5.0: the push/pop stack itself - NOT one of the eighteen fields a
 ' VlaFrame snapshots (it is the stack that HOLDS those snapshots).
@@ -3082,6 +3111,10 @@ Private Sub DefineMacro(f As Collection)
     Else
         VLA_Messages.RaiseMsg "vla-defmacro-missing-template", "name", mname
     End If
+    ' VLA.11: a parameter or the rest standing at a list's head in the
+    ' template, refused by name; a named piece's word there is the piece it
+    ' spells, passed by as written.
+    RefuseNameAtHead tmpl, BinderWords(params, restName), "defmacro '" & mname & "'", False
 
     Dim rec As New Collection
     rec.Add params
@@ -3302,9 +3335,12 @@ Private Function ExpandReservedDesc(ByVal wordFold As String) As String
         Case "defexpand"
             ExpandReservedDesc = "expand-time function-defining form"
         ' VLA.11: a define whose value a door may give, a form of the walk as
-        ' define is.
+        ' define is; and the call through a word, a form of the substitution
+        ' and of the walk.
         Case "parameter"
             ExpandReservedDesc = "expand-time naming form a door may give a value"
+        Case "call-expand"
+            ExpandReservedDesc = "expand-time calling form"
     End Select
 End Function
 
@@ -3984,6 +4020,13 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             chainLen = chainLen + 1
             If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
             AssignVar cur, EvalLetExpand(lst, New Collection, "", New Collection)
+        ElseIf headFold = "call-expand" Then
+            ' VLA.11: the call through a word outside any template: its callee
+            ' read as a value (a define's word its form), and the call handed
+            ' back to this loop as if written here, one link of the chain.
+            chainLen = chainLen + 1
+            If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
+            Set cur = CallExpandCall(lst, New Collection, "", New Collection)
         ElseIf FunctionNamed(headFold) Then
             ' VLA.8: a function's call the walk meets, computed, its arguments
             ' read as a primitive reads its own, and its value looked at again;
@@ -4547,8 +4590,13 @@ End Function
 ' an active quasiquote shield" - bare-symbol/restName auto-substitution
 ' below is suppressed (data by default), and only an explicit
 ' (unquote ...)/(unquote-splicing ...) hole punches back through to
-' ordinary substitution.
-Private Function Substitute(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, Optional ByVal inQuasi As Boolean = False) As Variant
+' ordinary substitution. VLA.11: a list's head is never a binder's, so a
+' symbol there is kept as written (the definition refuses a parameter, a
+' rest, a loop's name or a let-expand's name standing there, RefuseNameAtHead,
+' and a named piece's word there is the piece it spells); headIsValue is True
+' for a nested definition's signature alone, whose head is the name it gives,
+' a value's place.
+Private Function Substitute(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, Optional ByVal inQuasi As Boolean = False, Optional ByVal headIsValue As Boolean = False) As Variant
     If Not IsList(t) Then
         If Not inQuasi Then
             If IsSym(t) Then
@@ -4657,11 +4705,29 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                         If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
                         Exit Function
                     End If
+                Case "call-expand"
+                    ' VLA.11: the call through a word, its callee read as a value
+                    ' and its call read as if written here (CallExpandCall), a
+                    ' function's or a primitive's computed, a macro's left for
+                    ' the walk; shielded data while inQuasi, as the loop is.
+                    If Not inQuasi Then
+                        AssignVar lprim, Substitute(CallExpandCall(lst, bindings, restName, restItems), bindings, restName, restItems)
+                        If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
+                        Exit Function
+                    End If
+                Case "quote"
+                    ' VLA.11: a quote's datum is data, every list's head in it a
+                    ' value's place (SubstituteQuoted); shielded data while
+                    ' inQuasi, and taken once, mQuoted holding below it.
+                    If Not inQuasi And Not mQuoted Then
+                        AssignVar lprim, SubstituteQuoted(t, bindings, restName, restItems, headIsValue)
+                        If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
+                        Exit Function
+                    End If
                 Case Else
                     ' VLA.8: a function's call, computed where a primitive's is,
-                    ' its head the function's name or a word of the template
-                    ' that names one (SubstituteFunctionCall); shielded data
-                    ' while inQuasi, as the primitives are.
+                    ' its head the function's name (SubstituteFunctionCall);
+                    ' shielded data while inQuasi, as the primitives are.
                     If Not inQuasi Then
                         If SubstituteFunctionCall(lst, bindings, restName, restItems, lprim) Then
                             If IsObject(lprim) Then Set Substitute = lprim Else Substitute = lprim
@@ -4675,8 +4741,14 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
     Dim outc As New Collection
     Dim e As Variant
     Dim spliced As Boolean
+    ' VLA.11: the head is the list's first element; a definition's head makes
+    ' the next one its signature, whose own head is a value's place.
+    Dim atHead As Boolean, sigNext As Boolean, sigHere As Boolean
+    atHead = True
     For Each e In lst
         spliced = False
+        sigHere = sigNext
+        sigNext = False
         If inQuasi And ListHeadIs(e, "unquote-splicing") Then
             ' QUASIQUOTE: the explicit escape - generalizes the bare-
             ' restName splice below beyond just the rest param, but
@@ -4701,7 +4773,13 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
             spliced = True
         ElseIf Not inQuasi Then
             If IsSym(e) Then
-                If Len(restName) > 0 Then
+                If atHead And Not headIsValue And Not mQuoted Then
+                    ' VLA.11: a list's head kept as written, never a binder's,
+                    ' but in a quote's datum, data.
+                    outc.Add e
+                    spliced = True
+                    sigNext = IsDefinitionHead(CStr(e))
+                ElseIf Len(restName) > 0 Then
                     If VLA_Identity.Fold(CStr(e)) = restName Then
                         ' Rest param as a list element: splice its forms in.
                         Dim ri As Variant
@@ -4718,13 +4796,176 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                 spliced = True
             End If
         End If
-        If Not spliced Then outc.Add Substitute(e, bindings, restName, restItems, inQuasi)
+        If Not spliced Then outc.Add Substitute(e, bindings, restName, restItems, inQuasi, sigHere)
+        atHead = False
     Next
     TagLine outc, 0   ' S3.1: template copies are EXPLICITLY untagged -
                       ' spliced user forms above keep their own tags,
                       ' which is the attribution doctrine unchanged
     Set Substitute = outc
 End Function
+
+' VLA.11: a quote substituted whole with mQuoted set: its datum is data, so
+' every list inside it takes its head as a value's place, a parameter's word
+' replaced there as anywhere (P.L5's privilege), and so does every form
+' computed there, a loop's body, a let-expand's, a function's arguments; a
+' function's body keeps its own rule (FunctionWorkOut). Called only with
+' mQuoted False, which every way out restores, a refusal raised again from
+' locals (trap 1).
+Private Function SubstituteQuoted(t As Variant, bindings As Collection, ByVal restName As String, restItems As Collection, ByVal headIsValue As Boolean) As Variant
+    Dim errNum As Long, errSrc As String, errDesc As String
+    Dim res As Variant
+    mQuoted = True
+    On Error GoTo fail
+    AssignVar res, Substitute(t, bindings, restName, restItems, False, headIsValue)
+    mQuoted = False
+    If IsObject(res) Then Set SubstituteQuoted = res Else SubstituteQuoted = res
+    Exit Function
+fail:
+    errNum = Err.Number: errSrc = Err.Source: errDesc = Err.Description
+    mQuoted = False
+    Err.Raise errNum, errSrc, errDesc
+End Function
+
+' VLA.11: whether a word heads a definition, whose next element is its
+' signature, the name it gives at the signature's head.
+Private Function IsDefinitionHead(ByVal s As String) As Boolean
+    Dim f As String
+    f = VLA_Identity.Fold(s)
+    IsDefinitionHead = (f = "defmacro" Or f = "defexpand")
+End Function
+
+' VLA.11: (call-expand callee argument ...), the call through a word: the
+' callee read as a value is read (ResolveListopsArg: a parameter's value, a
+' define's word, a call handed in computed), which must be a word, and the
+' list of that word and the arguments as written, the call-expand's line its
+' own, for the caller to read as if it had been written there: a function's
+' or a primitive's call computed, a macro's left for the walk, any other word's
+' a list as written.
+Private Function CallExpandCall(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
+    If lst.Count < 2 Then VLA_Messages.RaiseMsg "vla-call-expand-shape", "form", WriteDatum(lst)
+    Dim callee As Variant
+    AssignVar callee, ResolveListopsArg(lst.Item(2), bindings, restName, restItems)
+    If Not CallExpandWord(callee) Then VLA_Messages.RaiseMsg "vla-call-expand-not-a-word", "value", WriteDatum(callee)
+    Dim outc As New Collection
+    outc.Add CStr(callee)
+    Dim i As Long
+    For i = 3 To lst.Count
+        outc.Add lst.Item(i)
+    Next
+    TagLine outc, FormLine(lst)
+    Set CallExpandCall = outc
+End Function
+
+' VLA.11: whether a value names what call-expand calls: a word, never a
+' text, a number or a list.
+Private Function CallExpandWord(v As Variant) As Boolean
+    If Not IsSym(v) Then Exit Function
+    Dim s As String
+    s = CStr(v)
+    If FsIsNumeral(s) Or FsIsNegativeNumeral(s) Or FsVbaNumeral(s) Then Exit Function
+    CallExpandWord = True
+End Function
+
+' VLA.11: a binder's word standing at a list's head in the forms it binds -
+' a parameter's or a rest's in a macro's template or a function's body, a
+' loop's names or a let-expand's in their forms - refused by name, the word
+' and the list shown, since substitution never replaces a head: a template
+' that leaned on it is refused, never read otherwise in silence. Never inside
+' a quote's datum, data, where substitution replaces a binder's word wherever
+' it stands (SubstituteQuoted); never under a quasiquote's shield but where an
+' unquote punches through; a nested definition's signature's head is the name
+' it gives, a value's place; and the names a loop, a let-expand or a
+' bind-expand declares are no heads. words maps each folded word to what binds
+' it, "a parameter" and the like; formText names the binding form in the
+' refusal.
+Private Sub RefuseNameAtHead(v As Variant, words As Collection, ByVal formText As String, ByVal inQuasi As Boolean)
+    If Not IsObject(v) Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Sub
+    Dim h As String
+    Dim i As Long, first As Long
+    Dim found As Boolean
+    Dim what As Variant
+    first = 1
+    If IsSym(lst.Item(1)) Then
+        first = 2
+        h = VLA_Identity.Fold(CStr(lst.Item(1)))
+        If h = "quasiquote" Then
+            For i = 2 To lst.Count
+                RefuseNameAtHead lst.Item(i), words, formText, True
+            Next
+            Exit Sub
+        End If
+        If h = "unquote" Or h = "unquote-splicing" Then
+            For i = 2 To lst.Count
+                RefuseNameAtHead lst.Item(i), words, formText, False
+            Next
+            Exit Sub
+        End If
+        If h = "quote" And Not inQuasi Then Exit Sub
+        If Not inQuasi Then
+            what = CollGet(words, h, found)
+            If found Then VLA_Messages.RaiseMsg "vla-name-at-a-head", "form", formText, "what", CStr(what), "word", CStr(lst.Item(1)), "list", WriteDatum(lst)
+            Select Case h
+                Case "defmacro", "defexpand"
+                    ' the signature: its head the name given, a piece's
+                    ' declaration its word and its default, the default read
+                    If lst.Count >= 2 Then
+                        If IsObject(lst.Item(2)) Then
+                            For i = 2 To lst.Item(2).Count
+                                RefuseNameAtHeadFrom lst.Item(2).Item(i), words, formText, 2
+                            Next
+                        End If
+                    End If
+                    first = 3
+                Case "each"
+                    If lst.Count >= 2 Then RefuseNameAtHeadFrom lst.Item(2), words, formText, 2
+                    first = 3
+                Case "each-index"
+                    If lst.Count >= 2 Then RefuseNameAtHeadFrom lst.Item(2), words, formText, 3
+                    first = 3
+                Case "let-expand", "bind-expand"
+                    If lst.Count >= 2 Then
+                        If IsObject(lst.Item(2)) Then
+                            For i = 1 To lst.Item(2).Count
+                                RefuseNameAtHeadFrom lst.Item(2).Item(i), words, formText, 2
+                            Next
+                        End If
+                    End If
+                    first = 3
+            End Select
+        End If
+    End If
+    For i = first To lst.Count
+        RefuseNameAtHead lst.Item(i), words, formText, inQuasi
+    Next
+End Sub
+
+' VLA.11: the words a definition binds, by their fold, each with what binds
+' it as a refusal says it: its parameters, and its rest when it has one.
+Private Function BinderWords(params As Collection, ByVal restName As String) As Collection
+    Dim words As New Collection
+    Dim p As Variant
+    For Each p In params
+        words.Add "a parameter", VLA_Identity.Fold(CStr(p))
+    Next
+    If Len(restName) > 0 Then words.Add "a rest parameter", VLA_Identity.Fold(restName)
+    Set BinderWords = words
+End Function
+
+' VLA.11: a declaration's items from the k-th on, the names before them
+' passed by: a signature's parameters, a loop's list, a binding's value.
+Private Sub RefuseNameAtHeadFrom(v As Variant, words As Collection, ByVal formText As String, ByVal k As Long)
+    If Not IsObject(v) Then Exit Sub
+    Dim lst As Object
+    Set lst = v
+    Dim i As Long
+    For i = k To lst.Count
+        RefuseNameAtHead lst.Item(i), words, formText, False
+    Next
+End Sub
 
 ' QUASIQUOTE: (symbol A [B C...]) fuses each argument's resolved text
 ' into one new symbol atom, e.g. (symbol "make-" d) -> the atom
@@ -4897,6 +5138,19 @@ Private Function EachFormResults(eachForm As Variant, bindings As Collection, By
         If seen Then VLA_Messages.RaiseMsg "vla-each-name-bound", "op", op, "word", CStr(names.Item(ni))
         folds.Add nameFold, nameFold
     Next
+    ' VLA.11: a name the loop binds standing at a list's head in its forms,
+    ' refused by name, since substitution never replaces a head; but in a
+    ' quote's datum, data, where it does (mQuoted).
+    Dim headWords As New Collection
+    For ni = 1 To folds.Count
+        headWords.Add "a loop's name", CStr(folds.Item(ni))
+    Next
+    If indexed Then headWords.Add "a loop's name", indexFold
+    If Not mQuoted Then
+        For ni = 3 To lst.Count
+            RefuseNameAtHead lst.Item(ni), headWords, op, False
+        Next
+    End If
     Dim walked As Object
     Set walked = EachList(op, binding.Item(listAt), bindings, restName, restItems)
     Dim startN As Double
@@ -5174,6 +5428,9 @@ Private Sub DefineFunction(f As Collection)
         End If
     End If
     If f.Count - docIdx + 1 <> 1 Then VLA_Messages.RaiseMsg "vla-defexpand-body", "name", fname, "n", CStr(f.Count - docIdx + 1)
+    ' VLA.11: a parameter or the rest standing at a list's head in the body,
+    ' refused by name: a function handed in is called by call-expand.
+    RefuseNameAtHead f.Item(docIdx), BinderWords(params, restName), "defexpand '" & fname & "'", False
 
     Dim rec As New Collection
     rec.Add params                 ' 1: the parameters as written
@@ -5193,23 +5450,13 @@ Private Function FunctionNamed(ByVal nameFold As String) As Boolean
 End Function
 
 ' VLA.8: the folded name of the function a call's head names, or "": the
-' head itself when it is a function's name and no word of the template, or
-' the word's value when a word of the template stands there and is bound to
-' a function's name, so that a template handed a function calls it as (f x).
-' A word of the template hides a function of its own spelling, as it hides a
-' define's word.
-Private Function FunctionHeadName(head As Variant, bindings As Collection) As String
+' head itself when it is a function's name. VLA.11: a head is never a
+' binder's, so a word of the template there is read as written; a template
+' handed a function calls it as (call-expand f x) (CallExpandCall).
+Private Function FunctionHeadName(head As Variant) As String
     If Not IsSym(head) Then Exit Function
     Dim hf As String
     hf = VLA_Identity.Fold(CStr(head))
-    Dim found As Boolean
-    Dim v As Variant
-    AssignVar v, CollGet(bindings, hf, found)
-    If found Then
-        If IsObject(v) Then Exit Function
-        If Not IsSym(v) Then Exit Function
-        hf = VLA_Identity.Fold(CStr(v))
-    End If
     If FunctionNamed(hf) Then FunctionHeadName = hf
 End Function
 
@@ -5219,7 +5466,7 @@ End Function
 Private Function SubstituteFunctionCall(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection, result As Variant) As Boolean
     If mFunctions Is Nothing Then Exit Function
     Dim fname As String
-    fname = FunctionHeadName(lst.Item(1), bindings)
+    fname = FunctionHeadName(lst.Item(1))
     If Len(fname) = 0 Then Exit Function
     AssignVar result, CallFunction(fname, lst, bindings, restName, restItems)
     SubstituteFunctionCall = True
@@ -5280,7 +5527,9 @@ End Sub
 ' outermost one starting the fuel and the trail. Every way out restores the
 ' depth, and a refusal raised inside the outermost the innermost's handler
 ' meets first is given the trail of calls it stands in (FunctionTrailText),
-' then raised again from locals (trap 1).
+' then raised again from locals (trap 1). VLA.11: the body is the function's
+' own, its heads kept as written though the call stands in a quote's datum,
+' mQuoted cleared for the working-out and restored on every way out.
 Private Function FunctionWorkOut(rec As Collection, scope As Collection, ByVal restFold As String, restVals As Collection, args As Collection) As Variant
     If mFnDepth = 0 Then
         mFnFuel = 0
@@ -5291,6 +5540,9 @@ Private Function FunctionWorkOut(rec As Collection, scope As Collection, ByVal r
     mFnDepth = mFnDepth + 1
     mFnTrail.Add FunctionTrailEntry(rec, args)
     Dim errNum As Long, errSrc As String, errDesc As String
+    Dim wasQuoted As Boolean
+    wasQuoted = mQuoted
+    mQuoted = False   ' VLA.11: the body's heads its own
     On Error GoTo fail
     Dim res As Variant
     Do
@@ -5302,6 +5554,7 @@ Private Function FunctionWorkOut(rec As Collection, scope As Collection, ByVal r
     Loop
     mFnTrail.Remove mFnTrail.Count
     mFnDepth = mFnDepth - 1
+    mQuoted = wasQuoted
     If IsObject(res) Then Set FunctionWorkOut = res Else FunctionWorkOut = res
     Exit Function
 fail:
@@ -5312,6 +5565,7 @@ fail:
     End If
     mFnTrail.Remove mFnTrail.Count
     mFnDepth = mFnDepth - 1
+    mQuoted = wasQuoted
     Err.Raise errNum, errSrc, errDesc
 End Function
 
@@ -5357,8 +5611,17 @@ Private Function FunctionStep(rec As Collection, scope As Collection, restFold A
             Set scope = LetExpandScope(lst, scope, restFold, restVals)
             If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-let-expand-value-forms", "n", CStr(lst.Count - 2)
             AssignVar body, lst.Item(3)
+        ElseIf h = "call-expand" Then
+            ' VLA.11: a call through a word in a tail place is a tail call when
+            ' the word names a function; any other callee is the value's.
+            Set lst = CallExpandCall(lst, scope, restFold, restVals)
+            fname = FunctionHeadName(lst.Item(1))
+            If Len(fname) = 0 Then Exit Do
+            FunctionBindArgs fname, lst, scope, restFold, restVals, rec, scope, restFold, restVals, args
+            FunctionStep = True
+            Exit Function
         Else
-            fname = FunctionHeadName(lst.Item(1), scope)
+            fname = FunctionHeadName(lst.Item(1))
             If Len(fname) = 0 Then Exit Do
             FunctionBindArgs fname, lst, scope, restFold, restVals, rec, scope, restFold, restVals, args
             FunctionStep = True
@@ -5529,6 +5792,26 @@ Private Function LetExpandScope(lst As Object, bindings As Collection, ByVal res
         If b.Count <> 2 Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
         If Not IsSym(b.Item(1)) Then VLA_Messages.RaiseMsg "vla-let-expand-shape"
     Next
+    ' VLA.11: a name the let-expand binds standing at a list's head in its
+    ' values or its forms, refused by name, since substitution never replaces
+    ' a head; but in a quote's datum, data, where it does (mQuoted). A name
+    ' given twice is left to the binding below.
+    Dim headWords As New Collection
+    Dim headSeen As Boolean
+    For i = 1 To bl.Count
+        Set b = bl.Item(i)
+        CollGet headWords, VLA_Identity.Fold(CStr(b.Item(1))), headSeen
+        If Not headSeen Then headWords.Add "a let-expand's name", VLA_Identity.Fold(CStr(b.Item(1)))
+    Next
+    If Not mQuoted Then
+        For i = 1 To bl.Count
+            Set b = bl.Item(i)
+            RefuseNameAtHead b.Item(2), headWords, "let-expand", False
+        Next
+        For i = 3 To lst.Count
+            RefuseNameAtHead lst.Item(i), headWords, "let-expand", False
+        Next
+    End If
     Dim readKeys As New Collection, readVals As New Collection, readSeen As New Collection
     For i = 2 To lst.Count
         EachReadBindings lst.Item(i), bindings, "", "", readKeys, readVals, readSeen
@@ -5571,7 +5854,7 @@ Private Function ValueRead(argForm As Variant, ByVal v As Variant, ByVal restNam
     If Not IsObject(v) Then
         If Not mDefines Is Nothing Then
             If DefineNamed(v) Then
-                AssignVar ValueRead, ResolveListopsArg(mDefines.Item(VLA_Identity.Fold(CStr(v))), New Collection, "", New Collection)
+                AssignVar ValueRead, ReadBare(1, mDefines.Item(VLA_Identity.Fold(CStr(v))), "")
                 Exit Function
             End If
         End If
@@ -5587,11 +5870,11 @@ Private Function ValueRead(argForm As Variant, ByVal v As Variant, ByVal restNam
                     Dim hf As String
                     hf = VLA_Identity.Fold(CStr(held.Item(1)))
                     If IsListopsName(hf) Then
-                        AssignVar ValueRead, EvalListopsPrim(hf, held, New Collection, "", New Collection)
+                        AssignVar ValueRead, ReadBare(2, held, hf)
                         Exit Function
                     End If
                     If FunctionNamed(hf) Then
-                        AssignVar ValueRead, CallFunction(hf, held, New Collection, "", New Collection)
+                        AssignVar ValueRead, ReadBare(3, held, hf)
                         Exit Function
                     End If
                 End If
@@ -5599,6 +5882,37 @@ Private Function ValueRead(argForm As Variant, ByVal v As Variant, ByVal restNam
         End If
     End If
     Set ValueRead = v
+End Function
+
+' VLA.11: ValueRead's reads in an empty scope - a define's form (how 1), a
+' primitive's call handed in (2), a function's call handed in (3) - each the
+' author's own code and never a quote's datum, so mQuoted is cleared for the
+' read and restored on every way out, a refusal raised again from locals
+' (trap 1). A frame of its own, off the path of every other value read.
+Private Function ReadBare(ByVal how As Long, readForm As Variant, ByVal hf As String) As Variant
+    Dim errNum As Long, errSrc As String, errDesc As String
+    Dim wasQuoted As Boolean
+    Dim res As Variant
+    Dim heldCall As Object
+    wasQuoted = mQuoted
+    mQuoted = False
+    On Error GoTo fail
+    If how = 1 Then
+        AssignVar res, ResolveListopsArg(readForm, New Collection, "", New Collection)
+    ElseIf how = 2 Then
+        Set heldCall = readForm
+        AssignVar res, EvalListopsPrim(hf, heldCall, New Collection, "", New Collection)
+    Else
+        Set heldCall = readForm
+        AssignVar res, CallFunction(hf, heldCall, New Collection, "", New Collection)
+    End If
+    mQuoted = wasQuoted
+    If IsObject(res) Then Set ReadBare = res Else ReadBare = res
+    Exit Function
+fail:
+    errNum = Err.Number: errSrc = Err.Source: errDesc = Err.Description
+    mQuoted = wasQuoted
+    Err.Raise errNum, errSrc, errDesc
 End Function
 
 ' VLA.8: whether a folded head is one of the twenty-nine primitives, the

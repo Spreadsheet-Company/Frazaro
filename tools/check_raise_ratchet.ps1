@@ -174,8 +174,15 @@ function Get-RawRaiseCount([string]$path) {
 # depth is lowered and the trail of calls joined to its text, so that no
 # refusal leaves a later working-out a level short. No new id; the trail is
 # the refusal's own text, lengthened.
+# 2026-11-19 (VLA.11): VLA 12->14. The thirteenth and fourteenth sites are
+# SubstituteQuoted's and ReadBare's fail: handlers, the same cleanup re-raise: a
+# refusal raised inside a quote's datum, or inside a define's form or a call
+# handed in read in an empty scope (its id already recorded), is raised again
+# from locals once mQuoted is restored, so that no refusal leaves a later
+# substitution reading code as a quote's datum. No new English text; nothing an
+# id could name.
 $ceilings = @{
-    'VLA'                = 12
+    'VLA'                = 14
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4

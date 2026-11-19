@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
 Public Const VLA_MESSAGES_VERSION As String = "VLA.11"
+' VLA.11, its second slice, the heads: three refusals under VLA:
+' vla-name-at-a-head - a parameter, a rest, a loop's name or a let-expand's
+' name standing at a list's head where it binds, which substitution never
+' replaces, the word and the list shown, the fix named;
+' vla-call-expand-shape - call-expand with no callee; and
+' vla-call-expand-not-a-word - a callee whose value is a text, a number or a
+' list.
+'
 ' VLA.11: hygiene by design, its first slice, four refusals under VLA:
 ' vla-defmacro-twice - a macro defined a second time in a compile, the first
 ' one's line named; vla-parameter-given-twice - a door giving one parameter
@@ -982,6 +990,11 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-parameter-given-twice", 5, "VLA", "parameter '{word}': a door gives it a value twice, and a parameter takes one"
     AddMsg m, "vla-parameter-kind", 5, "VLA", "parameter '{word}': the door gives {value}, {kind}, where the source's value is {default}, {wants} - a door's value is of its parameter's kind"
     AddMsg m, "vla-parameter-undeclared", 5, "VLA", "parameter '{word}': a door gives it a value, and no (parameter {word} ...) of the source declares it"
+    ' VLA.11, its second slice - a binder's word where substitution never
+    ' replaces one, a list's head, and call-expand, the call through a word.
+    AddMsg m, "vla-name-at-a-head", 5, "VLA", "{form}: '{word}' stands at the head of {list}, where {what} is never replaced - give it another name to write the word itself there, write (call-expand {word} ...) to call what it holds, or (list {word} ...) to build a list headed by it"
+    AddMsg m, "vla-call-expand-shape", 5, "VLA", "call-expand: write (call-expand word argument ...), the word naming what is called and its arguments - got {form}"
+    AddMsg m, "vla-call-expand-not-a-word", 5, "VLA", "call-expand: {value} is no word, and call-expand calls what a word names"
     AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a {head} binds the forms after its own"
     AddMsg m, "vla-define-cycle", 5, "VLA", "{head} '{word}': the words {ring} stand for one another in a ring - a {head} names a form that does not come back to it"
     AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"
