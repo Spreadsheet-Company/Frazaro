@@ -197,9 +197,10 @@ fn reading_what_the_printer_wrote_gives_the_same_forms() {
 
 // ---- 2. expansion ------------------------------------------------------
 
-/// The prelude's macros: each name, its fixed parameters' count, and
-/// whether a rest parameter follows them.
-fn prelude_macros() -> Vec<(String, usize, bool)> {
+/// The prelude's definitions, its macros and (VLA.8) its functions, the
+/// list library: each name, its fixed parameters' count, and whether a rest
+/// parameter follows them.
+fn prelude_definitions(kind: &str) -> Vec<(String, usize, bool)> {
     let forms = read_forms(PRELUDE).expect("the prelude reads");
     forms
         .iter()
@@ -209,7 +210,7 @@ fn prelude_macros() -> Vec<(String, usize, bool)> {
             else {
                 return None;
             };
-            if head != "defmacro" {
+            if head != kind {
                 return None;
             }
             let Some(Form::Sym(name)) = sig.items.first() else {
@@ -224,7 +225,7 @@ fn prelude_macros() -> Vec<(String, usize, bool)> {
         .collect()
 }
 
-/// A call of one of the prelude's macros, its arguments variables, numbers,
+/// A call of one of the prelude's definitions, its arguments variables, numbers,
 /// quoted lists, core forms, or calls again, three levels deep at most.
 fn call(r: &mut Rng, macros: &[(String, usize, bool)], depth: u32) -> String {
     let (name, fixed, rest) = r.pick(macros);
@@ -271,8 +272,11 @@ fn assert_fixpoint(program: &str, what: &str) {
 #[test]
 fn expansion_reaches_its_fixpoint_in_one_pass() {
     assert_fixpoint(GOLDEN, "the corpus golden");
-    let macros = prelude_macros();
-    assert_eq!(macros.len(), 46, "the prelude's macros, read off it");
+    let mut macros = prelude_definitions("defmacro");
+    assert_eq!(macros.len(), 36, "the prelude's macros, read off it");
+    let functions = prelude_definitions("defexpand");
+    assert_eq!(functions.len(), 9, "the prelude's functions, read off it");
+    macros.extend(functions);
     let (mut expanded, mut refused) = (0, 0);
     for seed in 1..=4u64 {
         let mut r = Rng::new(seed);

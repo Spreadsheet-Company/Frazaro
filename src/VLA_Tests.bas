@@ -16,7 +16,12 @@ Public Const VLA_TESTS_VERSION As String = "VLA.8"
 ' TestDefineForms: a primitive reads a define's word as its form. Wired after
 ' TestRawStrings. VlaFunctionDepthProbe measures the reference's stack for a
 ' function's nested calls at the form depth's limit, logging each depth before
-' it is tried.
+' it is tried. Its second slice: TestListopsStdlib's twelve more, the
+' prelude's list library over functions - a value reaching a primitive, a
+' call handed in, the empty lists, a map and a fold over functions,
+' quote-filter three ways, 3,000 elements in a tail call, a macro of a
+' function's name refused, and (doc) and apropos reading a docstring; its
+' arity pin a function's text.
 '
 ' VLA.18: TestRawStrings - a raw string, #"..."#, 16 pins: the text as
 ' written, quotes and backslashes standing; two # for a text holding "#;
@@ -9517,8 +9522,15 @@ End Sub
 '  over the nine LISTOPS primitives. Always loaded (prelude.vla is
 '  prepended to every compile), so tested directly via VlaExpandText,
 '  same as TestListops's own primitives - no vocabulary/English layer
-'  involved at all. filter is deliberately absent (see prelude.vla's
-'  own comment) - not pinned here because it does not exist.
+'  involved at all. VLA.8, its second slice: length, reverse, append,
+'  quote-map, quote-reduce and the filter this header once called
+'  absent, quote-filter, are functions (defexpand), so a value they
+'  compute reaches a primitive, a test and a loop's list. The nine pins
+'  first written stand, the arity's text a function's; the twelve after
+'  them hold what the macros could not do, a long list looping in a
+'  tail call, a source's own definition of a name refused by name (a
+'  macro of it replaced the prelude's in silence), and the docstrings
+'  (doc) and apropos read.
 '  First live run (768/3... no, 781/2) found TWO real bugs, both fixed
 '  in prelude.vla, neither caught by tracing beforehand: (1) append's
 '  first version produced garbage - (append (quote (1 2)) (quote (3
@@ -9534,6 +9546,8 @@ End Sub
 Private Sub TestListopsStdlib()
     Dim t As String
     Dim fired As Long
+    Dim longList As String
+    Dim k As Long
 
     t = VlaExpandText("(identity 5)", True, fired)
     CheckFrags "listops-stdlib: identity returns its argument unchanged", t, Array("5")
@@ -9553,8 +9567,8 @@ Private Sub TestListopsStdlib()
     t = VlaExpandText("(length (quote (a b c)))", True, fired)
     CheckFrags "listops-stdlib: length folds to a compile-time literal via +expand", t, Array("3")
 
-    CheckExpandErr "listops-stdlib: length still refuses the wrong arity", _
-        "(length (quote (a b c)) (quote (d e)))", "macro 'length' expects 1 argument(s), got 2"
+    CheckExpandErr "listops-stdlib: length still refuses the wrong arity, a function's now", _
+        "(length (quote (a b c)) (quote (d e)))", "function 'length' expects 1 argument(s), got 2"
 
     t = VlaExpandText("(reverse (quote (1 2 3)))", True, fired)
     CheckFrags "listops-stdlib: reverse, accumulator-style, reverses a quoted list", t, Array("(3 2 1)")
@@ -9569,6 +9583,63 @@ Private Sub TestListopsStdlib()
     t = VlaExpandText("(defmacro (add a b) (+ a b)) (quote-reduce add 0 (quote (1 2 3)))", True, fired)
     CheckFrags "listops-stdlib: quote-reduce folds an ordinary macro left to right, starting from init", t, _
                Array("(+ (+ (+ 0 1) 2) 3)")
+
+    ' VLA.8, its second slice: what a function of the library computes is a
+    ' value where a value is read.
+    t = VlaExpandText("(cell ""S"" ""A1"" (+expand (length (quote (a b c))) 1))", True, fired)
+    CheckFrags "listops-stdlib: length's value is a number a primitive adds to", t, _
+               Array("(cell ""S"" ""A1"" 4)")
+
+    t = VlaExpandText("(cell ""S"" ""A1"" (append (reverse (quote (2 1))) (quote (3 4))))", True, fired)
+    CheckFrags "listops-stdlib: append reads a call handed in as the list it computes", t, _
+               Array("(cell ""S"" ""A1"" (1 2 3 4))")
+
+    t = VlaExpandText("(cell ""S"" ""A1"" (reverse (quote ())))", True, fired)
+    CheckFrags "listops-stdlib: reverse of the empty list is the empty list", t, _
+               Array("(cell ""S"" ""A1"" ())")
+
+    t = VlaExpandText("(defexpand (square x) (*expand x x)) (cell ""S"" ""A1"" (quote-map square (quote (1 2 3))))", True, fired)
+    CheckFrags "listops-stdlib: quote-map over a function computes each value", t, _
+               Array("(cell ""S"" ""A1"" (1 4 9))")
+
+    t = VlaExpandText("(defexpand (add a b) (+expand a b)) (cell ""S"" ""A1"" (quote-reduce add 0 (quote (1 2 3 4))))", True, fired)
+    CheckFrags "listops-stdlib: quote-reduce over a function folds to a number", t, _
+               Array("(cell ""S"" ""A1"" 10)")
+
+    t = VlaExpandText("(defexpand (big? n) (>expand n 2)) (cell ""S"" ""A1"" (quote-filter big? (quote (1 5 2 7))))", True, fired)
+    CheckFrags "listops-stdlib: quote-filter keeps what its test answers true for, in order", t, _
+               Array("(cell ""S"" ""A1"" (5 7))")
+
+    t = VlaExpandText("(defexpand (big? n) (>expand n 9)) (cell ""S"" ""A1"" (quote-filter big? (quote (1 5 2 7))))", True, fired)
+    CheckFrags "listops-stdlib: quote-filter keeping nothing is the empty list", t, _
+               Array("(cell ""S"" ""A1"" ())")
+
+    CheckExpandErr "listops-stdlib: quote-filter refuses a macro's test by name, naming its calls", _
+        "(defmacro (big? n) (> n 2)) (quote-filter big? (quote (1 5)))", _
+        "test must resolve to true or false, got a list (computing (quote-filter big? (1 5)) > (quote-filter-onto big? (1 5) ()))"
+
+    ' A long list loops: each walk's call of itself stands in a tail place,
+    ' so it spends no stack, 3,002 calls of the fuel's 5,000.
+    longList = ""
+    For k = 1 To 3000
+        longList = longList & " a"
+    Next k
+    t = VlaExpandText("(cell ""S"" ""A1"" (length (quote (" & longList & "))))", True, fired)
+    CheckFrags "listops-stdlib: length of 3,000 elements loops in a tail call", t, _
+               Array("(cell ""S"" ""A1"" 3000)")
+
+    CheckExpandErr "listops-stdlib: a source's macro of a library function's name is refused by name", _
+        "(defmacro (length x) x) (length 1)", "defmacro 'length': 'length' is a function's name in this source"
+
+    t = TryTranspile("listops-stdlib: (doc) reads a function's docstring", "(sub t () (doc length))")
+    If Len(t) > 0 Then
+        CheckFrags "listops-stdlib: (doc) reads a function's docstring", t, _
+                   Array("Debug.Print ""length: how many elements a quoted list has""")
+    End If
+
+    Report "listops-stdlib: apropos lists the library's functions, each said to be one", _
+           InStr(1, VlaAproposText("reverse"), "reverse - a quoted list's elements in the other order (expand-time function)", vbTextCompare) > 0, _
+           Left$(VlaAproposText("reverse"), 160)
 End Sub
 
 ' ---------------------------------------------------------------------

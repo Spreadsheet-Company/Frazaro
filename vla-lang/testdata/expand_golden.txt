@@ -2022,3 +2022,47 @@ REFUSED	vla-function-arity	function 'f' expects 1 argument(s), got 2
 REFUSED	vla-function-arity-min	function 'f' expects at least 1 argument(s), got 0
 === a-vast-value-in-the-trail-is-written-as-dots-refused
 REFUSED	vla-arith-expand-not-number-list	+expand: expected a number, got a list (computing (grow ... 0))
+=== the-prelude-s-length-is-a-value-a-primitive-reads
+EXPANDED	0
+(cell "S" "A1" 4)
+=== the-prelude-s-length-of-nothing
+EXPANDED	1
+(cell "S" "A1" 0)
+=== the-prelude-s-length-in-a-template
+EXPANDED	1
+(cell "S" "A1" 3)
+=== the-prelude-s-reverse
+EXPANDED	1
+(cell "S" "A1" (3 2 1))
+=== the-prelude-s-append-reads-a-call-handed-in
+EXPANDED	1
+(cell "S" "A1" (1 2 3 4))
+=== the-prelude-s-quote-map-over-a-function
+EXPANDED	1
+(cell "S" "A1" (1 4 9))
+=== the-prelude-s-quote-map-over-a-macro
+EXPANDED	4
+((+ 1 1) (+ 2 2) (+ 3 3))
+=== the-prelude-s-quote-reduce-over-a-function
+EXPANDED	1
+(cell "S" "A1" 10)
+=== the-prelude-s-quote-reduce-over-a-macro
+EXPANDED	4
+(+ (+ (+ 0 1) 2) 3)
+=== the-prelude-s-quote-filter-keeps-what-its-test-answers-true-for
+EXPANDED	1
+(cell "S" "A1" (5 7))
+=== the-prelude-s-quote-filter-of-texts
+EXPANDED	1
+(cell "S" "A1" ("a" "b"))
+=== a-loop-walks-the-prelude-s-filter
+EXPANDED	0
+(begin (cell "S" "A5" 5) (cell "S" "A7" 7))
+=== the-prelude-s-quote-filter-over-a-macro-s-test-refused
+REFUSED	vla-quote-if-test-is-list	quote-if: test must resolve to true or false, got a list (computing (quote-filter big? (1 5)) > (quote-filter-onto big? (1 5) ()))
+=== the-prelude-s-length-of-two-lists-refused
+REFUSED	vla-function-arity	function 'length' expects 1 argument(s), got 2
+=== a-macro-of-the-prelude-s-function-s-name-refused
+REFUSED	vla-defmacro-name-taken	defmacro 'length': 'length' is a function's name in this source - a word names one thing
+=== a-function-of-the-prelude-s-function-s-name-refused
+REFUSED	vla-defexpand-name-taken	defexpand 'reverse': 'reverse' is defined already in this source - a word names one thing

@@ -161,7 +161,10 @@ refused in the same words.
   or a `let-expand`'s name hands it as that call's value. A word names one
   thing, a macro or a function, and a second function of one name is
   refused. `Expander::define` takes a definition of either kind and answers
-  whether a form was one.
+  whether a form was one, and `Expander::function_doc` a function's
+  docstring. The prelude's list library is functions: `length`, `reverse`,
+  `append`, `quote-map`, `quote-reduce` and `quote-filter`, so
+  `(+expand (length (quote (a b c))) 1)` expands to `4`.
 
   The expander shares what it walks, as the add-in does: a list is held
   once, its `cdr` a view of its items and a parameter's value the argument

@@ -47,7 +47,9 @@ Public Const VLA_CORE_VERSION As String = "VLA.8"
 ' and no eval; compile-time computation is the expand-time primitives and
 ' the functions a source defines over them, pure, bounded by the fuel and
 ' landing in rows a reader sees. The port's expand.rs mirrors each, held by
-' the expand golden.
+' the expand golden. Its second slice: the prelude's list library written as
+' functions, so (doc ...) and apropos read a function's docstring as a
+' macro's (GetFunction), the core's emitter the same.
 ' VLA.18: A RAW STRING. #"..."#, a text written as it stands: where a word
 ' would begin, one # or more right before a quote open it, and it closes at
 ' the first quote followed by as many #, its text every character between
@@ -3353,6 +3355,9 @@ Private Function EmitDoc(lst As Collection, ByVal pad As String) As String
     nm = SymText(Nth(lst, 2))
     Dim rec As Collection
     Set rec = GetMacro(nm)
+    ' VLA.8: a function's docstring answers as a macro's does, the
+    ' prelude's list library among them.
+    If rec Is Nothing Then Set rec = GetFunction(nm)
     Dim msg As String
     If rec Is Nothing Then
         msg = nm & ": (not a known macro in this parse - vocabulary macros ride loads and translations, not raw scratches)"
@@ -3367,8 +3372,9 @@ End Function
 ' L11: apropos - name-match over the macro table (names AND
 ' docstrings) plus the runtime helper manifest, per the definition.
 ' Definition order, macros first: the table walks as defined
-' (prelude, then whatever the last parse carried), then helpers as
-' the manifest lists them. Parse-then-ask lifetime as ever - and a
+' (prelude, then whatever the last parse carried), then the functions
+' as defined (VLA.8, the prelude's list library), then helpers as the
+' manifest lists them. Parse-then-ask lifetime as ever - and a
 ' vocabulary load ENDS with every carried macro parsed, so
 ' load-then-ask sees the whole bench. The manifest read is fresh
 ' per call (a human asks once; no cache) and SOFT: where it cannot
@@ -3416,6 +3422,20 @@ Public Function VlaAproposText(Optional ByVal pattern As String = "") As String
                    Or InStr(1, dc, pattern, vbTextCompare) > 0 Then
                     r = r & nm & " - " & IIf(Len(dc) > 0, dc, "(no documentation)") & vbCrLf
                 End If
+            End If
+        Next
+    End If
+    ' VLA.8: the function tier - the prelude's list library and any
+    ' function the bench defines, matched on the name and the docstring
+    ' as the macros are, in the order defined, each line saying what it
+    ' is beside a program's own functions.
+    If Not mFunctions Is Nothing Then
+        For Each rec In mFunctions.Items
+            nm = CStr(rec.Item(5))
+            dc = CStr(rec.Item(4))
+            If Len(pattern) = 0 Or InStr(1, nm, pattern, vbTextCompare) > 0 _
+               Or InStr(1, dc, pattern, vbTextCompare) > 0 Then
+                r = r & nm & " - " & IIf(Len(dc) > 0, dc, "(no documentation)") & " (expand-time function)" & vbCrLf
             End If
         Next
     End If
@@ -3640,6 +3660,17 @@ Private Function GetMacro(ByVal name As String) As Collection
     Dim key As String
     key = VLA_Identity.Fold(name)
     If mMacros.Exists(key) Then Set GetMacro = mMacros.Item(key)
+End Function
+
+' VLA.8: a function's record by name, folded, or Nothing; mFunctions asked
+' only when a source defines one. Its fourth item is the docstring and its
+' fifth the name as written, as a macro's are, so that (doc ...) and apropos
+' read either alike.
+Private Function GetFunction(ByVal name As String) As Collection
+    If mFunctions Is Nothing Then Exit Function
+    Dim key As String
+    key = VLA_Identity.Fold(name)
+    If mFunctions.Exists(key) Then Set GetFunction = mFunctions.Item(key)
 End Function
 
 Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal walkDepth As Long = 1) As Variant

@@ -19,7 +19,8 @@ of their refusals among them (VLA.9), and the place a verb writes, the word
 self, bind-expand and offset-expand, each of their refusals among them
 (VLA.10), and functions at expand time, defexpand, and let-expand, with
 a define's word and a call handed in read as values, each of their
-refusals among them (VLA.8). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
+refusals among them (VLA.8), and the prelude's list library written
+over them, quote-filter among it (its second slice). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
 line names the case's own, counted from the case's first line, so an edit
 of the prelude moves nothing here.
 === car
@@ -2828,3 +2829,47 @@ lines
 === a-vast-value-in-the-trail-is-written-as-dots-refused
 (defexpand (grow x n) (quote-if (=expand n 0) (+expand x 1) (grow (list x x) (-expand n 1))))
 (grow 1 40)
+=== the-prelude-s-length-is-a-value-a-primitive-reads
+(cell "S" "A1" (+expand (length (quote (a b c))) 1))
+=== the-prelude-s-length-of-nothing
+(cell "S" "A1" (length (quote ())))
+=== the-prelude-s-length-in-a-template
+(defmacro (count-cell at xs) (cell "S" at (length xs)))
+(count-cell "A1" (x y z))
+=== the-prelude-s-reverse
+(cell "S" "A1" (reverse (quote (1 2 3))))
+=== the-prelude-s-append-reads-a-call-handed-in
+(cell "S" "A1" (append (reverse (quote (2 1))) (quote (3 4))))
+=== the-prelude-s-quote-map-over-a-function
+(defexpand (square x) (*expand x x))
+(cell "S" "A1" (quote-map square (quote (1 2 3))))
+=== the-prelude-s-quote-map-over-a-macro
+(defmacro (double x) (+ x x))
+(quote-map double (quote (1 2 3)))
+=== the-prelude-s-quote-reduce-over-a-function
+(defexpand (add a b) (+expand a b))
+(cell "S" "A1" (quote-reduce add 0 (quote (1 2 3 4))))
+=== the-prelude-s-quote-reduce-over-a-macro
+(defmacro (add a b) (+ a b))
+(quote-reduce add 0 (quote (1 2 3)))
+=== the-prelude-s-quote-filter-keeps-what-its-test-answers-true-for
+(defexpand (big? n) (>expand n 2))
+(cell "S" "A1" (quote-filter big? (quote (1 5 2 7))))
+=== the-prelude-s-quote-filter-of-texts
+(defexpand (written? s) (quote-if (equal? s "") false true))
+(cell "S" "A1" (quote-filter written? (quote ("a" "" "b"))))
+=== a-loop-walks-the-prelude-s-filter
+(defexpand (big? n) (>expand n 2))
+(each (n (quote-filter big? (quote (1 5 2 7))))
+  (cell "S" (address-expand n 1) n))
+=== the-prelude-s-quote-filter-over-a-macro-s-test-refused
+(defmacro (big? n) (> n 2))
+(cell "S" "A1" (quote-filter big? (quote (1 5))))
+=== the-prelude-s-length-of-two-lists-refused
+(length (quote (a b c)) (quote (d e)))
+=== a-macro-of-the-prelude-s-function-s-name-refused
+(defmacro (length x) x)
+(length 1)
+=== a-function-of-the-prelude-s-function-s-name-refused
+(defexpand (reverse x) x)
+(reverse 1)

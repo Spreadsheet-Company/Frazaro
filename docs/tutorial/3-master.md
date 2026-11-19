@@ -576,7 +576,7 @@ whole; the comments are half of it.
 | **Binding** | `let-one` · `let-one-as` · `when-let` · `if-let` · `try-else` · `swap!` · `returning` |
 | **Brackets** | `with-fast-excel` · `with-screen-off` · `with-no-alerts` · `with-protected-sheet` · `with-sheet` · `with-error-handler` |
 | **Instruments** | `time` · `trace-form` · `check` · `check=` · `comment` |
-| **Lists, at expansion time** | `identity` · `cadr` · `caddr` · `length` · `reverse` · `append` · `quote-map` · `quote-reduce` |
+| **Lists, at expansion time** | `identity` · `cadr` · `caddr`, and six functions (Section 14): `length` · `reverse` · `append` · `quote-map` · `quote-reduce` · `quote-filter` |
 
 Some signatures, since the arguments carry the doctrine:
 
@@ -813,22 +813,26 @@ that a verb can take its pieces by name and in any order:
 A symbol is compared without case, a text exactly and a list by its
 structure, and a head that no entry has gives `()`.
 
-**The list library** in the prelude is written with these:
+**The list library** in the prelude is written with these, as functions,
+which *A function* below introduces:
 
 ```lisp
-(defmacro
+(defexpand
     (reverse lst)
-    "reverse a quoted list"
+    "a quoted list's elements in the other order"
     (reverse-onto lst (quote ())))
 
-(defmacro
-    (reverse-onto lst acc)
-    "internal: reverse lst onto an accumulator"
-    (quote-if (null? lst) acc (reverse-onto (cdr lst) (cons (car lst) acc))))
+(defexpand
+    (reverse-onto lst kept)
+    "internal: lst's elements put in front of kept, one at a time"
+    (quote-if (null? lst)
+              kept
+              (reverse-onto (cdr lst) (cons (car lst) kept))))
 ```
 
-`length` folds to a literal: `(length (quote (a b c)))` is `3` in the
-emitted code, with no arithmetic left to do at run time.
+`length` answers a number: `(length (quote (a b c)))` is `3` in the
+emitted code, with no arithmetic left to do at run time, and since it is
+a function, `(+expand (length xs) 1)` adds to it.
 
 ### A name
 
@@ -1251,6 +1255,14 @@ A function is handed to another by its name: with `(defexpand (apply-to f
 x) (f x))`, `(apply-to square 4)` is `16`. A macro's parameter of the same
 word hides a function, as it hides a define.
 
+The prelude's list library is written so: `length`, `reverse`, `append`,
+`quote-map`, `quote-reduce` and `quote-filter` are functions, and each
+calls itself as its whole value, so it reads a list as long as the 5,000
+calls allow. A list one computes is a list the next reads: `(append
+(reverse (quote (2 1))) (quote (3 4)))` is `(1 2 3 4)`, and `(quote-map
+square (quote (1 2 3)))` is `(1 4 9)`. Handed a macro, `quote-map` gives
+the list of its calls, each expanded after.
+
 **A name for a value, inside a form.** `let-expand` names values for its
 forms, each binding reading the ones before it:
 
@@ -1297,9 +1309,11 @@ next.
 **The names it refuses** are the ones a define refuses, and a word that
 names a macro or a function already: a word names one thing, so a second
 definition of a function is refused by name, where a second macro in a file
-replaces the first. A function declares no named pieces, since its
-arguments are values and a call could not tell a piece from a call of
-another function.
+replaces the first. The prelude's functions are among them: a file's own
+`length`, a macro or a function, is refused by name, where a file may
+still replace a macro of the prelude's, `when` say. A function declares no
+named pieces, since its arguments are values and a call could not tell a
+piece from a call of another function.
 
 ### Where it stops
 
@@ -1327,8 +1341,10 @@ from home.
 - **A filter is a function.** `quote-if` needs its test already decided, and
   a macro's call in the test is not yet expanded at the moment the test is
   inspected; a function's call is computed there, so a filter is written as
-  one, `keep-big` above. The prelude has no `filter` of its own yet, and
-  says why in the place where it would be.
+  one, `keep-big` above. The prelude's is `quote-filter`: with `(defexpand
+  (big? n) (>expand n 2))`, `(quote-filter big? (quote (1 5 2 7)))` is
+  `(5 7)`. Its test is a function answering `true` or `false`; a macro's is
+  refused by name.
 
 ## 15. Macros that make macros
 
@@ -1688,7 +1704,9 @@ and a test that had passed for weeks failed. They are now `quote-map` and
 and its first item was the symbol `reverse`. The result of appending
 `(1 2)` and `(3 4)` was `((1 2) reverse 3 4)`. A call handed to a macro
 that examines it at once is data, not yet a value. The repair fused the
-two walks into one.
+two walks into one. A function's call handed in is computed before it is
+read, so the library's `append`, a function now, is written as the first
+draft meant: `(reverse-onto (reverse front) back)`.
 
 **The same name twice.** Two uses of `let-one`, `swap!` or a `with-`
 bracket in one procedure need different names for their temporaries and

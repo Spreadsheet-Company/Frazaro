@@ -1062,11 +1062,13 @@ mod tests {
     #[test]
     fn the_golden_and_the_prelude_read_print_and_read_again() {
         // The counts are what VlaReadForms(...).Count gives in Excel (the
-        // owner's step 0 reading confirms them).
+        // owner's step 0 reading confirms them). The prelude's 46 became 45
+        // at VLA.8's second slice, 36 macros and 9 functions, its list
+        // library's three continuations retired and quote-filter's two added.
         let golden = read_forms(GOLDEN).unwrap();
         assert_eq!(golden.len(), 248);
         let prelude = read_forms(PRELUDE).unwrap();
-        assert_eq!(prelude.len(), 46);
+        assert_eq!(prelude.len(), 45);
         for forms in [&golden, &prelude] {
             let flat: String = forms.iter().map(write_datum).collect::<Vec<_>>().join("\n");
             assert_eq!(&read_forms(&flat).unwrap(), forms);
@@ -1078,7 +1080,10 @@ mod tests {
             assert_eq!(&read_forms(&pretty).unwrap(), forms);
         }
         assert!(golden[0].head_is("const"));
-        assert!(prelude.iter().all(|f| f.head_is("defmacro")));
+        assert!(prelude
+            .iter()
+            .all(|f| f.head_is("defmacro") || f.head_is("defexpand")));
+        assert_eq!(prelude.iter().filter(|f| f.head_is("defexpand")).count(), 9);
     }
 
     #[test]

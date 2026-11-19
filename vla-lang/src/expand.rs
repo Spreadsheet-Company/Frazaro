@@ -485,13 +485,15 @@ impl<'r> Env<'r> {
 
 /// VLA.8: a function as the expander applies it, as `DefineFunction` records
 /// it: its parameters folded, its rest's word folded or empty, its body one
-/// form read into nodes once, and its name as written.
+/// form read into nodes once, its name as written, and its docstring, empty
+/// for none, which `(doc ...)` reads.
 #[derive(Debug)]
 struct Function {
     params: Vec<String>,
     rest_name: String,
     body: Node,
     name: String,
+    doc: String,
 }
 
 /// VLA.8: the working-out under way, the reference's `mFnDepth`, `mFnFuel`,
@@ -862,9 +864,11 @@ impl Expander {
 
         // L17: a string at form 3 is the docstring only when a form follows it.
         let mut doc_idx = 3;
+        let mut doc = String::new();
         if f.count() >= 4 {
-            if let Form::Str(_) = f.nth(3)? {
+            if let Form::Str(s) = f.nth(3)? {
                 doc_idx = 4;
+                doc = s.clone();
             }
         }
         let forms = f.count() + 1 - doc_idx;
@@ -881,9 +885,17 @@ impl Expander {
                 rest_name,
                 body: Node::of(f.nth(doc_idx)?),
                 name: fname,
+                doc,
             }),
         );
         Ok(())
+    }
+
+    /// VLA.8, VBA `GetFunction`'s docstring: a function's docstring by
+    /// name, folded, empty for one with none, or `None` when no function
+    /// has the name, as `(doc ...)` reads it beside a macro's.
+    pub fn function_doc(&self, name: &str) -> Option<String> {
+        self.functions.get(&fold(name)).map(|f| f.doc.clone())
     }
 
     /// VBA `ExpandSourceForm`: a form of the source to its fixpoint

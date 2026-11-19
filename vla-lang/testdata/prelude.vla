@@ -19,7 +19,10 @@
 ;  binding (the anti-gensym doctrine) - two uses of a binding template
 ;  in one procedure that share a name collide at VBA's own compile
 ;  step, which is the loud failure this project chooses over a hidden
-;  hygiene mechanism.
+;  hygiene mechanism. The list library at the end is functions
+;  (defexpand, VLA.8): each a pure function of its arguments, computed
+;  while the source expands, every call counted against the fuel and
+;  refused by name past it - still no gensym, no eval.
 ; =====================================================================
 
 ; L3 / P.L0: the earliest control-flow spellings.
@@ -445,55 +448,53 @@
     (on-error goto 0))
 
 ; -----------------------------------------------------------------
-; LISTOPS.0 follow-up: a small standard library over the nine
-; expand-time list primitives (car/cdr/cddr/cons/list/null?/eq?/
-; equal?/quote-if, VLA.bas) - written IN VLA, the same claim every
-; other macro in this file already makes, now literally true one
-; layer deeper: these are the METAMETAMACRO LINE's own name, taken at
-; face value. EXPAND-TIME, not runtime - unlike everything else in
-; this file, these operate on quoted LITERAL data (LISTOPS-PURITY's
-; own wall: quote text in the source being compiled, nothing else),
-; never on a live Range/Collection - vlafirst/vlalast/"first of"
-; (VLA_Runtime.bas) stay the runtime family, a different namespace
-; entirely, unambiguous by construction (LISTOPS's own roadmap entry
-; already required this).
+; LISTOPS.0 follow-up: a small standard library over the expand-time
+; list primitives (car/cdr/cddr/cons/list/null?/eq?/equal?/quote-if,
+; VLA.bas) - written IN VLA, the same claim every other form in this
+; file already makes, one layer deeper. EXPAND-TIME, not runtime -
+; unlike everything else in this file, these work on quoted LITERAL
+; data (LISTOPS-PURITY's own wall: quote text in the source being
+; compiled, nothing else), never on a live Range/Collection -
+; vlafirst/vlalast/"first of" (VLA_Runtime.bas) stay the runtime
+; family, a different namespace entirely.
 ;
-; filter is deliberately NOT here. Traced by hand before writing
-; anything: quote-if's own test position requires its value to already
-; be the literal symbol true/false, resolved SYNCHRONOUSLY within one
-; Substitute pass - Substitute only eagerly resolves what it directly
-; recognizes (car/cdr/cons/etc., or a bound template parameter), never
-; an arbitrary ordinary macro call. (pred (car lst)), with pred bound
-; to some predicate name, sits as an UN-EXPANDED call form at the
-; moment quote-if inspects it, fails quote-if's own strict IsObject/
-; IsSym check immediately, and there is no later re-walk that can
-; rescue it - the error fires before control ever returns to the
-; outer expansion loop that would otherwise catch it. quote-map/
-; quote-reduce below survive the same hazard only because every call to
-; f sits in a non-conditional, OPAQUE position (an argument passed
-; through, never inspected by a LISTOPS primitive) - never as a
-; quote-if test, and never as cons's own SECOND argument, which is
-; iterated over element by element (ListTail/EvalCons's own
-; `For Each`), not treated as one opaque value, so it must already be
-; real, resolved data - the reason quote-map/append/reverse below are
-; all written accumulator-style, never as the naive
-; (cons (f (car lst)) (quote-map f (cdr lst))) shape a first draft
-; reaches for. A real filter needs a new engine primitive (forcing
-; synchronous ordinary-macro expansion inside quote-if's own test
-; resolution) - its own scoping pass, not a line here.
+; VLA.8, its second slice: length, reverse, append, quote-map,
+; quote-reduce and quote-filter are FUNCTIONS (defexpand), each a pure
+; function of its arguments whose call is computed wherever a value is
+; read - a primitive's argument, a test, a loop's list, another
+; function's argument. So (+expand (length xs) 1) is a number, and the
+; (reverse front) that append hands to reverse-onto is the reversed
+; list itself. Written as macros, they could hand a value on and never
+; return one: each walk passed its list to the next macro (the retired
+; append-reverse-onto and quote-map-onto), append's first version
+; joined the TEXT of an unexpanded (reverse a), and filter was left out
+; altogether, since quote-if's test could not read a predicate's
+; answer (LISTOPS.0 and VLA.8 in the record). A call in a tail place -
+; the body, the branch quote-if chooses - loops at no cost in stack, so
+; each walk below keeps what it has built in an argument (counted,
+; kept) and runs as long as the fuel allows, 5,000 calls a working-out;
+; any other call nests, at most 14 deep. identity, cadr and caddr stay
+; macros: none of them walks a list, and the English phrasebook's
+; templates call cadr and caddr as they are.
 ;
-; Two more findings, both from the first live host run, neither caught
-; by tracing beforehand - recorded here so a reader sees them before
-; reading the individual macros: (1) append's own FIRST version was
-; genuinely wrong, not just unsafe in theory - a real call produced
-; garbage data, traced and fixed below, at append's own entry. (2) this
-; bundle originally named two of its own members "map" and "reduce" -
-; already the names of Excel's own native dynamic-array functions,
-; already in real, shipped use inside alonzo.vla's own deflambda bodies
-; (a different signature, a different meaning, runtime not expand-
-; time) - a global macro of the same name silently intercepted them
-; and broke a previously-passing test. Renamed to "quote-map"/
-; "quote-reduce", detailed at their own entries below.
+; The quote- prefix: map, reduce and filter are Excel's own dynamic-
+; array functions (MAP, REDUCE, FILTER), called by name inside
+; deflambda bodies (alonzo.vla's), and a global definition of one of
+; those names takes every call of it - the first live run of this
+; bundle, which named two of its members "map" and "reduce", broke
+; TestAlonzoLib so. quote-map, quote-reduce and quote-filter work on
+; quoted data, as quote-if's own name says; length, reverse and append
+; name no function of Excel's (checked against the corpus).
+;
+; f names a function or a macro taking the arguments it is given -
+; there is no lambda here (deflambda registers an EXCEL WORKSHEET
+; FUNCTION, a different thing entirely). A function's call computes
+; where it stands; a macro's is left for the walk, so quote-map over a
+; macro gives the list of its calls, each expanded after. keep? names a
+; function answering true or false: where quote-if reads its test, a
+; macro's call would stand unexpanded, and so would a primitive's built
+; by the word (null? say), since a word at a call's head names a
+; function to the call - each refused there by name.
 ; -----------------------------------------------------------------
 
 ; identity: works at any layer, expand-time or runtime alike - whatever
@@ -510,7 +511,7 @@
 ; of this family and left the rest for whenever a real macro needs one.
 ; Both car and cdr are always eagerly resolved by Substitute wherever
 ; they appear (LISTOPS.0's own dispatch, VLA.bas), so nesting them
-; costs nothing extra and carries none of the filter hazard above.
+; costs nothing extra.
 (defmacro
     (cadr lst)
     "the second element of a quoted list - (car (cdr lst))"
@@ -521,167 +522,83 @@
     "the third element of a quoted list - (car (cddr lst))"
     (car (cddr lst)))
 
-; length: COND.0/LISTOPS-EXPAND follow-up - now folds to a genuine
-; compile-time literal, closing this macro's own original limit
-; ("no expand-time arithmetic exists in this bundle") the moment
-; +expand shipped. Accumulator-style, not the naive (+ 1 (length (cdr
-; lst))) shape this macro used to be (a RUNTIME sum of 1s, correct but
-; never a constant) - length-onto's own acc is always already-folded
-; literal data by the time +expand sees it (each step's fold happens
-; BEFORE the next recursive call, never a raw unexpanded call form
-; sitting in +expand's own argument position), the same invariant
-; reverse-onto's own acc already relies on, just for arithmetic instead
-; of cons. Same recursion shape as before - one macro application per
-; element, no new LISTOPS-BUDGET exposure - +expand only changes WHAT
-; gets computed at each step, not the chain's own shape. Honest limit,
-; stated rather than hidden: +expand folds through a VBA Double, so a
-; quoted list past 2^53 elements would exceed exact-integer precision -
-; not a real constraint for anything that will ever be a literal
-; quoted list in a .vla file, but true, so said plainly rather than
-; left for someone to discover.
-(defmacro
+; length: a number the expander knows, so a primitive can take it -
+; (+expand (length xs) 1). length-onto keeps the count so far in an
+; argument, so its call of itself is a tail call, a loop.
+(defexpand
     (length lst)
-    "count of a quoted list's elements - a compile-time literal, folded via +expand"
+    "how many elements a quoted list has"
     (length-onto lst 0))
 
-(defmacro
-    (length-onto lst acc)
-    "internal: count lst onto an accumulator, folding as it goes"
-    (quote-if (null? lst) acc (length-onto (cdr lst) (+expand acc 1))))
+(defexpand
+    (length-onto lst counted)
+    "internal: lst's elements counted onto the count so far"
+    (quote-if (null? lst)
+              counted
+              (length-onto (cdr lst) (+expand counted 1))))
 
-; reverse: accumulator-style, not the naive (append (reverse (cdr
-; lst)) (list (car lst))) shape - that shape nests append INSIDE
-; reverse's own recursion, and LISTOPS-BUDGET's own depth guard (200,
-; reverted from a first pass's failed attempt at 1000 - see VLA.bas's
-; own LISTOPS.0 comment) counts total nested macro-application depth,
-; not list length: two recursions compounding multiplies the applications
-; needed per element instead of adding one. reverse-onto is one flat
-; recursion, one macro application per element - car/cdr always eagerly
-; resolve, and acc (a bound parameter, always an already-constructed
-; real list from a prior cons - never a literal un-expanded call form
-; written directly in this template) is always safe as cons's own
-; iterated second argument.
-(defmacro
+; reverse: reverse-onto puts each element in front of what it has kept,
+; so the first element ends last; its call of itself is a tail call.
+(defexpand
     (reverse lst)
-    "reverse a quoted list"
+    "a quoted list's elements in the other order"
     (reverse-onto lst (quote ())))
 
-(defmacro
-    (reverse-onto lst acc)
-    "internal: reverse lst onto an accumulator"
-    (quote-if (null? lst) acc (reverse-onto (cdr lst) (cons (car lst) acc))))
-
-; append: concatenate two quoted lists. LIVE BUG, found by a real host
-; run, not by review: the first version called (append-onto (reverse a)
-; b) - passing reverse's own UN-EXPANDED call form as append-onto's
-; rev-a argument. That argument gets bound and immediately inspected
-; by append-onto's own null?/car/cdr, all within the SAME Substitute
-; pass that received it - Substitute never expands an ordinary macro
-; call (only ExpandMacros's own later re-walk does, and only for
-; something that's already fully surfaced as a return value), so
-; car/cdr/null? were operating on the LITERAL SYNTAX of "(reverse a)"
-; (the symbol reverse, the argument a) as if it were real list data.
-; Confirmed live: (append (quote (1 2)) (quote (3 4))) produced
-; ((1 2) reverse 3 4), not (1 2 3 4) - car of the fake "list" [reverse,
-; a] returned the SYMBOL reverse itself. The general re-walk mechanism
-; DOES safely expand an un-expanded call sitting as the WHOLE return
-; value of a quote-if branch (map-onto's own (reverse acc) below relies
-; on exactly this, correctly) - the bug is specific to handing an
-; un-expanded call to a DIFFERENT macro's own argument position that
-; then inspects it immediately, before any re-walk ever gets a turn.
-; Fixed by fusing the reversal and the append into one continuation-
-; passing recursion: append-reverse-onto walks a, accumulating its
-; reverse exactly like reverse-onto does, and only at ITS OWN base
-; case - once acc is genuinely, already real data, built by real prior
-; cons calls, never a literal nested call form - does it hand off to
-; append-onto, as append-reverse-onto's own WHOLE return value (the
-; safe pattern, same as map-onto's (reverse acc)). append-onto itself
-; is unchanged and was never the problem; it only ever needed real
-; data, and now it always gets it.
-(defmacro
-    (append a b)
-    "concatenate two quoted lists"
-    (append-reverse-onto a (quote ()) b))
-
-(defmacro
-    (append-reverse-onto lst acc tail)
-    "internal: reverse lst onto acc, then hand off to append-onto - fused into one pass so append-onto never receives an un-expanded call as its own argument"
+(defexpand
+    (reverse-onto lst kept)
+    "internal: lst's elements put in front of kept, one at a time"
     (quote-if (null? lst)
-              (append-onto acc tail)
-              (append-reverse-onto (cdr lst) (cons (car lst) acc) tail)))
+              kept
+              (reverse-onto (cdr lst) (cons (car lst) kept))))
 
-(defmacro
-    (append-onto rev-a b)
-    "internal: cons rev-a's items onto b, one at a time (rev-a already reversed, always real data by construction)"
-    (quote-if (null? rev-a) b (append-onto (cdr rev-a) (cons (car rev-a) b))))
+; append: front reversed, then put in front of back one element at a
+; time, which turns it the right way round again. (reverse front) is a
+; call handed in, computed before reverse-onto reads it - the list,
+; never the text of the call, which is what the macro's first version
+; read.
+(defexpand
+    (append front back)
+    "two quoted lists joined, front's elements first"
+    (reverse-onto (reverse front) back))
 
-; quote-map: NAMED "quote-map", not the bare "map" this bundle first
-; shipped with - a live host run found "map" already meant something
-; in this codebase: alonzo.vla's own deflambda bodies call Excel's
-; native dynamic-array MAP (and REDUCE, and SCAN) directly, e.g.
-; (map rng (lambda (v) (* v 2))) - a completely different signature
-; and meaning (runtime, over a Range, Excel's own argument order), but
-; macro expansion runs before the formula-dialect emitter ever sees a
-; deflambda body, so a global "map" macro of this bundle's own shape
-; silently intercepted it and broke a shipped, previously-passing test
-; (TestAlonzoLib). Not a hazard the quote-if/cons tracing this file
-; already does would ever catch - a pure naming collision, found only
-; by a live run touching alonzo.vla. "quote-map"/"quote-reduce" below
-; both carry the same disambiguating prefix quote-if's own name
-; already established: this operates on quote-time data, never on a
-; live Range, and is never what a bare "map"/"reduce" inside a
-; deflambda body means. filter/length/reverse/append/identity/cadr/
-; caddr were checked against the whole corpus too and do not collide -
-; only map and reduce, Excel's own dynamic-array family, did.
-;
-; f must name an existing macro or function taking one argument - there
-; is no lambda/anonymous function in this language (deflambda registers
-; an EXCEL WORKSHEET FUNCTION, a different, heavier mechanism entirely,
-; not a closure). Accumulator-style like reverse above, for the same
-; depth reason: (f (car lst)) sits as cons's own OPAQUE first argument
-; (never inspected, never iterated - safe even though it is itself an
-; un-expanded call at the moment cons builds the list around it; the
-; general expansion walk properly re-expands it once the result
-; surfaces, the same way any macro's own nested call already does), and
-; acc carries the growing result exactly as reverse-onto's own acc
-; does. The result comes out reversed by construction, so the base case
-; un-reverses it once at the end - one call, not a second per-element
-; recursion, and (reverse acc) here is the SAFE pattern (the whole
-; return value of a quote-if branch, not an argument a different macro
-; immediately inspects) - append's own bug, above, is the unsafe
-; version of this same move.
-(defmacro
+; quote-map: a loop - each element given to f in turn, the results in
+; order, since a loop gives the list of its results where a value is
+; read.
+(defexpand
     (quote-map f lst)
     "apply f to every element of a quoted list, building a new list"
-    (quote-map-onto f lst (quote ())))
+    (each (element lst) (f element)))
 
-(defmacro
-    (quote-map-onto f lst acc)
-    "internal: map f over lst onto an accumulator"
-    (quote-if (null? lst) (reverse acc) (quote-map-onto f (cdr lst) (cons (f (car lst)) acc))))
-
-; quote-reduce: NAMED "quote-reduce", not "reduce" - the same live
-; collision quote-map's own comment explains (alonzo.vla's deflambda
-; bodies call Excel's native REDUCE directly, runtime, a different
-; signature and meaning entirely). f must name an existing two-argument
-; macro or function (an accumulator and one element), same lambda
-; limitation as quote-map's own comment. Already accumulator-style by
-; its own classic shape - no depth-compounding risk the way the naive
-; map/append/reverse shapes had, so it needed no redesign. Honest note
-; on WHAT it proves, not just that it works: (f init (car lst)) sits as
-; an ordinary argument to quote-reduce's own next recursive call, never
-; eagerly evaluated at that step - it stays an un-expanded call, gets
-; bound to init on the next application untouched, and nests one layer
-; deeper each step. Only once the base case returns init as the WHOLE
-; result does the general expansion walk unwind the entire nested
-; (f (f (f init a) b) c) tree, all at once, in one pass - correct, but
-; lazier than it looks reading the recursion alone; VlaExpandStep/the
-; lisp Immediate-window command (VLA_DevRig.bas) show this literally if
-; it's ever worth seeing.
-(defmacro
+; quote-reduce: f given what is folded so far and the next element,
+; left to right. Over a function, each step computes as it goes; over
+; a macro, each step is a call the walk expands once the fold is done,
+; nested one level deeper each element.
+(defexpand
     (quote-reduce f init lst)
     "fold f over a quoted list, left to right, starting from init"
-    (quote-if (null? lst) init (quote-reduce f (f init (car lst)) (cdr lst))))
+    (quote-if (null? lst)
+              init
+              (quote-reduce f (f init (car lst)) (cdr lst))))
+
+; quote-filter: the elements keep? answers true for, in their order.
+; quote-filter-onto puts each one kept in front of what it has kept,
+; so the last kept comes first, and quote-filter turns them round once
+; at the end.
+(defexpand
+    (quote-filter keep? lst)
+    "the elements of a quoted list that keep? answers true for, in order"
+    (reverse (quote-filter-onto keep? lst (quote ()))))
+
+(defexpand
+    (quote-filter-onto keep? lst kept)
+    "internal: the elements of lst that keep? keeps, put in front of kept"
+    (quote-if (null? lst)
+              kept
+              (quote-filter-onto keep?
+                                 (cdr lst)
+                                 (quote-if (keep? (car lst))
+                                           (cons (car lst) kept)
+                                           kept))))
 
 
 

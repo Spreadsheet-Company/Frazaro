@@ -156,6 +156,26 @@
   primitive read the call as a list: `(car x)`, `x` handed `(list 1 2)`,
   answers `1`, where it answered `list`. Every source of Frazaro's, Alonzo's
   and Buffet's expands to the same bytes (VLA.8).
+- **The prelude's list library computes values.** `length`, `reverse`,
+  `append`, `quote-map` and `quote-reduce` are functions now, and
+  `quote-filter` is new: with `(defexpand (big? n) (>expand n 2))`,
+  `(quote-filter big? (quote (1 5 2 7)))` is `(5 7)`. Each value is one an
+  expand-time primitive reads, so `(+expand (length xs) 1)` is a number and
+  `(append (reverse a) b)` joins the lists themselves; each walks its list
+  calling itself as its whole value, so a list as long as 5,000 calls allow.
+  For the lists each took, each answers as before. Three changes, flagged: a
+  source's own definition of one of the six names, or of `length-onto`,
+  `reverse-onto` or `quote-filter-onto`, is refused by name
+  (`vla-defmacro-name-taken`, `vla-defexpand-name-taken`), where a macro of
+  the name replaced the prelude's in silence; a call with the wrong count of
+  arguments is refused as a function's, `function 'length' expects 1
+  argument(s), got 2`; and the internal walks `append-reverse-onto`,
+  `append-onto` and `quote-map-onto` are gone. `(doc length)` and apropos
+  read a function's docstring as a macro's, apropos marking each line
+  `(expand-time function)`, and `Expander::function_doc` answers it for the
+  crate's users. A build's stamp names the prelude it was built with, so
+  `rebuild` of a workbook built before, given this prelude, answers no and
+  says why: build it again (VLA.8).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,

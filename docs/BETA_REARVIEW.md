@@ -20824,7 +20824,7 @@ built.
   printing of a raw string as a note in `VLA.7`, whose formatter keeps what a
   person wrote.
 
-- 🟡 **VLA.8 — functions at expand time, with values, and `let`: `(defexpand
+- ✅ **VLA.8 — functions at expand time, with values, and `let`: `(defexpand
   (name params...) body)`, a pure function over forms and atoms the expander
   calls where a value may stand, and `(let-expand ((name value) ...) body)`,
   a binding for one form, each refused by name past the fuel, so that a
@@ -20840,7 +20840,8 @@ built.
   docs then proceed with VLA.8": every decision as recommended, the
   condition weighed below, after the decisions. Its first slice built the
   same day and committed after the owner's pass, recorded at the entry's
-  end; its second, the prelude's list library, after it.*
+  end; its second, the prelude's list library, built, owner-tested and
+  committed the same day after it, and the item closed.*
 
   **The words this entry keeps apart.** *Substitution* is a macro's template
   filled in with its arguments, where the twenty-nine primitives compute
@@ -21470,6 +21471,109 @@ built.
     nothing catches. The probe's run met one as error 28, in the innermost
     working-out's handler, Excel left standing: one run, from the Immediate
     window. Whether the reader's own recursion meets it so is unmeasured.
+
+  **What was built, the second slice,** 2026-11-18, at the owner's word,
+  "commit slice 1 then proceed with slice 2", in the worktree over the first
+  slice's commit, `ac59285`.
+  - `scripts/prelude.vla`, and its two copies, `cli/data/` and
+    `vla-lang/testdata/`: `length`, `reverse`, `append`, `quote-map` and
+    `quote-reduce` written as functions, and `quote-filter` new, the
+    `filter` the header had declined. Each walk calls itself as its whole
+    value, so it loops at no cost in stack: `length-onto`, `reverse-onto`
+    and `quote-filter-onto`, each keeping what it has built in an argument
+    named for it (`counted`, `kept`). `append` is `(reverse-onto (reverse
+    front) back)`, a call handed in computed before it is read, the walk
+    its first version meant, and `quote-map` a loop, `(each (element lst)
+    (f element))`. The continuations written for want of this item,
+    `append-reverse-onto`, `append-onto` and `quote-map-onto`, are gone.
+    `identity`, `cadr` and `caddr` stay macros, as the scoping listed the
+    slice. The section's header says what the library is now, where it
+    traced the hazards a macro met, and the file's head says the library is
+    functions; 46 definitions became 45, 36 macros and 9 functions.
+  - *The name, `quote-filter`,* by the rule that renamed `map` and
+    `reduce`: `FILTER` is Excel's, called by name in a formula, and a
+    global definition takes every call of its name.
+  - `(doc ...)` and apropos read a function's docstring as a macro's
+    (`GetFunction` in `VLA.bas`, beside `GetMacro`; `EmitDoc`;
+    `VlaAproposText`'s tier of functions, each line marked `(expand-time
+    function)`), and the core's `emit_doc` the same, the port's `Function`
+    keeping its docstring and `Expander::function_doc` answering it, an
+    addition to the crate's interface.
+  - `TestListopsStdlib`: its nine pins standing, the arity's text a
+    function's, `function 'length' expects 1 argument(s), got 2`, and
+    twelve more: `length`'s value added to, `append` reading a call handed
+    in, the empty list reversed, `quote-map` and `quote-reduce` over
+    functions, `quote-filter` keeping and keeping nothing, its macro test
+    refused with the calls it stands in, 3,000 elements counted in a tail
+    call, a source's macro of a function's name refused, and `(doc length)`
+    and apropos.
+  - The expand fixture's 16 cases, 12 written and 4 refused; the floors
+    777, 405 and 91, `vla-quote-if-test-is-list` the id more. The 761
+    records before them stand byte for byte under the new prelude. The
+    port's prediction, kept apart (SHA-256 `57e991d61e7d…`).
+  - The port's law 2 reads the prelude's functions beside its macros, so
+    its generated calls reach them; the core's `(doc length)` test.
+  - `0.15.0`'s note; the tutorial's Sections 12 and 14, the prelude's table,
+    *The list library* written as functions, the library in *A function*,
+    the names refused and the filter's bullet, and Section 15's story of
+    `append`; the crate's README.
+
+  **Where the second slice moved from the scoping.**
+  - *The phrasebook's five uses.* They are the predicates', `zero?` twice,
+    `positive?` twice and `blank?` once, runtime macros, as they were; the
+    phrasebook's calls of `cadr` and `caddr`, five more, read macros as
+    before. `VlaProbeMacroForm` splices no prelude, and the port's every
+    loader takes a definition through `collect`, so no loader meets a
+    function it cannot take.
+  - *`(doc ...)` and apropos,* which the scoping did not name. Each read the
+    macros alone, so the library would have left apropos and `(doc length)`
+    would have answered "not a known macro".
+  - *Three changes, flagged.* A source's own definition of one of the nine
+    names, a macro or a function, is refused by name
+    (`vla-defmacro-name-taken`, `vla-defexpand-name-taken`), where a macro
+    of the name replaced the prelude's in silence; a file may still replace
+    a macro of the prelude's, `when` say. A call with the wrong count of
+    arguments is refused as a function's. And the retired walks, called by
+    name, now stand unexpanded, as any unknown call does. No source in
+    Delta defines or calls any of them.
+  - *A primitive as `quote-filter`'s test.* `(quote-filter null? lists)` is
+    refused, `vla-quote-if-test-is-list`: a parameter at a call's head
+    names a function to the call, and a primitive's call it builds is data
+    until the walk. `(quote-map car rows)` still answers, since the walk
+    computes its value's calls after.
+  - *Every golden unmoved, but a build's stamp.* A build's stamp, the name
+    `Frazaro.Build`, names the prelude by the SHA-256 of its non-whitespace
+    bytes, and the prelude had not changed since `0.5.0`'s import: so every
+    golden of an expansion stands, and the three build goldens moved by the
+    stamp's prelude alone, `887F55C4…` over 27,033 bytes to `BE838B25…`
+    over 21,707, in `xl/workbook.xml`, each the same length, every other
+    part the same (`--replace`, as `DEPLOY.md` asks of a writer changed on
+    purpose). With them the four reflect goldens that read them and the two
+    diff goldens, a line each, the stamp's. `scripts/reflect/saved.xlsx`
+    stays Excel's save of an earlier build, its stamp naming 0.7.1, so the
+    diff's one row differs in the prelude's digest now too; the thirteen
+    builds `scripts/recalc/` keeps beside Excel's saves, their stamps from
+    0.8.1 to 0.14.0, are fixtures `calc` reads and stand as they were. A
+    workbook built before names the earlier prelude, and `rebuild` given
+    this one answers no and says why. And the reader's pin of the prelude's
+    forms, 46 to 45, every one a definition.
+
+  **Held by** the port over `ac59285`, as CI runs it: 974 passed, 0 failed
+  and 5 ignored over the workspace, every test binary run
+  (`--no-fail-fast`, since a failing one stops the rest); the package's
+  suite from its tarball, unoptimized, 691; `clippy` (twice) and `fmt`
+  clean; `run_checks.ps1` 60 of 60; `check_expand_golden -Control` failing
+  each of its mutants. No source in Delta defines or calls the nine names,
+  and no phrasebook defines them; Alonzo's pass loads no prelude, so its
+  cartridges and Buffet's source read nothing this slice changed.
+
+  **The owner's pass,** 2026-11-18, in Excel: `VlaDevReload`, Debug >
+  Compile; `VlaSelfTests`; `VlaWriteExpandGolden`, the golden the port's
+  prediction byte for byte (`git diff --no-index` against the prediction
+  kept apart, empty); `VlaApropos "reverse"`, the function's line marked
+  as one; and the three build goldens opened in Excel and closed unsaved:
+  "All six passed". Committed, and the item closed, at the owner's word,
+  "commit slice 2 and close VLA.8 before suggesting next steps".
 
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
@@ -61977,6 +62081,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.16 — an entry's parts named in a loop: a list of names where a loop's name stands, `(each ((address value) entries) (cell sheet address value))` and `(each-index (index (color name) entries 0) ...)`, each name bound to its part of the element, so that a template reads aloud as what it does and never reads a part as `(car (cdr entry))`.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("proceed with implementing option #3 to improve readability"), from Alonzo's `KIT.6`: the owner wants a VLA file readable by a middle or high school student. Each name is checked as a loop's name is, none alike another or the index; an element of another size is refused by a new id, `vla-each-entry-shape`, the entry shown; no rest and no list among the names, refused by `vla-each-shape`, whose text stands; a loop of one name writes what it wrote. One id; 20 cases, the expand golden 656 to 676; `TestEachNames`, 20 pins. In an Alonzo copy over the patched language the kit's `cells`, `formulas`, `rules`, the Palette's row and Kairos's `colors` named their parts, and the eleven cartridges stayed byte for byte. The owner's pass: pure 2524/2524, host 333/333; the reference's expand golden the port's byte for byte. Found, unruled: a number is a name to the loop, in both implementations, as it was to `VLA.5`'s one name. *Pays into:* Alonzo's kit at a pin that carries 0.14.0. *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **VLA.17 — `funcall` in the formula syntax: `(funcall f a ...)`, what `f` answers called with its arguments, written `IF(c,SQ,PLUS1)(5)` where it stands and read back from a call in place, so that a source calls a function it computes.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("Add a funcall form to VLA's formula syntax"), from `KERNEL.29`'s question of whether a function's `#VALUE!` throws `APPLY` out. A name is called by its name, a list that writes as a call (a function's, `IF`'s, `LET`'s, a `LAMBDA` or a `funcall`) where it is written, and an operator, a literal, a reference or an array refused by name; the port's reader reads a call in place back as nested `funcall`s, and `FUNCALL(` is a word the syntax keeps. Excel's repaired third save of `KERNEL.29`'s fixture narrowed it by one function: Excel calls in place what `IF`, `CHOOSE`, a `LAMBDA` and a name answer and nothing `IFERROR` answers, so `(funcall (iferror ...) ...)` is refused by a new id, `vla-formula-not-called-in-place`, `let` named as the way. Both writers held to each other by eleven cases of the expand golden, Excel's run byte for byte the port's prediction; `TestFormulaFuncall`'s 15 pins. *Found:* `IFNA`'s and every other function's answer called in place are unmeasured, written as before. *Pays into:* Alonzo's cartridges at a pin that carries 0.14.0, a chip a level chooses called where it is chosen (`CART.9.3`). *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **VLA.18 — a raw string: `#"…"#`, a text written as it stands with no escape, more `#` where the text holds `"#`, read alike by the reference, the port and `each_form`, so that a text holding quotes and backslashes is written verbatim.** Minted and scoped 2026-11-16 at the owner's word, from Alonzo's `ENGINE.40`, whose saved file writes each box a person typed as `(draft "<box>" "<name>" #"<text>"#)`; approved, built, owner-tested and committed 2026-11-17, every decision as recommended. One `#` or more right before a quote open it where a word would begin, and the first quote followed by as many `#` closes it; its text is every character between, a CRLF read as LF. A word that begins with `#` is refused by name, `vla-hash-word`, which names `(error "#N/A")`, and so is a raw string never closed, `vla-raw-string-unclosed`, each where a parse meets it; no text in Delta read either way before. The printer writes every string escaped, so no golden, record, save or digest moved. `reader::list_heads` gives each list's head as the reader reads it, and the phrasebook's two checks read a phrasebook through it in both implementations, as Undo's roster reads a raw string by the reference's own rule. Held by fourteen cases of the expand golden, Excel's run byte for byte the port's prediction; `TestRawStrings`' 16 pins; the port's round trips of read and print over generated texts, `each_form` against `read_forms` to a mebibyte, and the printer's law over raw strings. *Found:* the string rule's other copies, Lint VLA, the dev rig, the tag's fill, an English program's raw VLA row and the hints, each failing closed; `VlaDistroStrings` reading `\x` as `x`. *Pays into:* Alonzo's `ENGINE.40`, its second slice, at a pin that carries `0.14.0`. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **VLA.8 — functions at expand time, with values, and `let`: `(defexpand (name params...) body)`, a pure function over forms and atoms the expander calls where a value may stand, and `(let-expand ((name value) ...) body)`, a binding for one form, each refused by name past the fuel, so that a macro computes a value instead of handing it on and no walk is written again.** Minted 2026-10-25 from the third sitting of that day (Alonzo's `docs/2030.md` §7.3, item 5); scoped and approved 2026-11-18 on the owner's condition that the benefits outweigh the weakening of the determinism and auditability wall, which the record weighs and finds held on two terms, the refusals naming their calls and the depth held alike in both implementations; built in two slices, owner-tested and committed the same day, each of the thirteen decisions as recommended. The doctrine's sentence amended: no gensym and no eval, compile-time computation the primitives and the functions a source defines over them, each pure, counted and refused by name past the fuel. A function's call computes wherever a primitive's would, its value looked at again by the walk; a define's word and a call handed in are read as values; a call in a tail place loops, any other nests at most 14 deep, half the 29 calls at which the owner's probe ran Excel's stack out, and one working-out makes at most 5,000 calls; fifteen refusals, one raised inside a working-out naming the calls it stands in. The second slice wrote the prelude's list library as functions, `length`, `reverse`, `append`, `quote-map`, `quote-reduce` and the `quote-filter` its header had declined, and `(doc ...)` and apropos read a function's docstring; the build goldens moved by their stamp's prelude alone. Held by the expand golden's 76 cases, Excel's run byte for byte the port's prediction at each slice; `TestFunctions`' 65 pins and `TestListopsStdlib`'s 12 more; the port's law 17, its law 2 over the prelude's functions, and the calls nested to their limit on a thread of 1 MiB. *Found:* the reference holds no depth on a value a working-out builds; `SEC.14`'s hard crash met as a trapped error 28; a primitive's name refused as `quote-filter`'s test, a word at a call's head naming functions alone. *Pays into:* Alonzo's kit (`widths`, `heights`, `beside`), Brickwork's and Superposition's walks, `CART.14.2` and Buffet's kitchen, at a pin that carries `0.15.0`. *(more: the full entry, earlier in this file)* `~weeks`, both implementations
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

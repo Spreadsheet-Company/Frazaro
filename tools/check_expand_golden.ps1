@@ -163,9 +163,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # fifteen ids the ids more; one case renamed for its changed meaning,
 # define-is-a-value-a-primitive-reads, where define-is-no-primitive-s-argument
 # read true.
-$caseFloor = 761
-$expandedFloor = 393
-$idFloor = 90
+# 2026-11-18, VLA.8's second slice: 777 cases, 405 expanded, 91 distinct ids,
+# the prelude's list library over functions, 16 written by the port ahead of
+# the reference's run, vla-quote-if-test-is-list the one id more (quote-filter
+# given a macro's test); the 761 before them unmoved by the prelude's rewrite.
+$caseFloor = 777
+$expandedFloor = 405
+$idFloor = 91
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',

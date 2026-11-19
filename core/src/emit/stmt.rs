@@ -650,10 +650,16 @@ impl Compiler {
             return Err(raise("vla-doc-arity", &[]));
         }
         let nm = sym_text(lst.nth(2)?)?;
-        let msg = match self.expander.get_macro(&nm) {
+        // VLA.8: a function's docstring answers as a macro's does, the
+        // prelude's list library among them.
+        let doc = match self.expander.get_macro(&nm) {
+            Some(m) => Some(m.doc.clone()),
+            None => self.expander.function_doc(&nm),
+        };
+        let msg = match doc {
             None => format!("{nm}: (not a known macro in this parse - vocabulary macros ride loads and translations, not raw scratches)"),
-            Some(m) if m.doc.is_empty() => format!("{nm}: (no documentation)"),
-            Some(m) => format!("{nm}: {}", m.doc),
+            Some(d) if d.is_empty() => format!("{nm}: (no documentation)"),
+            Some(d) => format!("{nm}: {d}"),
         };
         Ok(format!(
             "{pad}Debug.Print \"{}\"\r\n",
@@ -723,6 +729,12 @@ mod tests {
         let when = body("(doc when)");
         assert!(when.starts_with("    Debug.Print \"when: "), "{when}");
         assert!(!when.contains("not a known macro"), "{when}");
+        // VLA.8: the prelude's functions answer by their docstrings.
+        let length = body("(doc length)");
+        assert!(
+            length.starts_with("    Debug.Print \"length: how many elements a quoted list has\""),
+            "{length}"
+        );
     }
 
     #[test]
