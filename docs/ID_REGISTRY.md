@@ -476,7 +476,8 @@ walk alone, with `offset-expand` brought forward from `VLA.13`, and a verb an
 expression over it, the nest staying refused, scoped, approved, built,
 owner-tested and committed 2026-10-30; `VLA.11`, hygiene by
 design, a parameter never a head, a redefinition refused unless declared a
-`parameter`, a free symbol in a formula refused; `VLA.12`, modules and `use`,
+`parameter`, a free symbol in a formula refused, scoped and approved
+2026-11-19; `VLA.12`, modules and `use`,
 exports, qualified names and `describe` listing the macros loaded;
 `VLA.13`, geometry as a value and the expander's shadow of the rows written;
 `VLA.14`, the macro's proof and its trail, `example` under a `defmacro` and

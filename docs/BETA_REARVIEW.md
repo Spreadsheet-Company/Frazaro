@@ -21575,6 +21575,454 @@ built.
   "All six passed". Committed, and the item closed, at the owner's word,
   "commit slice 2 and close VLA.8 before suggesting next steps".
 
+- 🟡 **VLA.11 — hygiene by design: a parameter replaced where it stands as
+  an expression and never as a row's head, a macro's redefinition refused
+  by name unless the source declares a `(parameter ...)` a door may set,
+  and a symbol inside a formula that spells no reference and binds no name
+  refused rather than written as Excel's name.** *Minted 2026-10-25 at the
+  owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, item
+  6). Scoped 2026-11-19 at the owner's word, "Scope VLA.11", over
+  `e00a306` (`VLA.8` and `KERNEL.55`'s fifth slice in it, main 13 ahead of
+  origin): the eleven decisions below put to the owner in chat, each with
+  its recommendation, the line's two open decisions among them (1 and 4)
+  and its determinism note kept as their frame. Approved the same day,
+  "Approved; commit the docs then proceed with slice 1": every decision as
+  recommended, the slices in decision 11's order, the definitions first.*
+
+  **The words this entry keeps apart.** A *binder* is a word a form binds
+  for the forms inside it: a macro's positional parameter, its rest and its
+  named piece (`VLA.9`); a function's parameter and its rest (`VLA.8`); a
+  loop's names (`VLA.5`, `VLA.16`); a `let-expand`'s names. A *head* is a
+  list's first element, the word that says what the list is: a row's kind,
+  a statement, a macro's or a function's call, a formula's function. A
+  *capture* is a word meant as one thing and read as another, because a
+  binding of the same spelling reached it. A *definition* is a `defmacro`
+  or a `defexpand`; a *compile*, every form one expander takes: the
+  prelude, a phrasebook's macros, a source and what it includes, and what a
+  door appends. A *free word* is a word in a formula's finished expression
+  that the reference scanner reads whole as a name and that no `lambda` or
+  `let` around it binds. `parameter`, in code, is the form this item adds,
+  a define whose value a door may give; "a macro's parameter" stays the
+  binder.
+
+  **What needs it.** The three rules an author keeps by memory (the line),
+  each measured at this scoping two ways: by a reader of forms, `vla-lang`'s
+  `read_forms` over every template in Delta; and by the expander itself, a
+  scratch copy of `e00a306`'s `vla-lang` with a log line at each site (a
+  binder replaced at a head, a definition taken again, a free word, a
+  define registered, a define's word replaced), run through Alonzo's own
+  pass over its twelve cartridges and Buffet's source, and over the expand
+  fixture's 777 cases under the prelude.
+
+  | What a rule meets | Where | Count |
+  |---|---|---|
+  | A binder's word at a list's head in its own template | 798 definitions in 29 files: the prelude's 45; the phrasebooks' 366 (English 220, Spanish 134, alien 12, pirate and the organization's template none); the kit's 45; Buffet's kitchen 21, its content 7 and its copy of the kit 45; the cartridges' 269 | 12, each meant: the prelude's `quote-map`, `quote-reduce` and `quote-filter-onto` calling the function handed in, `(f element)`; `dotimes` writing its `for`'s binding, `(v 1 n)`; the English phrasebook's four generators naming the macro each writes, `(defmacro (name n extras) ...)`; Superposition's `neighbors` handing its list on, `(then ("A1" ...))` four times, 24 substitutions in a pass. No capture |
+  | A name defined twice in one compile | the prelude with each phrasebook; the kit with each cartridge; Buffet's compile whole | none but the door's: the size ladder's `board-size` after Life's and the gun's, and the engine test's `lattice-side` after Superposition's |
+  | A free word in a formula | every formula `formula-expand` writes for the twelve cartridges and Buffet; the fixture | none in a cartridge or Buffet; in the fixture, 9 cases that expand, 8 of them with `a`, `b`, `c` or `x` standing for an operand and 1 the case of names, `formula-expand-names`, and 1 refused already, `stop` read in its own define's form |
+  | A define's word spelled like a word a row reads | the 184 defines the pass registers, Brickwork's 130, Kairos's 39 and Buffet's 15 | none; their words replaced 169 times in a formula and 159 in a row's own arguments, each meant |
+
+  The kit's header keeps the first rule, "A parameter never takes the name
+  of a row it writes", and since `KIT.5` "the name of a function a formula
+  calls"; Alonzo's `SPEC.md` §7.8 keeps the second as a mechanism, the size
+  ladder's, "the language's expander keeps a name's last definition";
+  `KIT.5`'s Found names the third. What waits on it: Alonzo's `ENGINE.9`
+  ladder, Life's and the gun's `board-size` at two rungs each, built by
+  `examples/frames.rs` and by the page's `?frames=1`, and the engine's test
+  of Superposition on a lattice of 64, each by a definition a door appends;
+  Alonzo's `CART.14.2`, Seiyaku's N, on `VLA.8`, closed, and on this item's
+  `parameter`; and Buffet's kitchen at its next pin, which meets none of the
+  three rules.
+
+  **What moved since the mint.**
+  - `VLA.8` (closed 2026-11-18, `ac59285` and `b84edf5`, for `0.15.0`)
+    names this item four times: its decision 5, a define's word read as a
+    value wherever a value is read, `(parameter side 3)` to be "the same
+    kind of word with a door's value"; its decision 9, a function's second
+    definition refused where a macro's still replaces the first; its census,
+    "the three a door sets wait on `VLA.11`"; and its Found, `(sheet "S"
+    hidden)` writing `(sheet "S" 7)` after `(define hidden 7)`, "`VLA.11`'s,
+    whose free symbol is its kin".
+  - A binder at a head has users now. `VLA.8` reads a parameter naming a
+    function at a call's head (`FunctionHeadName`, `function_head_name`),
+    `(defexpand (apply-to f x) (f x))`; the prelude's list library calls
+    the functions it is handed so; `quote-map` over a macro leans on the
+    substitution replacing the head. The fixture holds them:
+    `a-function-handed-to-a-function`, `a-parameter-hides-a-function`,
+    `the-prelude-s-quote-map-over-a-macro` and the prelude's cases after it.
+  - Formulas bind names of their own: `KERNEL.29`'s `LET` and `LAMBDA`
+    (closed 2026-11-17) and `VLA.17`'s `funcall`, a named function called by
+    its name. `VLA.10`'s check of a formula's finished expression,
+    `holds_self` and `FormHoldsSelf`, is the vehicle its note named.
+  - The tutorial, Section 14, *The names it refuses*: "a file may still
+    replace a macro of the prelude's, `when` say".
+
+  **What the code does today,** read in both implementations at `e00a306`
+  (`Substitute`, `DefineMacro`, `ExpandMacros`, `ExpandOnePass`,
+  `FunctionHeadName`, `ExpandFormulaCall` and `FormHoldsSelf` in
+  `src/VLA.bas`; `substitute`, `define_macro`, `expand_at`,
+  `function_head_name`, `formula_expand` and `holds_self` in
+  `vla-lang/src/expand.rs`, procedure for procedure alike), probed through
+  the port's `expand_text` under the prelude, and held where Excel's golden
+  records it:
+
+  | The source | Reads today | Witness |
+  |---|---|---|
+  | `(defmacro (label name text) (name "S" "A1" text))`, then `(label "Board" 1)` | `("Board" "S" "A1" 1)`, which a load refuses far from its cause | the port; the golden's `a-piece-s-word-at-a-head-of-its-template-is-replaced`, a piece alike |
+  | `(defexpand (apply-to f x) (f x))`, then `(apply-to square 4)` | `16` | the golden |
+  | `(defmacro (total how range) (formula-expand (how range)))`, then `(total sum A1:A9)` | `"=SUM(A1:A9)"` | the port |
+  | a parameter handed on as the piece of its own word, `(rule "B2" (sheet sheet))`, the parameter positional or a piece | refused, `vla-macro-piece-unknown`, the piece's head replaced: `("Tower" "Tower")` | the golden (positional); the port (a piece) |
+  | a macro calling itself by its own piece, `(countdown (n (-expand n 1)))` | refused alike, `(2 1)` | the golden |
+  | `(defmacro (m & &) (& "a" "b"))`, then `(m 1 2)` | `(1 2 "a" "b")`, the operator replaced | the golden |
+  | a loop's name at a head, `(each (cell (quote (1 2))) (cell "S" "A1" cell))`, and a `let-expand`'s | `(1 "S" "A1" 1)` and `(2 "S" "A1" 2)` | the port |
+  | `(defmacro (m) 1)`, `(cell "S" "A1" (m))`, then `(defmacro (m) 2)` | `(cell "S" "A1" 2)`: every definition taken before any form expands, so the later reaches back to a call before it | the port; the reference by reading, `DefineMacro`'s keyed assignment ("allow redefinition needs no separate step") |
+  | `(defmacro (when c & body) (quote replaced))`, then `(when 1 2)` | `(quote replaced)`, the prelude's macro replaced | the port |
+  | a second `defexpand` of a name, or a macro of a function's name | refused, `vla-defexpand-name-taken`, `vla-defmacro-name-taken` | the golden |
+  | `(formula-expand (+ taxrate 1))` | `"=taxrate+1"`: any word the scanner reads as a name is written as one; `tax-rate` refused, `vla-formula-atom-unspelled`, as `tax` minus `rate` | the golden's `formula-expand-names` |
+  | `(formula-expand (map (sequence 3) square))` | `"=MAP(SEQUENCE(3),square)"`, a named function handed in by its name | the port |
+  | `(define x 5)`, then `(formula-expand (lambda (x) (+ x 1)))` | `"=LAMBDA(x,5+1)"`: the walk replaces the body's word and passes the parameter by, a list's head; `(lambda (y x) ...)` refused, `vla-formula-lambda-params`, "got '5'"; `(let x 1 (+ x 1))` writes `"=LET(5,1,5+1)"` | the port; `VLA.10`'s note |
+  | `(define hidden 7)` beside `(defmacro (hide s) (sheet s hidden))`, then `(hide "S")` | `(sheet "S" 7)`: a source's define captures a word a library's macro writes | the port |
+  | `(quote-filter null? lists)` | refused, `vla-quote-if-test-is-list`: the parameter's word replaced at the head after the head was read, so the primitive's call it builds is data | `VLA.8`'s Found |
+
+  Where each is decided:
+  - *Substitution* replaces a binder wherever its word stands outside a
+    quasiquote's shield, a list's head among them, and reads a list's head
+    before it replaces it: a primitive or a loop is known by the word
+    written, a function by the word or by the binder that names one
+    (`function_head_name`).
+  - *A definition* overwrites: the port's `self.rules.insert` ("A
+    redefinition overwrites, as the Dictionary's keyed assignment does"),
+    the reference's `Set mMacros.Item(...) = rec`. Every entry point takes
+    every definition before the first form expands (`collect`;
+    `VlaTranspile`, `VlaCompileToForms`, `VlaProbeMacroForm` and
+    `VlaExpandText`, each over a fresh table), Alonzo's pass the same in a
+    loop of its own. A function's second definition and a macro of a
+    function's name are refused (`VLA.8`, decision 9), a define's word bound
+    twice too (`VLA.6`): the macro is the one kind of name replaced in
+    silence. The phrasebook loader refuses a macro two phrasebooks carry
+    (`english-vocab-macro-name-collision`, `L4`), and lets a phrasebook's
+    replace the prelude's.
+  - *The formula syntax* writes a symbol the scanner reads whole as a name
+    as that name (`atom`, and `FormulaSyntaxWrite` in the reference); the
+    expander checks the finished expression for `self` alone
+    (`vla-self-free`), past a list's head and a quote.
+  - *The walk* replaces a define's word wherever it stands but at a head,
+    in a formula and in a row's arguments alike, knowing no scope of
+    Excel's.
+  - *The door's channel.* Alonzo's `expand_with` appends a door's text after
+    the source; a macro there replaces the source's of its name everywhere,
+    any macro, and may write rows besides: the ladder's writes a still
+    Camera, `(camera 1 1)`, before it hands the size on.
+
+  **What mature languages settled.**
+  - *Kohlbecker's* hygienic expansion (Kohlbecker, Friedman, Felleisen and
+    Duba, "Hygienic Macro Expansion", LFP 1986) stamps every identifier a
+    macro introduces and renames it; *`syntax-rules`* (Clinger and Rees,
+    "Macros That Work", POPL 1991; R7RS §4.3.2) keeps hygiene the same way,
+    and *Racket* by a set of scopes on each identifier (Flatt, "Binding as
+    Sets of Scopes", POPL 2016). Each is renaming, a name or a mark with no
+    trace to anything a person wrote: `GENSYM` under another name, declined
+    by the wall. What they settle beside the renaming is taken, substitution
+    by structure. Of heads: `syntax-rules` replaces a pattern variable
+    wherever it stands, a head among them, so a pattern variable spelled
+    like a word its template writes replaces that word, today's trap,
+    avoided there by convention too.
+  - *Common Lisp* keeps a function's name and a variable's apart, two
+    namespaces: `(defun f (list) (list list))` calls the function at the
+    head and reads the parameter as a value, and a function a variable
+    holds is called by `funcall` (CLHS, `funcall`): the structure of
+    decision 1. Its `defmacro` writes a template by backquote, each
+    substitution marked by a comma, so nothing is replaced unmarked. Of
+    definitions: redefining one's own function is allowed, SBCL warning of
+    it; redefining a standard symbol's function or macro has undefined
+    consequences (CLHS 11.1.2.1.2), and SBCL's package locks refuse it.
+    `defvar` sets a variable only where none is set yet, the lineage of a
+    value a door gives before the source.
+  - *Scheme's libraries* refuse a definition of an identifier already
+    imported (R6RS §7.1), and a Racket module a second definition of one.
+  - *C* refuses a macro defined again with another body (C11 6.10.3p2, a
+    constraint, diagnosed), and `#ifndef SIZE` / `#define SIZE 320` with
+    `-DSIZE=640` is a door's parameter as C has it. *Terraform* declares an
+    input with its default, sets it by `-var`, and refuses a value for a
+    variable no configuration declares; *Nix* takes an argument with a
+    default, `{ width ? 320 }:`, and refuses one it does not declare.
+  - *Excel* takes any word into a formula and computes `#NAME?` where no
+    name defines it; `LET` refuses a name spelled like a reference.
+
+  **The candidates for the first decision,** the line's first open
+  question, whether a head may be a binder at all, over four sources, the
+  line's own trap and its kin:
+
+  | | (a) Today's: a binder replaced at a head as anywhere | (b) Common Lisp's two namespaces: a binder never replaced at a head | (c) Refusal: a binder at a head refused at the definition | (d) Structure for a piece's word, refusal for every other binder |
+  |---|---|---|---|---|
+  | `(label "Board" 1)`, the kit's trap | `("Board" "S" "A1" 1)`, refused by the load | a `name` row | refused at the definition: rename the parameter | refused at the definition: rename it, which no caller sees |
+  | `(apply-to square 4)` | `16` | `(f 4)`, written in silence | refused: `(call-expand f x)` | refused: `(call-expand f x)` |
+  | `(total sum A1:A9)` | `"=SUM(A1:A9)"` | `"=HOW(A1:A9)"`, written in silence | refused | refused |
+  | a piece handed on under its own word, `(rule "B2" (sheet sheet))` | refused, `("Tower" "Tower")` | reads | refused, and a piece cannot be renamed without its callers | reads |
+  | Delta's twelve | stand | rewritten, or written in silence | rewritten, each refused by name until then | rewritten, each refused by name until then |
+  | Cost | none | substitution passing a head by, and `call-expand`, in both | (b)'s and a check at the definition | (c)'s, and substitution passing a piece's word by at a head |
+  | Door | none | one-way: a call through a binder written as data, unrefused | none: relaxed to (d) or (b) later, no source it accepts moves | one, small: a piece's word at a head, replaced today, read as written |
+
+  **The decisions, the owner's,** each with the recommendation and what it
+  declines. The one-way doors are 1 (one meaning changed in silence, a
+  piece's word at a head), 4 and 5 (a form and an interface that sources
+  outside will hold) and 10 (the release). Every other decision is a
+  refusal, relaxed later for a day's work without moving a source it
+  accepted.
+
+  1. *A binder's word at a list's head* (the line's first open decision).
+     (a) to (d) above. *Recommended:* (d). A positional parameter, a rest,
+     a function's parameter, a loop's name or a `let-expand`'s name
+     standing as a list's head in the forms it binds is refused at the
+     definition by name, the word and the list shown and the fix named:
+     `call-expand` to call what it holds, another word to write a row or a
+     piece of that spelling; renaming any of them changes nothing a caller
+     writes. A named piece's word at a head is never replaced: the list is
+     the piece or the row it spells, since a piece's word is a head by its
+     own declaration (a caller writes `(sheet "Tower")`), so `(rule "B2"
+     (sheet sheet))` hands a piece on under its own word, the idiom Alonzo's
+     `docs/2030.md` §10.5, design 1, asks of every verb of four or more. One
+     place at a head is a value's: the head of a definition's signature
+     nested in a template, the name a generated macro takes, `(defmacro
+     (name n extras) ...)`, replaced as today, so the English phrasebook's
+     four generators stand unedited. A binder standing as an expression is
+     replaced as today. Declined: (a), which keeps three traps; (b), whose
+     `(f 4)` and `"=HOW(A1:A9)"` are written in silence, the one failure the
+     house never accepts; (c), which refuses the piece idiom for good. The
+     corner (d) leaves: a piece holding a function's name and called at a
+     head, `(how range)` with `how` a piece, writes `HOW` as (b) does; a
+     piece is an option's word, none in Delta holds a function, and
+     `(call-expand how range)` reads it.
+
+  2. *The call through a word.* `(call-expand f argument ...)`: `f` read as
+     a value, which must be a word or is refused by name; the list with
+     that word at its head and the arguments substituted then read as if
+     written there: a function's call computed, a primitive's computed, a
+     macro's left for the walk, any other word a list as written, a row, a
+     statement or a formula's call. It is today's head substitution made
+     visible, so the prelude's three functions read as they do; it reads a
+     primitive's name besides, which closes `VLA.8`'s Found, `(quote-filter
+     null? lists)`. A form of substitution and of the walk, as `let-expand`
+     is, and reserved, so that no macro, loop, piece or define takes the
+     word; none in Delta does (the reader's census). A data list with a
+     binder at its head, `dotimes`' `(v 1 n)`, is `(list v 1 n)`, the
+     primitive. *Recommended,* with the name `call-expand`, by the
+     tutorial's rule that a word ending in `expand` computes while the macro
+     expands. Declined: `funcall`, `VLA.17`'s formula form, which a `LET`'s
+     name in a formula needs as it is; `funcall-expand`, two Lisp words
+     where one English word serves; `apply-expand`, which in Lisp's lineage
+     spreads a list (`LISPIMPORT`).
+
+  3. *Which definitions a second one is refused across.* (a) every
+     definition in one compile, the prelude's, a phrasebook's, an include's,
+     the source's and a door's alike, a macro's name defined again refused
+     by name (`vla-defmacro-twice`), the earlier line named where it has
+     one, as a function's already is; (b) a source's own refused twice and a
+     library's, the prelude's or the kit's, replaced by a source, layered as
+     Racket lets a module shadow its language's binding; (c) refused within
+     one file; (d) today's. *Recommended:* (a): a word names one thing, as
+     functions and defines already keep it; the expansion stops depending on
+     the order definitions stand in (the line's determinism note); and no
+     compile in Delta defines a name twice, so the only sources it refuses
+     are the door's, which decision 5 replaces. Declined: (b), which needs
+     each definition's file in both implementations (the reference
+     tokenizes the prelude and the source as one text) and keeps two
+     meanings for a word; (c), which keeps the ladder's mechanism. The
+     loader's own check stays, naming the two phrasebooks. The changed
+     meaning, flagged: the tutorial's sentence and any source outside that
+     replaces a prelude macro, each then refused by name; `VLA.12`'s modules
+     are how two `when`s will meet, by a qualifier.
+
+  4. *The `parameter` form* (the line's second open decision, its
+     spelling). (a) `(parameter word value)`: a define whose value a door
+     may give, taken as a define is (`VLA.6`), its word held to a define's
+     rules, bound from the next form of the source on, and read wherever a
+     define's word is, as a value too (`VLA.8`, decision 5); one value to a
+     parameter. (b) The line's `(parameter board-size 320 200)`, several
+     values handed on, the continuation the ladder writes today. (c)
+     `knob`, Alonzo's word for the size ladder. (d) `defparameter`.
+     *Recommended:* (a), Life's board two words, `(parameter board-width
+     320)` and `(parameter board-height 200)`, read where `interior` reads
+     its numbers: measured at this scoping with two defines standing in for
+     them, `(interior board-width board-height "Screen" ...)`, Life expands
+     to its bytes today. Declined: (b), since `VLA.8` reads a value where a
+     primitive reads it, with nothing handed on; `setting`, Brickwork's
+     macro and Buffet's word for a cell a person types; (c) and (d) for now,
+     names revisable by an alias (the owner's rule).
+
+  5. *How a door gives a value.* (a) An interface,
+     `Expander::set_parameter(word, value)` before the first form, each
+     value taken by the source's `parameter` of the word in place of its
+     own; refused by name when given twice (`vla-parameter-given-twice`),
+     when its kind differs from the source's value's, a number for a
+     number, a text for a text, a word for a word, a list for a list
+     (`vla-parameter-kind`), and, once the source has expanded, when no
+     `parameter` declared it (`vla-parameter-undeclared`, by
+     `Expander::finish`); the reference's twin a switch the pure suite
+     sets, `VlaSetParameter`, as `VlaSetFunctionDepthLimit` is, since no
+     door of Excel's gives one. (b) VLA text a door appends, the line's, a
+     later `parameter` of a declared word replacing the first: the one
+     exception to decision 3, which needs the door's forms told from the
+     source's in both implementations. (c) Any define a door may replace.
+     *Recommended:* (a). The channel narrows: today a door's text replaces
+     any macro and may write rows; under (a) it gives a value to a word the
+     source declared, of the kind the source declared, or is refused.
+     Alonzo's pass and page read their door's text into it, Alonzo's to
+     spell; the ladder's still Camera becomes the source's own, a macro
+     `(quote-if (>expand board-width 320) (camera 1 1) (begin))` that
+     measured the rung's rows at 640 by 400 and today's bytes at 320 by 200
+     (in a macro's template: at the top the same `quote-if` returns `(camera
+     1 1)` unexpanded, `VLA.8`'s first Found, below). Declined: (b), a
+     second meaning for one form; (c), every define a door's knob, which no
+     source asks for. Frazaro's door takes no value until a client asks.
+
+  6. *A define's word spelled like a word a row reads* (`VLA.8`'s Found).
+     (a) Refused, the define's and the `parameter`'s alike, by a table of
+     the words the record's rows read in an argument's place, `visible`,
+     `hidden`, `very-hidden`, `shown`, `none`, `wrap`, `nowrap` and the rest
+     of the load's own, held to the load by a test, under
+     `vla-define-name-reserved` with a description of its own; (b) left as
+     found. *Recommended:* (a): the classic capture, a source's binding
+     reaching a word a library's macro writes, closed by refusal where
+     Racket closes it by renaming; none of Delta's 184 defines is so
+     spelled. What it leaves: Alonzo's own words, the manifest's and the
+     device sheets' (`plane`), which `vla-lang` cannot list; none in Delta.
+
+  7. *A free word in a formula* (the line's third part). Refused by name,
+     `vla-formula-word-free`, the word and the text shown: a word in
+     `formula-expand`'s finished expression that the scanner reads whole as
+     a name, on a sheet or not, bound by no `lambda`'s parameters and no
+     `let`'s names around it, outside a `quote` and a `ref`; never a head,
+     nor `funcall`'s function by name, each a function's name. Excel's
+     defined names reach a formula by `ref` alone, `(ref "Rate")` writing
+     `Rate` and `(ref "Model" "Local")` writing `Model!Local`; `self` keeps
+     its own refusal. Checked where `holds_self` checks, the words kept with
+     their text and refused once the form of the source has expanded, as
+     `vla-define-used-in-its-form` is, so that a define's word read in its
+     own form keeps that refusal's sentence. *Recommended.* Declined:
+     checking a head against Excel's functions, `(summ A1:A3)` (Found,
+     below); refusing in the formula syntax's `write`, a public function
+     whose callers write names on purpose.
+
+  8. *A formula's own names against the expander's words.* A `lambda`'s
+     parameter or a `let`'s name spelled as a define's word, a
+     `parameter`'s or `self`: (a) refused by name where the walk meets the
+     `lambda` or the `let` inside a formula, before its words are replaced
+     (`vla-formula-name-taken`); (b) the walk keeping Excel's scope, a
+     `lambda`'s parameter hiding a define's word in its body.
+     *Recommended:* (a): a word names one thing, a template's parameter
+     hiding a define's word the one exception the language keeps. The
+     changed meaning, flagged: `VLA.10`'s `(lambda (self) 1)`, written
+     `LAMBDA(self,1)` today, refused. Declined: (b), a scope of Excel's in
+     the walk.
+
+  9. *The formula syntax's reader.* (a) As it is, a defined name read as a
+     bare word; (b) a free name read as `(ref "name")`, a `lambda`'s and a
+     `let`'s names bare, so that a formula read back and handed to
+     `formula-expand` passes decision 7. *Recommended:* (a): no caller but
+     its tests, and (b) moves its round trip's generators. Noted for the day
+     a formula is read into a template.
+
+  10. *The interface and the release.* `vla-lang` adds
+      `Expander::set_parameter` and `Expander::finish`; `call-expand` and
+      `parameter` join the reserved words (`RESERVED`,
+      `ExpandReservedDesc`); the refusals are the catalogue's, in both
+      implementations. The release is the owner's: `0.15.0`, beside `VLA.8`
+      and `KERNEL.55`, or the one after. *Recommended:* `0.15.0`: Alonzo's
+      pin then takes `VLA.8`'s kit and this item's ladder in one slice,
+      where a pin to a release with this item refuses its ladder by name
+      until the ladder is rewritten.
+
+  11. *The order of the slices.* *Recommended:* the definitions first
+      (decisions 3 to 6), since `ENGINE.9` and `CART.14.2` wait on
+      `parameter`; the heads next (1 and 2), with the prelude; the formula
+      last (7 to 9). Each the reference first (`SD-18`), then the port, the
+      expand golden written in Excel.
+
+  **The determinism wall weighed.** Hygiene here is by refusal and by
+  structure alone: no word is renamed and none is marked, so every row
+  still traces to what a person wrote. Decision 3 ends the one way the
+  expansion depended on the order definitions stand in. Decision 5 narrows
+  the door's channel, today any text after the source, to declared values
+  of declared kinds: the expansion is a function of the source and the
+  door's values, each named, as a build is of its source and its flags, and
+  the stepper and the trail read a `parameter`'s value as a define's.
+
+  **The slices.**
+  1. *The definitions.* A macro's second definition refused; `parameter`,
+     `Expander::set_parameter` and `finish`; the record's words refused as a
+     define's; the tutorial's sentence in Section 14.
+  2. *The heads.* The check at a definition, and for a loop and a
+     `let-expand` where each binds; a piece's word passed by at a head; a
+     nested signature's head a value's place; `call-expand`; the prelude's
+     `dotimes`, `quote-map`, `quote-reduce` and `quote-filter-onto`
+     rewritten, which moves every build's stamp (`VLA.8`'s second slice: the
+     three build goldens, their four reflect and two diff goldens), so the
+     prelude's wording is settled before a golden is written.
+  3. *The formula.* The free word; a formula's own names against the
+     expander's words; the fixture's nine cases written with references or
+     `ref`, their records the same bytes where a `ref` writes the name.
+  Then, not this item's: Alonzo's pin, its ladder, page and floors' runner
+  and the engine's lattice test over `parameter`, Superposition's
+  `neighbors` over `call-expand` or as a function (`VLA.8`), every
+  cartridge `same`; `CART.14.2` over them; Buffet's kitchen, which meets
+  none of the three rules.
+
+  **The oracle.**
+  - The expand fixture's new cases, read by both implementations, the
+    golden written by the reference in Excel (`VlaWriteExpandGolden`) and
+    held to the port's prediction kept apart (`git diff --no-index`): each
+    refusal at its line; a piece handed on under its own word; a nested
+    signature's name; `call-expand` over a function, a primitive, a macro
+    and a word; a `parameter` with and without a door's value, of another
+    kind, undeclared and given twice; a free word, a `ref`'s name, a
+    `lambda`'s and a `let`'s names, a define's word as one. The records
+    that move, flagged: `a-piece-s-word-at-a-head-of-its-template-is-replaced`
+    and `a-macro-calling-itself-by-a-piece-bare-refused`, which then read;
+    `a-rest-spelled-as-its-own-mark-replaces-the-operator`,
+    `a-parameter-hides-a-function`,
+    `a-template-s-parameter-spelled-as-a-piece-refused` and
+    `a-parameter-named-self-in-a-macro-s-own-binding-refused`, refused at
+    the definition; `a-function-handed-to-a-function` written over
+    `call-expand`, a refused twin beside it; and the nine formula cases.
+  - The pure suite's pins (`TestHygiene`) and the port's unit tests, with
+    two laws over generated templates: a template the check accepts expands
+    to the same bytes whether substitution replaces a head or passes it by,
+    so relaxing decision 1 later moves no accepted source; and a source's
+    definitions expand to the same bytes in any order.
+  - Every cartridge's bytes and Buffet's 1,494 rows unchanged through this
+    `vla-lang` in a scratch copy of Alonzo (its `[patch.crates-io]`),
+    Superposition's `neighbors` and the ladder rewritten in that copy and
+    the rungs held to the floors' digests; the English phrasebook loading
+    under the check, its four generators unedited; `prove -Impl`, the token
+    and refusal goldens unmoved.
+
+  **The reference, by the owner's Excel** (optional; read here, each line
+  for the Immediate window, each predicted as the port prints it):
+  - `? VlaExpandText("(defmacro (m) 1)" & vbLf & "(cell ""S"" ""A1"" (m))"
+    & vbLf & "(defmacro (m) 2)", True)`: `(cell "S" "A1" 2)`.
+  - `? VlaExpandText("(defmacro (when c & body) (quote replaced))" & vbLf
+    & "(when 1 2)", True)`: `(quote replaced)`.
+  - `? VlaExpandText("(define x 5)" & vbLf & "(cell ""S"" ""A1""
+    (formula-expand (lambda (x) (+ x 1))))", True)`: `(begin)`, then
+    `(cell "S" "A1" "=LAMBDA(x,5+1)")`.
+  - `? VlaExpandText("(defmacro (hide s) (sheet s hidden))" & vbLf &
+    "(define hidden 7)" & vbLf & "(hide ""S"")", True)`: `(begin)`, then
+    `(sheet "S" 7)`.
+
+  **Found** (not minted).
+  - `VLA.8`'s first Found meets this item. A primitive the walk meets
+    outside a template returns its result unwalked, so the natural
+    spelling of a choice by a `parameter` at the top of a source, `(quote-if
+    (>expand board-width 320) (camera 1 1) (begin))`, writes `(camera 1 1)`
+    with the kit's macro unexpanded, where the same inside a macro expands
+    it (measured over Life at this scoping). Decision 5's sketch puts it in
+    a macro; making the top read alike is the changed meaning that Found
+    flags.
+  - A formula's function heads are never checked: `(summ A1:A3)` writes
+    `SUMM(A1:A3)`, which Excel computes as `#NAME?`. The library computes
+    132 functions and labels the rest, so a check needs Excel's whole list;
+    another item's, if a client asks.
+
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
 
