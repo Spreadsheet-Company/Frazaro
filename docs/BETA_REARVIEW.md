@@ -49250,6 +49250,118 @@ with the door's flag.
 *Committed 2026-11-19* at the owner's word, "Commit part 2, then proceed with part 3": over `b84edf5`, a peer's `VLA.8`
 closed in two commits since the first part, the part's 10 files.
 
+*Slice (e) built 2026-11-19, its third part: a save keeps a spill.* At the owner's word, "Commit part 2, then proceed
+with part 3": over `e00a306`, uncommitted, a peer's scoping of `VLA.11` committed beside it (`df21a3b`, its docs
+alone). Decision 2(a)'s load
+and decision 6(a)'s changes: a save prints each spill and a load lays it again, a window's changes told cell by cell
+where a spill moves, and the second part's *Found* 1 to 3 settled, with slice (c)'s second part's 2 and 4.
+- *The save* (`view.rs`'s fills, `spills_rows`): each spill and block whose anchor the window holds prints its
+  `spill` row after the window's values, then the values its answer laid in the window's cells of its extent, each a
+  `value` row with nothing before it, kept by rectangles and runs as a formula's are (`ValueRows`), each spill's
+  rows its own, so that no row names the cells of two. A value a door's model holds inside a spill's box is the
+  spill's, printed with it and never as a `cell` row (`Values::box_cells_spilled`, a provided method, true unless
+  the values say otherwise): slice (c)'s second part's *Found* 4.
+- *The record*: one code prints a cell's rows for the record and for the changes (`rows_at`), a spilled cell's, an
+  anchor's with its `spill` row, or any other's. A cell a machine's grid holds inside a spill's extent, which only a
+  write since its last frame puts there, prints as the cell it is, where it printed nothing (the machine's
+  `box_cells_spilled`, false); and a machine's `Cells::cell` answers a cell a spill laid as no value cell of the
+  sheet's, as the walk of the cells does, where the changes printed it a `cell` row (found by law 11 over spills).
+- *The load* (`load.rs`): a `value` row inside a `spill` row's extent past its anchor is what the spill last laid
+  there, kept, each cell said once (`twice` as a formula's); an `extent` row is read, kept where it reaches past the
+  sheet's records once they are read, so that the extent a spill grew and a shrink left survives a save. What a
+  sheet saved of its spills is held on the draft (`Draft::saved`), made only for a sheet that saved one or an extent
+  past its records, not on each of its sheets: three fields there cost 480 bytes at the peaks of the adder, the
+  adder with names and the lookups written dynamic, a load from each one's save among them, the draft's sheets four
+  to a buffer at the load's peak (found by the floors' ceilings), and now no byte. `Machine::new` lays each saved
+  spill where the machine could have laid it: its anchor a spill the plan bounds and labels not, its box holding the
+  extent, which meets no merged range and no spill kept before it; a cell a record holds is the record's, and a
+  reason said there set aside, since a spill lays values alone. Its twin holds the values, so that a formula reading
+  the twin of a spilled cell at the first frame after the load reads what the save kept: the second part's *Found*
+  3. The rest set aside, its anchor's first frame laying what it computes. `Draft::of_workbook` takes a door's spill
+  as its file saved it, the extent its anchor holds and each value the workbook holds inside it the spill's, where
+  they were value cells that blocked it at the first frame: slice (c)'s second part's *Found* 2, its first half.
+- *The changes* (decision 6(a)): a frame that lays or empties a spill's cells is told cell by cell, each cell by its
+  place among the twin's written, as the second part named them, its rows as the values print them, and each anchor
+  whose `spill` row the frame moved, its value spelled as before or not (`Spilt`'s `moved`, each anchor's extent at
+  the frame's start, and `last_moved`, those of the last complete frame whose extent ended elsewhere); a frame no
+  longer answers whole for a spill: the second part's *Found* 2. While a step yields, a view of the spills is the
+  last frame's, each anchor's extent the one the frame began with (found by law 11 over spills, a window's values
+  while the step yielded missing a cell the frame in progress had emptied).
+- *A cell a spill empties*: told at the frame's end by its place, the cells that read it marked as any change's,
+  and its twin's extent made again only where it stood on the extent's edge, moved as a growth moves it where it
+  shrank, its readers of the extent made whole: the next frame no longer computes every cell (the second part's
+  *Found* 1). A formula's value turned to a reason still does (`KERNEL.56`'s *Found*).
+- *Found in the part, and mended*: a write that shrinks a spill's box, a smaller bound at its anchor or at an anchor
+  its `#` reads, or a name its bound reads, leaves the cells laid past the new box to formulas no longer ordered
+  after the anchor, which read the value laid there for a frame where `Calc` reads the cell empty: `R8 = A14` 1
+  where 0, wrong since the second part, whose machine held to a machine computing every cell shared the order.
+  Found by law 18's resumed grids, a load computing its first frame whole a frame later, and held since by its every
+  frame against `Calc`. A frame's start after a write that made the plan again gives up each spill's cells past its
+  box before any cell reads one, and computes its anchor again (`spills_begun`, `cut_spill`, `Spilt::replanned`);
+  the second part's check of an anchor planned away, made at every frame's start, made then alone; and the cells it
+  gives up kept beside while the step yields, where the second part's kept none.
+- *What it costs*: no byte, every ceiling held, the saved spills on the draft. The frames, in an A/B of release
+  runners over `e00a306`, alternated and each started as `bench_recalc.ps1` starts one, four rounds each: every
+  whole frame's median within 1.7% of `e00a306`'s and every edit's within 1.9%, but the netlist's, whose rounds swung
+  1.51 to 2.45 ms a whole frame and 4.0 to 6.3 an edit in one runner and 1.54 to 2.69 and 4.1 to 5.7 in the other,
+  its medians +9.9% and -13.3%, and in a first A/B -1.7% and +6.9%: the swing between processes the second part saw.
+- *Tests.* Law 18 (`a_grid_of_spills_saved_at_rest_loads_as_it_was`), over 60 grids of spills, seven frames each,
+  writes before each moving the spills, blocking them and writing their anchors away: at rest, the view and the
+  fills load as the grid, viewed and filled again alike, and each, resumed and written as the grid is, stepped once
+  is the grid stepped once more; every frame `Calc` over the grid as it began, at every cell and at the spills, as
+  law 14 holds a frame; the twin's window and extent its walk's in the grid lent. Measured: 1,603 `spill` rows over
+  5,882 cells laid, 164 anchors blocked, 965 extents moved, 720 frames followed and all 360 held to `Calc`. Law 11's
+  fifth family, the same grids written before every frame and stepped in slices of 0, 1 and 3: 2,177 windows patched,
+  1,488 still, 2,543 whole, 256 `spill` rows of anchors named; before a shrink was told cell by cell, 892, 652, 3,828
+  and 73. A test of each path by name: a save keeping each spill, grown past the cells and shrunk, the extent kept,
+  the twins read at the first frame after the load, the frames after it the original's, and a value written into a
+  box shown as its cell until the frame blocks the spill; the load's set-asides, past a box, labelled, a merged range,
+  a record's cell and a reason said in a spill's, and a door's workbook and its fills; the changes cell by cell as a
+  spill grows, shrinks and holds, the twin's among them; a twin's extent a spill shrinks, `MATCH(4,S.last!A:A,1)` over
+  a column beside it 4 and then 1, computed again though no cell it reads changed; and a shrunk box, by a text,
+  through `#` and by a name, stepped in slices.
+- *Mutants*: in a copy of `e00a306` with the part's files and a target of its own, each held to the language's unit
+  tests and its laws of saves, changes, kinds and boards. The first round, 40: 32 killed. Of the eight that lived, four
+  were checks no answer reached, removed as the second part removed its own: the frame's end keeping only the anchors
+  whose extent ended elsewhere, which every anchor it moved does, an anchor computed once a frame; the fills leaving
+  out a cell the grid holds inside an extent, at which the values answer none; the load setting aside a spill meeting
+  one kept before it, which none can, each inside its box and two boxes that meet labelled; and a name's write noted
+  as a plan made again, which its readers, placed again as cells the write changed, note already. Three were cases
+  no test held, each given one: a value said at a cell a record holds, a reason said in a spill's cell, and a twin's
+  extent a spill shrinks read by `MATCH`; each killed by it over the final code, run again with the mutants near the
+  code the round changed. One is equivalent: a cell of a spill's box with no value answering whether it printed a
+  `lit` row, which no named cell of a machine's spill reaches. Of the 36 that stand on the code as it is, 35 are
+  killed and one equivalent.
+- *Verified as CI runs it,* over what the commit holds, a copy of `df21a3b` with the part's nine files and a target of
+  its own, a peer's `VLA.11` building in the shared tree left out: rustfmt; clippy over every target with and without
+  `c-abi` at `-D warnings`; the workspace's 981 tests; `run_checks.ps1` 60 of 60; `prove.ps1 -Control`, its mutant
+  failing all 71, and `-Impl` over the door, 70; both wasm modules, the import section empty and the 14 and 10
+  exports, `build_web.ps1 -NoBuild` and `check_web_offline`. Over a copy of `e00a306` with the part's five code files,
+  the language's package from its tarball on a fresh target, 698; Alonzo's suite at its head, `91cc254`, over that
+  copy's language by `[patch.crates-io]`, the path compiled, 114 with its cartridges required; and Buffet's at its
+  head, `bf1e6d9`, whose pins are 0.4.0 and 0.14.0, over that Alonzo copy and the language, both paths compiled, 107,
+  the two suites run before the four checks no answer reached were removed. Under Windows PowerShell 5.1 alone.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note, and three of its sentences an engine's spills left stale (the door's
+  spill, the rows a load sets aside, `A1#`); the roadmap's line; `conformance/README.md`'s amendment of 2026-11-19.
+- *Found:*
+  1. A formula's value turned to a reason still makes the next frame compute every cell (`KERNEL.56`'s *Found*),
+     where a cell a spill empties no longer does.
+  2. A format at a cell a spill fills: a load sets its `style` row aside, so that a machine holds none there and its
+     save prints none (slice (c)'s second part's *Found* 2, its second half).
+  3. A legacy array formula over a block: an engine computes its anchor alone, the block's cells empty, where the
+     door lays its array; the load sets its `spill` row aside (decision 7 in an engine, which no slice took).
+  4. Alonzo's host reads a record by cell and knows no `spill` row (`CELL_LINE`): a values record or a changes
+     answer holding one is never patched, the window viewed whole at every frame, until its pin learns the row.
+  5. A sheet's extent a spill grew stays grown after the spill shrinks, a save keeping it by its `extent` row, where
+     the dimension Excel saves holds the cells alone.
+  6. The second part's *Found* 4 to 6 stand: no write empties a cell; `present` counts a laid cell; a shape bounded
+     once at a sheet's edge.
+- *Hand test:* none in Excel; the part moves an engine's saves, loads and changes, and no file a door writes.
+
+*Committed 2026-11-19* at the owner's word, "Commit part 3, then design Excel's second save": over `8b87382`, a
+peer's `VLA.11` scoped and its first slice built in two commits since the second part, the part's 9 files, its four
+docs by their hunks alone.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

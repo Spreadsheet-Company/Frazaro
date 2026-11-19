@@ -49,8 +49,8 @@
   labelled `a spill meeting another`, since Excel decides which of them
   spills by the order it computes them in; one whose formula bounds no
   extent and whose file saved none, a `SEQUENCE` of a count read from a
-  cell, is labelled `a spill no plan bounds` where it answers many values.
-  An engine still labels a spill `a spill` (KERNEL.55, its third slice).
+  cell, is labelled `a spill no plan bounds` where it answers many values
+  (KERNEL.55, its third slice).
 - **A build writes a spill as Excel saves one**: the formula over the cells
   it spills into, each holding its value, so that a reader that does not
   calculate shows the whole spill, where it wrote the formula over its own
@@ -83,13 +83,14 @@
   meets the new row and a `value` row at a cell holding no formula: Alonzo's
   page draws the values as before and counts the `spill` row unknown until it
   learns it. An engine's load takes the words, a `spill` row after an array
-  formula's anchor, and the `value` and `style` rows of the cells it fills,
-  which it sets aside until engines compute spills (KERNEL.55).
+  formula's anchor, and the `value` rows of the cells it fills, which it
+  lays again as the spill's, and their `style` rows, which it sets aside
+  (KERNEL.55).
 - **`A1#` is read**, as Excel's file spells it, `ANCHORARRAY(A1)`, and written
   as `_xlfn.ANCHORARRAY(A1)`: the extent the anchor spilled into, `#SPILL!`
   for one blocked, and `#REF!` for a cell holding no dynamic formula, where
-  `ANCHORARRAY` was a function not computed. An engine labels a spill read
-  through it `a spill`, as it labels the formula itself (KERNEL.55).
+  `ANCHORARRAY` was a function not computed, in an engine as in the doors
+  (KERNEL.55).
 - **An engine refuses a dynamic formula whose text bounds no answer.** An
   engine fixes, when it loads a grid and when a formula is written, the
   cells each dynamic-array formula may spill into, by what its text says:
@@ -116,6 +117,21 @@
   and a grid that never spills computes as fast as it did. An engine's
   record prints a spill's `spill` row and its cells' `value` rows, as the
   door's does (KERNEL.55, its fifth slice).
+- **A save keeps a spill.** An engine's save, each sheet's `fills` view,
+  prints each spill's `spill` row and the values it laid, and the extent a
+  spill grew past the cells the sheet holds; a load lays the values again
+  where the formula's text bounds them so, so that a grid saved and loaded
+  shows its spills before its next frame, and a formula reading the last
+  frame's values through a sheet's twin, `Sheet.last`, reads them at the
+  first frame after the load. A load now reads a record's `extent` row. A
+  window's changes name each cell a spill filled or emptied, and the formula
+  whose spill moved, where they answered whole, and a spill that shrinks no
+  longer makes the next frame compute every cell. `view_text_fills` of a
+  door's model prints a spill as its grid view does, a value the model
+  holds in a spill's cells the spill's, and `Draft::of_workbook` of a
+  workbook read from a file takes those values as the spill's, where they
+  were cells of their own that blocked it; `Values` gains a provided method
+  saying which, `box_cells_spilled` (KERNEL.55, its fifth slice).
 - **Two answers corrected by Excel's save.** In a legacy array formula,
   `HLOOKUP`'s and `VLOOKUP`'s value sought and match kind take an array's
   first value, as in a legacy formula, where they lifted the lookup over it;

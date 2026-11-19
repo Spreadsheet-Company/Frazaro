@@ -2853,3 +2853,28 @@ Oracle 12's engine computes a spill (the scoping's decision 6).
 - **What it does not hold.** A save of a spill, which leaves its cells out, its first frame after a load
   laying it again; a window's changes told cell by cell at a frame that lays or empties one, told whole;
   and a later frame's twin of a formula's reason, which the grid lent holds as no cell.
+
+## Amendment of 2026-11-19: a save keeps a spill (`KERNEL.55`, its fifth slice, its third part)
+
+Oracles 11 and 12 gain a spill saved and its changes (the scoping's decisions 2 and 6).
+
+- **What is held.** A machine's save, each sheet's `fills` view, prints each spill's `spill` row after the
+  values, and after it the values the spill laid, each a `value` row with nothing before it, kept by
+  rectangles as a formula's; the extent a spill grew past the cells the sheet holds is its `extent` row,
+  which a load now reads. A load lays each saved spill again where its formula's text bounds it so, at the
+  cells no row writes, and its twin holds the values, so that a formula reading the twin of a spilled cell
+  at the first frame after the load reads what the save kept; a `spill` row past its anchor's bound, a
+  labelled anchor's, or one meeting a merged range or a spill kept before it is set aside, its anchor's
+  first frame laying what it computes. A door's model viewed as fills prints a spill as its grid view
+  does, a value it holds inside a spill's box the spill's, and a door's workbook an engine loads takes
+  those values as the spill's. A window's changes at a frame that lays or empties a spill's cells name each
+  by its place, and the anchor whose `spill` row moved; while a step yields, a view of the spills is the
+  last frame's. A write that shrinks a spill's box gives up the cells laid past it at the next frame's
+  start, before any cell reads one.
+- **The oracles.** Law 18 of the language's laws: a grid of spills saved at rest, its view and its fills,
+  loads as it was, and resumed and written as the grid is, is the grid frame after frame, every frame
+  `Calc` over the grid as it began; law 11 over the same grids, each spill's cells and its anchor named by
+  the changes; the save, the load's set-asides, a door's workbook, the changes and a shrunk box by name.
+- **What it does not hold.** A save between a write and its frame, which no host takes; a format at a cell a
+  spill fills, which a load sets aside; and a legacy array formula's block in an engine, which computes its
+  anchor alone.

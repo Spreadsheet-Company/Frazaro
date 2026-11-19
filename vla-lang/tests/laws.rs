@@ -81,6 +81,15 @@
 //!     expand-time arithmetic and generated arguments; two sibling calls write
 //!     their own rows in either order; and a source expanded twice writes the
 //!     same bytes (VLA.8, LISTOPS-CONFLUENCE).
+//! 18. A grid of spills saved at rest loads as it was: its view and its fills
+//!     each load as a grid whose view is the view and whose fills are the
+//!     fills, a spill's `spill` row and the values it laid among them, and
+//!     each, resumed and written as the grid is, stepped once is the grid
+//!     stepped once more, frame after frame, over grids whose spills grow,
+//!     shrink, give way to one value, are blocked and are written away, a
+//!     formula reading each through `#`, by an address and through the twin;
+//!     and law 11 holds over them, a spill's cells and its anchor named by the
+//!     changes where it moves (KERNEL.55).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -1120,7 +1129,7 @@ fn cell_of(line: &str) -> Option<(u32, u32)> {
         [Form::Sym(head), Form::Str(_), Form::Str(addr), ..]
             if matches!(
                 head.as_str(),
-                "cell" | "value" | "text" | "style" | "sentence" | "empty"
+                "cell" | "value" | "spill" | "text" | "style" | "sentence" | "empty"
             ) =>
         {
             let r = parse_a1_range(addr)?;
@@ -1204,6 +1213,8 @@ struct Held {
     whole: usize,
     /// The `text` rows the changes of the windows patched gave (KERNEL.47).
     texts: usize,
+    /// The `spill` rows the changes of the windows patched gave (KERNEL.55).
+    spills: usize,
 }
 
 /// The law at one moment: each window's values at `base`, the frame before
@@ -1259,6 +1270,7 @@ fn changes_held(
                 }
                 held.patched += 1;
                 held.texts += changes.lines().filter(|l| l.starts_with("(text ")).count();
+                held.spills += changes.lines().filter(|l| l.starts_with("(spill ")).count();
                 held.still += usize::from(n == 0);
             }
         }
@@ -1334,7 +1346,7 @@ fn spelled_rows(r: &mut Rng) -> String {
 fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
     // Each family's windows counted apart, so that each is held patched,
     // changing and still, and answered whole.
-    let mut held: [Held; 4] = Default::default();
+    let mut held: [Held; 5] = Default::default();
     // Law 9's grids, dressed, written before every second frame as law 7
     // writes them, some stepped in slices.
     for seed in 1..=50u64 {
@@ -1402,6 +1414,17 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
         let what = format!("spelled seed {seed}\n{rows}");
         changes_over(&mut m, 6, 0, &mut writes, &mut held[3], &what);
     }
+    // Law 18's spills, written before every frame, some stepped in slices: a
+    // spill's cells and its anchor named where it moves (KERNEL.55).
+    for seed in 1..=40u64 {
+        let mut r = Rng::new(seed ^ 0x5511);
+        let rows = spill_rows(&mut r);
+        let mut m = load(&rows, &format!("spills seed {seed}"));
+        let budget = [0, 1, 3][r.below(3)];
+        let mut writes = |_: u64| spill_writes(&mut r);
+        let what = format!("spills seed {seed}\n{rows}");
+        changes_over(&mut m, 6, budget, &mut writes, &mut held[4], &what);
+    }
     // Measured 2026-10-15: patched 1,442, 7,833, 2,282 and 1,060, of which
     // still 670, 3,240, 1,924 and 135; whole 4,262, 4,343, 2,198 and 700.
     // The first family measured again 2026-10-17, its grids dressed with
@@ -1410,7 +1433,10 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
     // longer answering whole (KERNEL.56): patched 1,911, 9,535, 3,114 and
     // 1,060, of which still 813, 3,950, 2,585 and 398; whole 3,929, 2,641,
     // 1,366 and 700; 338 text rows.
-    for (family, h) in ["grids", "churning", "fills", "spelled"].iter().zip(&held) {
+    for (family, h) in ["grids", "churning", "fills", "spelled", "spills"]
+        .iter()
+        .zip(&held)
+    {
         assert!(
             h.patched - h.still >= 150 && h.still >= 60 && h.whole >= 300,
             "{family}: too few windows of a kind for the law to hold over: {h:?}"
@@ -1422,6 +1448,15 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
         held[0].texts >= 120,
         "grids: too few text rows for the law to hold over: {:?}",
         held[0]
+    );
+    // Measured 2026-11-19 (KERNEL.55): the spills' windows patched 2,177, of
+    // which still 1,488, and whole 2,543, a value written before every frame
+    // lying in each whole window; 256 `spill` rows of anchors whose spill
+    // moved in the changes of the windows patched.
+    assert!(
+        held[4].spills >= 120,
+        "spills: too few anchors named for the law to hold over: {:?}",
+        held[4]
     );
 }
 
@@ -2422,4 +2457,235 @@ fn a_function_s_call_computes_one_value_wherever_it_stands() {
         assert!(forward.contains(row), "{forward}");
         assert!(backward.contains(row), "{backward}");
     }
+}
+
+// ---- 18. a grid of spills -----------------------------------------------------
+
+/// The sheet of a grid of spills (KERNEL.55).
+const SPILLS: &str = "P";
+
+/// The anchors of a grid of spills, each a dynamic formula at its place whose
+/// answer spills down or across by what it reads, the threshold in `D1` and the
+/// values in `F1:F8`: grows, shrinks, gives way to one value, and its boxes
+/// never meet, but where a write puts another text at an anchor.
+const ANCHORS: &[(&str, &str)] = &[
+    ("A1", "=FILTER(F1:F8,F1:F8<=D1)"),
+    ("H1", "=TRANSPOSE(FILTER(F1:F8,F1:F8>D1))"),
+    ("A12", "=SORT(F1:F8)"),
+    ("B12", "=F1:F4*D1"),
+    ("C12", "=UNIQUE(F1:F8)"),
+    ("D12", "=IF(D1>4,SEQUENCE(3),D1)"),
+    ("E12", "=TAKE(SORT(F1:F8,1,-1),3)"),
+    ("H3", "=FILTER(F1:F8,F1:F8=D1,\"none\")"),
+];
+
+/// The readers of a grid of spills, down column R, past every box: a spill
+/// read through `#`, a cell one laid by its address, and its cells' twins.
+const READERS: &[&str] = &[
+    "=SUM(A1#)",
+    "=ROWS(A1#)",
+    "=COLUMNS(H1#)",
+    "=A3*10",
+    "=I1+1",
+    "=SUM(P.last!A1:A8)",
+    "=COUNT(H1:O1)",
+    "=A14",
+    "=SUM(C12#)",
+    "=P.last!B13",
+    "=SUM(P.last!H1:O1)",
+    "=H4",
+];
+
+/// A grid of spills: the threshold, the values, most of the anchors and
+/// readers, and in some grids a value cell standing where a spill may grow.
+fn spill_rows(r: &mut Rng) -> String {
+    let mut out = format!("(sheet \"{SPILLS}\" visible)\n");
+    out.push_str(&format!("(cell \"{SPILLS}\" \"D1\" {})\n", r.below(9)));
+    for row in 1..=8 {
+        out.push_str(&format!("(cell \"{SPILLS}\" \"F{row}\" {})\n", r.below(9)));
+    }
+    for (addr, text) in ANCHORS {
+        if r.below(5) != 0 {
+            out.push_str(&format!(
+                "(formula \"{SPILLS}\" \"{addr}\" {} dynamic)\n",
+                quoted(text)
+            ));
+        }
+    }
+    for (row, text) in READERS.iter().enumerate() {
+        if r.below(4) != 0 {
+            out.push_str(&format!(
+                "(formula \"{SPILLS}\" \"R{}\" {})\n",
+                row + 1,
+                quoted(text)
+            ));
+        }
+    }
+    if r.below(3) == 0 {
+        let at = r.pick(&["A6", "L1", "A17", "C15", "H7"]);
+        out.push_str(&format!("(cell \"{SPILLS}\" \"{at}\" 1)\n"));
+    }
+    out
+}
+
+/// The writes before a frame of a grid of spills: the threshold and the
+/// values most often, which move the spills; now and then a value written
+/// into a box, which blocks its spill, and an anchor written another text,
+/// one value or a number.
+fn spill_writes(r: &mut Rng) -> Vec<String> {
+    let mut out = Vec::new();
+    for _ in 0..1 + r.below(2) {
+        let row = match r.below(20) {
+            0..=9 => format!("(cell \"{SPILLS}\" \"D1\" {})", r.below(9)),
+            10..=15 => format!("(cell \"{SPILLS}\" \"F{}\" {})", 1 + r.below(8), r.below(9)),
+            16 => format!(
+                "(cell \"{SPILLS}\" \"{}\" {})",
+                r.pick(&["A5", "K1", "A16", "D13"]),
+                r.below(9)
+            ),
+            17 => {
+                let (at, _) = r.pick(ANCHORS);
+                let (_, text) = r.pick(ANCHORS);
+                format!("(formula \"{SPILLS}\" \"{at}\" {} dynamic)", quoted(text))
+            }
+            18 => {
+                let (at, _) = r.pick(ANCHORS);
+                let text = r.pick(&["=SEQUENCE(2)", "=SEQUENCE(1,3)", "=D1*2"]);
+                format!("(formula \"{SPILLS}\" \"{at}\" {} dynamic)", quoted(text))
+            }
+            _ => {
+                let (at, _) = r.pick(ANCHORS);
+                format!("(cell \"{SPILLS}\" \"{at}\" {})", r.below(9))
+            }
+        };
+        out.push(row);
+    }
+    out
+}
+
+/// What `Calc` computes over a grid of spills as a frame begins: each cell's
+/// value, spelled, and the sheet's spills.
+type FromCalc = (Vec<(CellId, String)>, Vec<(CellId, A1Range)>);
+
+#[test]
+fn a_grid_of_spills_saved_at_rest_loads_as_it_was() {
+    // Law 18 (KERNEL.55, its fifth slice's third part): at rest, before the
+    // first frame and after each, the grid's view and its fills load as a
+    // grid whose view is the view and whose fills are the fills; and each so
+    // loaded, resumed and written as the grid is written, stepped once is the
+    // grid stepped once more. And every frame is `Calc` over the grid as the
+    // frame began, twins as sheets, at every cell it computes and at its
+    // spills, where the last frame left no twin a reason, as law 14 holds a
+    // frame: a write that shrinks a spill's box among them.
+    let (mut spills, mut laid, mut blocked, mut moved, mut followed) = (0, 0, 0, 0, 0);
+    let mut by_calc = 0;
+    let lib = library::language();
+    for seed in 1..=60u64 {
+        let mut r = Rng::new(seed ^ 0x5518);
+        let rows = spill_rows(&mut r);
+        let mut m = load(&rows, &format!("spills seed {seed}"));
+        let mut followers: Vec<(&str, Machine)> = Vec::new();
+        let mut extents_before: BTreeSet<String> = BTreeSet::new();
+        for frame in 0..=6 {
+            let what = format!("spills seed {seed}, frame {frame}\n{rows}");
+            if frame > 0 {
+                let reasons = formula_values(&mut m)
+                    .values()
+                    .any(|v| v.contains("NotComputed"));
+                for w in spill_writes(&mut r) {
+                    m.write(&w)
+                        .unwrap_or_else(|e| panic!("{what}: {w}: {}", e.refusal.text));
+                    for (how, f) in followers.iter_mut() {
+                        f.write(&w)
+                            .unwrap_or_else(|e| panic!("{what}: {how}: {w}: {}", e.refusal.text));
+                    }
+                }
+                let book = m.workbook();
+                let calc = Calc::run(&book, &lib);
+                let want: Option<FromCalc> = (!reasons).then(|| {
+                    let cells = calc
+                        .cells()
+                        .into_iter()
+                        .filter(|id| id.0 == 0)
+                        .map(|id| (id, format!("{:?}", calc.computed(id).expect("computed"))))
+                        .collect();
+                    (cells, Values::spills(&calc, 0))
+                });
+                drop(calc);
+                assert!(m.step(0).done);
+                if let Some((cells, spilt)) = want {
+                    for (id, want) in &cells {
+                        let got = format!("{:?}", Values::computed(&m, *id).expect("computed"));
+                        assert_eq!(&got, want, "{what}: {id:?} against Calc");
+                    }
+                    assert_eq!(
+                        Values::spills(&m, 0),
+                        spilt,
+                        "{what}: the spills against Calc"
+                    );
+                    by_calc += 1;
+                }
+                for (how, f) in followers.iter_mut() {
+                    assert!(f.step(0).done);
+                    assert_eq!(f.frame(), m.frame(), "{what}: resumed from its {how}");
+                    assert_eq!(save(f), save(&m), "{what}: resumed from its {how}, stepped");
+                    followed += 1;
+                }
+            }
+            // The twin's window and extent, as the machine keeps them, its
+            // walk's in the grid lent: a spill's emptied cell on its edge
+            // makes it again.
+            let book = m.workbook();
+            let twin = format!("{SPILLS}.last");
+            let w = window_of(&book, &twin, None).expect("the twin");
+            assert_eq!(
+                header(&record(&m, "grid", &twin, None)),
+                header(&view_text(&book, &w)),
+                "{what}: the twin's window and extent"
+            );
+            let saved = save(&m);
+            let again = load(&saved, &format!("{what}'s view"));
+            assert_eq!(save(&again), saved, "{what}: its view loaded");
+            let filled = fills(&m);
+            let from_fills = load(&filled, &format!("{what}'s fills"));
+            assert_eq!(save(&from_fills), saved, "{what}: its fills loaded");
+            assert_eq!(fills(&from_fills), filled, "{what}: its fills again");
+            let extents: BTreeSet<String> = filled
+                .lines()
+                .filter(|l| l.starts_with("(spill "))
+                .map(str::to_string)
+                .collect();
+            spills += extents.len();
+            laid += extents
+                .iter()
+                .filter_map(|l| parse_a1_range(l.rsplit('"').nth(1)?))
+                .map(|e| e.cells() - 1)
+                .sum::<u64>();
+            blocked += saved.matches("#SPILL!").count();
+            moved += extents.symmetric_difference(&extents_before).count();
+            extents_before = extents;
+            followers = [("view", saved), ("fills", filled)]
+                .into_iter()
+                .map(|(how, text)| {
+                    let mut f = load(&text, &format!("{what}'s {how}"));
+                    f.resume_at(m.frame())
+                        .unwrap_or_else(|e| panic!("{what}: {how}: {}", e.text));
+                    (how, f)
+                })
+                .collect();
+        }
+    }
+    // Measured 2026-11-19: 1,603 `spill` rows in the saves, over 5,882 cells
+    // laid; 164 anchors blocked; 965 extents moved from frame to frame; every
+    // one of the 360 frames held to Calc, no twin holding a reason.
+    assert!(
+        spills > 800
+            && laid > 2000
+            && blocked > 60
+            && moved > 400
+            && followed == 60 * 6 * 2
+            && by_calc > 200,
+        "{spills} spill rows, {laid} cells laid, {blocked} blocked, {moved} extents moved, \
+         {followed} frames followed and {by_calc} held to Calc: too few for the law to hold over"
+    );
 }

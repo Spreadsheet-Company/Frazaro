@@ -741,6 +741,16 @@ pub trait Values: std::fmt::Debug {
     fn spills(&self, _sheet: usize) -> Vec<(CellId, A1Range)> {
         Vec::new()
     }
+
+    /// Whether a cell the grid holds inside a spill's box, past its anchor, is
+    /// the spill's (KERNEL.55): a door's model holds there the value its file
+    /// last saved the spill laying, the spill's own; a machine's grid holds a
+    /// cell there only where a write since its last frame put one, the sheet's
+    /// own, which blocks the spill at the next frame. True, unless the values
+    /// say otherwise.
+    fn box_cells_spilled(&self) -> bool {
+        true
+    }
 }
 
 impl Values for Calc<'_> {

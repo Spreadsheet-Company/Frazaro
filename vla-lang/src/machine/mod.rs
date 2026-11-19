@@ -623,8 +623,12 @@ pub struct Machine {
 /// slot as a formula's is; the anchors holding a reason, which an empty cell
 /// of their boxes answers; the cells the frame in progress laid or emptied,
 /// told at its end against their twins, and each one's value beside while a
-/// step yields; and the anchors a write met the boxes of, computed again at
-/// the next frame's start, since what blocks a spill is no read of it.
+/// step yields; the anchors a write met the boxes of, computed again at the
+/// next frame's start, since what blocks a spill is no read of it; whether a
+/// write made the plan again since the last frame, its boxes with it; and the
+/// anchors whose extent the frame in progress moved, each with the one it
+/// began with, and those of the last complete frame whose `spill` row it
+/// moved, which a window's changes name.
 #[derive(Debug, Default)]
 struct Spilt {
     extents: FxHashMap<CellId, A1Range>,
@@ -633,6 +637,38 @@ struct Spilt {
     changed: Vec<CellId>,
     before: FxHashMap<CellId, Option<Computed>>,
     again: Vec<CellId>,
+    replanned: bool,
+    moved: FxHashMap<CellId, Option<A1Range>>,
+    last_moved: Vec<CellId>,
+}
+
+impl Spilt {
+    /// An anchor's extent about to move in the frame in progress, noted with
+    /// the one it began the frame with, the first time.
+    fn moving(&mut self, anchor: CellId) {
+        let was = self.extents.get(&anchor).copied();
+        self.moved.entry(anchor).or_insert(was);
+    }
+
+    /// An anchor's extent as the last complete frame left it, while a step
+    /// yields (KERNEL.55): the one the frame in progress began with where it
+    /// moved it.
+    fn extent_kept(&self, anchor: CellId) -> Option<A1Range> {
+        match self.moved.get(&anchor) {
+            Some(was) => *was,
+            None => self.extents.get(&anchor).copied(),
+        }
+    }
+
+    /// The frame's end: the anchors whose extent it moved kept for the
+    /// changes, the frame's list emptied. Each ends the frame elsewhere than
+    /// it began: an anchor is computed once a frame, and one whose box a
+    /// write shrank, cut at the frame's start, lays no extent its box does
+    /// not hold.
+    fn moved_at_end(&mut self) {
+        self.last_moved.clear();
+        self.last_moved.extend(self.moved.drain().map(|(a, _)| a));
+    }
 }
 
 impl std::fmt::Debug for Machine {
@@ -755,8 +791,18 @@ impl Machine {
             .iter_mut()
             .map(|s| std::mem::take(&mut s.said))
             .collect();
+        // What the rows saved of their spills (KERNEL.55): each sheet's
+        // extent grown to the one its `extent` row names past its records, and
+        // each `spill` row's extent and the values its spill last laid, laid
+        // after the plan where it bounds them so.
+        let saved = std::mem::take(&mut draft.saved);
         let cells = draft.cells;
         let mut extents: Vec<Extent> = draft.sheets.iter().map(|s| s.extent()).collect();
+        for s in &saved {
+            if let Some(((top, left), (bottom, right))) = s.named {
+                extents[s.sheet] = grown(grown(extents[s.sheet], top, left), bottom, right);
+            }
+        }
         let mut book = Book::of(&mut draft);
         // Each function of cells compiled from its room before the names
         // and the plan read it (KERNEL.29's third slice).
@@ -797,14 +843,16 @@ impl Machine {
             };
             return Err(LineRefusal { line, refusal });
         }
-        let stores = stores_of(&laid, &book, &extents, said);
+        let saved = saved_spills(&shapes, &book, &mut extents, saved);
+        let mut stores = stores_of(&laid, &book, &extents, said);
         drop(laid);
+        let spilt = lay_saved(&mut stores, saved);
         Ok(Machine::made(
             (book, sheets, cells),
             (rules, rule_cells, planned),
             (library, names, extents),
             shapes,
-            stores,
+            (stores, spilt),
         ))
     }
 
@@ -818,7 +866,7 @@ impl Machine {
         (rules, rule_cells, planned): load::Answers,
         (library, names, extents): (Library, Names, Vec<Extent>),
         shapes: Shapes,
-        stores: Vec<Store>,
+        (stores, laid): (Vec<Store>, Option<Box<Spilt>>),
     ) -> Machine {
         let mut m = Machine {
             book,
@@ -832,7 +880,7 @@ impl Machine {
             shapes,
             stores,
             before: FxHashMap::default(),
-            laid: None,
+            laid,
             box_reasons: false,
             spill_labels: false,
             spill_watch: false,
@@ -1192,7 +1240,9 @@ impl Machine {
     pub fn step(&mut self, budget: usize) -> Step {
         let of = self.shapes.len();
         if self.progress.is_none() {
-            self.begin();
+            // Whether the frame's first step yields, keeping beside each value
+            // its start overwrites (KERNEL.55).
+            self.begin(budget != 0 && budget < of);
         }
         let start = self.progress.unwrap_or(0);
         let end = if budget == 0 {
@@ -1311,8 +1361,9 @@ impl Machine {
     /// followed, and each shape whose parts the same at every cell read a
     /// changed cell when those parts compute other bits than they did. The
     /// last frame's changes are kept until this frame's end, which a view
-    /// of them during a yield reads (KERNEL.42).
-    fn begin(&mut self) {
+    /// of them during a yield reads (KERNEL.42); `keep` whether the frame's
+    /// first step yields.
+    fn begin(&mut self, keep: bool) {
         // A vector probed once in the frame before is probed once again here
         // before its index is built (KERNEL.8).
         self.indexes.begin();
@@ -1326,12 +1377,13 @@ impl Machine {
             self.computed = 0;
         }
         // The spills (KERNEL.55): an anchor a write planned away gives up the
-        // cells it laid, and each anchor a write met the box of is computed
-        // again; the plan's labels asked of every value kept where it has any.
+        // cells it laid, one whose box it shrank those outside it, and each
+        // anchor a write met the box of is computed again; the plan's labels
+        // asked of every value kept where it has any.
         self.spill_labels = self.shapes.spills().labelled();
         self.spill_watch = self.laid.is_some() || self.spill_labels;
         if self.laid.is_some() {
-            self.spills_begun();
+            self.spills_begun(keep);
         }
         if self.every {
             // Every part computed, for the next frame's to be held to.
@@ -1427,33 +1479,78 @@ impl Machine {
         }
     }
 
-    /// A frame's start for the spills (KERNEL.55): each anchor whose spill a
-    /// write planned away, its cell holding no spill's formula now, gives up
-    /// the cells it laid and its reason; and each anchor a write met the box
-    /// of is marked, to be computed again.
-    fn spills_begun(&mut self) {
+    /// A frame's start for the spills (KERNEL.55), where a write made the plan
+    /// again since the last frame: each anchor whose spill it planned away,
+    /// its cell holding no spill's formula now, gives up the cells it laid and
+    /// its reason; and each whose box it shrank, so that the cells laid past
+    /// the box are no longer read after the anchor, gives up those cells
+    /// before any cell reads one, and is computed again. And each anchor a
+    /// write met the box of is marked, to be computed again. `keep` whether
+    /// the frame's first step yields.
+    fn spills_begun(&mut self, keep: bool) {
         let spills = self.shapes.spills();
         let Some(laid) = self.laid.as_deref_mut() else {
             return;
         };
-        let gone: Vec<CellId> = laid
-            .extents
-            .keys()
-            .copied()
-            .filter(|&anchor| spills.get(anchor).is_none())
-            .collect();
-        laid.reasons
-            .retain(|anchor, _| spills.get(*anchor).is_some());
-        self.box_reasons = !laid.reasons.is_empty();
         let again = std::mem::take(&mut laid.again);
-        for anchor in gone {
-            self.unpour(anchor, false);
+        if std::mem::take(&mut laid.replanned) {
+            // Each anchor's extent cut to its box, `None` where it has none.
+            let mut cut: Vec<(CellId, Option<A1Range>)> = laid
+                .extents
+                .iter()
+                .filter_map(|(&anchor, &e)| {
+                    let Some(spill) = spills.get(anchor) else {
+                        return Some((anchor, None));
+                    };
+                    let b = spill.cells;
+                    let held = b.top <= e.top
+                        && b.left <= e.left
+                        && e.bottom <= b.bottom
+                        && e.right <= b.right;
+                    let within = A1Range {
+                        bottom: e.bottom.min(b.bottom),
+                        right: e.right.min(b.right),
+                        ..e
+                    };
+                    (!held).then_some((anchor, (within.cells() > 1).then_some(within)))
+                })
+                .collect();
+            cut.sort_unstable_by_key(|c| c.0);
+            laid.reasons
+                .retain(|anchor, _| spills.get(*anchor).is_some());
+            self.box_reasons = !laid.reasons.is_empty();
+            for (anchor, within) in cut {
+                match within {
+                    None => self.unpour(anchor, keep),
+                    Some(within) => self.cut_spill(anchor, within, keep),
+                }
+                if let Some(p) = self.shapes.position(anchor) {
+                    self.marked.set(p);
+                }
+            }
         }
         for anchor in again {
             if let Some(p) = self.shapes.position(anchor) {
                 self.marked.set(p);
             }
         }
+    }
+
+    /// An anchor's spill cut to the cells of its box (KERNEL.55): each cell
+    /// it laid outside `within` emptied, and its extent `within`.
+    fn cut_spill(&mut self, anchor: CellId, within: A1Range, keep: bool) {
+        let Some(old) = self
+            .laid
+            .as_deref()
+            .and_then(|l| l.extents.get(&anchor).copied())
+        else {
+            return;
+        };
+        self.laid().moving(anchor);
+        let first = self.laid.as_deref().map_or(0, |l| l.changed.len());
+        self.empty_outside(anchor, old, Some(within), keep);
+        self.laid().extents.insert(anchor, within);
+        self.spill_moved(anchor, first);
     }
 
     /// A shape's parts the same at every cell computed, each kept for the
@@ -1731,6 +1828,9 @@ impl Machine {
                 );
             }
         }
+        if old != Some(extent) {
+            self.laid().moving(anchor);
+        }
         if let Some(old) = old {
             self.empty_outside(anchor, old, Some(extent), keep);
         }
@@ -1846,6 +1946,13 @@ impl Machine {
     /// An anchor's spill given up (KERNEL.55): each cell its last answer laid
     /// emptied, where it laid any.
     fn unpour(&mut self, anchor: CellId, keep: bool) {
+        if let Some(l) = self
+            .laid
+            .as_deref_mut()
+            .filter(|l| l.extents.contains_key(&anchor))
+        {
+            l.moving(anchor);
+        }
         let Some(old) = self
             .laid
             .as_deref_mut()
@@ -1889,14 +1996,19 @@ impl Machine {
         let was = self.stores[s].slot_of(row, col);
         let before = keep.then(|| was.and_then(Stored::computed));
         let cell = matches!(computed, Some(Computed::Value(_)));
-        if holds_cell(was) && !cell {
-            self.lost[s] = true;
-        } else if !holds_cell(was) && cell {
-            self.gained[s] = grown(self.gained[s], row, col);
-        } else if let Some(now) = &computed {
-            let twin = (self.sheets + s, row, col);
-            let bits = changed_alike(was, now);
-            note_alike(&mut self.alike_next, &mut self.alike_next_over, twin, bits);
+        match (holds_cell(was), cell) {
+            // A cell emptied, told at the frame's end by its place, where its
+            // twin's extent is made again if it stood on its edge, the next
+            // frame computing what reads it, as any change's.
+            (true, false) => {}
+            (false, true) => self.gained[s] = grown(self.gained[s], row, col),
+            _ => {
+                if let Some(now) = &computed {
+                    let twin = (self.sheets + s, row, col);
+                    let bits = changed_alike(was, now);
+                    note_alike(&mut self.alike_next, &mut self.alike_next_over, twin, bits);
+                }
+            }
         }
         match &computed {
             Some(c) => self.stores[s].put_computed(row, col, Some(c)),
@@ -2157,9 +2269,11 @@ impl Machine {
         self.alike_next.clear();
         self.alike_over = std::mem::take(&mut self.alike_next_over);
         self.changed_sheets.fill(0);
-        // A spill laid or emptied a cell (KERNEL.55): a window's record of
-        // the frame's changes whole, its rows' cells told by no position.
-        let spilt = self.laid.as_deref().is_some_and(|l| !l.changed.is_empty());
+        // The anchors whose `spill` row the frame moved (KERNEL.55), for a
+        // window's changes to name beside the cells the spills laid or emptied.
+        if let Some(laid) = self.laid.as_deref_mut() {
+            laid.moved_at_end();
+        }
         let grew = self.end_twins();
         // Each sheet's share counted as its changed cells were copied.
         self.last_changed = self.changed_sheets.iter().map(|&n| n as usize).sum();
@@ -2197,7 +2311,7 @@ impl Machine {
         // lands during a frame, so the flag is the end's own. A twin's extent
         // the end grew is named in every window's record of the twin, which
         // no cell's change carries (KERNEL.56).
-        self.changes_whole = self.every_next || self.alike_over || self.reshaped || grew || spilt;
+        self.changes_whole = self.every_next || self.alike_over || self.reshaped || grew;
         self.reshaped = false;
     }
 
@@ -2222,6 +2336,9 @@ impl Machine {
     /// it, and a plane a write gave up, are made again from the sheet, as
     /// each is at every end when the tests hold the copies to that.
     fn end_twins(&mut self) -> bool {
+        // The sheets whose twin a spill emptied a cell of on its extent's edge
+        // (KERNEL.55), its extent made again.
+        let mut edges: Vec<usize> = Vec::new();
         for s in 0..self.sheets {
             let twin = self.copies
                 && match self.twins[s].as_mut() {
@@ -2253,6 +2370,7 @@ impl Machine {
             gained,
             copied_into,
             laid,
+            extents,
             ..
         } = self;
         let sheets = *sheets;
@@ -2296,13 +2414,23 @@ impl Machine {
         }
         // Each cell a spill laid or emptied (KERNEL.55): its twin's change told
         // as the frame changed it, kept for the next frame by its place, and
-        // copied into the twin and the plane as a formula's is.
+        // copied into the twin and the plane as a formula's is; one emptied on
+        // its twin's extent's edge naming the sheet whose twin's extent is made
+        // again.
         if let Some(laid) = laid.as_deref_mut() {
             for &(s, row, col) in &laid.changed {
                 #[cfg(test)]
                 crate::sheet::work::copied();
                 changed_sheets[s] += 1;
                 let slot = stores[s].slot_of(row, col);
+                if !holds_cell(slot) && !edges.contains(&s) {
+                    let edge = extents[sheets + s].is_some_and(|((top, left), (bottom, right))| {
+                        row == top || row == bottom || col == left || col == right
+                    });
+                    if edge {
+                        edges.push(s);
+                    }
+                }
                 note(twin_count, *room, every_next);
                 twin_written.push((sheets + s, row, col));
                 if copied_into[s] & 1 != 0 {
@@ -2388,6 +2516,17 @@ impl Machine {
             if std::mem::take(&mut self.lost[s]) {
                 self.every_next = true;
                 self.extents[sheets + s] = self.twin_extent(s);
+            } else if edges.contains(&s) {
+                // A twin a spill emptied a cell of on its extent's edge
+                // (KERNEL.55): its extent made again, and moved as a growth
+                // moves it where it shrank.
+                let t = sheets + s;
+                let now = self.twin_extent(s);
+                if now != self.extents[t] {
+                    self.extents[t] = now;
+                    self.note_extent_moved(t);
+                    grew = true;
+                }
             } else if let Some(((top, left), (bottom, right))) = gained {
                 let t = sheets + s;
                 let was = self.extents[t];
@@ -2753,6 +2892,17 @@ impl Machine {
             .map(|id| (id.1, id.2))
             .collect();
         cells.append(&mut answered);
+        // Each anchor whose `spill` row the last frame moved (KERNEL.55), its
+        // value spelled as before or not: the cells its spill laid or emptied
+        // are named among the twin's written, by their places.
+        if let (true, Some(laid)) = (rows, self.laid.as_deref()) {
+            cells.extend(
+                laid.last_moved
+                    .iter()
+                    .filter(|a| a.0 == i && inside(&(t, a.1, a.2)))
+                    .map(|a| (a.1, a.2)),
+            );
+        }
         cells.sort_unstable();
         cells.dedup();
         changes_text(self, w, self, (since, at), Some(&cells))
@@ -3666,6 +3816,12 @@ impl Machine {
     /// third slice).
     #[inline(never)]
     fn settled(&mut self, log: &Log, formula_changed: bool, parts_kept: &[PartsKept]) -> usize {
+        // A plan made again, its spills' boxes with it (KERNEL.55): a formula
+        // written, or a name's readers, which a spill's bound may be, placed
+        // again by the names' settle as cells the write changed.
+        if let (true, Some(laid)) = (formula_changed, self.laid.as_deref_mut()) {
+            laid.replanned = true;
+        }
         // Each changed cell's twin as the last frame's end left it, kept
         // until the next end (KERNEL.49), read off its slot before the slot
         // is written.
@@ -3950,9 +4106,17 @@ impl Values for Machine {
     }
 
     /// The extent an anchor's answer was laid into past its own cell, as the
-    /// frames laid it (KERNEL.55).
+    /// last complete frame laid it (KERNEL.55): while a step yields, the one
+    /// the frame in progress began with.
     fn spill(&self, anchor: CellId) -> Option<A1Range> {
-        self.laid.as_deref()?.extents.get(&anchor).copied()
+        self.laid.as_deref()?.extent_kept(anchor)
+    }
+
+    /// A machine's grid holds a cell inside a spill's extent only where a
+    /// write since the last frame put one, which blocks the spill at the next
+    /// frame (KERNEL.55): the sheet's own.
+    fn box_cells_spilled(&self) -> bool {
+        false
     }
 
     /// A sheet's spills as the frames laid them, each its anchor and its
@@ -3963,11 +4127,13 @@ impl Values for Machine {
         };
         let mut out: Vec<(CellId, A1Range)> = laid
             .extents
-            .iter()
-            .filter(|(anchor, _)| anchor.0 == sheet)
-            .map(|(anchor, e)| (*anchor, *e))
+            .keys()
+            .chain(laid.moved.keys())
+            .filter(|anchor| anchor.0 == sheet)
+            .filter_map(|&anchor| Some((anchor, laid.extent_kept(anchor)?)))
             .collect();
         out.sort_unstable_by_key(|spill| spill.0);
+        out.dedup_by_key(|spill| spill.0);
         out
     }
 }
@@ -4357,6 +4523,15 @@ impl Cells for Machine {
             let page = self.book.pages.get(sheet)?;
             let holds = match page.formula(row, col) {
                 Some(formula) => Holds::Formula(formula),
+                // A cell a spill laid is its anchor's, and no value cell
+                // (KERNEL.55), as the walk of the cells meets it.
+                None if self
+                    .laid
+                    .as_deref()
+                    .is_some_and(|l| l.cells.contains_key(&(sheet, row, col))) =>
+                {
+                    return None
+                }
                 None => Holds::Constant(self.stores[sheet].constant(row, col)?),
             };
             return Some(grid::Held {
@@ -4498,6 +4673,95 @@ fn stores_of(
         stores.push(store);
     }
     stores
+}
+
+/// The spills a load's rows saved (KERNEL.55), each kept where the machine
+/// itself could have laid it: its anchor a spill the plan bounds and labels
+/// not, its box holding the extent, which meets no merged range; each sheet's
+/// extent grown to hold them. Two kept never meet, each inside its box, and two
+/// boxes that meet labelled. The rest set aside, its anchor's first frame
+/// laying what it computes. Each sheet's extents kept, by its sheet, with the
+/// values the spills laid.
+fn saved_spills(
+    shapes: &Shapes,
+    book: &Book,
+    extents: &mut [Extent],
+    saved: Vec<load::Saved>,
+) -> Vec<(usize, Vec<A1Range>, load::SaidRows)> {
+    let mut out = Vec::with_capacity(saved.len());
+    for load::Saved {
+        sheet: s,
+        spills,
+        laid,
+        ..
+    } in saved
+    {
+        let mut kept: Vec<A1Range> = Vec::new();
+        for e in spills {
+            let anchor = (s, e.top, e.left);
+            let bounded = shapes.spills().get(anchor).is_some_and(|spill| {
+                spill.label.is_none()
+                    && spill.cells.top <= e.top
+                    && spill.cells.left <= e.left
+                    && e.bottom <= spill.cells.bottom
+                    && e.right <= spill.cells.right
+            });
+            let met = book.pages[s].sheet.merges().meeting(e).next().is_some();
+            if bounded && !met {
+                extents[s] = grown(grown(extents[s], e.top, e.left), e.bottom, e.right);
+                kept.push(e);
+            }
+        }
+        out.push((s, kept, laid));
+    }
+    out
+}
+
+/// The saved spills laid into the stores (KERNEL.55): each value a `value` row
+/// said at a cell a kept extent holds past its anchor, where no record of the
+/// sheet's stands, the cell its anchor's, as a frame lays one; a reason said
+/// there set aside, since a spill lays values alone. The spills as the frames
+/// keep them, or none where no extent was kept.
+fn lay_saved(
+    stores: &mut [Store],
+    saved: Vec<(usize, Vec<A1Range>, load::SaidRows)>,
+) -> Option<Box<Spilt>> {
+    let mut spilt = Spilt::default();
+    for (s, kept, laid) in saved {
+        if kept.is_empty() {
+            continue;
+        }
+        for e in &kept {
+            spilt.extents.insert((s, e.top, e.left), *e);
+        }
+        for (x, _, said) in laid.rows {
+            let mut k = 0;
+            for row in x.top..=x.bottom {
+                for col in x.left..=x.right {
+                    let value = match &said {
+                        load::Said::One(c) => c.clone(),
+                        load::Said::Numbers(n) => Computed::Value(Value::Number(n[k])),
+                        load::Said::Each(c) => c[k].clone(),
+                    };
+                    k += 1;
+                    let Some(e) = kept.iter().find(|e| {
+                        (e.top, e.left) != (row, col) && crate::calc::spill::inside(e, row, col)
+                    }) else {
+                        continue;
+                    };
+                    let record = stores[s]
+                        .slot_of(row, col)
+                        .is_some_and(|slot| !slot.is_empty());
+                    if record || !matches!(value, Computed::Value(_)) {
+                        continue;
+                    }
+                    stores[s].put_computed(row, col, Some(&value));
+                    spilt.cells.insert((s, row, col), (s, e.top, e.left));
+                }
+            }
+        }
+    }
+    (!spilt.extents.is_empty()).then(|| Box::new(spilt))
 }
 
 /// What a twin holds at a cell as its sheet's store holds it (KERNEL.49): a
@@ -16319,6 +16583,386 @@ mod tests {
         ] {
             assert_eq!(spelled_at(&m, addr), answer, "{addr}, written away");
         }
+    }
+
+    /// A projection's text of a machine's sheet, whole.
+    fn viewed(m: &Machine, projection: &str, sheet: &str) -> String {
+        match m.view(projection, sheet, None) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{projection} {sheet}: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_save_keeps_each_spill_and_its_load_lays_it_as_the_frames_laid_it() {
+        // KERNEL.55's fifth slice, its third part: a save at rest prints each
+        // spill's `spill` row and the values it laid, and keeps the extent its
+        // spills grew past the cells it holds now; the load lays each again and
+        // its twin holds them, so that a formula reading the twin of a spilled
+        // cell at the first frame after the load reads the value the save kept,
+        // and the frames after it are the original's. A value written into a
+        // box shows as the cell it is until the frame blocks the spill.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"D1\" 3)\n",
+            "(cell \"S\" \"F1\" 1)\n(cell \"S\" \"F2\" 2)\n(cell \"S\" \"F3\" 3)\n",
+            "(cell \"S\" \"F4\" 4)\n(cell \"S\" \"F5\" 5)\n(cell \"S\" \"F6\" 6)\n",
+            "(formula \"S\" \"A1\" \"=FILTER(F1:F6,F1:F6<=D1)\" dynamic)\n",
+            "(formula \"S\" \"G1\" \"=TRANSPOSE(FILTER(F1:F6,F1:F6<=D1))\" dynamic)\n",
+            "(formula \"S\" \"B1\" \"=SUM(S.last!A1:A6)\")\n",
+            "(formula \"S\" \"C1\" \"=A2*10\")\n",
+        );
+        // Grown past the cells the grid holds, and shrunk again.
+        let replay = || {
+            let mut m = load(rows);
+            assert!(m.step(0).done);
+            for d in [6, 2] {
+                assert!(m.write(&format!("(cell \"S\" \"D1\" {d})")).is_ok());
+                assert!(m.step(0).done);
+            }
+            m
+        };
+        let mut m = replay();
+        let fills = viewed(&m, "fills", "S");
+        for row in [
+            "(extent \"S\" \"A1:L6\")",
+            "(spill \"S\" \"A1\" \"A1:A2\")",
+            "(value \"S\" \"A2\" 2)",
+            "(spill \"S\" \"G1\" \"G1:H1\")",
+            "(value \"S\" \"H1\" 2)",
+        ] {
+            assert!(fills.lines().any(|l| l == row), "{row} in\n{fills}");
+        }
+        for text in [fills.clone(), viewed(&m, "grid", "S")] {
+            let mut again = load(&text);
+            assert_eq!(viewed(&again, "grid", "S"), viewed(&m, "grid", "S"));
+            assert_eq!(viewed(&again, "fills", "S"), fills);
+            assert_eq!(again.extents[0], m.extents[0], "the extent the spills grew");
+            assert_eq!(spelled_at(&again, "A2"), "2", "laid before any frame");
+            again.resume_at(m.frame()).unwrap();
+            let mut original = replay();
+            // The first frame after the load reads the twins the save kept.
+            assert!(again.step(0).done && original.step(0).done);
+            assert_eq!(spelled_at(&again, "B1"), "3", "the twin of A1:A6");
+            assert_eq!(spelled_at(&again, "C1"), "20");
+            assert_eq!(viewed(&again, "grid", "S"), viewed(&original, "grid", "S"));
+            for (d, b1) in [(5, "3"), (1, "15")] {
+                for g in [&mut again, &mut original] {
+                    assert!(g.write(&format!("(cell \"S\" \"D1\" {d})")).is_ok());
+                    assert!(g.step(0).done);
+                }
+                assert_eq!(spelled_at(&again, "B1"), b1, "D1 {d}");
+                assert_eq!(viewed(&again, "grid", "S"), viewed(&original, "grid", "S"));
+            }
+        }
+        // A value written into a box: the cell it is, until the frame blocks
+        // the spill and empties the rest.
+        assert!(m.write("(cell \"S\" \"H1\" 7)").is_ok());
+        let grid = viewed(&m, "grid", "S");
+        assert!(grid.lines().any(|l| l == "(cell \"S\" \"H1\" 7)"), "{grid}");
+        assert!(
+            grid.lines().any(|l| l == "(value \"S\" \"A2\" 2)"),
+            "{grid}"
+        );
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "G1"), "(error \"#SPILL!\")");
+        let grid = viewed(&m, "grid", "S");
+        assert!(grid.lines().any(|l| l == "(cell \"S\" \"H1\" 7)"), "{grid}");
+        assert!(!grid.contains("(spill \"S\" \"G1\""), "{grid}");
+    }
+
+    #[test]
+    fn a_saved_spill_is_laid_again_only_where_its_plan_bounds_it_so() {
+        // KERNEL.55's fifth slice, its third part: the load lays a saved spill
+        // where the machine could have laid it, its anchor a spill the plan
+        // bounds and labels not, its box holding the extent, which meets no
+        // merged range and no spill kept before it; a cell a record holds is
+        // the record's. The rest set aside, the first frame laying what it
+        // computes, every frame as `Calc` computes the grid lent. A door's
+        // workbook holding a spill as its file saved it loads the same way.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(formula \"S\" \"A1\" \"=SEQUENCE(3)\" dynamic)\n(value \"S\" \"A1\" 1)\n",
+            "(spill \"S\" \"A1\" \"A1:A5\")\n(value \"S\" \"A2:A5\" 2 3 4 5)\n",
+            "(formula \"S\" \"C1\" \"=SEQUENCE(3)\" dynamic)\n(value \"S\" \"C1\" 1)\n",
+            "(spill \"S\" \"C1\" \"C1:C3\")\n(value \"S\" \"C2:C3\" 2 3)\n",
+            "(cell \"S\" \"E2\" 9)\n",
+            "(formula \"S\" \"E1\" \"=SEQUENCE(3)\" dynamic)\n(value \"S\" \"E1\" 1)\n",
+            "(spill \"S\" \"E1\" \"E1:E3\")\n(value \"S\" \"E2:E3\" 2 3)\n",
+            "(merge \"S\" \"G2:H2\")\n",
+            "(formula \"S\" \"G1\" \"=SEQUENCE(3)\" dynamic)\n(value \"S\" \"G1\" 1)\n",
+            "(spill \"S\" \"G1\" \"G1:G3\")\n(value \"S\" \"G2:G3\" 2 3)\n",
+            "(formula \"S\" \"K1\" \"=SEQUENCE(4)\" dynamic)\n(value \"S\" \"K1\" 1)\n",
+            "(spill \"S\" \"K1\" \"K1:K2\")\n(value \"S\" \"K2\" 2)\n",
+            "(formula \"S\" \"J3\" \"=SEQUENCE(1,3)\" dynamic)\n",
+            "(formula \"S\" \"M1\" \"=SUM(S.last!A1:C9)\")\n",
+            "(formula \"S\" \"N1\" \"=SEQUENCE(2)\" dynamic)\n(value \"S\" \"N1\" 1)\n",
+            "(spill \"S\" \"N1\" \"N1:N2\")\n(value \"S\" \"N2\" (not-computed \"a reason\"))\n",
+        );
+        let mut m = load(rows);
+        let spill = |m: &Machine, addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            Values::spill(m, (0, r.top, r.left)).map(|e| e.text())
+        };
+        assert_eq!(spill(&m, "A1"), None, "past its box");
+        assert_eq!(spelled_at(&m, "A2"), "(none)");
+        assert_eq!(spill(&m, "C1"), Some("C1:C3".to_string()));
+        assert_eq!(spelled_at(&m, "C3"), "3");
+        assert_eq!(
+            spill(&m, "E1"),
+            Some("E1:E3".to_string()),
+            "a record inside"
+        );
+        assert_eq!(spelled_at(&m, "E3"), "3");
+        let grid = viewed(&m, "grid", "S");
+        assert!(
+            grid.lines().any(|l| l == "(cell \"S\" \"E2\" 9)"),
+            "the record's own value, the value said there set aside\n{grid}"
+        );
+        assert_eq!(spill(&m, "N1"), Some("N1:N2".to_string()));
+        assert_eq!(spelled_at(&m, "N2"), "(none)", "a reason said, set aside");
+        assert_eq!(spill(&m, "G1"), None, "a merged range");
+        assert_eq!(spill(&m, "K1"), None, "labelled");
+        // The twins as the load left them, `A1`'s spill set aside: 1 + 1 + 2 + 3.
+        let calc = calc_values(&m);
+        assert!(m.step(0).done);
+        assert_eq!(values(&m), calc, "the first frame is Calc");
+        assert_eq!(spelled_at(&m, "M1"), "7", "the twins the load kept");
+        assert_eq!(spill(&m, "A1"), Some("A1:A3".to_string()));
+        assert_eq!(spelled_at(&m, "A4"), "(none)");
+        assert_eq!(spelled_at(&m, "E1"), "(error \"#SPILL!\")");
+        assert_eq!(spelled_at(&m, "G1"), "(error \"#SPILL!\")");
+        assert_eq!(
+            spelled_at(&m, "K1"),
+            "(not-computed \"a spill meeting another\")"
+        );
+        let calc = calc_values(&m);
+        assert!(m.step(0).done);
+        assert_eq!(values(&m), calc, "the second frame is Calc");
+        // A door's workbook, its spill's cells holding the values its file saved.
+        let mut wb = Workbook::new();
+        let s = wb.ensure_sheet("S");
+        let anchor = Content::DynamicSpill {
+            text: "SEQUENCE(3)".to_string(),
+            range: parse_a1_range("A1:A3").unwrap(),
+        };
+        for (row, col, content) in [
+            (1, 1, anchor),
+            (2, 1, Content::Number(2.0)),
+            (3, 1, Content::Number(3.0)),
+            (1, 2, Content::Formula("SUM(S.last!A1:A3)".to_string())),
+        ] {
+            wb.sheets[s].set(row, col, Cell { content, style: 0 });
+        }
+        // The door's fills of it print the spill as its grid view does, a value
+        // the workbook holds in the spill's cells the spill's and no cell of its
+        // own, and load as the spill.
+        let lib = labelling();
+        let calc = crate::calc::Calc::run(&wb, &lib);
+        let w = crate::view::window_of(&wb, "S", None).unwrap();
+        let door = crate::view::view_text_fills(&wb, &w, &calc);
+        assert!(
+            door.lines().any(|l| l == "(spill \"S\" \"A1\" \"A1:A3\")"),
+            "{door}"
+        );
+        assert!(
+            door.lines().any(|l| l == "(value \"S\" \"A2:A3\" 2 3)"),
+            "{door}"
+        );
+        assert!(!door.contains("(cell \"S\" \"A2"), "{door}");
+        let mut from_door = load(&door);
+        assert_eq!(spill(&from_door, "A1"), Some("A1:A3".to_string()));
+        assert!(from_door.step(0).done);
+        assert_eq!(spelled_at(&from_door, "A3"), "3", "the door's fills loaded");
+        let mut m = Machine::new(Draft::of_workbook(&wb), labelling()).unwrap();
+        assert_eq!(
+            spill(&m, "A1"),
+            Some("A1:A3".to_string()),
+            "as its file saved it"
+        );
+        assert_eq!(spelled_at(&m, "A3"), "3");
+        assert!(m.step(0).done);
+        assert_eq!(
+            spelled_at(&m, "A1"),
+            "1",
+            "laid, no person's value blocking it"
+        );
+        assert_eq!(spelled_at(&m, "A3"), "3");
+        assert_eq!(
+            spelled_at(&m, "B1"),
+            "5",
+            "the twins of the cells its file saved"
+        );
+    }
+
+    #[test]
+    fn a_window_s_changes_name_each_cell_a_spill_laid_or_emptied_and_its_anchor() {
+        // KERNEL.55's fifth slice, its third part: a frame that grows or
+        // shrinks a spill is told cell by cell, where the changes answered
+        // whole: each cell it laid or emptied, and its anchor, whose `spill` row
+        // moved while its value held; the twin's, its cells as cells.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"D1\" 3)\n",
+            "(cell \"S\" \"F1\" 1)\n(cell \"S\" \"F2\" 2)\n(cell \"S\" \"F3\" 3)\n",
+            "(cell \"S\" \"F4\" 4)\n(cell \"S\" \"F5\" 5)\n(cell \"S\" \"F6\" 6)\n",
+            "(formula \"S\" \"A1\" \"=FILTER(F1:F6,F1:F6<=D1)\" dynamic)\n",
+        ));
+        assert!(m.step(0).done);
+        assert!(m.write("(cell \"S\" \"D1\" 5)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(
+            viewed(&m, "changes", "S"),
+            concat!(
+                "(changes \"S\" \"A1:F6\" 1 2 4)\n",
+                "(value \"S\" \"A1\" 1)\n(spill \"S\" \"A1\" \"A1:A5\")\n",
+                "(cell \"S\" \"D1\" 5)\n",
+                "(value \"S\" \"A4\" 4)\n(value \"S\" \"A5\" 5)\n",
+            )
+        );
+        assert_eq!(
+            viewed(&m, "changes", "S.last"),
+            concat!(
+                "(changes \"S.last\" \"A1:F6\" 1 2 3)\n",
+                "(cell \"S.last\" \"D1\" 5)\n",
+                "(cell \"S.last\" \"A4\" 4)\n(cell \"S.last\" \"A5\" 5)\n",
+            )
+        );
+        assert!(m.write("(cell \"S\" \"D1\" 2)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(
+            viewed(&m, "changes", "S"),
+            concat!(
+                "(changes \"S\" \"A1:F6\" 2 3 5)\n",
+                "(value \"S\" \"A1\" 1)\n(spill \"S\" \"A1\" \"A1:A2\")\n",
+                "(cell \"S\" \"D1\" 2)\n",
+                "(empty \"S\" \"A3\")\n(empty \"S\" \"A4\")\n(empty \"S\" \"A5\")\n",
+            )
+        );
+        // A frame that moves no spill names no anchor.
+        assert!(m.step(0).done);
+        assert_eq!(
+            viewed(&m, "changes", "S"),
+            "(changes \"S\" \"A1:F6\" 3 4 0)\n"
+        );
+    }
+
+    #[test]
+    fn a_spill_whose_box_a_write_shrinks_gives_up_its_cells_past_it_before_any_reads_them() {
+        // KERNEL.55's fifth slice, its third part: a write that puts a smaller
+        // bound at an anchor shrinks its box, and that of a spill read through
+        // its `#`, so that a formula reading a cell laid past the new box is no
+        // longer ordered after the anchor; the frame's start gives those cells
+        // up before any cell reads one, so that the formula reads the cell
+        // empty, as `Calc` reads the grid the write left, where it read the
+        // value laid there, and a view while the step yields is the last
+        // frame's; and a name its text shrinks, which a spill's bound reads,
+        // alike. Every frame as `Calc` computes the grid lent.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"F1\" 4)\n(cell \"S\" \"F2\" 1)\n(cell \"S\" \"F3\" 1)\n",
+            "(cell \"S\" \"F4\" 2)\n(cell \"S\" \"F5\" 8)\n(cell \"S\" \"F6\" 3)\n",
+            "(formula \"S\" \"R8\" \"=A14\")\n",
+            "(formula \"S\" \"R9\" \"=B15\")\n",
+            "(formula \"S\" \"A12\" \"=SORT(F1:F6)\" dynamic)\n",
+            "(formula \"S\" \"B12\" \"=A12#*2\" dynamic)\n",
+        ));
+        let frame = |m: &mut Machine, when: &str| {
+            let calc = calc_values(m);
+            assert!(m.step(0).done);
+            assert_eq!(values(m), calc, "{when}: the machine is Calc");
+        };
+        frame(&mut m, "the load");
+        assert_eq!(spelled_at(&m, "R8"), "2");
+        assert_eq!(spelled_at(&m, "R9"), "6");
+        assert!(m
+            .write("(formula \"S\" \"A12\" \"=SEQUENCE(2)\" dynamic)")
+            .is_ok());
+        // Stepped a position at a time, a view while the step yields the last
+        // frame's, the cells given up at its start among them.
+        let calc = calc_values(&m);
+        while !m.step(1).done {
+            assert_eq!(spelled_at(&m, "A14"), "2", "while the step yields");
+            assert_eq!(spelled_at(&m, "B15"), "6", "while the step yields");
+        }
+        assert_eq!(values(&m), calc, "the box shrunk: the machine is Calc");
+        assert_eq!(spelled_at(&m, "R8"), "0", "the cell given up");
+        assert_eq!(
+            spelled_at(&m, "R9"),
+            "0",
+            "a cell of a spill read through `#`"
+        );
+        assert_eq!(spelled_at(&m, "A14"), "(none)");
+        assert_eq!(spelled_at(&m, "B13"), "4");
+        assert_eq!(spelled_at(&m, "B14"), "(none)");
+        frame(&mut m, "after");
+        // A name its text shrinks, which the spill's bound reads.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"F1\" 4)\n(cell \"S\" \"F2\" 1)\n(cell \"S\" \"F3\" 1)\n",
+            "(cell \"S\" \"F4\" 2)\n(cell \"S\" \"F5\" 8)\n(cell \"S\" \"F6\" 3)\n",
+            "(name \"Box\" \"S!$F$1:$F$6\")\n",
+            "(formula \"S\" \"R8\" \"=A14\")\n",
+            "(formula \"S\" \"A12\" \"=SORT(Box)\" dynamic)\n",
+        ));
+        frame(&mut m, "the name's load");
+        assert_eq!(spelled_at(&m, "R8"), "2");
+        assert!(m.write("(name \"Box\" \"S!$F$1:$F$2\")").is_ok());
+        frame(&mut m, "the name shrunk");
+        assert_eq!(spelled_at(&m, "R8"), "0", "a cell given up through a name");
+        assert_eq!(spelled_at(&m, "A13"), "4");
+    }
+
+    #[test]
+    fn a_twin_s_extent_a_spill_shrinks_moves_the_readers_of_that_extent() {
+        // KERNEL.55's fifth slice, its third part: a cell a spill empties on
+        // its twin's extent's edge makes the twin's extent again at the frame's
+        // end, and the shapes reading that extent itself compute again at the
+        // next frame, as where it grows (KERNEL.56), the frame after no longer
+        // computing every cell: over a twin's column of 1, 5, 2 and 3,
+        // `MATCH(4,S.last!A:A,1)` is 4 while a spill beside it reaches row 8,
+        // and 1 once it shrinks to row 2, though no cell it reads by place
+        // changed. Every frame as `Calc` computes the grid lent.
+        let mut m = load(concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1\" 1)\n(cell \"S\" \"A2\" 5)\n",
+            "(cell \"S\" \"A3\" 2)\n(cell \"S\" \"A4\" 3)\n",
+            "(formula \"S\" \"C1\" \"=FILTER(T!A1:A8,T!A1:A8<=T!D1)\" dynamic)\n",
+            "(formula \"S\" \"R1\" \"=MATCH(4,S.last!A:A,1)\")\n",
+            "(sheet \"T\" visible)\n",
+            "(cell \"T\" \"A1\" 1)\n(cell \"T\" \"A2\" 2)\n(cell \"T\" \"A3\" 3)\n",
+            "(cell \"T\" \"A4\" 4)\n(cell \"T\" \"A5\" 5)\n(cell \"T\" \"A6\" 6)\n",
+            "(cell \"T\" \"A7\" 7)\n(cell \"T\" \"A8\" 8)\n",
+            "(cell \"T\" \"D1\" 8)\n",
+        ));
+        let frame = |m: &mut Machine, when: &str| {
+            let calc = calc_values(m);
+            assert!(m.step(0).done);
+            assert_eq!(values(m), calc, "{when}: the machine is Calc");
+        };
+        frame(&mut m, "the load");
+        assert_eq!(spelled_at(&m, "R1"), "1", "the twin's extent to row 4");
+        frame(&mut m, "the spill in the twin");
+        assert_eq!(spelled_at(&m, "R1"), "4", "the twin's extent to row 8");
+        assert!(m.write("(cell \"T\" \"D1\" 2)").is_ok());
+        frame(&mut m, "the spill shrunk");
+        assert_eq!(
+            spelled_at(&m, "R1"),
+            "4",
+            "the twin as the last frame left it"
+        );
+        assert_eq!(spelled_at(&m, "C3"), "(none)");
+        assert_eq!(
+            m.extents[2],
+            Some(((1, 1), (4, 18))),
+            "the twin's extent made again"
+        );
+        frame(&mut m, "a frame later");
+        assert_eq!(
+            spelled_at(&m, "R1"),
+            "1",
+            "the twin's extent to row 4 again"
+        );
     }
 
     #[test]

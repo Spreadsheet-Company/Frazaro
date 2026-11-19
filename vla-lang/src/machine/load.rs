@@ -108,6 +108,10 @@ pub struct Draft {
     pub(crate) values: OnceLock<HashMap<CellId, Computed>>,
     /// How many cells the rows wrote.
     pub(crate) cells: usize,
+    /// What the sheets that saved a spill, or an extent past their records,
+    /// saved of them (KERNEL.55), none for any other: a load of a grid that
+    /// never spills holds nothing more.
+    pub(crate) saved: Vec<Saved>,
 }
 
 /// One sheet of a draft: its name and settings, and its records.
@@ -132,6 +136,21 @@ pub(crate) struct DraftSheet {
     lit: BTreeMap<(u32, u32), (Vec<u32>, u32)>,
     /// Its `value` rows (KERNEL.72).
     pub(crate) said: SaidRows,
+}
+
+/// What a sheet's rows saved of its spills (KERNEL.55): each `spill` row's
+/// extent, a spill's or a block's, beginning at its anchor, in the rows'
+/// order; the `value` rows of the cells one holds past its anchor, what the
+/// spill last laid there, which a machine lays again where its plan bounds
+/// the spill as the row names it; and the extent its `extent` row names where
+/// it reaches past the sheet's records, which a machine's grows to as a spill
+/// grows it and keeps as the spill shrinks.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Saved {
+    pub(crate) sheet: usize,
+    pub(crate) spills: Vec<A1Range>,
+    pub(crate) laid: SaidRows,
+    pub(crate) named: Extent,
 }
 
 /// A rule as a machine answers it (KERNEL.58): its priority, its answer sheet,
@@ -580,7 +599,28 @@ impl Draft {
             functions: Vec::new(),
             values: OnceLock::new(),
             cells: 0,
+            saved: Vec::new(),
         }
+    }
+
+    /// What a sheet saved of its spills (KERNEL.55), where it saved any.
+    fn saved(&self, si: usize) -> Option<&Saved> {
+        self.saved.iter().find(|s| s.sheet == si)
+    }
+
+    /// What a sheet saved of its spills (KERNEL.55), made the first time.
+    fn saved_mut(&mut self, si: usize) -> &mut Saved {
+        let k = match self.saved.iter().position(|s| s.sheet == si) {
+            Some(k) => k,
+            None => {
+                self.saved.push(Saved {
+                    sheet: si,
+                    ..Saved::default()
+                });
+                self.saved.len() - 1
+            }
+        };
+        &mut self.saved[k]
     }
 
     /// How many sheets the rows hold, the engine's own made since among them.
@@ -782,7 +822,10 @@ impl Draft {
     /// fill's cells pieces of one fill as its master names it, a fill's cell
     /// whose master the sheet has lost left out: what a door's workbook, or
     /// the grid a machine lends ([`super::Machine::workbook`]), loads as, its
-    /// fills and its formulas' kinds kept (KERNEL.49).
+    /// fills and its formulas' kinds kept (KERNEL.49). A spill's and a block's
+    /// extent its file saved kept as a `spill` row keeps one, and each value
+    /// the workbook holds inside one past its anchor as what the spill last
+    /// laid there, as a `value` row of a record says it (KERNEL.55).
     pub fn of_workbook(workbook: &Workbook) -> Draft {
         let mut draft = Draft::new();
         draft.styles = workbook.styles.clone();
@@ -794,6 +837,24 @@ impl Draft {
                 ..sheet.clone()
             };
             let masters = crate::sheet::shared_masters(sheet);
+            let spills: Vec<A1Range> = sheet
+                .cells
+                .iter()
+                .filter_map(|(&(row, col), cell)| match &cell.content {
+                    Content::DynamicSpill { range, .. } | Content::ArrayBlock { range, .. }
+                        if (range.top, range.left) == (row, col) && range.cells() > 1 =>
+                    {
+                        Some(*range)
+                    }
+                    _ => None,
+                })
+                .collect();
+            let spilled = |row: u32, col: u32| {
+                spills.iter().any(|e| {
+                    (e.top, e.left) != (row, col) && crate::calc::spill::inside(e, row, col)
+                })
+            };
+            let mut laid = SaidRows::default();
             for (&(row, col), cell) in &sheet.cells {
                 let one = A1Range {
                     top: row,
@@ -843,6 +904,21 @@ impl Draft {
                     }
                     value => What::Value(value.clone()),
                 };
+                // A value a spill last laid, as a `value` row past a `spill`
+                // row says it (KERNEL.55).
+                if let (What::Value(content), true) = (&what, spilled(row, col)) {
+                    let value = match content {
+                        Content::Text(t) => Value::Text(t.clone()),
+                        Content::Number(n) => Value::Number(*n),
+                        Content::Bool(b) => Value::Bool(*b),
+                        Content::Error(e) => {
+                            Value::Error(ErrorKind::parse(e).unwrap_or(ErrorKind::Value))
+                        }
+                        _ => continue,
+                    };
+                    laid.add(one, 0, Said::One(Computed::Value(value)));
+                    continue;
+                }
                 if cell.style != 0 {
                     s.styles.put(one, cell.style);
                 }
@@ -852,6 +928,14 @@ impl Draft {
                     what,
                 });
                 draft.cells += 1;
+            }
+            if !spills.is_empty() {
+                draft.saved.push(Saved {
+                    sheet: draft.sheets.len(),
+                    spills,
+                    laid,
+                    named: None,
+                });
             }
             draft.sheets.push(s);
         }
@@ -1463,11 +1547,10 @@ struct Reader {
     /// `twice` refusal names (KERNEL.67).
     styled: Vec<(usize, A1Range, u32)>,
     sentences: HashMap<CellId, (u32, u32)>,
-    /// Each `spill` row's extent by its sheet (KERNEL.55): a spill or a block
-    /// a door's record names after its anchor's `value` row, whose other
-    /// cells' `value` and `style` rows the load takes and sets aside, since
-    /// an engine computes no spill until the item's fifth slice.
-    spills: Vec<(usize, A1Range)>,
+    /// The last `extent` row, its sheet and its range (KERNEL.55), weighed
+    /// against its sheet's records once they are read: at the next `extent`
+    /// row and at the end.
+    extent_named: Option<(usize, A1Range)>,
 }
 
 /// The forms of a text of rows read into a draft, the inverse of the record:
@@ -1509,14 +1592,15 @@ impl Reader {
             looks: HashMap::new(),
             styled: Vec::new(),
             sentences: HashMap::new(),
-            spills: Vec::new(),
+            extent_named: None,
         }
     }
 
     /// The rows all read: a twin's declaration stands only beside the sheet
     /// it is the twin of, and a function of cells only on a sheet the rows
     /// hold (KERNEL.29's third slice).
-    fn finish(self) -> Result<Draft, LineRefusal> {
+    fn finish(mut self) -> Result<Draft, LineRefusal> {
+        self.extent_weighed();
         for (name, line) in &self.twin_rows {
             let base = twin_base(name).unwrap_or("");
             if self.draft.find_sheet(base).is_none() {
@@ -1560,7 +1644,11 @@ impl Reader {
             "lit" => self.lit(form, items, line),
             "style" => self.style(form, items, line),
             "sentence" => self.sentence(form, items, line),
-            "window" | "extent" | "refers" | "table" | "text" => Ok(()),
+            "extent" => {
+                self.extent_row(items);
+                Ok(())
+            }
+            "window" | "refers" | "table" | "text" => Ok(()),
             other => Err(unknown(line, other, LOAD_ROWS)),
         }
     }
@@ -1721,9 +1809,10 @@ impl Reader {
     /// A `spill` row (KERNEL.55): the extent a dynamic formula's or a legacy
     /// array formula's answer fills, beginning at its anchor, a cell an
     /// earlier row wrote that formula into, and holding more than it. Its
-    /// extent kept, so that its other cells' `value` and `style` rows are
-    /// taken and set aside: an engine computes no spill until the item's fifth
-    /// slice, and computes the anchor itself.
+    /// extent kept, so that its other cells' `value` rows are taken as what the
+    /// spill last laid there, and their `style` rows set aside: a machine lays
+    /// the values again where its plan bounds the spill as the row names it,
+    /// and computes the anchor itself.
     fn spill(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
         let [Form::Str(sheet), Form::Str(addr), Form::Str(extent)] = items else {
             return Err(malformed(line, form, "spill"));
@@ -1752,16 +1841,60 @@ impl Reader {
         if !anchored {
             return Err(malformed(line, form, "spill"));
         }
-        self.spills.push((si, extent));
+        self.draft.saved_mut(si).spills.push(extent);
         Ok(())
+    }
+
+    /// An `extent` row (KERNEL.55): the extent a record names for a sheet the
+    /// rows have named, which the sheet's extent then holds, so that a load of
+    /// a machine's save keeps the extent a spill grew past the cells it holds
+    /// now; one naming no range, or another sheet, skipped, as every `extent`
+    /// row was before. Kept until its sheet's records are read, the record
+    /// printing them after it.
+    fn extent_row(&mut self, items: &[Form]) {
+        self.extent_weighed();
+        let [Form::Str(sheet), Form::Str(range)] = items else {
+            return;
+        };
+        let (Some(si), Some(r)) = (self.draft.find_sheet(sheet), parse_a1_range(range)) else {
+            return;
+        };
+        self.extent_named = Some((si, r));
+    }
+
+    /// The last `extent` row weighed against its sheet's records (KERNEL.55):
+    /// kept where it reaches past them, and nowhere else, so that a load of a
+    /// grid that never spills holds nothing more.
+    fn extent_weighed(&mut self) {
+        let Some((si, r)) = self.extent_named.take() else {
+            return;
+        };
+        let held = self.draft.sheets[si]
+            .extent()
+            .is_some_and(|((top, left), (bottom, right))| {
+                top <= r.top && left <= r.left && r.bottom <= bottom && r.right <= right
+            });
+        if held {
+            return;
+        }
+        let s = self.draft.saved_mut(si);
+        s.named = Some(match s.named {
+            None => ((r.top, r.left), (r.bottom, r.right)),
+            Some(((top, left), (bottom, right))) => (
+                (top.min(r.top), left.min(r.left)),
+                (bottom.max(r.bottom), right.max(r.right)),
+            ),
+        });
     }
 
     /// Whether every cell of a range is one a `spill` row's extent holds past
     /// its anchor (KERNEL.55).
     fn spilled(&self, si: usize, range: A1Range) -> bool {
-        self.spills.iter().any(|&(s, e)| {
-            s == si
-                && e.top <= range.top
+        let Some(saved) = self.draft.saved(si) else {
+            return false;
+        };
+        saved.spills.iter().any(|&e| {
+            e.top <= range.top
                 && range.bottom <= e.bottom
                 && e.left <= range.left
                 && range.right <= e.right
@@ -1787,8 +1920,19 @@ impl Reader {
         let Some(si) = self.draft.find_sheet(sheet) else {
             return Err(malformed(line, form, "value"));
         };
-        // A cell a spill or a block fills past its anchor, set aside.
+        // A cell a spill or a block fills past its anchor: what it last laid
+        // there (KERNEL.55), each cell said once.
         if self.spilled(si, range) {
+            let laid = &mut self.draft.saved_mut(si).laid;
+            if let Some(((row, col), first)) = laid.first_said(&range) {
+                let at = match range.cells() {
+                    1 => addr.clone(),
+                    _ => cell_ref(row, col),
+                };
+                let what = format!("(value {} {})", quoted(sheet), quoted(&at));
+                return Err(twice(line, &what, first));
+            }
+            laid.add(range, line, said);
             return Ok(());
         }
         let s = &mut self.draft.sheets[si];

@@ -634,22 +634,7 @@ impl Grid<'_> {
         // anchor's box: the anchor's `spill` row after its `value` row, naming
         // its extent, and each other cell of the box a `value` row with nothing
         // before it, the sheet holding it or not, or none for one left empty.
-        let spills: Vec<(calc::CellId, A1Range)> = self
-            .values
-            .map(|v| v.spills(i))
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|(_, e)| overlap(e, &range).is_some())
-            .collect();
-        let spilled = |(row, col): (u32, u32)| {
-            spills.iter().any(|(a, e)| {
-                (a.1, a.2) != (row, col)
-                    && e.top <= row
-                    && row <= e.bottom
-                    && e.left <= col
-                    && col <= e.right
-            })
-        };
+        let spills = self.spills_meeting(i, &range);
         let mut unheld: Vec<(u32, u32)> = Vec::new();
         for (anchor, e) in &spills {
             let Some(cut) = overlap(e, &range) else {
@@ -695,18 +680,7 @@ impl Grid<'_> {
                     lit_row(name, place, priorities, out);
                 }
             }
-            if spilled(at) {
-                self.spilled_rows(name, i, at, cell, coded.as_ref(), (page.rules, lit), out);
-                continue;
-            }
-            let Some(cell) = cell else {
-                continue;
-            };
-            let spill = spills
-                .iter()
-                .find(|(a, _)| (a.1, a.2) == at)
-                .and_then(|(a, _)| self.values.and_then(|v| v.spill(*a)));
-            self.cell_rows(
+            self.rows_at(
                 model,
                 &page,
                 i,
@@ -715,13 +689,74 @@ impl Grid<'_> {
                 mode == Mode::Grid,
                 &mut masters,
                 coded.as_ref(),
-                (lit, spill),
+                (lit, &spills),
                 out,
             );
         }
         for (&place, priorities) in lit_next {
             lit_row(name, place, priorities, out);
         }
+    }
+
+    /// The spills and blocks of a sheet a window meets (KERNEL.55), each its
+    /// anchor and its box, as the values give them.
+    fn spills_meeting(&self, i: usize, range: &A1Range) -> Vec<(calc::CellId, A1Range)> {
+        self.values
+            .map(|v| v.spills(i))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(_, e)| overlap(e, range).is_some())
+            .collect()
+    }
+
+    /// One cell's rows as a window's record prints them (KERNEL.55; the
+    /// changes print a changed cell's by this code too): a cell a spill's box
+    /// holds past its anchor its `value` row with nothing before it
+    /// ([`Grid::spilled_rows`]), unless the grid holds a cell of its own there
+    /// ([`Values::box_cells_spilled`]); any other cell the grid holds its rows
+    /// ([`Grid::cell_rows`]), an anchor's `spill` row after its value. `spills`
+    /// are the sheet's the window meets ([`Grid::spills_meeting`]). Whether it
+    /// printed any.
+    #[allow(clippy::too_many_arguments)]
+    fn rows_at<'g, G: Cells + ?Sized>(
+        &self,
+        model: &'g G,
+        page: &Page<'_>,
+        i: usize,
+        at: (u32, u32),
+        cell: Option<&Held<'_>>,
+        formulas: bool,
+        masters: &mut Option<Masters<'g>>,
+        coded: Option<&Coded<'_>>,
+        (lit, spills): (Option<&[u32]>, &[(calc::CellId, A1Range)]),
+        out: &mut dyn FnMut(&str),
+    ) -> bool {
+        let boxed = spills
+            .iter()
+            .any(|(a, e)| (a.1, a.2) != at && calc::spill::inside(e, at.0, at.1));
+        let own = cell.is_some() && !self.values.is_some_and(|v| v.box_cells_spilled());
+        if boxed && !own {
+            return self.spilled_rows(page.name, i, at, cell, coded, (page.rules, lit), out);
+        }
+        let Some(cell) = cell else {
+            return false;
+        };
+        let spill = spills
+            .iter()
+            .find(|(a, _)| (a.1, a.2) == at)
+            .and_then(|(a, _)| self.values.and_then(|v| v.spill(*a)));
+        self.cell_rows(
+            model,
+            page,
+            i,
+            at,
+            cell,
+            formulas,
+            masters,
+            coded,
+            (lit, spill),
+            out,
+        )
     }
 
     /// The fills' rows of a window's cells (KERNEL.72): its `formula` rows as
@@ -755,8 +790,23 @@ impl Grid<'_> {
         let mut values = ValueRows::new(name);
         let mut styles: Runs<u32> = Runs::default();
         let mut sentences: Vec<((u32, u32), u32)> = Vec::new();
+        // The spills the window meets (KERNEL.55): a value a door's model holds
+        // inside one's box past its anchor is the spill's, printed with it below
+        // and never a `cell` row.
+        let spills = self.spills_meeting(i, range);
+        let spilled_over = self.values.is_some_and(|v| v.box_cells_spilled());
+        let boxed = |(row, col): (u32, u32)| {
+            spills
+                .iter()
+                .any(|(a, e)| (a.1, a.2) != (row, col) && calc::spill::inside(e, row, col))
+        };
         model.cells(i, range, &mut |(row, col), cell| {
+            let spills_here = spilled_over
+                && matches!(cell.holds, Holds::Constant(_))
+                && !spills.is_empty()
+                && boxed((row, col));
             let printed = match &cell.holds {
+                Holds::Constant(_) if spills_here => true,
                 Holds::Constant(c) => {
                     written.add(row, col, col, constant_datum(c));
                     true
@@ -810,6 +860,7 @@ impl Grid<'_> {
             ));
         }
         values.print(out);
+        self.spills_rows(i, name, range, &spills, out);
         for (range, index) in styles.rectangles() {
             out(&record_line(&Record::Style {
                 sheet: name,
@@ -832,12 +883,61 @@ impl Grid<'_> {
         }
     }
 
+    /// The fills' rows of the spills and blocks whose anchors a window holds
+    /// (KERNEL.55): each one's `spill` row, then the values its answer laid in
+    /// the window's cells of its extent, each with nothing before it, kept as
+    /// the fills keep a formula's ([`ValueRows`]); none where the values answer
+    /// none, as at a cell a write put inside a machine's extent since its last
+    /// frame. What a save keeps, so that a load lays a spill as it was. Each
+    /// spill's rows its own, so that no row names the cells of two.
+    fn spills_rows(
+        &self,
+        i: usize,
+        name: &str,
+        range: &A1Range,
+        spills: &[(calc::CellId, A1Range)],
+        out: &mut dyn FnMut(&str),
+    ) {
+        let Some(v) = self.values else {
+            return;
+        };
+        for &(anchor, _) in spills {
+            if !calc::spill::inside(range, anchor.1, anchor.2) {
+                continue;
+            }
+            let Some(extent) = v.spill(anchor) else {
+                continue;
+            };
+            out(&record_line(&Record::Spill {
+                sheet: name,
+                addr: &cell_ref(anchor.1, anchor.2),
+                range: &extent.text(),
+            }));
+            let Some(cut) = overlap(&extent, range) else {
+                continue;
+            };
+            let mut laid = ValueRows::new(name);
+            for row in cut.top..=cut.bottom {
+                for col in cut.left..=cut.right {
+                    if (row, col) == (anchor.1, anchor.2) {
+                        continue;
+                    }
+                    match v.computed((i, row, col)) {
+                        Some(calc::Computed::Value(calc::Value::Empty)) | None => {}
+                        Some(c) => laid.add(row, col, c.spell()),
+                    }
+                }
+            }
+            laid.print(out);
+        }
+    }
+
     /// The rows of a cell a spill or a block fills past its anchor
     /// (KERNEL.55): its `value` row with nothing before it, the value its
     /// anchor's answer lays there, or nothing where the answer no longer
     /// reaches a cell its file saved it in, then its `text`, `style`, `lit`
     /// and `sentence` rows as any cell's, `held` its own where the sheet
-    /// holds it.
+    /// holds it; whether it printed any.
     #[allow(clippy::too_many_arguments)]
     fn spilled_rows(
         &self,
@@ -848,7 +948,7 @@ impl Grid<'_> {
         coded: Option<&Coded<'_>>,
         (rules, lit): (&[Rule], Option<&[u32]>),
         out: &mut dyn FnMut(&str),
-    ) {
+    ) -> bool {
         let addr = cell_ref(row, col);
         let computed = self.values.and_then(|v| v.computed((i, row, col)));
         let shown = match &computed {
@@ -856,7 +956,7 @@ impl Grid<'_> {
                 if let Some(priorities) = lit {
                     lit_row(name, (row, col), priorities, out);
                 }
-                return;
+                return lit.is_some();
             }
             Some(c) => {
                 out(&record_line(&Record::Value {
@@ -900,6 +1000,7 @@ impl Grid<'_> {
                 r
             ));
         }
+        true
     }
 
     /// One cell's rows, as the record prints them (KERNEL.42: the changes
@@ -1319,6 +1420,9 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
     let grid = Grid::valued(values);
     let coded = Coded::of(model.styles(), page.looks);
     let mut masters = None;
+    // The spills the window meets (KERNEL.55): a cell a spill laid printed as
+    // the values print it, and an anchor with its `spill` row.
+    let spills = grid.spills_meeting(i, &window.range);
     let mut push = |line: &str| {
         out.push_str(line);
         out.push('\n');
@@ -1327,22 +1431,19 @@ pub(crate) fn changes_text<G: Cells + ?Sized>(
         // The cell as the grid holds it, an engine's twin's made from its
         // sheet (KERNEL.49), and what the rules draw there (KERNEL.58).
         let lit = model.lit_at(i, row, col);
-        let printed = model.cell(i, row, col).is_some_and(|cell| {
-            grid.cell_rows(
-                model,
-                &page,
-                i,
-                (row, col),
-                &cell,
-                false,
-                &mut masters,
-                coded.as_ref(),
-                // A machine's changes, which hold no spill until KERNEL.55's
-                // fifth slice.
-                (lit.as_deref(), None),
-                &mut push,
-            )
-        });
+        let held = model.cell(i, row, col);
+        let printed = grid.rows_at(
+            model,
+            &page,
+            i,
+            (row, col),
+            held.as_ref(),
+            false,
+            &mut masters,
+            coded.as_ref(),
+            (lit.as_deref(), &spills),
+            &mut push,
+        );
         if let (false, Some(priorities)) = (printed, lit.as_deref()) {
             lit_row(page.name, (row, col), priorities, &mut push);
         } else if !printed {
