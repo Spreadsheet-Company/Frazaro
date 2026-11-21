@@ -1228,12 +1228,15 @@ impl Shapes {
             Some(Formula::Own(text, Kind::Dynamic)) => Some(text),
             _ => None,
         };
+        // Each legacy array formula's block the grid keeps (KERNEL.55,
+        // decision 7 in an engine).
+        let blocks = model.blocks();
         let any = self.located.alone.iter().enumerate().any(|(si, m)| {
             m.keys()
                 .any(|&(row, col)| dynamic((si, row, col)).is_some())
         });
         if !any {
-            return None;
+            return (!blocks.is_empty()).then(|| Box::new(Spills::default().with_blocks(blocks)));
         }
         let functions = self
             .functions
@@ -1274,7 +1277,8 @@ impl Shapes {
             names,
             functions,
             library,
-        );
+        )
+        .with_blocks(blocks);
         let held = !spills.is_empty() || !spills.unbounded().is_empty();
         held.then(|| Box::new(spills))
     }
@@ -1560,6 +1564,46 @@ impl Shapes {
             return unplanned();
         }
         Spilling::Many(array)
+    }
+
+    /// A legacy array formula's anchor computed over its block (KERNEL.55,
+    /// decision 7 in an engine), as `Calc::evaluated` computes one: its answer's
+    /// first value at its cell, as a legacy array formula holds one, and its
+    /// answer as much as the block lays of it (`laid_of`), or the reason it was
+    /// not computed, which each cell of the block then answers.
+    pub(crate) fn evaluate_block(
+        &self,
+        env: &dyn Env,
+        library: &Library,
+        shape: usize,
+        id: CellId,
+        block: A1Range,
+    ) -> (Computed, Result<Array, Reason>) {
+        let not = |reason: Reason| (Computed::NotComputed(reason.clone()), Err(reason));
+        let s = &self.shapes[shape];
+        if let Some(construct) = self.unread.get(&id) {
+            return not(Reason::Construct(construct.clone()));
+        }
+        let e = match &s.expr {
+            Err(construct) => return not(Reason::Construct(construct.clone())),
+            Ok(e) => e,
+        };
+        let d_row = i64::from(id.1) - i64::from(s.anchor.1);
+        let d_col = i64::from(id.2) - i64::from(s.anchor.2);
+        let ctx = Ctx::at(env, library, d_row, d_col);
+        if s.depth > 0 {
+            ctx.nests(s.depth);
+        }
+        let arg = match ctx.eval(e) {
+            Ok(arg) => arg,
+            Err(reason) => return not(reason),
+        };
+        let laid = super::laid_of(&ctx, &arg, block);
+        let computed = match ctx.result(&arg) {
+            Ok(v) => Computed::Value(v.settled()),
+            Err(reason) => Computed::NotComputed(reason),
+        };
+        (computed, laid)
     }
 
     /// The first thing that stops the grid from being stepped, in the order

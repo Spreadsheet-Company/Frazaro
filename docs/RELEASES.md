@@ -156,6 +156,17 @@
   a range, `=SINGLE(INDEX(A1:C3,0,1))`, written `=INDEX(A1:C3,0,1)`. No value
   moves; `FORMULATEXT` of a legacy `INDEX` is labelled, as it was, a text Excel
   may show with an `@` (KERNEL.55).
+- **An engine computes a legacy array formula as Excel does.** A formula
+  an engine's rows write with the word `array`, entered with Ctrl+Shift+Enter
+  in Excel, is read as arrays, its cell holding its answer's first value, where
+  an engine read it as a legacy formula meeting each range at its cell; and
+  over a block, the range its `spill` row names, its answer is laid into every
+  cell of the block as Excel lays one, read by a range, through `A1#`, by
+  `ISFORMULA` and `FORMULATEXT`, and saved and loaded as a spill is. A write
+  that changes part of a block is refused, as Excel refuses to change part of
+  an array (`grid-write-block`); its formula written again with the word
+  `array` keeps the block, and a write over the whole block gives it up
+  (KERNEL.55, its fifth slice).
 - **Functions at expand time.** `(defexpand (name parameter ...) form)`
   defines a function whose call computes a value while a source expands, as
   the expand-time primitives do, so that a list is filtered, counted or

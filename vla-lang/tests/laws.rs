@@ -1452,7 +1452,10 @@ fn a_window_s_values_patched_by_its_changes_are_its_values_now() {
     // Measured 2026-11-19 (KERNEL.55): the spills' windows patched 2,177, of
     // which still 1,488, and whole 2,543, a value written before every frame
     // lying in each whole window; 256 `spill` rows of anchors whose spill
-    // moved in the changes of the windows patched.
+    // moved in the changes of the windows patched. Measured again the same
+    // day, the grids holding legacy array formulas over blocks (the fifth
+    // slice's fourth part): patched 1,891, still 1,332, whole 2,749; 317
+    // `spill` rows of anchors named.
     assert!(
         held[4].spills >= 120,
         "spills: too few anchors named for the law to hold over: {:?}",
@@ -2496,8 +2499,33 @@ const READERS: &[&str] = &[
     "=H4",
 ];
 
+/// The legacy array formulas of a grid of spills (KERNEL.55's fifth slice,
+/// its fourth part), right of every spill's box: each over the block its
+/// `spill` row fixes, its cells' values said as a save says them, a column
+/// with `#N/A` past its answer, a row repeated down, one value everywhere; and
+/// one of its cell alone.
+const BLOCKS: &[(&str, &str, &str)] = &[
+    ("T1", "=F1:F4*D1", "T1:T5"),
+    ("U1", "=TRANSPOSE(F1:F3)", "U1:W2"),
+    ("U4", "=SUM(F1:F8)", "U4:V5"),
+    ("T7", "=SUM(F1:F8*F1:F8)", "T7"),
+];
+
+/// The readers of the blocks, down column X: by a range, a cell, `A1#`,
+/// `ISFORMULA` and `FORMULATEXT`.
+const BLOCK_READERS: &[&str] = &[
+    "=SUM(T1:T4)",
+    "=ISNA(T5)",
+    "=ROWS(T1#)",
+    "=ISFORMULA(V2)",
+    "=FORMULATEXT(W2)",
+    "=SUM(U4#)",
+    "=T7+V1",
+];
+
 /// A grid of spills: the threshold, the values, most of the anchors and
-/// readers, and in some grids a value cell standing where a spill may grow.
+/// readers, and in some grids a value cell standing where a spill may grow;
+/// and most of the legacy array formulas and their readers.
 fn spill_rows(r: &mut Rng) -> String {
     let mut out = format!("(sheet \"{SPILLS}\" visible)\n");
     out.push_str(&format!("(cell \"{SPILLS}\" \"D1\" {})\n", r.below(9)));
@@ -2525,17 +2553,66 @@ fn spill_rows(r: &mut Rng) -> String {
         let at = r.pick(&["A6", "L1", "A17", "C15", "H7"]);
         out.push_str(&format!("(cell \"{SPILLS}\" \"{at}\" 1)\n"));
     }
+    for (addr, text, block) in BLOCKS {
+        if r.below(5) == 0 {
+            continue;
+        }
+        out.push_str(&format!(
+            "(formula \"{SPILLS}\" \"{addr}\" {} array)\n",
+            quoted(text)
+        ));
+        let b = parse_a1_range(block).expect("a block");
+        if b.cells() == 1 {
+            continue;
+        }
+        out.push_str(&format!("(spill \"{SPILLS}\" \"{addr}\" \"{block}\")\n"));
+        let row = |top: u32, left: u32, bottom: u32, right: u32| {
+            let at = A1Range {
+                top,
+                left,
+                bottom,
+                right,
+            };
+            format!("(value \"{SPILLS}\" \"{}\" 0)\n", at.text())
+        };
+        if b.right > b.left {
+            out.push_str(&row(b.top, b.left + 1, b.top, b.right));
+        }
+        if b.bottom > b.top {
+            out.push_str(&row(b.top + 1, b.left, b.bottom, b.right));
+        }
+    }
+    for (row, text) in BLOCK_READERS.iter().enumerate() {
+        if r.below(4) != 0 {
+            out.push_str(&format!(
+                "(formula \"{SPILLS}\" \"X{}\" {})\n",
+                row + 1,
+                quoted(text)
+            ));
+        }
+    }
     out
 }
 
 /// The writes before a frame of a grid of spills: the threshold and the
 /// values most often, which move the spills; now and then a value written
 /// into a box, which blocks its spill, and an anchor written another text,
-/// one value or a number.
+/// one value or a number; and a block's anchor written another legacy array
+/// formula, which keeps its block, or the whole of a block written, which
+/// gives it up (KERNEL.55's fifth slice, its fourth part).
 fn spill_writes(r: &mut Rng) -> Vec<String> {
     let mut out = Vec::new();
     for _ in 0..1 + r.below(2) {
-        let row = match r.below(20) {
+        let row = match r.below(22) {
+            20 => {
+                let (at, _, _) = r.pick(&BLOCKS[..3]);
+                let text = r.pick(&["=F1:F4*2", "=TRANSPOSE(F2:F4)", "=F1:F8"]);
+                format!("(formula \"{SPILLS}\" \"{at}\" {} array)", quoted(text))
+            }
+            21 => {
+                let (_, _, block) = r.pick(&BLOCKS[..3]);
+                format!("(cell \"{SPILLS}\" \"{block}\" {})", r.below(9))
+            }
             0..=9 => format!("(cell \"{SPILLS}\" \"D1\" {})", r.below(9)),
             10..=15 => format!("(cell \"{SPILLS}\" \"F{}\" {})", 1 + r.below(8), r.below(9)),
             16 => format!(
@@ -2578,7 +2655,7 @@ fn a_grid_of_spills_saved_at_rest_loads_as_it_was() {
     // spills, where the last frame left no twin a reason, as law 14 holds a
     // frame: a write that shrinks a spill's box among them.
     let (mut spills, mut laid, mut blocked, mut moved, mut followed) = (0, 0, 0, 0, 0);
-    let mut by_calc = 0;
+    let (mut by_calc, mut blocks) = (0, 0);
     let lib = library::language();
     for seed in 1..=60u64 {
         let mut r = Rng::new(seed ^ 0x5518);
@@ -2656,6 +2733,14 @@ fn a_grid_of_spills_saved_at_rest_loads_as_it_was() {
                 .map(str::to_string)
                 .collect();
             spills += extents.len();
+            blocks += extents
+                .iter()
+                .filter(|l| {
+                    BLOCKS
+                        .iter()
+                        .any(|(a, ..)| l.contains(&format!("\"{a}\" ")))
+                })
+                .count();
             laid += extents
                 .iter()
                 .filter_map(|l| parse_a1_range(l.rsplit('"').nth(1)?))
@@ -2677,15 +2762,21 @@ fn a_grid_of_spills_saved_at_rest_loads_as_it_was() {
     }
     // Measured 2026-11-19: 1,603 `spill` rows in the saves, over 5,882 cells
     // laid; 164 anchors blocked; 965 extents moved from frame to frame; every
-    // one of the 360 frames held to Calc, no twin holding a reason.
+    // one of the 360 frames held to Calc, no twin holding a reason. Measured
+    // again the same day, the grids holding legacy array formulas over blocks
+    // (the fifth slice's fourth part): 2,611 `spill` rows, 960 of them blocks',
+    // over 9,865 cells laid; 88 anchors blocked; 1,064 extents moved; every one
+    // of the 360 frames held to Calc.
     assert!(
         spills > 800
             && laid > 2000
             && blocked > 60
             && moved > 400
             && followed == 60 * 6 * 2
-            && by_calc > 200,
-        "{spills} spill rows, {laid} cells laid, {blocked} blocked, {moved} extents moved, \
-         {followed} frames followed and {by_calc} held to Calc: too few for the law to hold over"
+            && by_calc > 200
+            && blocks > 400,
+        "{spills} spill rows, {blocks} of blocks, {laid} cells laid, {blocked} blocked, \
+         {moved} extents moved, {followed} frames followed and {by_calc} held to Calc: too few \
+         for the law to hold over"
     );
 }

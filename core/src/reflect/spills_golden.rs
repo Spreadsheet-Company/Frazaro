@@ -942,12 +942,11 @@ fn excel_s_save_of_the_probe_agrees_wherever_the_door_computes_it() {
 fn an_engine_computes_excel_s_save_of_the_probe_as_excel_saved_it() {
     // The item's fifth slice, held to Excel's second save of its probe: the
     // rows the reader writes of the workbook loaded into an engine's machine
-    // under Excel's library, each spill Excel saved laid again where the plan
-    // bounds it, and its first frame computed; at every formula, every cell a
-    // spill fills and every cell of a block where the door computes the value
-    // Excel saved, the machine computes it too, but at a block's cells past
-    // its anchor and what reads them, which an engine lays not (the third
-    // part's *Found* 3), each named, so that a gap closed is seen. A formula
+    // under Excel's library, each spill and each block Excel saved laid again
+    // where the plan bounds it, and its first frame computed; at every
+    // formula, every cell a spill fills and every cell of a block where the
+    // door computes the value Excel saved, 262, the machine computes it too,
+    // its legacy array formulas among them since the fourth part. A formula
     // calling a function the language does not hold, which a machine refuses
     // at its load and the door labels, is the value Excel saved there.
     use vla_lang::calc::Values;
@@ -997,50 +996,7 @@ fn an_engine_computes_excel_s_save_of_the_probe_as_excel_saved_it() {
     let mut m = Machine::load(&rows, crate::excel::library())
         .unwrap_or_else(|e| panic!("line {}: {}", e.line, e.refusal.text));
     assert!(m.step(0).done);
-    // What an engine computes otherwise, each named: a legacy array formula
-    // computed as the legacy kind, where its first value differs (two anchors
-    // of the Blocks sheet, five formulas of one cell of the Legacy sheet); its
-    // block's cells past its anchor left empty, and the nine formulas reading
-    // them; and the two reading a block through its anchor's `A1#`, which an
-    // engine labels (the fifth slice's third part's *Found* 3).
-    let blocks: Vec<vla_lang::sheet::A1Range> = read.model.sheets
-        [read.model.find_sheet("Blocks").expect("Blocks")]
-    .cells
-    .values()
-    .filter_map(|c| match &c.content {
-        Content::ArrayBlock { range, .. } if range.cells() > 1 => Some(*range),
-        _ => None,
-    })
-    .collect();
-    let past_anchor = |(row, col): (u32, u32)| {
-        blocks.iter().any(|b| {
-            (b.top..=b.bottom).contains(&row)
-                && (b.left..=b.right).contains(&col)
-                && (row, col) != (b.top, b.left)
-        })
-    };
-    let gap = |sheet: &str, addr: &str, place: (u32, u32)| match sheet {
-        "Blocks" => {
-            past_anchor(place)
-                || matches!(
-                    addr,
-                    "C1" | "Q1"
-                        | "A12"
-                        | "A13"
-                        | "A14"
-                        | "A15"
-                        | "A16"
-                        | "A17"
-                        | "A18"
-                        | "A19"
-                        | "A20"
-                )
-        }
-        "Spills" => matches!(addr, "A50" | "A51"),
-        "Legacy" => matches!(addr, "C4" | "C5" | "C6" | "C14" | "C15"),
-        _ => false,
-    };
-    let (mut held, mut gaps, mut wrong) = (0, 0, Vec::new());
+    let (mut held, mut wrong) = (0, Vec::new());
     for id in door.cells() {
         let Some(Computed::Value(value)) = door.computed(id) else {
             continue;
@@ -1052,23 +1008,27 @@ fn an_engine_computes_excel_s_save_of_the_probe_as_excel_saved_it() {
             continue;
         }
         let sheet = read.model.sheets[id.0].name.as_str();
-        let addr = cell_ref(id.1, id.2);
         let s = m.find_sheet(sheet).expect(sheet);
         let ours = m.computed((s, id.1, id.2));
-        let same = matches!(&ours, Some(Computed::Value(v)) if agrees(v, excel) == Some(true));
-        match (same, gap(sheet, &addr, (id.1, id.2))) {
-            (true, false) => held += 1,
-            (false, true) => gaps += 1,
-            (true, true) => wrong.push(format!("{sheet}!{addr}: named a gap, and agrees")),
-            (false, false) => wrong.push(format!(
-                "{sheet}!{addr}: {} where Excel saved {}",
+        match &ours {
+            Some(Computed::Value(v)) if agrees(v, excel) == Some(true) => held += 1,
+            _ => wrong.push(format!(
+                "{sheet}!{}: {} where Excel saved {}",
+                cell_ref(id.1, id.2),
                 ours.map_or("nothing".to_string(), |c| c.spell()),
                 vla_lang::rows::datum(excel)
             )),
         }
     }
-    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-    assert_eq!((held, gaps), (202, 60));
+    assert!(
+        wrong.is_empty(),
+        "{}",
+        wrong.join(
+            "
+"
+        )
+    );
+    assert_eq!(held, 262);
 }
 
 /// Excel 365's save of `scripts/recalc/typed.txt`'s texts, each typed through

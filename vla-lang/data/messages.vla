@@ -273,6 +273,7 @@
 (message grid-write-during-step 5 "VLA-Grid" "Frame {frame} is being computed, {evaluated} of {of} cells; a write waits until the step that finishes it.")
 (message grid-dynamic-range 5 "VLA-Grid" "A dynamic formula is written one cell at a time here, and {target} is a range.")
 (message grid-write-derived 5 "VLA-Grid" "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula.")
+(message grid-write-block 5 "VLA-Grid" "A write cannot go into {target}: it is part of {block}, the block of the legacy array formula in {cell}, and a block changes whole, as Excel changes an array. Write the formula in {cell} again with the word array, or write the whole of {block}.")
 (message grid-too-many-cells 5 "VLA-Grid" "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins.")
 (message grid-rule-cells 5 "VLA-Grid" "The rule over {target} would bring the cells rules answer for to {cells}, past the {limit} one grid computes beside its own; name a narrower range.")
 (message grid-merge-overlap 5 "VLA-Grid" "The merged range {target} overlaps {held}, merged already, and two merged ranges cannot share a cell.")

@@ -73,9 +73,16 @@ pub(crate) trait Model {
     }
     /// The block a legacy array formula's anchor fills past its cell, which
     /// `A1#` of the anchor reads (KERNEL.55): a workbook's from the formula's
-    /// `ref`; none where a grid lays none, a machine's.
+    /// `ref`, a machine's from its rows' `spill` row; none where a grid keeps
+    /// none.
     fn block(&self, _id: CellId) -> Option<A1Range> {
         None
+    }
+    /// Each legacy array formula's block a grid keeps by its anchor, ordered by
+    /// it (KERNEL.55): a machine's, each of which [`Model::block`] answers;
+    /// none in a grid that keeps none.
+    fn blocks(&self) -> &[(CellId, A1Range)] {
+        &[]
     }
     /// What a cell holds where it holds a formula; `None` for a value cell
     /// and for a cell holding nothing.

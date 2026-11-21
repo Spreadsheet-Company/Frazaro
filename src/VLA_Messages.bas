@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.11"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.55"
+' KERNEL.55: a legacy array formula's block in an engine, one refusal under
+' VLA-Grid: grid-write-block - a write changing part of a block, its anchor's
+' formula written again with the word array or the whole block written aside,
+' as Excel refuses to change part of an array; the block and its anchor named.
+'
 ' VLA.11, its second slice, the heads: three refusals under VLA:
 ' vla-name-at-a-head - a parameter, a rest, a loop's name or a let-expand's
 ' name standing at a list's head where it binds, which substitution never
@@ -1839,6 +1844,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "grid-write-during-step", 5, "VLA-Grid", "Frame {frame} is being computed, {evaluated} of {of} cells; a write waits until the step that finishes it."
     AddMsg m, "grid-dynamic-range", 5, "VLA-Grid", "A dynamic formula is written one cell at a time here, and {target} is a range."
     AddMsg m, "grid-write-derived", 5, "VLA-Grid", "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
+    ' KERNEL.55 - a write changing part of a legacy array formula's block, refused as Excel refuses to change part of an array.
+    AddMsg m, "grid-write-block", 5, "VLA-Grid", "A write cannot go into {target}: it is part of {block}, the block of the legacy array formula in {cell}, and a block changes whole, as Excel changes an array. Write the formula in {cell} again with the word array, or write the whole of {block}."
     AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
     AddMsg m, "grid-rule-cells", 5, "VLA-Grid", "The rule over {target} would bring the cells rules answer for to {cells}, past the {limit} one grid computes beside its own; name a narrower range."
     AddMsg m, "grid-merge-overlap", 5, "VLA-Grid", "The merged range {target} overlaps {held}, merged already, and two merged ranges cannot share a cell."

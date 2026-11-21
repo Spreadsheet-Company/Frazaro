@@ -727,6 +727,9 @@ struct Log {
     /// Each formula alone the write set or gave up, with what its cell held
     /// as one before, in order.
     alone: Vec<(CellId, Option<(String, Kind)>)>,
+    /// The grid's blocks as the write found them, kept where it gave one up
+    /// (KERNEL.55, decision 7 in an engine), which an undo puts back.
+    blocks: Option<Vec<(CellId, A1Range)>>,
     /// Each rule the write planned further, with how far it was planned, and the
     /// cells that added (KERNEL.58's *Found* 15).
     planned: Vec<(usize, Option<A1Range>)>,
@@ -807,6 +810,9 @@ impl Machine {
         // Each function of cells compiled from its room before the names
         // and the plan read it (KERNEL.29's third slice).
         book.compile_functions();
+        // Each legacy array formula's block its rows' `spill` row fixed, which
+        // the plan reads as its anchor's (KERNEL.55, decision 7 in an engine).
+        book.blocks = blocks_of(&book, &saved);
         // Each record's rectangle, line and value, moved out of the draft,
         // which is given up before the plan, the load's peak; the stores made
         // after it.
@@ -1026,8 +1032,14 @@ impl Machine {
             bottom: MAX_ROW,
             right: MAX_COLUMN,
         };
-        // A cell a spill laid is its anchor's, and no value cell (KERNEL.55).
+        // A cell a spill laid is its anchor's, and no value cell (KERNEL.55); a
+        // cell a block laid holds the value laid, as a file holds a block's
+        // (decision 7 in an engine).
         let laid = self.laid.as_deref().filter(|l| !l.cells.is_empty());
+        let spilled = |id: CellId| {
+            laid.and_then(|l| l.cells.get(&id))
+                .is_some_and(|&a| Model::block(&self.book, a).is_none())
+        };
         for (s, page) in self.book.pages.iter().enumerate() {
             // A rule's answer sheet is the machine's own (KERNEL.58); its rule
             // is on the sheet lent.
@@ -1049,7 +1061,13 @@ impl Machine {
                             Content::DynamicFormula(text.to_string())
                         }
                         Some(Formula::Own(text, Kind::Array)) => {
-                            Content::ArrayFormula(text.to_string())
+                            match Model::block(&self.book, (s, row, col)) {
+                                Some(range) => Content::ArrayBlock {
+                                    text: text.to_string(),
+                                    range,
+                                },
+                                None => Content::ArrayFormula(text.to_string()),
+                            }
                         }
                         Some(Formula::Fill(si)) => match page.fills.fill(si) {
                             Some(f) if f.anchor == (row, col) => Content::SharedMaster {
@@ -1059,9 +1077,7 @@ impl Machine {
                             },
                             _ => Content::SharedChild { si },
                         },
-                        None if laid.is_some_and(|l| l.cells.contains_key(&(s, row, col))) => {
-                            continue
-                        }
+                        None if spilled((s, row, col)) => continue,
                         None => match store.content(row, col) {
                             Some(content) => content,
                             None => continue,
@@ -1740,6 +1756,16 @@ impl Machine {
         self.laid.get_or_insert_with(Box::default)
     }
 
+    /// The block holding a cell, its anchor's own among them (KERNEL.55,
+    /// decision 7 in an engine); none for a cell holding a formula of its own,
+    /// which the block passes by, as `pour_block` does and a door's places do.
+    fn block_holding(&self, (s, row, col): CellId) -> Option<(CellId, A1Range)> {
+        let own = self.book.pages.get(s)?.formula(row, col).is_some();
+        self.book.blocks.iter().copied().find(|&(a, b)| {
+            a.0 == s && crate::calc::spill::inside(&b, row, col) && (a == (s, row, col) || !own)
+        })
+    }
+
     /// Whether a spill laid a cell's value (KERNEL.55).
     fn is_laid(&self, id: CellId) -> bool {
         self.laid
@@ -1784,6 +1810,81 @@ impl Machine {
         }
         self.note_reason(id, &computed);
         self.keep_held(p, id, computed, keep);
+    }
+
+    /// A legacy array formula's anchor computed at a position of the order
+    /// (KERNEL.55, decision 7 in an engine), as `Calc` computes one: its
+    /// answer's first value at its cell, and its block laid with its answer.
+    fn evaluate_block(&mut self, p: usize, id: CellId, block: A1Range, keep: bool) {
+        self.here.set(id);
+        let s = self.shapes.at(p).1;
+        let (computed, laid) = self
+            .shapes
+            .evaluate_block(self, &self.library, s, id, block);
+        // A formula written since the last frame, its slot holding no value
+        // (KERNEL.69): each cell of its block holds it, so that what reads one
+        // for its formula, `ISFORMULA` and `FORMULATEXT`, follows whatever
+        // value is laid there.
+        if matches!(self.stores[id.0].slot_of(id.1, id.2), Some(Stored::Pending)) && !self.every {
+            for row in block.top..=block.bottom {
+                for col in block.left..=block.right {
+                    if (row, col) == (id.1, id.2) {
+                        continue;
+                    }
+                    let Machine {
+                        shapes,
+                        marked,
+                        whole,
+                        wholes,
+                        ..
+                    } = self;
+                    shapes.reached((id.0, row, col), &mut |r| match r {
+                        Reached::Cell(q) => marked.set(q),
+                        Reached::Shape(s) | Reached::Parts(s) => {
+                            make_whole(shapes, whole, wholes, marked, s);
+                        }
+                    });
+                }
+            }
+        }
+        self.pour_block(id, block, &laid, keep);
+        self.keep_held(p, id, computed, keep);
+    }
+
+    /// A block laid with its anchor's answer (KERNEL.55, decision 7 in an
+    /// engine), as `Calc` lays one and nothing blocks: each of its cells but the
+    /// anchor's, and one holding a formula of its own, its place of the answer
+    /// as Excel lays one (`laid_at`), settled as a formula's answer is, or the
+    /// anchor's reason; what reads the block through `#` told where a cell of it
+    /// changed. Its extent, and the sheet's grown to hold it, are the load's,
+    /// which kept its `spill` row as a spill's (`saved_spills`), and no frame
+    /// moves it.
+    fn pour_block(
+        &mut self,
+        anchor: CellId,
+        block: A1Range,
+        laid: &Result<crate::calc::array::Array, Reason>,
+        keep: bool,
+    ) {
+        let s = anchor.0;
+        let first = self.laid.as_deref().map_or(0, |l| l.changed.len());
+        for row in block.top..=block.bottom {
+            for col in block.left..=block.right {
+                if (row, col) == (anchor.1, anchor.2)
+                    || self.book.pages[s].formula(row, col).is_some()
+                {
+                    continue;
+                }
+                let computed = match laid {
+                    Ok(a) => Computed::Value(
+                        crate::calc::laid_at(a, row - block.top, col - block.left).settled(),
+                    ),
+                    Err(reason) => Computed::NotComputed(reason.clone()),
+                };
+                self.pour_cell(anchor, (s, row, col), Some(computed), keep);
+            }
+        }
+        self.spill_moved(anchor, first);
     }
 
     /// An anchor's answer of many values laid from its cell (KERNEL.55):
@@ -1840,11 +1941,12 @@ impl Machine {
     }
 
     /// Whether what a spill's extent meets blocks it, as `Calc::blocked`
-    /// answers (KERNEL.55): a merged range, or a cell its store holds a slot
-    /// at but the anchor's own: a value cell's, a formula's, whose slot is
-    /// never empty, a formula with no value yet holding one, or another spill's
-    /// cell, which a box meeting another's without holding its anchor never
-    /// reaches, its plan labelling both. A cell this anchor laid is its own.
+    /// answers (KERNEL.55): a merged range, a legacy array formula's block
+    /// (decision 7 in an engine), or a cell its store holds a slot at but the
+    /// anchor's own: a value cell's, a formula's, whose slot is never empty, a
+    /// formula with no value yet holding one, or another spill's cell, which a
+    /// box meeting another's without holding its anchor never reaches, its plan
+    /// labelling both. A cell this anchor laid is its own.
     fn spill_blocked(&self, anchor: CellId, extent: A1Range) -> bool {
         let s = anchor.0;
         if self.book.pages[s]
@@ -1853,6 +1955,16 @@ impl Machine {
             .meeting(extent)
             .next()
             .is_some()
+        {
+            return true;
+        }
+        // A legacy array formula's block, as `Calc::blocked` meets one
+        // (decision 7 in an engine).
+        if self
+            .book
+            .blocks
+            .iter()
+            .any(|&(a, b)| a.0 == s && a != anchor && grid::overlap(&b, &extent).is_some())
         {
             return true;
         }
@@ -2061,6 +2173,15 @@ impl Machine {
     /// its reason noted where it answers one value or a reason. Nothing asked
     /// of a cell holding a value where no spill was ever laid.
     fn settle_spill(&mut self, p: usize, id: CellId, computed: &mut Computed, keep: bool) -> bool {
+        // A legacy array formula's anchor lays its block, whatever its cell
+        // answered (KERNEL.55, decision 7 in an engine), asked only of a grid
+        // holding a block.
+        if !self.book.blocks.is_empty() {
+            if let Some(spill) = self.shapes.spills().get(id).filter(|s| s.block) {
+                self.evaluate_block(p, id, spill.cells, keep);
+                return true;
+            }
+        }
         // A labelled spill's anchor answers its label, whatever its formula
         // computes, as `Calc::spill` answers it.
         if self.spill_labels {
@@ -3003,6 +3124,12 @@ impl Machine {
         if now + grows > CELLS as u64 {
             return Err(load::too_many(line, sheet, addr, now + grows));
         }
+        // A legacy array formula's block changes whole (KERNEL.55, decision 7
+        // in an engine), as Excel changes an array.
+        if !self.book.blocks.is_empty() {
+            let again = head == "formula" && kind == Kind::Array;
+            self.write_blocks(si, range, again, (sheet, addr, line), log)?;
+        }
         if head == "derived" {
             let mut formula_cell: Option<CellId> = None;
             self.book.pages[si].formulas_in(&range, &mut |(row, col), _| {
@@ -3026,6 +3153,61 @@ impl Machine {
             (None, Form::Str(text)) => self.put_formula(si, range, &text[1..], kind, line, log),
             (None, _) => Err(load::malformed(line, form, head)),
         }
+    }
+
+    /// The blocks a write meets (KERNEL.55, decision 7 in an engine, the
+    /// owner's choice of refusing as Excel does): one it holds whole given up,
+    /// the grid's blocks kept for an undo; one whose anchor alone it writes a
+    /// legacy array formula into again (`again`) kept, its formula the one
+    /// written; and any other part of one refused (`grid-write-block`), as
+    /// Excel refuses to change part of an array.
+    fn write_blocks(
+        &mut self,
+        si: usize,
+        range: A1Range,
+        again: bool,
+        (sheet, addr, line): (&str, &str, u32),
+        log: &mut Log,
+    ) -> Result<(), LineRefusal> {
+        let met: Vec<(CellId, A1Range)> = self
+            .book
+            .blocks
+            .iter()
+            .copied()
+            .filter(|&(a, b)| a.0 == si && grid::overlap(&b, &range).is_some())
+            .collect();
+        for (anchor, b) in met {
+            let whole = range.top <= b.top
+                && range.left <= b.left
+                && b.bottom <= range.bottom
+                && b.right <= range.right;
+            if whole {
+                if log.blocks.is_none() {
+                    log.blocks = Some(self.book.blocks.clone());
+                }
+                self.book.blocks.retain(|&(a, _)| a != anchor);
+                continue;
+            }
+            if again && range.cells() == 1 && (range.top, range.left) == (anchor.1, anchor.2) {
+                continue;
+            }
+            let name = self.book.pages[si].sheet.name.as_str();
+            return Err(LineRefusal {
+                line,
+                refusal: raise(
+                    "grid-write-block",
+                    &[
+                        ("target", &format!("{sheet}!{addr}")),
+                        (
+                            "block",
+                            &format!("{}!{}", crate::refers::quote_sheet(name), b.text()),
+                        ),
+                        ("cell", &spell_at(&self.book, anchor)),
+                    ],
+                ),
+            });
+        }
+        Ok(())
     }
 
     /// A `name` row written (KERNEL.29's third slice), read as a load reads
@@ -3612,6 +3794,9 @@ impl Machine {
     /// the write found them; the stores, which only the settle writes, as
     /// they stand.
     fn undo(&mut self, log: &Log) {
+        if let Some(blocks) = &log.blocks {
+            self.book.blocks = blocks.clone();
+        }
         for ((s, row, col), old) in log.alone.iter().rev() {
             let alone = &mut self.book.pages[*s].alone;
             match old {
@@ -4204,7 +4389,41 @@ impl Env for Machine {
     }
 
     fn written(&self, id: CellId) -> Option<Written<'_>> {
-        crate::calc::eval::written_in(&self.book, id)
+        crate::calc::eval::written_in(&self.book, id).or_else(|| {
+            // A block's other cell holds its anchor's formula (KERNEL.55,
+            // decision 7 in an engine), as `Calc` answers one.
+            let (anchor, _) = self.block_holding(id)?;
+            let w = crate::calc::eval::written_in(&self.book, anchor)?;
+            Some(Written {
+                kind: Kind::Array,
+                ..w
+            })
+        })
+    }
+
+    /// The block a legacy array formula fills, of which a cell is one
+    /// (KERNEL.55, decision 7 in an engine): its range, a formula of one cell
+    /// its own, as `Calc` answers one.
+    fn block(&self, id: CellId) -> Option<Area> {
+        let r = match self.block_holding(id) {
+            Some((_, b)) => b,
+            None if matches!(self.book.formula(id), Some(Formula::Own(_, Kind::Array))) => {
+                A1Range {
+                    top: id.1,
+                    left: id.2,
+                    bottom: id.1,
+                    right: id.2,
+                }
+            }
+            None => return None,
+        };
+        Some(Area {
+            sheet: id.0,
+            top: r.top,
+            left: r.left,
+            bottom: r.bottom,
+            right: r.right,
+        })
     }
 
     fn here(&self) -> CellId {
@@ -4292,6 +4511,18 @@ impl Env for Machine {
             .get(s)
             .and_then(|p| p.alone.get(&(row, col)))
             .is_some_and(|&(_, kind)| kind == Kind::Dynamic)
+    }
+
+    /// Whether the cell being computed holds a legacy array formula, as its
+    /// grid says (KERNEL.55, decision 7 in an engine): read as arrays, its cell
+    /// holding the first value of an answer of many, as `Calc` reads one.
+    fn array_formula(&self) -> bool {
+        let (s, row, col) = self.here.get();
+        self.book
+            .pages
+            .get(s)
+            .and_then(|p| p.alone.get(&(row, col)))
+            .is_some_and(|&(_, kind)| kind == Kind::Array)
     }
 
     /// The cells a dynamic formula's anchor spilled into, as the frames laid
@@ -4706,7 +4937,11 @@ fn saved_spills(
                     && e.bottom <= spill.cells.bottom
                     && e.right <= spill.cells.right
             });
-            let met = book.pages[s].sheet.merges().meeting(e).next().is_some();
+            let met = book.pages[s].sheet.merges().meeting(e).next().is_some()
+                || book
+                    .blocks
+                    .iter()
+                    .any(|&(a, b)| a.0 == s && a != anchor && grid::overlap(&b, &e).is_some());
             if bounded && !met {
                 extents[s] = grown(grown(extents[s], e.top, e.left), e.bottom, e.right);
                 kept.push(e);
@@ -4715,6 +4950,36 @@ fn saved_spills(
         out.push((s, kept, laid));
     }
     out
+}
+
+/// Each legacy array formula's block a load's `spill` rows fixed (KERNEL.55,
+/// decision 7 in an engine): the extent of a `spill` row after an anchor holding
+/// a legacy array formula, of more than its cell, meeting no merged range and no
+/// block kept before it, ordered by anchor; the rest set aside, the anchor
+/// computed alone, as a door computes a legacy array formula of one cell.
+fn blocks_of(book: &Book, saved: &[load::Saved]) -> Vec<(CellId, A1Range)> {
+    let mut blocks: Vec<(CellId, A1Range)> = Vec::new();
+    for sv in saved {
+        let s = sv.sheet;
+        for &e in &sv.spills {
+            let array = matches!(
+                book.pages[s].formula(e.top, e.left),
+                Some(Formula::Own(_, Kind::Array))
+            );
+            if !array || e.cells() <= 1 {
+                continue;
+            }
+            let merged = book.pages[s].sheet.merges().meeting(e).next().is_some();
+            let met = blocks
+                .iter()
+                .any(|&(a, b)| a.0 == s && grid::overlap(&b, &e).is_some());
+            if !merged && !met {
+                blocks.push(((s, e.top, e.left), e));
+            }
+        }
+    }
+    blocks.sort_unstable_by_key(|&(a, _)| a);
+    blocks
 }
 
 /// The saved spills laid into the stores (KERNEL.55): each value a `value` row
@@ -16591,6 +16856,267 @@ mod tests {
             Ok(Viewed::Text(t)) => t,
             other => panic!("{projection} {sheet}: {other:?}"),
         }
+    }
+
+    /// A grid of legacy array formulas (KERNEL.55's fifth slice, its fourth
+    /// part): one of one cell, and three over blocks their `spill` rows fix,
+    /// each block's cells holding values as a save holds them; their readers,
+    /// and a dynamic formula whose spill meets a block.
+    const BLOCKS: &str = concat!(
+        "(sheet \"S\" visible)\n",
+        "(cell \"S\" \"A1\" 1)\n(cell \"S\" \"A2\" 2)\n(cell \"S\" \"A3\" 3)\n",
+        "(cell \"S\" \"B1\" 10)\n(cell \"S\" \"B2\" 20)\n(cell \"S\" \"B3\" 30)\n",
+        "(formula \"S\" \"C1\" \"=SUM(A1:A3*B1:B3)\" array)\n",
+        "(formula \"S\" \"D1\" \"=A1:A3*2\" array)\n(value \"S\" \"D1\" 0)\n",
+        "(spill \"S\" \"D1\" \"D1:D4\")\n(value \"S\" \"D2:D4\" 0 0 0)\n",
+        "(formula \"S\" \"E1\" \"=TRANSPOSE(A1:A3)\" array)\n(value \"S\" \"E1\" 0)\n",
+        "(spill \"S\" \"E1\" \"E1:G2\")\n(value \"S\" \"F1:G1\" 0 0)\n(value \"S\" \"E2:G2\" 0 0 0)\n",
+        "(formula \"S\" \"H1\" \"=SUM(A1:A3)\" array)\n(value \"S\" \"H1\" 0)\n",
+        "(spill \"S\" \"H1\" \"H1:I2\")\n(value \"S\" \"I1\" 0)\n(value \"S\" \"H2:I2\" 0 0)\n",
+        "(formula \"S\" \"J1\" \"=SUM(D1:D3)\")\n",
+        "(formula \"S\" \"J2\" \"=ISNA(D4)\")\n",
+        "(formula \"S\" \"J3\" \"=ROWS(D1#)\")\n",
+        "(formula \"S\" \"J4\" \"=ISFORMULA(D2)\")\n",
+        "(formula \"S\" \"J5\" \"=FORMULATEXT(F2)\")\n",
+        "(formula \"S\" \"J6\" \"=D2#\")\n",
+        "(formula \"S\" \"J7\" \"=SUM(H1:I2)\")\n",
+        "(formula \"S\" \"J8\" \"=ROWS(C1#)\")\n",
+        "(formula \"S\" \"J9\" \"=SUM(E1#)\")\n",
+        "(formula \"S\" \"C3\" \"=SEQUENCE(1,3)\" dynamic)\n",
+    );
+
+    #[test]
+    fn a_legacy_array_formula_computes_as_one_and_lays_its_block_as_a_door_lays_one() {
+        // KERNEL.55's fifth slice, its fourth part (decision 7 in an engine): a
+        // legacy array formula read as arrays, its cell holding its answer's
+        // first value, where a legacy formula meets each range at its cell; its
+        // block, which its rows' `spill` row fixed, laid with its answer as
+        // Excel lays one, a column with `#N/A` past it, a row repeated down, one
+        // value everywhere; read by a range, a cell, `A1#`, `ISFORMULA` and
+        // `FORMULATEXT` as the door reads one, `A1#` of another cell of it
+        // `#REF!`; a spill meeting a block `#SPILL!`; and every frame as `Calc`
+        // computes the grid lent, after a write that moves the answers too.
+        let mut m = load(BLOCKS);
+        let calc = calc_values(&m);
+        assert!(m.step(0).done);
+        assert_eq!(values(&m), calc, "the first frame is Calc");
+        for (addr, want) in [
+            ("C1", "140"),
+            ("D1", "2"),
+            ("D3", "6"),
+            ("D4", "(error \"#N/A\")"),
+            ("G1", "3"),
+            ("E2", "1"),
+            ("G2", "3"),
+            ("I2", "6"),
+            ("J1", "12"),
+            ("J2", "true"),
+            ("J3", "4"),
+            ("J4", "true"),
+            ("J5", "\"{=TRANSPOSE(A1:A3)}\""),
+            ("J6", "(error \"#REF!\")"),
+            ("J7", "24"),
+            ("J9", "12"),
+            ("C3", "(error \"#SPILL!\")"),
+        ] {
+            assert_eq!(spelled_at(&m, addr), want, "S!{addr}");
+        }
+        let block = |m: &Machine, addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            Values::spill(m, (0, r.top, r.left)).map(|e| e.text())
+        };
+        assert_eq!(block(&m, "D1"), Some("D1:D4".to_string()));
+        assert_eq!(block(&m, "C1"), None, "a formula of one cell lays none");
+        assert!(m.write("(cell \"S\" \"A2\" 5)").is_ok());
+        let calc = calc_values(&m);
+        assert!(m.step(0).done);
+        assert_eq!(values(&m), calc, "a frame after a write is Calc");
+        assert_eq!(spelled_at(&m, "D2"), "10");
+        assert_eq!(spelled_at(&m, "F2"), "5");
+        assert_eq!(spelled_at(&m, "C1"), "200");
+        assert_eq!(spelled_at(&m, "J9"), "18", "E1# read whole, E1 the same");
+    }
+
+    #[test]
+    fn a_block_changes_whole_as_excel_changes_an_array() {
+        // KERNEL.55's fifth slice, its fourth part, the owner's option 1: a write
+        // of a part of a block refused by name, the grid as it was; its anchor's
+        // legacy array formula written again, the block kept and laid with the
+        // new answer; a write over the whole block giving it up, its cells the
+        // write's; and a write giving one up whose later row is refused undone
+        // with it, the block back.
+        let mut m = load(BLOCKS);
+        assert!(m.step(0).done);
+        for row in [
+            "(cell \"S\" \"D2\" 5)",
+            "(cell \"S\" \"D1:D2\" 5)",
+            "(formula \"S\" \"D1\" \"=1\")",
+            "(formula \"S\" \"D2\" \"=A1:A3*3\" array)",
+            "(derived \"S\" \"F2\" 5)",
+            "(cell \"S\" \"C2:E2\" 5)",
+        ] {
+            let e = m.write(row).expect_err(row);
+            assert_eq!(e.refusal.id, "grid-write-block", "{row}");
+        }
+        let e = m.write("(cell \"S\" \"D2\" 5)").unwrap_err();
+        for part in ["S!D2", "S!D1:D4", "in S!D1,"] {
+            assert!(e.refusal.text.contains(part), "{}", e.refusal.text);
+        }
+        assert_eq!(spelled_at(&m, "D2"), "4", "the grid as it was");
+        assert!(m.write("(formula \"S\" \"D1\" \"=A1:A3*3\" array)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "D2"), "6", "laid with the new answer");
+        assert_eq!(spelled_at(&m, "J4"), "true");
+        // Given up and undone: the later row names a sheet the grid lacks.
+        let e = m
+            .write("(cell \"S\" \"D1:D4\" 7)\n(cell \"T\" \"A1\" 1)")
+            .unwrap_err();
+        assert_eq!(e.refusal.id, "grid-sheet-unknown");
+        assert_eq!(
+            m.write("(cell \"S\" \"D3\" 7)").unwrap_err().refusal.id,
+            "grid-write-block",
+            "the block back"
+        );
+        // Given up: the cells the write's, read as values.
+        assert!(m.write("(cell \"S\" \"D1:D4\" 7)").is_ok());
+        let calc = calc_values(&m);
+        assert!(m.step(0).done);
+        assert_eq!(values(&m), calc, "the frame after it is Calc");
+        for (addr, want) in [("J1", "21"), ("J2", "false"), ("J4", "false")] {
+            assert_eq!(spelled_at(&m, addr), want, "S!{addr}");
+        }
+        assert!(m.write("(cell \"S\" \"D2\" 8)").is_ok(), "no block now");
+    }
+
+    #[test]
+    fn a_save_keeps_each_block_and_its_load_lays_it_again() {
+        // KERNEL.55's fifth slice, its fourth part: a save prints each block's
+        // anchor with the word `array`, its `spill` row and the values laid,
+        // and a load lays it again where the next frame computes it alike.
+        let mut m = load(BLOCKS);
+        assert!(m.step(0).done);
+        assert!(m.write("(cell \"S\" \"A3\" 4)").is_ok());
+        assert!(m.step(0).done);
+        let fills = viewed(&m, "fills", "S");
+        for row in [
+            "(formula \"S\" \"D1\" \"=A1:A3*2\" array)",
+            "(spill \"S\" \"D1\" \"D1:D4\")",
+            "(spill \"S\" \"E1\" \"E1:G2\")",
+            "(value \"S\" \"D2:D4\" 4 8 (error \"#N/A\"))",
+        ] {
+            assert!(fills.lines().any(|l| l == row), "{row} in\n{fills}");
+        }
+        for text in [fills.clone(), viewed(&m, "grid", "S")] {
+            let mut again = load(&text);
+            assert_eq!(viewed(&again, "grid", "S"), viewed(&m, "grid", "S"));
+            assert_eq!(spelled_at(&again, "D3"), "8", "laid before any frame");
+            again.resume_at(m.frame()).unwrap();
+            assert!(again.step(0).done && m.step(0).done);
+            assert_eq!(viewed(&again, "grid", "S"), viewed(&m, "grid", "S"));
+        }
+    }
+
+    #[test]
+    fn a_block_a_load_cannot_lay_is_set_aside_as_a_door_sets_it() {
+        // KERNEL.55's fifth slice, its fourth part: a block meeting a merged
+        // range, or a block kept before it, is set aside, its anchor computed
+        // alone, as a legacy array formula of one cell, `A1#` of it its own cell;
+        // a saved spill meeting a block is set aside by the load, its anchor's
+        // first frame computing it and the block blocking it; a cell holding a
+        // formula of its own inside a block is its own, in a frame that lays the
+        // block again too; a block whose anchor answers a reason holds it at
+        // every cell; a spill meeting a block whose cells no row said is
+        // blocked at the first frame, by the block's range, as a door blocks
+        // one; and a `spill` row after a dynamic formula fixes no block, its
+        // cells holding no formula and taking a write.
+        let rows = concat!(
+            "(sheet \"S\" visible)\n",
+            "(cell \"S\" \"A1\" 1)\n(cell \"S\" \"A2\" 2)\n(cell \"S\" \"A3\" 3)\n",
+            "(merge \"S\" \"C2:D2\")\n",
+            "(formula \"S\" \"B1\" \"=A1:A3*2\" array)\n(spill \"S\" \"B1\" \"B1:C3\")\n",
+            "(formula \"S\" \"F1\" \"=A1:A3*4\" array)\n(spill \"S\" \"F1\" \"F1:G3\")\n",
+            "(formula \"S\" \"G2\" \"=7\")\n",
+            "(formula \"S\" \"E5\" \"=A1:A3*6\" array)\n(spill \"S\" \"E5\" \"E5:F6\")\n",
+            "(formula \"S\" \"F5\" \"=A1:A3*7\" array)\n(spill \"S\" \"F5\" \"F5:G6\")\n",
+            "(formula \"S\" \"I4\" \"=A1:A3*8\" array)\n(spill \"S\" \"I4\" \"I4:J5\")\n",
+            "(formula \"S\" \"H5\" \"=SEQUENCE(1,3)\" dynamic)\n(value \"S\" \"H5\" 1)\n",
+            "(spill \"S\" \"H5\" \"H5:J5\")\n",
+            "(formula \"S\" \"K1\" \"=SEQUENCE(4)\" dynamic)\n",
+            "(formula \"S\" \"J3\" \"=SEQUENCE(1,3)\" dynamic)\n",
+            "(formula \"S\" \"M1\" \"=K1:K2*2\" array)\n(spill \"S\" \"M1\" \"M1:M2\")\n",
+            "(formula \"S\" \"O1\" \"=A1:A3\" array)\n(spill \"S\" \"O1\" \"O1:O3\")\n",
+            "(formula \"S\" \"N2\" \"=SEQUENCE(1,3)\" dynamic)\n",
+            "(formula \"S\" \"Q1\" \"=ROWS(B1#)\")\n",
+            "(formula \"S\" \"Q2\" \"=ROWS(F5#)\")\n",
+            "(formula \"S\" \"U1\" \"=SEQUENCE(3)\" dynamic)\n(value \"S\" \"U1\" 1)\n",
+            "(spill \"S\" \"U1\" \"U1:U3\")\n(value \"S\" \"U2:U3\" 2 3)\n",
+            "(formula \"S\" \"Q3\" \"=ISFORMULA(U2)\")\n",
+        );
+        let mut m = load(rows);
+        let block = |m: &Machine, addr: &str| {
+            let r = parse_a1_range(addr).unwrap();
+            Values::spill(m, (0, r.top, r.left)).map(|e| e.text())
+        };
+        assert_eq!(
+            block(&m, "I4"),
+            Some("I4:J5".to_string()),
+            "laid by the load"
+        );
+        assert_eq!(block(&m, "H5"), None, "set aside by the load");
+        assert!(m.step(0).done);
+        for (addr, want) in [
+            ("B1", None),
+            ("F1", Some("F1:G3")),
+            ("E5", Some("E5:F6")),
+            ("F5", None),
+            ("I4", Some("I4:J5")),
+            ("H5", None),
+            ("M1", Some("M1:M2")),
+            ("O1", Some("O1:O3")),
+        ] {
+            assert_eq!(block(&m, addr), want.map(str::to_string), "S!{addr}");
+        }
+        let meets = format!("(not-computed {:?})", crate::calc::spill::MEETS);
+        for (addr, want) in [
+            ("Q1", "1"),
+            ("Q2", "1"),
+            ("G2", "7"),
+            ("G3", "12"),
+            ("F5", "7"),
+            ("F6", "12"),
+            ("H5", "(error \"#SPILL!\")"),
+            ("M2", meets.as_str()),
+            ("N2", "(error \"#SPILL!\")"),
+            ("U3", "3"),
+            ("Q3", "false"),
+        ] {
+            assert_eq!(spelled_at(&m, addr), want, "S!{addr}");
+        }
+        assert!(m.write("(cell \"S\" \"U3\" 9)").is_ok(), "a spill's cell");
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "U1"), "(error \"#SPILL!\")");
+        // The block laid again, in a frame that computes its anchor alone, and
+        // the cell holding a formula of its own inside it kept its own.
+        assert!(m.write("(cell \"S\" \"A2\" 5)").is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "F2"), "20");
+        assert_eq!(spelled_at(&m, "G2"), "7", "its own, the block laid again");
+    }
+
+    #[test]
+    fn a_block_s_readers_of_its_formula_follow_its_anchor_written_again() {
+        // KERNEL.55's fifth slice, its fourth part: a block's anchor written
+        // another legacy array formula whose answer lays the same values, what
+        // reads a cell of the block for its formula reads the new one, the
+        // values laid there telling no change.
+        let mut m = load(BLOCKS);
+        assert!(m.step(0).done);
+        assert!(m
+            .write("(formula \"S\" \"E1\" \"=TRANSPOSE(A1:A3*1)\" array)")
+            .is_ok());
+        assert!(m.step(0).done);
+        assert_eq!(spelled_at(&m, "J5"), "\"{=TRANSPOSE(A1:A3*1)}\"");
+        assert_eq!(spelled_at(&m, "J8"), "1", "A1# of a formula of one cell");
     }
 
     #[test]

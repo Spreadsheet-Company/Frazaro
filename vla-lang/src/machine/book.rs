@@ -275,6 +275,11 @@ pub(crate) struct Book {
     /// them, and how many there are before the twins.
     pub(crate) rows: usize,
     pub(crate) sheets: usize,
+    /// Each legacy array formula's block, by its anchor (KERNEL.55, decision 7
+    /// in an engine): the range its rows' `spill` row fixed, ordered by its
+    /// anchor, which holds a legacy array formula while the block stands, since
+    /// a load keeps no other and a write changes one only whole, giving it up.
+    pub(crate) blocks: Vec<(CellId, A1Range)>,
 }
 
 impl Book {
@@ -338,6 +343,7 @@ impl Book {
             compiled: Vec::new(),
             rows,
             sheets,
+            blocks: Vec::new(),
         }
     }
 
@@ -393,6 +399,15 @@ impl Model for Book {
 
     fn formula(&self, (s, row, col): CellId) -> Option<Formula<'_>> {
         self.pages.get(s)?.formula(row, col)
+    }
+
+    fn blocks(&self) -> &[(CellId, A1Range)] {
+        &self.blocks
+    }
+
+    fn block(&self, id: CellId) -> Option<A1Range> {
+        let k = self.blocks.binary_search_by_key(&id, |&(a, _)| a).ok()?;
+        Some(self.blocks[k].1)
     }
 
     fn masters(&self, sheet: usize) -> Masters<'_> {

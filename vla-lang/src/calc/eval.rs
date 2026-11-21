@@ -301,8 +301,8 @@ pub trait Env {
     /// probe reads it, `Spills!A50` and `A51`): its range, its anchor the
     /// range's first cell, a formula of one cell its own. `None`, every `A1#`
     /// of a legacy array formula labelled, unless an environment lays blocks:
-    /// `Calc` does, and an engine's machine lays none (the item's fifth
-    /// slice's third part's *Found* 3).
+    /// `Calc` does, and an engine's machine since the item's fifth slice's
+    /// fourth part, decision 7 in an engine.
     fn block(&self, _id: CellId) -> Option<Area> {
         None
     }

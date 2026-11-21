@@ -1082,7 +1082,11 @@ fn blocks_of(
 /// array computed, as it is; a reference's values, read no further than the
 /// block reaches, which lays them as it would the whole; one value, an array
 /// of one; several areas `#REF!`, as its cell's answer is.
-fn laid_of(ctx: &Ctx<'_>, arg: &Arg<'_>, block: crate::sheet::A1Range) -> Result<Array, Reason> {
+pub(crate) fn laid_of(
+    ctx: &Ctx<'_>,
+    arg: &Arg<'_>,
+    block: crate::sheet::A1Range,
+) -> Result<Array, Reason> {
     match arg {
         Arg::Array(a) => Ok(a.clone()),
         Arg::Area { areas, .. } => match &areas[..] {
@@ -1110,7 +1114,7 @@ fn laid_of(ctx: &Ctx<'_>, arg: &Arg<'_>, block: crate::sheet::A1Range) -> Result
 /// the save of its probe): its place as a lift reads it ([`Array::at`]), an
 /// array of one row repeated down the block, one of one column across it, one
 /// value everywhere, and `#N/A` past the array.
-fn laid_at(a: &Array, row: u32, column: u32) -> Value {
+pub(crate) fn laid_at(a: &Array, row: u32, column: u32) -> Value {
     a.at(row, column)
         .cloned()
         .unwrap_or(Value::Error(ErrorKind::NA))

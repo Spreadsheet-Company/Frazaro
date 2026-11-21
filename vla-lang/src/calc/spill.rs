@@ -37,13 +37,17 @@ const MOST: u64 = 1 << 18;
 /// A dynamic formula's spill as a door plans it (KERNEL.55): the most rows
 /// and columns its answer may take, the extent its file saved, whose cells
 /// hold the values it last spilled, and the box of the cells it may fill, its
-/// anchor first, holding both; or why it is labelled and not computed.
+/// anchor first, holding both; or why it is labelled and not computed. Or, in
+/// an engine's plan, a legacy array formula's block, its box the block, which
+/// its anchor's answer fills whole and nothing blocks (decision 7 in an
+/// engine, the item's fifth slice's fourth part).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Spill {
     pub(crate) dims: Dims,
     pub(crate) file: Option<A1Range>,
     pub(crate) cells: A1Range,
     pub(crate) label: Option<&'static str>,
+    pub(crate) block: bool,
 }
 
 /// A dynamic formula as a plan meets it (KERNEL.55): its text, and the extent
@@ -73,7 +77,8 @@ pub(crate) struct Spills {
 /// The anchors of one sheet's column from `top` to `bottom`, each bounded
 /// `dims`, each one's box reaching `down` rows below it and `right` columns
 /// right of it, as far as a sheet's last; `met` where each one's box may meet
-/// another's ([`MEETS`]). Runs are kept by sheet, column and first row.
+/// another's ([`MEETS`]); a `block`'s, one legacy array formula's anchor, never
+/// another's. Runs are kept by sheet, column and first row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Run {
     sheet: u32,
@@ -84,6 +89,7 @@ struct Run {
     down: u32,
     right: u32,
     met: bool,
+    block: bool,
 }
 
 impl Run {
@@ -151,6 +157,37 @@ impl Spills {
             functions,
             lib,
         )
+    }
+
+    /// Its spills with each legacy array formula's block an engine's grid
+    /// holds beside them (decision 7 in an engine, the item's fifth slice's
+    /// fourth part): a run of its one anchor, its box the block and its file's
+    /// extent the block too, so that a value laid there is the block's;
+    /// never labelled and never labelling a spill, a spill whose extent meets
+    /// a block being blocked where a frame lays it, as `Calc::blocked` blocks
+    /// one.
+    pub(crate) fn with_blocks(mut self, blocks: &[(CellId, A1Range)]) -> Spills {
+        if blocks.is_empty() {
+            return self;
+        }
+        for &(anchor, b) in blocks {
+            let (s, row, col) = anchor;
+            self.runs.push(Run {
+                sheet: s as u32,
+                col,
+                top: row,
+                bottom: row,
+                dims: (b.bottom - b.top + 1, b.right - b.left + 1),
+                down: b.bottom - row,
+                right: b.right - col,
+                met: false,
+                block: true,
+            });
+            self.files.insert(anchor, b);
+        }
+        self.runs.sort_unstable_by_key(|r| (r.sheet, r.col, r.top));
+        self.boxes = boxes_of(&self.runs);
+        self
     }
 
     /// Each dynamic formula's spill, as [`Spills::of`] finds it, of the cells
@@ -232,6 +269,7 @@ impl Spills {
                 down,
                 right,
                 met: false,
+                block: false,
             });
         }
         drop(found);
@@ -255,7 +293,7 @@ impl Spills {
     pub(crate) fn labelled(&self) -> bool {
         self.runs
             .iter()
-            .any(|r| r.met || u64::from(r.dims.0) * u64::from(r.dims.1) > MOST)
+            .any(|r| !r.block && (r.met || u64::from(r.dims.0) * u64::from(r.dims.1) > MOST))
     }
 
     /// The run holding an anchor.
@@ -270,15 +308,17 @@ impl Spills {
     pub(crate) fn get(&self, anchor: CellId) -> Option<Spill> {
         let r = self.run_at(anchor)?;
         let past = u64::from(r.dims.0) * u64::from(r.dims.1) > MOST;
-        let label = match r.met {
-            true => Some(MEETS),
-            false => past.then_some(NO_PLAN),
+        let label = match (r.block, r.met) {
+            (true, _) => None,
+            (false, true) => Some(MEETS),
+            (false, false) => past.then_some(NO_PLAN),
         };
         Some(Spill {
             dims: r.dims,
             file: self.files.get(&anchor).copied(),
             cells: r.box_at(anchor.1),
             label,
+            block: r.block,
         })
     }
 
@@ -904,6 +944,27 @@ mod tests {
         ] {
             assert_eq!(of(text), None, "{text}");
         }
+    }
+
+    #[test]
+    fn a_block_is_never_labelled_whatever_its_size() {
+        // KERNEL.55's fifth slice, its fourth part: an engine's legacy array
+        // formula over a block is a run of its anchor alone, its box the block,
+        // never labelled though it reach past a door's plan, and never making
+        // the spills labelled.
+        let b = A1Range {
+            top: 1,
+            left: 1,
+            bottom: 1000,
+            right: 1000,
+        };
+        let spills = Spills::default().with_blocks(&[((0, 1, 1), b)]);
+        assert!(!spills.labelled());
+        let s = spills.get((0, 1, 1)).expect("a block");
+        assert_eq!(
+            (s.label, s.block, s.cells, s.file),
+            (None, true, b, Some(b))
+        );
     }
 
     #[test]

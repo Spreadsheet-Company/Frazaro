@@ -2906,3 +2906,21 @@ Oracles 7 and 12 gain the second save's rules.
   kinds no save typed, the rule's lean; and in an engine, a legacy array formula, computed as the legacy kind, its
   block's cells left empty and `A1#` of its anchor labelled: 60 cells of the save, named, until the fifth slice's
   fourth part.
+
+## Amendment of 2026-11-19: a legacy array formula in an engine (`KERNEL.55`, its fifth slice, its fourth part)
+
+Oracles 11 and 12 gain an engine's legacy array formulas (the scoping's decision 7 in an engine).
+
+- **What is held.** An engine reads a `formula` row with the word `array` as a legacy array formula: read as arrays,
+  its cell holding its answer's first value. A `spill` row after its anchor fixes its block, which the plan reads as a
+  spill whose box is the block, never labelled; its anchor's answer is laid into each cell of the block as a door lays
+  one, a cell holding a formula of its own passed by, its reason at every cell where it holds one, and nothing blocks
+  it; a spill meeting a block is `#SPILL!`. A block meeting a merged range or a block kept before it is set aside, its
+  anchor computed alone, and a saved spill meeting a block is set aside. `ISFORMULA` and `FORMULATEXT` of a block's
+  cell read its anchor's formula, `A1#` of its anchor the block. A save prints a block as a spill, and the grid lent
+  holds it as a file does. A write that changes part of a block is refused (`grid-write-block`); its anchor's legacy
+  array formula written again keeps it, and a write holding it whole gives it up.
+- **The oracles.** The core's engine over Excel's second save of the probe: every one of the 262 cells the door
+  agrees with Excel at, where 202 and 60 named. Law 18 over grids of spills and blocks, every frame `Calc` over the grid
+  as it began; law 11's family over them, each cell a block lays named by the changes; and a test of each path.
+- **What it does not hold.** A format at a cell a block fills, which a load sets aside as a spill's.

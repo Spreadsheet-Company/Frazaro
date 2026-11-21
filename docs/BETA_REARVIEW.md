@@ -49604,6 +49604,107 @@ agreeing, 8 differing and 6 labelled.
 *Committed 2026-11-19* at the owner's word, "Hand test passes; option 1; commit, then build part 4": over `edcba68`, a
 peer's `VLA.11` building uncommitted in the shared tree, the save's 21 files and its four docs by their hunks alone.
 
+*Slice (e) built 2026-11-19, its fourth part: decision 7 in an engine.* At the owner's word, "Hand test passes; option 1;
+commit, then build part 4", over `6d163ab`, and over `abca17b` once a peer's `VLA.11` landed there, the three catalogue
+files the two share given the part's hunks again: the decision's (a) as the scoping approved it, "an engine's rows take
+it as the anchor's `formula` row with the word `array` and its `spill` row", which the second slice's record had an
+engine compute "until the fifth slice" and no part of the fifth slice built, as Excel's second save showed in the
+engine's test.
+- *A legacy array formula computed as one* (`Env::array_formula` for the machine, the book's kind): read as arrays, its
+  cell holding its answer's first value, where an engine computed it as the legacy kind, each range met at its cell.
+- *Its block laid*: the range a load's `spill` row after an anchor holding a legacy array formula fixes, of more than its
+  cell, is the anchor's block (`Book::blocks`, `blocks_of`), set aside where it meets a merged range or a block kept
+  before it, its anchor then computed alone. The plan reads it as a spill whose box is the block, a run of its one anchor
+  never labelled and never labelling a spill (`Spills::with_blocks`, `Model::block` and `Model::blocks` for the book),
+  so that a formula reading a cell of it is after its anchor. Its anchor computed once (`Shapes::evaluate_block`, as
+  `Calc::evaluated` computes one, `laid_of`) lays each cell of it but one holding a formula of its own its place as
+  Excel lays one (`laid_at`, a row repeated down, a column across, one value everywhere, `#N/A` past the answer), or
+  the anchor's reason (`pour_block`), its extent the one the load kept as a spill's, which no frame moves; nothing
+  blocks it, and a spill meeting it is blocked, `#SPILL!`, as `Calc::blocked` blocks one; a saved spill meeting it is
+  set aside by the load.
+- *Read as the door reads one*: `ISFORMULA` and `FORMULATEXT` of a block's cell its anchor's formula (`written`),
+  `A1#` of its anchor the block and of another cell of it `#REF!` (`Env::block`), a legacy array formula of one cell its
+  own; a block's anchor written again, a formula of its block's cells changed though the values laid there are the
+  same, its readers told (found by law 18, `FORMULATEXT` of a cell whose value the new answer laid alike).
+- *Saved and lent as a file holds one*: a save prints the anchor with the word `array`, its `spill` row and the values
+  laid, by the third part's code; the grid lent (`Machine::workbook`) holds the anchor as a block over its range and its
+  cells' values, so that `Calc` over it lays the same block.
+- *Written whole, the owner's option 1*: a write that changes part of a block, a cell of it, its anchor with anything
+  but a legacy array formula, a range holding some of it, or a derived write, is refused by name, the grid as it was
+  (`grid-write-block`, the catalogue's 288th of the language's half, and the VBA's `VLA_Messages.bas` its source); its
+  anchor written a legacy array formula again keeps it, laid with the new answer; a write holding it whole gives it up,
+  its cells the write's, and an undo of a write whose later row is refused puts it back (`Log::blocks`).
+- *Found in the part, and mended*: the grid view printed an anchor's `spill` row only after its value row, so that a
+  grid loaded from rows saying a spill's extent and its values, and no value of its anchor, viewed before its first
+  frame printed the values laid with no `spill` row before them, which its load refused (found by law 18 over blocks,
+  the third part's own grids never saying an extent at a load): the row prints after the formula where no value is
+  computed yet, as the fills print it.
+- *Tests.* The engine's over Excel's second save: 262 of 262 cells held, where 202 and 60 named. Law 18 over grids
+  holding three blocks and a legacy array formula of one cell beside the spills, their readers and writes that write a
+  block's anchor again or a block whole: 2,611 `spill` rows, 960 of them blocks', over 9,865 cells laid; 88 anchors
+  blocked; 1,064 extents moved; every one of the 360 frames held to `Calc`. Law 11's family over the same grids:
+  patched 1,891, still 1,332, whole 2,749; 317 `spill` rows of anchors named. A test of each path by name: a block laid
+  and read, every frame `Calc`, what reads it through `#` told where its cells change and its anchor's value does not;
+  a block written whole, refused, written again, given up and undone; a block saved and loaded; a block a load cannot
+  lay set aside, a saved spill meeting one set aside by the load, a spill meeting one, a formula of its own inside one,
+  kept its own when a frame lays the block again, a reason at every cell, and a dynamic formula's `spill` row fixing
+  none; a block's formula's readers after its anchor written again; and the plan's block never labelled.
+- *What it costs*: no byte where no grid holds a block: the memory runner's thirteen fixtures, each one's bytes after
+  its load, after two frames, at its peak and through its save, the same in a build of `abca17b` and in one of the
+  part, and every ceiling of `check_recalc_floors` held. The frames, in two A/Bs of release runners over `abca17b`,
+  alternated and each started as `bench_recalc.ps1` starts one, four rounds each, pooled: every whole frame's median
+  within 2.1% of `abca17b`'s and every edit's within 1.9%, but the netlist's whole frame, +6.3%, its rounds swinging
+  1.51 to 2.62 ms in one runner and 1.51 to 2.49 in the other, and the lookups' edit, +3.4%, -0.1% in the first A/B
+  and +5.7% in the second. Life's whole frame moved +3.7% in the first and -3.8% in the second. The one step the part
+  adds to a frame without a block is where `Ctx` asks a formula's kind, an argument at a time: an engine now probes
+  its formulas alone for a legacy array formula after a dynamic one, as the door does, a second probe for a legacy
+  formula (*Found* 6); the lookups written dynamic, which answer at the first probe, moved -0.1% an edit.
+- *Mutants*: 33 in a copy of `6d163ab` with the part and a target of its own, each a check or a step of it, the
+  language's unit tests, laws 18 and 11 and the probe's engine test run over each: 26 killed, two of them only by not
+  compiling, one skipped, its text not rustfmt's, and six survived. Four asked again what the load and the writes hold:
+  a block's anchor holding a legacy array formula, which the load asks and a write keeps, asked again by `Book::block`
+  and through it by `spills_of`, `block_holding` and `write_blocks`; and a block's extent, which the load keeps as a
+  spill's, held, moved and watched again by a frame (`pour_block`, `spill_watch`): each taken out, no answer reaching
+  it. Two no test asked: a saved spill meeting a block kept by the load, which the first frame repairs, and a dynamic
+  formula's `spill` row taken for a block, which the second asking had hidden; the test of a block a load cannot lay
+  now holds the load before its first frame and a dynamic formula's `spill` row beside the blocks. Over `abca17b` and
+  the part without those checks, eight again: the two; the skipped one; the two that did not compile, written to
+  compile, the first two ways; and two more, what reads a block through `#` told and the plan given no block. Every
+  one killed but two: an equivalent, a block's run met, since `with_blocks` makes none met; and the skipped one, a cell
+  holding a formula of its own inside a block, which a frame computing every cell computes after the block, killed
+  once a frame laying the block again, its anchor alone, held the cell's own value.
+- *Verified as CI runs it,* over a copy of `abca17b` with the part's fourteen files and a target of its own: rustfmt;
+  clippy over every target with and without `c-abi` at `-D warnings`; the workspace's 999 tests; `run_checks.ps1` 60 of
+  60; `prove.ps1 -Control`, its mutant failing all 71, and `-Impl` over the door, 70; both wasm modules, the import
+  section empty and the 14 and 10 exports, `build_web.ps1 -NoBuild` and `check_web_offline`; and once the last
+  mutant's test was added, rustfmt, clippy both ways and the language's 580 unit tests again. Over the same copy, the
+  language's package from its tarball on a fresh target, 715; then, `VLA.11`'s two slices taken out of the copy's
+  language, its `expand.rs` as of `df21a3b`, whose refusals Alonzo's cartridges meet, Alonzo's suite at its head,
+  `181f2c8`, 115 with its cartridges required, and Buffet's at its head, `e187eec`, whose pins are 0.4.0 and 0.14.0,
+  over Alonzo's and that language, both paths compiled, 107. Under Windows PowerShell 5.1 alone.
+- *Docs:* `docs/RELEASES.md`'s 0.15.0, a note; the roadmap's line; `conformance/README.md`'s amendment of 2026-11-19, an
+  engine's blocks'; the catalogue's header.
+- *Found:*
+  1. The second save's third *Found*: `may_show_at` labels `FORMULATEXT` of a legacy `INDEX` of one cell, which Excel
+     shows with no `@` (the hand test's `functions!A33`).
+  2. Two spills whose boxes meet though their answers do not, labelled where Excel computes both (the second save's).
+  3. An `@` before a call is still not read (the fourth slice's *Found* 1).
+  4. A format at a cell a spill or a block fills is set aside at a load (the third part's *Found* 2).
+  5. A sheet's extent a spill grew stays grown after it shrinks (the third part's *Found* 5).
+  6. Where `Ctx` asks a formula's kind (`reads_arrays_by_kind`, at each scalar argument it reads, an `IF`'s condition,
+     an `IFERROR`), an engine probes the formulas alone twice for a legacy formula, dynamic and then array, as the door
+     does: one probe a cell, remembered, would answer both, within the A/Bs' noise today.
+- *Hand test in Excel,* the owner's, 2026-11-19: the reference's catalogue row, `VLA_Messages.bas`'s `grid-write-block`,
+  by `VlaDevReload`, Debug > Compile VBAProject and `? VlaSelfTests()`, over the tree, a peer's `VLA.11` third slice
+  beside it uncommitted: host 333 of 333, pure 2707 of 2714, the seven failures that slice's own, its refusal of a free
+  word in a formula (`vla-formula-word-free`) meeting seven older tests of `formula-expand` that write a bare name
+  (`TestFormulaSyntax`'s four, `TestFormulaFuncall`'s three), the cases its expand golden writes `(ref ...)` already; none
+  the part's. No file a door writes moves.
+
+*Committed 2026-11-21* at the owner's word, "commit part 4, then close KERNEL.55": over `abca17b`, a peer's `VLA.11`
+third slice building uncommitted in the shared tree, the part's fourteen files, three of them by their hunks alone beside
+the peer's in the tree (the catalogue's two and `check_data_exports.ps1`), and its four docs by their hunks alone.
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by

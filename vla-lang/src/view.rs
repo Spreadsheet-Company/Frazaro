@@ -1104,19 +1104,21 @@ impl Grid<'_> {
                         addr: &addr,
                         value: &computed.spell(),
                     }));
-                    // The extent its answer fills, a spill's or a block's
-                    // (KERNEL.55).
-                    if let Some(range) = spill {
-                        out(&record_line(&Record::Spill {
-                            sheet: name,
-                            addr: &addr,
-                            range: &range.text(),
-                        }));
-                    }
                     // The value as the row spells it: an empty result is 0.
                     if let calc::Computed::Value(v) = computed {
                         shown = Some(v.clone().settled());
                     }
+                }
+                // The extent its answer fills, a spill's or a block's
+                // (KERNEL.55), after its value row, or where none is computed
+                // yet, as at a load before the first frame, after its formula,
+                // as the fills print it, so that the values laid there load.
+                if let (true, Some(range)) = (held, spill) {
+                    out(&record_line(&Record::Spill {
+                        sheet: name,
+                        addr: &addr,
+                        range: &range.text(),
+                    }));
                 }
                 (held, shown)
             }
