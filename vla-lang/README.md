@@ -203,6 +203,10 @@ refused in the same words.
   the cell its fill is written for. `(funcall f a ...)` calls what `f`
   answers with its arguments, `(funcall (if c SQ PLUS1) 5)` writing
   `=IF(c,SQ,PLUS1)(5)`, and the reader reads a call in place back as one.
+  The writer writes any word as a name; `formula-expand` refuses one it
+  would write as one of Excel's names that no `lambda` or `let` around it
+  binds, and a `lambda`'s parameter or a `let`'s name spelled as a define's
+  word, a parameter's or `self`, so in a source a name is `(ref "SQ")`.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.

@@ -515,6 +515,104 @@ fn writes_as_call(f: &Form) -> bool {
         ))
 }
 
+/// VLA.11, VBA `FsFreeWord`: the first word of an expression the writer has
+/// written, in the order it writes them, that the scanner reads whole as one
+/// of Excel's names, on a sheet or not, and that no `lambda`'s parameters and
+/// no `let`'s names around it bind, with the `ref` that writes it: never a
+/// list's head, a function's name, nor `funcall`'s function by name, and never
+/// inside a `quote`, a `ref` or the syntax's other forms of a value or a
+/// reference, whose words are data or a reference. `None` for an expression
+/// with none. The expander refuses it (`vla-formula-word-free`), since a word a
+/// person meant as one of Excel's names reaches a formula by `ref` alone.
+pub(crate) fn free_word(f: &Form) -> Option<(String, String)> {
+    free_word_in(f, &mut Vec::new())
+}
+
+/// VLA.11, [`free_word`] under the names `bound` holds, folded, innermost
+/// last; each form that binds pushes its names and takes them off again.
+fn free_word_in(f: &Form, bound: &mut Vec<String>) -> Option<(String, String)> {
+    let l = match f {
+        Form::Sym(s) => return free_name(s, bound),
+        Form::Str(_) => return None,
+        Form::List(l) => l,
+    };
+    let Some((Form::Sym(head), args)) = l.items.split_first() else {
+        return None;
+    };
+    let at = bound.len();
+    let found = match headtable::resolve_head_alias(&fold(head)).as_str() {
+        "quote" | "ref" | "error" | "last" | "absolute" | "absolute-row" | "absolute-column" => {
+            None
+        }
+        // (lambda (x y) body): its parameters bound in its body.
+        "lambda" => {
+            if let Some(Form::List(ps)) = args.first() {
+                bound.extend(ps.items.iter().filter_map(|p| match p {
+                    Form::Sym(p) => Some(fold(p)),
+                    _ => None,
+                }));
+            }
+            args.get(1).and_then(|body| free_word_in(body, bound))
+        }
+        // (let x 1 y (+ x 1) body): each name bound in the values after it
+        // and in the calculation, Excel's LET.
+        "let" => {
+            let mut found = None;
+            let mut k = 0;
+            while found.is_none() && k + 1 < args.len() {
+                let name = match &args[k] {
+                    Form::Sym(name) => Some(fold(name)),
+                    other => {
+                        found = free_word_in(other, bound);
+                        None
+                    }
+                };
+                if found.is_none() {
+                    found = free_word_in(&args[k + 1], bound);
+                }
+                bound.extend(name);
+                k += 2;
+            }
+            if found.is_none() && k < args.len() {
+                found = free_word_in(&args[k], bound);
+            }
+            found
+        }
+        // (funcall f a ...): f by name a function's name, as a head is.
+        "funcall" => {
+            let by_name = usize::from(matches!(args.first(), Some(Form::Sym(_))));
+            args[by_name..].iter().find_map(|a| free_word_in(a, bound))
+        }
+        _ => args.iter().find_map(|a| free_word_in(a, bound)),
+    };
+    bound.truncate(at);
+    found
+}
+
+/// VLA.11, VBA `FsFreeName`: a word that the scanner reads whole as one of
+/// Excel's names, on a sheet or not, and that no name `bound` holds, with the
+/// `ref` that writes it; a numeral, a truth value or a reference is none.
+fn free_name(s: &str, bound: &[String]) -> Option<(String, String)> {
+    if is_numeral(s) || is_negative_numeral(s) || matches!(fold(s).as_str(), "true" | "false") {
+        return None;
+    }
+    let r = whole_reference(s)?;
+    if r.kind != Kind::Name {
+        return None;
+    }
+    let text = |x: &str| write_datum(&Form::string(x));
+    if r.sheet_name.is_empty() {
+        if bound.contains(&fold(s)) {
+            return None;
+        }
+        return Some((s.to_string(), format!("(ref {})", text(&r.part))));
+    }
+    Some((
+        s.to_string(),
+        format!("(ref {} {})", text(&r.sheet_name), text(&r.part)),
+    ))
+}
+
 fn arity(head: &str, want: &str, n: usize) -> Refusal {
     raise(
         "vla-formula-arity",

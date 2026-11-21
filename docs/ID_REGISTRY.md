@@ -477,7 +477,8 @@ expression over it, the nest staying refused, scoped, approved, built,
 owner-tested and committed 2026-10-30; `VLA.11`, hygiene by
 design, a parameter never a head, a redefinition refused unless declared a
 `parameter`, a free symbol in a formula refused, scoped and approved
-2026-11-19; `VLA.12`, modules and `use`,
+2026-11-19, built in three slices, owner-tested and committed 2026-11-19 to
+2026-11-21; `VLA.12`, modules and `use`,
 exports, qualified names and `describe` listing the macros loaded;
 `VLA.13`, geometry as a value and the expander's shadow of the rows written;
 `VLA.14`, the macro's proof and its trail, `example` under a `defmacro` and

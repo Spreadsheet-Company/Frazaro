@@ -21,6 +21,20 @@ Option Explicit
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
 Public Const VLA_CORE_VERSION As String = "VLA.11"
+' VLA.11, ITS THIRD SLICE: THE FORMULA. A word formula-expand writes as one of
+' Excel's names, on a sheet or not, that no lambda's parameters and no let's
+' names around it bind, outside a quote and a ref and never a head nor
+' funcall's function by name, is refused by name (vla-formula-word-free), the
+' word, the formula's text and the ref that writes it shown: FsFreeWord and
+' FsFreeName find it once the writer has written the expression,
+' FormulaFreeKept keeps the form's first, and ExpandSourceForm refuses it once
+' the form has expanded and its defines are taken, so that a define's word read
+' in its own form keeps vla-define-used-in-its-form. Excel's names reach a
+' formula by ref alone. A lambda's parameter or a let's name spelled as a
+' define's word, a parameter's or self is refused where the walk meets the
+' form inside a formula, before it replaces a word of it (RefuseFormulaNames,
+' vla-formula-name-taken), where ExpandMacros finds no macro at its head.
+'
 ' VLA.11, ITS SECOND SLICE: THE HEADS. Substitute keeps a list's head as
 ' written, never a binder's, a nested definition's signature alone a value's
 ' place (headIsValue, the name a generated macro takes), so a named piece's
@@ -1101,6 +1115,11 @@ Private mDefines As Object         ' VLA.6: the words a source's defines
                                    ' entry point, carried by VlaFrame
 Private mDefineMet As Boolean      ' VLA.6: the walk passed a define by in
                                    ' the form ExpandSourceForm expands
+Private mFormulaFree As Collection  ' VLA.11: the first free word a formula of
+                                   ' the form ExpandSourceForm expands holds,
+                                   ' its formula's text and the ref that writes
+                                   ' it, refused once the form has expanded and
+                                   ' its defines are taken; Nothing for none
 Private mFormulaTexts As Collection ' VLA.6: the texts formula-expand wrote
                                    ' in that form, read for a word used in
                                    ' the form that defines it; Nothing for
@@ -4049,7 +4068,9 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             Exit Do
         Else
             Set rec = GetMacro(CStr(lst.Item(1)))
-            If rec Is Nothing Then Exit Do
+            ' VLA.11: a formula's own names refused where one is the
+            ' expander's word, before the rebuild replaces a word of them.
+            If rec Is Nothing Then RefuseFormulaNames lst, headFold: Exit Do
             If mBudgetOn And mExpandFired >= mExpandBudget Then Exit Do   ' L15
             chainLen = chainLen + 1
             If chainLen > 5000 Then VLA_Messages.RaiseMsg "vla-macro-self-expansion-limit"
@@ -4178,6 +4199,9 @@ End Function
 ' stands, its argument expanded as far as the budget went (ExpandBudgetSpent);
 ' and the word self left in its expression is refused (FormHoldsSelf), since
 ' the walk replaced every one it read, so that none is written as a name.
+' VLA.11: a word it writes as one of Excel's names that no lambda or let
+' around it binds is kept (FormulaFreeKept), and refused once the form of the
+' source has expanded (ExpandSourceForm).
 Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal walkDepth As Long) As Variant
     If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-formula-expand-arity", "n", (lst.Count - 1)
     If mFormulaExpandOpen Then VLA_Messages.RaiseMsg "vla-formula-expand-nested"
@@ -4196,6 +4220,7 @@ Private Function ExpandFormulaCall(lst As Object, ByVal depth As Long, ByVal wal
     If FormHoldsSelf(expr) Then VLA_Messages.RaiseMsg "vla-self-free"
     syntaxText = FormulaSyntaxWrite(expr)
     FormulaTextKept syntaxText   ' VLA.6
+    FormulaFreeKept expr, syntaxText   ' VLA.11
     ExpandFormulaCall = Chr$(34) & syntaxText
     Exit Function
 failed:
@@ -4206,6 +4231,55 @@ failed:
     On Error GoTo 0
     Err.Raise errNum, errSrc, errDesc
 End Function
+
+' VLA.11: inside a formula's expression, a lambda's parameter or a let's name
+' spelled as a define's word, a parameter's or self, refused by name where the
+' walk meets the form, before it replaces a word of it, since a word names one
+' thing. A form of another head, or one outside a formula, passes. A helper of
+' its own, so that ExpandMacros' frame gains no local (trap 8). vla-lang's
+' refuse_formula_names.
+Private Sub RefuseFormulaNames(lst As Object, ByVal headFold As String)
+    If Not mFormulaExpandOpen Then Exit Sub
+    Dim binder As String
+    Dim first As Long, last As Long, stepBy As Long, i As Long
+    Dim names As Object
+    If headFold = "lambda" Then
+        binder = "a lambda's parameter"
+        If lst.Count < 2 Then Exit Sub
+        If Not IsList(lst.Item(2)) Then Exit Sub
+        Set names = lst.Item(2)
+        first = 1
+        last = names.Count
+        stepBy = 1
+    ElseIf headFold = "let" Then
+        ' (let x 1 y 2 body): a name before each value, the items 2, 4, ...
+        binder = "a let's name"
+        Set names = lst
+        first = 2
+        last = 2 * ((lst.Count - 1) \ 2)
+        stepBy = 2
+    Else
+        Exit Sub
+    End If
+    Dim word As String, what As String
+    For i = first To last Step stepBy
+        If IsSym(names.Item(i)) Then
+            word = CStr(names.Item(i))
+            what = ""
+            If IsSelfWord(word) Then
+                what = "the place a verb writes"
+            ElseIf Not mDefines Is Nothing Then
+                If mDefines.Exists(VLA_Identity.Fold(word)) Then
+                    what = "a define's word in this source"
+                    If Not mParameters Is Nothing Then
+                        If mParameters.Exists(VLA_Identity.Fold(word)) Then what = "a parameter's word in this source"
+                    End If
+                End If
+            End If
+            If Len(what) > 0 Then VLA_Messages.RaiseMsg "vla-formula-name-taken", "binder", binder, "word", word, "what", what
+        End If
+    Next
+End Sub
 
 ' L15 and VLA.10: whether the stepper's budget is spent. No application fires
 ' after it, so a form of the walk that read its argument now would read a macro
@@ -5947,9 +6021,14 @@ End Function
 Private Function ExpandSourceForm(f As Variant) As Variant
     mDefineMet = False
     Set mFormulaTexts = Nothing
+    Set mFormulaFree = Nothing   ' VLA.11
     Dim r As Variant
     AssignVar r, ExpandMacros(f, 0)
     If mDefineMet Then AssignVar r, DefinesTake(r)
+    ' VLA.11: a free word in a formula of the form, refused once its defines
+    ' are taken, so that a define's word read in its own form keeps that
+    ' refusal's sentence.
+    If Not mFormulaFree Is Nothing Then VLA_Messages.RaiseMsg "vla-formula-word-free", "word", CStr(mFormulaFree.Item(1)), "text", CStr(mFormulaFree.Item(2)), "ref", CStr(mFormulaFree.Item(3))
     If IsObject(r) Then Set ExpandSourceForm = r Else ExpandSourceForm = r
 End Function
 
@@ -6444,6 +6523,20 @@ End Function
 Private Sub FormulaTextKept(ByVal syntaxText As String)
     If mFormulaTexts Is Nothing Then Set mFormulaTexts = New Collection
     mFormulaTexts.Add syntaxText
+End Sub
+
+' VLA.11: a formula's first free word (FsFreeWord), kept with the formula's
+' text and the ref that writes it for the form ExpandSourceForm expands, which
+' refuses it once the form has expanded; the form's first one alone.
+Private Sub FormulaFreeKept(expr As Variant, ByVal syntaxText As String)
+    If Not mFormulaFree Is Nothing Then Exit Sub
+    Dim refText As String, word As String
+    word = FsFreeWord(expr, New Collection, refText)
+    If Len(word) = 0 Then Exit Sub
+    Set mFormulaFree = New Collection
+    mFormulaFree.Add word
+    mFormulaFree.Add syntaxText
+    mFormulaFree.Add refText
 End Sub
 
 ' VLA.6: (sheet-expand reference) and (range-expand reference), forms of the
@@ -9488,6 +9581,106 @@ Private Function FsWritesAsCall(v As Variant) As Boolean
             Exit Function
     End Select
     FsWritesAsCall = True
+End Function
+
+' VLA.11: the first word of an expression the writer has written, in the
+' order it writes them, that RefersScan reads whole as one of Excel's names,
+' on a sheet or not, and that no lambda's parameters and no let's names around
+' it bind (bound, folded, innermost last), with the ref that writes it into
+' refText: never a list's head, a function's name, nor funcall's function by
+' name, and never inside a quote, a ref or the syntax's other forms of a value
+' or a reference, whose words are data or a reference. "" for an expression
+' with none. vla-lang's formula_syntax::free_word. Each form that binds adds
+' its names to bound and takes them off again.
+Private Function FsFreeWord(v As Variant, bound As Collection, refText As String) As String
+    If Not IsList(v) Then
+        FsFreeWord = FsFreeName(v, bound, refText)
+        Exit Function
+    End If
+    Dim lst As Object
+    Set lst = v
+    If lst.Count = 0 Then Exit Function
+    If Not IsSym(lst.Item(1)) Then Exit Function
+    Dim h As String, w As String
+    Dim i As Long, at As Long
+    Dim ps As Object
+    h = FsCanonicalHead(VLA_Identity.Fold(CStr(lst.Item(1))))
+    at = bound.Count
+    Select Case h
+        Case "quote", "ref", "error", "last", "absolute", "absolute-row", "absolute-column"
+            Exit Function
+        Case "lambda"
+            ' (lambda (x y) body): its parameters bound in its body.
+            If lst.Count >= 2 Then
+                If IsList(lst.Item(2)) Then
+                    Set ps = lst.Item(2)
+                    For i = 1 To ps.Count
+                        If IsSym(ps.Item(i)) Then bound.Add VLA_Identity.Fold(CStr(ps.Item(i)))
+                    Next
+                End If
+            End If
+            If lst.Count >= 3 Then w = FsFreeWord(lst.Item(3), bound, refText)
+        Case "let"
+            ' (let x 1 y (+ x 1) body): each name bound in the values after it
+            ' and in the calculation, Excel's LET.
+            i = 2
+            Do While Len(w) = 0 And i + 1 <= lst.Count
+                If IsSym(lst.Item(i)) Then
+                    w = FsFreeWord(lst.Item(i + 1), bound, refText)
+                    bound.Add VLA_Identity.Fold(CStr(lst.Item(i)))
+                Else
+                    w = FsFreeWord(lst.Item(i), bound, refText)
+                    If Len(w) = 0 Then w = FsFreeWord(lst.Item(i + 1), bound, refText)
+                End If
+                i = i + 2
+            Loop
+            If Len(w) = 0 And i <= lst.Count Then w = FsFreeWord(lst.Item(i), bound, refText)
+        Case "funcall"
+            ' (funcall f a ...): f by name a function's name, as a head is.
+            i = 2
+            If lst.Count >= 2 Then
+                If IsSym(lst.Item(2)) Then i = 3
+            End If
+            For i = i To lst.Count
+                w = FsFreeWord(lst.Item(i), bound, refText)
+                If Len(w) > 0 Then Exit For
+            Next
+        Case Else
+            For i = 2 To lst.Count
+                w = FsFreeWord(lst.Item(i), bound, refText)
+                If Len(w) > 0 Then Exit For
+            Next
+    End Select
+    Do While bound.Count > at
+        bound.Remove bound.Count
+    Loop
+    FsFreeWord = w
+End Function
+
+' VLA.11: a word that RefersScan reads whole as one of Excel's names, on a
+' sheet or not, and that no name bound holds, with the ref that writes it into
+' refText; a text, a numeral, a truth value or a reference is none.
+' vla-lang's formula_syntax::free_name.
+Private Function FsFreeName(v As Variant, bound As Collection, refText As String) As String
+    If Not IsSym(v) Then Exit Function
+    Dim s As String, f As String
+    s = CStr(v)
+    If FsIsNumeral(s) Or FsIsNegativeNumeral(s) Then Exit Function
+    f = VLA_Identity.Fold(s)
+    If f = "true" Or f = "false" Then Exit Function
+    Dim fr As FormulaRef
+    If Not FsWholeReference(s, fr) Then Exit Function
+    If fr.Kind <> "name" Then Exit Function
+    If Len(fr.SheetName) = 0 Then
+        Dim b As Variant
+        For Each b In bound
+            If CStr(b) = f Then Exit Function
+        Next
+        refText = "(ref " & WriteDatum(Chr$(34) & fr.Part) & ")"
+    Else
+        refText = "(ref " & WriteDatum(Chr$(34) & fr.SheetName) & " " & WriteDatum(Chr$(34) & fr.Part) & ")"
+    End If
+    FsFreeName = s
 End Function
 
 Private Function FsIsStringAtom(v As Variant) As Boolean

@@ -119,6 +119,12 @@ every push:
      among neither's primitives, heading a form in an EXPANDED case and in a
      REFUSED one, taken by both substitutions, both walks and both functions'
      tails; and each of its three ids the id of a REFUSED record.
+ 15. VLA.11's formula: a free word found in both formula-expands
+     (FormulaFreeKept, formula_syntax::free_word) and refused by both source
+     forms once their defines are taken (ExpandSourceForm, expand); a
+     formula's own names held by both walks where no macro heads the form
+     (RefuseFormulaNames, refuse_formula_names); and each of its two ids the
+     id of a REFUSED record.
 
 -Control proves the check on scratch copies: the real files must pass, and
 each of these must fail: a golden with one record's tag misspelled, one
@@ -146,8 +152,11 @@ Substitute replaces a head again, a port whose substitute does, a
 reference whose DefineMacro lets a parameter stand at a head, a reference
 whose Substitute takes no quote's datum as data, a port whose substitute
 takes none, a reference whose walker of the heads enters a quote's datum, a
-port whose walker does, and a reference whose working-out reads a
-function's body as a quote's datum.
+port whose walker does, a reference whose working-out reads a
+function's body as a quote's datum, a reference whose formula-expand keeps no
+free word, a port whose formula_expand keeps none, a reference whose source
+form never refuses one, a reference whose walk lets a formula's own name be
+the expander's word, and a port whose walk does.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -209,9 +218,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # parameter at a quoted head renamed for its reading and eleven beside it, 8
 # written and 4 refused, each written by the port ahead of the reference's
 # run; every other record unmoved.
-$caseFloor = 836
-$expandedFloor = 432
-$idFloor = 98
+# 2026-11-19, VLA.11's third slice: 855 cases, 439 expanded, 100 distinct ids,
+# the formula's 19 written by the port ahead of the reference's run, its two
+# ids the ids more; the nine cases that wrote a free word written over ref,
+# their records the same bytes, and the case of a lambda's parameter named
+# self renamed for the refusal that now meets it first; every other record
+# unmoved.
+$caseFloor = 855
+$expandedFloor = 439
+$idFloor = 100
 
 # VLA.3's ten primitives and eight ids, which rule 4 holds to the fixture.
 $newPrimitives = @('-expand', '*expand', 'quotient-expand', 'mod-expand', '&expand',
@@ -290,6 +305,9 @@ $definitionIds = @('vla-defmacro-twice', 'vla-parameter-given-twice',
 # 14 holds.
 $callForm = 'call-expand'
 $headIds = @('vla-name-at-a-head', 'vla-call-expand-shape', 'vla-call-expand-not-a-word')
+
+# VLA.11's third slice, the formula: its two ids, which rule 15 holds.
+$formulaIds = @('vla-formula-word-free', 'vla-formula-name-taken')
 
 $fixturePath = Join-Path $repoRoot 'scripts/expand.txt'
 $goldenPath  = Join-Path $repoRoot 'scripts/expand_golden.txt'
@@ -898,6 +916,29 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
         if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
     }
 
+    # 15. VLA.11's formula: a free word found in both formula-expands and
+    # refused by both source forms once their defines are taken; a formula's
+    # own names held by both walks where no macro heads the form; and its two
+    # ids each a refused record.
+    if ($vbaText -notmatch "FormulaFreeKept expr, syntaxText   ' VLA\.11") {
+        [void]$problems.Add("the reference's formula-expand keeps no free word")
+    }
+    if ($portText -notmatch 'formula_syntax::free_word\(&expr\)') {
+        [void]$problems.Add("the port's formula_expand keeps no free word")
+    }
+    if ($vbaText -notmatch 'If Not mFormulaFree Is Nothing Then VLA_Messages\.RaiseMsg "vla-formula-word-free"' -or $portText -notmatch 'if let Some\(\(word, text, ref_form\)\) = self\.formula_free\.take\(\)') {
+        [void]$problems.Add("a source form never refuses the free word a formula of it holds")
+    }
+    if ($vbaText -notmatch 'If rec Is Nothing Then RefuseFormulaNames lst, headFold: Exit Do') {
+        [void]$problems.Add("the reference's walk lets a formula's own name be the expander's word")
+    }
+    if ($portText -notmatch 'self\.refuse_formula_names\(&head_fold, items\)\?;') {
+        [void]$problems.Add("the port's walk lets a formula's own name be the expander's word")
+    }
+    foreach ($x in $formulaIds) {
+        if (-not $ids.Contains($x)) { [void]$problems.Add("no REFUSED record of the golden is '$x'") }
+    }
+
     # 5. the floors
     if ($gcases.Count -lt $caseFloor) { [void]$problems.Add(("{0} cases, below the floor of {1}" -f $gcases.Count, $caseFloor)) }
     if ($expanded -lt $expandedFloor) { [void]$problems.Add(("{0} expanded cases, below the floor of {1}" -f $expanded, $expandedFloor)) }
@@ -1120,6 +1161,31 @@ if ($Control) {
         if ([regex]::Matches($vbaText, [regex]::Escape($bodyAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected FunctionWorkOut''s clearing of mQuoted once'; exit 1 }
         $paj = Join-Path $tmp 'aj.bas'
         [System.IO.File]::WriteAllText($paj, $vbaText.Replace($bodyAnchor, "    ' VLA.11: the body's heads its own"), $utf8)
+        # (ak) the reference whose formula-expand keeps no free word
+        $keptAnchor = "    FormulaFreeKept expr, syntaxText   ' VLA.11"
+        if ([regex]::Matches($vbaText, [regex]::Escape($keptAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected ExpandFormulaCall''s free word kept once'; exit 1 }
+        $pak = Join-Path $tmp 'ak.bas'
+        [System.IO.File]::WriteAllText($pak, $vbaText.Replace($keptAnchor, "    ' VLA.11"), $utf8)
+        # (al) the port whose formula_expand keeps none
+        $portKeptAnchor = 'formula_syntax::free_word(&expr)'
+        if ([regex]::Matches($portSource, [regex]::Escape($portKeptAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected formula_expand''s free word kept once'; exit 1 }
+        $pal = Join-Path $tmp 'al.rs'
+        [System.IO.File]::WriteAllText($pal, $portSource.Replace($portKeptAnchor, 'None::<(String, String)>.filter(|_| expr.is_list())'), $utf8)
+        # (am) the reference whose source form never refuses a kept free word
+        $freeAnchor = 'If Not mFormulaFree Is Nothing Then VLA_Messages.RaiseMsg "vla-formula-word-free"'
+        if ([regex]::Matches($vbaText, [regex]::Escape($freeAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected ExpandSourceForm''s refusal of a free word once'; exit 1 }
+        $pam = Join-Path $tmp 'am.bas'
+        [System.IO.File]::WriteAllText($pam, $vbaText.Replace($freeAnchor, 'If False Then VLA_Messages.RaiseMsg "vla-formula-word-free"'), $utf8)
+        # (an) the reference whose walk lets a formula's own name be the expander's word
+        $namesAnchor = 'If rec Is Nothing Then RefuseFormulaNames lst, headFold: Exit Do'
+        if ([regex]::Matches($vbaText, [regex]::Escape($namesAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected ExpandMacros'' check of a formula''s names once'; exit 1 }
+        $pan = Join-Path $tmp 'an.bas'
+        [System.IO.File]::WriteAllText($pan, $vbaText.Replace($namesAnchor, 'If rec Is Nothing Then Exit Do'), $utf8)
+        # (ao) the port whose walk does
+        $portNamesAnchor = 'self.refuse_formula_names(&head_fold, items)?;'
+        if ([regex]::Matches($portSource, [regex]::Escape($portNamesAnchor)).Count -ne 1) { Write-Output 'FAIL: the control expected expand_at''s check of a formula''s names once'; exit 1 }
+        $pao = Join-Path $tmp 'ao.rs'
+        [System.IO.File]::WriteAllText($pao, $portSource.Replace($portNamesAnchor, 'let _ = items;'), $utf8)
         $ra = Test-ExpandGolden $fixturePath $pa $vbaPath $portPath $catalogPath $syntaxPath
         $rb = Test-ExpandGolden $fixturePath $pb $vbaPath $portPath $catalogPath $syntaxPath
         $rc = Test-ExpandGolden $fixturePath $pc $vbaPath $portPath $catalogPath $syntaxPath
@@ -1156,8 +1222,13 @@ if ($Control) {
         $rah = Test-ExpandGolden $fixturePath $goldenPath $pah $portPath $catalogPath $syntaxPath
         $rai = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pai $catalogPath $syntaxPath
         $raj = Test-ExpandGolden $fixturePath $goldenPath $paj $portPath $catalogPath $syntaxPath
-        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}, the walk without bind-expand {18}, the handler leaving the stack {19}, Substitute reading the stack {20}, the port's binding never popping {21}, a sibling writing the first's place {22}, the working-out leaving the depth {23}, the port's working-out never lowering it {24}, the fuel leaving by ? {25}, the reference replacing a macro {26}, the port replacing one {27}, a compile holding no door's values {28}, the reference replacing a head {29}, the port replacing one {30}, a parameter let stand at a head {31}, the reference's quote not taken {32}, the port's not taken {33}, the reference's walker in a quote {34}, the port's walker in one {35}, a function's body read as a quote's datum {36}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count, $rr.Problems.Count, $rs.Problems.Count, $rt.Problems.Count, $ru.Problems.Count, $rv.Problems.Count, $rw.Problems.Count, $rx.Problems.Count, $ry.Problems.Count, $rz.Problems.Count, $raa.Problems.Count, $rab.Problems.Count, $rac.Problems.Count, $rad.Problems.Count, $rae.Problems.Count, $raf.Problems.Count, $rag.Problems.Count, $rah.Problems.Count, $rai.Problems.Count, $raj.Problems.Count)
-        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1 -and $rr.Problems.Count -ge 1 -and $rs.Problems.Count -ge 1 -and $rt.Problems.Count -ge 1 -and $ru.Problems.Count -ge 1 -and $rv.Problems.Count -ge 1 -and $rw.Problems.Count -ge 1 -and $rx.Problems.Count -ge 1 -and $ry.Problems.Count -ge 1 -and $rz.Problems.Count -ge 1 -and $raa.Problems.Count -ge 1 -and $rab.Problems.Count -ge 1 -and $rac.Problems.Count -ge 1 -and $rad.Problems.Count -ge 1 -and $rae.Problems.Count -ge 1 -and $raf.Problems.Count -ge 1 -and $rag.Problems.Count -ge 1 -and $rah.Problems.Count -ge 1 -and $rai.Problems.Count -ge 1 -and $raj.Problems.Count -ge 1) {
+        $rak = Test-ExpandGolden $fixturePath $goldenPath $pak $portPath $catalogPath $syntaxPath
+        $ral = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pal $catalogPath $syntaxPath
+        $ram = Test-ExpandGolden $fixturePath $goldenPath $pam $portPath $catalogPath $syntaxPath
+        $ran = Test-ExpandGolden $fixturePath $goldenPath $pan $portPath $catalogPath $syntaxPath
+        $rao = Test-ExpandGolden $fixturePath $goldenPath $vbaPath $pao $catalogPath $syntaxPath
+        Write-Output ("control: the real set has {0} problem(s); the misspelt tag {1}, the dropped case {2}, the unknown id {3}, the reference's broken Select {4}, the renamed primitive {5}, the walk without formula-expand {6}, the writer reading a compile's aliases {7}, the substitution without the loop {8}, the port's RESERVED without each {9}, the walk passing no define by {10}, VlaExpandText past the wrapper {11}, the port's writer without last {12}, the walk without the first cell {13}, the port's writer without the marks {14}, the signature walk with no declaration {15}, the binding with no default {16}, one call's two orders apart {17}, the walk without bind-expand {18}, the handler leaving the stack {19}, Substitute reading the stack {20}, the port's binding never popping {21}, a sibling writing the first's place {22}, the working-out leaving the depth {23}, the port's working-out never lowering it {24}, the fuel leaving by ? {25}, the reference replacing a macro {26}, the port replacing one {27}, a compile holding no door's values {28}, the reference replacing a head {29}, the port replacing one {30}, a parameter let stand at a head {31}, the reference's quote not taken {32}, the port's not taken {33}, the reference's walker in a quote {34}, the port's walker in one {35}, a function's body read as a quote's datum {36}, the reference's formula keeping no free word {37}, the port's keeping none {38}, a free word never refused {39}, the reference's walk letting a formula's name be taken {40}, the port's {41}" -f $real.Problems.Count, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count, $rd.Problems.Count, $re.Problems.Count, $rf.Problems.Count, $rg.Problems.Count, $rh.Problems.Count, $ri.Problems.Count, $rj.Problems.Count, $rk.Problems.Count, $rl.Problems.Count, $rm.Problems.Count, $rn.Problems.Count, $ro.Problems.Count, $rp.Problems.Count, $rq.Problems.Count, $rr.Problems.Count, $rs.Problems.Count, $rt.Problems.Count, $ru.Problems.Count, $rv.Problems.Count, $rw.Problems.Count, $rx.Problems.Count, $ry.Problems.Count, $rz.Problems.Count, $raa.Problems.Count, $rab.Problems.Count, $rac.Problems.Count, $rad.Problems.Count, $rae.Problems.Count, $raf.Problems.Count, $rag.Problems.Count, $rah.Problems.Count, $rai.Problems.Count, $raj.Problems.Count, $rak.Problems.Count, $ral.Problems.Count, $ram.Problems.Count, $ran.Problems.Count, $rao.Problems.Count)
+        if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1 -and $rd.Problems.Count -ge 1 -and $re.Problems.Count -ge 1 -and $rf.Problems.Count -ge 1 -and $rg.Problems.Count -ge 1 -and $rh.Problems.Count -ge 1 -and $ri.Problems.Count -ge 1 -and $rj.Problems.Count -ge 1 -and $rk.Problems.Count -ge 1 -and $rl.Problems.Count -ge 1 -and $rm.Problems.Count -ge 1 -and $rn.Problems.Count -ge 1 -and $ro.Problems.Count -ge 1 -and $rp.Problems.Count -ge 1 -and $rq.Problems.Count -ge 1 -and $rr.Problems.Count -ge 1 -and $rs.Problems.Count -ge 1 -and $rt.Problems.Count -ge 1 -and $ru.Problems.Count -ge 1 -and $rv.Problems.Count -ge 1 -and $rw.Problems.Count -ge 1 -and $rx.Problems.Count -ge 1 -and $ry.Problems.Count -ge 1 -and $rz.Problems.Count -ge 1 -and $raa.Problems.Count -ge 1 -and $rab.Problems.Count -ge 1 -and $rac.Problems.Count -ge 1 -and $rad.Problems.Count -ge 1 -and $rae.Problems.Count -ge 1 -and $raf.Problems.Count -ge 1 -and $rag.Problems.Count -ge 1 -and $rah.Problems.Count -ge 1 -and $rai.Problems.Count -ge 1 -and $raj.Problems.Count -ge 1 -and $rak.Problems.Count -ge 1 -and $ral.Problems.Count -ge 1 -and $ram.Problems.Count -ge 1 -and $ran.Problems.Count -ge 1 -and $rao.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
             exit 0
         }

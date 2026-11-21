@@ -970,6 +970,24 @@ reference is a bare symbol, `Input!B5`, or `(ref "Q1 Data" "A1")` where a
 symbol cannot hold it; an error is `(error "#N/A")`; and anything a formula
 does not spell, such as `tax-rate`, is refused rather than renamed.
 
+**One of Excel's names, by `ref` alone.** A word the formula would write as
+one of Excel's defined names, `taxrate` or `Model!Local`, is refused unless a
+`lambda` or a `let` around it binds it, since a word a template leaves behind
+is more often a mistake than a name: `(ref "taxrate")` and `(ref "Model"
+"Local")` write the names, so a name reaches a formula only where its author
+asked for one.
+
+> formula: 'taxrate' in =taxrate+1 is no reference, and no lambda or let
+> around it names it - write the reference it stands for, or (ref "taxrate")
+> for one of Excel's names
+
+A function's name at a list's head, `(sum ...)`, and `funcall`'s function by
+name pass, each a function's name. A `lambda`'s parameters and a `let`'s
+names are the formula's own, `(let x 1 y (+ x 1) (* x y))` binding each name
+for what follows it; so none may be spelled as a define's word, a
+parameter's or `self`, and one so spelled is refused where the expander
+meets it, before it replaces a word.
+
 **A function called where it is written.** `(funcall f a ...)` calls what
 `f` answers with its arguments, as Lisp's `funcall` does: a `LAMBDA`, or a
 call that answers one, is called where it is written, and a name is called
@@ -978,14 +996,14 @@ by its name.
 | Expression | Formula text |
 |---|---|
 | `(funcall (lambda (x) (+ x 1)) 5)` | `LAMBDA(x,x+1)(5)` |
-| `(funcall (if c SQ PLUS1) 5)` | `IF(c,SQ,PLUS1)(5)` |
+| `(funcall (if (> A1 0) (ref "SQ") (ref "PLUS1")) 5)` | `IF(A1>0,SQ,PLUS1)(5)` |
 | `(funcall (funcall (make 3) 4) 5)` | `MAKE(3)(4)(5)` |
 | `(funcall sq 3)` | `SQ(3)` |
 
 Anything a formula cannot call, an operator, a number or a reference, is
 refused by name. So is what `IFERROR` answers, since Excel calls nothing in
 place that `IFERROR` answers: bind it with `let` and call the name,
-`(let f (iferror SQ PLUS1) (funcall f 3))`, which writes
+`(let f (iferror (ref "SQ") (ref "PLUS1")) (funcall f 3))`, which writes
 `LET(f,IFERROR(SQ,PLUS1),F(3))`.
 
 **A reference's twin.** `(last X)` is the twin of the one reference on a

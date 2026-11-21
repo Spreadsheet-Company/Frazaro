@@ -21575,7 +21575,7 @@ built.
   "All six passed". Committed, and the item closed, at the owner's word,
   "commit slice 2 and close VLA.8 before suggesting next steps".
 
-- 🟡 **VLA.11 — hygiene by design: a parameter replaced where it stands as
+- ✅ **VLA.11 — hygiene by design: a parameter replaced where it stands as
   an expression and never as a row's head, a macro's redefinition refused
   by name unless the source declares a `(parameter ...)` a door may set,
   and a symbol inside a formula that spells no reference and binds no name
@@ -22265,6 +22265,128 @@ built.
   no golden moved; and the three build goldens opened in Excel with no
   repair: "All five passed". The second slice committed at the owner's word,
   "commit slice 2 then proceed with slice 3".
+
+  **What was built, the third slice,** 2026-11-19, at the same word, the
+  formula (decisions 7 and 8; decision 9's reader as it is), in the worktree
+  moved to `abca17b`; the reference first (`SD-18`) and the port after it.
+  - `src/VLA.bas`: `FsFreeWord` and `FsFreeName` find a finished
+    expression's first free word in the writer's order: a word `RefersScan`
+    reads whole as one of Excel's names, on a sheet or not, that no
+    `lambda`'s parameters and no `let`'s names around it bind, each of a
+    `let`'s names bound for the values after it and for its calculation;
+    never a head nor `funcall`'s function by name, and never inside a
+    `quote`, a `ref`, an `error`, a `last` or the three marks.
+    `FormulaFreeKept` keeps the form's first, with the formula's text and the
+    `ref` that writes it, once the writer has written it; `ExpandSourceForm`
+    refuses it once the form has expanded and its defines are taken
+    (`vla-formula-word-free`, `mFormulaFree`), so that a define's word read
+    in its own form keeps `vla-define-used-in-its-form`. `RefuseFormulaNames`,
+    where `ExpandMacros` finds no macro at a form's head inside a formula,
+    refuses a `lambda`'s parameter or a `let`'s name spelled as a define's
+    word, a parameter's or `self` (`vla-formula-name-taken`), before the
+    rebuild replaces a word of it; a helper of its own (trap 8).
+  - `vla-lang/src/formula_syntax.rs`: `free_word` and `free_name`;
+    `vla-lang/src/expand.rs`: the `Expander`'s `formula_free`, kept by
+    `formula_expand` and refused by `expand` after `take_defines`, and
+    `refuse_formula_names` at the same place of the walk.
+  - The catalogue: the two refusals, 289 in the language's half,
+    `check_data_exports`' floor raised to the count.
+  - `TestFormulaNames`, 25 pure pins, wired after `TestHeads`; one pin moved,
+    `TestSelfForms`' lambda's parameter named `self`, refused now as a
+    formula's name taken, the scoping's flagged change of meaning.
+  - The expand fixture: the nine cases that wrote a free word written over
+    `ref`, their records the same bytes (`formula-expand-names`, `-precedence`,
+    `-power-and-sign`, `-percent-and-sign`,
+    `-concatenation-and-comparison`, `-an-alias`, `-funcall-a-call-in-place`,
+    `-funcall-an-operand` and `-n-a-before-a-division`);
+    `self-free-as-a-lambda-s-parameter-refused` renamed
+    `self-as-a-lambda-s-parameter-refused`, refused by the new id; 19 cases,
+    7 written and 12 refused. Floors 855, 439 and 100. The port's prediction
+    kept apart (`target/vla11_slice3_expand_golden_prediction.txt` in the
+    shared tree).
+  - `check_expand_golden`'s rule 15 and the control's (ak) to (ao), 41
+    mutants in all.
+  - The port's tests:
+    `a_free_word_in_a_formula_is_refused_once_its_form_has_expanded`,
+    `a_formula_s_own_names_are_never_the_expander_s_words`, and the law
+    `the_free_word_is_refused_exactly_where_nothing_binds_it`, 3,000
+    generated formulas of sums, calls, lambdas and lets over three words, a
+    reference and a `ref`, 1,988 refused and 1,012 accepted, each refused
+    exactly when a word stands where nothing binds it; one pin moved, the
+    lambda's parameter named `self`.
+  - `0.15.0`'s two notes; the tutorial's *A formula from an expression*, its
+    `funcall` table and its `IFERROR` example written over `ref`; the
+    crate's README.
+
+  **Where the third slice moved from the scoping.**
+  - *The walk knows a `let`'s order,* each name bound for the values after
+    it and for the calculation, as Excel's `LET` binds, so `(let x y y 1 x)`
+    is refused at its first `y`; the scoping named the binders and not
+    their order.
+  - *The free word refused is the form's first,* in the writer's order, of
+    its first formula that holds one, and the refusal names the word, the
+    formula's text and the `ref` that writes it.
+  - *A name handed in as a value is a free word too:* `(map (sequence 3)
+    square)` is refused and `(ref "square")` writes it, where the scoping's
+    table of today's readings showed `=MAP(SEQUENCE(3),square)`.
+  - *Decision 8 is asked where no macro heads the form,* so a source's own
+    macro named `let` keeps its call.
+
+  **Held by** the port over `abca17b`: 996 passed, 0 failed and 5 ignored
+  over the workspace (`--no-fail-fast`); the package's own suite from its
+  tarball, 712, at CI's optimization and unoptimized alike, each compiled in
+  a target of its own; `clippy` (twice, as CI runs it) and `fmt` clean;
+  `run_checks.ps1` 60 of 60, the door built again first;
+  `check_expand_golden -Control` failing each of its 41 mutants; `prove
+  -Impl` 70 passed; each of `TestFormulaNames`' 25 sources run through the
+  port to the value it pins. Alonzo at `91cc254` over this `vla-lang` (a
+  scratch copy, its `[patch.crates-io]`, cargo's tree naming the patch;
+  `0c55449` and `181f2c8` after it move no cartridge and no pass): its
+  twelve cartridges `same`, none of their formulas writing a free word or
+  binding an expander's word; Buffet's source, 1,614 rows today, the same
+  bytes; Life's three rungs through a door's values, the old ladder's bytes.
+
+  **The owner's first pass,** 2026-11-19: pure 2,707 of 2,714, host 333 of
+  333. Seven pins of the reference's own suite failed, `TestFormulaSyntax`'s
+  four and `TestFormulaFuncall`'s three, each writing a bare name in a
+  `formula-expand` (`a`, `b`, `c`, `x`, `k`, `SQ`, `PLUS1` and `Model!Local`),
+  a free word now; their twins in `formula_syntax.rs` hold the writer alone,
+  which writes a bare name still, so nothing of the port's failed. The seven
+  written over `ref`, their wanted strings unchanged, as the fixture's nine
+  were. Slice 2's lesson, met again: a construct's meaning changed is
+  grepped for in the reference's tests first. Its instrument this time: every
+  `CheckV` of `VLA_Tests.bas` whose actual is `ExpandTrimmed` or
+  `ExpandRefusalId`, 467 of them, its source and its wanted value read from
+  the VBA's string expressions (the procedure's own constants and variables
+  among them) and run through the port. Over the pins as the pass ran them,
+  the seven differ and no other, each refusal the reference's text to the
+  byte; over the pins written again, all 467 agree. The ten it cannot read,
+  a text computed or a call around the expansion, are the pass's alone.
+
+  **Held by** the port over `57123b6`, `KERNEL.55`'s fifth slice's fourth
+  part and its close committed under the slice meanwhile, the catalogue's
+  `grid-write-block` among them, its floor 290 with this slice's two: the
+  shared tree's change against `57123b6` the worktree's against `abca17b`
+  line for line, the floor's line alone apart; 1,002 passed, 0 failed and 5
+  ignored over the workspace (`--no-fail-fast`); `run_checks.ps1` 60 of 60
+  over a door built with it; `prove -Impl` 70 passed.
+
+  **The owner's second pass,** 2026-11-21, in Excel, each step as the
+  handover named it: `VlaDevReload`, Debug > Compile, `VlaProfileAll`, pure
+  2,714 of 2,714 and host 333 of 333, the seven among them, and F.4's audit
+  clean; `VlaWriteExpandGolden`, 855 cases and 416 refused, the golden the
+  port's prediction byte for byte; `VlaGoldens`, corpus and interpreter
+  PASS, no golden moved: "Hand tests pass". Committed, and the item closed,
+  at the owner's word, "commit before suggesting next steps". Its wall time
+  is the question the item leaves, not attributed: 117,881 ms, where the
+  first pass took 97,926 and the profile the workbook last saved, the first
+  slice's, 55,678. The phases `VlaProfileAll` times hardly moved, the
+  compile's over 282 calls 5,572 ms against 5,321 (tokenize 666 against
+  734, parse 3,521 against 3,021, expand 1,180 against 1,356, emit 205
+  against 210) and the translation's over 372 calls 367 against 344, so the
+  time grew outside them; and by 20 seconds between two passes whose code
+  differed by seven pins, the second in a workbook opened afresh, neither
+  in the machine's standby (Kernel-Power 506 and 507).
 
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
@@ -63274,6 +63396,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **VLA.17 — `funcall` in the formula syntax: `(funcall f a ...)`, what `f` answers called with its arguments, written `IF(c,SQ,PLUS1)(5)` where it stands and read back from a call in place, so that a source calls a function it computes.** Minted, scoped, built, owner-tested and committed 2026-11-16 at the owner's word ("Add a funcall form to VLA's formula syntax"), from `KERNEL.29`'s question of whether a function's `#VALUE!` throws `APPLY` out. A name is called by its name, a list that writes as a call (a function's, `IF`'s, `LET`'s, a `LAMBDA` or a `funcall`) where it is written, and an operator, a literal, a reference or an array refused by name; the port's reader reads a call in place back as nested `funcall`s, and `FUNCALL(` is a word the syntax keeps. Excel's repaired third save of `KERNEL.29`'s fixture narrowed it by one function: Excel calls in place what `IF`, `CHOOSE`, a `LAMBDA` and a name answer and nothing `IFERROR` answers, so `(funcall (iferror ...) ...)` is refused by a new id, `vla-formula-not-called-in-place`, `let` named as the way. Both writers held to each other by eleven cases of the expand golden, Excel's run byte for byte the port's prediction; `TestFormulaFuncall`'s 15 pins. *Found:* `IFNA`'s and every other function's answer called in place are unmeasured, written as before. *Pays into:* Alonzo's cartridges at a pin that carries 0.14.0, a chip a level chooses called where it is chosen (`CART.9.3`). *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **VLA.18 — a raw string: `#"…"#`, a text written as it stands with no escape, more `#` where the text holds `"#`, read alike by the reference, the port and `each_form`, so that a text holding quotes and backslashes is written verbatim.** Minted and scoped 2026-11-16 at the owner's word, from Alonzo's `ENGINE.40`, whose saved file writes each box a person typed as `(draft "<box>" "<name>" #"<text>"#)`; approved, built, owner-tested and committed 2026-11-17, every decision as recommended. One `#` or more right before a quote open it where a word would begin, and the first quote followed by as many `#` closes it; its text is every character between, a CRLF read as LF. A word that begins with `#` is refused by name, `vla-hash-word`, which names `(error "#N/A")`, and so is a raw string never closed, `vla-raw-string-unclosed`, each where a parse meets it; no text in Delta read either way before. The printer writes every string escaped, so no golden, record, save or digest moved. `reader::list_heads` gives each list's head as the reader reads it, and the phrasebook's two checks read a phrasebook through it in both implementations, as Undo's roster reads a raw string by the reference's own rule. Held by fourteen cases of the expand golden, Excel's run byte for byte the port's prediction; `TestRawStrings`' 16 pins; the port's round trips of read and print over generated texts, `each_form` against `read_forms` to a mebibyte, and the printer's law over raw strings. *Found:* the string rule's other copies, Lint VLA, the dev rig, the tag's fill, an English program's raw VLA row and the hints, each failing closed; `VlaDistroStrings` reading `\x` as `x`. *Pays into:* Alonzo's `ENGINE.40`, its second slice, at a pin that carries `0.14.0`. *(more: the full entry, earlier in this file)* `~days`
 - ✅ **VLA.8 — functions at expand time, with values, and `let`: `(defexpand (name params...) body)`, a pure function over forms and atoms the expander calls where a value may stand, and `(let-expand ((name value) ...) body)`, a binding for one form, each refused by name past the fuel, so that a macro computes a value instead of handing it on and no walk is written again.** Minted 2026-10-25 from the third sitting of that day (Alonzo's `docs/2030.md` §7.3, item 5); scoped and approved 2026-11-18 on the owner's condition that the benefits outweigh the weakening of the determinism and auditability wall, which the record weighs and finds held on two terms, the refusals naming their calls and the depth held alike in both implementations; built in two slices, owner-tested and committed the same day, each of the thirteen decisions as recommended. The doctrine's sentence amended: no gensym and no eval, compile-time computation the primitives and the functions a source defines over them, each pure, counted and refused by name past the fuel. A function's call computes wherever a primitive's would, its value looked at again by the walk; a define's word and a call handed in are read as values; a call in a tail place loops, any other nests at most 14 deep, half the 29 calls at which the owner's probe ran Excel's stack out, and one working-out makes at most 5,000 calls; fifteen refusals, one raised inside a working-out naming the calls it stands in. The second slice wrote the prelude's list library as functions, `length`, `reverse`, `append`, `quote-map`, `quote-reduce` and the `quote-filter` its header had declined, and `(doc ...)` and apropos read a function's docstring; the build goldens moved by their stamp's prelude alone. Held by the expand golden's 76 cases, Excel's run byte for byte the port's prediction at each slice; `TestFunctions`' 65 pins and `TestListopsStdlib`'s 12 more; the port's law 17, its law 2 over the prelude's functions, and the calls nested to their limit on a thread of 1 MiB. *Found:* the reference holds no depth on a value a working-out builds; `SEC.14`'s hard crash met as a trapped error 28; a primitive's name refused as `quote-filter`'s test, a word at a call's head naming functions alone. *Pays into:* Alonzo's kit (`widths`, `heights`, `beside`), Brickwork's and Superposition's walks, `CART.14.2` and Buffet's kitchen, at a pin that carries `0.15.0`. *(more: the full entry, earlier in this file)* `~weeks`, both implementations
+- ✅ **VLA.11 — hygiene by design: a parameter replaced where it stands as an expression and never as a row's head, a macro's redefinition refused by name unless the source declares a `(parameter ...)` a door may set, and a symbol inside a formula that spells no reference and binds no name refused rather than written as Excel's name.** Minted 2026-10-25 at the owner's word, from the third sitting (Alonzo's `docs/2030.md` §7.3, item 6); scoped and approved 2026-11-19, its eleven decisions as recommended, decision 6 answered "(b)" and left as found; built in three slices, each owner-tested and committed at the owner's word, 2026-11-19 to 2026-11-21. The definitions (`8b87382`): a macro's second definition refused across the compile, and `(parameter word value)` a define a door may give a value of its kind (`Expander::set_parameter`), every other door's value refused by name; Life's three rungs built through a door's values to the old ladder's bytes. The heads (`abca17b`): a positional parameter, a rest, a function's parameter, a loop's or a `let-expand`'s name at a head refused where it binds, a named piece's word there the piece it spells, a quote's datum data, and `(call-expand f x ...)` calling what a word names, the prelude's list library written over it and every build's stamp moved. The formula: a word `formula-expand` would write as one of Excel's names refused unless a `lambda` or a `let` around it binds it, `(ref "name")` writing one, and a `lambda`'s parameter or a `let`'s name spelled as a define's word, a parameter's or `self` refused. Hygiene by refusal and by substitution by structure, never by renaming, so the determinism wall stands, and stronger: no expansion depends on the order of its definitions. The second and third slices' first passes in Excel each failed pins of the reference's own suite that the port has no twin of, `pl5` and seven of the formula syntax's, so a construct's meaning changed is grepped for in the reference's tests first. Held by the expand golden's 855 cases, 416 refused, Excel's run byte for byte the port's prediction at each slice; `TestHygiene`'s 28 pins, `TestHeads`' 29 and `TestFormulaNames`' 25; the port's laws over generated templates and 3,000 generated formulas; Alonzo's twelve cartridges, Superposition's `neighbors` written over `call-expand`, and Buffet's source the same bytes through this `vla-lang` in a scratch copy. *Found:* a primitive met outside a template returns its result unwalked, so a choice by a `parameter` at a source's top writes the kit's macro unexpanded; a formula's function heads never checked, `(summ A1:A3)` written `SUMM(A1:A3)`; the suite's wall time 117,881 ms where the first slice's was 55,678, the growth outside the phases `VlaProfileAll` times. *Pays into:* Alonzo's pin to `0.15.0`, its ladder through `parameter` and Superposition's `neighbors` over `call-expand`; `CART.14.2`; Buffet's kitchen, which meets none of the three rules. To be released in 0.15.0. *(more: the full entry, earlier in this file)* `~days` a slice, both implementations
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

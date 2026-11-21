@@ -25,7 +25,9 @@ once in a compile and a parameter, a define whose value a door may give,
 each of their refusals among them (VLA.11), a line of a case that begins
 ";door " giving the door's (parameter word value) form, and a binder at a
 list's head refused where it binds, a piece's word there kept, a quote's
-datum data, and call-expand, the call through a word (its second slice). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
+datum data, and call-expand, the call through a word (its second slice), and
+a free word in a formula refused and a formula's own names never the expander's
+words (its third slice). A case is named for what it means to reach; the golden records what the reference does. A refusal that names a
 line names the case's own, counted from the case's first line, so an edit
 of the prelude moves nothing here.
 === car
@@ -319,29 +321,29 @@ of the prelude moves nothing here.
 === formula-expand-references
 (formula-expand (f a1 $B$2 C$3:$D4 e:E 5:$7 'Input'!b5 Tally.last!B16 '2026'!A1 Jan:Dec!A1))
 === formula-expand-names
-(formula-expand (* Rate Model!Local tax_rate))
+(formula-expand (* (ref "Rate") (ref "Model" "Local") (ref "tax_rate")))
 === formula-expand-ref-forms
 (formula-expand (+ (ref "Q1 Data" "a1") (ref "Input" "B5") (ref "C3")))
 === formula-expand-ref-of-a-computed-address
 (formula-expand (ref "Input" (address-expand 5 2)))
 === formula-expand-precedence
-(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- a (- b c)) (- a b c) (- (- a b) c)))
+(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- (ref "a") (- (ref "b") (ref "c"))) (- (ref "a") (ref "b") (ref "c")) (- (- (ref "a") (ref "b")) (ref "c"))))
 === formula-expand-power-and-sign
-(formula-expand (f (- (^ x 2)) (^ (- x) 2) (^ -2 2) (^ 2 3 2) (^ 2 (^ 3 2))))
+(formula-expand (f (- (^ (ref "x") 2)) (^ (- (ref "x")) 2) (^ -2 2) (^ 2 3 2) (^ 2 (^ 3 2))))
 === formula-expand-percent-and-sign
-(formula-expand (f (% -5) (- (% 5)) (% (+ a b)) (+ x) (- (- x))))
+(formula-expand (f (% -5) (- (% 5)) (% (+ (ref "a") (ref "b"))) (+ (ref "x")) (- (- (ref "x")))))
 === formula-expand-concatenation-and-comparison
-(formula-expand (f (= (& 1 2) "12") (& (= a b) c) (< a b c) (* a -1) (- 2 -1)))
+(formula-expand (f (= (& 1 2) "12") (& (= (ref "a") (ref "b")) (ref "c")) (< (ref "a") (ref "b") (ref "c")) (* (ref "a") -1) (- 2 -1)))
 === formula-expand-calls
 (formula-expand (if (> A1 3) (stdev.s A1:A9) (pi)))
 === formula-expand-an-alias
-(formula-expand (si (> a 1) 1 0))
+(formula-expand (si (> (ref "a") 1) 1 0))
 === formula-expand-let-and-lambda
 (formula-expand (let x 1 (lambda (y) (+ x y))))
 === formula-expand-funcall-a-name
 (formula-expand (funcall sq 3))
 === formula-expand-funcall-a-call-in-place
-(formula-expand (funcall (if c SQ PLUS1) 5))
+(formula-expand (funcall (if (ref "c") (ref "SQ") (ref "PLUS1")) 5))
 === formula-expand-funcall-a-lambda
 (formula-expand (funcall (lambda (x) (+ x 1)) 5))
 === formula-expand-funcall-curried
@@ -349,11 +351,11 @@ of the prelude moves nothing here.
 === formula-expand-funcall-no-argument
 (formula-expand (funcall (lambda () 42)))
 === formula-expand-funcall-an-operand
-(formula-expand (* 2 (funcall (if c SQ PLUS1) 5)))
+(formula-expand (* 2 (funcall (if (ref "c") (ref "SQ") (ref "PLUS1")) 5)))
 === formula-expand-type-and-xor-are-excel-s
 (formula-expand (xor (type A1) 1))
 === formula-expand-n-a-before-a-division
-(formula-expand (f (/ (^ 2 (error "#N/A")) x) (/ x (error "#N/A") y) (/ x (error "#N/A"))))
+(formula-expand (f (/ (^ 2 (error "#N/A")) (ref "x")) (/ (ref "x") (error "#N/A") (ref "y")) (/ (ref "x") (error "#N/A"))))
 === formula-expand-an-array-constant
 (formula-expand (sum (quote (1 2)) (quote ((1 "a") (true (error "#n/a"))))))
 === formula-expand-a-range-between-expressions
@@ -2435,7 +2437,7 @@ broken
   (last self))
 
 (formula-expand (twin))
-=== self-free-as-a-lambda-s-parameter-refused
+=== self-as-a-lambda-s-parameter-refused
 (formula-expand (lambda (self) (+ self 1)))
 === self-free-in-the-sheet-part-refused
 (sheet-expand self)
@@ -3082,3 +3084,50 @@ lines
 (defmacro (call-expand x) x)
 === dotimes-builds-its-binding-by-list
 (sub s () (dotimes i 3 (debug-print i)))
+=== a-free-word-in-a-formula-refused
+(formula-expand (+ taxrate 1))
+=== a-free-word-on-a-sheet-refused
+(formula-expand (+ Model!Local 1))
+=== a-ref-writes-one-of-excel-s-names
+(formula-expand (+ (ref "taxrate") (ref "Model" "Local")))
+=== a-lambda-binds-its-parameters
+(formula-expand (map (sequence 3) (lambda (x) (* x x))))
+=== a-let-binds-each-name-for-what-follows
+(formula-expand (let x 1 y (+ x 1) (* x y)))
+=== a-let-s-name-used-before-it-binds-refused
+(formula-expand (let x y y 1 x))
+=== a-word-outside-its-lambda-refused
+(formula-expand (+ (funcall (lambda (x) x) 1) x))
+=== a-head-is-a-function-s-name
+(formula-expand (myfunction 1))
+=== funcall-s-function-by-name-is-a-function-s-name
+(formula-expand (funcall sq 5))
+=== a-function-handed-in-by-its-name-refused
+(formula-expand (map (sequence 3) square))
+=== a-function-handed-in-by-ref
+(formula-expand (map (sequence 3) (ref "square")))
+=== a-free-word-in-a-macro-s-formula-refused
+(defmacro (total range)
+  "a total, scaled by a word the formula names"
+  (formula-expand (* (sum range) rate)))
+(cell "S" "A1" (total A1:A9))
+=== a-lambda-s-parameter-spelled-as-a-define-refused
+(define x 5)
+(formula-expand (lambda (x) (+ x 1)))
+=== a-lambda-s-later-parameter-spelled-as-a-define-refused
+(define x 5)
+(formula-expand (lambda (y x) (+ x y)))
+=== a-let-s-name-spelled-as-a-define-refused
+(define x 5)
+(formula-expand (let x 1 (+ x 1)))
+=== a-lambda-s-parameter-spelled-as-a-parameter-refused
+(parameter side 3)
+(formula-expand (lambda (side) side))
+=== a-lambda-s-parameter-named-self-refused
+(formula-expand (lambda (self) 1))
+=== a-let-s-name-self-in-a-binding-refused
+(bind-expand ((self Tally!B1))
+  (formula-expand (let self 1 self)))
+=== a-lambda-s-parameter-beside-a-define-reads
+(define rate 5)
+(formula-expand (lambda (x) (* x rate)))

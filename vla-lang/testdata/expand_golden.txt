@@ -1701,8 +1701,8 @@ REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb wri
 REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
 === self-free-in-a-macro-s-result-refused
 REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
-=== self-free-as-a-lambda-s-parameter-refused
-REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
+=== self-as-a-lambda-s-parameter-refused
+REFUSED	vla-formula-name-taken	formula: a lambda's parameter 'self' is the place a verb writes - a word names one thing, so the formula's own name needs another
 === self-free-in-the-sheet-part-refused
 REFUSED	vla-self-free	self: nothing reads it here - self is the place a verb writes, and it stands only inside (bind-expand ((self reference)) form ...), which a verb writes around its row
 === self-free-in-the-range-part-refused
@@ -2221,3 +2221,49 @@ REFUSED	vla-defmacro-reserved-name	defmacro 'call-expand': 'call-expand' is the 
 === dotimes-builds-its-binding-by-list
 EXPANDED	1
 (sub s () (for (i 1 3) (debug-print i)))
+=== a-free-word-in-a-formula-refused
+REFUSED	vla-formula-word-free	formula: 'taxrate' in =taxrate+1 is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "taxrate") for one of Excel's names
+=== a-free-word-on-a-sheet-refused
+REFUSED	vla-formula-word-free	formula: 'Model!Local' in =Model!Local+1 is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "Model" "Local") for one of Excel's names
+=== a-ref-writes-one-of-excel-s-names
+EXPANDED	0
+"=taxrate+Model!Local"
+=== a-lambda-binds-its-parameters
+EXPANDED	0
+"=MAP(SEQUENCE(3),LAMBDA(x,x*x))"
+=== a-let-binds-each-name-for-what-follows
+EXPANDED	0
+"=LET(x,1,y,x+1,x*y)"
+=== a-let-s-name-used-before-it-binds-refused
+REFUSED	vla-formula-word-free	formula: 'y' in =LET(x,y,y,1,x) is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "y") for one of Excel's names
+=== a-word-outside-its-lambda-refused
+REFUSED	vla-formula-word-free	formula: 'x' in =LAMBDA(x,x)(1)+x is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "x") for one of Excel's names
+=== a-head-is-a-function-s-name
+EXPANDED	0
+"=MYFUNCTION(1)"
+=== funcall-s-function-by-name-is-a-function-s-name
+EXPANDED	0
+"=SQ(5)"
+=== a-function-handed-in-by-its-name-refused
+REFUSED	vla-formula-word-free	formula: 'square' in =MAP(SEQUENCE(3),square) is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "square") for one of Excel's names
+=== a-function-handed-in-by-ref
+EXPANDED	0
+"=MAP(SEQUENCE(3),square)"
+=== a-free-word-in-a-macro-s-formula-refused
+REFUSED	vla-formula-word-free	formula: 'rate' in =SUM(A1:A9)*rate is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref "rate") for one of Excel's names
+=== a-lambda-s-parameter-spelled-as-a-define-refused
+REFUSED	vla-formula-name-taken	formula: a lambda's parameter 'x' is a define's word in this source - a word names one thing, so the formula's own name needs another
+=== a-lambda-s-later-parameter-spelled-as-a-define-refused
+REFUSED	vla-formula-name-taken	formula: a lambda's parameter 'x' is a define's word in this source - a word names one thing, so the formula's own name needs another
+=== a-let-s-name-spelled-as-a-define-refused
+REFUSED	vla-formula-name-taken	formula: a let's name 'x' is a define's word in this source - a word names one thing, so the formula's own name needs another
+=== a-lambda-s-parameter-spelled-as-a-parameter-refused
+REFUSED	vla-formula-name-taken	formula: a lambda's parameter 'side' is a parameter's word in this source - a word names one thing, so the formula's own name needs another
+=== a-lambda-s-parameter-named-self-refused
+REFUSED	vla-formula-name-taken	formula: a lambda's parameter 'self' is the place a verb writes - a word names one thing, so the formula's own name needs another
+=== a-let-s-name-self-in-a-binding-refused
+REFUSED	vla-formula-name-taken	formula: a let's name 'self' is the place a verb writes - a word names one thing, so the formula's own name needs another
+=== a-lambda-s-parameter-beside-a-define-reads
+EXPANDED	0
+(begin)
+"=LAMBDA(x,x*5)"

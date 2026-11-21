@@ -1,6 +1,21 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "VLA.11"
+' VLA.11, its third slice: TestFormulaNames - the formula, 25 pins: a free word
+' refused, on a sheet, a let's name used before it binds, a word outside its
+' lambda, a function handed in by its name and a word a macro's formula writes,
+' the form's first free word named, and a define's word in its own form keeping
+' its refusal; a ref, a lambda's and a let's names, a head, funcall's function
+' by name, an array constant, references, truth values, numerals and texts
+' passing; a lambda's parameter or a let's name spelled as a define's word, a
+' parameter's or self refused, a define's word elsewhere in a formula and a
+' lambda outside one reading as they did. Wired after TestHeads. One pin moved:
+' TestSelfForms' lambda's parameter named self, refused now as a formula's name
+' taken, before the walk reads its body. And seven written over ref after the
+' owner's first pass, their wanted strings the same: TestFormulaSyntax's four
+' and TestFormulaFuncall's three each wrote a bare name in a formula-expand, a
+' free word now; their twins in formula_syntax.rs hold the writer alone.
+'
 ' VLA.11, its second slice: TestHeads - the heads, 29 pins: a parameter, a
 ' rest, a function's parameter, a loop's name and a let-expand's name at a
 ' list's head refused where each binds, in a loop's body too, the kit's old
@@ -688,6 +703,7 @@ Public Function VlaSelfTest() As Boolean
     TestFunctions
     TestHygiene
     TestHeads
+    TestFormulaNames
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -8413,8 +8429,8 @@ Private Sub TestSelfForms()
         "(formula-expand (sum self 1))", "vla-self-free"
     CheckSelfRefused "free: a macro's result", _
         twinMacro & "(formula-expand (twin))", "vla-self-free"
-    CheckSelfRefused "free: a lambda's parameter, used", _
-        "(formula-expand (lambda (self) (+ self 1)))", "vla-self-free"
+    CheckSelfRefused "free: a lambda's parameter named self, a formula's name taken (VLA.11)", _
+        "(formula-expand (lambda (self) (+ self 1)))", "vla-formula-name-taken"
     CheckSelfRefused "free: the sheet part", _
         "(sheet-expand self)", "vla-self-free"
     CheckSelfRefused "free: the range part", _
@@ -8708,20 +8724,20 @@ Private Sub TestFormulaSyntax()
         ExpandTrimmed("(formula ""Hustle"" ""B13"" (formula-expand (if (= B11 1) (+ Day.last!$B$3 $B$6) Hustle.last!B13)))"), _
         "(formula ""Hustle"" ""B13"" ""=IF(B11=1,Day.last!$B$3+$B$6,Hustle.last!B13)"")"
     CheckV "formula: the fewest parentheses Excel's precedence allows", _
-        ExpandTrimmed("(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- a (- b c)) (- a b c)))"), _
+        ExpandTrimmed("(formula-expand (f (+ 1 (* 2 3)) (* (+ 1 2) 3) (- (ref ""a"") (- (ref ""b"") (ref ""c""))) (- (ref ""a"") (ref ""b"") (ref ""c""))))"), _
         """=F(1+2*3,(1+2)*3,a-(b-c),a-b-c)"""
     CheckV "formula: a sign binds tighter than power, as in Excel", _
-        ExpandTrimmed("(formula-expand (f (- (^ x 2)) (^ (- x) 2) (^ -2 2) (^ 2 3 2)))"), _
+        ExpandTrimmed("(formula-expand (f (- (^ (ref ""x"") 2)) (^ (- (ref ""x"")) 2) (^ -2 2) (^ 2 3 2)))"), _
         """=F(-(x^2),-x^2,-2^2,2^3^2)"""
     CheckV "formula: a percent of a sign, and a sign of a percent", _
         ExpandTrimmed("(formula-expand (f (% -5) (- (% 5))))"), """=F((-5)%,-5%)"""
     CheckV "formula: #N/A before a / is parenthesized", _
-        ExpandTrimmed("(formula-expand (/ (error ""#n/a"") x))"), """=(#N/A)/x"""
+        ExpandTrimmed("(formula-expand (/ (error ""#n/a"") (ref ""x"")))"), """=(#N/A)/x"""
     CheckV "formula: references in the canonical spelling", _
         ExpandTrimmed("(formula-expand (f a1 'Input'!b5 '2026'!A1 (ref ""Q1 Data"" ""c3"") (ref ""Input"" (address-expand 5 2))))"), _
         """=F(A1,Input!B5,'2026'!A1,'Q1 Data'!C3,Input!B5)"""
     CheckV "formula: truth values, errors and a name", _
-        ExpandTrimmed("(formula-expand (f True (error ""#div/0!"") Model!Local))"), _
+        ExpandTrimmed("(formula-expand (f True (error ""#div/0!"") (ref ""Model"" ""Local"")))"), _
         """=F(TRUE,#DIV/0!,Model!Local)"""
     CheckV "formula: an alias reaches its form, and xor and type are Excel's", _
         ExpandTrimmed("(formula-expand (si (xor (type A1) 1) (lambda (y) (+ y 1)) 0))"), _
@@ -8771,7 +8787,7 @@ Private Sub TestFormulaFuncall()
     CheckV "funcall: a name is called by its name", _
         ExpandTrimmed("(formula-expand (funcall sq 3))"), """=SQ(3)"""
     CheckV "funcall: a call is called where it is written", _
-        ExpandTrimmed("(formula-expand (funcall (if c SQ PLUS1) 5))"), """=IF(c,SQ,PLUS1)(5)"""
+        ExpandTrimmed("(formula-expand (funcall (if (ref ""c"") (ref ""SQ"") (ref ""PLUS1"")) 5))"), """=IF(c,SQ,PLUS1)(5)"""
     CheckV "funcall: and a LAMBDA", _
         ExpandTrimmed("(formula-expand (funcall (lambda (x) (+ x 1)) 5))"), """=LAMBDA(x,x+1)(5)"""
     CheckV "funcall: curried, one call after another", _
@@ -8779,9 +8795,9 @@ Private Sub TestFormulaFuncall()
     CheckV "funcall: of no argument", _
         ExpandTrimmed("(formula-expand (funcall (lambda () 42)))"), """=LAMBDA(42)()"""
     CheckV "funcall: an operand needs no parentheses", _
-        ExpandTrimmed("(formula-expand (* 2 (funcall (if c SQ PLUS1) 5)))"), """=2*IF(c,SQ,PLUS1)(5)"""
+        ExpandTrimmed("(formula-expand (* 2 (funcall (if (ref ""c"") (ref ""SQ"") (ref ""PLUS1"")) 5)))"), """=2*IF(c,SQ,PLUS1)(5)"""
     CheckV "funcall: a LET's name called", _
-        ExpandTrimmed("(formula-expand (let f (choose k SQ PLUS1) (+ (funcall f 2) 1)))"), """=LET(f,CHOOSE(k,SQ,PLUS1),F(2)+1)"""
+        ExpandTrimmed("(formula-expand (let f (choose (ref ""k"") (ref ""SQ"") (ref ""PLUS1"")) (+ (funcall f 2) 1)))"), """=LET(f,CHOOSE(k,SQ,PLUS1),F(2)+1)"""
     CheckV "funcall: no function", ExpandRefusalId("(formula-expand (funcall))"), "vla-formula-arity"
     CheckV "funcall: a number is no function", ExpandRefusalId("(formula-expand (funcall 3 4))"), "vla-formula-head-not-a-function"
     CheckV "funcall: nor a text", ExpandRefusalId("(formula-expand (funcall ""sq"" 4))"), "vla-formula-head-not-a-function"
@@ -9501,6 +9517,77 @@ Private Sub TestHeads()
     ' --- the prelude's dotimes builds its binding by list.
     CheckV "heads: dotimes builds its binding by list", _
         ExpandTrimmed("(sub s () (dotimes i 3 (debug-print i)))"), "(sub s () (for (i 1 3) (debug-print i)))"
+End Sub
+
+' VLA.11: hygiene by design, its third slice, the formula: a word a formula
+' writes as one of Excel's names, on a sheet or not, that no lambda or let
+' around it binds, refused once its form has expanded, the word, the text and
+' the ref that writes it named, a let's names bound in order, a lambda's in its
+' body, and a define's word in its own form keeping its own refusal; a ref, a
+' head, funcall's function by name, a reference, a truth value, a numeral and a
+' text passing; a lambda's parameter or a let's name spelled as a define's
+' word, a parameter's or self refused where the walk meets it, a define's word
+' elsewhere in the formula and a lambda outside one reading as they did.
+' scripts/expand_golden.txt holds the same cases' whole records to vla-lang's.
+Private Sub TestFormulaNames()
+    ' --- a free word, refused once its form has expanded.
+    CheckExpandErr "formula: a free word refused", "(formula-expand (+ taxrate 1))", _
+        "formula: 'taxrate' in =taxrate+1 is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref ""taxrate"") for one of Excel's names"
+    CheckExpandErr "formula: a free word on a sheet refused", "(formula-expand (+ Model!Local 1))", _
+        "or (ref ""Model"" ""Local"") for one of Excel's names"
+    CheckExpandErr "formula: a let's name used before it binds refused", "(formula-expand (let x y y 1 x))", _
+        "'y' in =LET(x,y,y,1,x)"
+    CheckExpandErr "formula: a word outside its lambda refused", "(formula-expand (+ (funcall (lambda (x) x) 1) x))", _
+        "'x' in =LAMBDA(x,x)(1)+x"
+    CheckExpandErr "formula: a function handed in by its name refused", "(formula-expand (map (sequence 3) square))", _
+        "(ref ""square"")"
+    CheckExpandErr "formula: a free word in a macro's formula refused", _
+        "(defmacro (total range) (formula-expand (* (sum range) rate))) (cell ""S"" ""A1"" (total A1:A9))", _
+        "'rate' in =SUM(A1:A9)*rate"
+    CheckExpandErr "formula: the form's first free word named", _
+        "(begin (cell ""S"" ""A1"" (formula-expand (+ one 1))) (cell ""S"" ""A2"" (formula-expand (+ two 1))))", _
+        "'one' in =one+1"
+    CheckV "formula: a define's word in its own form keeps its refusal", _
+        ExpandRefusalId("(begin (define rate A!B1) (cell ""S"" ""A1"" (formula-expand (+ rate 1))))"), "vla-define-used-in-its-form"
+
+    ' --- what is no free word.
+    CheckV "formula: a ref writes one of Excel's names", _
+        ExpandTrimmed("(formula-expand (+ (ref ""taxrate"") (ref ""Model"" ""Local"")))"), """=taxrate+Model!Local"""
+    CheckV "formula: a lambda binds its parameters", _
+        ExpandTrimmed("(formula-expand (map (sequence 3) (lambda (x) (* x x))))"), """=MAP(SEQUENCE(3),LAMBDA(x,x*x))"""
+    CheckV "formula: a let binds each name for what follows", _
+        ExpandTrimmed("(formula-expand (let x 1 y (+ x 1) (* x y)))"), """=LET(x,1,y,x+1,x*y)"""
+    CheckV "formula: a head is a function's name", _
+        ExpandTrimmed("(formula-expand (myfunction 1))"), """=MYFUNCTION(1)"""
+    CheckV "formula: funcall's function by name is a function's name", _
+        ExpandTrimmed("(formula-expand (funcall sq 5))"), """=SQ(5)"""
+    CheckV "formula: an array constant holds no name", _
+        ExpandTrimmed("(formula-expand (sum (quote (1 2 3))))"), """=SUM({1,2,3})"""
+    CheckV "formula: references, truth values, numerals and texts are no names", _
+        ExpandTrimmed("(formula-expand (sum A1 Data!B2 A:A TRUE -2 ""text""))"), """=SUM(A1,Data!B2,A:A,TRUE,-2,\""text\"")"""
+
+    ' --- a formula's own names, never the expander's words.
+    CheckExpandErr "formula: a lambda's parameter spelled as a define refused", _
+        "(define x 5) (formula-expand (lambda (x) (+ x 1)))", _
+        "formula: a lambda's parameter 'x' is a define's word in this source - a word names one thing, so the formula's own name needs another"
+    CheckV "formula: a lambda's later parameter spelled as a define refused", _
+        ExpandRefusalId("(define x 5) (formula-expand (lambda (y x) (+ x y)))"), "vla-formula-name-taken"
+    CheckExpandErr "formula: a let's name spelled as a define refused", _
+        "(define x 5) (formula-expand (let x 1 (+ x 1)))", "a let's name 'x' is a define's word"
+    CheckExpandErr "formula: a let's later name spelled as a define refused", _
+        "(define x 5) (formula-expand (let y 1 x 2 (+ x y)))", "a let's name 'x'"
+    CheckExpandErr "formula: a lambda's parameter spelled as a parameter refused", _
+        "(parameter side 3) (formula-expand (lambda (side) side))", "'side' is a parameter's word in this source"
+    CheckExpandErr "formula: a lambda's parameter named self refused", _
+        "(formula-expand (lambda (self) 1))", "a lambda's parameter 'self' is the place a verb writes"
+    CheckExpandErr "formula: a let's name self in a binding refused", _
+        "(bind-expand ((self Tally!B1)) (formula-expand (let self 1 self)))", "a let's name 'self' is the place a verb writes"
+    CheckV "formula: a define's word beside a lambda's parameter is replaced", _
+        ExpandTrimmed("(define rate 5) (formula-expand (lambda (x) (* x rate)))"), "(begin)" & vbCrLf & """=LAMBDA(x,x*5)"""
+    CheckV "formula: a define's word in a let's value is replaced", _
+        ExpandTrimmed("(define rate 5) (formula-expand (let x rate (* x 2)))"), "(begin)" & vbCrLf & """=LET(x,5,x*2)"""
+    CheckV "formula: a lambda outside a formula is a program's", _
+        ExpandTrimmed("(define x 5) (cell ""S"" ""A1"" (lambda (x) x))"), "(begin)" & vbCrLf & "(cell ""S"" ""A1"" (lambda (x) 5))"
 End Sub
 
 ' VLA.8: the reference's stack, measured for a function's nested calls where a

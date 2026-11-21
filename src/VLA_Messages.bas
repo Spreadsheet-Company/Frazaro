@@ -6,6 +6,14 @@ Public Const VLA_MESSAGES_VERSION As String = "KERNEL.55"
 ' formula written again with the word array or the whole block written aside,
 ' as Excel refuses to change part of an array; the block and its anchor named.
 '
+' VLA.11, its third slice, the formula: two refusals under VLA:
+' vla-formula-word-free - a word formula-expand would write as one of Excel's
+' names, on a sheet or not, that no lambda or let around it binds, outside a
+' quote and a ref and never a head, the word, the formula's text and the ref
+' that writes it shown; and vla-formula-name-taken - a lambda's parameter or a
+' let's name spelled as a define's word, a parameter's or self, where the walk
+' meets the lambda or the let inside a formula, before it replaces a word.
+'
 ' VLA.11, its second slice, the heads: three refusals under VLA:
 ' vla-name-at-a-head - a parameter, a rest, a loop's name or a let-expand's
 ' name standing at a list's head where it binds, which substitution never
@@ -1000,6 +1008,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-name-at-a-head", 5, "VLA", "{form}: '{word}' stands at the head of {list}, where {what} is never replaced - give it another name to write the word itself there, write (call-expand {word} ...) to call what it holds, or (list {word} ...) to build a list headed by it"
     AddMsg m, "vla-call-expand-shape", 5, "VLA", "call-expand: write (call-expand word argument ...), the word naming what is called and its arguments - got {form}"
     AddMsg m, "vla-call-expand-not-a-word", 5, "VLA", "call-expand: {value} is no word, and call-expand calls what a word names"
+    AddMsg m, "vla-formula-word-free", 5, "VLA", "formula: '{word}' in {text} is no reference, and no lambda or let around it names it - write the reference it stands for, or {ref} for one of Excel's names"
+    AddMsg m, "vla-formula-name-taken", 5, "VLA", "formula: {binder} '{word}' is {what} - a word names one thing, so the formula's own name needs another"
     AddMsg m, "vla-define-used-in-its-form", 5, "VLA", "'{word}' is used in the form of the source that defines it, where it is not yet a name - a {head} binds the forms after its own"
     AddMsg m, "vla-define-cycle", 5, "VLA", "{head} '{word}': the words {ring} stand for one another in a ring - a {head} names a form that does not come back to it"
     AddMsg m, "vla-reference-no-sheet", 5, "VLA", "{op}: '{value}' names no sheet, and a formula does not know the sheet it will stand on - write the reference with its sheet, such as Input!B5"

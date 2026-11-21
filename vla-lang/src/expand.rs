@@ -46,7 +46,12 @@
 //! word there is the piece it spells, and a parameter, a rest, a loop's name
 //! or a let-expand's name standing there is refused by name where it binds
 //! ([`refuse_name_at_head`]); `(call-expand callee argument ...)` calls what a
-//! word names ([`call_expand_call`]).
+//! word names ([`call_expand_call`]). Its third slice: a word formula-expand
+//! would write as one of Excel's names that no `lambda` or `let` around it
+//! binds is refused once its form has expanded
+//! ([`formula_syntax::free_word`]), and a `lambda`'s parameter or a `let`'s
+//! name spelled as a define's word, a parameter's or `self` where the walk
+//! meets it ([`Expander::refuse_formula_names`]).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -647,6 +652,12 @@ pub struct Expander {
     /// VLA.6, `mFormulaTexts`: the texts formula-expand wrote in that form,
     /// read for a word used in the form that defines it.
     formula_texts: Vec<String>,
+    /// VLA.11, `mFormulaFree`: the first free word a formula of that form
+    /// holds ([`formula_syntax::free_word`]), its formula's text and the `ref`
+    /// that writes it, refused once the form has expanded and its defines are
+    /// taken, so that a define's word read in its own form keeps that
+    /// refusal's sentence.
+    formula_free: Option<(String, String, String)>,
     /// VLA.10, `mSelfStack`: the places `bind-expand` holds open, innermost
     /// last, each a form the walk has finished with. Empty at every entry and
     /// exit of [`Expander::expand`], a refusal's exit among them, since each
@@ -993,9 +1004,18 @@ impl Expander {
     pub fn expand(&mut self, d: &Form, depth: u32) -> Result<Form, Refusal> {
         self.define_met = false;
         self.formula_texts.clear();
-        let out = self.expand_at(&Node::of(d), depth, 1)?;
+        self.formula_free = None;
+        let mut out = self.expand_at(&Node::of(d), depth, 1)?;
         if self.define_met {
-            return self.take_defines(out);
+            out = self.take_defines(out)?;
+        }
+        // VLA.11: a free word in a formula of the form, refused once its
+        // defines are taken.
+        if let Some((word, text, ref_form)) = self.formula_free.take() {
+            return Err(raise(
+                "vla-formula-word-free",
+                &[("word", &word), ("text", &text), ("ref", &ref_form)],
+            ));
         }
         Ok(out)
     }
@@ -1177,6 +1197,9 @@ impl Expander {
                 break;
             } else {
                 let Some(rule) = self.rules.get(&head_fold) else {
+                    // VLA.11: a formula's own names refused where one is the
+                    // expander's word, before the rebuild replaces a word.
+                    self.refuse_formula_names(&head_fold, items)?;
                     break;
                 };
                 if self.budget_on && self.expand_fired >= self.expand_budget {
@@ -1384,7 +1407,9 @@ impl Expander {
     /// text there and not the formula it wrote. VLA.10: at a spent budget it
     /// stands ([`Expander::budget_spent`]); and the word `self` left in its
     /// expression is refused ([`holds_self`]), since the walk replaced every
-    /// one it read, so that none is written as a name.
+    /// one it read, so that none is written as a name. VLA.11: a word it writes
+    /// as one of Excel's names that no `lambda` or `let` around it binds is
+    /// kept, and refused once the form of the source has expanded.
     fn formula_expand(&mut self, items: &[Node], depth: u32, walk: u32) -> Result<Form, Refusal> {
         if items.len() != 2 {
             return Err(raise(
@@ -1410,6 +1435,12 @@ impl Expander {
         // of that form binds, written here as one of Excel's names, is
         // refused (`DefinesRefuseFormulaUse`).
         self.formula_texts.push(text.clone());
+        // VLA.11: and its first free word, kept for `expand` to refuse.
+        if self.formula_free.is_none() {
+            if let Some((word, ref_form)) = formula_syntax::free_word(&expr) {
+                self.formula_free = Some((word, text.clone(), ref_form));
+            }
+        }
         Ok(Form::Str(text))
     }
 
@@ -1421,6 +1452,54 @@ impl Expander {
     /// computes on a later frame or at the fixpoint.
     fn budget_spent(&self) -> bool {
         self.budget_on && self.expand_fired >= self.expand_budget
+    }
+
+    /// VLA.11, VBA `RefuseFormulaNames`: inside a formula's expression, a
+    /// `lambda`'s parameter or a `let`'s name spelled as a define's word, a
+    /// parameter's or `self`, refused by name where the walk meets the form,
+    /// before it replaces a word of it, since a word names one thing. A form
+    /// of another head, or one outside a formula, passes.
+    #[inline(never)]
+    fn refuse_formula_names(&self, head_fold: &str, items: &[Node]) -> Result<(), Refusal> {
+        if !self.formula_open {
+            return Ok(());
+        }
+        let (binder, names): (&str, Vec<&Node>) = match head_fold {
+            "lambda" => (
+                "a lambda's parameter",
+                match items.get(1) {
+                    Some(Node::List(ps)) => ps.items().iter().collect(),
+                    _ => Vec::new(),
+                },
+            ),
+            "let" => {
+                let args = &items[1..];
+                (
+                    "a let's name",
+                    args.iter().step_by(2).take(args.len() / 2).collect(),
+                )
+            }
+            _ => return Ok(()),
+        };
+        for name in names {
+            let Node::Sym(word) = name else {
+                continue;
+            };
+            let what = if is_self_word(word) {
+                "the place a verb writes"
+            } else if !self.defines.contains_key(&fold(word)) {
+                continue;
+            } else if self.parameters.contains(&fold(word)) {
+                "a parameter's word in this source"
+            } else {
+                "a define's word in this source"
+            };
+            return Err(raise(
+                "vla-formula-name-taken",
+                &[("binder", binder), ("word", word), ("what", what)],
+            ));
+        }
+        Ok(())
     }
 
     /// VLA.10, VBA `ExpandBindCall`: `(bind-expand ((self reference)) form
@@ -6883,7 +6962,6 @@ mod tests {
             "(formula-expand self)",
             "(formula-expand (+ self 1))",
             "(formula-expand (last self))",
-            "(formula-expand (lambda (self) (+ self 1)))",
             "(formula-expand (quote-if (null? (quote ())) self 1))",
             "(bind-expand ((self A!B2)) (formula-expand (quote-if (null? (quote ())) self 1)))",
             "(sheet-expand self)",
@@ -6894,6 +6972,12 @@ mod tests {
         ] {
             assert_eq!(expand_err(read).id, "vla-self-free", "{read}");
         }
+        // VLA.11: a lambda's parameter named self is a formula's own name
+        // spelled as the expander's word, refused where the walk meets it.
+        assert_eq!(
+            expand_err("(formula-expand (lambda (self) (+ self 1)))").id,
+            "vla-formula-name-taken"
+        );
         assert_eq!(one("(set! self 1)"), "(set! self 1)");
         assert_eq!(one("(sub m () (dim self))"), "(sub m () (dim self))");
         assert_eq!(one("(cell \"S\" \"A1\" self)"), "(cell \"S\" \"A1\" self)");
@@ -7612,6 +7696,236 @@ mod tests {
                     "round {round}: {src}: refused {:?}, want {bad}",
                     got.as_ref().err()
                 ),
+            }
+        }
+        assert!(
+            refused > 500 && accepted > 500,
+            "{refused} refused, {accepted} accepted"
+        );
+    }
+
+    /// VLA.11's third slice: a word a formula writes as one of Excel's names,
+    /// on a sheet or not, that no lambda or let around it binds, refused once
+    /// the form of the source has expanded, the word, the formula's text and
+    /// the ref that writes it named; a define's word read in its own form
+    /// keeps its own refusal.
+    #[test]
+    fn a_free_word_in_a_formula_is_refused_once_its_form_has_expanded() {
+        assert_refusals(&[
+            (
+                "(formula-expand (+ taxrate 1))",
+                "vla-formula-word-free",
+                "formula: 'taxrate' in =taxrate+1 is no reference, and no lambda or let around it names it - write the reference it stands for, or (ref \"taxrate\") for one of Excel's names",
+            ),
+            (
+                "(formula-expand (+ Model!Local 1))",
+                "vla-formula-word-free",
+                "or (ref \"Model\" \"Local\") for one of Excel's names",
+            ),
+            (
+                "(formula-expand (let x y y 1 x))",
+                "vla-formula-word-free",
+                "'y' in =LET(x,y,y,1,x)",
+            ),
+            (
+                "(formula-expand (+ (funcall (lambda (x) x) 1) x))",
+                "vla-formula-word-free",
+                "'x' in =LAMBDA(x,x)(1)+x",
+            ),
+            (
+                "(formula-expand (map (sequence 3) square))",
+                "vla-formula-word-free",
+                "(ref \"square\")",
+            ),
+            (
+                "(defmacro (total range) (formula-expand (* (sum range) rate))) \
+                 (cell \"S\" \"A1\" (total A1:A9))",
+                "vla-formula-word-free",
+                "'rate' in =SUM(A1:A9)*rate",
+            ),
+            // The form's first free word, of its first formula with one.
+            (
+                "(begin (cell \"S\" \"A1\" (formula-expand (+ one 1))) \
+                 (cell \"S\" \"A2\" (formula-expand (+ two 1))))",
+                "vla-formula-word-free",
+                "'one' in =one+1",
+            ),
+            // A define's word read in its own form keeps its own refusal.
+            (
+                "(begin (define rate A!B1) (cell \"S\" \"A1\" (formula-expand (+ rate 1))))",
+                "vla-define-used-in-its-form",
+                "'rate' is used in the form of the source that defines it",
+            ),
+        ]);
+        for (src, want) in [
+            (
+                "(formula-expand (+ (ref \"taxrate\") (ref \"Model\" \"Local\")))",
+                "\"=taxrate+Model!Local\"",
+            ),
+            (
+                "(formula-expand (map (sequence 3) (lambda (x) (* x x))))",
+                "\"=MAP(SEQUENCE(3),LAMBDA(x,x*x))\"",
+            ),
+            (
+                "(formula-expand (let x 1 y (+ x 1) (* x y)))",
+                "\"=LET(x,1,y,x+1,x*y)\"",
+            ),
+            ("(formula-expand (myfunction 1))", "\"=MYFUNCTION(1)\""),
+            ("(formula-expand (funcall sq 5))", "\"=SQ(5)\""),
+            (
+                "(formula-expand (sum (quote (1 2 3))))",
+                "\"=SUM({1,2,3})\"",
+            ),
+            (
+                "(formula-expand (sum A1 Data!B2 A:A TRUE -2 \"text\"))",
+                "\"=SUM(A1,Data!B2,A:A,TRUE,-2,\\\"text\\\")\"",
+            ),
+        ] {
+            assert_eq!(one(src), want, "{src}");
+        }
+    }
+
+    /// VLA.11's third slice: a formula's own names, a lambda's parameters and
+    /// a let's names, refused where the walk meets them inside a formula when
+    /// one is a define's word, a parameter's or self, before a word of them is
+    /// replaced; a define's word elsewhere in the formula, and a lambda outside
+    /// one, read as they did.
+    #[test]
+    fn a_formula_s_own_names_are_never_the_expander_s_words() {
+        assert_refusals(&[
+            (
+                "(define x 5)\n(formula-expand (lambda (x) (+ x 1)))",
+                "vla-formula-name-taken",
+                "formula: a lambda's parameter 'x' is a define's word in this source - a word names one thing, so the formula's own name needs another",
+            ),
+            (
+                "(define x 5)\n(formula-expand (lambda (y x) (+ x y)))",
+                "vla-formula-name-taken",
+                "a lambda's parameter 'x' is a define's word",
+            ),
+            (
+                "(define x 5)\n(formula-expand (let x 1 (+ x 1)))",
+                "vla-formula-name-taken",
+                "a let's name 'x' is a define's word",
+            ),
+            (
+                "(define x 5)\n(formula-expand (let y 1 x 2 (+ x y)))",
+                "vla-formula-name-taken",
+                "a let's name 'x'",
+            ),
+            (
+                "(parameter side 3)\n(formula-expand (lambda (side) side))",
+                "vla-formula-name-taken",
+                "'side' is a parameter's word in this source",
+            ),
+            (
+                "(formula-expand (lambda (self) 1))",
+                "vla-formula-name-taken",
+                "a lambda's parameter 'self' is the place a verb writes",
+            ),
+            (
+                "(bind-expand ((self Tally!B1)) (formula-expand (let self 1 self)))",
+                "vla-formula-name-taken",
+                "a let's name 'self' is the place a verb writes",
+            ),
+        ]);
+        assert_eq!(
+            expand("(define rate 5)\n(formula-expand (lambda (x) (* x rate)))"),
+            "(begin)\n\"=LAMBDA(x,x*5)\"\n"
+        );
+        // A let's value is no name of it: a define's word there is replaced.
+        assert_eq!(
+            expand("(define rate 5)\n(formula-expand (let x rate (* x 2)))"),
+            "(begin)\n\"=LET(x,5,x*2)\"\n"
+        );
+        // Outside a formula a lambda is a program's, its words the walk's.
+        assert_eq!(
+            expand("(define x 5)\n(cell \"S\" \"A1\" (lambda (x) x))"),
+            "(begin)\n(cell \"S\" \"A1\" (lambda (x) 5))\n"
+        );
+    }
+
+    /// VLA.11's law of the free word: over generated formulas of sums, calls,
+    /// lambdas and lets over three words, a reference and a ref, a formula is
+    /// refused exactly when one of its words stands where no lambda or let
+    /// around it binds it, each let's name bound for the values after it and
+    /// its calculation.
+    #[test]
+    fn the_free_word_is_refused_exactly_where_nothing_binds_it() {
+        const WORDS: [&str; 3] = ["p", "q", "w"];
+        let mut seed: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut next = |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        // A formula: (text, a word in it free).
+        fn gen(
+            next: &mut impl FnMut(usize) -> usize,
+            depth: u32,
+            bound: &mut Vec<&'static str>,
+        ) -> (String, bool) {
+            if depth == 0 || next(3) == 0 {
+                return match next(5) {
+                    0 => ("A1".to_string(), false),
+                    1 => ("(ref \"p\")".to_string(), false),
+                    _ => {
+                        let w = WORDS[next(WORDS.len())];
+                        (w.to_string(), !bound.contains(&w))
+                    }
+                };
+            }
+            let at = bound.len();
+            let formula = match next(4) {
+                0 => {
+                    let params: Vec<&'static str> =
+                        WORDS.iter().copied().filter(|_| next(2) == 0).collect();
+                    bound.extend(&params);
+                    let (body, free) = gen(next, depth - 1, bound);
+                    (format!("(lambda ({}) {body})", params.join(" ")), free)
+                }
+                1 => {
+                    let mut text = String::from("(let");
+                    let mut free = false;
+                    for _ in 0..1 + next(2) {
+                        let name = WORDS[next(WORDS.len())];
+                        let (value, f) = gen(next, depth - 1, bound);
+                        free |= f;
+                        bound.push(name);
+                        text.push_str(&format!(" {name} {value}"));
+                    }
+                    let (body, f) = gen(next, depth - 1, bound);
+                    (format!("{text} {body})"), free || f)
+                }
+                2 => {
+                    let (a, fa) = gen(next, depth - 1, bound);
+                    let (b, fb) = gen(next, depth - 1, bound);
+                    (format!("(+ {a} {b})"), fa || fb)
+                }
+                _ => {
+                    let (a, fa) = gen(next, depth - 1, bound);
+                    (format!("(f {a})"), fa)
+                }
+            };
+            bound.truncate(at);
+            formula
+        }
+        let (mut refused, mut accepted) = (0, 0);
+        for round in 0..3000 {
+            let (formula, free) = gen(&mut next, 4, &mut Vec::new());
+            let src = format!("(cell \"S\" \"A1\" (formula-expand {formula}))");
+            match (expand_text(&src, PRELUDE, true), free) {
+                (Err(e), true) => {
+                    assert_eq!(
+                        e.id, "vla-formula-word-free",
+                        "round {round}: {src}: {}",
+                        e.text
+                    );
+                    refused += 1;
+                }
+                (Ok(_), false) => accepted += 1,
+                (got, _) => panic!("round {round}: {src}: {got:?}, want free {free}"),
             }
         }
         assert!(

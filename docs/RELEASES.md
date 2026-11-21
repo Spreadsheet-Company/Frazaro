@@ -283,6 +283,22 @@
   `list`. A build's stamp names the prelude it was built with, so `rebuild`
   of a workbook built before answers no and says why: build it again
   (VLA.11).
+- **One of Excel's names reaches a formula by `ref` alone.** A changed
+  meaning: a word `formula-expand` would write as one of Excel's defined
+  names, `taxrate` or `Model!Local`, is refused by name,
+  `vla-formula-word-free`, unless a `lambda` or a `let` around it binds it,
+  where it was written as the name: `(ref "taxrate")` and `(ref "Model"
+  "Local")` write the names, and the refusal says which to write. A function's
+  name at a head and `funcall`'s function by name pass. The refusal waits
+  until the form of the source has expanded, so a define's word read in its
+  own form keeps its own refusal. No formula of Alonzo's twelve cartridges or
+  of Buffet's game writes one (VLA.11).
+- **A formula's own names are never the expander's words.** A changed
+  meaning: a `lambda`'s parameter or a `let`'s name spelled as a define's
+  word, a parameter's or `self` is refused where the expander meets it,
+  `vla-formula-name-taken`, where the define's form replaced it: `(define x
+  5)` then `(formula-expand (let x 1 (+ x 1)))` wrote `=LET(5,1,5+1)`, and
+  `(lambda (self) 1)` wrote `LAMBDA(self,1)` (VLA.11).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,
