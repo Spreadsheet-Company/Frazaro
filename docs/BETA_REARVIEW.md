@@ -49705,6 +49705,86 @@ engine's test.
 third slice building uncommitted in the shared tree, the part's fourteen files, three of them by their hunks alone beside
 the peer's in the tree (the catalogue's two and `check_data_exports.ps1`), and its four docs by their hunks alone.
 
+*Closed 2026-11-21* at the owner's word, "commit part 4, then close KERNEL.55": its six slices built and committed, the fifth in four parts, with
+Excel's two saves under the stop rule, in twelve commits, `5b04654` to `553ae92`, and its oracle, the scoping's decision
+11, held part by part.
+- *The probe at `no-differ`:* `scripts/recalc/spills.xlsx` and Excel 365's two saves of it, the second the stop rule's
+  last: 279 rows, the door computing 262 cells as Excel saved them and labelling the rest by name, each rule it folded
+  shown in two cells or more (`core/src/reflect/spills_golden.rs`, `check_recalc_golden`); an engine over the second
+  save computing every one of the 262 as Excel saved it; and the writer over the 104 texts the saves typed, each stored
+  as Excel stored it, the two `@` texts named as the parse's.
+- *The lowering's law:* `a_dynamic_formula_kept_lowered_is_its_cells_computed_whole`, a dynamic shape's program and its
+  runs held to `Ctx` at every cell, by runs, by programs alone and by runs with programs off, over 80 grids of every
+  kind of node with writes between the frames, and `ROW`, `COLUMN`, `TYPE`, `ISFORMULA` and `FORMULATEXT` of many cells
+  beside it.
+- *An engine's spills held to `Calc`:* every cell a spill lays held in the same law beside every formula's, and against
+  a machine computing every cell of every frame, writes between moving an extent and blocking one, the first frame
+  against `Calc`; and a test of each path by name.
+- *Load the inverse of view:* law 18, `a_grid_of_spills_saved_at_rest_loads_as_it_was`, over 60 grids of spills and of
+  legacy array formulas' blocks, writes before each frame moving them, blocking them and writing their anchors away: at
+  rest the view and the load each other's inverse, a save resuming as the machine ran, every one of the 360 frames held
+  to `Calc`; and law 11's family over the same grids, a window's values patched by its changes its values now.
+- *The floors' pair:* the lookups written dynamic, derived by the recalc runner from the lookups' rows with the word,
+  held by `check_recalc_floors` within 15% of its legacy twin, 8.320 ms a whole frame beside 8.420 at the run pasted,
+  and its memory its twin's to the byte.
+- *The census goldens*, written again by the door, saved CRLF, at each slice that moved them.
+- *Alonzo's and Buffet's suites* over the language by a path at each part of the fifth slice, each patch used: at the
+  last, Alonzo's at `181f2c8` 115 with its cartridges required, `VLA.11`'s two slices taken out of the language, whose
+  refusals its cartridges meet, and Buffet's at `e187eec` 107.
+- *Every built file opened by Excel with no repair,* by the owner's hand: the probe and its two saves; the writer's
+  workbook of two blocks and a spill; the door's three builds of the third slice; the nine fixtures of the writer's
+  rule; and the four built again over the second save.
+
+Ships in `0.15.0`, fifteen notes in its section, and `vla-lang/README.md`'s section, as the scoping named it, its entry
+under "What comes next" gone. *Found,* not minted, carried from the slices' records for the owner:
+1. `KERNEL.53`'s `may_show_at` and the writer's rule read a legacy formula twice: `FORMULATEXT` of a legacy `INDEX` of
+   one cell is labelled, which Excel shows with no `@` (`functions!A33`), the fold the owner's to call (the second
+   save's third).
+2. Two spills whose boxes meet though their answers do not are labelled, where Excel computes both (`AW1`, `AV3`;
+   slice (c)'s third, the second save's second).
+3. An `@` before a call or a parenthesis is not read (slice (d)'s first).
+4. `HLOOKUP`'s and `VLOOKUP`'s index in a legacy array formula lift, the language's reading, which no save showed
+   (slice (b)'s second, its `INDEX` half folded by the second save).
+5. A format at a cell a spill or a block fills is set aside at a load (slice (c)'s second part's second, its second
+   half; slice (e)'s third part's second).
+6. A sheet's extent a spill grew stays grown after the spill shrinks (slice (e)'s third part's fifth).
+7. No write empties a cell, so a value written into a spill's box blocks it for good (slice (e)'s second part's
+   fourth), `KERNEL.46`'s ground.
+8. A write's cell cap counts a laid cell as one the grid holds (slice (e)'s second part's fifth).
+9. A shape bounded once whose reference moves off the sheet at an edge, which the door bounds at that cell alone
+   (slice (e)'s second part's sixth).
+10. An engine bounds a spill by its text and never by the extent a file saved, so that a door's record of
+    `SEQUENCE(Data!A1)` saved spilling is refused by an engine's load though the door computes it (slice (e)'s first
+    part's second).
+11. Many anchors each in a run of its own whose boxes meet: the crossing labels compare each pair of runs (slice (e)'s
+    first part's first).
+12. A formula's value turned to a reason makes the next frame compute every cell (`KERNEL.56`'s *Found*, met again in
+    slice (e)'s third part).
+13. `--counts`' `formulas` counts a block's cells and spilled cells with the formula cells (slice (b)'s third, slice
+    (c)'s fourth).
+14. `A1#` spelled `ANCHORARRAY(A1)` counts a level of nesting, where Excel counts none for `#` (slice (b)'s fourth).
+15. A range over spilled cells a model does not hold is walked by a list of its cells (slice (c)'s fifth).
+16. A workbook read from a file and written with a recalculation's values would write the cells its spill no longer
+    reaches as the constants they were (slice (c)'s sixth).
+17. The bench reads its programs legacy, words dropped, the lookups program's 20,000 dynamic formulas among them
+    (slice (c)'s second part's third, slice (d)'s third).
+18. The info fixture's 81 `IS` functions of an array constant are blocked spills in the build (slice (d)'s fourth).
+19. Excel 365's dynamic formulas load as formulas alone, a door's model holding each as its own cell: the lookups'
+    140,000 plan and load in 417 to 434 ms, as fills in 3.2 to 3.9 (the scoping's first).
+20. No form writes `A1#` in the formula syntax (the scoping's second).
+21. The census names no kind once a dynamic shape lowers (the scoping's third).
+22. The floors outlive a release unmeasured, `check_recalc_floors` passing over a pasted baseline whatever the code has
+    become (slice (a)'s second).
+23. The package's tests from its tarball are the only unoptimized build of the language a check runs (slice (b)'s
+    fifth).
+24. `scripts/recalc/lambda_saved.xlsx` names the owner and the home folder, the owner's to decide (the probe's).
+25. Where `Ctx` asks a formula's kind, an engine probes its formulas alone twice for a legacy formula, dynamic and then
+    array, as the door does; one probe a cell, remembered, would answer both (slice (e)'s fourth part's sixth).
+
+And Alonzo's, at its pin: its page draws a spilled cell's `value` row as a formula known by its value alone, and its
+host knows no `spill` row (`CELL_LINE`), a window holding one viewed whole at every frame (slice (c)'s second part's
+first, slice (e)'s third part's fourth).
+
 **`KERNEL.74`, a cell computed alone reading its cells in place again: minted and built 2026-11-17, committed 2026-11-18.**
 Minted at the owner's word, "Recommendation approved: commit (c), then fix the regression (b)", from `KERNEL.55`'s
 first slice, its first *Found*: since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a cell computed alone by
@@ -63267,6 +63347,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.74 — a cell computed alone reads its cells in place again: the machine's `number` inlined always into a program's reads, so that a build for size computes a formula alone as fast as 0.13.0 did.** Minted and built 2026-11-17 at the owner's word, from `KERNEL.55`'s first slice, its first *Found*; committed 2026-11-18 at the owner's word. Since `9233997` (`KERNEL.29`'s slice 3c, released in 0.14.0) a program's every read called the machine's `number` where 0.13.0 read the slot in place: built for size, as the page's modules and the floors' runners are, the hint was dropped once the loop grew by a call kept's two arms, and a cell computed alone took 30.8 ns where 17.8, the chain's whole frame 0.85 ms where 0.59 and the adders' 0.45 where 0.28. `#[inline(always)]` mends it: the chain 0.585 ms and the adders 0.275, the six floors cleared; at `opt-level` 3, where the cost was 2.5%, about as before. *Oracle:* the recalc floors, two native runs over the fix; the final assembly, `evaluate_cell` calling `number` nowhere; no value or test moved. Three *Found*, the third the netlist's floors out of reach of the code that set them, lowered at the owner's ruling of 2026-11-18 by `KERNEL.55`'s floors' pair. (Full entry: THE KERNEL LINE, after `KERNEL.55`.) `~hours`
 - ✅ **KERNEL.73 — a held column read once only across one row: a run's cells each read their own row's cell of a reference that holds its column, where a run leaves a row and comes back to it, so that a run answers what each of its cells alone answers.** Minted, scoped and approved 2026-11-17 at the owner's word, from `KERNEL.29`'s third slice's third part, its first *Found*, its three decisions as recommended; built and committed the same day at the owner's word. A run read a reference that holds its column and not its row, `$A5`, once for its whole selection where the selection's first and last cells stood in one row (`KERNEL.33`'s shortcut, `calc/vector.rs`'s `Many::reads`); but a run carried into the next level's block may begin it in an earlier row, and its cells of another row then read the first row's cell: a chain along row 2 and `C3:H4` reading it three columns right answered -0.02 in row 4 where each cell alone answers `#VALUE!`, in every release from 0.9.2. The shortcut is now asked of every cell of the selection, at no cost a clock sees in Superposition's frames, 71.12 ms where 71.14. *Oracle:* the minimal rows pinned beside a run of one row read once; a law of 400 grids of bands whose levels rise along a row, by runs with programs off and as built against `Ctx`, which failed 49 at HEAD; the runs law and `KERNEL.49`'s crossing law held to `Ctx` with programs off too; five mutants, none surviving; no other test, golden or floor moved; Alonzo's 108 and Buffet's 107 over it by path. Ships in `0.14.0`, its note naming the answers it corrects. (Full entry: THE KERNEL LINE, after `KERNEL.29`'s third slice.) `~hours`
 - ✅ **KERNEL.29 — `LET` and `LAMBDA`: functions written in formulas, as fast as the formulas they stand for.** Minted 2026-10-12 at the owner's word, from the owner's requirement, given in an Alonzo session on 2026-10-11, that a function written in formulas be first-class as Emacs Lisp is in Emacs; scoped 2026-11-15, its decisions the owner's (recursion on a stack of the language's own to Excel's depth, a name standing for its expression substituted, the view record's `name` rows and sheet-defined functions in this item); built in three slices from 2026-11-15, each committed at the owner's word, and closed 2026-11-17 at the owner's word. `LET` binds a name to its expression, substituted where it is read; `LAMBDA` makes a function called in place, bound by `LET`, handed to `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` or `MAKEARRAY`, or held by a defined name and called by it; a recursion runs as counted calls to a depth of 4,096 and a million calls a cell, `#NUM!` past either, a call too deep for the stack computed on a fresh one and remembered; a function as a cell's value is `#CALC!`. Every `LET`, and every call no cycle holds in a fill of sixteen cells or more, is written into the formula at the load, so that a named function costs what its formula written out costs; a call at a place of its own is kept, followed by the reach, its function's body lowered once to a program each call runs. A part a formula repeats is computed once; a grid's names are viewed and written as `name` rows; a room of cells is a function, a `function` row compiling its gates to the `LAMBDA` a person would write from them. *Oracle:* the adder written out and through named functions within 15% of each other in `check_recalc_floors.ps1`, 0.273 and 0.274 ms a whole frame, where Excel takes 4.6 times as long through the names; Excel 365's save of `lambda.xlsx` at `no-differ`, 100 of its 102 agreeing; the limits answered as Excel answers them, the item's two refusals the grid family's; 8,192 calls of a chain of 24 gates at places of their own held in 12.7 MB where 173 and computed in 2.5 ms where 112. Alonzo's frame floors over a cartridge written both ways are its `CART.9.3`'s, at its pin. Ships in `0.14.0`. Eleven *Found*, not minted, the first that a formula kept as written refuses its calls of named functions; `KERNEL.73` minted from 3c's first. (Full entry: THE KERNEL LINE, after `KERNEL.72`.) `~weeks`
+- ✅ **KERNEL.55 — dynamic arrays whole: a spill laid into the cells beside its formula, a legacy array formula over many cells computed at each, a formula written dynamic wherever Excel 365 would store it so, and a dynamic formula's shape lowered to its program, so that a workbook of Excel 365's arrays computes in the doors and in an engine as Excel computes it, and as fast as its legacy twin.** Minted 2026-10-21 at the owner's word, from `KERNEL.8`'s sixth slice; scoped and approved 2026-11-17, its twelve decisions as recommended; built in six slices, each at the owner's word and committed before the next, 2026-11-17 to 2026-11-21: the probe and Excel's first save (`5b04654`); the lowering, a dynamic formula keeping its legacy twin's program wherever the two read alike, 140,000 dynamic lookups as fast as their twin (`9c625fd`, `2d23525`); the error and the reading (`741face`), `#SPILL!` a value, a legacy array formula's block computed and laid, `A1#` read and written; spills in the door (`5b5113e`, `9acdd6d`), each planned by its bound, laid and blocked as Excel's save shows, and every record saying a formula's kind and a spill's cells; the writer's rule (`ed51bbd`), each formula stored as Excel 365 stores the same text typed; and spills in an engine in four parts: the plan (`fd9ffd9`), the machine laying them (`e00a306`), saves, loads and changes cell by cell (`edcba68`), and a legacy array formula computed as one and its block laid, written whole as Excel writes an array (`553ae92`). Excel's second save, the stop rule's last (`6d163ab`), read every row of the first as the first read them and folded three rules more, `INDEX` of an array forced in a legacy formula, a block's every cell holding its formula and `A1#` of a block's anchor its block, and the writer's leans; an engine over it computes every one of the 262 cells the door agrees with Excel at. Labelled and never chased, as the stop rule holds an edge: two spills whose boxes meet. *Found:* `may_show_at` labels `FORMULATEXT` of a legacy `INDEX` of one cell, which Excel shows with no `@`; an `@` before a call not read; a format at a cell a spill or a block fills set aside at a load; a sheet's extent a shrunk spill grew kept. To be released in 0.15.0. `~weeks`, taken in three days. *(more: the scoping and the slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

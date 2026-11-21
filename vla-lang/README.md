@@ -297,8 +297,8 @@ refused in the same words.
   or a function of one value, given an array computes at each of its
   values, Excel's lift (`calc::Array`, its values shared by a count); a
   cell holds the first value of an answer of many in a legacy formula and
-  a legacy array formula, and labels it a spill in a dynamic one until
-  spills come. Functions enter through `calc::Library`, the seam: the
+  a legacy array formula of one cell, and a dynamic formula spills it
+  (below). Functions enter through `calc::Library`, the seam: the
   language registers the fourteen a game's rule needs on day one (`IF`,
   `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
   `COLUMN`, `CHOOSE`, `SIN`), the lookups (`INDEX`, `MATCH`, `XMATCH`,
@@ -358,6 +358,27 @@ refused in the same words.
   answers `#CALC!`, a function where a number is wanted `#VALUE!` and a
   reference called `#REF!`, and the information functions read a function
   as a kind of its own (`TYPE` 128).
+- **Computes Excel 365's arrays.** A dynamic formula's answer of many
+  values spills: it is laid into the cells beside its formula, its extent
+  the answer's, and the formula answers `#SPILL!`, an error value of the
+  language (`ERROR.TYPE` 9), where the extent meets a cell holding
+  anything, a merged range, another spill or the sheet's edge; `A1#`, which
+  Excel's file spells `ANCHORARRAY(A1)`, reads a spill whole. Each is planned
+  by its bound, the most its text can answer, so that what reads a spilled
+  cell is computed after its formula, and two spills whose bounds meet are
+  labelled. A legacy array formula entered over a block, a `formula` row
+  with the word `array` and a `spill` row naming the block, is computed
+  once and laid into every cell of the block as Excel lays one, a row
+  repeated down, a column across and `#N/A` past its answer, each cell
+  holding its formula. A dynamic formula's shape keeps its legacy twin's
+  program wherever the two read alike, so that it costs what its twin
+  costs, and `calc::stored::stored` says how Excel 365 stores a formula's
+  text typed, dynamic or legacy, as `frazaro-core`'s build writes it. A
+  machine computes the same: it lays each spill and block in a frame, saves
+  them and lays them again at a load, its changes naming each cell a spill
+  fills or empties, and refuses a dynamic formula whose text bounds no
+  answer (`calc-spill-unbounded`) and a write that changes part of a block
+  (`grid-write-block`), as Excel refuses to change part of an array.
 - **Runs a grid as a machine.** `machine::Machine` is a grid kept between
   calls, for a game engine that steps it at a frame rate: `Machine::load`
   reads the rows a view or a reflect prints back into a grid, the record's
@@ -484,11 +505,6 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Spills, and Excel 365's arrays whole.** A dynamic formula's answer of
-  many values laid into the cells beside it, a legacy array formula over
-  many cells computed at each of them, and a dynamic formula's shape
-  lowered to its program, so that a workbook of Excel 365's arrays computes
-  as Excel computes it, and as fast as its legacy twin (KERNEL.55).
 - **A write that empties a cell.** A row the machine's write takes beside
   `cell`, `formula` and `derived`, so that a host gives a cell back to no
   value, as a rebuilt cartridge that no longer writes it asks (KERNEL.46).
