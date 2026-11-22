@@ -47,7 +47,12 @@
 //! (`KERNEL.69`), a cell's formula written over with a text of the same value
 //! and back, its write and its frames to the grid's stillness timed apart, the
 //! plan's half and the reach's, as Excel's half times `.Formula =` and its
-//! `Calculate`. Beside them, printed and not floored: the
+//! `Calculate`. And for a typed fixture (`KERNEL.46`), each cell its type typed
+//! emptied, the last first, so that each stands on the sheet's edge as it goes,
+//! its write timed and, apart, its frames to the grid's stillness: the extent
+//! walked in and the store shrunk in place, the grid left as its type found it,
+//! its extent held so; the native half's alone, Excel's half clearing the same
+//! cells untimed. Beside them, printed and not floored: the
 //! load, the first frame, and `Calc`, the reference evaluator the doors
 //! compute with (`view`, `build`, `calc`).
 //!
@@ -136,7 +141,7 @@ const ALIKE: [(&str, &str); 1] = [("adder-named", "adder")];
 const KINDS: [(&str, &str); 1] = [("lookups-dynamic", "lookups")];
 
 /// The steps timed: whole frames, edits, types, rewrites, and the reference's
-/// runs.
+/// runs; and as many empties as types, each typed cell emptied (KERNEL.46).
 const WHOLE: usize = 11;
 const EDITS: usize = 21;
 const TYPES: usize = 21;
@@ -709,6 +714,11 @@ struct Run {
     rewrite_rounds: Vec<f64>,
     rewrite_write_rounds: Vec<f64>,
     rewrites: Vec<f64>,
+    /// Each round's median of its empties' frames and of their writes, and
+    /// every empty's frames' time (KERNEL.46).
+    empty_rounds: Vec<f64>,
+    empty_write_rounds: Vec<f64>,
+    empties: Vec<f64>,
     calcs: Vec<f64>,
     clocks: Vec<f64>,
     sums: Option<(f64, f64)>,
@@ -882,7 +892,12 @@ fn round(
     }
     // The type (KERNEL.56): 1 written into a fresh cell, a row further down
     // each time, and the frames to the grid's stillness, timed with the
-    // write; held to `Calc` after each type in the check.
+    // write; held to `Calc` after each type in the check. The sheet's extent
+    // as the type finds it, which the empty leaves it (KERNEL.46).
+    let untyped = match &fx.typed {
+        Some(t) => Some(extent_of(&m, &t.sheet).map_err(|e| format!("{name}: {e}"))?),
+        None => None,
+    };
     if let Some(t) = &fx.typed {
         let type_n = if check { 3 } else { TYPES };
         let mut types = Vec::with_capacity(type_n);
@@ -960,6 +975,56 @@ fn round(
             r.held += formulas;
         }
     }
+    // The empty (KERNEL.46): each cell the type typed emptied, the last first,
+    // so that each stands on the sheet's edge as it goes, its write timed and,
+    // apart, its frames to the grid's stillness; held to `Calc` after each in
+    // the check, and the sheet's extent at the end the one the type found.
+    if let (Some(t), Some(untyped)) = (&fx.typed, &untyped) {
+        let type_n = if check { 3 } else { TYPES };
+        let mut frames = Vec::with_capacity(type_n);
+        let mut writes = Vec::with_capacity(type_n);
+        for k in (0..type_n).rev() {
+            let addr = vla_lang::sheet::cell_ref(t.area.top + k as u32, t.area.left);
+            let w = format!("(empty \"{}\" \"{addr}\")", t.sheet);
+            if !check {
+                r.clocks.push(probe.read());
+            }
+            let (wrote, write_ms) = timed(|| m.write(&w));
+            match wrote {
+                Ok(1) => {}
+                Ok(n) => {
+                    return Err(format!(
+                        "{name}: emptying {}!{addr} emptied {n} cells, not the one typed",
+                        t.sheet
+                    ))
+                }
+                Err(e) => {
+                    return Err(format!(
+                        "{name}: emptying {}!{addr}: {}",
+                        t.sheet, e.refusal.text
+                    ))
+                }
+            }
+            let (still, frames_ms) = timed(|| stillness(&mut m));
+            still.map_err(|e| format!("{name}: emptying {}!{addr}: {e}", t.sheet))?;
+            if check {
+                r.held += held_to_calc(&m, &excel::library())
+                    .map_err(|e| format!("{name}: after emptying {}!{addr}: {e}", t.sheet))?;
+            }
+            frames.push(frames_ms);
+            writes.push(write_ms);
+        }
+        let now = extent_of(&m, &t.sheet).map_err(|e| format!("{name}: {e}"))?;
+        if &now != untyped {
+            return Err(format!(
+                "{name}: the typed cells emptied, {}'s extent is {now}, not the {untyped} the type found",
+                t.sheet
+            ));
+        }
+        r.empty_rounds.push(median(&frames));
+        r.empty_write_rounds.push(median(&writes));
+        r.empties.extend(frames);
+    }
     r.whole_rounds.push(median(&whole));
     r.edit_rounds.push(median(&edits));
     r.whole.extend(whole);
@@ -988,6 +1053,20 @@ fn stillness(m: &mut Machine) -> Result<usize, String> {
         }
     }
     Err(format!("the grid not still within {STILL_WITHIN} frames"))
+}
+
+/// A sheet's extent as its record's `extent` row names it (KERNEL.46), read
+/// through a window of one cell, whose record names it all the same.
+fn extent_of(m: &Machine, sheet: &str) -> Result<String, String> {
+    let record = match m.view("values", sheet, Some("A1")) {
+        Ok(Viewed::Text(text)) => text,
+        other => return Err(format!("{sheet}: the values' view answered {other:?}")),
+    };
+    record
+        .lines()
+        .find(|l| l.starts_with("(extent "))
+        .map(str::to_string)
+        .ok_or_else(|| format!("{sheet}: its record names no extent"))
 }
 
 /// A cell's formula as its record's row spells it, its `=` kept.
@@ -1201,6 +1280,9 @@ fn main() -> ExitCode {
                     rewrite_rounds: Vec::new(),
                     rewrite_write_rounds: Vec::new(),
                     rewrites: Vec::new(),
+                    empty_rounds: Vec::new(),
+                    empty_write_rounds: Vec::new(),
+                    empties: Vec::new(),
                     calcs: Vec::new(),
                     clocks: Vec::new(),
                     sums: None,
@@ -1239,6 +1321,9 @@ fn main() -> ExitCode {
                     rewrite_rounds: Vec::new(),
                     rewrite_write_rounds: Vec::new(),
                     rewrites: Vec::new(),
+                    empty_rounds: Vec::new(),
+                    empty_write_rounds: Vec::new(),
+                    empties: Vec::new(),
                     calcs: Vec::new(),
                     clocks: Vec::new(),
                     sums: None,
@@ -1389,6 +1474,17 @@ fn main() -> ExitCode {
                 1e3 / frames
             );
         }
+        if !r.empty_rounds.is_empty() {
+            let frames = median(&r.empty_rounds);
+            let (flo, fhi) = range(&r.empties);
+            let write = median(&r.empty_write_rounds);
+            println!(
+                "  the empty: each cell the type typed emptied, the last first, on the sheet's edge, its write {write:.3} ms, {:.1} a second; its frames to the grid's stillness {frames:.3} ms, the median of the rounds' {} ({flo:.3} to {fhi:.3}), {:.1} a second",
+                1e3 / write,
+                rounds_text(&r.empty_rounds),
+                1e3 / frames
+            );
+        }
         println!(
             "  the clock: the hand-written Life {clock:.3} ms a generation beside every timed frame, spread {sp:.1}%, {dr:+.1}% from {start_clock:.3} at the start"
         );
@@ -1440,8 +1536,21 @@ fn main() -> ExitCode {
                 )
             }
         };
+        // A typed fixture's empties, its frames and its write (KERNEL.46).
+        let emptied = match r.empty_rounds.is_empty() {
+            true => String::new(),
+            false => {
+                let f = median(&r.empty_rounds);
+                let w = median(&r.empty_write_rounds);
+                format!(
+                    " Empty = {f:.3}; EmptiesPerSecond = {:.1}; EmptyWrite = {w:.3}; EmptyWritesPerSecond = {:.1};",
+                    1e3 / f,
+                    1e3 / w
+                )
+            }
+        };
         println!(
-            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1};{typed}{rewritten} SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
+            "    @{{ Half = 'native'; Fixture = '{}'; Formulas = {}; Sha256 = '{}'; Rounds = {rounds}; Load = {:.1}; First = {:.2}; Whole = {:.3}; Edit = {:.3}; Calc = {:.1}; WholePerSecond = {}; EditsPerSecond = {:.1};{typed}{rewritten}{emptied} SumBuilt = {built}; SumEdited = {edited}; ClockMs = {:.3}; ClockSpread = {:.1}; ClockDrift = {:.1} }}",
             r.name,
             r.formulas,
             r.sha,

@@ -273,7 +273,8 @@ measured beside them and not minted. `KERNEL.46` is next free.
 `ENGINE.7` (decision 4), for a write that empties a cell, a row the
 machine's write takes beside `cell`, `formula` and `derived`, so that a host
 gives a cell back to no value, as a rebuilt cartridge that no longer writes
-it asks, scoped and approved 2026-11-22. `KERNEL.47` is next free.
+it asks, scoped and approved 2026-11-22, built in two slices, owner-tested
+and committed 2026-11-22. `KERNEL.47` is next free.
 `KERNEL.47` was minted 2026-10-17 at the owner's word, from Buffet's
 `POT.10` hand test of 2026-10-16 and its ledger's row in `MISE.6`, for a
 number format in the record, Excel's format codes beside `general` and

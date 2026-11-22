@@ -15,7 +15,9 @@ a number, and times a whole frame and the frame after the fixture's edit,
 for a fixture whose program names a type (KERNEL.56), a value written
 into a fresh cell with the frames to the grid's stillness, and for one whose
 program names a rewrite (KERNEL.69), a formula written over and back, its write
-and its frames to the grid's stillness apart.
+and its frames to the grid's stillness apart; and since KERNEL.46, for a typed
+fixture, each cell its type typed emptied, the last first, its write and its
+frames to the grid's stillness apart, the native half's alone.
 
 THE TRAPS IT IS BUILT AROUND, both measured for Alonzo's CART.1 on this
 machine and its instrument tools/bench_frames.ps1, whose discipline this is:
@@ -295,6 +297,13 @@ foreach ($r in $rows) {
     if ($rewrites -ne '') {
         $floors.Add(("'{0} rewrite' = {1}" -f $f, (Get-KeptFloor "$f rewrite" (Get-Floor ([double]$rewrites)))))
         $floors.Add(("'{0} rewrite write' = {1}" -f $f, (Get-KeptFloor "$f rewrite write" (Get-Floor ([double](Get-Field $r 'RewriteWritesPerSecond'))))))
+    }
+    # A typed fixture's empties, its frames a second and its writes a second
+    # (KERNEL.46).
+    $empties = Get-Field $r 'EmptiesPerSecond'
+    if ($empties -ne '') {
+        $floors.Add(("'{0} empty' = {1}" -f $f, (Get-KeptFloor "$f empty" (Get-Floor ([double]$empties)))))
+        $floors.Add(("'{0} empty write' = {1}" -f $f, (Get-KeptFloor "$f empty write" (Get-Floor ([double](Get-Field $r 'EmptyWritesPerSecond'))))))
     }
 }
 # The fixtures of rows' loads, formulas loaded a second (KERNEL.49).

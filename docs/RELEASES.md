@@ -299,6 +299,37 @@
   `vla-formula-name-taken`, where the define's form replaced it: `(define x
   5)` then `(formula-expand (let x 1 (+ x 1)))` wrote `=LET(5,1,5+1)`, and
   `(lambda (self) 1)` wrote `LAMBDA(self,1)` (VLA.11).
+- **An engine empties a cell.** `(empty "<sheet>" "<cell or range>")`, a row
+  an engine's write takes beside `cell` and `formula`, gives each cell of its
+  range back to no value, as Excel's `ClearContents` does: a formula reading
+  it reads a cell never written, `=A1+1` 1 where the text of no characters a
+  `cell` row writes for a person's Delete is `#VALUE!`; its formula is given up
+  as a value written over it gives one up, a fill's next cell its first; and
+  its format and its conditional formats stay, a rule of a blank lighting it.
+  A spill's anchor emptied takes its spill at the write; a cell a spill fills
+  holds nothing of its own and is left, as Excel leaves it; part of a legacy
+  array formula's block is refused, as a `cell` row's is (`grid-write-block`),
+  and a twin's cell (`grid-write-last`). The sheet's extent shrinks at the
+  write where an emptied cell stood on its edge, as Excel's used range does,
+  its store over the new extent in place, so that a database's whole column
+  counts the records Excel's full recalculation counts and a formula reading
+  the extent itself computes again at the next frame. Its twin's cell is lost
+  in place, so that the frame after an emptying computes what reads the cell,
+  where a value lost from a twin makes the next frame compute every cell
+  (KERNEL.46).
+- **A cell keeps a format and no value.** An engine's grid, values and fills
+  print a cell its write emptied as its `style` row alone, as Excel's save
+  writes such a cell, its style alone; and a load takes a `style` row over a
+  cell no earlier row wrote as that cell's format, where it refused the row
+  (`grid-cell-unwritten`, which a `sentence` row's cell still meets), its sheet
+  made as a `cell` row makes one, and a `style` row at a cell a spill fills,
+  which it set aside, so that a styled blocker emptied keeps its format under
+  the value that flows into it. A sheet's extent holds a cell of a format alone,
+  as Excel's used range does. A door's workbook holds no such cell yet, and a
+  door's view of the rows drops its format (KERNEL.46).
+- **A plane draws an emptied cell as an empty one.** A plane an engine keeps
+  for a sheet it draws drew a cell a spill emptied 255, as a cell holding a
+  text, where a plane walked from the cells drew 0; it draws 0 (KERNEL.46).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,
@@ -315,6 +346,9 @@
   does not say otherwise takes as the `cell` row it was. And
   `calc::stored::stored`, new, answers how Excel 365 stores a formula's text
   typed: whether as a dynamic-array formula, and the text it stores.
+  `machine::WRITE_ROWS`, the rows `grid-row-unknown` lists for a write, names
+  `empty`; and a load's `style` row over a sheet's twin is `grid-write-last`, as
+  a `cell` row's is, where it was `grid-cell-unwritten` (KERNEL.46).
 
 ## 0.14.0
 

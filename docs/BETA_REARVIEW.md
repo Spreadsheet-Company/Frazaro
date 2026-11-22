@@ -50361,6 +50361,88 @@ tests), in a worktree off `434c604`, the prototype read and none of its switches
 - *Hand test*: none in Excel. The slice moves an engine's writes and the rows a load takes, and no file a door writes,
   no module of the reference and no catalogue entry.
 
+*Committed 2026-11-22* at the owner's word, "Commit slice 1, then build slice 2": `f2a4fb3` over `434c604`, the slice's
+eleven files alone, its tree the worktree's checkpoint's, `ab08b74`; this record's hunk staged beside a peer's
+uncommitted `P-PRELUDE` scoping in the same file, whose hunks stay theirs.
+
+*Slice 2 built 2026-11-22: its floor and the close*, in the worktree off `f2a4fb3`.
+- *The runner* (`core/examples/recalc.rs`): for a typed fixture, each cell its type typed emptied, the last first, so
+  that each stands on the sheet's edge as it goes, its write timed and, apart, its frames to the grid's stillness;
+  after the type, the rewrite and the whole frames, so that no measurement before it moves. Held in the check mode to
+  `Calc` after each, the write's count one cell each time, and the sheet's extent at the end the one the type found,
+  so that the shrink is held where it is timed. No comment of a program names it, so the netlist's program, its
+  digest, its census and its bytes stand; a row's four fields, `Empty`, `EmptiesPerSecond`, `EmptyWrite` and
+  `EmptyWritesPerSecond`, in milliseconds to three places as the rewrite's.
+- *The bench* (`tools/bench_recalc.ps1`): the two floors, `<fixture> empty` and `<fixture> empty write`, the run's
+  rates less the margin, or the entry before where it stands higher, as every floor.
+- *The check* (`tools/check_recalc_floors.ps1`): `$emptied`, the netlist, its row's four fields present and each rate
+  agreeing with its time within half the last place, as the rewrite's; the two floors keyed, joining the history at
+  their entry, and held; the native half's alone, Excel's half clearing the typed cells untimed as it did. Eight
+  control cases: a row with no empty, each rate disagreeing with its time, a write of microseconds at three places
+  passing, each floor under, the empty joining the history at its entry passing, and a floor left out after it joined.
+- *Excel's half, run again*: every fixture's built file has moved since the baseline of 2026-11-17, a build's stamp
+  moved by `VLA.11`'s prelude, and the check holds both halves to one file by its SHA-256, so the native run alone
+  would fail it at every Excel row; Excel's half times what it timed, unchanged.
+- *The baseline*, the owner's runs of both halves on 2026-11-22, both blocks pasted whole, each fixture's file one file
+  to both halves by its SHA-256: a cell the netlist's type typed, emptied on the sheet's edge, costs its write 5.5 µs
+  and its frames to the grid's stillness 0.4 µs, the medians of three rounds of 21, where its type costs 3.2 µs, the
+  write and its frames together. The emptying is 1.8 times the type, over the scoping's prediction of 1.5, the write
+  the share: its row read, the extent walked in by a row and the store shrunk in place, at each cell. The floors
+  `netlist empty`, 2,120,000 a second, and `netlist empty write`, 154,000, the run's rates less the margin, join at
+  the run's entry; nine more are raised by it and none lowered, every row as fast as the run of 2026-11-17 or within
+  its noise, over the language's commits since (`KERNEL.55`'s last four slices, `VLA.8`, `VLA.11` and this item's
+  first): the netlist's whole frame 2.519 ms where 3.665 and its edit 5.181 where 7.109, the lookups' 7.416 and 9.270
+  where 8.420 and 10.572, which no measurement of this item's divides among them. The netlist's five floors rise back
+  toward where the owner's ruling of 2026-11-18 lowered them from, its whole frame having moved 1.71 to 4.34 ms across
+  that day's processes whatever the code. Every fixture's bytes at its ceilings to the byte, the run's entry the one of
+  2026-11-18 again.
+- *Verified once*, in the worktree rebased over `2c3ca92`, a peer's `P-PRELUDE` first slice: the workspace's 1,012
+  tests, 5 ignored, and `run_checks.ps1` 60 of 60, the floors' check holding the pasted baseline and running both
+  runners' check modes, every built file the one both halves measured, every value held and the netlist's extent back
+  where its type found it; `cargo fmt --check` and clippy over every target with and without `c-abi` at `-D warnings`.
+  The language's package and the wasm modules are not this slice's, the runner kept out of the package.
+- *Hand test*: the owner's runs of `tools/bench_recalc.ps1` and `tools/bench_recalc_excel.ps1` in the worktree, the
+  blocks pasted from their files. None in Excel's modules: no module of the reference moved.
+- *Found*, not minted: the empty's frames, 0.4 µs, are four ticks of the clock's 100 ns, each cell's frames timed
+  alone, so that a run measuring five reads 2,000,000 a second, under the floor of 2,120,000: the floor stands a tick
+  from failing, as the type's stood at 3 µs (`KERNEL.67`'s third finding, the owner's ruling of 2026-11-01). The 21
+  cells' frames timed together would hold it above the clock's tick; a later run under it asks the owner's ruling.
+
+*Committed 2026-11-22* at the owner's word, "Both bench halves ran; paste them and commit slice 2": over `2c3ca92`, a
+peer's `P-PRELUDE` first slice, its second building uncommitted in the shared tree, the slice's eight files, two of
+them by their hunks alone beside the peer's in the tree (this record and `vla-lang/README.md`).
+
+*Closed 2026-11-22* at the owner's word, "Both bench halves ran; paste them and commit slice 2": its two slices built
+and committed, `f2a4fb3` and this one, over its scoping and its probe (`434c604`), each case of the probe held to Excel
+365's answer by name.
+- *The row:* `(empty "<sheet>" "<cell or range>")`, each cell's value and formula taken and its format and its rules
+  kept, as Excel's `ClearContents` keeps them; an anchor's spill taken with it at the write, a block emptied whole and
+  part of one refused, a fill's next cell its first; the sheet's extent walked in at the write where an emptied cell
+  stood on its edge, the store and the plane shrunk in place; the twin's cell lost in place at the frame's end, its
+  readers alone computed.
+- *The format kept:* a cell holding a format and nothing of its own printed as its `style` row alone and taken back by
+  a load, a format at a cell a spill fills among them (`KERNEL.55`'s *Found* 5 lifted), so that a save of an emptied
+  grid resumes as it ran.
+- *The laws* over generated grids, a rectangle emptied one write in five between frames, every law of the writes
+  holding it, and law 9's extent held to a walk that counts a format alone.
+- *The floor:* the netlist's type emptied cell by cell in the recalc runner, held to `Calc` after each and its extent
+  back where the type found it, floored from the owner's runs of both halves.
+
+Ships in `0.15.0`, three notes in its section and one for the crates' users, and `vla-lang/README.md`'s write
+paragraph, its entry under "What comes next" gone. Lifted on the way: `KERNEL.55`'s *Found* 5 and 7 (a value written
+into a spill's box no longer blocks it for good) and the scoping's fourth, a twin's extent walked in from its edge
+where its whole sheet was walked. *Found,* not minted, carried from the scoping's and the slices' records for the
+owner:
+1. `COUNTBLANK` is not in the library, a formula calling it refused (the scoping's first).
+2. The readers' frame after an emptying costs 2 to 44% more than after a value written into the same cell (the
+   scoping's second).
+3. The store's generic re-lay, a copy of every cell, stays the path of every extent's move but a growth below and a
+   shrink, which the first slice takes in place (the scoping's third, its shrink lifted).
+4. A door's file model holds no cell that keeps a format and no value (the scoping's fifth, `KERNEL.57`'s *Found*).
+5. No write row sets a format, which an undo of a person's style edit would need (the scoping's sixth).
+6. `ROW` of a formula's own range is a cycle (the scoping's seventh).
+7. The empty's floor stands a tick of the clock from failing (the second slice's).
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -64177,6 +64259,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.73 — a held column read once only across one row: a run's cells each read their own row's cell of a reference that holds its column, where a run leaves a row and comes back to it, so that a run answers what each of its cells alone answers.** Minted, scoped and approved 2026-11-17 at the owner's word, from `KERNEL.29`'s third slice's third part, its first *Found*, its three decisions as recommended; built and committed the same day at the owner's word. A run read a reference that holds its column and not its row, `$A5`, once for its whole selection where the selection's first and last cells stood in one row (`KERNEL.33`'s shortcut, `calc/vector.rs`'s `Many::reads`); but a run carried into the next level's block may begin it in an earlier row, and its cells of another row then read the first row's cell: a chain along row 2 and `C3:H4` reading it three columns right answered -0.02 in row 4 where each cell alone answers `#VALUE!`, in every release from 0.9.2. The shortcut is now asked of every cell of the selection, at no cost a clock sees in Superposition's frames, 71.12 ms where 71.14. *Oracle:* the minimal rows pinned beside a run of one row read once; a law of 400 grids of bands whose levels rise along a row, by runs with programs off and as built against `Ctx`, which failed 49 at HEAD; the runs law and `KERNEL.49`'s crossing law held to `Ctx` with programs off too; five mutants, none surviving; no other test, golden or floor moved; Alonzo's 108 and Buffet's 107 over it by path. Ships in `0.14.0`, its note naming the answers it corrects. (Full entry: THE KERNEL LINE, after `KERNEL.29`'s third slice.) `~hours`
 - ✅ **KERNEL.29 — `LET` and `LAMBDA`: functions written in formulas, as fast as the formulas they stand for.** Minted 2026-10-12 at the owner's word, from the owner's requirement, given in an Alonzo session on 2026-10-11, that a function written in formulas be first-class as Emacs Lisp is in Emacs; scoped 2026-11-15, its decisions the owner's (recursion on a stack of the language's own to Excel's depth, a name standing for its expression substituted, the view record's `name` rows and sheet-defined functions in this item); built in three slices from 2026-11-15, each committed at the owner's word, and closed 2026-11-17 at the owner's word. `LET` binds a name to its expression, substituted where it is read; `LAMBDA` makes a function called in place, bound by `LET`, handed to `MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL` or `MAKEARRAY`, or held by a defined name and called by it; a recursion runs as counted calls to a depth of 4,096 and a million calls a cell, `#NUM!` past either, a call too deep for the stack computed on a fresh one and remembered; a function as a cell's value is `#CALC!`. Every `LET`, and every call no cycle holds in a fill of sixteen cells or more, is written into the formula at the load, so that a named function costs what its formula written out costs; a call at a place of its own is kept, followed by the reach, its function's body lowered once to a program each call runs. A part a formula repeats is computed once; a grid's names are viewed and written as `name` rows; a room of cells is a function, a `function` row compiling its gates to the `LAMBDA` a person would write from them. *Oracle:* the adder written out and through named functions within 15% of each other in `check_recalc_floors.ps1`, 0.273 and 0.274 ms a whole frame, where Excel takes 4.6 times as long through the names; Excel 365's save of `lambda.xlsx` at `no-differ`, 100 of its 102 agreeing; the limits answered as Excel answers them, the item's two refusals the grid family's; 8,192 calls of a chain of 24 gates at places of their own held in 12.7 MB where 173 and computed in 2.5 ms where 112. Alonzo's frame floors over a cartridge written both ways are its `CART.9.3`'s, at its pin. Ships in `0.14.0`. Eleven *Found*, not minted, the first that a formula kept as written refuses its calls of named functions; `KERNEL.73` minted from 3c's first. (Full entry: THE KERNEL LINE, after `KERNEL.72`.) `~weeks`
 - ✅ **KERNEL.55 — dynamic arrays whole: a spill laid into the cells beside its formula, a legacy array formula over many cells computed at each, a formula written dynamic wherever Excel 365 would store it so, and a dynamic formula's shape lowered to its program, so that a workbook of Excel 365's arrays computes in the doors and in an engine as Excel computes it, and as fast as its legacy twin.** Minted 2026-10-21 at the owner's word, from `KERNEL.8`'s sixth slice; scoped and approved 2026-11-17, its twelve decisions as recommended; built in six slices, each at the owner's word and committed before the next, 2026-11-17 to 2026-11-21: the probe and Excel's first save (`5b04654`); the lowering, a dynamic formula keeping its legacy twin's program wherever the two read alike, 140,000 dynamic lookups as fast as their twin (`9c625fd`, `2d23525`); the error and the reading (`741face`), `#SPILL!` a value, a legacy array formula's block computed and laid, `A1#` read and written; spills in the door (`5b5113e`, `9acdd6d`), each planned by its bound, laid and blocked as Excel's save shows, and every record saying a formula's kind and a spill's cells; the writer's rule (`ed51bbd`), each formula stored as Excel 365 stores the same text typed; and spills in an engine in four parts: the plan (`fd9ffd9`), the machine laying them (`e00a306`), saves, loads and changes cell by cell (`edcba68`), and a legacy array formula computed as one and its block laid, written whole as Excel writes an array (`553ae92`). Excel's second save, the stop rule's last (`6d163ab`), read every row of the first as the first read them and folded three rules more, `INDEX` of an array forced in a legacy formula, a block's every cell holding its formula and `A1#` of a block's anchor its block, and the writer's leans; an engine over it computes every one of the 262 cells the door agrees with Excel at. Labelled and never chased, as the stop rule holds an edge: two spills whose boxes meet. *Found:* `may_show_at` labels `FORMULATEXT` of a legacy `INDEX` of one cell, which Excel shows with no `@`; an `@` before a call not read; a format at a cell a spill or a block fills set aside at a load; a sheet's extent a shrunk spill grew kept. To be released in 0.15.0. `~weeks`, taken in three days. *(more: the scoping and the slices' records, under the KERNEL line)*
+- ✅ **KERNEL.46 — a write that empties a cell: a row the machine's write takes beside `cell`, `formula` and `derived`, `(empty "<sheet>" "<cell or range>")`, each cell's value and formula taken and its format and its rules kept as Excel's `ClearContents` keeps them, so that a host gives a cell back to no value.** Minted 2026-10-16 at the owner's word, from Alonzo's `ENGINE.7` (decision 4); scoped 2026-11-21 and approved 2026-11-22, its ten decisions as recommended, over a probe of Excel 365's own clears (`tools/VLA_DiagEmpty.bas`, `434c604`); built in two slices the same day, each at the owner's word and committed before the next: the row in the machine, whole (`f2a4fb3`), an anchor's spill taken with it at the write, a block emptied whole and part of one refused, a fill's next cell its first, the sheet's extent walked in at the write where an emptied cell stood on its edge, its store and its plane shrunk in place, the twin's cell lost in place at the frame's end and its readers alone computed, a cell of a format alone printed as its `style` row and taken back by a load, a spilled cell's among them, and the laws grown with a rectangle emptied one write in five; and its floor, the netlist's type emptied cell by cell in the recalc runner, its write 5.5 µs and its frames 0.4 where its type costs 3.2, floored from the owner's runs of both halves. Lifted on the way: `KERNEL.55`'s *Found* 5 and 7, a format at a spilled cell set aside at a load and a value written into a spill's box blocking it for good, and a twin's extent made again by a walk of its whole sheet. *Found:* `COUNTBLANK` not in the library; the readers' frame after an emptying 2 to 44% dearer than after a value written; the store's generic re-lay on every extent's move but a growth below and a shrink; a door's file model holding no cell of a format alone; no write row setting a format; `ROW` of a formula's own range a cycle; the empty's floor a tick of the clock from failing. To be released in 0.15.0. `~days`, taken in two days. *(more: the scoping and the two slices' records, under the KERNEL line)*
 
 ## 🛡 ADVERSARY · SECURITY
 

@@ -395,7 +395,12 @@ refused in the same words.
   calls and the census saying why;
   `write` takes `cell`, `formula` and `derived` rows, all or none, a
   `formula` row over one cell reading as Excel 365 reads the text typed where it
-  ends in the word `dynamic`, `name` rows, a defined name's text, every
+  ends in the word `dynamic`, `empty` rows, `(empty "Sheet" "B2:D9")`, each
+  cell of the range given back to no value as Excel's `ClearContents` gives
+  it, its format and its conditional formats kept and the cell printed as its
+  `style` row alone, which a load takes back, a spill's anchor emptied taking
+  its spill and the sheet's extent walked in where an emptied cell stood on
+  its edge, as Excel's used range is, `name` rows, a defined name's text, every
   formula reading the name planned again, through other names too, and
   computed at the next frame, as a load of the written grid would, and
   `function` rows, a function defined or its row replaced, compiled again at
@@ -509,9 +514,6 @@ memory.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **A write that empties a cell.** A row the machine's write takes beside
-  `cell`, `formula` and `derived`, so that a host gives a cell back to no
-  value, as a rebuilt cartridge that no longer writes it asks (KERNEL.46).
 - **Two of Excel's readings.** A formula's literal of sixteen digits or
   more, which Excel cuts to fifteen, read as Excel reads it or named where
   Excel would cut it (KERNEL.51); and a database function's computed
