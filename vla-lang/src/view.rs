@@ -734,7 +734,10 @@ impl Grid<'_> {
         let boxed = spills
             .iter()
             .any(|(a, e)| (a.1, a.2) != at && calc::spill::inside(e, at.0, at.1));
-        let own = cell.is_some() && !self.values.is_some_and(|v| v.box_cells_spilled());
+        // A cell of a format and nothing of its own (KERNEL.46) is the
+        // spill's, its format printed beside the value laid there.
+        let own = cell.is_some_and(|c| c.holds != Holds::Nothing)
+            && !self.values.is_some_and(|v| v.box_cells_spilled());
         if boxed && !own {
             return self.spilled_rows(page.name, i, at, cell, coded, (page.rules, lit), out);
         }
@@ -811,6 +814,9 @@ impl Grid<'_> {
                     written.add(row, col, col, constant_datum(c));
                     true
                 }
+                // A cell of a format alone (KERNEL.46): its `style` row, which
+                // a load takes over a cell no row wrote.
+                Holds::Nothing => true,
                 Holds::Formula(formula) => {
                     let computed = self.values.and_then(|calc| calc.computed((i, row, col)));
                     let over = match formula {
@@ -951,12 +957,21 @@ impl Grid<'_> {
     ) -> bool {
         let addr = cell_ref(row, col);
         let computed = self.values.and_then(|v| v.computed((i, row, col)));
+        let style = held.map_or(0, |h| h.style);
         let shown = match &computed {
+            // Nothing laid: a format the cell keeps (KERNEL.46) and its rules.
             Some(calc::Computed::Value(calc::Value::Empty)) | None => {
+                if style != 0 {
+                    out(&record_line(&Record::Style {
+                        sheet: name,
+                        addr: &addr,
+                        index: style,
+                    }));
+                }
                 if let Some(priorities) = lit {
                     lit_row(name, (row, col), priorities, out);
                 }
-                return lit.is_some();
+                return style != 0 || lit.is_some();
             }
             Some(c) => {
                 out(&record_line(&Record::Value {
@@ -970,7 +985,6 @@ impl Grid<'_> {
                 }
             }
         };
-        let style = held.map_or(0, |h| h.style);
         if let (Some(coded), Some(v)) = (coded, shown) {
             let rule = lit.and_then(|lit| rule_saying_number(coded.styles, rules, lit));
             if let Some(text) = coded.text(style, rule, &v) {
@@ -1030,6 +1044,10 @@ impl Grid<'_> {
         let addr = cell_ref(row, col);
         // Whether the cell printed a row, and the value a code draws.
         let (printed, shown) = match &cell.holds {
+            // A cell of a format and nothing of its own (KERNEL.46): its
+            // `style` row alone, as the values print a formula with no value
+            // yet and Excel's save writes a cell keeping a format, `<c s="1"/>`.
+            Holds::Nothing => (cell.style != 0, None),
             Holds::Constant(Constant::Text(t)) => {
                 let value = Value::Text(t.to_string());
                 out(&relation(&Row::Cell {

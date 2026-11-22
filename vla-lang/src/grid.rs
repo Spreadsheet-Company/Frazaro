@@ -613,6 +613,40 @@ impl CellStyles {
         self.0.get_or_insert_with(Box::default).put(range, format);
     }
 
+    /// The rectangle of the cells holding a format other than 0 (KERNEL.46),
+    /// which a machine's extent holds as Excel's used range holds a cell that
+    /// keeps a format and no value; `None` for a sheet with none. Its
+    /// rectangles and its cells alone are walked, never a cell of a range.
+    pub(crate) fn bounds(&self) -> Option<A1Range> {
+        let s = self.0.as_deref()?;
+        let ones = s.ones.iter().map(|(&(row, col), &format)| {
+            let cell = A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            };
+            (cell, format)
+        });
+        s.ranges
+            .iter()
+            .chain(ones)
+            .filter(|&(_, format)| format != 0)
+            .map(|(r, _)| r)
+            .reduce(|a, b| A1Range {
+                top: a.top.min(b.top),
+                left: a.left.min(b.left),
+                bottom: a.bottom.max(b.bottom),
+                right: a.right.max(b.right),
+            })
+    }
+
+    /// Whether a cell of an area holds a format other than 0 (KERNEL.46), as
+    /// a machine's extent walked in from an edge asks of each row or column.
+    pub(crate) fn any_in(&self, area: A1Range) -> bool {
+        self.meeting(area).any(|(_, format)| format != 0)
+    }
+
     /// The rectangles meeting an area, whole, each with its format: those of
     /// more than one cell by height, then the cells alone among the area's
     /// rows.
@@ -737,11 +771,16 @@ impl Constant<'_> {
     }
 }
 
-/// What a cell holds as the record reads it: a value, or a formula.
+/// What a cell holds as the record reads it: a value, or a formula; or, in a
+/// machine's grid alone, nothing of its own beside its format (KERNEL.46): a
+/// cell a write emptied, its format kept as Excel's `ClearContents` keeps it,
+/// a `style` row a load took over a cell no row wrote, and a cell a spill
+/// fills that holds a format, which a door's workbook holds no cell for.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Holds<'a> {
     Constant(Constant<'a>),
     Formula(Formula<'a>),
+    Nothing,
 }
 
 impl<'a> Holds<'a> {
@@ -880,7 +919,7 @@ impl Model for Workbook {
         let cell = self.sheets.get(s)?.cells.get(&(row, col))?;
         match Holds::of(&cell.content) {
             Holds::Formula(f) => Some(f),
-            Holds::Constant(_) => None,
+            Holds::Constant(_) | Holds::Nothing => None,
         }
     }
 

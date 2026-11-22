@@ -371,6 +371,70 @@ impl Dense {
         true
     }
 
+    /// The store taken over an extent its own holds (KERNEL.46), as a write
+    /// that empties a cell on its sheet's edge shrinks the extent: each kept
+    /// slot moved to its cell's place in the new rows where it stands, the rows
+    /// dropped below and above and the columns closed up, the texts and the
+    /// reasons the kept slots name left where they are, so that no slot is
+    /// read out and put again as a store re-laid by place reads each. A slot
+    /// dropped that holds anything is given up first, its text or reason
+    /// freed; the extent's walk drops only rows and columns holding nothing.
+    /// `false`, the store untouched, for an extent its own does not hold.
+    pub(crate) fn shrink(&mut self, extent: Extent) -> bool {
+        let Some(((top, left), (bottom, right))) = extent else {
+            return false;
+        };
+        let (old_bottom, old_right) = (
+            self.top + (self.height as u32 - 1),
+            self.left + (self.width as u32 - 1),
+        );
+        if top < self.top
+            || left < self.left
+            || bottom > old_bottom
+            || right > old_right
+            || top > bottom
+            || left > right
+        {
+            return false;
+        }
+        let width = (right - left + 1) as usize;
+        let height = (bottom - top + 1) as usize;
+        let (dr, dc) = ((top - self.top) as usize, (left - self.left) as usize);
+        // The dropped slots alone visited: the rows above and below whole,
+        // then the kept rows' columns either side.
+        let (old_width, old_height) = (self.width, self.height);
+        let free = |d: &mut Dense, r: usize, c: usize| {
+            let i = r * old_width + c;
+            if d.kinds[i] != EMPTY {
+                d.put_empty(i);
+            }
+        };
+        for r in (0..dr).chain(dr + height..old_height) {
+            for c in 0..old_width {
+                free(self, r, c);
+            }
+        }
+        for r in dr..dr + height {
+            for c in (0..dc).chain(dc + width..old_width) {
+                free(self, r, c);
+            }
+        }
+        if width != self.width || dr > 0 {
+            for r in 0..height {
+                let from = (r + dr) * self.width + dc;
+                self.numbers.copy_within(from..from + width, r * width);
+                self.kinds.copy_within(from..from + width, r * width);
+                // The row's dropped slots are empty, none a number.
+                self.odd[r] = self.odd[r + dr] - (self.width - width) as u32;
+            }
+        }
+        self.numbers.truncate(width * height);
+        self.kinds.truncate(width * height);
+        self.odd.truncate(height);
+        (self.top, self.left, self.width, self.height) = (top, left, width, height);
+        true
+    }
+
     /// The extent the store stands over.
     pub(crate) fn extent(&self) -> Extent {
         Some((
@@ -1336,6 +1400,94 @@ mod tests {
         let before = d.clone();
         assert!(!d.regrow(Some(((2, 1), (12, 14)))), "a top that moved down");
         assert!(!d.regrow(None), "no extent");
+        assert_eq!(d, before, "untouched");
+    }
+
+    #[test]
+    fn a_store_shrunk_keeps_every_slot_it_holds_at_its_place() {
+        // KERNEL.46: a store of every kind of slot, a reason among them, grown
+        // over an empty frame of rows and columns, then taken over extents its
+        // own holds, rows dropped below and above and columns closed up either
+        // side, in place: every slot kept where it stood, every row's count of
+        // slots holding no number the count read off its slots, every slice of
+        // a row as its slots say; a dropped slot holding a text given up, its
+        // place free; and an extent its own does not hold leaving it untouched.
+        let values = [
+            Value::Number(2.0),
+            Value::Text("x".to_string()),
+            Value::Bool(true),
+            Value::Error(ErrorKind::NA),
+            Value::Empty,
+            Value::Number(7.5),
+        ];
+        let mut d = Dense::over(Some(((1, 1), (10, 12))), 1000, None).unwrap();
+        let mut held: Vec<((u32, u32), Value)> = Vec::new();
+        for row in 3..=6u32 {
+            for col in 4..=7u32 {
+                let v = values[((row * 3 + col) % values.len() as u32) as usize].clone();
+                assert!(d.set(row, col, v.clone()));
+                held.push(((row, col), v));
+            }
+        }
+        let reason = Reason::Construct("A1:A2".to_string());
+        let at = d.index(5, 6).unwrap();
+        d.put_reason(at, &reason);
+        held.retain(|&(at, _)| at != (5, 6));
+        // A text the walk would never drop, dropped all the same: given up.
+        assert!(d.set(10, 12, Value::Text("gone".to_string())));
+        let check = |d: &Dense, when: &str| {
+            let (top, left) = (d.top, d.left);
+            for r in 0..d.height as u32 {
+                let row = top + r;
+                for c in 0..d.width as u32 {
+                    let at = (row, left + c);
+                    let slot = d.slot_of(at.0, at.1).expect("inside");
+                    match held.iter().find(|(h, _)| *h == at) {
+                        Some((_, v)) => assert_eq!(slot.value(), *v, "{when}: {at:?}"),
+                        None if at == (5, 6) => {
+                            assert!(matches!(slot, Slot::Reason(r) if *r == reason), "{when}")
+                        }
+                        None => assert!(slot.is_empty(), "{when}: {at:?} {slot:?}"),
+                    }
+                }
+                let odd = (0..d.width as u32)
+                    .filter(|&c| !matches!(d.slot_of(row, left + c), Some(Slot::Number(_))))
+                    .count();
+                assert_eq!(d.odd[r as usize] as usize, odd, "{when}: row {row}");
+                for col in left..left + d.width as u32 {
+                    for n in 1..=(left + d.width as u32 - col) as usize {
+                        let got = d.numbers_in_row(row, col, n).map(<[f64]>::to_vec);
+                        assert_eq!(
+                            got,
+                            slice_of(d, row, col, n),
+                            "{when}: ({row}, {col}) by {n}"
+                        );
+                    }
+                }
+            }
+        };
+        for (when, extent) in [
+            ("the bottom", ((1, 1), (9, 12))),
+            ("the top and the right", ((2, 1), (9, 9))),
+            ("the left", ((2, 3), (9, 9))),
+            ("to its cells", ((3, 4), (6, 7))),
+        ] {
+            assert!(d.shrink(Some(extent)), "{when}");
+            assert!(d.stands_over(Some(extent)), "{when}");
+            assert_eq!(d.extent(), Some(extent), "{when}");
+            check(&d, when);
+        }
+        let named = d.kinds.iter().filter(|&&k| k == TEXT).count();
+        assert_eq!(
+            named + d.free.len(),
+            d.texts_held(),
+            "the dropped text given up"
+        );
+        assert!(!d.free.is_empty(), "the dropped text's place free");
+        let before = d.clone();
+        assert!(!d.shrink(Some(((2, 4), (6, 7)))), "a top that moved up");
+        assert!(!d.shrink(Some(((3, 4), (6, 8)))), "a right that moved out");
+        assert!(!d.shrink(None), "no extent");
         assert_eq!(d, before, "untouched");
     }
 

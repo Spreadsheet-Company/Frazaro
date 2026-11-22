@@ -30,9 +30,14 @@
 //! 9. A window's values are its grid record less its formula rows, every
 //!    sheet's, twins included, before a frame, after each and after each
 //!    write between frames; and a record's window and extent, as the machine
-//!    keeps them, are the sheet's walked (KERNEL.37). Its grids' formats
-//!    hold codes and looks map values to them, so each record's `text` rows
-//!    are held too (KERNEL.47).
+//!    keeps them, are the sheet's walked (KERNEL.37), with the cells keeping a
+//!    format alone beside the walk, which a workbook holds no cell for
+//!    (KERNEL.46). Its grids' formats hold codes and looks map values to
+//!    them, so each record's `text` rows are held too (KERNEL.47).
+//!
+//! The writes between frames, of laws 7, 9, 11, 12 and 14 and of the grids
+//! loaded from their fills, empty a rectangle now and then, value and formula
+//! alike (KERNEL.46), so that every law over them holds a cell emptied.
 //! 10. Each twin after a frame is its sheet's values as the frame left
 //!     them, however many of its cells the frame changed: the twin's record
 //!     holds the sheet's value cells and its formulas' values as cells, and
@@ -608,16 +613,18 @@ fn two_machines_given_the_same_rows_show_the_same_frames() {
 /// A write between two frames: a formula over a rectangle of the grid,
 /// reading the last frame and a number from its first cell, which becomes
 /// one fill; the last such write again, which writes nothing where its
-/// cells are as it left them; or a number over a cell, perhaps a fill's
-/// first, which gives it up.
+/// cells are as it left them; a number over a cell, perhaps a fill's
+/// first, which gives it up; or a rectangle emptied, its values and its
+/// formulas alike, a fill's first cell among them (KERNEL.46).
 fn write_between(r: &mut Rng, last: &mut Option<String>) -> String {
     let (top, left) = (1 + r.below(ROWS), r.below(COLUMNS.len()));
     let bottom = top + r.below(ROWS - top + 1);
     let right = left + r.below(COLUMNS.len() - left);
     let first = format!("{}{top}", COLUMNS[left]);
-    match r.below(4) {
+    match r.below(5) {
         0 => format!("(cell \"{SHEET}\" \"{first}\" {})", r.below(10)),
         1 if last.is_some() => last.clone().unwrap_or_default(),
+        2 => format!("(empty \"{SHEET}\" \"{first}:{}{bottom}\")", COLUMNS[right]),
         _ => {
             let write = format!(
                 "(formula \"{SHEET}\" \"{first}:{}{bottom}\" \"={SHEET}.last!{first}*2+{}\")",
@@ -927,10 +934,73 @@ fn header(record: &str) -> Vec<&str> {
         .collect()
 }
 
+/// The cells of a grid record keeping a format and nothing else (KERNEL.46):
+/// those with a `style` row and no `cell`, `formula` or `value` row, which the
+/// workbook a machine lends holds no cell for, the file model holding no empty
+/// content (`KERNEL.57`'s *Found*).
+fn formats_alone(record: &str) -> Vec<(u32, u32)> {
+    let (mut styled, mut held) = (BTreeSet::new(), BTreeSet::new());
+    for line in record.lines() {
+        let Ok(forms) = read_forms(line) else {
+            continue;
+        };
+        let Some(Form::List(l)) = forms.first() else {
+            continue;
+        };
+        let [Form::Sym(head), Form::Str(_), Form::Str(addr), ..] = l.items.as_slice() else {
+            continue;
+        };
+        let Some(r) = parse_a1_range(addr) else {
+            continue;
+        };
+        match head.as_str() {
+            "style" => styled.insert((r.top, r.left)),
+            "cell" | "formula" | "value" => held.insert((r.top, r.left)),
+            _ => false,
+        };
+    }
+    styled.difference(&held).copied().collect()
+}
+
+/// A walked record's window and extent rows, its extent grown by the cells
+/// keeping a format alone (KERNEL.46), as the machine's extent holds them.
+fn header_beside(walked: &str, name: &str, alone: &[(u32, u32)]) -> Vec<String> {
+    if alone.is_empty() {
+        return header(walked).into_iter().map(str::to_string).collect();
+    }
+    let prefix = format!("(extent {} ", quoted(name));
+    let mut extent = header(walked)
+        .into_iter()
+        .find_map(|l| l.strip_prefix(&prefix)?.strip_suffix(')'))
+        .and_then(|e| parse_a1_range(e.trim_matches('"')));
+    for &(row, col) in alone {
+        extent = Some(match extent {
+            None => A1Range {
+                top: row,
+                left: col,
+                bottom: row,
+                right: col,
+            },
+            Some(e) => A1Range {
+                top: e.top.min(row),
+                left: e.left.min(col),
+                bottom: e.bottom.max(row),
+                right: e.right.max(col),
+            },
+        });
+    }
+    let e = extent.expect("a cell grew it");
+    vec![
+        format!("(window {} {})", quoted(name), quoted(&e.text())),
+        format!("(extent {} {})", quoted(name), quoted(&e.text())),
+    ]
+}
+
 /// Every sheet's values, twins included, held to its grid record less its
 /// formula lines, whole and through a window; and each whole record's window
 /// and extent, read from the extents the machine keeps, held to the sheet's
-/// walked in a copy of the workbook. The records held, counted.
+/// walked in a copy of the workbook, the cells keeping a format alone beside
+/// the walk (KERNEL.46). The records held, counted.
 fn values_held(m: &mut Machine, when: &str) -> usize {
     let names: Vec<String> = (0..)
         .map_while(|i| m.sheet_name(i).map(str::to_string))
@@ -954,7 +1024,7 @@ fn values_held(m: &mut Machine, when: &str) -> usize {
         let walked = view_text(&book, &w);
         assert_eq!(
             header(grid),
-            header(&walked),
+            header_beside(&walked, name, &formats_alone(grid)),
             "{when}: {name}'s window and extent"
         );
     }

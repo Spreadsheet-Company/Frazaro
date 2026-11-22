@@ -1981,7 +1981,10 @@ own could not draw them. A format now says them, each property said or not.
   of it written by an earlier row, as `cell` and `formula` rows may; the
   record prints one `style` row a cell, as before. A `style` or `sentence`
   row naming a cell no earlier row wrote is refused naming that cell
-  (`grid-cell-unwritten`), where it was refused as out of its shape.
+  (`grid-cell-unwritten`), where it was refused as out of its shape. Since
+  `KERNEL.46` a `style` row's cell no earlier row wrote keeps the format and
+  nothing else, as Excel's save writes a cell its `ClearContents` emptied,
+  and a `sentence` row's alone is refused.
 - **The oracle.** The language's third, ninth and eleventh laws hold over
   grids whose formats say a font, an alignment and borders
   (`vla-lang/tests/laws.rs`), and `vla-lang/tests/appearance.rs` holds each

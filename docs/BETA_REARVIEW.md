@@ -50289,6 +50289,78 @@ touches but `vla-lang/README.md`.
 *Approved 2026-11-22* at the owner's word, "Approved as recommended; commit the scoping, then build slice 1": the ten
 decisions as recommended, the item to be released in 0.15.0.
 
+*Slice 1 built 2026-11-22: the row in the machine, whole* (decisions 1 to 4, 6 and 7, the laws grown and the machine's
+tests), in a worktree off `434c604`, the prototype read and none of its switches kept.
+- *The row* (`machine/mod.rs`): `write_row` takes `empty`, `put_empty_row` its shape (`shape_of("empty")`), its sheet
+  by `row_sheet`, the lookup a `cell` row's was, so that a twin is `grid-write-last` and an unknown sheet
+  `grid-sheet-unknown` alike, and a block by `write_blocks`. `put_empty` finds the range's formulas, its store's slots
+  and the cells an earlier row changed, never its every cell, so that `A1:XFD1048576` empties what a sheet holds at
+  its cost; gives its formulas up by `release`; and leaves a cell a spill laid. Each emptied cell is counted out of
+  the grid where it held anything before the write (`held_before`) and out of the write's own where an earlier row
+  added it; a value or a formula written into it again in the same write takes its count back first (`unempty`), and
+  `present` and `holds` read it as holding nothing, so that the cap counts a write's emptied cells out of the grid.
+  What the rows emptied stands in the log's `Emptied`, boxed as its names are, so that a write carries one word more
+  beneath the placement's parse that `VLA.1`'s limits pin.
+- *The settle*: an emptied anchor takes its spill at the write (`spills_emptied`): each cell it laid, a block's among
+  them, emptied with it at its line, and its extent and its reason given up (`emptied_settled`). The scoping's walk
+  that never counted "a cell laid by an anchor the write emptied" became this: had the extent shrunk at the write
+  while those cells stood in the store until the next frame, the store's move would have dropped their slots, and
+  the next frame's emptying of them, finding none, would have told no twin. Each emptied cell's slot emptied, its
+  sentence given up, a `sentence` row standing only over a cell a row wrote; and each sheet whose extent an emptied
+  cell stood on the edge of walked in from its edges (`extent_walked`, over `walked_in`): a row or a column holding
+  no slot of its store and no format other than 0 dropped, each asked stopping at its first cell, its store moved
+  over the new extent in place (`Dense::shrink`, rows dropped and columns closed up, the dropped slots alone visited
+  and a text one names freed), the plane the same way (`Raster::shrink`), the shapes that read the extent itself
+  computed whole at the next frame and every window's record whole, as after a growth.
+- *The frame's end*: a written cell whose slot is empty is a cell lost in place (`end_twins`): told where the twin held
+  anything, its readers followed, the twin's store and the plane emptied there, and the twin's extent walked in from
+  its edges where a value stood on one (`twin_walked`), grown first by what the frame gained. The spills' emptied cells
+  take the same walk, where their twin's whole sheet was walked (`KERNEL.55`'s path, *Found* 4 lifted with it). A twin's
+  store follows its sheet's shrunk in place (`Store::follows`). Until that end a twin's view holds an emptied cell as
+  the last frame left it (`emptied_since`, in `twin_cells`), and a twin's store made in between holds it too
+  (`twin_made`, over the extent holding it).
+- *The format kept* (`grid.rs`, `view.rs`, `machine/load.rs`): `Holds::Nothing`, a cell holding a format and nothing
+  of its own, which the machine's walk of a sheet's cells meets beside its store's slots (`Cells::cells`, `cell`): an
+  emptied cell, a format a load took alone, and a cell a spill fills that holds one. `cell_rows` prints its `style`
+  row alone; a box's own test passes it by, so that a spilled cell prints its value and then its format
+  (`rows_at`, `spilled_rows`, which prints a format at a box's cell where nothing is laid too); the fills print it in
+  their `style` rows. A load takes a `style` row over a cell no row wrote as that cell's format alone, making its sheet
+  as a `cell` row does, and keeps one at a cell a spill fills, where `KERNEL.55` set it aside (its *Found* 5 lifted);
+  a `sentence` row's `grid-cell-unwritten` stands. The draft's extent holds its formats (`DraftSheet::extent`,
+  `CellStyles::bounds`), so that a machine's extent at its load holds them as a write leaves them.
+- *Found on the way and fixed, being on the path*: `plane::slot_byte` drew an empty slot 255 where a plane's walk draws
+  0, which no slot met until a spill emptied one (`KERNEL.55`): a kept plane drew 255 at a spill's emptied cell. An
+  empty slot is 0.
+- *The laws* (`tests/laws.rs`): `write_between` empties a rectangle one write in five, value and formula alike, so
+  that every law over the writes between frames holds it; law 9's extent held to the walk of the workbook lent with
+  each cell keeping a format alone beside it (`formats_alone`, `header_beside`), the file model holding none.
+- *The tests* (`machine/mod.rs`, each by name):
+  `an_empty_row_takes_a_cell_out_counts_it_and_a_refused_write_puts_it_back`,
+  `an_emptied_cell_reads_as_a_cell_never_written` (the probe's six readers at a value and a formula emptied and at the
+  text of no characters, Excel's answers), `an_emptied_styled_cell_keeps_its_format_and_a_save_of_it_loads_as_it_was`,
+  `a_spill_s_anchor_emptied_takes_its_spill_and_a_blocker_emptied_lets_one_flow` (the five spills, `I2`'s format worn
+  by the value laid there and saved), `a_block_emptied_whole_is_given_up_and_part_of_one_refused` (the four blocks,
+  their two refusals and `E1:E3`), `a_fill_s_master_emptied_gives_its_next_cell_the_fill` (the three fills, `B2:B5`
+  and `F3:F5` each its own master as Excel's save writes it),
+  `a_database_counts_a_record_a_format_holds_and_none_past_an_extent_walked_in` (`Db1`, `Db3` and `Db4`, 7, 4 and 7, and
+  their extents as Excel's save gives them), `a_rule_stays_over_an_emptied_cell_and_a_rule_of_a_blank_lights_it` and
+  `an_emptied_cell_s_twin_is_lost_in_place_and_its_readers_alone_computed`; `calc/dense.rs`'s
+  `a_store_shrunk_keeps_every_slot_it_holds_at_its_place`. Amended: `tests/appearance.rs`'s third law, now
+  `a_style_row_over_a_cell_no_row_wrote_keeps_its_format_alone_and_a_sentence_row_is_refused`, and the machine's
+  `a_style_row_over_a_range_reads_and_refuses_as_it_did_cell_by_cell`, its model a cell no row wrote keeping a format
+  alone and the sheet no row made its style row's; `WRITE_ROWS` in `grid-row-unknown`'s pin; the treaty's sentence on
+  the `style` row (`conformance/README.md`).
+- *A door's record*: over a workbook too, a box's cell where nothing is laid prints its format, a file's saved cell past
+  a spill's new answer, which no fixture holds; every view, reflect and build golden held.
+- *Verified once*, in the worktree: the workspace's 1,012 tests, 5 ignored, and `run_checks.ps1` 60 of 60, the floors'
+  check running both runners' check modes, every value held and every fixture's bytes within its ceilings, so that no
+  floor moves; then, after `rustfmt` and `spills_emptied`'s frame of its own, what CI runs beside them: `cargo fmt
+  --check`, clippy over every target with and without `c-abi` at `-D warnings`, the language's package's own tests
+  from its tarball, 593 and every file of them, and both wasm modules built, 14 and 10 exports and no import. No timing
+  is this slice's: the runner's empty and its floor are the second's.
+- *Hand test*: none in Excel. The slice moves an engine's writes and the rows a load takes, and no file a door writes,
+  no module of the reference and no catalogue entry.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

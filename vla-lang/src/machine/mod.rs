@@ -123,7 +123,7 @@
 //! rule's answer moved is a change of the rule's own sheet ([`Machine::changed`],
 //! [`Machine::changed_on`], a window's changes).
 //!
-//! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
+//! **The writes.** `cell`, `formula`, `derived` and `empty` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
 //! nothing. A `derived` row is the host's carriage of the Write sheet: a
 //! value that lands only in a value cell, never over a formula. A `formula`
@@ -137,6 +137,19 @@
 //! the same fill, its first cell moved where the write takes it (KERNEL.49's
 //! decision 2); the write's values reach the stores when it settles, and a
 //! refused write puts the formulas back as it found them.
+//!
+//! An `empty` row (KERNEL.46) gives each cell of a range back to no value, as
+//! Excel's `ClearContents` does: its value and its formula go, a formula given up
+//! as a value written over it gives it up, and its format and its rules stay, the
+//! cell printed as its `style` row alone (`grid::Holds::Nothing`), which a load
+//! takes back. A spill's anchor emptied takes its spill with it at the write; a
+//! cell a spill fills holds nothing of its own and is left, as Excel leaves it;
+//! part of a legacy array formula's block is refused as a `cell` row's is. A
+//! sheet's extent shrinks at the write where an emptied cell stood on its edge,
+//! as Excel's used range does, walked in from that edge while a row or column
+//! holds no cell and no format, its store moved over it in place; and each
+//! emptied cell's twin cell is lost in place at the next frame's end, as a
+//! spill's emptied cell's is, its readers followed as any change's.
 //!
 //! **The refusals** are the language's catalogue's: the `grid` family for
 //! the machine's own, `view-*` for the view, `calc-*` for what stops a grid
@@ -200,7 +213,7 @@ pub const CELLS: usize = 1_048_576;
 pub const HANDLES: usize = 16;
 
 /// The rows a write takes, as `grid-row-unknown` lists them.
-pub const WRITE_ROWS: &str = "cell, formula, derived, name and function";
+pub const WRITE_ROWS: &str = "cell, formula, derived, empty, name and function";
 
 /// The value cells a grid keeps room for as written between two frames
 /// (KERNEL.20), so that an engine's write of its Clock at every step makes
@@ -737,6 +750,32 @@ struct Log {
     /// What the write's `name` rows changed (KERNEL.29's third slice), none
     /// for a write of no name.
     named: Option<Box<Named>>,
+    /// What the write's `empty` rows took out (KERNEL.46), none for a write
+    /// that empties no cell.
+    emptied: Option<Box<Emptied>>,
+}
+
+/// What a write's `empty` rows took out (KERNEL.46), boxed in its log as its
+/// names are, so that a write carries one word for it, beneath the
+/// placement's parse that `VLA.1`'s limits pin: each cell emptied, a value
+/// cell's or a formula's, and each cell a spill laid that its anchor emptied
+/// took with it, made at the settle; and how many cells it took out of the
+/// grid and of each sheet, which the settle takes from their counts.
+#[derive(Default)]
+struct Emptied {
+    cells: BTreeSet<CellId>,
+    removed: usize,
+    removed_on: BTreeMap<usize, usize>,
+}
+
+/// Whether a write's earlier `empty` row emptied a cell (KERNEL.46).
+fn emptied_in(log: &Log, id: CellId) -> bool {
+    log.emptied.as_ref().is_some_and(|e| e.cells.contains(&id))
+}
+
+/// How many cells a write's `empty` rows took out of the grid (KERNEL.46).
+fn removed_by(log: &Log) -> usize {
+    log.emptied.as_ref().map_or(0, |e| e.removed)
 }
 
 /// What a write's `name` and `function` rows changed (KERNEL.29's third
@@ -1021,7 +1060,9 @@ impl Machine {
     /// keeps no cell, so the grid is lent as a copy, made when asked, as a
     /// door and a test ask. A sheet's name and place are
     /// [`Machine::find_sheet`]'s and [`Machine::sheet_name`]'s, which need no
-    /// copy.
+    /// copy. A cell keeping a format and no value (KERNEL.46) is no cell of
+    /// the copy, the file model holding no empty content (`KERNEL.57`'s
+    /// *Found*), so a copy's sheet's extent may be the machine's less it.
     pub fn workbook(&self) -> Workbook {
         let mut wb = Workbook::new();
         wb.styles = self.book.styles.clone();
@@ -2579,9 +2620,38 @@ impl Machine {
             #[cfg(test)]
             crate::sheet::work::copied();
             let (s, row, col) = id;
-            // A write empties no cell: the store holds a slot at every cell
-            // of its sheet (KERNEL.49).
+            // A cell a write emptied (KERNEL.46), its store holding nothing
+            // there: its twin cell lost in place, as a spill's emptied cell's
+            // is (KERNEL.55), told as a change where the twin held anything,
+            // its readers followed as any change's, the twin's store and the
+            // plane emptied there, and the twin's extent walked in where a
+            // value stood on its edge; where the twin's loss made a frame
+            // whole, an emptying write cost Superposition 40 ms where 0.34.
             let Some(slot) = stores[s].slot_of(row, col).filter(|x| !x.is_empty()) else {
+                if matches!(was, Held::Nothing) {
+                    continue;
+                }
+                note(twin_count, *room, every_next);
+                twin_written.push((sheets + s, row, col));
+                if copied_into[s] & 1 != 0 {
+                    if let Some(twin) = twins[s].as_mut() {
+                        twin.put_slot(row, col, Stored::Empty);
+                    }
+                }
+                if copied_into[s] & 2 != 0 {
+                    if let Some(r) = planes[s].as_mut() {
+                        r.set(row, col, plane::slot_byte(Stored::Empty));
+                    }
+                }
+                // A reason the twin held is no twin cell.
+                if matches!(was, Held::Cell(_)) && !edges.contains(&s) {
+                    let edge = extents[sheets + s].is_some_and(|((top, left), (bottom, right))| {
+                        row == top || row == bottom || col == left || col == right
+                    });
+                    if edge {
+                        edges.push(s);
+                    }
+                }
                 continue;
             };
             let formula = book.pages[s].formula(row, col).is_some();
@@ -2638,11 +2708,15 @@ impl Machine {
                 self.every_next = true;
                 self.extents[sheets + s] = self.twin_extent(s);
             } else if edges.contains(&s) {
-                // A twin a spill emptied a cell of on its extent's edge
-                // (KERNEL.55): its extent made again, and moved as a growth
-                // moves it where it shrank.
+                // A twin a spill or a write emptied a cell of on its extent's
+                // edge (KERNEL.55; KERNEL.46): its extent, grown by the cells it
+                // gained, walked in from its edges, and moved as a growth moves
+                // it where it shrank; where its whole sheet was walked for it.
                 let t = sheets + s;
-                let now = self.twin_extent(s);
+                let from = gained.map_or(self.extents[t], |((top, left), (bottom, right))| {
+                    grown(grown(self.extents[t], top, left), bottom, right)
+                });
+                let now = self.twin_walked(s, from);
                 if now != self.extents[t] {
                     self.extents[t] = now;
                     self.note_extent_moved(t);
@@ -2736,7 +2810,23 @@ impl Machine {
         let limit = dense::limit(self.book.pages[s].cells, CELLS as u64);
         let mut places: Vec<(u32, u32)> = Vec::new();
         self.stores[s].each_held(&EVERY, &mut |row, col, _| places.push((row, col)));
-        let mut store = Store::over(self.extents[s], limit, places.iter().copied());
+        // A cell a write emptied since (KERNEL.46), which the twin holds until
+        // the next frame's end, the store over the extent that holds it, which
+        // the end takes over the sheet's.
+        let mut extent = self.extents[s];
+        for (&(t, row, col), was) in &self.written_before {
+            if t != s || matches!(was, Held::Nothing) {
+                continue;
+            }
+            if !self.stores[s]
+                .slot_of(row, col)
+                .is_some_and(|x| !x.is_empty())
+            {
+                places.push((row, col));
+                extent = grown(extent, row, col);
+            }
+        }
+        let mut store = Store::over(extent, limit, places.iter().copied());
         for &(row, col) in &places {
             match self.held(s, row, col) {
                 Held::Cell(content) => store.put_content(row, col, Some(&content)),
@@ -2797,6 +2887,12 @@ impl Machine {
                 out.push(((row, col), Cell { content, style: 0 }));
             }
         });
+        // A cell a write emptied since the last frame's end (KERNEL.46), which
+        // its store no longer holds and its twin does until the next.
+        if let Some(gone) = self.emptied_since(s, window) {
+            out.extend(gone);
+            out.sort_by_key(|(at, _)| *at);
+        }
         // A cell a spill emptied in the frame in progress, which its store no
         // longer holds and its twin does (KERNEL.55).
         if let Some(laid) = self.laid.as_deref().filter(|l| !l.before.is_empty()) {
@@ -2825,6 +2921,41 @@ impl Machine {
             }
         }
         out
+    }
+
+    /// The cells of a window a write emptied since the last frame's end
+    /// (KERNEL.46) whose twin holds a value there, each as its twin holds it,
+    /// in row-major order: what a twin's walk of its sheet's store no longer
+    /// meets until the next end tells the loss; `None` where there are none.
+    fn emptied_since(&self, s: usize, window: &A1Range) -> Option<Vec<((u32, u32), Cell)>> {
+        if self.written_before.is_empty() {
+            return None;
+        }
+        let store = &self.stores[s];
+        let mut gone: Vec<((u32, u32), Cell)> = self
+            .written_before
+            .iter()
+            .filter(|(&(t, row, col), _)| {
+                t == s
+                    && crate::calc::spill::inside(window, row, col)
+                    && !store.slot_of(row, col).is_some_and(|x| !x.is_empty())
+            })
+            .filter_map(|(&(_, row, col), was)| match was {
+                Held::Cell(content) => Some((
+                    (row, col),
+                    Cell {
+                        content: content.clone(),
+                        style: 0,
+                    },
+                )),
+                _ => None,
+            })
+            .collect();
+        if gone.is_empty() {
+            return None;
+        }
+        gone.sort_by_key(|(at, _)| *at);
+        Some(gone)
     }
 
     /// Each cell a write changed, as its twin held it at the last frame's
@@ -3032,10 +3163,12 @@ impl Machine {
     // ---- the write ------------------------------------------------------
 
     /// Rows written, one a line: `cell`, `formula` or `derived`, each over
-    /// a cell or a range, `name`, a defined name's text, and `function`, a
-    /// function of cells (KERNEL.29's third slice), applied in order; the
-    /// cells changed and the names and functions written counted. A refused
-    /// row changes nothing, the rows before it undone with it.
+    /// a cell or a range, `empty` over a cell or a range, each cell of it given
+    /// back to no value (KERNEL.46), `name`, a defined name's text, and
+    /// `function`, a function of cells (KERNEL.29's third slice), applied in
+    /// order; the cells changed, the cells emptied that held anything, and the
+    /// names and functions written counted. A refused row changes nothing, the
+    /// rows before it undone with it.
     pub fn write(&mut self, text: &str) -> Result<usize, LineRefusal> {
         if let Some(done) = self.progress {
             return Err(LineRefusal {
@@ -3065,6 +3198,9 @@ impl Machine {
         if head == "function" {
             return self.put_function(form, items, line, log);
         }
+        if head == "empty" {
+            return self.put_empty_row(form, items, line, log);
+        }
         if !matches!(head, "cell" | "formula" | "derived") {
             return Err(load::unknown(line, head, WRITE_ROWS));
         }
@@ -3093,34 +3229,16 @@ impl Machine {
             },
             _ => Some(load::datum(third).ok_or_else(|| load::malformed(line, form, head))?),
         };
-        let Some(si) = self.book.find_sheet(sheet) else {
-            let sheets: Vec<&str> = self.book.pages[..self.book.rows]
-                .iter()
-                .map(|p| p.sheet.name.as_str())
-                .collect();
-            return Err(LineRefusal {
-                line,
-                refusal: raise(
-                    "grid-sheet-unknown",
-                    &[
-                        ("target", &format!("{sheet}!{addr}")),
-                        ("name", sheet),
-                        ("sheets", &sheets.join(", ")),
-                    ],
-                ),
-            });
-        };
-        if si >= self.sheets {
-            return Err(load::into_twin(line, &self.book.pages[si].sheet.name, addr));
-        }
-        // The cap: what the range would add to the grid.
+        let si = self.row_sheet(sheet, addr, line)?;
+        // The cap: what the range would add to the grid, the cells an earlier
+        // row emptied taken out of it (KERNEL.46).
         let count = range.cells();
         if count > CELLS as u64 {
             return Err(load::too_many(line, sheet, addr, self.cells as u64 + count));
         }
         let present = self.present(si, range, log);
         let grows = count - present;
-        let now = (self.cells + log.added) as u64;
+        let now = (self.cells + log.added - removed_by(log)) as u64;
         if now + grows > CELLS as u64 {
             return Err(load::too_many(line, sheet, addr, now + grows));
         }
@@ -3153,6 +3271,34 @@ impl Machine {
             (None, Form::Str(text)) => self.put_formula(si, range, &text[1..], kind, line, log),
             (None, _) => Err(load::malformed(line, form, head)),
         }
+    }
+
+    /// The rows' sheet a row writes into, by name as Excel compares names: one
+    /// the grid does not hold refused naming those it does
+    /// (`grid-sheet-unknown`), and a twin refused naming the cell to write
+    /// instead (`grid-write-last`).
+    fn row_sheet(&self, sheet: &str, addr: &str, line: u32) -> Result<usize, LineRefusal> {
+        let Some(si) = self.book.find_sheet(sheet) else {
+            let sheets: Vec<&str> = self.book.pages[..self.book.rows]
+                .iter()
+                .map(|p| p.sheet.name.as_str())
+                .collect();
+            return Err(LineRefusal {
+                line,
+                refusal: raise(
+                    "grid-sheet-unknown",
+                    &[
+                        ("target", &format!("{sheet}!{addr}")),
+                        ("name", sheet),
+                        ("sheets", &sheets.join(", ")),
+                    ],
+                ),
+            });
+        };
+        if si >= self.sheets {
+            return Err(load::into_twin(line, &self.book.pages[si].sheet.name, addr));
+        }
+        Ok(si)
     }
 
     /// The blocks a write meets (KERNEL.55, decision 7 in an engine, the
@@ -3429,20 +3575,32 @@ impl Machine {
 
     /// How many cells a range holds as the write in progress leaves it: those
     /// its sheet's store holds, a slot at every cell (KERNEL.49), and those an
-    /// earlier row of the write added.
+    /// earlier row of the write added, less those an earlier row emptied
+    /// (KERNEL.46).
     fn present(&self, si: usize, range: A1Range, log: &Log) -> u64 {
         let store = &self.stores[si];
-        let added = log
+        let (mut added, mut gone) = (0, 0);
+        for (&(_, row, col), _) in log
             .changed
             .range((si, range.top, range.left)..=(si, range.bottom, range.right))
             .filter(|(&(_, _, col), _)| col >= range.left && col <= range.right)
-            .filter(|(&(_, row, col), _)| !store.slot_of(row, col).is_some_and(|x| !x.is_empty()))
-            .count();
-        store.count_in(&range) + added as u64
+        {
+            let stored = store.slot_of(row, col).is_some_and(|x| !x.is_empty());
+            match (stored, emptied_in(log, (si, row, col))) {
+                (false, false) => added += 1,
+                (true, true) => gone += 1,
+                _ => {}
+            }
+        }
+        store.count_in(&range) + added - gone
     }
 
-    /// Whether a cell holds anything as the write in progress leaves it.
+    /// Whether a cell holds anything as the write in progress leaves it, a
+    /// cell an earlier row emptied nothing (KERNEL.46).
     fn holds(&self, (si, row, col): CellId, log: &Log) -> bool {
+        if log.emptied.is_some() && emptied_in(log, (si, row, col)) {
+            return false;
+        }
         log.changed.contains_key(&(si, row, col))
             || (self.stores[si]
                 .slot_of(row, col)
@@ -3543,11 +3701,14 @@ impl Machine {
                 let formula = formulas.contains(&(row, col));
                 if !formula {
                     // A cell a spill laid holds its anchor's value and none of
-                    // its own (KERNEL.55).
+                    // its own (KERNEL.55); one an earlier row emptied holds
+                    // nothing, whatever its store held before the write
+                    // (KERNEL.46).
                     let same = match log.contents.get(&id) {
                         Some(held) => held == content,
                         None => {
                             !self.is_laid(id)
+                                && !emptied_in(log, id)
                                 && self.stores[si]
                                     .constant(row, col)
                                     .is_some_and(|held| held.is(content))
@@ -3557,6 +3718,7 @@ impl Machine {
                         continue;
                     }
                 }
+                self.unempty(id, log);
                 if !formula && !self.holds(id, log) {
                     log.added += 1;
                     *log.added_on.entry(si).or_default() += 1;
@@ -3587,9 +3749,13 @@ impl Machine {
         }
         // The range's cells counted before its formulas are given up, a cell
         // the write adds counted once (KERNEL.34; the cells were looked up
-        // four times).
+        // four times), one an earlier row emptied given its count back first
+        // (KERNEL.46).
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
+                if log.emptied.is_some() {
+                    self.unempty((si, row, col), log);
+                }
                 if !self.holds((si, row, col), log) {
                     log.added += 1;
                     *log.added_on.entry(si).or_default() += 1;
@@ -3623,6 +3789,135 @@ impl Machine {
         log.sheets.entry(si).or_insert(self.extents[si]);
         log.written += differs;
         Ok(())
+    }
+
+    /// An `empty` row (KERNEL.46), `(empty "<sheet>" "<cell or range>")`: its
+    /// sheet a rows' sheet, a twin refused as a `cell` row's is
+    /// (`grid-write-last`); a legacy array formula's block it holds whole given
+    /// up and any other part of one refused (`grid-write-block`), as Excel
+    /// refuses to clear part of an array; then each cell of the range emptied
+    /// ([`Machine::put_empty`]). The range is never walked cell by cell, so a
+    /// whole sheet's empties what it holds at the cost of what it holds.
+    fn put_empty_row(
+        &mut self,
+        form: &Form,
+        items: &[Form],
+        line: u32,
+        log: &mut Log,
+    ) -> Result<(), LineRefusal> {
+        let [Form::Str(sheet), Form::Str(addr)] = items else {
+            return Err(load::malformed(line, form, "empty"));
+        };
+        let Some(range) = parse_a1_range(addr) else {
+            return Err(load::malformed(line, form, "empty"));
+        };
+        let si = self.row_sheet(sheet, addr, line)?;
+        if !self.book.blocks.is_empty() {
+            self.write_blocks(si, range, false, (sheet, addr, line), log)?;
+        }
+        self.put_empty(si, range, line, log);
+        Ok(())
+    }
+
+    /// Every cell a range holds as the write in progress leaves it taken out
+    /// of its sheet (KERNEL.46), as Excel's `ClearContents` takes a cell's
+    /// value and its formula and leaves its format: a formula given up as a
+    /// value written over it gives it up ([`Machine::release`]), a fill whose
+    /// first cell it holds anchored at its next; a value cell's slot, and a
+    /// formula's, emptied at the settle, the store holding until then what the
+    /// cell held before the write; each counted out of the grid where it held
+    /// anything before the write, and out of the write's own where an earlier
+    /// row added it. A cell a spill laid holds its anchor's value and nothing of
+    /// its own, and is left, as Excel's `ClearContents` of a spilled cell is
+    /// done and leaves the spill standing; its anchor emptied takes it (the
+    /// settle). The cells found are the range's formulas, its store's slots
+    /// and the cells an earlier row of the write changed, never its every cell.
+    fn put_empty(&mut self, si: usize, range: A1Range, line: u32, log: &mut Log) {
+        let mut formulas: BTreeSet<(u32, u32)> = BTreeSet::new();
+        self.book.pages[si].formulas_in(&range, &mut |at, _| {
+            formulas.insert(at);
+        });
+        let mut cells: BTreeSet<(u32, u32)> = formulas.clone();
+        self.stores[si].each_held(&range, &mut |row, col, slot| {
+            if !slot.is_empty() {
+                cells.insert((row, col));
+            }
+        });
+        for (&(_, row, col), _) in log
+            .changed
+            .range((si, range.top, range.left)..=(si, range.bottom, range.right))
+        {
+            if col >= range.left && col <= range.right {
+                cells.insert((row, col));
+            }
+        }
+        if cells.is_empty() {
+            return;
+        }
+        if !formulas.is_empty() {
+            self.release(si, range, log);
+        }
+        for (row, col) in cells {
+            let id = (si, row, col);
+            let formula = formulas.contains(&(row, col));
+            if !formula && self.is_laid(id) && !log.contents.contains_key(&id) {
+                continue;
+            }
+            if emptied_in(log, id) {
+                continue;
+            }
+            // Held before the write, the store written only at the settle:
+            // counted out of the grid. Else an earlier row added it: counted
+            // out of the write's own. Else it holds nothing now.
+            let before = self.held_before(id);
+            let added = log.changed.contains_key(&id);
+            if !before && !added {
+                continue;
+            }
+            let emptied = log.emptied.get_or_insert_with(Box::default);
+            if before {
+                emptied.removed += 1;
+                *emptied.removed_on.entry(si).or_default() += 1;
+            } else {
+                log.added -= 1;
+                *log.added_on.entry(si).or_default() -= 1;
+            }
+            emptied.cells.insert(id);
+            log.contents.remove(&id);
+            log.changed.entry(id).or_insert(line);
+            log.sheets.entry(si).or_insert(self.extents[si]);
+            log.written += 1;
+        }
+    }
+
+    /// Whether a cell held anything of its own before the write in progress,
+    /// as its sheet's store still holds it until the settle (KERNEL.46): a
+    /// value cell's slot or a formula's, a cell a spill laid holding none.
+    fn held_before(&self, (si, row, col): CellId) -> bool {
+        self.stores[si]
+            .slot_of(row, col)
+            .is_some_and(|x| !x.is_empty())
+            && !self.is_laid((si, row, col))
+    }
+
+    /// A cell an earlier `empty` row of the write emptied, written again
+    /// (KERNEL.46): no longer emptied, its count put back as the emptying took
+    /// it, so that a cell emptied and written again in one write is counted
+    /// once, as a cell written twice is.
+    fn unempty(&self, id: CellId, log: &mut Log) {
+        let Some(emptied) = log.emptied.as_mut() else {
+            return;
+        };
+        if !emptied.cells.remove(&id) {
+            return;
+        }
+        if self.held_before(id) {
+            emptied.removed -= 1;
+            *emptied.removed_on.entry(id.0).or_default() -= 1;
+        } else {
+            log.added += 1;
+            *log.added_on.entry(id.0).or_default() += 1;
+        }
     }
 
     /// The cells of a range whose formula would read otherwise with `text`
@@ -3922,10 +4217,12 @@ impl Machine {
         if log.changed.is_empty() {
             return Ok(log.written);
         }
-        // No write empties a cell (below), so each written sheet's extent is
-        // its extent grown by the cells the write changed (KERNEL.54), where
-        // every cell of the sheet was walked for it: one value written into
-        // a sheet of 458,753 cells cost 5.2 ms.
+        // Each written sheet's extent is its extent grown by the cells the
+        // write changed (KERNEL.54), where every cell of the sheet was walked
+        // for it: one value written into a sheet of 458,753 cells cost 5.2 ms.
+        // A cell the write emptied stands inside it already, and the extent
+        // walked in from an edge one stood on once its slots are emptied
+        // (KERNEL.46, [`Machine::settled`]).
         for &(s, row, col) in log.changed.keys() {
             self.extents[s] = grown(self.extents[s], row, col);
         }
@@ -3987,7 +4284,129 @@ impl Machine {
             // a plan made again moves none, where it moved each to its cell's
             // new position in the order (KERNEL.26).
         }
+        if log.emptied.is_some() && self.laid.is_some() {
+            self.spills_emptied(&mut log);
+        }
         Ok(self.settled(&log, formula_changed, &parts_kept))
+    }
+
+    /// The cells a spill or a block laid whose anchor the write emptied
+    /// (KERNEL.46), each emptied with it, as Excel's `ClearContents` of an
+    /// anchor takes its spill, so that the sheet's extent walked at the settle
+    /// stands where a load of the grid's cells makes it; each written since at
+    /// its anchor's line, told at the next frame's end against its twin as an
+    /// emptied cell is, and counted nowhere, a laid cell being no cell of the
+    /// sheet's own. A cell the write wrote is its own and left. The plan stands,
+    /// so nothing here is undone. In a frame of its own, as `settled` is, so that
+    /// none of its locals stands in the settle's frame beneath the placement's
+    /// parse, which `VLA.1`'s limits pin on a stack of 1 MiB.
+    #[inline(never)]
+    fn spills_emptied(&mut self, log: &mut Log) {
+        let (Some(laid), Some(emptied)) = (self.laid.as_deref(), log.emptied.as_deref_mut()) else {
+            return;
+        };
+        let mut taken: Vec<(CellId, u32)> = laid
+            .cells
+            .iter()
+            .filter(|&(cell, anchor)| {
+                emptied.cells.contains(anchor) && !log.changed.contains_key(cell)
+            })
+            .filter_map(|(&cell, anchor)| Some((cell, *log.changed.get(anchor)?)))
+            .collect();
+        // The laid cells are kept by a hash: the cells taken in their order.
+        taken.sort_unstable();
+        for (cell, line) in taken {
+            emptied.cells.insert(cell);
+            log.changed.insert(cell, line);
+        }
+    }
+
+    /// What a write's emptied cells leave once their slots are emptied
+    /// (KERNEL.46): each anchor among them gives up its spill's extent and its
+    /// reason, its cells emptied with it; each cell's sentence is given up, a
+    /// `sentence` row standing over a cell a row wrote; and each sheet whose
+    /// extent an emptied cell stood on the edge of is walked in from it
+    /// ([`Machine::extent_walked`]), as Excel's used range shrinks at the
+    /// clear, its store moved over the extent in place where it shrank, and
+    /// the record's head and the shapes that read the extent itself told, as
+    /// after a write that grew it.
+    fn emptied_settled(&mut self, emptied: &Emptied) {
+        if let Some(laid) = self.laid.as_deref_mut() {
+            laid.extents
+                .retain(|anchor, _| !emptied.cells.contains(anchor));
+            if !laid.reasons.is_empty() {
+                laid.reasons
+                    .retain(|anchor, _| !emptied.cells.contains(anchor));
+                self.box_reasons = !laid.reasons.is_empty();
+            }
+        }
+        let mut edged: Vec<usize> = Vec::new();
+        for &(s, row, col) in &emptied.cells {
+            let sentences = &mut self.book.pages[s].sheet.sentences;
+            if !sentences.is_empty() {
+                sentences.remove(&(row, col));
+            }
+            let edge = self.extents[s].is_some_and(|((top, left), (bottom, right))| {
+                row == top || row == bottom || col == left || col == right
+            });
+            if edge && !edged.contains(&s) {
+                edged.push(s);
+            }
+        }
+        for s in edged {
+            let now = self.extent_walked(s);
+            if now == self.extents[s] {
+                continue;
+            }
+            self.extents[s] = now;
+            self.reshaped = true;
+            self.note_extent_moved(s);
+            let limit = dense::limit(self.book.pages[s].cells, CELLS as u64);
+            #[cfg(test)]
+            let was_sparse = matches!(self.stores[s], Store::Sparse(_));
+            let store = std::mem::replace(
+                &mut self.stores[s],
+                Store::over(None, 0, std::iter::empty()),
+            );
+            self.stores[s] = store.moved(now, limit);
+            #[cfg(test)]
+            if !(was_sparse && matches!(self.stores[s], Store::Sparse(_))) {
+                self.stores_moved += 1;
+            }
+        }
+    }
+
+    /// A rows' sheet's extent walked in from its edges (KERNEL.46): each edge
+    /// moved in while its row or its column holds no cell, a slot of its store,
+    /// a value cell's, a formula's or a standing spill's, and no cell of a
+    /// format other than 0, as Excel's used range holds a cell that keeps a
+    /// format and no rule's; `None` for a sheet holding neither. A row or a
+    /// column asked stops at its first cell, so that a walk where the extent
+    /// stands costs a row or a column a side, and one where it moves the cells
+    /// it moves past.
+    fn extent_walked(&self, s: usize) -> Extent {
+        let store = &self.stores[s];
+        let styles = &self.book.pages[s].styles;
+        walked_in(self.extents[s], |line| {
+            store.walk(&line).next().is_some() || styles.any_in(line)
+        })
+    }
+
+    /// A twin's extent walked in from its edges at a frame's end (KERNEL.46),
+    /// from `from`, which holds every cell the twin holds: each edge moved in
+    /// while its row or its column holds no twin cell, its sheet's slots there
+    /// being the frame's values, a value cell's or a formula's value, never a
+    /// reason or a formula with no value; `None` for a twin holding none. A
+    /// cell a spill or a write emptied on its edge costs a row or a column a
+    /// side where it stands, where its whole sheet was walked (KERNEL.55).
+    fn twin_walked(&self, s: usize, from: Extent) -> Extent {
+        debug_assert!(self.written_before.is_empty() && self.before.is_empty());
+        let store = &self.stores[s];
+        walked_in(from, |line| {
+            store
+                .walk(&line)
+                .any(|(row, col)| holds_cell(store.slot_of(row, col)))
+        })
     }
 
     /// The settle's tail, once the plan stands: the twins remembered, the
@@ -4018,18 +4437,24 @@ impl Machine {
                 self.indexes.changed(*id);
             }
         }
-        // A write never empties a cell: it only adds cells or changes them.
         // A formula changed, and the next frame computes it and what follows
-        // from its answer (KERNEL.69); a value cell changed or added, and the
-        // next follows it to the cells that read it (KERNEL.20; KERNEL.56): a
-        // value cell added moves no formula's place, and its readers are found
-        // by its place as a changed one's are, whether or not it held a value.
-        // The room kept for the twin cells' changes grows with the cells, as
-        // `fit` keeps it, which a write that refitted the plan for an added cell
-        // emptied the shapes' parts to find.
+        // from its answer (KERNEL.69); a value cell changed, added or emptied
+        // (KERNEL.46), and the next follows it to the cells that read it
+        // (KERNEL.20; KERNEL.56): a value cell added moves no formula's place,
+        // and its readers are found by its place as a changed one's are,
+        // whether or not it held a value. The room kept for the twin cells'
+        // changes follows the cells, as `fit` keeps it, which a write that
+        // refitted the plan for an added cell emptied the shapes' parts to find.
         self.cells += log.added;
         for (&s, &n) in &log.added_on {
             self.book.pages[s].cells += n;
+        }
+        let removed = removed_by(log);
+        if let Some(emptied) = log.emptied.as_deref() {
+            self.cells -= emptied.removed;
+            for (&s, &n) in &emptied.removed_on {
+                self.book.pages[s].cells -= n;
+            }
         }
         if formula_changed {
             // A cell's kind may have changed, which no twin cell's change
@@ -4044,7 +4469,7 @@ impl Machine {
             if log.changed.len() + self.carried.len() > self.room {
                 self.every_next = true;
             }
-        } else if log.added > 0 {
+        } else if log.added > 0 || removed > 0 {
             self.room = self.twin_room();
         }
         // A sheet whose extent the write moved (KERNEL.56): every window's
@@ -4086,10 +4511,14 @@ impl Machine {
             }
         }
         // Each changed cell's slot: a value cell's content as written, a
-        // formula's value forgotten until the next frame computes it.
+        // formula's value forgotten until the next frame computes it, and an
+        // emptied cell's emptied (KERNEL.46).
         for id in log.changed.keys() {
             match log.contents.get(id) {
                 Some(content) => self.stores[id.0].put_content(id.1, id.2, Some(content)),
+                None if emptied_in(log, *id) => {
+                    self.stores[id.0].put_content(id.1, id.2, None);
+                }
                 None => self.stores[id.0].put_computed(id.1, id.2, None),
             }
             if self.shapes.holds(*id) {
@@ -4124,17 +4553,21 @@ impl Machine {
                 laid.again.extend(anchors);
             }
         }
+        if let Some(emptied) = log.emptied.as_deref() {
+            self.emptied_settled(emptied);
+        }
         // A plane kept for a sheet the write changed takes each changed
         // cell's byte where it stands, the plane taken over an extent the
-        // write grew (KERNEL.56), where it was dropped and the walk answered
-        // until the next frame's end made it again from every cell of its
-        // sheet (KERNEL.24); one past the limit is dropped. A refused write
-        // never reaches here, having changed nothing.
+        // write grew (KERNEL.56) or shrank (KERNEL.46), where it was dropped
+        // and the walk answered until the next frame's end made it again from
+        // every cell of its sheet (KERNEL.24); one past the limit is dropped. A
+        // refused write never reaches here, having changed nothing.
         for &s in log.sheets.keys() {
             let Some(raster) = self.planes[s].as_mut() else {
                 continue;
             };
-            if !raster.regrow(self.extents[s], CELLS as u64) {
+            let extent = self.extents[s];
+            if !raster.regrow(extent, CELLS as u64) && !raster.shrink(extent) {
                 self.planes[s] = None;
                 continue;
             }
@@ -4623,7 +5056,10 @@ impl Cells for Machine {
     /// A rows' sheet's cells as its grid and its store hold them, row by
     /// row: each place its store holds a slot at, a formula's where the grid
     /// holds one and a value cell's content as written elsewhere, lent where
-    /// it stands (KERNEL.49); a twin's made from its sheet.
+    /// it stands (KERNEL.49); and since KERNEL.46 each place holding a format
+    /// and nothing of its own, a cell emptied, a format a load took alone and a
+    /// cell a spill fills, met beside the store's walk in its order
+    /// (`Holds::Nothing`); a twin's made from its sheet.
     fn cells<'a>(
         &'a self,
         sheet: usize,
@@ -4633,30 +5069,57 @@ impl Cells for Machine {
         let Some(s) = sheet.checked_sub(self.sheets) else {
             let page = &self.book.pages[sheet];
             let store = &self.stores[sheet];
-            // Each cell's formula, format and sentence met beside the store's
-            // walk, in its order, and never looked up (KERNEL.49).
+            // Each cell's formula and sentence met beside the store's walk, in
+            // its order, and never looked up (KERNEL.49); the formats walked
+            // with it, a place of a format alone met between its places.
             let mut formulas = grid::Beside::new(page.formulas_iter(window));
-            let mut styles = grid::Beside::new(page.styles.in_window(window));
+            let mut styled = page
+                .styles
+                .in_window(window)
+                .filter(|&(_, format)| format != 0)
+                .peekable();
             let mut sentences = grid::Beside::new(grid::in_window(&page.sheet.sentences, window));
             // A cell a spill laid is its anchor's, and no value cell (KERNEL.55).
             let laid = self.laid.as_deref().filter(|l| !l.cells.is_empty());
-            for (row, col) in store.walk(window) {
-                let holds = match formulas.at((row, col)) {
-                    Some(formula) => Holds::Formula(formula),
-                    None if laid.is_some_and(|l| l.cells.contains_key(&(sheet, row, col))) => {
-                        continue
+            let mut places = store.walk(window).peekable();
+            loop {
+                let (at, held) = match (places.peek(), styled.peek()) {
+                    (None, None) => break,
+                    (Some(&p), Some(&(q, _))) if q < p => (q, false),
+                    (None, Some(&(q, _))) => (q, false),
+                    (Some(&p), _) => (p, true),
+                };
+                let style = match styled.next_if(|&(q, _)| q == at) {
+                    Some((_, format)) => format,
+                    None => 0,
+                };
+                if held {
+                    places.next();
+                }
+                let (row, col) = at;
+                let holds = if !held {
+                    Holds::Nothing
+                } else {
+                    match formulas.at(at) {
+                        Some(formula) => Holds::Formula(formula),
+                        None if laid.is_some_and(|l| l.cells.contains_key(&(sheet, row, col))) => {
+                            match style {
+                                0 => continue,
+                                _ => Holds::Nothing,
+                            }
+                        }
+                        None => match store.constant(row, col) {
+                            Some(c) => Holds::Constant(c),
+                            None => continue,
+                        },
                     }
-                    None => match store.constant(row, col) {
-                        Some(c) => Holds::Constant(c),
-                        None => continue,
-                    },
                 };
                 f(
-                    (row, col),
+                    at,
                     grid::Held {
                         holds,
-                        style: styles.at((row, col)).unwrap_or(0),
-                        sentence: sentences.at((row, col)),
+                        style,
+                        sentence: sentences.at(at),
                     },
                 );
             }
@@ -4752,22 +5215,32 @@ impl Cells for Machine {
     fn cell(&self, sheet: usize, row: u32, col: u32) -> Option<grid::Held<'_>> {
         let Some(s) = sheet.checked_sub(self.sheets) else {
             let page = self.book.pages.get(sheet)?;
+            let style = page.style(row, col);
             let holds = match page.formula(row, col) {
                 Some(formula) => Holds::Formula(formula),
                 // A cell a spill laid is its anchor's, and no value cell
-                // (KERNEL.55), as the walk of the cells meets it.
+                // (KERNEL.55), as the walk of the cells meets it, its format
+                // its own (KERNEL.46).
                 None if self
                     .laid
                     .as_deref()
                     .is_some_and(|l| l.cells.contains_key(&(sheet, row, col))) =>
                 {
-                    return None
+                    match style {
+                        0 => return None,
+                        _ => Holds::Nothing,
+                    }
                 }
-                None => Holds::Constant(self.stores[sheet].constant(row, col)?),
+                None => match self.stores[sheet].constant(row, col) {
+                    Some(c) => Holds::Constant(c),
+                    // A cell of a format and nothing of its own (KERNEL.46).
+                    None if style != 0 => Holds::Nothing,
+                    None => return None,
+                },
             };
             return Some(grid::Held {
                 holds,
-                style: page.style(row, col),
+                style,
                 sentence: page.sheet.sentences.get(&(row, col)).copied(),
             });
         };
@@ -5210,6 +5683,37 @@ impl Grew {
 
 /// An extent grown by a cell (KERNEL.54; KERNEL.56): the cell alone where
 /// there was none.
+/// An extent walked in from its edges (KERNEL.46): the top moved down while
+/// its row holds nothing by `holds`, then the bottom up, then the left and the
+/// right in over the rows left, each asked of a row or a column at a time;
+/// `None` where no row holds anything. Exact where `extent` holds every cell
+/// `holds` meets: each edge stops at the first row or column holding one.
+fn walked_in(extent: Extent, holds: impl Fn(A1Range) -> bool) -> Extent {
+    let ((mut top, mut left), (mut bottom, mut right)) = extent?;
+    let line = |top, left, bottom, right| A1Range {
+        top,
+        left,
+        bottom,
+        right,
+    };
+    while !holds(line(top, left, top, right)) {
+        if top == bottom {
+            return None;
+        }
+        top += 1;
+    }
+    while !holds(line(bottom, left, bottom, right)) {
+        bottom -= 1;
+    }
+    while !holds(line(top, left, bottom, left)) {
+        left += 1;
+    }
+    while !holds(line(top, right, bottom, right)) {
+        right -= 1;
+    }
+    Some(((top, left), (bottom, right)))
+}
+
 fn grown(extent: Extent, row: u32, col: u32) -> Extent {
     Some(match extent {
         None => ((row, col), (row, col)),
@@ -5647,7 +6151,7 @@ mod tests {
         }
         match Cells::cell(m, i, r.top, r.left)?.holds {
             Holds::Constant(c) => Some(c.content()),
-            Holds::Formula(_) => panic!("a twin holds no formula"),
+            Holds::Formula(_) | Holds::Nothing => panic!("a twin holds a value or nothing"),
         }
     }
 
@@ -6041,7 +6545,7 @@ mod tests {
         assert!(
             e.refusal
                 .text
-                .contains("cell, formula, derived, name and function"),
+                .contains("cell, formula, derived, empty, name and function"),
             "{}",
             e.refusal.text
         );
@@ -6723,7 +7227,7 @@ mod tests {
             Holds::Constant(c) => {
                 out.insert(at, c.content());
             }
-            Holds::Formula(_) => panic!("a twin holds no formula"),
+            Holds::Formula(_) | Holds::Nothing => panic!("a twin holds a value or nothing"),
         });
         out
     }
@@ -18190,13 +18694,16 @@ mod tests {
         // KERNEL.67: style rows over ranges of written cells on two sheets,
         // overlapping, of one format and of another, format 0 among them, and
         // now and then over a cell no row wrote or on a sheet no row made,
-        // each load held to today's loop, which walked a range cell by cell
-        // (written here): every cell's format as the draft's workbook, a
-        // machine's cell, its windows and its workbook read it, and a cell
-        // taken giving its format up; or the same refusal, at the same line,
-        // naming the same cell and the same first line.
+        // each load held to a loop that walks a range cell by cell (written
+        // here): every cell's format as the draft's workbook, a machine's cell,
+        // its windows and its workbook read it, and a cell taken giving its
+        // format up; or the same refusal, at the same line, naming the same cell
+        // and the same first line. Since KERNEL.46 a cell no row wrote keeps a
+        // format other than 0 alone, which the machine's cell and its windows
+        // read and the draft's workbook and the machine's hold no cell for, and
+        // a sheet no row made is made by its style row, as a cell row makes it.
         let quoted = crate::rows::quoted;
-        let (mut taken, mut twice, mut unwritten) = (0, 0, 0);
+        let (mut taken, mut twice, mut alone) = (0, 0, 0);
         for seed in 1..=240u64 {
             let mut d = Dice(seed ^ 0x6767);
             // A cell of each sheet beyond every range, so that S is the first
@@ -18259,22 +18766,13 @@ mod tests {
                 style_rows.push((line, name, si, x, format));
             }
             let forms = read_forms(&rows).unwrap();
-            // Today's loop: the range's cells found written one by one, then
-            // walked row by row, the first of another format refused naming
-            // the line that styled it.
+            // The loop: each range's cells walked row by row, the first of
+            // another format refused naming the line that styled it; the sheet
+            // no row made the third, its style rows' own.
             let today = || -> Result<BTreeMap<CellId, u32>, LineRefusal> {
                 let mut styled: BTreeMap<CellId, (u32, u32)> = BTreeMap::new();
                 for &(line, name, si, x, format) in &style_rows {
-                    let form = &forms[line as usize - 1];
-                    let Some(si) = si else {
-                        return Err(load::unwritten(line, form, "style", name, (x.top, x.left)));
-                    };
-                    if let Some(&(row, col)) = cells(&x)
-                        .iter()
-                        .find(|&&(row, col)| !written.contains(&(si, row, col)))
-                    {
-                        return Err(load::unwritten(line, form, "style", name, (row, col)));
-                    }
+                    let si = si.unwrap_or(2);
                     for (row, col) in cells(&x) {
                         match styled.get(&(si, row, col)) {
                             Some(&(said, first)) if said != format => {
@@ -18292,24 +18790,35 @@ mod tests {
                         }
                     }
                 }
-                Ok(written
+                let mut want: BTreeMap<CellId, u32> = written
                     .iter()
                     .map(|&id| (id, styled.get(&id).map_or(0, |&(format, _)| format)))
-                    .collect())
+                    .collect();
+                for (&id, &(format, _)) in &styled {
+                    if format != 0 {
+                        want.entry(id).or_insert(format);
+                    }
+                }
+                Ok(want)
             };
             let when = format!("seed {seed}\n{rows}");
             let (draft, want) = match (read_rows(&forms), today()) {
                 (Err(e), Err(want)) => {
                     assert_eq!(e, want, "{when}");
-                    match e.refusal.id.as_str() {
-                        "grid-cell-written-twice" => twice += 1,
-                        _ => unwritten += 1,
-                    }
+                    assert_eq!(e.refusal.id, "grid-cell-written-twice", "{when}");
+                    twice += 1;
                     continue;
                 }
                 (Ok(draft), Ok(want)) => (draft, want),
                 (got, want) => panic!("{when}: {:?} where {:?}", got.err(), want.err()),
             };
+            // The cells the rows wrote, each with its format, which the draft's
+            // workbook and the machine's hold; the rest a format alone.
+            let mut want_written = want.clone();
+            want_written.retain(|id, _| written.contains(id));
+            if want_written.len() < want.len() {
+                alone += 1;
+            }
             let by_workbook = |d: &Draft| -> BTreeMap<CellId, u32> {
                 let book = d.workbook();
                 let mut out = BTreeMap::new();
@@ -18320,7 +18829,11 @@ mod tests {
                 }
                 out
             };
-            assert_eq!(by_workbook(&draft), want, "{when}: the draft's workbook");
+            assert_eq!(
+                by_workbook(&draft),
+                want_written,
+                "{when}: the draft's workbook"
+            );
             let m = Machine::new(draft.clone(), library::language())
                 .unwrap_or_else(|e| panic!("{when}: line {}: {}", e.line, e.refusal.text));
             for (&(si, row, col), &format) in &want {
@@ -18353,11 +18866,11 @@ mod tests {
                     .collect();
                 assert_eq!(seen, inside, "{when}: the window {si} {}", w.text());
             }
-            assert_eq!(styles(&m), want, "{when}: the machine's workbook");
+            assert_eq!(styles(&m), want_written, "{when}: the machine's workbook");
             // Cells taken out of the draft, each with its format, the others'
             // kept; a value put again where one was taken holds none.
             let mut less = draft;
-            let mut left = want;
+            let mut left = want_written;
             let mut out: Vec<CellId> = Vec::new();
             for _ in 0..5 {
                 let ids: Vec<CellId> = left.keys().copied().collect();
@@ -18381,8 +18894,8 @@ mod tests {
             taken += 1;
         }
         assert!(
-            taken > 60 && twice > 50 && unwritten > 50,
-            "taken {taken}, twice {twice}, unwritten {unwritten}"
+            taken > 60 && twice > 50 && alone > 30,
+            "taken {taken}, twice {twice}, a format alone {alone}"
         );
     }
 
@@ -19377,5 +19890,509 @@ mod tests {
         assert!(text.contains("(sentence \"S\" \"A1\" 1)"), "{text}");
         assert!(!text.contains("\"B1\""), "{text}");
         assert!(text.contains("(sentence \"S\" \"C1\" 3)"), "{text}");
+    }
+
+    // ---- KERNEL.46: a write that empties a cell ----
+
+    /// A machine stepped until its frames change nothing, at most sixteen.
+    fn to_rest(m: &mut Machine) {
+        for k in 1..=16 {
+            assert!(m.step(0).done);
+            if k > 1 && m.changed() == 0 {
+                return;
+            }
+        }
+        panic!("the grid never came to rest");
+    }
+
+    /// The rows a record prints at one cell, in its order.
+    fn rows_at(record: &str, sheet: &str, addr: &str) -> Vec<String> {
+        let at = format!(
+            "{} {}",
+            crate::rows::quoted(sheet),
+            crate::rows::quoted(addr)
+        );
+        record
+            .lines()
+            .filter(|l| l.contains(&format!(" {at} ")) || l.ends_with(&format!(" {at})")))
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// A record's `extent` row's text.
+    fn extent_row(record: &str) -> &str {
+        record
+            .lines()
+            .find(|l| l.starts_with("(extent "))
+            .expect("a record names its extent")
+    }
+
+    #[test]
+    fn an_empty_row_takes_a_cell_out_counts_it_and_a_refused_write_puts_it_back() {
+        // KERNEL.46, decisions 1, 6 and 7: `(empty "<sheet>" "<cell or range>")`
+        // takes each cell of its range out, a value and a formula alike, counted
+        // where it held anything; a twin refused as a `cell` row's is, a sheet
+        // the grid does not hold by name, a row out of its shape by its shape;
+        // an emptying undone with a refused row after it; a cell emptied and
+        // written again in one write counted once; and a whole sheet emptied at
+        // the cost of what it holds.
+        let mut m = load(COUNTER);
+        assert!(m.step(0).done);
+        let cells = m.loaded().cells;
+        assert_eq!(m.write("(empty \"Board\" \"D1\")"), Ok(1));
+        assert_eq!(m.loaded().cells, cells - 1, "a count lowered");
+        assert_eq!(
+            m.write("(empty \"Board\" \"D1:F9\")"),
+            Ok(1),
+            "E1 alone held"
+        );
+        assert_eq!(m.formulas().0, 3, "E1's formula given up");
+        assert!(m.step(0).done);
+        assert_eq!(number(&m, "Board", "C1"), 22.0, "A1 2, B1 20");
+        let before = save(&m);
+        let e = m
+            .write("(empty \"Board\" \"A1:C1\")\n(cell \"Nowhere\" \"A1\" 1)")
+            .unwrap_err();
+        assert_eq!((e.line, e.refusal.id.as_str()), (2, "grid-sheet-unknown"));
+        assert_eq!(save(&m), before, "a refused write empties nothing");
+        let e = m.write("(empty \"Board.last\" \"A1\")").unwrap_err();
+        assert_eq!((e.line, e.refusal.id.as_str()), (1, "grid-write-last"));
+        assert!(
+            e.refusal.text.contains("write Board!A1,"),
+            "{}",
+            e.refusal.text
+        );
+        let e = m.write("(empty \"Nowhere\" \"A1\")").unwrap_err();
+        assert_eq!(e.refusal.id, "grid-sheet-unknown");
+        let e = m.write("(empty \"Board\")").unwrap_err();
+        assert_eq!(e.refusal.id, "grid-row-malformed");
+        assert!(
+            e.refusal
+                .text
+                .contains("(empty \"<sheet>\" \"<cell or range>\")"),
+            "{}",
+            e.refusal.text
+        );
+        assert_eq!(save(&m), before);
+        // Emptied and written again in one write: one change, the count kept.
+        let cells = m.loaded().cells;
+        assert_eq!(
+            m.write("(empty \"Board\" \"B1\")\n(cell \"Board\" \"B1\" 7)"),
+            Ok(2)
+        );
+        assert_eq!(m.loaded().cells, cells, "a cell emptied and written again");
+        assert!(m.step(0).done);
+        assert_eq!(number(&m, "Board", "C1"), 10.0, "A1 3, B1 7");
+        // And a value written into a cell an earlier row emptied, the value it
+        // held: no cell lost.
+        assert_eq!(
+            m.write("(empty \"Board\" \"B1\")\n(cell \"Board\" \"B1\" 7)"),
+            Ok(2)
+        );
+        assert_eq!(m.loaded().cells, cells);
+        // A whole sheet, at the cost of what it holds.
+        assert_eq!(m.write("(empty \"Board\" \"A1:XFD1048576\")"), Ok(3));
+        assert_eq!(m.loaded().cells, 0);
+        assert_eq!(m.formulas().0, 0);
+        assert_eq!(
+            extent_row(&grid(&m, "Board", None)),
+            "(extent \"Board\" none)"
+        );
+        assert!(m.step(0).done);
+        assert_eq!(
+            m.write("(empty \"Board\" \"A1\")"),
+            Ok(0),
+            "nothing to empty"
+        );
+    }
+
+    #[test]
+    fn an_emptied_cell_reads_as_a_cell_never_written() {
+        // KERNEL.46, the probe's `Clear` sheet: a value and a formula emptied,
+        // each styled, read by the six readers the library computes as a cell
+        // never written reads, where the text of no characters, what a person's
+        // Delete wrote, reads otherwise: Excel's answers at each.
+        let mut rows = String::from(
+            "(sheet \"Clear\" visible)\n(format 1 \"E0D0F8\" \"0.00\" nowrap (font bold))\n\
+             (cell \"Clear\" \"A1\" 5)\n(cell \"Clear\" \"A3\" \"\")\n\
+             (formula \"Clear\" \"A4\" \"=10*2\")\n(style \"Clear\" \"A1\" 1)\n(style \"Clear\" \"A4\" 1)\n",
+        );
+        for i in 1..=5 {
+            for (col, text) in [
+                ("B", format!("=A{i}+1")),
+                ("C", format!("=A{i}&\"x\"")),
+                ("D", format!("=ISBLANK(A{i})")),
+                ("E", format!("=COUNTA(A{i})")),
+                ("G", format!("=A{i}=\"\"")),
+                ("H", format!("=A{i}=0")),
+            ] {
+                let text = crate::rows::quoted(&text);
+                rows.push_str(&format!("(formula \"Clear\" \"{col}{i}\" {text})\n"));
+            }
+        }
+        let mut m = load(&rows);
+        to_rest(&mut m);
+        assert_eq!(
+            m.write("(empty \"Clear\" \"A1\")\n(empty \"Clear\" \"A4\")"),
+            Ok(2)
+        );
+        to_rest(&mut m);
+        let read = |m: &Machine, i: u32| -> Vec<String> {
+            ["B", "C", "D", "E", "G", "H"]
+                .iter()
+                .map(|col| cleared_at(m, &format!("{col}{i}")))
+                .collect()
+        };
+        let never = ["1", "\"x\"", "true", "0", "true", "true"];
+        for i in [1, 4, 5] {
+            assert_eq!(read(&m, i), never, "Clear!A{i}");
+        }
+        let nothing = [
+            "(error \"#VALUE!\")",
+            "\"x\"",
+            "false",
+            "1",
+            "true",
+            "false",
+        ];
+        assert_eq!(read(&m, 3), nothing, "the text of no characters");
+        // Each emptied cell keeps its format, printed as its style row alone.
+        let record = viewed(&m, "values", "Clear");
+        for addr in ["A1", "A4"] {
+            assert_eq!(
+                rows_at(&record, "Clear", addr),
+                [format!("(style \"Clear\" \"{addr}\" 1)")],
+                "{record}"
+            );
+        }
+    }
+
+    /// A formula's value at a cell of `Clear`, spelled.
+    fn cleared_at(m: &Machine, addr: &str) -> String {
+        at(m, "Clear", addr).map_or("(none)".to_string(), |c| c.spell())
+    }
+
+    #[test]
+    fn an_emptied_styled_cell_keeps_its_format_and_a_save_of_it_loads_as_it_was() {
+        // KERNEL.46, decision 2: a cell keeping a format and no value prints its
+        // `style` row alone in the grid, the values and the fills, its format
+        // still in every record's head; the extent holds it, as Excel's used
+        // range does; and a save at rest loads as it was and resumes.
+        let rows = "(sheet \"S\" visible)\n(format 1 \"E0D0F8\" general nowrap)\n\
+                    (cell \"S\" \"A1:A3\" 5)\n(style \"S\" \"A1:A3\" 1)\n\
+                    (formula \"S\" \"B1\" \"=SUM(A1:A3)\")\n";
+        let mut m = load(rows);
+        to_rest(&mut m);
+        assert_eq!(m.write("(empty \"S\" \"A3\")"), Ok(1));
+        for projection in ["grid", "values", "fills"] {
+            let record = viewed(&m, projection, "S");
+            assert!(record.contains("(format 1 "), "{projection}: {record}");
+            assert_eq!(extent_row(&record), "(extent \"S\" \"A1:B3\")", "{record}");
+        }
+        assert_eq!(
+            rows_at(&viewed(&m, "grid", "S"), "S", "A3"),
+            ["(style \"S\" \"A3\" 1)"]
+        );
+        to_rest(&mut m);
+        assert_eq!(spelled_at(&m, "B1"), "10");
+        let saved = viewed(&m, "fills", "S");
+        assert!(saved.contains("(style \"S\" \"A1:A3\" 1)"), "{saved}");
+        let mut again = load(&saved);
+        assert_eq!(save(&again), save(&m), "a save at rest loads as it was");
+        again.resume_at(m.frame()).unwrap();
+        assert!(m.step(0).done && again.step(0).done);
+        assert_eq!(save(&again), save(&m), "and resumes");
+        // A cell of no format emptied prints nothing, and the extent walks in
+        // from the edge it stood on, a cell keeping a format holding it.
+        assert_eq!(m.write("(empty \"S\" \"B1\")"), Ok(1));
+        assert_eq!(
+            extent_row(&viewed(&m, "grid", "S")),
+            "(extent \"S\" \"A1:A3\")"
+        );
+    }
+
+    #[test]
+    fn a_spill_s_anchor_emptied_takes_its_spill_and_a_blocker_emptied_lets_one_flow() {
+        // KERNEL.46, decision 6, the probe's `Spill` sheet: its blocker emptied,
+        // a spill flows at the next frame; a cell it fills emptied is left, the
+        // spill standing; its anchor emptied takes its spill at the write; the
+        // spill emptied whole goes; and a styled blocker emptied lets the spill
+        // flow into it, the value laid there wearing the format kept, which a
+        // save keeps and a load takes back, as Excel's save keeps `I2`'s.
+        let rows = "(sheet \"S\" visible)\n(format 1 \"E0D0F8\" general nowrap (font bold))\n\
+                    (formula \"S\" \"A1\" \"=SEQUENCE(3)\" dynamic)\n(cell \"S\" \"A3\" 7)\n\
+                    (formula \"S\" \"C1\" \"=SEQUENCE(3)\" dynamic)\n\
+                    (formula \"S\" \"E1\" \"=SEQUENCE(3)\" dynamic)\n\
+                    (formula \"S\" \"G1\" \"=SEQUENCE(3)\" dynamic)\n\
+                    (formula \"S\" \"I1\" \"=SEQUENCE(3)\" dynamic)\n\
+                    (cell \"S\" \"I2\" 5)\n(style \"S\" \"I2\" 1)\n";
+        let mut m = load(rows);
+        to_rest(&mut m);
+        assert_eq!(spelled_at(&m, "A1"), "(error \"#SPILL!\")");
+        assert_eq!(spelled_at(&m, "I1"), "(error \"#SPILL!\")");
+        assert_eq!(m.write("(empty \"S\" \"A3\")"), Ok(1));
+        to_rest(&mut m);
+        assert_eq!(
+            (spelled_at(&m, "A1"), spelled_at(&m, "A3")),
+            ("1".to_string(), "3".to_string()),
+            "the blocker emptied, the spill flows"
+        );
+        assert_eq!(m.write("(empty \"S\" \"C2\")"), Ok(0), "a cell C1 fills");
+        to_rest(&mut m);
+        assert_eq!(spelled_at(&m, "C2"), "2", "the spill stands");
+        assert_eq!(m.write("(empty \"S\" \"E1\")"), Ok(1));
+        let record = viewed(&m, "values", "S");
+        for addr in ["E1", "E2", "E3"] {
+            assert!(rows_at(&record, "S", addr).is_empty(), "{addr}: {record}");
+        }
+        to_rest(&mut m);
+        assert!(rows_at(&viewed(&m, "values", "S"), "S", "E2").is_empty());
+        assert_eq!(m.write("(empty \"S\" \"G1:G3\")"), Ok(1));
+        to_rest(&mut m);
+        assert!(rows_at(&viewed(&m, "values", "S"), "S", "G3").is_empty());
+        assert_eq!(m.write("(empty \"S\" \"I2\")"), Ok(1));
+        to_rest(&mut m);
+        assert_eq!(spelled_at(&m, "I2"), "2");
+        assert_eq!(
+            rows_at(&viewed(&m, "values", "S"), "S", "I2"),
+            ["(value \"S\" \"I2\" 2)", "(style \"S\" \"I2\" 1)"]
+        );
+        let saved = viewed(&m, "fills", "S");
+        assert!(saved.contains("(style \"S\" \"I2\" 1)"), "{saved}");
+        let mut again = load(&saved);
+        assert_eq!(save(&again), save(&m), "a save at rest loads as it was");
+        again.resume_at(m.frame()).unwrap();
+        assert!(m.step(0).done && again.step(0).done);
+        assert_eq!(save(&again), save(&m), "and resumes");
+    }
+
+    #[test]
+    fn a_block_emptied_whole_is_given_up_and_part_of_one_refused() {
+        // KERNEL.46, decision 6, the probe's `Arr` sheet: part of a legacy array
+        // formula's block refused, at a cell inside and at its anchor alone, as
+        // Excel refuses with 1004, the grid as it was; the block emptied whole,
+        // and by a range over it and a cell more; and the extent walked in to the
+        // block left, `E1:E3`, as Excel's save gives the sheet's dimension. `ROW`
+        // reads another range, a formula's own being a cycle (`KERNEL.46`'s
+        // *Found* 7).
+        let mut rows = String::from("(sheet \"Arr\" visible)\n");
+        for col in ["A", "C", "E"] {
+            rows.push_str(&format!(
+                "(formula \"Arr\" \"{col}1\" \"=ROW(Z1:Z3)*10\" array)\n(spill \"Arr\" \"{col}1\" \"{col}1:{col}3\")\n"
+            ));
+        }
+        let mut m = load(&rows);
+        to_rest(&mut m);
+        let before = save(&m);
+        for (row, block) in [
+            ("(empty \"Arr\" \"A2\")", "Arr!A1:A3"),
+            ("(empty \"Arr\" \"E1\")", "Arr!E1:E3"),
+        ] {
+            let e = m.write(row).unwrap_err();
+            assert_eq!(e.refusal.id, "grid-write-block", "{row}");
+            assert!(e.refusal.text.contains(block), "{row}: {}", e.refusal.text);
+            assert_eq!(save(&m), before, "{row}");
+        }
+        assert_eq!(m.write("(empty \"Arr\" \"A1:A3\")"), Ok(1));
+        assert_eq!(m.write("(empty \"Arr\" \"C1:C4\")"), Ok(1));
+        let record = viewed(&m, "values", "Arr");
+        assert_eq!(
+            extent_row(&record),
+            "(extent \"Arr\" \"E1:E3\")",
+            "{record}"
+        );
+        assert!(rows_at(&record, "Arr", "A2").is_empty(), "{record}");
+        to_rest(&mut m);
+        let record = viewed(&m, "values", "Arr");
+        assert_eq!(extent_row(&record), "(extent \"Arr\" \"E1:E3\")");
+        assert_eq!(rows_at(&record, "Arr", "E2"), ["(value \"Arr\" \"E2\" 20)"]);
+    }
+
+    #[test]
+    fn a_fill_s_master_emptied_gives_its_next_cell_the_fill() {
+        // KERNEL.46, decision 6, the probe's `Shared` sheet: a fill's first cell
+        // emptied, its next cell the fill's master, as Excel's save writes `F3`
+        // the group's master with its own text; a cell inside a fill emptied, a
+        // hole the rest keeps; and the first two emptied. Every other cell keeps
+        // its formula and computes its value.
+        let mut rows = String::from("(sheet \"Shared\" visible)\n");
+        for i in 1..=5 {
+            rows.push_str(&format!("(cell \"Shared\" \"A{i}\" {i})\n"));
+        }
+        for (col, k) in [("B", 2), ("D", 3), ("F", 4)] {
+            rows.push_str(&format!(
+                "(formula \"Shared\" \"{col}1:{col}5\" \"=A1*{k}\")\n"
+            ));
+        }
+        let mut m = load(&rows);
+        to_rest(&mut m);
+        assert_eq!(
+            m.write(
+                "(empty \"Shared\" \"B1\")\n(empty \"Shared\" \"D3\")\n(empty \"Shared\" \"F1:F2\")"
+            ),
+            Ok(4)
+        );
+        to_rest(&mut m);
+        let fills = viewed(&m, "fills", "Shared");
+        for row in [
+            "(formula \"Shared\" \"B2:B5\" \"=A2*2\")",
+            "(formula \"Shared\" \"F3:F5\" \"=A3*4\")",
+        ] {
+            assert!(fills.contains(row), "{row}: {fills}");
+        }
+        let grid = viewed(&m, "grid", "Shared");
+        for addr in ["B1", "D3", "F1", "F2"] {
+            assert!(rows_at(&grid, "Shared", addr).is_empty(), "{addr}: {grid}");
+        }
+        for (addr, want) in [
+            ("B2", "4"),
+            ("D2", "6"),
+            ("D4", "12"),
+            ("F3", "12"),
+            ("F5", "20"),
+        ] {
+            let r = parse_a1_range(addr).unwrap();
+            let got = m.computed((0, r.top, r.left)).map(|c| c.spell());
+            assert_eq!(got.as_deref(), Some(want), "Shared!{addr}");
+        }
+        let again = load(&fills);
+        assert_eq!(save(&again), save(&m), "the fills load as they are");
+    }
+
+    #[test]
+    fn a_database_counts_a_record_a_format_holds_and_none_past_an_extent_walked_in() {
+        // KERNEL.46, decisions 2 and 3, the probe's `Db1`, `Db3` and `Db4`
+        // sheets: a database's last cell emptied, styled, its format holding the
+        // record, and plain, the extent walked in; and one holding a format
+        // alone. `DCOUNTA` of a whole column with no field counts the records to
+        // the sheet's last row, as Excel's full recalculation counts them, 7, 4
+        // and 7, where its own recalculation at the clear still said 7; and each
+        // extent as Excel's save gives the sheet's dimension.
+        let mut rows = String::from("(format 1 \"E0D0F8\" \"0.00\" nowrap (font bold))\n");
+        for k in [1, 3, 4] {
+            rows.push_str(&format!(
+                "(sheet \"Db{k}\" visible)\n(cell \"Db{k}\" \"A1\" \"k\")\n"
+            ));
+            for i in 2..=5 {
+                rows.push_str(&format!("(cell \"Db{k}\" \"A{i}\" {})\n", i - 1));
+            }
+            if k != 4 {
+                rows.push_str(&format!("(cell \"Db{k}\" \"A8\" 9)\n"));
+            }
+            if k != 3 {
+                rows.push_str(&format!("(style \"Db{k}\" \"A8\" 1)\n"));
+            }
+        }
+        rows.push_str("(sheet \"Read\" visible)\n(cell \"Read\" \"A1\" \"k\")\n");
+        for k in [1, 3, 4] {
+            rows.push_str(&format!(
+                "(formula \"Read\" \"B{k}\" \"=DCOUNTA(Db{k}!A:A,,$A$1:$A$2)\")\n"
+            ));
+        }
+        let mut m = load(&rows);
+        to_rest(&mut m);
+        let count = |m: &Machine, k: u32| {
+            let i = m.find_sheet("Read").unwrap();
+            m.computed((i, k, 2)).map(|c| c.spell())
+        };
+        for k in [1, 3, 4] {
+            assert_eq!(count(&m, k).as_deref(), Some("7"), "Db{k}, laid");
+        }
+        assert_eq!(
+            m.write("(empty \"Db1\" \"A8\")\n(empty \"Db3\" \"A8\")"),
+            Ok(2)
+        );
+        to_rest(&mut m);
+        for (k, want, extent) in [(1, "7", "A1:A8"), (3, "4", "A1:A5"), (4, "7", "A1:A8")] {
+            assert_eq!(count(&m, k).as_deref(), Some(want), "Db{k}");
+            let name = format!("Db{k}");
+            assert_eq!(
+                extent_row(&viewed(&m, "grid", &name)),
+                format!("(extent \"{name}\" \"{extent}\")"),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rule_stays_over_an_emptied_cell_and_a_rule_of_a_blank_lights_it() {
+        // KERNEL.46, decision 2, the probe's `CF` sheet: a cell emptied keeps its
+        // rules, as `ClearContents` keeps them; a rule of a value no longer
+        // lights it, and a rule of a blank lights it, as Excel drew `C1` green,
+        // the cell printing its `lit` row alone; and the extent walks in past the
+        // row the two stood on, a rule holding no cell in it, as Excel's used
+        // range holds none, the rule lighting its cell all the same.
+        let rows = "(sheet \"CF\" visible)\n(format 1 \"FF0000\" general nowrap)\n\
+                    (format 2 \"00B050\" general nowrap)\n(cell \"CF\" \"A1:A2\" 5)\n\
+                    (cell \"CF\" \"C1:C2\" 5)\n\
+                    (conditional \"CF\" 1 \"A1:A2\" (cell greater \"=3\") 1)\n\
+                    (conditional \"CF\" 2 \"C1:C2\" \"=ISBLANK(C1)\" 2)\n";
+        let mut m = load(rows);
+        to_rest(&mut m);
+        assert_eq!(
+            m.write("(empty \"CF\" \"A1\")\n(empty \"CF\" \"C1\")"),
+            Ok(2)
+        );
+        to_rest(&mut m);
+        assert_eq!(
+            extent_row(&viewed(&m, "values", "CF")),
+            "(extent \"CF\" \"A2:C2\")"
+        );
+        let record = match m.view("values", "CF", Some("A1:C2")) {
+            Ok(Viewed::Text(t)) => t,
+            other => panic!("{other:?}"),
+        };
+        assert!(rows_at(&record, "CF", "A1").is_empty(), "{record}");
+        assert_eq!(
+            rows_at(&record, "CF", "C1"),
+            ["(lit \"CF\" \"C1\" 2)"],
+            "{record}"
+        );
+        assert!(
+            rows_at(&record, "CF", "A2").contains(&"(lit \"CF\" \"A2\" 1)".to_string()),
+            "{record}"
+        );
+        assert!(
+            record.contains("(conditional \"CF\" 1 \"A1:A2\""),
+            "{record}"
+        );
+    }
+
+    #[test]
+    fn an_emptied_cell_s_twin_is_lost_in_place_and_its_readers_alone_computed() {
+        // KERNEL.46, decision 4: a cell emptied loses its twin cell at the next
+        // frame's end in place, as a spill's emptied cell's is: its readers
+        // through the twin follow it, and the frame after computes them and no
+        // more, where a twin cell lost made the next frame whole; the twin's
+        // extent walked in where the cell stood on its edge.
+        let mut rows = String::from("(sheet \"S\" visible)\n(cell \"S\" \"A1:A100\" 1)\n");
+        rows.push_str("(formula \"S\" \"B1:B100\" \"=S.last!A1*2\")\n");
+        rows.push_str("(cell \"S\" \"Z200\" 4)\n(formula \"S\" \"C1\" \"=S.last!Z200+1\")\n");
+        let mut m = load(&rows);
+        to_rest(&mut m);
+        assert_eq!(
+            m.write("(empty \"S\" \"A7\")\n(empty \"S\" \"Z200\")"),
+            Ok(2)
+        );
+        assert!(m.step(0).done, "the frame the write ends");
+        let twin = viewed(&m, "grid", "S.last");
+        assert_eq!(
+            extent_row(&twin),
+            "(extent \"S.last\" \"A1:C100\")",
+            "{twin}"
+        );
+        assert!(m.step(0).done);
+        assert!(
+            m.reached() <= 3,
+            "{} formula cells computed after an emptying",
+            m.reached()
+        );
+        assert_eq!(spelled_at(&m, "B7"), "0");
+        assert_eq!(spelled_at(&m, "B8"), "2");
+        assert_eq!(spelled_at(&m, "C1"), "1");
+        assert_eq!(
+            extent_row(&viewed(&m, "grid", "S")),
+            "(extent \"S\" \"A1:C100\")"
+        );
     }
 }

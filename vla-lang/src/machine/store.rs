@@ -272,12 +272,15 @@ impl Store {
     /// over the extent, and a sparse sheet that is sparse still, stay as they
     /// are, a cell outside a run's rows kept loose; an array within the limit
     /// over an extent that holds its own is taken over it where it stands,
-    /// rows added below it in place (KERNEL.56, [`Dense::regrow`]), where
-    /// every slot it held was read out and put again.
+    /// rows added below it in place (KERNEL.56, [`Dense::regrow`]), and over
+    /// one its own holds, rows dropped and columns closed up in place
+    /// (KERNEL.46, [`Dense::shrink`]), where every slot it held was read out
+    /// and put again.
     pub(crate) fn moved(mut self, extent: Extent, limit: u64) -> Store {
         let stands = match &mut self {
             Store::Array(d) => {
-                d.stands_over(extent) || (dense::fits(extent, limit) && d.regrow(extent))
+                d.stands_over(extent)
+                    || (dense::fits(extent, limit) && (d.regrow(extent) || d.shrink(extent)))
             }
             Store::Sparse(_) => !dense::fits(extent, limit),
         };
@@ -344,10 +347,15 @@ impl Store {
     /// again; a twin's array taken over its sheet's first where a write grew
     /// the sheet's over an extent holding the twin's own (KERNEL.56), its
     /// slots moved to their places and rows added below in place as the
-    /// sheet's were, where the twin was made again from the sheet's whole.
+    /// sheet's were, where the twin was made again from the sheet's whole; and
+    /// over its sheet's where a write shrank the sheet's (KERNEL.46), rows
+    /// dropped and columns closed up in place, the slots dropped holding only
+    /// cells the write emptied, which the frame's end tells as lost.
     pub(crate) fn follows(&mut self, sheet: &Store) -> bool {
         match (self, sheet) {
-            (Store::Array(t), Store::Array(d)) => t.same_extent(d) || t.regrow(d.extent()),
+            (Store::Array(t), Store::Array(d)) => {
+                t.same_extent(d) || t.regrow(d.extent()) || t.shrink(d.extent())
+            }
             (Store::Sparse(_), Store::Sparse(_)) => true,
             _ => false,
         }

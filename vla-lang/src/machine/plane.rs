@@ -62,6 +62,10 @@ pub(crate) fn bytes_in<G: Cells + ?Sized>(
                 Some(_) => 255,
                 None => 0,
             },
+            // A cell of a format and nothing of its own (KERNEL.46), a cell a
+            // spill fills among them, drawn as the walk drew it while it
+            // passed such a cell by.
+            Holds::Nothing => 0,
         };
     });
     out
@@ -172,6 +176,40 @@ impl Raster {
         true
     }
 
+    /// The raster over an extent its own holds (KERNEL.46), each kept byte
+    /// moved to its cell's place where it stands, the rows dropped and the
+    /// columns closed up, as a write emptying a cell on its sheet's edge
+    /// shrinks the store; `false`, the raster untouched, for an extent its own
+    /// does not hold.
+    pub(crate) fn shrink(&mut self, extent: Extent) -> bool {
+        let Some(((top, left), (bottom, right))) = extent else {
+            return false;
+        };
+        let (old_bottom, old_right) = (
+            self.top + (self.height as u32 - 1),
+            self.left + (self.width as u32 - 1),
+        );
+        if top < self.top
+            || left < self.left
+            || bottom > old_bottom
+            || right > old_right
+            || top > bottom
+            || left > right
+        {
+            return false;
+        }
+        let width = (right - left + 1) as usize;
+        let height = (bottom - top + 1) as usize;
+        let (dr, dc) = ((top - self.top) as usize, (left - self.left) as usize);
+        for r in 0..height {
+            let from = (r + dr) * self.width + dc;
+            self.bytes.copy_within(from..from + width, r * width);
+        }
+        self.bytes.truncate(width * height);
+        (self.top, self.left, self.width, self.height) = (top, left, width, height);
+        true
+    }
+
     /// A window's bytes, its width times its height, row by row: the kept
     /// bytes where the window meets the extent, 0 everywhere else.
     pub fn window(&self, range: &A1Range) -> Vec<u8> {
@@ -198,11 +236,14 @@ impl Raster {
 /// A cell's byte from its slot (KERNEL.49): a number itself, as [`byte`]
 /// draws it, a formula with no value 0, and any other kind 255; a value
 /// cell's slot drawing the byte its content does, which the store keeps
-/// where it stands (KERNEL.49's third slice: the store is the cell).
+/// where it stands (KERNEL.49's third slice: the store is the cell). An empty
+/// slot, a cell a write or a spill emptied, 0, as the walk draws a cell that
+/// holds nothing (KERNEL.46), where it drew 255 since a spill first emptied
+/// one (KERNEL.55).
 pub(crate) fn slot_byte(slot: Slot<'_>) -> u8 {
     match slot {
         Slot::Number(n) => byte(n),
-        Slot::Pending => 0,
+        Slot::Pending | Slot::Empty => 0,
         _ => 255,
     }
 }

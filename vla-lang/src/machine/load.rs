@@ -27,11 +27,13 @@
 //! sheet, whose range needs no earlier row, and a `lit` row a rule's last answer
 //! at a cell, as a `value` row a formula's, a rule with no such row waiting for
 //! the first step. A `style` row names a cell or,
-//! since KERNEL.50, a range, every cell of it written by an earlier row, as
-//! a `sentence` row's cell is; a cell no earlier row wrote is refused by
-//! `grid-cell-unwritten`, naming it. Since KERNEL.67 a range's format is held
-//! as its rectangle and never a format a cell (`grid::CellStyles`), and its
-//! cells are found written by counting what its records hold of it. Skipped
+//! since KERNEL.50, a range; since KERNEL.46 a cell no earlier row wrote keeps
+//! the format and nothing else, as Excel's save writes a cell that keeps a
+//! format and no value, where it was refused. A `sentence` row's cell is one an
+//! earlier row wrote, a cell no row wrote refused by `grid-cell-unwritten`,
+//! naming it. Since KERNEL.67 a range's format is held
+//! as its rectangle and never a format a cell (`grid::CellStyles`), and a
+//! sentence's cell is found written by counting what its records hold of it. Skipped
 //! by name, being a view's or a reader's own derivation or a thing no model
 //! holds before `KERNEL.8`:
 //! `window`, `extent`, `refers`, `table` and `text`, a number's text under
@@ -365,11 +367,19 @@ impl DraftSheet {
     }
 
     /// The rectangle of its records' cells, as `Sheet::extent` walks a
-    /// sheet's cells for it, no cell walked (KERNEL.49).
+    /// sheet's cells for it, no cell walked (KERNEL.49), and since KERNEL.46
+    /// of its cells holding a format, as Excel's used range holds a cell that
+    /// keeps a format and no value.
     pub(crate) fn extent(&self) -> Extent {
         let mut out: Extent = None;
-        for r in self.records.iter().flatten() {
-            let x = r.range;
+        let formats = self.styles.bounds();
+        for x in self
+            .records
+            .iter()
+            .flatten()
+            .map(|r| r.range)
+            .chain(formats)
+        {
             out = Some(match out {
                 None => ((x.top, x.left), (x.bottom, x.right)),
                 Some(((top, left), (bottom, right))) => (
@@ -1235,7 +1245,8 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
         "conditional" => "(conditional \"<sheet>\" <priority> \"<range>\" \"=<formula>\"|(color-scale ...)|(data-bar ...)|(icon-set ...)|(top <rank> [percent])|(bottom <rank> [percent])|(above-average ...)|(below-average ...)|(duplicate)|(unique)|(cell <operator> \"=<bound>\" [\"=<bound>\"]) <format>|none [stop]), its operator one of less, less-or-equal, equal, not-equal, greater-or-equal, greater, between and not-between, the last two taking two bounds",
         "merge" => "(merge \"<sheet>\" \"<range of more than one cell>\")",
         "lit" => "(conditional \"<sheet>\" <priority> \"<range>\" <test> <format>|none) (lit \"<sheet>\" \"<cell>\" <priority> ...)",
-        "style" => "(cell \"<sheet>\" \"<cell or range>\" <value>) (style \"<sheet>\" \"<cell or range>\" <format>)",
+        "style" => "(style \"<sheet>\" \"<cell or range>\" <format>)",
+        "empty" => "(empty \"<sheet>\" \"<cell or range>\")",
         "sentence" => {
             "(cell \"<sheet>\" \"<cell>\" <value>) (sentence \"<sheet>\" \"<cell>\" <row>)"
         }
@@ -1297,8 +1308,8 @@ pub(crate) fn format_property(
     }
 }
 
-/// `grid-cell-unwritten` for a `style` or `sentence` row naming a cell that
-/// no row before it wrote (KERNEL.50), the cell named.
+/// `grid-cell-unwritten` for a `sentence` row naming a cell that no row before
+/// it wrote (KERNEL.50), the cell named; a `style` row's until KERNEL.46.
 pub(crate) fn unwritten(
     line: u32,
     form: &Form,
@@ -2365,9 +2376,10 @@ impl Reader {
         Ok(())
     }
 
-    /// The sheet of the cells a `style` or `sentence` row names, each of
-    /// which an earlier row wrote; the first, in row-major order, that none
-    /// did refused by name (KERNEL.50). The cells are found written by a count
+    /// The sheet of the cells a `sentence` row names, each of which an earlier
+    /// row wrote, as a `style` row's were until a cell could keep a format
+    /// alone (KERNEL.46); the first, in row-major order, that none did refused
+    /// by name (KERNEL.50). The cells are found written by a count
     /// of what the records hold of them (KERNEL.67), and only a range they
     /// fall short of is walked, cell by cell, to the cell it names.
     fn written(
@@ -2403,7 +2415,13 @@ impl Reader {
     /// cell, row by row, it shares with one of another format refused, naming
     /// the first row to name that cell, as the cell by cell walk named it;
     /// and the cells its own format's rectangles leave given the format, as
-    /// rectangles.
+    /// rectangles. Since KERNEL.46 a cell no row wrote keeps the format and
+    /// nothing else, as Excel's save writes a cell `ClearContents` emptied,
+    /// `<c r="A1" s="1"/>`, its sheet made as a `cell` row makes it; and a
+    /// cell a spill fills keeps one beside the value laid there, as Excel's
+    /// save keeps a styled blocker's format under the value that flowed into
+    /// it, where KERNEL.55 set it aside. A door's workbook holds no cell of a
+    /// format alone, and drops it.
     fn style(&mut self, form: &Form, items: &[Form], line: u32) -> Result<(), LineRefusal> {
         let [Form::Str(sheet), Form::Str(addr), Form::Sym(index)] = items else {
             return Err(malformed(line, form, "style"));
@@ -2413,13 +2431,7 @@ impl Reader {
             _ => return Err(malformed(line, form, "style")),
         };
         let range = parse_a1_range(addr).ok_or_else(|| malformed(line, form, "style"))?;
-        // A spilled cell's format, set aside as its value is (KERNEL.55).
-        if let Some(si) = self.draft.find_sheet(sheet) {
-            if self.spilled(si, range) {
-                return Ok(());
-            }
-        }
-        let si = self.written(form, "style", sheet, range, line)?;
+        let si = self.sheet_index(sheet, line, Some(addr))?;
         let mut other: Option<(u32, u32)> = None;
         let mut alike: Vec<A1Range> = Vec::new();
         for (piece, said) in self.draft.sheets[si].styles.meeting(range) {

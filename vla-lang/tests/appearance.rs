@@ -8,9 +8,11 @@
 //! 2. A group holding what a format does not take is refused by name, with
 //!    its line, the group and what it takes; a row out of its shape is
 //!    malformed.
-//! 3. A `style` row takes a range, each of its cells written by an earlier
-//!    row, and the record prints a `style` row a cell; a cell no earlier row
-//!    wrote is refused naming it, for a `sentence` row as for a `style` row.
+//! 3. A `style` row takes a range, and the record prints a `style` row a
+//!    cell; since KERNEL.46 a cell no earlier row wrote keeps the format and
+//!    nothing else, printed as its `style` row alone and held by its sheet's
+//!    extent, as Excel's save writes a cell `ClearContents` emptied; a
+//!    `sentence` row's cell no earlier row wrote is refused naming it.
 //! 4. The painter's fixture: a record whose looks fall over cells that say
 //!    their own font, alignment and borders (`testdata/appearance/
 //!    appearance.vla`), and the same window with every look applied by
@@ -229,51 +231,77 @@ fn a_style_row_takes_a_range_of_written_cells_and_the_record_prints_one_a_cell()
 }
 
 #[test]
-fn a_style_or_sentence_row_naming_a_cell_no_earlier_row_wrote_is_refused_naming_it() {
-    let cases: &[(&str, u32, &str, &str)] = &[
-        // A range with a hole: its first unwritten cell, row by row.
+fn a_style_row_over_a_cell_no_row_wrote_keeps_its_format_alone_and_a_sentence_row_is_refused() {
+    // KERNEL.46: a cell keeps a format and no value, as Excel's save writes a
+    // cell its `ClearContents` emptied, `<c r="A2" s="1"/>`; the record prints
+    // its `style` row alone, its sheet's extent holds it, and it loads back.
+    let cases: &[(&str, &str, &[&str], &str)] = &[
+        // A range with a hole: the hole keeps the format alone.
         (
             "(cell \"S\" \"A1:B1\" 1)\n(cell \"S\" \"B2\" 1)\n(style \"S\" \"A1:B2\" 1)\n",
-            3,
-            "S!A2",
-            "a style row follows",
+            "S",
+            &["A2"],
+            "A1:B2",
         ),
+        // A cell past every cell written: the extent holds it.
         (
             "(cell \"S\" \"A1\" 1)\n(style \"S\" \"C3\" 1)\n",
-            2,
-            "S!C3",
-            "a style row",
+            "S",
+            &["C3"],
+            "A1:C3",
         ),
-        // A style row before its cell's own row.
+        // A style row before its cell's own row: the cell holds both.
         (
             "(style \"S\" \"A1\" 1)\n(cell \"S\" \"A1\" 1)\n",
-            1,
-            "S!A1",
-            "a style row",
+            "S",
+            &[],
+            "A1",
         ),
-        // A sheet no row made.
+        // A sheet no row made: the style row makes it, as a cell row does.
         (
             "(cell \"S\" \"A1\" 1)\n(style \"T\" \"A1:A2\" 1)\n",
-            2,
-            "T!A1",
-            "a style row",
-        ),
-        (
-            "(cell \"S\" \"A1\" 1)\n(sentence \"S\" \"B9\" 4)\n",
-            2,
-            "S!B9",
-            "a sentence row follows",
+            "T",
+            &["A1", "A2"],
+            "A1:A2",
         ),
     ];
-    for (rows, line, cell, words) in cases {
+    for (rows, sheet, alone, extent) in cases {
+        let m = load(rows);
+        let record = grid(&m, sheet);
+        assert!(
+            record.contains(&format!("(extent {} {})", quoted(sheet), quoted(extent))),
+            "{rows}\n{record}"
+        );
+        for addr in *alone {
+            let at = format!("{} {}", quoted(sheet), quoted(addr));
+            assert!(
+                record.contains(&format!("(style {at} 1)")),
+                "{rows}: {addr}\n{record}"
+            );
+            assert!(
+                !record.contains(&format!("(cell {at} ")),
+                "{rows}: {addr}\n{record}"
+            );
+        }
+        assert_eq!(save(&load(&save(&m))), save(&m), "{rows}");
+    }
+    // A sentence row's cell is one a row wrote, a format alone none.
+    for (rows, cell) in [
+        ("(cell \"S\" \"A1\" 1)\n(sentence \"S\" \"B9\" 4)\n", "S!B9"),
+        (
+            "(style \"S\" \"A1\" 1)\n(sentence \"S\" \"A1\" 4)\n",
+            "S!A1",
+        ),
+    ] {
         let e = refused(rows);
         assert_eq!(
             (e.line, e.refusal.id.as_str()),
-            (*line, "grid-cell-unwritten"),
+            (2, "grid-cell-unwritten"),
             "{rows}"
         );
         assert!(
-            e.refusal.text.contains(&format!("names {cell},")) && e.refusal.text.contains(words),
+            e.refusal.text.contains(&format!("names {cell},"))
+                && e.refusal.text.contains("a sentence row follows"),
             "{rows}: {}",
             e.refusal.text
         );
