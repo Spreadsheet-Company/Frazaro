@@ -49961,6 +49961,334 @@ uncommitted.
 before suggesting next steps": over `9c625fd`, the item's four files alone, `KERNEL.55`'s floors' pair in the tree left
 out.
 
+**`KERNEL.46`, a write that empties a cell: the scoping, 2026-11-21.** Begun at the owner's word, "Scope and implement
+Frazaro's KERNEL.46 ... The scoping comes first: the record and the decisions, brought to me. Build nothing until I
+approve the decisions". Minted 2026-10-16 from Alonzo's `ENGINE.7`, decision 4; nothing minted here. HEAD `ff755d0`
+(`VLA.11`'s close), 21 ahead of origin, 0.14.0 the last tag and `## 0.15.0` unreleased; in the tree, uncommitted and
+untouched, a peer's six modules of the reference (`VLA.bas`, `VLA_DevRig.bas`, `VLA_SentenceEngine.bas` and the three
+test modules) and `vla-lang/README.md`. Alonzo read at `2c043d1` and then `75361b7`, a peer's `CART.16` work in its
+tree; Buffet at `73c9c26`; neither written. Every number below was measured in a copy of `HEAD` made by `git archive`,
+with a target of its own (scratchpad `k46/`); the prototype there is never committed, and nothing is built in the tree.
+
+*Why now.* On 2026-11-21 the owner ruled that a game is never undone: the page's undo takes back a person's edits of
+work sheets at rate 0, Excel's kind, the cells an edit replaced written back as one new write. An edit over an empty
+cell is undone only by a write that empties it, so the language's step goes first and nothing in Alonzo is built
+twice (Alonzo's `docs/REARVIEW.md`, `ENGINE.30`, "The decisions as answered").
+
+*What it stands on, read in the code at `ff755d0`.*
+- *The write* (`machine/mod.rs`): `Machine::write` applies its rows in order, all or none, a refused row undoing the
+  rows before it by the write's `Log` before `settle`; `write_row` takes `cell`, `formula` and `derived` over a cell or
+  a range, `name` and `function`, any other head refused naming `WRITE_ROWS`. A `cell` row's value is `load::datum`'s,
+  a number, a text, a truth value or an error, so no write empties a cell, and four places lean on it by name: the
+  settle growing each written sheet's extent by the write's cells (`KERNEL.54`) and saying a write "only adds cells or
+  changes them"; the frame's end skipping a written cell whose slot is empty (`end_twins`, "A write empties no cell");
+  and a twin's reader (`twin_held`), whose view walks the cells its sheet's store holds (`twin_cells`).
+- *The store and the twin*: a slot empties already (`Store::put_content` given none). The loss of a twin cell taken in
+  place exists for a spill's emptied cell (`KERNEL.55`): the twin's slot emptied at the frame's end, its readers
+  followed as any change, its extent made again only where the cell stood on its edge. A formula's value turned to a
+  reason still makes the twin again and the next frame whole (`KERNEL.56`'s *Found*).
+- *The formats*: a cell's format is kept by place (`Page::styles`, `CellStyles`, `KERNEL.67`), apart from its value,
+  but the record prints a cell's `style` row only where the model holds the cell (`Grid::rows_at`, `fills_rows`), and
+  a load refuses a `style` row over a cell no earlier row wrote, `grid-cell-unwritten` (`KERNEL.50`'s decision 10,
+  whose declined alternative, a cell keeping a format and no value, fell to "the model holds none"). The values
+  projection prints a formula with no value yet as its `style` row alone, which Alonzo's page draws and its
+  `patchRecord` patches today. The door's file model has no empty content: `Content`, `#[non_exhaustive]`, is named 440
+  times in 27 files of the three crates (`KERNEL.57`'s *Found*, "a cell that keeps a format and no value").
+- *The extent*: a rows' sheet's extent grows by a write's cells and never shrinks; its store's array stands over
+  exactly it (`Dense::stands_over`); and a law holds every whole record's window and extent to the sheet's walked in
+  the machine's own workbook (`values_held`). Its readers (`KERNEL.56`): an approximate bisection over a vector not
+  sorted, and a database's last record, `database::last_row`, the sheet's last row, Excel's rule by its save of the
+  criteria fixture.
+- *The arrays*: a legacy array formula's block changes whole (`write_blocks`, `grid-write-block`, `KERNEL.55`'s
+  decision 7); a written cell inside a spill's box makes each anchor whose box holds it compute again at the next
+  frame's start (`settled`); a fill whose first cell is written over gives it up, its next cell the anchor
+  (`release`, `KERNEL.34`).
+- *The changes* (`KERNEL.42`): a cell that now prints no row is `(empty "<sheet>" "<addr>")` (`view.rs`).
+- *The refusals*: `grid-row-unknown`'s list is `WRITE_ROWS` and `grid-row-malformed`'s shapes are Rust's
+  (`load::shape_of`); `grid-write-last`, `grid-write-block` and `grid-write-derived` stand. So the row needs no entry in
+  the reference's catalogue and no export, and so no Excel pass of the modules. `vla_write` and Alonzo's
+  `alonzo_write` take rows as text: no export moves.
+- *Alonzo's needs*, each Alonzo's to build at its pin and written nowhere there: its undo (`ENGINE.30`'s first slice)
+  mixing `cell`, `formula` and the new row in one write, an emptied cell given back with its format as the edit kept
+  it; Delete, Backspace, a paste's empty field and a cut's source, which write the empty text today
+  (`cellClearRow`, `cellEditRow`; a Naught switch so emptied makes every gate it reaches `#VALUE!`), each Excel's
+  emptying, since Excel's own `Value = ""` and `Formula = ""` empty a cell as `ClearContents` does (the probe's
+  `Clear!A6` and `A8`); edit and continue (`ENGINE.7`),
+  whose decision 4 refuses a row the source no longer has and offers Load (Buffet's dividend removed leaves
+  `Stocks!H5:H8`); a Write sheet clearing a cell, if a `derived` row may; and its device refusal, `check_row`
+  (`engine/src/cartridge.rs`), which reads a row's first four items and checks `cell`, `formula` and `derived`
+  alone, so that a row of three items passes it unchecked.
+
+*Excel's side, the probe* (`tools/VLA_DiagEmpty.bas`, a diagnostic module of the reference's kind, called by nothing,
+run by the owner from Alt+F8 in a blank workbook; written and handed over first, before any number here). It builds a
+workbook of its own and records every case at five stages, laid, cleared, saved, reopened and recomputed, the laid
+workbook saved as `k46_before.xlsx` and the cleared one as `k46_after.xlsx`, so that the saved parts are read here
+too. Its cases: `ClearContents` and `Clear` over a styled 5 and over a styled formula, beside a text of no characters
+(what Alonzo's Delete writes today), a cell never written, and `Value = ""`, `Value = Empty` and `Formula = ""`, each
+read by `=A1+1`, `=A1&"x"`, `ISBLANK`, `COUNTA`, `COUNTBLANK`, `=A1=""` and `=A1=0`; `SEQUENCE(3)` five times, its
+blocker cleared, a cell it spills into cleared, its anchor cleared, the spill whole cleared, and a styled blocker
+cleared; three legacy blocks, part of one cleared and then the whole, one cleared by a range over it, one by its anchor
+alone; three fills, the master cleared, a cell inside and the first two; four databases whose last cell is cleared by
+each call, styled and plain, and one holding a format alone, read by `DCOUNTA` of the whole column with no field and a
+blank criterion, `COUNTA`, `ROWS` and `DCOUNTA` of a bounded range; and a rule of a value and a rule of a blank, each
+over two cells, cleared by each call. *The stop rule*, stated before the first save: one run; a second only to repair
+the instrument, never to add a case; a fact Excel answers unstably labelled and never chased. *Run once* by the owner
+on 2026-11-21, Excel 16.0 build 20625: 728 facts and no stop, its two saves read here part by part. *Excel's answers:*
+- *A cell cleared.* `ClearContents` over a styled 5 and over a styled formula, and `Value = ""`, `Value = Empty` and
+  `Formula = ""` over a styled 5, each empty the cell and keep its format whole (its fill, bold, the code `0.00`, its
+  bottom edge); `Clear` takes the format too. Every emptied cell reads as the cell never written at all seven
+  readers: 1 to `=A1+1`, `x` to `=A1&"x"`, `TRUE` to `ISBLANK`, 0 to `COUNTA`, 1 to `COUNTBLANK`, `TRUE` to `=A1=""`
+  and `TRUE` to `=A1=0`, where the text of no characters reads `#VALUE!`, `x`, `FALSE`, 1, 1, `TRUE` and `FALSE`.
+  Excel's object model writes no text of no characters by `Value`: `""` empties the cell. The save writes an emptied
+  styled cell as its style alone, `<c r="A1" s="1"/>`, and nothing of a cell `Clear` emptied.
+- *Spills.* The blocker cleared lets the spill flow (`Spill!A1`), and into a styled blocker the spilled 2 wears the
+  format kept (`I2`, saved `s="1"` beside its value); a spilled cell cleared is done and left, the spill standing
+  (`C2`); the anchor cleared takes its spill (`E1`), as the spill cleared whole does (`G1:G3`).
+- *Legacy blocks.* Part of one refused, error 1004, "You can't change part of an array.", at a cell inside (`Arr!A2`)
+  and at the anchor alone (`E1`), the block unchanged; the block whole cleared, and a range over a block and a cell
+  more (`C1:C4`).
+- *Fills.* The group's master cleared (`Shared!F1:F2`, the save having written `F1` alone and `F2:F5` as the group):
+  the save writes the group's next cell as its master with its own text, `F3`'s `A3*4`, the group's `ref` still
+  `F2:F5`. A cell cleared inside a group leaves a hole its `ref` covers (`D3` of `D2:D5`). Every other cell keeps its
+  formula and its value.
+- *The used range and the databases.* `UsedRange`, read after the clears, has shrunk already (`Db2` and `Db3` from
+  `A1:A8` to `A1:A5`, `Arr` to `E1:E3`, `CF` to `A1`, nothing), the last cell, Ctrl+End's, lagging at `A8` until the
+  used range is read; the save's `<dimension>` is the shrunk range. A formatted empty cell stays in it (`Db1` after
+  `ClearContents`, `Db4` a format laid alone, `A1:A8` both); a conditional format holds no cell in it (`CF`).
+  `DCOUNTA` of a whole column, and of a range past the used range (`A1:A20`), counts the records to the used range's
+  last row, an empty row among them with no field named: 7, laid. After the clears its value stays 7 through the save
+  and the reopen, computed at the clear by the extent the sheet had then; `CalculateFull` gives `Db2` and `Db3` 4 and
+  keeps `Db1` and `Db4` at 7. `COUNTA` and `ROWS` agree throughout.
+- *Rules.* `ClearContents` keeps a cell's rules, and a rule of a blank lights the emptied cell (`CF!C1`, green);
+  `Clear` cuts the cell out of each rule's range (`A1:A2` to `A1`).
+- *Of the predictions,* every one held but the used range's: it does not wait for a save, only the last cell and a
+  formula already computed do. Of a spilled cell's two, Excel leaves it.
+
+*The prototype, in the copy* (`machine/mod.rs` alone, some 250 lines, an environment variable choosing each variant).
+`(empty "<sheet>" "<cell or range>")` in `write_row`: a twin refused by `grid-write-last`, a block met by
+`write_blocks` as a `cell` row meets one; every cell the range holds, its formulas, its stored values and the cells an
+earlier row of the write added, taken out of its sheet, its formulas given up by `release` as a value written over
+them gives them up, a cell a spill laid left; the log's emptied cells, the sheet's count lowered, a cell emptied and
+written again in one write counted once; at the settle each emptied slot emptied; at the frame's end each written cell
+whose slot is now empty told against its twin as the write found it and its twin's slot emptied, the twin's loss in
+place as a spill's or made whole as `HEAD` makes one (`K46_LOSS=whole`); and the sheet's extent kept, or shrunk where
+an emptied cell stood on its edge, by a walk of the whole sheet (`K46_EXTENT=shrink`) or of its edge's rows and
+columns in (`edge`), its store moved over it. The laws' writes between frames (`tests/laws.rs`, `write_between`) given
+the emptying write over a rectangle, value and formula alike, so that every law over them holds it:
+- *With the extent kept,* 19 of the 20 laws: the values law's header check fails (seed 5, `(empty "G" "F3:F5")`), the
+  machine's extent holding a row no cell holds where the door's walk of the same workbook holds none. *With it shrunk,*
+  by either walk, 20 of 20, under both twin variants.
+- *Three things the laws found in the prototype,* each the build's: a twin's slot holding a formula's reason left
+  holding it when the formula was emptied (`a_grid_loaded_from_its_fills_views_as_the_grid`, seed 26: `G.last!E5`);
+  a twin's view losing a cell emptied since the last frame's end a frame early, its store no longer holding it
+  (`values_held`'s header, the twin's extent); and a styled cell emptied, which printed no row, its format leaving the
+  record's head where no cell's change carries it (`a_window_s_values_patched_by_its_changes_are_its_values_now`, seed
+  37), held in the prototype by answering such a write's changes whole.
+- *Held to `Calc`*, every formula after every write of the check mode: the netlist's 20,480, the adder's 8,192 and the
+  column's 60,000, after a value written, after the cell emptied and after a value typed back into it.
+
+*Excel's saves read back, and its cases replayed* (`examples/k46probe.rs` in the copy). The door's reader reads the
+moved master by its own place, `F3:F5` and `D4:D5` as Excel computes them. It drops a cell holding a format and no
+value, from its relations and its looks alike, Excel's own save of a `ClearContents` among them, so that the door's
+`calc` of `DCOUNTA` over `Db4` answers 4 where Excel's is 7, in the save made before any clear (*Found* 5). An engine
+loaded from the first save's rows (its `COUNTBLANK` column left out and `Arr`'s `ROW` pointed at another range,
+*Found* 1 and 7), the probe's clears written as `empty` rows, one write each, agrees with Excel case for case: six
+readers of seven at every emptied cell; the five spills; the four blocks, each of Excel's two refusals the engine's
+`grid-write-block`; and the three fills. Its databases answer 4, the relations carrying no format, where decision 2
+holds `Db1` and `Db4` at Excel's 7. A rule of a blank lights an emptied cell as Excel's does, the machine printing a
+lit cell that holds nothing already. Two things the replay found in the prototype, each the build's:
+- *The extent walked too soon.* The walk runs at the write's settle, where an emptied anchor's laid cells leave the
+  store a frame later, so it stops on them and nothing walks again: `Arr`'s extent `C1:E3` where Excel's save says
+  `E1:E3`, and a spill's anchor emptied alone on its sheet leaving `C2:C5` over nothing.
+- *A format under a spill dropped.* The spilled value that flows into an emptied styled blocker prints no `style`
+  row, where Excel's save keeps `I2`'s; a load sets aside a `style` row at a spilled cell today (`load.rs`'s `style`,
+  `KERNEL.55`'s *Found* 5).
+
+*The cost, measured* (the prototype in release, `examples/k46.rs` in the copy; each program's edit cell, the medians
+of 9 rounds of a value written, the cell emptied and the value typed back, each write and its frames to the grid's
+stillness; Superposition and Life a fresh machine a round, the medians of 5; total ms, the write's own in brackets
+where it is not a few µs):
+
+| case | a value written | emptied, the loss in place, the extent kept | emptied, the extent shrunk by its edge | emptied, the loss made whole |
+|---|---|---|---|---|
+| column, `Output!E1` | 2.42 | 3.48 | 5.91 (2.30) | 3.59 |
+| chain, `Output!A1` | 1.34 | 1.66 | 1.61 | 2.12 |
+| sums, `Output!P1` | 3.27 | 3.99 | 4.83 (0.75) | 4.08 |
+| criteria, `Output!P1` | 4.85 | 6.32 | 5.38 (0.07) | 6.99 |
+| lookups, `Output!P1` | 22.3 | 22.8 | 29.9 (7.23) | 23.1 |
+| netlist, `Output!F1` | 4.35 | 0.19 | 0.93 (0.75) | 6.83 |
+| adder, `Output!D1` | 0.73 | 0.11 | 0.38 (0.28) | 0.57 |
+| Superposition, `Field!K10` | 0.33 (0.33) | 0.34 (0.33) | 0.34 (0.33) | 40.1 (0.36) |
+| Life ×16, `Screen!A1`, with its frame | 60.8 | 66.2 | 109.6 (40.5) | 68.2 |
+
+- *The write itself* costs what a `cell` row costs, a few µs, or 0.33 ms where it cuts Superposition's fill at a cell
+  its own formula reads through the twin, the same for both.
+- *The twin's loss:* in place, an emptying write costs what a value written costs, Superposition's frames 0.006 to
+  0.010 ms after it; made whole, 39 to 42 ms, its 798,731 formulas, and the netlist's 0.19 ms becomes 6.8.
+- *The extent:* a walk of the edge alone costs µs where the extent stands (chain 0.03 ms, criteria 0.07, where the
+  whole sheet's walk cost 0.26 and 1.2 to 1.5); where it moves, the store's re-lay is the cost, 0.28 to 7.2 ms on the
+  programs whose write costs that (column, sums, lookups, netlist and adder, each edit cell by that cost alone at an
+  edge, *derived*), and 40 ms at Life ×16's corner. The prototype re-lays through `Store::moved`'s generic path, which
+  owns a copy of every cell; `KERNEL.56` derived a re-lay at nine bytes a slot at about 3.4 ms for 786,504 slots.
+- *The frames after an emptying* cost 2 to 44% more than after a value written into the same cell on the column,
+  chain, sums, criteria and lookups (a value typed back returns them to it); the netlist and the adder are cheaper
+  emptied, their cells' built value 0, which an empty cell reads as, so that nothing past the readers moves.
+
+*The decisions*, verdict first, each the owner's, with the designs it declines.
+
+1. **The row, `(empty "<sheet>" "<cell or range>")` (one-way: a person's edit is recorded in Alonzo's replays as the
+   rows it wrote, and a replay is a file kept).** The word a window's `changes` already prints for a cell with no rows
+   (`KERNEL.42`), so the change and the write that makes it read alike, and a range as every row's range. *Declined:*
+   `clear`, Excel's verb, which has two calls (decision 2) and would not say which; `blank`, `ISBLANK`'s word, which
+   Excel's `COUNTBLANK` gives the text of no characters too; and `(cell "<sheet>" "<addr>" empty)`, a value word that
+   would ride Alonzo's `check_row` and give a derived kind for nothing, but makes `empty` a datum every reader of rows
+   meets, a `value` row's among them, where a formula never answers empty.
+
+2. **An emptied cell keeps its format, Excel's Delete (one-way: what a save says of an emptied, styled cell).**
+   (a) *Recommended.* `ClearContents`, as measured: the value and the formula go and the format stays at its place,
+   the machine holding it already, and the cell's rules stay, a rule of a blank lighting it. The record prints such a
+   cell as its `style` row alone, in every projection and in a save, as the values projection prints a formula with
+   no value yet, which Alonzo's page draws and patches unchanged, and as Excel's save writes it, its style alone. A
+   load takes a `style` row over a cell no earlier row wrote as a cell keeping that format and nothing else, so that a
+   save at rest loads as it was: `KERNEL.50`'s declined alternative made the rule, `grid-cell-unwritten` kept for
+   `sentence` rows. A format at a cell a spill fills is kept and printed beside the spilled value, as Excel's save
+   keeps `I2`'s, and a load takes it there too, so that the save of an emptied blocker resumes (`KERNEL.55`'s *Found*
+   5 lifted with it). The extent holds such a cell, as Excel's used range and its save's dimension do, and a database
+   counts its record, as Excel's full recalculation does (`Db1` and `Db4` 7, where `Db3` 4). The door's file model
+   holds none yet: a door's view of such a save drops the format, and the law of the machine's extent against its
+   workbook's walk counts the formats beside the walk, until `KERNEL.57`'s *Found* gives `Content` an empty cell.
+   Cost: the record's walk of the styles' rectangles beside the cells it holds, a spilled cell's among them, the
+   load's record of a format alone, the extent's rule; one law amended; Alonzo nothing. An undo of a value typed over
+   an empty cell gives it back exactly, the edit and the undo moving no format.
+   (b) `Clear`: the format goes with the value, the record prints nothing, no new kind of cell; the cheapest but for
+   the cell's rules, which Excel's `Clear` cuts the cell out of (`CF!A2`), a rule's range cut that the machine would
+   learn. Delete then strips a band's color where Excel's keeps it, and no write row sets a format, so an undo of a
+   Delete cannot give the format back.
+   (c) (a) in the machine, a save spelling it `(empty ...)` before its `style` row, `grid-cell-unwritten` kept for a
+   source's `style` row over nothing: an author's typo still caught, but Alonzo's page must learn `(empty ...)` in a
+   record, and its patch gives up on a cell of two rows (`patchRecord` returns none).
+   (d) (a) in the door's model too: `Content` given an empty cell, the writer writing it as Excel's save does,
+   `<c r="A1" s="1"/>`, and both readers reading it, the 440 uses read: `KERNEL.57`'s *Found* built here, the
+   reflect goldens of every file holding a formatted empty cell moved; a second item's size.
+   *Recommended:* (a).
+
+3. **The extent shrinks at the write where an emptied cell stood on its edge, as Excel's used range does.** (a)
+   *Recommended.* The edge's own row or column walked in while it holds nothing: no cell, no format (decision 2), no
+   cell a standing anchor lays, and never a cell laid by an anchor the write emptied, which leaves the store a frame
+   after the write (the replay's first finding); and the store moved over the new extent in place, rows dropped where
+   they stand and columns closed up, as `KERNEL.56` grows one; the extent's readers computed whole at the next frame
+   and every window's record whole, as a growth moves them (`KERNEL.56`'s list read for either). Excel, measured: its
+   used range has shrunk when it is read after the clear, its save's dimension with it, a formatted cell kept in it
+   and a rule holding none; only its last cell waits for that read, and a formula computed at the clear answers by
+   the extent the sheet had, `DCOUNTA` 7 until a full recalculation answers 4. Measured here: µs where the extent
+   stands; where it moves, the re-lay, 0.28 to 7.2 ms on the programs through the generic path; predicted 4 to 8 ms
+   in place at Life ×16's corner (*derived*: `KERNEL.56`'s 3.4 ms for 786,504 slots, scaled to its 1,019,844), where
+   the generic path takes 40. The extent stays a function of the grid: a fresh load of the same cells holds the same
+   extent, and the laws hold 20 of 20.
+   (b) Kept: no walk, and Excel's only where Excel lags, its last cell before the used range is read and `DCOUNTA`
+   before a full recalculation; the law of the machine's extent fails, and `DCOUNTA` over a whole column and an
+   unsorted bisection answer by an extent no cell holds, which a save and a fresh load answer otherwise: one grid
+   computing two ways by its history.
+   (c) Shrunk, and the store left over the old extent, `stands_over` relaxed to a cover: no re-lay, but the twins'
+   and the planes' copies follow by one extent, an invariant of `KERNEL.49` reopened.
+   (d) Kept and saved, the save's `extent` row naming it, as a spill's grown extent is kept (`KERNEL.55`'s *Found* 6):
+   history written into the file, the door to keep it too.
+   *Where we beat Excel:* every reader answers by the extent at once, a database's count the one Excel's full
+   recalculation gives (`Db2` 4, where Excel's own recalculation at the clear still says 7), and a host's Ctrl+End
+   lands on the last cell holding anything, where Excel's last cell waits for its used range to be read.
+   *Recommended:* (a).
+
+4. **The twin's loss in place, as a spill's emptied cell is.** (a) *Recommended.* At the frame's end an emptied cell's
+   twin slot emptied, its readers followed as any change, the twin's extent made again only where the cell stood on
+   its edge, by its edge's walk: measured, an emptying write costs what a value written costs. (b) As `HEAD` makes a
+   lost twin cell, its twin again and the next frame whole: Superposition 40 ms where 0.34, the netlist 6.8 where 0.19.
+   A formula's value turned to a reason, `KERNEL.56`'s *Found*, keeps its whole frame: not this item's.
+
+5. **A person's write alone; no derived empty yet.** (a) *Recommended.* The row is a person's, and a host's; a Write
+   sheet's emptying, `(empty "<sheet>" "<range>" derived)` refused over a formula by `grid-write-derived`, is additive
+   whenever a cartridge asks, its spelling on the Write sheet Alonzo's. A derived write is never recorded or saved,
+   being derived again (Alonzo's `SPEC.md` §3.9), so its spelling is no door. (b) That word now, a client before its
+   cartridge. (c) `(derived "<sheet>" "<range>")`, a derived row of three items, which Alonzo's `check_row` passes
+   unchecked. *Recommended:* (a).
+
+6. **Arrays, as Excel clears them, each as measured.** A legacy block emptied whole is given up and every cell of it
+   emptied, by a range over it and more cells too; part of one refused by `grid-write-block`, as a `cell` row is,
+   where Excel refuses it with 1004 at a cell inside and at the anchor alone; a spill's anchor emptied takes its spill
+   with it; a cell a spill laid holds nothing of its own and is left, where Excel's `ClearContents` is done and the
+   spill stands, so that no refusal is new; a value blocking a spill emptied lets it flow at the next frame, the
+   anchor computed again as for any write into its box (`KERNEL.55`'s *Found* 7 lifted); a fill's master emptied
+   given up as a write over it gives it up, its next cell the master, as Excel's save writes it.
+
+7. **A twin and a host's cells.** A twin's cell refused by `grid-write-last`, as a `cell` row's. A host-written device
+   cell is Alonzo's `check_row` to extend at its pin, the row being three items.
+
+8. **The public surface and the release.** Additive, no signature moved: `WRITE_ROWS` names `empty`; `Machine::write`'s
+   comment and `vla-lang/README.md`'s write paragraph and its "What comes next" say the row. Ships in 0.15.0, its note
+   in `## 0.15.0`. No catalogue entry, no export, no module of the reference: no Excel pass of the modules in any
+   slice, the probe the owner's one Excel step.
+
+9. **The oracle.** The free law, `write_between` given the emptying write, so that the twenty laws over the machine's
+   generated grids hold it: a grid written `(empty S R)` and saved, loaded and stepped beside it equal, record for
+   record (`a_grid_loaded_from_its_fills_views_as_the_grid`, the roadmap's law); a window's `changes` after it naming
+   each emptied cell `(empty ...)`, or a styled one by its `style` row (`a_window_s_values_patched_by_its_changes_...`);
+   its plan a load's. Beside them, the machine's tests by name: a twin refused, part of a block refused and a block
+   given up, a spill unblocked, a spill's cell left, a master given up, a styled cell kept and saved at rest, a count
+   lowered, a cell emptied and written again in one write, and a refused write undoing an emptying; and the probe's
+   cases, each to Excel's answer: the six readers the library computes, the five spills (a styled blocker's format
+   worn by its spilled value among them), the four blocks and their two refusals, the three fills, each sheet's
+   extent as Excel's save gives its dimension, and `Db1`, `Db3` and `Db4`, 7, 4 and 7, Excel's full recalculation's.
+
+10. **The slices, each a commit at the owner's word.** (1) The row in the machine, whole: decisions 1 to 4, 6 and 7, the
+    laws grown and the machine's tests. Hand test: none in Excel, the slice moving an engine's writes and no file a
+    door writes. (2) Its floor and its close: the runner's empty beside its type (`KERNEL.56`), a value typed into a
+    cell and that cell emptied, its write and its frames to stillness floored in `check_recalc_floors` from the owner's
+    bench run; the docs. Hand test: the owner's run of `tools/bench_recalc.ps1`, the floors pasted from its files.
+    *Declined:* the format's half as a slice of its own, the first then dropping a format or refusing a styled cell
+    by a refusal the reference would have to learn.
+
+*The one-way doors*, decisions 1 to 3: the row a replay keeps, what a save says of a styled cell emptied, and the
+extent's meaning, which the database functions and a host's view read. Decisions 4 to 7 sit behind the values the
+laws hold, swappable inside a release.
+
+*Predictions for the build:* every program's emptying within 1.5 times its value written but the frames' share above,
+the edge's walk µs, a re-lay in place within 8 ms at Life ×16's corner; every recalc floor, Alonzo's frame floors and
+both memory floors held, no golden moved (no committed grid holds an emptied cell, a styled cell today always holds a
+value, and no committed fixture holds a format at a spilled cell).
+
+*What it touches.* `vla-lang`: `machine/mod.rs` (the row, the log, the settle, the frame's end, the twin's view, the
+extent), `machine/load.rs` (a format alone, a spilled cell's among them), `machine/store.rs` and `calc/dense.rs` (the
+re-lay in place), `view.rs` (a format alone printed), `tests/laws.rs` and the machine's tests. `frazaro-core`:
+`examples/recalc.rs`, and `tools/check_recalc_floors.ps1`, `tools/bench_recalc.ps1`. Docs: `docs/RELEASES.md`, the
+roadmap's line, this record and its ledger line, `vla-lang/README.md` (a peer's open file, its hunks staged alone),
+`Delta/CLAUDE.md`'s map. `tools/VLA_DiagEmpty.bas`, the probe, committed with this scoping.
+
+*Found*, read and not minted:
+1. *`COUNTBLANK` is not in the library*: a formula calling it is refused, an engine's load refusing the probe's
+   `Clear!F1`; Excel's calls an emptied cell and the text of no characters both blank.
+2. *The readers' frame after an emptying costs 2 to 44% more* than after a value written into the same cell (column,
+   chain, sums, criteria): an empty cell read where a number was, the evaluator's path, which a value typed back
+   returns to; unmeasured against a fresh load of the same empty cell.
+3. *The store's generic re-lay owns a copy of every cell* (`Store::moved` by `held`): 40 ms at Life ×16's million
+   slots, the path every extent's move but a growth below takes.
+4. *A twin's extent is made again by a walk of its whole sheet* at a frame's end where a spill emptied a cell on its
+   edge (`KERNEL.55`'s path, `twin_extent`), where the edge's walk would do.
+5. *A door's file model holds no cell that keeps a format and no value* (`KERNEL.57`'s *Found*, met here, decision 2
+   (d)): its relations and its looks drop Excel's own `<c r="A1" s="1"/>`, so that its `calc` of `DCOUNTA` over the
+   probe's `Db4!A:A` answers 4 where Excel's is 7, in a save made before any clear.
+6. *No write row sets a format*: a person's style edit, which an undo of a format would need.
+7. *`ROW` of a formula's own range is a cycle*: `=ROW(A1:A3)*10` over `A1:A3`, which Excel computes 10, 20 and 30,
+   is `(not-computed cycle)` to the door's `Calc`, and an engine's load refuses it as formulas reading one another in
+   a circle, `ROW` reading a reference's place and none of its values.
+
+*Beside it.* `VLA.11` and `KERNEL.55`, closed at `HEAD`; 0.15.0 cut at the owner's separate word, then Alonzo's pin,
+`ENGINE.30`'s first slice, `ENGINE.7`'s decision 4 lifted, Delete, paste and cut writing the row, and `check_row`
+extended, each Alonzo's. Frazaro's own hand edit, `KERNEL.9`, unbuilt. A cut's move through its readers (Alonzo's
+`ENGINE.39` *Found*) is the language's and not this item's. The peer's modules in the tree touch no file this item
+touches but `vla-lang/README.md`.
+
+*Approved 2026-11-22* at the owner's word, "Approved as recommended; commit the scoping, then build slice 1": the ten
+decisions as recommended, the item to be released in 0.15.0.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
