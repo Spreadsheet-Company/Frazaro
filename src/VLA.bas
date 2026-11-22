@@ -20,7 +20,26 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
-Public Const VLA_CORE_VERSION As String = "VLA.11"
+Public Const VLA_CORE_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, ITS FIRST SLICE: THE INSTRUMENT. Behind mProfileOn, PPROF.0's one
+' switch, and nothing when it is off: what each entry point's front half reads,
+' parses and defines, and what it costs. A row an entry point (VLA_PROF_ROWS,
+' VlaProfileRowName): VlaTranspile; VlaCompileToForms, and the same called by a
+' phrasebook's load to republish its macros; VlaExpandText, and the same called
+' by a phrasebook's macro call, each of those two callers saying so in
+' mProfCaller just before its call (ProfRowOf takes it, whatever the call does
+' next). A row counts its calls and those that returned, where PreludeMacros
+' found the prelude (mProfPreludeFrom), the characters, tokens, lists, forms and
+' definitions read and the prelude's share of each, and Timer's milliseconds for
+' the read, the tokenize, the parse, the definitions and the whole call. The
+' prelude's share is its shape, read alone once a text (ProfShapeOf, through
+' VlaReadForms with the switch off, so that it counts nowhere) and kept with the
+' calls that read it (VlaProfileShapes). Beside the rows: every Tokenize and
+' ParseAll, every list ParseForm opens, every TagLine and the Removes it traps,
+' every CollGet and its misses, and every macro probe. VlaProfileReset zeroes
+' them; VlaProfileAll (VLA_DevRig) prints them. Counting changes no text, line,
+' name or table a compile makes.
+'
 ' VLA.11, ITS THIRD SLICE: THE FORMULA. A word formula-expand writes as one of
 ' Excel's names, on a sheet or not, that no lambda's parameters and no let's
 ' names around it bind, outside a quote and a ref and never a head nor
@@ -1202,6 +1221,57 @@ Public mProfMsExpand As Double
 Public mProfMsEmit As Double
 Public mProfCalls As Long
 
+' P-PRELUDE: the instrument's counts, all behind mProfileOn (the header's
+' P-PRELUDE entry has the design). A row an entry point, VLA_PROF_ROWS of them,
+' VlaProfileRowName naming each; the two callers that take a row of their own
+' set mProfCaller to it just before they call. Every count is exact; every ms
+' is Timer's (about 16 ms a tick), summed over the calls. A call that raises
+' keeps what it counted before the step that raised.
+Public Const VLA_PROF_ROWS As Long = 5
+Public Const VLA_PROF_ROW_LOAD As Long = 3    ' VlaCompileToForms, a load's republish
+Public Const VLA_PROF_ROW_VOCAB As Long = 5   ' VlaExpandText, a phrasebook's macro call
+Public mProfCaller As Long
+Public mProfECalls(1 To VLA_PROF_ROWS) As Double     ' calls, each reading the prelude once
+Public mProfEDone(1 To VLA_PROF_ROWS) As Double      ' of which returned
+Public mProfEDisk(1 To VLA_PROF_ROWS) As Double      ' prelude read from prelude.vla
+Public mProfEOverride(1 To VLA_PROF_ROWS) As Double  ' prelude the override's text
+Public mProfEChars(1 To VLA_PROF_ROWS) As Double     ' characters tokenized
+Public mProfETokens(1 To VLA_PROF_ROWS) As Double
+Public mProfELists(1 To VLA_PROF_ROWS) As Double     ' lists parsed, each one TagLine
+Public mProfEForms(1 To VLA_PROF_ROWS) As Double     ' top-level forms
+Public mProfEDefs(1 To VLA_PROF_ROWS) As Double      ' definitions made, defmacro and defexpand
+Public mProfEPreChars(1 To VLA_PROF_ROWS) As Double  ' the prelude's share of the five above
+Public mProfEPreTokens(1 To VLA_PROF_ROWS) As Double
+Public mProfEPreLists(1 To VLA_PROF_ROWS) As Double
+Public mProfEPreForms(1 To VLA_PROF_ROWS) As Double
+Public mProfEPreDefs(1 To VLA_PROF_ROWS) As Double
+Public mProfEMsRead(1 To VLA_PROF_ROWS) As Double    ' PreludeMacros
+Public mProfEMsTok(1 To VLA_PROF_ROWS) As Double     ' Tokenize
+Public mProfEMsParse(1 To VLA_PROF_ROWS) As Double   ' ParseAll
+Public mProfEMsDefine(1 To VLA_PROF_ROWS) As Double  ' the tables reset and every definition made
+Public mProfEMsTotal(1 To VLA_PROF_ROWS) As Double   ' the whole call, of the calls that returned
+' Every reader alike, the entry points' and the others' (VlaReadForms,
+' VlaReadFormsWithLines, VlaProbeMacroForm, VlaListHeads, VlaFormat):
+Public mProfTokCalls As Double
+Public mProfTokChars As Double
+Public mProfTokTokens As Double
+Public mProfTokMs As Double
+Public mProfParseCalls As Double
+Public mProfParseMs As Double
+Public mProfLists As Double       ' every list ParseForm opens
+Public mProfTagged As Double      ' every TagLine, a parse's lists and a macro's
+Public mProfTagMisses As Double   ' of which its Remove raised, trapped
+Public mProfCollGets As Double    ' every CollGet
+Public mProfCollMisses As Double  ' of which missed, trapped
+Public mProfProbes As Double      ' every VlaProbeMacroForm, a phrasebook macro's probe
+' Where the last PreludeMacros found the prelude: 1 prelude.vla, 2 the
+' override, 3 the add-in's embedded copy.
+Private mProfPreludeFrom As Long
+' A prelude text's shape, read once a text: the text its key, its value
+' Array(tokens, lists, forms, definitions, calls that read it), -1 for each of
+' the first four when the reader refuses the text.
+Private mProfShapes As Object
+
 ' IO.1: every module VlaCompileToModule writes carries this as its
 ' first line, so a later compile can tell "ours, safe to overwrite"
 ' from "something else's, refuse" - see VlaCompileToModule. A leading
@@ -1381,14 +1451,174 @@ Private Function ProfMs(ByVal t0 As Double) As Double
     ProfMs = d * 1000#
 End Function
 
+' =====================================================================
+'  P-PRELUDE, the instrument (the header's entry has the design). Each
+'  helper is called only while mProfileOn is on, so that a compile with
+'  the switch off reads none of it.
+' =====================================================================
+
+' Every count and time zeroed and the shapes forgotten, so that a run
+' starts from nothing.
+Public Sub VlaProfileReset()
+    Erase mProfECalls, mProfEDone, mProfEDisk, mProfEOverride
+    Erase mProfEChars, mProfETokens, mProfELists, mProfEForms, mProfEDefs
+    Erase mProfEPreChars, mProfEPreTokens, mProfEPreLists, mProfEPreForms, mProfEPreDefs
+    Erase mProfEMsRead, mProfEMsTok, mProfEMsParse, mProfEMsDefine, mProfEMsTotal
+    mProfTokCalls = 0
+    mProfTokChars = 0
+    mProfTokTokens = 0
+    mProfTokMs = 0
+    mProfParseCalls = 0
+    mProfParseMs = 0
+    mProfLists = 0
+    mProfTagged = 0
+    mProfTagMisses = 0
+    mProfCollGets = 0
+    mProfCollMisses = 0
+    mProfProbes = 0
+    mProfCaller = 0
+    mProfPreludeFrom = 0
+    Set mProfShapes = Nothing
+End Sub
+
+' A row's name, as the report prints it.
+Public Function VlaProfileRowName(ByVal entryRow As Long) As String
+    Select Case entryRow
+        Case 1: VlaProfileRowName = "VlaTranspile"
+        Case 2: VlaProfileRowName = "VlaCompileToForms"
+        Case VLA_PROF_ROW_LOAD: VlaProfileRowName = "  by a load's republish"
+        Case 4: VlaProfileRowName = "VlaExpandText"
+        Case VLA_PROF_ROW_VOCAB: VlaProfileRowName = "  by a phrasebook's macro call"
+    End Select
+End Function
+
+' Every prelude text the run read, each Array(characters, tokens, lists,
+' forms, definitions, calls that read it), a shape the reader refused -1
+' for each of its four counts.
+Public Function VlaProfileShapes() As Collection
+    Dim outc As New Collection
+    If Not mProfShapes Is Nothing Then
+        Dim key As Variant, v As Variant
+        For Each key In mProfShapes.Keys
+            v = mProfShapes.Item(key)
+            outc.Add Array(CDbl(Len(key)), v(0), v(1), v(2), v(3), v(4))
+        Next
+    End If
+    Set VlaProfileShapes = outc
+End Function
+
+' The row an entry point counts against: the one its caller named in
+' mProfCaller, which is taken whatever the call does next, or its own.
+Private Function ProfRowOf(ByVal ownRow As Long) As Long
+    ProfRowOf = ownRow
+    If mProfCaller > 0 Then ProfRowOf = mProfCaller
+    mProfCaller = 0
+End Function
+
+' The prelude's read: its time, where PreludeMacros found it, and its
+' share of what the call will read, by its shape.
+Private Sub ProfPreludeRead(ByVal entryRow As Long, ByRef prelude As String, ByVal t0 As Double)
+    mProfEMsRead(entryRow) = mProfEMsRead(entryRow) + ProfMs(t0)
+    mProfECalls(entryRow) = mProfECalls(entryRow) + 1
+    If mProfPreludeFrom = 1 Then mProfEDisk(entryRow) = mProfEDisk(entryRow) + 1
+    If mProfPreludeFrom = 2 Then mProfEOverride(entryRow) = mProfEOverride(entryRow) + 1
+    mProfPreludeFrom = 0
+    mProfEPreChars(entryRow) = mProfEPreChars(entryRow) + Len(prelude)
+    Dim shape As Variant
+    shape = ProfShapeOf(prelude)
+    If shape(0) >= 0 Then
+        mProfEPreTokens(entryRow) = mProfEPreTokens(entryRow) + shape(0)
+        mProfEPreLists(entryRow) = mProfEPreLists(entryRow) + shape(1)
+        mProfEPreForms(entryRow) = mProfEPreForms(entryRow) + shape(2)
+        mProfEPreDefs(entryRow) = mProfEPreDefs(entryRow) + shape(3)
+    End If
+End Sub
+
+' A prelude text's shape, read alone the first time the run meets the
+' text: through VlaReadForms, which pushes and pops the context, with the
+' switch off, so that the reading counts nowhere and changes no state a
+' compile reads. Tokens are each list's two parentheses and every atom.
+Private Function ProfShapeOf(ByRef text As String) As Variant
+    If mProfShapes Is Nothing Then Set mProfShapes = CreateObject("Scripting.Dictionary")
+    Dim shape As Variant
+    If mProfShapes.Exists(text) Then
+        shape = mProfShapes.Item(text)
+        shape(4) = shape(4) + 1
+        mProfShapes.Item(text) = shape
+        ProfShapeOf = shape
+        Exit Function
+    End If
+    shape = Array(-1#, -1#, -1#, -1#, 1#)
+    Dim lists As Double, atoms As Double, defs As Double
+    Dim forms As Collection
+    Dim f As Variant
+    mProfileOn = False
+    On Error GoTo unread
+    Set forms = VlaReadForms(text)
+    For Each f In forms
+        ProfWalk f, lists, atoms
+        If ListHeadIs(f, "defmacro") Or ListHeadIs(f, "defexpand") Then defs = defs + 1
+    Next
+    shape = Array(2# * lists + atoms, lists, CDbl(forms.Count), defs, 1#)
+unread:
+    On Error GoTo 0
+    mProfileOn = True
+    mProfShapes.Item(text) = shape
+    ProfShapeOf = shape
+End Function
+
+Private Sub ProfWalk(d As Variant, ByRef lists As Double, ByRef atoms As Double)
+    If Not IsObject(d) Then
+        atoms = atoms + 1
+        Exit Sub
+    End If
+    lists = lists + 1
+    Dim e As Variant
+    For Each e In d
+        ProfWalk e, lists, atoms
+    Next
+End Sub
+
+Private Sub ProfTokenized(ByVal entryRow As Long, toks() As String, ByVal chars As Double, ByVal t0 As Double)
+    mProfEMsTok(entryRow) = mProfEMsTok(entryRow) + ProfMs(t0)
+    mProfEChars(entryRow) = mProfEChars(entryRow) + chars
+    mProfETokens(entryRow) = mProfETokens(entryRow) + UBound(toks)   ' (0 To 0) for none
+End Sub
+
+Private Sub ProfParsed(ByVal entryRow As Long, forms As Collection, ByVal listsBefore As Double, ByVal t0 As Double)
+    mProfEMsParse(entryRow) = mProfEMsParse(entryRow) + ProfMs(t0)
+    mProfEForms(entryRow) = mProfEForms(entryRow) + forms.Count
+    mProfELists(entryRow) = mProfELists(entryRow) + (mProfLists - listsBefore)
+End Sub
+
+Private Sub ProfDefined(ByVal entryRow As Long, ByVal defs As Long, ByVal t0 As Double)
+    mProfEMsDefine(entryRow) = mProfEMsDefine(entryRow) + ProfMs(t0)
+    mProfEDefs(entryRow) = mProfEDefs(entryRow) + defs
+End Sub
+
+Private Sub ProfDone(ByVal entryRow As Long, ByVal t0 As Double)
+    mProfEMsTotal(entryRow) = mProfEMsTotal(entryRow) + ProfMs(t0)
+    mProfEDone(entryRow) = mProfEDone(entryRow) + 1
+End Sub
+
 Public Function VlaTranspile(ByVal source As String) As String
+    ' P-PRELUDE: the call's row, its start, a step's start and the lists made
+    ' before its parse, for the Prof* helpers (VlaProfileReset's section;
+    ' ProfRowOf, never a name a local spells, since VBA's names ignore case).
+    Dim profRow As Long, profAt As Double, profStep As Double, profLists As Double
+    If mProfileOn Then
+        profRow = ProfRowOf(1)
+        profAt = Timer
+    End If
     ' P.L7: reader-level include splice, BEFORE tokenization - the
     ' prelude offset below is untouched by it, and the per-line map
     ' it builds (or leaves at Nothing) feeds SrcLineTag, the
     ' emitfail formatter, and MapTag.
     source = SpliceIncludes(source)
     Dim prelude As String
+    If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
+    If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
     mLineOffset = CountLf(prelude) + 1   ' prelude lines + the joining break
     Set mFormLines = New Collection
     mEmitLine = 0
@@ -1403,10 +1633,16 @@ Public Function VlaTranspile(ByVal source As String) As String
     Dim toks() As String
     toks = Tokenize(prelude & vbCrLf & source)
     If mProfileOn Then mProfMsTokenize = mProfMsTokenize + ProfMs(pt0)
+    If mProfileOn Then ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), pt0
 
     If mProfileOn Then pt0 = Timer
+    If mProfileOn Then profLists = mProfLists
     Dim forms As Collection
     Set forms = ParseAll(toks)
+    If mProfileOn Then
+        ProfParsed profRow, forms, profLists, pt0
+        profStep = Timer
+    End If
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
@@ -1442,6 +1678,7 @@ Public Function VlaTranspile(ByVal source As String) As String
         End If
     Next
     If mProfileOn Then mProfMsParse = mProfMsParse + ProfMs(pt0)
+    If mProfileOn Then ProfDefined profRow, forms.Count - bodyForms.Count, profStep
 
     ' Pass 2: expand macros, then emit. On failure, name the last
     ' mapped statement line the emitter reached - approximate on
@@ -1494,6 +1731,7 @@ Public Function VlaTranspile(ByVal source As String) As String
     If InStr(1, VlaTranspile, "Call " & VLA_MAKEBUTTON_SUB & "(") > 0 Then
         VlaTranspile = VlaTranspile & vbCrLf & MakeButtonHelperText()
     End If
+    If mProfileOn Then ProfDone profRow, profAt
     Exit Function
 emitfail:
     ' PPROF.0: credit whichever of expand/emit was mid-flight when this
@@ -1577,9 +1815,17 @@ End Function
 ' its own scoped pass with its own golden-diff verification, not a
 ' rider on whatever else happened to be touching this file.
 Public Function VlaCompileToForms(ByVal source As String) As Collection
+    ' P-PRELUDE: as VlaTranspile's; a load's republish takes a row of its own.
+    Dim profRow As Long, profAt As Double, profStep As Double, profLists As Double
+    If mProfileOn Then
+        profRow = ProfRowOf(2)
+        profAt = Timer
+    End If
     source = SpliceIncludes(source)
     Dim prelude As String
+    If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
+    If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
     mLineOffset = CountLf(prelude) + 1
     Set mFormLines = New Collection
     mEmitLine = 0
@@ -1588,9 +1834,19 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     mSlabCounter = 0
     mSlabRowVar = ""
     Dim toks() As String
+    If mProfileOn Then profStep = Timer
     toks = Tokenize(prelude & vbCrLf & source)
+    If mProfileOn Then
+        ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), profStep
+        profStep = Timer
+        profLists = mProfLists
+    End If
     Dim forms As Collection
     Set forms = ParseAll(toks)
+    If mProfileOn Then
+        ProfParsed profRow, forms, profLists, profStep
+        profStep = Timer
+    End If
 
     Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
@@ -1620,6 +1876,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
             bodyForms.Add f
         End If
     Next
+    If mProfileOn Then ProfDefined profRow, forms.Count - bodyForms.Count, profStep
 
     Dim expanded As New Collection
     For Each f In bodyForms
@@ -1627,6 +1884,7 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     Next
     ParametersFinish   ' VLA.11
     Set VlaCompileToForms = expanded
+    If mProfileOn Then ProfDone profRow, profAt
 End Function
 
 ' F.2: the bare reader half of VlaTranspile/VlaCompileToForms's shared
@@ -1681,6 +1939,7 @@ End Function
 ' one's whole point is the DefineMacro side effect + its errors, not
 ' the forms themselves).
 Public Sub VlaProbeMacroForm(ByVal macroText As String)
+    If mProfileOn Then mProfProbes = mProfProbes + 1   ' P-PRELUDE
     VlaPushContext
     On Error GoTo fail
     mLineOffset = 0
@@ -1915,8 +2174,17 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
                               Optional ByRef firedCount As Long) As String
     ' firedCount is a typed ByRef Optional: pass a Long variable or
     ' omit it (hazard 11 - a Variant may not ride into it).
+    ' P-PRELUDE: as VlaTranspile's; a phrasebook's macro call takes a row of
+    ' its own.
+    Dim profRow As Long, profAt As Double, profStep As Double, profLists As Double
+    If mProfileOn Then
+        profRow = ProfRowOf(4)
+        profAt = Timer
+    End If
     Dim prelude As String
+    If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
+    If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
     mLineOffset = CountLf(prelude) + 1
     Set mFormLines = New Collection
     Set mIncMap = Nothing           ' VLA.9: this text splices no include, so a
@@ -1929,9 +2197,19 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     mExpandFired = 0
 
     Dim toks() As String
+    If mProfileOn Then profStep = Timer
     toks = Tokenize(prelude & vbCrLf & source)
+    If mProfileOn Then
+        ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), profStep
+        profStep = Timer
+        profLists = mProfLists
+    End If
     Dim forms As Collection
     Set forms = ParseAll(toks)
+    If mProfileOn Then
+        ProfParsed profRow, forms, profLists, profStep
+        profStep = Timer
+    End If
 
     ' Same two-pass shape as VlaTranspile: collect every defmacro
     ' (prelude's and the source's own), expand only the body forms.
@@ -1954,6 +2232,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
             bodyForms.Add f
         End If
     Next
+    If mProfileOn Then ProfDefined profRow, forms.Count - bodyForms.Count, profStep
 
     Dim sb As String, sbU As Long
     Dim ex As Variant
@@ -1971,6 +2250,7 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     If toFixpoint Then ParametersFinish
     firedCount = mExpandFired
     VlaExpandText = SbText(sb, sbU)
+    If mProfileOn Then ProfDone profRow, profAt
 End Function
 
 ' One pass: top-down; a list whose head is a macro is replaced by its
@@ -2276,14 +2556,17 @@ Private Function PreludeMacros() As String
     ' that has set the override never reaches PreludeVlaPath/Dir$/
     ' ThisWorkbook/VlaEmbeddedText at all, not even to fail past them.
     If mPreludeOverrideSet Then
+        If mProfileOn Then mProfPreludeFrom = 2   ' P-PRELUDE: the override's
         PreludeMacros = mPreludeOverrideText
         Exit Function
     End If
     Dim p As String
     p = PreludeVlaPath()
     If Len(p) > 0 Then
+        If mProfileOn Then mProfPreludeFrom = 1   ' P-PRELUDE: prelude.vla's
         PreludeMacros = VLA_Loader.VlaReadFile(p)
     Else
+        If mProfileOn Then mProfPreludeFrom = 3   ' P-PRELUDE: the embedded copy's
         PreludeMacros = VlaEmbeddedText("VLAp_Source")
         If Len(PreludeMacros) = 0 Then
             VLA_Messages.RaiseMsg "vla-prelude-not-found"
@@ -2382,6 +2665,8 @@ Private Function Tokenize(ByVal s As String) As String()
     Dim start As Long
     Dim ln As Long, startLn As Long
     Dim hashes As Long, rawNext As Long   ' VLA.18: a raw string's # and its end
+    Dim profAt As Double                  ' P-PRELUDE: every reader's tokenize
+    If mProfileOn Then profAt = Timer
     ln = 1
     n = Len(s)
     i = 1
@@ -2499,6 +2784,12 @@ Private Function Tokenize(ByVal s As String) As String()
         mTokLines(k) = v
     Next v
     Tokenize = toksArr
+    If mProfileOn Then
+        mProfTokCalls = mProfTokCalls + 1
+        mProfTokChars = mProfTokChars + n
+        mProfTokTokens = mProfTokTokens + outc.Count
+        mProfTokMs = mProfTokMs + ProfMs(profAt)
+    End If
 End Function
 
 ' C2 source-map helpers ------------------------------------------------
@@ -2705,6 +2996,10 @@ Private Sub TagLine(f As Object, ByVal srcLine As Long)
     k = CStr(ObjPtr(f))
     On Error Resume Next
     mFormLines.Remove k
+    If mProfileOn Then   ' P-PRELUDE: the Remove's raise, read before GoTo 0 clears it
+        mProfTagged = mProfTagged + 1
+        If Err.Number <> 0 Then mProfTagMisses = mProfTagMisses + 1
+    End If
     On Error GoTo 0
     mFormLines.Add CStr(srcLine), k
 End Sub
@@ -2766,6 +3061,8 @@ Private Function MapTag(ByVal emitted As String, ByVal srcLine As Long) As Strin
 End Function
 
 Private Function ParseAll(toks() As String) As Collection
+    Dim profAt As Double                  ' P-PRELUDE: every reader's parse
+    If mProfileOn Then profAt = Timer
     Dim pos As Long
     pos = 1
     Dim outc As New Collection
@@ -2773,6 +3070,10 @@ Private Function ParseAll(toks() As String) As Collection
         outc.Add ParseForm(toks, pos, 1)
     Loop
     Set ParseAll = outc
+    If mProfileOn Then
+        mProfParseCalls = mProfParseCalls + 1
+        mProfParseMs = mProfParseMs + ProfMs(profAt)
+    End If
 End Function
 
 ' listDepth: the depth of the list a "(" here would open (VLA.1).
@@ -2784,6 +3085,7 @@ Private Function ParseForm(toks() As String, ByRef pos As Long, ByVal listDepth 
     pos = pos + 1
     If t = "(" Then
         If listDepth > VLA_FORM_DEPTH_LIMIT Then VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", CStr(VLA_FORM_DEPTH_LIMIT), "loc", SrcLineTag(lnRaw)
+        If mProfileOn Then mProfLists = mProfLists + 1   ' P-PRELUDE: no local, the walk recurses
         Dim lst As New Collection
         TagLine lst, lnRaw - mLineOffset ' C2: a list is born on the
                                          ' line of its opening paren
@@ -3006,6 +3308,7 @@ End Function
 ' the evidence that decides whether it is ever worth buying. Verdict
 ' recorded on the Alpha 5 ledger; the code stands.
 Private Function CollGet(col As Collection, ByVal key As String, ByRef found As Boolean) As Variant
+    If mProfileOn Then mProfCollGets = mProfCollGets + 1   ' P-PRELUDE
     On Error GoTo missing
     If IsObject(col.Item(key)) Then
         Set CollGet = col.Item(key)
@@ -3016,6 +3319,7 @@ Private Function CollGet(col As Collection, ByVal key As String, ByRef found As 
     Exit Function
 missing:
     found = False
+    If mProfileOn Then mProfCollMisses = mProfCollMisses + 1   ' P-PRELUDE: a trapped error
 End Function
 
 ' =====================================================================

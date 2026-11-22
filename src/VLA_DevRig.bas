@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_DevRig"
 Option Explicit
-Public Const VLA_DEVRIG_VERSION As String = "AXM.7"
+Public Const VLA_DEVRIG_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its first slice, the instrument: VlaProfileAll also zeroes and
+' prints VLA.bas's counts of what each entry point reads, parses and defines
+' (VlaProfileReset, the mProfE* rows, VlaProfileShapes), the reader's and the
+' trapped lookups', VLA_SentenceEngine's loads, and its own record of the run:
+' each pin's lap (VlaProfilePin, VlaProfilePinShown, from the two Reports),
+' the legs (VlaProfileLeg, VlaProfileScale) and the slowest test Subs, a pin's
+' Sub read from the test modules' code by its name (ProfPinIndex). PPROF.0's
+' lines and names are unchanged; the report follows them.
 ' AXM.7: mods array gains VLA_Refers (the formula-reference reader, pure:
 ' a formula's text to records). Added to VLA_Build.bas's own array in the
 ' same edit, as check_devrig_mods_parity.ps1 requires.
@@ -113,6 +121,23 @@ Public Const VLA_DEVRIG_VERSION As String = "AXM.7"
 '                  counts, paths, workbook names. The answer to
 '                  "which version is actually loaded?"
 ' =====================================================================
+
+' P-PRELUDE: VlaProfileAll's own record of a run (VLA.bas keeps the
+' compile's counts, VLA_SentenceEngine the loads'): every pin's name and lap
+' in the order they ran, the time their lines took to print, and the legs,
+' each a slot of mLegMs (ProfLegName). mRecording is set by VlaProfileAll
+' alone, so that a hook reached without it records nothing.
+Private mRecording As Boolean
+Private mPinNames() As String
+Private mPinMs() As Double
+Private mPinCount As Long
+Private mPinLast As Double       ' Timer when the last pin's line had printed
+Private mPinShownAt As Double    ' Timer when this pin's lap ended
+Private mPinPrintMs As Double
+Private mLegMs(0 To 4) As Double
+Private mLeg As Long             ' the leg the clock runs for
+Private mLegAt As Double         ' Timer when it began
+Private mLegBeforeScale As Long
 
 Public Sub VlaDevReload(Optional ByVal folder As String = "")
     On Error GoTo failed
@@ -1690,6 +1715,18 @@ End Function
 '  touches ExpandMacros/cdr/ListTail/GetMacro/TokAt/tablespec's own walk,
 '  or a new performance feature needs a real before-number rather than a
 '  guess - not part of any routine suite run.
+'
+'  P-PRELUDE: after PPROF.0's lines, a report of its own (ProfReport,
+'  below): the prelude texts read and each one's shape; a row an entry
+'  point (VlaTranspile, VlaCompileToForms and a load's republish through
+'  it, VlaExpandText and a phrasebook's macro call through it), its calls,
+'  where the prelude came from, the characters, tokens, lists, forms and
+'  definitions read with the prelude's share of each, and the read,
+'  tokenize, parse, define and total ms; every reader's tokenize and parse
+'  and the trapped lookups; the phrasebook loads and their tests; the legs
+'  (pure, scale, host, F.4); and the slowest twenty test Subs and ten pins.
+'  The counts are exact and the same on any machine; the times are Timer's,
+'  so compare the medians of several runs, never one.
 ' =====================================================================
 
 Public Sub VlaProfileAll()
@@ -1713,6 +1750,15 @@ Public Sub VlaProfileAll()
     VLA_SentenceEngine.mProfMsTransTokenize = 0
     VLA_SentenceEngine.mProfMsTransBuild = 0
     VLA_SentenceEngine.mProfTransCalls = 0
+    VLA.VlaProfileReset                       ' P-PRELUDE: the entry points' counts,
+    VLA_SentenceEngine.mProfLoads = 0         ' the loads',
+    VLA_SentenceEngine.mProfLoadsDone = 0
+    VLA_SentenceEngine.mProfLoadChars = 0
+    VLA_SentenceEngine.mProfMsLoad = 0
+    VLA_SentenceEngine.mProfLoadTests = 0
+    VLA_SentenceEngine.mProfMsLoadTests = 0
+    Set VLA_SentenceEngine.mProfVocabTexts = Nothing
+    ProfRecorderStart                         ' and the pins' and the legs'
     VLA.mProfileOn = True
 
     On Error GoTo cleanup
@@ -1720,7 +1766,9 @@ Public Sub VlaProfileAll()
     t0 = Timer
     ok = VLA_Tests_Host.VlaSelfTestsAll()
     msTotal = DevMs(t0)
+    ProfLegSwitch 0                           ' P-PRELUDE: the last leg closed
     VLA.mProfileOn = False
+    mRecording = False
 
     DevNameSet "VLAt_ProfTokenize", VLA.mProfMsTokenize
     DevNameSet "VLAt_ProfParse", VLA.mProfMsParse
@@ -1742,12 +1790,16 @@ Public Sub VlaProfileAll()
     Debug.Print "  --- translate-side (EnglishToVla, " & VLA_SentenceEngine.mProfTransCalls & " calls) ---"
     Debug.Print "  trans-tokenize:  " & Format$(VLA_SentenceEngine.mProfMsTransTokenize, "0") & " ms" & DevPrevTag(pTTok) & "   <- P-TOK's own target (TokAt)"
     Debug.Print "  trans-build:     " & Format$(VLA_SentenceEngine.mProfMsTransBuild, "0") & " ms" & DevPrevTag(pTBuild)
+    ProfReport msTotal                        ' P-PRELUDE
     Debug.Print "  (stored in workbook names VLAt_Prof*; grammar was reset along the way - reload vocabulary before the next Check)"
+    Debug.Print "===== VlaProfileAll: " & VLA_Tests_Host.VlaSelfTestsVerdict() & _
+                ", suite " & IIf(ok, "PASS", "FAIL") & " ====="   ' P-PRELUDE: the verdict last, no scrolling
     Exit Sub
 cleanup:
     Dim n As Long, s As String, d As String
     n = Err.Number: s = Err.Source: d = Err.Description
     VLA.mProfileOn = False
+    mRecording = False
     Err.Raise n, s, d
 End Sub
 
@@ -1758,6 +1810,420 @@ End Sub
 Private Function ProfShare(ByVal part As Double, ByVal total As Double) As String
     If total <= 0 Then Exit Function
     ProfShare = "  (" & Format$(part / total * 100#, "0.0") & "% of compile)"
+End Function
+
+' =====================================================================
+'  P-PRELUDE: the instrument's recorder and its report. The hooks are
+'  VLA_Tests.Report's and VLA_Tests_Host.Report's (each pin), VlaSelfTests'
+'  and VlaSelfTestsAll's (the legs) and the five scale blocks' (the scale
+'  leg); each records only while VlaProfileAll records. A pin's lap is the
+'  time from the last pin's line printed to this pin's Report: its own
+'  work, its arguments' among it, and for a Sub's first pin the Sub's
+'  setup. A Sub's time is the sum of its pins' laps, a pin's Sub read from
+'  the source by its name (ProfPinIndex).
+' =====================================================================
+
+Private Sub ProfRecorderStart()
+    mPinCount = 0
+    ReDim mPinNames(1 To 4096)
+    ReDim mPinMs(1 To 4096)
+    mPinPrintMs = 0
+    Erase mLegMs
+    mLeg = 0
+    mLegBeforeScale = 0
+    mLegAt = Timer
+    mPinLast = mLegAt
+    mRecording = True
+End Sub
+
+' A pin's lap ends here, before its line prints.
+Public Sub VlaProfilePin(ByVal pinName As String)
+    If Not mRecording Then Exit Sub
+    Dim t As Double
+    t = Timer
+    mPinCount = mPinCount + 1
+    If mPinCount > UBound(mPinNames) Then
+        ReDim Preserve mPinNames(1 To 2 * UBound(mPinNames))
+        ReDim Preserve mPinMs(1 To 2 * UBound(mPinMs))
+    End If
+    mPinNames(mPinCount) = pinName
+    mPinMs(mPinCount) = DevSpanMs(mPinLast, t)
+    mPinShownAt = t
+End Sub
+
+' And its line has printed: the next pin's lap starts.
+Public Sub VlaProfilePinShown()
+    If Not mRecording Then Exit Sub
+    Dim t As Double
+    t = Timer
+    mPinPrintMs = mPinPrintMs + DevSpanMs(mPinShownAt, t)
+    mPinLast = t
+End Sub
+
+' The clock runs for a leg from here: "pure", "host", "F.4" or "other".
+Public Sub VlaProfileLeg(ByVal leg As String)
+    If Not mRecording Then Exit Sub
+    ProfLegSwitch ProfLegIndex(leg)
+End Sub
+
+' A scale block's start and end: the scale leg, then back to the leg it
+' interrupted.
+Public Sub VlaProfileScale(ByVal entering As Boolean)
+    If Not mRecording Then Exit Sub
+    If entering Then
+        mLegBeforeScale = mLeg
+        ProfLegSwitch 2
+    Else
+        ProfLegSwitch mLegBeforeScale
+    End If
+End Sub
+
+Private Sub ProfLegSwitch(ByVal toLeg As Long)
+    Dim t As Double
+    t = Timer
+    mLegMs(mLeg) = mLegMs(mLeg) + DevSpanMs(mLegAt, t)
+    mLeg = toLeg
+    mLegAt = t
+End Sub
+
+Private Function ProfLegIndex(ByVal leg As String) As Long
+    Select Case leg
+        Case "pure": ProfLegIndex = 1
+        Case "scale": ProfLegIndex = 2
+        Case "host": ProfLegIndex = 3
+        Case "F.4": ProfLegIndex = 4
+        Case Else: ProfLegIndex = 0
+    End Select
+End Function
+
+Private Function ProfLegName(ByVal i As Long) As String
+    Select Case i
+        Case 1: ProfLegName = "pure, its scale cases apart"
+        Case 2: ProfLegName = "scale (pure and host)"
+        Case 3: ProfLegName = "host, its scale case apart"
+        Case 4: ProfLegName = "F.4's real-corpus audit"
+        Case Else: ProfLegName = "outside the legs"
+    End Select
+End Function
+
+' Two Timer readings apart, in ms, across midnight.
+Private Function DevSpanMs(ByVal t0 As Double, ByVal t1 As Double) As Double
+    Dim d As Double
+    d = t1 - t0
+    If d < 0 Then d = d + 86400#
+    DevSpanMs = d * 1000#
+End Function
+
+Private Function DevN(ByVal x As Double) As String
+    DevN = Format$(x, "0")
+End Function
+
+Private Function DevPadL(ByVal s As String, ByVal w As Long) As String
+    If Len(s) >= w Then
+        DevPadL = s
+    Else
+        DevPadL = Space$(w - Len(s)) & s
+    End If
+End Function
+
+Private Function DevPadR(ByVal s As String, ByVal w As Long) As String
+    If Len(s) >= w Then
+        DevPadR = s
+    Else
+        DevPadR = s & Space$(w - Len(s))
+    End If
+End Function
+
+Private Function DevPct(ByVal part As Double, ByVal total As Double) As String
+    If total <= 0 Then Exit Function
+    DevPct = Format$(part / total * 100#, "0.0") & "%"
+End Function
+
+Private Sub ProfReport(ByVal msTotal As Double)
+    Debug.Print "  === P-PRELUDE: what the suite reads, parses and defines (counts exact; ms by Timer, about 16 ms a tick, summed) ==="
+    ProfReportShapes
+    ProfReportEntries
+    ProfReportReaders
+    ProfReportLegs msTotal
+    ProfReportSubs msTotal
+    Debug.Print "  === P-PRELUDE: end of the report ==="
+End Sub
+
+Private Sub ProfReportShapes()
+    Dim shapes As Collection
+    Set shapes = VLA.VlaProfileShapes()
+    If shapes.Count = 0 Then
+        Debug.Print "  no prelude was read"
+        Exit Sub
+    End If
+    Dim sh As Variant, k As Long
+    For Each sh In shapes
+        k = k + 1
+        Debug.Print "  prelude text " & k & ": " & DevN(sh(0)) & " chars, " & DevN(sh(1)) & " tokens, " & _
+                    DevN(sh(2)) & " lists, " & DevN(sh(3)) & " forms, " & DevN(sh(4)) & _
+                    " definitions; read by " & DevN(sh(5)) & " calls" & _
+                    IIf(sh(1) < 0, " (the reader refused it)", "")
+    Next
+End Sub
+
+Private Sub ProfReportEntries()
+    Dim r As Long
+    Debug.Print "  " & DevPadR("entry point", 32) & DevPadL("calls", 8) & DevPadL("returned", 9) & _
+                DevPadL("disk", 8) & DevPadL("override", 9) & DevPadL("chars", 12) & DevPadL("tokens", 11) & _
+                DevPadL("lists", 10) & DevPadL("forms", 9) & DevPadL("defs", 9)
+    For r = 1 To VLA.VLA_PROF_ROWS
+        Debug.Print "  " & DevPadR(VLA.VlaProfileRowName(r), 32) & DevPadL(DevN(VLA.mProfECalls(r)), 8) & _
+                    DevPadL(DevN(VLA.mProfEDone(r)), 9) & DevPadL(DevN(VLA.mProfEDisk(r)), 8) & _
+                    DevPadL(DevN(VLA.mProfEOverride(r)), 9) & DevPadL(DevN(VLA.mProfEChars(r)), 12) & _
+                    DevPadL(DevN(VLA.mProfETokens(r)), 11) & DevPadL(DevN(VLA.mProfELists(r)), 10) & _
+                    DevPadL(DevN(VLA.mProfEForms(r)), 9) & DevPadL(DevN(VLA.mProfEDefs(r)), 9)
+        Debug.Print "  " & DevPadR("    the prelude's share", 66) & DevPadL(DevN(VLA.mProfEPreChars(r)), 12) & _
+                    DevPadL(DevN(VLA.mProfEPreTokens(r)), 11) & DevPadL(DevN(VLA.mProfEPreLists(r)), 10) & _
+                    DevPadL(DevN(VLA.mProfEPreForms(r)), 9) & DevPadL(DevN(VLA.mProfEPreDefs(r)), 9)
+    Next
+    Debug.Print "  " & DevPadR("entry point, ms", 32) & DevPadL("read", 8) & DevPadL("tokenize", 10) & _
+                DevPadL("parse", 9) & DevPadL("define", 9) & DevPadL("total", 10) & "   (total: the calls that returned)"
+    Dim allMs As Double
+    For r = 1 To VLA.VLA_PROF_ROWS
+        Debug.Print "  " & DevPadR(VLA.VlaProfileRowName(r), 32) & DevPadL(DevN(VLA.mProfEMsRead(r)), 8) & _
+                    DevPadL(DevN(VLA.mProfEMsTok(r)), 10) & DevPadL(DevN(VLA.mProfEMsParse(r)), 9) & _
+                    DevPadL(DevN(VLA.mProfEMsDefine(r)), 9) & DevPadL(DevN(VLA.mProfEMsTotal(r)), 10)
+        allMs = allMs + VLA.mProfEMsTotal(r)
+    Next
+    Debug.Print "  (the rows' totals sum to " & DevN(allMs) & " ms; a call made inside another's would count in both)"
+End Sub
+
+Private Sub ProfReportReaders()
+    Dim r As Long
+    Dim eCalls As Double, eChars As Double, eToks As Double, eTokMs As Double
+    Dim eLists As Double, eParseMs As Double
+    For r = 1 To VLA.VLA_PROF_ROWS
+        eCalls = eCalls + VLA.mProfECalls(r)
+        eChars = eChars + VLA.mProfEChars(r)
+        eToks = eToks + VLA.mProfETokens(r)
+        eTokMs = eTokMs + VLA.mProfEMsTok(r)
+        eLists = eLists + VLA.mProfELists(r)
+        eParseMs = eParseMs + VLA.mProfEMsParse(r)
+    Next
+    Debug.Print "  every reader: " & DevN(VLA.mProfTokCalls) & " tokenizes of " & DevN(VLA.mProfTokChars) & " chars, " & _
+                DevN(VLA.mProfTokTokens) & " tokens, " & DevN(VLA.mProfTokMs) & " ms; " & _
+                DevN(VLA.mProfParseCalls) & " parses, " & DevN(VLA.mProfParseMs) & " ms; " & DevN(VLA.mProfLists) & " lists"
+    Debug.Print "    outside the entry points (VlaReadForms, VlaReadFormsWithLines, VlaProbeMacroForm, VlaListHeads, VlaFormat): " & _
+                DevN(VLA.mProfTokCalls - eCalls) & " tokenizes of " & DevN(VLA.mProfTokChars - eChars) & " chars, " & _
+                DevN(VLA.mProfTokTokens - eToks) & " tokens, " & DevN(VLA.mProfTokMs - eTokMs) & " ms; parsing " & _
+                DevN(VLA.mProfParseMs - eParseMs) & " ms, " & DevN(VLA.mProfLists - eLists) & " lists; " & _
+                DevN(VLA.mProfProbes) & " macro probes"
+    Debug.Print "  trapped errors: TagLine's Remove " & DevN(VLA.mProfTagMisses) & " of " & DevN(VLA.mProfTagged) & _
+                " tags; CollGet's misses " & DevN(VLA.mProfCollMisses) & " of " & DevN(VLA.mProfCollGets) & " gets"
+    Debug.Print "  phrasebook loads: " & DevN(VLA_SentenceEngine.mProfLoads) & " (" & DevN(VLA_SentenceEngine.mProfLoadsDone) & _
+                " returned) of " & DevN(VLA_SentenceEngine.mProfLoadChars) & " chars, " & _
+                DevN(VLA_SentenceEngine.mProfMsLoad) & " ms; their tests " & DevN(VLA_SentenceEngine.mProfLoadTests) & _
+                " run, " & DevN(VLA_SentenceEngine.mProfMsLoadTests) & " ms"
+    ' The vocabularies the macro calls and the republishes carried: how
+    ' often a call carried a text an earlier call had carried too.
+    Dim vt As Object, vk As Variant, carried As Double, longest As Double
+    Set vt = VLA_SentenceEngine.mProfVocabTexts
+    If vt Is Nothing Then
+        Debug.Print "  vocabularies carried into VLA by a macro call or a republish: none"
+    Else
+        For Each vk In vt.Keys
+            carried = carried + vt.Item(vk)
+            If Len(vk) > longest Then longest = Len(vk)
+        Next
+        Debug.Print "  vocabularies carried into VLA by a macro call or a republish: " & vt.Count & " distinct over " & _
+                    DevN(carried) & " calls, the longest " & DevN(longest) & " chars"
+    End If
+End Sub
+
+Private Sub ProfReportLegs(ByVal msTotal As Double)
+    Debug.Print "  --- the legs, ms and share of the wall time ---"
+    Dim i As Long
+    For i = 1 To 4
+        Debug.Print "  " & DevPadR(ProfLegName(i), 32) & DevPadL(DevN(mLegMs(i)), 10) & DevPadL(DevPct(mLegMs(i), msTotal), 8)
+    Next
+    Debug.Print "  " & DevPadR(ProfLegName(0), 32) & DevPadL(DevN(mLegMs(0)), 10) & DevPadL(DevPct(mLegMs(0), msTotal), 8)
+    Debug.Print "  printing the pins' lines, inside the legs: " & DevN(mPinPrintMs) & " ms over " & mPinCount & " pins (" & _
+                DevPct(mPinPrintMs, msTotal) & ")"
+End Sub
+
+' The slowest twenty test Subs, and the slowest ten pins.
+Private Sub ProfReportSubs(ByVal msTotal As Double)
+    Dim idx As Object
+    Set idx = ProfPinIndex()
+    If idx Is Nothing Then
+        Debug.Print "  (the test modules' source could not be read - Trust access to the VBA project object model - so the pins stand alone)"
+        Set idx = CreateObject("Scripting.Dictionary")
+    End If
+    Dim bySub As Object, pinsOf As Object, subOfPin() As String
+    Set bySub = CreateObject("Scripting.Dictionary")
+    Set pinsOf = CreateObject("Scripting.Dictionary")
+    If mPinCount > 0 Then ReDim subOfPin(1 To mPinCount)
+    Dim p As Long, sb As String, lastSub As String, found As Long, lapsMs As Double
+    lastSub = "(before the first pin found)"
+    For p = 1 To mPinCount
+        sb = ""
+        If idx.Exists(mPinNames(p)) Then sb = CStr(idx.Item(mPinNames(p)))
+        If Len(sb) > 0 Then
+            found = found + 1
+            lastSub = sb
+        Else
+            sb = lastSub
+        End If
+        subOfPin(p) = sb
+        bySub.Item(sb) = bySub.Item(sb) + mPinMs(p)
+        pinsOf.Item(sb) = pinsOf.Item(sb) + 1
+        lapsMs = lapsMs + mPinMs(p)
+    Next
+    Debug.Print "  --- the slowest twenty test Subs, a Sub's time its pins' laps (" & DevN(lapsMs) & " ms in all; " & _
+                found & " of " & mPinCount & " pins found by name in the source, each other pin its last found pin's Sub's) ---"
+    Dim subKeys As Variant, nK As Long, i As Long, rank As Long, best As Long
+    nK = bySub.Count
+    If nK > 0 Then
+        subKeys = bySub.Keys
+        Dim taken() As Boolean
+        ReDim taken(0 To nK - 1)
+        For rank = 1 To 20
+            best = -1
+            For i = 0 To nK - 1
+                If Not taken(i) Then
+                    If best < 0 Then
+                        best = i
+                    ElseIf bySub.Item(subKeys(i)) > bySub.Item(subKeys(best)) Then
+                        best = i
+                    End If
+                End If
+            Next
+            If best < 0 Then Exit For
+            taken(best) = True
+            Debug.Print "  " & DevPadL(CStr(rank), 3) & ". " & DevPadR(CStr(subKeys(best)), 52) & _
+                        DevPadL(DevN(bySub.Item(subKeys(best))), 9) & " ms" & DevPadL(DevPct(bySub.Item(subKeys(best)), msTotal), 8) & _
+                        "  (" & pinsOf.Item(subKeys(best)) & " pins)"
+        Next
+    End If
+    Debug.Print "  --- the slowest ten pins, each its lap and its Sub ---"
+    If mPinCount = 0 Then Exit Sub
+    Dim pinTaken() As Boolean
+    ReDim pinTaken(1 To mPinCount)
+    For rank = 1 To 10
+        best = 0
+        For p = 1 To mPinCount
+            If Not pinTaken(p) Then
+                If best = 0 Then
+                    best = p
+                ElseIf mPinMs(p) > mPinMs(best) Then
+                    best = p
+                End If
+            End If
+        Next
+        If best = 0 Then Exit For
+        pinTaken(best) = True
+        Debug.Print "  " & DevPadL(CStr(rank), 3) & ". " & DevPadL(DevN(mPinMs(best)), 8) & " ms  " & _
+                    subOfPin(best) & ": " & Left$(mPinNames(best), 90)
+    Next
+End Sub
+
+' Each pin's name, as a test module writes it first in a call, to the Sub
+' it is written in ("Module.Sub"), "" where two Subs write it: read from the
+' code the VBE holds, which is the code that ran. Nothing when the VBE's
+' object model is not trusted.
+Private Function ProfPinIndex() As Object
+    Dim idx As Object
+    Set idx = CreateObject("Scripting.Dictionary")
+    Dim modNames As Variant, m As Variant
+    modNames = Array("VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host")
+    Dim cm As Object, codeLines() As String
+    Dim i As Long, s As String, proc As String, nm As String, lit As String
+    On Error GoTo noSource
+    For Each m In modNames
+        Set cm = ThisWorkbook.VBProject.VBComponents(CStr(m)).CodeModule
+        codeLines = Split(cm.Lines(1, cm.CountOfLines), vbCrLf)
+        proc = ""
+        For i = LBound(codeLines) To UBound(codeLines)
+            s = LTrim$(codeLines(i))
+            If ProfProcStarts(s, nm) Then
+                proc = CStr(m) & "." & nm
+            ElseIf ProfProcEnds(s) Then
+                proc = ""
+            ElseIf Len(proc) > 0 Then
+                If ProfFirstLiteral(s, lit) Then
+                    If idx.Exists(lit) Then
+                        If CStr(idx.Item(lit)) <> proc Then idx.Item(lit) = ""
+                    Else
+                        idx.Add lit, proc
+                    End If
+                End If
+            End If
+        Next
+    Next
+    Set ProfPinIndex = idx
+    Exit Function
+noSource:
+    Set ProfPinIndex = Nothing
+End Function
+
+' A line that declares a Sub or a Function, and its name.
+Private Function ProfProcStarts(ByVal s As String, ByRef nm As String) As Boolean
+    Do
+        If Left$(s, 8) = "Private " Then
+            s = Mid$(s, 9)
+        ElseIf Left$(s, 7) = "Public " Or Left$(s, 7) = "Friend " Or Left$(s, 7) = "Static " Then
+            s = Mid$(s, 8)
+        Else
+            Exit Do
+        End If
+    Loop
+    If Left$(s, 4) = "Sub " Then
+        s = Mid$(s, 5)
+    ElseIf Left$(s, 9) = "Function " Then
+        s = Mid$(s, 10)
+    Else
+        Exit Function
+    End If
+    Dim p As Long
+    p = InStr(1, s, "(")
+    If p = 0 Then p = Len(s) + 1
+    nm = Trim$(Left$(s, p - 1))
+    ProfProcStarts = (Len(nm) > 0)
+End Function
+
+Private Function ProfProcEnds(ByVal s As String) As Boolean
+    ProfProcEnds = (Left$(s, 7) = "End Sub" Or Left$(s, 12) = "End Function" Or Left$(s, 12) = "End Property")
+End Function
+
+' The text of a call's first argument when the line is a call written
+' Name "text", ...: a name's characters, spaces, then a literal, its
+' doubled quotes one quote each.
+Private Function ProfFirstLiteral(ByVal s As String, ByRef lit As String) As Boolean
+    Dim i As Long, n As Long, c As String, buf As String
+    n = Len(s)
+    i = 1
+    Do While i <= n
+        c = Mid$(s, i, 1)
+        If Not (c Like "[A-Za-z0-9_.]") Then Exit Do
+        i = i + 1
+    Loop
+    If i = 1 Or i > n Then Exit Function
+    If Mid$(s, i, 1) <> " " Then Exit Function
+    Do While Mid$(s, i, 1) = " "
+        i = i + 1
+    Loop
+    If Mid$(s, i, 1) <> """" Then Exit Function
+    i = i + 1
+    Do While i <= n
+        c = Mid$(s, i, 1)
+        If c = """" Then
+            If Mid$(s, i + 1, 1) <> """" Then
+                lit = buf
+                ProfFirstLiteral = True
+                Exit Function
+            End If
+            buf = buf & """"
+            i = i + 2
+        Else
+            buf = buf & c
+            i = i + 1
+        End If
+    Loop
 End Function
 
 Public Sub VlaDiagnostics()

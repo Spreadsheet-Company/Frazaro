@@ -51108,7 +51108,313 @@ all this version.
   an order of magnitude), emit 137 ms (5.0%); translate-side
   trans-tokenize 20 ms, trans-build 70 ms. Suite wall time
   149,984 → 22,004 ms. Committed. `~days`
-- ⬜ **P-PRELUDE** — *largely subsumed by F.3.* `~hours`
+- 🟡 **P-PRELUDE — the prelude read, parsed and defined once a run, each
+  compile handed a fresh copy of its macro and function tables, so that the
+  VBA suite's wall time comes back down and the add-in stops paying for the
+  same 45 definitions at every Check, Compile and sentence through a
+  vocabulary macro.** Filed in Alpha 5 as an `~hours` line, then marked
+  "largely subsumed by F.3", which made the prelude a file and kept its read,
+  its parse and its definitions at every call. Scoped 2026-11-22 at the
+  owner's word, "Scope and then implement P-PRELUDE in Frazaro ... Measure
+  first; build nothing past the instrument until I approve the scoping";
+  nothing minted. HEAD `ff755d0` (`VLA.11`'s close) under the instrument and
+  `434c604` (a peer's `KERNEL.46` scoping, its docs and its probe) under this
+  record; `vla-lang/README.md` a peer's open file, untouched.
+
+  *Why now.* `VlaProfileAll` timed the whole suite at 55,678 ms at `VLA.11`'s
+  first slice, then 97,926, 117,881 and 75,041, the last two at the same code
+  (`ff755d0`): ±25% from run to run, while P-PROF's four timed phases of
+  `VlaTranspile` stayed 5.6 to 7.5 s of it. Most of the growth since P-TOK's
+  close (22,004 ms over 1,029 pins) is the suite's own (3,048 pins, 26 ms a
+  pin where it was 21), and the largest fixed cost a pin's compiles pay is the
+  prelude: `PreludeMacros` (VLA.bas) reads `scripts/prelude.vla` at every
+  call, and each of the three entry points that call it, `VlaTranspile`,
+  `VlaCompileToForms` and `VlaExpandText`, tokenizes `prelude & vbCrLf &
+  source` as one text, parses it and defines every definition in it again.
+  P-PROBE's round 2 traced that cost in 2026-09 and took it off the probe's
+  path alone; F.3's comment in `PreludeMacros` keeps it on purpose, "Read
+  fresh on every compile - no module-level cache ... (LESSONS.md XXXII: a
+  recompile drops module state)".
+
+  *The instrument, the first slice*, built 2026-11-21 and committed with this
+  scoping. `VlaProfileAll` (VLA_DevRig.bas) prints a report of its own after
+  PPROF.0's lines, every hook behind `VLA.mProfileOn` alone and no dispatch
+  list changed: the prelude texts read and each one's shape; a row an entry
+  point, a load's republish through `VlaCompileToForms` and a phrasebook's
+  macro call through `VlaExpandText` counted apart (each caller naming its row
+  in `VLA.mProfCaller`), with its calls, its reads from disk or the override,
+  the characters, tokens, lists, forms and definitions read with the prelude's
+  share of each, and the read, tokenize, parse, define and total ms; every
+  reader's tokenize and parse; the trapped lookups; the phrasebook loads and
+  their tests; the distinct vocabularies carried; the legs, pure, scale, host
+  and F.4; the slowest twenty test Subs and ten pins, a pin's Sub read from
+  the source by its name (`ProfPinIndex`); and last, at the owner's word, the
+  suite's verdict again (`VlaSelfTestsVerdict`), so that the last line says
+  whether anything failed. Timer alone, about 16 ms a tick, and no `Declare`,
+  since VLA.bas ships. Its counts are exact and the same on any machine.
+
+  *The measurement*, the owner's three runs in a freshly opened Excel on
+  2026-11-22, each pure 2714/2714 and host 333/333, wall 60,394, 78,642 and
+  82,672 ms, median 78,642. Every count was the same in the three runs but
+  `TagLine`'s misses (765,162, 765,385 and 765,417 of the same 843,191 tags,
+  its hits being addresses reused, S3.1's hazard); every time below is a
+  median. A fourth run, the last line's hand test, took 78,291 ms, its counts
+  the same.
+  - `prelude.vla`: 28,610 characters, 607 lines, 1,200 tokens, 273 lists, 45
+    forms (36 `defmacro`, 9 `defexpand`), read from disk 1,739 times a run and
+    never through the override: `VlaTranspile` 282 calls (243 returned, the
+    rest refusals the tests ask for), `VlaCompileToForms` 261, a load's
+    republish 85, `VlaExpandText` 1,009 (547), a phrasebook's macro call 102
+    (100).
+  - Of what those calls read, the prelude's is 93.7% of the characters
+    (49,752,790 of 53,082,178), 78.3% of the tokens (2,086,800 of 2,664,579),
+    77.4% of the lists (474,747 of 613,439) and 78.7% of the definitions
+    (78,255 of 99,398).
+  - Their ms: read 1,083, tokenize 5,290, parse 4,233 and define 21,129, in
+    all 33,833, 43% of the wall. `define`, Pass 1 with the tables it starts
+    from, is 27% of the wall alone, and four fifths of PPROF.0's "parse"
+    bucket (4,692 ms, 62% of its compile), into which P-PROF folded it on
+    purpose. A definition costs 151 to 279 µs, the prelude's the dearest: 251
+    µs in `VlaExpandText`'s row, where Pass 1 is the prelude's almost alone,
+    and 279 in `VlaCompileToForms`', the prelude's alone with the head table's
+    alias map.
+  - So the prelude costs about 25 to 26 s of the median 78.6, a third of the
+    wall: the read 1.1 s, its tokens 4.1 to 5.0 s (its share of the tokens, of
+    the characters), its lists 3.3 s, and its definitions at least 16.6 s
+    (their share at an even price; theirs is the dearer).
+  - Each prelude definition walks its template for a parameter at a head
+    (`RefuseNameAtHead`, VLA.11), one trapped `CollGet` a list headed by a
+    symbol: 184 a compile, counted on `prelude.vla` as the walk reads it, so
+    319,976 of the run's 424,364 `CollGet` misses (75%). The prelude's 273
+    lists are 474,747 of `TagLine`'s 843,191 tags, nine in ten of which are a
+    trapped `Remove`. A list parses in 7.0 µs all in, so a trap costs less; it
+    is not measured alone.
+  - Beside the item: the phrasebook loads, 139 a run (85 returned), 13.8 s,
+    their tests 3.7 s; 45 distinct vocabularies carried over 187 calls, the
+    longest 51,428 characters, a returned macro call 31.3 ms and a republish
+    22.9 ms, the vocabulary's part of the two 2.7 s; printing the pins' lines
+    5.1 s (6.5%); the legs, pure 51.1 s, scale 10.6, host 15.6 and F.4 1.3;
+    the slowest Subs `TestTablespecDepthSafety`, 9.5 s (12%), and
+    `TestExportSkeleton`, 3.9 s (5%).
+
+  *What it stands on, read in the code at `ff755d0`.*
+  - Pass 1, alike in the three entry points: `mMacros` a fresh
+    `Scripting.Dictionary` (PDICT.0), `mDefines`, `mFunctions`, `mParameters`
+    and `mSelfStack` emptied, then `DefineMacro` for each `defmacro` and
+    `DefineFunction` for each `defexpand`, the prelude's first and the
+    source's after, every other form a body form. The prelude defines nothing
+    else: no `define`, no parameter, no body form.
+  - A macro's record is a `Collection` of eight: its parameters, its rest, its
+    template, its docstring, its name as written, its pieces' words and
+    declarations, and its definition's line as VLA.11's twice-refusal names it
+    (`FormLineTag`), empty for the prelude's, whose lines stand before the
+    source's and read 0. A function's record is five. Only `DefineMacro` and
+    `DefineFunction` write a table, each a record once; `VlaMacroDoc`,
+    apropos, `GetMacro`, `GetFunction` and the walks read them.
+  - `Substitute` builds every list it returns and hands back atoms and the
+    caller's own argument forms, so that no template object reaches an
+    expansion's output; a macro used twice in one compile relies on that
+    already.
+  - `VlaPushContext` captures `mMacros` and `mFunctions` by reference, safe
+    because every entry point makes them fresh (F5.0's comment); a table a
+    compile is handed must be its own object.
+  - The language has no gensym; the counters a compile numbers by
+    (`mSlabCounter` and its kin) are reset at each entry point's top and run
+    in Pass 2 alone.
+  - `mLineOffset` is `CountLf(prelude) + 1`, so that a source line is its raw
+    line less the prelude's, and `mFormLines` keys each parsed list by its
+    address, with an explicit 0 for a line before the source (S3.1).
+  - The override (`VlaSetPreludeOverride` and `VlaClearPreludeOverride`,
+    VLA_Browser's) is a text, and the add-in's fallback (`PreludeVlaPath`,
+    then `VlaEmbeddedText "VLAp_Source"`) a text read from a sheet.
+  - P-PROBE's round 2b holds a contract: a load's one un-pushed
+    `VlaCompileToForms mVocabMacros` leaves `mMacros` holding the prelude and
+    the vocabulary for `VlaMacroDoc`, apropos and `GetMacro`. The vocabulary
+    reaches a compile by three roads: that republish and a phrasebook's macro
+    call (`VlaExpandText(mVocabMacros & vbLf & callText)`) carry it as a
+    leading text, and `EnglishToVla` appends it to every translation (L4.2),
+    where `VlaTranspile` reads it as the source's own.
+  - LESSONS.md, Part Five, lesson 3: no state is trusted across a boundary the
+    machinery destroys. A recompile drops module state, and a cache that is
+    only ever a cache, built again when it is missing, trusts nothing across
+    it.
+
+  *The designs*, each costed from the counts and the medians above.
+  1. *The text kept for the run.* `PreludeMacros` answers from a module copy
+     of the text, so that the 1,739 reads become one a key: 1.1 s a run
+     (1.4%). Its key cannot be the text itself (decision 2's (b) or (c)), and
+     the tokens, the lists and the definitions stay.
+  2. *The definitions kept.* The prelude tokenized, parsed and put through
+     Pass 1 once a key, in a pushed context, its macro and function tables
+     kept; each compile handed a fresh `Scripting.Dictionary` of the same
+     records for `mMacros` and `mFunctions`, its source tokenized behind the
+     prelude's 607 lines as blank ones, so that every line number stands.
+     About 24 s a run with the text as the key (its tokens 4.1 to 5.0 s, its
+     lists 3.3 and its definitions at least 16.6, less the copies and the
+     blank lines, about 0.3 s), 25 with a key that skips the read, a third of
+     the wall; and two thirds of the trapped lookups go with it (474,747 of
+     `TagLine`'s tags, 319,976 of `CollGet`'s misses). A compile's prelude
+     half costs about 0.8 ms where it costs 15. *Declined between 1 and 2:*
+     the prelude's tokens kept and spliced before the source's, 5.2 to 6.0 s,
+     its lists and its definitions left, where the time is.
+  3. *Design 2, and the vocabulary's definitions kept beside `mVocabMacros`.*
+     The two roads that carry the vocabulary whole hand it to VLA.bas apart
+     from the call's text, and its records are cached by its text over the
+     prelude's, the republish's contract kept. About 2.1 s more a run (2.7 s
+     of the two rows, 142 of the 187 calls finding their vocabulary built); in
+     the add-in a sentence through a vocabulary macro costs 31 ms today, 20
+     after design 2 and about 2 after this, and a load's republish 23, 11 and
+     about 1. The third road, a translation's carried block, is out of its
+     reach (*Found* 4).
+  4. *The trapped lookups made throw-free.* `TagLine`'s `Remove` a keyed
+     overwrite and `CollGet`'s misses a `Dictionary.Exists` where the
+     collection is the language's own, the prelude still read and defined at
+     every compile. 1,189,749 traps a run at under 7 µs each, so under 8.3 s,
+     unmeasured alone; it changes `mFormLines`' kind, which `VlaFrame`,
+     `VlaReadFormsWithLines` and S3.1's discipline read. After design 2,
+     395,000 to 473,000 traps, under 3.3 s.
+
+  *The decisions*, verdict first, each the owner's, approved as recommended
+  on 2026-11-22: "Approved as recommended; commit the scoping, then build
+  slice 2".
+  1. **The design: 2, the definitions kept**, with 3's vocabulary as the
+     item's second half (decision 4). *Declined:* 1 alone, 1.1 s of the 25;
+     and 4 in 2's place, under 8.3 s and unmeasured, which moves `mFormLines`,
+     where 2 leaves it alone.
+  2. **The key: the text, compared whole.** (a) *Recommended:* `PreludeMacros`
+     read as today and its text compared with the text the cache was built
+     from, exact by construction; the override and the add-in's embedded copy
+     are texts like the file's, so neither needs a word; the read's 1.1 s a
+     run (0.62 ms a compile) stays. (b) A size and a time (`FileLen`,
+     `FileDateTime`): most of the read saved for a stat a compile, unmeasured;
+     an edit that keeps the size inside the time's second goes unseen, and the
+     override and the embedded copy need keys of their own. (c) A version
+     bumped by the override's set and clear, a module reset dropping the cache
+     with the rest: the read saved whole, but an edit of `prelude.vla` on disk
+     waits for the next reset (`VlaDevReload`, a recompile, Excel reopened),
+     and a user's own `prelude.vla` beside the add-in, which DI2.1 lets win,
+     for the next session.
+  3. **An edit of `prelude.vla` on disk while Excel is open takes effect at
+     the next compile**, as today, by decision 2's (a) or (b). *Declined:* at
+     the next reset, (c), for 1.1 s a run.
+  4. **The vocabulary's half belongs to this item, as its own slice after the
+     prelude's** (design 3), its key the vocabulary's text, P-PROBE 2b's
+     contract held by L17's pin and a pin of its own. *The alternative:* left
+     out, a *Found* with its counts, the add-in's 31 ms a sentence through a
+     vocabulary macro becoming 20 and staying there.
+  5. **The records shared and never changed (one-way: a rule every later
+     change to the expander keeps).** Each compile's tables are its own
+     objects; the records in them are the cache's, read and never written, as
+     `Substitute` already treats a template; a pin holds it (decision 9's
+     (d)). *Declined:* a deep copy a compile, the prelude's 273 lists copied,
+     about 2 ms a compile and 3.5 s a run.
+  6. **A prelude of definitions alone is cached; any other prelude, and a
+     build that fails, are read as today.** So that a broken or unusual
+     override fails or works exactly as it does today, its message and its
+     order unchanged; and so that the cache is only ever a cache: nothing
+     reads it but the entry points' own check of its key, and a module reset
+     drops it with the rest.
+  7. **The line numbers by blank lines.** Each compile tokenizes the prelude's
+     607 line breaks, then `vbCrLf`, then the source, so that every raw line,
+     `mLineOffset`, `mTokLines` and each message's line stand byte for byte;
+     the cache's build tokenizes the prelude under the same offset, so that
+     its records' line (item 8) stays empty. The prelude's forms leave a
+     compile's `mFormLines`: their `FormLine` was 0 and reads 0 absent, and
+     S3.1's hazard is a dead form's address, where a cached form lives. Cost:
+     609 characters of no token a compile, about 0.05 ms. *Declined:* the
+     source tokenized alone under an `mLineOffset` of 0, which holds the same
+     numbers only where every line passes through `mLineOffset`.
+  8. **The trapped lookups are not this item** (*Found* 3), their counts kept
+     by the instrument, design 2 taking two thirds of them.
+  9. **The oracle.** (a) Every golden byte for byte, `? VlaGoldens()` with
+     `git diff` and the expand, refusal and token goldens, and the suite PASS.
+     (b) Cached equal to uncached: a pure pin compiling a corpus through the
+     three entry points with the cache on and off (a test switch), the output,
+     a refusal's words and its line alike. (c) Built once: a pure pin over the
+     cache's build count (a Public reader, `VlaContextDepth`'s precedent), two
+     compiles of one prelude building once, the override's text building again
+     and the file's after it is cleared. (d) Never changed: a pure pin, after
+     the suite's expansion tests, printing every cached record (`VlaWriteForm`
+     of its template, its signature and its pieces) equal to a fresh build's
+     print. (e) The instrument's counts. (f) The medians of three
+     `VlaProfileAll` runs, reported and never pinned.
+  10. **The slices, each a commit at the owner's word.** (1) The instrument,
+      with this scoping's docs: built, measured three times. (2) The prelude's
+      definitions kept: decisions 1, 2, 3 and 5 to 7, the oracle's (a) to (e),
+      the report telling a build from a read; pins (b), (c) and (d), three
+      pure tests, so pure 2717 and host 333; hand test: `VlaDevReload` with
+      `VLA_DevRig` imported by hand, Debug > Compile, `? VlaSelfTests()`, the
+      four goldens written again with `git diff` empty, and three
+      `VlaProfileAll` runs. (3) The vocabulary's, if decision 4 holds: pins of
+      a vocabulary built once a text and of the republish's table equal to the
+      uncached one, so pure 2719; hand test as (2), and the IDE's Check timing
+      on a program of generator sentences before and after. (4) The close,
+      riding the last slice: RELEASES.md's note under the top version with the
+      add-in's measured gain, this record ✅ at the owner's word, its ledger
+      line and the registry.
+
+  *The one-way doors*: decision 5, the rule every later change to the expander
+  keeps; decision 2's (c), if chosen, what a user's own `prelude.vla` beside
+  the add-in means; and decision 4's seam, a Public entry of VLA.bas that the
+  add-in ships. Everything else moves inside a release: no file format,
+  golden, message or public signature changes, and the cache comes out whole.
+
+  *Predictions for the second slice*, from the counts: the prelude built once
+  a key a run; the entry points' tokens 2,664,579 → 577,779, their lists
+  613,439 → 138,692, their characters 53.1 → about 4.4 million, and their
+  definitions 99,398 → 21,143 with the build's 45; `TagLine`'s tags 843,191 →
+  368,444; `CollGet`'s gets 771,089 → 372,858 and its misses 424,364 →
+  104,388; define 21.1 s → at most 4.5, tokenize 5.3 → 0.4 to 1.2, parse 4.2 →
+  about 1.0, and the read's 1.1 unchanged; the wall's median 54 to 55 s from
+  78.6; and a compile's prelude half, in the suite and in the add-in, about
+  0.8 ms from 15.
+
+  *What it touches.* The second slice: VLA.bas (the cache, its key, its build
+  in a pushed context, the tables' copy, the build count and the test switch;
+  the three entry points' prelude half; the instrument's rows), VLA_Tests.bas
+  (three pins and `VlaSelfTest`'s list), VLA_DevRig.bas (the report's build
+  line) and the docs. The third: VLA.bas, VLA_SentenceEngine.bas (the two
+  roads), VLA_Tests_Grammar.bas and the docs. No Rust, no check, no golden
+  moved.
+
+  *Found*, read and not minted, each with its measured cost:
+  1. *Printing the pins' lines*: 5,095 ms a run (6.5% of the wall), 3,048
+     `Debug.Print` lines into the Immediate window; a run printing its
+     failures and its counts alone would keep it.
+  2. *The head table built again at every `VlaTranspile` and
+     `VlaCompileToForms`* (`VlaHeadTableAliasMap`: `BuildRows` and the alias
+     map, 628 calls a run): about 1.2 ms a call, inferred from the two define
+     rows of the prelude's definitions alone (279 µs a definition against
+     251), so about 0.8 s a run; not measured alone. Its comment gives
+     `PreludeMacros`' reason (LESSONS.md XXXII).
+  3. *The trapped lookups*: `TagLine`'s `Remove`, 765,385 misses of 843,191
+     tags a run, and `CollGet`'s, 424,364 of 771,089 gets; under 8.3 s a run
+     at under 7 µs a trap, under 3.3 s after the second slice. V8's note at
+     `CollGet` ("the cost is the THROW") waited for this evidence.
+  4. *The vocabulary's third road*: `EnglishToVla` appends `mVocabMacros` to
+     every translation (L4.2), so every `VlaTranspile` of translated English
+     defines the whole vocabulary again, most of that row's 12,000 definitions
+     a run beside the prelude's; out of design 3's reach without moving L4.2's
+     placement.
+  5. *The phrasebook loads*: 139 a run (85 returned), 13.8 s (17.6% of the
+     wall), their tests 3.7 s; `english.vla`'s 213 KB loaded about ten times.
+  6. *The Rust port has the same shape*: `expand_text_door`
+     (`vla-lang/src/expand.rs`) reads the prelude and the source as one text
+     and runs pass 1 over both at every call; native, unmeasured, out of
+     scope.
+  7. *`TestTablespecDepthSafety`*: 9.5 s a run (12.1% of the wall), its 2000-
+     and 5500-row walks 5.2 and 3.6 s, the scale leg's and not the prelude's.
+  8. *`TestExportSkeleton`*: 3.9 s a run (4.9%), a `SaveCopyAs` of the 7.4 MB
+     workbook reopened. The first profile run of 2026-11-22 stopped inside it
+     and left the copy open in `%TEMP%`, so that the next
+     `VlaProfileAll` typed into the Immediate window ran the copy's code and
+     failed "prelude.vla not found" at every compile; not seen again in three
+     runs, its cause unknown (no `Stop` or `Debug.Assert` in `src/`); it cost
+     one run.
+  9. *The add-in's embedded copy*: where no `prelude.vla` stands beside a
+     built add-in, `PreludeMacros` reads the `VLAp_Source` sheet at every
+     compile (`VlaEmbeddedText`); unmeasured, since the suite always finds the
+     file. Decision 2's (a) keeps that read and (c) drops it.
 - ✅ **P-PROBE** — batched/cached load-time probes. *Pays into:* Grammar — a
   corpus that takes a minute to load throttles authoring. *Also pays
   into:* LANGUAGE + MACHINE's own **LISTOPS-BUDGET** - `RegisterVocabMacro`'s

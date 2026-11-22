@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "VLA.9"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its first slice, the instrument: TestVocabMacroProbe's scale
+' block says where the scale leg begins and ends (VLA_DevRig.VlaProfileScale),
+' behind VLA.mProfileOn alone. No pin is added.
 ' VLA.9: TestPL7 - a compile's include map is read by no later VlaExpandText,
 ' whose refusal names the line of its own text.
 ' SEC.15: TestG10's set-formula pin reads the emitted call to the runtime's
@@ -134,7 +137,8 @@ Public Const VLA_TESTS_GRAMMAR_VERSION As String = "VLA.9"
 '             AssertEnglish, TryTranspile, TryEnglish, AssertErrLine,
 '             AssertClaim, AssertClaimRefusal, CountOcc, FindDevFile -
 '             all promoted Private->Public in this pass for exactly
-'             this call)
+'             this call), VLA_DevRig (P-PRELUDE's profile hook,
+'             VlaProfileScale, which records only under VlaProfileAll)
 '  SHIPS:     nowhere. Dev-rig only, like VLA_DevRig and VLA_Tests.
 '  PAYS INTO: F.8 (this split), R4 (the 1,200-line budget REBUILD.md
 '             names), every Grammar-bucket roadmap item these pins
@@ -994,6 +998,7 @@ Public Sub TestVocabMacroProbe()
     ' bas) - the point is to make the OLD O(macros^2) cost visible at
     ' real scale, not to run on every ordinary VlaSelfTest pass.
     If VLA_Tests.mRunScaleTests Then
+        VLA_DevRig.VlaProfileScale True   ' P-PRELUDE: the scale leg
         EnglishResetGrammar
         Dim parts() As String, i As Long
         ReDim parts(1 To 150)
@@ -1027,6 +1032,7 @@ Public Sub TestVocabMacroProbe()
                InStr(1, d, "quote", vbTextCompare) > 0, "got: " & d
 
         EnglishResetGrammar
+        VLA_DevRig.VlaProfileScale False
     End If
 End Sub
 

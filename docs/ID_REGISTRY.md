@@ -118,6 +118,13 @@ standing-decision register — SD-16 is next, after SD-15 (dynamic-dispatch
 capability doctrine — no reach beyond the native tier without a declared,
 granted capability; default deny), minted while scoping `SEC.*`).
 
+`P-PRELUDE`, an `~hours` line since Alpha 5 marked "largely subsumed by
+F.3", was rewritten as a full item and scoped 2026-11-22 at the owner's
+word, its first slice the instrument (`VlaProfileAll`'s P-PRELUDE report):
+the prelude read, parsed and defined once a run, so that the VBA suite's
+wall time comes back down. Its ten decisions were approved as recommended
+the same day; the scoping minted nothing.
+
 **`SEC` is a wholly new family, minted the same day as this second refresh's
 own `SIG` mint, both declared in the prefix inventory at the moment of
 minting** (`BETA_REARVIEW.md`'s "HOW THIS ROADMAP IS ORDERED" section) rather

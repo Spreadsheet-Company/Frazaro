@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "U.32"
+Public Const VLA_TESTS_HOST_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its first slice, the instrument: Report hands each pin's name to
+' VLA_DevRig.VlaProfilePin and says when its line has printed; VlaSelfTests
+' names the pure and host legs, VlaSelfTestsAll F.4's (VlaProfileLeg), and
+' TestEmbeddedTextFallback's scale block the scale leg (VlaProfileScale), all
+' behind VLA.mProfileOn alone. The dispatch list is unchanged; no pin is added.
+' VlaSelfTests keeps the verdict it prints and VlaSelfTestsAll adds F.4's to it
+' (VlaSelfTestsVerdict), so VlaProfileAll can print it again as its last line.
 ' U.32: TestUndoRosterHost takes a Run's snapshot on a scratch workbook
 ' through its public door (VlaIdeTakeRunSnapshot) with a program of two
 ' helper rows, reads the roster sheet, the copies and the tombstones back,
@@ -396,6 +403,7 @@ Public Const VLA_TESTS_HOST_VERSION As String = "U.32"
 Private mPass As Long
 Private mFail As Long
 Private mFailedNames As Collection
+Private mVerdict As String   ' P-PRELUDE: VlaSelfTests' verdict, F.4's added by VlaSelfTestsAll
 
 Public Function VlaSelfTestHost() As Boolean
     mPass = 0
@@ -457,16 +465,19 @@ Public Function VlaSelfTests() As Boolean
     Dim purePass As Long, pureFail As Long, pureFailed As Collection
     Dim hostPass As Long, hostFail As Long, hostFailed As Collection
 
+    VLA_DevRig.VlaProfileLeg "pure"   ' P-PRELUDE: VlaProfileAll's legs, nothing unprofiled
     pureOk = VLA_Tests.VlaSelfTest()
     VLA_Tests.VlaSelfTestLastResult purePass, pureFail, pureFailed
 
+    VLA_DevRig.VlaProfileLeg "host"
     hostOk = VlaSelfTestHost()
     hostPass = mPass : hostFail = mFail : Set hostFailed = mFailedNames
 
-    Debug.Print "===== VLA SELF-TESTS: " & IIf(pureOk, "pure PASS", "pure FAIL") & _
-                " (" & purePass & "/" & (purePass + pureFail) & ")" & _
-                ", " & IIf(hostOk, "host PASS", "host FAIL") & _
-                " (" & hostPass & "/" & (hostPass + hostFail) & ") ====="
+    mVerdict = IIf(pureOk, "pure PASS", "pure FAIL") & _
+               " (" & purePass & "/" & (purePass + pureFail) & ")" & _
+               ", " & IIf(hostOk, "host PASS", "host FAIL") & _
+               " (" & hostPass & "/" & (hostPass + hostFail) & ")"
+    Debug.Print "===== VLA SELF-TESTS: " & mVerdict & " ====="
     Dim fn As Variant
     If pureFail > 0 Then
         Debug.Print "----- pure failures (" & pureFailed.Count & ") -----"
@@ -517,7 +528,9 @@ Public Function VlaSelfTestsAll() As Boolean
     Dim beforeFailedCount As Long
     beforeFailedCount = failedNames.Count
 
+    VLA_DevRig.VlaProfileLeg "F.4"   ' P-PRELUDE
     VLA_Tests_Grammar.TestF4RealCorpusShadow
+    VLA_DevRig.VlaProfileLeg "other"
 
     VLA_Tests.mRunScaleTests = False
 
@@ -528,6 +541,7 @@ Public Function VlaSelfTestsAll() As Boolean
     extraFail = afterFail - beforeFail
     Debug.Print "----- plus F.4's real-corpus audit (scale cases already folded into the pure count above): " & _
                 IIf(extraFail = 0, "PASS", "FAIL (" & extraFail & ")") & " -----"
+    mVerdict = mVerdict & ", F.4 " & IIf(extraFail = 0, "PASS", "FAIL (" & extraFail & ")")
     If extraFail > 0 Then
         Dim i As Long
         For i = beforeFailedCount + 1 To failedNames.Count
@@ -542,6 +556,13 @@ cleanup:
     n = Err.Number: s = Err.Source: d = Err.Description
     VLA_Tests.mRunScaleTests = False
     Err.Raise n, s, d
+End Function
+
+' P-PRELUDE: the last verdict VlaSelfTests printed, "pure PASS (n/n), host
+' PASS (n/n)", with ", F.4 PASS" after it when VlaSelfTestsAll ran - for
+' VlaProfileAll, whose report would otherwise bury it, to print last.
+Public Function VlaSelfTestsVerdict() As String
+    VlaSelfTestsVerdict = mVerdict
 End Function
 
 ' F11.0: the host-dependent tail of VLA_Tests.bas's TestHelpers - a
@@ -1124,6 +1145,7 @@ Private Sub TestEmbeddedTextFallback()
     ' case - the point is a repeatable, dev-side number for the loop
     ' body PF.7's scoping pass found otherwise unreachable from here.
     If VLA_Tests.mRunScaleTests Then
+        VLA_DevRig.VlaProfileScale True   ' P-PRELUDE: the scale leg
         Const scaleN As Long = 2849
         Dim sheetScale As String
         sheetScale = "VLAtest_EmbedScale"
@@ -1169,6 +1191,7 @@ Private Sub TestEmbeddedTextFallback()
         Application.DisplayAlerts = False
         shScale.Delete
         Application.DisplayAlerts = True
+        VLA_DevRig.VlaProfileScale False
     End If
 End Sub
 
@@ -4836,6 +4859,7 @@ Private Function CollItemIs(ByVal c As Collection, ByVal ix As Long, ByVal expec
 End Function
 
 Private Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As String)
+    If VLA.mProfileOn Then VLA_DevRig.VlaProfilePin name   ' P-PRELUDE: as VLA_Tests.Report's
     If ok Then
         mPass = mPass + 1
         Debug.Print "  PASS  " & name
@@ -4844,6 +4868,7 @@ Private Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As St
         Debug.Print "  FAIL  " & name & " - " & detail
         If Not mFailedNames Is Nothing Then mFailedNames.Add name & " - " & detail
     End If
+    If VLA.mProfileOn Then VLA_DevRig.VlaProfilePinShown
 End Sub
 
 ' ---------------------------------------------------------------------

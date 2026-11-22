@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "VLA.18"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its first slice, the instrument: behind VLA.mProfileOn alone, a
+' phrasebook's load counted and timed, its tests apart (mProfLoads and its
+' kin), and the load's two calls into VLA each named to VLA.bas just before it
+' is made (VLA.mProfCaller), a macro call's VlaExpandText in
+' ExpandVocabMacroCall and the republish's VlaCompileToForms, so that each is
+' counted against a row of its own, and the vocabulary each carried kept with
+' its calls (mProfVocabTexts). Nothing changes with the switch off.
 ' VLA.18: the phrasebook's two gates read a text as the reader reads it.
 ' VocabTextHasRawForm (SEC.2) and VocabRequiresScan (F.10) each walked the
 ' raw source text by a copy of the reader's rules, which a raw string
@@ -877,6 +884,23 @@ Public mProfMsTransTokenize As Double
 Public mProfMsTransBuild As Double
 Public mProfTransCalls As Long
 
+' P-PRELUDE: a phrasebook's load (EnglishLoadVocabularyText, which the file
+' loader calls too), behind the same switch: the loads, those that returned,
+' their characters and time, and of that time the file's tests. Each of the
+' load's two calls into VLA, a macro call's expansion and the republish of
+' its macros, is counted by VLA.bas against a row of its own, named in
+' VLA.mProfCaller just before the call.
+Public mProfLoads As Double
+Public mProfLoadsDone As Double
+Public mProfLoadChars As Double
+Public mProfMsLoad As Double
+Public mProfLoadTests As Double
+Public mProfMsLoadTests As Double
+' And each vocabulary those two calls carried (mVocabMacros, the text its
+' key), with the calls that carried it, so that a cache keyed by the text
+' can be costed by its hits.
+Public mProfVocabTexts As Object
+
 ' PPROF.0: Rule-12 duplicate of VLA.bas's own Private ProfMs (itself a
 ' duplicate of VLA_DevRig.bas's DevMs) - same midnight-wrap handling,
 ' not visible across modules.
@@ -886,6 +910,13 @@ Private Function ProfMs(ByVal t0 As Double) As Double
     If d < 0 Then d = d + 86400#
     ProfMs = d * 1000#
 End Function
+
+' P-PRELUDE: the vocabulary a call into VLA carries, counted (the switch is
+' checked by the caller).
+Private Sub ProfVocabCarried()
+    If mProfVocabTexts Is Nothing Then Set mProfVocabTexts = CreateObject("Scripting.Dictionary")
+    mProfVocabTexts.Item(mVocabMacros) = mProfVocabTexts.Item(mVocabMacros) + 1
+End Sub
 
 ' =====================================================================
 '  Public API
@@ -8515,6 +8546,10 @@ Private Sub ExpandVocabMacroCall(flc As Collection, ByVal head As String, ByVal 
     Dim expandedText As String
     On Error GoTo expandFailed
     Dim fired As Long
+    If VLA.mProfileOn Then   ' P-PRELUDE: a row of its own
+        ProfVocabCarried
+        VLA.mProfCaller = VLA.VLA_PROF_ROW_VOCAB
+    End If
     expandedText = VLA.VlaExpandText(mVocabMacros & vbLf & callText, True, fired)
     On Error GoTo 0
 
@@ -9019,6 +9054,11 @@ End Sub
 ' EnglishLoadVocabulary and every other caller are unaffected).
 Public Function EnglishLoadVocabularyText(ByVal text As String, _
                                           Optional ByVal sourceName As String = "vocabulary") As Long
+    Dim profAt As Double, profStep As Double   ' P-PRELUDE
+    If VLA.mProfileOn Then
+        mProfLoads = mProfLoads + 1
+        profAt = Timer
+    End If
     EnsureInit
 
     ' F.10: the phrasebook's own declared preconditions, checked
@@ -9055,6 +9095,7 @@ Public Function EnglishLoadVocabularyText(ByVal text As String, _
     ' Run the file's proofs against the fully loaded grammar, in
     ' file order - positives (test-success) and negatives (test-fail)
     ' alike.
+    If VLA.mProfileOn Then profStep = Timer
     Dim i As Long
     For i = 1 To testSents.Count
         If CStr(testKinds.Item(i)) = "f" Then
@@ -9067,6 +9108,10 @@ Public Function EnglishLoadVocabularyText(ByVal text As String, _
                          sourceName, CLng(testLines.Item(i)), CStr(testRowTags.Item(i))
         End If
     Next
+    If VLA.mProfileOn Then
+        mProfMsLoadTests = mProfMsLoadTests + ProfMs(profStep)
+        mProfLoadTests = mProfLoadTests + testSents.Count
+    End If
 
     mLoadSource = ""
     mLastLoadSource = sourceName
@@ -9091,6 +9136,10 @@ Public Function EnglishLoadVocabularyText(ByVal text As String, _
     ' macro into mMacros for VlaMacroDoc/apropos/GetMacro to read
     ' post-load. O(1) calls per load, not O(macros) - the quadratic
     ' cost this whole item exists to remove never comes back.
+    If VLA.mProfileOn Then   ' P-PRELUDE: a row of its own
+        ProfVocabCarried
+        VLA.mProfCaller = VLA.VLA_PROF_ROW_LOAD
+    End If
     VLA.VlaCompileToForms mVocabMacros
 
     ' L11.1: push the carried vocabulary down so apropos answers
@@ -9103,6 +9152,11 @@ Public Function EnglishLoadVocabularyText(ByVal text As String, _
     mLastExpandedBlob = BuildExpandedBlob(expTexts, expTags)   ' GEXPANDER.0
 
     EnglishLoadVocabularyText = count
+    If VLA.mProfileOn Then   ' P-PRELUDE
+        mProfLoadsDone = mProfLoadsDone + 1
+        mProfLoadChars = mProfLoadChars + Len(text)
+        mProfMsLoad = mProfMsLoad + ProfMs(profAt)
+    End If
 End Function
 
 ' GEXPANDER.0: one line per real directive, in expTexts' own order

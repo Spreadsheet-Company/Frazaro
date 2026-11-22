@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.11"
+Public Const VLA_TESTS_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its first slice, the instrument: Report hands each pin's name to
+' VLA_DevRig.VlaProfilePin before its line prints and says when the line has
+' printed (VlaProfilePinShown), and the three scale blocks say where the scale
+' leg begins and ends (VlaProfileScale), all behind VLA.mProfileOn alone. The
+' dispatch list is unchanged; no pin is added.
 ' VLA.11, its third slice: TestFormulaNames - the formula, 25 pins: a free word
 ' refused, on a sheet, a let's name used before it binds, a word outside its
 ' lambda, a function handed in by its name and a word a macro's formula writes,
@@ -591,7 +596,9 @@ Public Const VLA_TESTS_VERSION As String = "VLA.11"
 '             VLA_Loader, VLA_HeadTable, VLA_Runtime, VLA_IDE,
 '             VLA_Build, VLA_Interpreter, VLA_Console (CLI.3's pure
 '             half only), VLA_Tests_Grammar (dispatch
-'             only, from VlaSelfTest) - none of these calls touches a
+'             only, from VlaSelfTest), VLA_DevRig (VlaTryBuild's family,
+'             and P-PRELUDE's profile hooks, which record only under
+'             VlaProfileAll) - none of these calls touches a
 '             live workbook; VLA_Runtime's VlaColor/VlaDict family and
 '             VLA_IDE's naming/scan helpers are pure functions
 '  SHIPS:     nowhere. Dev-rig only, like VLA_DevRig.
@@ -6781,6 +6788,7 @@ Private Sub TestListopsBudget()
     ' when only the cdr-based tests were gated. Worth a P-DICT/P-PROF
     ' note for whoever picks that up; not something to fix here.
     If mRunScaleTests Then
+        VLA_DevRig.VlaProfileScale True   ' P-PRELUDE: the scale leg
         chainLen = 2000
         Dim parts2000() As String
         ReDim parts2000(0 To chainLen - 1)
@@ -6824,6 +6832,7 @@ Private Sub TestListopsBudget()
         Report "listops-budget: a 5500-deep chain - past the trampoline's own 5000 cap - fails loudly, never a silent partial expansion", _
                n5500 <> 0 And Len(vba5500) = 0 And InStr(1, d5500, "5000", vbTextCompare) > 0, _
                "err: " & d5500 & " / vba: " & Left$(vba5500, 200)
+        VLA_DevRig.VlaProfileScale False
     End If
 
     ' Volume alone - many INDEPENDENT (never chained) macro calls, the
@@ -9008,6 +9017,7 @@ Private Sub TestListopsDepthSafety()
     ' reasoning; run VlaSelfTestScale instead of VlaSelfTest to include
     ' this when a change actually touches ExpandMacros/cdr/ListTail.
     If mRunScaleTests Then
+        VLA_DevRig.VlaProfileScale True   ' P-PRELUDE: the scale leg
         Dim parts5500w() As String
         ReDim parts5500w(1 To 5500)
         For i = 1 To 5500
@@ -9027,6 +9037,7 @@ Private Sub TestListopsDepthSafety()
         Report "listops-depth: a 5500-row walk-rows recursion - past the trampoline's own 5000 cap - fails loudly, never a silent partial expansion", _
                n5500w <> 0 And Len(vba5500w) = 0 And InStr(1, d5500w, "5000", vbTextCompare) > 0, _
                "err: " & d5500w & " / vba: " & Left$(vba5500w, 200)
+        VLA_DevRig.VlaProfileScale False
     End If
 End Sub
 
@@ -9790,6 +9801,7 @@ Private Sub TestTablespecDepthSafety()
     ' this when a change actually touches ExpandMacros/cdr/ListTail/
     ' tablespec's own walk.
     If mRunScaleTests Then
+        VLA_DevRig.VlaProfileScale True   ' P-PRELUDE: the scale leg
         Dim parts2000t() As String
         ReDim parts2000t(1 To 2000)
         For i = 1 To 2000
@@ -9832,6 +9844,7 @@ Private Sub TestTablespecDepthSafety()
         Report "tablespec-depth: a 5500-row walk - past the trampoline's own 5000 cap - fails loudly, never a silent partial expansion", _
                n5500 <> 0 And Len(t) = 0 And InStr(1, d5500, "5000", vbTextCompare) > 0, _
                "err: " & d5500 & " / text: " & Left$(t, 200)
+        VLA_DevRig.VlaProfileScale False
     End If
 End Sub
 
@@ -12659,6 +12672,9 @@ Public Function CollItemIs(ByVal c As Collection, ByVal ix As Long, ByVal expect
 End Function
 
 Public Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As String)
+    ' P-PRELUDE: under VlaProfileAll, the pin's lap (the work since the last
+    ' pin, its arguments' among it) and then its line's printing.
+    If VLA.mProfileOn Then VLA_DevRig.VlaProfilePin name
     If ok Then
         mPass = mPass + 1
         Debug.Print "  PASS  " & name
@@ -12671,6 +12687,7 @@ Public Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As Str
         ' is not lost by the time the summary line prints.
         If Not mFailedNames Is Nothing Then mFailedNames.Add name & " - " & detail
     End If
+    If VLA.mProfileOn Then VLA_DevRig.VlaProfilePinShown
 End Sub
 
 ' AS7.1: see this module's own top-of-file note.
