@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_DevRig"
 Option Explicit
 Public Const VLA_DEVRIG_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its second slice, the definitions kept: the report's prelude
+' section prints the cache's line, its builds and their ms and the calls that
+' took its definitions or read the prelude as before (VLA.mProfPrelude*); the
+' rows' "prelude's share" now counts a call that read the prelude alone.
 ' P-PRELUDE, its first slice, the instrument: VlaProfileAll also zeroes and
 ' prints VLA.bas's counts of what each entry point reads, parses and defines
 ' (VlaProfileReset, the mProfE* rows, VlaProfileShapes), the reader's and the
@@ -1964,6 +1968,10 @@ Private Sub ProfReportShapes()
                     " definitions; read by " & DevN(sh(5)) & " calls" & _
                     IIf(sh(1) < 0, " (the reader refused it)", "")
     Next
+    ' P-PRELUDE, the second slice: the cache, and the calls on either side of it.
+    Debug.Print "  the prelude's cache: built " & DevN(VLA.mProfPreludeBuilds) & " time(s) in " & _
+                DevN(VLA.mProfMsPreludeBuild) & " ms; " & DevN(VLA.mProfPreludeServed) & _
+                " calls took its definitions, " & DevN(VLA.mProfPreludeAsBefore) & " read the prelude as before"
 End Sub
 
 Private Sub ProfReportEntries()

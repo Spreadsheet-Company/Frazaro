@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, its second slice, the definitions kept: three pins. A compile that
+' takes the prelude's definitions from the cache says what a compile reading the
+' prelude says, through the three entry points, a refusal's words and line
+' among it (TestPreludeCacheAgrees, by VLA.mPreludeCacheOff); the cache is built
+' once a text, again for another, and never for a prelude holding a form other
+' than a definition (TestPreludeBuiltOnce, by VlaPreludeBuilds and the override,
+' cleared on every way out); and no compile changes a record the cache shares
+' (TestPreludeNeverChanged, last in the list, by VlaPreludeCachePrint).
+' PreludeRun is their one compile, the switch off again on every way out.
 ' P-PRELUDE, its first slice, the instrument: Report hands each pin's name to
 ' VLA_DevRig.VlaProfilePin before its line prints and says when the line has
 ' printed (VlaProfilePinShown), and the three scale blocks say where the scale
@@ -641,6 +650,8 @@ Public Function VlaSelfTest() As Boolean
     TestEmitter
     TestTier1
     TestPreludeLibrary
+    TestPreludeCacheAgrees
+    TestPreludeBuiltOnce
     TestVlaExpand
     TestEnglishCore
     TestRawVlaRows
@@ -808,6 +819,7 @@ Public Function VlaSelfTest() As Boolean
     TestSheetHelperNames
     TestSheetMacros
     TestDistroManifest
+    TestPreludeNeverChanged     ' P-PRELUDE: last, after every expansion
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -1061,6 +1073,143 @@ Private Sub TestPreludeLibrary()
               "(sub t () (with-sheet ""Data"" prev (set! (range ""a1"") 5)))", _
               "range(""a1"") = 5 ' vla:1 Call prev.activate"
 End Sub
+
+' ---------------------------------------------------------------------
+'  P-PRELUDE, its second slice: the prelude's definitions kept. A compile
+'  that takes them from the cache says what a compile reading the prelude
+'  as before says: the emitted text with its map tags, the forms, the
+'  expansion, and a refusal's words and its line - a prelude macro's second
+'  definition, a source macro defined twice on lines 2 and 3, a list left
+'  open on line 1. Three entry points, nine sources, one pin.
+' ---------------------------------------------------------------------
+Private Sub TestPreludeCacheAgrees()
+    Dim srcs As Variant
+    srcs = Array( _
+        "(sub t () (with-fast-excel fastexit (set! (range ""a1"") 5)))", _
+        "(sub t () (with-sheet ""Data"" prev (set! (range ""a1"") 5)))", _
+        "(sub t () (let-one x 5 (debug-print x)))", _
+        "(let-one x 5 (debug-print x))", _
+        "(defmacro (twice f) (begin f f))" & vbLf & "(sub t () (twice (debug-print 1)))", _
+        "(defexpand (sq n) (*expand n n))" & vbLf & "(sub t () (set! x (sq 3)))", _
+        "(defmacro (when c & body) 0)", _
+        vbLf & "(defmacro (m) 1)" & vbLf & "(defmacro (m) 2)", _
+        "(sub t ()" & vbLf & "(set! x 1)" & vbLf & "(set! y 2)")
+    Dim i As Long, how As Long, n As Long
+    Dim asRead As String, asCached As String, bad As String
+    For i = LBound(srcs) To UBound(srcs)
+        For how = 1 To 3
+            asRead = PreludeRun(how, CStr(srcs(i)), True)
+            asCached = PreludeRun(how, CStr(srcs(i)), False)
+            n = n + 1
+            If asRead <> asCached And Len(bad) = 0 Then
+                bad = "compile " & i & "." & how & " of " & n & ", read: " & Left$(Norm(asRead), 150) & _
+                      " / cached: " & Left$(Norm(asCached), 150)
+            End If
+        Next
+    Next
+    Report "p-prelude: a compile from the cache says what a compile reading the prelude says", _
+           Len(bad) = 0, bad
+End Sub
+
+' The cache is built once a text: again for another (the override's), never
+' for a prelude holding a form other than a definition, which every compile
+' reads as before, and again for the file's text when the override is cleared.
+' The override is cleared on every way out.
+Private Sub TestPreludeBuiltOnce()
+    Dim plainSource As String, probeSource As String, defsOnly As String, withBody As String
+    plainSource = "(sub t () (set! x 1))"
+    probeSource = "(sub t () (set! y (p-prelude-probe 2)))"
+    defsOnly = "(defmacro (p-prelude-probe x) x)"
+    withBody = defsOnly & vbCrLf & "(sub p-prelude-helper () (set! z 0))"
+    Dim builtAt(1 To 8) As Long, agree As Boolean, detail As String
+    On Error GoTo raised
+    builtAt(1) = VLA.VlaPreludeBuilds()
+    PreludeRun 1, plainSource, False                  ' the file's prelude
+    builtAt(2) = VLA.VlaPreludeBuilds()
+    PreludeRun 1, plainSource, False                  ' the same text: no build
+    builtAt(3) = VLA.VlaPreludeBuilds()
+    VLA.VlaSetPreludeOverride defsOnly
+    PreludeRun 1, probeSource, False                  ' another text: a build
+    builtAt(4) = VLA.VlaPreludeBuilds()
+    PreludeRun 1, probeSource, False
+    builtAt(5) = VLA.VlaPreludeBuilds()
+    VLA.VlaSetPreludeOverride withBody                ' a body form: no tables kept
+    agree = (PreludeRun(1, probeSource, True) = PreludeRun(1, probeSource, False))
+    builtAt(6) = VLA.VlaPreludeBuilds()
+    VLA.VlaClearPreludeOverride
+    PreludeRun 1, plainSource, False                  ' the file's text again: a build
+    builtAt(7) = VLA.VlaPreludeBuilds()
+    PreludeRun 1, plainSource, False
+    builtAt(8) = VLA.VlaPreludeBuilds()
+    detail = "builds counted after each step " & builtAt(1) & " " & builtAt(2) & " " & builtAt(3) & " " & _
+             builtAt(4) & " " & builtAt(5) & " " & builtAt(6) & " " & builtAt(7) & " " & builtAt(8) & _
+             "; the body form's prelude read alike from either: " & agree
+    GoTo judged
+raised:
+    detail = "raised " & Err.Number & ": " & Err.Description
+    agree = False
+judged:
+    On Error GoTo 0
+    VLA.VlaClearPreludeOverride
+    Dim held As Boolean                               ' each step's builds, one at a time
+    held = agree
+    If builtAt(2) - builtAt(1) > 1 Then held = False  ' the file's: once at most
+    If builtAt(3) <> builtAt(2) Then held = False     ' the same text: none
+    If builtAt(4) - builtAt(3) <> 1 Then held = False ' another text: one
+    If builtAt(5) <> builtAt(4) Then held = False
+    If builtAt(6) <> builtAt(5) Then held = False     ' a body form: none
+    If builtAt(7) - builtAt(6) <> 1 Then held = False ' the file's again: one
+    If builtAt(8) <> builtAt(7) Then held = False
+    Report "p-prelude: the cache is built once a text, again for another, and never for a prelude it keeps no tables of", _
+           held, detail
+End Sub
+
+' No compile changes a record the cache shares: after every expansion of the
+' suite, the cache's tables print as a build made now from the same text.
+Private Sub TestPreludeNeverChanged()
+    Dim cacheText As String, buildText As String, detail As String, i As Long
+    PreludeRun 1, "(sub t () (set! x 1))", False      ' the file's prelude in the cache
+    cacheText = VLA.VlaPreludeCachePrint(False)
+    buildText = VLA.VlaPreludeCachePrint(True)
+    If Len(cacheText) = 0 Then
+        detail = "the cache holds no tables"
+    ElseIf cacheText <> buildText Then
+        For i = 1 To Len(cacheText)
+            If Mid$(cacheText, i, 1) <> Mid$(buildText, i, 1) Then Exit For
+        Next
+        detail = "the cache and a build made now differ at character " & i & ": " & _
+                 Mid$(cacheText, IIf(i > 60, i - 60, 1), 140) & " / " & Mid$(buildText, IIf(i > 60, i - 60, 1), 140)
+    End If
+    Report "p-prelude: no compile changed a record the cache shares", _
+           Len(cacheText) > 0 And cacheText = buildText, detail
+End Sub
+
+' One compile of a source through an entry point, 1 VlaTranspile, 2
+' VlaCompileToForms, 3 VlaExpandText to its fixpoint: read as before when
+' asBefore, else from the cache; what it returned or what it raised, and the
+' switch off again on every way out.
+Private Function PreludeRun(ByVal how As Long, ByVal src As String, ByVal asBefore As Boolean) As String
+    Dim fired As Long, forms As Collection, f As Variant, s As String
+    VLA.mPreludeCacheOff = asBefore
+    On Error GoTo raised
+    Select Case how
+        Case 1
+            s = VLA.VlaTranspile(src)
+        Case 2
+            Set forms = VLA.VlaCompileToForms(src)
+            For Each f In forms
+                s = s & VLA.VlaWriteForm(f) & vbLf
+            Next
+        Case 3
+            s = VLA.VlaExpandText(src, True, fired) & " (fired " & fired & ")"
+    End Select
+    VLA.mPreludeCacheOff = False
+    PreludeRun = "returned: " & s
+    Exit Function
+raised:
+    VLA.mPreludeCacheOff = False
+    PreludeRun = "raised " & Err.Number & ": " & Err.Description
+End Function
 
 ' ---------------------------------------------------------------------
 '  L1 goldens: VlaExpand's programmatic half. ONE PASS shows the

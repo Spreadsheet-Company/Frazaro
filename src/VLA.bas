@@ -21,6 +21,26 @@ Option Explicit
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.14.0"
 Public Const VLA_CORE_VERSION As String = "P-PRELUDE"
+' P-PRELUDE, ITS SECOND SLICE: THE DEFINITIONS KEPT. The prelude is tokenized,
+' parsed and put through Pass 1 once a text (PreludeTables, in a pushed context,
+' under the line offset every entry point gives it, so that each record's line,
+' item 8, stays empty), and its macro and function tables are kept. Each entry
+' point takes them as a fresh Scripting.Dictionary of the same records
+' (PreludeTable), never the cache's own object, since VlaPushContext keeps a
+' compile's tables by reference; and it tokenizes the prelude's line breaks as
+' blank lines before its source (mPreludeBlank), so that every raw line,
+' mLineOffset, mTokLines and each message's line stand as they stood. The key is
+' the text compared whole (PreludeCached): PreludeMacros reads it as before, so
+' that an edit of prelude.vla, the override and the add-in's embedded copy each
+' take effect at the next compile. A prelude holding a form other than a
+' definition, or one whose build raises, is kept as no tables and read as
+' before, where it raises what it always raised. No compile writes a record:
+' DefineMacro and DefineFunction write the compile's own tables. The test switch
+' mPreludeCacheOff reads every prelude as before; VlaPreludeBuilds and
+' VlaPreludeCachePrint are the pins' readers; the instrument tells a compile
+' that took the cache's definitions from one that read the prelude
+' (ProfPreludeShare, mProfPrelude*). A module reset drops the cache with the rest.
+'
 ' P-PRELUDE, ITS FIRST SLICE: THE INSTRUMENT. Behind mProfileOn, PPROF.0's one
 ' switch, and nothing when it is off: what each entry point's front half reads,
 ' parses and defines, and what it costs. A row an entry point (VLA_PROF_ROWS,
@@ -1208,6 +1228,23 @@ Private mContextStack As Collection
 Private mPreludeOverrideSet As Boolean
 Private mPreludeOverrideText As String
 
+' P-PRELUDE, the second slice: the prelude's definitions, kept (PreludeCached).
+' Its key, the text the cache was built from, compared whole; its state, 0 none,
+' 1 built, 2 read as before (a text holding a form other than a definition, or
+' one whose build raised); its macro and function tables, whose records every
+' compile shares and none writes; and its line breaks as blank lines, which a
+' compile tokenizes in its place. Nothing reads them but PreludeCached and the
+' pins' two readers, and a module reset drops them with the rest.
+Private mPreludeKey As String
+Private mPreludeState As Long
+Private mPreludeMacros As Object
+Private mPreludeFunctions As Object
+Private mPreludeBlank As String
+Private mPreludeBuilt As Long         ' the builds that stood since the module loaded
+' The test switch: on, every compile reads the prelude as it did before the
+' cache (TestPreludeCacheAgrees holds the two alike); off at every load.
+Public mPreludeCacheOff As Boolean
+
 ' PPROF.0: the one switch (bare Public Boolean, mRunScaleTests' own
 ' shape) and the four compile-side accumulators it gates - see the
 ' header comment above and VlaTranspile's own body for where each is
@@ -1264,6 +1301,12 @@ Public mProfTagMisses As Double   ' of which its Remove raised, trapped
 Public mProfCollGets As Double    ' every CollGet
 Public mProfCollMisses As Double  ' of which missed, trapped
 Public mProfProbes As Double      ' every VlaProbeMacroForm, a phrasebook macro's probe
+' The prelude's cache (the second slice): its builds and their ms, and the
+' compiles that took its definitions or read the prelude as before.
+Public mProfPreludeBuilds As Double
+Public mProfMsPreludeBuild As Double
+Public mProfPreludeServed As Double
+Public mProfPreludeAsBefore As Double
 ' Where the last PreludeMacros found the prelude: 1 prelude.vla, 2 the
 ' override, 3 the add-in's embedded copy.
 Private mProfPreludeFrom As Long
@@ -1476,6 +1519,10 @@ Public Sub VlaProfileReset()
     mProfCollGets = 0
     mProfCollMisses = 0
     mProfProbes = 0
+    mProfPreludeBuilds = 0
+    mProfMsPreludeBuild = 0
+    mProfPreludeServed = 0
+    mProfPreludeAsBefore = 0
     mProfCaller = 0
     mProfPreludeFrom = 0
     Set mProfShapes = Nothing
@@ -1515,17 +1562,24 @@ Private Function ProfRowOf(ByVal ownRow As Long) As Long
     mProfCaller = 0
 End Function
 
-' The prelude's read: its time, where PreludeMacros found it, and its
-' share of what the call will read, by its shape.
+' The prelude's read: its time and where PreludeMacros found it, and its
+' text met (ProfShapeOf counts the calls that read each text).
 Private Sub ProfPreludeRead(ByVal entryRow As Long, ByRef prelude As String, ByVal t0 As Double)
     mProfEMsRead(entryRow) = mProfEMsRead(entryRow) + ProfMs(t0)
     mProfECalls(entryRow) = mProfECalls(entryRow) + 1
     If mProfPreludeFrom = 1 Then mProfEDisk(entryRow) = mProfEDisk(entryRow) + 1
     If mProfPreludeFrom = 2 Then mProfEOverride(entryRow) = mProfEOverride(entryRow) + 1
     mProfPreludeFrom = 0
+    ProfShapeOf prelude
+End Sub
+
+' The prelude's share of what a call reads, by its shape: a call that reads
+' the prelude as before reads it whole, and one that takes the cache's
+' definitions only its line breaks (the second slice), so it takes none.
+Private Sub ProfPreludeShare(ByVal entryRow As Long, ByRef prelude As String)
     mProfEPreChars(entryRow) = mProfEPreChars(entryRow) + Len(prelude)
     Dim shape As Variant
-    shape = ProfShapeOf(prelude)
+    shape = mProfShapes.Item(prelude)     ' ProfPreludeRead met the text first
     If shape(0) >= 0 Then
         mProfEPreTokens(entryRow) = mProfEPreTokens(entryRow) + shape(0)
         mProfEPreLists(entryRow) = mProfEPreLists(entryRow) + shape(1)
@@ -1619,6 +1673,11 @@ Public Function VlaTranspile(ByVal source As String) As String
     If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
     If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
+    Dim cachedPrelude As Boolean    ' P-PRELUDE: the cache's definitions, or read as before
+    cachedPrelude = PreludeCached(prelude)
+    If mProfileOn Then
+        If Not cachedPrelude Then ProfPreludeShare profRow, prelude
+    End If
     mLineOffset = CountLf(prelude) + 1   ' prelude lines + the joining break
     Set mFormLines = New Collection
     mEmitLine = 0
@@ -1631,9 +1690,13 @@ Public Function VlaTranspile(ByVal source As String) As String
     Dim pt0 As Double
     If mProfileOn Then pt0 = Timer
     Dim toks() As String
-    toks = Tokenize(prelude & vbCrLf & source)
+    If cachedPrelude Then
+        toks = Tokenize(mPreludeBlank & vbCrLf & source)   ' P-PRELUDE: its lines, blank
+    Else
+        toks = Tokenize(prelude & vbCrLf & source)
+    End If
     If mProfileOn Then mProfMsTokenize = mProfMsTokenize + ProfMs(pt0)
-    If mProfileOn Then ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), pt0
+    If mProfileOn Then ProfTokenized profRow, toks, IIf(cachedPrelude, Len(mPreludeBlank), Len(prelude)) + 2 + Len(source), pt0
 
     If mProfileOn Then pt0 = Timer
     If mProfileOn Then profLists = mProfLists
@@ -1644,9 +1707,14 @@ Public Function VlaTranspile(ByVal source As String) As String
         profStep = Timer
     End If
 
-    Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    If cachedPrelude Then           ' P-PRELUDE: the prelude's tables, the compile's own
+        Set mMacros = PreludeTable(mPreludeMacros)
+    Else
+        Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    End If
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    If cachedPrelude Then Set mFunctions = PreludeTable(mPreludeFunctions)   ' P-PRELUDE
     Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4
@@ -1826,6 +1894,11 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
     If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
+    Dim cachedPrelude As Boolean    ' P-PRELUDE: as VlaTranspile's
+    cachedPrelude = PreludeCached(prelude)
+    If mProfileOn Then
+        If Not cachedPrelude Then ProfPreludeShare profRow, prelude
+    End If
     mLineOffset = CountLf(prelude) + 1
     Set mFormLines = New Collection
     mEmitLine = 0
@@ -1835,9 +1908,13 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
     mSlabRowVar = ""
     Dim toks() As String
     If mProfileOn Then profStep = Timer
-    toks = Tokenize(prelude & vbCrLf & source)
+    If cachedPrelude Then
+        toks = Tokenize(mPreludeBlank & vbCrLf & source)   ' P-PRELUDE: its lines, blank
+    Else
+        toks = Tokenize(prelude & vbCrLf & source)
+    End If
     If mProfileOn Then
-        ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), profStep
+        ProfTokenized profRow, toks, IIf(cachedPrelude, Len(mPreludeBlank), Len(prelude)) + 2 + Len(source), profStep
         profStep = Timer
         profLists = mProfLists
     End If
@@ -1848,9 +1925,14 @@ Public Function VlaCompileToForms(ByVal source As String) As Collection
         profStep = Timer
     End If
 
-    Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    If cachedPrelude Then           ' P-PRELUDE: the prelude's tables, the compile's own
+        Set mMacros = PreludeTable(mPreludeMacros)
+    Else
+        Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    End If
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    If cachedPrelude Then Set mFunctions = PreludeTable(mPreludeFunctions)   ' P-PRELUDE
     Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Set mHeadAliases = VLA_HeadTable.VlaHeadTableAliasMap()   ' LX.4 - unused
@@ -2185,6 +2267,11 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
     If mProfileOn Then profStep = Timer
     prelude = PreludeMacros()
     If mProfileOn Then ProfPreludeRead profRow, prelude, profStep
+    Dim cachedPrelude As Boolean    ' P-PRELUDE: as VlaTranspile's
+    cachedPrelude = PreludeCached(prelude)
+    If mProfileOn Then
+        If Not cachedPrelude Then ProfPreludeShare profRow, prelude
+    End If
     mLineOffset = CountLf(prelude) + 1
     Set mFormLines = New Collection
     Set mIncMap = Nothing           ' VLA.9: this text splices no include, so a
@@ -2198,9 +2285,13 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
 
     Dim toks() As String
     If mProfileOn Then profStep = Timer
-    toks = Tokenize(prelude & vbCrLf & source)
+    If cachedPrelude Then
+        toks = Tokenize(mPreludeBlank & vbCrLf & source)   ' P-PRELUDE: its lines, blank
+    Else
+        toks = Tokenize(prelude & vbCrLf & source)
+    End If
     If mProfileOn Then
-        ProfTokenized profRow, toks, Len(prelude) + 2 + Len(source), profStep
+        ProfTokenized profRow, toks, IIf(cachedPrelude, Len(mPreludeBlank), Len(prelude)) + 2 + Len(source), profStep
         profStep = Timer
         profLists = mProfLists
     End If
@@ -2213,9 +2304,14 @@ Public Function VlaExpandText(ByVal source As String, ByVal toFixpoint As Boolea
 
     ' Same two-pass shape as VlaTranspile: collect every defmacro
     ' (prelude's and the source's own), expand only the body forms.
-    Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    If cachedPrelude Then           ' P-PRELUDE: the prelude's tables, the compile's own
+        Set mMacros = PreludeTable(mPreludeMacros)
+    Else
+        Set mMacros = CreateObject("Scripting.Dictionary")   ' PDICT.0
+    End If
     Set mDefines = Nothing          ' VLA.6: no word is defined yet
     Set mFunctions = Nothing        ' VLA.8: nor a function
+    If cachedPrelude Then Set mFunctions = PreludeTable(mPreludeFunctions)   ' P-PRELUDE
     Set mParameters = Nothing       ' VLA.11: nor a parameter
     Set mSelfStack = Nothing        ' VLA.10: no place is bound yet
     Dim bodyForms As New Collection
@@ -2572,6 +2668,145 @@ Private Function PreludeMacros() As String
             VLA_Messages.RaiseMsg "vla-prelude-not-found"
         End If
     End If
+End Function
+
+' P-PRELUDE, the second slice: True when this compile takes the prelude's
+' definitions from the cache, built first when its key is not this text; False
+' when the compile reads the prelude as before, the test switch on or the text
+' one the cache keeps no tables of. The key is the text compared whole, so that
+' an edit of prelude.vla, the override and the add-in's embedded copy each take
+' effect at the next compile.
+Private Function PreludeCached(ByRef prelude As String) As Boolean
+    Dim fromCache As Boolean
+    If Not mPreludeCacheOff Then
+        If mPreludeState = 0 Or prelude <> mPreludeKey Then PreludeBuild prelude
+        fromCache = (mPreludeState = 1)
+    End If
+    If mProfileOn Then
+        If fromCache Then
+            mProfPreludeServed = mProfPreludeServed + 1
+        Else
+            mProfPreludeAsBefore = mProfPreludeAsBefore + 1
+        End If
+    End If
+    PreludeCached = fromCache
+End Function
+
+' The cache made for a text: its tables kept when they stand (PreludeTables);
+' none kept, and the text read as before, when they do not.
+Private Sub PreludeBuild(ByRef prelude As String)
+    Dim profAt As Double
+    If mProfileOn Then profAt = Timer
+    Dim pMacros As Object, pFunctions As Object
+    mPreludeKey = prelude
+    mPreludeState = 2
+    Set mPreludeMacros = Nothing
+    Set mPreludeFunctions = Nothing
+    mPreludeBlank = ""
+    If PreludeTables(prelude, pMacros, pFunctions) Then
+        Set mPreludeMacros = pMacros
+        Set mPreludeFunctions = pFunctions
+        mPreludeBlank = String$(CountLf(prelude), vbLf)
+        mPreludeState = 1
+        mPreludeBuilt = mPreludeBuilt + 1
+    End If
+    If mProfileOn Then
+        mProfPreludeBuilds = mProfPreludeBuilds + 1
+        mProfMsPreludeBuild = mProfMsPreludeBuild + ProfMs(profAt)
+    End If
+End Sub
+
+' The prelude alone tokenized, parsed and put through Pass 1 as an entry point
+' puts it, under the same line offset, so that each record's line (item 8)
+' stays empty, and in a pushed context, so that nothing a compile in progress
+' holds moves. True, with its two tables, when every form is a definition and
+' every definition stands; a body form, a refusal or a raise is False, and the
+' text is read as before, where what it raises arises as it always has.
+Private Function PreludeTables(ByRef prelude As String, ByRef pMacros As Object, ByRef pFunctions As Object) As Boolean
+    VlaPushContext
+    On Error GoTo unbuilt
+    mLineOffset = CountLf(prelude) + 1
+    Set mFormLines = New Collection
+    Dim toks() As String
+    toks = Tokenize(prelude)
+    Dim forms As Collection
+    Set forms = ParseAll(toks)
+    Set mMacros = CreateObject("Scripting.Dictionary")
+    Set mDefines = Nothing
+    Set mFunctions = Nothing
+    Set mParameters = Nothing
+    Dim f As Variant, cl As Collection
+    For Each f In forms
+        If ListHeadIs(f, "defmacro") Then
+            Set cl = f
+            DefineMacro cl
+        ElseIf ListHeadIs(f, "defexpand") Then
+            Set cl = f
+            DefineFunction cl
+        Else
+            GoTo unbuilt
+        End If
+    Next
+    Set pMacros = mMacros
+    Set pFunctions = mFunctions
+    PreludeTables = True
+unbuilt:
+    On Error GoTo 0
+    VlaPopContext
+End Function
+
+' A cached table as a compile's own object, its records the cache's and in the
+' cache's order, so that apropos lists them as it always has; Nothing for
+' Nothing.
+Private Function PreludeTable(ByVal cached As Object) As Object
+    If cached Is Nothing Then Exit Function
+    Dim t As Object, k As Variant
+    Set t = CreateObject("Scripting.Dictionary")
+    For Each k In cached.Keys
+        t.Add k, cached.Item(k)
+    Next
+    Set PreludeTable = t
+End Function
+
+' P-PRELUDE, the second slice: the builds of the prelude's cache that stood
+' since the module loaded, for the pin that holds a text built once
+' (VlaContextDepth's precedent: a test reads a count, never module state).
+Public Function VlaPreludeBuilds() As Long
+    VlaPreludeBuilds = mPreludeBuilt
+End Function
+
+' Every record the prelude's cache holds, a line a record in the tables' order:
+' fromScratch False the cache's own, True a build made now from the same text
+' and kept nowhere; "" when the cache holds none. For the pin that holds that no
+' compile changes a record the cache shares.
+Public Function VlaPreludeCachePrint(ByVal fromScratch As Boolean) As String
+    If mPreludeState <> 1 Then Exit Function
+    Dim pMacros As Object, pFunctions As Object
+    If fromScratch Then
+        If Not PreludeTables(mPreludeKey, pMacros, pFunctions) Then Exit Function
+    Else
+        Set pMacros = mPreludeMacros
+        Set pFunctions = mPreludeFunctions
+    End If
+    VlaPreludeCachePrint = PreludeTablePrint("macro", pMacros) & PreludeTablePrint("function", pFunctions)
+End Function
+
+Private Function PreludeTablePrint(ByVal what As String, ByVal pTable As Object) As String
+    If pTable Is Nothing Then Exit Function
+    Dim k As Variant, rec As Collection, i As Long, s As String
+    For Each k In pTable.Keys
+        Set rec = pTable.Item(k)
+        s = s & what & " " & CStr(k)
+        For i = 1 To rec.Count
+            If IsObject(rec.Item(i)) Then
+                s = s & " | " & VlaWriteForm(rec.Item(i))
+            Else
+                s = s & " | " & CStr(rec.Item(i))
+            End If
+        Next
+        s = s & vbLf
+    Next
+    PreludeTablePrint = s
 End Function
 
 ' prelude.vla's path - ThisWorkbook-relative (the engine's own

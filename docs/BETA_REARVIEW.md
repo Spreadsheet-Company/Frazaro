@@ -51456,8 +51456,45 @@ all this version.
   the three entry points' prelude half; the instrument's rows), VLA_Tests.bas
   (three pins and `VlaSelfTest`'s list), VLA_DevRig.bas (the report's build
   line) and the docs. The third: VLA.bas, VLA_SentenceEngine.bas (the two
-  roads), VLA_Tests_Grammar.bas and the docs. No Rust, no check, no golden
-  moved.
+  roads), VLA_Tests_Grammar.bas and the docs. No Rust and no golden moved;
+  one check's count moved, the second slice's below.
+
+  *The second slice*, built 2026-11-22 over `2c3ca92`, to be committed at the
+  owner's word after the owner's test. VLA.bas: `PreludeCached` asks the cache
+  after each entry point's `PreludeMacros`; `PreludeBuild` and `PreludeTables`
+  build it once a text, in a pushed context; `PreludeTable` hands a compile a
+  fresh `Scripting.Dictionary` of the records; `mPreludeBlank` stands for the
+  prelude's 607 line breaks; `mPreludeCacheOff`, `VlaPreludeBuilds` and
+  `VlaPreludeCachePrint` serve the pins; and the instrument counts the
+  prelude's share only where a call read it (`ProfPreludeShare`), its report
+  printing the cache's line. VLA_Tests.bas: the three pins,
+  `TestPreludeCacheAgrees` (nine sources through the three entry points, each
+  read both ways), `TestPreludeBuiltOnce` (the builds counted across the
+  file's text, an override of definitions, an override holding a body form,
+  and the override cleared) and `TestPreludeNeverChanged` (last in the list).
+  `check_expand_golden`'s rule 12 counts four Pass 1 loops, `PreludeTables`'
+  the fourth, where it counted the three entry points'. The added lines read
+  clean by a static pass (each `Module.member`, each call's arguments, each
+  name declared and dimmed before its use), and run_checks passed 60 of 60;
+  the compile, the suite and the goldens are the owner's.
+
+  *The second slice's hand test*, the owner's, 2026-11-24: compiled clean;
+  `VlaGoldens`, `VlaWriteExpandGolden`, `VlaWriteRefusalGolden` and
+  `VlaWriteTokenGolden` wrote every golden again with the cache on, and
+  `git status` found none changed; three runs in a freshly opened Excel,
+  each pure 2717/2717 and host 333/333, wall 47,930, 39,160 and 42,125 ms,
+  median 42,125 against 78,642, 46% less. The counts fell as predicted, to
+  the call: the cache built 4 times (the file's text once, the pin's three
+  on purpose), 1,773 calls took its definitions and 29 read the prelude as
+  before (the pins' own); the entry points' tokens 611,234 and lists 146,047
+  (the pins' sources beside the 577,779 and 138,692 predicted); `TagLine`'s
+  tags 377,369, about 299,500 of them a trapped `Remove`; `CollGet`'s gets
+  395,761 and its misses 109,887. The entry points' ms, medians: read 730,
+  tokenize 770, parse 793, define 2,812, in all 12,527 against 33,833. The
+  rest of the suite fell besides, 15 s the instrument does not attribute
+  (the pure leg 51.1 s to 23.1, the loads 13.8 to 8.4, the printing 5.1 to
+  4.0): the wall fell 36.5 s where the counts predicted 24, the likely part
+  the objects every compile no longer makes, which nothing measured.
 
   *Found*, read and not minted, each with its measured cost:
   1. *Printing the pins' lines*: 5,095 ms a run (6.5% of the wall), 3,048

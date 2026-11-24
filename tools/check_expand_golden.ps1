@@ -92,7 +92,9 @@ every push:
      both and listed among neither's primitives, each heading a form in an
      EXPANDED case and in a REFUSED one; let-expand taken at a form's head by
      both walks; a function taken by every entry point as a macro is, the
-     reference's three loops and the port's define; the working-out's depth
+     reference's four loops (its three entry points' and, since P-PRELUDE's
+     second slice, PreludeTables', the prelude's Pass 1 kept once a text) and
+     the port's define; the working-out's depth
      restored on its error path in both (FunctionWorkOut's handler; every
      way out of function_work_out's loop answered through work_out_leave,
      which lowers it, and none by `?` or `return`), so that no refusal
@@ -766,9 +768,11 @@ function Test-ExpandGolden([string]$fixture, [string]$golden, [string]$vba, [str
     if ($portText -notmatch 'if head_fold == "let-expand" \|\|') {
         [void]$problems.Add("the port's walk (expand_at) does not take 'let-expand' at a form's head")
     }
+    # P-PRELUDE's second slice: the prelude's own Pass 1 (PreludeTables) is
+    # the fourth loop, each entry point taking the prelude's functions from it.
     $takes = [regex]::Matches($vbaText, 'ElseIf ListHeadIs\(f, "defexpand"\) Then').Count
-    if ($takes -ne 3) {
-        [void]$problems.Add("the reference takes a function at $takes entry point(s), not the three (VlaTranspile, VlaCompileToForms, VlaExpandText)")
+    if ($takes -ne 4) {
+        [void]$problems.Add("the reference takes a function at $takes Pass 1 loop(s), not the four (VlaTranspile, VlaCompileToForms, VlaExpandText, and the prelude's PreludeTables)")
     }
     if ($portText -notmatch 'if f\.head_is\("defexpand"\) \{') {
         [void]$problems.Add("the port's define does not take a function")
