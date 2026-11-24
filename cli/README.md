@@ -67,7 +67,7 @@ Put 7 into cell B1 of sheet Output.
 Each step says what it prints, so the walk doubles as a check that the
 program you installed is the one this page describes.
 
-1. **The version.** `frazaro version` prints `frazaro 0.14.0 (core abi 1)`:
+1. **The version.** `frazaro version` prints `frazaro 0.15.0 (core abi 1)`:
    the release's version, which is the add-in's, and the number an embedding
    checks before calling the core.
 
@@ -91,7 +91,7 @@ program you installed is the one this page describes.
    ```
 
    prints `wrote hello.xlsx: 10972 bytes, sha256
-   79A678E36610F1AEF377CB132D3775C3A5814F3CE7E2DEADA778513BF0CBF55A` and
+   F0FF6C09A57D9E82D0D24E46102FD8572039F631A37A7534B5D153582874AFA0` and
    nothing else. The digest is the file's: whoever builds these seven
    sentences with this version gets these bytes, on any machine, whether the
    file was saved with Windows or Unix line endings. Open it: a `Frazaro`
@@ -106,7 +106,7 @@ program you installed is the one this page describes.
    frazaro rebuild hello.xlsx
    ```
 
-   prints `This workbook was built from these 7 sentences by Frazaro 0.14.0:
+   prints `This workbook was built from these 7 sentences by Frazaro 0.15.0:
    yes.` and exits 0. Save the file from Excel and ask again: it is refused
    as a host's save, because Excel rewrites every part on save, by design.
 
@@ -195,12 +195,12 @@ byte:
     ```
 
     prints `wrote tour-into.xlsx: 13698 bytes, sha256
-    E88533D04179672D54BE2676F9DAA64A0995BFBC859435C87B530F09AFE59F7E`: the
+    7E0472DCD0B44BC06D8EBA99BFEFF269E454E68C32B9E8CEF5FCA224ECC593BB`: the
     model's own sheets `Model` and `Notes` copied byte for byte, the
     sentences' `Frazaro`, `Output` and `checks` added, `Output!B1` reading
     `=Model!B3*Rate`. `frazaro rebuild tour-into.xlsx` prints `This
     workbook's Frazaro sheets were built from these 6 sentences by Frazaro
-    0.14.0, into a workbook whose own sheets are not checked: yes.`
+    0.15.0, into a workbook whose own sheets are not checked: yes.`
 
 12. **What changed between two workbooks.**
 

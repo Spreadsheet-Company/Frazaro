@@ -535,7 +535,7 @@ can stand on the language without the bridges.
 The goldens and fixtures the tests read travel with the package, under
 `testdata/`, so `cargo test` runs from the published crate. The repository
 holds the copies to their sources byte for byte. The expander is held to
-the add-in's expansion of 656 cases, every expand-time primitive, the loop
+the add-in's expansion of 855 cases, every expand-time primitive, the loop
 and their refusals among them (`tests/expand_golden.rs`). Beside the goldens, the
 tests hold the language's laws over generated programs (`tests/laws.rs`)
 and knock at every door with mutated text (`tests/strangers.rs`, and a

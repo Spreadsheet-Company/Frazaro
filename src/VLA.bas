@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.14.0"
+Public Const VLA_RELEASE_VERSION As String = "0.15.0"
 Public Const VLA_CORE_VERSION As String = "P-PRELUDE"
 ' P-PRELUDE, ITS SECOND SLICE: THE DEFINITIONS KEPT. The prelude is tokenized,
 ' parsed and put through Pass 1 once a text (PreludeTables, in a pushed context,
