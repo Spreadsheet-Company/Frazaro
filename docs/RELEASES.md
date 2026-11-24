@@ -330,6 +330,16 @@
 - **A plane draws an emptied cell as an empty one.** A plane an engine keeps
   for a sheet it draws drew a cell a spill emptied 255, as a cell holding a
   text, where a plane walked from the cells drew 0; it draws 0 (KERNEL.46).
+- **The prelude is defined once, not at every compile.** The add-in
+  tokenized, parsed and defined `prelude.vla`'s 45 macros and functions again
+  at every Check, Compile and translation; it defines them once while the
+  file's text stays the same and hands each compile its own table of them, so
+  that a Check of the English phrasebook as a program, its 1,445 rows, takes
+  887 ms where it took 1,016: its vocabulary 680 ms where 758, its
+  translation 207 where 258. The file is still read at every compile, so an
+  edit of `prelude.vla` takes effect at the next one, as before; every
+  compiled program, refusal and line number is the same to the byte
+  (P-PRELUDE).
 - **For the crates' users**, each addition to a list that may grow:
   `ErrorKind::Spill`, `sheet::Content::ArrayBlock` and
   `sheet::Content::DynamicSpill`, `calc::Param::Forced`, `rows::Record::Spill`,

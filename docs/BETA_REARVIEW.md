@@ -51190,7 +51190,7 @@ all this version.
   an order of magnitude), emit 137 ms (5.0%); translate-side
   trans-tokenize 20 ms, trans-build 70 ms. Suite wall time
   149,984 → 22,004 ms. Committed. `~days`
-- 🟡 **P-PRELUDE — the prelude read, parsed and defined once a run, each
+- ✅ **P-PRELUDE — the prelude read, parsed and defined once a run, each
   compile handed a fresh copy of its macro and function tables, so that the
   VBA suite's wall time comes back down and the add-in stops paying for the
   same 45 definitions at every Check, Compile and sentence through a
@@ -51495,6 +51495,84 @@ all this version.
   (the pure leg 51.1 s to 23.1, the loads 13.8 to 8.4, the printing 5.1 to
   4.0): the wall fell 36.5 s where the counts predicted 24, the likely part
   the objects every compile no longer makes, which nothing measured.
+  Committed `db5be88`, at the owner's word.
+
+  *The third slice*, built 2026-11-24 over `db5be88`, tested, and withdrawn
+  uncommitted at the owner's word (below). As built, `VlaExpandText` and
+  `VlaCompileToForms` take an optional last argument, `carried`, the
+  vocabulary a caller would write before its source, read as the text
+  carried, a line break and the
+  source (`CarriedBefore`, the source left out when empty); a phrasebook's
+  macro call and its load's republish hand `mVocabMacros` so. When the
+  prelude came from its cache, a carried text's definitions are built once a
+  text on a copy of the prelude's tables (`CarriedCached`, `CarriedBuild`), its
+  key the text and the prelude's build it stands on, read after the prelude's
+  line breaks under its offset, so that each vocabulary record's line (item 8)
+  is the source line it was; a compile takes a fresh copy and tokenizes the
+  carried text's line breaks as blank lines after the prelude's
+  (`TextTokenized`). A carried text holding a form other than a definition or
+  an include, and a source holding an include, are read as before. The
+  prelude's build and the carried one are one routine, `DefinitionsTables`,
+  so that `check_expand_golden`'s rule 12 still counts four loops, its words
+  naming it; the routine clears `mIncMap` in its pushed context, since a
+  carried text's lines are source lines and an earlier compile's include map
+  would rename them. The pins stand beside the second slice's in
+  VLA_Tests.bas, where the plan said VLA_Tests_Grammar.bas, so that they share
+  its helpers: `TestCarriedAgrees` (ten cases through both roads, each read
+  both ways: a vocabulary macro's second definition naming its line, a list
+  left open in the call, an include, a body form, an empty vocabulary, and
+  the tables each leaves, by `VlaMacroTablesPrint`) and `TestCarriedBuiltOnce`
+  (the builds counted across the same text by both roads, another text, a
+  body form, a prelude built again and the file's again);
+  `TestPreludeNeverChanged` holds the carried cache's records too. The report
+  prints the carried cache's line. A correction to the scoping: its "a
+  sentence through a vocabulary macro" is a phrasebook's macro call at a load,
+  so the add-in meets this slice at each Check's load of its vocabulary, its
+  "vocabulary" leg, and not at each sentence, whose translation carries the
+  vocabulary by the third road (*Found* 4). The added lines read clean by the
+  static pass, and run_checks passed 60 of 60; the compile, the suite, the
+  goldens and the Check's timing are the owner's.
+
+  *The third slice's hand test*, the owner's, 2026-11-24: compiled clean; the
+  four golden writers left every golden unchanged; three runs, each pure
+  2719/2719 and host 333/333, wall 38,688, 38,945 and 38,527 ms, median
+  38,688. Every predicted count held: the prelude's cache built 6 times, 1,791
+  calls from it and 40 read as before; the carried cache's calls 202 and 14,
+  216 in all. But the carried cache was built 158 times: of the 187 carried
+  calls the suite's loads make, 147 built it again and 40 found it built, since
+  the vocabulary grows between a load's macro calls, a macro registered
+  between each, and a load's first call follows the last load's republish;
+  each build about 9 ms, 1.4 s a run, where the reads it replaced cost about as
+  much. The macro calls' row stood at 1.2 s and the republish's fell 0.08 s;
+  the median's other 3.3 s fell across every leg alike, the spread between
+  sessions (the second slice's runs spanned 39.2 to 47.9 s), and not on the
+  paths this slice touched. A Check of the owner's program (english.vla's 240
+  rules, 231 macros and 460 tests; 1,445 rows), both caches off and then on in
+  one session, three Checks each: the vocabulary 758 ms to 680, the
+  translation 258 to 207, 1,016 to 887 in all, 13% less, the second slice's
+  work; the three cached Checks alike, the first 8 ms dearer for the
+  prelude's build, as a carried cache that found nothing built at a Check
+  would leave them, each Check meeting its vocabulary's texts in the order
+  that the last Check's republish no longer holds. The owner's word the same
+  day: "Drop slice 3 and close on slice 2 before suggesting next steps". Its
+  five files, VLA.bas, VLA_SentenceEngine.bas, VLA_Tests.bas, VLA_DevRig.bas
+  and `tools/check_expand_golden.ps1`, were put back as `db5be88` holds them,
+  each held to its blob, so that pure is 2717 again; its road is *Found* 11.
+
+  *Closed* 2026-11-24 at the owner's word, on its second slice, `db5be88`.
+  Its claim is met there. The suite's wall, a median of three runs, fell from
+  78.6 s to 42.1, 46% less, every golden byte for byte and every predicted
+  count to the call. A Check of the English phrasebook as a program, its
+  1,445 rows, fell from 1,016 ms to 887, 13% less: its vocabulary from 758 to
+  680, its translation from 258 to 207. That Check was timed over the third
+  slice's code, both caches off and then on, and its carried cache found
+  nothing built at a Check, so that the gain is the second slice's. Decision
+  4 was answered by the measurement: the vocabulary's half, built as
+  planned, earned about 0.1 s a run and nothing at a Check, its one entry
+  keyed by a text that grows between a load's macro calls. Its door, the
+  `carried` argument of two Public entry points, never shipped; decision 5's
+  rule stands for every later change to the expander. RELEASES.md's note is
+  under 0.15.0.
 
   *Found*, read and not minted, each with its measured cost:
   1. *Printing the pins' lines*: 5,095 ms a run (6.5% of the wall), 3,048
@@ -51534,6 +51612,24 @@ all this version.
      built add-in, `PreludeMacros` reads the `VLAp_Source` sheet at every
      compile (`VlaEmbeddedText`); unmeasured, since the suite always finds the
      file. Decision 2's (a) keeps that read and (c) drops it.
+  10. *Apropos reads the vocabulary again at every ask*: `VlaAproposText`
+      expands `mAproposCarry` (the carried vocabulary) as a source to refresh
+      the tables it lists, a fourth road found while building the third
+      slice; unmeasured, at a person's speed by its own comment, and one call
+      away from the carried cache (the vocabulary given as `carried`, the
+      source empty).
+  11. *A load reads its vocabulary again at each macro call and at its
+      republish*, the third slice's road, withdrawn: 187 calls a run over 45
+      distinct texts, the longest 51,428 characters, each read, parsed and
+      defined whole; about 1.3 s a run, and about 85 ms of a Check's
+      vocabulary leg of 680, estimated from the counts. The third slice's one
+      entry, keyed by the text, was built again at 147 of the 187, since a
+      macro is registered between a load's calls and a load's first call
+      follows the last load's republish. A cache that pays would keep a
+      load's texts in their order, each built on the one before, so that a
+      phrasebook's every load after the first finds its texts built: about
+      1 s a run and those 85 ms from the second Check, for more state, new
+      pins and the same `carried` argument.
 - ✅ **P-PROBE** — batched/cached load-time probes. *Pays into:* Grammar — a
   corpus that takes a minute to load throttles authoring. *Also pays
   into:* LANGUAGE + MACHINE's own **LISTOPS-BUDGET** - `RegisterVocabMacro`'s
@@ -64103,6 +64199,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **P-TOK** — single-scan tokenizer buffer. Three positionally-indexed `Collection`s (`TokAt` translate-side, `TokRawLine`/`ParseForm` compile-side, and `TokLine`, found during scoping) are now materialized once into 1-based arrays for O(1) access. Built and owner-verified live (2026-09-03). *(more: the full entry, earlier in this file)*
 
 - ✅ **P-PROBE** — batched/cached load-time probes. `RegisterVocabMacro` re-transpiled every previously accumulated macro on each new registration — O(macros²), a registration-count cost independent of LISTOPS-BUDGET's depth finding. Built and owner-verified: probes are context-pushed (`VLA.VlaProbeMacroForm`) and one full Pass-1 compile per load replaces one per macro. *(more: the full entry, earlier in this file)*
+
+- ✅ **P-PRELUDE — the prelude's definitions kept, built once a text and each compile handed a fresh copy of its tables, so that the VBA suite runs in 42 s where it ran in 79 and a Check of the English phrasebook takes 13% less.** An Alpha 5 `~hours` line, marked "largely subsumed by F.3", rewritten as a full item and scoped 2026-11-22 at the owner's word over an instrument of its own (`VlaProfileAll`'s P-PRELUDE report), its ten decisions approved as recommended the same day; built in two slices, each owner-tested and committed at the owner's word, the instrument with the scoping (`2c3ca92`) and the definitions kept (`db5be88`); closed 2026-11-24. The prelude, 45 definitions over 607 lines, was read, tokenized, parsed and defined again at each of the three entry points' 1,739 calls a run, about 25 to 26 s of the median 78.6: its definitions are now built once a text in a pushed context, the key the text read as before and compared whole, so that an edit on disk takes effect at the next compile; each compile takes a fresh `Scripting.Dictionary` of the shared records, never changed (decision 5, a rule every later change to the expander keeps), and tokenizes its source behind the prelude's 607 line breaks, so that every line number stands; a prelude of anything but definitions, and a build that fails, are read as before. The suite's median fell to 42.1 s, every golden byte for byte and every predicted count to the call; a Check of the English phrasebook as a program, 1,445 rows, took 887 ms where it took 1,016. The third slice, the vocabulary's definitions kept beside it (decision 4), was built, tested and withdrawn uncommitted at the owner's word: its one entry, keyed by a text that grows between a load's macro calls, was built again at 147 of 187 calls, about 0.1 s a run and nothing at a Check, so its `carried` argument never shipped. *Found:* the pins' printing, 4.0 s a run; the head table built at every compile, about 0.8 s; the trapped lookups, under 3.3 s; a translation's carried vocabulary; the phrasebook loads, 8.4 s; the Rust port's `expand_text_door`, the same shape; `TestTablespecDepthSafety` and `TestExportSkeleton`, 9.5 and 3.9 s; the add-in's embedded copy; apropos's re-read; and the vocabulary read again at a load's macro calls, about 1.3 s a run and 85 ms a Check. To be released in 0.15.0. `~days`, taken from 2026-11-21 to 2026-11-24. *(more: the full entry, earlier in this file)*
 
 - ✅ **VLA.2 — the port's expander shares what the reference shares, so a macro that walks a list costs its length, not its length squared.** Minted 2026-10-10 from `VLA.1`'s A/B; scoped, built, owner-tested and committed 2026-10-12 at the owner's word. The expander holds its forms as nodes of its own, as `VLA.bas` has held them since P-NTH: a list shared by reference, `cdr` a view of its items, a parameter's value the argument itself at every use. Each list keeps its forms and its depth, so `VLA.1`'s weighing reads two numbers and walks only a result past a limit, refusing it as before. No public signature changed, the `Expander` still `Send` and `Sync`, no VBA touched. The TABLESPEC generator at 2,000 rows went from 10.6 s to 28 ms, flat a row, and the corpus expands 26% quicker; every output was equal, lines included, over 146,213 programs, and Alonzo's six cartridges byte for byte. `tests/walks.rs` pins it by counting allocations and their bytes, the second thousand rows held to the first's. Found: `VLA.1`'s figure of 540,000 forms was 60,053, and the chain's cap is 2,499 rows for a walker. The owner's test: the door compiled a 2,000-row price list in 2,514 ms before and 85 ms after, the same VBA. *(more: the full entry, earlier in this file)* `~days`
 

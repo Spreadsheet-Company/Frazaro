@@ -123,7 +123,10 @@ F.3", was rewritten as a full item and scoped 2026-11-22 at the owner's
 word, its first slice the instrument (`VlaProfileAll`'s P-PRELUDE report):
 the prelude read, parsed and defined once a run, so that the VBA suite's
 wall time comes back down. Its ten decisions were approved as recommended
-the same day; the scoping minted nothing.
+the same day; the scoping minted nothing. Its second slice, the prelude's
+definitions kept, was owner-tested and committed 2026-11-24; its third, the
+vocabulary's, was built, measured and withdrawn uncommitted the same day,
+and the item closed on its second slice.
 
 **`SEC` is a wholly new family, minted the same day as this second refresh's
 own `SIG` mint, both declared in the prefix inventory at the moment of
