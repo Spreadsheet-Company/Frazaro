@@ -335,8 +335,8 @@
   at every Check, Compile and translation; it defines them once while the
   file's text stays the same and hands each compile its own table of them, so
   that a Check of the English phrasebook as a program, its 1,445 rows, takes
-  887 ms where it took 1,016: its vocabulary 680 ms where 758, its
-  translation 207 where 258. The file is still read at every compile, so an
+  883 ms where it took 988: its vocabulary 672 ms where 754, its translation
+  211 where 234. The file is still read at every compile, so an
   edit of `prelude.vla` takes effect at the next one, as before; every
   compiled program, refusal and line number is the same to the byte
   (P-PRELUDE).
